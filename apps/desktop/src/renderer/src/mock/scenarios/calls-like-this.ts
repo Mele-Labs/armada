@@ -50,8 +50,8 @@ const call = (id: string, command: string, reaches: string, script: string): Cal
   },
 });
 
-const driving = call("helm-21", DRIVING, SHOT, "drive.mjs");
-const cleaning = call("helm-22", CLEANUP, "/Users/user/code/other-repo", "cleanup.mjs");
+const driving = call("call-21", DRIVING, SHOT, "drive.mjs");
+const cleaning = call("call-22", CLEANUP, "/Users/user/code/other-repo", "cleanup.mjs");
 
 function fleet(): FakeSessionsFleet {
   const records = [

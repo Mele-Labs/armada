@@ -1116,7 +1116,7 @@ function MergeQueue({ props, ship }: { props: CockpitProps; ship: Ship }) {
   const answered = useDeck((deck) => deck.held);
   const seen = useDeck((deck) => deck.visited);
   // A call no Session's row holds pulses the chip it is about, as a calling row does.
-  const homes = callingHomes(ship.calls, answered, seen, sessions);
+  const homes = callingHomes(ship.calls, answered, seen);
   const sel = useDeck((deck) => deck.sel);
   const panel = usePanel().open;
   const served = viewsOf(props.state);

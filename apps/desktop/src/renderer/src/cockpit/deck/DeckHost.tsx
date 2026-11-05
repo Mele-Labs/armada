@@ -68,7 +68,7 @@ const NO_HOSTS: Hosts = {
   onOpenLink: () => {},
 };
 
-/** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds, Helm's own, is the dock's. */
+/** How long a Session asked for on the deck is waited on before it is let go: one the ship never holds is not waited on. */
 const AWAIT_SESSION_MS = 3000;
 
 type Where = {
@@ -189,7 +189,7 @@ export function DeckHost({
 
   // A Session asked for on the deck (a link to it, a note sent to it) opens as its row does, once the ship holds it: a new one arrives a
   // moment after Fleet answers. **One of another repository than the picked one picks that repository first**, and opens once the ship holds
-  // it: the ship is built for the picked repository only. There is no page for one the ship never holds, Helm's own.
+  // it: the ship is built for the picked repository only. There is no page for one the ship never holds.
   const [awaited, setAwaited] = useState<
     | {
         id: string;
@@ -433,8 +433,7 @@ export function DeckHost({
     const goes = slot === -1 ? undefined : panelOfSlot(slot);
     if (goes !== undefined) {
       event.preventDefault();
-      // The key for Needs you goes to the first row that needs him; with none, to the first place that holds a call (a merge queue chip,
-      // then the title row's Helm); with none, to the list where it was.
+      // The key for Needs you goes to the first row that needs him; with none, to the first place that holds a call (a merge queue chip); with none, to the list where it was.
       if (goes === "needs") {
         const first = [
           ".deck-row[data-needs]",

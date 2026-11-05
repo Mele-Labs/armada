@@ -33,7 +33,7 @@ const PATH = "/Users/user/Documents/handoffs/HANDOFF.md";
 const READING = `cat ${PATH} | sed -n '1,120p' | grep -v '^<!--' | awk 'NF' > /tmp/handoff.txt && wc -l /tmp/handoff.txt && grep -n 'margin' /tmp/handoff.txt | head -n 20 && tail -n 30 /tmp/handoff.txt && echo gutterline`;
 
 const reaching: CallInFlight = {
-  call: "helm-7",
+  call: "call-7",
   manifest_id: "armada",
   asked_at: AT,
   tool: "Bash",
@@ -55,7 +55,7 @@ const reaching: CallInFlight = {
 };
 
 const writing: CallInFlight = {
-  call: "helm-8",
+  call: "call-8",
   manifest_id: "armada",
   asked_at: AT,
   tool: "Write",
@@ -77,7 +77,7 @@ const writing: CallInFlight = {
 const RUNNING = "node scripts/tidy.mjs ~/code/other-repo --dry-run";
 
 const running: CallInFlight = {
-  call: "helm-9",
+  call: "call-9",
   manifest_id: "armada",
   asked_at: AT,
   tool: "Bash",

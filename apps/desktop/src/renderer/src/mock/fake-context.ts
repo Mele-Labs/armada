@@ -41,7 +41,7 @@ export type SliceName =
   | "manifest"
   | "setup"
   | "workflows"
-  | "helm"
+  | "questions"
   | "settings"
   | "overview"
   | "cleanup"

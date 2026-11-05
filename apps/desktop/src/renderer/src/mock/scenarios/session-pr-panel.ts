@@ -42,8 +42,8 @@ function line(): MergeLine {
         pull(2201, "Repair the failing check", "fix/repair-the-check", 1, "mergeable"),
         pull(
           2204,
-          "Keep the dispatch bar under Helm",
-          "fix/dispatch-bar-under-helm",
+          "Keep the dispatch bar under the dock",
+          "fix/dispatch-bar-under-dock",
           2,
           "awaiting_checks",
         ),

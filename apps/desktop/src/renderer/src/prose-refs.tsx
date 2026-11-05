@@ -1,6 +1,6 @@
-// What Helm's thread links: a pull request or an issue by its number, a Session. **Each opens where
+// What a thread's words link: a pull request or an issue by its number, a Session. **Each opens where
 // Bridge already shows it**: a Session on the Cockpit, a pull request or an issue in the side panel, the Job's own document in its
-// reading layer; another repository's number is its forge page. The finding is `@armada/helm`'s `refScanner`; this holds what
+// reading layer; another repository's number is its forge page. The finding is `refScanner`'s, in `@armada/screens`; this holds what
 // it reads off the window and what each press does.
 //
 // A number the repository's open lists do not hold (a merged pull request) is looked up once, and kept: the same
@@ -11,15 +11,14 @@ import type { ReactNode } from "react";
 
 import { ProseRefs } from "@armada/components";
 import type { NumberedHit, ProseReference, ProseReferences } from "@armada/components";
-import { forgeAddress, forgeSlug, isElsewhere, refScanner } from "@armada/helm";
-import type { RefWorld } from "@armada/helm";
+import { forgeAddress, forgeSlug, isElsewhere, refScanner } from "@armada/screens/src/prose-refs";
+import type { RefWorld } from "@armada/screens/src/prose-refs";
 import type { RepositorySummary } from "@armada/protocol";
 
 import { attachmentsOf, type Session } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../shared/bridge";
 import { classifyLink } from "../../shared/classify-link";
-import { useHelmSession } from "./helm-session";
 import { useTrackerHosts } from "./link-routes";
 import { useNumbered } from "./numbered";
 import { showLayer } from "./session-view/layers";
@@ -249,22 +248,14 @@ function useRefs(
           ]
         : [],
     ),
-    // Helm's own Session is named by its repository, which would link every mention of it. An ended one
-    // still has its page.
-    sessions: sessions.flatMap((one) =>
-      one.helm === true
-        ? []
-        : [
-            {
-              id: one.id,
-              ...(one.title === undefined
-                ? {}
-                : {
-                    title: one.title,
-                  }),
-            },
-          ],
-    ),
+    sessions: sessions.map((one) => ({
+      id: one.id,
+      ...(one.title === undefined
+        ? {}
+        : {
+            title: one.title,
+          }),
+    })),
     numbered: known.flatMap((one) =>
       one.tag.kind === "issue" || one.tag.kind === "pull_request"
         ? [
@@ -392,15 +383,6 @@ function useRefs(
     sessionId,
     trackerHosts,
   ]);
-}
-
-/** What Helm's thread links, read in its repository and from its own Session. */
-export function useHelmRefs(host: Host): ProseReferences {
-  const manifestId = host.state.helm.state === "none" ? undefined : host.state.helm.manifestId;
-  return useRefs(host, {
-    manifestId,
-    session: useHelmSession(manifestId),
-  });
 }
 
 /** The host's openers, for the Sessions screen's threads to link with: set once by `App`. */

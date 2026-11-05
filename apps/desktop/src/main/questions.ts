@@ -1,4 +1,4 @@
-// Every Helm call waiting on a person — #935, #1389.
+// Every call held open for a person — #935, #1389.
 //
 // **Folded where the event carries the call, read where it does not.** `call.asking_to_run` carries
 // the call whole and `call.answered` takes it down. A resync reads `/calls`: events arrive
@@ -24,14 +24,14 @@ export class Questions {
    * `call.asking_to_run`. **Replaces the ask under the same call id**, so a
    * re-delivered event draws one card and not two. #1389.
    */
-  helmAsking(waiting: CallInFlight): void {
+  asking(waiting: CallInFlight): void {
     const held = this.wiring.current().questions;
     const others = held.filter((question) => question.call.call !== waiting.call);
     this.wiring.publish({
       questions: [
         ...others,
         {
-          kind: "helm",
+          kind: "call",
           call: waiting,
         },
       ],
@@ -39,7 +39,7 @@ export class Questions {
   }
 
   /** `call.answered`, and the answer a person's own press came back with. */
-  helmAnswered(call: string): void {
+  answered(call: string): void {
     const held = this.wiring.current().questions;
     const kept = held.filter((question) => question.call.call !== call);
     if (kept.length !== held.length)
@@ -48,8 +48,8 @@ export class Questions {
       });
   }
 
-  /** Every Helm call waiting, on a resync or a Refresh. A failed read keeps what is held. */
-  async readHelmCalls(port: number): Promise<void> {
+  /** Every call waiting, on a resync or a Refresh. A failed read keeps what is held. */
+  async readCalls(port: number): Promise<void> {
     const answer = await ask(port, "GET", "/calls");
     if (answer.ok !== true) return;
     const { waiting } = answer.body as CallsWaiting;
@@ -58,7 +58,7 @@ export class Questions {
     if (!Array.isArray(waiting)) return;
     this.wiring.publish({
       questions: waiting.map((call) => ({
-        kind: "helm" as const,
+        kind: "call" as const,
         call,
       })),
     });

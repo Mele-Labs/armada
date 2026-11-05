@@ -1,4 +1,4 @@
-// Helm calls waiting on a person: its own event puts one up, its own event takes it down, and a
+// Calls held for a person: its own event puts one up, its own event takes it down, and a
 // resync reads them from their own route. #1389.
 
 import { describe, expect, it } from "vitest";
@@ -24,9 +24,9 @@ function holding() {
   };
 }
 
-describe("a helm call waiting on a person", () => {
+describe("a call held on a person", () => {
   const WAITING = {
-    call: "helm-1",
+    call: "call-1",
     manifest_id: "armada",
     asked_at: "2026-09-13T10:02:00Z",
     tool: "Bash",
@@ -43,29 +43,29 @@ describe("a helm call waiting on a person", () => {
 
   it("goes up on its ask and comes down on its answer", () => {
     const { questions, state } = holding();
-    questions.helmAsking({
+    questions.asking({
       ...WAITING,
       offers: [
         ...WAITING.offers,
       ],
     });
     expect(state().questions.map((question) => question.kind)).toEqual([
-      "helm",
+      "call",
     ]);
 
-    questions.helmAnswered("helm-1");
+    questions.answered("call-1");
     expect(state().questions).toEqual([]);
   });
 
   it("is drawn once when its ask arrives twice", () => {
     const { questions, state } = holding();
-    questions.helmAsking({
+    questions.asking({
       ...WAITING,
       offers: [
         ...WAITING.offers,
       ],
     });
-    questions.helmAsking({
+    questions.asking({
       ...WAITING,
       offers: [
         ...WAITING.offers,
@@ -76,15 +76,15 @@ describe("a helm call waiting on a person", () => {
 
   it("keeps what is held when the read fails", async () => {
     const { questions, state } = holding();
-    questions.helmAsking({
+    questions.asking({
       ...WAITING,
       offers: [
         ...WAITING.offers,
       ],
     });
-    await questions.readHelmCalls(1);
+    await questions.readCalls(1);
     expect(state().questions.map((question) => question.kind)).toEqual([
-      "helm",
+      "call",
     ]);
   });
 });

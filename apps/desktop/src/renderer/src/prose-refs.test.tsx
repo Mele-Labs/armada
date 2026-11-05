@@ -10,8 +10,8 @@ import type { ProseReferences } from "@armada/components";
 import type { Session, SessionsDraft } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../shared/bridge";
-import { RefsHost, SessionRefs } from "./helm-refs";
-import type { Host } from "./helm-refs";
+import { RefsHost, SessionRefs } from "./prose-refs";
+import type { Host } from "./prose-refs";
 import { dropLayer, useLayer, useLayerPage } from "./session-view/layers";
 import { SessionsFrom } from "./sessions-draft";
 import { openInPanel } from "./shared-panel/store";

@@ -96,10 +96,10 @@ export function dormantIn(where: {
 
     // Global acts with no surface behind them.
     //
-    // Helm's dock is built (#944) and `⌘J` opens it, but that state is
+    // The Operator's dock opens on `⌘J`, but that state is
     // `Shell.tsx`'s own `useDock` and `App` holds no handle to it — a wiring
     // gap, same shape as the four signposts above.
-    helm: "⌘J opens it; not reachable from the palette yet",
+    operator: "⌘J opens it; not reachable from the palette yet",
     // Not a wiring gap: ⌘Enter sends whatever is typed in the field that has
     // focus, and opening the palette took that focus away. The row is drawn so
     // the binding is discovered, and it says what it needs.

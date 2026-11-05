@@ -27,8 +27,8 @@ import { SETUP_CHANNELS, SETUP_NOTHING_YET } from "./api/setup";
 import type { SetupState } from "./api/setup";
 import { WORKFLOWS_CHANNELS, WORKFLOWS_NOTHING_YET } from "./api/workflows";
 import type { WorkflowsState } from "./api/workflows";
-import { HELM_CHANNELS, HELM_NOTHING_YET } from "./api/helm";
-import type { HelmState } from "./api/helm";
+import { QUESTIONS_CHANNELS, QUESTIONS_NOTHING_YET } from "./api/questions";
+import type { QuestionsState } from "./api/questions";
 import { SETTINGS_CHANNELS, SETTINGS_NOTHING_YET } from "./api/settings";
 import type { SettingsState } from "./api/settings";
 import { OVERVIEW_CHANNELS, OVERVIEW_NOTHING_YET } from "./api/overview";
@@ -125,7 +125,7 @@ export type BridgeState = CoreState &
   ManifestState &
   SetupState &
   WorkflowsState &
-  HelmState &
+  QuestionsState &
   SettingsState &
   OverviewState &
   CleanupState &
@@ -146,7 +146,7 @@ export const NOTHING_YET: BridgeState = {
   ...MANIFEST_NOTHING_YET,
   ...SETUP_NOTHING_YET,
   ...WORKFLOWS_NOTHING_YET,
-  ...HELM_NOTHING_YET,
+  ...QUESTIONS_NOTHING_YET,
   ...SETTINGS_NOTHING_YET,
   ...OVERVIEW_NOTHING_YET,
   ...CLEANUP_NOTHING_YET,
@@ -173,7 +173,7 @@ export const CHANNELS = {
   ...MANIFEST_CHANNELS,
   ...SETUP_CHANNELS,
   ...WORKFLOWS_CHANNELS,
-  ...HELM_CHANNELS,
+  ...QUESTIONS_CHANNELS,
   ...SETTINGS_CHANNELS,
   ...OVERVIEW_CHANNELS,
   ...CLEANUP_CHANNELS,

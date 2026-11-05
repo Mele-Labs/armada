@@ -1,4 +1,4 @@
-// Answering a card in Helm's dock (#936). This is the wiring, apart from `App.tsx` for the reason
+// Answering a card for a held call (#936). This is the wiring, apart from `App.tsx` for the reason
 // `commands.ts` is.
 
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -10,10 +10,10 @@ import type { useCommands } from "./commands";
 
 /**
  * `onAnswer` sends the answer and keeps the last refusal a card's own answer drew, by the card's own
- * id — cleared on a fresh attempt. `answering` reads `commands.answeringHelm`, so a card
+ * id — cleared on a fresh attempt. `answering` reads `commands.answering`, so a card
  * is drawn off while its own answer is on its way to Fleet.
  *
- * **Memoised on `refusals` and `commands.answeringHelm` alone.** `commands` itself is rebuilt every
+ * **Memoised on `refusals` and `commands.answering` alone.** `commands` itself is rebuilt every
  * render — `commands.ts`'s own choice — so closing over it directly would defeat the memo `App.tsx`
  * builds the dock's cards under; a ref carries the latest one instead.
  */
@@ -36,20 +36,19 @@ export function useDockAnswering(commands: ReturnType<typeof useCommands>): Dock
   return useMemo(
     () => ({
       onAnswer,
-      answering: (question: Outstanding) => commands.answeringHelm === question.call.call,
+      answering: (question: Outstanding) => commands.answering === question.call.call,
       refusalFor: (question: Outstanding) => refusals[outstandingId(question)],
     }),
     [
       onAnswer,
       refusals,
-      commands.answeringHelm,
+      commands.answering,
     ],
   );
 }
 
 /**
- * The dock's cards. `asks` is Helm's, drawn at the end of its thread where the reply they stopped
- * is — #1519.
+ * The cards for the held calls, one per call — #1519.
  */
 export function useDockCards(
   questions: Parameters<typeof dockQuestionsOf>[0],
@@ -72,5 +71,5 @@ function sent(
   question: Outstanding,
   answer: string,
 ): Promise<Outcome> {
-  return commands.answerHelmCall(question.call.call, answer as CallAnswer);
+  return commands.answerCall(question.call.call, answer as CallAnswer);
 }

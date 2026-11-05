@@ -255,7 +255,7 @@ export function taggedIn(
     }
   | undefined {
   const live = sessions.filter(
-    (one) => one.dead === undefined && one.helm !== true && one.title !== undefined,
+    (one) => one.dead === undefined && one.title !== undefined,
   );
   for (const session of [
     ...live,

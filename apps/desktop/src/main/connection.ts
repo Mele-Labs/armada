@@ -13,17 +13,9 @@
 
 import { identifying, NOTHING_YET } from "../shared/bridge";
 import type { ProjectRowRef, StartAfter } from "@armada/protocol";
-import type { HelmCarry } from "../shared/api/helm";
 import type { SessionActed } from "../shared/api/sessions";
 import type { BridgeState, PickedView } from "../shared/bridge";
-import type {
-  Connection,
-  HelmContext,
-  HelmDebugRead,
-  Outcome,
-  ThoughtRead,
-  ThoughtTarget,
-} from "@armada/protocol";
+import type { Connection, Outcome } from "@armada/protocol";
 import type {
   CheckOutputRead,
   LandCheckAt,
@@ -44,7 +36,6 @@ import { LessonReads } from "./lesson-reads";
 import { FleetBuilds } from "./fleet-build";
 import { FollowSocket } from "./following";
 import { LandFollowSocket } from "./land-following";
-import { HelmConnection } from "./helm";
 import { HeldReader } from "./holding";
 import { OverviewReads } from "./overview";
 import { Questions } from "./questions";
@@ -129,8 +120,7 @@ export class FleetConnection {
    * window's own `Picked`** — `RepositoryReads.pickedByWindow` — so two windows on two
    * repositories never share one route builder or one Overview scope. `editing` and
    * `repositoryAllows` hold no mutable state of their own, which is what makes one instance per
-   * window cheap; `overview` does — its own `open` and `asked` — which is exactly why a window's
-   * Helm dock closing must not close another's.
+   * window cheap; `overview` does — its own `open` and `asked` — which is exactly why a 
    */
   private readonly windowFacades = new Map<
     number,
@@ -153,8 +143,6 @@ export class FleetConnection {
   private readonly follow: FollowSocket;
   /** One merge line Check's log, running or ended — a socket of its own. `land-following.ts`. */
   private readonly landFollow: LandFollowSocket;
-  /** Which repository Helm answers for, and the requests into its Session. `helm.ts`. */
-  private readonly helm: HelmConnection;
   /**
    * What Fleet is holding disk for, where a surface asked — see `holding.ts`.
    * **Scoped to nothing**: what is being decided is which of a set to give back.
@@ -347,11 +335,6 @@ export class FleetConnection {
       }),
     );
     const port = (): number | null => this.connected()?.port ?? null;
-    this.helm = new HelmConnection({
-      publish: (change) => this.publish(change),
-      port,
-      folded: (record) => this.sessions.changed(record),
-    });
     const publish = (change: Partial<BridgeState>) => this.publish(change);
     // The one registry every per-window pick is minted into — `rehearsal` and `repositories`
     // both read it, so a window's Setup, Verify and rail all name the same `Picked`.
@@ -371,10 +354,6 @@ export class FleetConnection {
       holds,
       rehearsal: this.rehearsal,
       overviewAgain: (at) => this.overviewAgainForEveryWindow(at),
-      // Helm follows whichever window's pick most recently moved — one
-      // conversation per repository, not one per window, so there is one
-      // target to keep current rather than one per `windowFacades` entry.
-      onPicked: (root) => this.helm.onPicked(root),
       port,
     });
     this.commands = new Commands({
@@ -396,7 +375,6 @@ export class FleetConnection {
       rehearsal: this.rehearsal,
       overviewAgain: (at) => this.overviewAgainForEveryWindow(at),
       questions: this.questions,
-      helm: this.helm,
       studios: this.studios,
       mods: this.mods,
       sessions: this.sessions,
@@ -497,12 +475,12 @@ export class FleetConnection {
     const fleet = this.connected();
     if (fleet !== null) {
       await this.repositories.readHoldings(fleet.port);
-      // Every Helm call waiting on a person.
-      await this.questions.readHelmCalls(fleet.port);
+      // Every call held for a person.
+      await this.questions.readCalls(fleet.port);
       // What is held changes when a slot is leased or released and when a sweep runs. A refresh is
       // the cheapest way to be sure about it.
       await this.held.again(fleet.port);
-      // A Studio moves when a person or Helm writes to it, and each write is on the stream — so
+      // A Studio moves when a person writes to it, and each write is on the stream — so
       // this is for a window that reloaded, not for a gap.
       await this.studios.again();
       await this.sessions.again(fleet.port);
@@ -530,43 +508,6 @@ export class FleetConnection {
     this.sessions.close();
     this.fleetBuild.close();
     for (const facades of this.windowFacades.values()) facades.overview.close();
-    this.helm.close();
-  }
-
-  // ------------------------------------------------------------------- Helm
-  /** Say something to Helm, about whichever repository it currently answers for. */
-  askHelm(text: string, context?: HelmContext, carry?: HelmCarry): Promise<Outcome> {
-    return this.helm.askHelm(text, context, carry);
-  }
-
-  /** The Helm session Bridge is pointed at, as one quotable record — #1367. */
-  helmDebugInfo(): Promise<HelmDebugRead> {
-    return this.helm.debugInfo();
-  }
-
-  /** What Helm makes of words typed into its box: a question for itself, or a thought for other work. */
-  readThought(text: string): Promise<ThoughtRead> {
-    return this.helm.readThought(text);
-  }
-
-  /** The words reached a Session: Fleet keeps a row for them in `manifestId`'s thread. */
-  recordThoughtSent(
-    manifestId: string,
-    text: string,
-    target: ThoughtTarget,
-    carry?: HelmCarry,
-  ): Promise<Outcome> {
-    return this.helm.recordThoughtSent(manifestId, text, target, carry);
-  }
-
-  /** End the Helm Session, so the next message starts a new one. */
-  startHelmFresh(): Promise<Outcome> {
-    return this.helm.startFresh();
-  }
-
-  /** "Discuss with Helm" on a card, or the dock's own switch. The rail's pick does not move. */
-  pointHelm(manifestId: string): void {
-    this.helm.point(manifestId);
   }
 
   // --------------------------------------------------------------- arrivals
@@ -715,13 +656,6 @@ export class FleetConnection {
         : {}),
     };
     if (Object.keys(part).length > 0) this.remembered.keep(part);
-    // Every repository Fleet serves is still shared through this funnel;
-    // which one a window picked is not — `repository` moved onto `PickedView`
-    // when picks went per-window, so that half of Helm's own targeting is
-    // wired at `RepositoryReads`'s own `onPicked`, the one place a pick
-    // actually changes.
-    if (change.holds !== undefined)
-      this.helm.onRepositoriesChanged(this.current.holds.repositories ?? []);
     this.wiring.publish(this.current);
   }
 }

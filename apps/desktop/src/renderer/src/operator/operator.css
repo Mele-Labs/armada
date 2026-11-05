@@ -1,4 +1,4 @@
-/* The Operator panel, in Helm's dock over the whole work: the Layout control's bar over the panes a Job's area uses, which draw
+/* The Operator panel, in the dock over the whole work: the Layout control's bar over the panes a Job's area uses, which draw
    their own frames, strips and bodies (`job-panes.css`). What is here is each tab's body: rows of one line where they fit, every
    control repeated down a list in a column of its own. Bold in weight, never in size. */
 

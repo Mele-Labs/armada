@@ -1,6 +1,6 @@
 // Where a surface's content starts under the title bar, through `App`.
 //
-// The left column and Helm's dock each keep `--space-4` between the title bar
+// The left column and the Operator's dock each keep `--space-4` between the title bar
 // and their first panel. A surface mounted between them keeps the same gap, so
 // the three read as one row of panels. The Manifest surface's own ask on All
 // repositories sat flush against the title bar instead — the owner's

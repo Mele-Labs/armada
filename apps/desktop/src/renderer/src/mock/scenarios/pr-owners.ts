@@ -59,7 +59,7 @@ function lines(): MergeLine[] {
             ci: "running",
           }),
           pull(ARMADA, 2216, "Spike 031 notes", "docs/spike-031"),
-          pull(ARMADA, 2218, "Keep the dispatch bar under Helm", "fix/dispatch-bar-under-helm"),
+          pull(ARMADA, 2218, "Keep the dispatch bar under the dock", "fix/dispatch-bar-under-dock"),
         ],
       },
     },

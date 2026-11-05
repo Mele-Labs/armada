@@ -1,8 +1,8 @@
 // The message box grows with what is typed, up to half the height of its panel, and then scrolls.
-// Told on a Session's composer and on Helm's.
+// Told on a Session's composer.
 
 import { kit, toSessions } from "../sessions/walk-kit";
-import { button, inside, place, region, role, walk } from "../walk";
+import { button, inside, place, region, walk } from "../walk";
 import type { Step } from "../walk";
 
 const lines = (count: number) =>
@@ -40,23 +40,6 @@ function steps(): Step[] {
     },
   ];
 }
-
-const helm: Step[] = [
-  {
-    press: button("Helm"),
-    say: "Helm",
-  },
-  {
-    type: lines(5),
-    into: role("textbox", "Ask Helm"),
-    say: "Five lines, and Helm's box has grown",
-  },
-  {
-    type: lines(40),
-    into: role("textbox", "Ask Helm"),
-    say: "Forty lines: it stops at half the dock and scrolls",
-  },
-];
 
 const keeping: Step[] = [
   {
@@ -100,10 +83,6 @@ const session = walk("session-thread-polish", [
   toSessions,
   ...steps(),
 ]);
-const talking = walk("session-thread-polish", [
-  toSessions,
-  ...helm,
-]);
 
 const kept = walk("session-thread-polish", [
   toSessions,
@@ -113,5 +92,4 @@ const kept = walk("session-thread-polish", [
 export {
   kept as "session-composer-keeps",
   session as "session-composer-grows",
-  talking as "session-composer-grows-helm",
 };

@@ -5,7 +5,7 @@
 // drawn, and nothing that draws knows how to reach the host.
 //
 // **The pieces of state here are the ones a command in flight has**: what the last command answered,
-// and which Helm call an answer is out on. A command that ends somewhere on screen says so through a
+// and which held call an answer is out on. A command that ends somewhere on screen says so through a
 // callback rather than by reaching for state it does not own: a re-read's answer is published by
 // `onRead`.
 
@@ -50,7 +50,6 @@ import type {
 } from "@armada/protocol";
 import type { Outcome, OrganizeAction, OrganizeProposal } from "@armada/protocol";
 import type { CallAnswer, StartCheckoutRun } from "@armada/protocol";
-import type { HelmContext } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
 import type { DropRunFact, SetRunMemoryPlace } from "@armada/protocol";
@@ -73,7 +72,7 @@ export const watchStudios = (manifestId: string | readonly string[] | null): voi
 export const watchStudio = (studioId: string | null): void =>
   void window.armada.watchStudio(studioId);
 export const createStudio = (manifestId: string) => window.armada.createStudio(manifestId);
-// Named, and added to, by a person — #1364. Neither goes through Helm.
+// Named, and added to, by a person — #1364. Neither goes through a Job.
 export const renameStudio = (studioId: string, name: string) =>
   window.armada.renameStudio(studioId, name);
 export const addStudioNode = (
@@ -212,14 +211,6 @@ export const startCheckoutVerify = (workspace?: string) =>
   window.armada.startCheckoutVerify(workspace);
 export const pickRepository = (root: string | null): void =>
   void window.armada.pickRepository(root);
-// Helm's conversation — #944. The reply, and the thread it joins, arrive on
-// `BridgeState.helm`. `context` names where the person is — #1075.
-export const askHelm = (text: string, context?: HelmContext) =>
-  window.armada.askHelm(text, context);
-/** The session as one quotable record, read once when a person opens it — #1367. */
-export const helmDebugInfo = () => window.armada.helmDebugInfo();
-export const startHelmFresh = () => window.armada.startHelmFresh();
-export const pointHelm = (manifestId: string): void => void window.armada.pointHelm(manifestId);
 // Locate: a folder from the OS dialog, and a repository added or cloned. The window picks what it located.
 export const chooseFolder = () => window.armada.chooseFolder();
 export const resolveFolder = (path: string) => window.armada.resolveFolder(path);
@@ -342,8 +333,8 @@ export type Sending = {
  */
 export function useCommands(sending: Sending) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  // Which Helm call has an answer in flight, by the call id Fleet minted, so its card's controls wait. #1389.
-  const [answeringHelm, setAnsweringHelm] = useState<string | null>(null);
+  // Which held call has an answer in flight, by the call id Fleet minted, so its card's controls wait. #1389.
+  const [answering, setAnswering] = useState<string | null>(null);
 
   /**
    * Send main's red to a Session as a message, through the call the Cockpit sends with. **A
@@ -358,19 +349,19 @@ export function useCommands(sending: Sending) {
     if (!answer.ok) setOutcome(answer.outcome);
   }
 
-  /** Answer one held Helm call. What draws the card's own controls off while this is out is the call id held here. #1389. */
-  async function answerHelmCall(
+  /** Answer one held call. What draws the card's own controls off while this is out is the call id held here. #1389. */
+  async function answerCall(
     call: string,
     chose: CallAnswer,
     note?: string,
   ): Promise<Outcome> {
-    setAnsweringHelm(call);
+    setAnswering(call);
     try {
-      const answered = await window.armada.answerHelmCall(call, chose, note);
+      const answered = await window.armada.answerCall(call, chose, note);
       setOutcome(answered);
       return answered;
     } finally {
-      setAnsweringHelm((held) => (held === call ? null : held));
+      setAnswering((held) => (held === call ? null : held));
     }
   }
 
@@ -390,8 +381,8 @@ export function useCommands(sending: Sending) {
     outcome,
     setOutcome,
     sendToSession,
-    answerHelmCall,
-    answeringHelm,
+    answerCall,
+    answering,
     refresh,
   };
 }

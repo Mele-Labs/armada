@@ -40,7 +40,7 @@ const questionDeck = walk("session-many-questions", [
     say: "And the next",
   },
   {
-    press: inside(ask, role("radio", "Left of Helm")),
+    press: inside(ask, role("radio", "Left of the Sun")),
     say: "And the next",
   },
   {

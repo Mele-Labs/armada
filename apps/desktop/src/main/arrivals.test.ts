@@ -107,9 +107,6 @@ function fakeHost(questionsOver: BridgeState["questions"] = []): {
     },
     overviewAgain: async () => {},
     questions,
-    helm: {
-      reconnected: () => {},
-    },
     studios: {
       again: async () => {},
       changed: () => {},

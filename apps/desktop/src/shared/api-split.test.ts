@@ -52,8 +52,6 @@ import type {
   EditManifest,
   SaveManifestFile,
   SketchToKeep,
-  HelmContext,
-  HelmDebugRead,
   CheckoutRunDiffRead,
   AddKitServer,
   ManifestReach,
@@ -67,8 +65,6 @@ import type {
   BridgeIdentity,
   Connection,
   HeldWorktrees,
-  ThoughtRead,
-  ThoughtTarget,
   Holdings,
   FollowedLog,
   BuildSource,
@@ -256,7 +252,6 @@ import type {
   SavedIssueQuery,
   WrittenIssueQuery,
 } from "@armada/protocol";
-import type { HelmAim, HelmCarry } from "./api/helm";
 import { AUTOPILOT_CHANNELS, type AutopilotApi } from "./api/autopilot";
 import { SKETCH_SHARE_CHANNELS, type SketchShareApi } from "./api/sketch-share";
 import { FILES_CHANNELS, type FilesApi } from "./api/files";
@@ -318,7 +313,6 @@ type OldBridgeState = {
   manifestDrift: ManifestDriftRead;
   health: HealthRead;
   questions: Outstanding[];
-  helm: HelmAim;
   studios: StudiosRead;
   studio: StudioRead;
   sessions: SessionsRead;
@@ -343,7 +337,7 @@ type OldBridgeApi = {
   readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
   changeSlotPool: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
   rescueSlot: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
-  answerHelmCall: (call: string, answer: CallAnswer, note?: string) => Promise<Outcome>;
+  answerCall: (call: string, answer: CallAnswer, note?: string) => Promise<Outcome>;
   savePreference: (save: SavePreference) => Promise<Outcome>;
   saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
   askModels: () => Promise<void>;
@@ -511,17 +505,6 @@ type OldBridgeApi = {
   onSummoned: (onGo: (to: Summons) => void) => () => void;
   onPullLink: (onLink: (link: PullLink) => void) => () => void;
   onHistory: (onStep: (step: HistoryStep) => void) => () => void;
-  askHelm: (text: string, context?: HelmContext, carry?: HelmCarry) => Promise<Outcome>;
-  helmDebugInfo: () => Promise<HelmDebugRead>;
-  readThought: (text: string) => Promise<ThoughtRead>;
-  recordThoughtSent: (
-    manifestId: string,
-    text: string,
-    target: ThoughtTarget,
-    carry?: HelmCarry,
-  ) => Promise<Outcome>;
-  startHelmFresh: () => Promise<Outcome>;
-  pointHelm: (manifestId: string) => Promise<void>;
   tap: (pattern: Pattern) => void;
   dockCount: (calls: number) => void;
   startSession: (title?: string) => Promise<SessionActed>;
@@ -818,9 +801,6 @@ const OLD_NOTHING_YET: OldBridgeState = {
   },
   located: null,
   questions: [],
-  helm: {
-    state: "none",
-  },
   settings: null,
   limits: null,
   preferences: {
@@ -858,7 +838,7 @@ const OLD_CHANNELS = {
   readRequestRepository: "bridge:read-request-repository",
   changeSlotPool: "bridge:change-slot-pool",
   rescueSlot: "bridge:rescue-slot",
-  answerHelmCall: "bridge:answer-helm-call",
+  answerCall: "bridge:answer-call",
   savePreference: "bridge:save-preference",
   saveSettings: "bridge:save-settings",
   askModels: "bridge:ask-models",
@@ -941,12 +921,6 @@ const OLD_CHANNELS = {
   summoned: "bridge:summoned",
   pullLinked: "bridge:pull-linked",
   history: "bridge:history",
-  askHelm: "bridge:ask-helm",
-  helmDebugInfo: "bridge:helm-debug-info",
-  readThought: "bridge:read-thought",
-  recordThoughtSent: "bridge:record-thought-sent",
-  startHelmFresh: "bridge:start-helm-fresh",
-  pointHelm: "bridge:point-helm",
   watchStudios: "bridge:watch-studios",
   watchStudio: "bridge:watch-studio",
   createStudio: "bridge:create-studio",

@@ -1,5 +1,5 @@
 // The acts Bridge sends that belong to no one surface: preferences, settings, a file search, the
-// slot pool, an answer to a Helm call and an answer to a retro item.
+// slot pool, an answer to a held call and an answer to a retro item.
 //
 // Beside `connection.ts` rather than inside it: the connection is a socket, a runtime file and a
 // state machine, and a POST is none of those.
@@ -156,15 +156,15 @@ export class Commands {
   }
 
   /**
-   * Answer one held Helm call. #1389.
+   * Answer one held call. #1389.
    *
-   * **Outside `act` and outside every in-flight set here**, because a Helm call
+   * **Outside `act` and outside every in-flight set here**, because a held call
    * has no board row: nothing is re-read, and the answer
    * lands inside a session's own tool call rather than on a row. Fleet answers
-   * with the calls still waiting, which the dock does not need — the event says
+   * with the calls still waiting, which the window does not need — the event says
    * the same thing — so only the outcome comes back.
    */
-  async answerHelmCall(call: string, answer: CallAnswer, note?: string): Promise<Outcome> {
+  async answerCall(call: string, answer: CallAnswer, note?: string): Promise<Outcome> {
     const port = this.board.port();
     if (port === null)
       return {

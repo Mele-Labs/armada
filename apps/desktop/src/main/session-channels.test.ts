@@ -62,7 +62,7 @@ describe("answering a session's ask", () => {
     for (const said of CALL_ANSWERS) {
       await send({
         session_id: "s",
-        call: "helm-1",
+        call: "call-1",
         answer: said,
         folder: "/Users/user/Documents",
       } as AnswerSessionAsk);
@@ -80,7 +80,7 @@ describe("answering a session's ask", () => {
     const { send, answer } = wired();
     const like = {
       session_id: "s",
-      call: "helm-1",
+      call: "call-1",
       answer: "allow_like_this_for_session",
     } as const;
     await send({
@@ -145,7 +145,7 @@ describe("answering a session's ask", () => {
     const { send, answer } = wired();
     const said = await send({
       session_id: "s",
-      call: "helm-1",
+      call: "call-1",
       answer: "maybe",
     } as unknown as AnswerSessionAsk);
     expect(answer).not.toHaveBeenCalled();

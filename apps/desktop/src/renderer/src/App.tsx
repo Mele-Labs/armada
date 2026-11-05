@@ -13,19 +13,14 @@
 // `commands.ts` for what the host is asked to do, `failing.ts` for which
 // failure is on screen, and `palette.ts` for what the palette can reach.
 
-import { Bot } from "lucide-react";
 import { OperatorPanel } from "./operator/OperatorPanel";
 import { useOperator } from "./operator/store";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArmadaMark } from "@armada/brand";
 import { heldOfPicked, heldOfWorkspace, whyNotOpenedLink } from "@armada/screens";
-import type { HelmContext } from "@armada/protocol";
-import { useDockCards } from "./dock-answering";
-import { contextOf, HelmDock, screenOf } from "@armada/helm";
 import { UsageSurface } from "./usage-surface";
 import {
   AccountPage,
-  Button,
   GuidanceProvider,
   GuideCatalogue,
   ProseLinks,
@@ -62,7 +57,6 @@ import {
 import { CallAlerts } from "./cockpit/CallAlerts";
 import { DockCount } from "./cockpit/DockCount";
 import { DeckHost, DeckPlaces } from "./cockpit/deck/DeckHost";
-import { HELM_HOME, useCallingHomes } from "./cockpit/deck/homes";
 import { AutopilotBack } from "./autopilot-back";
 import { useRepositoryRuns } from "./cockpit/deck/repository-runs";
 import { opensFor, placesOff } from "./cockpit/deck/system-page";
@@ -71,20 +65,17 @@ import { deckNow } from "./cockpit/deck/store";
 import { PaletteMount } from "./PaletteMount";
 import { useOneBar } from "./one-bar";
 import { DispatchingProvider, useDispatch } from "./dispatch-panel/dispatching";
-import { useHelmBox } from "./helm-box";
-import { RefsHost, useHelmRefs } from "./helm-refs";
-import type { Host as RefsHostProps } from "./helm-refs";
-import { useHelmHosted } from "./helm-session";
+import { RefsHost } from "./prose-refs";
+import type { Host as RefsHostProps } from "./prose-refs";
 import { RequestsPanel } from "./shared-panel/requests";
 import { closeRequests, openAddressInPanel, usePanel } from "./shared-panel/store";
-import { useSessions, useSessionsDraft } from "./sessions-draft";
+import { useSessionsDraft } from "./sessions-draft";
 import { startOn } from "./start-on";
 import { useSpacing } from "./spacing";
 import { defaultParent, placeOf } from "./run-places";
-import { useThoughtRouting } from "./thought-routing";
 import { DispatchSheet, TitleDispatchedStrip } from "./dispatch-panel/entries";
 import { CaptureLayer, type CaptureAim } from "./capture/Layer";
-import { nodeNamed, studioName } from "@armada/screens";
+import { studioName } from "@armada/screens";
 import type { OpenStudio } from "@armada/studios";
 import { useManifestEditing, useManifestForm } from "@armada/manifest";
 import { startSetupSession, useSetup } from "@armada/setup";
@@ -112,9 +103,6 @@ import {
   addRepository,
   cloneRepository,
   createProject,
-  helmDebugInfo,
-  startHelmFresh,
-  pointHelm,
   getCheckoutRunOutput,
   getCheckoutRunDiff,
   readManifestFile,
@@ -198,7 +186,6 @@ import { useShownTerminals } from "./job-panes/bodies";
 import { usePower } from "./cockpit/boot";
 import { copyDebugInfoFor, useCommandPalette } from "@armada/shell";
 import {
-  askToOpenHelm,
   Shell,
   SURFACE,
   SURFACES,
@@ -282,7 +269,7 @@ export function App() {
   // already holds, which is what lets a person run this project's lint with nothing running.
   const [manifesting, setManifesting] = useState(false);
   // Whether the Studios surface is open, which Studio is open on it, and the node selected there —
-  // #1287. The last two are Helm's context as well as the screen's.
+  // #1287.
   const [studying, setStudying] = useState(false);
   const [openStudio, setOpenStudio] = useState<OpenStudio | null>(null);
   const [studioNode, setStudioNode] = useState<string | null>(null);
@@ -531,9 +518,7 @@ export function App() {
     ),
   }); // One draft for the Cockpit's bar and the panel grown from the title bar.
   const newSession = () => (dispatching.choose("session"), dispatching.openNew()); // A New session entry opens the same panel.
-  const sessions = useSessions();
-  const helmBox = useHelmBox(state.helm);
-  // Where the window has an Operator, its panel takes Helm's dock and the title row's button.
+  // Where the window has an Operator, its panel takes the dock and the title row's button.
   const operator = useOperator();
   const refsHost: RefsHostProps = {
     state,
@@ -541,30 +526,6 @@ export function App() {
     openSession,
     openLink: openProseLink,
   };
-  const helmRefs = useHelmRefs(refsHost);
-  const helmHosted = useHelmHosted({
-    manifestId: state.helm.state === "none" ? undefined : state.helm.manifestId,
-    goes: {
-      onGoTo: goTo,
-      onOpenLink: openProseLink,
-      onOpenCheck: (sessionId, run) => asked.setCheckFocus(sessionCheckId(sessionId, run)),
-      onOpenLoadout: asked.setLoadoutFocus,
-    },
-    held: {
-      held: state.held,
-      onWant: readHeld,
-    },
-    openSession,
-    words: helmBox.words,
-  });
-  const routing = useThoughtRouting({
-    state,
-    repositories,
-    dispatching,
-    openSession,
-    sketchesOf: helmBox.sketchesOf,
-    carryOf: helmBox.carryOf,
-  });
   const oneBar = useOneBar({
     live,
     dispatching,
@@ -611,13 +572,6 @@ export function App() {
    * view gets left standing under the next one.
    */
   function openSession(id: string): void {
-    // Helm's own Session is the dock: it points at its repository and opens, and no page is shown.
-    const helm = sessions.find((one) => one.id === id && one.helm === true);
-    if (helm !== undefined) {
-      if (helm.manifestId !== undefined) pointHelm(helm.manifestId);
-      askToOpenHelm();
-      return;
-    }
     // A Session is viewed on the Cockpit only: it is selected there, once the deck holds it.
     goTo(SURFACE.overview);
     askToOpenSessionInCockpit(id);
@@ -707,8 +661,6 @@ export function App() {
   const pickedRepository = repositories.find((one) => one.root === state.repository) ?? null;
   const repositoryRuns = useRepositoryRuns(repositories);
   const scoped = pickedRepository?.manifest;
-  // A call no Session's row holds pulses the control that already shows it: Helm's button here.
-  const callingHomes = useCallingHomes(state, pickedRepository);
   // All repositories: no one picked from a listing that has any. The Manifest asks which.
   const all = pickedRepository === null && repositories.length > 0;
   // Worktree Slots follow the pick too.
@@ -730,21 +682,6 @@ export function App() {
       shown,
     ],
   );
-  // Where the person is, for Helm — #1075.
-  const helmScreen = screenOf({
-    clearing,
-    manifesting,
-    studying,
-    kitting,
-    workflowing,
-    settling: settingsShowing,
-  });
-  const helmContext: HelmContext = contextOf({
-    screen: helmScreen,
-    picked: scoped?.id ?? null,
-    studio: openStudio?.id ?? null,
-    node: studioNode,
-  });
   const shownStudio =
     state.studio.state === "read" && state.studio.studio.id === openStudio?.id
       ? state.studio.studio
@@ -764,8 +701,6 @@ export function App() {
   ) {
     setCaptureAim(continued);
   }
-  // Helm's dock lists every repository's questions, whatever the pick.
-  const asks = useDockCards(state.questions, repositories, commands);
   const atCockpit =
     showingOf({
       clearing,
@@ -866,7 +801,6 @@ export function App() {
                           : {
                               onTeach: () => teachBridge("title_bar", ""),
                             })}
-                        helmCalling={callingHomes.has(HELM_HOME)}
                         wordmark={<ArmadaMark size={20} title="Armada" />}
                         // The title row's picker, on every surface.
                         repository={
@@ -888,81 +822,11 @@ export function App() {
                             onReplaceNext={replaceNext}
                           />
                         }
-                        asking={asks.length}
                         {...(operator === null
                           ? {}
                           : {
-                              dockAs: {
-                                title: "Operator",
-                                icon: Bot,
-                              },
+                              operator: <OperatorPanel />,
                             })}
-                        helm={
-                          operator !== null ? (
-                            <OperatorPanel />
-                          ) : (
-                            <>
-                              <HelmDock
-                                asks={asks}
-                                routing={routing}
-                                {...(helmBox.box === undefined
-                                  ? {}
-                                  : {
-                                      box: helmBox.box,
-                                    })}
-                                refs={helmRefs}
-                                {...(helmHosted.hosted === undefined
-                                  ? {}
-                                  : {
-                                      hosted: helmHosted.hosted,
-                                    })}
-                                helm={state.helm}
-                                repositories={repositories}
-                                live={live}
-                                onAsk={helmBox.asked}
-                                outgoing={helmBox.outgoing}
-                                context={helmContext}
-                                studio={
-                                  shownStudio === null
-                                    ? undefined
-                                    : {
-                                        name: studioName(shownStudio),
-                                        ...(studioNode === null
-                                          ? {}
-                                          : {
-                                              node: nodeNamed(shownStudio, studioNode, {
-                                                servers: state.servers.servers,
-                                              }),
-                                            }),
-                                      }
-                                }
-                                onSwitch={(manifestId) => pointHelm(manifestId)}
-                                onReadRecord={helmDebugInfo}
-                                onCopied={setCopied}
-                                onSaid={setTelling}
-                              />
-                              {helmBox.pad}
-                              {helmHosted.sheets}
-                            </>
-                          )
-                        }
-                        // The dock's head carries this, beside Close — the owner's note of
-                        // 18 Sep 2026. It ends the conversation the whole dock is showing, so
-                        // it belongs to the dock rather than to the row above the message box,
-                        // where three controls wrapped onto a second line at the dock's width.
-                        // Held while a turn runs: Stop is the Session's own control for that.
-                        helmAction={
-                          operator !== null ? null : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => void startHelmFresh()}
-                              disabled={helmHosted.hosted?.working === true}
-                            >
-                              Start fresh
-                            </Button>
-                          )
-                        }
                         fleet={{
                           ...fleetPanelClocked(
                             state.connection,

@@ -1,4 +1,4 @@
-// The call card's acts, moved out to the Helm rail beside it as keycap switches: the decision on top, a
+// The call card's acts, moved out to the rail beside it as keycap switches: the decision on top, a
 // rule, where to go next, a rule, and Dismiss under a cover. What waits behind the card is a strip on its
 // other side. Under about 1100px the rail folds into the split row under the card.
 

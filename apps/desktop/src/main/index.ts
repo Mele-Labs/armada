@@ -17,7 +17,6 @@ import { join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
-import type { HelmCarry } from "../shared/api/helm";
 import type {
   BuildSource,
   ChangeSlotPool,
@@ -26,7 +25,7 @@ import type {
   RetroSubject,
 } from "@armada/protocol";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
-import type { HelmContext, LandCheckAt, ThoughtTarget } from "@armada/protocol";
+import type { LandCheckAt } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { CallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -868,12 +867,12 @@ void app.whenReady().then(() => {
     await connection?.rereadHeld();
     return outcome;
   });
-  // One call helm was held on, answered in the dock. The session is
+  // One call held for a person. The session is
   // waiting inside its own tool call, and nothing on the board moves. #1389.
   ipcMain.handle(
-    CHANNELS.answerHelmCall,
+    CHANNELS.answerCall,
     (_event, call: string, answer: CallAnswer, note?: string) =>
-      connection?.commands.answerHelmCall(call, answer, note),
+      connection?.commands.answerCall(call, answer, note),
   );
   // The owner's answer to one retro item.
   ipcMain.handle(CHANNELS.agreeLesson, (_event, lessonId: string) =>
@@ -956,25 +955,6 @@ void app.whenReady().then(() => {
   // Overview's health and per-repository drift, held open by that surface.
   ipcMain.handle(CHANNELS.watchOverview, (event, want: unknown) =>
     connection?.overviewFor(windowIdOf(event)).watch(want === true),
-  );
-  // Helm's conversation: say something, end its Session, and point it without moving the rail's own
-  // pick. Fleet-wide, unlike the window's own reads above: one Helm Session per repository,
-  // whichever window's dock is open on it.
-  ipcMain.handle(
-    CHANNELS.askHelm,
-    (_event, text: string, context?: HelmContext, carry?: HelmCarry) =>
-      connection?.askHelm(text, context, carry),
-  );
-  ipcMain.handle(CHANNELS.helmDebugInfo, () => connection?.helmDebugInfo());
-  ipcMain.handle(CHANNELS.readThought, (_event, text: string) => connection?.readThought(text));
-  ipcMain.handle(
-    CHANNELS.recordThoughtSent,
-    (_event, manifestId: string, text: string, target: ThoughtTarget, carry?: HelmCarry) =>
-      connection?.recordThoughtSent(manifestId, text, target, carry),
-  );
-  ipcMain.handle(CHANNELS.startHelmFresh, () => connection?.startHelmFresh());
-  ipcMain.handle(CHANNELS.pointHelm, (_event, manifestId: string) =>
-    connection?.pointHelm(manifestId),
   );
   handleRepositories({
     ipc: ipcMain,

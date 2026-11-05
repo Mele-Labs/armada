@@ -1,4 +1,4 @@
-// A Session: a raw conversation with a hosted agent, beside Helm, with Armada's
+// A Session: a raw conversation with a hosted agent, with Armada's
 // features hooked in. This walk is the Session itself, from a blank start. The
 // other is the surface that leads into one: `worktree-to-sessions`. Drawn in Bridge over a mock Fleet, ahead of
 // any Fleet work: what Fleet would owe is listed in

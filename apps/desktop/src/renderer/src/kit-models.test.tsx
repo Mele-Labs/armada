@@ -229,14 +229,6 @@ test("each run is its model then its effort, an effort only where Fleet has one"
     )
     .toBeVisible();
   expect(run("Retro").getByRole("slider").elements()).toHaveLength(0);
-  expect(run("Helm").getByRole("combobox").elements()).toHaveLength(0);
-  await expect
-    .element(
-      run("Helm").getByRole("slider", {
-        name: "Helm effort",
-      }),
-    )
-    .toBeVisible();
 });
 
 test("a step of an effort slider saves the effort its run reads", async () => {

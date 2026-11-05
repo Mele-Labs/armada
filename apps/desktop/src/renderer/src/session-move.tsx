@@ -26,7 +26,7 @@ export function SessionRepositoryOf({
   const { chip } = useActsPlace();
   const served = repositories.filter((one) => one.manifest !== undefined);
   const here = served.find((one) => jobIdOf(one) === session.manifestId);
-  if (move === undefined || session.helm === true || here === undefined) return null;
+  if (move === undefined || here === undefined) return null;
   const branch = session.attachments.find((one) => one.kind === "branch")?.name;
   // One that has moved is not moved again: its repository is text.
   const moved = movedTo(session) !== undefined;

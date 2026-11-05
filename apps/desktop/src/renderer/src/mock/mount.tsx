@@ -104,7 +104,7 @@ export type Mounted = {
    * `mountApp` runs against an empty host. A press with a locator waits that
    * out on its own; a keystroke has none and nothing retries it, so it is
    * simply lost. Measured 23 Sep 2026 on #1592: under load `⌘J` reached
-   * `window` with `#root` still empty, and Helm's dock never came up.
+   * `window` with `#root` still empty, and the Operator's dock never came up.
    */
   onScreen: Promise<void>;
   unmount: () => void;

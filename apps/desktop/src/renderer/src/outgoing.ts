@@ -1,8 +1,7 @@
 // A message of the person's, drawn in the thread from the moment it is sent and until Fleet's own row takes its place.
 //
-// **One engine, two ways in.** `outgoing()` holds the messages and lays them over a thread's rows. `withOutgoing` is the
-// layer over whatever serves Sessions, a real Fleet or the mock, so both draw it the same way; Helm's box holds its words in
-// the same engine (`helm-box.tsx`), over a thread no Session list serves. `send` holds the message here and hands it on;
+// `outgoing()` holds the messages and lays them over a thread's rows. `withOutgoing` is the
+// layer over whatever serves Sessions, a real Fleet or the mock, so both draw it the same way. `send` holds the message here and hands it on;
 // the thread shows it at once with a mark that it is going (`delivery: "sending"`), and the mark goes when Fleet takes it. A
 // message Fleet did not take stays in the thread, marked, with a Retry. When the row Fleet sends back arrives it is the same
 // message: it is drawn in the optimistic row's place, under the same key, so nothing draws again and nothing is there twice.
@@ -44,7 +43,7 @@ type Message = Extract<
 const same = (a: string, b: string): boolean =>
   a.trim().replace(/\s+/g, " ") === b.trim().replace(/\s+/g, " ");
 
-/** The person's words as Fleet keeps them: their message, or in Helm's thread the row for words sent on to other work. */
+/** The person's words as Fleet keeps them: their message, or in an old thread the row for words sent on to other work. */
 const youSaid = (row: SessionRow): row is Message =>
   (row.kind === "message" && row.from.kind === "you") || row.kind === "sent";
 
