@@ -4,7 +4,13 @@
 // Neither call names the Job it is for: Fleet places the caller by its connection. Bridge draws none of
 // this; the types are here so the wire has one spelling on both sides.
 
-import type { RunningWork, SessionOrigin, SessionState, SessionStanding, WaitingItem } from "./sessions";
+import type {
+  RunningWork,
+  SessionOrigin,
+  SessionState,
+  SessionStanding,
+  WaitingItem,
+} from "./sessions";
 import type { SessionWait, StartBase, StartCondition } from "./session-waits";
 import type { WireError } from "./protocol";
 
