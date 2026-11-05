@@ -125,6 +125,7 @@ mod tests {
             holders: Vec::new(),
             creating_since: None,
             create_refused: None,
+            operator_read: None,
         }
     }
 

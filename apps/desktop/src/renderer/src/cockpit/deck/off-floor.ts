@@ -25,7 +25,7 @@ export type Light = {
 export type CheckRecord = {
   name: string;
   at: string;
-  state: "running" | "passed" | "failed";
+  state: "running" | "passed" | "failed" | "timed_out";
   blame?: CheckBlame;
 };
 
@@ -40,6 +40,7 @@ const STATE: Record<CheckRecord["state"], LightState> = {
   running: "run",
   passed: "ok",
   failed: "bad",
+  timed_out: "bad",
 };
 
 /**

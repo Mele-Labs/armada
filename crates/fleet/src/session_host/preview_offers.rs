@@ -40,6 +40,7 @@ fn offer_item(offer: &KeptPreviewOffer) -> WaitingItem {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 

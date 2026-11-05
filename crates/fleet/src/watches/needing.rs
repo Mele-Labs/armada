@@ -41,6 +41,7 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     })
 }
 

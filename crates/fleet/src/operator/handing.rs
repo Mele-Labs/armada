@@ -3,13 +3,14 @@
 //! at start, on the Operator model with one call kept started.
 //!
 //! **A start never waits for its ruling.** Its first write does, at most [`FIRST_WRITE_WAIT`] and
-//! only while Dispatch is on, so a ruling that hands the Job's work away stops it having only read.
+//! only where Delegate or Dispatch is on, so a ruling that hands the Job's work away stops it having only read.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Model, Vcs, WorkProduct};
 use config::settings as keys;
 use core_model::{Component, Envelope, FieldValue, Level};
+use ipc::operator_positions::{OperatorPosition, OperatorRole};
 use ipc::Notice;
 use store::KeptPlan;
 
@@ -157,14 +158,21 @@ where
     /// What a Job's first write is told where its start's ruling sends its work to another Job,
     /// having waited for that ruling at most [`FIRST_WRITE_WAIT`]. `None` lets the write go on.
     pub(crate) async fn first_write_ruled(&self, id: &str) -> Option<String> {
-        if !self.operator_dispatches() {
+        if !self.operator_on() {
+            return None;
+        }
+        let manifest = self.store().lock().await.hosting(id).ok().flatten()?.manifest_id;
+        let on = |role| self.operator_position(role, &manifest) == OperatorPosition::On;
+        if !on(OperatorRole::Delegate) && !on(OperatorRole::Dispatch) {
             return None;
         }
         let mut ruling = self.operator_seat().start_ruling(id)?;
         let waited = tokio::time::timeout(FIRST_WRITE_WAIT, ruling.wait_for(Option::is_some)).await;
         let ruled = waited.ok()?.ok()?.clone()?;
         match ruled {
-            Ruled::Ruled(ruling) if matches!(ruling.way, Way::ExistingJob | Way::Merge) => {
+            Ruled::Ruled(ruling)
+                if (ruling.way == Way::ExistingJob && on(OperatorRole::Delegate)) || (ruling.way == Way::Merge && on(OperatorRole::Dispatch)) =>
+            {
                 let other = ruling.other.unwrap_or_default();
                 Some(format!(
                     "The Operator found Job {other} already doing this work, so it goes to that Job and this Job ends. \
@@ -176,15 +184,16 @@ where
     }
 
     /// Tell each live Job kept in touch with one that moved, where the move was on the paths they
-    /// share. Once a tick, and nothing while Dispatch is off.
+    /// share. Once a tick, and only where Delegate is on.
     pub async fn in_touch_told(self: &Arc<Self>) {
         let moved = self.operator_seat().take_moved();
-        if moved.is_empty() || !self.operator_dispatches() {
-            return;
-        }
         for (id, how) in moved {
             let (pairs, plan, touched) = {
                 let store = self.store().lock().await;
+                let Some(manifest) = store.hosting(&id).ok().flatten().map(|hosting| hosting.manifest_id) else { continue };
+                if self.operator_position(OperatorRole::Delegate, &manifest) != OperatorPosition::On {
+                    continue;
+                }
                 let pairs = store.operator_in_touch(&id).unwrap_or_default();
                 let plan: Vec<String> = store.session_plan(&id).ok().flatten().into_iter().flat_map(|plan| plan.groups).flat_map(|group| group.paths).collect();
                 let touched: Vec<String> = store.session_touches(&id).unwrap_or_default().into_iter().map(|touch| touch.path).collect();

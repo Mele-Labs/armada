@@ -99,10 +99,10 @@ where
         true
     }
 
-    /// As `id` joins `manifest`'s line, the place the Operator ruled for it, while Dispatch is on.
+    /// As `id` joins `manifest`'s line, the place the Operator ruled for it, where Dispatch is on.
     pub(crate) async fn ruled_place_taken(&self, manifest: &str, id: &str) {
         let Some(place) = self.operator_seat().take_place(id) else { return };
-        if self.operator_dispatches() {
+        if self.operator_position(ipc::operator_positions::OperatorRole::Dispatch, manifest) == ipc::operator_positions::OperatorPosition::On {
             self.line_reordered(manifest, id, &place).await;
         }
     }

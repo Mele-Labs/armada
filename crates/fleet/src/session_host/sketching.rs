@@ -392,5 +392,6 @@ pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a 
             holders: Vec::new(),
             creating_since: None,
             create_refused: None,
+            operator_read: None,
         })
 }

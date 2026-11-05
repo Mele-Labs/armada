@@ -48,6 +48,7 @@ fn rule_act_item(act: &KeptRuleAct) -> Option<WaitingItem> {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     })
 }
 

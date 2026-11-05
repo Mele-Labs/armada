@@ -329,6 +329,15 @@ key!(
     Words => String, |value| match value { SettingValue::Text(text) => text.clone(), _ => String::new() }
 );
 key!(
+    /// A role of the Operator's, a [`Kind::Choice`] of [`OPERATOR_POSITIONS`](machine::OPERATOR_POSITIONS).
+    /// **A switch saved when the role had two positions reads as the one it meant.**
+    Position => String, |value| match value {
+        SettingValue::Text(text) => text.clone(),
+        SettingValue::Bool(true) => "on".to_string(),
+        _ => "off".to_string(),
+    }
+);
+key!(
     /// A [`Kind::TextList`].
     List => Vec<String>, |value| match value {
         SettingValue::List(items) => items

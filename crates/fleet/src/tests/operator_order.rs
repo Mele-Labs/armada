@@ -73,9 +73,7 @@ async fn with_the_operator_off_waiting_to_start_is_first_come_first_served() {
     let (first, _) = queued_and_idle(&rig, "first").await;
     let (second, _) = queued_and_idle(&rig, "second").await;
 
-    FleetActing::on(&rig.fleet).place(second.as_str(), &Place::Ahead(first.as_str().into()));
     let refused = Arc::clone(&rig.fleet).move_in_line(dragged(&second, LinePlace::Ahead { session_id: first.clone() })).await;
-    tokio::time::sleep(Duration::from_millis(200)).await;
 
     let refused = refused.expect_err("no drag while the Operator is off");
     assert!(format!("{refused:?}").contains("fleet.line_unordered"), "{refused:?}");

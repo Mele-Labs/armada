@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use ipc::{PlanGroupInput, PlanTaskInput, RecordPlan, SessionId, SessionStanding};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -19,13 +19,18 @@ use crate::operator::{Acting, Answering, Calling, FleetActing};
 use crate::CallFailed;
 
 async fn switched(rig: &Rig, key: &str, on: bool) {
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Bool(on)))]) };
+    let value = match key {
+        "features.operator" => ipc::SettingValue::Bool(on),
+        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+    };
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
 async fn on(rig: &Rig) {
     switched(rig, "features.operator", true).await;
     switched(rig, "features.operatorDispatch", true).await;
+    switched(rig, "features.operatorDelegate", true).await;
 }
 
 async fn told(rig: &Rig, id: &SessionId) -> Vec<String> {
@@ -279,4 +284,56 @@ async fn a_nudge_names_the_step_a_new_job_takes_the_rest_and_a_raise_reaches_his
         }
     })
     .await;
+}
+
+/// A Job stopped twice, with Delegate at Suggest and a nudge ruled, and its suggestion on his list.
+async fn nudge_suggested(rig: &Rig) -> (SessionId, ipc::WaitingItem) {
+    let id = stopped_twice(rig).await;
+    switched(rig, "features.operator", true).await;
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorDelegate".to_string(), Some(ipc::SettingValue::Text("suggest".into())))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+    let call = Answers::with(&["item: 1\nway: 1\nstep: Keep the scrollback on redraw, in terminal.tsx\nbecause: its next task waits on nobody"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    read_and_handed(rig, &id).await;
+    eventually(|| async { !suggestions(rig, &id).await.is_empty() }).await;
+    let item = suggestions(rig, &id).await.remove(0);
+    (id, item)
+}
+
+async fn suggestions(rig: &Rig, id: &SessionId) -> Vec<ipc::WaitingItem> {
+    let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read");
+    read.session.waiting_for.into_iter().filter(|one| one.source == ipc::WaitingSource::OperatorSuggestion).collect()
+}
+
+fn pressed(id: &SessionId, item: &ipc::WaitingItem, choice: u32) -> ipc::AnswerWaiting {
+    ipc::AnswerWaiting { session_id: id.clone(), item_id: item.id.clone(), choice: Some(choice), text: None, mode: None, fixed: None }
+}
+
+#[tokio::test]
+async fn with_delegate_at_suggest_a_nudge_waits_on_one_press_which_tells_the_job_and_a_second_finds_it_settled() {
+    let rig = rig_placing(None);
+    let (id, item) = nudge_suggested(&rig).await;
+    assert!(item.text.contains("Keep the scrollback on redraw"), "{}", item.text);
+    assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Do it", "Skip"]);
+    assert!(told(&rig, &id).await.is_empty(), "nothing is said until he presses");
+
+    Arc::clone(&rig.fleet).settle_waiting(pressed(&id, &item, 0)).await.expect("his press");
+
+    eventually(|| async { told(&rig, &id).await.iter().any(|one| one.contains("Keep the scrollback on redraw")) }).await;
+    assert!(suggestions(&rig, &id).await.is_empty(), "the row is gone");
+    let log = rig.fleet.store().lock().await.operator_rulings_of(id.as_str()).expect("read");
+    assert_eq!(log.last().map(|row| (row.outcome.as_str(), row.by.as_str())), Some(("nudge", "human")), "the Log says who pressed");
+    assert!(Arc::clone(&rig.fleet).settle_waiting(pressed(&id, &item, 0)).await.is_err(), "the first press won");
+}
+
+#[tokio::test]
+async fn skipping_what_delegate_would_do_tells_the_job_nothing_and_dismissing_it_is_the_same() {
+    let rig = rig_placing(None);
+    let (id, item) = nudge_suggested(&rig).await;
+
+    Arc::clone(&rig.fleet).settle_waiting(pressed(&id, &item, 1)).await.expect("his press");
+
+    assert!(suggestions(&rig, &id).await.is_empty(), "the row is gone");
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert!(told(&rig, &id).await.is_empty(), "the Job heard nothing");
 }
