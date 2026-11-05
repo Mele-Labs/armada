@@ -32,10 +32,14 @@ const LARGE_ATTACHMENT_BYTES: u64 = 32_000;
 /// measured is told as a small one is, so a send is never refused for the sake of a warning.
 pub(crate) fn attached_line(path: &str) -> String {
     let told = format!("Attached file: {path}");
+    // An svg draws as a picture but an agent reads it as text, and pays for it as text.
     let is_picture = Path::new(path)
         .extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| super::showing_file::PICTURES.iter().any(|(known, _)| known.eq_ignore_ascii_case(extension)));
+        .is_some_and(|extension| {
+            !extension.eq_ignore_ascii_case("svg")
+                && super::showing_file::PICTURES.iter().any(|(known, _)| known.eq_ignore_ascii_case(extension))
+        });
     let Some(bytes) = std::fs::metadata(path).ok().map(|found| found.len()).filter(|bytes| !is_picture && *bytes > LARGE_ATTACHMENT_BYTES) else {
         return told;
     };

@@ -49,6 +49,12 @@ fn a_big_file_is_told_with_its_size_and_to_be_read_in_parts() {
 }
 
 #[test]
+fn a_big_svg_is_told_to_be_read_in_parts_since_an_agent_reads_it_as_text() {
+    let (_dir, path) = kept("diagram.svg", 40_000);
+    assert!(attached_line(&path).contains("in parts"), "{path}");
+}
+
+#[test]
 fn a_file_of_a_megabyte_or_more_is_told_in_megabytes() {
     let (_dir, path) = kept("huge.json", 3 * 1024 * 1024);
     let line = attached_line(&path);

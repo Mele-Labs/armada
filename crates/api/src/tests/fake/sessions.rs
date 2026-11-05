@@ -522,7 +522,11 @@ impl Sessions for FakeDaemon {
     }
 
     async fn get_shown_file(&self, _id: ipc::SessionId, path: String) -> Result<crate::ShownFile, Refusal> {
-        Ok(crate::ShownFile::Text(ipc::ShownText { path, text: String::from("shown") }))
+        Ok(match path.rsplit('.').next() {
+            Some("mp4") => crate::ShownFile::Video { media_type: String::from("video/mp4"), bytes: 300_000_000 },
+            Some("big") => crate::ShownFile::TooLarge { bytes: 9_437_184 },
+            _ => crate::ShownFile::Text(ipc::ShownText { path, text: String::from("shown") }),
+        })
     }
 
     async fn show_file(

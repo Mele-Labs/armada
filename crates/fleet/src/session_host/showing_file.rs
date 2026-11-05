@@ -24,21 +24,37 @@ const SHOWN_NOT_SHOWN: &str = "fleet.shown_file_not_shown";
 const SHOWN_GONE: &str = "fleet.shown_file_gone";
 const SHOWN_NOT_TEXT: &str = "fleet.shown_file_not_text";
 
-/// The most the phone is sent of a file it opens: a phone screen of text, or a photo.
+/// The most the phone is sent of a text file: a phone screen of it.
 const MOST_SENT: u64 = 1024 * 1024;
 
 /// The pictures a phone draws, by extension, and the type each is sent under.
-pub(super) const PICTURES: [(&str, &str); 6] = [
+pub(super) const PICTURES: [(&str, &str); 7] = [
     ("png", "image/png"),
     ("jpg", "image/jpeg"),
     ("jpeg", "image/jpeg"),
     ("gif", "image/gif"),
     ("webp", "image/webp"),
     ("heic", "image/heic"),
+    ("svg", "image/svg+xml"),
 ];
 
+/// The videos the phone streams, by extension, and the type each is served under.
+const VIDEOS: [(&str, &str); 3] = [("mp4", "video/mp4"), ("mov", "video/quicktime"), ("webm", "video/webm")];
+
 /// The most Bridge's panel reads of a file: `MOST_BYTES` in `apps/desktop/src/main/session-file.ts`.
+/// **A picture is sent up to this too, not up to `MOST_SENT`**: a retina screenshot often passes 1 MiB,
+/// and whatever `show_file` accepted should open on the phone.
 const MOST_BYTES: u64 = 8 * 1024 * 1024;
+
+/// The most a video may be to be shown. It is never read into memory: the phone streams it from the
+/// Mac's disk through the Gateway, so the cap bounds what an agent may point at, not what Fleet holds.
+const MOST_VIDEO_BYTES: u64 = 256 * 1024 * 1024;
+
+/// What `table` calls the file at `path`, by its extension, in any case.
+fn media_type_in(table: &[(&str, &'static str)], path: &str) -> Option<&'static str> {
+    let (_, extension) = path.rsplit_once('.')?;
+    table.iter().find(|(known, _)| known.eq_ignore_ascii_case(extension)).map(|(_, media_type)| *media_type)
+}
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -117,8 +133,8 @@ where
     /// the path resolved and what is allowed.
     async fn file_resolved(&self, cwd: &str, given: &str) -> Result<String, Refusal> {
         let allowed = format!(
-            "Allowed: an existing file of at most {MOST_BYTES} bytes, as an absolute path or relative to \
-             this job's folder {cwd}"
+            "Allowed: an existing file of at most {MOST_BYTES} bytes, or {MOST_VIDEO_BYTES} bytes for an mp4, \
+             mov or webm video, as an absolute path or relative to this job's folder {cwd}"
         );
         let joined = match std::path::Path::new(given).is_absolute() {
             true => std::path::PathBuf::from(given),
@@ -147,7 +163,11 @@ where
                 &format!("{resolved_text} is {what}. {allowed}"),
             ));
         }
-        if meta.len() > MOST_BYTES {
+        let most = match media_type_in(&VIDEOS, &resolved_text) {
+            Some(_) => MOST_VIDEO_BYTES,
+            None => MOST_BYTES,
+        };
+        if meta.len() > most {
             return Err(self.hosted_refusal(
                 FILE_TOO_LARGE,
                 &format!("{resolved_text} is {} bytes. {allowed}", meta.len()),
@@ -180,12 +200,16 @@ where
         }
         let gone = |_| not_found(SHOWN_GONE, format!("{path} is no longer there"));
         let size = tokio::fs::metadata(path).await.map_err(gone)?.len();
-        if size > MOST_SENT {
+        if let Some(media_type) = media_type_in(&VIDEOS, path) {
+            // Never read, so no size is too large here: the Gateway streams it from the disk.
+            return Ok(ShownFile::Video { media_type: media_type.to_string(), bytes: size });
+        }
+        let picture = media_type_in(&PICTURES, path);
+        if size > picture.map_or(MOST_SENT, |_| MOST_BYTES) {
             return Ok(ShownFile::TooLarge { bytes: size });
         }
         let bytes = tokio::fs::read(path).await.map_err(gone)?;
-        let extension = path.rsplit_once('.').map(|(_, ext)| ext.to_ascii_lowercase()).unwrap_or_default();
-        if let Some((_, media_type)) = PICTURES.iter().find(|(ext, _)| *ext == extension) {
+        if let Some(media_type) = picture {
             return Ok(ShownFile::Picture { media_type: media_type.to_string(), bytes });
         }
         match String::from_utf8(bytes) {

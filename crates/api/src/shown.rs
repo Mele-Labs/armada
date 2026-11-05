@@ -20,26 +20,29 @@ pub(crate) struct WhichShown {
     path: String,
 }
 
-/// 200 with `ShownText`, or a picture's bytes under its type; 404 for a path
-/// the session did not show; 413 for a file over what the phone is sent.
+/// 200 with `ShownText`, a picture's bytes under its type, or `ShownVideo` for a video; 404 for a path
+/// the session did not show; 413 for text or a picture over what the phone is sent of its kind.
 pub(crate) async fn get_shown_file<D: Sessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichShown>,
 ) -> Response {
     let read = served
         .daemon()
-        .get_shown_file(ipc::SessionId::carried(which.session_id), which.path)
+        .get_shown_file(ipc::SessionId::carried(which.session_id), which.path.clone())
         .await;
     match read {
         Ok(ShownFile::Text(text)) => answer(StatusCode::OK, &text, served.run_id()),
         Ok(ShownFile::Picture { media_type, bytes }) => {
             (StatusCode::OK, [(header::CONTENT_TYPE, media_type)], bytes).into_response()
         }
+        Ok(ShownFile::Video { media_type, bytes }) => {
+            answer(StatusCode::OK, &ipc::ShownVideo { path: which.path, media_type, bytes }, served.run_id())
+        }
         Ok(ShownFile::TooLarge { bytes }) => problem(
             StatusCode::PAYLOAD_TOO_LARGE,
             &WireError::raised(
                 SHOWN_TOO_LARGE,
-                format!("This file is {bytes} bytes. The phone opens files of up to 1 MiB."),
+                format!("This file is {bytes} bytes. The phone opens text of up to 1 MiB and pictures of up to 8 MiB."),
                 served.run_id().clone(),
             ),
         ),

@@ -24,6 +24,7 @@ Why CodeMirror and not the text box the Manifest file view uses: `.claude/decisi
 
 An agent puts a file there with `show_file` (`crates/ipc/operations/show_file.toml`, described in `docs/concepts/session/showing-a-file.md`).
 It opens when that Session is on screen; otherwise its thread row opens it.
+A picture or a video it shows opens no panel by itself and draws in the thread; the card's "Opened" line opens a picture here, and a video in the Mac's own player.
 
 Selected lines, or a region of a picture, can be noted and sent to a Job from the panel (`session/noting-what-you-read.md`).
 
@@ -43,6 +44,7 @@ Unsaved edits are kept per path across closing the panel, and cleared on save.
 ## What does not open for editing
 
 Text that is not UTF-8, and a file over 8 MiB (`MOST_BYTES` in `apps/desktop/src/main/session-file.ts`), do not open for editing. A picture shows and cannot be edited.
+`show_file` takes a video up to 256 MiB, which the panel never reads: the thread plays it from disk (`docs/concepts/session/showing-a-file.md`).
 
 ## In their own editor
 

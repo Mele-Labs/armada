@@ -1,8 +1,10 @@
-// A file the agent shows with `show_file` opens in the side panel for the Session that is on screen. **Told by `shown`**, the
-// time Fleet took at each call: a second show of one path is a new `shown`. What the Session already held when it came on
-// screen is not new, so reopening a Session, or a reload, opens nothing; its thread row opens the file instead.
+// A file the agent shows with `show_file` opens in the side panel for the Session that is on screen, unless it is a picture or a
+// video, which draws in its thread row. **Told by `shown`**, the time Fleet took at each call: a second show of one path is a new
+// `shown`. What the Session already held when it came on screen is not new, so reopening a Session, or a reload, opens nothing;
+// its thread row opens the file instead.
 
 import { useEffect, useRef } from "react";
+import { mediaKindOf } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import { openInPanel } from "./shared-panel/store";
@@ -39,6 +41,7 @@ export function useShownFiles(session: Pick<Session, "id" | "attachments">): voi
     for (const one of now) {
       if (seen.current.shown.has(one.key)) continue;
       seen.current.shown.add(one.key);
+      if (mediaKindOf(one.path) !== undefined) continue;
       openInPanel({
         kind: "file",
         path: one.path,

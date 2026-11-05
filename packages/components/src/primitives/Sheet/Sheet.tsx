@@ -337,6 +337,8 @@ export function Sheet({
       if (sheetRef.current?.querySelector("[data-holds-esc]")) return;
       // The command palette opens over every surface, a sheet included, and takes the press for the same reason.
       if (document.querySelector(".armada-palette")) return;
+      // A picture enlarged over the sheet is portalled out of it, and one Esc closes the picture alone.
+      if (document.querySelector(".armada-enlargeable__scrim")) return;
       // A toast stands over the sheet, and a press made inside it is the toast's.
       if (document.activeElement?.closest(".armada-toast")) return;
       // A code editor with its search bar open closes the bar on Esc, and the press is that one's.
