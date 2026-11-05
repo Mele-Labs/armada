@@ -29,7 +29,7 @@ Neither is wire.
 **Left, because a surface other than a need reads it.** The `ledger_attachments` rows of kind `need` an earlier build wrote stay in the store, unread; no migration drops them, which the Job tables' one later migration will.
 `Store::standing_in_order` stays: pull request owners read it.
 
-**Left, and not this:** Fleet's single re-run of a hung CI job (`rerun_failed` in `pull_notices.rs`), the Helm `rerun_failed_checks` act, and write-clash detection (`list_write_clashes`), which is what tells two agents they are changing the same file.
+**Left, and not this:** Fleet's single re-run of a hung CI job (`rerun_failed` in `pull_notices.rs`), the `rerun_failed_checks` act, and write-clash detection (`list_write_clashes`), which is what tells two agents they are changing the same file.
 
 **The `needs` commit status** Fleet put on each open pull request, and the forge write behind it (`Delivery::publish_status`, `CommitStatus`, `StatusState`), are gone.
 It was never required in the ruleset, and `checks.yml` never reported a context of that name.

@@ -635,15 +635,13 @@ where
     }
 
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
-    /// thread draws it as that session's, the timeline enters it unless Helm sent
-    /// it, and a receiver whose process was ended is started with it, unless it is paused.
+    /// thread draws it as that session's, the timeline enters it, and a receiver whose process was ended is started with it, unless it is paused.
     async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
-        let (target, title, named, hosting, from_helm) = {
+        let (target, title, named, hosting) = {
             let store = self.store().lock().await;
             let Ok(hostings) = store.hostings() else {
                 return;
             };
-            let from_helm = hostings.iter().any(|one| one.session_id == from && one.helm);
             let Some(hosting) = hostings
                 .into_iter()
                 .find(|hosting| address_of(&hosting.session_id) == to)
@@ -653,7 +651,7 @@ where
             let sender = store.session(from).ok().flatten();
             let named = sender.map(|session| (session.title, session.manifest_id)).unwrap_or_default();
             let title = named.0.clone().unwrap_or_else(|| address_of(from));
-            (hosting.session_id.clone(), title, named, hosting, from_helm)
+            (hosting.session_id.clone(), title, named, hosting)
         };
         if target == from {
             return;
@@ -669,9 +667,7 @@ where
             ..super::start_card::FirstTurn::said(voice, message)
         };
         if self.turn_kept_while_held(&target, &first).await.unwrap_or(false) {
-            if !from_helm {
-                self.session_messaged(from, named, &target, message);
-            }
+            self.session_messaged(from, named, &target, message);
             let _ = self.published_hosted(&target).await;
             return;
         }
@@ -692,9 +688,7 @@ where
             },
         )
         .await;
-        if !from_helm {
-            self.session_messaged(from, named, &target, message);
-        }
+        self.session_messaged(from, named, &target, message);
         let runtime = self.hosts().of(&target);
         runtime.state().woken_by.push(SessionVoiceNamed {
             id: from.to_string(),

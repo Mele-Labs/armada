@@ -1,6 +1,5 @@
-// An Incoming call opens what it is about. Three Sessions ask, in the wire's own `waiting_for`: one with two questions
-// (a Session has one `call` on its subject, so only one of its calls is that key), one with a single question, and Helm's
-// own Session, which the deck's list does not draw. The claims are in `cockpit-call-owner.test.tsx`.
+// An Incoming call opens what it is about. A Session asks, in the wire's own `waiting_for`: two questions
+// (a Session has one `call` on its subject, so only one of its calls is that key). The claims are in `cockpit-call-owner.test.tsx`.
 
 import type { Session } from "@armada/screens/src/draft/sessions";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -72,30 +71,10 @@ const two = asking("d5da70fd-70f9-4394-85c6-26076c9aa8c8", "Session / Job Progre
     ],
   },
 ]);
-const helm: Session = {
-  ...asking("h1", "Helm · armada", [
-    {
-      id: "ask:helm:0",
-      text: "Which repository should I read first?",
-      since: ago(1),
-      source: "ask_card",
-      options: [
-        {
-          label: "armada",
-        },
-        {
-          label: "pocket",
-        },
-      ],
-    },
-  ]),
-  helm: true,
-};
-
 function build(): Scenario {
   const base = holding(
     "cockpit-call-owner",
-    "The flight deck with a Session that asks two questions and Helm's own Session asking one",
+    "The flight deck with a Session that asks two questions",
   );
   return {
     ...base,
@@ -107,7 +86,6 @@ function build(): Scenario {
       sessions: () =>
         sessionsStore([
           two,
-          helm,
         ]),
     },
   };

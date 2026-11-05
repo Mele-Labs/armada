@@ -77,7 +77,7 @@ A Session ending clears its list, which resolves nothing.
 **One Job's message to another is `session.messaged`, one entry for each message delivered** (22 Oct 2026), so a Job's Field can draw the arc between the two.
 It is written in `Fleet::delivered` (`session_host/hearing.rs`), where a hosted Job's `SendMessage` has been put on the receiver's thread, and not where the call is heard.
 The subject is the sender, `to` the receiver, and `says` is `Messaged: {text}`, cut as every `says` is; the receiver finds it by `to`.
-A person's message and Helm's (`tell_session`, or a `SendMessage` from Helm's own process) enter nothing.
+A person's message and a `tell_session` send enter nothing.
 It costs no read beyond what delivery already made, and nothing on any other path.
 **A terminal Job's message is not entered**: the mod tells only an `attached` `message` with the name it was sent to and a count, and deliberately never the text (`plugins/armada/hooks/register.ts`, `session.send`), and that name is not a Job's id.
 The store keeps `to` in `timeline_events.to_id`; a row written before the column has none.

@@ -32,8 +32,7 @@ import type { JobLifecyclesChanged } from "./lifecycles";
 import type { KeepDraftsChanged } from "./job-copy";
 import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
-import type { Studio, StudioDeleted, StudioHelmActed } from "./studio";
-import type { HelmAskingToRun, HelmCallAnswered } from "./helm-calls";
+import type { Studio, StudioDeleted, StudioJobActed } from "./studio";
 import type { ProtocolId } from "./connection";
 
 /** One message from Fleet to a connected client. `crates/ipc/src/event.rs`. */
@@ -118,16 +117,10 @@ export type Event =
   | ({
       kind: "studio.deleted";
     } & StudioDeleted)
-  /** Helm took one act on a Studio, beside its `studio.changed`. Since 14.7. */
+  /** A job on your words took one act on a Studio, beside its `studio.changed`. Since 14.7. */
   | ({
-      kind: "studio.helm_acted";
-    } & StudioHelmActed)
-  | ({
-      kind: "helm.asking_to_run";
-    } & HelmAskingToRun)
-  | ({
-      kind: "helm.call_answered";
-    } & HelmCallAnswered)
+      kind: "studio.job_acted";
+    } & StudioJobActed)
   /** A session after any fact about it, whole. Since 23.43. */
   | ({
       kind: "session.changed";

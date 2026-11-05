@@ -164,14 +164,14 @@ A rename he makes after it is learned against it, unless he had renamed the Job 
 No field says a proposal happened beyond that.
 The one thing kept for the proposer's own sake is his renames, in `job_renames`.
 
-## Relationship to Helm
+## Relationship to the Operator
 
-[Helm](helm.md) does the same reasoning more deliberately — the expensive end of a spectrum this covers cheaply by default.
+A dispatch goes through the proposer, then the [Operator](operator.md), which rules whether it starts, goes to a live Job, waits or is kept in touch with another.
 
-|  | Proposer | Helm |
+|  | Proposer | Operator |
 | --- | --- | --- |
-| Runs | On every start from the sheet | On request |
-| Budget | Tight | None |
-| Model | `models.proposer` | Supplied by the caller |
+| Runs | On every start from the sheet | On every arrival, a dispatch after the proposer has read it |
+| Budget | Tight | `limits.operatorDailyCalls` a day |
+| Model | `models.proposer` | `models.operator` |
 
 It shares the `ModelClient` adapter with the [Judge](judge.md) — same client, different callers, model as a parameter.

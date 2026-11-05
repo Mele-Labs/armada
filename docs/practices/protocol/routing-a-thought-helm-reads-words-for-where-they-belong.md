@@ -2,12 +2,14 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
+**A record of what was.** Helm is gone and the Operator took its place; [The Operator takes Helm's place](the-operator-takes-helms-place.md) has the seam as it is now.
+
 **Since 13 Oct 2026 the `sent` row is a `SessionRow::Sent` in the Helm Job's thread, and `record_thought_sent` answers a `SessionRecord`.** The `observe_helm` message `sent` and `HelmSent` rows below are retired; see *Helm is a Job*.
 
-`docs/concepts/helm.md`, *Routing a thought*.
+`docs/concepts/operator.md`, *Routing a thought*.
 **Additive only**: two operations, one event kind and one message on the Helm socket, all of Bridge's (`agent_access` `No`, `Bridge only` for the event).
 No type that exists changes.
-Bridge's half is `packages/protocol/src/thought.ts`, `helm.ts` and `helm-thread.ts`, written by hand.
+Bridge's half is `packages/protocol/src/thought.ts`, with `helm.ts` and `helm-thread.ts`, since deleted, written by hand.
 There is no number to take: the protocol ID moves with the wire files, and `armada need` has nothing to order.
 
 | Where | Carries | Notes |
@@ -18,7 +20,7 @@ There is no number to take: the protocol ID moves with the wire files, and `arma
 | `observe_helm` message `sent` | `HelmSent`: `ts`, `text`, `target` | A row of the thread's file, so it is in the backfill after a restart. Never delivered to Helm's job |
 | `helm.thought_routed` (event) | `HelmThoughtRouted`: `manifest_id`, `to` (`session` or `job`), `id`, `at` | The audit event of *Audit trail*. Names where and never the words. Rust only: Bridge mirrors no `helm.*` audit kind |
 
-**This reads across repositories, which `helm.md` otherwise says Helm does not do.** The owner decided it on 12 Oct 2026 for this one read.
+**This reads across repositories, which Helm otherwise did not do.** The owner decided it on 12 Oct 2026 for this one read.
 `read_thought` takes no `manifest_id`, so what it can see does not depend on where Helm points.
 
 **The event stream.** One small event per delivery, a person's press apart, on the shared drop-oldest channel.

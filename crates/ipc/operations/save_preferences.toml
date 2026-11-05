@@ -1,7 +1,7 @@
 [operations.save_preferences]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Save one preference by name, and answer with every preference now in force"
 notes = """
 **One preference, not the set**, written into settings.json under its key — `where_things_are_open` is `bridge.whereThingsAreOpen`, `draft_pull_requests` is `features.draftPullRequests`, `theme` is `bridge.theme`, `layout_choices` is `bridge.layout` and `key_bindings` is `bridge.keyBindings` and `time_format` is `bridge.timeFormat`. Every other key in the file is left as it was.

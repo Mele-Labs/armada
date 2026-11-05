@@ -1078,7 +1078,7 @@ export function workflowing(): Scenario {
         health: {
           probes: [],
           not_probed: [],
-          helm_action_authority: "acting",
+          action_authority: "acting",
           workflows_left_out: true,
         },
       },
@@ -1144,7 +1144,7 @@ export function doctoring(): Scenario {
               because: "No adapter is configured on this machine.",
             },
           ],
-          helm_action_authority: "acting",
+          action_authority: "acting",
         },
       },
     },

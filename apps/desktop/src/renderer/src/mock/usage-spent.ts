@@ -314,7 +314,7 @@ const JOB_SHARES: Readonly<Record<string, Shares>> = {
       2,
     ],
   },
-  "01JUSAGEHELM000000000000": {
+  "01JUSAGELOOP000000000000": {
     on: [
       26,
       14,

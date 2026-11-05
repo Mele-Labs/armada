@@ -9,7 +9,7 @@
 //!
 //! **Only a person's Resume lifts a pause.** No message does: the process of a paused Session is
 //! never started (`living::process_of` refuses), a Fleet notice is not told (`fleet_word`), and
-//! every other turn, a person's, Helm's or another Job's, is on the thread and kept off the agent
+//! every other turn, a person's or another Job's, is on the thread and kept off the agent
 //! in `held_later_turns`, where the start card keeps its own. They are the Job's next turns once
 //! it holds a slot again, or Fleet tells it that it was resumed ([`Fleet::pause_lifted`]).
 
@@ -26,7 +26,7 @@ use super::start_card::{first_turn_of, FirstTurn};
 use crate::daemon::Fleet;
 use crate::leasing::pool_of;
 
-/// A Session that cannot be paused or resumed as it stands: ended, a Helm, or holding no slot.
+/// A Session that cannot be paused or resumed as it stands: ended, or holding no slot.
 /// A 409.
 const SESSION_NOT_PAUSABLE: &str = "fleet.session_not_pausable";
 /// Pausing a Session that is paused. A 409.
@@ -64,8 +64,8 @@ where
             ));
         }
         let (session, mut hosting) = self.session_and_hosting(&id).await?;
-        if session.state == store::SessionState::Ended || hosting.helm {
-            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} has ended or is a Helm, and is not paused")));
+        if session.state == store::SessionState::Ended {
+            return Err(self.conflict(SESSION_NOT_PAUSABLE, format!("job {id} has ended, and is not paused")));
         }
         if hosting.paused_at.is_some() {
             // Paused again while it waits for a slot: the wait is called off.

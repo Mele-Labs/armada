@@ -439,7 +439,7 @@ Rules that follow:
 
 ### One pool of compiler jobs for the machine
 
-**Fleet holds one pool of compiler slots, sized to the machine's cores, and hands it to every build it starts**: Jobs, Helm, scouts and Checks.
+**Fleet holds one pool of compiler slots, sized to the machine's cores, and hands it to every build it starts**: Jobs, scouts and Checks.
 Five builds share the cores and a lone build can use all of them.
 Decided by the owner on 16 Oct 2026, and it replaces the per-Check width as the cap on a compile (#1444), which bounded each build and left the sum of them unbounded.
 
@@ -535,7 +535,7 @@ Rules that follow:
 `nice` left the process at priority 31 and changed nothing.
 Background QoS gave way as well as utility but nearly doubled a Check's time on a machine with room, because it holds work to the slower cores.
 
-**An agent runs at the same clamp, so a build it runs itself yields too.** Fleet starts every Helm and scout, and a Job's keeper starts its agent, under `taskpolicy -c utility`, and everything the agent starts inherits it.
+**An agent runs at the same clamp, so a build it runs itself yields too.** Fleet starts every scout, and a Job's keeper starts its agent, under `taskpolicy -c utility`, and everything the agent starts inherits it.
 `ARMADA_CHECK_PRIORITY=normal` in Fleet's environment turns this off with the Checks' lowering.
 
 - **Fleet's own launchd job is `ProcessType` `Interactive`**, so Fleet and a run the owner starts from Bridge are at normal priority, and only agents and their Checks are lowered.

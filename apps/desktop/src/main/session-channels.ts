@@ -45,7 +45,7 @@ import type {
   DismissWait,
   ReadWatchLog,
 } from "@armada/protocol";
-import { HELM_CALL_ANSWERS, isNotice } from "@armada/protocol";
+import { CALL_ANSWERS, isNotice } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type {
   PullRequestPress,
@@ -90,7 +90,7 @@ const WRITES: readonly PullRequestWrite["kind"][] = [
 ];
 // **From the protocol, not retyped**: a list kept here missed `always_allow` and `always_block`,
 // and the card's press came back as Fleet not connected (16 Oct 2026).
-const ANSWERS: readonly string[] = HELM_CALL_ANSWERS;
+const ANSWERS: readonly string[] = CALL_ANSWERS;
 const MODES = [
   "ask",
   "auto",

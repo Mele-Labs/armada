@@ -11,7 +11,6 @@
 | **Wording for the injected turns.** Every turn Fleet authors and injects is drafted rather than sanctioned. The one entry with sanctioned wording, the refusal reprompt, is injected into nothing — it rides a brief | 4a |
 | **The `Commit/PR message template` collision.** A Manifest template is layer-3 prompt content and it is a shape rule. Section 5 forbids shape rules in the baseline and says nothing about layers 2 to 6 | 3, 5 |
 | **Prior-iteration context on loop workflows.** Evidence Scope appends it, which is a further source of prompt content — and for the Judge it sits oddly against "stateless, one-shot, no memory between calls" | 2, 3 |
-| **Helm has no frozen/live story.** Jobs are persistent and per-Manifest; Voice and authority are configurable; Helm has no respawn path. What happens to a live job when the Kit or Machine config changes is unstated | 4 |
 | **Criterion independence** — may a Judge grading criterion 2 see criterion 1's verdict? | 2 |
 | **What a Job summary is and who writes it** | 2 |
 

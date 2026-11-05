@@ -1,10 +1,10 @@
 [operations.restart_fleet]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Restarts the daemon"
 notes = """
 An API command, not a recovery path. It cannot serve the case it is named for — a dead Fleet cannot restart itself. Bridge restarts Fleet by calling `launchctl kickstart -k` itself, behind the Restart Fleet button on the protocol mismatch notice, so nothing crosses the wire.
 
-Still unserved (`xtask`'s `NOT_BUILT` names why), so `agent_access` moving to `Helm only` with the rest of that ruling changes nothing until somebody builds a route.
+Still unserved (`xtask`'s `NOT_BUILT` names why), so `agent_access` moving to `On your words` with the rest of that ruling changes nothing until somebody builds a route.
 """

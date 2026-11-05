@@ -117,7 +117,7 @@ export const REFERENCE_KIND: Record<ProseReference["kind"], string> = {
 
 /**
  * Where a reference is found and where it goes. Provided by the one surface that wants its words linked,
- * Helm's thread: every other `Prose` leaves its words as they are. `scan` returns the non-overlapping spans of
+ * a Job's thread: every other `Prose` leaves its words as they are. `scan` returns the non-overlapping spans of
  * `text` that name something, in any order.
  */
 export type ProseReferences = {
@@ -237,7 +237,11 @@ export function ReferenceLink({
   const refs = useContext(ProseRefs);
   if (refs === null) return <>{children}</>;
   return (
-    <Tooltip label={`${REFERENCE_KIND[reference.kind]} · ${reference.title}`} asChild>
+    <Tooltip
+      key={`${reference.kind}/${reference.id}`}
+      label={`${REFERENCE_KIND[reference.kind]} · ${reference.title}`}
+      asChild
+    >
       <a
         className="armada-prose__link"
         href={`#${reference.kind}`}

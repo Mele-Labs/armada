@@ -17,7 +17,7 @@
  * read). `session.subagent` says `Subagent started`, `Subagent resumed` or `Subagent finished` with `Type: description` as its
  * detail; `session.spawned` is the Session whose agent started another (`detail` its title) or forked itself.
  * `session.messaged` is a Session's message delivered to another Session's thread: the subject sent it, `to` received
- * it, and `says` is `Messaged: {text}`, cut. Never written for a person's or Helm's message.
+ * it, and `says` is `Messaged: {text}`, cut. Never written for a person's message.
  * `session.walked` is a walk the Session showed (`detail` the page's title), `session.committed` a `git commit` that made a
  * commit and `session.pushed` a `git push` that updated a ref (`detail` the branch). Those three and the pull request's own
  * entries are the road a Session's `build` reads its stops from. `session.called` is one call a Session made to a service

@@ -26,7 +26,7 @@ use core_model::{
     StudioEdgeId, StudioFinding, StudioId, StudioNode, StudioNodeContent, StudioNodeId,
     StudioPosition, StudioRelation,
 };
-use ipc::{HelmStudioAct, ManifestId, ReadInLink};
+use ipc::{StudioJobAct, ManifestId, ReadInLink};
 use tokio::process::Command;
 use tokio::time::timeout;
 
@@ -213,10 +213,10 @@ where
                 store.keep_read_in(id, &link, resolved.as_ref(), &made, &[], &taken_back, &at)
             })
             .await?;
-        self.published_as_helms(
+        self.published_as_jobs(
             by,
             &studio,
-            HelmStudioAct::ReadIn {
+            StudioJobAct::ReadIn {
                 from: ipc::StudioNodeId::from(&link),
                 node_ids,
             },
@@ -308,10 +308,10 @@ where
                 store.keep_read_in(id, &link, resolved.as_ref(), &made, &[], &[], &at)
             })
             .await?;
-        self.published_as_helms(
+        self.published_as_jobs(
             by,
             &studio,
-            HelmStudioAct::ReadIn {
+            StudioJobAct::ReadIn {
                 from: ipc::StudioNodeId::from(&link),
                 node_ids,
             },
@@ -369,7 +369,7 @@ where
                 to,
                 at.clone(),
                 // A scout runs on a person's ask, and a Studio records a
-                // person or Helm: whoever asked owns what came back.
+                // person or a Job: whoever asked owns what came back.
                 ended.node().added_by().unwrap_or(StudioAuthor::Person),
             )
             .placed(within, to);
@@ -589,17 +589,17 @@ where
             Fetch::File(file) => tokio::fs::read_to_string(&file)
                 .await
                 .map_err(|why| unreadable(format!("{} would not open: {why}", file.display()))),
-            Fetch::Thread => self.helm_thread(studio, within).await,
+            Fetch::Thread => self.thread_of_the_newest_job_on_your_words(studio, within).await,
         }
     }
 
-    /// This repository's Helm thread, as what was said in it: the live Helm Session's rows.
+    /// This repository's newest Job on your words, as what was said in it.
     ///
-    /// **Fleet's own read and not a tool.** `get_helm_session` refuses every agent
-    /// — `crates/ipc/operations/` — so a scout reaching a thread through a
-    /// tool would be that door opened; the rows are read here instead and their
-    /// prose handed over. A repository with no live Helm Session has no thread to open.
-    async fn helm_thread(
+    /// **Fleet's own read and not a tool.** A Job's thread is read through `get_session`, which
+    /// refuses every agent, so a scout reaching a thread through a tool would be that door
+    /// opened; the rows are read here and their prose handed over. A repository with no Job on
+    /// your words has no thread to open.
+    async fn thread_of_the_newest_job_on_your_words(
         &self,
         studio: &StudioId,
         within: Option<&ManifestId>,
@@ -612,14 +612,47 @@ where
                 .clone()
         };
         let served = self.served_named(Some(&ManifestId::from(&manifest)))?;
-        let rows = self.helm_thread_rows(served.manifest().id().as_str()).await.map_err(|why| {
+        let unopened = |why: String| {
             self.studio_unacceptable(
                 UNREADABLE,
-                format!("this repository's Helm thread would not open: {why}"),
+                format!("this repository's Job on your words would not open: {why}"),
             )
-        })?;
-        Ok(crate::helm::what_was_said(&rows))
+        };
+        let newest = self
+            .store()
+            .lock()
+            .await
+            .latest_on_your_words_of(served.manifest().id().as_str())
+            .map_err(|why| unopened(why.to_string()))?
+            .ok_or_else(|| unopened(String::from("this repository has none")))?;
+        let rows = self
+            .rows_of(&newest.session_id)
+            .await
+            .map_err(|refusal| unopened(refusal.error().message.clone()))?;
+        Ok(what_was_said(&rows))
     }
+}
+
+/// What was said in a Job's thread: the person's asks and the Job's prose, in order. `#1293`.
+///
+/// Everything else in the thread is the Job's working (its calls, the asks it put to the person,
+/// where it sent words), which is not what was argued.
+fn what_was_said(rows: &[ipc::SessionRow]) -> String {
+    let mut said: Vec<String> = Vec::new();
+    for row in rows {
+        let ipc::SessionRow::Message { from, text, .. } = row else {
+            continue;
+        };
+        let who = match from {
+            ipc::SessionVoice::You => "The person",
+            ipc::SessionVoice::Agent => "The Job",
+            ipc::SessionVoice::Session { title, .. } => title.as_str(),
+        };
+        if !text.trim().is_empty() {
+            said.push(format!("{who}: {}", text.trim()));
+        }
+    }
+    said.join("\n\n")
 }
 
 /// One rendered fetch, run in Fleet's own process. `crate::proposal`'s

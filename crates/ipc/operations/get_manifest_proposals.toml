@@ -12,5 +12,5 @@ The step after Scan, for a repository with no `armada.yml` — `docs/journeys/se
 
 **Held in Fleet's memory for the Fleet's life, never stored.** The first read of a workspace builds its proposal and later reads return it with every edit applied; a restart loses the edits and costs one Scan. Served against the checkout Fleet was started in until Locate (#821).
 
-`agent_access` is `No`, as for every operation derived from the main checkout, Scan included. Helm will need this read and a draft-shaped edit, at *Drafts only*, and never Write.
+`agent_access` is `No`, as for every operation derived from the main checkout, Scan included. A Job on your words will need this read and a draft-shaped edit, at *Drafts only*, and never Write.
 """

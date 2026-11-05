@@ -15,7 +15,7 @@ use serde::Serialize;
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Redirector, Refusal, Studios};
-use crate::door::{HelmCalled, Scoped};
+use crate::door::{WordsCalled, Scoped};
 use crate::scoped::InManifest;
 use crate::served::Served;
 
@@ -122,11 +122,11 @@ pub(crate) async fn create_studio<D: Studios>(
     answered(&served, StatusCode::CREATED, created)
 }
 
-/// Who acted is the transport's word: a Helm session the door placed, or a
+/// Who acted is the transport's word: a Job on your words the door placed, or a
 /// person.
-fn acting(helm: Option<Extension<HelmCalled>>) -> Redirector {
-    match helm {
-        Some(_) => Redirector::Helm,
+fn acting(job: Option<Extension<WordsCalled>>) -> Redirector {
+    match job {
+        Some(_) => Redirector::Job,
         None => Redirector::Person,
     }
 }
@@ -135,7 +135,7 @@ pub(crate) async fn rename_studio<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let rename = match body(&served, "a Studio's name", &bytes) {
@@ -147,7 +147,7 @@ pub(crate) async fn rename_studio<D: Studios>(
         .rename_studio(
             StudioId::carried(studio_id),
             rename,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;
@@ -167,13 +167,13 @@ pub(crate) async fn delete_studio<D: Studios>(
     answered(&served, StatusCode::OK, deleted)
 }
 
-/// Who added it is the transport's word: a Helm session the door placed, or
+/// Who added it is the transport's word: a Job on your words the door placed, or
 /// a person.
 pub(crate) async fn add_studio_node<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let add = match body(&served, "a node to add", &bytes) {
@@ -185,7 +185,7 @@ pub(crate) async fn add_studio_node<D: Studios>(
         .add_studio_node(
             StudioId::carried(studio_id),
             add,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;
@@ -249,7 +249,7 @@ pub(crate) async fn propose_studio_edge<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let proposal = match body(&served, "an edge to propose", &bytes) {
@@ -261,7 +261,7 @@ pub(crate) async fn propose_studio_edge<D: Studios>(
         .propose_studio_edge(
             StudioId::carried(studio_id),
             proposal,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;
@@ -327,7 +327,7 @@ pub(crate) async fn read_in_link<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let read_in = match body(&served, "a Link to read in", &bytes) {
@@ -339,7 +339,7 @@ pub(crate) async fn read_in_link<D: Studios>(
         .read_in_link(
             StudioId::carried(studio_id),
             read_in,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;
@@ -368,7 +368,7 @@ pub(crate) async fn start_studio_run<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let asked = match body(&served, "a run to start from a Studio", &bytes) {
@@ -380,7 +380,7 @@ pub(crate) async fn start_studio_run<D: Studios>(
         .start_studio_run(
             StudioId::carried(studio_id),
             asked,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;
@@ -394,7 +394,7 @@ pub(crate) async fn start_studio_server<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let asked = match body(&served, "a server to start from a Studio", &bytes) {
@@ -406,7 +406,7 @@ pub(crate) async fn start_studio_server<D: Studios>(
         .start_studio_server(
             StudioId::carried(studio_id),
             asked,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;
@@ -414,8 +414,8 @@ pub(crate) async fn start_studio_server<D: Studios>(
 }
 
 // Promotion — `#1291`. Every one answers with the Studio whole, as every other
-// write on one does. Only the two Helm may take on a person's ask read `helm`;
-// the rest are a person's and nothing places a Helm session on them.
+// write on one does. Only the two a Job on your words may take on a person's ask read `job`;
+// the rest are a person's and nothing places a Job on your words on them.
 
 pub(crate) async fn group_studio_nodes<D: Studios>(
     State(served): State<Served<D>>,
@@ -456,7 +456,7 @@ pub(crate) async fn write_up_studio_node<D: Studios>(
     State(served): State<Served<D>>,
     Path(studio_id): Path<String>,
     scope: Scope,
-    helm: Option<Extension<HelmCalled>>,
+    job: Option<Extension<WordsCalled>>,
     bytes: Bytes,
 ) -> Response {
     let writing = match body(&served, "a node to write up", &bytes) {
@@ -468,7 +468,7 @@ pub(crate) async fn write_up_studio_node<D: Studios>(
         .write_up_studio_node(
             StudioId::carried(studio_id),
             writing,
-            acting(helm),
+            acting(job),
             within(scope),
         )
         .await;

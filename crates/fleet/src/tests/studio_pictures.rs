@@ -120,7 +120,7 @@ async fn a_person_pastes_a_picture_and_its_frame_is_kept_and_served() {
 
 /// **Over the cap is refused, and nothing is left behind**: no node, and no
 /// file under the Studio. Unreadable is refused the same way. A Picture from
-/// Helm is refused before its file is touched, since Helm adds only what
+/// A Job on your words is refused before its file is touched, since it adds only what
 /// starts proposed.
 #[tokio::test]
 async fn a_picture_that_cannot_be_kept_or_is_not_a_persons_writes_nothing() {
@@ -154,10 +154,10 @@ async fn a_picture_that_cannot_be_kept_or_is_not_a_persons_writes_nothing() {
 
     let light = staged(&home, "light.png", &[1u8; 64]);
     let refused = fleet
-        .add_studio_node(studio.id.clone(), a_picture(&light), Redirector::Helm, None)
+        .add_studio_node(studio.id.clone(), a_picture(&light), Redirector::Job, None)
         .await
-        .expect_err("Helm adds only what starts proposed");
-    assert_eq!(code(&refused), "fleet.studio_node_not_helms");
+        .expect_err("a Job adds only what starts proposed");
+    assert_eq!(code(&refused), "fleet.studio_node_not_a_jobs");
 
     // A `produced_by` naming no node of this Studio is refused by the store,
     // after the file was kept — and the file goes back out with it.

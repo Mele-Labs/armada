@@ -185,7 +185,7 @@ fn every_launch_carries_the_session_rules_once() {
     for resuming in [false, true] {
         let plain = rendered(&launching(resuming, SessionMode::Auto));
         assert_eq!(appended(&plain), format!("{}\n\n{}", rules(), naming()), "resuming: {resuming}");
-        let noted = rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm."));
+        let noted = rendered(&launching(resuming, SessionMode::Auto).noting("You inherit a hand-over."));
         assert_eq!(appended(&noted).matches(rules()).count(), 1, "resuming: {resuming}");
         let forked = rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable"));
         assert_eq!(appended(&forked).matches(rules()).count(), 1, "resuming: {resuming}");
@@ -197,10 +197,10 @@ fn every_launch_carries_the_session_rules_once() {
 #[test]
 fn every_launch_tells_the_job_its_id_once_after_the_rules() {
     for resuming in [false, true] {
-        let noted = appended(&rendered(&launching(resuming, SessionMode::Auto).noting("You are Helm.")));
+        let noted = appended(&rendered(&launching(resuming, SessionMode::Auto).noting("You inherit a hand-over.")));
         assert_eq!(noted.matches(&naming()).count(), 1, "resuming: {resuming}");
         let rules_end = noted.find(rules()).expect("the rules") + rules().len();
-        assert!(noted[rules_end..].starts_with(&format!("\n\n{}\n\nYou are Helm.", naming())), "resuming: {resuming}");
+        assert!(noted[rules_end..].starts_with(&format!("\n\n{}\n\nYou inherit a hand-over.", naming())), "resuming: {resuming}");
         let forked = appended(&rendered(&launching(resuming, SessionMode::Auto).forking(OLD, NOTE).expect("portable")));
         assert_eq!(forked.matches(&naming()).count(), 1, "resuming: {resuming}");
     }
@@ -358,11 +358,11 @@ fn the_rules_teach_armada_job_and_keep_the_one_line_that_loads_the_task_tools() 
     assert_eq!(line, "select:TaskCreate,TaskUpdate", "only the harness's own tools are loaded by search");
 }
 
-/// Helm's note is appended to every process of its Session after the rules, and a blank one is
+/// A note is appended to every process of its Session after the rules, and a blank one is
 /// none at all.
 #[test]
-fn helms_note_is_appended_to_every_process_of_its_session() {
-    let note = "You are Helm, docked in Armada over repository armada.";
+fn a_note_is_appended_to_every_process_of_its_session() {
+    let note = "You inherit the logbook of repository armada.";
     for resuming in [false, true] {
         let args = rendered(&launching(resuming, SessionMode::Auto).noting(note));
         assert_eq!(appended(&args), format!("{}\n\n{}\n\n{note}", rules(), naming()), "resuming: {resuming}");
@@ -378,9 +378,9 @@ fn a_note_and_a_forks_note_are_one_appended_prompt() {
     let launch = launching(false, SessionMode::Auto)
         .forking(OLD, NOTE)
         .expect("portable")
-        .noting("You are Helm.");
+        .noting("You inherit a hand-over.");
     let args = rendered(&launch);
-    assert_eq!(appended(&args), format!("{}\n\n{}\n\nYou are Helm.\n\n{NOTE}", rules(), naming()));
+    assert_eq!(appended(&args), format!("{}\n\n{}\n\nYou inherit a hand-over.\n\n{NOTE}", rules(), naming()));
 }
 
 #[test]

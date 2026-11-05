@@ -54,7 +54,7 @@ const picker = (
 
 /**
  * Every slot filled: the picker, the one bar, the logo and
- * Fleet's dot — Helm's dock is open, so its button is absent. The dot is not a
+ * Fleet's dot — the Operator's dock is open, so its button is absent. The dot is not a
  * slot that can be left out: it is drawn at every width, so every story below
  * carries it.
  */
@@ -83,12 +83,11 @@ export const Full: Story = {
   },
 };
 
-/** The dock is closed: Helm's own reopen control appears before the logo, carrying what is waiting. */
-export const HelmClosed: Story = {
+/** The dock is closed: the Operator's reopen control appears before the logo. */
+export const OperatorClosed: Story = {
   args: {
     ...Full.args,
-    helm: {
-      questions: 3,
+    operator: {
       binding: "⌘J",
       onOpen: () => {},
     },
@@ -118,8 +117,7 @@ export const BeforeAnythingIsRead: Story = {
 export const FleetRunning: Story = {
   args: {
     ...Full.args,
-    helm: {
-      questions: 3,
+    operator: {
       binding: "⌘J",
       onOpen: () => {},
     },
@@ -239,7 +237,7 @@ const FLEET_SAID: {
  * and chose it drawn always on 18 Sep 2026.
  *
  * The two arrangements that used to decide it: the dock open beside the
- * content, which is `Full`, and the dock closed with Helm's own button in the
+ * content, which is `Full`, and the dock closed with the Operator's own button in the
  * row. **No `play`, because there is nothing here for one to catch** — the
  * condition was never in this component but in what `TheShell` passed it, so
  * the assertion lives in `The shell`'s own stories and in
@@ -252,8 +250,7 @@ export const FleetIsDrawnWhateverElseTheRowCarries: Story = {
       <TitleBar {...args} />
       <TitleBar
         {...args}
-        helm={{
-          questions: 3,
+        operator={{
           binding: "⌘J",
           onOpen: () => {},
         }}
@@ -263,7 +260,7 @@ export const FleetIsDrawnWhateverElseTheRowCarries: Story = {
 };
 
 /**
- * Holding Cmd mounts Helm's own `⌘J` badge, growing the button to fit it —
+ * Holding Cmd mounts the Operator's own `⌘J` badge, growing the button to fit it —
  * shrinking it back and taking the badge away again on release — the row is
  * drawn from `Full` and never itself. `useShortcutReveal()` needs a provider
  * above it for the state to reach anywhere at all, which `TheShell` is in the
@@ -272,8 +269,7 @@ export const FleetIsDrawnWhateverElseTheRowCarries: Story = {
 export const RevealedShortcuts: Story = {
   args: {
     ...Full.args,
-    helm: {
-      questions: 3,
+    operator: {
       binding: "⌘J",
       onOpen: () => {},
     },
@@ -300,13 +296,12 @@ export const RevealedShortcuts: Story = {
  * A slim window, with every slot filled. Under about 924px the row goes behind
  * one menu, leaving the mark and Fleet's dot beside it (the owner, 30 Sep
  * 2026). The side columns once had a zero minimum, so below ~1100px the picker
- * slid under search and Dispatch sat on Helm.
+ * slid under search and Dispatch sat on the Operator.
  */
 export const InASlimWindow: Story = {
   args: {
     ...Full.args,
-    helm: {
-      questions: 3,
+    operator: {
       binding: "⌘J",
       onOpen: fn(),
     },
@@ -373,10 +368,10 @@ export const InASlimWindow: Story = {
     await expect(dispatch.querySelector("kbd")).toHaveTextContent(/^⌘N$/);
     await userEvent.click(
       canvas.getByRole("button", {
-        name: /^Helm/,
+        name: /^Operator/,
       }),
     );
-    await expect(args.helm!.onOpen).toHaveBeenCalledTimes(1);
+    await expect(args.operator!.onOpen).toHaveBeenCalledTimes(1);
     await expect(
       canvas.queryByRole("dialog", {
         name: "Menu",
@@ -893,7 +888,7 @@ const PLACES = [
 /**
  * The places slot and the wordmark slot filled, as the Cockpit's own window draws them: the word at the
  * start in place of the lockup, the tabs in the centre, and the search trigger shrunk to an icon and its
- * key to their right. The picker, Helm and the plan's meters are not here: that window carries them elsewhere.
+ * key to their right. The picker, the Operator and the plan's meters are not here: that window carries them elsewhere.
  */
 export const WithPlaces: Story = {
   args: {

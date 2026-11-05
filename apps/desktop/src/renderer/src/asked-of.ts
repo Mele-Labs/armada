@@ -2,7 +2,7 @@
 
 import type { ComponentProps } from "react";
 import type { AskCards } from "@armada/components";
-import { helmOfferedOf, reachOfferedOf } from "@armada/screens/src/copy";
+import { offeredOf, reachOfferedOf } from "@armada/screens/src/copy";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 export function askedOf(session: Session): ComponentProps<typeof AskCards>["asked"] {
@@ -17,7 +17,7 @@ export function askedOf(session: Session): ComponentProps<typeof AskCards>["aske
     ...(session.asked.offers === undefined
       ? {}
       : {
-          offers: (session.asked.reaches === undefined ? helmOfferedOf : reachOfferedOf)(
+          offers: (session.asked.reaches === undefined ? offeredOf : reachOfferedOf)(
             session.asked.offers,
           ).map((one) => ({
             id: one.offer,

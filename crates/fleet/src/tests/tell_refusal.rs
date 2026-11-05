@@ -47,7 +47,6 @@ fn none(_: &str) -> Option<String> {
 
 fn after_the_tell<'a>(said: &'a str, refused: &'a dyn Fn(&str) -> Option<String>) -> Seen<'a> {
     Seen {
-        helm: false,
         running: None,
         subagents: false,
         held: false,
@@ -112,7 +111,6 @@ fn a_refusal_raises_nothing_where_he_was_already_asked_or_the_turn_is_not_over()
         Seen { held: true, ..after_the_tell(REFUSES, &refuses) },
         Seen { called: true, ..after_the_tell(REFUSES, &refuses) },
         Seen { subagents: true, ..after_the_tell(REFUSES, &refuses) },
-        Seen { helm: true, ..after_the_tell(REFUSES, &refuses) },
         Seen { spoke: Some(LATER), ..after_the_tell(REFUSES, &refuses) },
         Seen { done: Some(LATER), ..after_the_tell(REFUSES, &refuses) },
     ] {

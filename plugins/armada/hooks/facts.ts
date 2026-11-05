@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.58'
+export const MOD_VERSION = '0.3.59'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -93,7 +93,7 @@ export function answersIn(input: unknown): Record<string, string> {
 /**
  * The web pages a shell line opens in the owner's browser: `open`, `xdg-open` or
  * `python -m webbrowser` with an `http(s)` address. Fleet reads hosted sessions' lines the same way
- * (`pages_opened`, `crates/fleet/src/helm/deciding.rs`).
+ * (`pages_opened`, `crates/fleet/src/auto_gate/folders.rs`).
  */
 export function pagesOpenedIn(command: string): string[] {
   const pages: string[] = []
@@ -638,7 +638,7 @@ const ACT_HEAD = /^(action|what|item|task|step|next step|to ?do|ask|need)s?$/
 const INDEX_HEAD = /^(#|no\.?|n)?$/
 // What owns a row that asks nothing of a person. `me`, `we` and `us` are the agent writing; a
 // kebab-case owner is a subagent type (`rust-engineer`).
-const NOT_A_PERSON = /\b(agent|agents|subagents?|claude|assistant|ai|bot|ci|fleet|drone|judge|helm|armada|bridge|github|automation|system|explore|plan|reviewer|engineer|me|we|us)\b|\w-\w|^(-|—|–|n\/a|none|tbd)?$/
+const NOT_A_PERSON = /\b(agent|agents|subagents?|claude|assistant|ai|bot|ci|fleet|drone|judge|armada|bridge|github|automation|system|explore|plan|reviewer|engineer|me|we|us)\b|\w-\w|^(-|—|–|n\/a|none|tbd)?$/
 const DONE = /^(✅|✔|✓|☑)|\b(done|completed?|merged|closed|resolved|shipped|landed|finished)\b/
 const NOT_DONE = /\b(not|pending|blocked|waiting|open|todo|to do)\b|❌|⏳/
 const NO_QUESTIONS = /^(none|nothing|no (open )?questions?)\b/

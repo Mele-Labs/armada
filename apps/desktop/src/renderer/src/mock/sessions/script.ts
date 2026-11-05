@@ -517,9 +517,9 @@ export const RUN_DEFAULT = [
   "done",
 ];
 
-/** A Session as Fleet sends it: every one but Helm has work (`packages/screens/src/session-work.ts`), at least none of its own, so the Cockpit opens it as a Job. */
+/** A Session as Fleet sends it: every one has work (`packages/screens/src/session-work.ts`), at least none of its own, so the Cockpit opens it as a Job. */
 const asJob = (one: Session): Session =>
-  one.helm === true || one.work !== undefined
+  one.work !== undefined
     ? one
     : {
         ...one,

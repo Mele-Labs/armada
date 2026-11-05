@@ -15,7 +15,7 @@ What moves is the text an agent reads.
 
 **Aliases live in the door, not in the inventory.** `ipc::door::RENAMED` pairs each Job name with the operation, which keeps its Session name as its key in `operations/`, its route and its daemon method.
 `tools/list` names the Job name once; `tools/call` takes either, so a running agent that listed its tools before the rename and a mod that names the old one keep working.
-Permission rules, Helm's reach and `QUERIES` read the operation and need no second row.
+Permission rules, a Job on your words' reach and `QUERIES` read the operation and need no second row.
 
 **Descriptions say Job.** Every `description` in `operations/` and the door's parameter descriptions read Job where they read Session.
 Notes that discuss both the old Job and the Session were left as written, since renaming one word there would merge two concepts.

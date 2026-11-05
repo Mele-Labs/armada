@@ -95,7 +95,7 @@ async fn an_answer_and_a_slot_are_entered_by_the_acts_that_make_them() {
         ipc::Event::SessionChanged(record) => record,
         other => panic!("a session: {other:?}"),
     };
-    fleet.session_answered(&record, crate::timeline::card_answer_says(ipc::HelmCallAnswer::AllowOnce));
+    fleet.session_answered(&record, crate::timeline::card_answer_says(ipc::CallAnswer::AllowOnce));
     fleet.session_slot("s9", Some("Flaky store test".into()), Some("armada".into()), 3, true);
     fleet.session_slot("s9", None, None, 3, false);
 
@@ -358,6 +358,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         })
         .await
         .expect("started");

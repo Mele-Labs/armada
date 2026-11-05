@@ -46,14 +46,14 @@
   /* A faint accent fill for a selection or a match */
   --accent-faint: color-mix(in srgb, var(--accent) 10%, transparent);
 
-  /* Helm. The one hue outside status and accent, so the dock reads as Helm at
+  /* The Operator. The one hue outside status and accent, so its panel reads as the Operator at
      a glance. Indigo sits between --accent and --status-rejected, which is why
-     it never appears on or beside a Job row: it marks Helm's own chrome only.
+     it never appears on or beside a Job row: it marks the Operator's own chrome only.
      6.09:1 as text on --bg-glass under the light. */
-  --helm: #8E95FF;
-  --helm-muted: color-mix(in srgb, var(--helm) 14%, transparent); /* chip and Send fill */
-  --helm-edge: color-mix(in srgb, var(--helm) 38%, transparent);  /* the dock's top edge, Send's border */
-  --helm-faint: color-mix(in srgb, var(--helm) 6%, transparent);  /* a faint Helm tint */
+  --operator: #8E95FF;
+  --operator-muted: color-mix(in srgb, var(--operator) 14%, transparent); /* chip and Send fill */
+  --operator-edge: color-mix(in srgb, var(--operator) 38%, transparent);  /* the dock's top edge, Send's border */
+  --operator-faint: color-mix(in srgb, var(--operator) 6%, transparent);  /* a faint Operator tint */
 
   /* You. The owner's own messages in a Session thread, and nothing else.
      Gold, hue 47: brighter and more yellow than --status-awaiting-review at 39,

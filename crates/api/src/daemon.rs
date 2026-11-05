@@ -52,7 +52,7 @@ mod studios;
 mod watches;
 
 pub use accounts::Accounts;
-pub use admitting::{offerable, Admitting, HelmReach, Redirector, Steerer};
+pub use admitting::{offerable, Admitting, WordsReach, Redirector, Steerer};
 pub use authoring::Authoring;
 pub use clashing::Clashing;
 pub use commands::Commands;
@@ -103,7 +103,7 @@ use ipc::WireError;
 /// behind a [`Queries`] bound; `get_job_events` is a history read and is a
 /// query for the same reason.
 ///
-/// # Why a Helm conversation is a fourth
+/// # Why a conversation is a fourth
 ///
 /// [`Conversations`] is whole on its own and is the part `#73` keeps movable,
 /// so its module argues it rather than this one.

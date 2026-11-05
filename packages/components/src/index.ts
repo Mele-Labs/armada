@@ -47,11 +47,6 @@ export * from "./primitives/SelectMark/SelectMark";
 // Compositions — what M1 composes its screens from.
 export * from "./compositions/BoardEmptyState/BoardEmptyState";
 export * from "./compositions/ChangedFiles/ChangedFiles";
-export * from "./compositions/DockQuestions/DockQuestions";
-export * from "./compositions/HelmRecord/HelmRecord";
-export * from "./compositions/HelmThread/HelmThread";
-export * from "./compositions/HelmComposer/HelmComposer";
-export * from "./compositions/HelmHolds/HelmHolds";
 export * from "./compositions/FleetPanel/FleetPanel";
 export type {
   FleetBuild,
@@ -501,8 +496,6 @@ export * from "./compositions/PhonePairing/PhonePairing";
 export * from "./compositions/SettingField/SettingField";
 // One repository's Autopilot on the Cockpit: its switch, caps, Pause and Stop, and the start form. #2092.
 export * from "./compositions/AutopilotFields/AutopilotFields";
-// A thought typed into Helm, on its way to running work: the match, the choice to start new.
-export * from "./compositions/ThoughtCard/ThoughtCard";
 // A write clash on a row, and the line it becomes in an open Job or Session.
 export * from "./compositions/ClashMark/ClashMark";
 export * from "./clock";

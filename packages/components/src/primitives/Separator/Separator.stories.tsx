@@ -108,7 +108,7 @@ export const Vertical: Story = {
 
 /**
  * Announced rather than decorative, for the sidebar rule that is the only
- * thing stating Bridge's surfaces end and Helm begins.
+ * thing stating Bridge's surfaces end and the dock begins.
  */
 export const Announced: Story = {
   args: {

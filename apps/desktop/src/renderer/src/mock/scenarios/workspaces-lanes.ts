@@ -913,7 +913,7 @@ function build(name: string, says: string, begin = 0, started = false): Scenario
         health: {
           probes: [],
           not_probed: [],
-          helm_action_authority: "acting",
+          action_authority: "acting",
           workflows_left_out: false,
         },
       },

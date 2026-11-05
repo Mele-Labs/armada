@@ -6,7 +6,7 @@ import type { SessionRow } from "@armada/screens/src/draft/sessions";
 export const HEADER_SIZES_ROWS: readonly SessionRow[] = [
   {
     kind: "message",
-    id: "ask-helm-1-1923754a-fbbb-4397-9a72-d41a841e7be1:said",
+    id: "ask-call-1-1923754a-fbbb-4397-9a72-d41a841e7be1:said",
     at: "2026-10-28T00:36:05.229Z",
     from: {
       kind: "you",
@@ -93,7 +93,7 @@ export const HEADER_SIZES_ROWS: readonly SessionRow[] = [
   },
   {
     kind: "message",
-    id: "ask-helm-5-1923754a-fbbb-4397-9a72-d41a841e7be1:said",
+    id: "ask-call-5-1923754a-fbbb-4397-9a72-d41a841e7be1:said",
     at: "2026-10-28T00:36:50.198Z",
     from: {
       kind: "you",
@@ -123,7 +123,7 @@ export const HEADER_SIZES_ROWS: readonly SessionRow[] = [
   },
   {
     kind: "message",
-    id: "ask-helm-6-1923754a-fbbb-4397-9a72-d41a841e7be1:said",
+    id: "ask-call-6-1923754a-fbbb-4397-9a72-d41a841e7be1:said",
     at: "2026-10-28T00:37:06.446Z",
     from: {
       kind: "you",

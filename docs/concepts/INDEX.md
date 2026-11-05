@@ -22,7 +22,6 @@ assuming it is restated here.
 | [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, every issue it picked, started or set aside, and the decisions it answered |
 | [file-panel.md](file-panel.md) | Any file Bridge opens, in the one side panel in a code editor: where it may come from, how it saves, what stops a save |
 | [fleet.md](fleet.md) | The Rust daemon that hosts Jobs, leases worktree slots, keeps the merge line and reads the forge |
-| [helm.md](helm.md) | The conversational orchestrator agent that reasons across a Fleet |
 | [job-proposer.md](job-proposer.md) | The Proposer: the model call that reads a Job's request and proposes its title, workflow or none, model and effort |
 | [judge.md](judge.md) | The one Judge: a read-only reading of any artifact of a Job on the owner's press, whose notes sit in the artifact, and Fleet's own step judges |
 | [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
@@ -33,6 +32,7 @@ assuming it is restated here.
 | [machine.md](machine.md) | How this installation behaves: resources, timing, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
+| [operator.md](operator.md) | The one decider per machine that rules each arrival, and the Job it starts on your words |
 | [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
 | [project.md](project.md) | A list of tasks and linked issues one person keeps for one repository in Bridge's Projects tab, with a `task_done` question when a Job or a pull request finishes one |
 | [pull-review.md](pull-review.md) | Bridge's Reviews tab: the pull requests waiting on a person, a page for each, and the review he writes on one |

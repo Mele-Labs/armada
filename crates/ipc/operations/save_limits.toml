@@ -1,7 +1,7 @@
 [operations.save_limits]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Save any of the four limits, and answer with what is now in force"
 notes = """
 **Changed while Fleet runs, and kept across a restart.** The save is written into settings.json, under the four `limits.*` keys `get_settings` describes, before anything in memory moves, and the next admission turn reads the new values; no restart, and nothing already running is stopped. A bound lowered below how many Drones are working holds new starts until enough finish.

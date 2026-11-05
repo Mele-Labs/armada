@@ -2,7 +2,7 @@ import type { HTMLAttributes } from "react";
 
 /**
  * Separator — a 1px `--border-subtle` rule. The dividers in a dropdown menu,
- * the rule between Bridge's surfaces and Helm in the sidebar, the edge above a
+ * the rule between Bridge's surfaces and the dock in the sidebar, the edge above a
  * card's field run.
  *
  * It carries no margin. Spacing between a rule and what it separates belongs

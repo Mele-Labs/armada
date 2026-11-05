@@ -48,6 +48,7 @@ where
             after: None,
             held: false,
             project_rows: Vec::new(),
+            on_your_words: None,
         };
         let id = self.started_hosted(start, super::Marked::Plain).await?.id;
         let leased = match self.take_lease(id.as_str(), served).await {

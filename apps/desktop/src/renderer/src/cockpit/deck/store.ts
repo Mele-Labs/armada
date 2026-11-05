@@ -588,7 +588,7 @@ export function callOwnerOf(item: Item): string {
  *
  * **A subject carries one call, and a Session can raise several** (a Session that asks twice), so the call is matched to its owner
  * by what the Item names: the Session in its key (`session:<id>:<item>`), and `ownedBy` on a pull request's or main's call. A
- * Session the ship does not hold (Helm's own Session) is opened by `hosts`, the way a link to it is, and never by the card.
+ * Session the ship does not hold is opened by `hosts`, the way a link to it is, and never by the card.
  */
 export function openCall(ship: Ship, item: Item, hosts?: Pick<Hosts, "onOpenSession">): boolean {
   // The one call stands for every call its owner raised, so opening it is the visit to them all.

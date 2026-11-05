@@ -13,7 +13,6 @@ KEYS = [
     "packages/screens:screens_test",
     "packages/components:storybook",
     "packages/surfaces/studios:test",
-    "packages/surfaces/helm:test",
     "packages/surfaces/manifest:test",
     "packages/components:components_test",
     "apps/pocket:pocket_test",
@@ -33,7 +32,7 @@ class Planning(unittest.TestCase):
         self.assertEqual(groups["node checks"], ["apps/desktop:typecheck", "apps/desktop:bridge_build", "apps/pocket:pocket_test"])
         self.assertEqual(groups["components"], ["packages/components:storybook", "packages/components:components_test"])
         surfaces = groups.get("surface tests 1/2", []) + groups.get("surface tests 2/2", [])
-        self.assertCountEqual(surfaces, ["packages/screens:screens_test", "packages/surfaces/studios:test", "packages/surfaces/helm:test", "packages/surfaces/manifest:test"])
+        self.assertCountEqual(surfaces, ["packages/screens:screens_test", "packages/surfaces/studios:test", "packages/surfaces/manifest:test"])
 
     def test_every_workspace_key_is_in_exactly_one_group(self):
         answer = plan(KEYS)
@@ -47,7 +46,7 @@ class Planning(unittest.TestCase):
         self.assertEqual(plan(["build"])["matrix"]["include"], [])
 
     def test_the_surface_tests_split_the_same_way_every_time(self):
-        keys = [f"packages/surfaces/{name}:test" for name in "studios settings manifest setup cleanup overview helm".split()] + ["packages/screens:screens_test"]
+        keys = [f"packages/surfaces/{name}:test" for name in "studios settings manifest setup cleanup overview".split()] + ["packages/screens:screens_test"]
         halves = [group_of(key) for key in keys]
         self.assertEqual(set(halves), {"surface tests 1/2", "surface tests 2/2"})
         self.assertEqual(halves.count("surface tests 1/2"), 4)

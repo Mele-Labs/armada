@@ -391,7 +391,6 @@ function useJobField(
       .filter(
         (one) =>
           one.id !== session.id &&
-          one.helm !== true &&
           one.dead === undefined &&
           one.replacedBy === undefined &&
           one.waits === undefined &&

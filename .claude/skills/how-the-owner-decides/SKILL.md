@@ -125,7 +125,7 @@ Where a record is convenient and lossy, he pays for the loss.
 
 > **Give the person the control; do not infer it from a rule.**
 > `2026-09-22-the-rail-is-a-choice.md` — the left column collapsed only because
-> Helm needed room, and his answer was that he should be able to collapse it
+> the dock, which was Helm's then, needed room, and his answer was that he should be able to collapse it
 > himself, at any width.
 
 Where a rule and a control both answer a question, he takes the control and the

@@ -171,6 +171,7 @@ where
                 // A Session that waits is held once its wait is met.
                 held: after.is_none(),
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await?;
         let brief = words.message.clone();
@@ -228,6 +229,7 @@ where
                 after: None,
                 held: true,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await?;
         // A fork is not read, so its title alone is asked for when Start sends it (`fork_named`).

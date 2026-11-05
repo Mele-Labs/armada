@@ -10,11 +10,11 @@
 .armada-title-bar {
   display: grid;
   /* Three regions, not one flex row with a trailing spacer: `1fr`
-   * on both sides gives the picker and Helm+logo groups an equal share of
+   * on both sides gives the picker and Operator+logo groups an equal share of
    * whatever is left over, so the center column — search and Dispatch — sits
    * on the bar's true midpoint whatever either side measures. A flex row with
    * two `flex: 1` spacers only centers the middle group when the two sides
-   * happen to be the same width, which picker+add-repo and Helm+logo are not.
+   * happen to be the same width, which picker+add-repo and Operator+logo are not.
    *
    * The sides floor at `max-content`, never 0: at 0 a narrow window drew
    * them under the center group. The center column is what gives way, and
@@ -44,7 +44,7 @@
 .armada-title-bar__repository,
 .armada-title-bar__places,
 .armada-title-bar__search,
-.armada-title-bar__helm,
+.armada-title-bar__operator,
 .armada-title-bar__menu,
 .armada-title-bar__usage,
 .armada-title-bar__job,
@@ -353,7 +353,7 @@
   display: none;
 }
 
-/* The right region: Helm's reopen control, drawn only while the caller says
+/* The right region: the Operator's reopen control, drawn only while the caller says
  * the dock is closed, and the logo. */
 .armada-title-bar__end {
   display: flex;
@@ -539,7 +539,7 @@
   margin-top: var(--space-1);
 }
 
-.armada-title-bar__helm {
+.armada-title-bar__operator {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -558,30 +558,20 @@
   transition: background-color var(--duration-fast) var(--ease);
 }
 
-.armada-title-bar__helm:hover {
+.armada-title-bar__operator:hover {
   background: var(--bg-hover);
 }
 
-.armada-title-bar__helm:focus-visible {
+.armada-title-bar__operator:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-}
-
-/* Amber: `--status-awaiting-review`, the status bar's own "needs you, not
- * urgent" hue — a question waiting on a person, not the more urgent orange
- * an escalation takes. */
-.armada-title-bar__helm-count {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--status-awaiting-review);
 }
 
 /* `⌘J`, only in the tree while Cmd is held — unlike `Sidebar.css`'s `__kbd`,
    this button shrink-wraps its content, so mounting the badge (rather than
    reserving its width with `visibility`) is what lets the button sit tight
-   around "Helm" at rest. */
-.armada-title-bar__helmkbd {
+   around the glyph at rest. */
+.armada-title-bar__operator-kbd {
   flex: none;
 }
 
@@ -758,7 +748,7 @@
 @container (max-width: 900px) {
   .armada-title-bar__start,
   .armada-title-bar__center,
-  .armada-title-bar__helm,
+  .armada-title-bar__operator,
   .armada-title-bar__lockup {
     display: none;
   }
@@ -781,40 +771,6 @@
 
   .armada-title-bar[data-places] .armada-title-bar__end {
     grid-column: 2 / -1;
-  }
-}
-
-/* A call that lives in this control: the ask hue tints it and pulses on opacity alone, as a calling row in the Cockpit's Work list does,
-   and still under reduced motion. */
-.armada-title-bar__helm[data-calling] {
-  position: relative;
-}
-
-.armada-title-bar__helm[data-calling]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-md);
-  background: var(--status-awaiting-review);
-  opacity: 0.14;
-  animation: armada-title-calling 1.6s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* The Helm button is rounder than the default. */
-.armada-title-bar__helm[data-calling]::after {
-  border-radius: var(--radius-lg);
-}
-
-@keyframes armada-title-calling {
-  50% {
-    opacity: 0.05;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-title-bar__helm[data-calling]::after {
-    animation: none;
   }
 }
 

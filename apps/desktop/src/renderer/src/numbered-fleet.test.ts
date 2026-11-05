@@ -189,7 +189,7 @@ describe("the open ones", () => {
       issues: {
         [ARMADA]: [
           issue(2214, "Sessions list drops a quiet Session"),
-          issue(2212, "Helm answers about the wrong repository"),
+          issue(2212, "A job answers about the wrong repository"),
         ],
       },
     });
@@ -222,7 +222,7 @@ describe("the open ones", () => {
       [
         "issue",
         "2212",
-        "#2212 Helm answers about the wrong repository",
+        "#2212 A job answers about the wrong repository",
       ],
       [
         "pull_request",

@@ -13,7 +13,7 @@
 //! of the seam — which is what keeps these readable as the answer alone.
 
 use ipc::{
-    FleetHealth, HelmActionAuthority, ManifestConfig, ManifestId, ManifestSummary,
+    FleetHealth, ActionAuthority, ManifestConfig, ManifestId, ManifestSummary,
     ModelChoices, Probe, RunId, StepId, Unprobed, WorkflowId, WorkflowSummary,
 };
 
@@ -379,7 +379,7 @@ pub fn health() -> FleetHealth {
             owner: "adapters".to_string(),
             because: "it owns talking to anything outside Armada".to_string(),
         }],
-        helm_action_authority: HelmActionAuthority::Acting,
+        action_authority: ActionAuthority::Acting,
         workflows_left_out: true,
     }
 }

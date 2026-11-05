@@ -14,5 +14,5 @@ One row per line, not per declaration. A Command that serves declares up to thre
 
 The evidence sits inside the verdict rather than beside it, so `gone` with nothing missing cannot be written down. `current` carries how many repository paths the line named, and that number is zero for most lines: `cargo nextest run --workspace` names no path here, so there was nothing to look for. A surface that draws a clean list without saying so is claiming something this read did not say — about a third of a mature Manifest names nothing runnable at all.
 
-`agent_access` is `Yes` on `get_manifest_reading`'s terms: it is one small answer about this repository's own configuration, it costs nothing to ask, and a Helm about to dispatch against a Check whose script is not there should be able to find that out first.
+`agent_access` is `Yes` on `get_manifest_reading`'s terms: it is one small answer about this repository's own configuration, it costs nothing to ask, and a Job on your words about to dispatch against a Check whose script is not there should be able to find that out first.
 """

@@ -1,29 +1,29 @@
 //! Who opened the agent's door, and what that caller may reach through it.
 //! `#941`.
 //!
-//! **Placed, never claimed.** Nothing a caller sends says it is Helm: an argv
+//! **Placed, never claimed.** Nothing a caller sends says it is a Job on your words: an argv
 //! flag, a header or a name in its MCP configuration is something any agent on
 //! the machine can copy (`docs/spikes/011-what-can-one-drone-reach.md`). The
 //! daemon places the connection against the sessions it started, as
 //! `fleet::peer` places a Drone's, so what the door narrows is decided by who
 //! holds the socket.
 //!
-//! **The rule is the daemon's.** This crate cannot name `fleet::helm::may`, so
-//! the answer arrives as a [`HelmReach`] the daemon decided row by row, and the
+//! **The rule is the daemon's.** This crate cannot name `fleet::on_your_words::may`, so
+//! the answer arrives as a [`WordsReach`] the daemon decided row by row, and the
 //! door only enforces it.
 
-use ipc::door::{Reachable, HELM_ONLY, REACHABLE};
+use ipc::door::{Reachable, ON_YOUR_WORDS, REACHABLE};
 
 use crate::mcp::Caller;
 
 /// The fifth surface: which caller a door call came from.
 pub trait Admitting: Send + Sync + 'static {
-    /// What the Helm session holding this call's connection may reach.
+    /// What the Job holding this call's connection may reach.
     ///
     /// **`None` is every other caller**, which the door answers exactly as it
-    /// did before a Helm session could be told apart — a person's own agent
+    /// did before a Job on your words could be told apart — a person's own agent
     /// session keeps every row the inventory marks `Yes`.
-    fn helm_at(&self, caller: Caller) -> Option<HelmReach>;
+    fn words_reach_at(&self, caller: Caller) -> Option<WordsReach>;
 
     /// The key on a tool's `_meta` the agent's harness reads as loading it at the start, for the
     /// rows the inventory marks `always_loaded`. **`None` by default**, which marks none.
@@ -32,19 +32,19 @@ pub trait Admitting: Send + Sync + 'static {
     }
 }
 
-/// What one Helm session may call through the door.
+/// What one placed Job may call through the door.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HelmReach {
+pub struct WordsReach {
     may: Vec<&'static str>,
     otherwise: &'static str,
     session: bool,
 }
 
-impl HelmReach {
+impl WordsReach {
     /// Decided over [`offerable`] by the daemon's own predicate. `otherwise`
     /// is why anything else is refused, said to the session.
-    pub fn deciding(may: impl Fn(&Reachable) -> bool, otherwise: &'static str) -> HelmReach {
-        HelmReach {
+    pub fn deciding(may: impl Fn(&Reachable) -> bool, otherwise: &'static str) -> WordsReach {
+        WordsReach {
             may: offerable()
                 .filter(|row| may(row))
                 .map(|row| row.operation)
@@ -55,23 +55,23 @@ impl HelmReach {
     }
 
     /// What a session Fleet hosts for Bridge may call: **what any agent of the
-    /// person's is offered, and the permission tool**, which is Helm's row in
-    /// the inventory and the one tool its own `--permission-prompt-tool` needs.
-    /// Its acts are the person's own and are never recorded as Helm's.
-    pub fn of_a_hosted_session() -> HelmReach {
+    /// person's is offered, and the permission tool**, which is the one tool
+    /// its own `--permission-prompt-tool` needs. Its acts are the person's own
+    /// and are never recorded as a Job's.
+    pub fn of_a_hosted_session() -> WordsReach {
         let mut may: Vec<&'static str> = crate::door::offered()
             .iter()
             .map(|shape| shape.operation)
             .collect();
         may.push(ipc::door::ASKS_A_PERSON);
-        HelmReach {
+        WordsReach {
             may,
             otherwise: "a job is offered what any agent of the person's is, and no more",
             session: true,
         }
     }
 
-    /// Whether this is a hosted session's reach rather than Helm's.
+    /// Whether this is a hosted session's reach rather than a Job on your words.
     pub fn is_a_hosted_session(&self) -> bool {
         self.session
     }
@@ -83,14 +83,14 @@ impl HelmReach {
     /// The refusal a call outside the reach is answered with. **It names the
     /// operation**, so a session reads which act was the person's.
     pub fn refusing(&self, operation: &str) -> String {
-        format!("`{operation}` is not Helm's to call: {}", self.otherwise)
+        format!("`{operation}` is not this Job's to call: {}", self.otherwise)
     }
 }
 
 /// Who is behind a call the transport places rather than the body: originally
 /// `Commands::redirect_drone`'s alone, and `#943` gave `Commands::propose_job`
 /// and `Commands::propose_from_request` the same word for the same reason —
-/// the door lets a Helm session draft a Job, and what Fleet records for the
+/// the door lets a Job on your words draft a Job, and what Fleet records for the
 /// draft has to say so.
 ///
 /// **Two, because nothing else places a call this way**, so Fleet or a Drone
@@ -99,31 +99,31 @@ impl HelmReach {
 pub enum Redirector {
     /// A person, through Bridge or through their own agent's door session.
     Person,
-    /// A Helm session Fleet is hosting, placed by its connection.
-    Helm,
+    /// A Job on your words Fleet is hosting, placed by its connection.
+    Job,
 }
 
-/// Who is steering a Drone: [`Redirector`]'s two. The transport places Helm by
+/// Who is steering a Drone: [`Redirector`]'s two. The transport places a Job on your words by
 /// its connection, so a body cannot name it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Steerer {
     Person,
-    Helm,
+    Job,
 }
 
 impl From<Redirector> for Steerer {
     fn from(by: Redirector) -> Steerer {
         match by {
             Redirector::Person => Steerer::Person,
-            Redirector::Helm => Steerer::Helm,
+            Redirector::Job => Steerer::Job,
         }
     }
 }
 
-/// Every row a Helm session could be offered before its daemon decides: what
-/// any agent is offered, and the `Helm only` rows no other agent is (`#1150`).
+/// Every row a Job on your words could be offered before its daemon decides: what
+/// any agent is offered, and the `On your words` rows no other agent is (`#1150`).
 pub fn offerable() -> impl Iterator<Item = &'static Reachable> {
     REACHABLE
         .iter()
-        .chain(HELM_ONLY.iter())
+        .chain(ON_YOUR_WORDS.iter())
 }

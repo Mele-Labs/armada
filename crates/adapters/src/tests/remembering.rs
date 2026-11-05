@@ -90,7 +90,7 @@ fn a_rule_already_there_is_not_written_again() {
 }
 
 /// **A file somebody is in the middle of editing is left alone.** The call
-/// still runs — `fleet::helm` settles it as allowed-but-not-remembered — and
+/// still runs — Fleet settles it as allowed-but-not-remembered — and
 /// nothing here replaces what would not parse.
 #[test]
 fn a_settings_file_that_will_not_parse_is_left_exactly_as_it_was() {

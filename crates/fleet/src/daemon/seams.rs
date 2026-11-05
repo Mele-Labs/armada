@@ -103,13 +103,12 @@ where
         self.tuned(|dials| dials.dispute_reviews)
     }
 
-    /// How far this machine lets Helm act rather than only read. **The one
-    /// place `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-
-    /// only` is resolved to a value** — `crate::helm::admitting` is the one
-    /// place it is asked, and the brief and the door both follow that answer.
-    /// `#943`.
-    pub(crate) fn helm_authority(&self) -> crate::helm::Authority {
-        self.tuned(|dials| dials.helm_authority)
+    /// How far this machine lets a Job on your words act rather than only read. **The one
+    /// place `settings.action-authority-tier-1-redirect-enabled-vs-read-only` is resolved to a
+    /// value** — `crate::on_your_words` is the one place it is asked, and the door follows that
+    /// answer. `#943`.
+    pub(crate) fn action_authority(&self) -> crate::on_your_words::Authority {
+        self.tuned(|dials| dials.action_authority)
     }
     pub(crate) fn host(&self) -> &Local {
         &self.host
@@ -337,9 +336,6 @@ where
     }
     pub(crate) fn hosts(&self) -> &crate::session_host::Hosts {
         &self.sessions
-    }
-    pub(crate) fn helm(&self) -> &crate::helm::Conversations {
-        &self.helm
     }
     pub(crate) fn building(&self) -> &crate::building::Building {
         &self.building

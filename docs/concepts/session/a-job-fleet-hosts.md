@@ -4,8 +4,8 @@
 
 A person can start a job from Bridge. Fleet runs it, keeps its thread, and
 puts it on the same ledger with `origin` `bridge`. It is the person at
-work, in their own configuration. [Helm](../helm.md) is the same
-engine with a note and a few more tools, one per repository.
+work, in their own configuration. A Job started on your words, by the
+[Operator](../operator.md), is the same engine with the door's `On your words` rows.
 
 > **Rule.** A hosted job holds what the person's terminal holds: their
 > servers, plugins, skills and settings, with no `--strict-mcp-config` and no
@@ -17,7 +17,7 @@ engine with a note and a few more tools, one per repository.
 
 > **Rule.** Every process of a hosted job carries Armada's job rules in
 > its system prompt (`--append-system-prompt`), appended to whatever output style
-> the person has. They lead the argument; Helm's note and a fork's or move's note
+> the person has. They lead the argument; a fork's or move's note
 > follow, and the Logbook note comes last ([Logbook](../logbook.md), *Recall*). Where the person's style and the rules conflict on how a need or
 > progress is surfaced, the rules win, and the style keeps tone, length and format.
 > Why: a style that asks for every action in a table leaves `waiting_for`, the task
@@ -55,7 +55,7 @@ engine with a note and a few more tools, one per repository.
  close ─▶ the slot is parked on its own branch, the row ends
 ```
 
-**One live process while it is open**, as Helm's now is (it was one per message), because
+**One live process while it is open** (it was one per message), because
 another job's message wakes an idle one: `SendMessage` to a hosted job's
 address, `s-` and the first eight characters of its id, starts a turn in it. A
 turn that opens with no message of the person's outstanding is a wake, and the
@@ -195,7 +195,7 @@ rewrites its own branch, pushes and reaches off the machine unasked. **A read an
 (16 Oct 2026), except of a folder macOS puts a prompt in front of (Desktop, Documents, Downloads,
 Pictures, Movies, Music, iCloud, Mail and the like), his credentials (`~/.ssh`, `~/.aws`,
 `~/.config/gh`), another volume, or a search from `/`, `/Users` or his home
-(`fleet::helm::deciding::GUARDED`). Such a read, a write into his own files, and a `Write` or
+(`fleet::auto_gate::folders::GUARDED`). Such a read, a write into his own files, and a `Write` or
 `Edit` anywhere outside its slots and `/tmp` are put to him on a card in the job's thread.
 **The card says whether the call reads or writes** (the owner, 16 Oct 2026): "Permission to read"
 or "Permission to write", and "Always applies to reads of" or "writes to" over the path.
@@ -210,8 +210,8 @@ in settings.json, shown and edited in Settings, Features): a path in a blocked f
 with no card, one in an allowed folder runs, and the deeper entry wins, a block winning a tie.
 **Always allow for this job lets only that job in**, until it is closed: Fleet holds the
 folder in memory beside the job, writes it nowhere, and Settings does not list it. It is read
-after his list, so a folder he blocked stays blocked, and a Fleet restart drops it. Nobody answering inside the hold is
-a refusal, so a job never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
+after his list, so a folder he blocked stays blocked, and a Fleet restart drops it. Nobody answering inside the hold (`fleet::asks::AskHold`, set by
+`timeouts.askHoldSeconds`) is a refusal, so a job never hangs while he is away. **A removal is not a reach**: `rm`, `mv`,
 `chmod`, `chown` or a truncating redirect outside the slots and `/tmp` is refused with a reason the
 agent reads and works around, whatever folder he allowed, and `sudo` and `kill -9 -1` stay refused.
 `launchctl print`, `diskutil list`, an awk script's `~` and `$5`, jq's `//`, and a read of another
@@ -248,8 +248,7 @@ repository is added, for any slot the pool holds under the id of a job that
 has ended.
 
 **The person sets the mode, the model and the effort** for each job. `auto`
-is the default and means what it meant for Helm: everything runs except what is
-destructive, pushes code to a shared space or writes off this machine, which
+is the default and means what the Auto gate decides: everything runs except what reaches past the slots, which
 Fleet puts to the person on the job's own thread. The CLI's own auto mode is
 not reachable for a spawned job, so `auto` is `default` with that door.
 Inside the job's own slot, what it writes is its work and does not ask, and a
@@ -290,11 +289,9 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 **What a message names is one line Fleet adds for the agent** and the thread
 keeps the person's words. A thread's rows are the person's messages, the agent's,
 another job's, one line for each tool call, the lease, and each ask with
-where it stands. A Helm Job's thread also has the `sent` row, the person's
+where it stands. A Job's thread may also have the `sent` row (`SessionRow::Sent`), the person's
 words routed on to another Job, with where they went. **An ask is
-the job's own**: it never appears in the old Helm dock's holds and
-`answer_helm_call` does not find it. Helm's own questions are asks of its
-Job, answered in its thread.
+the job's own**, answered in its thread.
 
 ## What a restart does to a job
 

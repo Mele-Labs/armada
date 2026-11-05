@@ -134,7 +134,7 @@ const planJob: Session = {
 // ---- Two pages to approve on Present ---------------------------------------------------------------------------
 
 const HANDOFF_PATH = "docs/handoff/operator-design-handoff.html";
-const HELM_PATH = "docs/design/helm-becomes-the-operator.html";
+const OPERATOR_PATH = "docs/design/the-operator-takes-over.html";
 
 const docsJob: Session = {
   id: DOCS_JOB,
@@ -145,7 +145,7 @@ const docsJob: Session = {
   standing: "idle",
   lastTurnAt: ago(3),
   rows: [
-    message("d1", "09:10:00", "you", "Design the handoff from Helm to the Operator."),
+    message("d1", "09:10:00", "you", "Design the handoff to the Operator."),
     message("d2", "09:55:00", "agent", "Both pages are ready."),
   ],
   attachments: [
@@ -164,10 +164,10 @@ const docsJob: Session = {
     {
       kind: "artifact",
       form: "document",
-      id: HELM_PATH,
-      title: "Helm becomes the Operator",
+      id: OPERATOR_PATH,
+      title: "The Operator takes over",
       revisions: [
-        HELM_PATH,
+        OPERATOR_PATH,
       ],
       asked: true,
       revision: "1",
@@ -196,8 +196,8 @@ const docsJob: Session = {
       },
     },
     {
-      id: `document:${HELM_PATH}`,
-      text: "Helm becomes the Operator",
+      id: `document:${OPERATOR_PATH}`,
+      text: "The Operator takes over",
       since: ago(8),
       source: "document",
       act: {

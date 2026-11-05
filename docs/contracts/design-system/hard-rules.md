@@ -35,8 +35,8 @@
    declared rather than inferred. Read the file rather than a list; this
    rule used to enumerate the cases and went stale twice. Anything the
    file does not declare stays neutral. See Below Job level under Tokens.
-   **Outside status and accent, these hue families exist.** `--helm` marks
-   Helm's own chrome and nothing else. `--you` marks the owner's own
+   **Outside status and accent, these hue families exist.** `--operator` marks
+   the Operator's own chrome and nothing else. `--you` marks the owner's own
    messages in a Session thread and nothing else. The **tool families** in
    `tokens/tools.css` say what a Drone's call does, and they are a
    separate file because they alias no status and must never carry one —

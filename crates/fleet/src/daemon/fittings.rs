@@ -53,12 +53,12 @@ pub struct Host {
     /// The strict MCP configuration an agent is bound to.
     pub mcp_config: String,
     /// The headless agent CLI's program, resolved once by the composition
-    /// root's `AGENT_BINARY` override or its default. **Held here for Helm's
+    /// root's `AGENT_BINARY` override or its default. **Held here for the
     /// host and not for a Drone's** — a Drone's own is `harness`'s, a typed
     /// [`AgentHarness`]; this is the plain program name
-    /// `crate::helm::ProcessHost` runs, so a machine that names an override
-    /// names it for a Drone, the Judge and Helm alike rather than leaving
-    /// Helm on whatever `PATH` happens to hold. `#943`.
+    /// `crate::session_host::ProcessHost` runs, so a machine that names an override
+    /// names it for a Drone, the Judge and a hosted Job alike rather than leaving
+    /// it on whatever `PATH` happens to hold. `#943`.
     pub agent_binary: String,
     /// The loopback port Fleet is listening on.
     ///
@@ -92,12 +92,6 @@ pub struct Host {
     pub mod_switches: crate::mods::ModSwitches,
     /// The mods listed as built in beside `mods_dir`'s: `packages/mods/` as this build compiled it.
     pub built_in_mods: crate::mods::BuiltIns,
-    /// How long one Helm reply may take before its process is ended.
-    /// `timeouts.helmReplySeconds`, read at start.
-    pub helm_reply_budget: std::time::Duration,
-    /// How hard Helm thinks. `effort.helm`, read at start; `None` passes no
-    /// effort, the harness's own.
-    pub helm_effort: Option<adapter_traits::Effort>,
 }
 
 /// [`Host`] without the repository: what is true of the machine whichever
@@ -169,13 +163,13 @@ pub struct Fittings<H, V, W> {
     /// `settings.ad-hoc-run-log-retention`. How long a run fired by hand from
     /// the Manifest surface keeps its log — see [`mod@crate::rehearsing`].
     pub run_log_retention: std::time::Duration,
-    /// `settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only`,
+    /// `settings.action-authority-tier-1-redirect-enabled-vs-read-only`,
     /// resolved here like every other Machine setting. `#943`.
-    pub helm_authority: crate::helm::Authority,
-    /// How long one Helm call is held open for a person before Fleet answers
-    /// `deny` for them. `#1389`, and `crate::helm::HelmAskHold` says why it is
+    pub action_authority: crate::on_your_words::Authority,
+    /// How long one call is held open for a person before Fleet answers
+    /// `deny` for them. `#1389`, and `crate::asks::AskHold` says why it is
     /// a fitting.
-    pub helm_ask_hold: crate::helm::HelmAskHold,
+    pub ask_hold: crate::asks::AskHold,
     /// How a caller is placed: which process holds the connection a tool call
     /// arrived on. **A seam so a test can plant one** — the shipped answer is
     /// [`peer::Kernel`](crate::peer::Kernel), and a fixture has no sockets to
@@ -299,7 +293,6 @@ where
         // Jobs bound moves it for them at the next start.
         let width = checks_runner::CheckWidth::read(in_force.concurrency.jobs());
         let run = fittings.mint.ulid();
-        let helm = crate::helm::Conversations::holding_for(fittings.helm_ask_hold);
         let sign_in = crate::session_host::signed_out::SignInRun::of(&fittings.host);
         let sessions = crate::session_host::Hosts::hosted_by(
             Arc::new(crate::session_host::ProcessHost::on_this_machine(
@@ -307,7 +300,7 @@ where
                 width,
             )),
             fittings.session_quiet,
-            fittings.helm_ask_hold,
+            fittings.ask_hold,
         );
         let scouts = crate::scout::Scouts::hosted_by(Arc::new(
             crate::scout::ScoutHost::on_this_machine(&fittings.host, width),
@@ -365,7 +358,6 @@ where
             downshift: Default::default(),
             agent_sign_in: crate::session_host::signed_out::Held::running(sign_in),
             events: fittings.events,
-            helm,
             sessions,
             session_runs: Default::default(),
             session_check_live: Default::default(),
@@ -427,7 +419,7 @@ where
         processes: Arc<dyn crate::session_host::Processes>,
         quiet: std::time::Duration,
     ) -> Fleet<H, V, W> {
-        self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.helm.hold());
+        self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.sessions.asks().held_for());
         self
     }
 

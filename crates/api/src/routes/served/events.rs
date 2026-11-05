@@ -169,27 +169,15 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // Helm's act on a Studio, beside the `studio.changed` it made. `#1288`.
+    // A Job's act on a Studio, beside the `studio.changed` it made. `#1288`.
     Route {
-        operation: "studio.helm_acted",
+        operation: "studio.job_acted",
         method: "GET",
         path: "/events",
     },
-    // A Helm session held inside a call the person's own settings do not cover,
-    // and what became of it. `#1389`.
+    // A reading sent a person's words to a Job instead of asking.
     Route {
-        operation: "helm.asking_to_run",
-        method: "GET",
-        path: "/events",
-    },
-    Route {
-        operation: "helm.call_answered",
-        method: "GET",
-        path: "/events",
-    },
-    // Helm's reading sent a person's words to a Session instead of to Helm.
-    Route {
-        operation: "helm.thought_routed",
+        operation: "operator.words_sent",
         method: "GET",
         path: "/events",
     },

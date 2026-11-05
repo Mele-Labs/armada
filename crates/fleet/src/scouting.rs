@@ -6,7 +6,7 @@
 //! still says what was read before it stopped.
 //!
 //! **A person's ask is the only start.** `ask_scout` is the ask typed on a
-//! Studio; `start_scout` starts a Proposed Finding, the one Helm may add
+//! Studio; `start_scout` starts a Proposed Finding, the one a Job on your words may add
 //! unasked, once somebody asks for it. Nothing here starts one on its own.
 
 use std::sync::Arc;
@@ -69,7 +69,7 @@ where
             ask.position.to_domain(),
             at.clone(),
             // **A person's**, always: `ask_scout` is the ask they typed, and
-            // Helm reaches a scout through `start_scout` on a Finding whose
+            // A Job on your words reaches a scout through `start_scout` on a Finding whose
             // author the row already holds.
             core_model::StudioAuthor::Person,
         );

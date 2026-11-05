@@ -168,7 +168,7 @@ const MODES: {
 export type SessionComposerProps = {
   /** A turn is running. Send stays on: a message sent now is the agent's next input. */
   working: boolean;
-  /** Absent with `onMode` draws no permission mode: Helm keeps its own rule. */
+  /** Absent with `onMode` draws no permission mode. */
   mode?: ComposerMode;
   onMode?: (mode: ComposerMode) => void;
   model: string | null;
@@ -210,7 +210,7 @@ export type SessionComposerProps = {
   label?: string;
   /** Nothing can be sent: the box takes no focus and Send is off. */
   disabled?: boolean;
-  /** Send's weight. Helm's is quieter than the one Primary a view is allowed. */
+  /** Send's weight. A quieter one beside the one Primary a view is allowed. */
   send?: "primary" | "secondary";
   /** Send is its glyph, named on hover, so the row holds in a narrow dock. */
   slim?: boolean;
@@ -706,7 +706,7 @@ export function SessionComposer({
               ...(fileQuery === undefined ? [] : foundFiles.slice(0, FILE_ROWS).map(fileRow)),
             ];
   const open = items.length > 0;
-  // The list hangs above the box, where a box at the foot of its window has the room. In Helm's dock a box
+  // The list hangs above the box, where a box at the foot of its window has the room. In the Operator's dock a box
   // with no thread over it has none, and the dock clips what leaves it: then it hangs below.
   const form = useRef<HTMLFormElement>(null);
   const [below, setBelow] = useState(false);

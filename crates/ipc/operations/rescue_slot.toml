@@ -1,7 +1,7 @@
 [operations.rescue_slot]
 kind = "command"
 transport = "HTTP"
-agent_access = "Helm only"
+agent_access = "On your words"
 description = "Starts the Scout that reads a stranded worktree slot, stops it, or scraps or stashes the slot's work and frees it, on this machine only"
 notes = """
 `POST /worktrees/slots/rescue?manifest_id=`, body `RescueSlot`: `act` is `start`, `stop`, `scrap`, `stash` or `pick_up` (`pick_up` since 23.30), and `slot` names the stranded slot. Since 23.29. The answer, `SlotRescued`, names the branch and what the act did.
@@ -16,5 +16,5 @@ notes = """
 
 A slot a Job still holds after it ended, because the pool refused its release (`WorktreeSlot.held.kept`), is acted on the same way, and each act ends the Job's claim on it.
 
-`Helm only` for `change_slot_pool`'s reason: it spends money and changes what this machine holds, and a person asks for it.
+`On your words` for `change_slot_pool`'s reason: it spends money and changes what this machine holds, and a person asks for it.
 """

@@ -1,12 +1,11 @@
-import { MessageSquare, type LucideIcon } from "lucide-react";
+import { Bot, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { BoardEmptyState } from "../BoardEmptyState/BoardEmptyState";
 import { FleetPanel, type FleetPanelProps } from "../FleetPanel/FleetPanel";
 import { TitleBar, type TitleBarProps } from "../TitleBar/TitleBar";
 import { Button } from "../../primitives/Button/Button";
 import { KbdCmd } from "../../primitives/Kbd/Kbd";
 import { ShortcutRevealProvider } from "../../shortcut-reveal";
-import { HelmSheet } from "./HelmSheet";
+import { OperatorSheet } from "./OperatorSheet";
 import { useMarking, type Mark } from "../../marking";
 import {
   DockHandle,
@@ -17,7 +16,7 @@ import {
 } from "../../dock-handle";
 
 /**
- * The shell: the title row, the panel the work mounts in, and Helm's dock. **There is no left column.** The places are the title
+ * The shell: the title row, the panel the work mounts in, and the Operator's dock. **There is no left column.** The places are the title
  * row's tabs and the System strip, which the caller passes as `places`, and Fleet's panel is a popover on the title row's dot,
  * because nothing else would hold its restart, its build and its Doctor roll-up.
  *
@@ -48,18 +47,18 @@ export type TheShellProps = {
    *  ended the panel head every screen used to spend on its own name, so a
    *  screen's own controls sit at the top of its content instead. */
   children: ReactNode;
-  /** Helm's dock, on every surface. Absent draws none. */
+  /** The Operator's dock, on every surface. Absent draws none. */
   dock?: TheShellDock;
   /** Fleet's panel, opened from the title row's dot. */
   fleet: Omit<FleetPanelProps, "narrow">;
 };
 
 /**
- * Helm's dock (#948). **Over the content, never a column in it** (#1583): the
+ * The Operator's dock (#948). **Over the content, never a column in it** (#1583): the
  * panel keeps its frame and its place on the trailing edge, and the screen
  * underneath keeps the window's width open or shut. It starts shut.
  *
- * **Closed draws nothing at all, at every width.** The title row's own Helm
+ * **Closed draws nothing at all, at every width.** The title row's own Operator
  * button (#1087) is the one way back. #1094 dropped the edge strip that used
  * to sit on the trailing edge beyond the layout breakpoint, and the owner
  * dropped the folded one on 30 Sep 2026 once the title row fit the button in a slim
@@ -70,11 +69,7 @@ export type TheShellDock = {
   open: boolean;
   /** Below `--layout-breakpoint`. A prop, because a media query cannot read the token. */
   folded?: boolean;
-  /** Questions waiting on the person, counted on the title row's Helm button. Zero draws no count. */
-  questions?: number;
-  /** A call that lives in Helm is waiting: the title row's Helm button is tinted and pulses. */
-  calling?: boolean;
-  /** The binding, beside the close and in the title row's Helm tooltip. */
+  /** The binding, beside the close and in the title row's Operator tooltip. */
   binding?: string;
   onOpen: (open: boolean) => void;
   /**
@@ -91,21 +86,12 @@ export type TheShellDock = {
    * same way `open` is.
    */
   onResize?: (width: number) => void;
-  /**
-   * The dock's own act, beside Close — Helm's *Start fresh*, put there by the
-   * owner on 18 Sep 2026: it ends the conversation the dock holds, which is
-   * the head's business rather than the composer's, and the composer's own row
-   * had run out of width for it. **One control**, and the head is the same
-   * layout without it. Drawn in the folded sheet's head too, through `Sheet`'s
-   * own `controls` slot — folding the dock must not take an act away.
-   */
-  action?: ReactNode;
-  /** What the dock and its title-row button are called, and their glyph. Absent is Helm and `message-square`. */
+  /** What the dock and its title-row button are called, and their glyph. Absent is Operator and `bot`. */
   title?: string;
   icon?: LucideIcon;
   /** `full` lays the dock over the whole work, edge to edge, with no handle: the Operator's second take. Absent is the dock at its width. */
   span?: "full";
-  /** Absent draws one quiet line until the questions (#935) and the conversation (#944) arrive. */
+  /** What the dock holds. Absent draws nothing in the body. */
   children?: ReactNode;
 };
 
@@ -141,7 +127,7 @@ export function TheShell({
           onSearch={onSearch}
           onDispatch={onDispatch}
           dispatchDisabled={dispatchDisabled}
-          helm={helmButtonOf(dock)}
+          operator={operatorButtonOf(dock)}
           {...(planUsage === undefined
             ? {}
             : {
@@ -194,7 +180,7 @@ function FleetInAPopover(props: Omit<FleetPanelProps, "narrow" | "open" | "onOpe
   return <FleetPanel {...props} open={open} onOpenChange={setOpen} />;
 }
 
-const DOCK_TITLE = "Helm";
+const DOCK_TITLE = "Operator";
 
 /**
  * The dock's drag range — `dockWidthRange` (`dock-handle.tsx`), given the room
@@ -241,7 +227,7 @@ export function clampDockWidth(width: number, availableWidth: number): number {
   return clampToRange(width, dockWidthBounds(availableWidth));
 }
 
-/** `TheShell.css` gives the shell Helm's glow while a dock is drawn. */
+/** `TheShell.css` gives the shell the Operator's glow while a dock is drawn. */
 const DOCKED: readonly Mark[] = [
   {
     of: ".armada-shell",
@@ -256,17 +242,13 @@ function Dock({
   width,
   onResize,
   onOpen,
-  action,
   title = DOCK_TITLE,
-  icon: Glyph = MessageSquare,
+  icon: Glyph = Bot,
   span,
   children,
 }: TheShellDock) {
   const availableWidth = useWindowWidth();
   const docked = useMarking(DOCKED);
-  const body = children ?? (
-    <BoardEmptyState quiet>Questions waiting on you, and Helm, will be here.</BoardEmptyState>
-  );
 
   if (open && !folded) {
     // Clamped before it reaches the handle, not after: the window can narrow
@@ -306,48 +288,44 @@ function Dock({
               <Glyph size={16} strokeWidth={2} />
             </span>
             <h2 className="armada-shell__dock-title">{title}</h2>
-            {action}
             <Button variant="secondary" size="sm" ground="card" onClick={() => onOpen(false)}>
               Close
               {binding === undefined ? null : <KbdCmd shortcut={binding} />}
             </Button>
           </div>
-          <div className="armada-shell__dock-body">{body}</div>
+          <div className="armada-shell__dock-body">{children}</div>
         </aside>
       </div>
     );
   }
 
-  // Closed, at any width: nothing. The title row's Helm button is the one way back.
+  // Closed, at any width: nothing. The title row's Operator button is the one way back.
   if (!folded) return null;
 
   return (
-    <HelmSheet
+    <OperatorSheet
       open={open && folded}
       title={title}
       binding={binding}
-      controls={action}
       width={width}
       onResize={onResize}
       onClose={() => onOpen(false)}
     >
-      {body}
-    </HelmSheet>
+      {children}
+    </OperatorSheet>
   );
 }
 
 /**
- * Helm's title-row reopen control, from the same `dock` shape the dock reads —
+ * The Operator's title-row reopen control, from the same `dock` shape the dock reads —
  * so the caller states the dock once and the button and the dock agree on it.
  *
  * **Absent whenever the full dock is showing over the content.** Drawn while
  * folded, open or shut, and while closed outright: it is the one way back to
- * Helm at every width, since no edge strip is drawn at any.
+ * the Operator at every width, since no edge strip is drawn at any.
  */
-function helmButtonOf(dock: TheShellDock | undefined):
+function operatorButtonOf(dock: TheShellDock | undefined):
   | {
-      questions: number;
-      calling?: boolean;
       binding?: string;
       title?: string;
       icon?: LucideIcon;
@@ -357,12 +335,6 @@ function helmButtonOf(dock: TheShellDock | undefined):
   if (dock === undefined) return undefined;
   if (dock.open && dock.folded !== true) return undefined;
   return {
-    questions: dock.questions ?? 0,
-    ...(dock.calling === true
-      ? {
-          calling: true,
-        }
-      : {}),
     ...(dock.binding === undefined
       ? {}
       : {

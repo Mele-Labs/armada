@@ -144,6 +144,7 @@ where
                 after: None,
                 held: false,
                 project_rows: Vec::new(),
+                on_your_words: None,
             })
             .await?;
         // The group's title is the planning agent's, a hint the proposer names the Job over.

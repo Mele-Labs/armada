@@ -8,7 +8,7 @@ import type { Finding } from "../AdversarialReview/AdversarialReview";
 import { RequestOpen } from "./RequestedRow";
 
 /**
- * A Session's conversation: Helm's rows, the first write as a filled row, a
+ * A Session's conversation: its rows, the first write as a filled row, a
  * message from another Session under a band of its own that opens the sender,
  * and the permission the agent is held on.
  */
@@ -253,7 +253,7 @@ export const AgentMessagesAreLeftAlignedWithNoFill: Story = {
   play: async ({ canvas }) => {
     const message = canvas
       .getByText("The test reads the wall clock.")
-      .closest(".armada-helm-thread__message") as HTMLElement;
+      .closest(".armada-thread-row__message") as HTMLElement;
     const row = message.closest("li") as HTMLElement;
     await expect(getComputedStyle(row).textAlign).not.toBe("right");
     await expect(getComputedStyle(row).alignItems).not.toBe("flex-end");

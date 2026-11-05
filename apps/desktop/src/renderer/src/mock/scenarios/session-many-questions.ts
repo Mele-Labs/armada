@@ -64,8 +64,8 @@ const asking: Session[] = [
           "Only if non-empty",
           "Always",
         ]),
-        choice("Is the moon in the right place, left of Helm?", "Moon", [
-          "Left of Helm",
+        choice("Is the moon in the right place, left of the Sun?", "Moon", [
+          "Left of the Sun",
           "Title bar right",
         ]),
         choice("Are the five proposed icons right?", "Icons", [

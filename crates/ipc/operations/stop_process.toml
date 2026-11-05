@@ -10,5 +10,5 @@ notes = """
 
 **The caller is placed as `all_done` places it**: a hosted job by its connection, Bridge by `session_id`. Refused 422 `fleet.process_unnamed` where neither or both of `pid` and `port` are given, 422 where the call places no job, 409 `fleet.session_closed` for a job that has ended.
 
-`agent_access` is `Yes`: a job leaves dev servers and watchers running and is the one who knows which it meant to end. It is not `kill_process` or `kill_processes`, which Helm's door refuses.
+`agent_access` is `Yes`: a job leaves dev servers and watchers running and is the one who knows which it meant to end. It is not `kill_process` or `kill_processes`, which a Job's door refuses.
 """

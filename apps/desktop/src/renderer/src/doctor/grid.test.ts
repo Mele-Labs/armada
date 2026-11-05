@@ -62,7 +62,7 @@ const HEALTH: FleetHealth = {
       because: "neither is built",
     },
   ],
-  helm_action_authority: "acting",
+  action_authority: "acting",
 };
 
 describe("gridOf", () => {

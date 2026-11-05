@@ -282,13 +282,10 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The claim of the reply a turn ended on at `ended` that nothing backs, where Fleet reminds of one:
-    /// never for Helm, an ended Session or the reply to a reminder.
+    /// never for an ended Session or the reply to a reminder.
     pub(crate) async fn unbacked_claim(&self, id: &str, ended: &str, said: Option<&str>) -> Option<Claim> {
         // Most replies claim nothing, and the store is not read for them.
         let said = said.filter(|said| asks_to_walk(said) || claims_done(said))?;
-        if self.hosts().of(id).state().helm {
-            return None;
-        }
         let (session, reads, done, subagents, landed) = {
             let store = self.store().lock().await;
             let session = store.session(id).ok().flatten()?;

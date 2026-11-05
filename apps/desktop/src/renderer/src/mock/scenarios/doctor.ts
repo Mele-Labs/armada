@@ -65,7 +65,7 @@ export const s200Doctor: Scenario = {
             because: "the Armada API row is not a probe: it is a client's own connection state",
           },
         ],
-        helm_action_authority: "acting",
+        action_authority: "acting",
       },
     },
   },

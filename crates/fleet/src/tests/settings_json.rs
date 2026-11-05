@@ -185,3 +185,30 @@ async fn saving_checks_at_once_resizes_the_machine_check_slots_without_a_restart
     assert_eq!(slots.count(), 2);
     assert_eq!(fleet.checks_at_once().get(), 2);
 }
+
+/// A file written before the Helm Job went keeps the owner's two choices under their new names, is
+/// written back so the old names are gone, and is not refused for the keys that left with it.
+#[test]
+fn a_file_holding_renamed_and_retired_keys_is_carried_over_written_back_and_not_refused() {
+    use config::settings as s;
+    let home = TempDir::new();
+    let path = settings_file_in(&home);
+    std::fs::write(
+        &path,
+        r#"{"features.helmCanAct": false, "timeouts.helmAskHoldSeconds": 120, "prompts.helm": "old note", "effort.helm": "high", "timeouts.helmReplySeconds": 600}"#,
+    )
+    .expect("a file the last build wrote");
+
+    let loaded = crate::settings::MachineSettings::at(path.clone(), supplied(), config::settings::Env::none());
+
+    assert!(loaded.refused().is_none(), "{:?}", loaded.refused().map(|refused| refused.reason));
+    assert!(!loaded.at_start().get(s::WORDS_CAN_ACT), "the owner's choice stands under its new name");
+    assert_eq!(loaded.at_start().get(s::ASK_HOLD_SECONDS), std::time::Duration::from_secs(120));
+    let written = std::fs::read_to_string(&path).expect("the file");
+    for new in ["features.onYourWordsCanAct", "timeouts.askHoldSeconds"] {
+        assert!(written.contains(new), "{new} is written back: {written}");
+    }
+    for old in ["features.helmCanAct", "timeouts.helmAskHoldSeconds"] {
+        assert!(!written.contains(old), "{old} is gone: {written}");
+    }
+}

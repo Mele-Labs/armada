@@ -271,7 +271,7 @@ function Seeded({ seed, children }: { seed: OperatorSeed; children: ReactNode })
   return <Held.Provider value={store}>{children}</Held.Provider>;
 }
 
-/** The Operator's store, or null where this window has none: Helm's dock is drawn as it was. */
+/** The Operator's store, or null where this window has none: no dock is drawn. */
 export function useOperator(): OperatorStore | null {
   return useContext(Held);
 }

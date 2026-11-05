@@ -2,7 +2,7 @@
 // turn's last agent message, and the owner's reply after a notice, draw outside the fold. A third turn ends in a question for
 // the owner and stays open. The walk `fleet-turn-fold` plays it.
 
-import type { HelmCallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
+import type { CallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -24,7 +24,7 @@ const FLEET = {
   title: "Fleet",
 } as const;
 
-const ASKED: HelmCallInFlight = {
+const ASKED: CallInFlight = {
   call: "fold-q1",
   manifest_id: "armada",
   asked_at: "2026-10-22T11:20:00.000Z",

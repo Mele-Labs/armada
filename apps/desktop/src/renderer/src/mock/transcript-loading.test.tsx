@@ -62,7 +62,7 @@ test("an unread Job claims no card while it is read, and none when the person's 
 
   // The bars stand: the thread is busy, and neither the card nor the glyph is drawn nor claimed.
   await expect
-    .poll(() => document.querySelector('[aria-busy="true"].armada-helm-thread__rows') !== null)
+    .poll(() => document.querySelector('[aria-busy="true"].armada-thread-rows') !== null)
     .toBe(true);
   expect(page.getByText("passes 200 runs in a row").query()).toBeNull();
   expect(card().query()).toBeNull();

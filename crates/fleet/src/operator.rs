@@ -33,6 +33,7 @@ mod placing;
 mod questions;
 mod ruling;
 mod seat;
+pub(crate) mod shortlist;
 mod sources;
 mod sourcing;
 mod stalling;

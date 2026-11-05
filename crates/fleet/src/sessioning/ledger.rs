@@ -269,7 +269,7 @@ where
             };
             record.mod_out_of_date = self.mod_out_of_date(session);
         }
-        record.helm = reads.hosting.as_ref().is_some_and(|hosting| hosting.helm);
+        record.on_your_words = reads.hosting.as_ref().is_some_and(|hosting| hosting.on_your_words);
         record.auto_land = reads.hosting.as_ref().is_some_and(|hosting| hosting.auto_land);
         record.r#mod = reads.hosting.as_ref().is_some_and(|hosting| hosting.mod_job);
         record.from_job = reads.hosting.as_ref().and_then(|hosting| hosting.from_job.clone());
@@ -358,7 +358,6 @@ where
         let excused = !between
             || parked
             || !record.held_open_by.is_empty()
-            || record.helm
             // Its process died in the turn: Fleet is starting it again, or it reads as dead below.
             || reads.open_turn.as_ref().is_some_and(|turn| turn.ended_at.is_some())
             || record.waits.is_some()
@@ -389,7 +388,7 @@ where
             record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
         }
         // Gone quiet with work left: the Operator is handed it on the next tick.
-        self.operator_seat().stall_noted(&session.id, crate::operator::seen_of(&record, between && !parked && !record.helm));
+        self.operator_seat().stall_noted(&session.id, crate::operator::seen_of(&record, between && !parked));
         record.stop_told_by = owed.map(|(_, from)| wire_instant(&crate::clock::rfc3339_utc(from + crate::session_host::stopping::STOP_AFTER.as_millis() as i64)));
         // How long the running turn has been at it and when it was last heard, which Now says beside it.
         if session.origin == "bridge" {

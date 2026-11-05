@@ -15,7 +15,7 @@ use crate::tests::fake::FakeDaemon;
 use crate::tests::shapes::run_id;
 use crate::{router, Broadcaster, Served, BRIDGE, CALLER_HEADER, DOOR_PATH};
 
-const HELM: u16 = 52100;
+const WORDS: u16 = 52100;
 const ANYONE: u16 = 52101;
 
 fn reading(_: &Reachable) -> bool {
@@ -24,7 +24,7 @@ fn reading(_: &Reachable) -> bool {
 
 fn a_fleet() -> (Arc<FakeDaemon>, Router) {
     let daemon = FakeDaemon::new(Broadcaster::new());
-    *daemon.helm_on.lock().expect("not poisoned") = Some((HELM, reading));
+    *daemon.words_on.lock().expect("not poisoned") = Some((WORDS, reading));
     let daemon = Arc::new(daemon);
     let app = router(Served::sharing(
         Arc::clone(&daemon),
@@ -81,7 +81,7 @@ async fn a_request_is_named_by_the_door_it_came_through() {
         get("/lessons", Some("something-else")),
         get("/lessons", Some(crate::PHONE)),
         through_the_door(ANYONE, "list_lessons"),
-        through_the_door(HELM, "list_lessons"),
+        through_the_door(WORDS, "list_lessons"),
     ] {
         let (status, body) = sent(&app, request).await;
         assert_eq!(status, StatusCode::OK, "{body}");
@@ -102,7 +102,7 @@ async fn a_request_is_named_by_the_door_it_came_through() {
             Some("http"),
             Some("phone"),
             Some("door"),
-            Some("helm"),
+            Some("job"),
         ]
     );
 }

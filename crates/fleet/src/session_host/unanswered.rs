@@ -66,7 +66,7 @@ fn line_settled(state: &mut State) {
 pub(super) fn turn_unanswered(runtime: &Runtime) -> bool {
     let mut state = runtime.state();
     line_settled(&mut state);
-    !state.helm && state.queued == 0 && std::mem::take(&mut state.owes_reply)
+    state.queued == 0 && std::mem::take(&mut state.owes_reply)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -94,7 +94,7 @@ where
         }
         let mut state = runtime.state();
         line_settled(&mut state);
-        !state.helm && std::mem::take(&mut state.owes_reply)
+        std::mem::take(&mut state.owes_reply)
     }
 
     /// Send the agent back to write the answer its turn left out.

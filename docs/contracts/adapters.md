@@ -75,9 +75,9 @@ Both are **one-shot, no tools, cheap model, tight latency budget**. That
 shape is the whole point: it is what lets `verification` call a model
 without becoming an agent runtime.
 
-**Helm is not a `ModelClient` caller.** Helm is a persistent multi-turn
-session with tool access, which is structurally an `AgentHarness` concern,
-not a one-shot completion. Putting Helm behind `ModelClient` would force
+**A Job on your words is not a `ModelClient` caller.** It is a hosted Job
+with tool access, which is structurally an `AgentHarness` concern,
+not a one-shot completion. Putting it behind `ModelClient` would force
 conversation state, tool dispatch and streaming into a trait whose entire
 value is that it has none of those.
 

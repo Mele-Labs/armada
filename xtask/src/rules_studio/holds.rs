@@ -28,7 +28,7 @@ const BY_ACCEPTANCE: &str = "a person accepts";
 /// here can reason about.
 const WHO: &[&str] = &[
     "person",
-    "helm_on_ask",
+    "job_on_ask",
     "scout_on_ask",
     "fleet",
 ];
@@ -158,7 +158,7 @@ pub fn drawn_by(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mu
             }
             _ => report.fail(format!(
                 "{REGISTRY}:{} — `{}` is drawn by `{who}`, which is neither `{BY_THE_STUDIO}` \
-                 nor `{BY_ACCEPTANCE}`. Only a person accepts a relation; Helm and a scout \
+                 nor `{BY_ACCEPTANCE}`. Only a person accepts a relation; a Job on your words and a scout \
                  propose one",
                 row.line,
                 row.header()

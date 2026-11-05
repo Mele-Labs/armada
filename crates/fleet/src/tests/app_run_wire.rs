@@ -143,7 +143,7 @@ async fn a_run_on_a_jobs_worktree_names_the_job_its_branch_and_its_bay() {
             lease_slot: Some(1),
             lease_branch: Some(String::from("job-branch")),
             fork_of: None,
-            helm: false,
+            on_your_words: false,
             setup: false,
             workflow: None,
             proposed: String::new(),

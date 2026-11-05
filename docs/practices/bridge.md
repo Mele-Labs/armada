@@ -182,7 +182,7 @@ tiny helpers a surface and the app share, with no React: today the generic
 `mock/moment.ts` fixes to desktop's `BridgeState` and `BridgeApi`. The mock
 fleet and `BridgeApi` itself still live in `apps/desktop` while the API split
 moves each surface's slice and fleet into its own package, step by step. Studios,
-Worktree Slots, Overview, Helm, Setup and Manifest have moved both, and Settings its slice
+Worktree Slots, Overview, Setup and Manifest have moved both, and Settings its slice
 (it has no fleet). Jobs, the package, is gone: its `JobsApi` is `shared/api/jobs.ts` and its fleet
 `mock/jobs-fleet.ts`, which serve Fleet's Job routes until Fleet drops them. What stays in desktop is the composition: `scenario.ts`, the scenario rows,
 `holding.ts` and the Workflows and reports slices.
@@ -239,7 +239,7 @@ What it settled for the next surface:
   `mock/<x>-fake.ts`, `mock/slices/core.ts`, `mock/slices/<x>.ts` and `shared/**`; never another surface's
   `*-fleet.ts`. `armada covers` proves it. **A whole-app test mounts with a slice list**
   (`mount(..., { slices: ["core", "<x>"] })`), and a surface whose tests all do names only
-  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Worktree Slots, Overview, Settings, Helm, Setup and Manifest do.
+  `mock/slices/core.ts` and `mock/slices/<x>.ts` instead of `slices/**`. Studios, Worktree Slots, Overview, Settings, Setup and Manifest do.
   A surface with no fleet of its own (Settings) has no `mock/<x>-fake.ts`, and its `/fake` is
   the slice's route stubs. The module graph is wider than the list, since `slices.ts` imports
   every slice and the harness re-exports other surfaces' fakes; their own Checks and desktop's
@@ -293,7 +293,7 @@ What it settled for the next surface:
 
 `BridgeApi`, `BridgeState`, `NOTHING_YET` and `CHANNELS` are composed from one
 file per surface in `apps/desktop/src/shared/api/`: `core`, `studios`,
-`manifest`, `setup`, `workflows`, `helm`, `settings`, `overview`, `cleanup`,
+`manifest`, `setup`, `workflows`, `questions`, `settings`, `overview`, `cleanup`,
 `reports` and `jobs`. Each exports `<X>Api`, `<X>State`, `<X>_NOTHING_YET` and
 `<X>_CHANNELS`; `shared/api.ts` and `shared/bridge.ts` intersect and spread them
 under the old names, so no importer changes. **A slice imports protocol, screens
@@ -502,7 +502,7 @@ moving reads as still.
 **Nothing retries a press, which is why the miss is silent.** The locator waited
 for what it could see and what it saw was right. A keystroke is worse: it has no
 locator at all, so a binding bound in an effect can miss one sent before React
-has committed — which is what `openHelm` waits on the window being drawn for.
+has committed — which is why a test waits for the window to be drawn before it presses a key.
 
 **Spell `entered()` at the press rather than folding it into a helper that
 settles every animation everywhere.** A press that ought to land at once, on a

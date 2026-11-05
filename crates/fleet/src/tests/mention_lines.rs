@@ -1,5 +1,4 @@
-//! The line Fleet adds ahead of a message that names something, as a Session and Helm are both
-//! told it.
+//! The line Fleet adds ahead of a message that names something, as a Job is told it.
 
 use ipc::{SessionTag, TagKind};
 

@@ -32,8 +32,8 @@ mod door;
 mod job_cli;
 /// What the stream carries, under the names `operations/` declares.
 mod events;
-mod helm;
-mod helm_box;
+mod session_wire;
+mod issue_reading;
 /// A refused body names its whole shape.
 mod shape;
 mod show_file;

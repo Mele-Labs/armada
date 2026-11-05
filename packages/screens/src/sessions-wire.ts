@@ -11,7 +11,7 @@ import type {
   Attachment,
   AttachmentHistory,
   ContextBreakdown as WireContextBreakdown,
-  HelmCallInFlight,
+  CallInFlight,
   JobLifecycles,
   ProposedField,
   SentFile,
@@ -982,7 +982,7 @@ const tagOf = (tag: WireTag): SessionTag => ({
       }),
 });
 
-function askOf(ask: HelmCallInFlight): SessionAsk {
+function askOf(ask: CallInFlight): SessionAsk {
   return {
     // The card is what a person allows, so it reads the command whole where `detail` was cut.
     command: ask.whole ?? (ask.detail === "" ? ask.tool : ask.detail),
@@ -1131,7 +1131,7 @@ export function rowsOfThread(
         });
         break;
       case "sent":
-        // Words Helm's dock sent on to a Session or a Job: the person's own, with the place they went.
+        // Words an old thread sent on to a Session or a Job: the person's own, with the place they went.
         out.push({
           id: row.id,
           at,
@@ -1690,11 +1690,6 @@ export function sessionOfRecord(
     ...(hosted === undefined
       ? {
           terminal: true as const,
-        }
-      : {}),
-    ...(record.helm === true
-      ? {
-          helm: true as const,
         }
       : {}),
     ...(record.mod === true

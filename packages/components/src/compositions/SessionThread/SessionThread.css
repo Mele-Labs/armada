@@ -1,4 +1,4 @@
-/* A Session's thread: Helm's rows (HelmThread.css), the first write as a
+/* A Session's thread: its rows, the first write as a
    filled row, and a message from another Session under a band of its own. */
 
 .armada-session-thread {
@@ -671,15 +671,15 @@
 }
 
 /* The Aa panel's look. Stamps and the agent's name hidden; the body read a size up or down, from the type scale. */
-.armada-session-thread[data-times="hidden"] .armada-helm-thread__rows .armada-stamp {
+.armada-session-thread[data-times="hidden"] .armada-thread-rows .armada-stamp {
   display: none;
 }
 
-.armada-session-thread[data-who="hidden"] .armada-helm-thread__who {
+.armada-session-thread[data-who="hidden"] .armada-thread-row__who {
   display: none;
 }
 
-.armada-session-thread[data-who="hidden"][data-times="hidden"] .armada-helm-thread__head {
+.armada-session-thread[data-who="hidden"][data-times="hidden"] .armada-thread-row__head {
   display: none;
 }
 
@@ -696,7 +696,7 @@
   --thread-leading: var(--leading-lg);
 }
 
-/* The thread's own Spacing: the room between rows and around messages, here and nowhere else in Bridge (HelmThread.css reads it). */
+/* The thread's own Spacing: the room between rows and around messages, here and nowhere else in Bridge. */
 .armada-session-thread[data-spacing="compact"] {
   --thread-gap: var(--space-2);
   --thread-message-room: var(--space-1);
@@ -706,9 +706,9 @@
   --thread-message-room: var(--space-4);
 }
 
-.armada-session-thread[data-text] :is(.armada-helm-thread__message, .armada-session-you__body),
+.armada-session-thread[data-text] :is(.armada-thread-row__message, .armada-session-you__body),
 .armada-session-thread[data-text]
-  :is(.armada-helm-thread__message, .armada-session-you__body)
+  :is(.armada-thread-row__message, .armada-session-you__body)
   .armada-prose {
   font-size: var(--thread-text);
   line-height: var(--thread-leading);
@@ -1639,7 +1639,7 @@
    `SessionThread` marks only rows that appear after the thread has first drawn,
    so opening a Job never replays its history. Opacity and --space-2 of travel;
    the row's own box is already laid out, so nothing around it moves. */
-.armada-helm-thread__rows > [data-arrived] {
+.armada-thread-rows > [data-arrived] {
   animation: armada-thread-arrive var(--duration-enter) var(--ease-out) backwards;
 }
 

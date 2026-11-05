@@ -8,7 +8,7 @@ import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 
 /**
  * Studio name — a Studio's name where it is drawn, and the way a person gives
- * it one. `docs/concepts/studio.md`, Helm on a Studio; `#1364`.
+ * it one. `docs/concepts/studio.md`, the Operator on a Studio; `#1364`.
  *
  * **Editable where it is drawn**, on the list row and on the open Studio. The
  * owner clicked an untitled Studio's name to name it and nothing happened; a

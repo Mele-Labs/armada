@@ -129,7 +129,7 @@ where
             at.clone(),
             match by {
                 Redirector::Person => StudioAuthor::Person,
-                Redirector::Helm => StudioAuthor::Helm,
+                Redirector::Job => StudioAuthor::Job,
             },
         );
         let produced_by = asked

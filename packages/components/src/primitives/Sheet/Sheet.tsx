@@ -104,7 +104,7 @@ export type SheetBack = {
 };
 
 /**
- * Whose width the sheet draws. **Every sheet resizes** by Helm's handle on its
+ * Whose width the sheet draws. **Every sheet resizes** by the dock's handle on its
  * inner edge (owner, 2 Oct 2026), so every sheet names one or the other.
  */
 type SheetWidth =
@@ -121,7 +121,7 @@ type SheetWidth =
   | {
       kind?: never;
       /**
-       * A width another surface owns: Helm folded into a sheet shares the
+       * A width another surface owns: the Operator folded into a sheet shares the
        * dock's, so a drag of either sets both. Clamped here as a kind's is.
        */
       width: number | undefined;
@@ -138,8 +138,8 @@ export type SheetProps = SheetWidth & {
    */
   subtitle?: ReactNode;
   /**
-   * Beside the title, at the head's leading edge — Helm's chip, which marks
-   * its folded dock as Helm rather than one more sheet (#1320). Decoration: it
+   * Beside the title, at the head's leading edge — the Operator's chip, which marks
+   * its folded dock as the Operator rather than one more sheet (#1320). Decoration: it
    * adds nothing to the dialog's name, which stays `title`. Absent draws
    * nothing, and the head is laid out exactly as without it.
    */
@@ -202,7 +202,7 @@ export type SheetProps = SheetWidth & {
   /**
    * A panel over the whole work area rather than a layer inside one screen:
    * under the title row, held off every edge by `--space-4`, rounded and
-   * bordered — Helm's dock, as a sheet. **What a screen's own reading takes
+   * bordered — the Operator's dock, as a sheet. **What a screen's own reading takes
    * where `contained` would clip it** against the content column's edge, which
    * is what the owner saw on the Record, 29 Sep 2026. Wins over `contained`.
    */

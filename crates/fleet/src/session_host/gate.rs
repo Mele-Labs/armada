@@ -381,7 +381,7 @@ where
         let id = hosting.session_id.as_str();
         let manifest = served.manifest().id().as_str();
         let queue = self.hosts().slot_queue();
-        let unleased = hosting.lease_slot.is_none() && !hosting.helm && mode_of(&hosting.mode) != SessionMode::Plan;
+        let unleased = hosting.lease_slot.is_none() && mode_of(&hosting.mode) != SessionMode::Plan;
         if !unleased {
             return hosting.clone();
         }

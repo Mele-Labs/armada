@@ -14,7 +14,7 @@
 | `settle_downshift` (`POST /model_downshift/settle`) | no body | Valid while `offered`. Makes no second offer in this window |
 
 **A command in the wrong phase is a 409** (`fleet.downshift_wrong_phase`), never a silent no-op, and each command answers the state it left.
-All four are `agent_access` `No`: a step down answers an offer Bridge draws, and Helm moves `models.session` with `save_settings`.
+All four are `agent_access` `No`: a step down answers an offer Bridge draws, and a Job on your words moves `models.session` with `save_settings`.
 Settings: `plan.downshiftAt` and `plan.downshiftTo` in a new `Plan` section, and `models.default` and `models.session` are `live`.
 The step down moves `models.session` and never `models.default`, which Drones and Jobs keep.
 

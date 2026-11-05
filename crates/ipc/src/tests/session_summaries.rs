@@ -57,7 +57,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         held_until: None,
         context_breakdown: None,
         loadout_summary: None,
-        helm: false,
+        on_your_words: false,
         r#mod: false,
         from_job: None,
         from_tab: None,
@@ -94,7 +94,7 @@ fn a_summary_holds_what_is_standing_and_none_of_the_history() {
     let record = session(vec![
         held("slot", "3", AttachmentState::Standing, &[]),
         held("slot", "2", AttachmentState::GivenBack, &[]),
-        held("branch", "helm/sees-sessions", AttachmentState::Standing, &[]),
+        held("branch", "topic/sees-sessions", AttachmentState::Standing, &[]),
         held("pr", "2201", AttachmentState::Spent, &[("title", "Old"), ("state", "merged")]),
         held(
             "pr",
@@ -106,7 +106,7 @@ fn a_summary_holds_what_is_standing_and_none_of_the_history() {
     ]);
     let line = &SessionSummaries::of(&SessionList { sessions: vec![record] }).sessions[0];
     assert_eq!(line.slot.as_deref(), Some("3"));
-    assert_eq!(line.branch.as_deref(), Some("helm/sees-sessions"));
+    assert_eq!(line.branch.as_deref(), Some("topic/sees-sessions"));
     assert_eq!(line.pull_requests.len(), 1);
     assert_eq!(line.pull_requests[0].number, 2230);
     assert_eq!(line.pull_requests[0].title, "Say main is red");

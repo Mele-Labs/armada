@@ -13,8 +13,8 @@ sanction is a finding, not a judgement call.
 
 UI tokens and the Voice & Copy contract are both in force. Two sibling
 documents carry what building a surface does not need: the [Agent Copy
-Contract](agent-copy.md) (text written at runtime by Drones, Judge and
-Helm, with its surfaces and their samples in Armada Copy) and the [Voice
+Contract](agent-copy.md) (text written at runtime by Drones and the Judge,
+with its surfaces and their samples in Armada Copy) and the [Voice
 Contract — Engineering Requirements](voice-engineering.md).
 
 ---

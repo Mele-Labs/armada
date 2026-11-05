@@ -36,7 +36,6 @@ export type KitModelChoices = {
   retro: string;
   secondOpinion: string;
   downshift: string;
-  helmEffort: string;
 };
 export type KitModelSlot = keyof KitModelChoices;
 
@@ -98,10 +97,6 @@ const RUNS: readonly {
   {
     label: "Step down to",
     model: "downshift",
-  },
-  {
-    label: "Helm",
-    effort: "helmEffort",
   },
 ];
 

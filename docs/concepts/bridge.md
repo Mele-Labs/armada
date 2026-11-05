@@ -55,7 +55,7 @@ The Cockpit is the window's first tab, and its own left column holds the reposit
 See [Cockpit](cockpit.md).
 Finer layout treatment within each journey remains UI/UX design phase work.
 
-**The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once Helm's dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Settings and Doctor.
+**The title row** carries a wordmark, the tabs, the one bar that searches and dispatches (an icon and its key while the tabs are drawn), the plan's limits, once the dock is closed its own reopen button, Fleet's status dot, and one menu holding the account, Settings and Doctor.
 The account entry reads Sign in with GitHub while signed out and opens the [account](account.md) once signed in; Settings carries its key.
 The menu button carries an amber dot while signed out.
 Below the row's narrow width the other controls are listed in the menu, and the tabs stay.
@@ -89,13 +89,13 @@ The rule is that no page is reachable only by a place the window does not draw.
 **The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id.
 The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 
-**The window's places are declared in `surfaces.ts`, not derived from what a screen draws.** Helm is not a place: it is a dock beside the content on every surface, toggled by `⌘J`, and above the layout breakpoint a closed dock draws nothing at all, so the title row's own Helm button is the one way back.
-See [Helm](helm.md).
+**The window's places are declared in `surfaces.ts`, not derived from what a screen draws.** The Operator is not a place: its panel is a dock over the content on every surface, toggled by `⌘J`, and above the layout breakpoint a closed dock draws nothing at all, so the title row's own dock button is the one way back.
+The panel is `armada-ehhu.10`, and [Operator](operator.md) is what it shows.
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else.
 See [Studio](studio.md).
 
-**Settings is Fleet's limits and this machine's own settings, on one screen** — Helm's action authority first.
+**Settings is Fleet's limits and this machine's own settings, on one screen**.
 It replaced a sheet reached from the status bar (#1088 removed the bar), and it is where a limit changed still takes the same way it always has.
 It is a System page, `⌘,`, and the title menu's entry.
 

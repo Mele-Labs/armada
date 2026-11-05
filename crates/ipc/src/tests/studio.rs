@@ -8,7 +8,7 @@ use core_model::{
 };
 
 use crate::{
-    decode, encode, Event, HelmStudioAct, Instant, ProposeStudioEdge, Studio, StudioHelmActed,
+    decode, encode, Event, StudioJobAct, Instant, ProposeStudioEdge, Studio, StudioJobActed,
     StudioNodeContent,
 };
 
@@ -106,7 +106,7 @@ fn a_graph() -> StudioGraph {
         second.id().clone(),
         StudioRelation::SameAs,
         at(2),
-        core_model::StudioAuthor::Helm,
+        core_model::StudioAuthor::Job,
     )
     .expect("two nodes");
     StudioGraph {
@@ -141,7 +141,7 @@ fn a_studio_round_trips_flat_and_an_untitled_one_sends_no_name() {
     assert!(json.contains(r#""added_by":"person""#), "{json}");
     assert!(
         json.contains(
-            r#""standing":"proposed","created_at":"2026-09-17T09:02:00.000Z","added_by":"helm""#
+            r#""standing":"proposed","created_at":"2026-09-17T09:02:00.000Z","added_by":"job""#
         ),
         "{json}"
     );
@@ -300,28 +300,28 @@ fn a_note_whose_capture_names_a_kept_frame_does_not_decode() {
     crate::StudioNodeAdded::try_from(named).expect_err("a Note naming a frame is no write");
 }
 
-/// **Helm's act is its own kind**, flat: which act beside the ids, and the
+/// **A Job's act is its own kind**, flat: which act beside the ids, and the
 /// repository at the top level where a poll's tally reads it.
 #[test]
-fn helms_act_on_a_studio_is_its_own_kind_and_names_its_repository() {
-    let acted = Event::StudioHelmActed(StudioHelmActed {
+fn a_jobs_act_on_a_studio_is_its_own_kind_and_names_its_repository() {
+    let acted = Event::StudioJobActed(StudioJobActed {
         studio_id: crate::StudioId::carried("01STUDIO"),
         manifest_id: crate::ManifestId::carried("armada"),
-        act: HelmStudioAct::AddedNode {
+        act: StudioJobAct::AddedNode {
             node_id: crate::StudioNodeId::carried("01NODE"),
         },
         at: Instant::from(&Timestamp::from_rfc3339("2026-09-17T09:00:00.000Z")),
     });
     let json = encode(&acted).expect("plain data");
     assert!(
-        json.starts_with(r#"{"kind":"studio.helm_acted","studio_id":"01STUDIO""#),
+        json.starts_with(r#"{"kind":"studio.job_acted","studio_id":"01STUDIO""#),
         "{json}"
     );
     assert!(
         json.contains(r#""act":"added_node","node_id":"01NODE""#),
         "{json}"
     );
-    assert_eq!(acted.kind(), "studio.helm_acted");
+    assert_eq!(acted.kind(), "studio.job_acted");
     assert_eq!(acted.about(), Some("armada".to_string()));
     assert_eq!(
         decode::<Event>("an event", json.as_bytes()).expect("round-trips"),

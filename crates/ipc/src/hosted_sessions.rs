@@ -11,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::helm_call::{HelmCallAnswer, HelmCallInFlight, QuestionAnswer};
+use crate::call::{CallAnswer, CallInFlight, QuestionAnswer};
 use crate::ids::{Instant, ManifestId};
 use crate::mods::ModAim;
 use crate::sessions::{SessionId, SessionRecord};
@@ -84,6 +84,12 @@ pub struct StartSession {
     /// not there, before anything is made. Not read with `fork` or `root`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub project_rows: Vec<crate::ProjectRowRef>,
+    /// Start the Job on your words: it may call what only a Job on your words may, such as
+    /// `tell_session` and the acts on a Studio, under the machine's action authority. **Bridge is
+    /// the only setter.** A start that arrives through the agent door reads this as false whatever
+    /// it carries, so no agent can give it to a Job. Absent is false.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_your_words: Option<bool>,
 }
 
 /// The session a new one is forked from. Since 23.69.
@@ -164,18 +170,21 @@ pub struct SendSessionMessageBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnswerSessionAsk {
     pub session_id: SessionId,
-    /// [`HelmCallInFlight::call`] of the ask the row carries.
+    /// [`CallInFlight::call`] of the ask the row carries.
     pub call: String,
-    pub answer: HelmCallAnswer,
+    pub answer: CallAnswer,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     /// One entry per question, for an ask that carries some. Since 23.71.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub answers: Vec<QuestionAnswer>,
-    /// [`crate::AnswerHelmCall::folder`].
+    /// The folder an "always" or a session answer is for: [`CallInFlight::reaches`](crate::CallInFlight::reaches) or a
+    /// folder above it. Read for those three answers, and one without it is refused; a "like this"
+    /// answer may carry one to narrow its kind to that folder.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub folder: Option<String>,
-    /// [`crate::AnswerHelmCall::kind`].
+    /// The width a "like this" answer allows: the card's own [`CallInFlight::kind`](crate::CallInFlight::kind), or the
+    /// same with no script. Read for that answer only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<crate::CallKind>,
 }
@@ -384,7 +393,7 @@ pub struct HostedFacts {
     pub turn: SessionTurn,
     /// What the agent is held on, while it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub asked: Option<HelmCallInFlight>,
+    pub asked: Option<CallInFlight>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     /// The model the CLI resolved for the running process, as its `init` line names it:
@@ -796,10 +805,10 @@ pub enum SessionRow {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         why: Option<String>,
     },
-    /// Words that went to another Session: a person's thought Helm's dock routed, or
-    /// what Helm passed on with `tell_session`. **Written in a Helm Session's thread only, and never
-    /// delivered to it**: it records where the words went and the agent is not told. `files` and
-    /// `tags` are what went with them, read back with `get_session_file`. Since the Helm Session.
+    /// Words that went to another Session. **Written only in the old threads the Helm Job kept,
+    /// and nowhere new**: Fleet sends words on now and keeps no row for them, but a thread that
+    /// holds one still reads. The agent was never told of the row. `files` and `tags` are what
+    /// went with them, read back with `get_session_file`.
     Sent {
         id: String,
         at: Instant,
@@ -815,7 +824,7 @@ pub enum SessionRow {
     Ask {
         id: String,
         at: Instant,
-        ask: HelmCallInFlight,
+        ask: CallInFlight,
         state: SessionAskState,
         /// The door the answer came through. Absent while the ask waits, and
         /// where nobody answered it.

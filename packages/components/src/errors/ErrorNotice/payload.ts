@@ -116,9 +116,8 @@ const NO_CODE = "none";
 /**
  * A two-column block, aligned on the longest label.
  *
- * **Exported so a second artifact reads as the same act.** `HelmRecord`'s own
- * producer lays a session out in these columns — one producer each, one
- * grammar between them, and a change to the grammar moves both.
+ * **Exported so a second artifact reads as the same act.** a second producer lays a session out in these columns, so one
+ * grammar sits between them and a change to it moves both.
  *
  * A value containing newlines keeps them, and its continuation lines are
  * indented to the value column rather than collapsed onto one line. Losing a

@@ -307,7 +307,7 @@ pub struct TerminalFacts {
     /// The question the session put in its terminal and Bridge may answer
     /// first, while it waits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub asked: Option<crate::helm_call::HelmCallInFlight>,
+    pub asked: Option<crate::call::CallInFlight>,
 }
 
 /// What a harness sends Fleet. `POST /sessions/report`.
@@ -1296,10 +1296,10 @@ pub struct SessionRecord {
     /// `equipped` was ever reported. The whole of it is `get_session_loadout`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub loadout_summary: Option<crate::loadout::LoadoutSummary>,
-    /// This hosted session is a repository's Helm: opening it from the Sessions list opens the
-    /// dock, and at most one is live per `manifest_id`. Absent on every other session.
+    /// This Job was started on your words: it may call what only a Job on your words may. Absent
+    /// on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub helm: bool,
+    pub on_your_words: bool,
     /// A Mod Job, started from Mod for modding Armada itself. Absent on every other session.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub r#mod: bool,

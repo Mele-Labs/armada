@@ -40,7 +40,7 @@ product copy, not to internal documentation.
 
 **Scope split.** This contract governs static UI chrome, which is not
 configurable. The Machine-level **Voice** setting tunes runtime-generated
-prose (Judge summaries, Helm replies, job summaries) within this
+prose (Judge summaries, job summaries) within this
 contract. It may adjust length and formality. It may not override the
 principles, the lexicon or the status grammar. "Terse" and "explanatory"
 are legal Voice values. "Playful" is not.
@@ -48,7 +48,7 @@ are legal Voice values. "Playful" is not.
 ## Principles
 
 **P1. Metaphor lives in proper nouns only.** Nautical vocabulary is
-confined to names: Armada, Fleet, Bridge, Helm, Drone, Manifest,
+confined to names: Armada, Fleet, Bridge, Drone, Manifest,
 Job Board. Kit and Machine are lexicon terms but carry no metaphor —
 they say what they are. Every verb, state, error and instruction is
 plain English. Write "Drone 4 stopped reporting 12 minutes ago", not
@@ -60,9 +60,9 @@ on screen, without a click. Weak: "Drone 4 stopped reporting. Poke limit
 reached." Correct: "Drone 4 stopped reporting 12 minutes ago after 3
 pokes. Step 2 of 5, last wrote `auth/session.rs`."
 
-**P3. First person is Helm's alone.** Bridge and Fleet never say "I".
-Helm says "I" only for what Helm itself did. Reporting a Fleet event,
-Helm uses the same impersonal phrasing Bridge does.
+**P3. Bridge and Fleet never say "I".** A Job speaks as its agent does.
+What the Operator's reads and reasons say in the first person is not
+written down.
 
 **P4. Hedge by source.** Three source classes, three registers.
 
@@ -82,7 +82,7 @@ of the other two.
 the job or step, never the drone. Write "Step 3 did not advance. No
 evidence after 3 clarification rounds", not "Drone 4 failed to submit
 evidence". Known causes state flatly. Hypothesised causes hedge and name
-their source, and only Judge and Helm may produce them.
+their source, and only the Judge may produce them.
 
 **P6. Fixed copy is a template; generated copy is a substance
 requirement.** Fleet's own strings should be identical every time,
@@ -104,7 +104,7 @@ read plausibly under a different job has failed.
 - **One column, one case — and the case is the one that can hold for
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no
-  difference in kind. Helm's thread and its session record are the case:
+  difference in kind. A Job's thread and its session record are the case:
   Fleet writes the *no reply came* sentences and Bridge words the row about
   a session it could not resume. Fleet's open lower case and cannot do
   otherwise — some of them lead with the program that would not start,
@@ -112,7 +112,7 @@ read plausibly under a different job has failed.
   promoted to an actor — so on **2026-09-18 Bridge's own thread lines
   lowered to meet Fleet's**, rather than capitalising a program into an
   actor to meet Bridge's. A proper noun still keeps its capital wherever
-  it falls, so a line opening on Fleet or Helm reads as it always did.
+  it falls, so a line opening on Fleet reads as it always did.
   **The exception is the column and nothing around it**: a button, a
   heading, a dialog's title and a table's own headings on the same
   surface stay sentence case, because no other producer's prose sits
@@ -149,8 +149,8 @@ read plausibly under a different job has failed.
 - **Armada** the app. Never the tool, the system.
 - **Fleet** the daemon. Never the backend, the server, the sidecar.
 - **Bridge** the operational surfaces. Never the dashboard, the UI.
-- **Helm** the dock and its agent. Never the assistant, the chat, the
-  surface.
+- **Operator** the one decider per machine that rules each arrival, and
+  holds no tools. Never the assistant, the chat. Replaces Helm.
 - **Drone** one agent instance. Never the agent, the bot, the AI,
   Claude.
 - **Job** one agent a person runs, in a terminal or in Bridge, and the work it does.
@@ -232,12 +232,13 @@ page.
 | Ground Zero | **M0 — Foundations** | Archived with the phase plan |
 | Phase 0 through Phase 6, and numbered implementation steps | **Milestones** and their **Steps** | The nine-phase plan and its ~110 Steps live under "Archive — v2 phase plan" and are reference only. Milestone Steps are disposable and discarded when the milestone is met |
 | Session | **Job** | Renamed on 17 Oct 2026, by the owner: *"I would love to actually rename Sessions to Jobs everywhere."* The old Job went in the 15 Oct 2026 decision, so the word was free. Prose, tool descriptions and prompts say Job. Code identifiers, wire field names, store columns, route paths, error codes and file names keep `session`, and `session_id` is still the parameter an agent passes |
+| Helm | **Operator**, and a **Job** started on your words | The dock and its agent, a hosted Job per repository with a slot and tools, became one Operator per machine that holds no tools and runs no Job. What Helm did that was work is a Job the Operator starts on your words. Prose, tool descriptions and prompts say Operator or Job. The wire names that went with it are `docs/practices/protocol/the-operator-takes-helms-place.md` |
 | Adversarial review | **Judge** | The plan's review button and the Judge folded into one press on any artifact of a Job. A page still describing a critic of plans only, or a veto-only reading on a cheap model that raises calls, is describing something that no longer exists. Fleet's step judges are not it |
 | Concern, as a Judge's call in Needs you | **Note**, headed **You should know** | A concern was a row in the Needs you panel with its own card. A note sits inside the artifact on the part it names, and a finished Judge raises no call |
 | Convoy, Train, Atomic | *Nothing.* Say what the Job does | Names for kinds of Job. A Job is a Job: a screen says "three pull requests, landing in order" and never names a shape. Where a page meant the rules for a Job gated by several Manifests, they are on [Manifest](../../concepts/manifest.md); where it meant members in order, [Landing](../../concepts/landing.md) |
 
 **Casing.** Docs capitalise throughout. UI capitalises the singular
-named things (Armada, Fleet, Bridge, Helm, Doctor, Judge, Kit, Machine,
+named things (Armada, Fleet, Bridge, Operator, Doctor, Judge, Kit, Machine,
 Job Board) and lowercases anything countable (job, drone, manifest,
 workspace, evidence, workflow). So: "No active jobs. 3 waiting
 on the Job Board."
@@ -467,17 +468,13 @@ then location, then elapsed.
 
 **Empty states** draw nothing. An empty slot stays empty: a sentence or a
 placeholder that only fills the space, or says that something is absent, is
-filler — "No Drone under this filter", "Nothing recorded yet", "Ask Helm
-about this repository." Two things still speak: a fact a person would act on,
+filler — "No Drone under this filter", "Nothing recorded yet", "Ask the
+Operator about this repository." Two things still speak: a fact a person would act on,
 where the empty result is the result ("This run changed nothing.", "Printed
 nothing." for a command that finished), and a failure ("Fleet did not
 answer"). A label left over nothing goes with the sentence. The owner, 29 Sep
 2026, swept on 2 Oct 2026: *"We dont need to say anything."* The Overview
 empty state below predates the sweep and is still drawn.
-
-**Helm** answers, then may add a single observation, only after
-actually looking, always flagged as its own inference. No
-throat-clearing openers.
 
 **Confirmations** appear on everything destructive and state what
 happens and what survives. "Kill the drone on job 12? Step 3 of 5, 14
@@ -551,7 +548,7 @@ should not have to guess which.
 
 - **Verification source** is the P4 hedging device and nothing else.
   Closed vocabulary of three: **Check**, **Judge**, **Attestation**.
-  Only a human may set Attestation — never a Drone, never Helm, never a
+  Only a human may set Attestation — never a Drone, never the Operator, never a
   Judge — and a Job carrying an attested criterion must not render
   identically to one where everything was mechanically verified. It
   answers how far to trust a result. **Attestation names the record
@@ -559,7 +556,7 @@ should not have to guess which.
   and Judge are things Armada runs, and this is what a person leaves
   behind.
 - **Actor** is audit attribution, and the field the three-way
-  separation depends on. Vocabulary: **human**, **Helm**, **Drone**,
+  separation depends on. Vocabulary: **human**, **Operator**, **Drone**,
   **Fleet**, and **commander** for a Job's Commander. It answers who did this.
 
 They are orthogonal, and events may carry one, both or neither. A

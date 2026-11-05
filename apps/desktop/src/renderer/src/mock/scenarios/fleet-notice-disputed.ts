@@ -3,7 +3,7 @@
 // under the disputing Job by `started_by`, as Fleet writes it, and its thread ends on the agent's verdict and a question to
 // the owner. The walk `fleet-notice-disputed` plays it, over a Fleet that serves the rows as the wire carries them (`../sessions-fleet.ts`).
 
-import type { HelmCallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
+import type { CallInFlight, RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -32,7 +32,7 @@ const FLEET = {
 const VERDICT =
   "Fleet was wrong. The rule counts every opus subagent turn, building agents included.\n\nThis job's reading agents run on sonnet. The opus spend came from its building agents, which write the code.";
 
-const ASKED: HelmCallInFlight = {
+const ASKED: CallInFlight = {
   call: "dispute-q1",
   manifest_id: "armada",
   asked_at: "2026-10-19T14:13:00.000Z",

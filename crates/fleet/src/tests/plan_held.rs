@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use ipc::{
-    AnswerSessionAsk, AskingToRun, DismissWaiting, HelmCallAnswer, PlanGroupInput, PlanTaskInput, QuestionAnswer, RecordPlan,
+    AnswerSessionAsk, AskingToRun, DismissWaiting, CallAnswer, PlanGroupInput, PlanTaskInput, QuestionAnswer, RecordPlan,
     SessionFact, SessionId, SessionRecord, SessionReport, ShowWindow, WaitingItem, WaitingSource, WindowClosed, WindowTake,
     WithdrawWindow,
 };
@@ -375,7 +375,7 @@ async fn his_answer_to_the_jobs_question_is_not_words_on_the_walk() {
         .answer_session_ask(AnswerSessionAsk {
             session_id: id.clone(),
             call: minted,
-            answer: HelmCallAnswer::AllowOnce,
+            answer: CallAnswer::AllowOnce,
             note: None,
             answers: vec![QuestionAnswer { question: "Save where?".into(), chosen: vec!["This Mac".into()] }],
             folder: None,

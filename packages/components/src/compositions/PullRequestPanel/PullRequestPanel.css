@@ -78,7 +78,7 @@
   padding: var(--space-3);
 }
 
-/* A pull request's panel and the plates off its leading edge. The plates are the Cockpit Helm
+/* A pull request's panel and the plates off its leading edge. The plates are the Cockpit call
    rail's: a solid panel with a hue-tinted frame, no glow and no gradient. Written here because
    nothing else draws them. */
 

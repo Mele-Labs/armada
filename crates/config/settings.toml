@@ -228,7 +228,7 @@ peer_polarity = "n/a — single layer"
 owner = "Kit"
 read_by = "fleet, verification"
 notes = """
-Governs runtime-generated prose only — Judge summaries, Helm replies, Job summaries. Static UI chrome is not configurable. Bounded by Design System — UI & Voice: may adjust length and formality, may not override the principles, lexicon or status grammar. "Terse" and "explanatory" are legal; "playful" is not. That bound is a doc contract, not a config tier, and it survives the withdrawal of the config direction rule unchanged. Frozen for the Job, per the live/frozen split. Owner is an exception and is recorded as one: nothing enforces Voice, so the concept here means the one that defines it, not the one that gates it. Every other row means enforcement. Classified Machine Aug 22 2026, and this is the least confident classification in the table — the Agent Prompt Contract places Voice at prompt layer 2 beside Skills, the Agent file and Sub agent definitions, all of which are Kit. Recorded on that page as an open disagreement.
+Governs runtime-generated prose only — Judge summaries, Job summaries. Static UI chrome is not configurable. Bounded by Design System — UI & Voice: may adjust length and formality, may not override the principles, lexicon or status grammar. "Terse" and "explanatory" are legal; "playful" is not. That bound is a doc contract, not a config tier, and it survives the withdrawal of the config direction rule unchanged. Frozen for the Job, per the live/frozen split. Owner is an exception and is recorded as one: nothing enforces Voice, so the concept here means the one that defines it, not the one that gates it. Every other row means enforcement. Classified Machine Aug 22 2026, and this is the least confident classification in the table — the Agent Prompt Contract places Voice at prompt layer 2 beside Skills, the Agent file and Sub agent definitions, all of which are Kit. Recorded on that page as an open disagreement.
 """
 
 [settings.worktree-cleanup-policy]
@@ -279,7 +279,7 @@ merge_strategy = "APPEND_AND_REMOVE"
 peer_polarity = "Intersect (allow-shaped)"
 read_by = "verification"
 notes = """
-New, undecided. Evidence summaries and Helm replies are deliberately not linted, and Fleet composes PR descriptions and commit messages from the record. Open whether a Manifest may change this scope, in either direction, and whether Voice/tone interacts with it. The question was previously framed as whether a Manifest may narrow it — that framing came from the config direction rule, withdrawn Aug 22 2026, and the question is wider than it was. Owner empty for the same reason as Copy lint enforcement mode.
+New, undecided. Evidence summaries are deliberately not linted, and Fleet composes PR descriptions and commit messages from the record. Open whether a Manifest may change this scope, in either direction, and whether Voice/tone interacts with it. The question was previously framed as whether a Manifest may narrow it — that framing came from the config direction rule, withdrawn Aug 22 2026, and the question is wider than it was. Owner empty for the same reason as Copy lint enforcement mode.
 """
 
 [settings.allowlist-safe-ops]
@@ -638,38 +638,38 @@ notes = """
 `setup.auto_release_grace_minutes` in the root `armada.yml`, a positive whole number of minutes. Fleet never auto-releases a Job whose last event is younger than this, because Fleet cannot see what Bridge shows and a person may have just opened it. The window is measured from the later of the Job's last event and the moment a person last resumed it or Fleet last failed to pause it. The owner chose fifteen on 5 Oct 2026.
 """
 
-[settings.helm-action-authority-tier-1-redirect-enabled-vs-read-only]
-name = "Helm action authority (Tier 1 Redirect enabled vs read-only)"
+[settings.action-authority-tier-1-redirect-enabled-vs-read-only]
+name = "Action authority (Tier 1 Redirect enabled vs read-only)"
 scope = "Machine"
 default = "on"
 lifetime = "Daemon start"
 merge_strategy = "n/a — single layer"
 peer_polarity = "n/a — single layer"
-owner = "Helm"
+owner = "Fleet"
 read_by = "fleet"
 notes = """
-Helm acts on Tier 1 Redirect by default per the concept design; this is the switch to disable that per project. Read from `#943`: `Fleet::helm_authority` (`crates/fleet/src/daemon/seams.rs`) answers this rather than the `Authority::Acting` constant it returned before, and both the brief (`crates/fleet/src/helm/brief.rs`) and the agent door's reach (`crates/fleet/src/helm/admitting.rs`, `reach.rs`) follow that one answer. Resolved once at daemon start by the composition root (`HELM_ACTION_AUTHORITY` in `crates/armada/src/serve.rs`), corrected from this row's earlier `Live` — nothing saves an override while Fleet runs, so there is no live path to a changed value yet.
+A Job started on your words acts on Tier 1 Redirect by default; this is the switch to make it only read. The agent door's reach (`crates/fleet/src/on_your_words.rs`) follows `Fleet::action_authority` (`crates/fleet/src/daemon/seams.rs`), which answers this. Resolved once at daemon start by the composition root (`ACTION_AUTHORITY` in `crates/armada/src/serve.rs`), corrected from this row's earlier `Live`: nothing saves an override while Fleet runs, so there is no live path to a changed value yet.
 
-**The value lives in settings.json under `features.helmCanAct`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+**The value lives in settings.json under `features.onYourWordsCanAct`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*. It was `features.helmCanAct` until 5 Nov 2026, and a file that still holds the old key is read under the new one and written back.
 """
 
-[settings.helm-ask-hold]
-name = "Helm ask hold"
+[settings.ask-hold]
+name = "Ask hold"
 scope = "Machine"
 default = "14 minutes"
 lifetime = "Daemon start"
 merge_strategy = "n/a — single layer"
 peer_polarity = "n/a — single layer"
-owner = "Helm"
+owner = "Fleet"
 read_by = "fleet"
 notes = """
-How long one call a Helm job made is held open for a person to answer in the dock before Fleet answers `deny` for the job — `#1389`. Helm runs in the mode a terminal job runs and puts every call the person's own settings do not cover to them; this is how long that wait may last.
+How long one call a job made is held open for a person to answer before Fleet answers `deny` for the job — `#1389`. A job runs in the mode a terminal job runs and puts every call the person's own settings do not cover to them; this is how long that wait may last.
 
-**Fourteen, and it is the smallest of three bounds rather than a preference.** A reply's whole process ends at `fleet::helm::hosting::REPLY_BUDGET`, fifteen minutes, so fourteen ends before the reply does; it was five until 13 Oct 2026, when a question lapsed before the owner came back to it; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a Helm job holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
+**Fourteen, and it is the smallest of three bounds rather than a preference.** A reply's whole process ended at fifteen minutes when a conversation ran one process per message, so fourteen ended before the reply did; it was five until 13 Oct 2026, when a question lapsed before the owner came back to it; `docs/spikes/015-can-a-person-answer-a-blocked-command.md` measured a stdio permission tool abandoned near thirty minutes, and the door a job holds is stdio; and `docs/spikes/019-is-auto-mode-reachable-for-a-helm-session.md` measured a two-minute hold surviving intact. Beyond that it is a person's patience rather than a process's.
 
-**Silence answers deny, never allow.** Resolved once at daemon start (`timeouts.helmAskHoldSeconds` in settings.json), and carried as `fleet::helm::HelmAskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
+**Silence answers deny, never allow.** Resolved once at daemon start (`timeouts.askHoldSeconds` in settings.json), and carried as `fleet::asks::AskHold` — a fitting rather than a constant, for `PermissionHold`'s reason: a test can plant a bound it can outlive.
 
-**The value lives in settings.json under `timeouts.helmAskHoldSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
+**The value lives in settings.json under `timeouts.askHoldSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*. It was `timeouts.helmAskHoldSeconds` until 5 Nov 2026, and a file that still holds the old key is read under the new one and written back.
 """
 
 [settings.session-quiet-timeout]
@@ -684,7 +684,7 @@ read_by = "fleet"
 notes = """
 How long the process of a job Fleet hosts may sit with no turn running before Fleet ends it, unless an agent it started is still working. The next message resumes the job by its id, so nothing is lost; what is lost is that another job's message cannot wake a job whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
 
-**Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open jobs are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `HelmAskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
+**Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open jobs are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `AskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
 
 **The value lives in settings.json under `timeouts.sessionQuietSeconds`** (read at start), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
@@ -747,19 +747,6 @@ notes = """
 The most of an answer's body a Job's `requested` row keeps, and the words a Job is told of the owner's send. **Smaller than the answer**, because a row is written to the store and published on the event stream, which pushes back on nothing (`docs/practices/protocol.md`, *The unmeasured risk*), and the told words stay in the agent's context for the rest of the Job.
 
 **Chosen, not measured.** Carried as `fleet::requesting::ROW_CAP`. Not yet resolved from a user setting.
-"""
-
-[settings.helm-budget-soft-warning-threshold]
-name = "Helm budget soft-warning threshold"
-scope = "Machine"
-default = "undecided"
-lifetime = "Live"
-merge_strategy = "n/a — single layer"
-peer_polarity = "n/a — single layer"
-owner = "Helm"
-read_by = "unassigned (no crate)"
-notes = """
-Helm sits outside hard budget gating (visibility only); this sets the usage level at which a soft warning surfaces. Decided with the owner 13 Sep 2026 (`#943`): stays unset and unread until a value is chosen. Cost shows on each reply instead, which is what a person reads today in place of a threshold crossing.
 """
 
 [settings.job-detail-where-things-are-open]

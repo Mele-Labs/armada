@@ -16,18 +16,18 @@ Nothing it does changes the repository or anything outside Armada.
 > **Rule.** A scout reads and never writes: no edit, no commit, no filed issue, no change to an outside document.
 > Why: anything a Studio sends outward comes back as a draft a person sends, so a mistake is never published on their behalf.
 
-> **Rule.** A scout starts only on a person's ask, made directly or through [Helm](helm.md).
+> **Rule.** A scout starts only on a person's ask, made directly or through a Job on your words.
 > Why: a scout spends money, and nothing on a Studio spends until a person asks.
 
 > **Rule.** A scout has no worktree. It reads the repository's checkout as it is on disk, or a stranded slot's, and its Finding records the commit and whether uncommitted changes were present.
 > Why: it answers about the code a person is looking at, and the Finding says which state that was.
 
-| | Helm | Scout |
+| | A Job on your words | Scout |
 |---|---|---|
 | Reads | Fleet, through the Fleet MCP | The checkout on disk or a stranded slot's, and allowed sources |
 | Writes | Through commands, on ask | Nothing |
-| Lifetime | A conversation | One ask |
-| Started by | A person's message | A person's ask, or Rescue on a stranded slot |
+| Lifetime | A Job's | One ask |
+| Started by | A person's words, through the Operator | A person's ask, or Rescue on a stranded slot |
 
 ## What it may read
 
@@ -38,7 +38,7 @@ Nothing it does changes the repository or anything outside Armada.
 | GitHub milestones | Every issue on it, as a Link each | Fleet, and no scout at all |
 | Web pages | Headings and text | Fleet, over HTTP |
 | Claude Code sessions | Jobs started in this repository or its worktrees | Fleet, off the transcript file |
-| Helm threads | This repository's past Helm conversations | Fleet, off the thread file |
+| A Job on your words | The newest Job started on your words in this repository | Fleet, off its thread |
 
 > **Rule.** Fleet fetches a source and hands the scout its text. A scout reaches nothing itself.
 > Why: its launch denies every tool that could fetch one and leaves it no MCP server, and that confinement is what makes it safe to run on a person's checkout — spike 017. Reading a source in widens none of it.
@@ -60,19 +60,19 @@ An address a scout is handed:
 | `.../milestone/<n>` | A milestone |
 | Any other `http`/`https` address | A page |
 | `armada:session/<id>` | A job of this repository or one of its worktrees |
-| `armada:thread` | This repository's Helm thread |
+| `armada:thread` | The newest Job started on your words in this repository |
 
 > **Rule.** A job is found under the project directory this checkout's own path keys, and nowhere else.
 > Why: another repository's job is then not addressable, rather than addressable and refused. The boundary is where the lookup happens.
 
 > **Rule.** A scout never reads a job, a thread or a file belonging to another repository.
-> Why: a Studio belongs to one repository, and the boundary Helm keeps holds here too.
+> Why: a Studio belongs to one repository, and the boundary a Job keeps holds here too.
 
 > **Rule.** A Link to any other source stays a Link. Its address is kept and its contents are not read.
 
 > **Rule.** The connections a scout reads through are managed in [Kit](kit.md), in the same place as an agent's other MCP servers and plugins.
 
-Reading Helm threads needs no operation, and gets none: `get_helm_session` in `crates/ipc/operations/` refuses every agent, and Fleet reads the Helm Job's rows itself rather than opening that door.
+Reading that thread needs no operation, and gets none: Fleet reads the thread's rows itself rather than opening a door for it.
 
 ## What bounds it
 
@@ -108,7 +108,7 @@ A search is listed as its pattern and where it looked.
 | Operation | Who | Does |
 |---|---|---|
 | `ask_scout` | A person, on Bridge | Adds a Finding Gathering and starts its scout |
-| `start_scout` | Helm on a person's ask, or a person | Starts a Proposed Finding |
+| `start_scout` | A Job on your words, on a person's ask, or a person | Starts a Proposed Finding |
 | `stop_scout` | A person, on Bridge | The stop on its node |
 
 A Finding whose Fleet stopped while its scout was reading ends as failed when Fleet next starts, keeping what it read.
@@ -139,6 +139,6 @@ They are material, the way a source is, and the brief says so before they arrive
 
 | Operation | Who | Does |
 |---|---|---|
-| `rescue_slot` | A person on Bridge, or Helm on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then starts a Job on its branch, its request the Finding's items |
+| `rescue_slot` | A person on Bridge, or a Job on your words on a person's ask | `start` reads a stranded slot, `stop` ends the read, `scrap`, `stash` and `pick_up` act on the work. `pick_up` stashes it, then starts a Job on its branch, its request the Finding's items |
 
 What a scout is told and never told is `../contracts/agent-prompt.md`, section 2.

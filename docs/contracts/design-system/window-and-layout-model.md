@@ -9,7 +9,7 @@ breakpoint.
 
 Frameless, `titleBarStyle: 'hiddenInset'`, macOS traffic lights inset over
 the **title row** — the bar across the window's top carrying the one bar,
-the plan's limits, Helm's reopen control, Fleet's status dot and one menu
+the plan's limits, the dock's reopen control, Fleet's status dot and one menu
 holding the account, Settings and Doctor. A wordmark starts the row, and the
 window's tabs are drawn in its centre (Navigation, below). The menu button carries an
 amber dot while signed out. **The one bar searches** (the owner, 10 Oct 2026): it opens the palette, centred
@@ -34,7 +34,7 @@ Sessions list, and it is the Cockpit's, not the shell's. `⌘\` (`toggle_sidebar
 governed them is `.claude/decisions/2026-09-22-the-rail-is-a-choice.md`.
 
 ```
-title row   wordmark · tabs · search · plan limits · Helm · Fleet dot · menu
+title row   wordmark · tabs · search · plan limits · dock · Fleet dot · menu
 tabs        Cockpit · Jobs · Studios · Logbook · Reviews · Issues · Projects · System        ⌘1 to ⌘8, the drawn ones
 System      one page, a sidebar of entries beside the picked entry
             Kit (kinds, Workflows, Models, Prompts, Harness) · Fleet (settings) · Bridge (Theme, Layout, Keyboard shortcuts, Guides, and the rest)
@@ -107,14 +107,15 @@ A dot cannot carry a figure; Fleet's own figures are read in the panel.
 **Full-width routes. No inspector pane over a route, no modal for Job detail.**
 Board and detail are separate destinations, and job detail's own inspector is
 inside the route rather than over it — below `--layout-breakpoint` it folds to
-a sheet flush to that route's edge, never to the window's. **Helm's dock is the
+a sheet flush to that route's edge, never to the window's. **The dock is the
 one exception**: at `--layout-breakpoint` and wider it draws over the content
-when open, because it answers questions about whatever is on screen rather
-than inspecting one Job, and draws nothing at all when closed. The title row's
-own Helm button is the one way back at every width, since no edge strip is
+when open, because it holds the Operator's panel, which is about whatever is
+on screen rather than one Job, and draws nothing at all when closed. The title
+row's own dock button is the one way back at every width, since no edge strip is
 drawn at any; below the breakpoint it opens the dock as a sheet.
+The Operator's panel is `armada-ehhu.10`, and until it lands the dock draws nothing.
 
-> **Rule.** Helm's dock is a layer over the content and never a column in it,
+> **Rule.** The dock is a layer over the content and never a column in it,
 > and Bridge opens with it shut. Opening it changes nothing about the width of
 > what is behind it, at any window width.
 > Why: the owner, 22 September 2026 — *"I like the panel it's in, but I think
@@ -134,15 +135,15 @@ drawn at any; below the breakpoint it opens the dock as a sheet.
 > default it is not open, so the canvas spans the width of the page and this
 > panel is opened when you click a node."* It reads as a layer because it takes
 > the card treatment every panel on the canvas takes; before that it carried the
-> canvas's own ground and blended into it. **Not Helm's indigo** — `--helm`
-> marks Helm's own chrome and nothing else (Tokens → Helm), and this panel sits
+> canvas's own ground and blended into it. **Not the Operator's indigo** — `--operator`
+> marks the Operator's own chrome and nothing else (Tokens → Operator), and this panel sits
 > inside one Job.
 
 **It takes no scrim and no modality**, unlike the sheet it folds to. A person
-reads a Job and asks Helm about it, so the screen underneath stays live and
+reads a Job and turns to the Operator, so the screen underneath stays live and
 reachable, and one press on Close or `⌘J` puts it away. `--w-work-min` is what
 keeps a dock dragged wide from covering the thing being discussed.
-See Responsive behaviour, below, and [Helm](../../concepts/helm.md).
+See Responsive behaviour, below, and [Operator](../../concepts/operator.md).
 
 This follows from what a detail view actually holds: the escalation
 payload, the full attempt history including every prior Judge summary
@@ -214,7 +215,7 @@ touch client floors at 390px, which leaves 358px between its gutters.
 | Tabs | In the title row's centre, the one bar an icon and its key beside them; the System sidebar beside the page while System is the place | The same. At the title row's narrow width its other controls are listed in its menu and the tabs stay | A bottom tab bar |
 | The deck's left column | The repository picker over the Jobs and Sessions list, the feed under them | The same; the deck draws its panels at every width and has no narrow layout of its own | Not built |
 | Job row | One shape at every width — a stacked row carrying the badge, the headline sentence and the labelled field run beneath | The same row. Nothing reshapes | The same row, field run wrapped |
-| Helm's dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's Helm button opens it | Closed draws nothing; the title row's Helm button opens it as a sheet over the content | Not built |
+| The dock | A layer over the content when open, taking none of its width; closed draws nothing, and the title row's dock button opens it | Closed draws nothing; the title row's dock button opens it as a sheet over the content | Not built |
 | Job detail's Overview inspector | A column beside the run | **A sheet over the run**, opened by pressing a step and closed by `Esc`; flush to both edges at the floor | Not built |
 | The Workflow canvas's inspector | A layer over the canvas, opened by pressing a node and closed by Close; nothing until a press | The same layer, at the width of the destination | Not built |
 

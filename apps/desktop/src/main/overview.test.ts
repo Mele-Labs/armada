@@ -18,7 +18,7 @@ const HEALTH = {
     },
   ],
   not_probed: [],
-  helm_action_authority: "acting",
+  action_authority: "acting",
 };
 
 let listening: Server | null = null;

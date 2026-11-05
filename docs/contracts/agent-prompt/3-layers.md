@@ -27,7 +27,7 @@ same as being wrong.
 | 2 | **Kit** | The Kit file | Spawn | Voice and tone, **Way I work**, **Expectations**, machine-wide Skills, the Agent file, Sub agent definitions. **Voice classifies as Machine rather than Kit** — see the recorded disagreement above |
 | 3 | **Manifest** | `armada.yml`, the repository's or Kit's copy | Spawn | Project conventions, repo-specific Skills, project Sub agents, the exemplar corpus (resolved here, injected at layer 6 — see section 6) |
 | 4 | **WorkflowDef** | The Job's type | Spawn | What this kind of work means and what finishing it looks like |
-| 5 | **Task** | The Job | **Job creation** — earlier than spawn | The request, plus `acceptance_criteria[]` with each entry's source (`ticket` / `helm_drafted` / `human`) |
+| 5 | **Task** | The Job | **Job creation** — earlier than spawn | The request, plus `acceptance_criteria[]` with each entry's source (`ticket` / `human`) |
 | 6 | **Step** | Current workflow step | **Never** — re-assembled at each step boundary, like every layer above it | The step's criteria, the Evidence Scope **policy**, the exemplar corpus on steps that write prose |
 
 **Task moved from last to fifth, Aug 2026.** It freezes at Job creation,
