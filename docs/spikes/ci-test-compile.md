@@ -3,7 +3,7 @@
 **Answer: neither pays on landing time, so neither was taken.**
 The compile of the whole `test` Check is 278 seconds of wall time, and 212 of them are one unit: `fleet`'s own test harness, which starts at 66 seconds and ends the build.
 sccache caches only rlib and staticlib compiles, so at best it takes off the libraries before that unit; a nextest archive saves runner time but puts a second job, and a second wait for a runner, on the queue's path.
-What it did find: a pull request's `test_compile` never restored `main`'s cache, and compiled every third-party crate on 5 of 6 pull requests.
+What it did find: a pull request's `test_compile` never restored `main`'s cache, and compiled every third-party crate on 5 of 6 pull requests; restoring it saved crates compiled, not time.
 
 Measured on 5 Nov 2026 on a 4-core, 16 GB `ubuntu-latest` runner, run 42111453908, from a branch that was never merged.
 The job was named `test` so rust-cache restored `main`'s own entry, `ci1-test-test-Linux-x64-0fb4cc59-4b1d9d8e`, as a queue shard does.
@@ -58,7 +58,23 @@ Worth measuring again if runner waits fall after #3308 lands.
 
 `test_compile`, a pull request's job, passed `key: test` to rust-cache, which adds the job's id to the key.
 It looked for `ci1-test-test_compile-…`, which no run on `main` writes, and printed `No cache found` on 5 of the 6 pull requests before 5 Nov 2026; its Check took 281 to 352 seconds.
-It now restores `ci1-test-test-…` (`docs/practices/ci.md`, *What runs when*).
+It now restores `ci1-test-test-…` (`docs/practices/ci.md`, *What runs when*), and compiles 61 crates where it compiled 318, but no faster (*After*).
+
+## After
+
+Read on 5 Nov 2026 from the real runs either side of #3308 and #3310, every one green.
+
+| | Before | After |
+|---|---|---|
+| A push to `main`: jobs that ran | 23, on each of 6 pushes | 6, on each of 2 pushes |
+| A push to `main`: `ci` green after it started | 820 to 941 s | 181 and 196 s |
+| A queue run's `plan` | 121 to 194 s, 18 runs | 28 to 31 s, 3 runs; the two started before `main`'s binary was saved built it, 140 and 147 s |
+| A pull request's `plan` | 125 to 182 s | 25 s, #3314 |
+| A queue run's slowest `test` shard | 116 to 704 s, 14 runs | 607 and 698 s, 2 runs. Nothing here changed the shards |
+| `test_compile`, whole workspace and `acceptance` | 281 s cold, 318 crates, run 42111811461 | 366 s warm, 61 crates, run 42113789320 |
+
+The test compile inside those two `test_compile` runs took 229 s cold and 284 s warm, and the timing trial's 278 s warm: the same work varies by a minute from runner to runner, and the third-party crates compile beside `fleet`'s harness rather than before it.
+A narrowed `test_compile` with the cache has not run yet.
 
 ## What was not measured
 
