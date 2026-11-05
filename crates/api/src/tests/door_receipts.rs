@@ -41,6 +41,7 @@ fn waiting(id: &str, text: &str, source: WaitingSource, place: Option<WindowPlac
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 

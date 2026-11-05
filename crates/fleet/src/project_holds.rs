@@ -56,6 +56,7 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 

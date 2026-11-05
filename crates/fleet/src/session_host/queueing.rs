@@ -72,6 +72,7 @@ pub(crate) fn slot_choice_item(call: SlotCall) -> WaitingItem {
         holders: call.holders,
         creating_since: call.creating_since,
         create_refused: call.create_refused,
+        operator_read: None,
     }
 }
 

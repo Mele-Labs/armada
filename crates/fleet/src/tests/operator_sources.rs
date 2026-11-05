@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{FromOutside, ListedChecks, ListedPull, OpenIssue, ReviewList, ReviewStanding};
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use ipc::{AutopilotDecision, LaterHow, ReportBug, SessionId, SettleLater};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTracker, FakeTrackers};
 
@@ -24,13 +24,18 @@ use crate::CallFailed;
 const SCROLLBACK: &str = "Terminal scrollback is lost when the pane redraws";
 
 async fn switched(rig: &Rig, key: &str, on: bool) {
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Bool(on)))]) };
+    let value = match key {
+        "features.operator" => ipc::SettingValue::Bool(on),
+        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+    };
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
 async fn on(rig: &Rig) {
     switched(rig, "features.operator", true).await;
     switched(rig, "features.operatorDispatch", true).await;
+    switched(rig, "features.operatorDelegate", true).await;
 }
 
 /// A call that answers each question with the next of its answers, and keeps what it was asked.
@@ -329,4 +334,31 @@ async fn a_review_request_is_read_at_most_every_ten_minutes_and_handed_once_to_b
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert_eq!(call.asked().len(), 1);
     assert_eq!(rulings(&rig).await.len(), 1);
+}
+
+#[tokio::test]
+async fn with_file_at_suggest_a_later_item_waits_on_one_press_and_is_filed_on_it() {
+    let sentence = "I will move the fixture loader into its own crate.";
+    let (rig, id, _) = keeping_one(sentence).await;
+    switched(&rig, "features.operator", true).await;
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorFile".to_string(), Some(ipc::SettingValue::Text("suggest".into())))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+    rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
+    rig.fleet.sources_handed().await;
+
+    let row = || async {
+        let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read");
+        read.session.waiting_for.into_iter().find(|one| one.source == ipc::WaitingSource::OperatorSuggestion)
+    };
+    eventually(|| async { row().await.is_some() }).await;
+    let item = row().await.expect("a row");
+    assert!(item.text.contains(sentence), "{}", item.text);
+    let filed = || async { rig.fleet.open_issues(&manifest(&rig)).await.expect("read").iter().any(|one| one.title.as_written() == sentence) };
+    assert!(!filed().await, "nothing is filed until he presses");
+
+    let press = ipc::AnswerWaiting { session_id: id.clone(), item_id: item.id, choice: Some(0), text: None, mode: None, fixed: None };
+    Arc::clone(&rig.fleet).settle_waiting(press).await.expect("his press");
+
+    eventually(|| async { filed().await }).await;
+    eventually(|| async { rig.fleet.store().lock().await.later_handed().expect("read").is_empty() }).await;
 }

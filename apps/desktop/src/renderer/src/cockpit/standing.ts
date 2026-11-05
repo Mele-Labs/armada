@@ -13,7 +13,13 @@ export function asksAnAgent(item: Pick<Item, "waiting">): boolean {
   // A terminal's own permission prompt is answered at the terminal, so its one act opens the Session.
   if (source === "permission" && act?.kind === "message") return false;
   // A draft waits on his OK: leaving it to the agent would have the agent approve its own text. A sketch and a document are the same, and so is an act a rule would do.
-  if (source === "draft" || source === "sketch" || source === "document" || source === "rule_act")
+  if (
+    source === "draft" ||
+    source === "sketch" ||
+    source === "document" ||
+    source === "rule_act" ||
+    source === "operator_suggestion"
+  )
     return false;
   return (
     source === "permission" ||

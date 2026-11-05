@@ -69,7 +69,7 @@ use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
-pub(super) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
+pub(crate) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
@@ -117,6 +117,8 @@ pub(crate) struct WaitingReads {
     word_asks: Vec<store::KeptWordAsk>,
     /// The notices a Fleet rule raised as calls on this Session.
     calls: Vec<store::KeptCall>,
+    /// What the Operator would do on this Session, waiting on one press.
+    suggestions: Vec<store::KeptSuggestion>,
     /// The refreshes of the preview Fleet offered it.
     preview_offers: Vec<store::KeptPreviewOffer>,
     /// The Job waits on its start card.
@@ -179,6 +181,7 @@ pub(crate) fn waiting_reads(
         confirmed: store.confirmed()?,
         word_asks: store.word_asks_of(&session.id)?,
         calls: store.calls_of(&session.id)?,
+        suggestions: store.operator_suggestions_of(&session.id)?,
         preview_offers: store.preview_offers_of(&session.id)?,
         start_held: store.hosting(&session.id)?.is_some_and(|one| one.start_held),
         paused: store.hosting(&session.id)?.is_some_and(|one| one.paused_at.is_some()),
@@ -229,6 +232,7 @@ pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 
@@ -310,6 +314,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
             holders: Vec::new(),
             creating_since: None,
             create_refused: None,
+            operator_read: None,
         };
     }
     WaitingItem {
@@ -334,6 +339,7 @@ fn card_item(asked: &HelmCallInFlight) -> WaitingItem {
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }
 }
 
@@ -367,6 +373,7 @@ pub(crate) fn merged(
         holders: Vec::new(),
         creating_since: None,
         create_refused: None,
+        operator_read: None,
     }));
     let same = |item: &WaitingItem, act: &Option<(String, String)>| {
         matches!((&item.act, act), (Some(a), Some((kind, target)))
@@ -403,6 +410,7 @@ pub(crate) fn merged(
             holders: Vec::new(),
             creating_since: None,
             create_refused: None,
+            operator_read: None,
         })
         .collect();
     items.extend(
@@ -458,6 +466,7 @@ where
                     holders: Vec::new(),
                     creating_since: None,
                     create_refused: None,
+                    operator_read: None,
                 };
                 Some(ipc::ClosedWaiting { item, at: Instant::carried(&one.closed_at), ended })
             })
@@ -471,7 +480,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, preview_offers, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, tell, plan, misreads, confirmed, word_asks, calls, suggestions, preview_offers, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -551,6 +560,7 @@ where
                     holders: Vec::new(),
                     creating_since: None,
                     create_refused: None,
+                    operator_read: None,
                 });
             }
         }
@@ -630,6 +640,7 @@ where
                     holders: Vec::new(),
                     creating_since: None,
                     create_refused: None,
+                    operator_read: None,
                 });
             }
             // A Job its agent started waits on the person's Start; answering or dismissing it is refused.
@@ -655,6 +666,8 @@ where
             items.extend(asked_tasks.iter().map(|asked| crate::project_holds::task_done_item(asked)));
             // Notices a Fleet mod's rule raised as calls, until he dismisses each.
             items.extend(calls.iter().filter(|one| !dismissed.contains(&one.id)).map(super::fleet_calls::call_item));
+            // What a role at Suggest would do, until he takes it or skips it.
+            items.extend(crate::operator::suggestion_items(&suggestions));
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
             items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
@@ -695,6 +708,7 @@ where
                         holders: Vec::new(),
                         creating_since: None,
                         create_refused: None,
+                        operator_read: None,
                     })
                 }
                 SessionRow::Draft { id, at, title, settled: None, change, .. } => {
@@ -720,6 +734,7 @@ where
                         holders: Vec::new(),
                         creating_since: None,
                         create_refused: None,
+                        operator_read: None,
                     })
                 }
                 _ => None,
@@ -766,6 +781,8 @@ where
         for one in items.iter_mut().filter(|one| one.source == WaitingSource::Replied) {
             one.confirmed = confirmed.contains(&one.text);
         }
+        // A question the Answer role at Suggest would answer shows its read and its pick.
+        crate::operator::reads_shown(&mut items, &suggestions);
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
         Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
@@ -1152,6 +1169,7 @@ where
             WaitingSource::SlotChoice => self.slot_chosen(&id, said.choice).await,
             // Fleet's, so the agent is told nothing: Do it carries the act out, Skip records it skipped.
             WaitingSource::RuleAct => self.rule_act_chosen(&id, &item.id, said.choice).await,
+            WaitingSource::OperatorSuggestion => self.suggestion_chosen(&id, &item.id, said.choice).await,
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
             // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
             WaitingSource::WatchNotOurs => {
@@ -1320,6 +1338,10 @@ where
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
+        }
+        // Dismissing what the Operator would do is Skip.
+        if item.source == WaitingSource::OperatorSuggestion {
+            self.suggestion_chosen(&id, &item.id, Some(crate::operator::SKIP)).await?;
         }
         // Settled on its row, as an answer settles it, so the thread says it was withdrawn.
         if item.source == WaitingSource::Draft {

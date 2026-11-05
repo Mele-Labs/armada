@@ -746,6 +746,13 @@ pub enum WaitingSource {
     /// to carry out and `Skip` records it skipped; **neither sends the agent a word**. Dismissing it
     /// is Skip. Listed only while the Job is live.
     RuleAct,
+    /// Fleet: a role of the Operator's stands at Suggest, so what it would do waits on one press.
+    /// Derived on every read from the kept suggestion: id `suggestion:<n>`, text what it would do and
+    /// why, an `answer` act whose `target` is the id, and exactly two options, `Do it` (choice 0),
+    /// which does what On would have, and `Skip` (choice 1), labels only. **Neither sends the agent a
+    /// word of its own**: `Do it` tells a Job only what the act tells it. Dismissing it is Skip.
+    /// Listed only while the Job is live.
+    OperatorSuggestion,
     /// Fleet: a page in the Job's browser asks the owner for something, and Bridge told Fleet with
     /// `raise_browser_ask`. Held in memory, never kept: id `browser_ask:<ask_id>`, `ask_id` being
     /// Bridge's tab id, text and options as Bridge sent them, an `answer` act whose `target` is the
@@ -878,6 +885,19 @@ pub struct WaitingItem {
     /// time *Add a slot* is answered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub create_refused: Option<String>,
+    /// On a question or a card, where the Answer role stands at Suggest: what the Operator read and
+    /// the option it would pick. His press on that option is the one press. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operator_read: Option<OperatorRead>,
+}
+
+/// What the Operator made of a question it would answer.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorRead {
+    /// Why, in the call's words.
+    pub read: String,
+    /// The option it would pick, in its words.
+    pub pick: String,
 }
 
 /// One item as the agent states it. Fleet stamps `since` and `source`.

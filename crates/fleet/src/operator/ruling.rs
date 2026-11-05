@@ -54,6 +54,11 @@ impl Way {
         }
     }
 
+    /// The way a word from the store names.
+    pub(super) fn from_word(word: &str) -> Option<Way> {
+        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Nudge, Way::Answer, Way::Link, Way::File].into_iter().find(|way| way.word() == word)
+    }
+
     pub(super) fn word_shown(self) -> &'static str {
         match self {
             Way::NewJob => "new job",

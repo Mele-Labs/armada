@@ -1,18 +1,20 @@
 //! What Fleet does on the Operator's ruling, through the ways it already has: Fleet's own word
 //! to a live Job (`told_by_fleet`), a note in a thread, a raised call, the person's Start press
-//! and the close that parks a Job's slots. **Nothing here acts while Dispatch is off**, and the
-//! switch is read again at every act, so a call out when it is turned off acts on nothing.
+//! and the close that parks a Job's slots. **The position of each role is read as a ruling comes
+//! back** ([`Acting::position`]), so a call out when it is turned off acts on nothing.
 
 use std::sync::{Arc, Weak};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use config::settings as keys;
+use config::settings::{self as keys, Key};
+use ipc::operator_positions::{OperatorPosition, OperatorRepositories, OperatorRole};
 use ipc::{BeginSession, CloseSession, Notice, SessionId};
+use store::settings_file::SettingValue;
 use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::first_words;
-use super::{Acting, Arrival, Arrived, Choice, Place, Ruling, Way};
+use super::{Acting, Arrival, Choice, Place, Ruling, Way};
 use crate::daemon::Fleet;
 
 /// The most of a Job's words one message carries.
@@ -39,16 +41,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Run `act` on Fleet in the background, where Fleet is up and Dispatch is on.
+    /// Run `act` on Fleet in the background, where Fleet is up.
     fn doing<F, Fut>(&self, act: F)
     where
         F: FnOnce(Arc<Fleet<H, V, W>>) -> Fut,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
         let Some(fleet) = self.fleet.upgrade() else { return };
-        if fleet.operator_dispatches() {
-            tokio::spawn(act(fleet));
-        }
+        tokio::spawn(act(fleet));
     }
 }
 
@@ -62,6 +62,20 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    fn position(&self, role: Option<OperatorRole>, manifest: &str) -> OperatorPosition {
+        let Some(fleet) = self.fleet.upgrade() else { return OperatorPosition::Off };
+        match role {
+            Some(role) => fleet.operator_position(role, manifest),
+            None if fleet.operator_on() => OperatorPosition::On,
+            None => OperatorPosition::Off,
+        }
+    }
+
+    fn suggest(&self, arrival: &Arrival, ruling: &Ruling) {
+        let (arrival, ruling) = (arrival.clone(), ruling.clone());
+        self.doing(move |fleet| async move { fleet.operator_suggested(&arrival, &ruling).await });
+    }
+
     fn go_ahead(&self, session: &str) {
         let session = session.to_string();
         self.doing(move |fleet| async move { fleet.operator_went_ahead(&session).await });
@@ -107,31 +121,19 @@ where
         self.doing(move |fleet| async move { fleet.operator_held(&held, &first, &shared).await });
     }
 
-    /// **Answer is the Operator's own role**, and acts with Dispatch off: it settles what his press
-    /// would. Off, the ruling is only in its Log.
+    /// Settled as his press would, and the Job's thread says so.
     fn answer(&self, session: &str, item: &str, choice: &Choice, because: &str) {
-        let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_answering()) else { return };
         let (session, item, choice, because) = (session.to_string(), item.to_string(), choice.clone(), because.to_string());
-        tokio::spawn(async move { fleet.operator_answered(&session, &item, &choice, &because).await });
+        self.doing(move |fleet| async move { fleet.operator_answered(&session, &item, &choice, &because).await });
     }
 
-    /// **A link, and a red main, act with Dispatch off**: a link is kept on this Mac and starts
-    /// nothing, and a red main arrives only from Autopilot's red kind, whose own switch allows the
-    /// start. A File waits on its own switch, a delegate and a dispatch on Dispatch; a raise is its
-    /// Log row.
+    /// A raise is its Log row.
     fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
-        let Some(fleet) = self.fleet.upgrade() else { return };
-        let allowed = match ruling.way {
-            Way::Raise => false,
-            Way::Link => true,
-            Way::File => fleet.operator_filing(),
-            _ => arrival.arrived == Arrived::RedMain || fleet.operator_dispatches(),
-        };
-        if !allowed || !fleet.operator_on() {
+        if ruling.way == Way::Raise {
             return;
         }
         let (arrival, ruling) = (arrival.clone(), ruling.clone());
-        tokio::spawn(async move { fleet.operator_sourced(&arrival, &ruling).await });
+        self.doing(move |fleet| async move { fleet.operator_sourced(&arrival, &ruling).await });
     }
 }
 
@@ -157,22 +159,29 @@ where
         self.machine_settings().now().get(keys::OPERATOR)
     }
 
-    /// The Operator's Dispatch switch, as settings.json reads now, under its own.
-    pub(crate) fn operator_dispatches(&self) -> bool {
+    /// How far `role` goes in the repository `manifest`, as settings.json reads now: Off under the
+    /// Operator's own switch, else what the repository sets, else the machine's.
+    pub(crate) fn operator_position(&self, role: OperatorRole, manifest: &str) -> OperatorPosition {
         let settings = self.machine_settings().now();
-        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_DISPATCH)
+        if !settings.get(keys::OPERATOR) {
+            return OperatorPosition::Off;
+        }
+        let repositories = settings.get(keys::OPERATOR_REPOSITORIES).map(|value| OperatorRepositories::read(&value.to_json_text())).unwrap_or_default();
+        repositories.of(manifest, role).unwrap_or_else(|| {
+            OperatorPosition::read(&settings.get(match role {
+                OperatorRole::Dispatch => keys::OPERATOR_DISPATCH,
+                // Dispatch's old switch held Delegate too, so one saved On carries it across.
+                OperatorRole::Delegate if settings.saved().get(keys::OPERATOR_DELEGATE.name()).is_none() && settings.saved().get(keys::OPERATOR_DISPATCH.name()) == Some(&SettingValue::Bool(true)) => keys::OPERATOR_DISPATCH,
+                OperatorRole::Delegate => keys::OPERATOR_DELEGATE,
+                OperatorRole::Answer => keys::OPERATOR_ANSWER,
+                OperatorRole::File => keys::OPERATOR_FILE,
+            }))
+        })
     }
 
-    /// The Operator's Answer switch, as settings.json reads now, under its own.
-    pub(crate) fn operator_answering(&self) -> bool {
-        let settings = self.machine_settings().now();
-        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_ANSWER)
-    }
-
-    /// The Operator's File switch, as settings.json reads now, under its own.
-    pub(crate) fn operator_filing(&self) -> bool {
-        let settings = self.machine_settings().now();
-        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_FILE)
+    /// Whether Fleet settles what the Operator answers in `manifest`.
+    pub(crate) fn operator_answering(&self, manifest: &str) -> bool {
+        self.operator_position(OperatorRole::Answer, manifest) == OperatorPosition::On
     }
 
     /// A Job held on its start card starts as his press would, on the landing the card picked.

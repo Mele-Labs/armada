@@ -3,7 +3,7 @@
 // ⌘O's dialog answers the Rust file, then the picture, and so on. Nothing is read from or written to the machine.
 
 import type { FilesApi, PanelFileItem } from "../../../../shared/api/files";
-import { CLOCK_FILE, PICTURE_FILE, pretendDisk } from "../files-disk";
+import { CLOCK_FILE, PICTURE_FILE, PICTURE_PATH, pretendDisk } from "../files-disk";
 import type { Slice } from "../fake-context";
 import { alsoOnTimePassing } from "../time-passes";
 
@@ -29,13 +29,25 @@ export const files: Slice<FilesApi, Record<string, never>> = {
           ...given,
           path: keyOf(given.path),
         };
-        // A file a scenario's ledger names that this disk was not given reads as its own name.
-        if (!disk.has(item.path))
-          disk.set(item.path, {
-            text: `${item.path.split("/").pop()}\n`,
-            type: "text/plain",
-            version: 1,
-          });
+        // A file a scenario's ledger names that this disk was not given reads as its own name, and a picture as the disk's picture.
+        if (!disk.has(item.path)) {
+          const picture = /\.(png|jpe?g|gif|webp)$/i.test(item.path)
+            ? disk.get(PICTURE_PATH)
+            : undefined;
+          disk.set(
+            item.path,
+            picture === undefined
+              ? {
+                  text: `${item.path.split("/").pop()}\n`,
+                  type: "text/plain",
+                  version: 1,
+                }
+              : {
+                  ...picture,
+                  version: 1,
+                },
+          );
+        }
         const file = disk.get(item.path)!;
         last = item.path;
         // A walk's `later` step, from this window on. The latest window wins, as it does for a scenario's.

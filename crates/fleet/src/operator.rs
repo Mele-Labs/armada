@@ -36,6 +36,7 @@ mod sources;
 mod sourcing;
 mod stalling;
 mod stalls;
+mod suggesting;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -44,6 +45,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use core_model::{Actor, Timestamp};
+use ipc::operator_positions::{OperatorPosition, OperatorRole};
 use tokio::sync::oneshot;
 
 pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
@@ -59,6 +61,7 @@ pub use sources::{Filed, Handed, NewIssue, RedMain, Report, ReviewRequest};
 pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
+pub(crate) use suggesting::{reads_shown, suggestion_items, SKIP};
 
 /// How long a Job's first write waits for the ruling on its start.
 pub const FIRST_WRITE_WAIT: Duration = Duration::from_secs(20);
@@ -94,9 +97,17 @@ pub trait Desk: Send + Sync {
 }
 
 /// What Fleet does to Jobs on a ruling, called once it is logged and never for one that came late.
-/// **Each act is Fleet's to refuse**: the Dispatch switch, checked again at the act, and a Job
+/// **Each act is Fleet's to refuse**: the role's position, read as the ruling comes back, and a Job
 /// that has pushed are not the call's to weigh.
 pub trait Acting: Send + Sync {
+    /// How far `role` goes in the repository `manifest`, as the settings read now. `None` is a way
+    /// no role governs, which goes while the Operator is on. **Read as each ruling comes back**, so
+    /// a change holds from the next arrival and a call out when it changed goes by the new position.
+    fn position(&self, _role: Option<OperatorRole>, _manifest: &str) -> OperatorPosition {
+        OperatorPosition::On
+    }
+    /// The role that `ruling` falls to stands at Suggest: what it would do waits on one press.
+    fn suggest(&self, _arrival: &Arrival, _ruling: &Ruling) {}
     /// Nothing live touches `session`: a Job held on its start card starts, as his press would.
     fn go_ahead(&self, session: &str);
     /// A live Job's plan covers `session`'s work, or `group` of its plan: the words go to `into`,
@@ -406,9 +417,25 @@ impl Operator {
         let _ = one.tell.send(ruled);
     }
 
+    /// What Fleet does on `ruling`, by the position of the role it falls to.
+    fn act(&self, arrival: &Arrival, ruling: &Ruling) {
+        match self.acting.position(role_of(arrival.arrived, ruling.way), &arrival.manifest_id) {
+            OperatorPosition::Off => {}
+            OperatorPosition::On => self.acted(arrival, ruling),
+            OperatorPosition::Suggest => match ruling.way {
+                // A raise is already a row on his list.
+                Way::Raise => self.acted(arrival, ruling),
+                // A start's own card is the press, and a recorded plan is already going ahead.
+                Way::NewJob if matches!(arrival.arrived, Arrived::Start | Arrived::Plan) => {}
+                _ => self.acting.suggest(arrival, ruling),
+            },
+        }
+    }
+
+    /// `ruling` done: as it came back with its role On, or on the person's press on a suggestion.
     /// The arrival's Job is the one that has done less: a start has written nothing, since its
     /// first write waits on this ruling, and a plan is recorded before its building.
-    fn act(&self, arrival: &Arrival, ruling: &Ruling) {
+    pub(crate) fn acted(&self, arrival: &Arrival, ruling: &Ruling) {
         let session = arrival.session_id.as_str();
         if arrival.arrived.is_sourced() {
             self.acting.sourced(arrival, ruling);
@@ -445,6 +472,20 @@ impl Operator {
         if let Some(place) = &ruling.place {
             self.acting.place(session, place);
         }
+    }
+}
+
+/// The role a way falls to. **A link writes nothing and a red main has Autopilot's own switch**, so
+/// neither has one, and a raise of anything but a quiet Job is only its Log row.
+fn role_of(arrived: Arrived, way: Way) -> Option<OperatorRole> {
+    match way {
+        Way::Answer => Some(OperatorRole::Answer),
+        Way::File => Some(OperatorRole::File),
+        Way::Link => None,
+        _ if arrived == Arrived::RedMain => None,
+        Way::ExistingJob | Way::KeepInTouch | Way::Nudge => Some(OperatorRole::Delegate),
+        Way::NewJob | Way::Merge => Some(OperatorRole::Dispatch),
+        Way::Raise => arrived.is_stall().then_some(OperatorRole::Dispatch),
     }
 }
 

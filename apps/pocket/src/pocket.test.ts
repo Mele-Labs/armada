@@ -581,6 +581,7 @@ describe("what the owner is asked beside the thread", () => {
       "slot_choice",
       "task_done",
       "rule_act",
+      "operator_suggestion",
       "watch_not_ours",
       "words_address",
     ];

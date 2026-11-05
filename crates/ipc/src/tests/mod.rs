@@ -97,5 +97,6 @@ mod watch_wire;
 /// A Job's terminals: the IDs on the bodies, answers and events, the list and the rename.
 mod terminal_wire;
 mod workflow_changes;
+mod operator_positions;
 mod workflows_off;
 mod autopilot_boxes;
