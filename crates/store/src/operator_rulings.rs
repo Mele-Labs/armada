@@ -168,11 +168,12 @@ impl Store {
             .map_err(failed("reading the Operator's Log"))
     }
 
-    /// How many calls the Log names at or after `since`, an RFC3339 instant.
+    /// How many calls the Log and the conversation name at or after `since`, an RFC3339 instant.
     pub fn operator_calls_since(&self, since: &str) -> Result<u32, WriteError> {
         self.conn
             .query_row(
-                "SELECT COUNT(DISTINCT call) FROM operator_rulings WHERE call IS NOT NULL AND at >= ?1",
+                "SELECT (SELECT COUNT(DISTINCT call) FROM operator_rulings WHERE call IS NOT NULL AND at >= ?1)
+                      + (SELECT COUNT(DISTINCT call) FROM operator_talk WHERE call IS NOT NULL AND at >= ?1)",
                 [since],
                 |row| row.get::<_, u32>(0),
             )

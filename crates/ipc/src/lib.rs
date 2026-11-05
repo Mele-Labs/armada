@@ -137,6 +137,8 @@ pub mod time_format;
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
 pub mod operator_positions;
+/// The box at the foot of the Operator panel, and the standing orders it turns words into. `crates/ipc/operations/talk_to_operator.toml`.
+pub mod operator_talk;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
 pub mod workflows_off;
 /// Mods: a directory on this machine that changes how Bridge looks.

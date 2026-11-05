@@ -35,6 +35,8 @@ pub(crate) struct Seat {
     pub(super) questions: super::answering::Questions,
     /// Reports, issues, review requests and Later items waiting to be handed, and those a call is out on.
     pub(super) sources: super::Sources,
+    /// The standing orders, as the store keeps them: read where no lock on the store may be taken.
+    orders: Mutex<super::Orders>,
 }
 
 impl Seat {
@@ -45,6 +47,14 @@ impl Seat {
 
     pub(super) fn operator(&self) -> Option<Arc<Operator>> {
         self.operator.get().cloned()
+    }
+
+    pub(crate) fn orders(&self) -> super::Orders {
+        held(&self.orders).clone()
+    }
+
+    pub(crate) fn orders_are(&self, orders: super::Orders) {
+        *held(&self.orders) = orders;
     }
 
     pub(crate) fn keep(&self, call: Arc<KeptStarted>) {

@@ -98,5 +98,6 @@ mod watch_wire;
 mod terminal_wire;
 mod workflow_changes;
 mod operator_positions;
+mod operator_talk;
 mod workflows_off;
 mod autopilot_boxes;

@@ -595,6 +595,31 @@ const ROUTES: &[Route] = &[
         path: "/sessions/line/move",
     },
     Route {
+        operation: "talk_to_operator",
+        method: "POST",
+        path: "/operator/talk",
+    },
+    Route {
+        operation: "operator_talk",
+        method: "GET",
+        path: "/operator/talk",
+    },
+    Route {
+        operation: "confirm_operator_order",
+        method: "POST",
+        path: "/operator/orders",
+    },
+    Route {
+        operation: "operator_orders",
+        method: "GET",
+        path: "/operator/orders",
+    },
+    Route {
+        operation: "remove_operator_order",
+        method: "POST",
+        path: "/operator/orders/remove",
+    },
+    Route {
         operation: "dismiss_waiting",
         method: "POST",
         path: "/sessions/waiting/dismiss",

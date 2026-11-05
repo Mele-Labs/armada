@@ -1471,3 +1471,15 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
   `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
 
 A suggestion on a report with no Job behind it has no list to stand on. It is kept in the store for the panel.
+
+## Talking to the Operator: `talk_to_operator`, `operator_talk` and the standing orders
+
+The box at the foot of the Operator panel, and the orders it turns words into. None of these is an agent's: each is the person's own.
+
+- **`talk_to_operator`** answers `OperatorSaid`, and `operator_talk` reads the conversation back, since Fleet keeps it so the next call can be handed it.
+- **`OperatorSaid.order` stands for nothing** until `confirm_operator_order` sends its `form` back. That press is the only way an order stands.
+- **`OperatorOrderForm` is a closed set**, `role_off`, `hold_paths` and `always_raise`, because an order is a rule Fleet enforces and never prose a call reads.
+  A form this build does not know reads as none in the store, so it stands for nothing.
+- **`operator_orders` lets go** of an order for a day gone by and a hold its Job has released as it reads, so what it answers is what is in force.
+
+Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.

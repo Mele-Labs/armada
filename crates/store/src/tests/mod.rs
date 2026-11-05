@@ -103,6 +103,7 @@ pub fn open(dir: &TempDir) -> Store {
 mod autopilot_boxes;
 mod autopilot_decisions;
 mod operator_rulings;
+mod operator_orders;
 mod operator_suggestions;
 mod operator_in_touch;
 mod slot_line;

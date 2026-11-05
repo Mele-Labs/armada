@@ -267,3 +267,4 @@ mod operator_order;
 mod operator_answers;
 mod operator_stalls;
 mod operator_sources;
+mod operator_talk;

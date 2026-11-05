@@ -39,6 +39,7 @@ where
         let at = waits.now().as_str().to_string();
         let _ = waits.store().lock().await.end_all_slot_waits(&at);
         waits.slot_lines_restored().await;
+        waits.operator_orders_read().await;
     });
     // Away for longer than a few missed beats is an outage, which a stop says it was lost to.
     let started = Arc::clone(&fleet);
