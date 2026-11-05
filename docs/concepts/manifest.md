@@ -578,6 +578,9 @@ Rules that follow:
   `narrow.except` bars `acceptance` here as it does there.
   **A name no member declares is refused, saying so, rather than run against all of them.** The match is over source text, so a member may be compiled for a mention of the name and never missed for the want of one.
   Decided 12 Oct 2026.
+  **A name that ends in `tests` is refused too**, saying what it matched and to pass a test or a module below it.
+  Every test file of a crate is under a `tests` module, so `tests` and `pull_waits::tests` select the crate's whole suite: 13 runs from 20 Oct to 5 Nov started 500 to 3,491 tests, the longest 15 minutes.
+  `tests::build_notices` stays, since a module below it is the narrow name.
 - **The name is the caller's.** `{}` takes it regex-escaped and always as one argument, whatever quotes it holds, so it cannot write its way out; a blank name runs nothing.
 - **The run gates nothing.**
 - **A person runs one the same way**, with `armada check <name> <test>`. A name the runner matched nothing on exits 1 rather than reading as a pass, and a name that matched several says how many ran.

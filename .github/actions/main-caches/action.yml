@@ -1,0 +1,66 @@
+# Whether main already holds every cache its Check jobs save, looked up and not
+# downloaded. Each lookup names the key the job itself would write: rust-cache
+# appends the job's id to `key`, so the probe passes both and turns that off.
+# docs/practices/ci.md, *A push the queue already passed*.
+name: main-caches
+outputs:
+  warm:
+    description: "`true` when every entry is there, word for word."
+    value: ${{ steps.answer.outputs.warm }}
+runs:
+  using: composite
+  steps:
+    # The same toolchain step as rust-setup, so the rustc and environment
+    # rust-cache hashes into a key are the ones the jobs see.
+    - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      with:
+        toolchain: stable
+        components: rustfmt
+
+    - id: build
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with: { prefix-key: ci1, key: build-build, add-job-id-key: "false", lookup-only: "true", save-if: "false" }
+    - id: test
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with: { prefix-key: ci1, key: test-test, add-job-id-key: "false", lookup-only: "true", save-if: "false" }
+    - id: acceptance
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with: { prefix-key: ci1, key: acceptance-acceptance, add-job-id-key: "false", lookup-only: "true", save-if: "false" }
+    - id: xtask_test
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with: { prefix-key: ci1, key: xtask_test-xtask_test, add-job-id-key: "false", lookup-only: "true", save-if: "false" }
+
+    # node-setup's two keys and paths, which together name an entry.
+    - id: nm
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        lookup-only: true
+        path: |
+          node_modules
+          apps/*/node_modules
+          packages/*/node_modules
+        key: nm2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}
+    - id: pw
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        lookup-only: true
+        path: |
+          ~/.cache/ms-playwright
+          ~/Library/Caches/ms-playwright
+        key: pw2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+    - id: answer
+      shell: bash
+      env:
+        HITS: >-
+          build=${{ steps.build.outputs.cache-hit }}
+          test=${{ steps.test.outputs.cache-hit }}
+          acceptance=${{ steps.acceptance.outputs.cache-hit }}
+          xtask_test=${{ steps.xtask_test.outputs.cache-hit }}
+          node_modules=${{ steps.nm.outputs.cache-hit }}
+          playwright=${{ steps.pw.outputs.cache-hit }}
+      run: |
+        echo "CACHES $HITS"
+        warm=true
+        for hit in $HITS; do [ "${hit#*=}" = true ] || warm=false; done
+        echo "warm=$warm" >> "$GITHUB_OUTPUT"

@@ -1,7 +1,8 @@
 //! A Job reads and commands the Jobs it started. `docs/concepts/session/a-job-that-started-jobs.md`.
 //!
 //! **The caller is placed by its connection and its children are the Jobs its own `started_to` links
-//! name**, so a call cannot name a parent. What a command may do is decided on values in
+//! name**, so a call cannot name a parent. A read walks down through the children's own links to the
+//! whole tree; a command stays for a direct child. What a command may do is decided on values in
 //! [`crate::started_jobs`]; what is done is the same act the person's End, Pause, Resume and
 //! `change_waiting` run, so there is no second path to end a Job or move its wait.
 
@@ -63,8 +64,33 @@ where
         Ok(children)
     }
 
+    /// Every Job below `parent` as `(id, started_by)`: each child followed by its own descendants,
+    /// oldest first at each level. A Job met twice is listed once, so a cycle ends.
+    async fn started_tree(&self, parent: &str) -> Result<Vec<(String, String)>, Refusal> {
+        let mut seen = vec![parent.to_string()];
+        let mut found = Vec::new();
+        // Depth first: the stack holds the next Jobs to visit, the nearest sibling on top.
+        let mut stack: Vec<(String, String)> =
+            self.started_ids(parent).await?.into_iter().rev().map(|id| (id, parent.to_string())).collect();
+        while let Some((id, by)) = stack.pop() {
+            if seen.contains(&id) {
+                continue;
+            }
+            seen.push(id.clone());
+            // A child no record names has nothing below it to read.
+            let below = if self.store().lock().await.session(&id).map_err(|why| self.ledger_fault(why))?.is_some() {
+                self.started_ids(&id).await?
+            } else {
+                Vec::new()
+            };
+            stack.extend(below.into_iter().rev().map(|child| (child, id.clone())));
+            found.push((id, by));
+        }
+        Ok(found)
+    }
+
     /// One child as the read gives it, with the step it is on named and, once it ended, what it said.
-    async fn started_job(&self, id: &str) -> Result<StartedJob, Refusal> {
+    async fn started_job(&self, id: &str, started_by: &str) -> Result<StartedJob, Refusal> {
         let (record, said) = {
             let store = self.store().lock().await;
             let session = store
@@ -81,15 +107,15 @@ where
                 .and_then(|steps| steps.get(at as usize).map(|step| step.label.clone())),
             _ => None,
         };
-        Ok(StartedJob::of(&record, step, said))
+        Ok(StartedJob::of(&record, SessionId::carried(started_by), step, said))
     }
 
-    /// `list_started_sessions`.
+    /// `list_started_sessions`: the whole tree below the caller. Commands below stay for direct children.
     pub(crate) async fn started_listed(&self, caller: Option<Caller>) -> Result<StartedSessions, Refusal> {
         let parent = self.started_placed(caller.as_ref())?;
         let mut jobs = Vec::new();
-        for id in self.started_ids(&parent).await? {
-            jobs.push(self.started_job(&id).await?);
+        for (id, by) in self.started_tree(&parent).await? {
+            jobs.push(self.started_job(&id, &by).await?);
         }
         Ok(StartedSessions { jobs })
     }
@@ -144,7 +170,7 @@ where
             }
             Do::Drop => self.wait_dropped(parent, &id).await?,
         }
-        self.started_job(&id).await
+        self.started_job(&id, parent).await
     }
 
     fn started_refused(&self, refused: Refused) -> Refusal {

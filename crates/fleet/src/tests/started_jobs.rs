@@ -16,6 +16,7 @@ use ipc::{
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTrackers};
 
 use super::agent_starts::{begins, caller, rig, rigged, rigged_fitted, Rig};
+use crate::operator::{Desk, FleetDesk};
 use crate::tests::backlog::{actor, BEADS};
 use crate::tests::peer::Placing;
 
@@ -331,12 +332,16 @@ async fn a_job_that_did_not_start_another_is_refused_on_every_act_a_grandchild_a
     let refused = code(&answers[0]);
     assert!(refused.contains("fleet.started_not_yours") && refused.contains("was not started by this job"), "{refused}");
     assert_eq!(rig.record(&grandchild.session_id).await.state, SessionState::Live, "nothing was done to it");
-    assert!(rig.listed_children().await.jobs.iter().all(|one| one.summary.id != grandchild.session_id), "and it is not read");
+    let top = rig.listed_children().await;
+    let below: Vec<(&str, &str)> = top.jobs.iter().map(|one| (one.summary.id.as_str(), one.started_by.as_str())).collect();
+    assert_eq!(below.len(), 2, "it is read, though not commanded: {below:?}");
+    assert_eq!(below[1], (grandchild.session_id.as_str(), child.as_str()), "started by the child");
 
     // The child is placed by its own connection and reads only its own.
     let read = Arc::clone(&rig.fleet).list_started_sessions(at(52001)).await.expect("placed");
     let ids: Vec<&str> = read.jobs.iter().map(|one| one.summary.id.as_str()).collect();
     assert_eq!(ids, [grandchild.session_id.as_str()]);
+    assert_eq!(read.jobs[0].started_by, child, "the child started it");
     let upward = Arc::clone(&rig.fleet).command_started_sessions(at(52001), vec![command(&child, StartedAct::Pause)]).await.expect("placed");
     assert!(code(&upward[0]).contains("fleet.started_not_yours"), "a child cannot command its parent");
 
@@ -367,4 +372,102 @@ async fn a_batch_is_answered_in_order_and_a_refused_entry_leaves_the_others_done
     assert_eq!(two.as_ref().expect("done").summary.id, second);
     let ended = |record: SessionRecord| record.state == SessionState::Ended;
     assert!(ended(rig.record(&first).await) && ended(rig.record(&second).await));
+}
+
+/// A Job, its two children, and below the first a grandchild and a great-grandchild, each started by
+/// the Job above it from its own connection. Returns the rig, the Job, its children, the grandchild
+/// and the great-grandchild.
+async fn a_tree() -> (Rig, SessionId, [SessionId; 2], SessionId, SessionId) {
+    let peers = Placing::nothing();
+    first_agent(&peers);
+    peers.holding(1001, 52001, PORT);
+    peers.holding(1002, 52002, PORT);
+    let rig = rig(Some(Arc::clone(&peers)));
+    let top = rig.an_agent().await;
+    let first = rig.started("First").await;
+    let second = rig.started("Second").await;
+    rig.begun(&first).await;
+    let grandchild = Arc::clone(&rig.fleet).start_another_session(at(52001), begins(&rig, "Grandchild", "Read it.")).await.expect("held").session_id;
+    rig.begun(&grandchild).await;
+    let great = Arc::clone(&rig.fleet).start_another_session(at(52002), begins(&rig, "Great", "Read it.")).await.expect("held").session_id;
+    (rig, top, [first, second], grandchild, great)
+}
+
+#[tokio::test]
+async fn a_job_reads_the_whole_tree_below_it_each_child_before_its_own_and_each_with_who_started_it_but_commands_only_its_children() {
+    let (rig, top, [first, second], grandchild, great) = a_tree().await;
+
+    let from_the_first = Arc::clone(&rig.fleet).list_started_sessions(at(52001)).await.expect("placed");
+    let ids: Vec<&str> = from_the_first.jobs.iter().map(|one| one.summary.id.as_str()).collect();
+    assert_eq!(ids, [grandchild.as_str(), great.as_str()], "a Job reads what is below it, not what is beside it");
+
+    // Cycles in the links read once: the grandchild is said to have started the first, the great one the top.
+    {
+        let mut store = rig.fleet.store().lock().await;
+        for (holder, target) in [(&grandchild, &first), (&great, &top)] {
+            let at = rig.fleet.now().as_str().to_string();
+            let link = store::KeptAttachment {
+                holder: store::Holder::session(holder.as_str()),
+                kind: "started_to".into(),
+                manifest_id: rig.manifest.as_str().to_string(),
+                target: target.as_str().into(),
+                state: store::AttachmentState::Spent,
+                detail: Default::default(),
+                since: at.clone(),
+                changed_at: at,
+            };
+            store.attach(&link, false).expect("kept");
+        }
+    }
+
+    let read = rig.listed_children().await;
+    let seen: Vec<(&str, &str)> = read.jobs.iter().map(|one| (one.summary.id.as_str(), one.started_by.as_str())).collect();
+    assert_eq!(
+        seen,
+        [
+            (first.as_str(), top.as_str()),
+            (grandchild.as_str(), first.as_str()),
+            (great.as_str(), grandchild.as_str()),
+            (second.as_str(), top.as_str()),
+        ],
+        "each child followed by its own descendants, oldest first at each level"
+    );
+
+    for below in [&grandchild, &great] {
+        let answers = rig.commanded(vec![ending(below, "no longer needed")]).await;
+        assert!(code(&answers[0]).contains("fleet.started_not_yours"), "a command stays for a direct child: {}", code(&answers[0]));
+    }
+    assert_eq!(rig.record(&great).await.state, SessionState::Live);
+}
+
+#[tokio::test]
+async fn the_operators_live_list_names_who_started_a_job_up_to_the_root_and_an_ended_starter_still_counts() {
+    let (rig, top, [first, _second], grandchild, great) = a_tree().await;
+    let desk = FleetDesk::on(&rig.fleet, |_| {});
+    let titled = |record: SessionRecord| record.title.expect("titled");
+    let (top_title, first_title, grandchild_title) = (
+        titled(rig.record(&top).await),
+        titled(rig.record(&first).await),
+        titled(rig.record(&grandchild).await),
+    );
+
+    let live = desk.live().await;
+    let started_by = |id: &SessionId| live.iter().find(|one| one.session_id == id.as_str()).unwrap_or_else(|| panic!("{id:?} is live")).started_by.clone();
+    assert!(started_by(&top).is_empty(), "the person started it");
+    assert_eq!(started_by(&first), [(top.as_str().to_string(), top_title.clone())]);
+    assert_eq!(
+        started_by(&great),
+        [
+            (grandchild.as_str().to_string(), grandchild_title.clone()),
+            (first.as_str().to_string(), first_title.clone()),
+            (top.as_str().to_string(), top_title.clone()),
+        ],
+        "nearest first, up to the root"
+    );
+
+    rig.commanded(vec![ending(&first, "no longer needed")]).await;
+    let live = desk.live().await;
+    assert!(live.iter().all(|one| one.session_id != first.as_str()), "it ended");
+    let chain = live.iter().find(|one| one.session_id == great.as_str()).expect("live").started_by.clone();
+    assert_eq!(chain.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), [grandchild.as_str(), first.as_str(), top.as_str()], "an ended starter is named too");
 }

@@ -121,6 +121,8 @@ mod manifest_allowed;
 /// Reads the `migrations/` directory; the build script includes it too.
 #[cfg(test)]
 mod migration_files;
+/// A test's fresh store, copied from one migrated once.
+mod migrated_copy;
 /// What a migration is, and the table recording which names a file has had.
 mod migrations;
 /// The default model's step down while the plan's window is spent.

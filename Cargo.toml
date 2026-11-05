@@ -1,7 +1,7 @@
 # Armada v2 — Cargo workspace.
 #
-# Three crates, in build order: `core-model`, then `adapter-traits`, then
-# `testkit`. The remaining nine land in M0 step 11, after the acceptance test.
+# Thirteen crates under `crates/`, and `xtask`, the gate. ARCHITECTURE.md,
+# *The crate graph*, draws how they depend on each other.
 [workspace]
 resolver = "2"
 members = ["xtask", "crates/*"]

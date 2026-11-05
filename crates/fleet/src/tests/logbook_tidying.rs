@@ -37,7 +37,7 @@ fn entry(text: &str, session: &str) -> LogEntry {
 
 /// A store holding `entries`, and the ids they were given in order.
 fn kept(dir: &TempDir, entries: &[LogEntry]) -> (StoreLock, Vec<i64>) {
-    let mut store = Store::open(&dir.path().join("armada.db")).expect("opens");
+    let mut store = Store::open_migrated_copy(&dir.path().join("armada.db")).expect("opens");
     let ids = entries.iter().map(|one| store.save_logbook_entry(one).expect("keeps").expect("not forgotten")).collect();
     (StoreLock::new(store), ids)
 }
