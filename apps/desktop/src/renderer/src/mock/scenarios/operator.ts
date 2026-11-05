@@ -88,7 +88,25 @@ const deaths: Session = {
   },
   lastTurnAt: ago(180),
   rows: [
+    {
+      id: "op-1-o",
+      at: "09:10:00",
+      kind: "operator",
+      text: "The Operator started this Job. No live Job plans it.",
+    },
     asked("op-1-u", "09:10:00", "A Job whose agent process died stays listed as idle. Mark it."),
+    {
+      id: "op-1-s",
+      at: "09:32:00",
+      kind: "operator",
+      text: "The Operator sent: Job says Idle, but its agent crashed. A bug report from Home Draws Desktop States. Your detect group covers it.",
+    },
+    {
+      id: "op-1-b",
+      at: "09:38:00",
+      kind: "operator",
+      text: 'The Operator answered "Keep the existing column": no one sees it, and the migration is smaller.',
+    },
     said("op-1-a", "09:41:12", "The detector is in. One choice is left before the row draws it."),
   ],
   asked: question("op-q-1", "Which icon marks a dead process?", "Icon", [
@@ -249,6 +267,27 @@ const storeSize: Session = {
   lastTurnAt: ago(15),
   rows: [
     asked("op-10-u", "09:25:00", "The store reports its size on disk."),
+  ],
+  // Delegate stands at Suggest: what it would send to this Job waits on one press.
+  waitingFor: [
+    {
+      id: "suggestion:7",
+      text: "Send this Job: Doctor needs the size in bytes, not a label. Its checks group calls it",
+      since: ago(40),
+      source: "operator_suggestion",
+      act: {
+        kind: "answer",
+        target: "",
+      },
+      options: [
+        {
+          label: "Do it",
+        },
+        {
+          label: "Skip",
+        },
+      ],
+    },
   ],
 };
 

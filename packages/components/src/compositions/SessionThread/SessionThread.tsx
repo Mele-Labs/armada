@@ -103,6 +103,7 @@ import {
 import { isPressed } from "../../keymap";
 import type { JudgedPlanProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
+import { OperatorRow } from "./OperatorRow";
 import { MediaFrame, mediaKindOf, type ShownMedia } from "../MediaRow/MediaRow";
 import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
@@ -537,6 +538,13 @@ type SessionThreadKinds =
         title: string;
       };
       event: "needs" | "done" | "merged" | "started";
+    }
+  /** The Operator started this Job, sent it words or answered for the person: a quiet row in those exact words. */
+  | {
+      id: string;
+      at: string;
+      kind: "operator";
+      text: string;
     }
   /** The Session was moved to another repository, or is the one that was: a quiet row naming where, a press that opens the other. */
   | {
@@ -2097,6 +2105,7 @@ function Row({
   if (row.kind === "divider") return <li className="armada-session-divider" role="separator" />;
   if (row.kind === "waiter") return <WaiterRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "linked") return <LinkedRow row={row} onOpen={onOpenSession} />;
+  if (row.kind === "operator") return <OperatorRow row={row} />;
   if (row.kind === "disputed") return <DisputedRow row={row} onOpen={onOpenSession} />;
   if (row.kind === "change") {
     return (

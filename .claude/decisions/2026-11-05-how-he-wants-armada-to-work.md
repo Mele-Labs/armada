@@ -27,6 +27,26 @@ In his words: "sorry I dont know what we're calling this concept yet". And: "rig
 
 Neither of today's pieces does this. A Project ([Project](../../docs/concepts/project.md)) is a task list that spans repositories and knows nothing of risk or scope. A workspace ([Manifest](../../docs/concepts/manifest.md)) knows an area and its Checks and stays inside one repository.
 
+## How far an Operator reaches: settled
+
+Walking the panel on 5 Nov, he pointed at the repository picker and asked where an Operator's jurisdiction is: "I think this is a huge decision." Offered one Operator with its rules set per project, or one Operator per project, he chose **one Operator with rules per project**.
+
+It sees every live Job on the Mac, so two Jobs on the same files are caught across projects. Its rules are set per project once the concept above exists, and until then its positions are set per repository. The title row's picker filters what the panel shows and changes nothing the Operator does.
+
+Which rules live on a project is not ruled beyond what he named above. Roles, standing orders, the ceiling and the model are open, and so are whether a project's rules are set in this panel or in the space he asked for, and whether one repository can hold several projects.
+
+## Where the Operator's open items stand
+
+Walking the panel on 5 Nov: "I don't think the operator should have a typical job thread. I think that the job thread is where we can discuss but the open items for me and the operator should be in some queue tab that I can move around. Kind of like the \"Waiting to start\". I am imagining this queue is things that the operator is working through and then there is a queue of things that the operator is waiting on for me."
+
+So Talk is the discussion, and a Queue tab holds what it is working through and what it waits on him for. Shown as a walk, not approved yet. He also chose a Queued mark on a message in both the panel and a Job's thread, and rows that drag as well as a tab that moves.
+
+The order in that queue is his to set, and the Operator acts on it: "This is important. I want to be able to prioritize things and the operator understand that. So being able to drag and prioritize certain things is very important". And in words: "I should be able to tell the operator in words or through the UI to prioritize something and it can do what it needs to do to ensure that job is prioritized over others". Today a drag reaches only a held start, in its own repository's line; the Operator reads everything else in one call, in arrival order.
+
+Walking it, he renamed the tab and the list: Talk should be "Operator" or "Discussion" (Discussion is drawn, since the panel is already titled Operator), and Working through is "Operators Queue". On a row: "I kind of feel like the items over here I should be able to take action on. if the operator is busy right now, I should have an action to say lets discuss this when you're ready. Otherwise other actions might go back into the operators queue or start right away dependning on what they are." On an item in the conversation: "Is this a message or a card that we are actively working through."
+
+He keeps a way to start a Job himself: "I do think i need a way to be able to start a ad-hoc job. Sometimes I just jump into a job to dig into something or ask about something. I dont want to waste the operators time with this. The operator is aware of it and can monitor in case work starts that shouldn't".
+
 ## While he is away: not settled
 
 Asked what the Operator should do when a Job asks which way to build something while he is away:

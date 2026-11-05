@@ -96,6 +96,8 @@ export type OperatorLogRow = {
   ways?: readonly string[];
   /** The outcome the person overruled it to, a correction the next call reads. */
   changed?: string;
+  /** The Manifest it arose in, which the title row's picker narrows the Log to. */
+  repository?: string;
 };
 
 /** One item that has not started, in the Operator's order. */
@@ -107,6 +109,8 @@ export type OperatorLineRow = {
   why?: string;
   /** The Job it was dispatched as, whose header says it is held. */
   session?: string;
+  /** The Manifest it would start in, which the title row's picker narrows the list to. */
+  repository?: string;
 };
 
 /**
@@ -160,18 +164,120 @@ export type OperatorRead =
       pick: string;
     };
 
-/** One message in the box's conversation. */
+/** One message in the box's conversation. `order` is a standing order the words came to, which stands only once he presses Keep. */
 export type OperatorMessage = {
   id: string;
   from: "you" | "operator";
   text: string;
+  order?: StandingOrder;
+  /** What he did with `order`. */
+  settled?: "kept" | "left";
+  /** The Waiting on you row this marks the place it came up for discussion, in place of words. */
+  card?: string;
+  /** The card marks where that row was settled, rather than where it came up. */
+  ends?: boolean;
+  /** ISO time he sent it, for his own message's band. */
+  at?: string;
 };
 
-/** The mock's script for the box: what a fresh call answers to words that hold `asked`, and the Line row it starts, if any. */
+/** What the Operator would do about an item once the two of them have talked: the press that names it, what the row then says, and its line until then. */
+export type OperatorSend = {
+  press: string;
+  result: string;
+  read: string;
+};
+
+/** The mock's script for one item's conversation: what it says as the item opens, and to words that hold `asked`. */
+export type OperatorItemTalk = {
+  first: string;
+  replies: readonly {
+    asked: string;
+    said: string;
+    send?: OperatorSend;
+  }[];
+};
+
+/** One thing the Operator has in hand, in the order it gets to them. The first is the one it is reading. */
+export type OperatorTurn = {
+  id: string;
+  text: string;
+  /** His message this is, in the conversation. */
+  message?: string;
+  /** The repository it arose in, so the picker narrows it. */
+  repository?: string;
+  /** Under its title while nothing else is true of it. */
+  about?: string;
+  /** Where it is a Job waiting to start: the repository's line it stands in, and what holds it other than a free slot. */
+  start?: {
+    repository: string;
+    waits?: string;
+  };
+  /** The Waiting on you row this stands for: one it brings up in Discussion, or a press it has still to carry out. */
+  raise?: string;
+  /** Bring `raise` up in Discussion when it gets here. */
+  discuss?: boolean;
+  /** What `raise` says once it is carried out. */
+  result?: string;
+  /** Which way he last moved it. */
+  moved?: "up" | "down";
+  /** What the Operator did to put it first when he asked in words. */
+  put?: string;
+  /** What the Operator says came of it once it has done the row, if anything did. */
+  finish?: string;
+  /** What came of it. It stays below what is still open, saying so. */
+  done?: string;
+};
+
+/** The mock's script for the box: what a fresh call answers to words that hold `asked`, the Line row it starts and the order it proposes, if any. */
 export type OperatorTalk = {
   asked: string;
   said: string;
   starts?: string;
+  order?: StandingOrder;
+  /** The row of Working through these words put next, and what its row then says. */
+  puts?: {
+    turn: string;
+    line: string;
+  };
+};
+
+/**
+ * Something raised, or what a role at Suggest would do, tied to no Job: a report, an issue, a review request, a red main or a Later
+ * item. `ways` are its presses, the first the Operator's pick.
+ */
+export type OperatorRaise = {
+  id: string;
+  /** Whether a role at Suggest would do it, which `Do it` does, or it was raised. */
+  suggests: boolean;
+  repository: string;
+  /** The Manifest it arose in, which the title row's picker narrows the list to. */
+  manifest?: string;
+  item: string;
+  /** Why it came to him, in the Operator's words. */
+  read: string;
+  ways: readonly string[];
+  /** What the Log says the pick did. */
+  does: OperatorDid;
+  /** What kind of thing it is, the tag before its title. */
+  tag?: string;
+  /** What the row says once a way is pressed. */
+  results?: Readonly<Record<string, string>>;
+  /** The ways the Operator carries out in its turn: pressed, they go in its queue. The rest happen at once. */
+  queues?: readonly string[];
+  /** Waiting in the Operator's queue to come up in Discussion. */
+  toDiscuss?: boolean;
+  /** What came of it. The row stays where it is, saying so. */
+  settled?: string;
+  /** The Job it is about, which Open Job opens. */
+  job?: OperatorJob;
+  /** The mock's script for working it through in Talk. */
+  talk?: OperatorItemTalk;
+};
+
+/** A repository whose roles differ from the machine's, a setting rather than an order. A role it does not name follows the machine. */
+export type OperatorRepository = {
+  name: string;
+  positions: Partial<Readonly<Record<OperatorRole, OperatorPosition>>>;
 };
 
 export type OperatorSeed = {
@@ -186,7 +292,56 @@ export type OperatorSeed = {
   reads: readonly OperatorRead[];
   ties: readonly OperatorTie[];
   talk: readonly OperatorTalk[];
+  raises?: readonly OperatorRaise[];
+  repositories?: readonly OperatorRepository[];
+  /** Every repository a difference could be added for. */
+  served?: readonly string[];
+  /** The model its calls run on, the same setting as the system models' row. */
+  model?: string;
+  models?: readonly string[];
+  /** Where a raise tied to no Job pulses: on the title row's button alone, or on a row of the Jobs list too. */
+  raisesPulse?: "button" | "row";
+  /** What it has in hand. Empty or missing, a message is answered at once. */
+  turns?: readonly OperatorTurn[];
+  /** The whole-panel take this scenario draws (`operator/takes/`). Absent draws the panel as built, or the one `?take=` names. */
+  take?: string;
+  /** Takes what moves the Operator on to its next turn, where time passes in the scenario. */
+  moves?: (next: () => void) => void;
 };
+
+/** The line under a row of the Operator's Queue: what came of it, what the Operator did to put it first, or what it waits on. */
+export function turnLine(turns: readonly OperatorTurn[], at: number): string | undefined {
+  const row = turns[at]!;
+  if (row.done !== undefined) return row.done;
+  if (row.put !== undefined) return row.put;
+  if (row.start === undefined) return row.about;
+  const waits = `Waits for ${row.start.waits ?? "a free slot"}`;
+  return row.about === undefined ? waits : `${row.about}. ${waits}`;
+}
+
+/** The tag before a row's title in the Operator's Queue: what kind of thing it is. */
+/** An outcome as its kind and what, from "Kind: what". An outcome that let the item go is drawn quieter. */
+export function outcomeOf(text: string): { label: string; what?: string; letGo: boolean } {
+  const at = text.indexOf(": ");
+  const label = at === -1 ? text : text.slice(0, at);
+  return {
+    label,
+    ...(at === -1
+      ? {}
+      : {
+          what: text.slice(at + 2),
+        }),
+    letGo: label === "Ignored" || label === "Not filed",
+  };
+}
+
+export function turnTag(row: OperatorTurn): string {
+  if (row.message !== undefined) return "Your message";
+  if (row.discuss === true) return "To discuss";
+  if (row.result !== undefined) return "To do";
+  if (row.start !== undefined) return "Job start";
+  return "Question";
+}
 
 export const ROLES: readonly {
   role: OperatorRole;

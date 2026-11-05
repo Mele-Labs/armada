@@ -535,6 +535,8 @@ export function App() {
   const helmBox = useHelmBox(state.helm);
   // Where the window has an Operator, its panel takes Helm's dock and the title row's button.
   const operator = useOperator();
+  // Where the panel's Layout control stands: the dock's head, beside Close.
+  const [operatorPlace, setOperatorPlace] = useState<HTMLElement | null>(null);
   const refsHost: RefsHostProps = {
     state,
     repositories,
@@ -866,7 +868,9 @@ export function App() {
                           : {
                               onTeach: () => teachBridge("title_bar", ""),
                             })}
-                        helmCalling={callingHomes.has(HELM_HOME)}
+                        helmCalling={
+                          callingHomes.has(HELM_HOME) || (operator?.state.raises?.length ?? 0) > 0
+                        }
                         wordmark={<ArmadaMark size={20} title="Armada" />}
                         // The title row's picker, on every surface.
                         repository={
@@ -899,7 +903,7 @@ export function App() {
                             })}
                         helm={
                           operator !== null ? (
-                            <OperatorPanel />
+                            <OperatorPanel place={operatorPlace} picked={pickedRepository} />
                           ) : (
                             <>
                               <HelmDock
@@ -952,7 +956,9 @@ export function App() {
                         // where three controls wrapped onto a second line at the dock's width.
                         // Held while a turn runs: Stop is the Session's own control for that.
                         helmAction={
-                          operator !== null ? null : (
+                          operator !== null ? (
+                            <span ref={setOperatorPlace} className="armada-operator__place" />
+                          ) : (
                             <Button
                               variant="ghost"
                               size="sm"

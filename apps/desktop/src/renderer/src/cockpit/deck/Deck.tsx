@@ -45,6 +45,7 @@ import {
   EarlierMark,
   HandoffMark,
   ListCard,
+  ListCardMark,
   PausedMark,
   Tooltip,
   keyFor,
@@ -55,7 +56,7 @@ import {
   type Mark,
 } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { SURFACE, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
+import { SURFACE, askToOpenHelm, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
@@ -202,6 +203,39 @@ function Phase({ subject, builds }: { subject: Subject; builds: ReadonlyMap<stri
 }
 
 /** An idea saved to start later, a row of the list: dashed, with its repository and model. ↵ (a click with no pointer) or its play press starts it, never a mouse click on its words; Remove lets it go. */
+/** What the Operator raised with no Job to stand on, as a row that pulses as a Job's does, first in the list. Its press opens the panel. */
+function OperatorRaisesRow() {
+  const operator = useOperator();
+  if (operator?.state.raisesPulse !== "row" || (operator.state.raises?.length ?? 0) === 0)
+    return null;
+  return (
+    <li className="deck-list__item">
+      <ListCard
+        className="deck-row"
+        needs
+        data-lamp="needs"
+        data-tone="ask"
+        aria-label="Operator"
+        onClick={() => askToOpenHelm()}
+        title="Operator"
+        marks={
+          <ListCardMark>
+            <Tooltip label="The Operator raised something with no Job">
+              <span
+                className="deck-row__kind"
+                role="img"
+                aria-label="The Operator raised something with no Job"
+              >
+                <Bot size={14} aria-hidden="true" />
+              </span>
+            </Tooltip>
+          </ListCardMark>
+        }
+      />
+    </li>
+  );
+}
+
 export function QueuedRow({ idea }: { idea: QueuedIdea }) {
   const draft = useSessionsDraft();
   const cursor = useDeck((deck) => deck.cursor);
@@ -763,6 +797,7 @@ function List({
           } as CSSProperties
         }
       >
+        <OperatorRaisesRow />
         {banding === undefined
           ? [
               ...queuedIn(ideas, picked).map((idea) => (

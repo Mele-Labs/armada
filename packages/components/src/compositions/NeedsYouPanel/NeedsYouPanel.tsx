@@ -132,6 +132,7 @@ function Thumbs({
 /** A question answered in the panel's place: the question, a card of Fleet's own, or a row with choices or a reply box. The rest go where they point. */
 const opensHere = (one: Thing): boolean =>
   one.press === undefined &&
+  one.row?.operator === undefined &&
   (one.row === undefined || one.row.options !== undefined || one.row.onReply !== undefined);
 
 /**
@@ -568,6 +569,23 @@ export function NeedsYouPanel({
                             )}
                             {one.row?.start === undefined ? null : (
                               <StartAct start={one.row.start} />
+                            )}
+                            {one.row?.operator === undefined ||
+                            one.row.options === undefined ? null : (
+                              <span className="armada-needs-panel__ways">
+                                {one.row.options.map((option, at) => (
+                                  <Button
+                                    key={option.label}
+                                    size="sm"
+                                    variant={at === 0 ? "secondary" : "ghost"}
+                                    data-aside=""
+                                    aria-label={`${option.label}: ${one.name}`}
+                                    onClick={() => void option.onPick()}
+                                  >
+                                    {option.label}
+                                  </Button>
+                                ))}
+                              </span>
                             )}
                           </li>
                         ))}

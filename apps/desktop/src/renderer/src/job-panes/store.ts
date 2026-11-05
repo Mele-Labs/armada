@@ -84,20 +84,12 @@ const prArrangement = (): Arrangement =>
 const operatorArrangement = (): Arrangement =>
   build({
     dir: "row",
-    ratio: 0.4,
-    a: {
-      dir: "column",
-      ratio: 0.6,
-      a: [
-        "op-talk",
-      ],
-      b: [
-        "op-permissions",
-      ],
-    },
+    ratio: 0.45,
+    a: [
+      "op-talk",
+    ],
     b: [
-      "op-log",
-      "op-waiting",
+      "op-queue",
     ],
   });
 
