@@ -2,12 +2,7 @@
 // changes an agent drafted as the box under the steps and the cards on a step. Nothing here asks Fleet.
 
 import { glyphOf, keyOf, stepsOfDefinition } from "@armada/components";
-import type {
-  AgentState,
-  ManagedStep,
-  Suggestion,
-  WorkflowSource,
-} from "@armada/components";
+import type { AgentState, ManagedStep, Suggestion, WorkflowSource } from "@armada/components";
 import type {
   ChangeStep,
   LeftOutWorkflow,
@@ -148,9 +143,7 @@ export const changeAt = (
 ): WorkflowChange | undefined => changes.find((one) => one.step_id === stepId);
 
 /** The cards on the steps. */
-export function suggestionsOf(
-  changes: readonly WorkflowChange[],
-): {
+export function suggestionsOf(changes: readonly WorkflowChange[]): {
   suggestions: Readonly<Record<string, Suggestion>>;
 } {
   const suggestions: Record<string, Suggestion> = {};

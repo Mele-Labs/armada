@@ -608,15 +608,13 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
     phase: "idle",
   });
   expect(
-    suggestionsOf(
-      [
-        change({
-          ...drift,
-          state: "ready",
-          after,
-        }),
-      ],
-    ),
+    suggestionsOf([
+      change({
+        ...drift,
+        state: "ready",
+        after,
+      }),
+    ]),
   ).toEqual({
     suggestions: {
       propose: {
@@ -629,26 +627,22 @@ test("a change drawn from drift is a card on its step, or the step an agent is d
     },
   });
   expect(
-    suggestionsOf(
-      [
-        change({
-          ...drift,
-        }),
-      ],
-    ),
+    suggestionsOf([
+      change({
+        ...drift,
+      }),
+    ]),
   ).toEqual({
     suggestions: {},
   });
   expect(
-    suggestionsOf(
-      [
-        change({
-          ...drift,
-          state: "failed",
-          reason: "Unchanged",
-        }),
-      ],
-    ).suggestions.propose,
+    suggestionsOf([
+      change({
+        ...drift,
+        state: "failed",
+        reason: "Unchanged",
+      }),
+    ]).suggestions.propose,
   ).toEqual({
     words: "",
     from: [
