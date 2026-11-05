@@ -15,6 +15,7 @@ mod lifecycles;
 mod piece_saving;
 mod accounts;
 mod notice_mutes;
+mod started_jobs;
 mod annotations;
 mod building;
 /// The allowlist rows and the Kit changes.
@@ -35,6 +36,7 @@ mod helm;
 mod helm_box;
 /// A refused body names its whole shape.
 mod shape;
+mod show_file;
 /// A Job's Now: a Drone's activity, issues, waiting, answer modes, Check acts.
 mod thought;
 /// A Job's timeline, in the three shapes a row can be.

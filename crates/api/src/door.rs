@@ -180,6 +180,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "report_bug",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",
+    // The Jobs it started are read and commanded the same way.
+    "list_started_sessions",
+    "command_started_sessions",
     // A watch is the Job's own, placed as `waiting_for` is.
     "start_watch",
     "try_watch",

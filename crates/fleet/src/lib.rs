@@ -176,6 +176,8 @@ pub mod note_locating;
 pub mod notice_loop;
 /// The Operator: who does each piece of work that arrives. `armada-ehhu`.
 pub mod operator;
+/// What a Job may do to the Jobs it started, decided on values.
+pub mod started_jobs;
 pub mod noticing;
 /// Drone groups whose Fleet is gone, found by the mark Fleet put on them.
 pub mod orphans;

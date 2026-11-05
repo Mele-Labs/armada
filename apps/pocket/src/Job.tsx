@@ -52,7 +52,7 @@ import { documentAnswerOf, sketchAnswerOf } from "@armada/screens/src/thread-car
 import { getJson } from "./client";
 import { holderOf, macOf, start, useFleet } from "./fleet";
 import type { ModelsBody } from "./gateway";
-import { actsOn, attempt, attemptPage, useJob, type Acts } from "./jobState";
+import { actsOn, attempt, attemptPage, readShownMedia, useJob, type Acts } from "./jobState";
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
 import { documentPath, draftPath, filePath, go, jobPath, sketchPath } from "./router";
@@ -1018,6 +1018,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                   onAnswer={onAnswer}
                   onOpenSession={openJob}
                   onOpenFile={(path) => go(filePath(machine.origin, id, path))}
+                  onReadMedia={(path) => readShownMedia(machine, id, path)}
                   onOpenSketch={(sketch) => go(sketchPath(machine.origin, id, sketch))}
                   onAnswerSketch={(sketch, answer) =>
                     void run(

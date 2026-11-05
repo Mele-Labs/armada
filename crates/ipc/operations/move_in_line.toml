@@ -1,0 +1,12 @@
+[operations.move_in_line]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person moves a Job waiting to start to another place, over the Operator's order"
+notes = """
+`POST /sessions/line/move`, body `MoveInLine`: `session_id` (the Job waiting to start) and `place`, one of `{"kind":"ahead","session_id":…}`, `{"kind":"behind","session_id":…}` or `{"kind":"last"}`. Answered with the Job's `SessionRecord`.
+
+**Only the person's drag.** The Operator sets the order of Waiting to start, the line a Job joins when every slot of its repository is held; a drag moves a Job over it, and the Operator's Log keeps the move as a correction, signed by the person, which the next call reads. The whole line is renumbered and kept, so a restart serves it in the new order.
+
+**Refused with nothing moved**, 422: `fleet.line_unordered` while the Operator is off, since the line is then first come, first served; `fleet.line_not_waiting` where the Job is in no line; `fleet.line_place_unknown` where `place` names a Job not waiting in the same line, or the Job itself.
+"""

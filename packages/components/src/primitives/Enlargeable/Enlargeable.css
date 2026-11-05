@@ -1,5 +1,5 @@
 /* Enlargeable. The thumbnail is a bare button around the picture; the large view is the picture on the
- * scrim, with no frame, header or text. */
+ * scrim, with no frame, header or text beyond its bar. */
 .armada-enlargeable {
   display: inline-flex;
   padding: 0;
@@ -12,6 +12,79 @@
 .armada-enlargeable:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
+}
+
+.armada-enlargeable--fills {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A box holding a picture that zooms. Gestures are this component's, so the browser takes none of them. */
+.armada-zoomable {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.armada-zoomable[data-zoomed] {
+  cursor: grab;
+}
+
+.armada-zoomable__picture {
+  flex: none;
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  cursor: zoom-in;
+  transition: transform var(--duration-fast) ease;
+  -webkit-user-drag: none;
+}
+
+.armada-zoomable[data-zoomed] .armada-zoomable__picture {
+  cursor: grab;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-zoomable__picture {
+    transition: none;
+  }
+}
+
+.armada-zoomable__bar {
+  position: absolute;
+  top: max(var(--space-3), env(safe-area-inset-top));
+  right: max(var(--space-3), env(safe-area-inset-right));
+  display: flex;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.armada-zoomable__group {
+  display: flex;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+}
+
+/* A touch screen has the pinch and the double tap; its zoom buttons would only cover the picture. */
+.armada-zoomable__group--zoom {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .armada-zoomable__group--zoom {
+    display: flex;
+  }
 }
 
 .armada-enlargeable__scrim {

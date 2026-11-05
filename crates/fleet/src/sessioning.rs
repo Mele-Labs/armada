@@ -309,7 +309,9 @@ where
             SessionFact::TurnMeasured { turn } => {
                 // Usage is read by its own operation and draws nothing on the record, so it
                 // publishes no `session.changed`.
-                crate::turn_usage_keeping::kept(&mut store, &id, &turn).map_err(fault)?;
+                if crate::turn_usage_keeping::kept(&mut store, &id, &turn).map_err(fault)? {
+                    store.waiting_compactions_measured(&id).map_err(fault)?;
+                }
             }
             SessionFact::Equipped { loadout } => {
                 changed |= crate::loadout_keeping::equipped(&mut store, &id, &loadout).map_err(fault)?;
@@ -548,6 +550,18 @@ where
         self.another_session_started(caller, start).await
     }
 
+    async fn list_started_sessions(&self, caller: Option<api::Caller>) -> Result<ipc::StartedSessions, Refusal> {
+        self.started_listed(caller).await
+    }
+
+    async fn command_started_sessions(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        commands: Vec<ipc::StartedCommand>,
+    ) -> Result<Vec<Result<ipc::StartedJob, Refusal>>, Refusal> {
+        self.started_commanded(caller, commands).await
+    }
+
     async fn change_waiting(
         self: Arc<Self>,
         caller: Option<api::Caller>,
@@ -772,7 +786,17 @@ where
         record: ipc::RecordPlan,
         seen: bool,
     ) -> Result<SessionRecord, Refusal> {
-        self.plan_recorded(caller, record, seen).await
+        self.plan_recorded(caller, record, seen, &[]).await
+    }
+
+    async fn record_plan_seen(
+        &self,
+        caller: Option<api::Caller>,
+        record: ipc::RecordPlan,
+        seen: bool,
+        groups_seen: Vec<bool>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.plan_recorded(caller, record, seen, &groups_seen).await
     }
 
     async fn approve_plan(self: Arc<Self>, approve: ipc::ApprovePlan) -> Result<SessionRecord, Refusal> {

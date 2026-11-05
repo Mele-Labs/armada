@@ -215,6 +215,7 @@ mod slot_asking;
 mod slot_choice;
 mod session_retro_row;
 mod session_starts;
+mod started_jobs;
 mod session_waits;
 mod session_summary;
 mod run_memory;
@@ -604,7 +605,7 @@ pub use servers::{
     NamedServer, ServerCheckout, ServerEntry, ServerLink, ServerList, ServerMessage,
     ServerOpened, ServerPhase, ServerPort, ServerState, StartServer, StartedBy,
 };
-pub use slot_choice::{FreeSlot, SlotHolder, SlotHolderJob, SlotKeeps};
+pub use slot_choice::{FreeSlot, LinePlace, MoveInLine, SlotHolder, SlotHolderJob, SlotKeeps};
 pub use slot_asking::{
     AskForSlot, AskForSlotAct, SlotAsked, SlotAskStanding,
 };
@@ -616,7 +617,7 @@ pub use session_retro_row::{
     PartialRetroItem, RetroStage,
 };
 pub use phone::{PhoneGateway, SetPhoneGateway};
-pub use show_file::{ShowFile, ShownText};
+pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
@@ -631,6 +632,10 @@ pub use style_sources::{KeptFont, KeptSheet, KeptStyles, StyleKind, StyleSource,
 pub use session_starts::{
     ForkThisSession, HandToSession, SessionHeld, SessionLink, HeldOrRefused, SessionsHeld, StartAnotherSession,
     StartAnotherSessions, AGENT_START_UNPLACED,
+};
+pub use started_jobs::{
+    StartedAct, StartedAnswer, StartedAnswers, StartedCommand, StartedCommands, StartedJob, StartedResult, StartedSessions, StartedStep,
+    STARTED_UNPLACED,
 };
 pub use session_waits::{
     ChangeWaiting, ReadSessionWait, SessionWait, StartAfter, StartBase, StartCondition,

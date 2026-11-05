@@ -85,6 +85,8 @@ pub enum Notice {
     LifecyclesClear,
     /// The Operator handed the Job work, merged another into it, or keeps it in touch with another.
     Operator,
+    /// The Job that started this one ended it, and said why.
+    StartedJobEnded,
 }
 
 impl Notice {
@@ -155,6 +157,7 @@ impl Notice {
             Notice::LifecycleRule => "lifecycle_rule",
             Notice::LifecyclesClear => "lifecycles_clear",
             Notice::Operator => "operator",
+            Notice::StartedJobEnded => "started_job_ended",
         }
     }
 }

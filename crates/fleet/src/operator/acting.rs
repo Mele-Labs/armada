@@ -12,7 +12,7 @@ use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::first_words;
-use super::Acting;
+use super::{Acting, Arrival, Arrived, Choice, Place, Ruling, Way};
 use crate::daemon::Fleet;
 
 /// The most of a Job's words one message carries.
@@ -81,6 +81,58 @@ where
         let (one, other, shared) = (one.to_string(), other.to_string(), shared.to_vec());
         self.doing(move |fleet| async move { fleet.operator_kept_in_touch(&one, &other, &shared).await });
     }
+
+    fn nudge(&self, session: &str, step: &str) {
+        let (session, step) = (session.to_string(), step.to_string());
+        self.doing(move |fleet| async move { fleet.operator_nudged(&session, &step).await });
+    }
+
+    fn start_rest(&self, session: &str, seen: &str) {
+        let (session, seen) = (session.to_string(), seen.to_string());
+        self.doing(move |fleet| async move { fleet.operator_started_rest(&session, &seen).await });
+    }
+
+    fn raise(&self, session: &str, read: &str) {
+        let (session, read) = (session.to_string(), read.to_string());
+        self.doing(move |fleet| async move { fleet.operator_raised(&session, &read).await });
+    }
+
+    fn place(&self, session: &str, place: &Place) {
+        let (session, place) = (session.to_string(), place.clone());
+        self.doing(move |fleet| async move { fleet.operator_placed(&session, place).await });
+    }
+
+    fn hold(&self, held: &str, first: &str, shared: &[String]) {
+        let (held, first, shared) = (held.to_string(), first.to_string(), shared.to_vec());
+        self.doing(move |fleet| async move { fleet.operator_held(&held, &first, &shared).await });
+    }
+
+    /// **Answer is the Operator's own role**, and acts with Dispatch off: it settles what his press
+    /// would. Off, the ruling is only in its Log.
+    fn answer(&self, session: &str, item: &str, choice: &Choice, because: &str) {
+        let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_answering()) else { return };
+        let (session, item, choice, because) = (session.to_string(), item.to_string(), choice.clone(), because.to_string());
+        tokio::spawn(async move { fleet.operator_answered(&session, &item, &choice, &because).await });
+    }
+
+    /// **A link, and a red main, act with Dispatch off**: a link is kept on this Mac and starts
+    /// nothing, and a red main arrives only from Autopilot's red kind, whose own switch allows the
+    /// start. A File waits on its own switch, a delegate and a dispatch on Dispatch; a raise is its
+    /// Log row.
+    fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
+        let Some(fleet) = self.fleet.upgrade() else { return };
+        let allowed = match ruling.way {
+            Way::Raise => false,
+            Way::Link => true,
+            Way::File => fleet.operator_filing(),
+            _ => arrival.arrived == Arrived::RedMain || fleet.operator_dispatches(),
+        };
+        if !allowed || !fleet.operator_on() {
+            return;
+        }
+        let (arrival, ruling) = (arrival.clone(), ruling.clone());
+        tokio::spawn(async move { fleet.operator_sourced(&arrival, &ruling).await });
+    }
 }
 
 /// How much of the work a Job has done, which of two to end is read by: a push first, then files.
@@ -109,6 +161,18 @@ where
     pub(crate) fn operator_dispatches(&self) -> bool {
         let settings = self.machine_settings().now();
         settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_DISPATCH)
+    }
+
+    /// The Operator's Answer switch, as settings.json reads now, under its own.
+    pub(crate) fn operator_answering(&self) -> bool {
+        let settings = self.machine_settings().now();
+        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_ANSWER)
+    }
+
+    /// The Operator's File switch, as settings.json reads now, under its own.
+    pub(crate) fn operator_filing(&self) -> bool {
+        let settings = self.machine_settings().now();
+        settings.get(keys::OPERATOR) && settings.get(keys::OPERATOR_FILE)
     }
 
     /// A Job held on its start card starts as his press would, on the landing the card picked.

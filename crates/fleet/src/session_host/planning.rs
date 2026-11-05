@@ -199,6 +199,7 @@ where
         caller: Option<api::Caller>,
         record: RecordPlan,
         seen: bool,
+        groups_seen: &[bool],
     ) -> Result<SessionRecord, Refusal> {
         let mut checked = record.checked().map_err(|why| self.hosted_refusal(PLAN_REFUSED, &why))?;
         let id = caller
@@ -244,7 +245,12 @@ where
             .collect();
         name_the_tickets(&mut checked.groups, &tickets);
         let now = self.now().as_str().to_string();
-        let kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
+        let mut kept = recorded(before.as_ref(), &checked.groups, sketch, checked.walk, seen, checked.summary, &now);
+        // A group the person would see makes a plan he would see.
+        for (group, seen) in kept.groups.iter_mut().zip(groups_seen) {
+            group.seen = *seen;
+        }
+        kept.seen |= kept.groups.iter().any(|group| group.seen);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         self.plan_handed(&id, before.as_ref(), &kept).await;

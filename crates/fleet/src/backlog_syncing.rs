@@ -163,6 +163,10 @@ where
             lines.extend(line);
             if let Looked::Synced { moved: true } = looked {
                 self.tracking().forget(served.manifest().id().as_str());
+                // Read again at once, so the Operator meets an issue the sync brought in.
+                if self.operator_on() {
+                    let _ = self.open_issues(&ipc::ManifestId::carried(&manifest)).await;
+                }
             }
             for one in &lost {
                 self.claim_lost_told(&manifest, one).await;
@@ -192,6 +196,26 @@ where
         });
         self.tracking().forget(served.manifest().id().as_str());
         settled
+    }
+
+    /// `actor` hands `reference` back in `served`'s backlog, with `note` as why, under the repository's
+    /// lock as a claim is made. **Synced at once**: another machine reads the issue as free only
+    /// once the hand back is on the remote.
+    pub(crate) async fn released_in_backlog(
+        &self,
+        served: &Served,
+        backlog: Arc<dyn Backlog + Send + Sync>,
+        reference: &str,
+        actor: &str,
+        note: &str,
+    ) -> Result<(), adapter_traits::NotTracked> {
+        let _kept = self.tracking().keepings.of(served.root()).lock_owned().await;
+        let (root, reference, actor, note) = (served.root().to_string(), reference.to_string(), actor.to_string(), note.to_string());
+        let released = tokio::task::spawn_blocking(move || backlog.release(&root, &reference, &actor, &note).and_then(|()| backlog.sync(&root)))
+            .await
+            .unwrap_or_else(|why| Err(adapter_traits::NotTracked::of("handing the issue back", why.to_string())));
+        self.tracking().forget(served.manifest().id().as_str());
+        released
     }
 
     /// Who a claim by Job `id` is made as: this machine's name and the start of the Job's id.

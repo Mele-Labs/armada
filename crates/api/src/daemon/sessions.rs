@@ -20,7 +20,9 @@ use crate::daemon::Refusal;
 pub enum ShownFile {
     Text(ipc::ShownText),
     Picture { media_type: String, bytes: Vec<u8> },
-    /// Over what the phone is sent: answered 413 with its size.
+    /// A video is never read here: its type and its size in bytes, for the Gateway to stream from the disk.
+    Video { media_type: String, bytes: u64 },
+    /// Over what the phone is sent of its kind: answered 413 with its size.
     TooLarge { bytes: u64 },
 }
 
@@ -269,6 +271,19 @@ pub trait Sessions: Send + Sync + 'static {
         seen: bool,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// [`Sessions::record_plan`] with each group's `seen`, in the plan's order, read beside the plan as `seen`
+    /// is: whether the Operator may answer a question from a Job working on that group. A daemon that keeps no
+    /// mark per group records the plan as `record_plan` does.
+    fn record_plan_seen(
+        &self,
+        caller: Option<crate::Caller>,
+        plan: ipc::RecordPlan,
+        seen: bool,
+        _groups_seen: Vec<bool>,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send {
+        self.record_plan(caller, plan, seen)
+    }
+
     /// `approve_plan` — the person approves the plan at the version he read, and the agent is told once.
     /// [`Refusal::IllegalMove`] for a version that is no longer the current one, or a session with no plan.
     fn approve_plan(
@@ -455,6 +470,23 @@ pub trait Sessions: Send + Sync + 'static {
             answers
         }
     }
+
+    /// `list_started_sessions` — every Job the caller started, each as one line. `caller` places the
+    /// Job, which the call cannot name. [`Refusal::Unacceptable`] for a call that places no hosted Job.
+    fn list_started_sessions(
+        &self,
+        caller: Option<crate::Caller>,
+    ) -> impl Future<Output = Result<ipc::StartedSessions, Refusal>> + Send;
+
+    /// `command_started_sessions` — withdraw, end, pause, resume, change or drop the wait of Jobs the
+    /// caller started, each as a call of its own would, in order. **A refused command leaves the others
+    /// done**, so each answer is its own; the outer [`Refusal::Unacceptable`] is a call that places no
+    /// hosted Job, with no command tried.
+    fn command_started_sessions(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        commands: Vec<ipc::StartedCommand>,
+    ) -> impl Future<Output = Result<Vec<Result<ipc::StartedJob, Refusal>>, Refusal>> + Send;
 
     /// `change_waiting` — when a waiting Session starts, or where from. **The agent of the Session
     /// waited on changes a Session that waits on it; the person (no `caller`) changes any.**

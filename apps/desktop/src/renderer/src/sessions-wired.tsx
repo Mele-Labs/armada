@@ -93,6 +93,7 @@ import type {
 
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
+import { videoAddressOf } from "../../shared/video-address";
 import { buildChangeOf, type BuildChange } from "./build-change";
 import { clashFileRead } from "./clash-file-read";
 import { fileChangeRead } from "./file-change-read";
@@ -1556,6 +1557,11 @@ export class WiredStore {
       openFile: (id, path) => void this.api.openSessionFile(id, path),
       openWindow: (id, url) => openJobWalk(id, url),
       readArtifact: (id, path) => this.api.readSessionArtifact(id, path),
+      // The address is the whole answer: main refuses what the ledger does not name when the player asks, and the row draws that.
+      videoAddress: async (id, path) => ({
+        ok: true,
+        address: videoAddressOf(id, path),
+      }),
       page: {
         show: (id, address, bounds) => void this.api.showSessionPage(id, address, bounds),
         move: (bounds) => void this.api.moveSessionPage(bounds),

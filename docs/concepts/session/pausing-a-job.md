@@ -12,7 +12,7 @@ It has nothing to park, so only the slot steps are skipped: its Checks and turn 
 A resume then leases a fresh slot and carries on as for any pause.
 
 **A resume takes a slot at the branch tip.** `resume_session` (`POST /sessions/resume`) leases the branch into a free slot and clears the marker.
-It is the person's press alone: `agent_access` is `No`, so Helm cannot call it.
+It is the person's press, and the press of the Job that started this one through `command_started_jobs` (*A Job that started Jobs*): `agent_access` is `No`, so Helm cannot call it, and a Job reaches no child but its own.
 Once the Job holds its slot again it carries on (below).
 **It never forces another holder out**: where every slot is held, or Jobs already wait, the Job joins the repository's line and the row reads `hosted.paused.resuming` until the first slot to free is leased to it.
 A pause while it waits calls the wait off.

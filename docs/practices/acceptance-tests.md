@@ -43,6 +43,7 @@ the gate asserts about it.
 | Lifecycles and rules | A Job in a Workspace (a set of repositories) moves its ticket when a step starts, waits on its pull request's approval with no agent running, asks me before it writes to the tracker or forge unless I set the rule to act, and lists what is still in flight before it ends | `crates/acceptance/tests/lifecycles.rs` |
 | Fresh install | Armada works in any repository on a Mac that has the app and nothing else, with no sign-in, no Kit and no `armada.yml`: a Job there has the Armada mod, filled from the app and again when an update brings a new version, and the door offers it every act the rules it is told to follow name | `crates/acceptance/tests/fresh_install.rs` |
 | Operator | An arrival is ruled by one fresh call with no tools inside Fleet's rules, the ruling is logged, and the arrival passes through untouched when the call fails or runs late: the three Jobs of the 3 Nov report end as one Job, or as Jobs kept in touch, and not as three | `crates/acceptance/tests/operator.rs` |
+| Started Jobs | A parent Job reads all the Jobs it started in one act, stops them in one act, and is refused on another Job's | `crates/acceptance/tests/started_jobs.rs` |
 
 The apparatus is `crates/acceptance/tests/bench/`, shared, with a file per
 milestone. Claim and apparatus are separated so that what a milestone claims and

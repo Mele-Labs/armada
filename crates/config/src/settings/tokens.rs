@@ -7,6 +7,8 @@ use super::{Applies, Entry, Flag, Integer, Json, Kind, Section, Shipped};
 pub const COMPACTION_WINDOW: Integer = Integer("tokens.compactionWindow");
 pub const SUMMARY_SHORT_CACHE: Flag = Flag("tokens.summaryShortCache");
 pub const SUMMARY_THINKING: Flag = Flag("tokens.summaryThinking");
+/// A trial, shipped off. `docs/concepts/session/where-the-tokens-went.md`, *A Job compacted while it waits*.
+pub const COMPACT_WHILE_WAITING: Flag = Flag("tokens.compactWhileWaiting");
 /// Repository id to the skills switched off there. Drawn in a skill's detail in Kit, never as a row.
 pub const SKILLS_OFF: Json = Json("tokens.skillsOff");
 /// Repository id to whether its Jobs start without the person's connectors. A repository with no
@@ -48,6 +50,18 @@ pub(super) const TOKENS: &[Entry] = &[
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("token-summary-thinking"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: COMPACT_WHILE_WAITING.0,
+        section: Section::TokenUse,
+        title: "Compact a Job waiting on you",
+        description: "Fleet compacts a Job that is waiting on you shortly before its prompt cache runs out. A Job that waits past its cache starts again from its whole context, and compacting first means it starts from a summary.",
+        kind: Kind::Boolean,
+        shipped: Shipped::Boolean(false),
+        applies: Applies::Live,
+        row: Some("token-compact-while-waiting"),
         env: None,
         tip: None,
     },

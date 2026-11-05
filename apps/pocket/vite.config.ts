@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { brotliCompressSync, constants as zlibConstants, gzipSync } from "node:zlib";
 
 import { defineConfig, type Plugin } from "vite";
@@ -9,7 +9,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 import { answer, type Posted } from "./src/fixture/gateway";
-import { everyState, fixtureMacs, type FixtureMac } from "./src/fixture/wire";
+import { everyState, fixtureMacs, mediaJob, type FixtureMac } from "./src/fixture/wire";
 
 const read = (request: IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -19,6 +19,32 @@ const read = (request: IncomingMessage): Promise<string> =>
     request.on("end", () => resolve(body));
     request.on("error", reject);
   });
+
+/** A file from `src/fixture/media/`. iOS plays a video only from a server that answers a byte range. */
+function sendMedia(
+  request: IncomingMessage,
+  response: ServerResponse,
+  file: string,
+  type: string | undefined,
+) {
+  const at = join(process.cwd(), "src/fixture/media", basename(file));
+  if (!existsSync(at)) return response.writeHead(404).end();
+  const bytes = readFileSync(at);
+  const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range ?? "");
+  const headers = {
+    "Content-Type": type ?? "application/octet-stream",
+    "Accept-Ranges": "bytes",
+  };
+  if (range === null) return response.writeHead(200, headers).end(bytes);
+  const from = Number(range[1] || 0);
+  const to = Math.min(Number(range[2] || bytes.length - 1), bytes.length - 1);
+  return response
+    .writeHead(206, {
+      ...headers,
+      "Content-Range": `bytes ${from}-${to}/${bytes.length}`,
+    })
+    .end(bytes.subarray(from, to + 1));
+}
 
 /** Answers one Mac's routes from the fixture, holding `/api/live` open as the Gateway does. */
 function serve(mac: () => FixtureMac, posted: Posted[]) {
@@ -33,7 +59,8 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
       );
       response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     }
-    const ours = target.startsWith("/api/") || target === "/pair";
+    const ours =
+      target.startsWith("/api/") || target === "/pair" || target.startsWith("/fixture-media/");
     if (!ours) return next === undefined ? response.writeHead(404).end() : next();
     if (request.method === "OPTIONS") return response.writeHead(204).end();
     if (process.env["POCKET_FIXTURE_UNPAIRED"] === mac().name && target.startsWith("/api/")) {
@@ -65,6 +92,8 @@ function serve(mac: () => FixtureMac, posted: Posted[]) {
     );
     if (posted.length > 0)
       console.log(`[fixture ${mac().name}] ${JSON.stringify(posted.splice(0))}`);
+    if (said.delay !== undefined) await new Promise((done) => setTimeout(done, said.delay));
+    if (said.file !== undefined) return sendMedia(request, response, said.file, said.type);
     response
       .writeHead(
         said.status,
@@ -93,6 +122,12 @@ function fixtureGateway(): Plugin {
   const states = everyState(now);
   macs["studio"]!.live.push(...states.live);
   Object.assign(macs["studio"]!.threads, states.threads);
+  const media = mediaJob(now);
+  macs["studio"]!.live.unshift(media.listed);
+  macs["studio"]!.threads[media.listed.id] = media.thread;
+  macs["studio"]!.media = {
+    [media.listed.id]: media.files,
+  };
   return {
     name: "pocket-fixture-gateway",
     configureServer(server) {

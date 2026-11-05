@@ -107,6 +107,10 @@ pub fn door_tools() -> String {
 /// does not do it — measured on the CLI, 2.1.300.
 pub const TASK_TOOLS: &str = "CLAUDE_CODE_ENABLE_TODO_TOOLS";
 
+/// Sent as a message, Claude Code reads this as its own command to shrink the context, not as words
+/// for the agent.
+pub const COMPACT_COMMAND: &str = "/compact";
+
 /// Everything one message's process is started with.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Conversing {

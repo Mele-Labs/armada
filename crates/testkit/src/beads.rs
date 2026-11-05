@@ -304,6 +304,25 @@ impl Backlog for FakeBeads {
         Ok(())
     }
 
+    fn release(&self, _in_repo: &str, reference: &str, actor: &str, note: &str) -> Result<(), NotTracked> {
+        let doing = "handing the issue back";
+        let at = self.remote.0.tick();
+        let mut copy = lock(&self.copy);
+        let issue = copy
+            .issues
+            .get_mut(reference)
+            .ok_or_else(|| NotTracked::of(doing, format!("no issue found matching \"{reference}\"")))?;
+        let holder = issue.assignee.value.clone();
+        if holder != actor {
+            return Err(NotTracked::of(doing, format!("issue is held by \"{holder}\", not {actor}")));
+        }
+        issue.assignee = Stamped { value: String::new(), at };
+        issue.status = Stamped { value: "open".to_string(), at };
+        issue.reason = Stamped { value: note.to_string(), at };
+        copy.writes += 1;
+        Ok(())
+    }
+
     fn create_child(&self, _in_repo: &str, parent: &str, title: &str) -> Result<String, NotTracked> {
         let doing = "filing a task under the issue";
         if self.refusing.load(Ordering::SeqCst) {
@@ -328,6 +347,13 @@ impl Backlog for FakeBeads {
         );
         copy.writes += 1;
         Ok(reference)
+    }
+
+    fn file(&self, _in_repo: &str, title: &str, _body: &str) -> Result<String, NotTracked> {
+        if self.refusing.load(Ordering::SeqCst) {
+            return Err(NotTracked::of("filing an issue", "the fake bd is switched off"));
+        }
+        Ok(self.create(title))
     }
 
     fn retitle(&self, _in_repo: &str, reference: &str, title: &str) -> Result<(), NotTracked> {

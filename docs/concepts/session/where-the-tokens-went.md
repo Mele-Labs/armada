@@ -85,3 +85,29 @@ A Job that never makes another turn is never measured.
 
 **`get_usage_rules` lists them.** For each of the four rules it returns whether the rule is on, its limit, and the trips in a window of time, newest first.
 `docs/practices/protocol.md`, *The usage rules*.
+
+## A Job compacted while it waits
+
+**A trial, shipped off.** The setting *Compact a Job waiting on you* (`tokens.compactWhileWaiting`) switches it on, and is read at each sweep of quiet Jobs, about every 30 seconds.
+A Job that waits past its prompt cache's hour starts again from its whole context, written to the cache at 1.25. Compacted first, it starts from a summary.
+
+**What triggers it.** Fleet sends `/compact` to a hosted Job, as Claude Code's own command, when all of these hold:
+
+- No turn is running, and the Job is neither paused nor held on its start card.
+- Its waiting list has an item.
+- Its last main-thread turn in `session_turn_usage` was 50 minutes ago or more, so the sweep and the resume land inside the cache's hour.
+- That turn's context (input, cache-creation and cache-read) is 100,000 tokens or more.
+- No compaction is kept after that turn: once a wait.
+
+The thread shows `/compact` as a message from Fleet. The turn it starts leaves the Job's `all_done` standing.
+`crates/fleet/src/session_host/compacting.rs`.
+
+**What is kept.** Each compaction is a row in `waiting_compactions`: the Job, when Fleet sent it (`at`), and `context_before`, the context of the last main-thread turn before it.
+Once the Job's first main-thread turn after it is read, from a transcript or a turn measured, the row takes that turn's `next_at`, `next_input`, `next_cache_write` and `next_cache_read`.
+Until then they are empty.
+A paused or ended Job is sent nothing and writes no row.
+
+**Cost against saved.** The compaction's own request reads `context_before` from the cache, at 0.1, and writes the summary as output, at 5.
+What it saves is read off the next request: started cold it would have written `context_before` at 1.25, and it wrote `next_cache_write` at 1.25 and read `next_cache_read` at 0.1.
+A `next_at` inside the hour after the turn before the compaction would have read the cache warm, and for it the compaction is cost only.
+A row with no `next_at` is a Job that has not made a turn since.

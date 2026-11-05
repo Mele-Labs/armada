@@ -85,6 +85,9 @@ fn arriving(words: &str, paths: &[&str], issues: &[&str]) -> Arrival {
         issues: issues.iter().map(|one| one.to_string()).collect(),
         group: None,
         ways: Way::STARTING.to_vec(),
+        answers: Vec::new(),
+        rule: None,
+        open: Vec::new(),
     }
 }
 

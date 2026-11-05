@@ -173,6 +173,20 @@ fn a_claim_names_its_actor_a_sync_never_adopts_a_remote_and_each_refusal_is_bds_
 }
 
 #[test]
+fn a_release_hands_the_issue_back_only_while_its_actor_holds_it_and_says_why() {
+    let bd = Bd::saying(&[(0, "", ""), (1, "", "Error: armada-3fz is assigned to mac-a/7d2b2166, not mac-b/0a1b2c3d")]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    tracker.release("/repo", "armada-3fz", "mac-b/0a1b2c3d", "Ended by job 01JOBGROOMING").expect("released");
+    let lost = tracker.release("/repo", "armada-3fz", "mac-b/0a1b2c3d", "x").expect_err("re-taken");
+    assert!(lost.said.contains("mac-a/7d2b2166"), "{}", lost.said);
+    assert_eq!(
+        bd.calls()[0],
+        ["-C", "/repo", "unclaim", "armada-3fz", "--if-assignee", "mac-b/0a1b2c3d", "--reason", "Ended by job 01JOBGROOMING"]
+    );
+}
+
+#[test]
 fn a_child_is_filed_with_its_parent_and_answers_the_id_bd_printed() {
     let bd = Bd::saying(&[(0, "armada-3fz.1\n", ""), (1, "", "Error: parent armada-zzz not found"), (0, "", "")]);
     let tracker = BeadsTracker::with_runner(&bd);
@@ -183,6 +197,20 @@ fn a_child_is_filed_with_its_parent_and_answers_the_id_bd_printed() {
     let empty = tracker.create_child("/repo", "armada-3fz", "y").expect_err("printed nothing");
     assert!(empty.said.contains("no issue id"), "{}", empty.said);
     assert_eq!(bd.calls()[0], ["-C", "/repo", "create", "--title", "Store - add tables", "--parent", "armada-3fz", "--silent"]);
+}
+
+#[test]
+fn an_issue_is_filed_as_a_task_with_its_body_and_answers_the_id_bd_printed() {
+    let bd = Bd::saying(&[(0, "armada-9qk\n", ""), (0, "", "")]);
+    let tracker = BeadsTracker::with_runner(&bd);
+
+    let made = tracker.file("/repo", "List the shortcuts", "Kept for later by a Job").expect("filed");
+    assert_eq!(made, "armada-9qk");
+    assert!(tracker.file("/repo", "y", "z").expect_err("printed nothing").said.contains("no issue id"));
+    assert_eq!(
+        bd.calls()[0],
+        ["-C", "/repo", "create", "--title", "List the shortcuts", "--description", "Kept for later by a Job", "--type", "task", "--silent"]
+    );
 }
 
 #[test]

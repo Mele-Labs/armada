@@ -103,6 +103,7 @@ import {
 import { isPressed } from "../../keymap";
 import type { JudgedPlanProps } from "../AdversarialReview/AdversarialReview";
 import { LinkedRow } from "./LinkedRow";
+import { MediaFrame, mediaKindOf, type ShownMedia } from "../MediaRow/MediaRow";
 import { StartFailedRow } from "./StartFailedRow";
 import { DisputedMark, DisputedRow } from "./DisputedRow";
 import { landingsOf, type PlanLandsIn } from "./lands-in";
@@ -185,7 +186,8 @@ export type SessionNotice =
   | "task_marked"
   | "lifecycle_rule"
   | "lifecycles_clear"
-  | "operator";
+  | "operator"
+  | "started_job_ended";
 export type NoticeChoice = "job" | "repo" | "hour";
 
 /** What Teach was pressed on in a row: a tool call, a Fleet notice, a Check, or a draft's words. `at` is when the row was written. */
@@ -761,6 +763,8 @@ export type SessionThreadProps = {
   onOpenSketch?: (sketch: string) => void;
   /** Opens a file the agent showed, by its path. Absent, its row is not a press. */
   onOpenFile?: (path: string) => void;
+  /** Reads a picture or a video the agent showed, by its path, for its row to draw. Absent, its row is the plain line. */
+  onReadMedia?: (path: string) => Promise<ShownMedia>;
   /** Answers a draft card, by its row's id. Absent, a draft draws with nothing to press. */
   onDraft?: (rowId: string, answer: DraftAnswer) => void;
   /** Withdraws a draft, by its row's id, with his note as the reason where he typed one. Absent, the card has no Withdraw. */
@@ -1846,6 +1850,7 @@ function Row({
   onOpenWindow,
   onOpenSketch,
   onOpenFile,
+  onReadMedia,
   onDraft,
   onWithdrawDraft,
   onAnswerSketch,
@@ -1892,6 +1897,7 @@ function Row({
   onOpenWindow?: (url: string) => void;
   onOpenSketch?: (sketch: string) => void;
   onOpenFile?: (path: string) => void;
+  onReadMedia?: (path: string) => Promise<ShownMedia>;
   agentName?: string;
   onOpenRetro?: (retro: number) => void;
   onOpenSent?: (target: { kind: "session"; id: string }) => void;
@@ -1991,6 +1997,9 @@ function Row({
           <File size={12} strokeWidth={2} aria-hidden />
           Opened <span className="mono">{row.name}</span>
         </button>
+        {onReadMedia !== undefined && mediaKindOf(row.path) !== undefined ? (
+          <MediaFrame path={row.path} name={row.name} onRead={onReadMedia} />
+        ) : null}
       </li>
     );
   }
@@ -3314,6 +3323,7 @@ export function SessionThread({
   onOpenWindow,
   onOpenSketch,
   onOpenFile,
+  onReadMedia,
   onDraft,
   onWithdrawDraft,
   onAnswerSketch,
@@ -3783,6 +3793,11 @@ export function SessionThread({
                                 ? {}
                                 : {
                                     onOpenFile,
+                                  })}
+                              {...(onReadMedia === undefined
+                                ? {}
+                                : {
+                                    onReadMedia,
                                   })}
                               {...(onDraft === undefined
                                 ? {}

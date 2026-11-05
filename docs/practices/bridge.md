@@ -144,9 +144,9 @@ CSP still refuses `127.0.0.1`.
 **A file on disk is drawn by handing its bytes over, never by widening
 `img-src`.** A step's frame and a Note's are both read by main, cross the
 preload as an array, and become a `blob:` the window makes itself — which
-`img-src 'self' blob:` already draws. `armada-frame:` exists for the one case
-that cannot work that way, a recording too long to hold whole, and it is on
-`media-src` alone. So the answer to *how does this picture reach the renderer*
+`img-src 'self' blob:` already draws. `armada-video:` exists for the one case
+that cannot work that way, a video too long to hold whole. It is on `media-src`
+alone, and main answers it only for a path that Job showed. So the answer to *how does this picture reach the renderer*
 is a read on the preload surface, and a proposal to add a scheme to `img-src`
 is the security review this section describes rather than a shortcut.
 

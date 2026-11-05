@@ -278,8 +278,11 @@ export type SessionLater = {
   confirmed?: boolean;
 };
 
-/** How a follow-up was settled: the work is done, it is an issue now (`issue`), or it will not be done (`reason`). */
-export type LaterHow = "done" | "filed" | "dropped";
+/**
+ * How a follow-up was settled: the work is done, it is an issue now (`issue`), it will not be done (`reason`), or it went to the
+ * Operator, which links it to an open issue or files one.
+ */
+export type LaterHow = "done" | "filed" | "dropped" | "handed";
 
 /**
  * `POST /sessions/settle_later`: one open follow-up is settled, by the agent or by the person. `issue` is the forge's number or a
@@ -554,6 +557,31 @@ export type SlotHolder = {
   /** When the holder last finished a turn, and its lease time where it has not. */
   quiet_since: string;
   keeps?: "running" | "uncommitted";
+};
+
+/** Where a Job goes in Waiting to start, against another Job waiting there. */
+export type LinePlace =
+  | {
+      kind: "ahead";
+      session_id: string;
+    }
+  | {
+      kind: "behind";
+      session_id: string;
+    }
+  | {
+      kind: "last";
+    };
+
+/**
+ * `move_in_line` (`POST /sessions/line/move`): the person drags a Job waiting to start to another place, over the
+ * Operator's order, and the Operator's Log keeps it as a correction. 422 while the Operator is off
+ * (`fleet.line_unordered`), where the Job is not waiting (`fleet.line_not_waiting`), or where the place names a Job not
+ * waiting in its line (`fleet.line_place_unknown`). Answers the Job's `SessionRecord`.
+ */
+export type MoveInLine = {
+  session_id: string;
+  place: LinePlace;
 };
 
 /**
@@ -983,6 +1011,17 @@ export type AnswerDocument = {
 export type ShowFile = {
   path: string;
   session_id?: string;
+};
+
+/**
+ * `GET /sessions/shown?session_id=&path=` for a video, answered 200 with this and never the bytes: the Phone
+ * Gateway streams the file from the Mac's disk. `path` is the absolute path `show_file` kept, `media_type`
+ * is `video/mp4`, `video/quicktime` or `video/webm`, and `bytes` is the file's size.
+ */
+export type ShownVideo = {
+  path: string;
+  media_type: string;
+  bytes: number;
 };
 
 /**

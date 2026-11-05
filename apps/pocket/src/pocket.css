@@ -407,10 +407,36 @@ main.pk-app :is(textarea, input, select, [contenteditable="true"]) {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
-.pk-shown__image {
-  display: block;
-  max-width: 100%;
-  height: auto;
+/* A picture or a video takes the whole page under the band, edge to edge. */
+.pk-shown--media {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+}
+.pk-shown__zoom {
+  flex: 1;
+  min-width: 0;
+}
+.pk-shown--media .armada-session-media__video {
+  flex: 1;
+  width: 100%;
+}
+.pk-shown--media .armada-session-media__video video {
+  width: 100%;
+  object-position: center;
+}
+/* A 16:9 screenshot at the phone's width stands about 200 tall. */
+.pk-app .armada-session-media {
+  --session-media-height: calc(var(--space-12) * 4 + var(--space-2));
+}
+/* Full screen on the phone: the picture reaches the edges at fit, on a solid ground, and the close is a finger's width. */
+.armada-enlargeable__scrim {
+  padding-inline: 0;
+  background: var(--bg-sunken);
+}
+.armada-enlargeable__scrim .armada-zoomable__group .armada-button {
+  width: var(--h-title-bar);
+  height: var(--h-title-bar);
 }
 
 /* The plan's two limits, under Home's header. */

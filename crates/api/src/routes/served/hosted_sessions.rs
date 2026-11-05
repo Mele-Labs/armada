@@ -236,6 +236,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/start_another",
     },
     Route {
+        operation: "list_started_sessions",
+        method: "GET",
+        path: "/sessions/started",
+    },
+    Route {
+        operation: "command_started_sessions",
+        method: "POST",
+        path: "/sessions/command_started",
+    },
+    Route {
         operation: "change_waiting",
         method: "POST",
         path: "/sessions/change_waiting",

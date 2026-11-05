@@ -70,7 +70,7 @@ where
     }
 
     /// What went wrong for the Operator, in Fleet's log.
-    fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
+    pub(super) fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
         let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
             .with_field("why", FieldValue::Str(why.to_string()));
         crate::transcript::note_aloud(&envelope);
@@ -109,6 +109,9 @@ where
                 issues,
                 group: None,
                 ways: Way::STARTING.to_vec(),
+                answers: Vec::new(),
+                rule: None,
+                open: Vec::new(),
             }
         };
         self.operator_seat().hand_start(arrival, FIRST_WRITE_WAIT);
@@ -142,6 +145,9 @@ where
                     issues: group.issue.iter().cloned().collect(),
                     group: Some(group.id.clone()),
                     ways: Way::STARTING.to_vec(),
+                    answers: Vec::new(),
+                    rule: None,
+                    open: Vec::new(),
                 },
                 NEEDS_YOU_WAIT,
             );
