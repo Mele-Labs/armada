@@ -95,6 +95,7 @@ where
             store.bug_reports().map_err(|why| self.ledger_fault(why))?
         };
         self.bug_reports_published(reports);
+        self.operator_seat().report_noted(&report_id);
         Ok(BugReported { report_id })
     }
 

@@ -12,7 +12,7 @@ use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::first_words;
-use super::{Acting, Choice, Place};
+use super::{Acting, Arrival, Arrived, Choice, Place, Ruling, Way};
 use crate::daemon::Fleet;
 
 /// The most of a Job's words one message carries.
@@ -113,6 +113,21 @@ where
         let Some(fleet) = self.fleet.upgrade().filter(|fleet| fleet.operator_answering()) else { return };
         let (session, item, choice, because) = (session.to_string(), item.to_string(), choice.clone(), because.to_string());
         tokio::spawn(async move { fleet.operator_answered(&session, &item, &choice, &because).await });
+    }
+
+    /// **A link, and a red main, act with Dispatch off**: a link is kept on this Mac and starts
+    /// nothing, and a red main arrives only from Autopilot's red kind, whose own switch allows the
+    /// start. A delegate, a dispatch and a File wait on Dispatch; a raise is its Log row.
+    fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
+        let Some(fleet) = self.fleet.upgrade() else { return };
+        if ruling.way == Way::Raise || !fleet.operator_on() {
+            return;
+        }
+        if !(ruling.way == Way::Link || arrival.arrived == Arrived::RedMain || fleet.operator_dispatches()) {
+            return;
+        }
+        let (arrival, ruling) = (arrival.clone(), ruling.clone());
+        tokio::spawn(async move { fleet.operator_sourced(&arrival, &ruling).await });
     }
 }
 

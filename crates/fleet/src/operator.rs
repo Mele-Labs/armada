@@ -33,6 +33,7 @@ mod questions;
 mod ruling;
 mod seat;
 mod sources;
+mod sourcing;
 mod stalling;
 mod stalls;
 
@@ -55,6 +56,7 @@ pub(crate) use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub use sources::{Filed, Handed, NewIssue, RedMain, Report, ReviewRequest};
+pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
 
