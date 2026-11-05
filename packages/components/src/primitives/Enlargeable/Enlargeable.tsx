@@ -152,3 +152,76 @@ export function Enlargeable({
     </>
   );
 }
+
+/**
+ * The large view of `Enlargeable`, opened by something else: a row's press. A picture zooms as it does there, and a video
+ * plays with its own controls. Escape, Close, or a press beside it closes it, and `onClose` unmounts it.
+ */
+export function EnlargedMedia({
+  src,
+  name,
+  kind,
+  onClose,
+}: {
+  src: string;
+  name: string;
+  kind: "picture" | "video";
+  onClose: () => void;
+}) {
+  const layer = useRef<HTMLDivElement>(null);
+  const closing = useRef(onClose);
+  closing.current = onClose;
+
+  useEffect(() => {
+    layer.current?.focus();
+    const keys = (event: KeyboardEvent) => {
+      if (event.key === "Tab") return keepTabInside(layer, event);
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      event.preventDefault();
+      closing.current();
+    };
+    window.addEventListener("keydown", keys, true);
+    return () => window.removeEventListener("keydown", keys, true);
+  }, []);
+
+  return createPortal(
+    kind === "picture" ? (
+      <ZoomablePicture
+        rootRef={layer}
+        className="armada-enlargeable__scrim"
+        src={src}
+        alt={name}
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        tabIndex={-1}
+        onPressOutside={onClose}
+        bar={<ViewerClose onClose={onClose} />}
+      />
+    ) : (
+      <div
+        ref={layer}
+        className="armada-enlargeable__scrim"
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        tabIndex={-1}
+        onClick={onClose}
+      >
+        <video
+          className="armada-enlargeable__video"
+          controls
+          playsInline
+          src={src}
+          aria-label={name}
+          onClick={(event) => event.stopPropagation()}
+        />
+        <div className="armada-zoomable__bar">
+          <ViewerClose onClose={onClose} />
+        </div>
+      </div>
+    ),
+    document.body,
+  );
+}

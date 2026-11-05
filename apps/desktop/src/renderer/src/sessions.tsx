@@ -198,6 +198,7 @@ import {
 } from "./teach";
 import type { TeachHere } from "./teach";
 import { readShownMedia } from "./session-media";
+import { MediaOverlay } from "./session-media-overlay";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
 import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
@@ -619,6 +620,10 @@ export type Reading =
       id: string;
     }
   | {
+      kind: "media";
+      id: string /** A picture or a video, opened over the window in the large view the thread's own opens. */;
+    }
+  | {
       kind: "live";
       id: string;
     };
@@ -635,7 +640,7 @@ export const readingOf = (
   session: Session,
   open: Reading | undefined,
 ): SessionAttachment | undefined =>
-  open === undefined || open.kind === "steps"
+  open === undefined || open.kind === "steps" || open.kind === "media"
     ? undefined
     : open.kind === "live"
       ? // The page being built is not in the ledger yet: it opens large as a page artifact would.
@@ -1527,7 +1532,12 @@ export function entriesOf(
           text: one.title,
           // A file the Session wrote opens in the side panel's editor; a page or a doc stays in the reading sheet.
           onOpen: () =>
-            one.form === "window"
+            (one.form === "file" || one.form === "image") && mediaKindOf(one.id) !== undefined
+              ? read({
+                  kind: "media",
+                  id: one.id,
+                })
+              : one.form === "window"
               ? openWindow(one.id)
               : one.form === "document" && one.revisions !== undefined
                 ? showLayer(session.id, "document", one.id)
@@ -3499,6 +3509,14 @@ export function SessionView({
                   marked: markedOf(reading)!,
                 })}
           />
+          {reading?.kind === "media" ? (
+            <MediaOverlay
+              draft={draft}
+              sessionId={session.id}
+              path={reading.id}
+              onClose={() => setReading(undefined)}
+            />
+          ) : null}
           <JobReviewSheet
             parts={reviewParts}
             waiting={reviewAll}

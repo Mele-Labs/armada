@@ -69,19 +69,26 @@ const threadMedia = walk("thread-media", [
   },
   {
     press: inside(artifacts, button("cockpit-recording.mp4")),
-    say: "A video's row opens in the side panel, in Bridge",
+    say: "A video's row opens over the window, as the thread's pictures do",
   },
   {
     look: dialog("cockpit-recording.mp4"),
-    say: "It plays there with its own controls, not as a path and not on your Mac",
+    say: "It plays there with its own controls",
   },
   {
-    press: button("Close"),
+    press: button("Close", {
+      exact: true,
+    }),
     say: "Close, or Esc",
   },
   {
     press: inside(artifacts, button("cockpit-wide.jpg")),
-    say: "A picture's row opens the picture in the same panel",
+    say: "A picture's row opens the same large view the thread's does",
+  },
+  {
+    key: "+",
+    on: viewer,
+    say: "It zooms and pans the same way",
   },
 ]);
 
