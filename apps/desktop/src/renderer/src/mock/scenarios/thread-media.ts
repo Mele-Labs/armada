@@ -25,6 +25,17 @@ const PICTURES: Record<string, string> = {
 const VIDEO = `${ROOT}/cockpit-recording.mp4`;
 const REFUSED = `${ROOT}/full-run.mov`;
 
+// The mock has no Mac player: the note stands where it would open, so a walk can see the video was handed to it.
+const inPlayer = (path: string) => {
+  const note = document.createElement("div");
+  note.setAttribute("role", "status");
+  note.textContent = `Opened in your Mac's player: ${path.slice(path.lastIndexOf("/") + 1)}`;
+  note.style.cssText =
+    "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);padding:8px 12px;border-radius:6px;background:#1b2330;color:#e6edf3;font:13px system-ui;z-index:9999";
+  document.body.append(note);
+  setTimeout(() => note.remove(), 8000);
+};
+
 const held = () => new Promise((done) => setTimeout(done, HELD_MS));
 
 const file = (id: string, at: string, path: string): SessionRow => ({
@@ -118,7 +129,7 @@ export const threadMedia: Scenario = {
                 says: "This video cannot play here.",
               };
         },
-        openFile: () => undefined,
+        openFile: (_id: string, path: string) => inPlayer(path),
       };
     },
   },
