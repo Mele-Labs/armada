@@ -4,7 +4,8 @@
 
 **A job shows the person a web page with `show_window`** (`url`, optional `title`, optional `variations`, optional `steps`, optional `origins`, optional `sign_in`, optional `brief`), a tool on the agent's door, and Bridge opens it as a tab of the job by itself.
 **No window opens and nothing takes focus.**
-The walk is a tab of the job in the Cockpit, beside the thread, named after its page.
+The walk is a tab of the job in the Cockpit, in the pane that holds the thread and taking the room that pane has, named after its page.
+Once the person has moved a walk tab to another pane, that pane holds the walks that follow.
 The job's row and the tab pulse until it has been seen.
 Each walk has its own tab, so a job with several walks has several tabs, and several things to approve are several `show_window` calls, one each.
 Any `http` or `https` address; any other scheme is refused with its reason.
@@ -68,7 +69,7 @@ The window's user agent is Chrome's, without the Electron token.
 While the page is at a provider or its popup is open, a walk with `steps` waits on its step and tells the job nothing (`docs/practices/capture-window.md`, *A popup a Job's page opened*).
 
 **A question asked while the person walks a page is put to him as at any other time.**
-A walk is a tab beside the thread and can stay open for hours, so a job that could not ask for that long could not ask at all.
+A walk is a tab of the job and can stay open for hours, so a job that could not ask for that long could not ask at all.
 `ask_in_window` asks about the page itself (*Asking in the window*).
 
 | | |

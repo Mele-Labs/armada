@@ -30,7 +30,7 @@ export function WalkTabsSync({ here }: { here: boolean }) {
   const arrange = (id: string, walk: JobWalk, behind: boolean) => {
     const change = (now: Arrangement) => arriveWalk(now, walk.title, walk.id, behind);
     // A tab that joins a pane is content, and one that makes a split is arrangement.
-    if (hasKind(peek(id), "walk")) look(id, change);
+    if (hasKind(peek(id), "walk") || hasKind(peek(id), "thread")) look(id, change);
     else rearrange(id, change, undefined, true);
   };
   const tabsOf = (id: string) =>

@@ -1,5 +1,5 @@
 // The notes held on a Job, as the Job's thread draws them and as the walk's bar sends them. The region is `HeldNotes`, the one the walk window's panel draws; it is the thread's trailing
-// entry, so a walk beside the thread opens nothing to show it. `docs/practices/capture-window.md`, *Pending notes*.
+// entry, so a walk's tab opens nothing to show it. `docs/practices/capture-window.md`, *Pending notes*.
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { Outcome } from "@armada/protocol";
