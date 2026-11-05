@@ -457,6 +457,17 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn record_plan_seen(
+        &self,
+        caller: Option<crate::Caller>,
+        plan: ipc::RecordPlan,
+        seen: bool,
+        groups_seen: Vec<bool>,
+    ) -> Result<SessionRecord, Refusal> {
+        self.groups_seen.lock().expect("groups seen").push(groups_seen);
+        self.record_plan(caller, plan, seen).await
+    }
+
     async fn answer_sketch(self: std::sync::Arc<Self>, answer: ipc::AnswerSketch) -> Result<SessionRecord, Refusal> {
         self.report_session(SessionReport {
             harness: String::new(),
@@ -803,6 +814,10 @@ impl Sessions for FakeDaemon {
         _until: Option<String>,
         _tz_offset_minutes: i32,
     ) -> Result<ipc::UsageSummary, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", "a fake sums nothing", crate::tests::shapes::run_id())))
+    }
+
+    async fn get_usage_spent(&self, _until: Option<String>) -> Result<ipc::UsageSpent, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", "a fake sums nothing", crate::tests::shapes::run_id())))
     }
 

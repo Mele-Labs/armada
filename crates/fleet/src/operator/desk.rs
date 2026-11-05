@@ -9,7 +9,7 @@ use core_model::Timestamp;
 use ipc::{SessionRow, SessionVoice};
 use store::{AttachmentState, Holder};
 
-use super::{Desk, Done, LiveJob, Logged};
+use super::{Desk, Done, InLine, LiveJob, Logged};
 use crate::session_issues::ISSUE;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -102,6 +102,25 @@ where
                     (self.adrift)(Adrift::Writing(why));
                     u32::MAX
                 }
+            }
+        })
+    }
+
+    fn waiting(&self) -> Done<'_, Vec<InLine>> {
+        Box::pin(async move {
+            match self.fleet.upgrade() {
+                Some(fleet) => fleet.waiting_to_start().await,
+                None => Vec::new(),
+            }
+        })
+    }
+
+    fn settled(&self, arrival: &super::Arrival) -> Done<'_, Option<String>> {
+        let arrival = arrival.clone();
+        Box::pin(async move {
+            match self.fleet.upgrade() {
+                Some(fleet) => fleet.answer_settled(&arrival).await,
+                None => Some("Fleet stopped before the ruling came".into()),
             }
         })
     }

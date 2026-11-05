@@ -46,6 +46,8 @@ pub struct KeptPlanGroup {
     pub lands_in: Option<String>,
     /// The group goes to a Job of its own, as the agent wrote it.
     pub own_job: bool,
+    /// The group changes what the person sees, as the agent wrote it.
+    pub seen: bool,
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
@@ -145,7 +147,7 @@ impl Store {
         let mut groups = self
             .conn
             .prepare(
-                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job FROM session_plan_groups
+                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen FROM session_plan_groups
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -157,6 +159,7 @@ impl Store {
                     gives: row.get(7)?,
                     lands_in: row.get(8)?,
                     own_job: row.get::<_, i64>(9)? == 1,
+                    seen: row.get::<_, i64>(10)? == 1,
                     agent: row.get(1)?,
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
@@ -256,8 +259,8 @@ impl Store {
         for (at, group) in plan.groups.iter().enumerate() {
             kept.execute(
                 "INSERT INTO session_plan_groups
-                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     session_id,
                     at as i64,
@@ -272,6 +275,7 @@ impl Store {
                     group.gives,
                     group.lands_in,
                     group.own_job,
+                    group.seen,
                 ],
             )
             .map_err(keeping)?;

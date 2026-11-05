@@ -18,6 +18,7 @@ fn turn(session: &str, id: &str, at: &str, model: &str, tokens: [u64; 4], tools:
             model: model.into(),
             input_tokens: tokens[0],
             cache_creation_tokens: tokens[1],
+            cache_creation_1h_tokens: 0,
             cache_read_tokens: tokens[2],
             output_tokens: tokens[3],
             tools: tools.iter().map(|one| one.to_string()).collect(),

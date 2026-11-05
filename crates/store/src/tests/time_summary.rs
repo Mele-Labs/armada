@@ -22,6 +22,7 @@ fn turn(store: &mut Store, session: &str, id: &str, model: &str, when: (u32, u32
         model: model.into(),
         input_tokens: 1_000_000,
         cache_creation_tokens: 0,
+        cache_creation_1h_tokens: 0,
         cache_read_tokens: 0,
         output_tokens: 0,
         tools: tools.iter().map(|(name, _)| name.to_string()).collect(),

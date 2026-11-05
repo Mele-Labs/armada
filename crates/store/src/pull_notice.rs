@@ -6,6 +6,7 @@
 //! The recipient is plain text (`session:<id>`) and no foreign key, as in `main_fix`.
 
 use core_model::Timestamp;
+use rusqlite::OptionalExtension;
 
 use crate::error::{fault, WriteError};
 use crate::open::Store;
@@ -56,6 +57,20 @@ impl Store {
                 (repository, pull as i64, head, trigger, recipient),
                 |row| row.get::<_, bool>(0),
             )
+            .map_err(fault("reading a pull request notice"))
+            .map_err(WriteError::Database)
+    }
+
+    /// The commit and instant of the latest `trigger` notice `recipient` was told on `pull`.
+    pub fn pull_notice_latest(&self, pull: u64, trigger: &str, recipient: &str) -> Result<Option<(String, String)>, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT head, noted_at FROM pull_notices WHERE pull = ?1 AND cause = ?2 AND recipient = ?3 \
+                 ORDER BY noted_at DESC LIMIT 1",
+                (pull as i64, trigger, recipient),
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .optional()
             .map_err(fault("reading a pull request notice"))
             .map_err(WriteError::Database)
     }

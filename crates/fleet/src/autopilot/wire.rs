@@ -121,7 +121,7 @@ pub(super) fn decision_word(decision: ipc::AutopilotDecision) -> &'static str {
     }
 }
 
-pub(super) fn decision_from_word(word: &str) -> Option<ipc::AutopilotDecision> {
+pub(crate) fn decision_from_word(word: &str) -> Option<ipc::AutopilotDecision> {
     DECISIONS.into_iter().find(|kind| decision_word(*kind) == word)
 }
 

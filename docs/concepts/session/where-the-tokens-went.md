@@ -15,8 +15,44 @@ A job found under several project folders is counted once, by its largest file.
 A transcript of a job Fleet does not know gets rows too.
 `docs/practices/protocol.md`, *Usage a turn at a time*, has the wire.
 
-**The Usage page reads sums, not rows.** `get_usage_summary` adds the kept turns over a window in SQL and returns burn in cost units (input 1, cache-creation 1.25, cache-read 0.1, output 5, over a million): the total split by model, token kind, first tool, shell use, day and weekday-by-hour in the caller's local time, the thirty largest Jobs the same way with the rest rolled into one, and the equal period before for comparison.
+**The Usage page reads sums, not rows.** `get_usage_summary` adds the kept turns over a window in SQL and returns burn in cost units: the total split by model, token kind, first tool, shell use, day and weekday-by-hour in the caller's local time, the thirty largest Jobs the same way with the rest rolled into one, and the equal period before for comparison.
 `docs/practices/protocol.md`, *The usage summary*.
+
+**Burn weighs the model and how long a cache write is held.** A turn's tokens are weighed input 1, a cache write held 5 minutes 1.25, a cache write held an hour 2, cache read 0.1 and output 5, over a million, and the sum is multiplied by the model's weight: Haiku 1, Sonnet 3, Opus and Fable 5, and 1 for a model of any other name.
+`cache_creation_1h_tokens` keeps the hour's writes, which are inside `cache_creation_tokens`, from the transcript's `cache_creation.ephemeral_1h_input_tokens`.
+A turn heard only from the mod, or kept before Fleet read its file again, counts every write at 5 minutes.
+The summary, the hours, the builds, Spent on and the usage rules weigh this way.
+
+## What the burn was spent on
+
+**Spent on splits every turn's burn into nine parts, and Spent by into three.** Fleet reads each transcript in order and keeps an estimate of what the thread's context holds, a part at a time: four bytes of text are a token, and an image is 1,600.
+The estimate and the calls still waiting on a result are kept with the file's offset in `transcript_offsets.carried`, so a read picks up where the last one stopped.
+An offset kept before there was anything to carry has `carried` empty, and that file is read again from the top once, so its older turns gain their shares.
+
+| Part | Holds |
+|---|---|
+| `start_up` | What the first request after the start or a compaction held beyond the text the transcript shows, the instructions and reminders written before that request, and a compaction's summary |
+| `reads` | Results of `Read`, `Grep` and `Glob`, and of shell commands labelled `read_search` |
+| `own_words` | The agent's own text, thinking and calls |
+| `other_results` | The result of every other call |
+| `messages` | Messages to the agent, and the skill bodies it loaded |
+| `announced` | Connector instructions, tool lists and reminders written after the first request |
+| `cold_cache` | The cache writes of a turn that found the cache cold |
+| `output` | Output |
+| `background` | A compaction's own request |
+
+**A turn is charged for what it carried.** Its cache read is shared among the parts as they stood at the request before it, and its input and cache writes among what was added since.
+A turn more than 5 minutes after the one before it, whose cache write is larger than its cache read, found the cache cold, and its writes are `cold_cache`.
+A compaction empties the estimate, and the next request starts it again from `start_up`.
+A turn's shares are kept on its row in `spent_on`.
+A turn with none, heard only from the mod or kept before this, has its input shared as the rest of its Job's turns in the window are, or else as the window's.
+
+**A compaction's own request is background.** The transcript does not hold it, so Fleet keeps it in `session_background_usage`: the `preTokens` its boundary names, read from the cache on the thread's model, and the summary written after it, as output.
+It counts in the summary as a turn that called nothing, and in both splits as `background`. Titles are written outside the transcript and are not counted.
+
+**Each split adds up to the burn.** Spent by is main threads, subagents and background, and its subagents are the same units as the page's Burn in subagents.
+`get_usage_spent` returns the 24 hours, 7 days and 14 days up to now, each whole and for its thirty largest Jobs.
+`docs/practices/protocol.md`, *What the burn was spent on*.
 
 **A Job is told when its usage crosses a rule.** After each reading of a live Job's transcripts, Fleet checks the Job's recent turns against four rules, each an on-off and a limit in settings.json under `limits`.
 It reads only the rows just ingested for that Job: its last hour and its latest few main-thread turns, never the table.
@@ -27,7 +63,7 @@ A subagent's turn counts toward the hour's burn and its share and toward nothing
 | Rule | Crossed when | The Job is told |
 |---|---|---|
 | Context | The last turn's context (input, cache-creation and cache-read) is over 300k tokens | `Context is 312k tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don't ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.` |
-| Subagents | Subagents burned over 5 cost units in the last 60 minutes, over 50% of that hour's burn, and at least one subagent turn ran on an opus model. Subagents all on sonnet or haiku are never told | `Subagents burned 7.1 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents.` |
+| Subagents | Subagents burned over 25 cost units in the last 60 minutes, over 50% of that hour's burn, and at least one subagent turn ran on an opus model. Subagents all on sonnet or haiku are never told | `Subagents burned 35.5 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents.` |
 | Cache hit rate | Cache-read over input, cache-creation and cache-read is under 70% across the last 10 turns | `Cache hit rate is 54% over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.` |
 | Opus on reading | The last 20 turns all ran on an opus model, each began with a read or a search (`Read`, or a shell command labelled `read_search`), and none edited | `Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.` |
 

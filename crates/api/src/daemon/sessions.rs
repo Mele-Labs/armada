@@ -269,6 +269,19 @@ pub trait Sessions: Send + Sync + 'static {
         seen: bool,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// [`Sessions::record_plan`] with each group's `seen`, in the plan's order, read beside the plan as `seen`
+    /// is: whether the Operator may answer a question from a Job working on that group. A daemon that keeps no
+    /// mark per group records the plan as `record_plan` does.
+    fn record_plan_seen(
+        &self,
+        caller: Option<crate::Caller>,
+        plan: ipc::RecordPlan,
+        seen: bool,
+        _groups_seen: Vec<bool>,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send {
+        self.record_plan(caller, plan, seen)
+    }
+
     /// `approve_plan` — the person approves the plan at the version he read, and the agent is told once.
     /// [`Refusal::IllegalMove`] for a version that is no longer the current one, or a session with no plan.
     fn approve_plan(
@@ -650,6 +663,10 @@ pub trait Sessions: Send + Sync + 'static {
         until: Option<String>,
         tz_offset_minutes: i32,
     ) -> impl Future<Output = Result<ipc::UsageSummary, Refusal>> + Send;
+
+    /// `get_usage_spent` — what the burn of the 24 hours, 7 days and 14 days up to `until` (now where
+    /// left out) was spent on, and who spent it. [`Refusal::Unacceptable`] for an end that is not a time.
+    fn get_usage_spent(&self, until: Option<String>) -> impl Future<Output = Result<ipc::UsageSpent, Refusal>> + Send;
 
     /// `get_job_time` — where one Job's time went, with the usual of its workflow. The answer carries no
     /// time where none is kept for it. [`Refusal::Unacceptable`] for a session Fleet does not know.

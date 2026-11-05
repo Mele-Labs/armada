@@ -175,6 +175,8 @@ pub(crate) fn recorded(
             gives: group.gives.clone(),
             lands_in: group.lands_in.clone(),
             own_job: group.own_job,
+            // The agent's word per group is read beside the plan, and set by its caller.
+            seen: false,
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),

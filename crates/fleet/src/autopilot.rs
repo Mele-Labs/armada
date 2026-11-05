@@ -24,7 +24,7 @@ mod reviewing;
 mod set_aside;
 pub(crate) mod sorting;
 mod starting;
-mod wire;
+pub(crate) mod wire;
 
 use std::sync::Arc;
 
