@@ -124,6 +124,8 @@ mod framing;
 mod group;
 pub mod headroom;
 pub mod judging;
+/// The builds a restart keeps, and the swap back to the one before.
+pub mod kept_builds;
 /// The Cockpit's flight controls a person arranged, in `~/.armada`. `docs/concepts/kit.md`.
 mod flight_controls;
 /// Kit's MCP servers, resolved for one Manifest. `docs/concepts/kit.md`, `#1275`.

@@ -26,3 +26,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Reset to Armada's`. Takes back everything the person changed in their copy at once. Never a refresh, which is `rotate-cw`."
+
+  [[icons.undo-2.usage]]
+    means = "Revert, in the Fleet panel's build section: swap Fleet and Bridge back onto the build before this one"
+    group = "Fleet"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 5 Nov 2026 for the walk `fleet/build-revert`, tooltip `Back to the build of <when>, <commit>`. It takes back the person's own move onto a build, as the steps panel's Bring back takes back his own drop. Never a refresh, which the Refresh preview button above it draws with `rotate-cw`."

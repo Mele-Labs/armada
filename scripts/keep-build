@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+#
+# Keep the build a restart installs, so the build before it can be run again
+# without compiling anything. Run by `scripts/restart`, once per restart, after
+# Fleet and Bridge are built and before launchd is touched; `docs/practices/
+# running-locally.md`, "Kept builds", says what the owner sees of it.
+#
+# **Launchd runs Fleet and Bridge through `builds/current`**, so going back to
+# the build before is two symlinks flipped and the two launchd jobs rebooted,
+# not a rebuild. That only works if a build is a folder nothing else rewrites:
+# a tree's `target/` and `out/` are rebuilt in place by the next restart, and a
+# worktree under `.armada/` is deleted when its branch lands.
+#
+#   keep-build make <src> <armada binary> <main|preview> <protocol id>
+#       Builds `builds/<UTC stamp>-<short commit>/` and prints its absolute path.
+#       Touches no link. A folder is made under a temporary name and renamed into
+#       place, so a half copy is never a build.
+#   keep-build point <snapshot path>
+#       `previous` becomes the old `current` (when there was one and it is not
+#       this folder), `current` becomes the snapshot, then everything past the
+#       newest five builds that neither link names is deleted, and so is any
+#       `node_modules/<lock>` no remaining build names.
+#
+# **`node_modules` is kept once per `pnpm-lock.yaml`**, not once per build: it is
+# 1.7 GB, and a build only needs the one its lockfile named. The folder is
+# named by the lockfile's first 16 hex of sha256 and is reused as it is, never
+# rebuilt. Both clones are needed: pnpm's `apps/desktop/node_modules` is
+# relative links into the root `node_modules/.pnpm`, and the root one also
+# holds the Armada-named Electron copy `scripts/armada-electron` makes.
+# Clones are APFS clones (`cp -c`), near free; where they cannot be made (CI is
+# Ubuntu) the same call copies.
+#
+# **`bridge` and `bridge_shell` in `build.toml`** are the first 16 hex of one
+# sha256 over every file under `bridge/out` (or only `main/` and `preload/`),
+# sorted by path relative to `out/`, each fed as the path, a NUL, then the
+# sha256 of its contents. Two builds with the same key have the same Bridge.
+#
+# **Everything is derived from `$HOME`**, as in `scripts/restart`, so a test
+# against a scratch home never reaches the owner's builds.
+
+set -euo pipefail
+
+home="${HOME:?HOME must be set}"
+support="$home/Library/Application Support/Armada"
+builds="$support/builds"
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+fail() {
+  echo "keep-build: $*" >&2
+  exit 1
+}
+
+# An APFS clone where the volume allows one, else a plain copy. A failed clone
+# can leave half a folder behind, so the copy starts from nothing.
+clone() {
+  cp -c -R "$1" "$2" 2>/dev/null || { rm -rf "$2"; cp -R "$1" "$2"; }
+}
+
+making=""
+making_modules=""
+cleanup() {
+  [[ -n "$making" ]] && rm -rf "$making"
+  [[ -n "$making_modules" ]] && rm -rf "$making_modules"
+  return 0
+}
+
+make() {
+  [[ $# -eq 4 ]] || fail "usage: keep-build make <src> <armada binary> <main|preview> <protocol id>"
+  local src="$1" armada_bin="$2" source="$3" protocol_id="$4"
+  [[ "$source" == main || "$source" == preview ]] || fail "source is main or preview, not $source"
+  [[ -f "$armada_bin" ]] || fail "$armada_bin is not a file"
+  [[ -f "$src/apps/desktop/package.json" && -d "$src/apps/desktop/out" ]] \
+    || fail "$src has no built Bridge in apps/desktop/out"
+  [[ -f "$src/pnpm-lock.yaml" ]] || fail "$src has no pnpm-lock.yaml"
+  [[ -d "$src/node_modules" && -d "$src/apps/desktop/node_modules" ]] || fail "$src has no node_modules — run pnpm install"
+  [[ -f "$src/scripts/bridge-launch" ]] || fail "$src/scripts/bridge-launch is missing"
+
+  local commit lock now stamp built_at name final modules
+  commit=$(git -C "$src" rev-parse HEAD) || fail "$src has no commit"
+  lock=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:16])' "$src/pnpm-lock.yaml")
+  now=$(python3 -c 'import datetime; n = datetime.datetime.now(datetime.timezone.utc); print(n.strftime("%Y-%m-%dT%H%M%SZ"), n.strftime("%Y-%m-%dT%H:%M:%SZ"))')
+  stamp=${now% *}
+  built_at=${now#* }
+  name="$stamp-${commit:0:7}"
+  final="$builds/$name"
+  mkdir -p "$builds" "$support/node_modules"
+  [[ ! -e "$final" ]] || fail "$final is already kept"
+
+  # The pair is made under a temporary name and renamed, so a restart killed
+  # half way leaves nothing a later one would reuse as whole.
+  modules="$support/node_modules/$lock"
+  if [[ ! -d "$modules" ]]; then
+    # Before the clone, so the Armada-named Electron copy is in it. A tree
+    # without Electron.app has none, and the build falls back to Electron's own.
+    "$here/armada-electron" "$src" >/dev/null 2>&1 || true
+    making_modules="$support/node_modules/.making-$lock.$$"
+    rm -rf "$making_modules"
+    mkdir -p "$making_modules/apps/desktop"
+    clone "$src/node_modules" "$making_modules/node_modules"
+    clone "$src/apps/desktop/node_modules" "$making_modules/apps/desktop/node_modules"
+    mv "$making_modules" "$modules"
+    making_modules=""
+  fi
+
+  local electron="$modules/node_modules/.cache/armada-bridge/Armada.app/Contents/MacOS/Armada"
+  if [[ ! -f "$electron" ]]; then
+    echo "keep-build: no Armada-named Electron copy in $modules, so Bridge will say Electron" >&2
+    # The clone's own link resolved, so the path never names the tree built from.
+    electron="$(cd "$modules/apps/desktop/node_modules/electron/dist/Electron.app/Contents/MacOS" 2>/dev/null && pwd -P)/Electron" \
+      || fail "no Electron.app under $modules/apps/desktop/node_modules/electron/dist"
+  fi
+
+  making="$builds/.making-$name.$$"
+  rm -rf "$making"
+  mkdir -p "$making/bridge"
+  clone "$armada_bin" "$making/armada"
+  cp "$src/apps/desktop/package.json" "$making/bridge/package.json"
+  clone "$src/apps/desktop/out" "$making/bridge/out"
+  # The restart's own stamps say when `out/` was built from that tree, not what it holds.
+  rm -f "$making"/bridge/out/.armada-restart-stamp*
+  [[ ! -d "$src/apps/desktop/sounds" ]] || clone "$src/apps/desktop/sounds" "$making/bridge/sounds"
+  if [[ -d "$src/apps/desktop/native/voice/build" ]]; then
+    mkdir -p "$making/bridge/native/voice"
+    clone "$src/apps/desktop/native/voice/build" "$making/bridge/native/voice/build"
+  fi
+  ln -s "$modules/apps/desktop/node_modules" "$making/bridge/node_modules"
+  cp "$src/scripts/bridge-launch" "$making/bridge-launch"
+  printf '#!/bin/sh\nexec "%s" "%s/bridge"\n' "$electron" "$final" >"$making/launch-bridge"
+  chmod 755 "$making/launch-bridge"
+
+  python3 - "$making" "$built_at" "$commit" "$source" "$protocol_id" "$lock" "$src" "$support" <<'PY'
+import hashlib, json, os, sys
+
+making, built_at, commit, source, protocol_id, lock, src, support = sys.argv[1:9]
+out = os.path.join(making, "bridge", "out")
+
+
+def digest(only=None):
+    found = []
+    for folder, _, names in os.walk(out):
+        for name in names:
+            rel = os.path.relpath(os.path.join(folder, name), out).replace(os.sep, "/")
+            if only is None or rel.split("/")[0] in only:
+                found.append(rel)
+    h = hashlib.sha256()
+    for rel in sorted(found):
+        with open(os.path.join(out, rel), "rb") as f:
+            h.update(rel.encode() + b"\0" + hashlib.sha256(f.read()).digest())
+    return h.hexdigest()[:16]
+
+
+def first_line(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+main, jobs = commit, []
+if source == "preview":
+    main = None
+    try:
+        with open(os.path.join(support, "preview-held")) as f:
+            held = f.read().splitlines()
+    except OSError:
+        held = []
+    # `scripts/preview` writes it before every restart, so a first line that is not this commit is another preview's.
+    if held and held[0] == commit:
+        main = held[1] if len(held) > 1 and held[1] else None
+        jobs = [line.split("\t")[:2] for line in held[2:] if "\t" in line]
+
+rows = [("built_at", built_at), ("commit", commit), ("source", source)]
+if main:
+    rows.append(("main", main))
+rows.append(("protocol_id", protocol_id))
+electron = first_line(os.path.join(src, "apps", "desktop", "node_modules", "electron", "dist", "version"))
+if electron:
+    rows.append(("electron", electron))
+rows += [("node_modules", lock), ("bridge", digest()), ("bridge_shell", digest({"main", "preload"}))]
+text = "".join(f"{key} = {json.dumps(value)}\n" for key, value in rows)
+for branch, tip in jobs:
+    text += f"\n[[job]]\nbranch = {json.dumps(branch)}\ntip = {json.dumps(tip)}\n"
+with open(os.path.join(making, "build.toml"), "w") as f:
+    f.write(text)
+PY
+
+  mv "$making" "$final"
+  making=""
+  echo "$final"
+}
+
+point() {
+  [[ $# -eq 1 ]] || fail "usage: keep-build point <snapshot path>"
+  local snapshot="${1%/}"
+  [[ -d "$snapshot" && "$(dirname "$snapshot")" == "$builds" ]] || fail "$snapshot is not a folder in $builds"
+  python3 - "$builds" "$support/node_modules" "$(basename "$snapshot")" <<'PY'
+import os, re, shutil, sys
+
+builds, modules, name = sys.argv[1:4]
+KEEP = 5
+FOLDER = re.compile(r"\d{4}-\d{2}-\d{2}T\d{6}Z-[0-9a-f]+")
+
+
+def target(link):
+    try:
+        return os.readlink(os.path.join(builds, link))
+    except OSError:
+        return None
+
+
+def replace(link, to):
+    # A symlink made under another name and renamed over the old one, so the link is never missing.
+    temporary = os.path.join(builds, f".{link}.tmp")
+    if os.path.lexists(temporary):
+        os.remove(temporary)
+    os.symlink(to, temporary)
+    os.replace(temporary, os.path.join(builds, link))
+
+
+old = target("current")
+if old is not None and old != name:
+    replace("previous", old)
+replace("current", name)
+
+folders = sorted(f for f in os.listdir(builds) if FOLDER.fullmatch(f) and os.path.isdir(os.path.join(builds, f)))
+held = set(folders[-KEEP:]) | {target("current"), target("previous")}
+for folder in folders:
+    if folder not in held:
+        shutil.rmtree(os.path.join(builds, folder))
+
+named = set()
+for folder in os.listdir(builds):
+    try:
+        with open(os.path.join(builds, folder, "build.toml")) as f:
+            named.update(re.findall(r'^node_modules = "([^"]*)"$', f.read(), re.M))
+    except OSError:
+        pass
+if os.path.isdir(modules):
+    for lock in os.listdir(modules):
+        if lock not in named and os.path.isdir(os.path.join(modules, lock)):
+            shutil.rmtree(os.path.join(modules, lock))
+PY
+}
+
+trap cleanup EXIT
+trap 'exit 1' INT TERM HUP
+
+case "${1:-}" in
+  make) shift; make "$@" ;;
+  point) shift; point "$@" ;;
+  *) fail "usage: keep-build make <src> <armada binary> <main|preview> <protocol id> | keep-build point <snapshot path>" ;;
+esac

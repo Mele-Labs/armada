@@ -301,6 +301,9 @@ PY
 }
 
 backups="$support/backups"
+# Where the builds this script keeps are, and the one launchd runs. `scripts/keep-build`.
+builds="$support/builds"
+kept_current="$builds/current"
 
 # The migration guard, for `--from`. **Names, never a count**: a migration is
 # a file in `crates/store/migrations/` (the 113 before files are named in
@@ -575,8 +578,8 @@ bridge_protocol_stale() {
 }
 
 # **Bridge runs from a copy of Electron.app that is named Armada**, made by
-# `scripts/armada-electron`, which has the reason. Prints the binary
-# `electron-vite` is told to run.
+# `scripts/armada-electron`, which has the reason. Prints the binary Bridge is
+# run with. `scripts/keep-build` makes it for a real restart; only the dry run asks here.
 armada_electron() {
   "$root/scripts/armada-electron" $($dry_run && echo --dry-run) "$src"
 }
@@ -602,17 +605,19 @@ if $dry_run; then
   else
     echo "would take no snapshot — there is no database yet"
   fi
-  echo "would write $plist: [$armada_bin, serve, $root]"
+  kept_lock=$(shasum -a 256 "$src/pnpm-lock.yaml" 2>/dev/null | cut -c1-16 || true)
+  echo "would keep the build in $builds/<UTC stamp>-<short commit of $src>: armada, a copy of Bridge's out/ and sounds/, and a launcher; node_modules in $support/node_modules/${kept_lock:-<lockfile hash>}, cloned only if it is not there"
+  echo "would point $kept_current at it and $builds/previous at the build it replaces, keeping the newest 5 and the two links' builds"
+  echo "would write $plist: [$kept_current/armada, serve, $root]"
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
-  echo "would write $bridge_plist: [$src/scripts/bridge-launch, $src/apps/desktop/node_modules/.bin/electron-vite, preview] in $src/apps/desktop, reopened by launchd when it stops without a quit"
+  echo "would write $bridge_plist: [$kept_current/bridge-launch, $kept_current/launch-bridge] in $kept_current/bridge, reopened by launchd when it stops without a quit"
+  echo "would reopen Bridge too if its job is loaded from anywhere but $kept_current/bridge, or the kept Bridge's files differ from the build before's"
   if bridge_electron=$(armada_electron); then
-    echo "would run Bridge from $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing"
+    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing, cloned into $support/node_modules"
   else
     echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
   fi
-  echo "Bridge would run $src/apps/desktop/out — the tree it builds, $src"
-  [[ -x "$src/apps/desktop/node_modules/.bin/electron-vite" ]] \
-    || echo "WARNING: $src/apps/desktop/node_modules/.bin/electron-vite is missing, so the restart would refuse"
+  echo "Bridge would run the kept copy of $src/apps/desktop/out, built from $src"
   if [[ "$(ipc_built_protocol)" != "" && "$(ipc_built_protocol)" != "$(tree_protocol)" ]]; then
     echo "would touch $src/crates/ipc/build.rs — ipc was last built at protocol $(ipc_built_protocol) and the wire files hash to $(tree_protocol)"
   fi
@@ -761,6 +766,23 @@ fi
 # run for minutes and Fleet's own state is not this script's to assume.
 refuse_if_drone_working
 
+# **Keep the build, then run it from where it is kept.** Launchd runs Fleet and
+# Bridge through `$support/builds/current`, so `scripts/keep-build` has the
+# build copied out of this tree (which the next restart rebuilds in place) before
+# either job is touched, and `current` flips to it here. `armada build revert`
+# flips the links back and reboots the two jobs; it never builds. What was kept
+# and how is `scripts/keep-build`'s own header.
+#
+# The old build's Bridge key is read first: `point` moves `current` off it.
+kept_source=main
+[[ -n "$from" ]] && kept_source=preview
+old_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
+kept_build=$("$root/scripts/keep-build" make "$src" "$armada_bin" "$kept_source" "$(tree_protocol)") \
+  || fail "could not keep the build from $src"
+say "Keeping the build in $kept_build"
+"$root/scripts/keep-build" point "$kept_build" || fail "could not point $kept_current at $kept_build"
+new_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
+
 # A copy of the database the new build is about to open, so a migration that
 # goes wrong is recoverable. `.backup` is SQLite's own online copy and is safe
 # while Fleet writes. Only `--from` runs, which are the ones that can bring in a
@@ -804,7 +826,7 @@ if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null && ! $already_ours; the
   fi
 fi
 
-python3 - "$plist" "$label" "$armada_bin" "$root" "$home" "$PATH" <<'PY'
+python3 - "$plist" "$label" "$kept_current/armada" "$root" "$home" "$PATH" <<'PY'
 import plistlib, sys
 
 path, label, armada_bin, root, home, path_env = sys.argv[1:7]
@@ -864,8 +886,8 @@ if launchctl print "$service" >/dev/null 2>&1; then
 fi
 launchctl bootstrap "$domain" "$plist"
 loaded_program=$(launchctl print "$service" 2>/dev/null | sed -n 's/^[[:space:]]*program = //p')
-if [[ "$loaded_program" != "$armada_bin" ]]; then
-  fail "launchd loaded Fleet from ${loaded_program:-nowhere}, not $armada_bin — it would run the wrong build"
+if [[ "$loaded_program" != "$kept_current/armada" ]]; then
+  fail "launchd loaded Fleet from ${loaded_program:-nowhere}, not $kept_current/armada — it would run the wrong build"
 fi
 
 # **Wait for a *fresh* runtime file, not merely a present one.** A killed Fleet
@@ -908,10 +930,28 @@ fi
 # protocol, so a restart that failed before here leaves the old record true.
 git -C "$src" rev-parse HEAD >"$support/restart-commit" 2>/dev/null || rm -f "$support/restart-commit"
 
-# Reopen Bridge, only if it was rebuilt. Otherwise it reconnects on its own
-# — apps/desktop/src/main/socket.ts.
+# Reopen Bridge, only if it was rebuilt or is not the kept build. Otherwise it
+# reconnects on its own — apps/desktop/src/main/socket.ts.
+#
+# **Not the kept build** is two things, neither a rebuild. A Bridge job loaded
+# from anywhere but `builds/current/bridge` is the first restart onto kept
+# builds, and its plist still names a tree. A `bridge` key that differs from the
+# build before's is `out/` changed without this run building it. A job that is
+# not loaded at all, or a first build with nothing before it to differ from, is
+# not a reason: a Bridge someone started by hand is left alone as it always was.
+# `bridge_rebuilt` is left as it was, because the stamp below says what *this
+# run built*, and a reopen that built nothing must not vouch for an edit it never saw.
 bridge_reopened=false
-if $bridge_rebuilt; then
+bridge_reopen=$bridge_rebuilt
+loaded_bridge_dir=$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)
+if [[ -n "$loaded_bridge_dir" && "$loaded_bridge_dir" != "$kept_current/bridge" ]]; then
+  say "Bridge runs from $loaded_bridge_dir, not the kept build — reopening it there"
+  bridge_reopen=true
+elif [[ -n "$old_bridge_key" && "$old_bridge_key" != "$new_bridge_key" ]]; then
+  say "Bridge's files differ from the build before's — reopening it"
+  bridge_reopen=true
+fi
+if $bridge_reopen; then
   # **Quit the running Bridge by a handle proven to be this repository's,
   # never by name.** The owner's Bridge today is as likely to be a plain
   # `electron-vite preview` from `scripts/dev` in his terminal as anything
@@ -925,6 +965,11 @@ if $bridge_rebuilt; then
   bridge_pattern="^${root}/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) \\.\$"
   # With `--from`, the window already open may be either tree's.
   [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) \\.\$"
+  # **A Bridge run from a kept build** is the binary under `$support/node_modules/`
+  # given a folder of `$support/builds/`. The support folder has a space in it and
+  # dots, so it is escaped for the regex.
+  support_re=$(printf '%s' "$support" | sed 's/[][\\.*^$+?(){}|]/\\&/g')
+  bridge_pattern="(${bridge_pattern})|(^${support_re}/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) ${support_re}/builds/[^/]+/bridge\$)"
   # **Out of launchd before any pid is quit**: a Bridge launchd holds and is
   # killed is reopened (`scripts/bridge-launch`), so it would come back old.
   if launchctl print "$bridge_service" >/dev/null 2>&1; then
@@ -957,27 +1002,25 @@ if $bridge_rebuilt; then
   fi
 
   if $reopen_ok; then
-    # **The package's own binary in the package's own directory, not pnpm.**
-    # Nothing names another tree, so the tree built above is the tree run.
-    bridge_dir="$src/apps/desktop"
-    bridge_bin="$bridge_dir/node_modules/.bin/electron-vite"
-    [[ -x "$bridge_bin" ]] || fail "$bridge_bin is missing — run pnpm install in $src"
-    [[ -x "$src/scripts/bridge-launch" ]] || fail "$src/scripts/bridge-launch is missing or not executable"
-    # Falls back to Electron's own bundle, which says "Electron" in the menu bar but runs.
-    bridge_electron=$(armada_electron) || { bridge_electron=""; echo "restart: could not make the Armada-named Electron copy — Bridge will say Electron" >&2; }
+    # **The kept build's own launcher, through `current`, not pnpm.** Nothing
+    # names a tree, so the build kept above is the build run, and a flipped link
+    # is all a revert needs. `launch-bridge` names the Electron it was kept with
+    # (the Armada-named copy `scripts/armada-electron` made, else Electron's own,
+    # which says "Electron" in the menu bar but runs).
+    bridge_dir="$kept_current/bridge"
+    [[ -x "$kept_current/bridge-launch" && -x "$kept_current/launch-bridge" ]] \
+      || fail "$kept_current has no executable bridge-launch and launch-bridge — the build was not kept whole"
     # **Reopened by launchd when it stops without a quit**: `scripts/bridge-launch`
     # turns a crash or a kill into exit 1, and a quit the person meant into exit 0.
-    python3 - "$bridge_plist" "$bridge_label" "$bridge_bin" "$bridge_dir" "$home" "$PATH" "$bridge_electron" "$src/scripts/bridge-launch" "$support/bridge-quit" <<'PY'
+    python3 - "$bridge_plist" "$bridge_label" "$bridge_dir" "$home" "$PATH" "$kept_current/bridge-launch" "$kept_current/launch-bridge" "$support/bridge-quit" <<'PY'
 import plistlib, sys
 
-path, label, bridge_bin, root, home, path_env, electron, launch, quit_mark = sys.argv[1:10]
+path, label, root, home, path_env, launch, launch_bridge, quit_mark = sys.argv[1:9]
 env = {"HOME": home, "PATH": path_env, "ARMADA_BRIDGE_QUIT_MARK": quit_mark}
-if electron:
-    env["ELECTRON_EXEC_PATH"] = electron
 plistlib.dump(
     {
         "Label": label,
-        "ProgramArguments": [launch, bridge_bin, "preview"],
+        "ProgramArguments": [launch, launch_bridge],
         "WorkingDirectory": root,
         "RunAtLoad": True,
         "KeepAlive": {"SuccessfulExit": False},
@@ -1009,7 +1052,7 @@ PY
     if [[ "$loaded_dir" != "$bridge_dir" ]]; then
       fail "launchd loaded Bridge from ${loaded_dir:-nowhere}, not $bridge_dir — it would show the wrong tree"
     fi
-    echo "Bridge runs $bridge_dir/out (built from $src)" >&2
+    echo "Bridge runs $bridge_dir/out (kept from $src)" >&2
     bridge_reopened=true
   fi
 fi

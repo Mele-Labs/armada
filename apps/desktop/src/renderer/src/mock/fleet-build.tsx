@@ -9,6 +9,7 @@ import type {
   FleetBuildChoice,
   FleetBuildLeftOut,
   FleetBuildPosition,
+  FleetBuildPrevious,
   FleetBuildStage,
 } from "@armada/components";
 
@@ -22,6 +23,9 @@ type Seed = {
   stage?: FleetBuildStage;
   failed?: string;
   leftOut?: FleetBuildLeftOut[];
+  previous?: FleetBuildPrevious;
+  reverting?: boolean;
+  carried?: string[];
 };
 
 /** Commits in the preview that main lacks: the in-flight branches, merged. */
@@ -112,6 +116,21 @@ const SEEDS: Record<string, Seed> = {
       },
     ],
   },
+  // A kept build before this one, and two Jobs whose agents are working: `scenarios/fleet-build.ts`.
+  "fleet/build-revert": {
+    on: "preview",
+    position: {
+      ahead: PREVIEW_AHEAD,
+      behind: 0,
+    },
+    working: null,
+    previous: {
+      built: "5 Nov, 16:20",
+      commit: "a1b2c3d",
+      bridgeReopens: true,
+    },
+    carried: ["Operator board", "Store tests open a migrated copy"],
+  },
   // Two branches left out, one with commits since: `scenarios/preview-offer.ts`.
   "preview-offer": {
     on: "preview",
@@ -189,6 +208,30 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
     };
     reach(0);
   };
+  // A revert holds two stages' time, then Fleet runs the build reverted to, with this one kept before it.
+  const revert = () => {
+    setNow((was) => ({
+      ...was,
+      reverting: true,
+    }));
+    timer.current = setTimeout(
+      () =>
+        setNow((was) => ({
+          ...was,
+          reverting: false,
+          ...(was.previous === undefined
+            ? {}
+            : {
+                previous: {
+                  ...was.previous,
+                  built: "5 Nov, 17:05",
+                  commit: "e4f5a6b",
+                },
+              }),
+        })),
+      STAGE_MS * 2,
+    );
+  };
   const build: FleetBuild = {
     on: now.on,
     position: now.position,
@@ -213,6 +256,14 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
       ? {}
       : {
           leftOut: now.leftOut,
+        }),
+    ...(now.previous === undefined
+      ? {}
+      : {
+          previous: now.previous,
+          reverting: now.reverting === true,
+          carried: now.carried ?? [],
+          onRevert: revert,
         }),
     onChoose: (on) => restart(on),
     onRestart: () => restart(now.on),

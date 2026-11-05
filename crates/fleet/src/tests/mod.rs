@@ -63,6 +63,7 @@ mod studio_on_your_words;
 mod host;
 mod http;
 mod flight_controls;
+mod kept_builds;
 mod app_run_drafts;
 mod app_run_links;
 mod app_run_pins;
