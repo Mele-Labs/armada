@@ -126,8 +126,6 @@ where
         let mut ended = false;
         let mut parking: Option<(String, u32)> = None;
         let mut plan_moved: Option<ipc::PlanUsage> = None;
-        // A terminal turn's end and what it said, read for a claim once the store is let go.
-        let mut replied: Option<(String, String)> = None;
         // A terminal turn that failed on a sign-in that ran out, or one that finished, which is the account working.
         let (mut signed_out, mut answered) = (false, false);
         // A browser reached for outside Bridge, written on the thread once the store is let go.
@@ -357,7 +355,6 @@ where
                     if let Some(tail) = said.as_deref().map(crate::session_host::standing::tail).filter(|tail| !tail.is_empty()) {
                         store.keep_turn_end(&id, &now, &tail).map_err(fault)?;
                     }
-                    replied = said.map(|said| (now.clone(), said));
                     answered = true;
                 }
                 // A turn taken since the limit was hit: the wake is not owed.
@@ -530,11 +527,6 @@ where
         if let Some((tool, address)) = reminder {
             let row = ipc::SessionRow::BrowserReminder { id: self.row_id(&session.id), at: self.instant(), tool, address };
             self.row_put(&session.id, row).await;
-        }
-        if let Some((ended, said)) = replied {
-            if let Some(claim) = self.unbacked_claim(&session.id, &ended, Some(&said)).await {
-                self.terminal_claim_reminded(&session.id, claim).await;
-            }
         }
         if let Some((manifest, address)) = opened_pull {
             self.opened_pull_read(&manifest, &address).await;

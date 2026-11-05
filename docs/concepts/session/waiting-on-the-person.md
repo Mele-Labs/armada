@@ -130,33 +130,16 @@ A terminal job's mod reports a prompt going in as `turn_started`, which is the s
 The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 **`all_done` is refused while a follow-up is open** (*Follow-ups kept for Later*).
 
-**A reply that claims a done or a walk without its call is answered with one reminder.** Fleet takes a job's word only through `all_done` and `show_window`, so where a turn ends it reads the reply's close (`reply_claims.rs`).
-A close that says the work or the job is done, finished or complete, or that nothing is left, while no `done_since` stands and nothing is on the job's waiting list, sends the agent: "Your reply says the work is done, and all_done is not called.
-If nothing is left, call all_done; if something is, say what."
-A sentence that defers or negates it, with "once", "after", "when", "until", "if", "before", "not" or "n't", and a question, claim nothing.
-A reply whose close, or a table cell near its end, asks the owner to walk, approve or leave notes on something, while no walk of the job waits on him, sends: "Your reply asks the owner to walk something, and no walk of this job is open.
-Build each walk and call show_window for it."
-A reply that claims both is reminded of the walk only, since the work is not done while a walk is owed.
-The reminder goes through `told_by_fleet` and starts a turn, in which the agent makes the call or says what is left.
-It is kept as the job's tell (`reminded_done` or `reminded_walk`), and the reply that first follows it is not read, so a reminder is never answered with another.
-An ended job is not read, and a terminal job is reminded only while its mod is listening, as any word Fleet holds for it.
-The owner reported two jobs on 21 Oct 2026: one wrote "PR 2681 is merged and the job is done" and never called `all_done`, so no Done item came, and one listed walks for him in a table with no window open, until he asked "Please open the walks".
-These are phrase rules; #2692 is the language model reader that would replace them.
-They learn from disputes in the meantime: a reminder the Job disputed and a cheap model agreed was wrong keeps the sentences that set it off, and a near sentence is not reminded again in any Job (*What Fleet tells a Job*).
-
-**A turn that leaves the person's message unanswered is sent back once** (`unanswered.rs`).
+**A question asked with nothing written to him since his message is sent back once** (`unanswered.rs`).
 He reads only what the agent writes, never its reasoning.
-From his message, typed or chosen on one of the job's questions, until the agent writes him something other than a status line, the job owes him a reply.
-A status line is a lone line the agent carries on past: one a tool call follows, whatever its first word, and a lone line starting "Status:" wherever it sits.
-A lone line that ends the turn, or that the question itself follows, is the answer; so is a second lone line after the first.
-The first `AskUserQuestion` while it does is refused with: "Not asked: since his last message you have written him nothing but a status line, and he reads only what you write, never your reasoning.
+From his message, typed or chosen on one of the job's questions, until the agent writes him anything at all, the job owes him a reply.
+Fleet does not read what was written: a status line, a lone line or a paragraph all answer.
+The first `AskUserQuestion` while it does is refused with: "Not asked: since his last message you have written him nothing, and he reads only what you write, never your reasoning.
 Write your answer to his message, then ask this question again."
 The door waits up to two seconds for the stream to reach the question first, so an answer written just before it counts.
-A turn that ends still owing it sends the agent, through `told_by_fleet` and unless another turn is waiting to start, the same words without "Not asked:" and with "Write your answer to his message." to close.
-Either one settles the debt, so the question asked again is put to him and the reminder's turn is not read.
-A turn Fleet's own notice began owes nothing.
-Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw a status line and the question and wrote "you never answered me or explained".
-Job 77d7b355 did it three times on 2 Nov 2026 past a rule that read only the word "Status:": it wrote one line saying it had found the causes and was writing them up, ran a tool and asked, and asked again after his answer with nothing written, so its questions named Jobs and figures that were nowhere in the thread.
+The refusal settles the debt, so the question asked again is put to him.
+Fleet sends nothing at a turn's end, and does not read a reply's words for a done or a walk the agent did not call: it takes a job's word only through `all_done` and `show_window`.
+Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw the question alone and wrote "you never answered me or explained".
 
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
 `all_done` does the same first, so a job that is finished calls only `all_done`; `finish_up` is for giving things back early.
