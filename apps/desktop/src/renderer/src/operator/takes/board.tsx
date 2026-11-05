@@ -17,7 +17,7 @@ import "./board.css";
 
 const OPERATOR = "operator";
 
-const openJob = (id: string) => {
+export const openJob = (id: string) => {
   select({
     kind: "session",
     key: `session:${id}`,
@@ -308,7 +308,7 @@ function Queue({ store }: { store: OperatorStore }) {
   const turns = state.turns ?? [];
   const open = turns.filter((one) => one.done === undefined);
   const [onIt, ...next] = open;
-  const busy = open.length > 0;
+  const busy = open.length > 0 && state.discussesAtOnce !== true;
   const raises = state.raises ?? [];
   const raiseOf = (turn: OperatorTurn) => raises.find((one) => one.id === turn.raise);
   const waiting = raises.filter((one) => one.settled === undefined && one.toDiscuss !== true);

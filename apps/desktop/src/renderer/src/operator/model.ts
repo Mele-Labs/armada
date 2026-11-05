@@ -226,6 +226,8 @@ export type OperatorTurn = {
   finish?: string;
   /** What came of it. It stays below what is still open, saying so. */
   done?: string;
+  /** The tag before its title, where the kind of thing is known outright, as Fleet's board says. */
+  tag?: string;
 };
 
 /** The mock's script for the box: what a fresh call answers to words that hold `asked`, the Line row it starts and the order it proposes, if any. */
@@ -305,6 +307,8 @@ export type OperatorSeed = {
   turns?: readonly OperatorTurn[];
   /** The whole-panel take this scenario draws (`operator/takes/`). Absent draws the panel as built, or the one `?take=` names. */
   take?: string;
+  /** Discussion takes an item at once, however busy the Operator is: Fleet's Operator holds no queue for talk. */
+  discussesAtOnce?: boolean;
   /** Takes what moves the Operator on to its next turn, where time passes in the scenario. */
   moves?: (next: () => void) => void;
 };
@@ -336,6 +340,7 @@ export function outcomeOf(text: string): { label: string; what?: string; letGo: 
 
 /** The tag before a row's title in the Operator's Queue: what kind of thing it is. */
 export function turnTag(row: OperatorTurn): string {
+  if (row.tag !== undefined) return row.tag;
   if (row.message !== undefined) return "Your message";
   if (row.discuss === true) return "To discuss";
   if (row.result !== undefined) return "To do";

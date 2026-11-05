@@ -64,6 +64,7 @@ import { TerritoryHost } from "./territory";
 import { BayHistoryHost } from "./bay-history";
 import { SessionSystemHost } from "./session-system";
 import { LogbookHost } from "./logbook";
+import { OperatorHost } from "./operator";
 import { UsageSummaryHost } from "./usage-summary";
 import { UsageTimeHost } from "./usage-time";
 import { DebugReportHost } from "./debug-report";
@@ -221,6 +222,11 @@ export class FleetConnection {
   );
   /** What agents learned, and the owner's acts on an entry — `logbook.ts`. */
   readonly logbook: LogbookHost = new LogbookHost(() => this.connected()?.port ?? null);
+  /** The Operator's board, its box and a message to it — `operator.ts`. */
+  readonly operator: OperatorHost = new OperatorHost(
+    () => this.connected()?.port ?? null,
+    (change) => this.publish(change),
+  );
   /** What the last seven days cost, for the Usage page — `usage-summary.ts`. */
   readonly usageSummary: UsageSummaryHost = new UsageSummaryHost(
     () => this.connected()?.port ?? null,

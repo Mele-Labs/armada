@@ -21,7 +21,7 @@ export type OperatorState = OperatorSeed & {
   open?: string;
 };
 
-type Act =
+export type Act =
   | {
       kind: "start";
       line: string;
@@ -768,6 +768,9 @@ function Seeded({ seed, children }: { seed: OperatorSeed; children: ReactNode })
   );
   return <Held.Provider value={store}>{children}</Held.Provider>;
 }
+
+/** Where a store is made elsewhere, such as from Fleet (`fleet.tsx`). */
+export const OperatorHeld = Held.Provider;
 
 /** The Operator's store, or null where this window has none: no dock is drawn. */
 export function useOperator(): OperatorStore | null {

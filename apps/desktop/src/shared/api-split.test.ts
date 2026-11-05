@@ -70,6 +70,7 @@ import type {
   FleetBuildReport,
   FleetLimits,
   MergeLines,
+  OperatorBoard,
   ModChecked,
   ModList,
   Preferences,
@@ -261,6 +262,7 @@ import { ONBOARDING_CHANNELS, type OnboardingApi } from "./api/onboarding";
 import { REQUESTS_CHANNELS, type RequestsApi } from "./api/requests";
 import { SHARING_CHANNELS, type SharingApi } from "./api/sharing";
 import { LOGBOOK_CHANNELS, type LogbookApi } from "./api/logbook";
+import { OPERATOR_CHANNELS, type OperatorApi } from "./api/operator";
 import { TEACHING_CHANNELS, type TeachingApi } from "./api/teaching";
 import { JOB_BROWSER_CHANNELS, type JobBrowserApi } from "./api/job-browser";
 import { JOB_WALK_CHANNELS, type JobWalkApi } from "./api/job-walk";
@@ -305,6 +307,7 @@ type OldBridgeState = {
   held: HeldWorktrees;
   servers: ServerList;
   mergeLines: MergeLines | null;
+  operatorBoard: OperatorBoard | null;
   landFollowed: FollowedLandLog;
   checkoutRunSheet: CheckoutRunSheetRead;
   checkoutRunFollowed: CheckoutRunFollowed;
@@ -748,6 +751,7 @@ type OldBridgeApi = {
   RequestsApi &
   SharingApi &
   LogbookApi &
+  OperatorApi &
   TeachingApi &
   JobBrowserApi &
   JobWalkApi &
@@ -812,6 +816,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
     state: "none",
   },
   mergeLines: null,
+  operatorBoard: null,
   landFollowed: {
     state: "none",
   },
@@ -1131,6 +1136,7 @@ const OLD_CHANNELS = {
   ...REQUESTS_CHANNELS,
   ...SHARING_CHANNELS,
   ...LOGBOOK_CHANNELS,
+  ...OPERATOR_CHANNELS,
   ...TEACHING_CHANNELS,
   ...JOB_BROWSER_CHANNELS,
   ...JOB_WALK_CHANNELS,
