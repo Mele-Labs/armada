@@ -1,7 +1,9 @@
 //! The arrivals from outside a Job's own run: a bug report, a new issue, a red main, a review
-//! request and a Later item handed over. **Words from off this machine are data**: an issue's body
-//! and someone else's review request are offered only a raise, so nothing they say can start a Job
-//! or answer for the person, and the call can name only a way it was offered.
+//! request, a Later item handed over and a note the person left on Bridge. **Words from off this
+//! machine are data**: an issue's body and someone else's review request are offered only a raise,
+//! so nothing they say can start a Job or answer for the person, and the call can name only a way it
+//! was offered. A note is the person's own words, so it is offered every way, and Fleet keeps what
+//! is ruled on it as a suggestion until he presses Do it.
 
 use super::arriving::{Arrival, Arrived, Source};
 use super::candidates::open_near;
@@ -207,6 +209,71 @@ impl Handed {
             answers: Vec::new(),
             rule,
             open,
+        }
+    }
+}
+
+/// The most of a note's first line its subject keeps.
+const SUBJECT_CHARS: usize = 120;
+
+/// A note the person left on Bridge, as its file under the repository's annotations holds it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Note {
+    /// The note's id, which is also its file name less `.json`.
+    pub id: String,
+    pub manifest_id: String,
+    pub text: String,
+    pub screen: Option<String>,
+    pub component: Option<String>,
+    /// The repository's open issues, which the note is read against.
+    pub open: Vec<Filed>,
+    /// Whether the repository's tracker is beads, the one Fleet files in.
+    pub files: bool,
+}
+
+impl Note {
+    /// Linked to an open issue it may be, filed where the repository's beads take it, handed to a
+    /// live Job near it, started as a Job of its own or raised.
+    pub fn arrival(&self) -> Arrival {
+        let open = open_near(&self.text, &self.open);
+        let mut ways = Vec::new();
+        if !open.is_empty() {
+            ways.push(Way::Link);
+        }
+        if self.files {
+            ways.push(Way::File);
+        }
+        ways.extend([Way::ExistingJob, Way::NewJob, Way::Raise]);
+        let first = self.text.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default();
+        let subject = match first.char_indices().nth(SUBJECT_CHARS) {
+            Some((at, _)) => format!("{}…", first[..at].trim_end()),
+            None => first.to_string(),
+        };
+        Arrival {
+            id: format!("note:{}:{}", self.manifest_id, self.id),
+            arrived: Arrived::Note,
+            source: Source::Person,
+            session_id: String::new(),
+            manifest_id: self.manifest_id.clone(),
+            subject,
+            words: format!("{}\n\n{}", self.text.trim(), self.left()),
+            paths: Vec::new(),
+            issues: Vec::new(),
+            group: None,
+            ways,
+            answers: Vec::new(),
+            rule: None,
+            open,
+        }
+    }
+
+    /// Where he left it.
+    fn left(&self) -> String {
+        match (self.screen.as_deref(), self.component.as_deref()) {
+            (Some(screen), Some(component)) => format!("Left on the {screen} screen, on {component}"),
+            (Some(screen), None) => format!("Left on the {screen} screen"),
+            (None, Some(component)) => format!("Left on {component}"),
+            (None, None) => "Left on Bridge".to_string(),
         }
     }
 }

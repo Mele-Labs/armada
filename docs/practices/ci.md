@@ -30,7 +30,8 @@ The job `test_compile` runs `armada check test --changed` and `armada check acce
 `plan.py` names the keys in `compile`, the Rust Checks in `COMPILE` that the plan left to the queue; a Check the pull request runs itself, because the queue last failed it, is not compiled twice.
 Its cache is `test`'s, so it starts from what `main` last compiled.
 rust-cache adds the job's id to its key, so the job passes `shared: test-test` to `rust-setup` to restore `ci1-test-test-…`.
-Without it, it looked for `ci1-test-test_compile-…`, which `main` never writes, found none on 5 of the 6 pull requests before 5 Nov 2026, and compiled every third-party crate: 281 to 352 seconds (`docs/spikes/ci-test-compile.md`).
+Without it, it looked for `ci1-test-test_compile-…`, which `main` never writes, found none on 5 of the 6 pull requests before 5 Nov 2026, and compiled every third-party crate: 318 crates against 61 warm.
+It saved no time that was measured: the third-party crates compile beside the long `fleet` test harness, and one runner differs from the next by more (`docs/spikes/ci-test-compile.md`, *After*).
 
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.

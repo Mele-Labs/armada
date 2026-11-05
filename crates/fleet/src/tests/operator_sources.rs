@@ -23,7 +23,7 @@ use crate::CallFailed;
 
 const SCROLLBACK: &str = "Terminal scrollback is lost when the pane redraws";
 
-async fn switched(rig: &Rig, key: &str, on: bool) {
+pub(super) async fn switched(rig: &Rig, key: &str, on: bool) {
     let value = match key {
         "features.operator" => ipc::SettingValue::Bool(on),
         _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
@@ -32,7 +32,7 @@ async fn switched(rig: &Rig, key: &str, on: bool) {
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
-async fn on(rig: &Rig) {
+pub(super) async fn on(rig: &Rig) {
     switched(rig, "features.operator", true).await;
     switched(rig, "features.operatorDispatch", true).await;
     switched(rig, "features.operatorDelegate", true).await;
@@ -40,17 +40,17 @@ async fn on(rig: &Rig) {
 
 /// A call that answers each question with the next of its answers, and keeps what it was asked.
 #[derive(Default)]
-struct Answers {
+pub(super) struct Answers {
     answers: Mutex<VecDeque<String>>,
     asked: Mutex<Vec<String>>,
 }
 
 impl Answers {
-    fn with(answers: &[&str]) -> Arc<Answers> {
+    pub(super) fn with(answers: &[&str]) -> Arc<Answers> {
         Arc::new(Answers { answers: Mutex::new(answers.iter().map(|one| one.to_string()).collect()), asked: Mutex::new(Vec::new()) })
     }
 
-    fn asked(&self) -> Vec<String> {
+    pub(super) fn asked(&self) -> Vec<String> {
         self.asked.lock().expect("not poisoned").clone()
     }
 }
@@ -92,7 +92,7 @@ async fn reported(rig: &Rig, id: &SessionId, title: &str) -> String {
     rig.fleet.report_bug(None, report).await.expect("reported").report_id
 }
 
-async fn rulings(rig: &Rig) -> Vec<store::KeptRuling> {
+pub(super) async fn rulings(rig: &Rig) -> Vec<store::KeptRuling> {
     rig.fleet.store().lock().await.operator_rulings(10).expect("read")
 }
 

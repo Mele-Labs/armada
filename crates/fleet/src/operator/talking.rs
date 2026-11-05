@@ -165,7 +165,7 @@ to the person, who confirms it. These are the only forms:
     role_off <dispatch, delegate, answer or file> in <repository id>
     hold <paths, separated by commas> until <the id of a live Job> pushes
     hold <paths, separated by commas> until <the id of a live Job> ends
-    always_raise <start, question, card, stopped, red, plan, report, issue, red_main, review or later>
+    always_raise <start, question, card, stopped, red, plan, report, issue, red_main, review, later or note>
 
 Name a form only where the person asked for an order. Where he asked for one that fits none of them, \
 write no_form.

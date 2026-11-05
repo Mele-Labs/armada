@@ -345,7 +345,8 @@ approximations.
   runner, 4261 laps, a median commit reaching 448 of them, and what was not timed.
 - [`spikes/ci-test-compile.md`](spikes/ci-test-compile.md)
   — where a CI test shard's compile goes: 278 s, 212 of it `fleet`'s test harness, so neither sccache
-  nor a nextest archive shortens a landing; `test_compile` never restored `main`'s cache.
+  nor a nextest archive shortens a landing; `test_compile` never restored `main`'s cache, and restoring
+  it saved no time; the push, plan and queue times either side of #3308 and #3310.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
