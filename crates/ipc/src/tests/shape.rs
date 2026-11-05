@@ -38,6 +38,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("change_waiting", shape::of::<crate::ChangeWaiting>()),
         ("claim_issue", shape::of::<crate::ClaimIssue>()),
         ("claim_pull_request", shape::of::<crate::ClaimPullRequest>()),
+        ("command_started_sessions", shape::of::<crate::StartedCommands>()),
         ("dispute_fleet", shape::of::<crate::DisputeFleet>()),
         ("finish_up", shape::of::<crate::FinishUp>()),
         ("fork_this_session", shape::of::<crate::ForkThisSession>()),

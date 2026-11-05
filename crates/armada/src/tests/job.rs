@@ -185,6 +185,24 @@ fn the_time_acts_print_what_they_answer_and_what_they_take() {
     assert!(all.iter().all(|act| act.name != "get_usage_hours"), "the page's hours are not an act");
 }
 
+/// The two acts a Job reads and commands the Jobs it started by come from the door's list and nowhere
+/// else: no CLI of their own.
+#[test]
+fn the_started_jobs_acts_are_listed_with_what_they_answer_and_what_they_take() {
+    let Asked::Tools { id } = read_door(ipc::job_cli::list_message().as_bytes(), &[]) else { panic!("not a tools/list") };
+    let list = answer(Answered::Tools { id, shapes: api::offered(), always_loads: None }).expect("a list encodes");
+    let (reached, _) = door(move |_| list.clone());
+    let all = offered(&reached).expect("the list");
+    let act = |name: &str| all.iter().find(|act| act.name == name).unwrap_or_else(|| panic!("no act {name}"));
+
+    let read = help(act("list_started_jobs"));
+    assert!(read.starts_with("list_started_jobs\n    "), "{read}");
+    let command = help(act("command_started_jobs"));
+    assert!(command.starts_with("command_started_jobs\n    "), "{command}");
+    assert!(command.contains("Body: commands") && command.contains("end a live one with a reason it is told"), "{command}");
+    assert!(listing(&all).contains("command_started_jobs") && listing(&all).contains("list_started_jobs"));
+}
+
 #[test]
 fn a_call_prints_the_act_s_answer_and_a_refusal_is_fleet_s_sentence() {
     let (reached, seen) = door(|asked| match asked.contains("tools/list") {

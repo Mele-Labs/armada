@@ -301,6 +301,7 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
         because: "the same group is in the other's plan".into(),
         call: Some("call-1".into()),
         by: Actor::Operator,
+        handed: at.clone(),
         at: at.clone(),
         place: Some(Place::Behind("01WAITING".into())),
         first: Some("01OTHER".into()),

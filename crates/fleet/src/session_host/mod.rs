@@ -12,6 +12,7 @@ pub(crate) mod account;
 pub(crate) mod activity;
 pub(crate) mod after;
 mod agent_starting;
+mod commanding;
 mod annotating;
 mod note_resolving;
 pub(crate) mod asking;

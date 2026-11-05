@@ -471,6 +471,23 @@ pub trait Sessions: Send + Sync + 'static {
         }
     }
 
+    /// `list_started_sessions` — every Job the caller started, each as one line. `caller` places the
+    /// Job, which the call cannot name. [`Refusal::Unacceptable`] for a call that places no hosted Job.
+    fn list_started_sessions(
+        &self,
+        caller: Option<crate::Caller>,
+    ) -> impl Future<Output = Result<ipc::StartedSessions, Refusal>> + Send;
+
+    /// `command_started_sessions` — withdraw, end, pause, resume, change or drop the wait of Jobs the
+    /// caller started, each as a call of its own would, in order. **A refused command leaves the others
+    /// done**, so each answer is its own; the outer [`Refusal::Unacceptable`] is a call that places no
+    /// hosted Job, with no command tried.
+    fn command_started_sessions(
+        self: Arc<Self>,
+        caller: Option<crate::Caller>,
+        commands: Vec<ipc::StartedCommand>,
+    ) -> impl Future<Output = Result<Vec<Result<ipc::StartedJob, Refusal>>, Refusal>> + Send;
+
     /// `change_waiting` — when a waiting Session starts, or where from. **The agent of the Session
     /// waited on changes a Session that waits on it; the person (no `caller`) changes any.**
     /// [`Refusal::Unacceptable`] for a call that places no Session, a Session that does not wait on the

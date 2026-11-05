@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use api::{HostedSessions, Sessions};
 use ipc::{AnswerWaiting, AutopilotDecision, PlanGroupInput, PlanTaskInput, RecordPlan, SessionId};
 
-use super::autopilot_decisions::{item, keep, rig_calling, started, told, waiting, SURE_OF_THE_FIRST};
+use super::autopilot_decisions::{item, keep, permission_asked, rig_calling, started, told, waiting, SURE_OF_THE_FIRST};
 use super::rule_acting::notices_in;
 use super::session_host::{eventually, rig_placing, Rig};
 use super::session_rail::record;
@@ -57,6 +57,27 @@ impl Calling for Counting {
     fn ask(&self, _question: String) -> Answering<'_> {
         self.0.fetch_add(1, Ordering::SeqCst);
         Box::pin(async move { Err(CallFailed::SaidNothing) })
+    }
+}
+
+/// A call whose first ask is held out until released and then says nothing; every later ask answers
+/// the first option.
+#[derive(Default)]
+struct Gated {
+    asks: AtomicUsize,
+    release: tokio::sync::Notify,
+}
+
+impl Calling for Gated {
+    fn ask(&self, _question: String) -> Answering<'_> {
+        let first = self.asks.fetch_add(1, Ordering::SeqCst) == 0;
+        Box::pin(async move {
+            if !first {
+                return Ok("item: 1\nway: 1\nanswer: 1\nbecause: he left it to the recommended option".to_string());
+            }
+            self.release.notified().await;
+            Err(CallFailed::SaidNothing)
+        })
     }
 }
 
@@ -277,4 +298,61 @@ async fn autopilot_turned_on_offers_what_is_already_waiting_on_him_once_under_it
     assert_eq!(call.asked().len(), 1, "offered once in the run");
     let outcomes: Vec<String> = log_of(&rig).await.into_iter().map(|row| row.outcome).collect();
     assert_eq!(outcomes, ["answer", "raise"], "newest first");
+}
+
+#[tokio::test]
+async fn autopilot_turned_on_while_a_call_on_an_item_is_out_offers_it_once_the_call_is_back() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    let call = Arc::new(Gated::default());
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    planned(&rig, &id, false).await;
+    keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
+    read_and_handed(&rig, &id).await;
+    eventually(|| async { call.asks.load(Ordering::SeqCst) == 1 }).await;
+
+    // The run starts while the call is out, and the call comes back after it.
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    started(&rig, &[AutopilotDecision::Recommended]).await;
+    call.release.notify_one();
+    eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+    assert_eq!(log_of(&rig).await[0].outcome, "passed_on", "the first call ruled nothing, under the rules from before the run");
+
+    eventually(|| async {
+        read_and_handed(&rig, &id).await;
+        !waiting(&rig, &id).await.contains(&"a".to_string())
+    })
+    .await;
+    for _ in 0..3 {
+        read_and_handed(&rig, &id).await;
+    }
+    assert_eq!(call.asks.load(Ordering::SeqCst), 2, "offered once in the run, after the call that was out");
+}
+
+#[tokio::test]
+async fn a_permission_card_for_a_read_is_settled_allow_once_as_his_press_would_and_the_job_goes_on() {
+    let rig = rig_placing(None);
+    switched(&rig, "features.operator", true).await;
+    let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: it only reads a file in the Job's own slot"]);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    let id = rig.start().await;
+    let held = permission_asked(&rig, &id, "Read", r#"{"file_path":"src/lib.rs"}"#).await;
+
+    read_and_handed(&rig, &id).await;
+
+    tokio::time::timeout(std::time::Duration::from_secs(5), held).await.expect("the card is allowed").expect("joined");
+    let asked = call.asked();
+    assert_eq!(asked.len(), 1);
+    for part in ["It asks to use a tool: Read src/lib.rs", "The answers it may give: 1. \"Allow once\""] {
+        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
+    }
+    eventually(|| async { said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered \"Allow once\": it only reads")) }).await;
+    let log = log_of(&rig).await;
+    assert_eq!(log.len(), 1, "{log:#?}");
+    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str(), log[0].by.as_str(), log[0].answer.as_deref()), ("card", "answer", "operator", Some("Allow once")));
+    for _ in 0..2 {
+        read_and_handed(&rig, &id).await;
+    }
+    assert_eq!(call.asked().len(), 1, "a card arrives once");
 }

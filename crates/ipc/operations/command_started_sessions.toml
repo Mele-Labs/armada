@@ -1,0 +1,20 @@
+[operations.command_started_sessions]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Act on Jobs you started, several in one call: withdraw one still held on its start card, end a live one with a reason it is told, pause or resume one, or change or drop the wait of one that waits on another Job. Body: commands, a list of {session_id, act} with why for end and condition or base for change; the answer gives each command's result or refusal in the same order"
+notes = """
+`POST /sessions/command_started`, body `StartedCommands` `{ commands }`. Each command is `{ session_id, act, why?, condition?, base? }`, and `act` is one of `withdraw`, `end`, `pause`, `resume`, `change` and `drop`. Each is done as a call of its own would be, one after another in the order given. Answered 200 with `StartedAnswers` `{ commands }`, one entry per command in the same order: `done` (the child as `list_started_sessions` gives it, after the act) or `refused` (a `WireError`). **A refused command leaves the others done.** An empty `commands` is refused 400.
+
+**The caller is placed by its connection and the body never names it.** A call that places no hosted Job is refused whole with 422 `fleet.started_unplaced`, and no command is tried. **Every command refuses a Job the caller did not start** with 422 `fleet.started_not_yours`, a Job started by a Job the caller started included: only direct children are the caller's.
+
+| Act | Does | Refused |
+|---|---|---|
+| `withdraw` | Ends a child that has not begun: still held on its start card, or still waiting on another Job. No agent ever ran, and its `start:<id>` item leaves the caller's Needs you. | 409 `fleet.started_begun` for one that has begun, 409 `fleet.started_ended` for one that has ended |
+| `end` | Needs `why`. Fleet tells the child why (a `started_job_ended` notice), then ends it as Bridge's End does: its slot goes back and its work stays on its branch, committed and not pushed. A beads issue it claimed through Fleet is handed back with a note naming the Job that ended it. Allowed for a child that has pushed, since closing loses no work. | 422 `fleet.started_needs_why` without a `why` |
+| `pause`, `resume` | Pause and resume as `pause_session` and `resume_session` do: a paused child gives up its slot and keeps its context. Those two operations stay Bridge's. | As those two refuse |
+| `change` | Changes `condition` or `base` of a child that waits on another Job, **whichever Job it waits on, one that is ending included**. The Job waited on is told, as `change_waiting` tells it. `held`, `workflow`, `model` and `effort` stay the person's. | 409 `fleet.wait_over` for a child that does not wait; 422 `fleet.started_needs_change` with neither `condition` nor `base` |
+| `drop` | Drops the wait. The child's card stays held for the person to press, with its brief as the first message, and it waits on nothing. The Job waited on is told. | 409 `fleet.wait_over` for a child that does not wait |
+
+`agent_access` is `Yes`: a Job that started Jobs may stop and re-chain them. It is open to any Job on its own children and is not gated by an Operator switch. `change_waiting` stays as it was, the Job waited on's and the person's.
+"""

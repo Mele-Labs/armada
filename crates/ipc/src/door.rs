@@ -64,6 +64,8 @@ pub const ASKS_A_PERSON: &str = "ask_the_person";
 /// mod that names the old one, keep working.
 pub const RENAMED: &[(&str, &str)] = &[
     ("start_another_job", "start_another_session"),
+    ("list_started_jobs", "list_started_sessions"),
+    ("command_started_jobs", "command_started_sessions"),
     ("fork_this_job", "fork_this_session"),
     ("list_jobs", "list_sessions"),
     ("move_job", "move_session"),

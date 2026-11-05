@@ -1,0 +1,16 @@
+[operations.list_started_sessions]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Read every Job you started in one call: for each, its id, title and state, the workflow step it is on, what it waits on and on whom (the same items Needs you shows for it, Fleet's own included), its pull requests, and once it ended its end reason and what it said with all_done"
+notes = """
+`GET /sessions/started`, no query. `StartedSessions` `{ jobs }`, oldest started first, one `StartedJob` for each Job the caller started. A `StartedJob` is the `list_sessions` line (`id`, `title`, `state`, `turn`, `slot`, `branch`, `pull_requests`, ...) with `standing`, `held` (waiting on its start card), `paused`, `step`, `waiting_for`, `waits` and `result` beside it.
+
+**The caller is placed by its connection, as `start_another_session` places it**, and the call names no Job. A call that places no hosted Job is refused with 422 `fleet.started_unplaced`. The Jobs are the ones named by the caller's own `started_to` attachments, which `start_another_session` writes: a Job started by a Job the caller started is not among them, and neither is a fork.
+
+`step` is `{ index, label, waiting_on }`: the step of its workflow the Job is on, read by Fleet and never from the agent's word, and what that step waits for (`Waiting on PR #812: Approved`). Absent for a Job on no workflow. `waiting_for` is the list Needs you shows for the child, with Fleet's own items among the agent's: `start:<id>` for a Job it started that waits on its start card, `unsent:<id>` for its own held first message. `waits` is the Job it waits on and the condition, while it has not started.
+
+**`result` is present once the child ended**: `end_reason` as the ledger has it and `summary`, the words it gave `all_done`. A child that never called `all_done` has none. `get_job_lifecycles` answers a different question, what a Job holds in flight, and is unchanged.
+
+`agent_access` is `Yes`: a Job that starts Jobs reads them here instead of reading their transcripts. It is open to any Job on its own children and is not gated by an Operator switch.
+"""

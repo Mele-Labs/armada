@@ -45,6 +45,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [A moved job](session/a-moved-job.md) |
 | [A handed-off Job](session/a-handed-off-job.md) |
 | [A Job an agent started](session/a-job-an-agent-started.md) |
+| [A Job that started Jobs](session/a-job-that-started-jobs.md) |
 | [Linked Jobs](session/linked-jobs.md) |
 | [A Job that waits on another](session/a-job-that-waits-on-another.md) |
 | [In Bridge](session/in-bridge.md) |

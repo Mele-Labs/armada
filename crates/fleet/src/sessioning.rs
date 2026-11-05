@@ -550,6 +550,18 @@ where
         self.another_session_started(caller, start).await
     }
 
+    async fn list_started_sessions(&self, caller: Option<api::Caller>) -> Result<ipc::StartedSessions, Refusal> {
+        self.started_listed(caller).await
+    }
+
+    async fn command_started_sessions(
+        self: Arc<Self>,
+        caller: Option<api::Caller>,
+        commands: Vec<ipc::StartedCommand>,
+    ) -> Result<Vec<Result<ipc::StartedJob, Refusal>>, Refusal> {
+        self.started_commanded(caller, commands).await
+    }
+
     async fn change_waiting(
         self: Arc<Self>,
         caller: Option<api::Caller>,

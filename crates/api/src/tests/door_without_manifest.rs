@@ -91,6 +91,8 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "defer_later",
         "finish_up",
         "start_another_job",
+        "list_started_jobs",
+        "command_started_jobs",
         "start_watch",
         "list_manifests",
     ] {
