@@ -1,10 +1,13 @@
 // Pictures and videos a Job showed, drawn in its thread: a press opens a picture full screen, where it zooms by keys, and Close
 // comes back to the thread. Over `thread-media`.
 
-import { button, deckRow, dialog, role, walk } from "../walk";
+import { button, deckRow, dialog, inside, region, role, walk } from "../walk";
 
 const WIDE = "cockpit-wide.jpg";
 const viewer = dialog(WIDE);
+const artifacts = region("Pane: Ledger", {
+  exact: true,
+});
 
 const threadMedia = walk("thread-media", [
   {
@@ -58,6 +61,34 @@ const threadMedia = walk("thread-media", [
   {
     look: button("Open video"),
     say: "A video that cannot play here says so at the same height, and opens in your Mac's own player",
+  },
+  {
+    key: "Alt+Shift+1",
+    on: role("region", "Pane: Thread"),
+    say: "Artifacts, here the Ledger, lists the same files under Files",
+  },
+  {
+    press: inside(artifacts, button("cockpit-recording.mp4")),
+    say: "A video's row opens over the window, as the thread's pictures do",
+  },
+  {
+    look: dialog("cockpit-recording.mp4"),
+    say: "It plays there with its own controls",
+  },
+  {
+    press: button("Close", {
+      exact: true,
+    }),
+    say: "Close, or Esc",
+  },
+  {
+    press: inside(artifacts, button("cockpit-wide.jpg")),
+    say: "A picture's row opens the same large view the thread's does",
+  },
+  {
+    key: "+",
+    on: viewer,
+    say: "It zooms and pans the same way",
   },
 ]);
 
