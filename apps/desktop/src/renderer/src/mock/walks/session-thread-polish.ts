@@ -73,7 +73,4 @@ const narrow = walk(
   NARROW,
 );
 
-export {
-  wide as "session-thread-polish",
-  narrow as "session-thread-polish-narrow",
-};
+export { wide as "session-thread-polish", narrow as "session-thread-polish-narrow" };

@@ -2662,9 +2662,7 @@ export function SessionView({
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.
   // A Mod Job is about Armada, not the repository's configuration, so it carries neither.
   const root =
-    session.dead !== undefined ||
-    session.mod === true ||
-    session.terminal === true
+    session.dead !== undefined || session.mod === true || session.terminal === true
       ? undefined
       : rootOfSession(session, repositories);
   const profile = root === undefined ? undefined : boundProfile(account, root);

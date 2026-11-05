@@ -89,7 +89,4 @@ const kept = walk("session-thread-polish", [
   ...keeping,
 ]);
 
-export {
-  kept as "session-composer-keeps",
-  session as "session-composer-grows",
-};
+export { kept as "session-composer-keeps", session as "session-composer-grows" };

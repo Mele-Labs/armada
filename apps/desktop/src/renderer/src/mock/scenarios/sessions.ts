@@ -73,10 +73,7 @@ const held = (): WorktreesHeld => ({
   ],
 });
 
-const base = holding(
-  "sessions",
-  "Sessions: a blank one, its first write, and what it accumulates",
-);
+const base = holding("sessions", "Sessions: a blank one, its first write, and what it accumulates");
 
 export const s200Sessions: Scenario = {
   ...base,

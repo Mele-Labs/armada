@@ -237,7 +237,11 @@ export function ReferenceLink({
   const refs = useContext(ProseRefs);
   if (refs === null) return <>{children}</>;
   return (
-    <Tooltip key={`${reference.kind}/${reference.id}`} label={`${REFERENCE_KIND[reference.kind]} · ${reference.title}`} asChild>
+    <Tooltip
+      key={`${reference.kind}/${reference.id}`}
+      label={`${REFERENCE_KIND[reference.kind]} · ${reference.title}`}
+      asChild
+    >
       <a
         className="armada-prose__link"
         href={`#${reference.kind}`}

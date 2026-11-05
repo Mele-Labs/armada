@@ -119,7 +119,7 @@ export class FleetConnection {
    * window's own `Picked`** — `RepositoryReads.pickedByWindow` — so two windows on two
    * repositories never share one route builder or one Overview scope. `editing` and
    * `repositoryAllows` hold no mutable state of their own, which is what makes one instance per
-   * window cheap; `overview` does — its own `open` and `asked` — which is exactly why a 
+   * window cheap; `overview` does — its own `open` and `asked` — which is exactly why a
    */
   private readonly windowFacades = new Map<
     number,
