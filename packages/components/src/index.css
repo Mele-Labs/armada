@@ -353,6 +353,11 @@
 @import "./compositions/SketchScene/SketchScene.css";
 @import "./compositions/SketchScene/ScreenView.css";
 
+/* Every @import below this rule is ignored, since an @import after a rule is
+   invalid CSS. Removing it changes most screens: armada-13hm. */
+.armada-late-imports-ignored {
+  min-width: 0;
+}
 @import "./compositions/MainHead/MainHead.css";
 @import "./compositions/ModRow/ModRow.css";
 @import "./compositions/ModRules/ModRules.css";
