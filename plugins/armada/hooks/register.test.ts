@@ -749,6 +749,9 @@ test('the first-message note names show_file for putting a file in front of him'
   const out = await $.classic.SessionStart({ source: 'startup' })
   const note = out.additionalContext?.[0] ?? ''
   expect(note).toContain('call show_file')
+  expect(note).toContain('mp4, mov, webm, up to 256 MiB')
+  expect(note).toContain('page.screencast.start({path})')
+  expect(note).toContain('-movflags +faststart')
 })
 
 test('a Drone is told no session id at a start', async ($, on) => {

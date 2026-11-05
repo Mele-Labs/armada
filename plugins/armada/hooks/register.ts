@@ -546,8 +546,8 @@ const PROPOSE_DRAFT = "To put text the owner should OK before you use it (a pull
 /** `show_sketch`, for any diagram, so the owner is never handed ASCII art. */
 const SHOW_SKETCH = "To show the owner a diagram, a flow, an architecture or a layout, call show_sketch with a title and a scene, passing session_id; never draw ASCII art.";
 
-/** `show_file`, to put a file in the owner's side panel to read or edit. */
-const SHOW_FILE = "To put a file in front of the owner to read or edit, call show_file with its path, passing session_id; it opens in Bridge's side panel.";
+/** `show_file`, to put a file in the owner's side panel to read or edit, or a picture or a video in the thread. */
+const SHOW_FILE = "To put a file in front of the owner, call show_file with its path, passing session_id. A text or code file opens in Bridge's side panel to read or edit. A picture or a video (mp4, mov, webm, up to 256 MiB) draws in the thread, on the Mac and the phone. To make a video in the Playwright browser, call `await page.screencast.start({path})` through browser_run_code_unsafe, act, then `await page.screencast.stop()` the same way, then run `ffmpeg -i in.webm -c:v libx264 -pix_fmt yuv420p -movflags +faststart out.mp4` so it plays on an iPhone, then call show_file with the mp4.";
 
 /** A hosted session's note: the id alone, since `crates/adapters/src/session_rules.md` rides on its prompt. */
 function hostedNote(id: string): string {

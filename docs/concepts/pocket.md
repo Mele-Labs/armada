@@ -77,6 +77,7 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Pairing | A code lives five minutes and claims once. `/pair` answers ten requests a minute, wrong codes included. A claim is not a device until the owner confirms it in Bridge |
 | Subscriptions | A push endpoint must be `https`, so a phone cannot make the Mac post to loopback |
 | Shown files | A file is read only where the Job showed it with `show_file`, or kept it as a revision of its document. Fleet refuses any other path with 404 |
+| Shown video | `GET /shown/<ticket>` is the one route outside the signed layer. A ticket stands in for the signature, is bound to the device that asked, and names only a path Fleet vouched for: see below |
 
 **A refused signature says which failure it is**, so the app can tell this Mac does not know the phone from a request that went wrong.
 
@@ -85,6 +86,21 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | 401 | This phone is not paired with this Mac. The app marks this Mac alone as not paired |
 | 400 | No signature, a time that is not a number, a clock off by more than a minute, or a signature that does not match |
 | 409 | The same signature was sent before |
+
+**The video address is unsigned on purpose.** A `<video>` element sends no custom header, so it cannot sign a request.
+The phone signs the ask instead: `GET /api/sessions/shown/address` is an ordinary signed route, which Fleet answers only for a video the Job showed, and the Gateway answers `{ address: "/shown/<ticket>", media_type }`.
+
+| Part | Holds |
+|---|---|
+| The ticket | 32 random bytes, kept in memory only |
+| Its life | 15 minutes from minting, and at most 64 are live, the oldest dropped first |
+| Its device | Bound to the device that asked. Every request is refused unless that device is still paired, so unpairing a phone ends its streams |
+| Its path | None of its own: the ticket names the path Fleet vouched for, and the request carries no path |
+| A restart | The Gateway restarting ends every ticket |
+| Anything else | A bare 404: unknown, expired, an unpaired device, or a file gone since minting |
+
+**The answer is `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, and the bytes are read from disk in ranges, never held whole.**
+The phone asks once more for an address when one lapses, and the video keeps its place.
 
 ## What the phone sees
 
@@ -96,7 +112,8 @@ The opt-in is the file `pocket` in Armada's machine directory, `~/Library/Applic
 | Waiting | The live Jobs waiting on something that is not the owner: `held_open_by`, `limited_until`, `starts_when`, or `stopped` while Fleet is still bringing it back. A phone has no hover, so a row's second line says what holds it | `GET /api/sessions` |
 | Running | The live Jobs at work (`working`, or `reading` the request), `paused` or idle, each with its own mark. A reply reads as idle here, since the phone keeps no record of what the owner read, and a subagent or a command at work reads as working, since what runs stays on the Mac | `GET /api/sessions` |
 | A Job | Its whole thread, as Bridge reads it | `GET /api/sessions/one?session_id=` |
-| A file | A file the Job showed: its text, or a picture | `GET /api/sessions/shown?session_id=&path=` |
+| A file | A file the Job showed: its text, or a picture, drawn in the thread | `GET /api/sessions/shown?session_id=&path=` |
+| A video | A video the Job showed, played in the thread, with its place kept | `GET /api/sessions/shown/address?session_id=&path=`, signed, then `GET /shown/<ticket>`, unsigned |
 | A document | A revision the Job kept of its page, as text | `GET /api/sessions/shown?session_id=&path=`, `path` one its record's `revisions` names |
 | This Mac | The name its rows are labelled with: the first label of its address, or its host name | `GET /api/machine` |
 
@@ -110,13 +127,16 @@ Otherwise an ask, a slot choice (unless Fleet is creating it), the delivery ques
 | The phone gets | The phone never gets |
 |---|---|
 | A Job's whole thread and its record, its folder on the Mac among it | A walk's window: its row says to open it on the Mac |
-| A file the Job showed, up to 1 MiB, as text or a picture's bytes | A file the Job did not show, or one over 1 MiB (413) |
+| A file the Job showed: text up to 1 MiB, or a picture's bytes up to 8 MiB | A file the Job did not show, or text over 1 MiB or a picture over 8 MiB (413) |
+| A video the Job showed, of any size, in ranges from the Mac's disk | A video the Job did not show, or one through an address that has lapsed or whose phone is unpaired |
 | A revision the Job kept of its document, up to 1 MiB, as text | The page in the worktree, or a revision another Job kept |
 | A sketch the Job drew, from the scene its record carries | A terminal |
 
 **`/api/sessions/shown`** is Fleet's `get_shown_file`, which reads only a path the Job's record holds as an artifact of form `file` it showed, or one a `document` artifact's `revisions` names.
 **The phone asks for a revision by its kept path**, as the record names it, oldest first, so a page has no route of its own.
-A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`) comes as its bytes under its type; anything else must be UTF-8 and comes as `{ path, text }`.
+A picture (`png`, `jpg`, `jpeg`, `gif`, `webp`, `heic`) comes as its bytes under its type, up to 8 MiB, since a retina screenshot often passes 1 MiB and whatever `show_file` accepts should open.
+A video (`mp4`, `mov`, `webm`) is never read: it comes as `{ path, media_type, bytes }`, whatever its size, and plays through the address above.
+Anything else must be UTF-8 and comes as `{ path, text }`, up to 1 MiB.
 
 ## What the phone can do
 
