@@ -53,7 +53,7 @@ fn a_parent_job_reads_all_the_jobs_it_started_in_one_act_stops_them_in_one_act_a
         (ended(), None, Some(SUMMARY)),
     ]
     .into_iter()
-    .map(|(record, step, said)| StartedJob::of(&record, step.map(str::to_string), said.map(str::to_string)))
+    .map(|(record, step, said)| StartedJob::of(&record, ipc::SessionId::carried(PARENT), step.map(str::to_string), said.map(str::to_string)))
     .collect();
     assert_eq!(lines.iter().map(|one| one.summary.id.as_str()).collect::<Vec<_>>(), children, "one line for each, in the same order");
 

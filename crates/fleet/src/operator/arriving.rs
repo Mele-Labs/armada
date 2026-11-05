@@ -277,6 +277,20 @@ pub struct LiveJob {
     pub paths: Vec<String>,
     /// The issues it holds or its plan's groups work.
     pub issues: Vec<String>,
+    /// Who started it, as `(id, title)`, nearest first up to the root. Empty for a Job the person
+    /// started. An ended starter is named too.
+    pub started_by: Vec<(String, String)>,
+}
+
+/// A Job's starters, nearest first: `Job <id> "<title>", which Job <id> "<title>" started`, each
+/// further one started the one before it.
+pub(super) fn started_by_shown(chain: &[(String, String)]) -> String {
+    let mut named = chain.iter().map(|(id, title)| format!("Job {id} \"{title}\""));
+    let mut out = named.next().unwrap_or_default();
+    for one in named {
+        out.push_str(&format!(", which {one} started"));
+    }
+    out
 }
 
 impl LiveJob {
@@ -290,6 +304,9 @@ impl LiveJob {
         }
         if !self.issues.is_empty() {
             out.push_str(&format!("    Its issues: {}\n", self.issues.join(", ")));
+        }
+        if !self.started_by.is_empty() {
+            out.push_str(&format!("    Started by: {}\n", started_by_shown(&self.started_by)));
         }
         out
     }

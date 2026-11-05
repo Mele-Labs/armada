@@ -7,10 +7,10 @@ The case was 4 Nov 2026: a parent started eleven Jobs, could not see their state
 
 | | |
 |---|---|
-| `list_started_jobs` | Every Job the caller started, oldest first. Each is its summary line (id, title, state, branch, pull requests) with: whether it is held on its start card or paused; the workflow step it is on and what that step waits on; what it waits on the person for, the items Needs you shows for it, Fleet's own `unsent:<id>` among them; the Job it waits on before it starts, if any; and, once it ended, why and what its agent said with `all_done` |
+| `list_started_jobs` | Every Job below the caller, the ones it started and the ones those started in turn: each child is followed by its own descendants, oldest first at each level. Each is its summary line (id, title, state, branch, pull requests) with `started_by`, the Job that started it, and: whether it is held on its start card or paused; the workflow step it is on and what that step waits on; what it waits on the person for, the items Needs you shows for it, Fleet's own `unsent:<id>` among them; the Job it waits on before it starts, if any; and, once it ended, why and what its agent said with `all_done` |
 | `command_started_jobs` | A list of entries `{session_id, act, ...}`, each done as a call of its own would be, in order. A refused entry leaves the others done, and each is answered in the order given: the child as it now stands, or the refusal |
 | The caller | Placed by its connection, as `start_another_session` places it. **No body names it**, so a Job cannot read or command another's children. A call that places no hosted Job is refused 422 `fleet.started_unplaced` |
-| Whose | A child is a Job the caller's own `started_to` link names. **Every act refuses any other Job with 422 `fleet.started_not_yours`**, a grandchild, a sibling and the caller's own parent included. A fork is not a child |
+| Whose | A child is a Job the caller's own `started_to` link names. **The read walks the whole tree below the caller; the acts do not. Every act refuses any other Job with 422 `fleet.started_not_yours`**, a grandchild, a sibling and the caller's own parent included. A fork is not a child |
 | Not gated | By no Operator switch. Any Job may act on its own children |
 
 | Act | What it does |
