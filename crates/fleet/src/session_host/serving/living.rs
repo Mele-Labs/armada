@@ -327,6 +327,7 @@ where
                 loop {
                     tokio::time::sleep(every).await;
                     fleet.sweep_quiet().await;
+                    fleet.held_moves_made().await;
                     fleet.processes_moved_onto_mod().await;
                 }
             });
@@ -350,13 +351,22 @@ where
         })
     }
 
-    /// End every process that has been quiet for longer than the setting, then compact the Jobs
-    /// waiting on the owner whose cache is nearly out. **Called on a timer, and by a test**, which
-    /// would not wait for one.
+    /// End every process that has been quiet for longer than the setting, unless an agent of it is
+    /// still working, then compact the Jobs waiting on the owner whose cache is nearly out. **Called
+    /// on a timer, and by a test**, which would not wait for one.
     pub(crate) async fn sweep_quiet(self: &Arc<Self>) {
         let quiet = self.hosts().quiet();
+        let is_quiet = |state: &super::super::State| {
+            state.process.is_some()
+                && matches!(state.turn, SessionTurn::Idle)
+                && state.asked.is_none()
+                // A move ends this process itself, and tells the Job.
+                && state.moving.is_none()
+                && state.last_active.elapsed() >= quiet
+        };
         let mut ended = Vec::new();
         let mut closed = Vec::new();
+        let mut gone_quiet = Vec::new();
         for (id, runtime) in self.hosts().all() {
             let mut state = runtime.state();
             if state.reattached_busy
@@ -369,12 +379,17 @@ where
                 closed.push(id.clone());
                 continue;
             }
-            let idle = matches!(state.turn, SessionTurn::Idle);
-            if state.process.is_some()
-                && idle
-                && state.asked.is_none()
-                && state.last_active.elapsed() >= quiet
-            {
+            if is_quiet(&state) {
+                gone_quiet.push((id, Arc::clone(&runtime)));
+            }
+        }
+        for (id, runtime) in gone_quiet {
+            if self.work_beyond_the_turn(&id).await {
+                continue;
+            }
+            // Read again under the lock: a turn may have begun while the ledger was read.
+            let mut state = runtime.state();
+            if is_quiet(&state) {
                 Self::let_go(&mut state);
                 ended.push(id);
             }

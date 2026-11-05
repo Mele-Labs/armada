@@ -159,12 +159,21 @@ fn rig_over(
     home: TempDir,
     fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
 ) -> Rig {
+    rig_quiet_after(home, Duration::from_secs(600), fit)
+}
+
+/// A rig whose processes go quiet after `quiet`, over fittings the test changes first.
+pub(super) fn rig_quiet_after(
+    home: TempDir,
+    quiet: Duration,
+    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+) -> Rig {
     let stand_in = Arc::new(StandIn::default());
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fit(&mut fittings);
     let fleet = Fleet::assembled(fittings).hosting_sessions_on(
         Arc::new(Shared(Arc::clone(&stand_in))),
-        Duration::from_secs(600),
+        quiet,
     );
     let one = fleet.repositories().first().expect("a served repository");
     let manifest = ManifestId::carried(one.manifest().id().as_str());

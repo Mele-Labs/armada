@@ -425,6 +425,9 @@ pub(crate) struct Move {
     pub slot: u32,
     pub branch: String,
     pub directory: String,
+    /// No turn is standing down for it: it waits on agents still working, so what the Job says
+    /// meanwhile is said to the person.
+    pub held: bool,
 }
 
 /// One session's state that lives only as long as Fleet.
@@ -451,8 +454,8 @@ pub(crate) struct State {
     pub turn: SessionTurn,
     /// Messages Fleet wrote whose turn has not started.
     pub queued: u32,
-    /// The slot the session was leased, waiting for its turn to end so the
-    /// process can be resumed there.
+    /// The slot the session was leased, waiting for its turn to end and its agents to finish so
+    /// the process can be resumed there.
     pub moving: Option<Move>,
     /// Sessions that wrote to this one and whose message has not yet started a
     /// turn.
@@ -576,6 +579,15 @@ impl State {
             && self.moving.is_none()
             && !self.reattached_busy
             && !self.proposal.holds_back()
+    }
+
+    /// Whether a move waits on nothing but the agents still working.
+    pub(crate) fn move_due(&self) -> bool {
+        self.moving.is_some()
+            && matches!(self.turn, SessionTurn::Idle)
+            && self.queued == 0
+            && self.unstarted.is_empty()
+            && self.asked.is_none()
     }
 
     fn new() -> State {

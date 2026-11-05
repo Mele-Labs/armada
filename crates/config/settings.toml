@@ -682,7 +682,7 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-How long the process of a job Fleet hosts may sit with no turn running before Fleet ends it. The next message resumes the job by its id, so nothing is lost; what is lost is that another job's message cannot wake a job whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
+How long the process of a job Fleet hosts may sit with no turn running before Fleet ends it, unless an agent it started is still working. The next message resumes the job by its id, so nothing is lost; what is lost is that another job's message cannot wake a job whose process is gone, which Fleet answers by resuming it for a hosted sender. `docs/concepts/session.md`, *A session Fleet hosts*.
 
 **Ten, and nothing measured it.** Long enough to cover a person reading a reply and typing the next, short enough that a dozen open jobs are not a dozen idle processes. Carried as `fleet::session_host::SHIPPED_QUIET_TIMEOUT`, and a fitting on `Hosts` for `HelmAskHold`'s reason: a test plants a bound it can outlive. Not yet resolved from a user setting.
 
