@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{CallDetail, DroneEvent, TaskStatus};
-use api::Sessions;
+use api::{HostedSessions, Sessions};
 use ipc::{AttachmentReport, SessionFact, SessionId, SessionReport, SessionRow, SessionTurn};
 use super::planted::Held;
 use super::session_host::{denied, eventually, rig_quiet_after, Rig};
