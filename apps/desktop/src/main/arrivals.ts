@@ -253,11 +253,11 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
 
   // A Helm call waits inside one tool call for the length of one reply, so the card goes up on the
   // ask and comes down on the answer, whoever answered — a person, or fleet's bound running out. #1389.
-  if (event.kind === "helm.asking_to_run") {
+  if (event.kind === "call.asking_to_run") {
     host.questions.helmAsking(event.waiting);
     return;
   }
-  if (event.kind === "helm.call_answered") {
+  if (event.kind === "call.answered") {
     host.questions.helmAnswered(event.call);
     return;
   }

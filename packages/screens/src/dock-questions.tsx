@@ -10,7 +10,7 @@ import { outstandingId, type Outstanding } from "./outstanding";
 
 /** What a person may do from a card. Absent draws the control off. */
 export type DockActs = {
-  /** An answer by its wire name, a `HelmCallAnswer`. #936. */
+  /** An answer by its wire name, a `CallAnswer`. #936. */
   onAnswer?: (question: Outstanding, answer: string) => void;
   /** True while this card's own answer is in flight. */
   answering?: (question: Outstanding) => boolean;

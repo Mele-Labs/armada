@@ -2,7 +2,7 @@
 // `commands.ts` is.
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { HelmCallAnswer, Outcome } from "@armada/protocol";
+import type { CallAnswer, Outcome } from "@armada/protocol";
 import type { DockActs, Outstanding } from "@armada/screens";
 import { dockQuestionsOf, outstandingId, refusalWords } from "@armada/screens";
 
@@ -72,5 +72,5 @@ function sent(
   question: Outstanding,
   answer: string,
 ): Promise<Outcome> {
-  return commands.answerHelmCall(question.call.call, answer as HelmCallAnswer);
+  return commands.answerHelmCall(question.call.call, answer as CallAnswer);
 }

@@ -28,7 +28,7 @@ import type {
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
 import type { HelmContext, LandCheckAt, ThoughtTarget } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
-import type { HelmCallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
+import type { CallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
 import { NotesWatch } from "../shared/note-artifacts";
 import { handleAnnotations } from "./annotations";
@@ -872,7 +872,7 @@ void app.whenReady().then(() => {
   // waiting inside its own tool call, and nothing on the board moves. #1389.
   ipcMain.handle(
     CHANNELS.answerHelmCall,
-    (_event, call: string, answer: HelmCallAnswer, note?: string) =>
+    (_event, call: string, answer: CallAnswer, note?: string) =>
       connection?.commands.answerHelmCall(call, answer, note),
   );
   // The owner's answer to one retro item.

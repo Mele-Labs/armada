@@ -119,7 +119,7 @@ function fleetWith(refuse = false) {
             health: {
               probes: [],
               not_probed: [],
-              helm_action_authority: "read_only",
+              action_authority: "read_only",
             },
           },
           jobs: [

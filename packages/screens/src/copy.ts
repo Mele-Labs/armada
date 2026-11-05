@@ -6,7 +6,7 @@
 // among them** — those come from the generated vocabulary, which is what stops
 // a second one being typed into a component.
 
-import type { HelmCallAnswer, Outcome } from "@armada/protocol";
+import type { CallAnswer, Outcome } from "@armada/protocol";
 import { NOTHING_SERVED, servesNothing } from "./locate-reads";
 
 /** What a refusal says. Every one names what happened and what to do. */
@@ -58,7 +58,7 @@ export function said(outcome: Outcome): string {
  * into the person's own settings rather than into fleet's table.
  */
 export const HELM_CALL_ANSWER: Record<
-  HelmCallAnswer,
+  CallAnswer,
   {
     label: string;
     means: string;
@@ -103,7 +103,7 @@ export const HELM_CALL_ANSWER: Record<
 /** The once answers on a card over a session reaching past its slots, in the owner's words for them. */
 const REACH_ONCE: Partial<
   Record<
-    HelmCallAnswer,
+    CallAnswer,
     {
       label: string;
       means: string;
@@ -121,7 +121,7 @@ const REACH_ONCE: Partial<
 };
 
 /** [`helmOfferedOf`] for a card that names the path it reaches: Refuse reads as Reject once. */
-export function reachOfferedOf(offers: readonly HelmCallAnswer[]): OfferedHelmAnswer[] {
+export function reachOfferedOf(offers: readonly CallAnswer[]): OfferedHelmAnswer[] {
   return helmOfferedOf(offers).map((one) => ({
     ...one,
     ...REACH_ONCE[one.offer],
@@ -129,7 +129,7 @@ export function reachOfferedOf(offers: readonly HelmCallAnswer[]): OfferedHelmAn
 }
 
 /** What a person may answer about one helm call, worded, in fleet's own order. */
-export function helmOfferedOf(offers: readonly HelmCallAnswer[]): OfferedHelmAnswer[] {
+export function helmOfferedOf(offers: readonly CallAnswer[]): OfferedHelmAnswer[] {
   const known: Partial<
     Record<
       string,
@@ -155,7 +155,7 @@ export function helmOfferedOf(offers: readonly HelmCallAnswer[]): OfferedHelmAns
 
 /** One helm answer, worded. No rule picker: fleet already derived the one rule. */
 export type OfferedHelmAnswer = {
-  offer: HelmCallAnswer;
+  offer: CallAnswer;
   label: string;
   means: string;
 };

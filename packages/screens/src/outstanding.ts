@@ -1,7 +1,7 @@
 // A question held open for a person. Its own file, without JSX, because main publishes
 // it on `BridgeState` and main's build reads no `.tsx`.
 
-import type { HelmCallInFlight } from "@armada/protocol";
+import type { CallInFlight } from "@armada/protocol";
 
 /**
  * One question held open for a person: a call Helm made that the person's own settings do not
@@ -10,7 +10,7 @@ import type { HelmCallInFlight } from "@armada/protocol";
  */
 export type Outstanding = {
   kind: "helm";
-  call: HelmCallInFlight;
+  call: CallInFlight;
 };
 
 /** Unique across the list. */

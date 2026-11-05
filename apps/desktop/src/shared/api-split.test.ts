@@ -35,7 +35,7 @@ import type {
   LessonsRead,
   RetroRead,
   RetroSubject,
-  HelmCallAnswer,
+  CallAnswer,
   Followed,
   FleetRestart,
   FrameRead,
@@ -343,7 +343,7 @@ type OldBridgeApi = {
   readRequestRepository: (words: string) => Promise<RequestRepositoryRead>;
   changeSlotPool: (manifestId: string, change: ChangeSlotPool) => Promise<Outcome>;
   rescueSlot: (manifestId: string, rescue: RescueSlot) => Promise<RescueOutcome>;
-  answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string) => Promise<Outcome>;
+  answerHelmCall: (call: string, answer: CallAnswer, note?: string) => Promise<Outcome>;
   savePreference: (save: SavePreference) => Promise<Outcome>;
   saveSettings: (changes: SaveSettings["changes"]) => Promise<Outcome>;
   askModels: () => Promise<void>;

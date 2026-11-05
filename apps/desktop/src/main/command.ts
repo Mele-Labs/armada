@@ -15,7 +15,7 @@ import type { RescueOutcome } from "@armada/cleanup/api";
 import type { BridgeState } from "../shared/bridge";
 import type { FilesFound, Outcome, SavePreference, SaveSettings } from "@armada/protocol";
 import type { ChangeSlotPool, RescueSlot, SlotPoolChanged, SlotRescued } from "@armada/protocol";
-import type { AnswerHelmCall, HelmCallAnswer } from "@armada/protocol";
+import type { AnswerCall, CallAnswer } from "@armada/protocol";
 import type { LessonAnswer } from "@armada/protocol";
 import type { LessonSessionRead } from "@armada/screens/src/lessons/session-wire";
 import { ask } from "./request";
@@ -164,7 +164,7 @@ export class Commands {
    * with the calls still waiting, which the dock does not need — the event says
    * the same thing — so only the outcome comes back.
    */
-  async answerHelmCall(call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> {
+  async answerHelmCall(call: string, answer: CallAnswer, note?: string): Promise<Outcome> {
     const port = this.board.port();
     if (port === null)
       return {
@@ -173,7 +173,7 @@ export class Commands {
       };
     // Nothing rather than an empty string, `answerCommand`'s rule.
     const said = note?.trim() ?? "";
-    const body: AnswerHelmCall = {
+    const body: AnswerCall = {
       call,
       answer,
       ...(said === ""
@@ -182,7 +182,7 @@ export class Commands {
             note: said,
           }),
     };
-    const answered = await ask(port, "POST", "/helm/calls/answer", body);
+    const answered = await ask(port, "POST", "/calls/answer", body);
     return answered.ok === true
       ? {
           ok: true,

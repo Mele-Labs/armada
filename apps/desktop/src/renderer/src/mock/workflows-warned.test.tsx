@@ -33,7 +33,7 @@ test("a Fleet that does not say a file was left out draws no mark", async () => 
         health: {
           probes: [],
           not_probed: [],
-          helm_action_authority: "acting",
+          action_authority: "acting",
         },
       },
     },

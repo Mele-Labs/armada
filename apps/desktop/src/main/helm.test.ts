@@ -374,7 +374,7 @@ describe("Helm reading a thought", () => {
     });
     expect(requests).toEqual([
       {
-        url: "/helm/read_thought",
+        url: "/operator/read_thought",
         method: "POST",
       },
     ]);

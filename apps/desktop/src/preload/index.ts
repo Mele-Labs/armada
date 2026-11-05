@@ -351,7 +351,7 @@ import type {
   ProposalAnswer,
   RepositoryScanRead,
 } from "@armada/screens/src/setup-reads";
-import type { HelmCallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
+import type { CallAnswer, SavePreference, SaveSettings } from "@armada/protocol";
 
 // The whole surface the renderer is allowed to see.
 //
@@ -405,7 +405,7 @@ const api: BridgeApi = {
 
   // One held helm call. The note is a person's own words, read only on a
   // refusal; `undefined` crosses as `undefined`.
-  answerHelmCall: (call: string, answer: HelmCallAnswer, note?: string): Promise<Outcome> =>
+  answerHelmCall: (call: string, answer: CallAnswer, note?: string): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.answerHelmCall, call, answer, note),
   // A person's Bridge preferences. **Fleet-wide, and no Job id crosses this
   // channel** — the only act on this surface that names none.

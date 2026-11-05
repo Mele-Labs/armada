@@ -49,7 +49,7 @@ import type {
   RestoreKitPiece,
 } from "@armada/protocol";
 import type { Outcome, OrganizeAction, OrganizeProposal } from "@armada/protocol";
-import type { HelmCallAnswer, StartCheckoutRun } from "@armada/protocol";
+import type { CallAnswer, StartCheckoutRun } from "@armada/protocol";
 import type { HelmContext } from "@armada/protocol";
 import type { StudioCapture, StudioNodeByHand } from "@armada/protocol";
 import type { SendSessionMessage } from "@armada/protocol";
@@ -361,7 +361,7 @@ export function useCommands(sending: Sending) {
   /** Answer one held Helm call. What draws the card's own controls off while this is out is the call id held here. #1389. */
   async function answerHelmCall(
     call: string,
-    chose: HelmCallAnswer,
+    chose: CallAnswer,
     note?: string,
   ): Promise<Outcome> {
     setAnsweringHelm(call);

@@ -199,7 +199,7 @@ export class HelmConnection {
   }
 
   /**
-   * `POST /helm/read_thought`. **Answered to the caller and never published**: it is the dock's gesture
+   * `POST /operator/read_thought`. **Answered to the caller and never published**: it is the dock's gesture
    * on one message. No repository in the path, since a thought is read against everything Fleet serves.
    */
   async readThought(text: string): Promise<ThoughtRead> {
@@ -216,7 +216,7 @@ export class HelmConnection {
       text,
     };
     // A model call is inside the request, and Fleet answers `question` at its own 20 s budget.
-    const answer = await ask(port, "POST", "/helm/read_thought", body, MODEL_CALL_MS);
+    const answer = await ask(port, "POST", "/operator/read_thought", body, MODEL_CALL_MS);
     return answer.ok === true
       ? {
           ok: true,

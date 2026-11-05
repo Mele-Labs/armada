@@ -47,7 +47,7 @@ const state = {
         },
       ],
       not_probed: [],
-      helm_action_authority: "acting" as const,
+      action_authority: "acting" as const,
     },
   },
 };

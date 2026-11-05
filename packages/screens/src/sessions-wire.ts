@@ -11,7 +11,7 @@ import type {
   Attachment,
   AttachmentHistory,
   ContextBreakdown as WireContextBreakdown,
-  HelmCallInFlight,
+  CallInFlight,
   JobLifecycles,
   ProposedField,
   SentFile,
@@ -982,7 +982,7 @@ const tagOf = (tag: WireTag): SessionTag => ({
       }),
 });
 
-function askOf(ask: HelmCallInFlight): SessionAsk {
+function askOf(ask: CallInFlight): SessionAsk {
   return {
     // The card is what a person allows, so it reads the command whole where `detail` was cut.
     command: ask.whole ?? (ask.detail === "" ? ask.tool : ask.detail),

@@ -9,7 +9,7 @@
 // or a write, so its card says run and shows the command (the owner, 30 Oct 2026).
 // Mock data only.
 
-import type { HelmCallInFlight, RepositorySummary } from "@armada/protocol";
+import type { CallInFlight, RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
 
 import { onBoard } from "../moment";
@@ -32,7 +32,7 @@ const PATH = "/Users/user/Documents/handoffs/HANDOFF.md";
 // Longer than the 200 characters `detail` keeps, so Fleet cuts it and sends it whole beside.
 const READING = `cat ${PATH} | sed -n '1,120p' | grep -v '^<!--' | awk 'NF' > /tmp/handoff.txt && wc -l /tmp/handoff.txt && grep -n 'margin' /tmp/handoff.txt | head -n 20 && tail -n 30 /tmp/handoff.txt && echo gutterline`;
 
-const reaching: HelmCallInFlight = {
+const reaching: CallInFlight = {
   call: "helm-7",
   manifest_id: "armada",
   asked_at: AT,
@@ -54,7 +54,7 @@ const reaching: HelmCallInFlight = {
   reaches_to: "read",
 };
 
-const writing: HelmCallInFlight = {
+const writing: CallInFlight = {
   call: "helm-8",
   manifest_id: "armada",
   asked_at: AT,
@@ -76,7 +76,7 @@ const writing: HelmCallInFlight = {
 
 const RUNNING = "node scripts/tidy.mjs ~/code/other-repo --dry-run";
 
-const running: HelmCallInFlight = {
+const running: CallInFlight = {
   call: "helm-9",
   manifest_id: "armada",
   asked_at: AT,

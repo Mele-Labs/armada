@@ -4,7 +4,7 @@ import { NOTICES } from "@armada/protocol";
 import type {
   Attachment,
   AttachmentHistory,
-  HelmCallInFlight,
+  CallInFlight,
   SessionRecord,
   SessionRow,
   WorkflowSummary,
@@ -2149,7 +2149,7 @@ describe("a session", () => {
 
   it("asks for a cut command whole, and for one that fits as its line", () => {
     const whole = `${"echo ok;".repeat(36)} echo the-last-word`;
-    const of = (asked: Pick<HelmCallInFlight, "detail" | "truncated" | "length" | "whole">) =>
+    const of = (asked: Pick<CallInFlight, "detail" | "truncated" | "length" | "whole">) =>
       sessionOfRecord(
         record("01ABCDEFGHJKMNPQRSTVWXYZ04", {
           hosted: {
