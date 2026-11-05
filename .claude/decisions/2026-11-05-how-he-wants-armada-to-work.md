@@ -33,7 +33,7 @@ Asked what the Operator should do when a Job asks which way to build something w
 
 > This really depends on the project/repo(s) that I am working in and what type of build we're talking about. Is this a UI build that involves coming up with some UX or just a backend build. Is it a complex build or small build. what are the risks. It should realistically dispatch some kind of review of that work and then when I come back it should have sound proposals for me to select from. If it could not decide it should let me know so that I can jump into the job and start assisting directly.
 
-The Operator he approved on 4 Nov settles a question itself when Answer is on, machine-wide. Shown the difference, he chose to talk it through first. **Nothing about the Operator changes until he has.**
+Shown the Operator he approved on 4 Nov, he chose to talk it through first. Since #3296 each role stands at Off, Suggest or On, any role can differ per repository, and at Suggest a ruling waits for his one press. It does not yet dispatch a review or weigh a project's risk. **This file asks for no change to the Operator until he has talked it through.**
 
 ## The order he set, on 5 Nov
 
