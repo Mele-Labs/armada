@@ -39,6 +39,8 @@ pub enum NotMarked {
     Unreadable(String),
     /// Its `sent.sessionId` is absent or another session's.
     NotSentHere,
+    /// It names a Job already.
+    SentAlready,
 }
 
 /// The note in `bytes` with `status` `"done"` and `updatedAt` `at`, every other field as it was.
@@ -56,6 +58,35 @@ pub fn unsent(bytes: &[u8], session_id: &str, at: &str) -> Result<Vec<u8>, NotMa
     let mut fields = sent_here(bytes, session_id)?;
     fields.retain(|(key, _)| key != "sent");
     set(&mut fields, "status", "open");
+    set(&mut fields, "updatedAt", at);
+    written(fields)
+}
+
+/// The note in `bytes` with `status` `"done"` and `updatedAt` `at`, **whichever Job it was sent to, or
+/// none**: Fleet's own mark on a note it filed as an issue or linked to one.
+pub fn filed_done(bytes: &[u8], at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = fields_of(bytes)?;
+    set(&mut fields, "status", "done");
+    set(&mut fields, "updatedAt", at);
+    written(fields)
+}
+
+/// The note in `bytes` sent to the Job `session_id`, called `title`, at `at`, as Bridge's own send
+/// leaves it: `sent` before the note's words, and every other key where it was. A note that already
+/// names a Job is refused, so one Job's note is never taken by another.
+pub fn sent_to(bytes: &[u8], session_id: &str, title: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = fields_of(bytes)?;
+    if fields.iter().any(|(key, _)| key == "sent") {
+        return Err(NotMarked::SentAlready);
+    }
+    let leaf = |text: &str| Ordered::Leaf(Value::String(text.to_string()));
+    let sent = Ordered::Object(vec![
+        ("at".to_string(), leaf(at)),
+        ("sessionId".to_string(), leaf(session_id)),
+        ("title".to_string(), leaf(title)),
+    ]);
+    let place = fields.iter().position(|(key, _)| key == "text").unwrap_or(fields.len());
+    fields.insert(place, ("sent".to_string(), sent));
     set(&mut fields, "updatedAt", at);
     written(fields)
 }
@@ -104,11 +135,7 @@ pub fn note_read(bytes: &[u8]) -> Result<NoteRead, String> {
 
 /// The fields of the note in `bytes`, in order, where its `sent.sessionId` is `session_id`.
 fn sent_here(bytes: &[u8], session_id: &str) -> Result<Vec<(String, Ordered)>, NotMarked> {
-    let note: Ordered =
-        serde_json::from_slice(bytes).map_err(|why| NotMarked::Unreadable(why.to_string()))?;
-    let Ordered::Object(fields) = note else {
-        return Err(NotMarked::Unreadable(String::from("not a JSON object")));
-    };
+    let fields = fields_of(bytes)?;
     let here = fields.iter().any(|(key, value)| {
         key == "sent"
             && matches!(value, Ordered::Object(sent) if sent.iter().any(|(key, value)| {
@@ -119,6 +146,15 @@ fn sent_here(bytes: &[u8], session_id: &str) -> Result<Vec<(String, Ordered)>, N
         return Err(NotMarked::NotSentHere);
     }
     Ok(fields)
+}
+
+/// The fields of the note in `bytes`, in order.
+fn fields_of(bytes: &[u8]) -> Result<Vec<(String, Ordered)>, NotMarked> {
+    let note: Ordered = serde_json::from_slice(bytes).map_err(|why| NotMarked::Unreadable(why.to_string()))?;
+    match note {
+        Ordered::Object(fields) => Ok(fields),
+        _ => Err(NotMarked::Unreadable(String::from("not a JSON object"))),
+    }
 }
 
 fn written(fields: Vec<(String, Ordered)>) -> Result<Vec<u8>, NotMarked> {

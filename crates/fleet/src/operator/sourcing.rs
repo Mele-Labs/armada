@@ -1,8 +1,9 @@
 //! Fleet handing the Operator work from outside a Job's own run, and doing what it rules on it.
 //! **Each arrives once**: a report as it is kept, an issue new since the last read of its tracker,
 //! a red main as Autopilot's red kind finds it, a review request read at most every ten minutes
-//! beside the read of main, and a Later item as a Job hands it over. Nothing arrives while the
-//! Operator is off.
+//! beside the read of main, a Later item as a Job hands it over, and a note the person left on
+//! Bridge once its file is new to the repository's annotations. Nothing arrives while the Operator
+//! is off.
 //!
 //! **Nothing is written to the forge.** A link is kept on this Mac, and File writes only to the
 //! repository's beads, never to an issue the person or anyone else filed.
@@ -13,10 +14,11 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, OpenIssue, ReviewList, ReviewListAsk, Vcs, WorkProduct};
 use api::HostedSessions;
+use ipc::annotations::{note_read, NoteRead};
 use ipc::{ManifestId, Notice, SessionTag, SessionVoice, StartSession, TagKind, MOST_PER_LIST};
 
 use super::seat::Seat;
-use super::{held, Arrival, Arrived, Filed, Handed, NewIssue, Report, ReviewRequest, Ruling, Way, NEEDS_YOU_WAIT};
+use super::{held, Arrival, Arrived, Filed, Handed, NewIssue, Note, Report, ReviewRequest, Ruling, Way, NEEDS_YOU_WAIT};
 use crate::autopilot::report_brief;
 use crate::daemon::Fleet;
 use crate::pull_review_lists::row_of;
@@ -39,6 +41,9 @@ pub(crate) struct Sources {
     /// The issues the Operator filed itself, which are not new to it.
     filed: Mutex<BTreeSet<String>>,
     reviews_read: Mutex<Option<tokio::time::Instant>>,
+    /// The note files each repository's last listing held. A repository with no entry has not been
+    /// listed since Fleet started, so its first listing only marks what is there.
+    notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
 }
 
 impl Seat {
@@ -68,6 +73,19 @@ impl Seat {
                 excerpt: one.excerpt.as_written().to_string(),
                 author: one.author.as_written().to_string(),
             });
+        }
+    }
+
+    /// What `manifest`'s annotation directories hold now, as note ids: those not seen in an earlier
+    /// listing, which the first listing since Fleet started leaves empty.
+    fn notes_new(&self, manifest: &str, listed: BTreeSet<String>) -> Vec<String> {
+        let mut notes = held(&self.sources.notes);
+        match notes.get_mut(manifest) {
+            Some(seen) => listed.into_iter().filter(|id| seen.insert(id.clone())).collect(),
+            None => {
+                notes.insert(manifest.to_string(), listed);
+                Vec::new()
+            }
         }
     }
 
@@ -114,8 +132,8 @@ where
         self.operator_seat().hand_sourced(arrival);
     }
 
-    /// Each report kept, issue new and Later item handed over since the last tick, handed to the
-    /// Operator once. While it is off, what waited is let go.
+    /// Each report kept, issue new, Later item handed over and note left since the last tick, handed
+    /// to the Operator once. While it is off, what waited is let go.
     pub async fn sources_handed(&self) {
         let seat = self.operator_seat();
         let reports = std::mem::take(&mut *held(&seat.sources.reports));
@@ -137,6 +155,37 @@ where
                 self.hand_once(arrival).await;
             }
         }
+        for arrival in self.notes_arrived().await {
+            self.hand_once(arrival).await;
+        }
+    }
+
+    /// The notes left since the last listing of each hosted repository, as arrivals: those open and
+    /// sent to no Job. **Only the files new since the last listing are read**, and the first listing
+    /// since Fleet started reads none.
+    async fn notes_arrived(&self) -> Vec<Arrival> {
+        let mut arrivals = Vec::new();
+        for served in self.repositories().hosted() {
+            let manifest = served.manifest().id().as_str().to_string();
+            let places = adapters::annotation_places(std::path::Path::new(served.root()));
+            let listed = tokio::task::spawn_blocking(move || note_files(&places)).await.unwrap_or_default();
+            let ids: BTreeSet<String> = listed.iter().map(|(id, _)| id.clone()).collect();
+            let new = self.operator_seat().notes_new(&manifest, ids);
+            let reads: Vec<NoteRead> = {
+                let new: Vec<std::path::PathBuf> = listed.into_iter().filter(|(id, _)| new.contains(id)).map(|(_, path)| path).collect();
+                tokio::task::spawn_blocking(move || new.iter().filter_map(|path| note_read(&std::fs::read(path).ok()?).ok()).collect()).await.unwrap_or_default()
+            };
+            let reads: Vec<NoteRead> = reads.into_iter().filter(|read| read.status == "open" && read.sent.is_none()).collect();
+            if reads.is_empty() {
+                continue;
+            }
+            let open = self.open_of(&manifest).await;
+            let files = self.served_named(Some(&ManifestId::carried(&manifest))).ok().is_some_and(|served| self.backlog_of(&served).is_some());
+            for read in reads {
+                arrivals.push(Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component, open: open.clone(), files }.arrival());
+            }
+        }
+        arrivals
     }
 
     /// The issues open in `manifest`'s tracker, as Fleet holds them.
@@ -213,7 +262,67 @@ where
                 let _ = self.store().lock().await.later_handed_filed(&arrival.session_id, last, issue, now.as_str());
             }
             (Arrived::Later, Way::File, _, _) => self.operator_filed(&arrival.session_id, last, manifest, &arrival.subject).await,
+            (Arrived::Note, Way::Link, _, _) => {
+                self.note_settled_by_operator(manifest, last).await;
+            }
+            (Arrived::Note, Way::File, _, _) => self.operator_filed_note(manifest, last, arrival).await,
+            (Arrived::Note, Way::NewJob, _, _) => self.operator_started_note(manifest, last, arrival).await,
+            (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await,
             _ => {}
+        }
+    }
+
+    /// A note no open issue covers, filed in the repository's beads with his words, and marked done.
+    async fn operator_filed_note(&self, manifest: &str, note: &str, arrival: &Arrival) {
+        let Ok(served) = self.served_named(Some(&ManifestId::carried(manifest))) else { return };
+        let Some(backlog) = self.backlog_of(&served) else { return };
+        let (root, title) = (served.root().to_string(), arrival.subject.clone());
+        let body = format!("{}\n\nFiled by the Operator from a note he left on Bridge.", arrival.words);
+        let filed = tokio::task::spawn_blocking(move || backlog.file(&root, &title, &body)).await;
+        let Ok(Ok(reference)) = filed else { return };
+        held(&self.operator_seat().sources.filed).insert(reference);
+        self.note_settled_by_operator(manifest, note).await;
+        self.tracking().forget(manifest);
+    }
+
+    /// A note the Operator ruled a Job of its own: started on it, briefed with his words, and the
+    /// note marked sent to it.
+    async fn operator_started_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival) {
+        let started = self
+            .start_session(StartSession {
+                manifest_id: ManifestId::carried(manifest),
+                title: Some(arrival.subject.clone()),
+                model: None,
+                effort: None,
+                mode: None,
+                root: None,
+                fork: None,
+                request: None,
+                after: None,
+                held: false,
+                project_rows: Vec::new(),
+                on_your_words: None,
+            })
+            .await;
+        let Ok(record) = started else { return };
+        let job = record.id.as_str().to_string();
+        let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
+        let brief = format!("The person left this note on Bridge. Do what it asks.\n\n{}", arrival.words);
+        if self.first_message_from(&job, voice, &brief).await.is_err() {
+            let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
+            return;
+        }
+        let title = self.title_of(&job).await;
+        self.note_given_by_operator(manifest, note, &job, &title).await;
+    }
+
+    /// A note the Operator ruled to live Job `into`, whose work is near it: told it, and the note
+    /// marked sent to it.
+    async fn operator_told_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival, into: &str) {
+        let text = format!("The Operator handed you a note the person left on Bridge, as your work is near it:\n\n{}\n\nDo it as part of your work, or say why it is not yours.", arrival.words);
+        if matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
+            let title = self.title_of(into).await;
+            self.note_given_by_operator(manifest, note, into, &title).await;
         }
     }
 
@@ -274,4 +383,18 @@ where
         let _ = self.store().lock().await.later_handed_filed(session, later, &reference, now.as_str());
         self.tracking().forget(manifest);
     }
+}
+
+/// The note files in `places`, as each one's id and path: the first of any id found twice.
+fn note_files(places: &[std::path::PathBuf]) -> Vec<(String, std::path::PathBuf)> {
+    let mut found: BTreeMap<String, std::path::PathBuf> = BTreeMap::new();
+    for dir in places {
+        for path in std::fs::read_dir(dir).into_iter().flatten().flatten().map(|entry| entry.path()) {
+            let id = path.file_name().and_then(|name| name.to_str()).and_then(|name| name.strip_suffix(".json"));
+            if let Some(id) = id.filter(|id| ipc::annotations::is_note_id(id)) {
+                found.entry(id.to_string()).or_insert_with(|| path.clone());
+            }
+        }
+    }
+    found.into_iter().collect()
 }

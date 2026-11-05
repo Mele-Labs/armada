@@ -3,7 +3,8 @@
 //! **Kept with what On would have acted on**, so a restart keeps it and `Do it` goes through
 //! [`Operator::acted`] as On does. An answer's suggestion shows on the question it would settle, where
 //! his press on the option is the one press; any other is a row of its own on the Job's Needs you
-//! list. A suggestion with no Job, on a report nothing reported from a Job, is kept for the panel.
+//! list. A suggestion with no Job, on a report nothing reported from a Job or on a note he left, is
+//! kept for the panel. **A note's is kept whatever its role stands at**, since a note is only ever proposed.
 
 use std::sync::Arc;
 
@@ -66,6 +67,10 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
     match (arrival.arrived, ruling.way) {
         (Arrived::Report, Way::NewJob) => format!("The Operator would start a Job on the report \"{subject}\": {because}"),
         (Arrived::Report, _) => format!("The Operator would hand the report \"{subject}\" to \"{other}\": {because}"),
+        (Arrived::Note, Way::File) => format!("The Operator would file your note \"{subject}\" as a new issue: {because}"),
+        (Arrived::Note, Way::NewJob) => format!("The Operator would start a Job on your note \"{subject}\": {because}"),
+        (Arrived::Note, Way::Link) => format!("The Operator would link your note \"{subject}\" to {}: {because}", ruling.issue.as_deref().unwrap_or("an open issue")),
+        (Arrived::Note, _) => format!("The Operator would send your note \"{subject}\" to \"{other}\": {because}"),
         (Arrived::Later, _) => format!("The Operator would file \"{subject}\" as a new issue: {because}"),
         (_, Way::NewJob) => format!("The Operator would start what is left of this Job as a Job of its own: {because}"),
         (_, Way::Nudge) => format!("The Operator would tell this Job: {}", ruling.step.as_deref().unwrap_or(because)),

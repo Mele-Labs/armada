@@ -1470,7 +1470,8 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
 - **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route.
   `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
 
-A suggestion on a report with no Job behind it has no list to stand on. It is kept in the store for the panel.
+A suggestion on a report with no Job behind it, or on a note the person left on Bridge, has no list to stand on. It is kept in the store for the panel.
+A note's is kept at any position short of Off, and no route presses it yet: the panel Job owns that.
 
 ## Talking to the Operator: `talk_to_operator`, `operator_talk` and the standing orders
 

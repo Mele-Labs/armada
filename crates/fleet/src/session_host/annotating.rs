@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::annotations::{is_note_id, marked_done, note_read, unsent, NoteRead, NotMarked};
+use ipc::annotations::{filed_done, is_note_id, marked_done, note_read, sent_to, unsent, NoteRead, NotMarked};
 use ipc::{AnnotationMarked, MarkAnnotationDone, SessionNote};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -140,7 +140,7 @@ where
             .map_err(|why| self.hosted_fault(NOTE_UNWRITTEN, &format!("{}: {why}", path.display())))?;
         let now = self.now().as_str().to_string();
         let marked = marked_done(&bytes, &id, &now).map_err(|why| match why {
-            NotMarked::NotSentHere => self.hosted_refusal(NOTE_REFUSED, "that note was not sent to this job"),
+            NotMarked::NotSentHere | NotMarked::SentAlready => self.hosted_refusal(NOTE_REFUSED, "that note was not sent to this job"),
             NotMarked::Unreadable(why) => {
                 self.hosted_refusal(NOTE_REFUSED, &format!("{} is not a note: {why}", path.display()))
             }
@@ -152,6 +152,49 @@ where
             let _ = self.published_hosted(&id).await;
         }
         Ok(AnnotationMarked { path: path.display().to_string() })
+    }
+
+    /// The note `note` of repository `manifest`, which the Operator filed or linked, marked done in
+    /// its file wherever it sits. Whether a file was rewritten.
+    pub(crate) async fn note_settled_by_operator(&self, manifest: &str, note: &str) -> bool {
+        let at = self.now().as_str().to_string();
+        self.note_rewritten(manifest, note, move |bytes| filed_done(bytes, &at)).await.is_some()
+    }
+
+    /// The note `note` of repository `manifest`, which the Operator started or told Job `job` on,
+    /// marked sent to it as Bridge's own send leaves a note, and kept as an artifact on the Job.
+    pub(crate) async fn note_given_by_operator(&self, manifest: &str, note: &str, job: &str, title: &str) {
+        let (at, to, called) = (self.now().as_str().to_string(), job.to_string(), title.to_string());
+        let Some(bytes) = self.note_rewritten(manifest, note, move |bytes| sent_to(bytes, &to, &called, &at)).await else {
+            return;
+        };
+        if let Ok(read) = note_read(&bytes) {
+            self.notes_kept(job, vec![NoteShown::read(&read)]).await;
+        }
+        let _ = self.published_hosted(job).await;
+    }
+
+    /// The note's file under the repository's root, rewritten by `rewrite`, and what it wrote.
+    async fn note_rewritten(
+        &self,
+        manifest: &str,
+        note: &str,
+        rewrite: impl FnOnce(&[u8]) -> Result<Vec<u8>, NotMarked> + Send + 'static,
+    ) -> Option<Vec<u8>> {
+        if !is_note_id(note) {
+            return None;
+        }
+        let root = PathBuf::from(self.repositories().serving(manifest)?.root());
+        let note = note.to_string();
+        tokio::task::spawn_blocking(move || {
+            let path = note_file(&root, &note)?;
+            let marked = rewrite(&std::fs::read(&path).ok()?).ok()?;
+            written(&path, &marked).ok()?;
+            Some(marked)
+        })
+        .await
+        .ok()
+        .flatten()
     }
 
     /// Keep each note sent to `id` as an artifact on it. A note whose file is not found is still

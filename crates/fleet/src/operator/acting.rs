@@ -309,7 +309,7 @@ where
         text
     }
 
-    async fn title_of(&self, id: &str) -> String {
+    pub(super) async fn title_of(&self, id: &str) -> String {
         let session = self.store().lock().await.session(id).ok().flatten();
         session.and_then(|one| one.title).unwrap_or_else(|| id.to_string())
     }
