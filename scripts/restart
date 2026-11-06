@@ -1115,4 +1115,7 @@ fi
 say "Done"
 echo "Fleet: pid ${old_pid:-none} -> $new_pid, port $new_port, protocol $protocol"
 echo "Bridge reopened: $bridge_reopened"
-$bridge_reloads && echo "Bridge reloads its page in place"
+# An `if`, not `&&`: as the last command, a false `&&` would be the script's exit status.
+if $bridge_reloads; then
+  echo "Bridge reloads its page in place"
+fi
