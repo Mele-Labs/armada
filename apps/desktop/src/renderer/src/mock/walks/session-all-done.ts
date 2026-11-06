@@ -1,6 +1,6 @@
-// A Session whose agent says it has nothing left: a band on the composer, open as the Session is entered. It lists
+// A Session whose agent says it has nothing left: a card at the end of the thread. It lists
 // the pull requests, merged first and each with its state and checks, and where there are none, the pages, files and Docs it made; each is a press.
-// Esc folds it. Keep going puts it away and puts the cursor in the message box; End job ends the Session, and its
+// Keep going puts it away and puts the cursor in the message box; End job ends the Session, and its
 // Artifacts stay to be read. Over the `session-all-done` and `session-all-done-artifacts` scenarios.
 // Told twice each: wide, and below the breakpoint.
 
@@ -9,7 +9,6 @@ import type { Step } from "../walk";
 import { NARROW, kit, toSessions } from "../sessions/walk-kit";
 
 const callout = region("Nothing left to do");
-const band = inside(callout, button("Nothing left to do"));
 
 function opened(title: RegExp): Step[] {
   const mine = inside(
@@ -25,8 +24,8 @@ function opened(title: RegExp): Step[] {
       say: "Opened",
     },
     {
-      look: band,
-      say: "A band on the composer, already open as the header of a panel, and the thread dims",
+      look: callout,
+      say: "A card at the end of the thread",
     },
   ];
 }
@@ -40,16 +39,11 @@ function keep(narrow: boolean): Step[] {
     ...opened(/Pin the store clock/),
     {
       look: prs,
-      say: "Each pull request with its state and checks; many scroll inside the panel",
+      say: "Each pull request with its state and checks",
     },
     {
       look: inside(callout, button("End job")),
-      say: "End job stays in view under them",
-    },
-    {
-      key: "Escape",
-      on: inside(callout, button("End job")),
-      say: "Esc folds it",
+      say: "End job under them",
     },
     ...inArtifacts([
       {
@@ -62,10 +56,6 @@ function keep(narrow: boolean): Step[] {
         say: "The Artifacts layer holds the pull requests too, with state and checks",
       },
     ]),
-    {
-      press: band,
-      say: "Opened again",
-    },
     {
       press: inside(callout, button("Keep going")),
       say: "Keep going puts it away",

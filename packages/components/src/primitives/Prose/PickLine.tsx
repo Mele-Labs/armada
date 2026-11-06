@@ -78,6 +78,46 @@ function move(from: HTMLElement, by: 1 | -1): void {
   lines[lines.indexOf(from) + by]?.focus();
 }
 
+/** What a right press on a quick response offers, given how many there are: six at most, and one always stays. */
+export function responseEntries(count: number): DropdownMenuEntry[] {
+  const full = count >= MAX_RESPONSES;
+  const alone = count <= 1;
+  return [
+    {
+      kind: "item",
+      id: "edit",
+      label: "Edit",
+    },
+    {
+      kind: "item",
+      id: "add",
+      label: "Add response",
+      disabled: full,
+      ...(full
+        ? {
+            hint: "Six at most",
+          }
+        : {}),
+    },
+    {
+      kind: "separator",
+      id: "rule",
+    },
+    {
+      kind: "item",
+      id: "remove",
+      label: "Remove",
+      danger: true,
+      disabled: alone,
+      ...(alone
+        ? {
+            hint: "One stays",
+          }
+        : {}),
+    },
+  ];
+}
+
 /**
  * A list item or a paragraph of an agent's message that can be answered: a wash on hover or focus, and the quick responses
  * over its right end. Enter sends the first, 1 to 6 send the nth, the arrows move between lines. What was sent keeps a quiet mark.
@@ -191,42 +231,8 @@ export function PickLine({
       : (picker.responses.find((one) => one.emoji === marked)?.name ?? "Sent");
   const edited =
     editing === undefined ? undefined : picker.responses.find((one) => one.id === editing.id);
-  const full = picker.responses.length >= MAX_RESPONSES;
   const alone = picker.responses.length <= 1;
-  const entries: DropdownMenuEntry[] = [
-    {
-      kind: "item",
-      id: "edit",
-      label: "Edit",
-    },
-    {
-      kind: "item",
-      id: "add",
-      label: "Add response",
-      disabled: full,
-      ...(full
-        ? {
-            hint: "Six at most",
-          }
-        : {}),
-    },
-    {
-      kind: "separator",
-      id: "rule",
-    },
-    {
-      kind: "item",
-      id: "remove",
-      label: "Remove",
-      danger: true,
-      disabled: alone,
-      ...(alone
-        ? {
-            hint: "One stays",
-          }
-        : {}),
-    },
-  ];
+  const entries = responseEntries(picker.responses.length);
   const openMenu =
     picker.onAct === undefined
       ? undefined

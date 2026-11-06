@@ -1,5 +1,5 @@
 // Ending a Job leaves at once. The Job's pane plays out and the stage is the map with nothing selected, from the head's More
-// menu and from the done band's End job; Fleet parks the Job a moment later and its row reads ended. The pane folds into its row.
+// menu and from the done card's End job; Fleet parks the Job a moment later and its row reads ended. The pane folds into its row.
 // Over the `session-all-done` scenario.
 
 import { button, deckRow, inside, region, role, walk } from "../walk";
@@ -32,7 +32,7 @@ const endJobToCockpit = walk("session-all-done", [
   },
   {
     press: inside(callout, button("End job")),
-    say: "The same exit from the band",
+    say: "The same exit from the card",
   },
   {
     look: map,

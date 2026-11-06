@@ -221,6 +221,7 @@ function rowsDrawn(
         row.kind === "suggest" ||
         row.kind === "command" ||
         row.kind === "compaction" ||
+        row.kind === "reasoning" ||
         row.kind === "disputed" ||
         row.kind === "window" ||
         row.kind === "started" ||

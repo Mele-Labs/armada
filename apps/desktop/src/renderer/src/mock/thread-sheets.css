@@ -1,0 +1,146 @@
+/* The sheets beside the spacious thread's walk (`thread-sheets.tsx`): a page over the app, two columns, a row per state or
+   piece. */
+
+.thread-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-6) var(--space-12);
+  overflow-y: auto;
+  background: var(--bg-base);
+  color: var(--fg-default);
+  font-family: var(--font-sans);
+}
+
+.thread-sheet__lead {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.thread-sheet__heads,
+.thread-sheet__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
+.thread-sheet__heads {
+  position: sticky;
+  top: calc(var(--space-6) * -1);
+  z-index: 2;
+  padding: var(--space-2) 0;
+  background: var(--bg-base);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+}
+
+.thread-sheet__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.thread-sheet__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.thread-sheet__count {
+  font-weight: var(--weight-body);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.thread-sheet__places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+}
+
+.thread-sheet__take {
+  min-width: 0;
+}
+
+/* A Job's pane at a fixed height, as the Cockpit's centre would hold it. */
+.thread-sheet__deck {
+  height: 480px;
+  margin: 0;
+}
+
+.thread-sheet__deck > .deck-pane {
+  flex: 1 1 0;
+}
+
+.thread-sheet__tile {
+  min-height: calc(var(--space-12) * 2);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.thread-sheet__missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+/* The quick bar's icon pairs, side by side, each in a message box's top corner. */
+.thread-sheet__icons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.thread-sheet__icon-take {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.thread-sheet__box {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  height: calc(var(--space-12) + var(--space-6));
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+}
+
+.thread-sheet__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control);
+  height: var(--h-control);
+  border-radius: var(--radius-md);
+  color: var(--fg-subtle);
+}
+
+.thread-sheet__glyph:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}

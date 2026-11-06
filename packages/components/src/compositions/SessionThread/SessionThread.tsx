@@ -89,7 +89,7 @@ import {
 } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
-import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
+import { FORK_ROW, ForkFromSelection, quoteOf } from "../ForkFromSelection/ForkFromSelection";
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
@@ -126,11 +126,13 @@ import { DraftRow } from "./DraftRow";
 import { ThreadKbd, useThreadCard } from "./thread-keys";
 import type { DraftAnswer } from "./DraftRow";
 export type { DraftAnswer } from "./DraftRow";
-import { callsLine } from "./calls-line";
+import { callLine, callsLine } from "./calls-line";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
 export { PlanRevisionView, useUnchanged } from "./PlanRevision";
+export { colourCode } from "./colourCode";
+import { MessageBar } from "./MessageBar";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -306,6 +308,16 @@ type SessionThreadKinds =
       at: string;
       kind: "compaction";
       text: string;
+    }
+  /** How long the agent reasoned before a message: a quiet row that opens to what it reasoned. */
+  | {
+      id: string;
+      at: string;
+      kind: "reasoning";
+      seconds: number;
+      text: string;
+      /** Still reasoning: the row reads Thinking, open on the words so far. */
+      live?: true;
     }
   /**
    * The agent disputed Fleet's notice, the message row `notice`: one line in Fleet's voice with the reason, how it was
@@ -888,6 +900,9 @@ type LinePicks = {
 };
 const ThreadPicks = createContext<LinePicks | null>(null);
 
+/** Under the spacious take, what Reply on a message's bar does: the thread's reply to a selection, with the whole message quoted. */
+const MessageReply = createContext<((pick: ForkPick) => void) | null>(null);
+
 /** A message's words with markdown's marks dropped, near enough to find a line's plain text in. */
 const plainOf = (text: string): string => text.replace(/[`*_~]/g, "").replace(/\s+/g, " ");
 
@@ -1189,6 +1204,22 @@ function namesOf(
   ].filter((name) => name !== "");
 }
 
+import { SpaciousTake } from "./spacious-take";
+export { SpaciousTake };
+
+/** Calls the take leaves out of the thread: the agent's own task list and tool loading, and a shown window, whose own row stands for it. */
+const UNDRAWN = new Set([
+  "TaskCreate",
+  "TaskUpdate",
+  "TaskList",
+  "TaskGet",
+  "ToolSearch",
+  "show_window",
+]);
+
+const undrawn = (row: SessionThreadRow): boolean =>
+  row.kind === "tool" && UNDRAWN.has((row.text.split(/\s/, 1)[0] ?? "").split("__").pop() ?? "");
+
 /**
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
@@ -1211,6 +1242,39 @@ function Calls({
 }) {
   const names = namesOf(rows);
   const line = callsLine(rows, working === true);
+  const spacious = useContext(SpaciousTake);
+  // The spacious take draws a working agent's calls one to a line, the newest with the mark.
+  if (working === true && spacious)
+    return (
+      <li
+        className="armada-session-fold armada-session-fold--live"
+        aria-label={`Tool calls: ${names.join(", ")}`}
+      >
+        <ol className="armada-session-live">
+          {rows.map((one, at) => {
+            const now = at === rows.length - 1;
+            return (
+              <li
+                key={one.id}
+                className="armada-session-live__call"
+                data-now={now ? "" : undefined}
+              >
+                <span className="armada-session-live__mark">
+                  {now ? <SessionMark state="working" said="Working" /> : null}
+                </span>
+                <span className="armada-session-live__line">
+                  {/* A run says its whole command; the line cuts it where the column ends. */}
+                  {one.text.startsWith("Bash ")
+                    ? `${now ? "Running" : "Ran"} ${one.text.slice("Bash ".length)}`
+                    : callLine(one, now)}
+                </span>
+                {now && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
+              </li>
+            );
+          })}
+        </ol>
+      </li>
+    );
   return (
     <li className="armada-session-fold armada-session-fold--calls">
       <details>
@@ -1582,6 +1646,7 @@ function RanRow({
   const since = row.since === undefined ? Number.NaN : Date.parse(row.since);
   const first = row.command.split("\n")[0] ?? "";
   const peek = row.tail.replace(/\s+$/, "").split("\n").slice(-PEEK_LINES).join("\n");
+  const spacious = useContext(SpaciousTake);
   if (running) {
     return (
       <li className="armada-session-fold armada-session-fold--ran" data-running="">
@@ -1623,6 +1688,11 @@ function RanRow({
             }}
           />
           <code className="armada-session-fold__target">{first}</code>
+          {spacious && row.code !== 0 ? (
+            <span className="armada-session-fold__exit" aria-hidden>
+              {row.code === null ? "Stopped" : `Exit ${row.code}`}
+            </span>
+          ) : null}
         </summary>
         <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Job">
           {row.tail}
@@ -1933,6 +2003,8 @@ function Row({
                 title: titleWithoutReference(tag),
               });
   const picks = useContext(ThreadPicks);
+  const spacious = useContext(SpaciousTake);
+  const reply = useContext(MessageReply);
   if (row.kind === "retro")
     return (
       <SessionRetroRow
@@ -2160,6 +2232,21 @@ function Row({
   }
   if (row.kind === "lease" || row.kind === "release") {
     const said = row.kind === "lease" ? "Slot leased" : "Slot released";
+    // The take: one quiet line, as a call reads, its time there under the pointer.
+    if (spacious)
+      return (
+        <li className="armada-session-lease" data-line="" role="region" aria-label={said}>
+          <KeyRound size={14} strokeWidth={2} aria-hidden />
+          <span className="armada-session-lease__said">
+            {row.kind === "lease" ? "Leased" : "Released"} slot {row.slot}
+          </span>
+          <span className="armada-session-lease__branch">
+            <GitBranch size={12} strokeWidth={2} aria-hidden />
+            {row.branch}
+          </span>
+          <RowStamp row={row} className="armada-session-lease__at" />
+        </li>
+      );
     return (
       <li className="armada-session-lease" role="region" aria-label={said}>
         <span className="armada-session-lease__eyebrow">{said}</span>
@@ -2205,6 +2292,33 @@ function Row({
             />
             <Layers size={12} strokeWidth={2} aria-hidden />
             Conversation compacted
+          </summary>
+          <div className="armada-session-fold__body">
+            <Prose text={row.text} />
+          </div>
+        </details>
+      </li>
+    );
+  }
+  if (row.kind === "reasoning") {
+    return (
+      <li className="armada-session-fold armada-session-fold--reasoning">
+        <details open={row.live === true}>
+          <summary className="armada-session-fold__head">
+            <ChevronRight
+              size={12}
+              strokeWidth={2}
+              aria-hidden
+              className="armada-session-fold__chevron"
+            />
+            {row.live === true ? (
+              <>
+                <SessionMark state="working" said="Working" />
+                Thinking
+              </>
+            ) : (
+              `Thought for ${row.seconds}s`
+            )}
           </summary>
           <div className="armada-session-fold__body">
             <Prose text={row.text} />
@@ -2278,10 +2392,12 @@ function Row({
   const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (
     <li className="armada-thread-row" data-from={row.from}>
-      <div className="armada-thread-row__head">
-        <span className="armada-thread-row__who">{agentName}</span>
-        <RowStamp row={row} className="armada-thread-row__at" />
-      </div>
+      {spacious ? null : (
+        <div className="armada-thread-row__head">
+          <span className="armada-thread-row__who">{agentName}</span>
+          <RowStamp row={row} className="armada-thread-row__at" />
+        </div>
+      )}
       <div
         className="armada-thread-row__message"
         {...(forkable
@@ -2295,7 +2411,7 @@ function Row({
         ) : (
           <ProsePick.Provider
             value={
-              picks === null
+              picks === null || spacious
                 ? null
                 : {
                     responses: picks.responses,
@@ -2313,6 +2429,42 @@ function Row({
           </ProsePick.Provider>
         )}
       </div>
+      {spacious ? (
+        <MessageBar
+          text={row.text}
+          {...(reply === null
+            ? {}
+            : {
+                onReply: () =>
+                  reply({
+                    rowId: row.id,
+                    quote: quoteOf(row.text),
+                  }),
+              })}
+          responses={picks?.responses ?? []}
+          {...(picks === null
+            ? {}
+            : {
+                onPick: (response: QuickResponse) => picks.pick(plainOf(row.text).trim(), response),
+              })}
+          {...(picks?.onAct === undefined
+            ? {}
+            : {
+                onAct: picks.onAct,
+              })}
+          {...(picks === null
+            ? {}
+            : (() => {
+                const one = picks.marks.get(`${row.id}\u0000${plainOf(row.text).trim()}`);
+                return one === undefined
+                  ? {}
+                  : {
+                      marked: one,
+                    };
+              })())}
+          at={<RowStamp row={row} className="armada-message-bar__at" />}
+        />
+      ) : null}
       <Sent row={row} tags={placed.loose} />
     </li>
   );
@@ -3425,6 +3577,7 @@ export function SessionThread({
     ],
   );
   const scroller = useRef<HTMLDivElement>(null);
+  const spacious = useContext(SpaciousTake);
   const pinned = useRef(true);
   const scrollerHeight = useRef(0);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -3537,13 +3690,14 @@ export function SessionThread({
   const pinnedSketch = sketching?.sketch;
   const all = useMemo(() => {
     // The pin is the card of the sketch it holds, so the thread does not draw it a second time; an earlier card of the same sketch stays as the replaced one.
-    const shown =
+    const pinned =
       pinnedSketch === undefined
         ? rows
         : rows.filter(
             (row) =>
               !(row.kind === "sketch" && row.sketch === pinnedSketch && row.replaced !== true),
           );
+    const shown = spacious ? pinned.filter((row) => !undrawn(row)) : pinned;
     const folded = itemsOf(shown, disputes);
     const last = folded[folded.length - 1];
     const turn =
@@ -3570,6 +3724,7 @@ export function SessionThread({
     asking,
     waitingOnYou,
     pinnedSketch,
+    spacious,
   ]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {
@@ -3579,7 +3734,11 @@ export function SessionThread({
   ]);
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
-  const endsInCalls = items[items.length - 1]?.kind === "calls";
+  const last = items[items.length - 1];
+  // Calls still running, or reasoning still written, carry the working mark themselves.
+  const endsInCalls =
+    last?.kind === "calls" ||
+    (last?.kind === "row" && last.row.kind === "reasoning" && last.row.live === true);
   const cardsAfter = (at: number): ThreadCard[] =>
     (inline ?? []).filter((card) => afterWhich(items, card) === at);
   // What waits on him is the thread's last card, answered in place.
@@ -3691,239 +3850,246 @@ export function SessionThread({
         >
           <StampSurface>
             <NotedOpens.Provider value={noted ?? null}>
-              <ThreadPicks.Provider value={picks}>
-                <ProseWalk.Provider value={onOpenWindow ?? null}>
-                  <ProseRunner.Provider value={runner ?? null}>
-                    <ProseCommand.Provider value={slash}>
-                      <ol
-                        ref={rowList}
-                        className="armada-thread-rows"
-                        {...(transcript === "unread"
-                          ? {
-                              "aria-busy": true,
-                            }
-                          : {})}
-                      >
-                        {lead === undefined ? null : (
-                          <li className="armada-session-thread__lead">{lead}</li>
-                        )}
-                        {transcript === "unread" ? <TranscriptSkeleton /> : null}
-                        {hidden === 0 ? null : (
-                          <li className="armada-session-thread__earlier">
-                            <Tooltip label="Show earlier">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label="Show earlier"
-                                onClick={() => setDrawn((now) => now + DRAWN)}
-                              >
-                                <ChevronUp size={12} strokeWidth={2} aria-hidden />
-                              </Button>
-                            </Tooltip>
-                          </li>
-                        )}
-                        {items.flatMap((item, at) => [
-                          item.kind === "calls" ? (
-                            <Calls
-                              key={item.id}
-                              rows={item.rows}
-                              working={working === true && !asking && at === items.length - 1}
-                              {...(onStop === undefined
-                                ? {}
-                                : {
-                                    onStop,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                            />
-                          ) : item.kind === "fleetTurn" ? (
-                            <FleetTurn
-                              key={item.id}
-                              notice={item.notice}
-                              reply={item.reply}
-                              handled={item.handled}
-                              {...(onMuteNotice === undefined
-                                ? {}
-                                : {
-                                    onMuteNotice,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                            />
-                          ) : item.kind === "subagent" ? (
-                            <SubagentRow
-                              key={item.id}
-                              subagent={item.subagent}
-                              {...(onOpenSubagent === undefined
-                                ? {}
-                                : {
-                                    onOpen: onOpenSubagent,
-                                  })}
-                            />
-                          ) : item.kind === "checks" ? (
-                            <CheckRuns
-                              key={item.id}
-                              rows={item.rows}
-                              {...(onOpenCheck === undefined
-                                ? {}
-                                : {
-                                    onOpenCheck,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                            />
-                          ) : (
-                            <Row
-                              key={
-                                "stableKey" in item.row && item.row.stableKey !== undefined
-                                  ? item.row.stableKey
-                                  : item.row.id
+              <MessageReply.Provider value={spacious ? (onReplyAt ?? null) : null}>
+                <ThreadPicks.Provider value={picks}>
+                  <ProseWalk.Provider value={onOpenWindow ?? null}>
+                    <ProseRunner.Provider value={runner ?? null}>
+                      <ProseCommand.Provider value={slash}>
+                        <ol
+                          ref={rowList}
+                          className="armada-thread-rows"
+                          {...(transcript === "unread"
+                            ? {
+                                "aria-busy": true,
                               }
-                              row={item.row}
-                              {...(onRetry === undefined
-                                ? {}
-                                : {
-                                    onRetry,
-                                  })}
-                              {...(onStartAgain === undefined
-                                ? {}
-                                : {
-                                    onStartAgain,
-                                  })}
-                              {...(onReport === undefined
-                                ? {}
-                                : {
-                                    onReport,
-                                  })}
-                              onOpenSession={onOpenSession}
-                              onOpenWindow={onOpenWindow}
-                              onOpenSketch={onOpenSketch}
-                              {...(onOpenFile === undefined
-                                ? {}
-                                : {
-                                    onOpenFile,
-                                  })}
-                              {...(onReadMedia === undefined
-                                ? {}
-                                : {
-                                    onReadMedia,
-                                  })}
-                              {...(onDraft === undefined
-                                ? {}
-                                : {
-                                    onDraft,
-                                  })}
-                              {...(onWithdrawDraft === undefined
-                                ? {}
-                                : {
-                                    onWithdrawDraft,
-                                  })}
-                              {...(onAnswerSketch === undefined || sketching !== undefined
-                                ? {}
-                                : {
-                                    onAnswerSketch,
-                                  })}
-                              {...(onWithdrawSketch === undefined || sketching !== undefined
-                                ? {}
-                                : {
-                                    onWithdrawSketch,
-                                  })}
-                              {...(onOpenDocument === undefined
-                                ? {}
-                                : {
-                                    onOpenDocument,
-                                  })}
-                              {...(onAnswerDocument === undefined
-                                ? {}
-                                : {
-                                    onAnswerDocument,
-                                  })}
-                              {...(sessionId === undefined
-                                ? {}
-                                : {
-                                    sessionId,
-                                  })}
-                              onOpenRetro={onOpenRetro}
-                              onOpenSent={onOpenSent}
-                              forkable={
-                                onForkAt !== undefined ||
-                                onReplyAt !== undefined ||
-                                onTeachAt !== undefined
-                              }
-                              disputed={disputes.has(item.row.id)}
-                              {...(onMuteNotice === undefined
-                                ? {}
-                                : {
-                                    onMuteNotice,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                              {...(agentName === undefined
-                                ? {}
-                                : {
-                                    agentName,
-                                  })}
-                            />
-                          ),
-                          approval?.approved === true &&
-                          item.kind === "row" &&
-                          item.row.id === approval.after ? (
-                            <li key="plan-approved" className="armada-session-thread__record">
-                              <PlanCard approval={approval} />
+                            : {})}
+                        >
+                          {lead === undefined ? null : (
+                            <li className="armada-session-thread__lead">{lead}</li>
+                          )}
+                          {transcript === "unread" ? <TranscriptSkeleton /> : null}
+                          {hidden === 0 ? null : (
+                            <li className="armada-session-thread__earlier">
+                              <Tooltip label="Show earlier">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Show earlier"
+                                  onClick={() => setDrawn((now) => now + DRAWN)}
+                                >
+                                  <ChevronUp size={12} strokeWidth={2} aria-hidden />
+                                </Button>
+                              </Tooltip>
                             </li>
-                          ) : null,
-                          ...cardsAfter(at).map((card) => (
-                            <li key={card.key} className="armada-session-thread__card">
-                              {card.node}
+                          )}
+                          {items.flatMap((item, at) => [
+                            item.kind === "calls" ? (
+                              <Calls
+                                key={item.id}
+                                rows={item.rows}
+                                working={working === true && !asking && at === items.length - 1}
+                                {...(onStop === undefined
+                                  ? {}
+                                  : {
+                                      onStop,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                              />
+                            ) : item.kind === "fleetTurn" ? (
+                              <FleetTurn
+                                key={item.id}
+                                notice={item.notice}
+                                reply={item.reply}
+                                handled={item.handled}
+                                {...(onMuteNotice === undefined
+                                  ? {}
+                                  : {
+                                      onMuteNotice,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                              />
+                            ) : item.kind === "subagent" ? (
+                              <SubagentRow
+                                key={item.id}
+                                subagent={item.subagent}
+                                {...(onOpenSubagent === undefined
+                                  ? {}
+                                  : {
+                                      onOpen: onOpenSubagent,
+                                    })}
+                              />
+                            ) : item.kind === "checks" ? (
+                              <CheckRuns
+                                key={item.id}
+                                rows={item.rows}
+                                {...(onOpenCheck === undefined
+                                  ? {}
+                                  : {
+                                      onOpenCheck,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                              />
+                            ) : (
+                              <Row
+                                key={
+                                  "stableKey" in item.row && item.row.stableKey !== undefined
+                                    ? item.row.stableKey
+                                    : item.row.id
+                                }
+                                row={item.row}
+                                {...(onRetry === undefined
+                                  ? {}
+                                  : {
+                                      onRetry,
+                                    })}
+                                {...(onStartAgain === undefined
+                                  ? {}
+                                  : {
+                                      onStartAgain,
+                                    })}
+                                {...(onReport === undefined
+                                  ? {}
+                                  : {
+                                      onReport,
+                                    })}
+                                onOpenSession={onOpenSession}
+                                onOpenWindow={onOpenWindow}
+                                onOpenSketch={onOpenSketch}
+                                {...(onOpenFile === undefined
+                                  ? {}
+                                  : {
+                                      onOpenFile,
+                                    })}
+                                {...(onReadMedia === undefined
+                                  ? {}
+                                  : {
+                                      onReadMedia,
+                                    })}
+                                {...(onDraft === undefined
+                                  ? {}
+                                  : {
+                                      onDraft,
+                                    })}
+                                {...(onWithdrawDraft === undefined
+                                  ? {}
+                                  : {
+                                      onWithdrawDraft,
+                                    })}
+                                {...(onAnswerSketch === undefined || sketching !== undefined
+                                  ? {}
+                                  : {
+                                      onAnswerSketch,
+                                    })}
+                                {...(onWithdrawSketch === undefined || sketching !== undefined
+                                  ? {}
+                                  : {
+                                      onWithdrawSketch,
+                                    })}
+                                {...(onOpenDocument === undefined
+                                  ? {}
+                                  : {
+                                      onOpenDocument,
+                                    })}
+                                {...(onAnswerDocument === undefined
+                                  ? {}
+                                  : {
+                                      onAnswerDocument,
+                                    })}
+                                {...(sessionId === undefined
+                                  ? {}
+                                  : {
+                                      sessionId,
+                                    })}
+                                onOpenRetro={onOpenRetro}
+                                onOpenSent={onOpenSent}
+                                forkable={
+                                  onForkAt !== undefined ||
+                                  onReplyAt !== undefined ||
+                                  onTeachAt !== undefined
+                                }
+                                disputed={disputes.has(item.row.id)}
+                                {...(onMuteNotice === undefined
+                                  ? {}
+                                  : {
+                                      onMuteNotice,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                                {...(agentName === undefined
+                                  ? {}
+                                  : {
+                                      agentName,
+                                    })}
+                              />
+                            ),
+                            approval?.approved === true &&
+                            item.kind === "row" &&
+                            item.row.id === approval.after ? (
+                              <li key="plan-approved" className="armada-session-thread__record">
+                                <PlanCard approval={approval} />
+                              </li>
+                            ) : null,
+                            ...cardsAfter(at).map((card) => (
+                              <li key={card.key} className="armada-session-thread__card">
+                                {card.node}
+                              </li>
+                            )),
+                          ])}
+                          {transcript === "refreshing" ? (
+                            <li className="armada-session-thread__refreshing">
+                              <Tooltip label="Loading new messages">
+                                <span
+                                  className="armada-session-thread__loading"
+                                  role="img"
+                                  aria-label="Loading new messages"
+                                >
+                                  <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+                                </span>
+                              </Tooltip>
                             </li>
-                          )),
-                        ])}
-                        {transcript === "refreshing" ? (
-                          <li className="armada-session-thread__refreshing">
-                            <Tooltip label="Loading new messages">
-                              <span
-                                className="armada-session-thread__loading"
-                                role="img"
-                                aria-label="Loading new messages"
-                              >
-                                <LoaderCircle size={12} strokeWidth={2} aria-hidden />
-                              </span>
-                            </Tooltip>
-                          </li>
-                        ) : null}
-                        {asking ? (
-                          <li className="armada-session-thread__tail" aria-label="Waiting on you">
-                            {cards}
-                          </li>
-                        ) : null}
-                        {working === true && (!endsInCalls || asking) ? (
-                          <li className="armada-session-thread__working">
-                            <SessionMark state="working" said="Working" />
-                            {onStop === undefined ? null : <SessionStop onStop={onStop} />}
-                          </li>
-                        ) : null}
-                        {trailing === undefined ? null : (
-                          <li ref={tail} className="armada-session-thread__trailing">
-                            {trailing}
-                          </li>
-                        )}
-                      </ol>
-                    </ProseCommand.Provider>
-                  </ProseRunner.Provider>
-                </ProseWalk.Provider>
-              </ThreadPicks.Provider>
+                          ) : null}
+                          {asking ? (
+                            <li className="armada-session-thread__tail" aria-label="Waiting on you">
+                              {cards}
+                            </li>
+                          ) : null}
+                          {working === true && (!endsInCalls || asking) ? (
+                            <li className="armada-session-thread__working">
+                              <SessionMark state="working" said="Working" />
+                              {spacious ? (
+                                <span className="armada-session-thread__working-said">
+                                  Thinking
+                                </span>
+                              ) : null}
+                              {onStop === undefined ? null : <SessionStop onStop={onStop} />}
+                            </li>
+                          ) : null}
+                          {trailing === undefined ? null : (
+                            <li ref={tail} className="armada-session-thread__trailing">
+                              {trailing}
+                            </li>
+                          )}
+                        </ol>
+                      </ProseCommand.Provider>
+                    </ProseRunner.Provider>
+                  </ProseWalk.Provider>
+                </ThreadPicks.Provider>
+              </MessageReply.Provider>
             </NotedOpens.Provider>
           </StampSurface>
         </div>

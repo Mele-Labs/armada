@@ -1,30 +1,35 @@
-// The quick responses on a line of the agent's message: 👍 sends, a right press edits one, ❓ fills the box. Over the
+// The quick responses on the bar under the agent's message: 👍 sends, a right press edits one, ❓ fills the box. Over the
 // `real-thread-header-sizes` scenario.
 
 import { button, deckRow, dialog, inside, region, role, text, walk as walkOver } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const thread = region("Thread");
-const barOf = (line: string) =>
-  inside(thread, role("group", new RegExp(`^Quick responses: ${line}`)));
+// The last message's bar: the engine takes the last of several, and it is the one the hover raises.
+const bar = inside(thread, role("toolbar", "Message"));
+const asked = inside(thread, text(/Do you want the plan recorded/));
 const editor = dialog("Edit No to this");
 
 const walk = walkOver("real-thread-header-sizes", [
   toSessions,
   {
     press: deckRow("Header Font Sizes"),
-    say: "A Job's thread, with the agent's options in a list",
+    say: "A Job's thread, its last message asking a question",
   },
   {
-    hover: inside(thread, text(/C: 18/)),
-    say: "Hover an option and the quick responses float over its right end",
+    hover: asked,
+    say: "Hover the message and a bar comes up under it: Copy, Reply, the quick responses and the time",
   },
   {
-    press: inside(barOf("C: 18"), button("Yes to this")),
-    say: "👍 sends the line back as a quote with the emoji, and the line keeps a 👍",
+    press: inside(bar, button("Yes to this")),
+    say: "👍 sends the message back as a quote with the emoji, and the bar keeps the 👍 pressed",
   },
   {
-    context: inside(barOf("B: 15"), button("No to this")),
+    hover: asked,
+    say: "Back on the message",
+  },
+  {
+    context: inside(bar, button("No to this")),
     say: "A right press on a response offers Edit, Add response and Remove",
   },
   {
@@ -52,15 +57,11 @@ const walk = walkOver("real-thread-header-sizes", [
     say: "Save puts it in the bar",
   },
   {
-    hover: inside(thread, text(/B: 15/)),
+    hover: asked,
     say: "The bar shows 🔥 where 👎 was",
   },
   {
-    hover: inside(thread, text(/A: 14/)),
-    say: "Hover the first option",
-  },
-  {
-    press: inside(barOf("A: 14"), button("Ask about this")),
+    press: inside(bar, button("Ask about this")),
     say: "❓ sends nothing: the quote waits in the message box, ready to type or talk",
   },
 ]);
