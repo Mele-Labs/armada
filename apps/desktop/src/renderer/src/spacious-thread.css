@@ -7,11 +7,15 @@
   --spacious-leading: 24px;
   --spacious-meta: 13px;
   --spacious-radius: var(--radius-lg);
+  /* Its own corners, the tokens' values: a Cockpit pane squares every corner inside it (`console-bridge.css`), and the thread keeps its curves there too. */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
 }
 
 /* ---- One centred column. The rows, Needs you and the composer share its width. ---- */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
-  --body-pad: 0 var(--space-6) var(--space-4);
+  --body-pad: 0 var(--space-3) var(--space-3);
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows,
@@ -26,7 +30,7 @@
    either side, never less than room for a hovered line's wash and its bar, which the scroll would clip. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows {
   max-width: none;
-  padding: var(--space-6) max(var(--space-6), calc((100% - var(--spacious-column)) / 2)) 0;
+  padding: var(--space-4) max(var(--space-3), calc((100% - var(--spacious-column)) / 2)) 0;
 }
 
 /* A thin thumb with no track, there only while the pointer is over the thread. */
@@ -678,7 +682,7 @@
   width: var(--h-control);
   height: var(--h-control);
   border-color: transparent;
-  border-radius: var(--radius-md);
+  border-radius: 999px;
   background: transparent;
   color: var(--fg-subtle);
 }
@@ -1066,4 +1070,132 @@
 /* The Aa panel's Show times off: the message bar keeps its acts and drops the time. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-times="hidden"] .armada-message-bar__at {
   display: none;
+}
+
+/* ---- A question in Needs you: the ask at the body's size, each option a card with its words under its name. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__body {
+  gap: var(--space-4);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__ask {
+  font-size: calc(var(--spacious-body) + 1px);
+  line-height: var(--spacious-leading);
+  font-weight: var(--weight-heading);
+  text-wrap: pretty;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answers {
+  gap: var(--space-2);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer {
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--spacious-card);
+  box-shadow: var(--spacious-card-edge);
+  font-size: var(--spacious-body);
+  line-height: 22px;
+  transition: box-shadow var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer:hover {
+  box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--hue) 60%, transparent);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer[data-on] {
+  background: color-mix(in srgb, var(--hue) 14%, transparent);
+  box-shadow: inset 0 0 0 var(--border-width) var(--hue);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer > kbd {
+  min-width: 1ch;
+  font-size: var(--spacious-meta);
+  line-height: 22px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__option {
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: 2px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__description {
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+}
+
+/* A tooltip over the thread: the softer corner the thread's cards have, and its edge a faint ring, not a line. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tooltip__bubble:not([data-card]) {
+  padding: var(--space-1) calc(var(--space-2) + var(--space-1));
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--spacious-card-edge), var(--shadow-overlay);
+}
+
+/* ---- A turn Fleet started: one quiet line in the body's face, as a call is, its notice and the agent's answer under a rule when opened. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn {
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+  color: var(--fg-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__row {
+  gap: var(--space-2);
+  margin-inline: calc(var(--space-2) * -1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__row:hover,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn[data-open="true"] .armada-fleet-turn__row {
+  background: none;
+  color: var(--fg-muted);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__chevron {
+  display: none;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__label {
+  font-family: var(--font-sans);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__mark svg {
+  width: 14px;
+  height: 14px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__body {
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0 calc(var(--space-1) + var(--space-1) / 2);
+  padding: 0 0 0 var(--space-4);
+  border-inline-start: var(--border-width) solid var(--border-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame :is(.armada-fleet-turn__notice, .armada-fleet-turn__reply) {
+  font-family: var(--font-sans);
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+  color: var(--fg-muted);
+}
+
+/* Started by: one quiet line on the column's edge over the thread, the name pressable, not a filled box at the pane's edge. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-started-by {
+  align-self: stretch;
+  margin: var(--space-4) max(var(--space-3), calc((100% - var(--spacious-column)) / 2)) 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  color: var(--fg-subtle);
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-started-by:hover {
+  color: var(--fg-default);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
