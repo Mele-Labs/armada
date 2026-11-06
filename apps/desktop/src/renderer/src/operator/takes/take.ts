@@ -5,6 +5,18 @@ import type { ComponentType } from "react";
 
 import type { OperatorStore } from "../store";
 
+declare global {
+  interface ImportMeta {
+    /** Vite's, read at build time. A surface's typecheck reaches this file without `walks.ts`, which declares it too. */
+    glob<T>(
+      pattern: string,
+      options: {
+        eager: true;
+      },
+    ): Record<string, T>;
+  }
+}
+
 export type OperatorTake = {
   /** The name in `?take=`. */
   name: string;
