@@ -292,6 +292,10 @@ where
         self.operator_board_moved(moved).await
     }
 
+    async fn report_bridge_error(self: Arc<Self>, error: ipc::operator_errors::ReportBridgeError) -> Result<ipc::operator_errors::BridgeErrorTaken, Refusal> {
+        Ok(self.bridge_error_taken(error).await)
+    }
+
     async fn answer_operator_suggestion(self: Arc<Self>, answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
         self.suggestion_answered(answer).await
     }

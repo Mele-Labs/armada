@@ -624,6 +624,11 @@ const ROUTES: &[Route] = &[
         path: "/operator/board/move",
     },
     Route {
+        operation: "report_bridge_error",
+        method: "POST",
+        path: "/operator/errors",
+    },
+    Route {
         operation: "answer_operator_suggestion",
         method: "POST",
         path: "/operator/suggestions/answer",

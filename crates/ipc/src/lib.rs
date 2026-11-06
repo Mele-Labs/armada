@@ -139,6 +139,8 @@ pub mod reach_folders;
 pub mod operator_positions;
 /// The Operator's board: what it is ruling on, what waits for it and what it settled. `crates/ipc/operations/get_operator_board.toml`.
 pub mod operator_board;
+/// An error Bridge showed the person, sent to the Operator. `crates/ipc/operations/report_bridge_error.toml`.
+pub mod operator_errors;
 /// The box at the foot of the Operator panel, and the standing orders it turns words into. `crates/ipc/operations/talk_to_operator.toml`.
 pub mod operator_talk;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
