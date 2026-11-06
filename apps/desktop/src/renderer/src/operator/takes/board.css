@@ -86,8 +86,18 @@
 }
 
 /* Now keeps a card's height while empty, so the lanes below stay put when the Operator takes one. */
-.armada-board__lane[data-lane="now"] .armada-board__cards {
-  min-height: 6rem;
+/* An empty lane: a slot a short card's size, edged in dashes, saying so. */
+.armada-board__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--space-12) + var(--space-4));
+  padding: var(--space-3);
+  border: var(--border-width) dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  color: var(--fg-subtle);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
 }
 
 .armada-board__cards {

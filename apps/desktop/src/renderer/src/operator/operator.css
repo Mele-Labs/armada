@@ -1,4 +1,4 @@
-/* The Operator panel, in the dock over the whole work: the Layout control's bar over the panes a Job's area uses, which draw
+/* The Operator's page: the panes a Job's area uses, its Layout control in the title bar as a Job's is. The panes draw
    their own frames, strips and bodies (`job-panes.css`). What is here is each tab's body: rows of one line where they fit, every
    control repeated down a list in a column of its own. Bold in weight, never in size. */
 
@@ -12,14 +12,6 @@
   min-height: 0;
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
-}
-
-.armada-operator__bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: end;
-  gap: var(--space-3);
 }
 
 .armada-operator__scroll {

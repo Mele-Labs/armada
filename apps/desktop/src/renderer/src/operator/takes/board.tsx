@@ -1,6 +1,6 @@
 // The board take: the Operator's work as lanes in the order it flows: Now, the card it is on, then Up next, Needs you and Done. A card keeps its place on the board as it moves, and slides from where it was to where it went. Discussion stays the panel's own.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { Children, useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { Bot, Check, Clock, LoaderCircle, MessagesSquare } from "lucide-react";
 import { Button, SplitButton, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
@@ -406,11 +406,14 @@ const SPIN = <LoaderCircle size={12} strokeWidth={2} aria-hidden />;
 function Lane({
   name,
   hue,
+  empty,
   children,
   onDrop,
 }: {
   name: string;
   hue: "now" | "work" | "you" | "done";
+  /** What an empty lane says, in a quiet slot a card's size, so the lane reads as empty and not as missing. */
+  empty: string;
   children: ReactNode;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
 }) {
@@ -439,7 +442,13 @@ function Lane({
       }
     >
       <h3 className="armada-board__band">{name}</h3>
-      <ol className="armada-board__cards">{children}</ol>
+      <ol className="armada-board__cards">
+        {Children.toArray(children).length === 0 ? (
+          <li className="armada-board__empty">{empty}</li>
+        ) : (
+          children
+        )}
+      </ol>
     </section>
   );
 }
@@ -603,12 +612,13 @@ function Queue({ store }: { store: OperatorStore }) {
   return (
     <div className="armada-board__room">
       <div className="armada-board" ref={slide}>
-        <Lane name="Now" hue="now">
+        <Lane name="Now" hue="now" empty="Nothing in progress">
           {onIt === undefined ? null : upNext(onIt, true)}
         </Lane>
         <Lane
           name="Up next"
           hue="work"
+          empty="Nothing waiting"
           onDrop={(event) => {
             const dragged = readDrag(event);
             if (dragged?.kind === "raise") queueTalk(dragged.id);
@@ -617,7 +627,7 @@ function Queue({ store }: { store: OperatorStore }) {
         >
           {next.map((one) => upNext(one, false))}
         </Lane>
-        <Lane name="Needs you" hue="you">
+        <Lane name="Needs you" hue="you" empty="Nothing needs you">
           {waiting.map((one) => {
             const discussing = state.open === one.id;
             return (
@@ -658,7 +668,7 @@ function Queue({ store }: { store: OperatorStore }) {
             );
           })}
         </Lane>
-        <Lane name="Done" hue="done">
+        <Lane name="Done" hue="done" empty="Nothing settled yet">
           {settled.map((one) => (
             <Card
               key={one.id}

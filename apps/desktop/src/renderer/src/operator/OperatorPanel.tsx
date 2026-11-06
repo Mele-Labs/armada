@@ -94,17 +94,15 @@ function usePickedFilter(): (repository: string | undefined) => boolean {
 /** `place` is where the Layout control stands: the dock's head beside Close, since the title bar's slot is the open Job's. */
 export function OperatorPanel({ picked }: { picked: RepositorySummary | null }) {
   const store = useOperator();
-  // Where the Layout control stands: the panel's own bar, since the title bar's slot is the open Job's.
-  const [place, setPlace] = useState<HTMLDivElement | null>(null);
   if (store === null) return null;
+  // The Layout control stands in the title bar beside the context meter, as an open Job's does: the Operator's page and a Job are
+  // never drawn at once.
   return (
     <Picked.Provider value={picked}>
       <div className="armada-operator">
-        <div className="armada-operator__bar" ref={setPlace} />
         <JobPanes
           jobId={OPERATOR}
           family={operatorPanes}
-          controls={place}
           body={(tab) => <Body tab={tab} store={store} />}
           add={{
             entries: addEntries,
