@@ -10,8 +10,8 @@
 //! model: each text is a fact and one action the Job may take or leave. The one exception is the
 //! owner's own `plan.contextHandoff` set to carry on automatically, which `usage_following` acts on.
 //!
-//! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and its share,
-//! and toward nothing else: its context, its cache and its model are not the Job's.
+//! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and toward
+//! nothing else: its context is not the Job's.
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -23,36 +23,20 @@ use store::turn_units;
 
 /// How long after a telling the same rule may speak again, once the figure has fallen under.
 pub const COOLDOWN_MINUTES: i64 = 30;
-/// An hour's burn has to pass this many cost units before the subagents' share of it means anything.
-/// A unit is a million weighted tokens, `store::turn_units`.
-const MIN_HOUR_UNITS: f64 = 1.0;
-/// The subagents' own burn in the last hour has to pass this many cost units before they are told
-/// anything: a high share of a small hour is not worth the Job's attention. 25 since units weigh the
-/// model, so an opus burn trips it as 5 did before.
-const MIN_SUBAGENT_UNITS: f64 = 25.0;
-/// The turns the cache hit rate is read over.
-const CACHE_TURNS: usize = 10;
 const HOUR_MILLIS: i64 = 3_600_000;
-const EDITS: [&str; 4] = ["Edit", "Write", "MultiEdit", "NotebookEdit"];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rule {
     Context,
-    Subagents,
-    CacheHit,
-    OpusReading,
 }
 
 impl Rule {
-    pub const ALL: [Rule; 4] = [Rule::Context, Rule::Subagents, Rule::CacheHit, Rule::OpusReading];
+    pub const ALL: [Rule; 1] = [Rule::Context];
 
     /// The name a trip row keeps.
     pub fn name(self) -> &'static str {
         match self {
             Rule::Context => "context",
-            Rule::Subagents => "subagents",
-            Rule::CacheHit => "cache_hit",
-            Rule::OpusReading => "opus_reading",
         }
     }
 }
@@ -62,18 +46,12 @@ impl Rule {
 pub struct Limits {
     /// Tokens of context in the last turn.
     pub context_tokens: Option<u64>,
-    /// The subagents' percent of the last hour's burn.
-    pub subagent_percent: Option<u32>,
-    /// The cache hit percent the last 10 turns must not fall under.
-    pub cache_percent: Option<u32>,
-    /// Turns of reading on opus.
-    pub opus_turns: Option<u32>,
 }
 
 impl Limits {
     /// What ships.
     pub fn shipped() -> Limits {
-        Limits { context_tokens: Some(300_000), subagent_percent: Some(50), cache_percent: Some(70), opus_turns: Some(20) }
+        Limits { context_tokens: Some(300_000) }
     }
 
     /// The limits settings.json holds now.
@@ -82,23 +60,20 @@ impl Limits {
     }
 
     /// The limits the dials give, a rule that is off having none.
-    pub fn from_dials(dials: &[RuleDial; 4]) -> Limits {
+    pub fn from_dials(dials: &[RuleDial; 1]) -> Limits {
         let limit = |one: &RuleDial| one.on.then_some(one.limit);
         Limits {
             context_tokens: limit(&dials[0]).map(|k| u64::try_from(k).unwrap_or(0) * 1_000),
-            subagent_percent: limit(&dials[1]).map(|n| u32::try_from(n).unwrap_or(0)),
-            cache_percent: limit(&dials[2]).map(|n| u32::try_from(n).unwrap_or(0)),
-            opus_turns: limit(&dials[3]).map(|n| u32::try_from(n).unwrap_or(0)),
         }
     }
 
     pub fn any(&self) -> bool {
-        self.context_tokens.is_some() || self.subagent_percent.is_some() || self.cache_percent.is_some() || self.opus_turns.is_some()
+        self.context_tokens.is_some()
     }
 
     /// How many main-thread turns a reading needs to have, however long ago they were.
     pub fn main_turns_needed(&self) -> usize {
-        (self.opus_turns.unwrap_or(0) as usize).max(CACHE_TURNS)
+        1
     }
 }
 
@@ -118,15 +93,6 @@ fn context(turn: &KeptTurnUsage) -> u64 {
 
 fn millis(turn: &KeptTurnUsage) -> Option<i64> {
     Timestamp::from_rfc3339(turn.at.clone()).epoch_millis()
-}
-
-/// Whether the turn's first call was a read or a search.
-fn began_reading(turn: &KeptTurnUsage) -> bool {
-    match turn.tools.first().map(String::as_str) {
-        Some("Read") => true,
-        Some("Bash") => turn.bash_use.as_deref() == Some("read_search"),
-        _ => false,
-    }
 }
 
 /// The turns of the 60 minutes up to the newest, which `turns` ends with.
@@ -157,7 +123,6 @@ pub fn hour_burn(turns: &[KeptTurnUsage]) -> f64 {
 /// and its last [`Limits::main_turns_needed`] main-thread turns.
 pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
     let main: Vec<&KeptTurnUsage> = turns.iter().filter(|turn| !turn.subagent).collect();
-    let hour = last_hour(turns);
     let mut found = Vec::new();
 
     if let (Some(limit), Some(last)) = (limits.context_tokens, main.last()) {
@@ -175,65 +140,6 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
                     remind = ipc::HANDOFF_REMIND,
                 ),
             });
-        }
-    }
-
-    if let Some(limit) = limits.subagent_percent {
-        let whole: f64 = hour.iter().map(|turn| turn_units(turn)).sum();
-        let subagents: f64 = hour.iter().filter(|turn| turn.subagent).map(|turn| turn_units(turn)).sum();
-        // The advice is a cheaper model, and only an opus subagent has one to move to. How many
-        // ran at once is not stored (a subagent turn carries a flag, not an id), so there is no
-        // count part.
-        let on_opus = hour.iter().any(|turn| turn.subagent && turn.model.to_lowercase().contains("opus"));
-        if whole > MIN_HOUR_UNITS && subagents > MIN_SUBAGENT_UNITS && on_opus && subagents / whole * 100.0 > f64::from(limit) {
-            let share = subagents / whole * 100.0;
-            found.push(Trip {
-                rule: Rule::Subagents,
-                figure: share,
-                text: format!(
-                    "Subagents burned {subagents:.1} units in your last hour, {}% of it, on opus. Pass model sonnet on reading and searching agents.",
-                    share.round()
-                ),
-            });
-        }
-    }
-
-    if let Some(limit) = limits.cache_percent {
-        if main.len() >= CACHE_TURNS {
-            let recent = &main[main.len() - CACHE_TURNS..];
-            let whole: u64 = recent.iter().map(|turn| context(turn)).sum();
-            let read: u64 = recent.iter().map(|turn| turn.cache_read_tokens).sum();
-            if whole > 0 && (read as f64 / whole as f64 * 100.0) < f64::from(limit) {
-                let hit = read as f64 / whole as f64 * 100.0;
-                found.push(Trip {
-                    rule: Rule::CacheHit,
-                    figure: hit,
-                    text: format!(
-                        "Cache hit rate is {}% over your last {CACHE_TURNS} turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.",
-                        hit.round()
-                    ),
-                });
-            }
-        }
-    }
-
-    if let Some(count) = limits.opus_turns.map(|count| count as usize).filter(|count| *count > 0) {
-        if main.len() >= count {
-            let recent = &main[main.len() - count..];
-            let reading = recent.iter().all(|turn| {
-                turn.model.to_lowercase().contains("opus")
-                    && began_reading(turn)
-                    && !turn.tools.iter().any(|tool| EDITS.contains(&tool.as_str()))
-            });
-            if reading {
-                found.push(Trip {
-                    rule: Rule::OpusReading,
-                    figure: count as f64,
-                    text: format!(
-                        "Your last {count} turns on opus only read and searched. Subagents for reading can run on sonnet."
-                    ),
-                });
-            }
         }
     }
     found
@@ -300,22 +206,18 @@ impl Following {
     }
 }
 
-/// A rule's on-off and limit as settings.json holds them, in [`Rule::ALL`] order: thousand tokens,
-/// percent, percent and turns.
+/// A rule's on-off and limit as settings.json holds them, in [`Rule::ALL`] order: thousand tokens.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RuleDial {
     pub on: bool,
     pub limit: i64,
 }
 
-/// The four dials settings.json holds now.
-pub fn dials_of(settings: &Resolved) -> [RuleDial; 4] {
+/// The dials settings.json holds now.
+pub fn dials_of(settings: &Resolved) -> [RuleDial; 1] {
     let dial = |on: keys::Flag, limit: keys::Integer| RuleDial { on: settings.get(on), limit: settings.get(limit) };
     [
         dial(keys::CONTEXT_WATCH, keys::CONTEXT_WATCH_KTOKENS),
-        dial(keys::SUBAGENT_WATCH, keys::SUBAGENT_WATCH_PERCENT),
-        dial(keys::CACHE_WATCH, keys::CACHE_WATCH_PERCENT),
-        dial(keys::OPUS_READING_WATCH, keys::OPUS_READING_WATCH_TURNS),
     ]
 }
 
@@ -365,13 +267,8 @@ fn unit_of(key: &str) -> String {
 
 /// The wire form of the rules over `[since, until)`: each rule with its dial and its trips, newest
 /// first. `trips` may be in any order and hold any rule.
-pub fn report(since: &str, until: &str, dials: &[RuleDial; 4], trips: &[KeptTrip]) -> ipc::UsageRules {
-    let keys_of = [
-        keys::CONTEXT_WATCH_KTOKENS.name(),
-        keys::SUBAGENT_WATCH_PERCENT.name(),
-        keys::CACHE_WATCH_PERCENT.name(),
-        keys::OPUS_READING_WATCH_TURNS.name(),
-    ];
+pub fn report(since: &str, until: &str, dials: &[RuleDial; 1], trips: &[KeptTrip]) -> ipc::UsageRules {
+    let keys_of = [keys::CONTEXT_WATCH_KTOKENS.name()];
     let rules = Rule::ALL
         .into_iter()
         .zip(dials)

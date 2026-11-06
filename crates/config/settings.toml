@@ -1169,51 +1169,6 @@ Chosen 18 Oct 2026, not measured: a Job whose last turn held more than 300k toke
 **The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
 """
 
-[settings.usage-rule-subagents]
-name = "Tell a Job its subagents burn most"
-scope = "Machine"
-default = "50 percent"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Chosen 18 Oct 2026, not measured: subagents running more than half of a Job's burn in the last 60 minutes, once their own burn in that hour passes 25 cost units (a cost unit is a million tokens weighed by kind and by model, opus 5, so 25 is the 5 an opus burn passed before 4 Nov 2026) and at least one subagent turn ran on an opus model. A small burn, or subagents already on sonnet or haiku, is told nothing whatever the share. The Job is told once, with the burn, to pass the cheaper model on reading agents. How many subagents ran at once is not stored, so there is no count condition. **Enforced**, `fleet::usage_rules`.
-
-**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
-"""
-
-[settings.usage-rule-cache]
-name = "Tell a Job its cache misses"
-scope = "Machine"
-default = "70 percent"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Chosen 18 Oct 2026, not measured: cache-read over input, cache-creation and cache-read across the Job's last 10 turns, under 70 percent. A change in the prompt or the tools every turn is what makes a cache miss, and the Job is told to check its hooks and MCP servers. **Enforced**, `fleet::usage_rules`.
-
-**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
-"""
-
-[settings.usage-rule-opus-reading]
-name = "Tell a Job it only reads on the top model"
-scope = "Machine"
-default = "20 turns"
-lifetime = "Live"
-merge_strategy = "REPLACE"
-peer_polarity = "n/a — single layer"
-owner = "Fleet"
-read_by = "fleet"
-notes = """
-Chosen 18 Oct 2026, not measured: the Job's last 20 turns all on an opus model, each beginning with a read or search (a Read, or a shell command labelled read_search) and none that edited. The Job is told once that subagents for reading can run on sonnet. Fleet never switches the model. **Enforced**, `fleet::usage_rules`.
-
-**The values live in settings.json under `limits.*Watch*`** (live), `docs/concepts/machine.md`, *settings.json*. Each rule has an on-off and a limit.
-"""
-
 [settings.fleet-notice-dispute-read]
 name = "Read a Job's replies to a Fleet notice after"
 scope = "Machine"
