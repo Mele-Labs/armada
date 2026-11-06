@@ -1199,3 +1199,8 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* A response's menu or editor is open: the bar stays up while the pointer is on it. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar[data-held] {
+  opacity: 1;
+}

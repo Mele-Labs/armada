@@ -2443,6 +2443,11 @@ function Row({
             : {
                 onPick: (response: QuickResponse) => picks.pick(plainOf(row.text).trim(), response),
               })}
+          {...(picks?.onAct === undefined
+            ? {}
+            : {
+                onAct: picks.onAct,
+              })}
           {...(picks === null
             ? {}
             : (() => {
