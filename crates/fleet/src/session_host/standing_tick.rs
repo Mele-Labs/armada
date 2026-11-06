@@ -30,11 +30,7 @@ where
             .filter(|(_, quiet)| *quiet > after)
             .map(|(id, _)| id)
             .collect();
-        // What a reply keeps for later is held before the row is drawn, so the row carries it.
         let extracted = self.extract_reads().settled();
-        for id in &extracted {
-            self.later_read(id).await;
-        }
         // A reply the language model has read since, or items it has embedded: its list may have moved.
         let read = self
             .reply_reads()

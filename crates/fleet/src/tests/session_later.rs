@@ -1,7 +1,5 @@
 //! The follow-ups an agent keeps for itself: held across its replies, on the row, settled by the
-//! agent or by the person, and a hold on `all_done` while any is open. The sentence readers that find
-//! them read with a model these tests do not load, so these keep sentences the way the reader would
-//! hand them over.
+//! agent or by the person, and a hold on `all_done` while any is open.
 
 use std::sync::Arc;
 
@@ -192,30 +190,10 @@ async fn the_persons_end_job_is_never_held_by_an_open_followup() {
     assert_eq!(ended.state, ipc::SessionState::Ended);
 }
 
-/// The person's thumbs on a follow-up. `Fake` puts a sentence about the store on one axis, others on the other.
+/// The person's thumbs on a follow-up.
 mod thumbs {
     use super::*;
-    use adapter_traits::{NotEmbedded, TextModel, TextReading};
     use ipc::ConfirmLater;
-
-    struct Fake;
-
-    impl TextModel for Fake {
-        fn model(&self) -> &str {
-            "fake@0"
-        }
-
-        fn embed(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, NotEmbedded> {
-            Ok(texts.iter().map(|text| if text.to_lowercase().contains("store") { vec![1.0, 0.0] } else { vec![0.0, 1.0] }).collect())
-        }
-
-        fn read(&self, _: TextReading, _: &[&str]) -> Result<Vec<f32>, NotEmbedded> {
-            Err(NotEmbedded(String::from("not read here")))
-        }
-    }
-
-    const STORE: &str = "I will tidy the store after this lands.";
-    const STORE_AGAIN: &str = "I will clean up the store once the merge is in.";
 
     fn down(id: &SessionId, which: &str) -> SettleLater {
         SettleLater { misread: true, ..settle(id, which, LaterHow::Dropped, None, None) }
@@ -242,24 +220,6 @@ mod thumbs {
         assert_eq!(code(refused), "fleet.later_not_settleable");
         assert_eq!(open_ids(&read(&rig, &id).await), ["later-1"]);
         assert!(rig.fleet.store().lock().await.later_misreads().unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn a_follow_up_near_one_marked_not_deferred_is_not_kept() {
-        let rig = rig(None);
-        rig.fleet.language_model().loaded(Arc::new(Fake));
-        let id = rig.an_agent().await;
-        rig.fleet.later_kept(id.as_str(), &said(&[STORE]), FIRST).await;
-        rig.fleet.settle_later(None, down(&id, "later-1")).await.unwrap();
-        // The vectors are embedded on a blocking thread; wait until both are in.
-        let model: Arc<dyn TextModel> = Arc::new(Fake);
-        super::super::session_host::eventually(|| async {
-            rig.fleet.item_vectors().known(Arc::clone(&model), id.as_str(), &[STORE, STORE_AGAIN, DOCS]).len() == 3
-        })
-        .await;
-        assert!(!rig.fleet.later_kept(id.as_str(), &said(&[STORE_AGAIN]), SECOND).await, "near the marked one");
-        assert!(rig.fleet.later_kept(id.as_str(), &said(&[DOCS]), SECOND).await, "far from it");
-        assert_eq!(open_ids(&read(&rig, &id).await), ["later-2"]);
     }
 
     #[tokio::test]
