@@ -128,6 +128,11 @@ function play(kind: Kind): void {
   source.start();
 }
 
+/** One of the window's sounds, for a moment that is not a press or a key: the snapshot turning ready. Silent while sounds are off. */
+export function playUiSound(kind: Kind): void {
+  play(kind);
+}
+
 /** `features.uiSounds`: on unless settings.json says false, and on until Fleet has answered. */
 export function setUiSounds(on: boolean): void {
   enabled = on;
