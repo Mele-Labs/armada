@@ -720,6 +720,7 @@ dependencies = [
  "config",
  "core-model",
  "crypto-common",
+ "fleet",
  "futures-util",
  "http-body-util",
  "ipc",
