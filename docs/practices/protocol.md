@@ -1442,6 +1442,7 @@ Bridge's half is `running`, `previous`, `carried` and `reverting` on `FleetBuild
 The command removes the file on success, and on failure writes `failed`, the build `current` names, and one line, which is history once `current` names another.
 **Bridge marks the report `reverting` at once and reads every two seconds** until the report says neither `reverting` nor `restarting`, as it does for a restart.
 **A Bridge that predates these fields** reads a report without them as one with no kept builds, which draws no Revert.
+**`previous` is left out where the build before is marked `unhealthy`**, one `armada build settle` swapped back from, so no Revert is drawn onto it and `revert_fleet_build` refuses it as `fleet.build_not_revertible`.
 
 ## Open questions
 

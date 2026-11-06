@@ -259,13 +259,20 @@ The first restart onto kept builds reopens Bridge, because its job still names a
 
 **`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
 It refuses before changing anything when no previous build is kept, or when Fleet's plist does not name `builds/current/armada`.
-Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to 20 seconds for a new Fleet to write its runtime file, and reboots Bridge only where the two builds' Bridge hashes differ.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' Bridge hashes differ.
 A second revert swaps back.
 **The Fleet panel's Revert press starts it**: `revert_fleet_build` writes `Armada/revert.status` as `running`, then runs `builds/previous/armada build revert` detached from Fleet.
 The command removes the file when the swap took, and when it did not writes `failed`, the build `current` names, and one line, which the panel shows until a restart moves `current`.
 A `running` file older than two minutes reads as no revert.
 The panel's `previous` is what the swap would change: the Jobs whose branch is a `[[job]]` row of one build and not of the other, and whether Bridge reopens.
 Hosted Jobs run under keepers, so their agents carry on across it as across any restart.
+
+**A restart rehearses the new build before anything stops, and swaps back from a Fleet that does not answer.**
+Once the build is kept, `scripts/restart` runs its `armada build rehearse`, which opens a copy of the store at `Armada/backups/rehearsal.db` with that build's migrations and removes it; a build that cannot open it is refused with nothing swapped.
+The rehearsal opens the store and starts no Fleet, since a Fleet on the copy would resume its Jobs and sweep processes as its own.
+After launchd boots Fleet, `armada build settle <old pid>` waits up to a minute for a Fleet other than the old one to answer `/health`.
+One that does not is marked with an `unhealthy` line in its `build.toml`, and Fleet is swapped back onto the build before, as a revert but leaving Bridge, which the restart moves only once Fleet answers.
+Revert refuses to go back onto a build marked `unhealthy`, and says why.
 `crates/fleet/src/kept_builds.rs`.
 
 ### Restarting onto another tree
