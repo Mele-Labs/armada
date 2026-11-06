@@ -9,7 +9,7 @@ use store::settings_file::SettingValue;
 
 /// Whether a repository's Jobs reach the person's connectors. The person's switch for it wins,
 /// and a repository with none follows its `armada.yml`, `armada_yml`.
-pub(crate) fn connectors_on(off: Option<SettingValue>, repository: &str, armada_yml: bool) -> bool {
+pub fn connectors_on(off: Option<SettingValue>, repository: &str, armada_yml: bool) -> bool {
     match off {
         Some(SettingValue::Map(by)) => match by.get(repository) {
             Some(SettingValue::Bool(off)) => !off,
@@ -22,7 +22,7 @@ pub(crate) fn connectors_on(off: Option<SettingValue>, repository: &str, armada_
 /// The skills switched off for `repository`, **without the repository's own and without Armada's**
 /// even where the setting names them: every Job gets those. `own` says whether the repository has a
 /// skill of that name itself.
-pub(crate) fn skills_off(off: Option<SettingValue>, repository: &str, own: impl Fn(&str) -> bool) -> Vec<String> {
+pub fn skills_off(off: Option<SettingValue>, repository: &str, own: impl Fn(&str) -> bool) -> Vec<String> {
     let Some(SettingValue::Map(by)) = off else { return Vec::new() };
     let Some(SettingValue::List(named)) = by.get(repository) else { return Vec::new() };
     named

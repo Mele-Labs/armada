@@ -4,7 +4,7 @@
 use config::settings as keys;
 use config::settings::Words;
 
-pub(super) fn judge() -> Vec<(Words, verification::Piece)> {
+pub fn judge() -> Vec<(Words, verification::Piece)> {
     vec![
         (
             keys::PROMPT_JUDGE_OPENING,

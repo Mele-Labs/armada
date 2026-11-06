@@ -39,7 +39,7 @@ const LOST: &str = "Fleet stopped while the scout was reading, so nothing read i
 
 impl Fleet
 {
-    pub(crate) async fn scout_asked(
+    pub async fn scout_asked(
         self: Arc<Self>,
         studio_id: ipc::StudioId,
         ask: AskScout,
@@ -85,7 +85,7 @@ impl Fleet
         self.studio_now(&studio_id, within).await
     }
 
-    pub(crate) async fn scout_started(
+    pub async fn scout_started(
         self: Arc<Self>,
         studio_id: ipc::StudioId,
         start: StartScout,
@@ -125,7 +125,7 @@ impl Fleet
         self.studio_now(&studio_id, within).await
     }
 
-    pub(crate) async fn scout_stopped(
+    pub async fn scout_stopped(
         &self,
         studio_id: ipc::StudioId,
         stop: StopScout,
@@ -156,7 +156,7 @@ impl Fleet
     /// Every Finding a restart left Gathering, ended as failed and keeping
     /// what it read. **Read once, at start**: no scout outlives the Fleet that
     /// was reading it.
-    pub(crate) async fn scouts_left_gathering(&self) {
+    pub async fn scouts_left_gathering(&self) {
         // **Nothing to log under**: a Studio has no Job's log, and a store that
         // will not read now answers the next read of the Studio the same way.
         let Ok(left) = self.store().lock().await.gathering_findings() else {
@@ -176,7 +176,7 @@ impl Fleet
     /// `told` is the whole of its one turn — section 5b asked about the code,
     /// section 5c reading a source in. `read_in` names the Link whose read-in
     /// this is, and is what makes its end mint nodes off it. `#1293`.
-    pub(crate) async fn scouting(
+    pub async fn scouting(
         self: Arc<Self>,
         studio: StudioId,
         gathering: GatheringFinding,
@@ -262,7 +262,7 @@ impl Fleet
         Ok(())
     }
 
-    pub(crate) async fn kept(
+    pub async fn kept(
         &self,
         studio: &StudioId,
         scouted: &impl Scouted,
@@ -274,7 +274,7 @@ impl Fleet
     }
 
     /// The Studio whole on the stream, as every other write to one is.
-    pub(crate) async fn studio_published(&self, studio: &StudioId) {
+    pub async fn studio_published(&self, studio: &StudioId) {
         let read = self.store().lock().await.studio(studio);
         if let Ok(graph) = read {
             self.events()
@@ -282,7 +282,7 @@ impl Fleet
         }
     }
 
-    pub(crate) async fn studio_now(
+    pub async fn studio_now(
         &self,
         studio_id: &ipc::StudioId,
         within: Option<ManifestId>,
@@ -295,7 +295,7 @@ impl Fleet
     /// The checkout of the repository the Studio belongs to, refused where a
     /// door session's repository does not own the Studio or Fleet does not
     /// serve the repository.
-    pub(crate) async fn checkout_of(
+    pub async fn checkout_of(
         &self,
         studio: &StudioId,
         within: Option<&ManifestId>,
@@ -309,7 +309,7 @@ impl Fleet
         Ok(served.root().to_string())
     }
 
-    pub(crate) async fn checkout_read(&self, root: &str) -> Result<ScoutCheckout, Refusal> {
+    pub async fn checkout_read(&self, root: &str) -> Result<ScoutCheckout, Refusal> {
         let owned = root.to_string();
         let read = tokio::task::spawn_blocking(move || adapters::checkout_as_it_stands(&owned))
             .await
@@ -368,7 +368,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn no_such_node(&self, node_id: &StudioNodeId) -> Refusal {
+    pub fn no_such_node(&self, node_id: &StudioNodeId) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             NO_SUCH_NODE,
             format!("no node on this Studio is `{}`", node_id.as_str()),
@@ -377,7 +377,7 @@ impl Fleet
     }
 }
 
-pub(crate) fn failed(why: &str) -> ScoutEnded {
+pub fn failed(why: &str) -> ScoutEnded {
     ScoutEnded {
         outcome: ScoutOutcome::Failed {
             why: why.to_string(),

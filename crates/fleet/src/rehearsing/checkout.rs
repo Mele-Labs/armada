@@ -29,7 +29,7 @@ impl Fleet
     ///
     /// **It needs no Job and reads no store.** This is the file Fleet is
     /// already holding, which is why it answers before any Job exists.
-    pub(crate) async fn checkout_run_sheet(
+    pub async fn checkout_run_sheet(
         &self,
         checkout: impl Into<Checkout>,
     ) -> Result<ipc::CheckoutRunSheet, Refusal> {
@@ -76,7 +76,7 @@ impl Fleet
     /// Start one run in the main checkout, and answer as soon as it is
     /// underway. `asked.workspace` names a directory whose own file declares
     /// the entry, run there with that file's ports.
-    pub(crate) async fn start_checkout_rehearsal(
+    pub async fn start_checkout_rehearsal(
         self: Arc<Self>,
         asked: ipc::StartCheckoutRun,
         checkout: impl Into<Checkout>,
@@ -149,7 +149,7 @@ impl Fleet
     }
 
     /// End the checkout's run, and answer with its record once it is written.
-    pub(crate) async fn stop_checkout_rehearsal(
+    pub async fn stop_checkout_rehearsal(
         &self,
         id: String,
         checkout: impl Into<Checkout>,
@@ -166,7 +166,7 @@ impl Fleet
     /// **This tree holds a person's own uncommitted work**, which no Job's
     /// worktree does — so a run that took no snapshot is refused here rather
     /// than discarded from, which is [`super`]'s rule for both owners.
-    pub(crate) async fn undo_checkout_rehearsal(
+    pub async fn undo_checkout_rehearsal(
         &self,
         id: String,
         checkout: impl Into<Checkout>,
@@ -186,7 +186,7 @@ impl Fleet
     /// **Never against `HEAD`, and never a fallback to it.** This tree holds a
     /// person's own uncommitted work, which a patch against `HEAD` would show
     /// as the run's; a snapshot that is gone is answered as gone. A read.
-    pub(crate) async fn checkout_rehearsal_diff(
+    pub async fn checkout_rehearsal_diff(
         &self,
         id: String,
         checkout: impl Into<Checkout>,
@@ -245,7 +245,7 @@ impl Fleet
     }
 
     /// The checkout's earlier runs, newest first.
-    pub(crate) async fn checkout_rehearsal_history(
+    pub async fn checkout_rehearsal_history(
         &self,
         checkout: impl Into<Checkout>,
     ) -> Result<ipc::CheckoutRunList, Refusal> {
@@ -258,7 +258,7 @@ impl Fleet
 
     /// One run's log. **The checkout's own runs are the allowlist**: an id
     /// that names none of them reaches no file.
-    pub(crate) async fn checkout_rehearsal_output(
+    pub async fn checkout_rehearsal_output(
         &self,
         id: String,
         checkout: impl Into<Checkout>,
@@ -269,7 +269,7 @@ impl Fleet
     }
 
     /// A run's socket, resolved before it opens, for `observe_run`'s reason.
-    pub(crate) async fn observe_checkout_rehearsal(
+    pub async fn observe_checkout_rehearsal(
         &self,
         id: String,
         checkout: impl Into<Checkout>,

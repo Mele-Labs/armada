@@ -9,7 +9,7 @@ use store::RetroLine;
 
 /// Where a fix lands, in the words both calls are given: what ships as
 /// `prompts.retroWhereFixesLand`.
-pub(crate) const LANDS_IN: &str = "\
+pub const LANDS_IN: &str = "\
          Say separately where the fix for each item lands, as `lands_in`. It is exactly one \
          of three, and it is a different question from whose way it got in:\n\
          - `armada`: Armada itself, the app that ran the job. For example the gate measured \
@@ -27,7 +27,7 @@ pub(crate) const LANDS_IN: &str = "\
 
 /// The three texts of an item, the Kit change and how to write them, in the words both calls are given:
 /// what ships as `prompts.retroHowToWrite`.
-pub(crate) const TEXTS: &str = "\
+pub const TEXTS: &str = "\
          Each item has three texts:\n\
          - `title`: a headline of about eight words, with no period.\n\
          - `what`: one or two short sentences saying what happened and to whom.\n\
@@ -73,7 +73,7 @@ fn dashed(text: &str) -> bool {
 /// one with a dash in any of them, and one that names no place its fix lands.
 /// **The place is never defaulted**: a guess would list it under a place the
 /// model did not choose.
-pub(crate) fn read(
+pub fn read(
     said: &str,
     known: &BTreeSet<String>,
 ) -> Result<Vec<RetroLine>, String> {

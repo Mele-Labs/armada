@@ -27,7 +27,7 @@ use super::keeping::JOB;
 use super::serving::label_of;
 use crate::daemon::Fleet;
 
-pub(crate) const IN_FLIGHT: &str = "fleet.lifecycles_in_flight";
+pub const IN_FLIGHT: &str = "fleet.lifecycles_in_flight";
 
 /// One instance no end state has taken.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,7 +112,7 @@ impl Fleet
     /// with. **Nothing for a Job that holds nothing**, and for an instance ending the Job ended. **A
     /// Job it started that has not begun is listed and holds nothing**, whatever its instance reads,
     /// and holds it again once it runs, since this asks each time.
-    pub(crate) fn lifecycles_flying(&self, store: &Store, session: &str) -> Vec<Flying> {
+    pub fn lifecycles_flying(&self, store: &Store, session: &str) -> Vec<Flying> {
         let mut kept = store.lifecycle_instances_of(session).unwrap_or_default();
         kept.retain(|one| one.ended_at.is_empty());
         let Some(manifest) = store.session(session).ok().flatten().and_then(|one| one.manifest_id).filter(|_| !kept.is_empty()) else {
@@ -128,7 +128,7 @@ impl Fleet
 
     /// What of `lifecycles_flying` keeps `session` open: the instances standing in a state their
     /// lifecycle knows and does not end on, other than a Job it started that has not begun.
-    pub(crate) fn lifecycles_holding(&self, store: &Store, session: &str) -> Vec<Flying> {
+    pub fn lifecycles_holding(&self, store: &Store, session: &str) -> Vec<Flying> {
         let mut flying = self.lifecycles_flying(store, session);
         flying.retain(|one| one.holds);
         flying
@@ -137,7 +137,7 @@ impl Fleet
     /// The agent's `call` (`all_done` or `finish_up`) is refused while the Job holds an instance
     /// standing in a state that is not an end, and **kept as told to wait**, which is what lets the
     /// last instance's end tell it so. Only the agent's call asks: the person's End job is `close_session`.
-    pub(crate) fn lifecycles_hold(&self, store: &mut Store, session: &str, call: &str) -> Result<(), Refusal> {
+    pub fn lifecycles_hold(&self, store: &mut Store, session: &str, call: &str) -> Result<(), Refusal> {
         match self.lifecycles_hold_text(store, session) {
             None => Ok(()),
             Some(text) => Err(Refusal::IllegalMove(WireError::raised(IN_FLIGHT, format!("{call} refused. {text}"), self.run_id()))),
@@ -146,7 +146,7 @@ impl Fleet
 
     /// What `lifecycles_hold` refuses with, for a call that names every reason at once. Kept as told
     /// to wait when there is one.
-    pub(crate) fn lifecycles_hold_text(&self, store: &mut Store, session: &str) -> Option<String> {
+    pub fn lifecycles_hold_text(&self, store: &mut Store, session: &str) -> Option<String> {
         let holding = self.lifecycles_holding(store, session);
         if holding.is_empty() {
             return None;
@@ -160,7 +160,7 @@ impl Fleet
     /// the next move. A Job whose agent was never refused is not told, and neither is one still held.
     /// **The move of a Job that has not begun is no end**, so the line is about the last that was, and
     /// names what has not begun.
-    pub(crate) async fn lifecycles_clear_told(self: &Arc<Self>, session: &str) {
+    pub async fn lifecycles_clear_told(self: &Arc<Self>, session: &str) {
         let text = {
             let store = self.store().lock().await;
             if !store.lifecycle_job_held(session).unwrap_or(false) {
@@ -194,7 +194,7 @@ impl Fleet
 
     /// Ending the Job ends its instances: each one still in flight is kept as ended. A Job that holds
     /// none changes nothing and publishes nothing.
-    pub(crate) async fn lifecycles_ended_with(&self, session: &str) {
+    pub async fn lifecycles_ended_with(&self, session: &str) {
         let at = self.now().as_str().to_string();
         let ended = {
             let mut store = self.store().lock().await;

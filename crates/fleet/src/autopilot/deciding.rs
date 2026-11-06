@@ -20,7 +20,7 @@ use crate::prompts::Prompts;
 
 /// The question, with `{instruction}`, `{kind}`, `{decision}` and `{earlier}` to fill. As it ships:
 /// `prompts.autopilotDecider` is the setting that overrides it.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 You answer one decision for a repository while the person who owns it is away. Answer only the \
 block at the end.
 
@@ -51,12 +51,12 @@ Answer with nothing but these three lines:
     because: <why, in one line the person will read in the morning>";
 
 /// How many earlier decisions of a repository the helper reads.
-pub(crate) const EARLIER: u32 = 20;
+pub const EARLIER: u32 = 20;
 
 /// One decision, as the helper is shown it. `ways` are the answers it may name, in order; a kind
 /// with one yes to give has one, which says what yes does.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Deciding {
+pub struct Deciding {
     pub kind: AutopilotDecision,
     pub subject: String,
     /// What the subject is about, where it has more to read than its words.
@@ -66,7 +66,7 @@ pub(crate) struct Deciding {
 
 /// What the helper made of one decision.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Reading {
+pub enum Reading {
     /// Sure: the way it named, by index into [`Deciding::ways`], and why.
     Answer { way: usize, because: String },
     /// Not sure, or no way named: the item waits.
@@ -75,7 +75,7 @@ pub(crate) enum Reading {
 
 /// Why nothing was decided. **Never an answer**: the item waits.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum NotDecided {
+pub enum NotDecided {
     Call(CallFailed),
     Unreadable { why: String, answer: String },
 }
@@ -119,7 +119,7 @@ fn earlier_lines(earlier: &[KeptDecision]) -> String {
 }
 
 /// The question one decision is put as, in the words of `prompts.autopilotDecider`.
-pub(crate) fn question(prompts: &Prompts, instruction: &str, deciding: &Deciding, earlier: &[KeptDecision]) -> String {
+pub fn question(prompts: &Prompts, instruction: &str, deciding: &Deciding, earlier: &[KeptDecision]) -> String {
     let mut decision = format!("  {}\n", deciding.subject);
     if let Some(detail) = &deciding.detail {
         for text in detail.lines() {
@@ -142,7 +142,7 @@ pub(crate) fn question(prompts: &Prompts, instruction: &str, deciding: &Deciding
 }
 
 /// Ask once, and read the answer against the ways offered.
-pub(crate) async fn decided(
+pub async fn decided(
     instruction: &str,
     deciding: &Deciding,
     earlier: &[KeptDecision],
@@ -156,7 +156,7 @@ pub(crate) async fn decided(
 }
 
 /// Read an answer. A way is named by its number among `ways`; `none` or an unsure answer leaves it.
-pub(crate) fn read_decision(answer: &str, ways: usize) -> Result<Reading, NotDecided> {
+pub fn read_decision(answer: &str, ways: usize) -> Result<Reading, NotDecided> {
     let unreadable = |why: String| NotDecided::Unreadable { why, answer: answer.to_string() };
     let because = line(answer, "because")
         .filter(|said| !said.is_empty())

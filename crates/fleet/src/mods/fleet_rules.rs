@@ -6,25 +6,25 @@ use ipc::{FleetFile, FleetRule, Notice, RuleScope};
 use crate::teaching::link;
 
 /// The most `fleet.toml` may weigh.
-pub(crate) const MOST_BYTES: u64 = 8 * 1024;
+pub const MOST_BYTES: u64 = 8 * 1024;
 
 const MOST_RULES: usize = 64;
 
 /// `text` read, or the problem with where it stopped.
-pub(crate) fn read(text: &str) -> Result<FleetFile, String> {
+pub fn read(text: &str) -> Result<FleetFile, String> {
     toml::from_str(text).map_err(|why| crate::mods::toml_problem("fleet.toml", text, &why))
 }
 
 /// Whether `word` is one a Fleet notice goes by. **Read off `Notice`'s own spellings**, so a notice
 /// added there is accepted here with nothing else to change.
-pub(crate) fn is_notice_word(word: &str) -> bool {
+pub fn is_notice_word(word: &str) -> bool {
     let plain = !word.is_empty() && word.len() <= 40 && word.chars().all(|c| c.is_ascii_lowercase() || c == '_');
     plain && ipc::decode::<Notice>("a notice", format!("\"{word}\"").as_bytes()).is_ok()
 }
 
 /// Why `rule`'s `matches` and `when` cannot work, where they cannot. `taught_on` is the text of the
 /// notice the rule was taught on, which a pattern must find words in.
-pub(crate) fn rule_fault(rule: &FleetRule, taught_on: Option<&str>) -> Option<String> {
+pub fn rule_fault(rule: &FleetRule, taught_on: Option<&str>) -> Option<String> {
     if let Some(pattern) = &rule.matches {
         if let Some(why) = link::match_fault(pattern, taught_on) {
             return Some(why);
@@ -41,7 +41,7 @@ pub(crate) fn rule_fault(rule: &FleetRule, taught_on: Option<&str>) -> Option<St
 }
 
 /// Every problem in `text`, empty where Fleet may act on it.
-pub(crate) fn problems(text: &str) -> Vec<String> {
+pub fn problems(text: &str) -> Vec<String> {
     let file = match read(text) {
         Ok(file) => file,
         Err(why) => return vec![why],
@@ -82,7 +82,7 @@ fn nearness(scope: &RuleScope, session: &str, repository: &str) -> Option<u8> {
 /// **A rule covers a notice only if its `matches` finds words in the text. The nearest place of the
 /// rules that cover it wins, and among rules of one place the later file does**, as layout mods
 /// stack. `None` is no rule: the notice goes as it always has.
-pub(crate) fn rule_for<'a>(files: &'a [FleetFile], notice: &str, text: &str, session: &str, repository: &str) -> Option<&'a FleetRule> {
+pub fn rule_for<'a>(files: &'a [FleetFile], notice: &str, text: &str, session: &str, repository: &str) -> Option<&'a FleetRule> {
     files
         .iter()
         .flat_map(|file| file.rule.iter())

@@ -18,41 +18,41 @@
 //! that keeps a file merges it back: a link that is gone is rewritten with `succeeded` false, newer
 //! than the one it ends.
 
-pub(crate) mod keeping;
-pub(crate) mod notice;
-mod scan;
+pub mod keeping;
+pub mod notice;
+pub mod scan;
 
 use std::path::Path;
 
 use store::KeptRun;
 
 /// The kind of the run-memory fact a link is kept as.
-pub(crate) const KIND: &str = "port_link";
+pub const KIND: &str = "port_link";
 
 /// What `found_in` says for a link read from a process's output rather than a file.
-pub(crate) const LOG: &str = "log";
+pub const LOG: &str = "log";
 
 /// One process expecting another on a port.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Link {
-    pub(crate) from: String,
-    pub(crate) to: String,
-    pub(crate) port: u16,
+pub struct Link {
+    pub from: String,
+    pub to: String,
+    pub port: u16,
     /// The file it was read in, relative to the repository's root, or [`LOG`].
-    pub(crate) found_in: String,
+    pub found_in: String,
     /// The folder `from` runs in: the fact's workspace. `.` is the root.
-    pub(crate) workspace: String,
+    pub workspace: String,
 }
 
 /// A process as the scanner reads it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Candidate {
-    pub(crate) name: String,
-    pub(crate) dir: Option<String>,
+pub struct Candidate {
+    pub name: String,
+    pub dir: Option<String>,
     /// What starts it, as written: `${port.NAME}` is a leased port and names no number.
-    pub(crate) command: String,
+    pub command: String,
     /// The number it is pinned to.
-    pub(crate) pinned: Option<u16>,
+    pub pinned: Option<u16>,
 }
 
 impl Candidate {
@@ -63,7 +63,7 @@ impl Candidate {
 
 /// Every number each candidate is known to listen on, in the order `candidates` are in: pinned,
 /// written in its command or its folder's config, or where a Job's dev server in that folder came up.
-pub(crate) fn expects(root: &Path, candidates: &[Candidate], facts: &[KeptRun]) -> Vec<Vec<u16>> {
+pub fn expects(root: &Path, candidates: &[Candidate], facts: &[KeptRun]) -> Vec<Vec<u16>> {
     candidates
         .iter()
         .map(|one| {
@@ -89,7 +89,7 @@ pub(crate) fn expects(root: &Path, candidates: &[Candidate], facts: &[KeptRun]) 
 
 /// The links the folders of `candidates` hold, **at most one for a pair**. A candidate's own
 /// number is never a link to itself.
-pub(crate) fn found(root: &Path, candidates: &[Candidate], facts: &[KeptRun]) -> Vec<Link> {
+pub fn found(root: &Path, candidates: &[Candidate], facts: &[KeptRun]) -> Vec<Link> {
     let known = expects(root, candidates, facts);
     let mut out: Vec<Link> = Vec::new();
     for (from, one) in candidates.iter().enumerate() {
@@ -121,16 +121,16 @@ pub(crate) fn found(root: &Path, candidates: &[Candidate], facts: &[KeptRun]) ->
 
 /// Which links to write and which to end, once `found` is read for the processes in `scanned`.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct Changes {
-    pub(crate) add: Vec<Link>,
-    pub(crate) end: Vec<Link>,
+pub struct Changes {
+    pub add: Vec<Link>,
+    pub end: Vec<Link>,
 }
 
 /// `found` against what is `kept`. **A link from a file ends when the file no longer holds it**,
 /// but only where `ending`: a bay that fixed its copy has not fixed the main checkout's, and a
 /// memory shared by both must not flip as each is listed. A link read from output ends when a file
 /// finds the same pair, since the file says where.
-pub(crate) fn reconciled(kept: &[Link], found: &[Link], scanned: &[String], ending: bool) -> Changes {
+pub fn reconciled(kept: &[Link], found: &[Link], scanned: &[String], ending: bool) -> Changes {
     let mut changes = Changes::default();
     for link in found {
         if !kept.contains(link) {
@@ -149,7 +149,7 @@ pub(crate) fn reconciled(kept: &[Link], found: &[Link], scanned: &[String], endi
 }
 
 /// Every link in `facts` that is still live.
-pub(crate) fn remembered(facts: &[KeptRun]) -> Vec<Link> {
+pub fn remembered(facts: &[KeptRun]) -> Vec<Link> {
     facts.iter().filter(|fact| fact.kind == KIND && fact.succeeded).filter_map(read).collect()
 }
 
@@ -166,7 +166,7 @@ fn read(fact: &KeptRun) -> Option<Link> {
 }
 
 /// `link` as a fact: live, or ended where `at` is a time after the fact it ends.
-pub(crate) fn as_fact(link: &Link, live: bool, at: u64) -> KeptRun {
+pub fn as_fact(link: &Link, live: bool, at: u64) -> KeptRun {
     KeptRun {
         workspace: link.workspace.clone(),
         kind: KIND.to_string(),
@@ -182,7 +182,7 @@ pub(crate) fn as_fact(link: &Link, live: bool, at: u64) -> KeptRun {
 
 /// What to hand a Job to mend `link`: Bridge opens Dispatch with it and Fleet starts nothing.
 /// `to_port` is the name of the port `to` listens on, which is what `ARMADA_PORT_*` is named for.
-pub(crate) fn brief(link: &Link, to_port: &str) -> String {
+pub fn brief(link: &Link, to_port: &str) -> String {
     let env = crate::ports::armada_port_env_name(to_port);
     let (from, to, port) = (&link.from, &link.to, link.port);
     match link.found_in == LOG {

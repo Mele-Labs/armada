@@ -24,13 +24,13 @@ use crate::daemon::Fleet;
 use crate::pull_review_lists::row_of;
 
 /// The least time between two reads of the pull requests that ask for the person's review.
-pub(crate) const REVIEWS_EVERY: Duration = Duration::from_secs(10 * 60);
+pub const REVIEWS_EVERY: Duration = Duration::from_secs(10 * 60);
 
 const OPERATOR: &str = "Operator";
 
 /// What is waiting to be handed, and what a call is out on.
 #[derive(Default)]
-pub(crate) struct Sources {
+pub struct Sources {
     out: Arc<Mutex<BTreeSet<String>>>,
     /// Reports kept since the last tick.
     reports: Mutex<Vec<String>>,
@@ -48,13 +48,13 @@ pub(crate) struct Sources {
 
 impl Seat {
     /// Report `id` was kept: it is handed on the next tick.
-    pub(crate) fn report_noted(&self, id: &str) {
+    pub fn report_noted(&self, id: &str) {
         held(&self.sources.reports).push(id.to_string());
     }
 
     /// What a fresh read of `manifest`'s tracker held. **The first read since Fleet started only
     /// marks what is there**, so the Operator meets what is new and not the whole backlog.
-    pub(crate) fn issues_read(&self, manifest: &str, issues: &[OpenIssue]) {
+    pub fn issues_read(&self, manifest: &str, issues: &[OpenIssue]) {
         let now: BTreeSet<String> = issues.iter().map(|one| one.reference.clone()).collect();
         let Some(was) = held(&self.sources.issues).insert(manifest.to_string(), now) else { return };
         let filed = held(&self.sources.filed).clone();
@@ -117,7 +117,7 @@ impl Seat {
 impl Fleet
 {
     /// Hand `arrival` to the Operator, unless the Log already holds it.
-    pub(crate) async fn hand_once(&self, arrival: Arrival) {
+    pub async fn hand_once(&self, arrival: Arrival) {
         if self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true) {
             return;
         }
@@ -215,7 +215,7 @@ impl Fleet
 
     /// The pull requests that ask for the person's review, each handed once: at most every ten
     /// minutes, from the read of main, and nothing while the Operator is off.
-    pub(crate) async fn review_requests_handed(&self) {
+    pub async fn review_requests_handed(&self) {
         if !self.operator_on() || !self.operator_seat().reviews_due() {
             return;
         }
@@ -240,7 +240,7 @@ impl Fleet
 
     /// What the Operator ruled for work from outside a Job's own run. A raise is its Log row. **What it
     /// made of a note** comes back, so a press on a suggestion can say it in the Log.
-    pub(super) async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Sourced {
+    pub async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Sourced {
         let (manifest, last) = (arrival.manifest_id.as_str(), arrival.id.rsplit(':').next().unwrap_or_default());
         let mut made = Sourced::default();
         match (arrival.arrived, ruling.way, ruling.other.as_deref(), ruling.issue.as_deref()) {
@@ -385,7 +385,7 @@ impl Fleet
 
 /// What a ruling on work from outside a Job made, as the Log row names it.
 #[derive(Debug, Default)]
-pub(super) struct Sourced {
+pub struct Sourced {
     /// The issue a note was filed as.
     pub issue: Option<String>,
     /// The Job a note was started as.

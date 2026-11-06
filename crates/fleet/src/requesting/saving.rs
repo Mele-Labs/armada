@@ -25,19 +25,19 @@ use crate::daemon::Fleet;
 use crate::run_memory::places;
 
 /// A collection or a request that breaks a rule. A 422.
-pub(super) const COLLECTION_REFUSED: &str = "fleet.request_collection_refused";
+pub const COLLECTION_REFUSED: &str = "fleet.request_collection_refused";
 /// An environment that breaks a rule. A 422.
-pub(super) const ENVIRONMENT_REFUSED: &str = "fleet.request_environment_refused";
+pub const ENVIRONMENT_REFUSED: &str = "fleet.request_environment_refused";
 /// The person's own holds no environment of that name. A 404.
-pub(super) const NO_SUCH_ENVIRONMENT: &str = "fleet.no_such_request_environment";
+pub const NO_SUCH_ENVIRONMENT: &str = "fleet.no_such_request_environment";
 /// The Keychain would not keep, read or forget a secret. A 500.
-pub(super) const SECRET_UNKEPT: &str = "fleet.request_secret_unkept";
+pub const SECRET_UNKEPT: &str = "fleet.request_secret_unkept";
 
 /// What an agent's save came to, for its answer and its row.
-pub(super) struct SavedTo {
-    pub(super) saved: RequestSaved,
-    pub(super) name: String,
-    pub(super) collection: String,
+pub struct SavedTo {
+    pub saved: RequestSaved,
+    pub name: String,
+    pub collection: String,
 }
 
 impl Fleet
@@ -48,7 +48,7 @@ impl Fleet
 
     /// `save_request_collection`: one collection whole into the person's own, replacing one of
     /// its id.
-    pub(super) async fn request_collection_saved(
+    pub async fn request_collection_saved(
         &self,
         root: &str,
         job: Option<&str>,
@@ -69,7 +69,7 @@ impl Fleet
 
     /// `save_request_environment`: one environment whole into the person's own, each secret's
     /// value into the Keychain first, so the file never names a secret the Keychain refused.
-    pub(super) async fn request_environment_saved(
+    pub async fn request_environment_saved(
         &self,
         root: &str,
         job: Option<&str>,
@@ -94,7 +94,7 @@ impl Fleet
     /// `delete_request_environment`: the environment `name` out of the person's own, each
     /// secret's Keychain item forgotten first, so the file never loses an environment whose
     /// secrets the Keychain still holds.
-    pub(super) async fn request_environment_deleted(
+    pub async fn request_environment_deleted(
         &self,
         root: &str,
         job: Option<&str>,
@@ -159,7 +159,7 @@ impl Fleet
 
     /// A package's collections and environments put into the person's own for `root`, each in
     /// place of one of its id or name. Checked before it is written.
-    pub(crate) async fn requests_added(&self, root: &str, adding: &RequestsFile) -> Result<(), Refusal> {
+    pub async fn requests_added(&self, root: &str, adding: &RequestsFile) -> Result<(), Refusal> {
         let collections: Vec<String> = adding.collections.iter().map(|one| one.id.clone()).collect();
         let environments: Vec<String> = adding.environments.iter().map(|one| one.name.clone()).collect();
         let _one_save = SAVING.lock().await;
@@ -173,7 +173,7 @@ impl Fleet
     /// `save_request_to_collection`: `request` into the collection `named` by id or name. One of
     /// that name is made in the person's own where none is listed, and a repository's is copied
     /// into the person's own first. **A request of the same name is replaced and keeps its id.**
-    pub(super) async fn request_saved_to_collection(
+    pub async fn request_saved_to_collection(
         &self,
         root: &str,
         job: &str,

@@ -34,7 +34,7 @@ fn headers_fit(headers: &[ipc::RequestHeader], at: &str) -> Result<(), String> {
 }
 
 /// A saved request's rules, `here` naming it.
-pub(crate) fn check_request(request: &SavedRequest, here: &str) -> Result<(), String> {
+pub fn check_request(request: &SavedRequest, here: &str) -> Result<(), String> {
     if request.id.trim().is_empty() {
         return Err(format!("{here}.id is blank"));
     }
@@ -103,7 +103,7 @@ pub fn check_environment(environment: &RequestEnvironment, at: &str) -> Result<(
 
 /// An environment's rules, as Bridge writes it: a secret's value is one line of printable ASCII,
 /// which a header carries and the Keychain reads back as written.
-pub(crate) fn check_environment_write(environment: &RequestEnvironmentWrite, at: &str) -> Result<(), String> {
+pub fn check_environment_write(environment: &RequestEnvironmentWrite, at: &str) -> Result<(), String> {
     environment_name_fits(&environment.name, at)?;
     let names = environment.variables.iter().map(|one| match one {
         VariableWrite::Plain { name, .. } | VariableWrite::Secret { name, .. } => name.as_str(),
@@ -119,7 +119,7 @@ pub(crate) fn check_environment_write(environment: &RequestEnvironmentWrite, at:
     Ok(())
 }
 
-pub(crate) fn variable_name(variable: &RequestVariable) -> &str {
+pub fn variable_name(variable: &RequestVariable) -> &str {
     match variable {
         RequestVariable::Plain { name, .. } | RequestVariable::Secret { name } => name,
     }
@@ -199,7 +199,7 @@ pub fn environment_written(
 /// The person's own and the repository's listed together, keyed by `key`: the person's own first,
 /// each marked `hides` where the repository holds one of its key, then the repository's it does
 /// not hide.
-pub(crate) fn merged<T: Clone>(own: &[T], repository: &[T], key: impl Fn(&T) -> &str) -> Vec<Placed<T>> {
+pub fn merged<T: Clone>(own: &[T], repository: &[T], key: impl Fn(&T) -> &str) -> Vec<Placed<T>> {
     let hides = |one: &T| repository.iter().any(|theirs| key(theirs) == key(one));
     let yours = own.iter().map(|one| Placed { item: one.clone(), place: RequestPlace::Yours, hides: hides(one) });
     let theirs = repository
@@ -210,7 +210,7 @@ pub(crate) fn merged<T: Clone>(own: &[T], repository: &[T], key: impl Fn(&T) -> 
 }
 
 /// A plain address slug for a request or collection saved under `name`, as Requests makes one.
-pub(crate) fn slug(name: &str) -> String {
+pub fn slug(name: &str) -> String {
     let mut slug = String::new();
     for c in name.trim().to_lowercase().chars() {
         match c.is_ascii_lowercase() || c.is_ascii_digit() {
@@ -227,7 +227,7 @@ pub(crate) fn slug(name: &str) -> String {
 }
 
 /// `slug(name)`, with `-2`, `-3` and on added until no id in `taken` is it.
-pub(crate) fn unique_id<'a>(name: &str, taken: impl Iterator<Item = &'a str> + Clone) -> String {
+pub fn unique_id<'a>(name: &str, taken: impl Iterator<Item = &'a str> + Clone) -> String {
     let base = slug(name);
     let free = |id: &str| !taken.clone().any(|one| one == id);
     if free(&base) {

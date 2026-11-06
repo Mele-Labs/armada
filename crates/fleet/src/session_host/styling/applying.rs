@@ -23,7 +23,7 @@ const STYLES_UNFINISHED: &str = "fleet.sketch_styles_unfinished";
 const FILES_AT_MOST: usize = 40;
 
 /// The Job's checkout and the files the walk starts from, nearest to its work first.
-pub(crate) struct Look {
+pub struct Look {
     pub checkout: String,
     /// Changed, then read, then planned. The walk starts from the first with a file in it.
     pub tiers: Vec<Vec<String>>,
@@ -31,7 +31,7 @@ pub(crate) struct Look {
 }
 
 /// `get_style_sources` for a Job already read.
-pub(super) fn sources_for(look: &Look, named: Option<&str>) -> Result<StyleSources, String> {
+pub fn sources_for(look: &Look, named: Option<&str>) -> Result<StyleSources, String> {
     let Ok(root) = std::fs::canonicalize(&look.checkout) else {
         return Ok(StyleSources { sources: Vec::new(), start: named.map(str::to_string), packages: Vec::new() });
     };
@@ -50,7 +50,7 @@ impl Fleet
 {
     /// Where the Job works and what the walk starts from. **Reuses what Fleet already keeps**: the
     /// files it wrote (`session_touches`), the calls on its thread, and the paths of its plan.
-    pub(crate) async fn job_look(&self, id: &str) -> Result<Look, Refusal> {
+    pub async fn job_look(&self, id: &str) -> Result<Look, Refusal> {
         let (cwd, touches, plan) = {
             let store = self.store().lock().await;
             let session = store
@@ -91,7 +91,7 @@ impl Fleet
     }
 
     /// Each of `mocks` drawn for the Job: the hash of its style set, or why it cannot be drawn.
-    pub(crate) async fn mocks_styled(&self, id: &str, mocks: Vec<MockNode>) -> Result<Styled, Refusal> {
+    pub async fn mocks_styled(&self, id: &str, mocks: Vec<MockNode>) -> Result<Styled, Refusal> {
         if mocks.is_empty() {
             return Ok(Styled::default());
         }
@@ -103,7 +103,7 @@ impl Fleet
 
     /// `sketch` with `kept` on each `mock`, or the refusal that tells the agent what to change.
     /// `tool` is the call it is asked to make again.
-    pub(crate) async fn sketch_styled(&self, id: &str, sketch: Sketch, tool: &str) -> Result<Sketch, Refusal> {
+    pub async fn sketch_styled(&self, id: &str, sketch: Sketch, tool: &str) -> Result<Sketch, Refusal> {
         let mocks = sketch.mocks();
         if mocks.is_empty() {
             return Ok(sketch);
@@ -122,7 +122,7 @@ impl Fleet
 
 /// The style sets a page's mocks were drawn with, and the mocks that cannot be.
 #[derive(Default)]
-pub(crate) struct PageStyles {
+pub struct PageStyles {
     /// `{"<sketch title>#<node id>": "<hash>"}` as text, absent where the page keeps none.
     pub kept: Option<String>,
     /// One sentence for each sketch with a mock that cannot be drawn.
@@ -131,7 +131,7 @@ pub(crate) struct PageStyles {
 
 impl PageStyles {
     /// The notice for a page: what `sketches_that_will_not_draw` said, with the mocks that cannot be drawn.
-    pub(crate) fn told(&self, scenes: Option<String>, path: &str) -> Option<String> {
+    pub fn told(&self, scenes: Option<String>, path: &str) -> Option<String> {
         match (scenes, self.refused.is_empty()) {
             (told, true) => told,
             (Some(told), false) => Some(format!("{told} {}", self.refused.join(" "))),
@@ -145,7 +145,7 @@ impl Fleet
     /// Keep the style set of each `mock` of each sketch the page embeds. **The page is not
     /// rewritten**, because `keep` compares its bytes with the newest revision, so the hashes are
     /// returned to ride on the document's attachment.
-    pub(crate) async fn page_styles(&self, id: &str, html: &str) -> PageStyles {
+    pub async fn page_styles(&self, id: &str, html: &str) -> PageStyles {
         let sketches = sketches_in(html);
         let total = sketches.len();
         let mut styles = PageStyles::default();

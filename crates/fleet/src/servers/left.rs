@@ -40,19 +40,19 @@ const GOING: u32 = 100;
 
 /// What asks a server that was still starting whether it is up, once another Fleet holds it.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct Probe {
+pub struct Probe {
     /// The `ready` command, `${port.NAME}` resolved. None where the server declares none.
-    pub(crate) ready: Option<String>,
+    pub ready: Option<String>,
     /// Where `ready` runs.
-    pub(crate) worktree: String,
+    pub worktree: String,
     /// The port variables it runs with.
-    pub(crate) env: Vec<(String, String)>,
+    pub env: Vec<(String, String)>,
 }
 
 /// Write one server's record, whole or not at all. **`state` is the row as it
 /// stands, and `probe` how to ask whether it is up**, which is all the next
 /// Fleet needs to put the server back.
-pub(crate) fn recorded(
+pub fn recorded(
     dir: &Path,
     state: &ServerState,
     probe: &Probe,
@@ -74,40 +74,40 @@ pub(crate) fn recorded(
 }
 
 /// The server ended while this Fleet held it: there is nothing left to find.
-pub(super) fn forgotten(dir: &Path) {
+pub fn forgotten(dir: &Path) {
     let _ = std::fs::remove_file(dir.join(RECORD));
 }
 
 /// A server still running, found again: what it takes to put it back in the
 /// running set. Its record is left where it is, for the end to remove.
-pub(crate) struct Kept {
-    pub(crate) state: ServerState,
-    pub(crate) probe: Probe,
-    pub(crate) group: NonZeroU32,
-    pub(crate) started: StartedAt,
+pub struct Kept {
+    pub state: ServerState,
+    pub probe: Probe,
+    pub group: NonZeroU32,
+    pub started: StartedAt,
     /// Its own directory, which holds the log and the record.
-    pub(crate) dir: PathBuf,
+    pub dir: PathBuf,
 }
 
 /// What startup did with the records it found.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct Reaped {
+pub struct Reaped {
     /// Still the process recorded, with its checkout there: kept running, and
     /// handed back to be held.
-    pub(crate) adopted: usize,
+    pub adopted: usize,
     /// Still the process recorded, and ended.
-    pub(crate) ended: usize,
+    pub ended: usize,
     /// Gone, or a different process now at the pid: left alone.
-    pub(crate) left_alone: usize,
+    pub left_alone: usize,
     /// The probe itself failed. The record is kept for the next start.
-    pub(crate) unasked: usize,
+    pub unasked: usize,
 }
 
 /// End every group a record under `records_root` names that is still the
 /// process it recorded, and drop each record that was answered. **With
 /// `adopting`, a group whose checkout is still there is kept running** and
 /// handed back instead.
-pub(crate) fn reaped(records_root: &str, adopting: bool) -> (Reaped, Vec<Kept>) {
+pub fn reaped(records_root: &str, adopting: bool) -> (Reaped, Vec<Kept>) {
     let mut reaped = Reaped::default();
     let mut kept = Vec::new();
     let mut found = Vec::new();

@@ -20,7 +20,7 @@ use crate::daemon::Fleet;
 const LOGS_DIR: &str = "watch-logs";
 
 /// What a run printed, both streams, each under its name. `None` where it printed nothing.
-pub(crate) fn log_text(attempt: &Attempt) -> Option<String> {
+pub fn log_text(attempt: &Attempt) -> Option<String> {
     let (stdout, stderr) = (attempt.output.stdout.trim_end(), attempt.output.stderr.trim_end());
     if stdout.trim().is_empty() && stderr.trim().is_empty() {
         return None;
@@ -34,7 +34,7 @@ pub(crate) fn log_text(attempt: &Attempt) -> Option<String> {
 }
 
 /// Whether `taken` failed: it broke, or it read `failed` overall or in a part.
-pub(crate) fn failed(taken: &KeptWatchTaken) -> bool {
+pub fn failed(taken: &KeptWatchTaken) -> bool {
     match taken {
         KeptWatchTaken::Broken { .. } => true,
         KeptWatchTaken::Read { state, parts, .. } => state == "failed" || parts.iter().any(|part| part.state == "failed"),
@@ -54,7 +54,7 @@ impl Fleet
 
     /// Write `text` as the log of `watch`'s reading at `at`, and say where. `None` where it could not
     /// be written, so the reading carries no path to a file that is not there.
-    pub(crate) fn watch_log_kept(&self, job: &str, watch: &str, at: &str, text: &str) -> Option<String> {
+    pub fn watch_log_kept(&self, job: &str, watch: &str, at: &str, text: &str) -> Option<String> {
         let folder = self.watch_logs_of(job).join(watch);
         std::fs::create_dir_all(&folder).ok()?;
         let file = folder.join(file_name(at));
@@ -63,7 +63,7 @@ impl Fleet
     }
 
     /// Remove `watch`'s log files that no kept reading names.
-    pub(crate) fn watch_logs_pruned(&self, job: &str, watch: &str, kept: &[&str]) {
+    pub fn watch_logs_pruned(&self, job: &str, watch: &str, kept: &[&str]) {
         let Ok(files) = std::fs::read_dir(self.watch_logs_of(job).join(watch)) else { return };
         for file in files.flatten() {
             let path = file.path();
@@ -74,12 +74,12 @@ impl Fleet
     }
 
     /// Remove every log `watch` kept.
-    pub(crate) fn watch_log_removed(&self, job: &str, watch: &str) {
+    pub fn watch_log_removed(&self, job: &str, watch: &str) {
         let _ = std::fs::remove_dir_all(self.watch_logs_of(job).join(watch));
     }
 
     /// Remove every log `job`'s watches kept: the Job has ended.
-    pub(crate) fn watch_logs_removed(&self, job: &str) {
+    pub fn watch_logs_removed(&self, job: &str) {
         let _ = std::fs::remove_dir_all(self.watch_logs_of(job));
     }
 }

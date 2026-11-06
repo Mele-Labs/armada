@@ -31,7 +31,7 @@ impl Fleet
 {
     /// Start a Job on this repository's red main, where it is red, no run of newer commits holds it
     /// back, nothing holds it and it has not been started for already. Answers how many it started.
-    pub(super) async fn red_fixed(self: &Arc<Self>, helping: &Helping) -> usize {
+    pub async fn red_fixed(self: &Arc<Self>, helping: &Helping) -> usize {
         if !helping.kinds.contains(&AutopilotDecision::Red) {
             return 0;
         }
@@ -62,7 +62,7 @@ impl Fleet
 
     /// A Job titled "Fix main" started on `main`'s red, the red claimed for it and its brief said in
     /// `by`'s name. **Nothing where the red is not free**, or the Job would not take its brief.
-    pub(crate) async fn red_started(self: &Arc<Self>, served: &Served, main: &MainCi, by: &str) -> Option<String> {
+    pub async fn red_started(self: &Arc<Self>, served: &Served, main: &MainCi, by: &str) -> Option<String> {
         self.red_is_free(main, false).await.ok()?;
         let started = self
             .start_session(StartSession {
@@ -109,14 +109,14 @@ impl Fleet
     }
 
     /// The Operator ruled a new Job for the red: Autopilot's own start, in the Operator's name.
-    pub(crate) async fn operator_fixed_red(self: &Arc<Self>, manifest: &str, commit: &str) {
+    pub async fn operator_fixed_red(self: &Arc<Self>, manifest: &str, commit: &str) {
         let Some((served, main)) = self.red_still(manifest, commit).await else { return };
         self.red_started(&served, &main, OPERATOR).await;
     }
 
     /// The Operator ruled the red to live Job `job`, whose work is near it: the red is claimed for
     /// it, and it is told, as `take_main_red` would have it.
-    pub(crate) async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) {
+    pub async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) {
         let Some((served, main)) = self.red_still(manifest, commit).await else { return };
         if self.red_is_free(&main, false).await.is_err() || self.claim_red(&main, &Taker::Session(job.to_string()), false).await.is_err() {
             return;

@@ -35,11 +35,11 @@ use crate::daemon::Fleet;
 /// Studio itself, which crosses the wire whole on every write to it and is
 /// kept until a person deletes it — so it is bounded like the excerpt that
 /// rides in a tool call rather than like a file somebody opened.
-pub(crate) const LAST_LINES: usize = 200;
+pub const LAST_LINES: usize = 200;
 
 /// The byte bound paired with [`LAST_LINES`], for the reason `check_output`
 /// pairs one with its own: a single minified line can be a whole bundle.
-pub(crate) const LAST_BYTES: usize = 16 * 1024;
+pub const LAST_BYTES: usize = 16 * 1024;
 
 /// What a Run node keeps of a run that is about to be swept: its result, and
 /// the tail of what it printed.
@@ -88,7 +88,7 @@ impl Fleet
     ///
     /// **The Studio names the repository**, so nothing on this call can run an
     /// entry in a checkout the Studio does not belong to.
-    pub(crate) async fn started_studio_run(
+    pub async fn started_studio_run(
         self: Arc<Self>,
         studio_id: ipc::StudioId,
         asked: StartStudioRun,
@@ -153,7 +153,7 @@ impl Fleet
     /// to holding one run's directory for another retention cycle is a node
     /// pointing at nothing, which is the failure this whole path exists
     /// against; the next run started tries it again.
-    pub(crate) async fn kept_what_studios_hold(
+    pub async fn kept_what_studios_hold(
         &self,
         root: &str,
         handle: &str,

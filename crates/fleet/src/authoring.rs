@@ -22,19 +22,19 @@ use crate::repositories::{Served, WorkflowNotSaved};
 
 /// The definition does not fit this repository. **A 422 carrying the loader's
 /// own sentence**, and nothing is written.
-pub(crate) const WORKFLOW_UNFIT: &str = "fleet.workflow_unfit";
+pub const WORKFLOW_UNFIT: &str = "fleet.workflow_unfit";
 /// The id is not usable as a file's name. A 422.
 const WORKFLOW_NOT_A_NAME: &str = "fleet.workflow_id_not_a_name";
 /// A definition of this id is already in that scope and `overwrite` was not
 /// set. A 422 naming the file, so the caller can say what it would replace.
 const WORKFLOW_EXISTS: &str = "fleet.workflow_exists";
 /// The folder or the file could not be written. A 500.
-pub(crate) const WORKFLOW_UNWRITABLE: &str = "fleet.workflow_unwritable";
+pub const WORKFLOW_UNWRITABLE: &str = "fleet.workflow_unwritable";
 
 impl Fleet
 {
     /// Check, write, and hold.
-    pub(crate) fn save_workflow_file(
+    pub fn save_workflow_file(
         &self,
         asked: SaveWorkflow,
         served: &Served,
@@ -60,7 +60,7 @@ impl Fleet
     }
 
     /// Check without writing: what [`Self::save_workflow_file`] would refuse.
-    pub(crate) fn check_workflow_file(&self, asked: &SaveWorkflow, served: &Served) -> Result<(), Refusal> {
+    pub fn check_workflow_file(&self, asked: &SaveWorkflow, served: &Served) -> Result<(), Refusal> {
         self.lifecycle_ends_unnamed(served.manifest().id().as_str(), &asked.definition).map_err(|why| self.not_saved(why))?;
         self.locating()
             .check_workflow(Path::new(served.root()), served.manifest(), asked)
@@ -82,7 +82,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn read_workflows_again(&self, served: &Served) {
+    pub fn read_workflows_again(&self, served: &Served) {
         let read = self.locating().workflows(
             Path::new(served.root()),
             served.manifest(),

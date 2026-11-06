@@ -29,13 +29,13 @@ use crate::daemon::Fleet;
 use crate::judging::{said, JudgeBudget};
 use crate::prompts::Prompts;
 
-pub(crate) mod matching;
+pub mod matching;
 
 /// How long the call may take. Past it the words are a question: a reading a person waits on is
 /// worth less than the message it delays. **A call measured 5.0 to 7.5 seconds** on a live Fleet,
 /// most of it the CLI starting, and at eight seconds the slower ones were read as questions.
 /// Bridge shows the turning mark for as long as the read takes.
-pub(crate) const READ_BUDGET: Duration = Duration::from_secs(20);
+pub const READ_BUDGET: Duration = Duration::from_secs(20);
 
 /// The most Sessions the model is shown. They come most recently seen first, so what is cut is
 /// the quietest.
@@ -50,7 +50,7 @@ const MOST_LEDGER: usize = 6;
 
 /// The question as it ships: `prompts.thoughtRoute`'s default. `{candidates}` is a JSON list and
 /// `{message}` the person's words.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 A person typed one message into the message box, which answers their questions about a \
 repository. Decide what the message is.
 
@@ -83,7 +83,7 @@ Answer with one line of JSON and nothing else, in one of these three shapes:
 
 /// One live Session a thought may go to, as the model reads it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub(crate) struct Candidate {
+pub struct Candidate {
     id: String,
     kind: &'static str,
     title: String,
@@ -131,7 +131,7 @@ fn cut(text: &str, most: usize) -> String {
 impl Candidate {
     /// A live Session with a title. **Nothing else is a candidate**: an ended one cannot be told
     /// anything, and one with no title cannot be named to a person.
-    pub(crate) fn session(record: &SessionRecord) -> Option<Candidate> {
+    pub fn session(record: &SessionRecord) -> Option<Candidate> {
         let title = record.title.as_deref().filter(|title| !title.trim().is_empty())?;
         if record.state != SessionState::Live {
             return None;
@@ -170,7 +170,7 @@ impl Candidate {
 /// wh-word opens them and a question mark closes them. **Narrow on purpose.** "Can you make the
 /// spike cover the jobs table?" is a request to a Session in a question's clothes, so only the
 /// two together skip the model, and what slips through is read as a question, where it is not lost.
-pub(crate) fn plainly_a_question(words: &str) -> bool {
+pub fn plainly_a_question(words: &str) -> bool {
     let words = words.trim();
     let opens = words
         .split_whitespace()
@@ -183,7 +183,7 @@ pub(crate) fn plainly_a_question(words: &str) -> bool {
 }
 
 /// The question put to the model, in the words of `prompts.thoughtRoute`.
-pub(crate) fn question(prompts: &Prompts, words: &str, candidates: &[Candidate]) -> Option<String> {
+pub fn question(prompts: &Prompts, words: &str, candidates: &[Candidate]) -> Option<String> {
     let listed = ipc::encode(&candidates).ok()?;
     Some(prompts.fill(
         PROMPT_THOUGHT_ROUTE,
@@ -201,7 +201,7 @@ struct Answer {
 /// What an answer comes to, held to `candidates`. **Anything it cannot read is a question**, and
 /// so is a `kind` it was not asked for. A `thought` naming an id that is no candidate's names no
 /// one.
-pub(crate) fn reading_of(answer: &str, candidates: &[Candidate]) -> ThoughtReading {
+pub fn reading_of(answer: &str, candidates: &[Candidate]) -> ThoughtReading {
     let (Some(start), Some(end)) = (answer.find('{'), answer.rfind('}')) else {
         return ThoughtReading::Question;
     };
@@ -224,7 +224,7 @@ pub(crate) fn reading_of(answer: &str, candidates: &[Candidate]) -> ThoughtReadi
 }
 
 /// Read `words` once. A call that cannot be made, or runs out of time, is a question.
-pub(crate) async fn read(words: &str, candidates: &[Candidate], asking: &Asking) -> ThoughtReading {
+pub async fn read(words: &str, candidates: &[Candidate], asking: &Asking) -> ThoughtReading {
     let Some(text) = question(&asking.prompts, words, candidates) else {
         return ThoughtReading::Question;
     };
@@ -240,7 +240,7 @@ pub(crate) async fn read(words: &str, candidates: &[Candidate], asking: &Asking)
 impl Fleet
 {
     /// `read_thought`. **Total**: every way it can fail answers `question`.
-    pub(crate) async fn thought_read(&self, read_words: ReadThought) -> ThoughtReading {
+    pub async fn thought_read(&self, read_words: ReadThought) -> ThoughtReading {
         let words = read_words.text.trim();
         if words.is_empty() || plainly_a_question(words) {
             return ThoughtReading::Question;
@@ -275,7 +275,7 @@ impl Fleet
     /// own**, so a terminal Job that is not listening is refused in the same words, and
     /// `operator.words_sent` is published once it is sent. **A refused send publishes nothing**:
     /// the `?` leaves before it.
-    pub(crate) async fn session_told(
+    pub async fn session_told(
         self: Arc<Self>,
         tell: TellSession,
         manifest_id: Option<ManifestId>,

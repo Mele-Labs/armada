@@ -25,9 +25,9 @@ use crate::daemon::Fleet;
 use crate::job_time::{self, Span, Times, Turn};
 
 /// How long after Fleet starts the first Job is split, after the week's turn backfill has begun.
-pub(crate) const AFTER: Duration = Duration::from_secs(45);
+pub const AFTER: Duration = Duration::from_secs(45);
 /// How often the pass looks for a Job that has ended.
-pub(crate) const EVERY: Duration = Duration::from_secs(30);
+pub const EVERY: Duration = Duration::from_secs(30);
 /// How long it rests between Jobs: a Job read from the top is up to a few transcripts.
 const PAUSE: Duration = Duration::from_millis(250);
 
@@ -36,7 +36,7 @@ fn millis(stamp: &str) -> Option<i64> {
 }
 
 /// A kept turn as the fold reads it. `None` where its stamp does not read.
-pub(crate) fn turn_of(kept: &KeptTurnTimed) -> Option<Turn> {
+pub fn turn_of(kept: &KeptTurnTimed) -> Option<Turn> {
     Some(Turn {
         at: millis(&kept.at)?,
         model_began: kept.model_began.as_deref().and_then(millis),
@@ -55,7 +55,7 @@ impl Fleet
 {
     /// Split every Job that has ended and has no split, one after another with a pause, and then
     /// return. How many.
-    pub(crate) async fn jobs_timed(&self) -> usize {
+    pub async fn jobs_timed(&self) -> usize {
         let mut done = 0;
         loop {
             let Ok(Some(id)) = self.store().lock().await.job_awaiting_time(job_time::FOLD) else {
@@ -71,7 +71,7 @@ impl Fleet
 
     /// Read the Job's transcripts, split its time and keep it. Whether it was kept: a store that
     /// will not answer leaves the Job for the next pass.
-    pub(crate) async fn job_time_kept(&self, id: &str) -> bool {
+    pub async fn job_time_kept(&self, id: &str) -> bool {
         let from_start = self.store().lock().await.turns_lack_times(id).unwrap_or(false);
         let home = self.host().home.clone();
         let session = id.to_string();

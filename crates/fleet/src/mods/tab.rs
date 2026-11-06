@@ -7,15 +7,15 @@
 //! resolves an `import` from it. An instrument mod's `instrument.js` is the same kind of module, held to the same check.
 
 /// The most `tab.js` or `instrument.js` may weigh.
-pub(crate) const MOST_BYTES: u64 = 256 * 1024;
+pub const MOST_BYTES: u64 = 256 * 1024;
 
 /// Every problem with `text`, each naming its line where it has one.
-pub(crate) fn problems(text: &str) -> Vec<String> {
+pub fn problems(text: &str) -> Vec<String> {
     problems_in(text, super::TAB, "tab")
 }
 
 /// [`problems`] for `file`, the module of what its mod calls `thing`.
-pub(crate) fn problems_in(text: &str, file: &str, thing: &str) -> Vec<String> {
+pub fn problems_in(text: &str, file: &str, thing: &str) -> Vec<String> {
     let mut problems = Vec::new();
     if text.trim().is_empty() {
         return vec![format!("{file} is empty")];

@@ -15,7 +15,7 @@ use crate::wire::manifest_summary;
 impl Fleet
 {
     /// `get_manifest` — what this repository's `armada.yml` declares.
-    pub(crate) fn manifest_config(&self, named: ManifestId) -> Result<ManifestConfig, Refusal> {
+    pub fn manifest_config(&self, named: ManifestId) -> Result<ManifestConfig, Refusal> {
         let served = self.served_named(Some(&named))?;
         let held = served.manifest();
         Ok(ManifestConfig {

@@ -44,9 +44,9 @@ use crate::judging::{watched, JudgeBudget};
 /// A name no definition has, or one of the wrong kind. A 422.
 const UNKNOWN_TOOL: &str = "fleet.review_unknown_tool";
 /// A question with nothing in it, or too long to be one. A 422.
-pub(crate) const BLANK: &str = "fleet.review_blank";
+pub const BLANK: &str = "fleet.review_blank";
 /// The forge would not give the pull request. A 500.
-pub(crate) const UNREADABLE: &str = "fleet.review_pull_request_unreadable";
+pub const UNREADABLE: &str = "fleet.review_pull_request_unreadable";
 
 /// Turns a run may take, its reads and its answer together. A change worth explaining is read
 /// across several files, which the Judge's sixteen would cut short.
@@ -54,7 +54,7 @@ const READ_TURNS: NonZeroU8 = NonZeroU8::new(40).expect("forty is not zero");
 /// How much of the diff is put in the prompt. The rest is in the checkout to read.
 const DIFF_AT_MOST: usize = 200_000;
 /// A question longer than this is a document and not a question.
-pub(crate) const QUESTION_AT_MOST: usize = 2_000;
+pub const QUESTION_AT_MOST: usize = 2_000;
 /// The most findings one tool may produce. More than this is noise, not a review.
 const FINDINGS_AT_MOST: usize = 50;
 /// How long a run waits between asks for a bay while every slot is held, and how many asks it
@@ -103,7 +103,7 @@ fn shape_of(kind: ReviewRunKind, id: &str) -> Shape {
 }
 
 /// A question as it is kept: lower cased, its words single spaced.
-pub(crate) fn words_of(question: &str) -> String {
+pub fn words_of(question: &str) -> String {
     question.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
 }
 
@@ -143,7 +143,7 @@ fn state_of(word: &str) -> ReviewRunState {
     }
 }
 
-pub(crate) fn key_of(run: &ReviewRun) -> String {
+pub fn key_of(run: &ReviewRun) -> String {
     format!(
         "{}#{}@{}:{}:{}",
         run.manifest_id.as_str(),
@@ -156,7 +156,7 @@ pub(crate) fn key_of(run: &ReviewRun) -> String {
 
 /// The run a stored row is. A result that will not read back is a failed run, since a row that
 /// says `done` with nothing to show would be worse than one that says why.
-pub(crate) fn run_of(row: &KeptReviewRun) -> ReviewRun {
+pub fn run_of(row: &KeptReviewRun) -> ReviewRun {
     let mut state = state_of(&row.state);
     let mut failed = row.failed.clone();
     let result = match (&row.result, state) {
@@ -185,7 +185,7 @@ pub(crate) fn run_of(row: &KeptReviewRun) -> ReviewRun {
     }
 }
 
-pub(crate) fn row_of(run: &ReviewRun, label: &str, bay: Option<&(u32, String)>) -> KeptReviewRun {
+pub fn row_of(run: &ReviewRun, label: &str, bay: Option<&(u32, String)>) -> KeptReviewRun {
     KeptReviewRun {
         manifest_id: run.manifest_id.as_str().to_string(),
         number: run.number,
@@ -223,7 +223,7 @@ struct Plan {
 impl Fleet
 {
     /// Every run kept or going for one pull request, newest first.
-    pub(crate) async fn review_runs_read(
+    pub async fn review_runs_read(
         &self,
         manifest_id: ManifestId,
         number: u64,
@@ -244,7 +244,7 @@ impl Fleet
     /// Press a run. **Answers at once**: with a kept result as it stands, with the run already
     /// going for this key, or with a new one still queued, whose work goes on a task of its own
     /// so a caller that stops waiting does not stop the run.
-    pub(crate) async fn review_run_started(
+    pub async fn review_run_started(
         self: Arc<Self>,
         manifest_id: ManifestId,
         start: StartReviewRun,
@@ -372,14 +372,14 @@ impl Fleet
 
     /// Keep a run and tell everybody who is listening. **A store that will not take it does not
     /// stop the run**: the event still goes, and a reader that asks again finds what was kept.
-    pub(crate) async fn review_run_moved(&self, run: &ReviewRun, label: &str, bay: Option<&(u32, String)>) {
+    pub async fn review_run_moved(&self, run: &ReviewRun, label: &str, bay: Option<&(u32, String)>) {
         let _ = self.store().lock().await.keep_review_run(&row_of(run, label, bay));
         self.publish(ipc::Event::ReviewRunChanged { run: run.clone() });
     }
 
     /// Rows the store says are going that no task of this process holds died with the process
     /// that did: they end failed, and a bay they held is given back.
-    pub(crate) async fn review_runs_swept(&self, served: &crate::repositories::Served, manifest_id: &ManifestId, number: u64) {
+    pub async fn review_runs_swept(&self, served: &crate::repositories::Served, manifest_id: &ManifestId, number: u64) {
         let rows = self
             .store()
             .lock()
@@ -472,7 +472,7 @@ impl Fleet
     }
 
     /// A bay with the pull request's head in it. A full pool waits, and says `queued` while it does.
-    pub(crate) async fn review_bay_taken(
+    pub async fn review_bay_taken(
         &self,
         pool: &SlotPool,
         number: u64,
@@ -494,7 +494,7 @@ impl Fleet
 
 /// One call to the model, and what the vendor billed for it in millionths of a dollar. Absent where
 /// the call ended without saying, which is not a cost of zero.
-pub(crate) async fn asked_and_costed(
+pub async fn asked_and_costed(
     reviewing: &Reviewing,
     ask: &Ask,
 ) -> (Result<String, crate::judging::CallFailed>, Option<u64>) {
@@ -523,7 +523,7 @@ pub(crate) async fn asked_and_costed(
     (answered, micros)
 }
 
-pub(crate) fn short(sha: &str) -> &str {
+pub fn short(sha: &str) -> &str {
     sha.get(..8).unwrap_or(sha)
 }
 
@@ -632,18 +632,18 @@ struct FindingsOut {
 
 /// The one JSON object in an answer: from the first `{` to the last `}`, which sees through a
 /// code fence or a sentence the model could not help adding.
-pub(crate) fn object_in(answer: &str) -> Result<&str, String> {
+pub fn object_in(answer: &str) -> Result<&str, String> {
     match (answer.find('{'), answer.rfind('}')) {
         (Some(from), Some(to)) if from < to => Ok(&answer[from..=to]),
         _ => Err("it holds no JSON object".to_string()),
     }
 }
 
-pub(crate) fn said<T: serde::de::DeserializeOwned>(json: &str) -> Result<T, String> {
+pub fn said<T: serde::de::DeserializeOwned>(json: &str) -> Result<T, String> {
     ipc::decode::<T>("answer", json.as_bytes()).map_err(|why| why.why)
 }
 
-pub(crate) fn nothing(what: &str, text: &str) -> Result<(), String> {
+pub fn nothing(what: &str, text: &str) -> Result<(), String> {
     match text.trim().is_empty() {
         true => Err(format!("{what} is empty")),
         false => Ok(()),
@@ -783,8 +783,8 @@ fn read_answer(
 }
 
 /// Only what a test of this module needs to reach.
-#[cfg(test)]
-pub(crate) fn answer_read(
+#[cfg(any(test, feature = "test-support"))]
+pub fn answer_read(
     shape: &str,
     answer: &str,
     changed: &[String],

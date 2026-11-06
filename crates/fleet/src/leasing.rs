@@ -23,37 +23,37 @@ use crate::session_host::following::{pid_in, process_listing, SlotSession};
 const BASE_UNSTATED: &str = "main";
 
 /// A slot the pool does not have, or none named. A 422.
-pub(crate) const NO_SUCH_SLOT: &str = "fleet.no_such_slot";
+pub const NO_SUCH_SLOT: &str = "fleet.no_such_slot";
 /// A slot removed while something holds it. A 409, as are the five after.
 const SLOT_HELD: &str = "fleet.slot_held";
 /// A slot removed whose holder is gone and left work in it.
 const SLOT_STRANDED: &str = "fleet.slot_stranded";
 /// A slot removed while a lease or a release is under way on it.
-pub(crate) const SLOT_BUSY: &str = "fleet.slot_busy";
+pub const SLOT_BUSY: &str = "fleet.slot_busy";
 /// A slot removed that is a directory and not a checkout: a person's to clear.
 const SLOT_NOT_A_CHECKOUT: &str = "fleet.slot_not_a_checkout";
 /// A slot removed whose checkout holds uncommitted files.
 const SLOT_DIRTY: &str = "fleet.slot_dirty";
 /// A release asked for on behalf of a holder the slot no longer has. A 409.
-pub(crate) const SLOT_HOLDER_CHANGED: &str = "fleet.slot_holder_changed";
+pub const SLOT_HOLDER_CHANGED: &str = "fleet.slot_holder_changed";
 /// A release asked for with no holder named. A 422.
-pub(crate) const SLOT_HOLDER_UNNAMED: &str = "fleet.slot_holder_unnamed";
+pub const SLOT_HOLDER_UNNAMED: &str = "fleet.slot_holder_unnamed";
 /// A release whose uncommitted files git could not commit to a branch. A 409.
-pub(crate) const SLOT_NOT_PARKABLE: &str = "fleet.slot_not_parkable";
+pub const SLOT_NOT_PARKABLE: &str = "fleet.slot_not_parkable";
 /// A release of a hosted session's slot while its turn runs: the park ends every process in
 /// the slot, its agent's too. A 409.
-pub(crate) const SLOT_SESSION_WORKING: &str = "fleet.slot_session_working";
+pub const SLOT_SESSION_WORKING: &str = "fleet.slot_session_working";
 /// A free of a hosted Job's slot while its checkout holds files no commit has. A 409.
-pub(crate) const SLOT_UNCOMMITTED: &str = "fleet.slot_uncommitted";
+pub const SLOT_UNCOMMITTED: &str = "fleet.slot_uncommitted";
 /// The pool's one slot, removed.
 const SLOT_LAST: &str = "fleet.slot_last";
 /// git refused, and this is what it said. A 500.
-pub(crate) const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
+pub const SLOT_UNCHANGED: &str = "fleet.slot_unchanged";
 
 /// Every slot number the pool has on this machine. **A person may add slots past
 /// `setup.worktrees`**, and a lease takes any of them, so a count from the Manifest
 /// missed a session's slot-9 on a machine of fifteen (15 Oct 2026).
-pub(crate) fn bays_of(served: &Served) -> Vec<u32> {
+pub fn bays_of(served: &Served) -> Vec<u32> {
     let pool = pool_of(served);
     adapters::leasing::Pool::at(
         std::path::Path::new(pool.repo_root()),
@@ -68,7 +68,7 @@ pub(crate) fn bays_of(served: &Served) -> Vec<u32> {
 }
 
 /// The served repository's pool, as its root Manifest sizes it.
-pub(crate) fn pool_of(served: &Served) -> SlotPool {
+pub fn pool_of(served: &Served) -> SlotPool {
     let manifest = served.manifest();
     let keep = manifest
         .seed()
@@ -83,28 +83,28 @@ pub(crate) fn pool_of(served: &Served) -> SlotPool {
 }
 
 /// One slot of a served repository's pool.
-pub(crate) struct PoolSlot {
-    pub(crate) manifest: String,
-    pub(crate) base: String,
-    pub(crate) reading: SlotReading,
+pub struct PoolSlot {
+    pub manifest: String,
+    pub base: String,
+    pub reading: SlotReading,
     /// The hosted Session that holds it, itself or through a process it
     /// started, where one does.
-    pub(crate) session: Option<SlotSession>,
+    pub session: Option<SlotSession>,
     /// What it holds, where it is stranded.
-    pub(crate) stranded: Option<adapter_traits::StrandedWork>,
+    pub stranded: Option<adapter_traits::StrandedWork>,
     /// What a rescue Scout read of it, where one has.
-    pub(crate) rescue: Option<store::KeptRescue>,
+    pub rescue: Option<store::KeptRescue>,
     /// Who held it last, where it shows work and the record or the lease names one.
-    pub(crate) last_holder: Option<ipc::SlotLastHolder>,
+    pub last_holder: Option<ipc::SlotLastHolder>,
     /// When Fleet told that holder to commit, push and release, as an instant.
-    pub(crate) told: Option<String>,
+    pub told: Option<String>,
 }
 
 /// How the pool is read for the list.
 #[derive(Clone, Copy)]
-pub(crate) enum Reading {
+pub enum Reading {
     /// Every slot, from git, now. A test's read, which keeps nothing.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     Live,
     /// What the adapter keeps, with `whole` reading every slot again.
     Kept { whole: bool },
@@ -114,7 +114,7 @@ impl Fleet
 {
     /// Every served repository's pool, slot by slot: what Bridge's Cleanup
     /// draws, read the way `armada worktree --status` reads it.
-    pub(crate) async fn pool_slots(&self, how: Reading) -> Vec<PoolSlot> {
+    pub async fn pool_slots(&self, how: Reading) -> Vec<PoolSlot> {
         let (mut kept, strandings) = {
             let store = self.store().lock().await;
             (
@@ -212,7 +212,7 @@ impl Fleet
     async fn pool_read(&self, pool: SlotPool, how: Reading) -> Vec<SlotReading> {
         let vcs = Arc::clone(self.vcs());
         tokio::task::spawn_blocking(move || match how {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             Reading::Live => vcs.slot_pool(&pool),
             Reading::Kept { whole } => vcs.slot_pool_kept(&pool, whole),
         })
@@ -223,7 +223,7 @@ impl Fleet
     /// A person's change to a repository's pool, from Cleanup's bay grid. The
     /// pool writes it beside the slots, so `armada worktree lease` honours it
     /// too and it outlives Fleet.
-    pub(crate) fn change_slot_pool(
+    pub fn change_slot_pool(
         &self,
         asked: ChangeSlotPool,
         manifest_id: Option<&ManifestId>,

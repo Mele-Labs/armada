@@ -23,10 +23,10 @@ use crate::daemon::Fleet;
 use crate::ports::{env_names, env_vars, port_map};
 
 /// A workspace's own Manifest, and the directory its commands run in.
-pub(crate) struct Workspace {
+pub struct Workspace {
     /// Relative to the repository root, `/`-separated, never empty or `.`.
-    pub(crate) dir: String,
-    pub(crate) manifest: Manifest,
+    pub dir: String,
+    pub manifest: Manifest,
 }
 
 /// `asked` resolved against `root`. `None` is the root's Manifest, which
@@ -34,7 +34,7 @@ pub(crate) struct Workspace {
 ///
 /// **Read against the root's Manifest where there is one**, so a workspace's
 /// `setup.requires` may name a root Command. Without one the file stands alone.
-pub(crate) fn resolved(
+pub fn resolved(
     root: &str,
     asked: Option<&str>,
     root_manifest: Option<&Manifest>,
@@ -83,7 +83,7 @@ pub(crate) fn resolved(
 /// go when the root's Manifest is re-read, the served list changes, or Setup
 /// writes a file. `std`'s lock, never held across the walk.
 #[derive(Clone, Default)]
-pub(crate) struct WorkspaceDirs(Arc<Mutex<BTreeMap<String, Vec<String>>>>);
+pub struct WorkspaceDirs(Arc<Mutex<BTreeMap<String, Vec<String>>>>);
 
 impl WorkspaceDirs {
     fn or_walked(&self, root: &str) -> Vec<String> {
@@ -96,7 +96,7 @@ impl WorkspaceDirs {
     }
 
     /// Walk `root` again on its next read, or every root where `None`.
-    pub(crate) fn forget(&self, root: Option<&str>) {
+    pub fn forget(&self, root: Option<&str>) {
         match root {
             Some(root) => drop(self.held().remove(root)),
             None => self.held().clear(),
@@ -111,7 +111,7 @@ impl WorkspaceDirs {
 /// Each workspace below `root` whose own `armada.yml` loads, with its Commands.
 /// A file that will not load lists nothing; Verify is where it says why. Each
 /// file is read afresh; only which directories hold one is kept.
-pub(crate) fn listed(
+pub fn listed(
     root: &str,
     known: &WorkspaceDirs,
     root_manifest: Option<&Manifest>,
@@ -133,9 +133,9 @@ pub(crate) fn listed(
 /// A workspace a Verify runs in: its directory, and the ports its own file
 /// declares, resolved from the span claimed for that Verify.
 #[derive(Clone)]
-pub(crate) struct Within {
+pub struct Within {
     /// Relative to the repository root.
-    pub(crate) dir: PathBuf,
+    pub dir: PathBuf,
     claimant: PortClaimant,
     declared: BTreeSet<String>,
     ports: BTreeMap<String, u16>,
@@ -148,7 +148,7 @@ impl Within {
     /// The root's ports and variables with this file's laid over them. **A name
     /// both declare is the workspace's**, and stays unresolved rather than
     /// falling back to the root's number where the workspace's claim failed.
-    pub(crate) fn overlaid(
+    pub fn overlaid(
         &self,
         ports: &mut BTreeMap<String, u16>,
         env: &mut Vec<(String, String)>,
@@ -165,7 +165,7 @@ impl Within {
 /// The key a workspace's span is kept under, beside the checkouts' so boot
 /// reconciliation and shutdown find a row a crash left. **Not a path**: every
 /// checkout's key is canonical and absolute, so no checkout's can equal it.
-pub(crate) fn claimant(root: &str, dir: &str) -> PortClaimant {
+pub fn claimant(root: &str, dir: &str) -> PortClaimant {
     let at = Path::new(root).join(dir);
     PortClaimant::Checkout(format!("{WORKSPACE_KEY}{}", at.to_string_lossy()))
 }
@@ -177,7 +177,7 @@ impl Fleet
     /// Claim the ports `workspace`'s own file declares, for one Verify. A row a
     /// crashed Verify left under the same key is given back first, so the span
     /// is sized from the file as it reads now.
-    pub(crate) async fn workspace_claimed(
+    pub async fn workspace_claimed(
         &self,
         checkout: &Checkout,
         workspace: Workspace,
@@ -217,7 +217,7 @@ impl Fleet
     }
 
     /// Give a workspace's span back once its Verify has ended.
-    pub(crate) async fn released_workspace_ports(&self, within: &Within) {
+    pub async fn released_workspace_ports(&self, within: &Within) {
         let _ = self
             .store()
             .lock()

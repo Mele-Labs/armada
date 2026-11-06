@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::sync::OnceLock;
 
 /// The most a stylesheet may weigh. A full set of the design tokens is under 10 KiB.
-pub(crate) const MOST_BYTES: u64 = 32 * 1024;
+pub const MOST_BYTES: u64 = 32 * 1024;
 
 /// The most a value may run to. The longest token shipped is a shadow stack.
 const MOST_VALUE: usize = 512;
@@ -118,13 +118,13 @@ fn accent_problem(value: &str) -> Option<String> {
 }
 
 /// Every problem in `css`, in the order they appear. Empty means Bridge may inject it.
-pub(crate) fn problems(css: &str) -> Vec<String> {
+pub fn problems(css: &str) -> Vec<String> {
     problems_in(css, "theme.css")
 }
 
 /// The same checks for a stylesheet called `file`, which its problems name: `tweak.css` holds the
 /// same token declarations a theme does.
-pub(crate) fn problems_in(css: &str, file: &'static str) -> Vec<String> {
+pub fn problems_in(css: &str, file: &'static str) -> Vec<String> {
     let mut found = Found { file, ..Found::default() };
     let Some(plain) = without_comments(css, &mut found) else {
         return found.said;

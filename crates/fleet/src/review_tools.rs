@@ -18,7 +18,7 @@ use ipc::{
 use crate::daemon::Fleet;
 
 /// The folder under Kit's home, and under a repository's `.armada/`.
-pub(crate) const FOLDER: &str = "review-tools";
+pub const FOLDER: &str = "review-tools";
 /// A blank name or prompt. A 422.
 const BLANK: &str = "fleet.review_tool_blank";
 /// A name that has no words in it, so no id. A 422.
@@ -79,7 +79,7 @@ fn files_in(folder: &Path) -> Vec<(PathBuf, String)> {
 
 impl Fleet
 {
-    pub(crate) fn review_tool_folder(&self, scope: ReviewToolScope, root: &str) -> PathBuf {
+    pub fn review_tool_folder(&self, scope: ReviewToolScope, root: &str) -> PathBuf {
         match scope {
             ReviewToolScope::Kit => PathBuf::from(&self.host().kit_home).join(FOLDER),
             ReviewToolScope::Repository => Path::new(root).join(".armada").join(FOLDER),
@@ -87,7 +87,7 @@ impl Fleet
     }
 
     /// The three places merged: Armada's, then Kit's, then the repository's.
-    pub(crate) fn review_tools_resolved(&self, root: &str) -> tools::Resolved {
+    pub fn review_tools_resolved(&self, root: &str) -> tools::Resolved {
         let mut all = tools::carried();
         for (path, text) in files_in(&self.review_tool_folder(ReviewToolScope::Kit, root)) {
             all.push(Written::in_kit(path, text));
@@ -114,13 +114,13 @@ impl Fleet
         }
     }
 
-    pub(crate) async fn review_tools_read(&self, manifest_id: ipc::ManifestId) -> Result<ReviewTools, Refusal> {
+    pub async fn review_tools_read(&self, manifest_id: ipc::ManifestId) -> Result<ReviewTools, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
         Ok(self.review_tools_listed(served.root()))
     }
 
     /// Write one definition in the scope named, then answer what the three places come to.
-    pub(crate) async fn review_tool_saved(
+    pub async fn review_tool_saved(
         &self,
         manifest_id: ipc::ManifestId,
         save: SaveReviewTool,
@@ -158,7 +158,7 @@ impl Fleet
     }
 
     /// The file in `folder` that defines `id`, if one does.
-    pub(crate) fn review_tool_held(&self, folder: &Path, scope: ReviewToolScope, id: &str) -> Option<PathBuf> {
+    pub fn review_tool_held(&self, folder: &Path, scope: ReviewToolScope, id: &str) -> Option<PathBuf> {
         // A file of the name this would take that does not fit is still in the way.
         review_tool_defined(folder, scope, id)
             .map(|(path, _)| path)
@@ -167,7 +167,7 @@ impl Fleet
 }
 
 /// The file in `folder` that defines `id` and fits, with its text.
-pub(crate) fn review_tool_defined(folder: &Path, scope: ReviewToolScope, id: &str) -> Option<(PathBuf, String)> {
+pub fn review_tool_defined(folder: &Path, scope: ReviewToolScope, id: &str) -> Option<(PathBuf, String)> {
     let wrap = |path: PathBuf, text: String| match scope {
         ReviewToolScope::Kit => Written::in_kit(path, text),
         ReviewToolScope::Repository => Written::in_repository(path, text),

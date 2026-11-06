@@ -45,7 +45,7 @@ impl Fleet
     }
 
     /// The same cleanup for one repository added after Fleet started: the servers it left.
-    pub(crate) async fn reconciled_in(
+    pub async fn reconciled_in(
         &self,
         served: &crate::repositories::Served,
     ) -> Result<Reconciled, Adrift> {

@@ -24,14 +24,14 @@ use core_model::{EdgeGrain, ManifestId};
 use crate::daemon::Fleet;
 
 /// How long between asks for a run that is still going.
-pub(crate) const ASK_AGAIN_AFTER: Duration = Duration::from_secs(5 * 60);
+pub const ASK_AGAIN_AFTER: Duration = Duration::from_secs(5 * 60);
 
 /// How many times a commit's laps are asked for. Three hours, past the two the job is allowed.
-pub(crate) const ASKS: u32 = 36;
+pub const ASKS: u32 = 36;
 
 /// What one ask came to.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Pulled {
+pub enum Pulled {
     /// The laps were kept as this many edges.
     Kept { edges: usize },
     /// The map already holds this commit's laps, so the file was not written again.
@@ -54,7 +54,7 @@ impl Fleet
 {
     /// Main in `repository`, at `root`, moved to `tip`: ask the forge for that commit's laps until
     /// they come, are never coming, or main moves again. Returns at once; the asking is its own task.
-    pub(crate) fn test_map_laps_followed(self: &Arc<Self>, repository: ManifestId, root: &str, tip: &str) {
+    pub fn test_map_laps_followed(self: &Arc<Self>, repository: ManifestId, root: &str, tip: &str) {
         let (fleet, root, tip) = (Arc::clone(self), root.to_string(), tip.to_string());
         tokio::spawn(async move {
             fleet.test_map_laps_asked_until_settled(&repository, &root, &tip, ASK_AGAIN_AFTER).await;
@@ -62,7 +62,7 @@ impl Fleet
     }
 
     /// [`Fleet::test_map_laps_pulled`] until it says anything but not yet, or [`ASKS`] have been made.
-    pub(crate) async fn test_map_laps_asked_until_settled(
+    pub async fn test_map_laps_asked_until_settled(
         &self,
         repository: &ManifestId,
         root: &str,
@@ -84,7 +84,7 @@ impl Fleet
 
     /// One ask: the laps of `tip` from the forge, kept as edges at `tip` unless they were kept
     /// already or main is no longer there.
-    pub(crate) async fn test_map_laps_pulled(&self, repository: &ManifestId, root: &str, tip: &str) -> Pulled {
+    pub async fn test_map_laps_pulled(&self, repository: &ManifestId, root: &str, tip: &str) -> Pulled {
         if self.writes().main_tip(repository.as_str()).is_some_and(|now| now != tip) {
             return Pulled::Superseded;
         }

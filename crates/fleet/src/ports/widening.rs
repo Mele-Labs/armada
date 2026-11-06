@@ -23,7 +23,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 /// a merge reads its ports from that Manifest and must not meet a server on one. A name the boot
 /// did not know goes after them, and a port a live server is on stays that server's whatever the
 /// order says, so a start never hands out a port that something answers on.
-pub(crate) fn spread(
+pub fn spread(
     held: &[String],
     fresh: &[String],
     live: &BTreeMap<String, u16>,
@@ -59,7 +59,7 @@ impl Fleet
     /// The ports `fresh` declares, on the span the checkout at `path` holds: claimed on first need,
     /// and **widened where `fresh` names more than it has room for.** `held` is the Manifest Fleet
     /// booted with, whose offsets stay where they were. A refusal is said, and nothing is started.
-    pub(crate) async fn checkout_ports_declared(
+    pub async fn checkout_ports_declared(
         &self,
         path: &str,
         held: &Manifest,

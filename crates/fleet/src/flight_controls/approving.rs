@@ -44,7 +44,7 @@ struct Approved {
 }
 
 /// The hash an approval names: the command's exact text.
-pub(crate) fn command_hash(command: &str) -> String {
+pub fn command_hash(command: &str) -> String {
     Sha256::digest(command.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
@@ -64,7 +64,7 @@ impl Fleet
     }
 
     /// Each shell tile `in_repository` holds, and whether its current command is approved.
-    pub(super) async fn asking_of(&self, root: &str, in_repository: &FlightControlsRead) -> Vec<TileAsk> {
+    pub async fn asking_of(&self, root: &str, in_repository: &FlightControlsRead) -> Vec<TileAsk> {
         let FlightControlsRead::Read { controls } = in_repository else { return Vec::new() };
         let approved = self.approvals_read(root).await;
         let mut asking: Vec<TileAsk> = Vec::new();
@@ -83,7 +83,7 @@ impl Fleet
     /// The command of the repository's tile a press names, read from the repository as committed
     /// (the Job's tree where the press names one), never the text the press sent. Refused unless
     /// this Mac approved it.
-    pub(crate) async fn repository_tile_pressed(
+    pub async fn repository_tile_pressed(
         &self,
         tile: &RepositoryTile,
         session: &SessionId,
@@ -115,7 +115,7 @@ impl Fleet
     }
 
     /// `approve_repository_tile`: keep the hash shown if it is still the tile's command.
-    pub(crate) async fn repository_tile_approved(
+    pub async fn repository_tile_approved(
         &self,
         approving: ApproveRepositoryTile,
     ) -> Result<RepositoryFlightControls, Refusal> {

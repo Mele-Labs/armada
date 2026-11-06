@@ -9,12 +9,12 @@ use crate::repositories::Served;
 use crate::slot_holders;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Owner {
+pub enum Owner {
     Session(String),
 }
 
 impl Owner {
-    pub(crate) fn key(&self) -> String {
+    pub fn key(&self) -> String {
         match self {
             Owner::Session(id) => format!("session:{id}"),
         }
@@ -26,7 +26,7 @@ impl Fleet
     /// The pull requests someone holds that `listed` leaves out: a standing `pr` row of a Session.
     /// **What a forge's capped list cannot be trusted to show**, read by number so their owners
     /// are still told.
-    pub(crate) async fn held_beyond(&self, served: &Served, listed: &[u64]) -> Vec<u64> {
+    pub async fn held_beyond(&self, served: &Served, listed: &[u64]) -> Vec<u64> {
         let manifest = served.manifest().id().as_str().to_string();
         let store = self.store().lock().await;
         let mut held: Vec<u64> = store
@@ -44,7 +44,7 @@ impl Fleet
     /// Who holds a pull request: the Sessions the pool confirms work its branch, else the one whose
     /// `pr` row is oldest (`crate::slot_holders`). `spent` also takes a Session whose hold was
     /// used up by the merge.
-    pub(crate) async fn owners_of(
+    pub async fn owners_of(
         &self,
         served: &Served,
         number: u64,
@@ -65,7 +65,7 @@ impl Fleet
 
     /// Who hears news of a pull request, a merge or auto-merge turned on: [`Self::owners_of`], and
     /// every other Session whose `pr` row holds it. **A failure is told to one Job, news to each.**
-    pub(crate) async fn holders_told_of(
+    pub async fn holders_told_of(
         &self,
         served: &Served,
         number: u64,

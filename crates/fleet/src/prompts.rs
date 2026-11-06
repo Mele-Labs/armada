@@ -17,7 +17,7 @@ use std::sync::{Arc, LazyLock};
 use config::settings::{self as keys, Key, Resolved, Supplied, Words};
 
 
-mod judge;
+pub mod judge;
 
 /// Every prompt as it ships, read from the module that owns its wording.
 fn shipped_texts() -> Vec<(Words, String)> {
@@ -105,7 +105,7 @@ impl Prompts {
 
     /// These prompts with every one the file holds put over them. The table
     /// has already refused a saved prompt that drops a placeholder.
-    pub(crate) fn overlaid_by(&self, settings: &Resolved) -> Prompts {
+    pub fn overlaid_by(&self, settings: &Resolved) -> Prompts {
         let mut words = (*self.0).clone();
         for key in keys::prompt_keys() {
             if let Some(chosen) = settings.chosen(key) {
@@ -127,7 +127,7 @@ impl Prompts {
 
     /// The Judge's pieces as these prompts word them, for `verification` to
     /// lay its briefs in. That crate knows no settings; Fleet owns the override.
-    pub(crate) fn wording(&self) -> verification::Wording {
+    pub fn wording(&self) -> verification::Wording {
         judge::judge()
             .into_iter()
             .fold(verification::Wording::shipped(), |wording, (key, piece)| {
@@ -138,6 +138,6 @@ impl Prompts {
 
 /// `template` with each `{name}` in `values` replaced by its value, in one
 /// pass. `verification::fill`, the one implementation of it.
-pub(crate) fn fill(template: &str, values: &[(&str, &str)]) -> String {
+pub fn fill(template: &str, values: &[(&str, &str)]) -> String {
     verification::fill(template, values)
 }

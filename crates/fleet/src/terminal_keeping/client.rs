@@ -16,7 +16,7 @@ const READY_WITHIN: Duration = Duration::from_secs(5);
 
 /// A connection's writing end, shared by the keys, the resize and the end, with what the keeper
 /// last said about the foreground.
-pub(crate) struct Link {
+pub struct Link {
     write: Mutex<UnixStream>,
     foreground: AtomicBool,
 }
@@ -29,31 +29,31 @@ impl Link {
 
     /// Tell the keeper to stop the shell and go. Best effort: a keeper that is gone says so by
     /// closing the connection.
-    pub(crate) fn end(&self) {
+    pub fn end(&self) {
         self.send(wire::END, &[]);
     }
 
-    pub(crate) fn resize(&self, cols: u16, rows: u16) -> bool {
+    pub fn resize(&self, cols: u16, rows: u16) -> bool {
         let mut payload = cols.to_be_bytes().to_vec();
         payload.extend_from_slice(&rows.to_be_bytes());
         self.send(wire::RESIZE, &payload)
     }
 
     /// Close the connection, as a Fleet that died does.
-    #[cfg(test)]
-    pub(crate) fn close(&self) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn close(&self) {
         let _ = self.write.lock().expect("not poisoned").shutdown(std::net::Shutdown::Both);
     }
 
     /// Whether a program other than the shell has the terminal's foreground.
-    pub(crate) fn foreground_taken(&self) -> bool {
+    pub fn foreground_taken(&self) -> bool {
         self.foreground.load(Ordering::SeqCst)
     }
 }
 
 /// What the keeper printed, as the bytes arrived. Ends where the shell has exited and all it
 /// printed is read, or where the connection closed first.
-pub(crate) struct Printed {
+pub struct Printed {
     stream: UnixStream,
     link: Arc<Link>,
     pending: Vec<u8>,
@@ -104,7 +104,7 @@ fn exit_code(payload: &[u8]) -> Option<i32> {
 }
 
 /// The keys: each write is a frame, so two writers never split one another's.
-pub(crate) struct Keys(Arc<Link>);
+pub struct Keys(Arc<Link>);
 
 impl Write for Keys {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
@@ -122,20 +122,20 @@ impl Write for Keys {
 }
 
 /// A keeper attached to.
-pub(crate) struct Attached {
+pub struct Attached {
     /// The shell's pid, which leads its own group.
-    pub(crate) pid: u32,
-    pub(crate) printed: Printed,
-    pub(crate) keys: Keys,
-    pub(crate) link: Arc<Link>,
+    pub pid: u32,
+    pub printed: Printed,
+    pub keys: Keys,
+    pub link: Arc<Link>,
     /// The shell's exit code where it left with one, sent once its output is read. A connection
     /// that closed first closes this unsent.
-    pub(crate) exit: mpsc::Receiver<Option<i32>>,
+    pub exit: mpsc::Receiver<Option<i32>>,
 }
 
 /// A connection to the keeper at `socket`, or `None` where none answers. A socket nobody answers
 /// on is a keeper that is gone, and is removed.
-pub(crate) fn connect(socket: &Path) -> Option<UnixStream> {
+pub fn connect(socket: &Path) -> Option<UnixStream> {
     match UnixStream::connect(socket) {
         Ok(stream) => Some(stream),
         Err(why) if why.kind() == io::ErrorKind::NotFound => None,
@@ -147,7 +147,7 @@ pub(crate) fn connect(socket: &Path) -> Option<UnixStream> {
 }
 
 /// Attach on `stream`, asking for the last `tail` bytes of the spool before what comes after.
-pub(crate) fn attach(stream: UnixStream, tail: u64) -> io::Result<Attached> {
+pub fn attach(stream: UnixStream, tail: u64) -> io::Result<Attached> {
     let mut reading = stream.try_clone()?;
     let link = Arc::new(Link { write: Mutex::new(stream), foreground: AtomicBool::new(false) });
     reading.set_read_timeout(Some(READY_WITHIN))?;
@@ -171,7 +171,7 @@ pub(crate) fn attach(stream: UnixStream, tail: u64) -> io::Result<Attached> {
 }
 
 /// Tell the keeper at `socket`, where one answers, to stop its shell and go.
-pub(crate) fn end_at(socket: &Path) {
+pub fn end_at(socket: &Path) {
     if let Ok(mut stream) = UnixStream::connect(socket) {
         let _ = wire::write_frame(&mut stream, wire::END, &[]);
     }

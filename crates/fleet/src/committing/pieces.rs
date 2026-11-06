@@ -127,7 +127,7 @@ impl Fleet
 
     /// Kit's file that declares `wanted`, as its file is written, into `.armada/<folder>/` under its
     /// own name, or in place of the file on the branch that declares it.
-    pub(super) fn piece_copied(&self, root: &str, tree: &JobTree, wanted: Identity, overwrite: bool) -> Result<Copy, Refusal> {
+    pub fn piece_copied(&self, root: &str, tree: &JobTree, wanted: Identity, overwrite: bool) -> Result<Copy, Refusal> {
         let folder = folder_of(wanted.kind);
         let kit = declaring(&self.kit_pieces(folder), &wanted);
         let Some((kit_file, text)) = kit.into_iter().next() else {
@@ -152,7 +152,7 @@ impl Fleet
 
     /// The file on the branch that declares the piece, deleted. **Only the four kinds above can be
     /// removed**, and removing what the repository does not hold is refused.
-    pub(super) fn piece_removed(&self, tree: &JobTree, piece: &PieceToCommit) -> Result<Copy, Refusal> {
+    pub fn piece_removed(&self, tree: &JobTree, piece: &PieceToCommit) -> Result<Copy, Refusal> {
         let Some(wanted) = identity_of(piece) else {
             return Err(self.commit_refusal(
                 REFUSED,

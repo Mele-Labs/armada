@@ -21,17 +21,17 @@ use std::time::UNIX_EPOCH;
 
 use ipc::{Instant, ModKind, ModList, ModOrigin, ModSummary};
 
-mod built_in;
-pub(crate) mod fleet_rules;
-pub(crate) mod manifest;
-mod promote;
-pub(crate) mod scaffold;
-mod serving;
-pub(crate) mod stylesheet;
-pub(crate) mod words;
-pub(crate) mod commands;
-pub(crate) mod tab;
-pub(crate) mod tracker;
+pub mod built_in;
+pub mod fleet_rules;
+pub mod manifest;
+pub mod promote;
+pub mod scaffold;
+pub mod serving;
+pub mod stylesheet;
+pub mod words;
+pub mod commands;
+pub mod tab;
+pub mod tracker;
 
 pub use built_in::{BuiltIn, BuiltIns};
 pub use serving::keep_reading;
@@ -46,7 +46,7 @@ const MOST_NAME: usize = 40;
 /// chosen by an id that already means something else.
 const SHIPPED: &[&str] = &["dark", "light", "system", "default"];
 
-pub(crate) const MANIFEST: &str = "mod.toml";
+pub const MANIFEST: &str = "mod.toml";
 const THEME: &str = "theme.css";
 const LAYOUT: &str = "layout.json";
 const WORDS: &str = "words.toml";
@@ -59,7 +59,7 @@ const INSTRUMENT: &str = "instrument.js";
 
 /// Why `name` cannot be a mod's name, or `None`. **The only gate on a path
 /// segment**: a name that passes holds no `/`, no `.` and no way to climb.
-pub(crate) fn slug_problem(name: &str) -> Option<String> {
+pub fn slug_problem(name: &str) -> Option<String> {
     theme_problem(name).or_else(|| {
         SHIPPED
             .contains(&name)
@@ -68,7 +68,7 @@ pub(crate) fn slug_problem(name: &str) -> Option<String> {
 }
 
 /// Why `id` cannot name a theme, a shipped one or a mod's, or `None`.
-pub(crate) fn theme_problem(id: &str) -> Option<String> {
+pub fn theme_problem(id: &str) -> Option<String> {
     let plain = !id.is_empty()
         && id.len() <= MOST_NAME
         && id.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
@@ -88,34 +88,34 @@ const CATALOGUE: &str = "catalogue:";
 /// Why `id` cannot be saved as the theme: a plain name, a catalogue theme's
 /// id, which is Bridge's own spelling and is a plain name after its prefix, or a
 /// built-in mod's, which is too.
-pub(crate) fn theme_id_problem(id: &str) -> Option<String> {
+pub fn theme_id_problem(id: &str) -> Option<String> {
     theme_problem(id.strip_prefix(CATALOGUE).or_else(|| id.strip_prefix(built_in::PREFIX)).unwrap_or(id))
 }
 
 /// One mod's folder, read.
-pub(crate) struct Examined {
+pub struct Examined {
     /// The folder's name, or a built-in mod's id.
-    pub(crate) name: String,
-    pub(crate) origin: ModOrigin,
-    pub(crate) manifest: manifest::Manifest,
-    pub(crate) problems: Vec<String>,
+    pub name: String,
+    pub origin: ModOrigin,
+    pub manifest: manifest::Manifest,
+    pub problems: Vec<String>,
     /// The two files as they were checked, kept only where nothing at all was
     /// wrong with the mod. Whatever is handed on is these bytes and not a second read.
-    pub(crate) files: Option<Files>,
-    pub(crate) changed_ms: Option<i64>,
+    pub files: Option<Files>,
+    pub changed_ms: Option<i64>,
     /// A tracker mod's last try of the file as it stands.
-    pub(crate) tried: Option<ipc::TrackerTry>,
+    pub tried: Option<ipc::TrackerTry>,
     /// A try is kept for this tracker mod, of a `tracker.toml` that has since changed.
-    pub(crate) stale: bool,
+    pub stale: bool,
 }
 
-pub(crate) struct Files {
-    pub(crate) manifest: String,
-    pub(crate) payload: Payload,
+pub struct Files {
+    pub manifest: String,
+    pub payload: Payload,
 }
 
 /// The file a mod's kind is about, as it was checked.
-pub(crate) enum Payload {
+pub enum Payload {
     Css(String),
     Layout(String),
     Words(String),
@@ -129,7 +129,7 @@ pub(crate) enum Payload {
 
 impl Payload {
     /// The file's name in the mod's folder.
-    pub(crate) fn file(&self) -> &'static str {
+    pub fn file(&self) -> &'static str {
         match self {
             Payload::Css(_) => THEME,
             Payload::Layout(_) => LAYOUT,
@@ -143,7 +143,7 @@ impl Payload {
         }
     }
 
-    pub(crate) fn text(&self) -> &str {
+    pub fn text(&self) -> &str {
         match self {
             Payload::Css(text)
             | Payload::Layout(text)
@@ -159,11 +159,11 @@ impl Payload {
 }
 
 impl Examined {
-    pub(crate) fn valid(&self) -> bool {
+    pub fn valid(&self) -> bool {
         self.problems.is_empty()
     }
 
-    pub(crate) fn summary(&self, enabled: bool) -> ModSummary {
+    pub fn summary(&self, enabled: bool) -> ModSummary {
         ModSummary {
             name: self.name.clone(),
             origin: self.origin,
@@ -191,14 +191,14 @@ impl Examined {
 }
 
 /// Where a mod's files are read: its folder on this machine, or the set Fleet was built with.
-pub(super) enum Source<'a> {
+pub enum Source<'a> {
     Folder(&'a Path),
     BuiltIn(&'a BuiltIn),
 }
 
 impl Source<'_> {
     /// `file` of at most `most` bytes, and when it was written where it is a file on this machine.
-    pub(super) fn read(&self, file: &str, most: u64) -> Result<(String, Option<i64>), String> {
+    pub fn read(&self, file: &str, most: u64) -> Result<(String, Option<i64>), String> {
         match self {
             Source::Folder(dir) => read_small(&dir.join(file), most, file).map(|(text, ms)| (text, Some(ms))),
             Source::BuiltIn(one) => one.read(file, most).map(|text| (text, None)),
@@ -220,7 +220,7 @@ fn unread(name: String, origin: ModOrigin) -> Examined {
 }
 
 /// A built-in mod, under its id, checked by the rules [`examine`] holds a folder to.
-pub(crate) fn examine_built_in(one: &BuiltIn) -> Examined {
+pub fn examine_built_in(one: &BuiltIn) -> Examined {
     let mut found = unread(one.id(), ModOrigin::BuiltIn);
     match slug_problem(one.name()) {
         Some(why) => found.problems.push(why),
@@ -231,7 +231,7 @@ pub(crate) fn examine_built_in(one: &BuiltIn) -> Examined {
 
 /// The mod in `mods_dir/name`. **`name` must have passed [`slug_problem`]**,
 /// or be a folder's own name the listing is describing.
-pub(crate) fn examine(mods_dir: &Path, name: &str) -> Examined {
+pub fn examine(mods_dir: &Path, name: &str) -> Examined {
     let mut found = unread(name.to_string(), ModOrigin::Local);
     if let Some(why) = slug_problem(name) {
         found.problems.push(why);
@@ -321,7 +321,7 @@ fn checked(found: &mut Examined, name: &str, source: &Source) {
 }
 
 /// A TOML file's parse failure as a problem on the line it stopped at.
-pub(crate) fn toml_problem(file: &str, text: &str, why: &toml::de::Error) -> String {
+pub fn toml_problem(file: &str, text: &str, why: &toml::de::Error) -> String {
     let line = why.span().map_or(1, |span| text[..span.start.min(text.len())].matches('\n').count() + 1);
     format!("{file} line {line}: {}", why.message().lines().next().unwrap_or_default())
 }
@@ -331,7 +331,7 @@ pub(crate) fn toml_problem(file: &str, text: &str, why: &toml::de::Error) -> Str
 /// **Opened without following a link**, so a `theme.css` that points at some
 /// other file reads as a problem and not as that file. Opened without blocking,
 /// so a named pipe is refused rather than waited on.
-pub(super) fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, i64), String> {
+pub fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, i64), String> {
     let file: File = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
@@ -372,7 +372,7 @@ pub(super) fn read_small(path: &Path, most: u64, what: &str) -> Result<(String, 
 /// **Files and names that begin with `.` are not mods** and are not listed. A
 /// folder whose name is not a slug is listed, invalid, so the owner can see why
 /// the thing they made is not offered.
-pub(crate) fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>, built_in: &BuiltIns) -> ModList {
+pub fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>, built_in: &BuiltIns) -> ModList {
     let local = std::fs::read_dir(mods_dir)
         .into_iter()
         .flatten()
@@ -407,7 +407,7 @@ pub(crate) fn scan(mods_dir: &Path, switches: &BTreeMap<String, bool>, built_in:
 /// Every mod of `kind` that is on and valid, by name, with the text of its file as it was checked.
 /// **What Fleet itself acts on is read through this**, so a mod that fails its checks or is switched
 /// off changes nothing.
-pub(crate) fn kept(mods_dir: &Path, switches: &BTreeMap<String, bool>, kind: ModKind) -> Vec<(String, String)> {
+pub fn kept(mods_dir: &Path, switches: &BTreeMap<String, bool>, kind: ModKind) -> Vec<(String, String)> {
     let Ok(entries) = std::fs::read_dir(mods_dir) else {
         return Vec::new();
     };
@@ -427,7 +427,7 @@ pub(crate) fn kept(mods_dir: &Path, switches: &BTreeMap<String, bool>, kind: Mod
 
 /// The Logbook entry `mods_dir/name` was made from, read from its `mod.toml` whatever else is
 /// wrong with the mod.
-pub(crate) fn entry_of(mods_dir: &Path, name: &str) -> Option<String> {
+pub fn entry_of(mods_dir: &Path, name: &str) -> Option<String> {
     if slug_problem(name).is_some() {
         return None;
     }
@@ -437,20 +437,20 @@ pub(crate) fn entry_of(mods_dir: &Path, name: &str) -> Option<String> {
 
 /// The list as last published, so a rescan says something only when it moved.
 #[derive(Default)]
-pub(crate) struct Told(Mutex<Option<ModList>>);
+pub struct Told(Mutex<Option<ModList>>);
 
 impl Told {
     /// Take `now` as the last published. **True where it differs from one held
     /// before**: the first scan is a baseline, since a client reads `list_mods`
     /// on connect.
-    pub(crate) fn moved(&self, now: &ModList) -> bool {
+    pub fn moved(&self, now: &ModList) -> bool {
         let mut last = self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let was = last.replace(now.clone());
         was.is_some_and(|was| was != *now)
     }
 
     /// Take `now` as published by something that published it.
-    pub(crate) fn published(&self, now: &ModList) {
+    pub fn published(&self, now: &ModList) {
         *self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(now.clone());
     }
 }

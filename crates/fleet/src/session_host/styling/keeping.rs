@@ -14,15 +14,15 @@ use super::sheet;
 use super::walk::inside;
 
 /// Most the sheets of one set weigh together.
-pub(crate) const SET_AT_MOST: usize = 512 * 1024;
+pub const SET_AT_MOST: usize = 512 * 1024;
 /// Most font bytes of one set. Past it the faces are left out and the frame uses system fonts.
-pub(crate) const FONTS_AT_MOST: u64 = 1024 * 1024;
+pub const FONTS_AT_MOST: u64 = 1024 * 1024;
 
 /// The sheets at `paths`, in the order given, as a set a frame can adopt. `root` is the checkout's
 /// canonical path and `dirty` the files it holds uncommitted changes to. Where `fit` is set a sheet
 /// that would take the set past its cap is left out and the rest kept, so the nearest come first in
 /// `paths`; otherwise it is an error, since the agent named them.
-pub(crate) fn assemble(root: &Path, paths: &[String], dirty: &BTreeSet<String>, fit: bool) -> Result<KeptStyles, String> {
+pub fn assemble(root: &Path, paths: &[String], dirty: &BTreeSet<String>, fit: bool) -> Result<KeptStyles, String> {
     let (mut sheets, mut fonts, mut total) = (Vec::new(), Vec::<KeptFont>::new(), 0usize);
     let mut faces: Vec<sheet::Face> = Vec::new();
     for path in paths {
@@ -60,17 +60,17 @@ pub(crate) fn assemble(root: &Path, paths: &[String], dirty: &BTreeSet<String>, 
 }
 
 /// The first 32 hex characters of the set's digest, which names its file.
-pub(crate) fn hash_of(set: &KeptStyles) -> io::Result<String> {
+pub fn hash_of(set: &KeptStyles) -> io::Result<String> {
     let written = ipc::encode(set).map_err(|why| io::Error::other(why.to_string()))?;
     Ok(Sha256::digest(written.as_bytes()).iter().take(16).map(|byte| format!("{byte:02x}")).collect())
 }
 
-pub(crate) fn folder(attachments: &str) -> PathBuf {
+pub fn folder(attachments: &str) -> PathBuf {
     Path::new(attachments).join("styles")
 }
 
 /// Keep `set` under its hash, unless the file is there, and answer the hash.
-pub(crate) fn keep(folder: &Path, set: &KeptStyles) -> io::Result<String> {
+pub fn keep(folder: &Path, set: &KeptStyles) -> io::Result<String> {
     let hash = hash_of(set)?;
     let file = folder.join(format!("{hash}.json"));
     if file.exists() {
@@ -85,12 +85,12 @@ pub(crate) fn keep(folder: &Path, set: &KeptStyles) -> io::Result<String> {
 }
 
 /// Whether `hash` is what [`hash_of`] writes: 32 lower-case hex characters, so it cannot name a path.
-pub(crate) fn is_hash(hash: &str) -> bool {
+pub fn is_hash(hash: &str) -> bool {
     hash.len() == 32 && hash.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 /// The set kept under `hash`, or `None` where there is none or it will not read.
-pub(crate) fn read(folder: &Path, hash: &str) -> Option<KeptStyles> {
+pub fn read(folder: &Path, hash: &str) -> Option<KeptStyles> {
     if !is_hash(hash) {
         return None;
     }

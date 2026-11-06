@@ -26,7 +26,7 @@ use crate::daemon::Fleet;
 use crate::lifecycles::reading::tracker_word;
 
 /// The ledger's kind for an issue a Session works on. `target` is its [`IssueReference`].
-pub(crate) const ISSUE: &str = "issue";
+pub const ISSUE: &str = "issue";
 
 const NOT_CLAIMABLE: &str = "fleet.issue_not_claimable";
 
@@ -34,24 +34,24 @@ const NOT_CLAIMABLE: &str = "fleet.issue_not_claimable";
 const HELD_ELSEWHERE: &str = "fleet.issue_held";
 
 /// The detail key naming the pull requests that work an issue, comma-joined ascending.
-pub(crate) const PULL_REQUESTS: &str = "pull_requests";
+pub const PULL_REQUESTS: &str = "pull_requests";
 
 /// The detail key naming who the Job claimed the issue as in a backlog Fleet writes to. A row
 /// without it was named, not claimed, and the backlog naming someone else for it is no lost claim.
-pub(crate) const CLAIMED_AS: &str = "claimed_as";
+pub const CLAIMED_AS: &str = "claimed_as";
 
 /// The detail key carrying the issue's status in the tracker's own words (`Ready for QA`), as a
 /// Ticket lifecycle reads it, so Bridge can offer to say which Ticket state it means.
-pub(crate) const STATUS: &str = "status";
+pub const STATUS: &str = "status";
 
 /// The detail key saying the Job claimed the issue (`claim_issue`), as against one it filed or was told of.
 /// Bridge draws a claimed issue as work in hand and any other as set aside.
-pub(crate) const CLAIMED: &str = "claimed";
+pub const CLAIMED: &str = "claimed";
 
 /// Stand `holder`'s row for `issue`, with `known` where the row says nothing yet. `true` where
 /// anything changed. **`pull_requests` only grows**: what `known` names is added to what the row
 /// names.
-pub(crate) fn issue_held(
+pub fn issue_held(
     store: &mut Store,
     holder: &Holder,
     manifest_id: &str,
@@ -93,13 +93,13 @@ pub(crate) fn issue_held(
 }
 
 /// The pull request numbers a row's `pull_requests` names.
-pub(crate) fn pull_requests_named(joined: Option<&String>) -> BTreeSet<u64> {
+pub fn pull_requests_named(joined: Option<&String>) -> BTreeSet<u64> {
     joined
         .map(|joined| joined.split(',').filter_map(|one| one.trim().parse().ok()).collect())
         .unwrap_or_default()
 }
 
-pub(crate) fn pull_requests_joined<'a>(numbers: impl IntoIterator<Item = &'a u64>) -> String {
+pub fn pull_requests_joined<'a>(numbers: impl IntoIterator<Item = &'a u64>) -> String {
     numbers.into_iter().map(u64::to_string).collect::<Vec<_>>().join(",")
 }
 
@@ -109,7 +109,7 @@ impl Fleet
     ///
     /// **Held, never raised**, as the pull request ledger is: the message is the person's, and a row
     /// that would not write is no reason to refuse it.
-    pub(crate) async fn issues_named(&self, session: &str, text: &str, tags: &[SessionTag]) {
+    pub async fn issues_named(&self, session: &str, text: &str, tags: &[SessionTag]) {
         let Some(manifest) = self.store().lock().await.session(session).ok().flatten().and_then(|one| one.manifest_id)
         else {
             return;
@@ -140,7 +140,7 @@ impl Fleet
 
     /// An issue the mod read off what `gh issue create` printed, held by `holder` **only where its
     /// address is in the Session's own repository**: one filed elsewhere is not this Session's to work.
-    pub(crate) fn issue_filed(
+    pub fn issue_filed(
         &self,
         store: &mut Store,
         holder: &Holder,
@@ -164,7 +164,7 @@ impl Fleet
     /// with the pull requests that work it. **Nothing is asked of a tracker Fleet only reads**: the
     /// pull reading reads it. In one Fleet writes to, the issue is claimed there first, and a claim
     /// the synced copy gives to someone else is refused naming them.
-    pub(crate) async fn issue_claimed(&self, caller: Option<Caller>, claim: ClaimIssue) -> Result<IssueClaimed, Refusal> {
+    pub async fn issue_claimed(&self, caller: Option<Caller>, claim: ClaimIssue) -> Result<IssueClaimed, Refusal> {
         let refuse = |why: String| self.hosted_refusal(NOT_CLAIMABLE, &why);
         let issue = IssueReference::read(&claim.issue).ok_or_else(|| {
             refuse(format!(
@@ -241,13 +241,13 @@ impl Fleet
 
     /// Where the repository `manifest_id` serves lives on its forge: the only one whose issues a
     /// Session in it takes from a link.
-    pub(crate) fn own_repository(&self, manifest_id: &str) -> Option<ForgeAddress> {
+    pub fn own_repository(&self, manifest_id: &str) -> Option<ForgeAddress> {
         let served = self.served_named(Some(&ManifestId::carried(manifest_id))).ok()?;
         adapters::remote_of(Path::new(served.root()))
     }
 
     /// Stand each issue in `named` on `session`'s ledger, and publish the Session where any moved.
-    pub(crate) async fn issues_held(
+    pub async fn issues_held(
         &self,
         session: &str,
         manifest_id: &str,
@@ -283,7 +283,7 @@ impl Fleet
     /// [`pull_ledger_kept_current`](Self::pull_ledger_kept_current) is for pull requests, and at the
     /// same utility priority. **A closed issue stands**: the row says closed and is still shown.
     /// Issues the forge will not answer for stay as they were.
-    pub(crate) async fn issue_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
+    pub async fn issue_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
         let mut issues: Vec<IssueReference> = {
             let store = self.store().lock().await;
             let Ok(rows) = store.standing_of_kind(ISSUE, manifest_id.as_str()) else {

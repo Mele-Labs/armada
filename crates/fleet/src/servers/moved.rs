@@ -31,7 +31,7 @@ impl Fleet
     ///
     /// `None` is a base that would not read, which is reported as an absent
     /// commit and never as agreement — `Delivery::base_tip`'s own rule.
-    pub(crate) async fn commit_serving_now(&self, served: &Served) -> Option<String> {
+    pub async fn commit_serving_now(&self, served: &Served) -> Option<String> {
         let vcs = Arc::clone(self.vcs());
         let root = served.root().to_string();
         let base = served.manifest().base().map(str::to_string);
@@ -49,7 +49,7 @@ impl Fleet
     /// under the servers standing in it.
     ///
     /// [`MovedOn`]: RepositoryStanding::MovedOn
-    pub(crate) fn told_servers_the_checkout_moved(
+    pub fn told_servers_the_checkout_moved(
         &self,
         root: &str,
         standing: &RepositoryStanding,

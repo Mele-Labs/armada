@@ -44,7 +44,7 @@ struct QueryOut {
 
 /// The row fields a person or a model named, each held to the names the tracker's guide lists.
 /// In the order written and each once.
-pub(crate) fn row_fields_held(guide: &QueryGuide, named: &[String]) -> Result<Vec<String>, String> {
+pub fn row_fields_held(guide: &QueryGuide, named: &[String]) -> Result<Vec<String>, String> {
     let mut kept: Vec<String> = Vec::new();
     for field in named.iter().map(|one| one.trim()) {
         if !guide.fields.iter().any(|known| known == field) {
@@ -61,7 +61,7 @@ pub(crate) fn row_fields_held(guide: &QueryGuide, named: &[String]) -> Result<Ve
 }
 
 /// The model's answer, held to the guide: a non-blank query and the fields a row may show.
-pub(crate) fn query_read(answer: &str, guide: &QueryGuide) -> Result<(String, Vec<String>), String> {
+pub fn query_read(answer: &str, guide: &QueryGuide) -> Result<(String, Vec<String>), String> {
     let out: QueryOut = said(object_in(answer)?)?;
     let query = out.query.trim();
     if query.is_empty() {
@@ -117,7 +117,7 @@ impl Fleet
         found.map_err(|not| Refusal::Unacceptable(not_tracked(self.run_id(), REFUSED, &not)))
     }
 
-    pub(crate) async fn issues_searched(
+    pub async fn issues_searched(
         &self,
         manifest_id: ManifestId,
         search: SearchIssues,
@@ -136,7 +136,7 @@ impl Fleet
     /// **Only a [`Tool`] is installed**, so what the wire names is looked up and never run. It is
     /// also set up for this repository where it is absent there. The install is a person's press:
     /// nothing calls this on its own.
-    pub(crate) async fn tool_installed(
+    pub async fn tool_installed(
         &self,
         manifest_id: ManifestId,
         install: InstallTool,
@@ -155,7 +155,7 @@ impl Fleet
         Ok(InstalledTool { tool: tool.name().to_string(), done: installed.done, said: installed.said })
     }
 
-    pub(crate) async fn issue_queries_read(&self, manifest_id: ManifestId) -> Result<IssueQueries, Refusal> {
+    pub async fn issue_queries_read(&self, manifest_id: ManifestId) -> Result<IssueQueries, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
         let guide = self.tracker_of(&served).query_guide();
         let saved = self
@@ -183,7 +183,7 @@ impl Fleet
 
     /// **One call to the model and one to the tracker.** A tracker that cannot be read is refused
     /// before the model is asked, since there is nothing to run what it writes against.
-    pub(crate) async fn issue_query_written(
+    pub async fn issue_query_written(
         &self,
         manifest_id: ManifestId,
         write: WriteIssueQuery,
@@ -221,7 +221,7 @@ impl Fleet
         })
     }
 
-    pub(crate) async fn issue_query_saved(
+    pub async fn issue_query_saved(
         &self,
         manifest_id: ManifestId,
         save: SaveIssueQuery,
@@ -264,7 +264,7 @@ impl Fleet
         Ok(saved_of(kept))
     }
 
-    pub(crate) async fn issue_query_forgotten(
+    pub async fn issue_query_forgotten(
         &self,
         manifest_id: ManifestId,
         id: String,

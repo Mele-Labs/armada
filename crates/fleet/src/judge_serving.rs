@@ -51,7 +51,7 @@ impl Fleet
 {
     /// `ask_judge`. A reading going for the artifact is answered whatever the press said; a finished one
     /// is replaced by a fresh reading with a fresh `id`.
-    pub(crate) async fn judge_asked(self: Arc<Self>, ask: AskJudge) -> Result<JudgeReading, Refusal> {
+    pub async fn judge_asked(self: Arc<Self>, ask: AskJudge) -> Result<JudgeReading, Refusal> {
         let id = ask.session_id.as_str().trim().to_string();
         let (session, _) = self.judged_job(&id).await?;
         if session.state == store::SessionState::Ended {
@@ -96,7 +96,7 @@ impl Fleet
 
     /// `send_judge_note`: the note goes to the agent as the person's message, then it is settled. **Sent
     /// before it is settled**, so a send that fails leaves it waiting.
-    pub(crate) async fn judge_note_sent(self: Arc<Self>, send: SendJudgeNote) -> Result<JudgeReading, Refusal> {
+    pub async fn judge_note_sent(self: Arc<Self>, send: SendJudgeNote) -> Result<JudgeReading, Refusal> {
         let (id, kept, at) = self.judge_note_held(&send.session_id, &send.reading, &send.note).await?;
         let note = &kept.notes[at];
         let settling = self.hosts().settling(&id, &format!("judge:{}:{}", kept.id, note.id));
@@ -114,7 +114,7 @@ impl Fleet
     }
 
     /// `dismiss_judge_note`: the note is settled and the agent is told nothing.
-    pub(crate) async fn judge_note_dismissed(self: Arc<Self>, dismiss: DismissJudgeNote) -> Result<JudgeReading, Refusal> {
+    pub async fn judge_note_dismissed(self: Arc<Self>, dismiss: DismissJudgeNote) -> Result<JudgeReading, Refusal> {
         let (id, kept, at) = self.judge_note_held(&dismiss.session_id, &dismiss.reading, &dismiss.note).await?;
         let settling = self.hosts().settling(&id, &format!("judge:{}:{}", kept.id, kept.notes[at].id));
         if kept.notes[at].settled.is_some() || settling.is_none() {
@@ -124,7 +124,7 @@ impl Fleet
     }
 
     /// `mark_judge_read`: the person opened the notes. The agent is told nothing.
-    pub(crate) async fn judge_marked_read(self: Arc<Self>, read: MarkJudgeRead) -> Result<JudgeReading, Refusal> {
+    pub async fn judge_marked_read(self: Arc<Self>, read: MarkJudgeRead) -> Result<JudgeReading, Refusal> {
         let id = read.session_id.as_str().trim().to_string();
         self.judged_job(&id).await?;
         let kept = {
@@ -142,7 +142,7 @@ impl Fleet
 
     /// The Job's readings on its record. One the store says is reading that no task of this process holds
     /// died with the Fleet that ran it, and reads as failed until a press keeps it so.
-    pub(crate) fn judge_readings_on_record(&self, id: &str, kept: &[KeptJudgeReading]) -> Vec<JudgeReading> {
+    pub fn judge_readings_on_record(&self, id: &str, kept: &[KeptJudgeReading]) -> Vec<JudgeReading> {
         kept.iter()
             .map(|one| {
                 // A set held this instant is a reading being started or ended, so it counts as going.

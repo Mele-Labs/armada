@@ -31,7 +31,7 @@ const LONGEST_NAME: usize = 64;
 
 /// What the other machines call this one: `machine.name`, or the host's name
 /// where that is blank. **Made to fit rather than refused**, as a holder's is.
-pub(crate) fn machine_name(configured: &str, host: impl FnOnce() -> String) -> String {
+pub fn machine_name(configured: &str, host: impl FnOnce() -> String) -> String {
     let chosen = if configured.trim().is_empty() { host() } else { configured.to_string() };
     let fitted: String = chosen.trim().chars().filter(|c| !c.is_control()).take(LONGEST_NAME).collect();
     if fitted.is_empty() {
@@ -42,7 +42,7 @@ pub(crate) fn machine_name(configured: &str, host: impl FnOnce() -> String) -> S
 }
 
 /// [`machine_name`] for the host this runs on. **Starts a process**, so off the async workers.
-pub(crate) fn this_machine(configured: &str) -> String {
+pub fn this_machine(configured: &str) -> String {
     machine_name(configured, host_name)
 }
 

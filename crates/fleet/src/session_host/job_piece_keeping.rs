@@ -69,7 +69,7 @@ impl Fleet
 {
     /// `keep_job_piece`: one rule or lifecycle the Job's copy holds and changed, proposed for every Job. **Nothing
     /// is written**: the proposal is a change that is ready, and a draft on the Job asks the owner.
-    pub(crate) async fn job_piece_kept(self: &Arc<Self>, keep: KeepJobPiece) -> Result<JobPieceProposed, Refusal> {
+    pub async fn job_piece_kept(self: &Arc<Self>, keep: KeepJobPiece) -> Result<JobPieceProposed, Refusal> {
         let id = keep.session_id.as_str().trim().to_string();
         let (_, hosting) = self.copy_hosted(&id).await?;
         let (store_kind, kind, word) = match keep.kind {
@@ -129,7 +129,7 @@ impl Fleet
     }
 
     /// `list_keep_drafts`: the open proposals of a rule or a lifecycle in one repository, as the files Approve would write.
-    pub(crate) async fn keep_drafts_listed(&self, manifest_id: Option<&ManifestId>) -> Result<KeepDrafts, Refusal> {
+    pub async fn keep_drafts_listed(&self, manifest_id: Option<&ManifestId>) -> Result<KeepDrafts, Refusal> {
         let served = self.served_named(manifest_id)?;
         let manifest = served.manifest().id().as_str().to_string();
         let open = self.store().lock().await.open_piece_changes(&manifest).map_err(|why| self.ledger_fault(why))?;
@@ -148,7 +148,7 @@ impl Fleet
 
     /// A proposal on a Job's draft approved: a workflow's is saved as a drafted change is, and a rule's or a
     /// lifecycle's is saved to Kit.
-    pub(crate) async fn proposal_approved(&self, change: WorkflowChangeRef) -> Result<(), Refusal> {
+    pub async fn proposal_approved(&self, change: WorkflowChangeRef) -> Result<(), Refusal> {
         let held = self.store().lock().await.workflow_change(change.change).map_err(|why| self.ledger_fault(why))?;
         match held {
             Some(kept) if !kept.piece.is_empty() => self.piece_change_approved(kept).await,
@@ -157,7 +157,7 @@ impl Fleet
     }
 
     /// A proposal on a Job's draft dismissed.
-    pub(crate) async fn proposal_dismissed(&self, change: WorkflowChangeRef) -> Result<(), Refusal> {
+    pub async fn proposal_dismissed(&self, change: WorkflowChangeRef) -> Result<(), Refusal> {
         let held = self.store().lock().await.workflow_change(change.change).map_err(|why| self.ledger_fault(why))?;
         match held {
             Some(kept) if !kept.piece.is_empty() => self.piece_change_dismissed(kept).await,

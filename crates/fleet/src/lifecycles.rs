@@ -13,22 +13,22 @@
 //! where the issue ledger already reads it, a watch where its reading is kept, and Fleet's events
 //! from the tap that already hears every Job's row change.
 
-pub(crate) mod acting;
+pub mod acting;
 pub mod copying;
 pub mod ending;
-mod following;
+pub mod following;
 pub mod ends;
-mod handing;
+pub mod handing;
 pub mod holding;
-mod keeping;
+pub mod keeping;
 pub mod looking;
-mod polling;
+pub mod polling;
 pub mod reading;
 pub mod ruling;
 pub mod saying;
-mod serving;
-pub(crate) mod taking_on;
-pub(crate) mod waking;
+pub mod serving;
+pub mod taking_on;
+pub mod waking;
 pub mod wire;
 pub mod writing;
 
@@ -60,7 +60,7 @@ impl Fleet
     /// its tracker declares**, and as carried where it declares none, the repository is not served
     /// or there is no repository. A lifecycle a Workspace or a repository writes replaces the ticket
     /// outright, so the tracker's words are the starting point and never laid over a person's.
-    pub(crate) fn built_in_lifecycles(&self, manifest_id: Option<&str>) -> Vec<Lifecycle> {
+    pub fn built_in_lifecycles(&self, manifest_id: Option<&str>) -> Vec<Lifecycle> {
         let Some(served) = manifest_id.and_then(|id| self.repositories().serving(id)) else {
             return Lifecycle::built_in();
         };
@@ -70,7 +70,7 @@ impl Fleet
     }
 
     /// `built_in_lifecycles` for the repository `session` is in.
-    pub(crate) fn built_in_lifecycles_of_job(&self, store: &Store, session: &str) -> Vec<Lifecycle> {
+    pub fn built_in_lifecycles_of_job(&self, store: &Store, session: &str) -> Vec<Lifecycle> {
         let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
         self.built_in_lifecycles(manifest.as_deref())
     }
@@ -87,7 +87,7 @@ fn ticket_state_id(state: TicketState) -> &'static str {
     }
 }
 
-#[cfg(test)]
-pub(crate) fn ticket_state_ids() -> [&'static str; 4] {
+#[cfg(any(test, feature = "test-support"))]
+pub fn ticket_state_ids() -> [&'static str; 4] {
     TicketState::ALL.map(ticket_state_id)
 }

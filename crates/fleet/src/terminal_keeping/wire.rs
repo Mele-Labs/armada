@@ -19,21 +19,21 @@
 
 use std::io::{self, Read, Write};
 
-pub(crate) const ATTACH: u8 = b'A';
-pub(crate) const INPUT: u8 = b'I';
-pub(crate) const RESIZE: u8 = b'R';
-pub(crate) const END: u8 = b'E';
+pub const ATTACH: u8 = b'A';
+pub const INPUT: u8 = b'I';
+pub const RESIZE: u8 = b'R';
+pub const END: u8 = b'E';
 
-pub(crate) const READY: u8 = b'Y';
-pub(crate) const OUTPUT: u8 = b'O';
-pub(crate) const FOREGROUND: u8 = b'F';
-pub(crate) const EXIT: u8 = b'X';
+pub const READY: u8 = b'Y';
+pub const OUTPUT: u8 = b'O';
+pub const FOREGROUND: u8 = b'F';
+pub const EXIT: u8 = b'X';
 
 /// The most a frame carries. A larger one is split by whoever sends it and refused by whoever reads.
-pub(crate) const MOST: usize = 64 * 1024;
+pub const MOST: usize = 64 * 1024;
 
 /// A frame, ready to write whole.
-pub(crate) fn frame(kind: u8, payload: &[u8]) -> Vec<u8> {
+pub fn frame(kind: u8, payload: &[u8]) -> Vec<u8> {
     let mut whole = Vec::with_capacity(5 + payload.len());
     whole.push(kind);
     whole.extend_from_slice(&(payload.len() as u32).to_be_bytes());
@@ -42,18 +42,18 @@ pub(crate) fn frame(kind: u8, payload: &[u8]) -> Vec<u8> {
 }
 
 /// The frames `bytes` makes, each at most [`MOST`].
-pub(crate) fn frames(kind: u8, bytes: &[u8]) -> impl Iterator<Item = Vec<u8>> + '_ {
+pub fn frames(kind: u8, bytes: &[u8]) -> impl Iterator<Item = Vec<u8>> + '_ {
     bytes.chunks(MOST).map(move |chunk| frame(kind, chunk))
 }
 
 /// Write one frame in a single call, so two writers holding the same lock never interleave.
-pub(crate) fn write_frame(out: &mut impl Write, kind: u8, payload: &[u8]) -> io::Result<()> {
+pub fn write_frame(out: &mut impl Write, kind: u8, payload: &[u8]) -> io::Result<()> {
     out.write_all(&frame(kind, payload))?;
     out.flush()
 }
 
 /// The next frame, or `None` where the other end closed between two.
-pub(crate) fn read_frame(from: &mut impl Read) -> io::Result<Option<(u8, Vec<u8>)>> {
+pub fn read_frame(from: &mut impl Read) -> io::Result<Option<(u8, Vec<u8>)>> {
     let mut head = [0u8; 5];
     match from.read_exact(&mut head) {
         Ok(()) => {}

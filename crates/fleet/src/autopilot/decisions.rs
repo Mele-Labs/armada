@@ -35,7 +35,7 @@ use crate::daemon::Fleet;
 const CALLS_PER_PASS: usize = 4;
 
 /// What one repository's pass carries.
-pub(super) struct Helping {
+pub struct Helping {
     pub kept: KeptAutopilot,
     pub kinds: BTreeSet<AutopilotDecision>,
     asking: Asking,
@@ -44,7 +44,7 @@ pub(super) struct Helping {
 }
 
 /// One Job's waiting items, with its name.
-pub(super) struct Job {
+pub struct Job {
     pub id: String,
     pub who: String,
     pub items: Vec<WaitingItem>,
@@ -72,7 +72,7 @@ pub fn keep_deciding(
 impl Fleet
 {
     /// One pass over every running Autopilot. Answers how many decisions it answered.
-    pub(crate) async fn decision_pass(self: &Arc<Self>) -> Result<usize, Adrift> {
+    pub async fn decision_pass(self: &Arc<Self>) -> Result<usize, Adrift> {
         let every = self.store().lock().await.autopilots().map_err(Adrift::Writing)?;
         let mut answered = 0;
         for kept in every {
@@ -102,7 +102,7 @@ impl Fleet
 
     /// The Jobs whose items this Autopilot answers: every live Job of the repository where it works
     /// what is running, and otherwise only the ones it started.
-    pub(super) async fn jobs_in_scope(&self, kept: &KeptAutopilot) -> Vec<Job> {
+    pub async fn jobs_in_scope(&self, kept: &KeptAutopilot) -> Vec<Job> {
         let store = self.store().lock().await;
         let Ok(found) = store.find_sessions(&store::SessionSearch {
             manifest_id: Some(&kept.manifest_id),
@@ -174,7 +174,7 @@ impl Fleet
         answered
     }
 
-    pub(crate) fn card_of(&self, session: &str, item: &WaitingItem) -> Option<CallInFlight> {
+    pub fn card_of(&self, session: &str, item: &WaitingItem) -> Option<CallInFlight> {
         if item.source != WaitingSource::Permission {
             return None;
         }
@@ -222,7 +222,7 @@ impl Fleet
 
     /// Ask the helper, unless this decision was left as it stands or it is resting after a failure.
     /// **A way is returned only where it was sure**, and it is read for destructive words again.
-    pub(super) async fn helper_says(
+    pub async fn helper_says(
         &self,
         helping: &mut Helping,
         id: &str,
@@ -258,19 +258,19 @@ impl Fleet
         }
     }
 
-    pub(super) async fn still_deciding(&self, kept: &KeptAutopilot) -> bool {
+    pub async fn still_deciding(&self, kept: &KeptAutopilot) -> bool {
         let now = self.store().lock().await.autopilot(&kept.manifest_id);
         now.ok().flatten().is_some_and(|now| {
             now.run_id == kept.run_id && State::from_stored(&now.state) == Some(State::Running)
         })
     }
 
-    pub(super) async fn decision_kept(&self, id: &str) -> bool {
+    pub async fn decision_kept(&self, id: &str) -> bool {
         self.store().lock().await.autopilot_decision(id).ok().flatten().is_some()
     }
 
     /// Put an answer on record. **Left once**: an id already there changes nothing.
-    pub(super) async fn decision_kept_as(
+    pub async fn decision_kept_as(
         &self,
         helping: &Helping,
         id: &str,

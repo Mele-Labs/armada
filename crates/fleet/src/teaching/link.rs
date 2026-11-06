@@ -9,7 +9,7 @@ const MOST_PATTERN: usize = 200;
 
 /// Why `pattern` cannot work, where it cannot. `words` are the words it was taught from, which it
 /// must match whole.
-pub(crate) fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
+pub fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
     let compiled = match engine_of(pattern) {
         Ok(compiled) => compiled,
         Err(why) => return Some(why),
@@ -23,7 +23,7 @@ pub(crate) fn pattern_fault(pattern: &str, words: &str) -> Option<String> {
 /// Why `pattern` cannot be a Fleet rule's `matches`, where it cannot: the same checks as a Words
 /// pattern, except that it finds its words anywhere in a notice and so need not match one whole.
 /// `text` is the notice it was taught on, which it must find words in.
-pub(crate) fn match_fault(pattern: &str, text: Option<&str>) -> Option<String> {
+pub fn match_fault(pattern: &str, text: Option<&str>) -> Option<String> {
     let compiled = match engine_of(pattern) {
         Ok(compiled) => compiled,
         Err(why) => return Some(why),
@@ -36,7 +36,7 @@ pub(crate) fn match_fault(pattern: &str, text: Option<&str>) -> Option<String> {
 
 /// Whether `pattern`, a rule's `matches`, finds words in `text`. **A pattern that cannot work finds
 /// nothing**, so a rule with one covers no notice.
-pub(crate) fn finds(pattern: &str, text: &str) -> bool {
+pub fn finds(pattern: &str, text: &str) -> bool {
     engine_of(pattern).is_ok_and(|compiled| compiled.is_match(text))
 }
 
@@ -154,7 +154,7 @@ fn repeats_a_repeat(pattern: &str) -> bool {
 
 /// Why `address` cannot be opened, where it cannot: an http or https address with a host of its own,
 /// and `{match}` nowhere in the host.
-pub(crate) fn address_fault(address: &str) -> Option<String> {
+pub fn address_fault(address: &str) -> Option<String> {
     let rest = ["https://", "http://"]
         .iter()
         .find(|scheme| address.len() >= scheme.len() && address[..scheme.len()].eq_ignore_ascii_case(scheme))

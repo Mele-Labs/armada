@@ -23,7 +23,7 @@ use crate::prompts::Prompts;
 
 /// The question, with `{instruction}`, `{issues}` and `{workflows}` to fill. As it ships:
 /// `prompts.autopilotPicker` is the setting that overrides it.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 You choose the next issue a repository works on by itself, while the person who owns it is \
 away. Answer only the block at the end.
 
@@ -84,7 +84,7 @@ pub fn candidates(open: &[OpenIssue], taken: &BTreeSet<String>) -> Vec<Candidate
 
 /// The repository whose Autopilot is offered the bugs agents reported, by Manifest id. Those reports
 /// are about Armada itself, so no other repository's Autopilot reads them.
-pub(crate) const REPORTS_FOR: &str = "armada";
+pub const REPORTS_FOR: &str = "armada";
 
 /// The label a reported bug is offered under, so the picker tells it from an issue.
 const REPORTED_BUG: &str = "reported bug";

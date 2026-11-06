@@ -29,15 +29,15 @@ pub struct LanguageModel {
 
 impl LanguageModel {
     /// The model, once loaded.
-    pub(crate) fn model(&self) -> Option<Arc<dyn TextModel>> {
+    pub fn model(&self) -> Option<Arc<dyn TextModel>> {
         self.loaded.get().cloned()
     }
 
-    pub(crate) fn thought_vectors(&self) -> Arc<crate::operator::shortlist::matching::Vectors> {
+    pub fn thought_vectors(&self) -> Arc<crate::operator::shortlist::matching::Vectors> {
         Arc::clone(&self.thoughts)
     }
 
-    pub(crate) fn workflow_vectors(&self) -> Arc<crate::session_host::workflow_pick::Vectors> {
+    pub fn workflow_vectors(&self) -> Arc<crate::session_host::workflow_pick::Vectors> {
         Arc::clone(&self.workflows)
     }
 
@@ -48,7 +48,7 @@ impl LanguageModel {
 }
 
 /// Whether a reader in force reads with the model. The one place a reader that needs it is named.
-pub(crate) fn wanted() -> bool {
+pub fn wanted() -> bool {
     wanted_by(&[
         crate::session_host::asks_model::SHIPPED.reads_model(),
         crate::operator::shortlist::matching::IN_FORCE,
@@ -59,7 +59,7 @@ pub(crate) fn wanted() -> bool {
 }
 
 /// Whether any of `readers`, each saying whether it is in force and reads with the model, wants it.
-pub(crate) fn wanted_by(readers: &[bool]) -> bool {
+pub fn wanted_by(readers: &[bool]) -> bool {
     readers.iter().any(|reads| *reads)
 }
 

@@ -60,7 +60,7 @@ impl Fleet
     }
 
     /// `try_watch`: the command run once, where and as a watch's would run, and nothing kept.
-    pub(crate) async fn watch_tried(&self, caller: Option<api::Caller>, tried: TryWatch) -> Result<WatchTried, Refusal> {
+    pub async fn watch_tried(&self, caller: Option<api::Caller>, tried: TryWatch) -> Result<WatchTried, Refusal> {
         let job = self.placed_job(caller, tried.session_id.as_ref()).await?;
         let (command, environment) = match tried.tries {
             WatchTries::Recipe { recipe, values } => {
@@ -101,7 +101,7 @@ impl Fleet
     }
 
     /// `list_watch_recipes`: one per name, the copy a start would run.
-    pub(crate) async fn watch_recipes_listed(
+    pub async fn watch_recipes_listed(
         &self,
         caller: Option<api::Caller>,
         session_id: Option<SessionId>,
@@ -116,7 +116,7 @@ impl Fleet
 
     /// `save_watch_recipe`: checked as a start would check it, then written into this Mac's own
     /// recipes, the script beside it.
-    pub(crate) async fn watch_recipe_saved(
+    pub async fn watch_recipe_saved(
         &self,
         caller: Option<api::Caller>,
         save: SaveWatchRecipe,

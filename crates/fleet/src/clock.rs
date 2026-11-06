@@ -8,7 +8,7 @@
 //! [`Timestamp`] to everything below. So [`Clock`] is not a convenience but the
 //! seam that makes the rule affordable: a test plants a clock answering a fixed
 //! string and the whole system below Fleet becomes deterministic, without a
-//! single call site growing a `#[cfg(test)]`.
+//! single call site growing a `#[cfg(any(test, feature = "test-support"))]`.
 //!
 //! **The format is `Timestamp`'s, and it is spelled once.** RFC3339, UTC,
 //! millisecond precision — `core_model::Timestamp`'s own contract. It is
@@ -30,7 +30,7 @@ use core_model::Timestamp;
 ///
 /// Zero where either will not read as an instant. **Never a negative duration**: a clock that
 /// went backwards is a machine that is wrong, and reading it as an expired grace would act on it.
-pub(crate) fn elapsed(from: &Timestamp, to: &Timestamp) -> Duration {
+pub fn elapsed(from: &Timestamp, to: &Timestamp) -> Duration {
     match (from.epoch_millis(), to.epoch_millis()) {
         (Some(from), Some(to)) if to > from => Duration::from_millis((to - from) as u64),
         _ => Duration::ZERO,
@@ -93,7 +93,7 @@ impl Clock for SystemClock {
 /// so a test can drive the civil-date arithmetic at the boundaries that
 /// actually go wrong — a leap day, a century that is not a leap year, the last
 /// millisecond of a year.
-pub(crate) fn rfc3339_utc(millis_since_epoch: i64) -> String {
+pub fn rfc3339_utc(millis_since_epoch: i64) -> String {
     let (days, millis_of_day) = split_day(millis_since_epoch);
     let (year, month, day) = civil_from_days(days);
     let millis = millis_of_day % 1_000;
@@ -109,13 +109,13 @@ pub(crate) fn rfc3339_utc(millis_since_epoch: i64) -> String {
 /// The instant, in milliseconds since the epoch, that this machine's day holding `millis_since_epoch`
 /// began: its local midnight, as its time zone reads. Read again at the midnight found, so a day a
 /// clock change falls in still begins at the midnight the machine showed.
-pub(crate) async fn local_day_began(millis_since_epoch: i64) -> i64 {
+pub async fn local_day_began(millis_since_epoch: i64) -> i64 {
     let first = day_began(millis_since_epoch, local_offset_secs(millis_since_epoch).await);
     day_began(millis_since_epoch, local_offset_secs(first).await)
 }
 
 /// The day holding `millis_since_epoch` began at, on a clock `offset_secs` ahead of UTC.
-pub(crate) fn day_began(millis_since_epoch: i64, offset_secs: i64) -> i64 {
+pub fn day_began(millis_since_epoch: i64, offset_secs: i64) -> i64 {
     const DAY: i64 = 86_400_000;
     let offset = offset_secs * 1_000;
     let local = millis_since_epoch + offset;

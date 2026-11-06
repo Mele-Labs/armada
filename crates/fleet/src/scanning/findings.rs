@@ -27,7 +27,7 @@ const LOCKFILES: &[(&str, &str)] = &[
 ];
 
 /// Read one workspace. `names` are the files its directory holds.
-pub(super) fn read(tree: &impl Tree, dir: &str, names: &BTreeSet<String>) -> Reading {
+pub fn read(tree: &impl Tree, dir: &str, names: &BTreeSet<String>) -> Reading {
     let mut reading = Reading {
         scanned: ScannedWorkspace {
             dir: shown(dir),

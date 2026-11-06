@@ -11,7 +11,7 @@ use ipc::AskedQuestion;
 
 /// Whether an item repeats one of `questions`: the same set of at least two option labels, or the
 /// question's own words as its text.
-pub(crate) fn repeats_lapsed(text: &str, labels: &[&str], questions: &[AskedQuestion]) -> bool {
+pub fn repeats_lapsed(text: &str, labels: &[&str], questions: &[AskedQuestion]) -> bool {
     let labels: BTreeSet<&str> = labels.iter().map(|label| label.trim()).collect();
     questions.iter().any(|asked| {
         let offered: BTreeSet<&str> = asked.options.iter().map(|option| option.label.trim()).collect();
@@ -20,7 +20,7 @@ pub(crate) fn repeats_lapsed(text: &str, labels: &[&str], questions: &[AskedQues
 }
 
 /// What the agent reads when its list is refused for repeating a question that lapsed.
-pub(crate) fn lapsed_item_refusal(id: &str) -> String {
+pub fn lapsed_item_refusal(id: &str) -> String {
     format!(
         "Refused: item \"{id}\" repeats the question you asked with AskUserQuestion that nobody \
          answered in time. It is already in his Needs you, kept from that call, and his answer comes \

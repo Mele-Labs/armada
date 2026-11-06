@@ -16,7 +16,7 @@ impl Fleet
     /// `starter` drops the wait of `waiting`. **Held whatever the person approved**, since what he
     /// approved was a start when the wait ended: the brief alone is the first message, with no handoff
     /// from a Job it no longer waits on. The Job waited on is told, as a change tells it.
-    pub(crate) async fn wait_dropped(self: &Arc<Self>, starter: &str, waiting: &str) -> Result<(), Refusal> {
+    pub async fn wait_dropped(self: &Arc<Self>, starter: &str, waiting: &str) -> Result<(), Refusal> {
         let wait = self.open_wait_of(waiting).await?;
         let at = self.now().as_str().to_string();
         // Once: the first to claim the wait ends it, and the watcher then finds it started.

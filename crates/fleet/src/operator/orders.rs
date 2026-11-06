@@ -19,7 +19,7 @@ use store::KeptOrder;
 use super::{Arrived, LiveJob, Logged, Outcome, Repository};
 use crate::daemon::Fleet;
 
-pub(super) const OPERATOR_OFF: &str = "fleet.operator_off";
+pub const OPERATOR_OFF: &str = "fleet.operator_off";
 const ORDER_UNKNOWN: &str = "fleet.operator_order_unknown";
 const ORDER_NOT_A_FORM: &str = "fleet.operator_order_not_a_form";
 
@@ -71,7 +71,7 @@ fn under(path: &str, held: &str) -> bool {
 }
 
 /// `form` as it may stand, against the repositories and live Jobs Fleet knows. `Err` says why not.
-pub(super) fn checked(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> Result<(), String> {
+pub fn checked(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> Result<(), String> {
     let known = |manifest: &String| repositories.iter().any(|one| one.id == *manifest);
     match form {
         OperatorOrderForm::RoleOff { manifest_id, .. } if !known(manifest_id) => Err(format!("no repository here has the id {manifest_id}")),
@@ -89,7 +89,7 @@ pub(super) fn checked(form: &OperatorOrderForm, repositories: &[Repository], liv
 }
 
 /// The form in Fleet's words, each Job and repository by its name.
-pub(super) fn said_of(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> String {
+pub fn said_of(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> String {
     let repository = |id: &str| repositories.iter().find(|one| one.id == id).map_or(id, |one| one.name.as_str()).to_string();
     match form {
         OperatorOrderForm::RoleOff { role, manifest_id, today } => {
@@ -121,7 +121,7 @@ impl Fleet
 {
     /// The orders the store keeps, read into the seat: at start, and after each change. What does
     /// not read as a form stands for nothing.
-    pub(crate) async fn operator_orders_read(&self) -> Vec<KeptOrder> {
+    pub async fn operator_orders_read(&self) -> Vec<KeptOrder> {
         let kept = match self.store().lock().await.operator_orders() {
             Ok(kept) => kept,
             Err(why) => {
@@ -139,7 +139,7 @@ impl Fleet
 
     /// `confirm_operator_order`: the form he saw stands from now on. **Refused** while the Operator
     /// is off, since nothing would go by it, and where it names what Fleet does not know.
-    pub(crate) async fn operator_order_confirmed(self: &Arc<Self>, form: OperatorOrderForm) -> Result<OperatorOrders, Refusal> {
+    pub async fn operator_order_confirmed(self: &Arc<Self>, form: OperatorOrderForm) -> Result<OperatorOrders, Refusal> {
         let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off, so nothing would go by a standing order"));
         };
@@ -159,7 +159,7 @@ impl Fleet
     }
 
     /// `remove_operator_order`: one press. A hold's Jobs write again at once.
-    pub(crate) async fn operator_order_removed(self: &Arc<Self>, id: i64) -> Result<OperatorOrders, Refusal> {
+    pub async fn operator_order_removed(self: &Arc<Self>, id: i64) -> Result<OperatorOrders, Refusal> {
         let at = self.now();
         let removed = self.store().lock().await.remove_operator_order(id, at.as_str()).map_err(|why| self.ledger_fault(why))?;
         if !removed {
@@ -170,7 +170,7 @@ impl Fleet
 
     /// `operator_orders`: the orders standing now. One for a day gone by, and a hold its Job has
     /// released, are let go as they are read.
-    pub(crate) async fn operator_orders_wire(&self) -> OperatorOrders {
+    pub async fn operator_orders_wire(&self) -> OperatorOrders {
         let kept = self.operator_orders_read().await;
         let now = self.now();
         let mut orders = Vec::new();
@@ -197,7 +197,7 @@ impl Fleet
 
     /// Why `session`'s write at `path` is refused, where a hold stands over it. A hold its Job has
     /// released lets the write through and is let go.
-    pub(crate) async fn order_holding(&self, session: &str, manifest: &str, path: &str) -> Option<String> {
+    pub async fn order_holding(&self, session: &str, manifest: &str, path: &str) -> Option<String> {
         let orders = self.operator_seat().orders();
         let (order, job, until) = orders.holding(session, manifest, path)?;
         if self.hold_released(order.id, &order.form).await {

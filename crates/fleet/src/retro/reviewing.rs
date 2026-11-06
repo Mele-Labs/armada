@@ -28,7 +28,7 @@ const REVIEW_FAILED: &str = "fleet.lesson_review_failed";
 const OPEN_MOST: u32 = 50;
 
 /// The reason on an open item the model left out of every list.
-pub(crate) const NOT_RANKED: &str = "not ranked";
+pub const NOT_RANKED: &str = "not ranked";
 
 /// The reason on an entry the model ranked and gave none for.
 const NO_REASON: &str = "no reason given";
@@ -36,7 +36,7 @@ const NO_REASON: &str = "no reason given";
 const MILLIS_A_DAY: i64 = 86_400_000;
 
 /// The review question as it ships: `prompts.retroReview`'s default.
-pub(crate) const REVIEW: &str =
+pub const REVIEW: &str =
     "A person keeps a list of open retro items. Each says what got in the way of a coding \
      agent, whose way it got in, and where the fix lands. The list has grown long. Some items \
      repeat each other and some no longer apply. Read the items together and help the person \
@@ -114,7 +114,7 @@ struct SaidAside {
 impl Fleet
 {
     /// Read the open items together. **No open item, no call.**
-    pub(crate) async fn reviewed(
+    pub async fn reviewed(
         &self,
         manifest_id: Option<ManifestId>,
     ) -> Result<LessonReview, Refusal> {
@@ -188,7 +188,7 @@ fn question(prompts: &Prompts, open: &[Lesson], now: Option<i64>) -> Option<Stri
 /// - A set aside item needs a `why`; without one it is not set aside.
 /// - **An open id left in none of the three is appended to `entries`**, in the
 ///   order the items were listed, as `not ranked`: nothing vanishes silently.
-pub(crate) fn read(
+pub fn read(
     said: &str,
     ids: &[&str],
 ) -> Result<(Vec<ReviewEntry>, Vec<SetAside>), String> {

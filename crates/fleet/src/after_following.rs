@@ -28,7 +28,7 @@ use crate::daemon::Fleet;
 
 /// What a wait reads against the Session it waits on.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Verdict {
+pub enum Verdict {
     /// Not yet. `pull` is the pull request it is on, where one has been seen.
     Waiting { pull: Option<WaitPull> },
     /// The condition holds. `said` is why, in a line the new Session's first message carries.
@@ -39,7 +39,7 @@ pub(crate) enum Verdict {
 }
 
 /// Whether the ledger says this pull request merged.
-pub(crate) fn merged(pull: &ipc::Attachment) -> bool {
+pub fn merged(pull: &ipc::Attachment) -> bool {
     crate::pull_requesting::pull_merged(&pull.detail, pull.state == AttachmentState::Spent)
 }
 
@@ -60,7 +60,7 @@ fn pull_wire(pull: &ipc::Attachment) -> Option<WaitPull> {
 }
 
 /// A wait read against the Session it waits on, as Fleet now observes it. Pure.
-pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
+pub fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
     let title = on.title.clone().unwrap_or_else(|| on.id.as_str().to_string());
     let pull = pull_on(wait, on);
     let seen = pull.and_then(pull_wire);
@@ -132,7 +132,7 @@ impl Fleet
 {
     /// Read every wait on `on` against it, and start the Sessions whose condition holds. Answers how many
     /// still wait.
-    pub(crate) async fn waits_judged(self: &Arc<Self>, on: &str) -> usize {
+    pub async fn waits_judged(self: &Arc<Self>, on: &str) -> usize {
         let (waits, record, live) = {
             let store = self.store().lock().await;
             let waits = store.waits_on(on).unwrap_or_default();

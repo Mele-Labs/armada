@@ -14,13 +14,13 @@ use crate::daemon::Fleet;
 impl Fleet
 {
     /// Both lists, off the last good read of the file. Absent is empty.
-    pub(crate) fn reach_folders(&self) -> ReachFolders {
+    pub fn reach_folders(&self) -> ReachFolders {
         let value: Option<settings_file::SettingValue> = self.machine_settings().now().get(keys::REACH_FOLDERS);
         value.map(|value| ReachFolders::read(&value.to_json_text())).unwrap_or_default()
     }
 
     /// `folder` put on the allow list or the block list, and off the other.
-    pub(crate) async fn reach_folder_kept(&self, folder: &str, blocked: bool) -> Result<(), Refusal> {
+    pub async fn reach_folder_kept(&self, folder: &str, blocked: bool) -> Result<(), Refusal> {
         let kept = self.reach_folders().with(folder, blocked);
         let text = ipc::encode(&kept).unwrap_or_default();
         let value = settings_file::SettingValue::from_json_text(&text)

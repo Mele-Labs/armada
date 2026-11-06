@@ -38,7 +38,7 @@ const MOST_OFFERED: usize = 80;
 const CLOSED_AS: LessonState = LessonState::Discarded;
 
 /// The question as it ships. Run once, so it is not a setting.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 A person keeps a list of open retro items. Each says what got in the way of a coding agent, whose \
 way it got in, and where the fix lands. A retro now keeps only what Armada itself got wrong. What \
 an agent should know goes in a Logbook instead. Say which items are repository facts: items whose \
@@ -101,7 +101,7 @@ fn named(lesson: &KeptSessionLesson) -> String {
 
 /// A repository fact the model named: where it goes and how it reads.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Fact {
+pub struct Fact {
     pub id: String,
     pub section: LogSection,
     pub kind: LogKind,
@@ -125,7 +125,7 @@ struct SaidFact {
 /// The facts an answer names, held to the lessons asked about. **Read item by item**: one the
 /// model spelt wrong costs that item. An item it names twice counts once, and a `repo` fact needs a
 /// repository to go in.
-pub(super) fn read(said: &str, ids: &BTreeSet<String>, repository: &str) -> Result<Vec<Fact>, String> {
+pub fn read(said: &str, ids: &BTreeSet<String>, repository: &str) -> Result<Vec<Fact>, String> {
     let said: Said = crate::review_runs::said(crate::review_runs::object_in(said)?)?;
     let mut seen = BTreeSet::new();
     Ok(said
@@ -175,7 +175,7 @@ fn question(chunk: &[KeptSessionLesson], held: &[LogEntry]) -> Result<String, St
 /// `open` is every open lesson, `keys` the repository key of each lesson's Job (a Job absent from
 /// it has none, and its `repo` facts are left open), and `ask` puts one question to the model.
 /// `Err` is the last batch that failed; the others were kept.
-pub(super) async fn pass<F, Fut>(
+pub async fn pass<F, Fut>(
     store: &StoreLock,
     open: Vec<KeptSessionLesson>,
     keys: &BTreeMap<String, String>,
@@ -250,7 +250,7 @@ impl Fleet
 {
     /// Start the pass on a task of its own, once in this process. Called on the notice loop's
     /// tick, so it never holds up a turn.
-    pub(crate) fn logbook_backlog_run(self: &Arc<Self>) {
+    pub fn logbook_backlog_run(self: &Arc<Self>) {
         if self.logbook_distils().backlog.swap(true, Ordering::AcqRel) {
             return;
         }

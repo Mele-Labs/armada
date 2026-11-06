@@ -31,7 +31,7 @@ fn unstamped(text: &str) -> String {
 
 /// What is compared of a piece. **Empty for a kind that is only there or not**: an allowlist
 /// line is its command, and a plugin is its name.
-pub(crate) fn canonical(kind: HomeKind, piece: &Piece) -> BTreeMap<String, String> {
+pub fn canonical(kind: HomeKind, piece: &Piece) -> BTreeMap<String, String> {
     match kind {
         HomeKind::Allowlist | HomeKind::Plugins => BTreeMap::new(),
         HomeKind::Memory => piece.files.iter().map(|(path, text)| (path.clone(), unstamped(&settled(text)))).collect(),
@@ -39,7 +39,7 @@ pub(crate) fn canonical(kind: HomeKind, piece: &Piece) -> BTreeMap<String, Strin
     }
 }
 
-pub(crate) fn same(kind: HomeKind, here: &Piece, home: &Piece) -> bool {
+pub fn same(kind: HomeKind, here: &Piece, home: &Piece) -> bool {
     canonical(kind, here) == canonical(kind, home)
 }
 
@@ -63,7 +63,7 @@ fn keyed(pieces: &[Piece]) -> BTreeMap<Key, &Piece> {
 }
 
 /// Every row of `kind`, by repository and then name.
-pub(crate) fn rows(kind: HomeKind, here: &[Piece], home: &[Piece]) -> Vec<HomeRow> {
+pub fn rows(kind: HomeKind, here: &[Piece], home: &[Piece]) -> Vec<HomeRow> {
     let (here, home) = (keyed(here), keyed(home));
     let mut keys: Vec<&Key> = here.keys().chain(home.keys()).collect();
     keys.sort();

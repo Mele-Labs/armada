@@ -28,7 +28,7 @@ fn usual(workflow: String, one: Usual) -> UsualTime {
 
 /// A Job's kept split beside the usual of its workflow, where the workflow has a name and any kept
 /// Job to be usual from.
-pub(crate) fn job(session_id: String, kept: Option<(KeptJobTime, Vec<(String, Usual)>)>) -> JobTime {
+pub fn job(session_id: String, kept: Option<(KeptJobTime, Vec<(String, Usual)>)>) -> JobTime {
     let time = kept.map(|(kept, usuals)| {
         let spent = split(SplitMs {
             model: kept.model_ms,
@@ -47,7 +47,7 @@ pub(crate) fn job(session_id: String, kept: Option<(KeptJobTime, Vec<(String, Us
     JobTime { session_id, time }
 }
 
-pub(crate) fn time(read: TimeRead) -> UsageTime {
+pub fn time(read: TimeRead) -> UsageTime {
     UsageTime {
         since: read.since,
         until: read.until,
@@ -102,7 +102,7 @@ fn build(one: store::BuildFigures) -> BuildFigures {
     }
 }
 
-pub(crate) fn hours(read: store::HoursRead, builds: Vec<store::BuildFigures>) -> UsageHours {
+pub fn hours(read: store::HoursRead, builds: Vec<store::BuildFigures>) -> UsageHours {
     UsageHours {
         since: read.since,
         until: read.until,

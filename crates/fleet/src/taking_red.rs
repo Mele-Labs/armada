@@ -21,7 +21,7 @@ const NOT_TAKEABLE: &str = "fleet.main_red_not_takeable";
 
 impl Fleet
 {
-    pub(crate) async fn main_red_taken(
+    pub async fn main_red_taken(
         &self,
         caller: Option<Caller>,
         take: TakeMainRed,

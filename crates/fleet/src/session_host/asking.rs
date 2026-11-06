@@ -29,7 +29,7 @@ const POLL_HOLD: Duration = Duration::from_secs(25);
 
 /// How long a terminal question may go without a poll before its prompt is
 /// taken as gone and its card closes.
-pub(crate) const POLL_LAPSE: Duration = Duration::from_secs(180);
+pub const POLL_LAPSE: Duration = Duration::from_secs(180);
 
 /// A kept terminal question that would not encode or read back.
 const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
@@ -38,18 +38,18 @@ const TERMINAL_ASK_UNREADABLE: &str = "fleet.terminal_ask_unreadable";
 const SAID: &str = ":said";
 
 /// Whether a message row is the person's answer to one of the Job's questions, put by `person_said`.
-pub(crate) fn answers_a_question(row_id: &str) -> bool {
+pub fn answers_a_question(row_id: &str) -> bool {
     row_id.starts_with("ask-") && row_id.ends_with(SAID)
 }
 
 /// The id of the ask row a message put by `person_said` answers.
-pub(crate) fn ask_answered(row_id: &str) -> Option<&str> {
+pub fn ask_answered(row_id: &str) -> Option<&str> {
     row_id.strip_suffix(SAID).filter(|_| row_id.starts_with("ask-"))
 }
 
 /// What the person chose on `questions`, read off the message [`answers_text`] wrote: each label one
 /// the question offered, so words of their own choose nothing.
-pub(crate) fn answers_said(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
+pub fn answers_said(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
     questions
         .iter()
         .filter_map(|asked| {
@@ -63,7 +63,7 @@ pub(crate) fn answers_said(questions: &[AskedQuestion], text: &str) -> Vec<Quest
 }
 
 /// The labels of `options` a line of choices holds. Joined with ", ", which a label may hold itself.
-pub(crate) fn labels_in(line: &str, options: &[AskedChoice]) -> Vec<String> {
+pub fn labels_in(line: &str, options: &[AskedChoice]) -> Vec<String> {
     options
         .iter()
         .map(|option| option.label.as_str())
@@ -105,13 +105,13 @@ impl Fleet
 
     /// The hosted session whose process holds this call's connection.
     /// **Placed by the connection**, never by what the caller says.
-    pub(crate) fn session_holding(&self, caller: &Caller) -> Option<String> {
+    pub fn session_holding(&self, caller: &Caller) -> Option<String> {
         self.session_placed(caller).map(|(id, _)| id)
     }
 
     /// The hosted session whose process holds this call's connection, and whether it was
     /// started on your words, whose door is narrowed and not a plain Job's.
-    pub(crate) fn session_placed(&self, caller: &Caller) -> Option<(String, bool)> {
+    pub fn session_placed(&self, caller: &Caller) -> Option<(String, bool)> {
         self.hosts().all().into_iter().find_map(|(id, runtime)| {
             let (pid, on_your_words) = {
                 let state = runtime.state();
@@ -122,7 +122,7 @@ impl Fleet
         })
     }
 
-    pub(crate) async fn session_permission(
+    pub async fn session_permission(
         self: &Arc<Self>,
         id: &str,
         asking: AskingToRun,
@@ -422,7 +422,7 @@ impl Fleet
     /// **Kept in the store, not held on a connection.** The mod asks `Wait` for
     /// the answer, so a request that ends or a Fleet that restarts costs a poll
     /// and never the question.
-    pub(crate) async fn terminal_question(
+    pub async fn terminal_question(
         &self,
         id: &str,
         asking: AskingToRun,
@@ -466,7 +466,7 @@ impl Fleet
     }
 
     /// One poll for a terminal question's answer, held up to [`POLL_HOLD`].
-    pub(crate) async fn terminal_question_wait(
+    pub async fn terminal_question_wait(
         &self,
         id: &str,
         call: &str,
@@ -498,7 +498,7 @@ impl Fleet
 
     /// The terminal's own prompt ended before Bridge answered: the card closes
     /// and the mod's poll ends.
-    pub(crate) async fn terminal_question_settled(
+    pub async fn terminal_question_settled(
         &self,
         id: &str,
         answered: bool,
@@ -514,7 +514,7 @@ impl Fleet
 
     /// A person answered a terminal session's question in Bridge: kept for the
     /// mod to collect, and the card closes. **Needs no poll under way.**
-    pub(crate) async fn terminal_ask_answered(
+    pub async fn terminal_ask_answered(
         &self,
         id: &str,
         waiting: &CallInFlight,
@@ -561,7 +561,7 @@ impl Fleet
     /// Close a terminal session's standing question without an answer for the
     /// mod: its card settles at `state`, the kept question goes, and a poll
     /// under way ends. Where there is none, nothing happens.
-    pub(crate) async fn terminal_ask_closed(&self, id: &str, state: SessionAskState) {
+    pub async fn terminal_ask_closed(&self, id: &str, state: SessionAskState) {
         let Ok(Some(kept)) = self.terminal_ask_kept(id).await else {
             return;
         };
@@ -586,7 +586,7 @@ impl Fleet
     /// Put a kept, unanswered terminal question back on the table and on the
     /// session, as a Fleet that restarted lost it, and close one whose mod has
     /// stopped polling: its prompt is gone, so Bridge must not offer the card.
-    pub(crate) async fn terminal_ask_standing(&self, id: &str) {
+    pub async fn terminal_ask_standing(&self, id: &str) {
         let Ok(Some(kept)) = self.terminal_ask_kept(id).await else {
             self.terminal_cards_closed(id).await;
             return;

@@ -28,7 +28,7 @@ impl Fleet
     }
 
     /// Every clash standing in one repository, oldest first, or those `holder` is in.
-    pub(crate) async fn write_clashes(
+    pub async fn write_clashes(
         &self,
         manifest_id: Option<ManifestId>,
         holder: Option<String>,

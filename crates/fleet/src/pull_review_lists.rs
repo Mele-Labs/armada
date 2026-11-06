@@ -22,7 +22,7 @@ use crate::pull_owners::Owner;
 use crate::pull_request_panel::review_state;
 
 /// No list could be read, or nobody is known to ask as. A 500.
-pub(crate) const LISTS_UNREADABLE: &str = "fleet.review_lists_unreadable";
+pub const LISTS_UNREADABLE: &str = "fleet.review_lists_unreadable";
 /// The forge would not resolve the thread, in its own sentence. A 409.
 const THREAD_REFUSED: &str = "fleet.review_thread_refused";
 
@@ -34,15 +34,15 @@ const LISTS: [(ReviewList, PullReviewList); 4] = [
 ];
 
 /// A served repository as the forge names it, lowercase, with the id it answers to.
-pub(crate) struct Named {
-    pub(crate) manifest_id: ManifestId,
-    pub(crate) slug: String,
+pub struct Named {
+    pub manifest_id: ManifestId,
+    pub slug: String,
     /// Where the repository is on this machine, which is where the forge is asked about it.
-    pub(crate) root: String,
+    pub root: String,
 }
 
 /// A row of a list, if its repository is one Fleet serves.
-pub(crate) fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow> {
+pub fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow> {
     let manifest_id = served
         .iter()
         .find(|it| it.slug.eq_ignore_ascii_case(&pull.repository))?
@@ -74,7 +74,7 @@ impl Fleet
 {
     /// Every served repository the forge knows by name. One with no remote has none, and is not
     /// searched.
-    pub(crate) async fn named_repositories(&self) -> Vec<Named> {
+    pub async fn named_repositories(&self) -> Vec<Named> {
         let held: Vec<(ManifestId, String)> = self
             .repositories()
             .served()
@@ -95,7 +95,7 @@ impl Fleet
     }
 
     /// The Session that holds a pull request, as the pull request owners say.
-    pub(crate) async fn holder_of(&self, row: &PullReviewRow) -> Option<PullReviewHolder> {
+    pub async fn holder_of(&self, row: &PullReviewRow) -> Option<PullReviewHolder> {
         let served = self.served_named(Some(&row.manifest_id)).ok()?;
         let owners = self.owners_of(&served, row.number, &row.branch, false).await;
         let id = owners.into_iter().next().map(|Owner::Session(id)| id)?;
@@ -108,7 +108,7 @@ impl Fleet
 
     /// The four lists, read at once: the forge answers each in a call, and a person waits on
     /// the slowest of four calls rather than Fleet holding a copy that goes stale.
-    pub(crate) async fn review_lists_read(&self) -> Result<PullReviewLists, Refusal> {
+    pub async fn review_lists_read(&self) -> Result<PullReviewLists, Refusal> {
         let from = self.served_named(None)?;
         let unreadable = |said: &str| Refusal::Fault(self.pr_refusal(LISTS_UNREADABLE, said));
         let Some(me) = self.mine_in(from.root()).await.login().map(str::to_string) else {
@@ -171,7 +171,7 @@ impl Fleet
     }
 
     /// Resolve or reopen a thread, as the forge now holds it.
-    pub(crate) fn review_thread_resolved(
+    pub fn review_thread_resolved(
         &self,
         root: &str,
         resolve: ResolvePullThread,

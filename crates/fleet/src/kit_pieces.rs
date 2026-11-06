@@ -77,7 +77,7 @@ fn kind_of(piece: &Piece) -> KitPieceKind {
 
 /// The piece an install runs, out of a fresh look and what the person pressed.
 /// **A choice is a name matched against what Fleet found**, so a body never reaches a command line.
-pub(crate) fn chosen(found: Found, asked: &InstallKitPiece) -> Result<Piece, String> {
+pub fn chosen(found: Found, asked: &InstallKitPiece) -> Result<Piece, String> {
     let kind = match asked.kind {
         KitPieceKind::Plugin => "plugin",
         KitPieceKind::Skill => "skill",
@@ -117,7 +117,7 @@ pub(crate) fn chosen(found: Found, asked: &InstallKitPiece) -> Result<Piece, Str
 }
 
 /// Each `trashed\tfrom` line Fleet wrote.
-pub(crate) fn trashed_lines(text: &str) -> Vec<(String, String)> {
+pub fn trashed_lines(text: &str) -> Vec<(String, String)> {
     text.lines()
         .filter_map(|line| line.split_once('\t'))
         .map(|(trashed, from)| (trashed.to_string(), from.to_string()))
@@ -134,7 +134,7 @@ fn items_of<'a>(inventory: &'a KitInventory, kind: &str) -> &'a [ipc::SetupItem]
 
 /// The folder of the one skill of the person's own named `name`: under their skills folder and
 /// brought by no plugin.
-pub(crate) fn own_skill(inventory: &KitInventory, home: &Path, name: &str) -> Result<PathBuf, String> {
+pub fn own_skill(inventory: &KitInventory, home: &Path, name: &str) -> Result<PathBuf, String> {
     let skills = kit_pieces::skills_folder(home);
     let mine: Vec<PathBuf> = items_of(inventory, "skills")
         .iter()
@@ -156,7 +156,7 @@ pub(crate) fn own_skill(inventory: &KitInventory, home: &Path, name: &str) -> Re
 impl Fleet
 {
     /// `look_at_kit_source`: off this thread, because it waits on the network.
-    pub(crate) async fn kit_source_looked_at(&self, asked: LookAtKitSource) -> Result<KitSourceFound, Refusal> {
+    pub async fn kit_source_looked_at(&self, asked: LookAtKitSource) -> Result<KitSourceFound, Refusal> {
         let found = tokio::task::spawn_blocking(move || {
             kit_pieces::look(&asked.source, &ForgeReader { within: LOOK_WITHIN })
         })
@@ -167,7 +167,7 @@ impl Fleet
 
     /// `install_kit_piece`: look again, and run what that look found. **Bridge only**, so the
     /// route is the person's press and `Asked` is made here.
-    pub(crate) async fn kit_piece_installed(&self, asked: InstallKitPiece) -> Result<KitPieceInstalled, Refusal> {
+    pub async fn kit_piece_installed(&self, asked: InstallKitPiece) -> Result<KitPieceInstalled, Refusal> {
         let source = asked.source.clone();
         let found = tokio::task::spawn_blocking(move || kit_pieces::look(&source, &ForgeReader { within: LOOK_WITHIN }))
             .await
@@ -189,7 +189,7 @@ impl Fleet
     }
 
     /// `remove_kit_piece`: a skill of the person's own to the Trash, or a plugin uninstalled.
-    pub(crate) async fn kit_piece_removed(&self, asked: RemoveKitPiece) -> Result<KitPieceRemoved, Refusal> {
+    pub async fn kit_piece_removed(&self, asked: RemoveKitPiece) -> Result<KitPieceRemoved, Refusal> {
         let inventory = self.kit_inventory().await;
         let home = PathBuf::from(&self.host().home);
         match asked.kind {
@@ -251,7 +251,7 @@ impl Fleet
     }
 
     /// `restore_kit_piece`: a place this Fleet trashed, back where it came from.
-    pub(crate) async fn kit_piece_restored(&self, asked: RestoreKitPiece) -> Result<KitInventory, Refusal> {
+    pub async fn kit_piece_restored(&self, asked: RestoreKitPiece) -> Result<KitInventory, Refusal> {
         let home = PathBuf::from(&self.host().home);
         let ledger = self.kit_trashed_path();
         tokio::task::spawn_blocking(move || -> Result<(), String> {

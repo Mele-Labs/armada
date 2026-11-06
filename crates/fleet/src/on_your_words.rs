@@ -36,7 +36,7 @@ pub enum Authority {
 /// "any command it is offered, on request", and it went with the Job runs it
 /// reversed; the list stays so the next act that must stay a person's has
 /// somewhere to be named.
-pub(crate) const RESERVED: &[&str] = &[];
+pub const RESERVED: &[&str] = &[];
 
 /// The acts on a Studio a Job on your words may take **without being asked**: adding a node
 /// that starts proposed, proposing an edge, and naming an untitled Studio.
@@ -45,8 +45,8 @@ pub(crate) const RESERVED: &[&str] = &[];
 /// whether a person asked for it or not, so nothing there could read this. Every other act on a
 /// Studio falls under the rule that an act waits for an ask. Each is still a command `may`
 /// refuses under [`Authority::ReadOnly`]. Read by the test that pins the list to the inventory.
-#[cfg(test)]
-pub(crate) const UNASKED: &[&str] = &["add_studio_node", "propose_studio_edge", "rename_studio"];
+#[cfg(any(test, feature = "test-support"))]
+pub const UNASKED: &[&str] = &["add_studio_node", "propose_studio_edge", "rename_studio"];
 
 /// Whether a Job on your words, under `authority`, may call one operation the door offers.
 ///

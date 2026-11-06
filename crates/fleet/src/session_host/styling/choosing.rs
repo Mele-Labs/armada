@@ -11,7 +11,7 @@ use super::walk::{sources_near, usable_kind};
 
 /// What choosing did for a scene's mocks.
 #[derive(Default)]
-pub(crate) struct Styled {
+pub struct Styled {
     /// Node id to the hash of the style set it is drawn with.
     pub kept: BTreeMap<String, String>,
     /// Node id to why it cannot be drawn.
@@ -21,7 +21,7 @@ pub(crate) struct Styled {
 /// Most files a refusal lists of what the walk found.
 const LISTED_AT_MOST: usize = 8;
 
-pub(crate) fn style_mocks(checkout: &str, tiers: &[Vec<String>], attachments: &str, mocks: &[MockNode]) -> Styled {
+pub fn style_mocks(checkout: &str, tiers: &[Vec<String>], attachments: &str, mocks: &[MockNode]) -> Styled {
     let root = std::fs::canonicalize(checkout).ok().filter(|root| root.is_dir());
     let mut run = Run {
         root: root.as_deref(),
@@ -201,7 +201,7 @@ fn kind_word(kind: StyleKind) -> &'static str {
 }
 
 /// A path the agent named, from the checkout's root, or `None` where it leaves the checkout.
-pub(crate) fn relative_to(root: &Path, given: &str) -> Option<String> {
+pub fn relative_to(root: &Path, given: &str) -> Option<String> {
     let given = given.trim();
     let path = Path::new(given);
     let rel = match path.is_absolute() {

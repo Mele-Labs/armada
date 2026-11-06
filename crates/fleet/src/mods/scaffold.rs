@@ -10,7 +10,7 @@ use super::{manifest, slug_problem, FLEET, INSTRUMENT, LAYOUT, MANIFEST, TAB, TH
 
 /// Why a scaffold did not happen.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Refused {
+pub enum Refused {
     /// The request names something that cannot be a mod. A 422.
     Unacceptable(String),
     /// Something under it failed. Nothing is left behind.
@@ -129,10 +129,10 @@ const STARTER_TWEAK: &str = "/* Token values only, set in :root. Check it with v
 
 /// What a teaching sets on a scaffold: the file's text in place of the starter, and where the mod
 /// came from.
-pub(crate) struct Taught<'a> {
-    pub(crate) text: &'a str,
-    pub(crate) taught_on: Option<&'a str>,
-    pub(crate) entry: Option<&'a str>,
+pub struct Taught<'a> {
+    pub text: &'a str,
+    pub taught_on: Option<&'a str>,
+    pub entry: Option<&'a str>,
 }
 /// The starter tracker: every section a tracker needs, over a command line that is not there, so
 /// it passes the file's checks and fails its try until someone names the real one.
@@ -167,7 +167,7 @@ map = """
 /// which refuses one that exists in the same step it makes this one, so a
 /// concurrent scaffold of the same name cannot get into the other's folder. `made_by`, the Job that
 /// asked, is recorded in `mod.toml`.
-pub(crate) fn make(
+pub fn make(
     mods_dir: &Path,
     name: &str,
     description: Option<&str>,
@@ -178,7 +178,7 @@ pub(crate) fn make(
 }
 
 /// [`make`], with the file a teaching wrote where there would be a starter.
-pub(crate) fn make_taught(
+pub fn make_taught(
     mods_dir: &Path,
     name: &str,
     description: Option<&str>,
@@ -288,7 +288,7 @@ fn written(
 
 /// `file` of the mod in `dir`, committed as it stands. **Best effort**: the file is what counts, and
 /// a history that would not take the commit is no reason to refuse the change.
-pub(crate) fn committed(dir: &Path, file: &str, message: &str) -> Result<(), String> {
+pub fn committed(dir: &Path, file: &str, message: &str) -> Result<(), String> {
     git(dir, &["add", "--", file])?;
     git(dir, &["commit", "--quiet", "-m", message])
 }

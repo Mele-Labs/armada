@@ -41,11 +41,11 @@ enum Stands {
 
 /// The searches this process started. Never written down.
 #[derive(Default)]
-pub(crate) struct Searched(Mutex<HashMap<Key, Stands>>);
+pub struct Searched(Mutex<HashMap<Key, Stands>>);
 
 /// What [`Searched::begin`] says to do.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Begin {
+pub enum Begin {
     /// Nobody searched yet: search.
     Search,
     /// A search is going.
@@ -56,7 +56,7 @@ pub(crate) enum Begin {
 
 impl Searched {
     /// Claim the search for `key`, or say how it stands.
-    pub(crate) fn begin(&self, key: &Key) -> Begin {
+    pub fn begin(&self, key: &Key) -> Begin {
         let mut every = self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         match every.get(key) {
             Some(Stands::Going) => Begin::Busy,
@@ -69,7 +69,7 @@ impl Searched {
     }
 
     /// The search for `key` ended: with nothing, it is not made again.
-    pub(crate) fn ended(&self, key: &Key, found: bool) {
+    pub fn ended(&self, key: &Key, found: bool) {
         let mut every = self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         match found {
             true => every.remove(key),
@@ -80,18 +80,18 @@ impl Searched {
 
 /// What a search is for.
 #[derive(Clone)]
-pub(crate) struct Wanted {
-    pub(crate) mod_name: String,
+pub struct Wanted {
+    pub mod_name: String,
     /// The repository's Manifest id.
-    pub(crate) manifest: String,
+    pub manifest: String,
     /// The Session whose person is asked when nothing is found, if any.
-    pub(crate) session_id: Option<String>,
+    pub session_id: Option<String>,
 }
 
 /// The address a text gives for `pattern`: the first web address in it that holds a match, with the
 /// match in its place as `{match}`. **The match must stand alone in a path or query value** — after
 /// `/`, `=` or `#` and before `/`, `?`, `&`, `#` or the end — so a number inside a longer word is not one.
-pub(crate) fn template_in(text: &str, pattern: &str) -> Option<String> {
+pub fn template_in(text: &str, pattern: &str) -> Option<String> {
     let compiled: Regex = RegexBuilder::new(pattern).size_limit(100_000).build().ok()?;
     let mut rest = text;
     while let Some(at) = ["https://", "http://"].iter().filter_map(|scheme| rest.find(scheme)).min() {
@@ -123,7 +123,7 @@ impl Fleet
 {
     /// Where `pattern` opens in `served`, and how it was found: the tracker the Manifest names, else
     /// a recently merged pull request's text. `None` where neither says.
-    pub(crate) async fn address_found(&self, served: &Served, pattern: &str, example: &str) -> Option<(String, AddressFound)> {
+    pub async fn address_found(&self, served: &Served, pattern: &str, example: &str) -> Option<(String, AddressFound)> {
         if let Some(template) = self.address_in_settings(served, example) {
             return Some((template, AddressFound::Settings));
         }
@@ -163,7 +163,7 @@ impl Fleet
     /// `manifest`: the one a Words mod with this pattern already has, else the tracker's, else a
     /// merged pull request's. **The pull request search is held to [`LOOKUP_BUDGET`]**, since a person
     /// is waiting on the read; the other two read local state.
-    pub(crate) async fn address_proposed(&self, root: &str, manifest: &str, words: &TeachingWords) -> Option<ProposedAddress> {
+    pub async fn address_proposed(&self, root: &str, manifest: &str, words: &TeachingWords) -> Option<ProposedAddress> {
         if let Ok(kept) = self.words_kept().await {
             let held = kept.iter().filter(|one| one.file.pattern == words.pattern).find_map(|one| one.address_for(manifest));
             if let Some(held) = held {
@@ -182,7 +182,7 @@ impl Fleet
     /// process, and write it to the mod where it is found. Where nothing is, the person is asked
     /// (`crate::teaching::asking`), if a Session is there to ask. **Run it on a task of its own**:
     /// it calls the forge.
-    pub(crate) async fn address_wanted(self: Arc<Self>, wanted: Wanted) {
+    pub async fn address_wanted(self: Arc<Self>, wanted: Wanted) {
         let dir = self.mods_dir();
         let Some(file) = words_file(&dir, &wanted.mod_name) else { return };
         let has = |key: &str| file.address.iter().any(|one| one.repository == key);

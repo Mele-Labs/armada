@@ -10,7 +10,7 @@ use crate::rail::{Fit, RailStep};
 
 /// The fact that ends a step, said to the person on the workflow's page.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum End {
+pub enum End {
     Merged,
     PlanApproved,
     WalkApproved,
@@ -40,7 +40,7 @@ fn spoken(id: impl std::fmt::Display) -> String {
 
 /// Who a step's end waits on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Waiter {
+pub enum Waiter {
     /// The Job's own act ends it.
     TheJob,
     /// Its pull request merging, which is nobody's to press.
@@ -54,7 +54,7 @@ pub(crate) enum Waiter {
 
 impl End {
     /// As the workflow's page says it, to the person.
-    pub(crate) fn for_person(&self) -> Cow<'static, str> {
+    pub fn for_person(&self) -> Cow<'static, str> {
         match self {
             End::Lifecycle(end) => {
                 let which = if end.waits() == Waits::Any { "any" } else { "every" };
@@ -82,7 +82,7 @@ impl End {
     /// Who ends the step, and for the person the item that waits on him while it stands. **Every end
     /// is named here**, so an end added with no wait behind it does not build. The item is raised off
     /// what the Job showed or said, never off the agent's `waiting_for`.
-    pub(crate) fn waits_on(&self) -> Waiter {
+    pub fn waits_on(&self) -> Waiter {
         match self {
             End::Lifecycle(_) => Waiter::TheWorld,
             // His Approve on the pull request is a forge's; the merge itself is the queue's, never his.
@@ -106,12 +106,12 @@ impl End {
 
     /// The Job's own act ends the step, so nobody else will: Fleet does not move it, and the person
     /// has nothing to answer.
-    pub(crate) fn by_the_job(&self) -> bool {
+    pub fn by_the_job(&self) -> bool {
         self.waits_on() == Waiter::TheJob
     }
 
     /// Fleet reads it off the world and moves the Job, so it raises no wait for the person.
-    pub(crate) fn by_the_world(&self) -> bool {
+    pub fn by_the_world(&self) -> bool {
         self.waits_on() == Waiter::TheWorld
     }
 
@@ -138,7 +138,7 @@ fn gate_for_person(step: &RailStep) -> Option<String> {
 /// Everything that ends the step at `at`, any one of them, or none where nothing observable does. A
 /// step before the recording step that lists its ends is ended by those; the plan recorded is said
 /// only where it lists none.
-pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
+pub fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
     let Some(step) = steps.get(at) else { return Vec::new() };
     if step.delivers {
         return vec![End::Merged];
@@ -165,7 +165,7 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
 }
 
 /// What ends the step at `at` where one thing does, or `None` where several or nothing does.
-pub(crate) fn end_of(steps: &[RailStep], at: usize) -> Option<End> {
+pub fn end_of(steps: &[RailStep], at: usize) -> Option<End> {
     match ends_of(steps, at).as_slice() {
         [one] => Some(one.clone()),
         _ => None,
@@ -173,7 +173,7 @@ pub(crate) fn end_of(steps: &[RailStep], at: usize) -> Option<End> {
 }
 
 /// What ends the step at `at`, to the person, where one thing does. Served by the workflow's page.
-pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<String> {
+pub fn ends_when(steps: &[RailStep], at: usize) -> Option<String> {
     end_of(steps, at).map(|end| end.for_person().into_owned())
 }
 
@@ -181,7 +181,7 @@ pub(crate) fn ends_when(steps: &[RailStep], at: usize) -> Option<String> {
 /// as `StepReading::ends_any`. **A delivering step gated by a lifecycle says the gate and then the
 /// merge**, `every pr is approved, then it is merged`: the state does not end the step, so `ends_when`
 /// keeps saying only the merge.
-pub(crate) fn ends_any(steps: &[RailStep], at: usize) -> Vec<String> {
+pub fn ends_any(steps: &[RailStep], at: usize) -> Vec<String> {
     let said = ends_of(steps, at).into_iter().map(|end| end.for_person().into_owned());
     match steps.get(at).and_then(gate_for_person) {
         Some(gate) => said.map(|merged| format!("{gate}, then {merged}")).collect(),
@@ -206,6 +206,6 @@ fn entry(step: &RailStep) -> Option<End> {
 }
 
 /// When a step is passed over instead of walked, for a step that can be.
-pub(crate) fn passed_over_when(step: &RailStep) -> Option<&'static str> {
+pub fn passed_over_when(step: &RailStep) -> Option<&'static str> {
     step.walks.then_some("nothing would be seen")
 }

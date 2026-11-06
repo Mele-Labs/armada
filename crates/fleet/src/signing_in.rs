@@ -26,8 +26,8 @@
 //! The forge and the store are blocking clients, so every call here blocks, and
 //! [`serving`] runs them on a blocking thread.
 
-mod enrolling;
-mod serving;
+pub mod enrolling;
+pub mod serving;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
@@ -40,7 +40,7 @@ use ipc::{
 };
 
 pub use enrolling::{Enrolling, OverHttp};
-pub(crate) use serving::this_machine;
+pub use serving::this_machine;
 
 use crate::clock::Clock;
 use crate::profiles::{Joined, Orgs, Profiles};
@@ -181,7 +181,7 @@ impl SigningIn {
     }
 
     /// Every profile this machine holds.
-    pub(crate) fn joined(&self) -> Result<Vec<Joined>, String> {
+    pub fn joined(&self) -> Result<Vec<Joined>, String> {
         self.inner.profiles.list()
     }
 

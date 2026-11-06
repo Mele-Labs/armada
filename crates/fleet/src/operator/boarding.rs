@@ -174,12 +174,12 @@ impl Fleet
     }
 
     /// The board is not what it was: Bridge reads it again.
-    pub(super) fn operator_board_changed(&self) {
+    pub fn operator_board_changed(&self) {
         self.events().publish(ipc::Event::OperatorBoardChanged(OperatorBoardChanged {}));
     }
 
     /// `get_operator_board`: read now.
-    pub(crate) async fn operator_board_wire(&self) -> Result<OperatorBoard, Refusal> {
+    pub async fn operator_board_wire(&self) -> Result<OperatorBoard, Refusal> {
         let queued = self.operator_seat().operator().map(|operator| operator.queued()).unwrap_or_default();
         let now = self.now();
         let item = |one: OnBoard| OperatorBoardItem {
@@ -224,7 +224,7 @@ impl Fleet
 
     /// `move_on_operator_board`: one press. **404** where `id`, or the `before` it goes ahead of,
     /// is not among those waiting.
-    pub(crate) async fn operator_board_moved(&self, moved: MoveOnOperatorBoard) -> Result<OperatorBoard, Refusal> {
+    pub async fn operator_board_moved(&self, moved: MoveOnOperatorBoard) -> Result<OperatorBoard, Refusal> {
         let unknown = |id: &str| {
             Refusal::NotFound(ipc::WireError::raised(BOARD_ITEM_UNKNOWN, format!("{id} is not waiting for the Operator, so it cannot be moved"), self.run_id()))
         };

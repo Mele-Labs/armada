@@ -8,16 +8,16 @@
 //! The checks ride the notice loop's tick (`notice_loop`), not a loop of their own. The table is
 //! memory: a Fleet that restarts rebuilds it from the next writes.
 
-mod checking;
-mod file_change;
-mod file_read;
-mod index;
-mod serving;
-mod standing;
-mod tap;
-mod telling;
+pub mod checking;
+pub mod file_change;
+pub mod file_read;
+pub mod index;
+pub mod serving;
+pub mod standing;
+pub mod tap;
+pub mod telling;
 
-pub(crate) use checking::{base_of, changed_since_base};
-pub(crate) use index::{Opposed, Side, Who, Writes};
-pub(crate) use tap::repository_relative;
-pub(crate) use telling::listed;
+pub use checking::{base_of, changed_since_base};
+pub use index::{Opposed, Side, Who, Writes};
+pub use tap::repository_relative;
+pub use telling::listed;

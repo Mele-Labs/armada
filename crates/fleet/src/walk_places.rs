@@ -20,7 +20,7 @@ use crate::daemon::Fleet;
 use crate::review_runs::UNREADABLE;
 
 /// A place that cannot be kept or walked. A 422.
-pub(crate) const INVALID: &str = "fleet.walk_place_invalid";
+pub const INVALID: &str = "fleet.walk_place_invalid";
 
 const COMMAND_AT_MOST: usize = 2_000;
 
@@ -34,7 +34,7 @@ fn is_web_address(text: &str) -> bool {
 
 /// Why a place cannot be walked, or `None` where it can. **At least one address**, each an http or
 /// https one; `pull` is started by a command and `deployed` is already running, so it has none.
-pub(crate) fn place_problem(place: &WalkPlace) -> Option<String> {
+pub fn place_problem(place: &WalkPlace) -> Option<String> {
     if place.address.is_empty() && place.api.is_empty() {
         return Some("a place needs a web address or an API base, and this has neither".to_string());
     }
@@ -56,7 +56,7 @@ pub(crate) fn place_problem(place: &WalkPlace) -> Option<String> {
 
 /// The area as it is kept: a directory of at most two normal parts, no `..`, no leading slash, and
 /// a trailing slash dropped. Empty is the repository's root.
-pub(crate) fn area_kept(area: &str) -> Result<String, String> {
+pub fn area_kept(area: &str) -> Result<String, String> {
     let area = area.trim();
     let area = area.strip_suffix('/').unwrap_or(area);
     let parts: Vec<&str> = if area.is_empty() { Vec::new() } else { area.split('/').collect() };
@@ -69,7 +69,7 @@ pub(crate) fn area_kept(area: &str) -> Result<String, String> {
 
 /// The directory, two deep at most, holding the most changed files, and on a tie the most changed
 /// lines. A file at the root is in the root, `""`.
-pub(crate) fn area_of(files: &[PageFile]) -> String {
+pub fn area_of(files: &[PageFile]) -> String {
     let mut by: Vec<(String, u64, u64)> = Vec::new();
     for file in files {
         let parts: Vec<&str> = file.path.split('/').collect();
@@ -133,7 +133,7 @@ fn announced_in(line: &str) -> Option<String> {
 /// What the pull request says about where it runs, and the address it names: a deploy bot's
 /// comment naming a preview or a deployed address, else the details address of a passed check named
 /// for a preview or a deploy.
-pub(crate) fn from_pull_request(page: &PullRequestPageFacts) -> Option<(WalkTried, String)> {
+pub fn from_pull_request(page: &PullRequestPageFacts) -> Option<(WalkTried, String)> {
     for said in &page.conversation {
         let Said::Comment { author, body, .. } = said else {
             continue;
@@ -168,7 +168,7 @@ pub(crate) fn from_pull_request(page: &PullRequestPageFacts) -> Option<(WalkTrie
 }
 
 /// A place in a sentence.
-pub(crate) fn place_said(place: &WalkPlace) -> String {
+pub fn place_said(place: &WalkPlace) -> String {
     let api = (!place.api.is_empty()).then(|| format!("API at {}", place.api));
     let main = match place.how {
         WalkHow::Deployed => format!("Deployed at {}", place.address),
@@ -202,19 +202,19 @@ fn kept_place(row: &KeptWalkPlace) -> RememberedPlace {
 impl Fleet
 {
     /// A repository as the forge names it, else the id it is served under.
-    pub(crate) async fn walk_slug(&self, root: &str, manifest_id: &ManifestId) -> String {
+    pub async fn walk_slug(&self, root: &str, manifest_id: &ManifestId) -> String {
         let (reaching, at) = (Arc::clone(self.reaching()), root.to_string());
         let slug = tokio::task::spawn_blocking(move || reaching.slug(&at)).await.ok().flatten();
         slug.unwrap_or_else(|| manifest_id.as_str().to_string())
     }
 
     /// A refusal for a place or an area that cannot be kept.
-    pub(crate) fn walk_place_refusal(&self, said: String) -> Refusal {
+    pub fn walk_place_refusal(&self, said: String) -> Refusal {
         Refusal::Unacceptable(self.pr_refusal(INVALID, said))
     }
 
     /// Where the pull request's change runs. **Nothing is started or spent.**
-    pub(crate) async fn walk_place_found(&self, manifest_id: ManifestId, number: u64) -> Result<WalkPlaceFound, Refusal> {
+    pub async fn walk_place_found(&self, manifest_id: ManifestId, number: u64) -> Result<WalkPlaceFound, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
         let page = self
             .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_page(root, &number.to_string()))
@@ -273,7 +273,7 @@ impl Fleet
     }
 
     /// Every place kept, across the repositories Fleet serves, by repository then area.
-    pub(crate) async fn walk_places_listed(&self) -> Result<RememberedPlaces, Refusal> {
+    pub async fn walk_places_listed(&self) -> Result<RememberedPlaces, Refusal> {
         let mut places = Vec::new();
         for served in self.repositories().served() {
             let manifest_id = ManifestId::carried(served.manifest().id().as_str());
@@ -291,7 +291,7 @@ impl Fleet
     }
 
     /// Remember where changes to an area run, replacing the place kept for it.
-    pub(crate) async fn walk_place_saved(
+    pub async fn walk_place_saved(
         &self,
         manifest_id: ManifestId,
         save: SaveWalkPlace,
@@ -326,7 +326,7 @@ impl Fleet
     }
 
     /// Stop remembering a place. Answers what is kept now.
-    pub(crate) async fn walk_place_forgotten(
+    pub async fn walk_place_forgotten(
         &self,
         manifest_id: ManifestId,
         id: String,

@@ -13,7 +13,7 @@ use crate::daemon::Fleet;
 use crate::repositories::Served;
 
 /// The ledger's kind for a reported bug a Job was started on. `target` is the report's id.
-pub(crate) const REPORT: &str = "report";
+pub const REPORT: &str = "report";
 
 const BUG_REPORT_REFUSED: &str = "fleet.bug_report_refused";
 const NO_SUCH_BUG_REPORT: &str = "fleet.no_such_bug_report";
@@ -48,7 +48,7 @@ impl Fleet
 {
     /// Keep a fault in Armada a job reported. Refused for a call that places no job, and for an
     /// empty `title` or `what`. A job that has ended is served, and no notice is sent to it.
-    pub(crate) async fn bug_reported(
+    pub async fn bug_reported(
         &self,
         caller: Option<api::Caller>,
         report: ReportBug,
@@ -92,13 +92,13 @@ impl Fleet
     }
 
     /// Every report on this Mac, newest first.
-    pub(crate) async fn bug_reports_listed(&self) -> Result<BugReports, Refusal> {
+    pub async fn bug_reports_listed(&self) -> Result<BugReports, Refusal> {
         let kept = self.store().lock().await.bug_reports().map_err(|why| self.ledger_fault(why))?;
         Ok(BugReports { reports: kept.into_iter().map(wire).collect() })
     }
 
     /// The owner keeps report `id`. A report already kept keeps its first time.
-    pub(crate) async fn bug_report_kept(&self, id: String) -> Result<BugReport, Refusal> {
+    pub async fn bug_report_kept(&self, id: String) -> Result<BugReport, Refusal> {
         let (report, reports) = {
             let mut store = self.store().lock().await;
             let now = self.now().as_str().to_string();
@@ -111,7 +111,7 @@ impl Fleet
     }
 
     /// The owner drops report `id`, a kept one too.
-    pub(crate) async fn bug_report_dropped(&self, id: String) -> Result<BugReportDropped, Refusal> {
+    pub async fn bug_report_dropped(&self, id: String) -> Result<BugReportDropped, Refusal> {
         let (dropped, reports) = {
             let mut store = self.store().lock().await;
             let dropped = store.drop_bug_report(&id).map_err(|why| self.ledger_fault(why))?;
@@ -131,7 +131,7 @@ impl Fleet
     /// The reports the person tagged to `session` in a message, held by it. **Held, never raised**, as an
     /// issue is: the message is the person's, and a report dropped since it was tagged is no reason to
     /// refuse it. A tag for one the store does not have holds nothing.
-    pub(crate) async fn reports_named(&self, session: &str, manifest_id: &str, tags: &[SessionTag]) {
+    pub async fn reports_named(&self, session: &str, manifest_id: &str, tags: &[SessionTag]) {
         let now = self.clock().now().as_str().to_string();
         let holder = Holder::session(session);
         let record = {
@@ -167,7 +167,7 @@ impl Fleet
     /// is fixed by it. **Held, not standing**: a Job that ended and gave its report back still fixes it, for
     /// the merge came after. Not gated on a backlog. A report already fixed keeps
     /// its first merge, and Bridge is told only where one was marked.
-    pub(crate) async fn reports_fixed_by_merge(&self, served: &Served, number: u64, title: &str, url: &str, merged_at: &str) {
+    pub async fn reports_fixed_by_merge(&self, served: &Served, number: u64, title: &str, url: &str, merged_at: &str) {
         let manifest = served.manifest().id().as_str().to_string();
         let fix = KeptBugFix { at: merged_at.to_string(), pull_request: number, title: title.to_string(), url: url.to_string() };
         let reports = {

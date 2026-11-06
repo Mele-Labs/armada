@@ -6,12 +6,12 @@
 //! the walk (`walk`), the tokens a file sets (`tokens`), making a sheet usable (`sheet`), keeping a
 //! set (`keeping`), which set a mock gets (`choosing`), and the Job those are stood under (`applying`).
 
-pub(crate) mod applying;
-pub(crate) mod choosing;
-pub(crate) mod keeping;
-pub(crate) mod sheet;
-pub(crate) mod tokens;
-pub(crate) mod walk;
+pub mod applying;
+pub mod choosing;
+pub mod keeping;
+pub mod sheet;
+pub mod tokens;
+pub mod walk;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -27,7 +27,7 @@ const NO_SUCH_KEPT_STYLES: &str = "fleet.no_such_kept_styles";
 impl Fleet
 {
     /// The stylesheets nearest `path`, or the Job's own work where it is none.
-    pub(crate) async fn style_sources_read(
+    pub async fn style_sources_read(
         &self,
         caller: Option<api::Caller>,
         session_id: Option<SessionId>,
@@ -49,7 +49,7 @@ impl Fleet
     }
 
     /// The style set kept under `hash`.
-    pub(crate) async fn kept_styles_read(&self, hash: &str) -> Result<KeptStyles, Refusal> {
+    pub async fn kept_styles_read(&self, hash: &str) -> Result<KeptStyles, Refusal> {
         let folder = keeping::folder(&self.host().attachments_dir);
         let asked = hash.to_string();
         let read = tokio::task::spawn_blocking(move || keeping::read(&folder, &asked)).await.ok().flatten();

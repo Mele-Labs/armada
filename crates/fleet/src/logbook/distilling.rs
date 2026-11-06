@@ -29,7 +29,7 @@ const COMMAND: usize = 300;
 const PRINTED: usize = 200;
 
 /// Distil's question as it ships: `prompts.logbookDistil`'s default.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 A person has worked with a coding agent in a job. Below is the job's record since it was last \
 read, and the Logbook: what Armada has learnt from earlier jobs about this repository, this Mac \
 and the person's habits. Every record row has a `cite` and every entry an `id`.\n\n\
@@ -111,7 +111,7 @@ struct Offered<'a> {
 }
 
 /// The commands a Session ran after `since`, each with how it came back, newest [`MOST_RAN`].
-pub(crate) fn ran_since(records: &[Record], since: u64) -> Vec<Ran> {
+pub fn ran_since(records: &[Record], since: u64) -> Vec<Ran> {
     let mut out: Vec<Ran> = Vec::new();
     let mut calls: Vec<(String, String)> = Vec::new();
     for record in records {
@@ -135,9 +135,9 @@ pub(crate) fn ran_since(records: &[Record], since: u64) -> Vec<Ran> {
 }
 
 /// The store, as Curate asks of it, for one repository's key.
-pub(super) struct Keeping<'a> {
-    pub(super) store: &'a Store,
-    pub(super) repository: &'a str,
+pub struct Keeping<'a> {
+    pub store: &'a Store,
+    pub repository: &'a str,
 }
 
 impl Held for Keeping<'_> {
@@ -157,7 +157,7 @@ fn millis(at: &str) -> u64 {
 impl Fleet
 {
     /// Distil one Session and curate what it says. `Err` is why nothing was kept.
-    pub(crate) async fn logbook_distilled(self: &Arc<Self>, id: &str) -> Result<(), String> {
+    pub async fn logbook_distilled(self: &Arc<Self>, id: &str) -> Result<(), String> {
         let (session, since) = {
             let store = self.store().lock().await;
             let session = store.session(id).map_err(|why| why.to_string())?.ok_or("no such job")?;
@@ -212,6 +212,6 @@ impl Fleet
 }
 
 /// Whether an entry is offered to Distil: every one not faded.
-pub(crate) fn offerable(entry: &LogEntry) -> bool {
+pub fn offerable(entry: &LogEntry) -> bool {
     entry.state != LogState::Faded
 }

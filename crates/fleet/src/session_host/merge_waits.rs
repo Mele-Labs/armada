@@ -12,14 +12,14 @@ use ipc::WaitingActKind;
 use crate::pull_requesting::pull_merged;
 
 /// A pull request of the Job that will land or has landed, as the ledger's `pr` row says.
-pub(crate) struct Merging {
+pub struct Merging {
     pub number: u64,
     /// The forge's address for it, empty where the row has none.
     pub address: String,
 }
 
 /// The Job's pull requests that are queued, have auto-merge on or have merged, from its `pr` rows.
-pub(crate) fn merging_of(rows: &[store::KeptAttachment]) -> Vec<Merging> {
+pub fn merging_of(rows: &[store::KeptAttachment]) -> Vec<Merging> {
     rows.iter()
         .filter(|one| one.kind == crate::pull_requesting::PR)
         .filter_map(|one| {
@@ -33,7 +33,7 @@ pub(crate) fn merging_of(rows: &[store::KeptAttachment]) -> Vec<Merging> {
 }
 
 /// The pull request an item with this `act` and `text` waits the merge of, if it does.
-pub(crate) fn merge_wait_of(act: Option<&WaitingAct>, text: &str, pulls: &[Merging]) -> Option<u64> {
+pub fn merge_wait_of(act: Option<&WaitingAct>, text: &str, pulls: &[Merging]) -> Option<u64> {
     pulls
         .iter()
         .find(|pull| {
@@ -68,7 +68,7 @@ fn names(text: &str, number: u64) -> bool {
 }
 
 /// What the agent reads when its list is refused for an item that is a merge wait.
-pub(crate) fn merge_item_refusal(id: &str, number: u64) -> String {
+pub fn merge_item_refusal(id: &str, number: u64) -> String {
     format!(
         "Refused: item \"{id}\" waits on the merge of #{number}, and a merge wait is not a Needs you item. \
          The pull request is queued, has auto-merge on or has merged, and Fleet tells you when it merges. \

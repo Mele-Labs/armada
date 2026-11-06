@@ -5,7 +5,7 @@
 
 /// One `<armada-sketch>` of a page, in the order the page holds them.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct PageSketch {
+pub struct PageSketch {
     /// The `title` attribute, where the page gave one.
     pub title: Option<String>,
     /// The scene as text, to be checked and not read here.
@@ -13,7 +13,7 @@ pub(crate) struct PageSketch {
 }
 
 /// The page's `<title>`, else its first `<h1>`, else the file's stem.
-pub(crate) fn title_of(html: &str, path: &str) -> String {
+pub fn title_of(html: &str, path: &str) -> String {
     let lower = html.to_ascii_lowercase();
     ["title", "h1"]
         .iter()
@@ -33,7 +33,7 @@ fn stem_of(path: &str) -> String {
 
 /// Every sketch the page embeds. A sketch's scene is its `<script type="application/json">` first, else
 /// its `scene` attribute, as Bridge reads it; a sketch with neither has an empty scene.
-pub(crate) fn sketches_in(html: &str) -> Vec<PageSketch> {
+pub fn sketches_in(html: &str) -> Vec<PageSketch> {
     let lower = html.to_ascii_lowercase();
     let mut found = Vec::new();
     let mut from = 0;

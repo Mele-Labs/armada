@@ -24,14 +24,14 @@ const QUESTION_REFUSED: &str = "fleet.lesson_question_refused";
 const ASK_FAILED: &str = "fleet.lesson_ask_failed";
 
 /// The longest question, in characters.
-pub(crate) const MOST_QUESTION: usize = 2_000;
+pub const MOST_QUESTION: usize = 2_000;
 /// The most turns of history one question carries.
-pub(crate) const MOST_TURNS: usize = 20;
+pub const MOST_TURNS: usize = 20;
 /// The longest turn of history, in characters.
-pub(crate) const MOST_TURN: usize = 4_000;
+pub const MOST_TURN: usize = 4_000;
 
 /// The ask question as it ships: `prompts.retroAsk`'s default.
-pub(crate) const ASK: &str =
+pub const ASK: &str =
     "A person is reading one item from the retro of a coding agent's work and has a question \
      about it. Below are the item, the record rows it cites, and what has been said so far.\n\n\
      Answer from the record only. The record is what Armada wrote down while the work ran. \
@@ -70,7 +70,7 @@ impl Fleet
 {
     /// Answer a question about an item. **Refused before anything is read**
     /// where the question is empty or past a bound, and for an unknown id.
-    pub(crate) async fn asked_about(
+    pub async fn asked_about(
         &self,
         lesson_id: &str,
         ask: LessonAsk,
@@ -146,7 +146,7 @@ impl Fleet
 }
 
 /// Why a question cannot be put, where it cannot.
-pub(crate) fn bound(question: &str, history: &[AskTurn]) -> Option<String> {
+pub fn bound(question: &str, history: &[AskTurn]) -> Option<String> {
     if question.is_empty() {
         return Some("the question is empty".to_string());
     }

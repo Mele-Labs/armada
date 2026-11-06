@@ -25,14 +25,14 @@ const GIVE_UP: Duration = Duration::from_secs(30 * 60);
 impl Fleet
 {
     /// The session took a turn, or was spoken to, so the wake is not owed. Whether it was held.
-    pub(crate) async fn limit_cleared(&self, id: &str) -> bool {
+    pub async fn limit_cleared(&self, id: &str) -> bool {
         self.store().lock().await.clear_session_limit(id).unwrap_or(false)
     }
 
     /// Wake each session whose limit has reset, with `Continue`. **A tick of the notice loop calls
     /// it.** A session that ended is let go; one that could not be told yet is tried again on the
     /// next tick, until it is long overdue.
-    pub(crate) async fn limits_lifted(self: &std::sync::Arc<Self>) {
+    pub async fn limits_lifted(self: &std::sync::Arc<Self>) {
         // A store that will not answer is asked again on the next tick.
         let Ok(held) = self.store().lock().await.sessions_limited() else {
             return;

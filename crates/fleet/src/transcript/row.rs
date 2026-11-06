@@ -23,7 +23,7 @@ use serde::Serialize;
 /// `span` are absent from this type entirely: they are supplied by a `tracing`
 /// layer, and Fleet has none.
 #[derive(Debug, Serialize)]
-pub(crate) struct Line<'a> {
+pub struct Line<'a> {
     ts: &'a str,
     level: &'static str,
     component: &'static str,

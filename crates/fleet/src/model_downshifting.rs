@@ -24,13 +24,13 @@ use crate::model_downshift::{Downshift, Phase, Terms, Weekly};
 const DOWNSHIFT_WRONG_PHASE: &str = "fleet.downshift_wrong_phase";
 
 /// The weekly window's kind in [`PlanUsage`].
-pub(crate) const WEEKLY: &str = "seven_day";
+pub const WEEKLY: &str = "seven_day";
 
 const SESSION_KEY: &str = "models.session";
 
 /// What Fleet holds of the step down. Read from the store when first asked, and never again.
 #[derive(Default)]
-pub(crate) struct Holding {
+pub struct Holding {
     held: Mutex<Option<Downshift>>,
     /// One command at a time, so two cannot each find the state they expect and both write the file.
     acting: Mutex<()>,
@@ -70,12 +70,12 @@ impl Fleet
     }
 
     /// `get_model_downshift`.
-    pub(crate) async fn model_downshift_state(&self) -> Result<ModelDownshiftState, Refusal> {
+    pub async fn model_downshift_state(&self) -> Result<ModelDownshiftState, Refusal> {
         Ok(self.downshift_held().await?.as_ref().map(Downshift::wire).unwrap_or_default())
     }
 
     /// A session reported the plan's windows. The weekly one is judged against the line.
-    pub(crate) async fn downshift_read(&self, usage: &PlanUsage) {
+    pub async fn downshift_read(&self, usage: &PlanUsage) {
         let Some(weekly) = usage.windows.iter().find(|one| one.kind == WEEKLY) else { return };
         let Some(resets_at) = weekly.resets_at.as_ref() else { return };
         let settings = self.machine_settings().now();
@@ -99,7 +99,7 @@ impl Fleet
 
     /// settings.json changed, by a save or by hand. Anything but a command's own write that leaves
     /// `models.session` somewhere the state does not expect ends the state.
-    pub(crate) async fn downshift_settings_moved(&self, settings: &config::settings::Resolved) {
+    pub async fn downshift_settings_moved(&self, settings: &config::settings::Resolved) {
         if self.downshift().writing.load(Ordering::SeqCst) {
             return;
         }
@@ -127,7 +127,7 @@ impl Fleet
     }
 
     /// `accept_downshift`.
-    pub(crate) async fn downshift_accepted(&self) -> Result<ModelDownshiftState, Refusal> {
+    pub async fn downshift_accepted(&self) -> Result<ModelDownshiftState, Refusal> {
         let _one = self.downshift().acting.lock().await;
         let (was, to, window) = {
             let held = self.downshift_held().await?;
@@ -152,7 +152,7 @@ impl Fleet
     }
 
     /// `restore_downshift`.
-    pub(crate) async fn downshift_restored(&self) -> Result<ModelDownshiftState, Refusal> {
+    pub async fn downshift_restored(&self) -> Result<ModelDownshiftState, Refusal> {
         let _one = self.downshift().acting.lock().await;
         let restore_to = {
             let held = self.downshift_held().await?;
@@ -166,7 +166,7 @@ impl Fleet
     }
 
     /// `keep_downshift`.
-    pub(crate) async fn downshift_kept(&self) -> Result<ModelDownshiftState, Refusal> {
+    pub async fn downshift_kept(&self) -> Result<ModelDownshiftState, Refusal> {
         let _one = self.downshift().acting.lock().await;
         let reset = matches!(self.downshift_held().await?.as_ref().expect("loaded").phase, Some(Phase::Reset { .. }));
         if !reset {
@@ -176,7 +176,7 @@ impl Fleet
     }
 
     /// `settle_downshift`.
-    pub(crate) async fn downshift_settled(&self) -> Result<ModelDownshiftState, Refusal> {
+    pub async fn downshift_settled(&self) -> Result<ModelDownshiftState, Refusal> {
         let _one = self.downshift().acting.lock().await;
         let offered = matches!(self.downshift_held().await?.as_ref().expect("loaded").phase, Some(Phase::Offered { .. }));
         if !offered {

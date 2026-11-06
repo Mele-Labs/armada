@@ -27,14 +27,14 @@ const CONFIGS: &[&str] = &[
 const MOST_BYTES: u64 = 256 * 1024;
 
 /// A file in a folder and what it holds.
-pub(super) struct Config {
+pub struct Config {
     /// Its name under the folder, `src/setupProxy.js` for a nested one.
-    pub(super) name: String,
-    pub(super) text: String,
+    pub name: String,
+    pub text: String,
 }
 
 /// The config files of `folder`, in a fixed order.
-pub(super) fn configs_in(folder: &Path) -> Vec<Config> {
+pub fn configs_in(folder: &Path) -> Vec<Config> {
     let mut names: Vec<String> = CONFIGS.iter().map(|name| name.to_string()).collect();
     if let Ok(listing) = std::fs::read_dir(folder) {
         let mut envs: Vec<String> = listing
@@ -70,7 +70,7 @@ fn number_at(text: &str) -> Option<u16> {
 
 /// Every port written after `localhost:`, `127.0.0.1:` or `0.0.0.0:`: **where this file expects
 /// something to listen**, in the order they are written.
-pub(super) fn expected_in(text: &str) -> Vec<u16> {
+pub fn expected_in(text: &str) -> Vec<u16> {
     let mut out: Vec<(usize, u16)> = Vec::new();
     for host in ["localhost:", "127.0.0.1:", "0.0.0.0:"] {
         for (at, _) in text.match_indices(host) {
@@ -85,7 +85,7 @@ pub(super) fn expected_in(text: &str) -> Vec<u16> {
 
 /// Every port this text says the program itself listens on: `PORT=8731`, `port: 8731`,
 /// `--port 8731`, `--port=8731` and `-p 8731`.
-pub(super) fn listens_in(text: &str) -> Vec<u16> {
+pub fn listens_in(text: &str) -> Vec<u16> {
     let lower = text.to_ascii_lowercase();
     let mut out = Vec::new();
     for (at, _) in lower.match_indices("port") {

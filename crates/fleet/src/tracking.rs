@@ -29,15 +29,15 @@ use crate::clock::elapsed;
 use crate::daemon::Fleet;
 
 /// How long a list read from the tracker is answered again without asking.
-pub(crate) const HELD_FOR: Duration = Duration::from_secs(5 * 60);
+pub const HELD_FOR: Duration = Duration::from_secs(5 * 60);
 
 /// The tracker would not answer and nothing is held. A 500: asking again is reasonable.
-pub(crate) const UNREADABLE: &str = "fleet.issues_unreadable";
+pub const UNREADABLE: &str = "fleet.issues_unreadable";
 
 /// What the tracker said it could not do, as an error. **A missing program is also a field**,
 /// `missing_tool`, so Bridge offers the install without reading a sentence. **A program with no
 /// project to work on is `needs_setup`**, and offers the setup the same way.
-pub(crate) fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_traits::NotTracked) -> WireError {
+pub fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_traits::NotTracked) -> WireError {
     let error = WireError::raised(code, format!("{} did not happen: {}", not.doing, not.said), run_id);
     let error = match &not.missing {
         Some(tool) => error.with_field("missing_tool", ipc::WireValue::Str(tool.clone())),
@@ -54,16 +54,16 @@ const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
 /// What was last read from each repository's tracker. **In memory**: a list is the tracker's, and is read again after
 /// a restart; what was *said* on an issue is the store's.
-pub(crate) struct Tracking {
+pub struct Tracking {
     lists: std::sync::Mutex<BTreeMap<String, Held>>,
     /// What Autopilot's pass remembers about these lists between intervals. #2092.
-    pub(crate) autopilot: crate::autopilot::Remembered,
+    pub autopilot: crate::autopilot::Remembered,
     /// Each backlog Fleet syncs, by root — `crate::backlog_syncing`.
-    pub(crate) keepings: crate::backlog_syncing::Keepings,
+    pub keepings: crate::backlog_syncing::Keepings,
     /// Issues linked in a project and read one by one, being off the open list — `crate::projects`.
-    pub(crate) reads: crate::projects::IssueReads,
+    pub reads: crate::projects::IssueReads,
     /// Pull requests linked to a task in a project and read one by one — `crate::projects`.
-    pub(crate) pulls: crate::projects::PullReads,
+    pub pulls: crate::projects::PullReads,
 }
 
 #[derive(Clone)]
@@ -73,7 +73,7 @@ struct Held {
 }
 
 impl Tracking {
-    pub(crate) fn new() -> Tracking {
+    pub fn new() -> Tracking {
         Tracking {
             lists: std::sync::Mutex::new(BTreeMap::new()),
             autopilot: crate::autopilot::Remembered::default(),
@@ -84,7 +84,7 @@ impl Tracking {
     }
 
     /// Drop the list held for `manifest`, so the next one is read again: a sync moved its copy.
-    pub(crate) fn forget(&self, manifest: &str) {
+    pub fn forget(&self, manifest: &str) {
         self.lists.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(manifest);
     }
 
@@ -106,7 +106,7 @@ impl Tracking {
 
 /// What a Manifest chose, as the seam takes it. **No `tracker:` is the forge's own**, which is
 /// what every repository had before the key existed.
-pub(crate) fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
+pub fn choice_of(manifest: &config::Manifest) -> TrackerChoice {
     match manifest.tracker() {
         Some(block) => TrackerChoice::named(block.provider(), block.keys()),
         None => TrackerChoice::of_the_forge(),
@@ -125,7 +125,7 @@ fn fields_of(fields: &[adapter_traits::IssueField]) -> Vec<IssueField> {
 }
 
 /// The Jobs holding each issue of one repository, by the ledger's target for it. Ids, ascending.
-pub(crate) type Holders = BTreeMap<String, Vec<String>>;
+pub type Holders = BTreeMap<String, Vec<String>>;
 
 fn holders_at(holders: &Holders, reference: &str) -> Vec<String> {
     IssueReference::read(reference)
@@ -134,7 +134,7 @@ fn holders_at(holders: &Holders, reference: &str) -> Vec<String> {
 }
 
 /// One issue on the wire.
-pub(crate) fn tracked(issue: &OpenIssue, holders: &Holders) -> TrackedIssue {
+pub fn tracked(issue: &OpenIssue, holders: &Holders) -> TrackedIssue {
     let url = issue.url.as_written().to_string();
     let author = issue.author.as_written().trim();
     TrackedIssue {
@@ -206,17 +206,17 @@ impl Fleet
 {
     /// The tracker `served`'s Manifest chose. Cloned, because every call to it
     /// runs off the async thread.
-    pub(crate) fn tracker_of(&self, served: &crate::repositories::Served) -> Arc<dyn Tracker + Send + Sync> {
+    pub fn tracker_of(&self, served: &crate::repositories::Served) -> Arc<dyn Tracker + Send + Sync> {
         self.trackers().tracker(&choice_of(served.manifest()))
     }
 
     /// What writes to the tracker `served`'s Manifest chose, where it is one Fleet writes to.
-    pub(crate) fn backlog_of(&self, served: &crate::repositories::Served) -> Option<Arc<dyn adapter_traits::Backlog + Send + Sync>> {
+    pub fn backlog_of(&self, served: &crate::repositories::Served) -> Option<Arc<dyn adapter_traits::Backlog + Send + Sync>> {
         self.trackers().backlog(&choice_of(served.manifest()))
     }
 
     /// What reads a link into the tracker `served`'s Manifest chose.
-    pub(crate) fn links_of(&self, served: &crate::repositories::Served) -> Arc<dyn LinkLookup + Send + Sync> {
+    pub fn links_of(&self, served: &crate::repositories::Served) -> Arc<dyn LinkLookup + Send + Sync> {
         self.trackers().links(&choice_of(served.manifest()))
     }
 
@@ -238,7 +238,7 @@ impl Fleet
 
     /// The Jobs holding each issue of the repository, read off the ledger once, whichever tracker the
     /// issues are on. **Standing rows only**: a Job that gave an issue back no longer works it.
-    pub(crate) async fn issue_holders(&self, manifest_id: &ManifestId) -> Result<Holders, Refusal> {
+    pub async fn issue_holders(&self, manifest_id: &ManifestId) -> Result<Holders, Refusal> {
         let rows = self
             .store()
             .lock()
@@ -331,7 +331,7 @@ impl Fleet
 {
     /// The open issues as Fleet holds them, read again where they are old: Autopilot picks from
     /// the same list Bridge shows, and with the same five minutes. #2092.
-    pub(crate) async fn open_issues(&self, manifest_id: &ManifestId) -> Result<Vec<OpenIssue>, Refusal> {
+    pub async fn open_issues(&self, manifest_id: &ManifestId) -> Result<Vec<OpenIssue>, Refusal> {
         Ok(self.held_or_read(manifest_id, false).await?.0.issues)
     }
 

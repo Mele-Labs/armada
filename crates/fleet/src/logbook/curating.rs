@@ -12,23 +12,23 @@ use store::{logbook_words, LogEntry, LogEvidence, LogHistory, LogHow, LogRewrite
 use super::answer::{Claim, Distilled, Learnt, Titled};
 
 /// The distinct Sessions that stand an entry.
-pub(crate) const STANDS_AT: usize = 2;
+pub const STANDS_AT: usize = 2;
 /// How long a standing entry may go unconfirmed and unserved before it fades, with
 /// [`FADES_AFTER_SESSIONS`] of its repository's Sessions distilled in that time.
-pub(crate) const FADES_AFTER_MS: u64 = 30 * 24 * 60 * 60 * 1000;
-pub(crate) const FADES_AFTER_SESSIONS: usize = 20;
+pub const FADES_AFTER_MS: u64 = 30 * 24 * 60 * 60 * 1000;
+pub const FADES_AFTER_SESSIONS: usize = 20;
 /// How alike two texts' words must be for a new one to be read as an entry already held.
 const ALIKE: f64 = 0.8;
 
 /// The distil being curated: whose, for which repository's key, and when.
-pub(crate) struct Distil<'a> {
+pub struct Distil<'a> {
     pub session: &'a str,
     pub repository: &'a str,
     pub now: u64,
 }
 
 /// What Curate asks of the store, so the rules read without one.
-pub(crate) trait Held {
+pub trait Held {
     /// Whether a text was forgotten for this section and repository.
     fn denied(&self, section: LogSection, repository: &str, text: &str) -> bool;
     /// How many of the section's Sessions were distilled after `since`.
@@ -51,7 +51,7 @@ fn evidence(distil: &Distil<'_>, cites: &[String], how: LogHow, hard: bool) -> L
 }
 
 /// Replace an entry's text, keeping the one it had. Nothing where the words are the same.
-pub(super) fn rewrite(entry: &mut LogEntry, text: &str, why: LogRewrite, now: u64) {
+pub fn rewrite(entry: &mut LogEntry, text: &str, why: LogRewrite, now: u64) {
     if logbook_words(text) == logbook_words(&entry.text) {
         return;
     }
@@ -61,7 +61,7 @@ pub(super) fn rewrite(entry: &mut LogEntry, text: &str, why: LogRewrite, now: u6
 
 /// Merge an answer into `entries` and answer the places of those that changed: new ones are pushed
 /// on the end, with no id.
-pub(crate) fn curate(entries: &mut Vec<LogEntry>, answer: &Distilled, distil: &Distil<'_>, held: &dyn Held) -> BTreeSet<usize> {
+pub fn curate(entries: &mut Vec<LogEntry>, answer: &Distilled, distil: &Distil<'_>, held: &dyn Held) -> BTreeSet<usize> {
     let mut changed = BTreeSet::new();
     let place = |entries: &[LogEntry], id: i64| entries.iter().position(|entry| entry.id == Some(id));
     let mut each = |claims: &[Claim], entries: &mut Vec<LogEntry>, act: &dyn Fn(&mut LogEntry, &Claim)| {
@@ -171,7 +171,7 @@ fn learnt_into(entries: &mut Vec<LogEntry>, learnt: &Learnt, distil: &Distil<'_>
 }
 
 /// A candidate stands at [`STANDS_AT`] distinct Sessions, or on one Session's hard evidence.
-pub(crate) fn stand(entry: &mut LogEntry) {
+pub fn stand(entry: &mut LogEntry) {
     let hard = entry.evidence.iter().any(|one| one.hard && one.how != LogHow::Contradicted);
     if entry.state == LogState::Candidate && (entry.confirmations() >= STANDS_AT || hard) {
         entry.state = LogState::Standing;
@@ -180,7 +180,7 @@ pub(crate) fn stand(entry: &mut LogEntry) {
 
 /// Whether a standing entry fades now: neither confirmed nor served for [`FADES_AFTER_MS`], and
 /// [`FADES_AFTER_SESSIONS`] of its repository's Sessions since. A locked entry never fades.
-pub(crate) fn fade(entry: &mut LogEntry, now: u64, held: &dyn Held) -> bool {
+pub fn fade(entry: &mut LogEntry, now: u64, held: &dyn Held) -> bool {
     if entry.state != LogState::Standing || entry.locked {
         return false;
     }

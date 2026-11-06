@@ -6,18 +6,18 @@
 //! keeps its own detector and is read in beside. Run memory is not: it keeps every command that
 //! worked, word for word, and folded in it buried what Sessions learnt.
 
-pub(crate) mod answer;
-mod acting;
-mod backlog;
-pub(crate) mod curating;
-mod distilling;
-mod kept;
-pub(crate) mod noting;
-pub(crate) mod organizing;
-pub(crate) mod recalling;
-pub(crate) mod serving;
-pub(crate) mod sorting;
-pub(crate) mod tidying;
+pub mod answer;
+pub mod acting;
+pub mod backlog;
+pub mod curating;
+pub mod distilling;
+pub mod kept;
+pub mod noting;
+pub mod organizing;
+pub mod recalling;
+pub mod serving;
+pub mod sorting;
+pub mod tidying;
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,13 +27,13 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use store::{LogKind, LogSection, LogState};
 
 use crate::daemon::Fleet;
-pub(crate) use distilling::QUESTION;
-pub(crate) use serving::{Logged, Source};
+pub use distilling::QUESTION;
+pub use serving::{Logged, Source};
 
 /// The Sessions waiting to be distilled, and whether one is being. Never written down: a Fleet
 /// that stops loses the queue, and a Session's next distil reads from where its last one ended.
 #[derive(Default)]
-pub(crate) struct Distils {
+pub struct Distils {
     waiting: Mutex<VecDeque<String>>,
     running: AtomicBool,
     /// Whether this process already started the pass over the open lessons.
@@ -52,7 +52,7 @@ pub(crate) struct Distils {
 
 impl Distils {
     /// Put a Session in the queue, once.
-    pub(crate) fn queue(&self, session: &str) {
+    pub fn queue(&self, session: &str) {
         let mut waiting = self.waiting.lock().expect("the distil queue is not held across a panic");
         if !waiting.iter().any(|one| one == session) {
             waiting.push_back(session.to_string());
@@ -76,7 +76,7 @@ impl Fleet
 {
     /// Start the next distil on a task of its own, where none is running. Called on the notice
     /// loop's tick, so a Session's end never waits on it.
-    pub(crate) fn logbook_distils_run(self: &Arc<Self>) {
+    pub fn logbook_distils_run(self: &Arc<Self>) {
         let Some(session) = self.logbook_distils().next() else { return };
         let fleet = Arc::clone(self);
         tokio::spawn(async move {
@@ -88,12 +88,12 @@ impl Fleet
 
     /// Everything the Logbook holds for a repository: its entries, the habits and this Mac's, and
     /// what the machine note knows, as entries. Forgotten entries are not in it.
-    pub(crate) async fn logbook_read(&self, root: &str) -> Vec<Logged> {
+    pub async fn logbook_read(&self, root: &str) -> Vec<Logged> {
         self.logbook_read_in(Some(root)).await
     }
 
     /// [`Self::logbook_read`], or with no repository the habits and this Mac's alone.
-    pub(crate) async fn logbook_read_in(&self, root: Option<&str>) -> Vec<Logged> {
+    pub async fn logbook_read_in(&self, root: Option<&str>) -> Vec<Logged> {
         let key = root.map(crate::run_memory::places::key_of).unwrap_or_default();
         let learnt = self.store().lock().await.logbook_of(&key).unwrap_or_default();
         let mut all: Vec<Logged> = learnt.into_iter().map(|entry| Logged { entry, from: Source::Learnt }).collect();
@@ -111,7 +111,7 @@ impl Fleet
     /// The entries to serve a repository's next agent: standing ones, tripped first, then by how
     /// many Sessions bore each out, then the most recent, cut to `budget` tokens. Each learnt one
     /// served is marked, which keeps it from fading. The start note calls it.
-    pub(crate) async fn logbook_to_serve(&self, root: &str, budget: usize) -> Vec<Logged> {
+    pub async fn logbook_to_serve(&self, root: &str, budget: usize) -> Vec<Logged> {
         let served = serving::served(self.logbook_read(root).await, budget);
         self.logbook_marked(&served).await;
         served
@@ -131,7 +131,7 @@ impl Fleet
     /// The Logbook note a Session's process is started with: habits, then the repository's
     /// standing entries, then this Mac, about [`noting::NOTE_TOKENS`] in all. `root` is `None` for
     /// a Session with no repository, which is handed the habits and this Mac's.
-    pub(crate) async fn logbook_note_of(&self, root: Option<&str>) -> Option<String> {
+    pub async fn logbook_note_of(&self, root: Option<&str>) -> Option<String> {
         let served = self.logbook_to_serve(root.unwrap_or_default(), noting::NOTE_TOKENS - noting::HEADER_TOKENS).await;
         noting::note(&served)
     }
@@ -139,7 +139,7 @@ impl Fleet
     /// What a subagent starting under `session` is handed for the paths its `prompt` names, as a
     /// note. Empty where the Logbook holds nothing for it. A Session Fleet does not know, or one
     /// with no repository, is handed the habits alone.
-    pub(crate) async fn logbook_for_subagent(&self, session: &str, prompt: &str) -> String {
+    pub async fn logbook_for_subagent(&self, session: &str, prompt: &str) -> String {
         let manifest = {
             let store = self.store().lock().await;
             store.session(session).ok().flatten().and_then(|row| row.manifest_id)
@@ -154,7 +154,7 @@ impl Fleet
 
     /// The entries of the repository `manifest` names, the habits and this Mac's, that hold the
     /// words of `query`, best first. Marks nothing served.
-    pub(crate) async fn logbook_recalled(
+    pub async fn logbook_recalled(
         &self,
         manifest: Option<&ipc::ManifestId>,
         query: &str,

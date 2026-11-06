@@ -42,7 +42,7 @@ impl std::fmt::Debug for KitManifest {
 
 impl KitManifest {
     /// The copy for the repository at `root`, where `held` says its pieces are kept.
-    pub(crate) fn at(kit: &Path, root: &str, held: Option<&store::KeptPlace>, reaching: Arc<dyn Reaching>) -> KitManifest {
+    pub fn at(kit: &Path, root: &str, held: Option<&store::KeptPlace>, reaching: Arc<dyn Reaching>) -> KitManifest {
         let here = places::kit_manifest(kit, root);
         let (label, at) = match places::where_kept(kit, held).1 {
             Where::Folder(base) => {

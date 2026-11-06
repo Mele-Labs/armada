@@ -26,7 +26,7 @@ const MOST_CORRECTIONS: usize = 60;
 const MOST_SUBAGENT_ROWS: usize = 30;
 
 /// Everything a Session's record is assembled from.
-pub(crate) struct SessionSources<'a> {
+pub struct SessionSources<'a> {
     /// The end of the last retro. Nothing at or before it is read.
     pub since: Option<&'a str>,
     /// Where this retro stops.
@@ -47,7 +47,7 @@ pub(crate) struct SessionSources<'a> {
 /// Whether `at` falls after `since` and not after `until`. **A time that will
 /// not read is inside**: dropping a row for its spelling would say less went
 /// wrong than did.
-pub(crate) fn within(at: &str, since: Option<&str>, until: &str) -> bool {
+pub fn within(at: &str, since: Option<&str>, until: &str) -> bool {
     let millis = |text: &str| Timestamp::from_rfc3339(text).epoch_millis();
     let Some(at) = millis(at) else { return true };
     since.and_then(millis).map_or(true, |since| at > since)
@@ -55,7 +55,7 @@ pub(crate) fn within(at: &str, since: Option<&str>, until: &str) -> bool {
 }
 
 /// Whether the thread has anything in the stretch a retro would cover.
-pub(crate) fn has_news(thread: &[SessionRow], since: Option<&str>, until: &str) -> bool {
+pub fn has_news(thread: &[SessionRow], since: Option<&str>, until: &str) -> bool {
     thread.iter().any(|row| match row {
         SessionRow::Message { at, from, .. } => {
             !matches!(from, SessionVoice::Session { id, .. } if id == "fleet")
@@ -68,7 +68,7 @@ pub(crate) fn has_news(thread: &[SessionRow], since: Option<&str>, until: &str) 
     })
 }
 
-pub(crate) fn assembled(from: &SessionSources<'_>) -> RetroRecord {
+pub fn assembled(from: &SessionSources<'_>) -> RetroRecord {
     let (mut refusals, mut failed_tools) = tool_trouble(from.transcript, from);
     for (n, row) in refusals.iter_mut().enumerate() {
         row.cite = cite("refusal", n);

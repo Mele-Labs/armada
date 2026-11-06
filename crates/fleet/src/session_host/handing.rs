@@ -42,7 +42,7 @@ impl Fleet
     /// named none. **The target and the choice are checked before anything moves**, so a refusal
     /// changes nothing. A slot is moved before its rows, takes the `branch` row of what it has checked
     /// out with it, and where the pool would not move it keeps both.
-    pub(crate) async fn session_holds_released(
+    pub async fn session_holds_released(
         &self,
         asked: ReleaseSessionHolds,
     ) -> Result<SessionHoldsReleased, Refusal> {
@@ -347,7 +347,7 @@ impl Fleet
 }
 
 /// A refusal's words, for the row that stayed.
-pub(super) fn said_of(refusal: &Refusal) -> String {
+pub fn said_of(refusal: &Refusal) -> String {
     match refusal {
         Refusal::NotFound(why) | Refusal::IllegalMove(why) | Refusal::Unacceptable(why) | Refusal::Fault(why) => {
             why.message.clone()

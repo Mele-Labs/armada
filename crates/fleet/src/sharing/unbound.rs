@@ -25,7 +25,7 @@ fn is_made_here(id: &str) -> bool {
 }
 
 /// Keep `piece` and answer the id it is kept under.
-pub(super) fn keep(kit: &Path, piece: &Piece) -> Result<String, String> {
+pub fn keep(kit: &Path, piece: &Piece) -> Result<String, String> {
     let text = package::written(vec![piece.clone()])?;
     let digest: String = Sha256::digest(text.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect();
     let id = digest[..NAME_LEN].to_string();
@@ -35,7 +35,7 @@ pub(super) fn keep(kit: &Path, piece: &Piece) -> Result<String, String> {
 }
 
 /// The piece kept under `id`. `None` for an id nothing is kept under or one that does not read.
-pub(super) fn held(kit: &Path, id: &str) -> Option<Piece> {
+pub fn held(kit: &Path, id: &str) -> Option<Piece> {
     if !is_made_here(id) {
         return None;
     }
@@ -44,7 +44,7 @@ pub(super) fn held(kit: &Path, id: &str) -> Option<Piece> {
 }
 
 /// Every piece kept, by id.
-pub(super) fn all(kit: &Path) -> Vec<(String, Piece)> {
+pub fn all(kit: &Path) -> Vec<(String, Piece)> {
     let Ok(entries) = std::fs::read_dir(kit.join(FOLDER)) else { return Vec::new() };
     let mut ids: Vec<String> = entries
         .filter_map(Result::ok)
@@ -56,7 +56,7 @@ pub(super) fn all(kit: &Path) -> Vec<(String, Piece)> {
 }
 
 /// Forget `id`, once it is bound.
-pub(super) fn forget(kit: &Path, id: &str) -> std::io::Result<()> {
+pub fn forget(kit: &Path, id: &str) -> std::io::Result<()> {
     match std::fs::remove_file(file_of(kit, id)) {
         Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => Ok(()),
         other => other,

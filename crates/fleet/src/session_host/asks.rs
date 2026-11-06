@@ -5,7 +5,7 @@
 //! a wrong call costs one dismiss. Only the close is read, since that is where an agent puts what it needs.
 
 /// The sentence of `reply` that asks the person to answer, decide or do something, if one does.
-pub(crate) fn asking_line(reply: &str) -> Option<String> {
+pub fn asking_line(reply: &str) -> Option<String> {
     let blocks = prose_blocks(reply);
     let from = closing_from(&blocks);
     // A command fenced for the person is run by him, so the line that hands it over asks. Those are
@@ -21,7 +21,7 @@ pub(crate) fn asking_line(reply: &str) -> Option<String> {
 }
 
 /// The sentences of the close the rules read, in order: what the language model reads of a reply.
-pub(crate) fn closing_sentences(reply: &str) -> Vec<String> {
+pub fn closing_sentences(reply: &str) -> Vec<String> {
     let blocks = prose_blocks(reply);
     blocks[closing_from(&blocks)..]
         .iter()
@@ -32,13 +32,13 @@ pub(crate) fn closing_sentences(reply: &str) -> Vec<String> {
 }
 
 /// What the fine-tuned model reads of a reply: the close's sentences, as one text.
-pub(crate) fn closing_text(reply: &str) -> String {
+pub fn closing_text(reply: &str) -> String {
     closing_sentences(reply).join(" ")
 }
 
 /// One sentence of the close, with what the sentence readers of `extracting` need around it.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Closing {
+pub struct Closing {
     pub sentence: String,
     /// Which line of the close it is on; two sentences of one line share it.
     pub line: usize,
@@ -52,7 +52,7 @@ pub(crate) struct Closing {
 /// asks nothing itself: a `#` line, a line that is wholly bold, and a short line ending in `:` or `?`
 /// that stands alone before the next paragraph. A line a command follows is kept whatever its shape,
 /// since it hands the command over.
-pub(crate) fn closing(reply: &str) -> Vec<Closing> {
+pub fn closing(reply: &str) -> Vec<Closing> {
     let blocks = prose_blocks(reply);
     let from = closing_from(&blocks);
     let last_block = blocks.len().saturating_sub(1);
@@ -331,7 +331,7 @@ const APPROVING: &[&str] =
     &["once you approve", "when you approve", "once you've approved", "once you've looked", "after you approve", "approve it", "approve whichever", "pressing approve"];
 
 /// Whether the sentence asks only by naming his approval, which a walk already waiting on him has asked.
-pub(crate) fn only_approving(sentence: &str) -> bool {
+pub fn only_approving(sentence: &str) -> bool {
     let mut said = sentence.replace('*', "").replace('’', "'").to_lowercase();
     for phrase in APPROVING {
         said = said.replace(phrase, "");

@@ -14,8 +14,8 @@ const MESSAGE_AT_MOST: usize = 1_200;
 /// The most of one thing the agent said that the model is shown.
 const SAID_AT_MOST: usize = 600;
 /// The most calls and texts of the turn the model is shown: the latest.
-pub(crate) const CALLS_AT_MOST: usize = 60;
-pub(crate) const SAID_MOST: usize = 8;
+pub const CALLS_AT_MOST: usize = 60;
+pub const SAID_MOST: usize = 8;
 /// The most lines a written account keeps, and the longest one.
 const DONE_AT_MOST: usize = 5;
 const LINE_AT_MOST: usize = 140;
@@ -24,7 +24,7 @@ const SO_FAR_AT_MOST: usize = 280;
 
 /// The prompt as it ships. **Not an editable setting**, as the Session proposer's is not: the answer
 /// is read by these field names.
-pub(crate) const SHIPPED: &str = "\
+pub const SHIPPED: &str = "\
 A person asked a coding agent to do some work and is waiting on it. Write a short account of the \
 agent's progress for his last message, in plain words, for someone who does not read code.
 
@@ -56,7 +56,7 @@ Reading and searching are not worth a `done:` line. A thing not yet finished is 
 
 /// The prompt for the Job's running summary. Not an editable setting, for the reason `SHIPPED` is not.
 /// **It must not carry the phrase the account's question is picked out by in tests.**
-pub(crate) const SO_FAR_SHIPPED: &str = "\
+pub const SO_FAR_SHIPPED: &str = "\
 A person has a coding agent working on a Job. He is about to answer a call from it without opening \
 the Job, so he needs what it has done so far. Write that in at most two sentences, in plain words, \
 for someone who does not read code.
@@ -88,7 +88,7 @@ Answer with nothing but the new summary.";
 
 /// What the model is shown of the Job to write its running summary.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct JobSoFar {
+pub struct JobSoFar {
     /// The summary kept so far.
     pub last: Option<String>,
     /// The person's last message.
@@ -101,7 +101,7 @@ pub(crate) struct JobSoFar {
 
 impl JobSoFar {
     /// The question, filled in.
-    pub(crate) fn question(&self) -> String {
+    pub fn question(&self) -> String {
         let said: Vec<String> = self.said.iter().map(|one| cut(one, SAID_AT_MOST)).collect();
         let nothing = "(nothing yet)".to_string();
         fill(
@@ -118,7 +118,7 @@ impl JobSoFar {
 
 /// The model's answer for the running summary, read: one line, or `None` where it says nothing or
 /// names code.
-pub(crate) fn read_so_far(reply: &str) -> Option<String> {
+pub fn read_so_far(reply: &str) -> Option<String> {
     let joined = reply.lines().map(str::trim).filter(|line| !line.is_empty()).collect::<Vec<_>>().join(" ");
     let line = joined.trim_matches('`').trim().trim_matches(['"', '\u{201c}', '\u{201d}']).trim();
     let nothing = line.is_empty() || ["none", "nothing", "n/a"].contains(&line.to_lowercase().trim_end_matches('.'));
@@ -127,7 +127,7 @@ pub(crate) fn read_so_far(reply: &str) -> Option<String> {
 
 /// What the model is shown of the turn so far.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct TurnSoFar {
+pub struct TurnSoFar {
     /// The person's last message.
     pub message: String,
     /// What each tool call of the turn did, as `now` words, oldest first.
@@ -141,7 +141,7 @@ pub(crate) struct TurnSoFar {
 
 impl TurnSoFar {
     /// The question, filled in.
-    pub(crate) fn question(&self) -> String {
+    pub fn question(&self) -> String {
         let said: Vec<String> = self.said.iter().map(|one| cut(one, SAID_AT_MOST)).collect();
         let (groups, group_line) = match self.groups.is_empty() {
             true => (String::new(), ""),
@@ -175,7 +175,7 @@ fn listed(lines: &[String], none: &str) -> String {
 
 /// What the model wrote, in lines the person can be shown.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Written {
+pub struct Written {
     pub done: Vec<String>,
     pub now: Option<String>,
     pub next: Option<String>,
@@ -185,7 +185,7 @@ pub(crate) struct Written {
 
 /// The model's answer, read. `None` where no line of it survives, which writes no account.
 /// `groups` are those the question offered.
-pub(crate) fn read(reply: &str, groups: &[(String, String)]) -> Option<Written> {
+pub fn read(reply: &str, groups: &[(String, String)]) -> Option<Written> {
     let mut written = Written::default();
     for line in reply.lines() {
         let line = line.trim().trim_start_matches(['-', '*', ' ']);

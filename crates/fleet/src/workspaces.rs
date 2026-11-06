@@ -36,7 +36,7 @@ pub fn load(root: &Path, manifest: &Manifest) -> Workspaces {
 }
 
 /// A load failure as the wire carries it.
-pub(crate) fn refused(why: &LoadError) -> ManifestRefused {
+pub fn refused(why: &LoadError) -> ManifestRefused {
     ManifestRefused {
         summary: why.to_string(),
         faults: why
@@ -52,7 +52,7 @@ pub(crate) fn refused(why: &LoadError) -> ManifestRefused {
 
 /// The reading that says `file` was left out, in the shape a refused root
 /// manifest is said in.
-pub(crate) fn reading_of(file: &Path, why: &LoadError, at: ipc::Instant) -> ManifestReading {
+pub fn reading_of(file: &Path, why: &LoadError, at: ipc::Instant) -> ManifestReading {
     ManifestReading {
         path: file.display().to_string(),
         at,

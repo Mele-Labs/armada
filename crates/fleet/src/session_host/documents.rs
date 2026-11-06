@@ -30,12 +30,12 @@ const DOCUMENTS: &str = "/.armada/documents/";
 impl Fleet
 {
     /// Where a Job's pages are kept, a folder to each page.
-    pub(crate) fn documents_of(&self, id: &str) -> PathBuf {
+    pub fn documents_of(&self, id: &str) -> PathBuf {
         Path::new(&self.host().attachments_dir).join("documents").join(id)
     }
 
     /// The page at `path` was written and the tool has answered, so the file on disk is the Job's.
-    pub(super) async fn page_written(self: &Arc<Self>, id: &str, path: String) {
+    pub async fn page_written(self: &Arc<Self>, id: &str, path: String) {
         let folder = self.documents_of(id).join(folder_of(&path));
         let read = path.clone();
         let kept = tokio::task::spawn_blocking(move || {
@@ -86,7 +86,7 @@ impl Fleet
     /// The turn ended: every page under `<cwd>/.armada/documents/` is read again, so one a script or a
     /// shell changed is kept too. A page whose bytes the newest revision holds keeps nothing, and neither
     /// does one another Job left here as it kept it.
-    pub(super) async fn pages_reread(self: &Arc<Self>, id: &str, cwd: &str) {
+    pub async fn pages_reread(self: &Arc<Self>, id: &str, cwd: &str) {
         let folder = Path::new(cwd).join(DOCUMENTS.trim_matches('/'));
         let Ok(pages) = tokio::task::spawn_blocking(move || pages_under(&folder)).await else { return };
         for page in pages {
@@ -118,7 +118,7 @@ impl Fleet
     /// Job `new` took the place of `old`: it holds each page from here, with the revisions copied to its
     /// own folder, the newest revision's number and his answer or dismissal, so only a real edit asks
     /// again. `old` keeps its own, so a hand undone has lost nothing.
-    pub(super) async fn pages_carried(&self, old: &str, new: &str) {
+    pub async fn pages_carried(&self, old: &str, new: &str) {
         let (held, dismissed) = {
             let store = self.store().lock().await;
             (store.attachments_of(&Holder::session(old)).unwrap_or_default(), store.dismissed_waiting(old).unwrap_or_default())
@@ -143,7 +143,7 @@ impl Fleet
 }
 
 /// The paths a document's `revisions` names, oldest first, and none where it names none.
-pub(super) fn revisions_named(detail: &BTreeMap<String, String>) -> Vec<String> {
+pub fn revisions_named(detail: &BTreeMap<String, String>) -> Vec<String> {
     detail.get("revisions").and_then(|kept| ipc::decode("a document's revisions", kept.as_bytes()).ok()).unwrap_or_default()
 }
 
@@ -180,7 +180,7 @@ fn pages_under(folder: &Path) -> Vec<String> {
 }
 
 /// The one line that tells a Job which sketches of its page will not draw, or `None` where all do.
-pub(crate) fn sketches_that_will_not_draw(html: &str, path: &str) -> Option<String> {
+pub fn sketches_that_will_not_draw(html: &str, path: &str) -> Option<String> {
     let sketches = sketches_in(html);
     let total = sketches.len();
     let failing: Vec<String> = sketches
@@ -205,12 +205,12 @@ fn folder_of(path: &str) -> String {
 }
 
 /// `text` as one folder name: anything but letters, digits, `-` and `.` becomes `_`.
-pub(crate) fn one_name(text: &str) -> String {
+pub fn one_name(text: &str) -> String {
     text.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '.') { c } else { '_' }).collect()
 }
 
 /// The revisions in `folder` with extension `ext`, oldest first: `r1.<ext>`, `r2.<ext>` and on.
-pub(crate) fn revisions_in(folder: &Path, ext: &str) -> Vec<PathBuf> {
+pub fn revisions_in(folder: &Path, ext: &str) -> Vec<PathBuf> {
     let mut held: Vec<(u32, PathBuf)> = std::fs::read_dir(folder)
         .into_iter()
         .flatten()
@@ -227,7 +227,7 @@ pub(crate) fn revisions_in(folder: &Path, ext: &str) -> Vec<PathBuf> {
 
 /// Keep `bytes` as the next revision in `folder` unless the newest holds exactly them. The revisions,
 /// oldest first, where one was kept.
-pub(crate) fn keep(folder: &Path, bytes: &[u8], ext: &str) -> io::Result<Option<Vec<PathBuf>>> {
+pub fn keep(folder: &Path, bytes: &[u8], ext: &str) -> io::Result<Option<Vec<PathBuf>>> {
     std::fs::create_dir_all(folder)?;
     let held = revisions_in(folder, ext);
     if let Some(newest) = held.last() {

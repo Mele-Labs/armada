@@ -28,7 +28,7 @@ const KIT_ALLOWLIST_REFUSED: &str = "fleet.kit_allowlist_refused";
 static WRITING: Mutex<()> = Mutex::new(());
 
 /// What the file holds, line by line.
-pub(crate) fn parse(text: &str) -> Vec<KitAllowedCommand> {
+pub fn parse(text: &str) -> Vec<KitAllowedCommand> {
     text.lines()
         .filter_map(|line| {
             let line = line.trim_end_matches('\r');
@@ -62,7 +62,7 @@ pub(crate) fn parse(text: &str) -> Vec<KitAllowedCommand> {
 }
 
 /// Where an inventory row says a command came from, as a person reads it.
-pub(crate) fn said_source(from: &KitAllowedSource) -> String {
+pub fn said_source(from: &KitAllowedSource) -> String {
     match from {
         KitAllowedSource::RetroItem { lesson_id } => format!("retro item {lesson_id}"),
         KitAllowedSource::AlwaysAllow => String::from("always allow"),
@@ -100,7 +100,7 @@ impl Fleet
     /// The same read, saying why where it would not. **An absent file is an
     /// empty list**, which it is; a file that is there and will not read is
     /// not, and an inventory says so rather than drawing it as empty.
-    pub(crate) async fn kit_allowlist_read(&self) -> Result<Vec<KitAllowedCommand>, String> {
+    pub async fn kit_allowlist_read(&self) -> Result<Vec<KitAllowedCommand>, String> {
         match tokio::fs::read_to_string(self.kit_allowlist_path()).await {
             Ok(text) => Ok(parse(&text)),
             Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
@@ -111,7 +111,7 @@ impl Fleet
     /// `remove_kit_allowed_command`: take the line spelled `run` out, and answer
     /// with what the file holds now. Every other line, notes included, stays as
     /// the person left it.
-    pub(crate) async fn remove_from_kit_allowlist(
+    pub async fn remove_from_kit_allowlist(
         &self,
         run: &str,
     ) -> Result<KitAllowedCommands, Refusal> {
@@ -140,7 +140,7 @@ impl Fleet
     /// Every command Kit's allowlist holds, in the order the file holds them.
     /// **Empty where the file is absent or will not read**: nothing is allowed
     /// by a list nobody could read, the closed way to be wrong.
-    pub(crate) async fn kit_allowed_commands(&self) -> Vec<KitAllowedCommand> {
+    pub async fn kit_allowed_commands(&self) -> Vec<KitAllowedCommand> {
         self.kit_allowlist_read().await.unwrap_or_default()
     }
 
@@ -149,7 +149,7 @@ impl Fleet
     }
 
     /// A 409 with no Job to name, `crate::kit`'s shape.
-    pub(crate) fn kit_allowlist_refusal(&self, why: String) -> Refusal {
+    pub fn kit_allowlist_refusal(&self, why: String) -> Refusal {
         Refusal::Unacceptable(WireError::raised(KIT_ALLOWLIST_REFUSED, why, self.run_id()))
     }
 }

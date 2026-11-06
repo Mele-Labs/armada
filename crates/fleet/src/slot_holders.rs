@@ -19,7 +19,7 @@ use crate::sessioning::{placed, Placed};
 
 /// What the pool says of a Session's claim to a slot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Claim {
+pub enum Claim {
     /// The lease is written as this Session's.
     Holds,
     /// Held, and the lease names no live Session: a person's own terminal, a lease from before
@@ -38,7 +38,7 @@ fn live(store: &Store, id: &str) -> bool {
 }
 
 /// The pool's word on `session` and slot `slot` of the repository at `root`.
-pub(crate) fn claim_on(
+pub fn claim_on(
     store: &Store,
     root: &str,
     slot: u32,
@@ -60,21 +60,21 @@ pub(crate) fn claim_on(
 }
 
 /// A slot a Session stands in that the pool, the worktree and the ledger agree on.
-pub(crate) struct Stand {
-    pub(crate) path: PathBuf,
-    pub(crate) claim: Claim,
+pub struct Stand {
+    pub path: PathBuf,
+    pub claim: Claim,
 }
 
 impl Stand {
     /// Whether `branch` is what is checked out there.
-    pub(crate) fn on(&self, branch: &str) -> bool {
+    pub fn on(&self, branch: &str) -> bool {
         adapters::leasing::checked_out(&self.path).as_deref() == Some(branch)
     }
 }
 
 /// Where `session` stands in the pool of `root`, off the rows it `held`: its standing `slot` row
 /// of this repository, a lease the pool does not deny, and the worktree there.
-pub(crate) fn stand_of(
+pub fn stand_of(
     store: &Store,
     manifest: &str,
     root: &str,
@@ -94,7 +94,7 @@ pub(crate) fn stand_of(
 /// something it started and named for it (a subagent's `armada worktree lease`). **A Session
 /// holds more than the one slot its ledger row names**, and writes in each. Every slot on disk is
 /// read, since one past the pool's size the owner set is still held until it is given back.
-pub(crate) fn slots_of(served: &Served, session: &str) -> Vec<u32> {
+pub fn slots_of(served: &Served, session: &str) -> Vec<u32> {
     let root = served.root().trim_end_matches('/');
     let first = PathBuf::from(adapter_traits::slot_path(root, 1));
     let mut on_disk: Vec<u32> = first
@@ -124,7 +124,7 @@ pub(crate) fn slots_of(served: &Served, session: &str) -> Vec<u32> {
 /// live Session it names holds the slot, whatever slot its own `slot` row says, since a Session
 /// leases more than the one it first wrote in. Where the lease names none, the standing `slot` row
 /// of a Session the pool does not deny.
-pub(crate) fn session_in_slot(store: &Store, manifest: &str, root: &str, slot: u32) -> Option<String> {
+pub fn session_in_slot(store: &Store, manifest: &str, root: &str, slot: u32) -> Option<String> {
     let at = adapter_traits::slot_path(root.trim_end_matches('/'), slot);
     let at = std::path::Path::new(&at);
     let named = match adapters::leasing::holder_of(at) {
@@ -175,7 +175,7 @@ fn confirmed_on(store: &Store, manifest: &str, root: &str, branch: &str) -> Vec<
 
 /// Whether a branch `session` is credited with is one the pool allows it: a Session that stands
 /// in no slot has nothing to contradict it, and one that does stands there on that branch.
-pub(crate) fn pool_allows_branch(store: &Store, manifest: &str, root: &str, session: &str, branch: &str) -> bool {
+pub fn pool_allows_branch(store: &Store, manifest: &str, root: &str, session: &str, branch: &str) -> bool {
     let held = store.attachments_of(&Holder::session(session)).unwrap_or_default();
     match stand_of(store, manifest, root, &held, session) {
         Some(stand) => stand.on(branch),
@@ -203,7 +203,7 @@ fn earliest(store: &Store, manifest: &str, kind: &str, target: &str, spent: bool
 }
 
 /// Who works `branch`: the Sessions the pool confirms, else the one that stood on it first.
-pub(crate) fn sessions_on_branch(store: &Store, manifest: &str, root: &str, branch: &str) -> Vec<String> {
+pub fn sessions_on_branch(store: &Store, manifest: &str, root: &str, branch: &str) -> Vec<String> {
     let confirmed = confirmed_on(store, manifest, root, branch);
     if !confirmed.is_empty() {
         return confirmed;
@@ -215,7 +215,7 @@ pub(crate) fn sessions_on_branch(store: &Store, manifest: &str, root: &str, bran
 /// working the branch, and among them the one whose `pr` row holds the number; where the pool
 /// confirms nobody, the Session whose `pr` row is oldest, else the one that stood on the branch
 /// first. `spent` also counts rows used up by the merge.
-pub(crate) fn sessions_on_pull(
+pub fn sessions_on_pull(
     store: &Store,
     manifest: &str,
     root: &str,
@@ -245,7 +245,7 @@ pub(crate) fn sessions_on_pull(
 /// owner, then every other live Session whose `pr` row holds the number. **News goes to each Job
 /// that holds the pull request**, where a failure goes to one: a Job asked to see it merge holds
 /// it from another branch than the one it was opened on, and is told nothing by the owner's row.
-pub(crate) fn sessions_told_of_pull(
+pub fn sessions_told_of_pull(
     store: &Store,
     manifest: &str,
     root: &str,
@@ -282,7 +282,7 @@ fn holders_of(store: &Store, manifest: &str, kind: &str, target: &str, spent: bo
 /// Whether the pool backs a branch or pull request credited to `session` from where it stands:
 /// a Session outside the pool's slots has nothing to contradict it, and one inside a slot is
 /// believed only if the lease there is not another's.
-pub(crate) fn pool_backs(store: &Store, session: &KeptSession, roots: &[(String, String)]) -> bool {
+pub fn pool_backs(store: &Store, session: &KeptSession, roots: &[(String, String)]) -> bool {
     let Placed { manifest: Some(manifest), slot: Some(slot) } = placed(&session.cwd, roots) else {
         return true;
     };
@@ -295,7 +295,7 @@ pub(crate) fn pool_backs(store: &Store, session: &KeptSession, roots: &[(String,
 /// Take the slot `placed` names for `holder`, or give back the one it was in where it stands in
 /// none. **The pool is asked first**: a directory is where a harness
 /// says it is, and the lease says who works there. `true` where the ledger changed.
-pub(crate) fn stand_in_slot(
+pub fn stand_in_slot(
     store: &mut Store,
     holder: &Holder,
     placed: &Placed,
@@ -343,7 +343,7 @@ impl Fleet
     /// own, Bridge's, a lease taken back from a gone holder) is settled for terminal and hosted
     /// Sessions alike, and not at a hosted Session's next gate call. A `pr` row stays: the Session
     /// that opened a pull request still owns it after it leaves the slot.
-    pub(crate) async fn slot_rows_followed(&self, served: &Served) {
+    pub async fn slot_rows_followed(&self, served: &Served) {
         let manifest = served.manifest().id().as_str().to_string();
         let root = served.root().to_string();
         let now = self.now().as_str().to_string();

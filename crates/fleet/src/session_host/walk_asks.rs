@@ -8,12 +8,12 @@
 use ipc::WaitingActKind;
 
 /// Whether an item carries a `walk` act.
-pub(crate) fn asks_to_walk(act: Option<WaitingActKind>) -> bool {
+pub fn asks_to_walk(act: Option<WaitingActKind>) -> bool {
     act == Some(WaitingActKind::Walk)
 }
 
 /// What the agent reads when its list is refused for a walk item.
-pub(crate) fn walk_item_refusal(id: &str) -> String {
+pub fn walk_item_refusal(id: &str) -> String {
     format!(
         "Refused: item \"{id}\" asks the owner to walk something, and a walk reaches his list only \
          through show_window. Fleet lists each window you show and takes it off when he approves it. \

@@ -6,14 +6,14 @@ use ipc::{
 };
 use store::{KeptJudgeNote, KeptJudgeReading};
 
-pub(crate) const READING: &str = "reading";
-pub(crate) const DONE: &str = "done";
-pub(crate) const FAILED: &str = "failed";
+pub const READING: &str = "reading";
+pub const DONE: &str = "done";
+pub const FAILED: &str = "failed";
 
 /// What a reading whose Fleet stopped before it ended reads as.
-pub(crate) const DIED: &str = "Fleet restarted before the reading finished";
+pub const DIED: &str = "Fleet restarted before the reading finished";
 
-pub(crate) const KINDS: [(JudgeKind, &str); 12] = [
+pub const KINDS: [(JudgeKind, &str); 12] = [
     (JudgeKind::Job, "job"),
     (JudgeKind::Plan, "plan"),
     (JudgeKind::PullRequest, "pull_request"),
@@ -28,11 +28,11 @@ pub(crate) const KINDS: [(JudgeKind, &str); 12] = [
     (JudgeKind::Note, "note"),
 ];
 
-pub(crate) fn kind_word(kind: JudgeKind) -> &'static str {
+pub fn kind_word(kind: JudgeKind) -> &'static str {
     KINDS.iter().find(|(held, _)| *held == kind).map_or("job", |(_, word)| word)
 }
 
-pub(crate) fn kind_of(word: &str) -> JudgeKind {
+pub fn kind_of(word: &str) -> JudgeKind {
     KINDS.iter().find(|(_, held)| *held == word).map_or(JudgeKind::Job, |(kind, _)| *kind)
 }
 
@@ -44,7 +44,7 @@ fn state_of(word: &str) -> JudgeState {
     }
 }
 
-pub(crate) fn how_word(how: JudgeNoteHow) -> &'static str {
+pub fn how_word(how: JudgeNoteHow) -> &'static str {
     match how {
         JudgeNoteHow::Sent => "sent",
         JudgeNoteHow::Dismissed => "dismissed",
@@ -59,7 +59,7 @@ fn how_of(word: &str) -> JudgeNoteHow {
 }
 
 /// The reading as the wire carries it.
-pub(crate) fn reading_of(kept: &KeptJudgeReading) -> JudgeReading {
+pub fn reading_of(kept: &KeptJudgeReading) -> JudgeReading {
     JudgeReading {
         id: kept.id.clone(),
         artifact: JudgeArtifact { kind: kind_of(&kept.kind), id: kept.artifact_id.clone(), title: kept.title.clone() },
@@ -92,7 +92,7 @@ fn note_of(kept: &KeptJudgeNote) -> JudgeNote {
 }
 
 /// A note as it is kept.
-pub(crate) fn note_kept(note: &JudgeNote) -> KeptJudgeNote {
+pub fn note_kept(note: &JudgeNote) -> KeptJudgeNote {
     KeptJudgeNote {
         id: note.id.clone(),
         about: note.about.clone(),
@@ -131,7 +131,7 @@ fn artifact_told(reading: &KeptJudgeReading) -> String {
 
 /// What the agent is told when the person sends a note: the part it is about as the person reads it,
 /// then the claim and what it rests on.
-pub(crate) fn message(reading: &KeptJudgeReading, note: &KeptJudgeNote) -> String {
+pub fn message(reading: &KeptJudgeReading, note: &KeptJudgeNote) -> String {
     let part = match note.place.as_deref().map(str::trim).filter(|place| !place.is_empty()) {
         Some(place) => format!(", at {place}"),
         None => String::new(),

@@ -25,7 +25,7 @@ impl Fleet {
     /// by the surface that would draw it rather than answered here by dropping
     /// the fact.
     ///
-    /// `pub` rather than `pub(crate)`: the watch lives in the composition root,
+    /// `pub` rather than `pub`: the watch lives in the composition root,
     /// above this crate, because what it watches is a path the root resolved.
     ///
     /// `root` is the repository whose `armada.yml` was read; a root no longer

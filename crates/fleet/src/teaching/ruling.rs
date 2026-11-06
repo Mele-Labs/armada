@@ -24,19 +24,19 @@ use crate::piece_places::{files_in, RULES};
 use crate::piece_saving::rule_as_read;
 
 /// What a rule is read against, and what the model is told it may name.
-pub(crate) struct Ground {
+pub struct Ground {
     /// The lifecycles that apply to the repository the teaching is in.
-    pub(crate) lifecycles: Vec<Lifecycle>,
+    pub lifecycles: Vec<Lifecycle>,
     /// The repository's workflows, each as its slug, its name and its steps by id and label.
-    pub(crate) workflows: Vec<(String, String, Vec<(String, String)>)>,
+    pub workflows: Vec<(String, String, Vec<(String, String)>)>,
     /// Every rule id that applies to the repository or that Kit keeps, since a rule of an id that
     /// applies beside it would replace it or be replaced.
-    pub(crate) taken: Vec<String>,
+    pub taken: Vec<String>,
 }
 
 impl Ground {
     /// The lifecycles and workflows as the question names them.
-    pub(crate) fn listed(&self) -> String {
+    pub fn listed(&self) -> String {
         let mut lines = vec!["Lifecycles, each with its states as id (label):".to_string()];
         for lifecycle in &self.lifecycles {
             let states: Vec<String> =
@@ -58,7 +58,7 @@ impl Ground {
 /// A rule as the model wrote it. **No id, no scope and no per-act kind or autonomy**: Fleet gives
 /// those, so none of them is a model's to get wrong.
 #[derive(Deserialize)]
-pub(crate) struct SaidRule {
+pub struct SaidRule {
     name: String,
     when: RuleWhen,
     #[serde(default, rename = "if")]
@@ -83,7 +83,7 @@ enum SaidCondition {
 }
 
 /// Where a rule taught with this reach is kept: the repository's Manifest id, or every repository.
-pub(crate) fn scope_for(reach: TeachingReach, manifest: Option<&str>) -> Result<PieceScope, String> {
+pub fn scope_for(reach: TeachingReach, manifest: Option<&str>) -> Result<PieceScope, String> {
     match (reach, manifest) {
         (TeachingReach::Everywhere, _) => Ok(PieceScope::Everywhere),
         (TeachingReach::Repository, Some(id)) => Ok(PieceScope::Within { id: id.to_string() }),
@@ -93,7 +93,7 @@ pub(crate) fn scope_for(reach: TeachingReach, manifest: Option<&str>) -> Result<
 
 /// An id made of `name`: lower case letters and digits joined by `_`, starting with a letter, and
 /// `_2`, `_3` and on where `taken` holds it. **The editor's rule for a new rule's id.**
-pub(crate) fn id_from(name: &str, taken: &[String]) -> String {
+pub fn id_from(name: &str, taken: &[String]) -> String {
     let mut base = String::new();
     for one in name.chars().flat_map(char::to_lowercase) {
         if one.is_ascii_alphanumeric() {
@@ -128,7 +128,7 @@ fn name_fault(name: &str) -> Option<String> {
 
 /// The rule piece a rule would be kept as, with the scope and the id Fleet gives it, **held to a
 /// read of its file**. The rule as that read answers it.
-pub(crate) fn kept(rule: &LifecycleRule, reach: TeachingReach, manifest: Option<&str>, ground: &Ground) -> Result<LifecycleRule, String> {
+pub fn kept(rule: &LifecycleRule, reach: TeachingReach, manifest: Option<&str>, ground: &Ground) -> Result<LifecycleRule, String> {
     if let Some(why) = name_fault(&rule.name) {
         return Err(why);
     }
@@ -142,7 +142,7 @@ pub(crate) fn kept(rule: &LifecycleRule, reach: TeachingReach, manifest: Option<
 }
 
 /// The rule an answer proposes, or why it is not one.
-pub(crate) fn read(said: SaidRule, at: &Context) -> Result<ProposedRule, Unfit> {
+pub fn read(said: SaidRule, at: &Context) -> Result<ProposedRule, Unfit> {
     let ground = at.rule.ok_or_else(|| Unfit::Rule("a rule needs the lifecycles it is for".to_string()))?;
     let mut untestable: Vec<String> = Vec::new();
     let mut said_untestable = |words: &str| {
@@ -183,7 +183,7 @@ impl Fleet
 {
     /// What a rule taught in the repository at `root` is read against. **A teaching with no
     /// repository has the four lifecycles Armada carries**, and no workflow.
-    pub(crate) fn rule_ground(&self, root: Option<&str>) -> Ground {
+    pub fn rule_ground(&self, root: Option<&str>) -> Ground {
         let manifest = root.and_then(|root| self.manifest_id_at(root));
         let lifecycles = match &manifest {
             Some(manifest) => self.lifecycles_that_apply(manifest),

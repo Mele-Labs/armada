@@ -8,7 +8,7 @@ use ipc::RetroRecord;
 use crate::prompts::{fill, Prompts};
 
 /// The session retro's question as it ships: `prompts.retroSession`'s default.
-pub(crate) const SESSION_QUESTION: &str =
+pub const SESSION_QUESTION: &str =
     "A person has been talking with a coding agent in a conversation, a job named \
          \"{name}\", and has asked for its retro. This is a conversation with a person, not a \
          workflow with steps. Below is its record since the last retro: what Armada wrote down \
@@ -65,7 +65,7 @@ pub(crate) const SESSION_QUESTION: &str =
 /// The question, with the record fenced as data. **The same road as a Job's**:
 /// the places a fix lands and how the texts are written are its words, and the
 /// refuse-to-guess rules are as strict.
-pub(super) fn question(
+pub fn question(
     prompts: &Prompts,
     record: &RetroRecord,
     title: Option<&str>,

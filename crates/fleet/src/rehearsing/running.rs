@@ -26,18 +26,18 @@ use crate::daemon::Fleet;
 /// Which tree this is, whose ports it draws and where its record goes were all
 /// settled in [`Place`]; what follows runs one command in one directory and
 /// writes one record.
-pub(crate) struct Plan {
-    pub(crate) place: Place,
-    pub(crate) tree: Tree,
-    pub(crate) entry: Entry,
-    pub(crate) underway: Underway,
-    pub(crate) dir: PathBuf,
+pub struct Plan {
+    pub place: Place,
+    pub tree: Tree,
+    pub entry: Entry,
+    pub underway: Underway,
+    pub dir: PathBuf,
     /// Where the run's output goes. Dropped when the run returns, which with
     /// [`Held`] going is what tells every viewer the run finished.
-    pub(crate) feed: api::RunFeed,
+    pub feed: api::RunFeed,
     /// The Verify this run is a step of, handed the record before it is
     /// published — `super::verifying`. `None` for a run a person started.
-    pub(crate) verify: Option<tokio::sync::oneshot::Sender<Handed>>,
+    pub verify: Option<tokio::sync::oneshot::Sender<Handed>>,
 }
 
 struct Outcome {
@@ -53,7 +53,7 @@ fn seconds(at: &Timestamp) -> i64 {
 impl Fleet
 {
     /// The run, start to record. Every failure is a fact on the record.
-    pub(crate) async fn rehearsed(
+    pub async fn rehearsed(
         &self,
         mut plan: Plan,
         held: Held,
@@ -264,7 +264,7 @@ async fn settled(
     }
 }
 
-pub(super) fn wired(file: &adapter_traits::ChangedFile) -> ipc::ChangedFile {
+pub fn wired(file: &adapter_traits::ChangedFile) -> ipc::ChangedFile {
     ipc::ChangedFile {
         path: file.path().to_string(),
         change: crate::wire::kind(file.change()),

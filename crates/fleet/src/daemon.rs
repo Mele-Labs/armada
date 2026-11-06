@@ -23,13 +23,13 @@ use crate::headroom::{Headroom, Machine};
 use crate::mint::Mint;
 use crate::peer::PeerOf;
 
-mod answering;
+pub mod answering;
 pub use answering::Reconciled;
-mod fittings;
-mod rereading;
-mod seams;
+pub mod fittings;
+pub mod rereading;
+pub mod seams;
 
-pub(crate) use fittings::Local;
+pub use fittings::Local;
 pub use fittings::{Fittings, Host, StartingIn};
 
 /// The harness Fleet holds: its error is never raised, so one type names it.

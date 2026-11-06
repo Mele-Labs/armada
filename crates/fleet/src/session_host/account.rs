@@ -29,12 +29,12 @@ use crate::session_account::{read, read_so_far, JobSoFar, TurnSoFar, CALLS_AT_MO
 /// the account was most of Fleet's model calls, each one tokens and a 300 MB CLI process, and the
 /// owner chose a line up to half a minute behind over that cost (4 Nov 2026). Spike 39 found no
 /// cheaper model that writes it well enough.
-pub(crate) const WRITE_EVERY: Duration = Duration::from_secs(30);
+pub const WRITE_EVERY: Duration = Duration::from_secs(30);
 /// The longest a first change waits for the rest of its burst, where the model has not been asked lately.
 const SETTLE: Duration = Duration::from_secs(1);
 
 /// What a model call is made from, and which message it answers.
-pub(crate) struct Reading {
+pub struct Reading {
     pub for_message: String,
     /// How many times the account was cleared when it began, so an answer that crossed a clear is dropped.
     pub epoch: u32,
@@ -43,7 +43,7 @@ pub(crate) struct Reading {
 
 /// What an account is written from, and the account.
 #[derive(Default)]
-pub(crate) struct Writing {
+pub struct Writing {
     /// The last message the person sent: its row id and his words.
     his: Option<(String, String)>,
     /// That message has not started a turn yet, so the turn it starts is a new one.
@@ -72,13 +72,13 @@ pub(crate) struct Writing {
 
 impl Writing {
     /// The person sent a message.
-    pub(crate) fn person_said(&mut self, row: &str, words: &str) {
+    pub fn person_said(&mut self, row: &str, words: &str) {
         self.his = Some((row.to_string(), words.to_string()));
         self.his_unstarted = true;
     }
 
     /// A call of the Session's own, as `now` words.
-    pub(crate) fn call_seen(&mut self, now: &str) {
+    pub fn call_seen(&mut self, now: &str) {
         if self.calls.last().map(String::as_str) != Some(now) {
             self.calls.push(now.to_string());
             let over = self.calls.len().saturating_sub(CALLS_AT_MOST);
@@ -89,7 +89,7 @@ impl Writing {
     }
 
     /// The agent said something.
-    pub(crate) fn said_seen(&mut self, text: &str) {
+    pub fn said_seen(&mut self, text: &str) {
         self.said.push(text.trim().to_string());
         let over = self.said.len().saturating_sub(SAID_MOST);
         self.said.drain(..over);
@@ -98,7 +98,7 @@ impl Writing {
     }
 
     /// A page was shown or served. Whether the live view changed.
-    pub(crate) fn live_seen(&mut self, url: &str, title: &str) -> bool {
+    pub fn live_seen(&mut self, url: &str, title: &str) -> bool {
         let live = SessionLive { url: url.to_string(), title: title.to_string() };
         let changed = self.live.as_ref() != Some(&live);
         self.live = Some(live);
@@ -107,7 +107,7 @@ impl Writing {
 
     /// A turn began. **Only a message from him that starts it clears the account**, the live page and
     /// what they were read from.
-    pub(crate) fn turn_began(&mut self) {
+    pub fn turn_began(&mut self) {
         if !std::mem::take(&mut self.his_unstarted) {
             return;
         }
@@ -122,7 +122,7 @@ impl Writing {
     /// Something was read that no account has. **How long to wait before asking the model, or
     /// `None`** where a task is already waiting or a call is out: a burst of changes is one call,
     /// made once the wait is up and reading all of it, and the model is asked at most once in `every`.
-    pub(crate) fn wanted(&mut self, every: Duration) -> Option<Duration> {
+    pub fn wanted(&mut self, every: Duration) -> Option<Duration> {
         if !self.dirty || self.his.is_none() || self.scheduled || self.asking {
             return None;
         }
@@ -134,7 +134,7 @@ impl Writing {
     }
 
     /// The wait is over and the model is about to be asked. `None` where there is nothing to ask.
-    pub(crate) fn begin(&mut self, groups: Vec<(String, String)>) -> Option<Reading> {
+    pub fn begin(&mut self, groups: Vec<(String, String)>) -> Option<Reading> {
         self.scheduled = false;
         if !std::mem::take(&mut self.dirty) {
             return None;
@@ -152,7 +152,7 @@ impl Writing {
     /// The call is over, with `account` where it wrote one. An account for a message he has since
     /// replaced, or that crossed a clear, is dropped. Whether the account changed, and how long to
     /// wait before asking again where more was read meanwhile.
-    pub(crate) fn finished(
+    pub fn finished(
         &mut self,
         epoch: u32,
         account: Option<SessionAccount>,
@@ -173,7 +173,7 @@ impl Writing {
     /// The running summary is wanted. `None` where a call is out, which is asked again once it is over,
     /// and where nothing was read since the last one. Otherwise what the model is shown, with `last`
     /// left for the caller to read from the store.
-    pub(crate) fn so_far_begin(&mut self) -> Option<JobSoFar> {
+    pub fn so_far_begin(&mut self) -> Option<JobSoFar> {
         if self.so_far_asking {
             self.so_far_again = true;
             return None;
@@ -191,16 +191,16 @@ impl Writing {
     }
 
     /// The call is over. Whether another is owed: one was asked for meanwhile and more was read.
-    pub(crate) fn so_far_finished(&mut self) -> bool {
+    pub fn so_far_finished(&mut self) -> bool {
         self.so_far_asking = false;
         std::mem::take(&mut self.so_far_again) && self.so_far_dirty
     }
 
-    pub(crate) fn account(&self) -> Option<SessionAccount> {
+    pub fn account(&self) -> Option<SessionAccount> {
         self.account.clone()
     }
 
-    pub(crate) fn live(&self) -> Option<SessionLive> {
+    pub fn live(&self) -> Option<SessionLive> {
         self.live.clone()
     }
 }
@@ -208,7 +208,7 @@ impl Writing {
 impl Fleet
 {
     /// What the model reads changed: an account is written in a task of its own, once the wait is up.
-    pub(super) fn account_wanted(self: &Arc<Self>, id: &str) {
+    pub fn account_wanted(self: &Arc<Self>, id: &str) {
         let every = self.hosts().account_every();
         let wait = self.hosts().of(id).state().activity.writing.wanted(every);
         if let Some(wait) = wait {
@@ -217,7 +217,7 @@ impl Fleet
     }
 
     /// A turn ended or a call went to the person: the running summary is written in a task of its own.
-    pub(super) fn so_far_wanted(self: &Arc<Self>, id: &str) {
+    pub fn so_far_wanted(self: &Arc<Self>, id: &str) {
         let (fleet, id) = (Arc::clone(self), id.to_string());
         tokio::spawn(async move { fleet.so_far_written(&id).await });
     }
@@ -292,7 +292,7 @@ impl Fleet
 
     /// A page the Session showed or served is its live view. What the row's publish needs, which a
     /// caller that publishes the row itself may leave.
-    pub(crate) fn live_page_seen(&self, id: &str, url: &str, title: &str) -> Publish {
+    pub fn live_page_seen(&self, id: &str, url: &str, title: &str) -> Publish {
         let runtime = self.hosts().of(id);
         let mut state = runtime.state();
         match state.activity.writing.live_seen(url, title) {
@@ -334,14 +334,14 @@ impl Fleet
 }
 
 /// `ask` as the turn-summary settings say: kept briefly, and not thinking.
-pub(crate) fn summary_asked(ask: Ask, briefly: bool, unthinking: bool) -> Ask {
+pub fn summary_asked(ask: Ask, briefly: bool, unthinking: bool) -> Ask {
     let ask = if briefly { ask.kept_briefly() } else { ask };
     if unthinking { ask.unthinking() } else { ask }
 }
 
 /// Which plan group an account names.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct GroupChoice {
+pub struct GroupChoice {
     /// The group holding a task at work, which is the answer where there is one.
     pub working: Option<String>,
     /// The approved plan's groups, for the model to pick among where no task is at work.
@@ -350,7 +350,7 @@ pub(crate) struct GroupChoice {
 
 /// The group the Session is on. **None for a plan the person has not approved**: it is a proposal and
 /// not the work.
-pub(crate) fn group_choice(plan: Option<&SessionPlan>) -> GroupChoice {
+pub fn group_choice(plan: Option<&SessionPlan>) -> GroupChoice {
     let Some(plan) = plan.filter(|plan| plan.approved) else { return GroupChoice::default() };
     let working = plan
         .groups

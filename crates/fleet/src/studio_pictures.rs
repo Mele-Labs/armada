@@ -24,7 +24,7 @@ impl Fleet
     /// frame is kept because the file is named for it. A write the store then
     /// refuses — a `produced_by` naming no node of this Studio — takes the
     /// file back out, since nothing would name it.
-    pub(crate) async fn picture_added(
+    pub async fn picture_added(
         &self,
         studio_id: ipc::StudioId,
         staged: StagedFrame,

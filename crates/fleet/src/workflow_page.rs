@@ -24,14 +24,14 @@ use crate::repositories::{Served, WorkflowNotRemoved};
 /// No definition by that id in that place. A 422.
 const NO_SUCH_DEFINITION: &str = "fleet.no_such_workflow_definition";
 /// The definition is Armada's own, which is carried in the binary. A 422.
-pub(crate) const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
+pub const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
 /// Armada carries no definition of the id to reset a copy to. A 422.
 const NOT_CARRIED: &str = "fleet.workflow_not_carried";
 
 impl Fleet
 {
     /// The refusal for an id with no definition in `source`, or none that runs where `source` is absent.
-    pub(crate) fn no_such_definition(&self, workflow_id: &str, source: Option<&str>) -> Refusal {
+    pub fn no_such_definition(&self, workflow_id: &str, source: Option<&str>) -> Refusal {
         let said = match source {
             Some(source) => format!(
                 "no `{workflow_id}` is held from {source} in this repository; a definition that \
@@ -46,7 +46,7 @@ impl Fleet
     }
 
     /// One definition step by step.
-    pub(crate) async fn workflow_steps_read(
+    pub async fn workflow_steps_read(
         &self,
         served: &Served,
         workflow_id: &str,
@@ -123,7 +123,7 @@ impl Fleet
     }
 
     /// Delete the copy's file, and hold what is left.
-    pub(crate) fn delete_workflow_copy_file(
+    pub fn delete_workflow_copy_file(
         &self,
         copy: WorkflowCopy,
         served: &Served,
@@ -155,7 +155,7 @@ impl Fleet
     }
 
     /// Rewrite the copy's file with Armada's definition of the id, checked as a save is.
-    pub(crate) fn reset_workflow_copy_file(&self, copy: WorkflowCopy, served: &Served) -> Result<WorkflowSaved, Refusal> {
+    pub fn reset_workflow_copy_file(&self, copy: WorkflowCopy, served: &Served) -> Result<WorkflowSaved, Refusal> {
         let scope = self.copy_scope(&copy)?;
         let id = copy.workflow_id.as_str();
         if !self.holds_copy(served, &copy) {

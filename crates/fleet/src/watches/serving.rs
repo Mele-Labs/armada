@@ -31,11 +31,11 @@ struct Resolved {
 }
 
 /// A recipe as a start or a try runs it: its command filled, and what else it names.
-pub(super) struct Filled {
-    pub(super) command: Vec<String>,
-    pub(super) environment: Option<String>,
-    pub(super) every: u32,
-    pub(super) gives_up_after: Option<u32>,
+pub struct Filled {
+    pub command: Vec<String>,
+    pub environment: Option<String>,
+    pub every: u32,
+    pub gives_up_after: Option<u32>,
 }
 
 /// The program a shipped recipe names, which is Fleet's own binary: an `armada` on the person's
@@ -44,16 +44,16 @@ const ARMADA: &str = "armada";
 
 impl Fleet
 {
-    pub(super) fn watch_unacceptable(&self, code: &str, why: impl Into<String>) -> Refusal {
+    pub fn watch_unacceptable(&self, code: &str, why: impl Into<String>) -> Refusal {
         Refusal::Unacceptable(WireError::raised(code, why.into(), self.run_id()))
     }
 
-    pub(super) fn watch_illegal(&self, code: &str, why: impl Into<String>) -> Refusal {
+    pub fn watch_illegal(&self, code: &str, why: impl Into<String>) -> Refusal {
         Refusal::IllegalMove(WireError::raised(code, why.into(), self.run_id()))
     }
 
     /// The hosted Job holding the connection, else the one named, which must be one Fleet holds.
-    pub(super) async fn watching_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<Option<String>, Refusal> {
+    pub async fn watching_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<Option<String>, Refusal> {
         if let Some(held) = caller.and_then(|caller| self.session_holding(&caller)) {
             return Ok(Some(held));
         }
@@ -66,7 +66,7 @@ impl Fleet
         }
     }
 
-    pub(super) async fn placed_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
+    pub async fn placed_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<String, Refusal> {
         self.watching_job(caller, named)
             .await?
             .ok_or_else(|| self.watch_unacceptable(UNPLACED, "A watch is a Job's, and nothing places one."))
@@ -74,7 +74,7 @@ impl Fleet
 
     /// The recipes Armada ships, the Job's repository holds and this machine holds, read on every
     /// start. A Job in no repository Fleet serves has the shipped ones and this machine's.
-    pub(super) async fn recipes_for(&self, job: &str) -> config::WatchRecipes {
+    pub async fn recipes_for(&self, job: &str) -> config::WatchRecipes {
         let manifest = match self.store().lock().await.session(job).ok().flatten() {
             Some(session) => session.manifest_id.filter(|id| !id.is_empty()),
             None => None,
@@ -88,7 +88,7 @@ impl Fleet
     }
 
     /// `recipe` among `job`'s, its command filled from `values`.
-    pub(super) async fn recipe_filled(
+    pub async fn recipe_filled(
         &self,
         job: &str,
         recipe: &str,
@@ -115,7 +115,7 @@ impl Fleet
     }
 
     /// `command` as the agent gave it, refused where it is not a list of whole arguments.
-    pub(super) fn command_checked(&self, command: &[String]) -> Result<(), Refusal> {
+    pub fn command_checked(&self, command: &[String]) -> Result<(), Refusal> {
         if command.is_empty() || command.iter().any(|item| item.trim().is_empty() || item.contains('\0')) {
             return Err(self.watch_unacceptable(REFUSED, "`command` is a list of arguments, none of them blank."));
         }
@@ -123,7 +123,7 @@ impl Fleet
     }
 
     /// `written`, a span named `key`, in seconds.
-    pub(super) fn span(&self, key: &str, written: &str) -> Result<u32, Refusal> {
+    pub fn span(&self, key: &str, written: &str) -> Result<u32, Refusal> {
         core_model::span_seconds(written).ok_or_else(|| {
             self.watch_unacceptable(REFUSED, format!("`{key}` is `{written}`, where it is a count and `s`, `m` or `h`: `60s`."))
         })

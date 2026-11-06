@@ -48,7 +48,7 @@ higher effort. Leave a pair out where you cannot tell.";
 /// The Session proposer's prompt as it ships. **Not an editable setting**: `prompts.proposer`
 /// is the Job's, and this reads the same three placeholders, so the one table that fills them
 /// serves both.
-pub(crate) fn session_shipped() -> String {
+pub fn session_shipped() -> String {
     format!(
         "You are deciding what kind of work a person just asked an agent to do, so \
          that the agent starts on the right footing. Answer only the question at \
@@ -75,7 +75,7 @@ pub struct SessionProposed {
 const MOST_TITLE: usize = 80;
 
 /// How many of his renames the question carries.
-pub(crate) const RENAMES_SHOWN: usize = 12;
+pub const RENAMES_SHOWN: usize = 12;
 
 /// How much of a renamed Job's request the question carries, in characters.
 const MOST_RENAMED_REQUEST: usize = 200;
@@ -204,7 +204,7 @@ impl SessionBrief {
 
 /// The question both proposers put: the request, the workflows this repository holds with the
 /// steps each runs, and the models this machine can run, filled into `prompt`'s placeholders.
-pub(crate) fn question_for(
+pub fn question_for(
     prompt: &str,
     request: &str,
     workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,
@@ -265,7 +265,7 @@ pub(crate) fn question_for(
 ///
 /// `key=value`, comma separated, so a second setting is a second pair rather
 /// than a second line — which is what keeps the four fields four.
-pub(crate) fn setting(block: &str, key: &str) -> Option<String> {
+pub fn setting(block: &str, key: &str) -> Option<String> {
     let said = field(block, "settings")?;
     said.split(',')
         .filter_map(|pair| pair.split_once('='))
@@ -280,7 +280,7 @@ pub(crate) fn setting(block: &str, key: &str) -> Option<String> {
 /// the two callers answer differently: the Job's `Brief::read` refuses the plan and
 /// [`Settled`] simply does not settle the field — which is what the workflow id
 /// one line up already does in each of them.
-pub(crate) fn named_model(block: &str) -> Option<String> {
+pub fn named_model(block: &str) -> Option<String> {
     setting(block, "model")
 }
 

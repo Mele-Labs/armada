@@ -22,7 +22,7 @@ use ipc::{
 /// `ResolvedCheck` holds the `run` this workflow froze, which is what the gate
 /// runs; serving it from the live Manifest instead would show a command that is
 /// not what ran the moment somebody edits `armada.yml` under a Job.
-pub(crate) fn declared_check(check: &core_model::ResolvedCheck) -> DeclaredCheck {
+pub fn declared_check(check: &core_model::ResolvedCheck) -> DeclaredCheck {
     DeclaredCheck {
         kind: check.kind().to_string(),
         name: check.name().map(str::to_string),
@@ -47,7 +47,7 @@ pub(crate) fn declared_check(check: &core_model::ResolvedCheck) -> DeclaredCheck
 }
 
 /// The handoff-only Checks a step leaves to a later one, by name. #849.
-pub(crate) fn held_for_handoff(
+pub fn held_for_handoff(
     workflow: &core_model::FrozenWorkflow,
     step: &core_model::StepId,
 ) -> Vec<String> {
@@ -76,7 +76,7 @@ pub(crate) fn held_for_handoff(
 /// nothing. Those need opposite readings — one verified nothing while asking
 /// to — and this is the row that says which happened, on the Job's own record
 /// and without a transcript.
-pub(crate) fn declared_checks(step: &core_model::ResolvedStep) -> Vec<DeclaredCheck> {
+pub fn declared_checks(step: &core_model::ResolvedStep) -> Vec<DeclaredCheck> {
     let sweeping = step.gates_on_every_check().then(|| DeclaredCheck {
         kind: core_model::EVERY_MANIFEST_CHECK.to_string(),
         name: None,
@@ -111,7 +111,7 @@ fn reads_as(label: &str, step_id: &str) -> String {
 ///
 /// Both tiers and the gate, because this is read *before* a dispatch: after the
 /// fact the rail says what happened, and here a person is agreeing to it.
-pub(crate) fn declared(workflow: &config::ResolvedWorkflow) -> Vec<WorkflowStep> {
+pub fn declared(workflow: &config::ResolvedWorkflow) -> Vec<WorkflowStep> {
     workflow
         .steps()
         .iter()
@@ -143,7 +143,7 @@ pub(crate) fn declared(workflow: &config::ResolvedWorkflow) -> Vec<WorkflowStep>
 /// A Manifest that has just been read exists, so the fallback covers the case
 /// where it stopped existing between the read and the ask — and a path saying
 /// where Fleet looked beats an empty string saying nothing.
-pub(crate) fn canonical(path: &std::path::Path) -> String {
+pub fn canonical(path: &std::path::Path) -> String {
     std::fs::canonicalize(path)
         .unwrap_or_else(|_| path.to_path_buf())
         .to_string_lossy()
@@ -156,7 +156,7 @@ pub(crate) fn canonical(path: &std::path::Path) -> String {
 /// The Manifest id travels on every row rather than beside the list: a
 /// workflow is only nameable against the Manifest it was resolved from, and a
 /// caller holding one row alone would otherwise have to remember which.
-pub(crate) fn workflow_summary(
+pub fn workflow_summary(
     workflow: &config::ResolvedWorkflow,
     manifest_id: &core_model::ManifestId,
     files: &[config::WorkflowFile],
@@ -190,7 +190,7 @@ pub(crate) fn workflow_summary(
 }
 
 /// One definition file as `get_workflow` answers it.
-pub(crate) fn workflow_definition(file: &config::WorkflowFile) -> ipc::WorkflowDefinition {
+pub fn workflow_definition(file: &config::WorkflowFile) -> ipc::WorkflowDefinition {
     ipc::WorkflowDefinition {
         workflow_id: WorkflowId::from(file.id()),
         source: file.source().as_wire().to_string(),
@@ -220,7 +220,7 @@ pub fn left_out_workflow(left: &config::LeftOut) -> ipc::LeftOutWorkflow {
 /// — so what is carried is the directory the file was read from, which is a
 /// fact rather than an invention. A person reading a Job wants to know which
 /// project it runs against, and a ULID does not say.
-pub(crate) fn manifest_summary(manifest: &config::Manifest, records_root: &str) -> ManifestSummary {
+pub fn manifest_summary(manifest: &config::Manifest, records_root: &str) -> ManifestSummary {
     let path = manifest.path();
     ManifestSummary {
         id: ManifestId::from(manifest.id()),
@@ -280,7 +280,7 @@ fn manifest_from_kit(kit: &config::FromKit) -> ipc::ManifestFromKit {
 }
 
 /// A lease's `since`, seconds on the record, as the wire spells the instant.
-pub(crate) fn since_of(secs: Option<u64>) -> Option<ipc::Instant> {
+pub fn since_of(secs: Option<u64>) -> Option<ipc::Instant> {
     secs.map(|secs| {
         ipc::Instant::carried(crate::clock::rfc3339_utc(
             i64::try_from(secs.saturating_mul(1000)).unwrap_or(i64::MAX),
@@ -290,7 +290,7 @@ pub(crate) fn since_of(secs: Option<u64>) -> Option<ipc::Instant> {
 
 /// One pool slot. `since` is seconds on the wire's clock, read off the lease
 /// record.
-pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot {
+pub fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot {
     use adapter_traits::SlotHeld;
     let reading = &one.reading;
     ipc::WorktreeSlot {
@@ -368,7 +368,7 @@ pub(crate) fn worktree_slot(one: &crate::leasing::PoolSlot) -> ipc::WorktreeSlot
 /// A function rather than a `From`: neither type belongs to this crate, so the impl could only
 /// live in `ipc` — and that would put the harness seam's vocabulary under the wire crate to save a
 /// `match` that is the boundary doing its job.
-pub(crate) fn kind(change: adapter_traits::Change) -> ipc::ChangeKind {
+pub fn kind(change: adapter_traits::Change) -> ipc::ChangeKind {
     use adapter_traits::Change;
     match change {
         Change::Added => ipc::ChangeKind::Added,

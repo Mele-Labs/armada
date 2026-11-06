@@ -59,7 +59,7 @@ const MIN_GAP: Duration = Duration::from_secs(1);
 
 /// The snapshot and what decides whether to take another.
 #[derive(Default)]
-pub(crate) struct Kept {
+pub struct Kept {
     inner: Mutex<Inner>,
     /// A request found the snapshot behind. Wakes a keeper asleep because
     /// nobody had asked.
@@ -99,7 +99,7 @@ struct Marks {
 }
 
 /// What a request is given.
-pub(crate) enum Answer {
+pub enum Answer {
     /// The snapshot, which the keeper reads again if it is behind.
     Kept(Arc<WorktreesHeld>),
     /// Nothing true is kept.
@@ -109,19 +109,19 @@ pub(crate) enum Answer {
 }
 
 impl Kept {
-    pub(crate) fn keeper_started(&self) {
+    pub fn keeper_started(&self) {
         self.inner.lock().expect("not poisoned").keeper = true;
     }
 
     /// Something a snapshot shows changed. A counter, so anything that moves a
     /// slot or a Job may call it.
-    pub(crate) fn changed(&self) {
+    pub fn changed(&self) {
         self.inner.lock().expect("not poisoned").changed += 1;
     }
 
     /// A slot was leased or given back and the timeline says so. Counted before
     /// the fact is entered, so nobody who hears it is answered from before.
-    pub(crate) fn announced(&self) {
+    pub fn announced(&self) {
         let mut inner = self.inner.lock().expect("not poisoned");
         inner.announced += 1;
         inner.changed += 1;
@@ -156,21 +156,21 @@ impl Kept {
         inner.keeper && inner.held.is_some()
     }
 
-    #[cfg(test)]
-    pub(crate) fn is_kept(&self) -> bool {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn is_kept(&self) -> bool {
         self.inner.lock().expect("not poisoned").held.is_some()
     }
 
     /// Whether the snapshot satisfies `test`.
-    #[cfg(test)]
-    pub(crate) fn serves(&self, test: impl FnOnce(&WorktreesHeld) -> bool) -> bool {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn serves(&self, test: impl FnOnce(&WorktreesHeld) -> bool) -> bool {
         let inner = self.inner.lock().expect("not poisoned");
         inner.held.as_deref().is_some_and(test)
     }
 
     /// Make everything in it `by` older, for a test that cannot wait that long.
-    #[cfg(test)]
-    pub(crate) fn aged(&self, by: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn aged(&self, by: Duration) {
         let mut guard = self.inner.lock().expect("not poisoned");
         let inner = &mut *guard;
         for at in [&mut inner.begun, &mut inner.whole, &mut inner.ended, &mut inner.asked] {
@@ -267,7 +267,7 @@ impl Fleet
 {
     /// The whole list, unscoped: from memory where a keeper holds a true one,
     /// otherwise read now.
-    pub(crate) async fn worktrees_answer(&self) -> Result<WorktreesHeld, Refusal> {
+    pub async fn worktrees_answer(&self) -> Result<WorktreesHeld, Refusal> {
         let asked = Instant::now();
         match self.worktrees_memory().answer(asked, self.vcs().changes()) {
             Answer::Kept(held) => Ok((*held).clone()),
@@ -283,7 +283,7 @@ impl Fleet
 
     /// Read the list and keep it, unless a read that began at or after `since`
     /// finished while this one waited its turn.
-    pub(crate) async fn read_worktrees(
+    pub async fn read_worktrees(
         &self,
         since: Instant,
     ) -> Result<Arc<WorktreesHeld>, Refusal> {
@@ -310,7 +310,7 @@ impl Fleet
     /// After an act on a slot or a checkout. Reads again before returning where
     /// a keeper is serving, so the surface that pressed the act and reads the
     /// list is not shown the list from before it.
-    pub(crate) async fn worktrees_changed(&self) {
+    pub async fn worktrees_changed(&self) {
         // A rescue or a reclaim gives a slot back without passing a session's release.
         self.hosts().slot_freed();
         self.worktrees_memory().changed();
@@ -321,8 +321,8 @@ impl Fleet
     }
 
     /// The list read from git and the store now.
-    #[cfg(test)]
-    pub(crate) async fn worktrees_live(&self) -> Result<WorktreesHeld, Refusal> {
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn worktrees_live(&self) -> Result<WorktreesHeld, Refusal> {
         self.worktrees_read(Reading::Live).await
     }
 

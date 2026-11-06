@@ -23,7 +23,7 @@ use crate::store_lock::StoreLock;
 const MOST_OFFERED: usize = 150;
 
 /// The question as it ships.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 A person keeps a Logbook: short entries that tell a coding agent what to do in a repository, on \
 this Mac, and how the person works. Place each entry under the one topic it is mostly about.\n\n\
 - `git`: Git and pull requests. Branches, commits, merges, pushes, pull requests, reviews.\n\
@@ -74,7 +74,7 @@ fn question(offered: &[&LogEntry]) -> Result<String, String> {
 
 /// The placements an answer makes, held to the entries offered. **Read whole**: one wrong placement
 /// is an `Err` for them all. `other` is a valid answer that places nothing.
-pub(super) fn read(said: &str, offered: &BTreeSet<i64>) -> Result<Vec<(i64, LogTopic)>, String> {
+pub fn read(said: &str, offered: &BTreeSet<i64>) -> Result<Vec<(i64, LogTopic)>, String> {
     let said: Said = crate::review_runs::said(crate::review_runs::object_in(said)?)?;
     let mut seen = BTreeSet::new();
     let mut placed = Vec::new();
@@ -96,7 +96,7 @@ pub(super) fn read(said: &str, offered: &BTreeSet<i64>) -> Result<Vec<(i64, LogT
 
 /// Place one repository's untopiced entries, and the habits and this Mac's beside them when
 /// `shared`, with one question. The count is the entries given a topic; `Err` is why none was.
-pub(crate) async fn pass<F, Fut>(store: &StoreLock, key: &str, shared: bool, ask: F) -> Result<usize, String>
+pub async fn pass<F, Fut>(store: &StoreLock, key: &str, shared: bool, ask: F) -> Result<usize, String>
 where
     F: Fn(String) -> Fut,
     Fut: Future<Output = Result<String, String>>,
@@ -126,7 +126,7 @@ impl Fleet
 {
     /// Sort one served repository by its root, asking the retro model. **Quiet**: a failed call
     /// places nothing and the next pass asks again. Never called where a noting waits on it.
-    pub(crate) async fn logbook_sorted(&self, root: &str, shared: bool) {
+    pub async fn logbook_sorted(&self, root: &str, shared: bool) {
         let Ok(explaining) = self.writing_retros() else { return };
         let key = crate::run_memory::places::key_of(root);
         // The files the Logbook mirrors carry no topic, so there is nothing to write out.

@@ -15,7 +15,7 @@ use super::rows::safe_name;
 use crate::daemon::Fleet;
 
 /// An attachment that would not decode, or is too large. A 422.
-pub(crate) const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
+pub const ATTACHMENT_REFUSED: &str = "fleet.session_attachment_refused";
 
 /// The most one attachment may be, decoded.
 const MOST_AN_ATTACHMENT: usize = 25 * 1024 * 1024;
@@ -29,7 +29,7 @@ const LARGE_ATTACHMENT_BYTES: u64 = 32_000;
 ///
 /// **Never a fault.** A picture is read by the agent as a picture, and a file that cannot be
 /// measured is told as a small one is, so a send is never refused for the sake of a warning.
-pub(crate) fn attached_line(path: &str) -> String {
+pub fn attached_line(path: &str) -> String {
     let told = format!("Attached file: {path}");
     // An svg draws as a picture but an agent reads it as text, and pays for it as text.
     let is_picture = Path::new(path)
@@ -48,7 +48,7 @@ pub(crate) fn attached_line(path: &str) -> String {
 }
 
 /// What a message carried, as it was kept.
-pub(crate) struct Kept {
+pub struct Kept {
     pub files: Vec<SentFile>,
     /// `(media type, base64)` for each picture.
     pub pictures: Vec<(String, String)>,
@@ -61,7 +61,7 @@ pub(crate) struct Kept {
 
 impl Fleet
 {
-    pub(crate) fn uploads_of(&self, id: &str) -> PathBuf {
+    pub fn uploads_of(&self, id: &str) -> PathBuf {
         std::path::Path::new(&self.host().attachments_dir)
             .join("sessions")
             .join(id)
@@ -70,7 +70,7 @@ impl Fleet
     /// Store what a message carried, outside every worktree.
     ///
     /// `directory` is where the files go and `key` mints their ids: a session's id.
-    pub(crate) fn keep_uploads(
+    pub fn keep_uploads(
         &self,
         directory: &Path,
         key: &str,
@@ -129,7 +129,7 @@ impl Fleet
     /// The bytes a row's `SentFile` names, found in `directory` by its id and served under the
     /// media type they were sent as. **The id is only ever compared to file names**, never joined
     /// to a path, so no id can leave the directory.
-    pub(crate) fn stored_file(
+    pub fn stored_file(
         &self,
         directory: &Path,
         file: &str,

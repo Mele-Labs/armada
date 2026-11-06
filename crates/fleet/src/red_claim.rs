@@ -87,31 +87,31 @@ fn sha256_hex(text: &str) -> String {
 }
 
 /// The two keys a claim is under: both hashes, 64 hex characters.
-pub(crate) fn keys_of(slug: &str, red_commit: &str) -> Option<(RepositoryKey, RedKey)> {
+pub fn keys_of(slug: &str, red_commit: &str) -> Option<(RepositoryKey, RedKey)> {
     Some((RepositoryKey::from_hash(&sha256_hex(slug))?, RedKey::from_hash(&sha256_hex(red_commit))?))
 }
 
 /// The key a repository's runs are under in the store: the same hash its claims are, in a table of
 /// their own.
-pub(crate) fn repository_key_of(slug: &str) -> Option<RepositoryKey> {
+pub fn repository_key_of(slug: &str) -> Option<RepositoryKey> {
     RepositoryKey::from_hash(&sha256_hex(slug))
 }
 
 /// The key a pull request's owner row is under: the sha256 in hex of
 /// `owner/name#number`, with the name as [`Reaching::slug`] gives it (lowercase,
 /// the same on every machine). 64 hex characters, and the store sees nothing else.
-pub(crate) fn owner_key_of(slug: &str, number: u64) -> Option<OwnerKey> {
+pub fn owner_key_of(slug: &str, number: u64) -> Option<OwnerKey> {
     OwnerKey::from_hash(&sha256_hex(&format!("{slug}#{number}")))
 }
 
 /// Who takes a red: a Session that said so.
 #[derive(Clone, Debug)]
-pub(crate) enum Taker {
+pub enum Taker {
     Session(String),
 }
 
 impl Taker {
-    pub(crate) fn parts(&self) -> (HolderKind, &str) {
+    pub fn parts(&self) -> (HolderKind, &str) {
         match self {
             Taker::Session(id) => (HolderKind::Session, id),
         }
@@ -120,7 +120,7 @@ impl Taker {
 
 /// What a call made at the store has to hand: the store, this red's keys and
 /// this machine's name.
-pub(crate) struct Reach {
+pub struct Reach {
     pub store: Box<dyn Store + Send>,
     pub repository: RepositoryKey,
     pub red: RedKey,
@@ -129,7 +129,7 @@ pub(crate) struct Reach {
 
 /// What a call that is not about a red has to hand: the store, the repository's
 /// name as the forge spells it, and this machine's name.
-pub(crate) struct Opened {
+pub struct Opened {
     pub store: Box<dyn Store + Send>,
     pub slug: String,
     pub machine: String,
@@ -161,7 +161,7 @@ impl Fleet
     /// is bound to a profile this machine is signed in to; otherwise `Ok(None)`
     /// and nothing was asked. **The store is opened as that profile**, so each
     /// repository claims in its own account's view.
-    pub(crate) async fn at_the_store_of<T: Send + 'static>(
+    pub async fn at_the_store_of<T: Send + 'static>(
         &self,
         root: &str,
         work: impl FnOnce(Opened) -> Result<T, StoreError> + Send + 'static,
@@ -172,7 +172,7 @@ impl Fleet
     /// [`Self::at_the_store_of`] with the repository's switch given. **A repository's runs pass
     /// `true`**: the place a person chose is the switch, and the Manifest's pull request owners
     /// are a different thing.
-    pub(crate) async fn at_the_store_switched<T: Send + 'static>(
+    pub async fn at_the_store_switched<T: Send + 'static>(
         &self,
         root: &str,
         switched_on: bool,
@@ -200,7 +200,7 @@ impl Fleet
     }
 
     /// Whether the Manifest of the repository at `root` turns the registry on.
-    pub(crate) fn registers_owners(&self, root: &str) -> bool {
+    pub fn registers_owners(&self, root: &str) -> bool {
         self.repositories()
             .served()
             .into_iter()
@@ -208,7 +208,7 @@ impl Fleet
             .is_some_and(|served| served.manifest().pull_request_owners())
     }
 
-    pub(crate) fn unix_seconds(&self) -> i64 {
+    pub fn unix_seconds(&self) -> i64 {
         self.now().epoch_millis().map_or(0, |millis| millis / 1000)
     }
 
@@ -232,7 +232,7 @@ impl Fleet
     /// Whether this red is free to take, before anything is made for it. **A
     /// read, not the claim**: it spares a Session started for a red that is held
     /// the work of being stopped again. The claim itself is [`Self::claim_red`].
-    pub(crate) async fn red_is_free(&self, main: &MainCi, take_over: bool) -> Result<(), MainNotFixable> {
+    pub async fn red_is_free(&self, main: &MainCi, take_over: bool) -> Result<(), MainNotFixable> {
         if take_over {
             return Ok(());
         }
@@ -252,7 +252,7 @@ impl Fleet
     /// back**, and refused when the store holds it for someone else, cannot be
     /// reached or says no. `Ok(false)` is no store applying: nothing was written.
     /// `take_over` replaces whoever holds it.
-    pub(crate) async fn claim_red(&self, main: &MainCi, by: &Taker, take_over: bool) -> Result<bool, MainNotFixable> {
+    pub async fn claim_red(&self, main: &MainCi, by: &Taker, take_over: bool) -> Result<bool, MainNotFixable> {
         let since = self.unix_seconds();
         let (kind, id) = by.parts();
         let id = id.to_string();
@@ -292,7 +292,7 @@ impl Fleet
     }
 
     /// Give back this machine's claim on the red, for a take that could not go on.
-    pub(crate) async fn release_red(&self, main: &MainCi) {
+    pub async fn release_red(&self, main: &MainCi) {
         let _ = self
             .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.release_claim(&reach.repository, &reach.red))
             .await;
@@ -302,7 +302,7 @@ impl Fleet
     /// own once its take is over. **Rides the reading that finds the red**
     /// (`notice_main`), so a remote claim is seen as late as the rotation
     /// reaches its repository. A store that cannot be read leaves no field.
-    pub(crate) async fn noticed_elsewhere(&self, root: &str) {
+    pub async fn noticed_elsewhere(&self, root: &str) {
         let main = self.store().lock().await.main_ci(root).ok().flatten();
         let Some(main) = main.filter(|main| main.red_at.is_some()) else {
             self.sweeping().lock().await.elsewhere.remove(root);
@@ -334,7 +334,7 @@ impl Fleet
 
     /// Main is green: delete every claim under the repository, its own or not,
     /// so one left by a machine that is asleep ends too.
-    pub(crate) async fn cleared_elsewhere(&self, main: &MainCi) {
+    pub async fn cleared_elsewhere(&self, main: &MainCi) {
         let _ = self
             .at_the_store(&main.repository, main.red_commit(), |reach| reach.store.clear_repository(&reach.repository))
             .await;

@@ -20,7 +20,7 @@ const DISPUTE_REFUSED: &str = "fleet.dispute_refused";
 static SETTLING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// What a dispute is about, before it is kept.
-pub(crate) struct Disputing<'a> {
+pub struct Disputing<'a> {
     pub session: &'a str,
     pub notice_row: &'a str,
     pub notice: &'a str,
@@ -32,7 +32,7 @@ impl Fleet
 {
     /// The job's latest Fleet notice, disputed. Refused for a job Fleet does not host, an ended
     /// one, an empty reason, and a job Fleet has told nothing.
-    pub(crate) async fn fleet_disputed(
+    pub async fn fleet_disputed(
         self: &Arc<Self>,
         caller: Option<api::Caller>,
         dispute: DisputeFleet,
@@ -59,7 +59,7 @@ impl Fleet
 
     /// Keep a dispute, settle its review, and write the `disputed` row to the job's thread.
     /// `rows` is the job's thread as it stood, which the review job is briefed with.
-    pub(crate) async fn dispute_kept(
+    pub async fn dispute_kept(
         self: &Arc<Self>,
         disputing: &Disputing<'_>,
         rows: &[SessionRow],
@@ -108,13 +108,13 @@ impl Fleet
 }
 
 /// The review a dispute was settled by.
-pub(crate) struct Settled {
+pub struct Settled {
     pub review: Option<String>,
     pub joined: bool,
 }
 
 /// Whether `from` is Fleet's own voice.
-pub(crate) fn is_fleets(from: &SessionVoice) -> bool {
+pub fn is_fleets(from: &SessionVoice) -> bool {
     matches!(from, SessionVoice::Session { id, .. } if *id == FLEET_NAME.to_lowercase())
 }
 
@@ -129,7 +129,7 @@ fn latest_notice(rows: &[SessionRow]) -> Option<(&str, &str)> {
 /// What a second dispute of the same notice is matched by: its words with every number, and any
 /// decimal point or thousands comma inside one, read as `#`. A rule's text differs between two
 /// tellings only in its figures, so this is the same rule.
-pub(crate) fn notice_key(text: &str) -> String {
+pub fn notice_key(text: &str) -> String {
     let chars: Vec<char> = text.trim().chars().collect();
     let mut key = String::with_capacity(chars.len());
     let mut at = 0;

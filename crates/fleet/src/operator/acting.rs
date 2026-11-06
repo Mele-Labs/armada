@@ -128,13 +128,13 @@ struct Done {
 impl Fleet
 {
     /// The Operator's own switch, as settings.json reads now. Off is Fleet as it was before it.
-    pub(crate) fn operator_on(&self) -> bool {
+    pub fn operator_on(&self) -> bool {
         self.machine_settings().now().get(keys::OPERATOR)
     }
 
     /// How far `role` goes in the repository `manifest`, as settings.json reads now: Off under the
     /// Operator's own switch or a standing order, else what the repository sets, else the machine's.
-    pub(crate) fn operator_position(&self, role: OperatorRole, manifest: &str) -> OperatorPosition {
+    pub fn operator_position(&self, role: OperatorRole, manifest: &str) -> OperatorPosition {
         let settings = self.machine_settings().now();
         if !settings.get(keys::OPERATOR) || self.operator_seat().orders().role_off(role, manifest, &self.now()) {
             return OperatorPosition::Off;
@@ -153,7 +153,7 @@ impl Fleet
     }
 
     /// Whether Fleet settles what the Operator answers in `manifest`.
-    pub(crate) fn operator_answering(&self, manifest: &str) -> bool {
+    pub fn operator_answering(&self, manifest: &str) -> bool {
         self.operator_position(OperatorRole::Answer, manifest) == OperatorPosition::On
     }
 
@@ -259,7 +259,7 @@ impl Fleet
     }
 
     /// What a Job is told of `about`, which `did` something on `shared`.
-    pub(super) async fn in_touch_said(&self, about: &str, shared: &[String], did: &str) -> String {
+    pub async fn in_touch_said(&self, about: &str, shared: &[String], did: &str) -> String {
         let title = self.title_of(about).await;
         let plan = self.store().lock().await.session_plan(about).ok().flatten();
         let mut text = format!("Job \"{title}\" {did}: {}.", shared.join(", "));
@@ -282,7 +282,7 @@ impl Fleet
         text
     }
 
-    pub(super) async fn title_of(&self, id: &str) -> String {
+    pub async fn title_of(&self, id: &str) -> String {
         let session = self.store().lock().await.session(id).ok().flatten();
         session.and_then(|one| one.title).unwrap_or_else(|| id.to_string())
     }

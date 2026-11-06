@@ -30,34 +30,34 @@ use crate::rail::{self, RailStep};
 use crate::repositories::Served;
 
 /// A call through the door that no Job holds the connection of, or a request that names none. A 422.
-pub(crate) const JOB_COPY_UNPLACED: &str = "fleet.job_copy_unplaced";
+pub const JOB_COPY_UNPLACED: &str = "fleet.job_copy_unplaced";
 /// An edit the loader refuses, or a check the repository would refuse the result for. A 422.
-pub(crate) const JOB_WORKFLOW_UNFIT: &str = "fleet.job_workflow_unfit";
+pub const JOB_WORKFLOW_UNFIT: &str = "fleet.job_workflow_unfit";
 /// A step that is not there, one already there, a blank label, or the step that delivers. A 422.
-pub(crate) const JOB_COPY_STEP_REFUSED: &str = "fleet.job_copy_step_refused";
+pub const JOB_COPY_STEP_REFUSED: &str = "fleet.job_copy_step_refused";
 /// A workflow Fleet holds no file for, so there is no text to copy. A 422.
-pub(crate) const WORKFLOW_NOT_COPYABLE: &str = "fleet.workflow_not_copyable";
+pub const WORKFLOW_NOT_COPYABLE: &str = "fleet.workflow_not_copyable";
 /// A lifecycle or a rule the copy cannot take: it does not read, it is not the id named, or it is not there to
 /// drop. A 422.
-pub(crate) const JOB_COPY_PIECE_REFUSED: &str = "fleet.job_copy_piece_refused";
+pub const JOB_COPY_PIECE_REFUSED: &str = "fleet.job_copy_piece_refused";
 /// A Job that froze no copy of its lifecycles and rules, which is a Job that began before copies existed and a
 /// Job of no repository. A 422.
-pub(crate) const JOB_HOLDS_NO_COPY: &str = "fleet.job_holds_no_copy";
+pub const JOB_HOLDS_NO_COPY: &str = "fleet.job_holds_no_copy";
 
 /// The lane a step's mark is on.
-pub(crate) const WORKFLOW_LANE: &str = "workflow";
+pub const WORKFLOW_LANE: &str = "workflow";
 /// The lane a rule's mark is on.
-pub(crate) const RULE_LANE: &str = "rule";
+pub const RULE_LANE: &str = "rule";
 
 /// How a change is kept in a mark, and read back.
-pub(crate) fn who_kept(by: ChangedBy) -> &'static str {
+pub fn who_kept(by: ChangedBy) -> &'static str {
     match by {
         ChangedBy::Job => "job",
         ChangedBy::You => "you",
     }
 }
 
-pub(crate) fn who_read(kept: &str) -> ChangedBy {
+pub fn who_read(kept: &str) -> ChangedBy {
     if kept == "job" {
         ChangedBy::Job
     } else {
@@ -75,7 +75,7 @@ fn who_said(by: ChangedBy) -> &'static str {
 
 /// A mark as the wire carries it. **A piece's mark is `dropped` once the copy no longer holds the piece**, which is
 /// how the Job's lanes know there is nothing of it to keep.
-pub(crate) fn mark_wire(kept: &KeptCopyMark, held: &[KeptPiece]) -> JobCopyChange {
+pub fn mark_wire(kept: &KeptCopyMark, held: &[KeptPiece]) -> JobCopyChange {
     let holds = |kind, id: &str| held.iter().any(|one| one.kind == kind && one.piece_id == id);
     let dropped = match kept.lane.as_str() {
         WORKFLOW_LANE => false,
@@ -101,7 +101,7 @@ fn moved_to(old: &[RailStep], new: &[RailStep]) -> impl Fn(u32) -> Option<u32> {
 
 /// What the rail kept by step index, kept against the same steps after an edit moved them. **A step is
 /// followed by the id it declares**, so a skip stays on the step it was for when another is added before it.
-pub(crate) fn rail_remapped(rail: &mut KeptRail, old: &[RailStep], new: &[RailStep]) {
+pub fn rail_remapped(rail: &mut KeptRail, old: &[RailStep], new: &[RailStep]) {
     let to = moved_to(old, new);
     rail.step = rail.step.and_then(&to);
     let mapped = |list: &mut Vec<u32>| {
@@ -167,7 +167,7 @@ impl Fleet
     /// The Job a call is about and who is making the change. **Through the door the Job is the one whose
     /// process holds the connection**, whatever the body names; every other door is the person's, and names
     /// the Job.
-    pub(crate) fn copy_placed(&self, named: Option<&SessionId>) -> Result<(String, ChangedBy), Refusal> {
+    pub fn copy_placed(&self, named: Option<&SessionId>) -> Result<(String, ChangedBy), Refusal> {
         if api::via().is_some_and(|via| via.as_wire() == "door") {
             return api::asking()
                 .and_then(|caller| self.session_holding(&caller))
@@ -184,7 +184,7 @@ impl Fleet
     }
 
     /// The hosted Job a copy is changed on. A terminal Job has no workflow, and one that ended is closed.
-    pub(super) async fn copy_hosted(&self, id: &str) -> Result<(KeptSession, KeptHosting), Refusal> {
+    pub async fn copy_hosted(&self, id: &str) -> Result<(KeptSession, KeptHosting), Refusal> {
         if self.terminal_session(id).await?.is_some() {
             return Err(self.hosted_refusal(
                 SESSION_COMMAND_REFUSED,
@@ -207,14 +207,14 @@ impl Fleet
 
     /// The workflow the Job's copy holds, read against its repository. Absent where the repository is not
     /// served or the copy no longer reads.
-    pub(crate) fn own_resolved(&self, manifest: &str, own: &KeptWorkflowCopy) -> Option<ResolvedWorkflow> {
+    pub fn own_resolved(&self, manifest: &str, own: &KeptWorkflowCopy) -> Option<ResolvedWorkflow> {
         let served = self.repositories().serving(manifest)?;
         self.text_resolved(&served, &own.text).ok()
     }
 
     /// The steps `workflow` has for a Job: those of its own copy where it holds one of this workflow, else the
     /// repository's. **Every reader of a Job's steps asks here or at [`Self::job_rail_steps`].**
-    pub(crate) fn steps_with(&self, manifest: &str, workflow: &str, own: Option<&KeptWorkflowCopy>) -> Option<Vec<RailStep>> {
+    pub fn steps_with(&self, manifest: &str, workflow: &str, own: Option<&KeptWorkflowCopy>) -> Option<Vec<RailStep>> {
         own.filter(|own| own.workflow_id == workflow)
             .and_then(|own| self.own_resolved(manifest, own))
             .map(|found| rail::steps_of(&found))
@@ -222,7 +222,7 @@ impl Fleet
     }
 
     /// [`Self::steps_with`] for `session`, reading its copy. **Never call it with the store held.**
-    pub(crate) async fn job_rail_steps(&self, session: &str, manifest: &str, workflow: &str) -> Option<Vec<RailStep>> {
+    pub async fn job_rail_steps(&self, session: &str, manifest: &str, workflow: &str) -> Option<Vec<RailStep>> {
         let own = self.store().lock().await.job_workflow_copy(session).ok().flatten();
         self.steps_with(manifest, workflow, own.as_ref())
     }
@@ -262,7 +262,7 @@ impl Fleet
     }
 
     /// An entry on the Job's timeline that says who made it.
-    pub(crate) fn copy_noted(&self, session: &KeptSession, kind: TimelineKind, says: String, by: ChangedBy) {
+    pub fn copy_noted(&self, session: &KeptSession, kind: TimelineKind, says: String, by: ChangedBy) {
         let detail = match by {
             ChangedBy::Job => "by the Job",
             ChangedBy::You => "by you",
@@ -271,7 +271,7 @@ impl Fleet
     }
 
     /// `change_session_steps`: a step added, moved, reworded or dropped in the Job's copy of its workflow.
-    pub(crate) async fn steps_changed(self: &Arc<Self>, change: ChangeSessionSteps) -> Result<JobCopy, Refusal> {
+    pub async fn steps_changed(self: &Arc<Self>, change: ChangeSessionSteps) -> Result<JobCopy, Refusal> {
         let (id, by) = self.copy_placed(Some(&change.session_id))?;
         let (session, hosting) = self.copy_hosted(&id).await?;
         let Some(workflow) = hosting.workflow.clone() else {
@@ -338,13 +338,13 @@ impl Fleet
     }
 
     /// Tell Bridge what changed: the row, which carries the rail and the copy's workflow, and the lanes.
-    pub(crate) async fn copy_published(&self, id: &str) {
+    pub async fn copy_published(&self, id: &str) {
         let _ = self.published_hosted(id).await;
         self.job_lifecycles_published(id).await;
     }
 
     /// `change_job_copy`: a lifecycle or a rule put in the Job's copy, or taken out of it.
-    pub(crate) async fn piece_changed(self: &Arc<Self>, change: ChangeJobCopy) -> Result<JobCopy, Refusal> {
+    pub async fn piece_changed(self: &Arc<Self>, change: ChangeJobCopy) -> Result<JobCopy, Refusal> {
         let (id, by) = self.copy_placed(Some(&change.session_id))?;
         let (session, _) = self.copy_hosted(&id).await?;
         let (kind, said) = match change.kind {
@@ -417,7 +417,7 @@ impl Fleet
     }
 
     /// What the Job holds of its workflow, lifecycles and rules, and what was changed in it.
-    pub(crate) async fn job_copy_read(&self, id: &str) -> Result<JobCopy, Refusal> {
+    pub async fn job_copy_read(&self, id: &str) -> Result<JobCopy, Refusal> {
         let (session, hosting) = self.session_and_hosting(id).await?;
         let (own, pieces, marks, skipped) = {
             let store = self.store().lock().await;
@@ -451,7 +451,7 @@ impl Fleet
     }
 
     /// `get_job_copy`: the Job the connection places, else the one named.
-    pub(crate) async fn job_copy_asked(&self, named: Option<SessionId>) -> Result<JobCopy, Refusal> {
+    pub async fn job_copy_asked(&self, named: Option<SessionId>) -> Result<JobCopy, Refusal> {
         let placed = api::asking().and_then(|caller| self.session_holding(&caller));
         let id = placed
             .or_else(|| named.map(|id| id.as_str().trim().to_string()).filter(|id| !id.is_empty()))
@@ -461,7 +461,7 @@ impl Fleet
 
     /// `keep_job_workflow`: the Job's copy of its workflow proposed for every Job, as a change that waits on the
     /// owner's Approve. **Nothing is written until he approves it.**
-    pub(crate) async fn job_workflow_kept(self: &Arc<Self>, keep: KeepJobWorkflow) -> Result<WorkflowChange, Refusal> {
+    pub async fn job_workflow_kept(self: &Arc<Self>, keep: KeepJobWorkflow) -> Result<WorkflowChange, Refusal> {
         let id = keep.session_id.as_str().trim().to_string();
         let (_, hosting) = self.copy_hosted(&id).await?;
         let own = self.store().lock().await.job_workflow_copy(&id).map_err(|why| self.ledger_fault(why))?;

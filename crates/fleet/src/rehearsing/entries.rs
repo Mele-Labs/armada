@@ -10,24 +10,24 @@ use super::Unrehearsable;
 
 /// One Check or Command, resolved: everything a run of it needs.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Entry {
-    pub(crate) name: String,
-    pub(crate) run: String,
-    pub(crate) expect_exit_code: i64,
-    pub(crate) requires: Vec<Prerequisite>,
-    pub(crate) narrow: Option<Narrowing>,
-    pub(crate) destructive: bool,
+pub struct Entry {
+    pub name: String,
+    pub run: String,
+    pub expect_exit_code: i64,
+    pub requires: Vec<Prerequisite>,
+    pub narrow: Option<Narrowing>,
+    pub destructive: bool,
 }
 
 /// The sheet's three groups.
-pub(crate) struct Listed {
+pub struct Listed {
     setup: Vec<Entry>,
     checks: Vec<Entry>,
     commands: Vec<Entry>,
 }
 
 /// What a Manifest declares.
-pub(crate) fn declared(theirs: &Manifest) -> Listed {
+pub fn declared(theirs: &Manifest) -> Listed {
     let destructive = |name: &str| theirs.command(name).is_some_and(|c| c.is_destructive());
     let setup: Vec<Entry> = theirs
         .prepared_by()
@@ -78,7 +78,7 @@ fn command(name: &str, run: &str, destructive: bool) -> Entry {
 
 impl Listed {
     /// The entry a run names, or the refusal that lists what there is.
-    pub(crate) fn named(&self, name: &str) -> Result<Entry, Unrehearsable> {
+    pub fn named(&self, name: &str) -> Result<Entry, Unrehearsable> {
         self.every()
             .find(|entry| entry.name == name)
             .cloned()
@@ -90,7 +90,7 @@ impl Listed {
 
     /// The three groups as the sheet draws them, narrowed against `changed`.
     #[allow(clippy::type_complexity)]
-    pub(crate) fn sheet(
+    pub fn sheet(
         &self,
         changed: &[String],
     ) -> (Vec<ipc::RunEntry>, Vec<ipc::RunEntry>, Vec<ipc::RunEntry>) {
@@ -103,7 +103,7 @@ impl Listed {
     }
 
     /// What Verify runs: setup, then every Check, each as it would run alone.
-    pub(crate) fn verified(self) -> Vec<(ipc::VerifyGroup, Entry)> {
+    pub fn verified(self) -> Vec<(ipc::VerifyGroup, Entry)> {
         let setup = self.setup.into_iter().map(|e| (ipc::VerifyGroup::Setup, e));
         let checks = self
             .checks

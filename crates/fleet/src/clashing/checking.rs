@@ -34,7 +34,7 @@ enum Against {
 impl Fleet
 {
     /// One pass: main's moves, the pairs whose wait is over, and anyone not yet told what was found.
-    pub(crate) async fn clashes_checked(self: &Arc<Self>) {
+    pub async fn clashes_checked(self: &Arc<Self>) {
         if self.writes().first_pass() {
             self.writes_seeded().await;
         }
@@ -91,7 +91,7 @@ impl Fleet
     }
 
     /// Check one pair now.
-    pub(crate) async fn pair_checked(self: &Arc<Self>, opposed: &Opposed) {
+    pub async fn pair_checked(self: &Arc<Self>, opposed: &Opposed) {
         self.writes().taken(opposed);
         let Side::Holder(other) = &opposed.1 else {
             return self.holder_against_main(&opposed.0).await;
@@ -198,7 +198,7 @@ impl Fleet
     }
 
     /// One holder's changes against main's tip as last seen. **Told to that holder only.**
-    pub(crate) async fn holder_against_main(self: &Arc<Self>, who: &Who) {
+    pub async fn holder_against_main(self: &Arc<Self>, who: &Who) {
         let Some(standing) = self.writing_in_or_left(who).await else {
             return;
         };
@@ -268,14 +268,14 @@ fn between_any(one: &[PathBuf], other: &[PathBuf], base: &str) -> Result<Option<
 
 /// What the worktree as it stands changed since it left `base`, read against the remote's copy
 /// first since the local branch may be behind it.
-pub(crate) fn changed_since_base(worktree: &Path, base: &str) -> Result<BTreeSet<String>, NotChecked> {
+pub fn changed_since_base(worktree: &Path, base: &str) -> Result<BTreeSet<String>, NotChecked> {
     clash::changed_here(worktree, &format!("origin/{base}"))
         .or_else(|_| clash::changed_here(worktree, base))
         .map(|changed| changed.into_iter().collect())
 }
 
 /// The branch the repository's work merges into: the Manifest's `base:`, else `main`.
-pub(crate) fn base_of(served: &crate::repositories::Served) -> String {
+pub fn base_of(served: &crate::repositories::Served) -> String {
     served.manifest().base().unwrap_or("main").to_string()
 }
 

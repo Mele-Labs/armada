@@ -17,7 +17,7 @@ use super::{Fact, Subject};
 
 /// The last merge lines read, and which repositories' main stood red.
 #[derive(Default)]
-pub(crate) struct Between {
+pub struct Between {
     last: Option<MergeLines>,
     /// Roots whose main read red and has not read green since. **A running
     /// commit between the two does not clear it**: red to running to green is
@@ -29,7 +29,7 @@ impl Between {
     /// Take this read and answer what it shows happened since the last,
     /// `manifests` naming each root's repository and `at` dating what the forge
     /// did not.
-    pub(crate) fn read(
+    pub fn read(
         &mut self,
         now: &MergeLines,
         at: &str,

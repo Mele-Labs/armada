@@ -43,7 +43,7 @@ const RESCUE_UNREAD: &str = "fleet.rescue_unread";
 const RESCUE_NOTHING_LEFT: &str = "fleet.rescue_nothing_left";
 
 /// Why a Finding left reading across a restart, in its own words.
-pub(crate) const LOST: &str =
+pub const LOST: &str =
     "Fleet stopped while the scout was reading, so nothing read it to its end";
 
 /// The key a scout reading a slot is listed under.
@@ -54,7 +54,7 @@ fn listed_as(manifest: &str, slot: u32) -> String {
 impl Fleet
 {
     /// One act on a stranded slot, from Cleanup's bay grid.
-    pub(crate) async fn rescue_slot(
+    pub async fn rescue_slot(
         self: Arc<Self>,
         asked: RescueSlot,
         manifest_id: Option<&ManifestId>,
@@ -264,7 +264,7 @@ impl Fleet
 
     /// Every Finding a restart left reading, ended as failed and keeping what
     /// it read. Read once, at start: no scout outlives the Fleet reading it.
-    pub(crate) async fn rescues_left_reading(&self) {
+    pub async fn rescues_left_reading(&self) {
         let _ = self.store().lock().await.rescues_left_reading(LOST);
     }
 

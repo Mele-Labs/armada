@@ -13,7 +13,7 @@
 //! body is literal and it is how a long body reaches stdin: `armada job <act> - <<'TAG'`.
 
 /// Whether `line` is exactly one `armada job` command, with at most one literal heredoc on stdin.
-pub(crate) fn is_one_armada_job(line: &str) -> bool {
+pub fn is_one_armada_job(line: &str) -> bool {
     let Some((words, heredoc)) = read(line) else {
         return false;
     };

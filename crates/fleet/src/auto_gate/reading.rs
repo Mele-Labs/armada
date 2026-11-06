@@ -9,7 +9,7 @@ use super::{reaches_outside, read_refused, truncating_redirect, Slot};
 /// process id and reads as a number. **A variable the line never set stays a `$`**, which no
 /// path check reads as inside anything, so `> $UNSET` is still refused. The last assignment wins,
 /// as it does in the shell.
-pub(super) fn with_variables(segments: Vec<&str>) -> Vec<String> {
+pub fn with_variables(segments: Vec<&str>) -> Vec<String> {
     let mut set: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     let mut out = Vec::new();
     for said in segments {
@@ -89,7 +89,7 @@ fn substituted(said: &str, set: &std::collections::HashMap<String, String>) -> S
 /// quotes are text**, as the shell leaves them: an awk script's `$5 ~ /x$/` is no path. The words
 /// refused, in the order the segment names them, each with whether it is the script the segment
 /// runs; empty where it runs.
-pub(super) fn reaches_into_owners_files(said: &str) -> Vec<(String, bool)> {
+pub fn reaches_into_owners_files(said: &str) -> Vec<(String, bool)> {
     let said = literal_text(said).replace("\\ ", "\u{0}");
     // A quoted path is one word: `"~/Library/Application Support/x"` is no `~/Library/Application`.
     let words = words_of(&said);
@@ -148,7 +148,7 @@ fn script_run(words: &[String]) -> Option<usize> {
 /// The kind of call a segment is: the program it runs and, for an interpreter, the first operand
 /// that is not a flag, both by basename. **What "Allow calls like this" matches**, so the same
 /// script run with other arguments is the same kind.
-pub(super) fn kind_of(said: &str) -> Option<CallKind> {
+pub fn kind_of(said: &str) -> Option<CallKind> {
     const INTERPRETERS: &[&str] = &["node", "deno", "bun", "python", "python3", "ruby", "perl", "bash", "sh", "zsh"];
     let (program, arguments) = command_of(said)?;
     let mut operands = arguments
@@ -243,7 +243,7 @@ fn literal_text(line: &str) -> String {
 }
 
 /// [`only_reads`] for a segment as it was written, read as [`reaches_into_owners_files`] reads it.
-pub(super) fn segment_only_reads(said: &str) -> bool {
+pub fn segment_only_reads(said: &str) -> bool {
     only_reads(&literal_text(said).replace("\\ ", "\u{0}"))
 }
 
@@ -280,7 +280,7 @@ fn only_reads(said: &str) -> bool {
 }
 
 /// [`writes`] for a segment as it was written, read as [`reaches_into_owners_files`] reads it.
-pub(super) fn segment_writes(said: &str) -> bool {
+pub fn segment_writes(said: &str) -> bool {
     writes(&literal_text(said).replace("\\ ", "\u{0}"))
 }
 
@@ -318,7 +318,7 @@ const KEYWORDS: &[&str] = &[
 
 /// The program a segment runs, and its arguments: the first word that is not an assignment, a
 /// leading `env` or `command`, or the keyword that opens a clause (`do rm x` is an `rm`).
-pub(super) fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
+pub fn command_of(said: &str) -> Option<(&str, Vec<&str>)> {
     let mut rest = words_in(said)
         .into_iter()
         .skip_while(|word| assignment(word).is_some() || KEYWORDS.contains(word))
@@ -356,7 +356,7 @@ fn words_in(said: &str) -> Vec<&str> {
 
 /// `chmod` and `chown` naming only files in a slot the session holds, as `rm` does. The first
 /// operand is the mode or the owner, and is left out only where it cannot be a path.
-pub(super) fn changes_only_held(program: &str, arguments: &[&str], slot: Option<Slot>) -> bool {
+pub fn changes_only_held(program: &str, arguments: &[&str], slot: Option<Slot>) -> bool {
     let mut operands: Vec<&str> = arguments
         .iter()
         .copied()
@@ -383,7 +383,7 @@ pub(super) fn changes_only_held(program: &str, arguments: &[&str], slot: Option<
 
 /// A program asked a question that changes nothing: the verbs below read the service manager or
 /// the disks. Every other verb of these programs is as destructive as the program is.
-pub(super) fn queries(program: &str, arguments: &[&str]) -> bool {
+pub fn queries(program: &str, arguments: &[&str]) -> bool {
     let verbs: &[&str] = match program {
         "launchctl" => &[
             "print", "list", "blame", "print-cache", "print-disabled", "help", "version",

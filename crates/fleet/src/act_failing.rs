@@ -11,7 +11,7 @@ use crate::daemon::Fleet;
 impl Fleet
 {
     /// Say that `act` failed with `refusal`, for the repository and the Job it had, if it had them.
-    pub(crate) fn act_failed(
+    pub fn act_failed(
         &self,
         act: BackgroundAct,
         manifest: Option<ManifestId>,

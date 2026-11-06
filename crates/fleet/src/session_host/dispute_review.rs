@@ -19,7 +19,7 @@ use crate::daemon::Fleet;
 use crate::retro::ARMADAS_OWN;
 
 /// What the review job's title is asked for in; a test's model double answers on it.
-pub(crate) const NAMING: &str = "Name what this notice is about";
+pub const NAMING: &str = "Name what this notice is about";
 /// A review job's title where the model named nothing usable.
 const UNNAMED: &str = "Disputed notice";
 /// The most words a title the model gave may have.
@@ -34,7 +34,7 @@ impl Fleet
 {
     /// Join the open review of the same notice, or start one. **Never an error**: the dispute is
     /// kept whatever happens here, and what stopped a review is said on Fleet's stderr.
-    pub(super) async fn review_settled(self: &Arc<Self>, dispute: &KeptDispute, rows: &[SessionRow]) -> Settled {
+    pub async fn review_settled(self: &Arc<Self>, dispute: &KeptDispute, rows: &[SessionRow]) -> Settled {
         let job = dispute.session_id.as_str();
         if !self.dispute_reviews_on() {
             eprintln!(
@@ -223,7 +223,7 @@ fn joined_words(dispute: &KeptDispute, title: &str, thread: &str) -> String {
 }
 
 /// About twenty rows around the notice, one paragraph each, the notice marked.
-pub(crate) fn thread_around(rows: &[SessionRow], notice_row: &str) -> String {
+pub fn thread_around(rows: &[SessionRow], notice_row: &str) -> String {
     let at = rows.iter().position(|row| row.id() == notice_row).unwrap_or(rows.len().saturating_sub(1));
     let from = at.saturating_sub(AROUND);
     let to = (at + AROUND).min(rows.len());

@@ -45,7 +45,7 @@ unsafe fn si_pid_of(reading: &libc::siginfo_t) -> libc::pid_t {
 /// is logged. What happened to the Drone itself is on the `wait` its caller
 /// does next.
 #[allow(unsafe_code)]
-pub(crate) fn end_the_group(group: NonZeroU32) {
+pub fn end_the_group(group: NonZeroU32) {
     // A pid the platform cannot express is not a group, and `try_from` says so
     // rather than a cast quietly making one up.
     let Ok(group) = libc::pid_t::try_from(group.get()) else {
@@ -74,7 +74,7 @@ pub(crate) fn end_the_group(group: NonZeroU32) {
 /// **The caller proves the group is an orphan's**, by the mark it carries or the
 /// directory its argv names, read immediately before — never by a pid alone.
 #[allow(unsafe_code)]
-pub(crate) fn ask_the_group_to_end(group: NonZeroU32) {
+pub fn ask_the_group_to_end(group: NonZeroU32) {
     let Ok(group) = libc::pid_t::try_from(group.get()) else {
         return;
     };
@@ -90,7 +90,7 @@ pub(crate) fn ask_the_group_to_end(group: NonZeroU32) {
 /// the uncollected child, for [`end_the_group`]'s reason, and ends the group
 /// that way if the interrupt is not heeded.
 #[allow(unsafe_code)]
-pub(crate) fn interrupt_the_group(group: NonZeroU32) {
+pub fn interrupt_the_group(group: NonZeroU32) {
     let Ok(group) = libc::pid_t::try_from(group.get()) else {
         return;
     };

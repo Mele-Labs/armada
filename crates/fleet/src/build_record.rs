@@ -16,17 +16,17 @@ use ipc::{
 use store::{AttachmentState, KeptAttachment, KeptBuild, KeptTask, RoadTimes, WorkTimes};
 
 /// How many of a repository's recent landed pull requests its forecast reads.
-pub(crate) const FORECAST_WINDOW: u32 = 10;
+pub const FORECAST_WINDOW: u32 = 10;
 
 /// A task's text is cut here, as the hosted gate cuts a `TodoWrite` item.
-pub(crate) const TASK_TEXT_AT_MOST: usize = 200;
+pub const TASK_TEXT_AT_MOST: usize = 200;
 
 /// A tool call this long after the last one is worth a published row, so `quiet_since` stays within a
 /// minute of the truth without a row going out for every call.
-pub(crate) const QUIET_REFRESH_MS: i64 = 60_000;
+pub const QUIET_REFRESH_MS: i64 = 60_000;
 
 /// Later than any instant Fleet writes, for a bound that should match nothing.
-pub(crate) const NEVER: &str = "9999-12-31T23:59:59.999Z";
+pub const NEVER: &str = "9999-12-31T23:59:59.999Z";
 
 /// The stops in the order the road usually runs, which settles two reached in the same instant.
 const ORDER: [BuildStopId; 5] =
@@ -34,7 +34,7 @@ const ORDER: [BuildStopId; 5] =
 
 /// What Fleet heard that bears on a build.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Observed {
+pub enum Observed {
     /// A file written.
     Edited,
     /// A file read or a command run: the Session is working, and no more is known.
@@ -51,14 +51,14 @@ pub(crate) enum Observed {
 impl Observed {
     /// Whether this is work that starts a new build once the last one landed. A read or a command after
     /// the merge is the Session tidying up.
-    pub(crate) fn begins_work(&self) -> bool {
+    pub fn begins_work(&self) -> bool {
         !matches!(self, Observed::Worked | Observed::Committed)
     }
 }
 
 /// The rows after taking in one thing heard.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Taken {
+pub struct Taken {
     pub build: KeptBuild,
     pub tasks: Vec<KeptTask>,
     /// What the row shows moved, so it is worth publishing: a first edit, scaffold going up, a task
@@ -104,7 +104,7 @@ fn cut(text: &str) -> String {
 /// for a Session whose row is new or has no first edit: Fleet restarted, or the work was heard by an
 /// earlier Fleet. The first edit is the earliest edit, commit or push; the last edit is the last edit
 /// entry. A row that already has a first edit is not touched, and none with nothing kept is made.
-pub(crate) fn seeded(build: Option<KeptBuild>, work: &WorkTimes) -> Option<KeptBuild> {
+pub fn seeded(build: Option<KeptBuild>, work: &WorkTimes) -> Option<KeptBuild> {
     let first = [work.edited.as_ref().map(|(first, _)| first.as_str()), work.first_commit.as_deref(), work.first_push.as_deref()]
         .into_iter()
         .flatten()
@@ -130,7 +130,7 @@ pub(crate) fn seeded(build: Option<KeptBuild>, work: &WorkTimes) -> Option<KeptB
 }
 
 /// Take one thing heard into the rows. `build` is `None` for a Session that has done nothing yet.
-pub(crate) fn taken(build: Option<KeptBuild>, tasks: Vec<KeptTask>, heard: &Observed, now: &str) -> Taken {
+pub fn taken(build: Option<KeptBuild>, tasks: Vec<KeptTask>, heard: &Observed, now: &str) -> Taken {
     let mut build = build.unwrap_or_else(|| KeptBuild {
         begun_at: now.to_string(),
         first_edit_at: None,
@@ -243,7 +243,7 @@ fn merged_tasks(build: &KeptBuild, kept: &[KeptTask], list: &[ReportedTask], now
 }
 
 /// What a derived record is read from.
-pub(crate) struct Read<'a> {
+pub struct Read<'a> {
     pub build: &'a KeptBuild,
     pub tasks: &'a [KeptTask],
     /// The stops of the Session's current pull request and its own walks and pushes.
@@ -259,7 +259,7 @@ pub(crate) struct Read<'a> {
 
 /// The stops reached, with when, in the order they were. A pull request exists before anything
 /// Fleet read of it, so its opening is never later than its first check, its queueing or its merge.
-pub(crate) fn reached(road: &RoadTimes, pull_since: Option<&str>) -> Vec<(BuildStopId, String)> {
+pub fn reached(road: &RoadTimes, pull_since: Option<&str>) -> Vec<(BuildStopId, String)> {
     let pull = [road.opened.as_deref(), pull_since, road.checked.as_deref(), road.queued.as_deref(), road.merged.as_deref()]
         .into_iter()
         .flatten()
@@ -301,7 +301,7 @@ fn pieces(build: &KeptBuild, tasks: &[KeptTask]) -> Vec<BuildPiece> {
 }
 
 /// The record: its phase, pieces, road and forecast.
-pub(crate) fn derived(read: &Read<'_>) -> SessionBuild {
+pub fn derived(read: &Read<'_>) -> SessionBuild {
     let Read { build, tasks, road, .. } = read;
     let landed = road.merged.as_deref().or(read.merged_fallback);
     let stops = reached(road, read.pull_since);
@@ -348,7 +348,7 @@ pub(crate) fn derived(read: &Read<'_>) -> SessionBuild {
 /// The road a repository's recent landed Sessions usually took: the **most common whole sequence** of
 /// stops among `history`, the newest first. A tie goes to the one reached most recently. A Session
 /// whose road Fleet observed nothing of takes no part, and a repository with none has no forecast.
-pub(crate) fn usual_road(history: &[Vec<BuildStopId>]) -> Vec<BuildStopId> {
+pub fn usual_road(history: &[Vec<BuildStopId>]) -> Vec<BuildStopId> {
     let mut best: Option<(&Vec<BuildStopId>, usize)> = None;
     for sequence in history.iter().filter(|one| !one.is_empty()) {
         let votes = history.iter().filter(|other| *other == sequence).count();
@@ -361,13 +361,13 @@ pub(crate) fn usual_road(history: &[Vec<BuildStopId>]) -> Vec<BuildStopId> {
 
 /// Whether the ledger says this pull request merged. A row spent by a `gh pr merge` the forge has not
 /// confirmed still reads open, and is not one.
-pub(crate) fn merged(pull: &KeptAttachment) -> bool {
+pub fn merged(pull: &KeptAttachment) -> bool {
     crate::pull_requesting::pull_merged(&pull.detail, pull.state == AttachmentState::Spent)
 }
 
 /// The pull request this build is on the road with: the newest one held that is not closed and did not
 /// merge before the build began.
-pub(crate) fn current_pull<'a>(held: &'a [KeptAttachment], begun_at: &str) -> Option<&'a KeptAttachment> {
+pub fn current_pull<'a>(held: &'a [KeptAttachment], begun_at: &str) -> Option<&'a KeptAttachment> {
     held.iter()
         .filter(|one| one.kind == "pr" && one.state != AttachmentState::GivenBack)
         .filter(|one| !(merged(one) && one.changed_at.as_str() <= begun_at))
@@ -375,6 +375,6 @@ pub(crate) fn current_pull<'a>(held: &'a [KeptAttachment], begun_at: &str) -> Op
 }
 
 /// Whether a pull request merged after this build began, so the next work starts another.
-pub(crate) fn landed_since(held: &[KeptAttachment], begun_at: &str) -> bool {
+pub fn landed_since(held: &[KeptAttachment], begun_at: &str) -> bool {
     held.iter().any(|one| one.kind == "pr" && merged(one) && one.changed_at.as_str() > begun_at)
 }

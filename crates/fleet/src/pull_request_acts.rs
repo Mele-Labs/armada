@@ -17,7 +17,7 @@ use crate::pull_requesting::{AUTO_MERGE_REFUSED, NOT_A_DRAFT, READY_REFUSED};
 
 /// What one write came to: the reply, and whether the forge was written to, which is whether a
 /// read after it is owed.
-pub(crate) struct Acted {
+pub struct Acted {
     manifest_id: ManifestId,
     reply: PullRequestState,
     written: bool,
@@ -26,7 +26,7 @@ pub(crate) struct Acted {
 impl Fleet
 {
     /// Take a draft out of draft: the pre-read, the refusals it decides, and the write.
-    pub(crate) async fn ready_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
+    pub async fn ready_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
         let served = self.served_named(Some(manifest_id))?;
         let root = served.root();
         let before = self.pull_request_read_off(manifest_id, root, number).await?;
@@ -47,7 +47,7 @@ impl Fleet
     }
 
     /// Merge it, only once the checks have passed.
-    pub(crate) async fn merge_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
+    pub async fn merge_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
         let served = self.served_named(Some(manifest_id))?;
         let root = served.root();
         let before = self.pull_request_read_off(manifest_id, root, number).await?;
@@ -71,7 +71,7 @@ impl Fleet
     }
 
     /// Ask the forge to merge it when its checks pass.
-    pub(crate) async fn auto_merge_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
+    pub async fn auto_merge_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
         let served = self.served_named(Some(manifest_id))?;
         let root = served.root();
         let before = self.pull_request_read_off(manifest_id, root, number).await?;
@@ -116,7 +116,7 @@ impl Fleet
 
     /// The reply to a press. Where the forge was written to, the read after it and the ledger run
     /// in a task of their own.
-    pub(crate) fn replied_to(self: Arc<Self>, acted: Acted) -> PullRequestState {
+    pub fn replied_to(self: Arc<Self>, acted: Acted) -> PullRequestState {
         if !acted.written {
             return acted.reply;
         }
@@ -130,7 +130,7 @@ impl Fleet
     /// Ask the forge to merge it when its checks pass, for a caller that holds the Fleet by
     /// reference and goes on when the ledger has followed: Auto land, which asks pull request by
     /// pull request. **The same act as the trait's**, answering after the read instead of before.
-    pub(crate) async fn enable_auto_merge(
+    pub async fn enable_auto_merge(
         &self,
         manifest_id: ManifestId,
         number: u64,

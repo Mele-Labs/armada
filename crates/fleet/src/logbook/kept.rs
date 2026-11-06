@@ -20,7 +20,7 @@ use crate::daemon::Fleet;
 use crate::run_memory::{cloud, places};
 
 /// The folder beside `runs/` that holds the Logbook's files.
-pub(crate) const FOLDER: &str = "logbook";
+pub const FOLDER: &str = "logbook";
 const VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize)]
@@ -138,7 +138,7 @@ impl Fleet
 {
     /// Write a repository's section to its place and the habits and machine sections to Kit's
     /// folder. Quiet on every failure: the store holds the record, and the next write tries again.
-    pub(crate) async fn logbook_written(&self, root: &str) {
+    pub async fn logbook_written(&self, root: &str) {
         let kit = PathBuf::from(&self.host().kit_home);
         let held = self.kept_place(root).await.ok().flatten();
         let repo = match places::where_kept(&kit, held.as_ref()).1 {

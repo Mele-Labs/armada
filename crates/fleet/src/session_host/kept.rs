@@ -60,7 +60,7 @@ impl Process for Kept {
 
 /// The last lines of a keeper's log, each on a line of its own after a newline,
 /// or nothing where the log is empty or unreadable.
-pub(crate) fn tail_of(log: &Path) -> String {
+pub fn tail_of(log: &Path) -> String {
     let text = std::fs::read_to_string(log).unwrap_or_default();
     let lines: Vec<&str> = text
         .lines()
@@ -78,7 +78,7 @@ const TAIL_LINES: usize = 8;
 
 /// Whether a keeper answers at `socket`. A socket nobody answers on is a
 /// keeper that is gone, and is removed so the next start can bind there.
-pub(crate) fn connect(socket: &Path) -> Option<std::os::unix::net::UnixStream> {
+pub fn connect(socket: &Path) -> Option<std::os::unix::net::UnixStream> {
     match std::os::unix::net::UnixStream::connect(socket) {
         Ok(stream) => Some(stream),
         Err(why) if why.kind() == std::io::ErrorKind::NotFound => None,
@@ -92,7 +92,7 @@ pub(crate) fn connect(socket: &Path) -> Option<std::os::unix::net::UnixStream> {
 /// Attach to a keeper on a connection already made. Returns at once: the
 /// handshake and everything after it happen on tasks, and what the agent says
 /// reaches `sink` as it would from a process Fleet started.
-pub(crate) fn attached(
+pub fn attached(
     stream: std::os::unix::net::UnixStream,
     agent: HeadlessAgent,
     sink: Sink,

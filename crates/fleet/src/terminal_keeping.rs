@@ -10,9 +10,9 @@
 //! run id, so the next Fleet finds the keeper (`crate::session_running` reattaches at boot).
 //! Written whole by rename, as the servers' `held` record is, and removed whenever the shell ends.
 
-pub(crate) mod client;
+pub mod client;
 pub mod keeper;
-pub(crate) mod wire;
+pub mod wire;
 
 use std::io;
 use std::os::unix::net::UnixStream;
@@ -27,7 +27,7 @@ use crate::session_running::{terminal_id, terminal_number};
 pub use keeper::run;
 
 /// How much of the spool a Fleet that attaches is replayed: what a run holds on its screen.
-pub(crate) const TAIL: u64 = 256 * 1024;
+pub const TAIL: u64 = 256 * 1024;
 
 /// How long a keeper has to bind its socket.
 const WITHIN: Duration = Duration::from_secs(10);
@@ -51,7 +51,7 @@ pub enum Starting {
     Binary { exe: PathBuf, home: PathBuf },
     /// A thread of this process, for a test: no binary is built for it, and the thread outlives
     /// whatever Fleet the test drops.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     InProcess,
 }
 
@@ -104,7 +104,7 @@ impl Starting {
                     std::thread::sleep(Duration::from_millis(10));
                 }
             }
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             Starting::InProcess => {
                 if let Some(folder) = keep.socket.parent() {
                     std::fs::create_dir_all(folder).map_err(|why| why.to_string())?;
@@ -122,16 +122,16 @@ pub const VERB: &str = "terminal-keep";
 
 /// The files of one terminal's keeper, all beside its socket.
 #[derive(Clone, Debug)]
-pub(crate) struct Files {
-    pub(crate) record: PathBuf,
-    pub(crate) socket: PathBuf,
-    pub(crate) spool: PathBuf,
+pub struct Files {
+    pub record: PathBuf,
+    pub socket: PathBuf,
+    pub spool: PathBuf,
 }
 
 impl Files {
     /// Where Job `job`'s terminal `number` keeps its files under `folder`. **A short name, hashed
     /// from the Job's id**, so a socket path fits wherever a session keeper's does.
-    pub(crate) fn of(folder: &Path, job: &str, number: u32) -> Files {
+    pub fn of(folder: &Path, job: &str, number: u32) -> Files {
         let hash = Sha1::digest(job.as_bytes());
         let stem = format!("{:02x}{:02x}{:02x}{:02x}-t{number}", hash[0], hash[1], hash[2], hash[3]);
         Files {
@@ -141,14 +141,14 @@ impl Files {
         }
     }
 
-    pub(crate) fn log(&self) -> PathBuf {
+    pub fn log(&self) -> PathBuf {
         self.spool.with_extension("log")
     }
 
     /// Everything of the keeper's that Fleet put or may remove. **Fleet takes these away before it
     /// says a shell ended**, so the next keeper under this number does not find the last one's
     /// socket; the keeper takes only what is still its own.
-    pub(crate) fn removed(&self) {
+    pub fn removed(&self) {
         for path in [&self.record, &self.socket, &self.spool, &self.log()] {
             let _ = std::fs::remove_file(path);
         }
@@ -157,18 +157,18 @@ impl Files {
 
 /// What a record says.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Record {
-    pub(crate) job: String,
-    pub(crate) number: u32,
-    pub(crate) run_id: String,
-    pub(crate) dir: String,
-    pub(crate) socket: PathBuf,
-    pub(crate) spool: PathBuf,
+pub struct Record {
+    pub job: String,
+    pub number: u32,
+    pub run_id: String,
+    pub dir: String,
+    pub socket: PathBuf,
+    pub spool: PathBuf,
 }
 
 impl Record {
     /// Write the record whole or not at all.
-    pub(crate) fn written(&self, to: &Path) -> io::Result<()> {
+    pub fn written(&self, to: &Path) -> io::Result<()> {
         let text = format!(
             "job {}\nterminal {}\nrun {}\ndir {}\nsocket {}\nspool {}\n",
             self.job,
@@ -184,7 +184,7 @@ impl Record {
     }
 
     /// The record at `path`, or `None` where it is unreadable or lacks a field.
-    pub(crate) fn read(path: &Path) -> Option<Record> {
+    pub fn read(path: &Path) -> Option<Record> {
         let text = std::fs::read_to_string(path).ok()?;
         let field = |key: &str| text.lines().find_map(|line| line.strip_prefix(key)?.strip_prefix(' ').map(str::to_string));
         Some(Record {
@@ -197,13 +197,13 @@ impl Record {
         })
     }
 
-    pub(crate) fn files(&self, record: &Path) -> Files {
+    pub fn files(&self, record: &Path) -> Files {
         Files { record: record.to_path_buf(), socket: self.socket.clone(), spool: self.spool.clone() }
     }
 }
 
 /// Every record in `folder`.
-pub(crate) fn records_in(folder: &Path) -> Vec<PathBuf> {
+pub fn records_in(folder: &Path) -> Vec<PathBuf> {
     let Ok(listing) = std::fs::read_dir(folder) else {
         return Vec::new();
     };

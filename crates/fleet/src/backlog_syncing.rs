@@ -19,31 +19,31 @@ use crate::repositories::Served;
 
 /// One repository's [`Keeping`], and the failures last said for it.
 #[derive(Default)]
-pub(crate) struct Kept {
+pub struct Kept {
     keeping: Keeping,
     failing: Option<String>,
     /// What the writes of the last look said went wrong, joined.
     writing: Option<String>,
     /// When a write for something last failed, by what it was for. It is tried again once a
     /// [`SYNC_EVERY`] has passed, as a sync is.
-    pub(crate) failed_at: BTreeMap<String, Duration>,
+    pub failed_at: BTreeMap<String, Duration>,
 }
 
 impl Kept {
     /// Whether the write for `what` may be tried: it has not failed, or not lately.
-    pub(crate) fn due(&self, what: &str, now: Duration) -> bool {
+    pub fn due(&self, what: &str, now: Duration) -> bool {
         self.failed_at.get(what).is_none_or(|at| now.saturating_sub(*at) >= SYNC_EVERY)
     }
 }
 
 /// Every repository's [`Kept`], by root. Never written down: a restart syncs at its first look.
-pub(crate) struct Keepings {
+pub struct Keepings {
     started: Mutex<Instant>,
     by_root: Mutex<BTreeMap<String, Arc<tokio::sync::Mutex<Kept>>>>,
 }
 
 impl Keepings {
-    pub(crate) fn new() -> Keepings {
+    pub fn new() -> Keepings {
         Keepings { started: Mutex::new(Instant::now()), by_root: Mutex::new(BTreeMap::new()) }
     }
 
@@ -57,8 +57,8 @@ impl Keepings {
     }
 
     /// Let `by` pass without waiting for it, so a test reaches the timer.
-    #[cfg(test)]
-    pub(crate) fn later(&self, by: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn later(&self, by: Duration) {
         let mut started = self.started.lock().unwrap_or_else(PoisonError::into_inner);
         *started -= by;
     }
@@ -93,7 +93,7 @@ impl Fleet
     /// **Writes come before the look**, so the look sees them in the copy's mark and syncs them: the
     /// plan mirrored into a Job's issue, and the issue closed for a merge. **After a sync**, each
     /// claim a Job made is read back, and a Job whose claim now names someone else is told.
-    pub(crate) async fn backlogs_looked(self: &Arc<Self>) -> Vec<String> {
+    pub async fn backlogs_looked(self: &Arc<Self>) -> Vec<String> {
         let mut lines = Vec::new();
         for served in self.repositories().served() {
             let Some(backlog) = self.backlog_of(&served) else {
@@ -159,7 +159,7 @@ impl Fleet
     }
 
     /// `actor` claims `reference` in `served`'s backlog: sync, claim, sync, read back.
-    pub(crate) async fn claimed_in_backlog(
+    pub async fn claimed_in_backlog(
         &self,
         served: &Served,
         backlog: Arc<dyn Backlog + Send + Sync>,
@@ -184,7 +184,7 @@ impl Fleet
     /// `actor` hands `reference` back in `served`'s backlog, with `note` as why, under the repository's
     /// lock as a claim is made. **Synced at once**: another machine reads the issue as free only
     /// once the hand back is on the remote.
-    pub(crate) async fn released_in_backlog(
+    pub async fn released_in_backlog(
         &self,
         served: &Served,
         backlog: Arc<dyn Backlog + Send + Sync>,
@@ -202,7 +202,7 @@ impl Fleet
     }
 
     /// Who a claim by Job `id` is made as: this machine's name and the start of the Job's id.
-    pub(crate) async fn claim_actor(&self, id: &str) -> String {
+    pub async fn claim_actor(&self, id: &str) -> String {
         let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let job: String = id.chars().take(8).collect();
         tokio::task::spawn_blocking(move || format!("{}/{job}", crate::signing_in::this_machine(&configured)))

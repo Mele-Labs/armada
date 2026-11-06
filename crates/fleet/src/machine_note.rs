@@ -19,7 +19,7 @@ const SUBSTITUTES: &[(&str, &str)] = &[
 ];
 
 /// Whether `name` is an executable file in a folder of `path`.
-pub(crate) fn on_path(name: &str, path: &str) -> bool {
+pub fn on_path(name: &str, path: &str) -> bool {
     use std::os::unix::fs::PermissionsExt;
     std::env::split_paths(path).any(|folder| {
         std::fs::metadata(folder.join(name)).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
@@ -27,7 +27,7 @@ pub(crate) fn on_path(name: &str, path: &str) -> bool {
 }
 
 /// A missing command as a line, with its stand-in where it has one.
-pub(crate) fn missing_line(name: &str) -> String {
+pub fn missing_line(name: &str) -> String {
     match SUBSTITUTES.iter().find(|(held, _)| *held == name) {
         Some((_, instead)) => format!("`{name}` is not installed here. Use {instead}."),
         None => format!("`{name}` is not installed here."),
@@ -35,7 +35,7 @@ pub(crate) fn missing_line(name: &str) -> String {
 }
 
 /// The browser the Playwright tool drives, as a line.
-pub(crate) fn browser_line(shell: Option<&Path>) -> String {
+pub fn browser_line(shell: Option<&Path>) -> String {
     match shell {
         Some(shell) => format!("The Playwright tool drives the headless shell at `{}`.", shell.display()),
         None => format!("The Playwright tool has no browser here. `{}` installs one.", browser_shell::INSTALL_COMMAND),
@@ -46,7 +46,7 @@ impl Fleet
 {
     /// Keep the commands a stream's results name as not found. Quiet on a failure: the next result
     /// that names one tries again.
-    pub(crate) async fn missing_kept(&self, records: &[Record]) {
+    pub async fn missing_kept(&self, records: &[Record]) {
         let found = missing_commands(records);
         if !found.is_empty() {
             let _ = self.store().lock().await.merge_missing_commands(&found);
@@ -54,7 +54,7 @@ impl Fleet
     }
 
     /// The commands kept as missing that still do not resolve. One that does is forgotten.
-    pub(crate) async fn missing_now(&self) -> Vec<String> {
+    pub async fn missing_now(&self) -> Vec<String> {
         let mut store = self.store().lock().await;
         let mut missing = store.missing_commands().unwrap_or_default();
         missing.retain(|name| {

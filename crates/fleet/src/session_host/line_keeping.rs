@@ -17,13 +17,13 @@ use crate::operator::{InLine, Place};
 
 impl SlotQueue {
     /// The repository whose line `session` is in.
-    pub(crate) fn line_holding(&self, session: &str) -> Option<String> {
+    pub fn line_holding(&self, session: &str) -> Option<String> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting.entries.get(session).map(|entry| entry.manifest.clone())
     }
 
     /// Every Job in a line, each repository's in its order, by session id and repository.
-    pub(crate) fn everyone(&self) -> Vec<(String, String)> {
+    pub fn everyone(&self) -> Vec<(String, String)> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         let mut manifests: Vec<&String> = waiting.by_manifest.keys().collect();
         manifests.sort();
@@ -36,7 +36,7 @@ impl SlotQueue {
     /// Move `session` to `place` in `manifest`'s line, and answer everyone's new place there with
     /// when each joined. `None`, and nothing moved, where it is not in that line or `place` names a
     /// Job that is not, or itself.
-    pub(crate) fn reordered(&self, manifest: &str, session: &str, place: &Place) -> Option<Vec<(String, i64, Instant)>> {
+    pub fn reordered(&self, manifest: &str, session: &str, place: &Place) -> Option<Vec<(String, i64, Instant)>> {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let Lines { by_manifest, entries, .. } = &mut *waiting;
         let line = by_manifest.get_mut(manifest)?;
@@ -66,7 +66,7 @@ impl SlotQueue {
 impl Fleet
 {
     /// `id` joined `manifest`'s line at `place`.
-    pub(crate) async fn line_kept(&self, manifest: &str, id: &str, place: i64, since: &Instant) {
+    pub async fn line_kept(&self, manifest: &str, id: &str, place: i64, since: &Instant) {
         let one = KeptInLine { session_id: id.to_string(), manifest_id: manifest.to_string(), place, since: since.as_str().to_string() };
         if let Err(why) = self.store().lock().await.keep_in_slot_line(&one) {
             self.session_warned(id, "its place in the line for a slot was not kept", why);
@@ -74,14 +74,14 @@ impl Fleet
     }
 
     /// `id` is in no line now, and a place ruled for it is let go.
-    pub(crate) async fn line_let_go(&self, id: &str) {
+    pub async fn line_let_go(&self, id: &str) {
         self.operator_seat().take_place(id);
         let _ = self.store().lock().await.leave_slot_line(id);
     }
 
     /// Move `id` to `place` in `manifest`'s line, and keep every place there. `false` where it could
     /// not be moved: it is not in that line, or `place` names a Job that is not.
-    pub(crate) async fn line_reordered(&self, manifest: &str, id: &str, place: &Place) -> bool {
+    pub async fn line_reordered(&self, manifest: &str, id: &str, place: &Place) -> bool {
         let Some(places) = self.hosts().slot_queue().reordered(manifest, id, place) else { return false };
         for (one, at, since) in places {
             self.line_kept(manifest, &one, at, &since).await;
@@ -92,7 +92,7 @@ impl Fleet
     }
 
     /// As `id` joins `manifest`'s line, the place the Operator ruled for it, where Dispatch is on.
-    pub(crate) async fn ruled_place_taken(&self, manifest: &str, id: &str) {
+    pub async fn ruled_place_taken(&self, manifest: &str, id: &str) {
         let Some(place) = self.operator_seat().take_place(id) else { return };
         if self.operator_position(ipc::operator_positions::OperatorRole::Dispatch, manifest) == ipc::operator_positions::OperatorPosition::On {
             self.line_reordered(manifest, id, &place).await;
@@ -100,7 +100,7 @@ impl Fleet
     }
 
     /// Every Job waiting to start, with its title, each repository's in its order.
-    pub(crate) async fn waiting_to_start(&self) -> Vec<InLine> {
+    pub async fn waiting_to_start(&self) -> Vec<InLine> {
         let everyone = self.hosts().slot_queue().everyone();
         let store = self.store().lock().await;
         everyone
@@ -115,7 +115,7 @@ impl Fleet
     /// Every Job the store has in a line, back in it at its place, its wait begun again and its call
     /// raised again. **One that cannot wait any more is let go**: ended, leased a slot, or paused
     /// with no Resume pressed. Then the line is looked at, since a slot may have freed meanwhile.
-    pub(crate) async fn slot_lines_restored(self: &Arc<Self>) {
+    pub async fn slot_lines_restored(self: &Arc<Self>) {
         let kept = match self.store().lock().await.slot_lines() {
             Ok(kept) => kept,
             Err(why) => {

@@ -25,22 +25,22 @@ const RUNNING: &str = "fleet.autopilot_running";
 const NOT_RUNNING: &str = "fleet.autopilot_not_running";
 const NOT_PAUSED: &str = "fleet.autopilot_not_paused";
 const CAPPED: &str = "fleet.autopilot_capped";
-pub(super) const STOPPED: &str = "fleet.autopilot_stopped";
-pub(super) const UNSETTABLE: &str = "fleet.autopilot_unsettable";
+pub const STOPPED: &str = "fleet.autopilot_stopped";
+pub const UNSETTABLE: &str = "fleet.autopilot_unsettable";
 const NOT_READ: &str = "fleet.autopilot_not_read";
 const NOT_SET_ASIDE: &str = "fleet.pick_not_set_aside";
 
 impl Fleet
 {
-    pub(super) fn refused_as(&self, code: &str, said: impl Into<String>) -> WireError {
+    pub fn refused_as(&self, code: &str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said.into(), self.run_id())
     }
 
-    pub(super) fn faulted(&self, why: impl std::fmt::Debug) -> Refusal {
+    pub fn faulted(&self, why: impl std::fmt::Debug) -> Refusal {
         Refusal::Fault(self.refused_as("fleet.autopilot_unreadable", format!("{why:?}")))
     }
 
-    pub(super) async fn kept_autopilot(
+    pub async fn kept_autopilot(
         &self,
         manifest_id: &ManifestId,
     ) -> Result<KeptAutopilot, Refusal> {
@@ -56,7 +56,7 @@ impl Fleet
         })
     }
 
-    pub(super) async fn answered(&self, kept: KeptAutopilot) -> Result<Autopilot, Refusal> {
+    pub async fn answered(&self, kept: KeptAutopilot) -> Result<Autopilot, Refusal> {
         let gathered = self
             .autopilot_gathered(kept)
             .await
@@ -69,7 +69,7 @@ impl Fleet
         Ok(now)
     }
 
-    pub(super) fn not_now(&self, refused: NotNow) -> Refusal {
+    pub fn not_now(&self, refused: NotNow) -> Refusal {
         let (code, said) = match refused.from {
             State::Running => (RUNNING, "Autopilot is running"),
             State::Paused => (NOT_RUNNING, "Autopilot is paused"),

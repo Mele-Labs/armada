@@ -16,7 +16,7 @@ const NOT_CLAIMABLE: &str = "fleet.pull_request_not_claimable";
 
 impl Fleet
 {
-    pub(crate) async fn pull_request_claimed(
+    pub async fn pull_request_claimed(
         &self,
         caller: Option<Caller>,
         claim: ClaimPullRequest,

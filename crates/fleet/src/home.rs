@@ -13,10 +13,10 @@
 //! Everything here is a function over [`Places`], so the claim runs on folders held in memory.
 //! [`serving`] is the part that speaks for Fleet.
 
-mod compare;
-mod pieces;
-pub(crate) mod secrets;
-mod serving;
+pub mod compare;
+pub mod pieces;
+pub mod secrets;
+pub mod serving;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -26,7 +26,7 @@ use core_model::KitServer;
 use ipc::{HomeItem, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomeRowAt, HomeSide, SharedHomeRead};
 
 pub use serving::HomeFittings;
-pub(crate) use serving::HomeHeld;
+pub use serving::HomeHeld;
 
 use crate::profiles::Joined;
 use pieces::Piece;

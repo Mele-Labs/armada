@@ -20,7 +20,7 @@ use crate::session_host::start_card::start_read;
 impl Fleet
 {
     /// `held` waits until `first` pushes its pull request, where it has not begun.
-    pub(super) async fn operator_held(&self, held: &str, first: &str, shared: &[String]) {
+    pub async fn operator_held(&self, held: &str, first: &str, shared: &[String]) {
         let (begun, waits, manifest, subject, brief, first_title) = {
             let store = self.store().lock().await;
             let (Ok(Some(session)), Ok(Some(hosting))) = (store.session(held), store.hosting(held)) else { return };
@@ -62,7 +62,7 @@ impl Fleet
 
     /// A wait whose condition can no longer be met: where it is the Operator's hold, it lifts, and
     /// the Log says so.
-    pub(crate) async fn operator_hold_lifted(&self, wait: &KeptWait, said: &str) {
+    pub async fn operator_hold_lifted(&self, wait: &KeptWait, said: &str) {
         if wait.by != BY_OPERATOR {
             return;
         }

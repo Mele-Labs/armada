@@ -19,26 +19,26 @@ use verification::Exit;
 
 /// How long the shell may take. Measured at 7 to 8 seconds for an interactive zsh login on a
 /// machine at a load of 30, and well under a second idle.
-pub(crate) const READ_WITHIN: Duration = Duration::from_secs(15);
+pub const READ_WITHIN: Duration = Duration::from_secs(15);
 
 /// What the read shell sets for itself and no command should inherit.
 const DROPPED: &[&str] = &["PWD", "OLDPWD", "SHLVL", "_"];
 
 /// The environment a watch's command is given before its own additions.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct LoginEnvironment {
+pub struct LoginEnvironment {
     /// Each variable the shell held, laid over Fleet's own. Empty where it fell back.
-    pub(crate) variables: Vec<(String, String)>,
+    pub variables: Vec<(String, String)>,
     /// Why Fleet's own environment stands in, where it does.
-    pub(crate) fell_back: Option<String>,
+    pub fell_back: Option<String>,
 }
 
 impl LoginEnvironment {
-    pub(crate) fn fallen_back(why: String) -> LoginEnvironment {
+    pub fn fallen_back(why: String) -> LoginEnvironment {
         LoginEnvironment { variables: Vec::new(), fell_back: Some(why) }
     }
 
-    pub(crate) fn wire(&self) -> ipc::LoginShell {
+    pub fn wire(&self) -> ipc::LoginShell {
         match &self.fell_back {
             Some(why) => ipc::LoginShell::FellBack { why: why.clone() },
             None => ipc::LoginShell::Read,
@@ -46,7 +46,7 @@ impl LoginEnvironment {
     }
 
     /// The `PATH` a command given this environment sees.
-    pub(crate) fn path(&self) -> String {
+    pub fn path(&self) -> String {
         self.variables
             .iter()
             .find(|(name, _)| name == "PATH")
@@ -58,7 +58,7 @@ impl LoginEnvironment {
 
 /// Read `shell`'s environment as a login, interactive shell started in `folder`. `None` reads
 /// nothing and falls back, which is what Fleet's own tests ask for.
-pub(crate) async fn read(shell: Option<&str>, folder: &Path) -> LoginEnvironment {
+pub async fn read(shell: Option<&str>, folder: &Path) -> LoginEnvironment {
     let Some(shell) = shell else {
         return LoginEnvironment::fallen_back(String::from("This Fleet reads no login shell."));
     };
@@ -97,7 +97,7 @@ pub(crate) async fn read(shell: Option<&str>, folder: &Path) -> LoginEnvironment
 
 /// The variables between `marker`'s two ends, the last pair printed. `None` where either is
 /// missing.
-pub(crate) fn parsed(stdout: &str, marker: &str) -> Option<Vec<(String, String)>> {
+pub fn parsed(stdout: &str, marker: &str) -> Option<Vec<(String, String)>> {
     let end = stdout.rfind(&format!(">{marker}"))?;
     let opened = format!("{marker}<");
     let start = stdout[..end].rfind(&opened)? + opened.len();

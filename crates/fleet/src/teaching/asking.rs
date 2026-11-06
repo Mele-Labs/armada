@@ -24,7 +24,7 @@ use crate::mods::slug_problem;
 /// An item's id begins with this, then the mod and the Manifest id.
 const PREFIX: &str = "words:";
 /// The label of the option that takes the person's own words.
-pub(crate) const OTHER: &str = "Other";
+pub const OTHER: &str = "Other";
 /// The most addresses offered besides Other.
 const MOST_OFFERED: usize = 5;
 
@@ -33,7 +33,7 @@ fn item_id(mod_name: &str, manifest: &str) -> String {
 }
 
 /// The mod and Manifest id an item id names.
-pub(crate) fn parse_id(id: &str) -> Option<(String, String)> {
+pub fn parse_id(id: &str) -> Option<(String, String)> {
     let (name, manifest) = id.strip_prefix(PREFIX)?.split_once(':')?;
     (!name.is_empty() && !manifest.is_empty()).then(|| (name.to_string(), manifest.to_string()))
 }
@@ -67,7 +67,7 @@ impl Fleet
 {
     /// Put the question `wanted` names to its Session's person, if it has one and the question was
     /// not put before.
-    pub(crate) async fn address_asked(&self, wanted: &Wanted) {
+    pub async fn address_asked(&self, wanted: &Wanted) {
         let Some(session) = &wanted.session_id else { return };
         let at = self.clock().now().as_str().to_string();
         let new = self.store().lock().await.ask_word_address(&wanted.mod_name, &wanted.manifest, session, &at);
@@ -78,7 +78,7 @@ impl Fleet
 
     /// The questions still open among `asks`, as Needs you items: one `answer` act each, an option
     /// for every address a Words mod already holds, and `Other` for the person's own.
-    pub(crate) fn words_ask_items(&self, asks: &[KeptWordAsk], dismissed: &[String]) -> Vec<WaitingItem> {
+    pub fn words_ask_items(&self, asks: &[KeptWordAsk], dismissed: &[String]) -> Vec<WaitingItem> {
         let dir = self.mods_dir();
         asks.iter()
             .filter_map(|ask| {
@@ -116,7 +116,7 @@ impl Fleet
     /// The person answered the question `item` is: `picked` is the label of the option they chose,
     /// `words` what they wrote. An address picked is that address; `Other`, or no pick, is the words.
     /// The address is written to the mod, which closes the question.
-    pub(crate) async fn words_address_chosen(
+    pub async fn words_address_chosen(
         self: &Arc<Self>,
         session: &str,
         item: &WaitingItem,

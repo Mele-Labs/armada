@@ -18,7 +18,7 @@ use super::asks;
 /// readers it was measured against, kept so the next measurement can put one in force.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Reader {
+pub enum Reader {
     Rules,
     Model,
     /// An ask if either the rules or the model call it.
@@ -27,7 +27,7 @@ pub(crate) enum Reader {
 
 impl Reader {
     /// Whether this reader needs the model, and so whether Fleet fetches and loads it.
-    pub(crate) fn reads_model(self) -> bool {
+    pub fn reads_model(self) -> bool {
         self != Reader::Rules
     }
 }
@@ -35,13 +35,13 @@ impl Reader {
 /// The reader in force. The rules stand in for the model until it is loaded, whichever this is.
 /// Either, the owner's choice of 20 Oct 2026: on the held-out replies it found 54 of 81 asks where
 /// the rules found 21, for 20 wrong calls where they made 8.
-pub(crate) const SHIPPED: Reader = Reader::Either;
+pub const SHIPPED: Reader = Reader::Either;
 
 /// The probability at and above which the model calls a reply an ask, alone or beside the rules: the
 /// most recall at which the post-18-Oct training replies, read out of fold, kept precision at 0.90.
 /// One figure for both, since the rules alone read only 0.82 precision on those replies, leaving no
 /// room for the model to run looser beside them.
-pub(crate) const ASKS_AT: f32 = 0.84;
+pub const ASKS_AT: f32 = 0.84;
 
 /// The closing sentences scored for the one to put in front of the person.
 const SENTENCES: usize = 6;
@@ -50,12 +50,12 @@ const KEPT: usize = 512;
 
 /// What the model made of one reply: how likely it asks, and its closing sentence most like an ask.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct ModelRead {
+pub struct ModelRead {
     pub score: f32,
     pub line: Option<String>,
 }
 
-pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<ModelRead, NotEmbedded> {
+pub fn read(model: &dyn TextModel, reply: &str) -> Result<ModelRead, NotEmbedded> {
     let sentences = asks::closing_sentences(reply);
     if sentences.is_empty() {
         return Ok(ModelRead { score: 0.0, line: None });
@@ -70,7 +70,7 @@ pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<ModelRead, NotE
 
 /// The sentence that asks, as `reader` decides from the rules' sentence and the model's read. Where
 /// both call it, the rules' sentence is shown: it is the one an agent wrote to ask.
-pub(crate) fn decided(reader: Reader, rules: Option<String>, model: Option<&ModelRead>) -> Option<String> {
+pub fn decided(reader: Reader, rules: Option<String>, model: Option<&ModelRead>) -> Option<String> {
     let Some(model) = model else {
         return rules;
     };
@@ -83,7 +83,7 @@ pub(crate) fn decided(reader: Reader, rules: Option<String>, model: Option<&Mode
 
 /// The model's reads, by reply, and the Sessions whose read came in since the last look. `R` is what
 /// one read makes of a reply: a [`ModelRead`], or the sentences of `super::extracting`.
-pub(crate) struct Reads<R = ModelRead> {
+pub struct Reads<R = ModelRead> {
     inner: Mutex<Inner<R>>,
 }
 
@@ -102,7 +102,7 @@ struct Inner<R> {
 impl Reads<ModelRead> {
     /// The sentence of `reply` that asks, by `reader`. With no model, or a reply it has not read yet,
     /// the rules' answer; the read is started so the next derive has it.
-    pub(crate) fn asking_line(
+    pub fn asking_line(
         self: &Arc<Self>,
         reader: Reader,
         model: Option<Arc<dyn TextModel>>,
@@ -126,7 +126,7 @@ impl<R: Clone + Send + 'static> Reads<R> {
     /// A read that failed stays in `going`, so it is not tried again on every derive.
     ///
     /// **One `Reads` serves one reading**, since a read is kept by the reply's text alone.
-    pub(crate) fn read_of(
+    pub fn read_of(
         self: &Arc<Self>,
         how: fn(&dyn TextModel, &str) -> Result<R, NotEmbedded>,
         model: Arc<dyn TextModel>,
@@ -158,7 +158,7 @@ impl<R: Clone + Send + 'static> Reads<R> {
     }
 
     /// The Sessions whose reply the model read since the last call, once each.
-    pub(crate) fn settled(&self) -> Vec<String> {
+    pub fn settled(&self) -> Vec<String> {
         let mut settled = std::mem::take(&mut self.inner.lock().expect("never poisoned").settled);
         settled.sort();
         settled.dedup();

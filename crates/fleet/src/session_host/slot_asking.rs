@@ -22,22 +22,22 @@ use super::queueing::{Choice, SlotQueue};
 use crate::daemon::Fleet;
 
 /// How long a command may go unheard before its record is forgotten.
-pub(crate) const EXPIRES: Duration = Duration::from_secs(10);
+pub const EXPIRES: Duration = Duration::from_secs(10);
 
 /// How long a slot added for a command is held for it.
-pub(crate) const RESERVED_FOR: Duration = Duration::from_secs(30);
+pub const RESERVED_FOR: Duration = Duration::from_secs(30);
 
 /// One Session's command, asking.
-pub(super) struct Want {
+pub struct Want {
     manifest: String,
-    pub(super) choice: Choice,
-    pub(super) since: Instant,
+    pub choice: Choice,
+    pub since: Instant,
     beat: Tick,
     reserved_until: Option<Tick>,
 }
 
 impl Want {
-    pub(super) fn fresh(&self, now: Tick) -> bool {
+    pub fn fresh(&self, now: Tick) -> bool {
         now.saturating_duration_since(self.beat) < EXPIRES
     }
 
@@ -49,7 +49,7 @@ impl Want {
 impl SlotQueue {
     /// The command of `session` is asking in `manifest`'s pool. Raises its record, or hears from it
     /// again. Where the answer stands, and whether the call is newly on the person's list.
-    pub(crate) fn want(&self, manifest: &str, session: &str, since: &Instant, now: Tick) -> (SlotAskStanding, bool) {
+    pub fn want(&self, manifest: &str, session: &str, since: &Instant, now: Tick) -> (SlotAskStanding, bool) {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let lined = waiting.entries.get(session).map(|entry| entry.choice);
         let stale = waiting.wants.get(session).is_none_or(|want| !want.fresh(now));
@@ -74,7 +74,7 @@ impl SlotQueue {
     }
 
     /// The command is done. Whether its call was on the person's list, and whether it held a slot.
-    pub(super) fn done(&self, session: &str, now: Tick) -> (bool, bool) {
+    pub fn done(&self, session: &str, now: Tick) -> (bool, bool) {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let lined = waiting.entries.contains_key(session);
         match waiting.wants.remove(session) {
@@ -84,13 +84,13 @@ impl SlotQueue {
     }
 
     /// The repository a heard-from command of `session` asks in.
-    pub(super) fn wanted_in(&self, session: &str, now: Tick) -> Option<String> {
+    pub fn wanted_in(&self, session: &str, now: Tick) -> Option<String> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting.wants.get(session).filter(|want| want.fresh(now)).map(|want| want.manifest.clone())
     }
 
     /// What the person chose for a command's record. Whether there was one to choose for.
-    pub(crate) fn choose_want(&self, session: &str, choice: Choice) -> bool {
+    pub fn choose_want(&self, session: &str, choice: Choice) -> bool {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         match waiting.wants.get_mut(session) {
             Some(want) => {
@@ -102,7 +102,7 @@ impl SlotQueue {
     }
 
     /// A slot was added for the command: hold it.
-    pub(crate) fn reserve(&self, session: &str, now: Tick) {
+    pub fn reserve(&self, session: &str, now: Tick) {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         if let Some(want) = waiting.wants.get_mut(session) {
             want.choice = Choice::Added;
@@ -111,7 +111,7 @@ impl SlotQueue {
     }
 
     /// Whether a slot of `manifest` is held for a command, or being made for a Job, other than `except`'s own.
-    pub(crate) fn reserved(&self, manifest: &str, except: Option<&str>, now: Tick) -> bool {
+    pub fn reserved(&self, manifest: &str, except: Option<&str>, now: Tick) -> bool {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting
             .wants
@@ -121,7 +121,7 @@ impl SlotQueue {
     }
 
     /// Forget the commands not heard from. The Sessions whose list or reservation that changed.
-    pub(crate) fn expire(&self, now: Tick) -> Vec<String> {
+    pub fn expire(&self, now: Tick) -> Vec<String> {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let gone: Vec<String> =
             waiting.wants.iter().filter(|(_, want)| !want.fresh(now)).map(|(one, _)| one.clone()).collect();
@@ -139,7 +139,7 @@ impl Fleet
 {
     /// `ask_for_slot`. A Session Fleet does not host, or one that has ended, is `unasked`: the
     /// command goes on as it did, and nothing is refused.
-    pub(crate) async fn slot_asked(&self, call: AskForSlot) -> SlotAsked {
+    pub async fn slot_asked(&self, call: AskForSlot) -> SlotAsked {
         let id = call.session_id.as_str();
         let queue = Arc::clone(self.hosts().slot_queue());
         let now = Tick::now();

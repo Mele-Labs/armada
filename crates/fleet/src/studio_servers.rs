@@ -45,7 +45,7 @@ impl Fleet
     ///
     /// **The Studio names the repository**, so nothing on this call can reach
     /// another checkout, and the ports come from that checkout's own span.
-    pub(crate) async fn started_studio_server(
+    pub async fn started_studio_server(
         self: Arc<Self>,
         studio_id: ipc::StudioId,
         asked: StartStudioServer,
@@ -108,7 +108,7 @@ impl Fleet
     /// directory to hold back — a server's is swept by its age like any other —
     /// so a failure here leaves a node naming an instance nobody can read,
     /// which draws as *not read yet* rather than as a wrong result.
-    pub(crate) async fn kept_what_studios_hold_of_server(&self, state: &ServerState, dir: &Path) {
+    pub async fn kept_what_studios_hold_of_server(&self, state: &ServerState, dir: &Path) {
         let printed = records::output_of(
             &dir.join(records::LOG),
             state.id.clone(),

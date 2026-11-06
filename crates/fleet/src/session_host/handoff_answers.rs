@@ -17,14 +17,14 @@ use store::{AttachmentState, Holder, KeptAttachment};
 use crate::daemon::Fleet;
 
 /// On the Job's ledger once the owner chose [`ipc::HANDOFF_QUIET`]: `spent`, a fact that stays.
-pub(crate) const QUIET: &str = "handoff_quiet";
+pub const QUIET: &str = "handoff_quiet";
 /// On the Job's ledger once the owner chose a figure after [`ipc::HANDOFF_REMIND`]: `standing` until
 /// the Job's context passes it and it is told again. The target is the figure in tokens.
-pub(crate) const REMIND_AT: &str = "handoff_remind_at";
+pub const REMIND_AT: &str = "handoff_remind_at";
 
 /// Which of the handoff answers the owner pressed on a card, in any question.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum HandoffAnswer {
+pub enum HandoffAnswer {
     Yes,
     Quiet,
     Remind,
@@ -32,7 +32,7 @@ pub(crate) enum HandoffAnswer {
 }
 
 impl HandoffAnswer {
-    pub(crate) fn of(answers: &[QuestionAnswer]) -> HandoffAnswer {
+    pub fn of(answers: &[QuestionAnswer]) -> HandoffAnswer {
         let chose = |label: &str| answers.iter().any(|one| one.chosen.iter().any(|chosen| chosen == label));
         if chose(ipc::HANDOFF_YES) {
             HandoffAnswer::Yes
@@ -48,11 +48,11 @@ impl HandoffAnswer {
 
 /// How Bridge opens the person's answer to a question kept for a walk, a line a question
 /// (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts`).
-pub(crate) const ANSWERED_LATER: &str = "Answering your earlier question";
+pub const ANSWERED_LATER: &str = "Answering your earlier question";
 
 /// What the person chose on the kept `questions`, read off their message: each label one the
 /// question offered, so words of their own choose nothing.
-pub(crate) fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
+pub fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<QuestionAnswer> {
     questions
         .iter()
         .filter_map(|asked| {
@@ -68,7 +68,7 @@ pub(crate) fn answered_later(questions: &[AskedQuestion], text: &str) -> Vec<Que
 /// the person says; a skipped one is cleared by anything he says after it; a message answering them
 /// clears all. A question asked again later is left to the later ask. Bridge's `lapsedOf`
 /// (`packages/screens/src/sessions-wire.ts`) is the same rule: keep the two in step.
-pub(crate) fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
+pub fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>> {
     let mut said = false;
     let mut later = BTreeSet::new();
     let mut lapsed: Vec<AskedQuestion> = Vec::new();
@@ -99,7 +99,7 @@ pub(crate) fn lapsed_question(rows: &[SessionRow]) -> Option<Vec<AskedQuestion>>
 
 /// What the Context rule does for one Job whose context is over the line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ContextAct {
+pub enum ContextAct {
     /// Tell the Job to ask on its card. `reminded` where it is the reminder the owner asked for, which
     /// is told even where the rule told it already and has not seen it fall under.
     Tell { reminded: bool },
@@ -110,7 +110,7 @@ pub(crate) enum ContextAct {
 
 /// The Context rule's act for a Job at `tokens`, by its own answers first and then the setting.
 /// `due` is whether the rule's own watch would tell it now.
-pub(crate) fn context_act(quiet: bool, remind_at: Option<u64>, setting: &str, tokens: f64, due: bool) -> ContextAct {
+pub fn context_act(quiet: bool, remind_at: Option<u64>, setting: &str, tokens: f64, due: bool) -> ContextAct {
     if quiet {
         return ContextAct::Nothing;
     }
@@ -131,7 +131,7 @@ pub(crate) fn context_act(quiet: bool, remind_at: Option<u64>, setting: &str, to
 impl Fleet
 {
     /// The Context rule's act for Job `session` at `tokens`.
-    pub(crate) async fn context_act_of(&self, session: &str, tokens: f64, due: bool) -> ContextAct {
+    pub async fn context_act_of(&self, session: &str, tokens: f64, due: bool) -> ContextAct {
         let setting: String = self.machine_settings().now().get(keys::PLAN_CONTEXT_HANDOFF);
         let held = self.store().lock().await.attachments_of(&Holder::session(session)).unwrap_or_default();
         let quiet = held.iter().any(|one| one.kind == QUIET && one.state == AttachmentState::Spent);
@@ -143,18 +143,18 @@ impl Fleet
     }
 
     /// The owner chose not to be asked again on this Job.
-    pub(crate) async fn handoff_quieted(&self, session: &str) {
+    pub async fn handoff_quieted(&self, session: &str) {
         self.handoff_answer_kept(session, QUIET, session, AttachmentState::Spent).await;
     }
 
     /// The owner chose to be asked again once the Job's context passes `tokens`. An earlier figure is
     /// given back.
-    pub(crate) async fn handoff_remind_kept(&self, session: &str, tokens: u64) {
+    pub async fn handoff_remind_kept(&self, session: &str, tokens: u64) {
         self.handoff_answer_kept(session, REMIND_AT, &tokens.to_string(), AttachmentState::Standing).await;
     }
 
     /// The reminder was told: the figure is spent, and the rule's watch takes over again.
-    pub(crate) async fn handoff_reminded(&self, session: &str) {
+    pub async fn handoff_reminded(&self, session: &str) {
         let now = self.now().as_str().to_string();
         let _ = self.store().lock().await.settle_held(&Holder::session(session), Some(REMIND_AT), AttachmentState::Spent, &now);
     }
@@ -181,7 +181,7 @@ impl Fleet
     /// The person answered a question kept for a walk, or one nobody answered in time, with a message, from Needs you: its handoff
     /// answer is run as the card's is in the permission door. Read before the message's row is put.
     /// `true` where the Job hands on, so the message is not sent to the process the hand ends.
-    pub(crate) async fn handoff_answered_later(self: &Arc<Self>, session: &str, text: &str) -> bool {
+    pub async fn handoff_answered_later(self: &Arc<Self>, session: &str, text: &str) -> bool {
         if !text.starts_with(ANSWERED_LATER) {
             return false;
         }
@@ -201,7 +201,7 @@ impl Fleet
     }
 
     /// Whether Job `session` has ended, is handing on already, or has handed on.
-    pub(crate) async fn handing_on_already(&self, session: &str) -> bool {
+    pub async fn handing_on_already(&self, session: &str) -> bool {
         let ended = self.session_and_hosting(session).await.map_or(true, |(row, _)| row.state == store::SessionState::Ended);
         let held = self.store().lock().await.attachments_of(&Holder::session(session)).unwrap_or_default();
         ended

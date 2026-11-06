@@ -34,7 +34,7 @@ const SKIP: &[&str] = &[
 ];
 
 /// The files that make a directory a package of its own.
-pub(super) const MANIFESTS: &[(&str, &str)] = &[
+pub const MANIFESTS: &[(&str, &str)] = &[
     ("package.json", "node"),
     ("Cargo.toml", "cargo"),
     ("pyproject.toml", "python"),
@@ -42,7 +42,7 @@ pub(super) const MANIFESTS: &[(&str, &str)] = &[
 
 /// Files making a directory a workspace this read does not follow — listed so
 /// the workspace is there and says so, rather than reading as nothing.
-pub(super) const NOT_FOLLOWED: &[&str] = &[
+pub const NOT_FOLLOWED: &[&str] = &[
     "GNUmakefile",
     "Gemfile",
     "Justfile",
@@ -62,12 +62,12 @@ pub(super) const NOT_FOLLOWED: &[&str] = &[
 
 /// Every workspace directory, with its file names and the pattern entries
 /// naming it, and what was not read on the way.
-pub(super) struct Found {
-    pub(super) dirs: BTreeMap<String, (BTreeSet<String>, Vec<WorkspaceGlob>)>,
-    pub(super) not_read: Vec<NotRead>,
+pub struct Found {
+    pub dirs: BTreeMap<String, (BTreeSet<String>, Vec<WorkspaceGlob>)>,
+    pub not_read: Vec<NotRead>,
 }
 
-pub(super) fn discover(tree: &impl Tree) -> Found {
+pub fn discover(tree: &impl Tree) -> Found {
     let mut found = Found {
         dirs: BTreeMap::new(),
         not_read: Vec::new(),
@@ -161,7 +161,7 @@ fn hidden_yaml(tree: &impl Tree, dir: &str, not_read_here: &mut Vec<NotRead>) {
     }
 }
 
-pub(super) fn is_yaml(name: &str) -> bool {
+pub fn is_yaml(name: &str) -> bool {
     name.ends_with(".yml") || name.ends_with(".yaml")
 }
 
@@ -252,7 +252,7 @@ fn has_pattern(entry: &str) -> bool {
 
 /// A top-level YAML list, as an indented block of `- entry` or `[a, b]` on one
 /// line. `None` for any other shape; an absent key is an empty list.
-pub(super) fn yaml_list(text: &str, key: &str) -> Option<Vec<String>> {
+pub fn yaml_list(text: &str, key: &str) -> Option<Vec<String>> {
     let mut lines = text.lines();
     let prefix = format!("{key}:");
     let rest = loop {
@@ -285,7 +285,7 @@ pub(super) fn yaml_list(text: &str, key: &str) -> Option<Vec<String>> {
 }
 
 /// One YAML scalar: quoted, or bare up to a trailing comment.
-pub(super) fn scalar(item: &str) -> Option<String> {
+pub fn scalar(item: &str) -> Option<String> {
     match item.chars().next()? {
         quote @ ('"' | '\'') => Some(item[1..].split(quote).next()?.to_string()),
         _ => Some(item.split(" #").next()?.trim().to_string()),

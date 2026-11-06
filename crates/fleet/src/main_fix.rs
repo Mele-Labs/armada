@@ -74,7 +74,7 @@ fn aged(seconds: i64) -> String {
 }
 
 /// The facts of a red, one line each, as the band shows them.
-pub(crate) fn brief_of(main: &MainCi) -> String {
+pub fn brief_of(main: &MainCi) -> String {
     let mut lines = Vec::new();
     for job in &main.failed {
         lines.push(format!(
@@ -100,7 +100,7 @@ impl Fleet
 {
 
     /// The reading, if main is red there and Fleet serves the repository.
-    pub(crate) async fn red_of(&self, root: &str) -> Result<(Served, MainCi), Adrift> {
+    pub async fn red_of(&self, root: &str) -> Result<(Served, MainCi), Adrift> {
         let served = self
             .repositories()
             .served()
@@ -122,7 +122,7 @@ impl Fleet
     }
 
     /// The Session working on this red, if one is: the newest take whose Session has not ended.
-    pub(crate) async fn taking(&self, main: &MainCi) -> Option<TakenBy> {
+    pub async fn taking(&self, main: &MainCi) -> Option<TakenBy> {
         let store = self.store().lock().await;
         self.fixing_of(&store, main)
     }
@@ -130,7 +130,7 @@ impl Fleet
     /// The brief, and under it the address of the failing job's log and its
     /// last lines as the forge gave them. **Absent where the forge would not
     /// give the text**: the address still goes.
-    pub(crate) async fn with_the_log(&self, served: &Served, main: &MainCi, brief: String) -> String {
+    pub async fn with_the_log(&self, served: &Served, main: &MainCi, brief: String) -> String {
         let Some(job) = main.failed.first() else {
             return brief;
         };
@@ -182,7 +182,7 @@ impl Fleet
 
     /// Record that a Session has this red. **`forked_from` is the Session
     /// Fleet forked this one from**, which cannot be handed the red twice.
-    pub(crate) async fn recorded_session_take(&self, main: &MainCi, session: &str, how: TakenHow, forked_from: Option<&str>) {
+    pub async fn recorded_session_take(&self, main: &MainCi, session: &str, how: TakenHow, forked_from: Option<&str>) {
         let Some(take) = self.take_of(main, TakenBy::Session(session.to_string()), how, forked_from) else {
             return;
         };
@@ -191,7 +191,7 @@ impl Fleet
 
     /// What main's change asks of Fleet: a green ends every take. A red is left to the band's
     /// buttons and to the Session that owns the pull request that turned it.
-    pub(crate) async fn main_acted_on(&self, changes: &[MainChanged]) {
+    pub async fn main_acted_on(&self, changes: &[MainChanged]) {
         for changed in changes {
             if let MainChange::WentGreen = changed.change {
                 self.fixed(&changed.now).await;
@@ -247,7 +247,7 @@ impl Fleet
 
     /// The Session working on main's red, for the hub and the guards: the
     /// newest take that has not ended, whose Session is still running.
-    pub(crate) fn fixing_of(&self, store: &store::Store, main: &MainCi) -> Option<TakenBy> {
+    pub fn fixing_of(&self, store: &store::Store, main: &MainCi) -> Option<TakenBy> {
         let red_at = main.red_at.as_ref()?;
         store
             .main_fixes_of(&main.repository, red_at)
@@ -266,7 +266,7 @@ impl Fleet
 
 }
 
-pub(crate) fn refused(root: &str, why: MainNotFixable) -> Adrift {
+pub fn refused(root: &str, why: MainNotFixable) -> Adrift {
     Adrift::MainNotFixable {
         root: root.to_string(),
         why,

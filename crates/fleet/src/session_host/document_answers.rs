@@ -25,7 +25,7 @@ const DOCUMENT_ANSWER_EMPTY: &str = "fleet.document_answer_empty";
 const DOCUMENT_ANSWER_UNNAMED: &str = "fleet.document_answer_unnamed";
 
 /// The person's message for each answer to a document. Words with an approval go on a line after it.
-pub(crate) fn approved(title: &str, revision: &str, words: Option<&str>) -> String {
+pub fn approved(title: &str, revision: &str, words: Option<&str>) -> String {
     let mut body = format!("Approved document: {title}, revision {revision}\nGo on from it as written.");
     if let Some(words) = words {
         body.push('\n');
@@ -34,17 +34,17 @@ pub(crate) fn approved(title: &str, revision: &str, words: Option<&str>) -> Stri
     body
 }
 
-pub(crate) fn sent_back(title: &str, revision: &str, note: &str, path: &str) -> String {
+pub fn sent_back(title: &str, revision: &str, note: &str, path: &str) -> String {
     format!("Sent back document: {title}, revision {revision}\n{note}\nRevise the page at {path} and write it again.")
 }
 
-pub(crate) fn is_document(detail: &BTreeMap<String, String>) -> bool {
+pub fn is_document(detail: &BTreeMap<String, String>) -> bool {
     detail.get("form").map(String::as_str) == Some("document")
 }
 
 /// Whether a document's kept detail says he approved its newest revision. A new revision drops
 /// `settled`, and `revision` is checked against the revisions kept besides.
-pub(crate) fn approved_on_newest(detail: &BTreeMap<String, String>) -> bool {
+pub fn approved_on_newest(detail: &BTreeMap<String, String>) -> bool {
     let newest = detail
         .get("revisions")
         .and_then(|kept| ipc::decode::<Vec<String>>("a document's revisions", kept.as_bytes()).ok())
@@ -58,7 +58,7 @@ pub(crate) fn approved_on_newest(detail: &BTreeMap<String, String>) -> bool {
 
 /// Every document whose newest revision was put to the person and not answered, as the item that
 /// waits on him: id `document:<path>`, text its title, opening the Job.
-pub(crate) fn document_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
+pub fn document_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
     attachments
         .iter()
         .filter(|one| one.kind == "artifact" && is_document(&one.detail))
@@ -84,7 +84,7 @@ impl Fleet
 {
     /// `answer_document`: the Job is told as his message first, so a failed send leaves the revision
     /// open, then `detail` keeps how it ended.
-    pub(crate) async fn document_answered(self: Arc<Self>, said: AnswerDocument) -> Result<SessionRecord, Refusal> {
+    pub async fn document_answered(self: Arc<Self>, said: AnswerDocument) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().trim().to_string();
         let named = said.document.trim();
         let path = named.strip_prefix(DOCUMENT_ITEM_PREFIX).unwrap_or(named).to_string();
@@ -134,7 +134,7 @@ impl Fleet
 
     /// Keep how the page's newest revision ended, and on an approval approve the plan held behind it.
     /// The Job was told already: by the message his card sent, or by his own reply.
-    pub(crate) async fn page_settled(
+    pub async fn page_settled(
         self: Arc<Self>,
         session_id: SessionId,
         harness: String,
@@ -173,7 +173,7 @@ impl Fleet
     }
 
     /// The Job's harness, and the document it holds at `path`.
-    pub(super) async fn document_held(&self, id: &str, path: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
+    pub async fn document_held(&self, id: &str, path: &str) -> Result<(String, Option<ipc::Attachment>), Refusal> {
         let store = self.store().lock().await;
         let session = store
             .session(id)

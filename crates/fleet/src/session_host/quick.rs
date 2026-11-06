@@ -28,7 +28,7 @@ const ASK_WITHIN: Duration = Duration::from_secs(20);
 const READ_EVERY: Duration = Duration::from_secs(60);
 
 /// What Fleet keeps for the quick bar. Memory only.
-pub(crate) struct Kept {
+pub struct Kept {
     /// By Job: the agent message answers were asked for, by its row id, and the answers. One message a Job.
     asked: Mutex<HashMap<String, (String, Arc<OnceCell<Vec<String>>>)>>,
     /// Every line he sent, in every Job, and when they were read. Held across a reading, so two reads make one.
@@ -61,21 +61,21 @@ impl Kept {
     }
 
     /// Whether his lines have been read off the threads since Fleet began.
-    #[cfg(test)]
-    pub(crate) fn sent_read(&self) -> bool {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn sent_read(&self) -> bool {
         self.sent.try_lock().is_ok_and(|held| held.is_some())
     }
 
     /// A shorter wait than the shipped one, so a test does not sit through it.
-    #[cfg(test)]
-    pub(crate) fn read_sent_every(&self, every: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn read_sent_every(&self, every: Duration) {
         self.read_every.store(every.as_millis() as u64, Ordering::Relaxed);
     }
 }
 
 impl Fleet
 {
-    pub(crate) async fn session_quick(&self, id: &str) -> Result<SessionQuick, Refusal> {
+    pub async fn session_quick(&self, id: &str) -> Result<SessionQuick, Refusal> {
         self.session_and_hosting(id).await?;
         let look = QuickLook::read(self.machine_settings().now().get(keys::THREAD_LOOK).as_ref());
         if look.hides(id) {

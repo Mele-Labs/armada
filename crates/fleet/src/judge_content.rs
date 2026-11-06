@@ -65,7 +65,7 @@ fn file_section(patch: &str, path: &str) -> String {
 }
 
 /// A page's text: block ends become blank lines, tags go, and the few entities a page uses are read.
-pub(crate) fn text_of(html: &str) -> String {
+pub fn text_of(html: &str) -> String {
     let mut plain = String::with_capacity(html.len());
     let (mut tag, mut skipping): (String, Option<&str>) = (String::new(), None);
     let mut in_tag = false;
@@ -142,7 +142,7 @@ impl Fleet
     }
 
     /// The words of one artifact of the Job, or Fleet's reason it has none to show.
-    pub(crate) async fn judge_content(
+    pub async fn judge_content(
         &self,
         id: &str,
         session: &KeptSession,

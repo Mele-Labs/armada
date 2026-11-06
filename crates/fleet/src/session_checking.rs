@@ -54,7 +54,7 @@ impl Fleet
     }
 
     /// `report_session_check`.
-    pub(crate) async fn session_check_reported(
+    pub async fn session_check_reported(
         &self,
         call: SessionCheckCall,
     ) -> Result<SessionCheckAnswer, Refusal> {
@@ -203,7 +203,7 @@ impl Fleet
     }
 
     /// A Session ended: the runs still out will never be ended by their CLI, so they end failed.
-    pub(crate) async fn session_checks_ended(&self, session: &str) {
+    pub async fn session_checks_ended(&self, session: &str) {
         self.session_checks_failed(session, "the Job ended").await;
     }
 
@@ -211,7 +211,7 @@ impl Fleet
     /// it, before its slot is parked**, so none runs on under the next holder. Waits for each to say
     /// it ended; one whose `armada check` does not (it died with the agent, or does not answer)
     /// ends failed here instead.
-    pub(crate) async fn session_checks_stopped(&self, session: &str) {
+    pub async fn session_checks_stopped(&self, session: &str) {
         let Ok(running) = self.store().lock().await.running_session_checks(session) else {
             return;
         };
@@ -256,7 +256,7 @@ impl Fleet
     }
 
     /// `get_session_check_output`: one run's log, as the Job's Check output read answers it.
-    pub(crate) async fn session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
+    pub async fn session_check_output(&self, run: u64) -> Result<ipc::CheckOutput, Refusal> {
         let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Job ran a Check under that id");
         let run = i64::try_from(run).map_err(|_| no_such())?;
         let store = self.store().lock().await;
@@ -281,7 +281,7 @@ impl Fleet
     }
 
     /// `observe_session_check`: a run's log, live while it is out and whole once it is over.
-    pub(crate) async fn session_check_observed(&self, run: u64) -> Result<api::SessionCheckLive, Refusal> {
+    pub async fn session_check_observed(&self, run: u64) -> Result<api::SessionCheckLive, Refusal> {
         let no_such = || self.session_check_refusal(NO_SUCH_RUN, "no Job ran a Check under that id");
         let id = i64::try_from(run).map_err(|_| no_such())?;
         let store = self.store().lock().await;
@@ -299,7 +299,7 @@ impl Fleet
 
     /// `stop_session_check` and `force_stop_session_check`: held for the run's own `armada check`,
     /// which asks on its next `chunk`.
-    pub(crate) async fn session_check_stopped(&self, run: u64, force: bool) -> Result<SessionCheckAnswer, Refusal> {
+    pub async fn session_check_stopped(&self, run: u64, force: bool) -> Result<SessionCheckAnswer, Refusal> {
         let not_running = || self.session_check_refusal(NOT_RUNNING, "that Check is not running");
         let id = i64::try_from(run).map_err(|_| not_running())?;
         let running = self

@@ -103,7 +103,7 @@ impl Fleet
     }
 
     /// `list_started_sessions`: the whole tree below the caller. Commands below stay for direct children.
-    pub(crate) async fn started_listed(&self, caller: Option<Caller>) -> Result<StartedSessions, Refusal> {
+    pub async fn started_listed(&self, caller: Option<Caller>) -> Result<StartedSessions, Refusal> {
         let parent = self.started_placed(caller.as_ref())?;
         let mut jobs = Vec::new();
         for (id, by) in self.started_tree(&parent).await? {
@@ -114,7 +114,7 @@ impl Fleet
 
     /// `command_started_sessions`: each command done as a call of its own would be, in order. **A
     /// refused command leaves the others done**; a caller that places no Job is refused whole.
-    pub(crate) async fn started_commanded(
+    pub async fn started_commanded(
         self: &Arc<Self>,
         caller: Option<Caller>,
         commands: Vec<StartedCommand>,

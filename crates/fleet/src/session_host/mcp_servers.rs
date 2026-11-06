@@ -15,9 +15,9 @@ use tokio::sync::oneshot;
 use crate::daemon::Fleet;
 
 /// A job whose servers Fleet cannot reach: run in a terminal, or with no process running. A 422.
-pub(crate) const SESSION_MCP_UNREACHABLE: &str = "fleet.session_mcp_unreachable";
+pub const SESSION_MCP_UNREACHABLE: &str = "fleet.session_mcp_unreachable";
 /// The job's process refused what was asked, or did not answer in time. A 422.
-pub(crate) const SESSION_MCP_REFUSED: &str = "fleet.session_mcp_refused";
+pub const SESSION_MCP_REFUSED: &str = "fleet.session_mcp_refused";
 
 /// The CLI answers a status from what it holds.
 const STATUS_WITHIN: Duration = Duration::from_secs(10);
@@ -27,7 +27,7 @@ const CONNECT_WITHIN: Duration = Duration::from_secs(90);
 const SIGN_IN_WITHIN: Duration = Duration::from_secs(30);
 
 /// Whoever waits on one control line's answer.
-pub(crate) type Waiter = oneshot::Sender<Result<Answered, String>>;
+pub type Waiter = oneshot::Sender<Result<Answered, String>>;
 
 /// What a person can do to one server.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,7 +58,7 @@ impl From<ipc::McpServerAct> for McpAct {
 }
 
 /// The servers as the wire carries them.
-pub(crate) fn on_wire(servers: Vec<McpServer>) -> Vec<ipc::SessionMcpServer> {
+pub fn on_wire(servers: Vec<McpServer>) -> Vec<ipc::SessionMcpServer> {
     servers
         .into_iter()
         .map(|server| ipc::SessionMcpServer {
@@ -87,7 +87,7 @@ impl super::Hosts {
 impl Fleet
 {
     /// The servers job `id`'s process has, and where each stands.
-    pub(crate) async fn session_mcp(&self, id: &str) -> Result<Vec<McpServer>, Refusal> {
+    pub async fn session_mcp(&self, id: &str) -> Result<Vec<McpServer>, Refusal> {
         match self.asked_of_process(id, McpRequest::Status, STATUS_WITHIN).await? {
             Answered::Servers(servers) => Ok(servers),
             _ => Err(self.hosted_refusal(
@@ -98,7 +98,7 @@ impl Fleet
     }
 
     /// Do `act` to `server` in job `id`'s process, then read the servers again.
-    pub(crate) async fn session_mcp_acted(&self, id: &str, server: &str, act: McpAct) -> Result<McpActed, Refusal> {
+    pub async fn session_mcp_acted(&self, id: &str, server: &str, act: McpAct) -> Result<McpActed, Refusal> {
         let (request, within) = match act {
             McpAct::Reconnect => (McpRequest::Reconnect(server), CONNECT_WITHIN),
             McpAct::TurnOn => (McpRequest::TurnOn(server), CONNECT_WITHIN),

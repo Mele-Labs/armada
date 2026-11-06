@@ -12,7 +12,7 @@ use crate::session_host::linking::GROUP;
 /// The agent's task list, heard. Whether a task of the plan moved, so the row is worth publishing.
 /// A Session with no plan moves no task here: its list is kept beside, as the build's pieces, and
 /// Progress shows it until a plan is recorded.
-pub(crate) fn tasks_heard(store: &mut Store, id: &str, list: &[ReportedTask], now: &str) -> Result<bool, WriteError> {
+pub fn tasks_heard(store: &mut Store, id: &str, list: &[ReportedTask], now: &str) -> Result<bool, WriteError> {
     let Some(mut plan) = store.session_plan(id)? else { return Ok(false) };
     let moved = listed(&mut plan, list, now);
     if moved {
@@ -24,7 +24,7 @@ pub(crate) fn tasks_heard(store: &mut Store, id: &str, list: &[ReportedTask], no
 /// A file touched at `path`, from the repository's root: kept for the Field, and marks the groups of
 /// the plan whose paths hold it as worked. `by` is the subagent's type and call, absent for the
 /// Session's own. Whether the row would show it: a touch that is new, or a plan that moved.
-pub(crate) fn touch_kept(
+pub fn touch_kept(
     store: &mut Store,
     id: &str,
     by: Option<(String, String)>,
@@ -47,7 +47,7 @@ pub(crate) fn touch_kept(
 
 /// A commit heard, its short hash and first line: a task it names is completed on it. Whether the plan
 /// moved. A Session with no plan, or a mod too old to send the line, moves nothing.
-pub(crate) fn commit_heard(store: &mut Store, id: &str, commit: &str, subject: &str, now: &str) -> Result<bool, WriteError> {
+pub fn commit_heard(store: &mut Store, id: &str, commit: &str, subject: &str, now: &str) -> Result<bool, WriteError> {
     if subject.trim().is_empty() {
         return Ok(false);
     }
@@ -62,7 +62,7 @@ pub(crate) fn commit_heard(store: &mut Store, id: &str, commit: &str, subject: &
 /// The pull requests a plan may land in, oldest first: the Session's own `pr` rows, each with the task in
 /// progress when its first version was kept, then those of every Job a group was handed to, each with that
 /// group. A row given back is none. Read beside the Session's ledger, under the lock the caller holds.
-pub(crate) fn pulls_read(store: &Store, id: &str, held: &[KeptAttachment]) -> Result<Vec<PlanPull>, WriteError> {
+pub fn pulls_read(store: &Store, id: &str, held: &[KeptAttachment]) -> Result<Vec<PlanPull>, WriteError> {
     let own = pull_rows(held);
     let versions = if own.is_empty() { Vec::new() } else { store.attachment_versions(&Holder::session(id))? };
     let mut read: Vec<PlanPull> = own
@@ -109,7 +109,7 @@ fn pull_of(row: &KeptAttachment, from_task: Option<String>, handed: Option<Strin
 }
 
 /// The touches as the record carries them, oldest first.
-pub(crate) fn touches_wire(kept: Vec<KeptTouch>) -> Vec<FileTouch> {
+pub fn touches_wire(kept: Vec<KeptTouch>) -> Vec<FileTouch> {
     kept.into_iter()
         .map(|one| FileTouch {
             by: one.by.map(|(agent, id)| TouchBy { agent, id }),

@@ -53,7 +53,7 @@ const PYTHON_CHECKS: &[(&str, &str, &str)] = &[
 
 const PYTHON_RUNNERS: &[(&str, &str)] = &[("uv.lock", "uv run "), ("poetry.lock", "poetry run ")];
 
-pub(super) fn drafts(scan: &RepositoryScan) -> Vec<Draft> {
+pub fn drafts(scan: &RepositoryScan) -> Vec<Draft> {
     let root = scan.workspaces.iter().find(|one| one.dir == ".");
     let ids = ids(scan);
     scan.workspaces

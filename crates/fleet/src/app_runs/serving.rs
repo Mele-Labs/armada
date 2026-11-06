@@ -180,7 +180,7 @@ impl Fleet
     }
 
     /// A run as the wire spells it. `None` where its checkout is none a run is asked for.
-    pub(crate) async fn app_run_wired(&self, view: RunView, job: Option<&str>) -> Option<AppRun> {
+    pub async fn app_run_wired(&self, view: RunView, job: Option<&str>) -> Option<AppRun> {
         let checkout = self.app_run_checkout(&view.manifest_id, &view.checkout, job).await?;
         // Instants are fixed-width RFC 3339 in UTC, so the text orders as the time does.
         let last_used = view.processes.iter().filter_map(|one| one.server.as_ref()).map(|one| &one.started_at).max();

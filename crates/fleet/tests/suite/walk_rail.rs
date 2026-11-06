@@ -1,0 +1,304 @@
+//! The claim, written before the code: **Fleet places a Job on its workflow's steps before the plan
+//! and around a walk from what it saw (a reply, a plan recorded, a window shown, a window approved),
+//! Nothing blocks, and the agent's word is never an input.** The owner's decision of 27 Oct 2026, "A feature Job walks before it tests".
+//!
+//! The first half is the rules, pure. The second drives a Fleet with a workflow that has a walk step.
+
+use std::sync::Arc;
+
+use api::Sessions;
+use core_model::StepEnd;
+use ipc::{Instant, SessionRow, SessionVoice, ShowWindow, SessionId};
+use testkit::FakeJudge;
+
+use super::session_rail::{
+    approved, at, delivers, fitted, follows, on_the_rail, plan_step, record, ruled_on, step, told,
+};
+use fleet::rail::{self, Facts, Fit, RailStep};
+use fleet::rail_ends::{ends_when, passed_over_when};
+use fleet::rail_keeping::thread_facts;
+
+// ---- The rules ----
+
+fn propose() -> RailStep {
+    RailStep { ends_on: vec![StepEnd::Replied], ..step("Propose") }
+}
+
+fn walk() -> RailStep {
+    RailStep { walks: true, ..step("Walk") }
+}
+
+/// Propose, Discuss, Approve plan, Walk, Refine, Deliver.
+fn feature() -> Vec<RailStep> {
+    vec![propose(), step("Discuss"), plan_step(), walk(), follows("Refine"), delivers("Deliver")]
+}
+
+/// Find the cause (records the plan), Fix (follows the plan and walks), Tests, Deliver.
+fn bug() -> Vec<RailStep> {
+    vec![plan_step(), RailStep { walks: true, ..follows("Fix") }, fitted("Tests", Fit::Checked), delivers("Deliver")]
+}
+
+fn recorded() -> Facts {
+    Facts { plan_recorded: true, ..Facts::default() }
+}
+
+fn approved_naming_a_walk() -> Facts {
+    Facts { plan_recorded: true, plan_expects_walk: true, ..approved() }
+}
+
+#[test]
+fn the_steps_before_the_plan_are_current_until_he_replies_and_until_a_plan_is_recorded() {
+    let steps = feature();
+    assert_eq!(at(&steps, Facts::default()), Some(0), "Propose before anything is seen");
+    assert_eq!(at(&steps, Facts { replied: true, ..Facts::default() }), Some(1), "his reply enters Discuss");
+    assert_eq!(at(&steps, recorded()), Some(2), "a recorded plan enters Approve plan");
+    assert_eq!(at(&steps, Facts { replied: true, ..recorded() }), Some(2));
+}
+
+#[test]
+fn the_recording_step_is_not_current_before_a_plan_is_recorded_when_a_step_precedes_it() {
+    let steps = feature();
+    let busy = Facts { edited: true, checked: true, committed: true, ..Facts::default() };
+    assert_eq!(at(&steps, busy), Some(0), "work seen does not move a Job that has not been answered");
+    assert_eq!(at(&steps, Facts { replied: true, ..busy }), Some(1));
+    let alone = [plan_step(), follows("Implement"), delivers("Deliver")];
+    assert_eq!(at(&alone, Facts::default()), Some(0), "with nothing before it, it is current from the start");
+}
+
+#[test]
+fn a_walk_step_is_current_from_the_plans_approval_until_a_walk_is_approved() {
+    let steps = feature();
+    assert_eq!(at(&steps, approved_naming_a_walk()), Some(3));
+    assert_eq!(at(&steps, Facts { walk_shown: true, ..approved_naming_a_walk() }), Some(3));
+    let edited = Facts { walk_shown: true, edited: true, checked: true, committed: true, ..approved_naming_a_walk() };
+    assert_eq!(at(&steps, edited), Some(3), "the work is not past it until he approves");
+    assert_eq!(at(&steps, Facts { walk_approved: true, ..approved_naming_a_walk() }), Some(4), "a follows_plan step is entered once it is passed");
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved_naming_a_walk() }), Some(3), "a push is no Approve");
+    let walked = Facts { walk_approved: true, pushed: true, tasks_open: true, ..approved_naming_a_walk() };
+    assert_eq!(at(&steps, walked), Some(4), "a push made while he walked does not skip Refine");
+    assert_eq!(at(&steps, Facts { pushed_since_walk: true, ..walked }), Some(5), "a push after his Approve delivers");
+}
+
+#[test]
+fn a_walk_of_its_own_is_passed_over_at_the_plans_approval_when_nothing_was_named_or_shown() {
+    let steps = [propose(), step("Discuss"), plan_step(), walk(), follows("Refine")];
+    let planned = Facts { plan_recorded: true, ..approved() };
+    assert!(planned.walk_passed(&steps[3]));
+    assert_eq!(at(&steps, planned), Some(4), "nothing named or shown: Refine, with no push to wait for");
+    let pushed = Facts { pushed: true, ..planned };
+    assert!(!Facts { plan_expects_walk: true, ..pushed }.walk_passed(&steps[3]), "a named walk is not passed over");
+    assert!(!Facts { walk_shown: true, ..pushed }.walk_passed(&steps[3]), "nor one that was shown");
+    assert_eq!(at(&steps, Facts { walk_shown: true, ..planned }), Some(3), "a window shown puts the walk back");
+    assert!(
+        !Facts { pushed: true, plan_recorded: true, ..Facts::default() }.walk_passed(&steps[3]),
+        "nothing is passed over before the plan is approved"
+    );
+}
+
+/// The idle Job of 30 Oct 2026: a bug fix nobody would see finished its tasks and committed, was told Fix
+/// ends on his walk approval, and waited to be moved to Tests while Fleet waited for a push.
+#[test]
+fn a_fix_with_nothing_to_show_moves_on_to_tests_once_its_tasks_are_done_with_no_push() {
+    let steps = bug();
+    let fixing = Facts { plan_recorded: true, edited: true, committed: true, tasks_open: true, ..approved() };
+    assert_eq!(at(&steps, fixing), Some(1), "Fix holds while the plan's tasks are open");
+    assert_eq!(at(&steps, Facts { tasks_open: false, ..fixing }), Some(2), "its tasks done and nothing to show: Tests");
+    assert_eq!(
+        at(&steps, Facts { tasks_open: false, plan_expects_walk: true, ..fixing }),
+        Some(1),
+        "a fix he would see still waits for his approval"
+    );
+}
+
+#[test]
+fn a_fix_that_walks_is_current_until_he_approves_and_tests_follow_at_once() {
+    let steps = bug();
+    let fixing = Facts { plan_recorded: true, plan_expects_walk: true, edited: true, ..approved() };
+    assert_eq!(at(&steps, fixing), Some(1), "Fix is current from the plan's approval");
+    assert_eq!(at(&steps, Facts { walk_shown: true, checked: true, ..fixing }), Some(1), "a Check run does not leave the walk");
+    assert_eq!(at(&steps, Facts { walk_shown: true, walk_approved: true, ..fixing }), Some(2), "his approval enters Tests, with no Check run yet");
+}
+
+/// The loop of 30 Oct 2026: with the walk a step of its own after Fix, his approval entered nothing, the
+/// Job fell back to Fix, was told to show the walk, and the window shown again voided his approval.
+#[test]
+fn a_walk_he_approved_never_drops_the_job_back_to_the_step_before_it() {
+    let steps = [plan_step(), follows("Fix"), walk(), fitted("Tests", Fit::Checked), delivers("Deliver")];
+    let fixed = Facts { plan_recorded: true, edited: true, committed: true, walk_shown: true, ..approved() };
+    assert_eq!(at(&steps, Facts { walk_approved: true, ..fixed }), Some(3), "approved, no Check run: Tests");
+    assert_eq!(at(&steps, Facts { walk_approved: true, tasks_open: true, ..fixed }), Some(3), "a task left open does not hold him behind it");
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved() }), Some(4), "passed over and pushed: Deliver");
+}
+
+#[test]
+fn a_job_whose_pull_request_merged_is_past_the_last_step_however_much_it_does_after() {
+    let steps = feature();
+    let later = Facts { walk_shown: true, pushed: true, ..approved_naming_a_walk() };
+    assert_eq!(at(&steps, Facts { landed: true, ..later }), None, "merged: past the last step");
+}
+
+#[test]
+fn the_rail_reads_a_merged_pull_request_off_the_ledger_when_the_build_forgot_it() {
+    let extra = rail::Extra { landed: true, ..rail::Extra::default() };
+    assert!(rail::landed_by(extra, None), "a merge the ledger holds, and no build left to say so");
+}
+
+#[test]
+fn what_ends_each_step_is_read_off_its_anchor() {
+    let ends = |steps: &[RailStep]| (0..steps.len()).map(|one| ends_when(steps, one)).collect::<Vec<_>>();
+    let said = |words: &[Option<&str>]| words.iter().map(|word| word.map(String::from)).collect::<Vec<_>>();
+    assert_eq!(
+        ends(&feature()),
+        said(&[
+            Some("you reply"),
+            Some("a plan is recorded"),
+            Some("you approve the plan"),
+            Some("you approve every walk"),
+            Some("it is pushed"),
+            Some("it is merged")
+        ])
+    );
+    assert_eq!(
+        ends(&bug()),
+        said(&[Some("you approve the plan"), Some("you approve every walk"), Some("it is pushed"), Some("it is merged")])
+    );
+    let loose = [fitted("Build", Fit::Edited), step("Free text")];
+    assert_eq!(ends(&loose), said(&[None, None]));
+    assert_eq!(ends_when(&feature(), 9), None, "no such step");
+    assert_eq!(passed_over_when(&walk()), Some("nothing would be seen"));
+    assert_eq!(passed_over_when(&step("Refine")), None);
+}
+
+fn at_second(n: u32) -> Instant {
+    Instant::carried(&format!("2026-10-27T09:00:{n:02}.000Z"))
+}
+
+fn said(n: u32, from: SessionVoice, text: &str) -> SessionRow {
+    SessionRow::Message { id: format!("m{n}"), at: at_second(n), from, text: text.into(), files: Vec::new(), tags: Vec::new(), notice: None, queued: false }
+}
+
+fn message(n: u32, from: SessionVoice) -> SessionRow {
+    said(n, from, "hello")
+}
+
+fn window(n: u32, url: &str) -> SessionRow {
+    SessionRow::Window {
+        id: format!("w{n}"),
+        at: at_second(n),
+        title: "Mock".into(),
+        url: url.into(),
+        variations: Vec::new(),
+        steps: Vec::new(),
+        origins: Vec::new(),
+        brief: None,
+        ended_at: None,
+    }
+}
+
+fn approve(n: u32, url: &str) -> SessionRow {
+    said(n, SessionVoice::You, &format!("Approved: {url}"))
+}
+
+#[test]
+fn the_person_has_replied_only_with_a_message_of_his_after_the_agents_first_turn() {
+    let you = || SessionVoice::You;
+    let fleet = || SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() };
+    assert!(!thread_facts(&[message(1, you())], None).replied, "his request is not a reply");
+    assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent)], None).replied, "the agent has spoken and he has not");
+    assert!(thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, you())], None).replied);
+    assert!(!thread_facts(&[message(1, you()), message(2, SessionVoice::Agent), message(3, fleet())], None).replied, "Fleet's notice is not his word");
+    let tool = SessionRow::Tool { id: "t1".into(), at: at_second(2), text: "ask_the_person".into(), subagent: None };
+    assert!(thread_facts(&[message(1, you()), tool, message(3, you())], None).replied, "an answer to a question the agent asked");
+}
+
+#[test]
+fn a_window_is_shown_by_its_row_and_approved_only_by_his_approve_at_or_after_it() {
+    let url = "http://localhost:5391/?walk=a";
+    assert_eq!(thread_facts(&[], None).walk_shown, false);
+    let shown = thread_facts(&[window(1, url)], None);
+    assert!(shown.walk_shown && !shown.any_walk_approved);
+    assert!(thread_facts(&[window(1, url), approve(2, url)], None).any_walk_approved);
+    assert!(!thread_facts(&[approve(1, url), window(2, url)], None).any_walk_approved, "a page shown again must be approved again");
+    assert!(!thread_facts(&[window(1, url), approve(2, "http://localhost:5391/?walk=b")], None).any_walk_approved, "another page's approve");
+    let fleet = said(2, SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() }, &format!("Approved: {url}"));
+    assert!(!thread_facts(&[window(1, url), fleet], None).any_walk_approved, "only the person approves");
+}
+
+// ---- Through a Fleet ----
+
+fn walking_workflow() -> config::ResolvedWorkflow {
+    let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
+        - id: propose\n    label: Propose\n    awaits_reply: true\n    delivers: false\n    advance_gate: auto\n  \
+        - id: plan\n    label: \"Plan the change\"\n    evidence: {submitted: {type: plan}}\n    \
+        mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
+        - id: walk\n    label: Walk\n    walks: true\n    delivers: false\n    advance_gate: auto\n  \
+        - id: refine\n    label: Refine\n    follows_plan: true\n    delivers: false\n    advance_gate: auto\n  \
+        - id: handoff\n    label: \"Hand off\"\n    delivers: true\n    advance_gate: auto\n";
+    let def = config::WorkflowDef::parse(std::path::Path::new("rail.yml"), text, &config::Roster::offering_nothing())
+        .unwrap_or_else(|refused| panic!("the fixture did not parse: {refused}"));
+    config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("the fixture did not resolve: {refused}"))
+}
+
+const PAGE: &str = "http://localhost:5391/?walk=reader";
+
+async fn walking_rig() -> (super::session_host::Rig, SessionId) {
+    let rig = ruled_on(Arc::new(FakeJudge::with_no_objection()), walking_workflow());
+    let id = on_the_rail(&rig).await;
+    (rig, id)
+}
+
+async fn shown(rig: &super::session_host::Rig, id: &SessionId) {
+    rig.fleet
+        .show_window(None, ShowWindow { url: PAGE.into(), title: None, session_id: Some(id.clone()), ..Default::default() })
+        .await
+        .expect("shown");
+}
+
+async fn plan_approved(rig: &super::session_host::Rig, id: &SessionId) {
+    super::session_rail::approved_plan(rig, id).await;
+}
+
+async fn step_of(rig: &super::session_host::Rig, id: &SessionId) -> Option<u32> {
+    record(rig, id).await.workflow_step
+}
+
+#[tokio::test]
+async fn a_window_shown_after_the_plan_is_approved_puts_the_job_on_the_walk_until_he_approves_it() {
+    let (rig, id) = walking_rig().await;
+    plan_approved(&rig, &id).await;
+    assert_eq!(step_of(&rig, &id).await, Some(3), "approved with no walk named or shown: Refine");
+    shown(&rig, &id).await;
+    assert_eq!(step_of(&rig, &id).await, Some(2), "a window shown puts the Job on the walk");
+    rig.send(&id, &format!("Approved: {PAGE}")).await;
+    assert_eq!(step_of(&rig, &id).await, Some(3), "approved: Refine");
+}
+
+async fn pushed(rig: &super::session_host::Rig, id: &SessionId) {
+    let harness = record(rig, id).await.harness;
+    rig.fleet
+        .report_session(ipc::SessionReport { harness, session_id: id.clone(), fact: ipc::SessionFact::Pushed { branch: Some("armada/reader".into()) } })
+        .await
+        .expect("kept");
+}
+
+/// Job 355c64b4, 31 Oct 2026: it pushed a fix to its walk's steps while he was walking, Fleet put it
+/// on Deliver and told it Refine's tasks were open, and he had approved nothing.
+#[tokio::test]
+async fn a_push_while_he_walks_leaves_the_job_on_the_walk_and_counts_toward_delivery_only_after_his_approve() {
+    let (rig, id) = walking_rig().await;
+    plan_approved(&rig, &id).await;
+    shown(&rig, &id).await;
+    pushed(&rig, &id).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(step_of(&rig, &id).await, Some(2), "a push is no Approve: the walk stands");
+    assert_eq!(told(&rig, "pushed while tasks were still open"), 0, "a push during the walk delivers nothing");
+
+    rig.send(&id, &format!("Approved: {PAGE}")).await;
+    rig.fleet.timeline().settled().await;
+    assert_eq!(step_of(&rig, &id).await, Some(3), "approved: Refine, the push made while he walked does not skip it");
+    assert_eq!(told(&rig, "pushed while tasks were still open"), 0);
+
+    pushed(&rig, &id).await;
+    super::session_host::eventually(|| async { step_of(&rig, &id).await == Some(4) }).await;
+}

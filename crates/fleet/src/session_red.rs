@@ -51,7 +51,7 @@ impl Fleet
     /// What main's change asks of Fleet where a Session merged the pull request: each red is
     /// handed to it. **Nothing here fails the turn**; a refusal is the band's two buttons.
     /// Needs the `Arc` that waking a Session does.
-    pub(crate) async fn red_given_to_sessions(self: &Arc<Self>, changes: &[MainChanged]) {
+    pub async fn red_given_to_sessions(self: &Arc<Self>, changes: &[MainChanged]) {
         for changed in changes {
             if matches!(changed.change, MainChange::WentRed | MainChange::BackToRed) {
                 self.red_given_to_session(&changed.now).await;

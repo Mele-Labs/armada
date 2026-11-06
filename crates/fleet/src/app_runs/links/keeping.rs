@@ -12,7 +12,7 @@ use crate::app_runs::RunView;
 use crate::daemon::Fleet;
 
 /// The processes of `view` as the scanner reads them.
-pub(crate) fn candidates_of(view: &RunView) -> Vec<Candidate> {
+pub fn candidates_of(view: &RunView) -> Vec<Candidate> {
     view.processes
         .iter()
         .map(|one| Candidate { name: one.name.clone(), dir: one.dir.clone(), command: one.serve.clone(), pinned: one.pinned })
@@ -22,19 +22,19 @@ pub(crate) fn candidates_of(view: &RunView) -> Vec<Candidate> {
 impl Fleet
 {
     /// Every fact a repository remembers.
-    pub(crate) async fn links_facts(&self, root: &str) -> Vec<KeptRun> {
+    pub async fn links_facts(&self, root: &str) -> Vec<KeptRun> {
         self.store().lock().await.run_facts(root).unwrap_or_default()
     }
 
     /// The links `root` remembers.
-    pub(crate) async fn links_remembered(&self, root: &str) -> Vec<Link> {
+    pub async fn links_remembered(&self, root: &str) -> Vec<Link> {
         remembered(&self.links_facts(root).await)
     }
 
     /// Write `changes` into run memory, and on to the place that keeps it. **An ended link is
     /// written again as not succeeded, newer than the fact it ends**, since a place that keeps a
     /// file merges the old one back over a row that was only deleted.
-    pub(crate) async fn links_kept(&self, root: &str, changes: Changes) {
+    pub async fn links_kept(&self, root: &str, changes: Changes) {
         if changes.add.is_empty() && changes.end.is_empty() {
             return;
         }
@@ -60,7 +60,7 @@ impl Fleet
     /// Read the folders of `view`'s run on its checkout, keep what is new, end what the main
     /// checkout's files no longer hold, and answer the links this checkout has: **what its files
     /// say, and what a process's output showed**.
-    pub(crate) async fn links_refreshed(&self, view: &RunView) -> Vec<Link> {
+    pub async fn links_refreshed(&self, view: &RunView) -> Vec<Link> {
         let Ok(served) = self.served_named(Some(&view.manifest_id)) else {
             return Vec::new();
         };
@@ -85,7 +85,7 @@ impl Fleet
 
     /// The links to show on `view` without reading its folders: **what this checkout was last read
     /// to hold**, else what the repository remembers of these processes.
-    pub(crate) async fn links_shown(&self, view: &RunView) -> Vec<Link> {
+    pub async fn links_shown(&self, view: &RunView) -> Vec<Link> {
         if let Some(seen) = self.servers().links_at(&view.checkout) {
             return seen;
         }
@@ -98,7 +98,7 @@ impl Fleet
 
     /// A process refused a connection to `port`. **If a sibling of its run is known on that port
     /// and is on another now, that is a link**: kept, and told on the run's own event.
-    pub(crate) async fn links_noticed(&self, state: &ServerState, port: u16) {
+    pub async fn links_noticed(&self, state: &ServerState, port: u16) {
         let Ok(served) = self.served_named(state.manifest_id.as_ref()) else {
             return;
         };

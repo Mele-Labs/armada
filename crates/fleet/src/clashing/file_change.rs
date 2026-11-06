@@ -42,7 +42,7 @@ fn change_in(worktrees: &[PathBuf], base: &str, path: &str, seen: Option<&str>) 
 impl Fleet
 {
     /// `path` as the Job `session_id` changed it. `seen` is the stamp of the change Bridge holds.
-    pub(crate) async fn session_file_change(
+    pub async fn session_file_change(
         &self,
         session_id: &str,
         path: &str,

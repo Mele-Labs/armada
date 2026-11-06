@@ -13,11 +13,11 @@ use store::{AttachmentState, Holder, KeptAttachment};
 use crate::daemon::Fleet;
 
 /// The ledger's kind for a web link. `target` is the address.
-pub(crate) const LINK: &str = "link";
+pub const LINK: &str = "link";
 
 /// Whose words a link was written in.
 #[derive(Clone, Copy)]
-pub(crate) enum LinkedBy {
+pub enum LinkedBy {
     You,
     Agent,
 }
@@ -37,7 +37,7 @@ impl Fleet
     ///
     /// **Held, never raised**, as `issues_named` is: the words are already said, and a row that
     /// would not write is no reason to refuse them.
-    pub(crate) async fn links_seen(&self, session: &str, text: &str, by: LinkedBy) {
+    pub async fn links_seen(&self, session: &str, text: &str, by: LinkedBy) {
         let Some(kept) = self.store().lock().await.session(session).ok().flatten() else {
             return;
         };

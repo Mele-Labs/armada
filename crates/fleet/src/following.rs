@@ -15,7 +15,7 @@ const MOST: usize = 256 * 1024;
 
 /// What [`read_from`] makes of the bytes after `from`; a log held in memory is
 /// read the same way.
-pub(crate) fn windowed(bytes: &[u8], from: u64, to_the_end: bool) -> api::Followed {
+pub fn windowed(bytes: &[u8], from: u64, to_the_end: bool) -> api::Followed {
     let upto = match to_the_end {
         true => bytes.len(),
         false => bytes

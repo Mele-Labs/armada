@@ -6,7 +6,7 @@ use super::*;
 ///
 /// **Every segment, never the first word.** `cd crates && rm -rf target` has
 /// `cd` at the front of it, and a classifier reading one word would run it.
-pub(super) fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
+pub fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
     match shell_guarded(line, slots, own, None)? {
         Guarded::Because { because, .. } => Some(because),
         Guarded::Blocked { .. } => Some(Because::ReachesOutside),
@@ -16,7 +16,7 @@ pub(super) fn shell(line: &str, slots: &[&str], own: Own) -> Option<Because> {
 /// [`shell`], and for a session (`folders`) whether a segment's words name the owner's own
 /// files. **Read per segment, after the variables a line set are put back**, so `d=~/Music; ls $d`
 /// is read as the `ls ~/Music` it is, and the `~` of an awk script is not read as a path at all.
-pub(super) fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Option<Folders>) -> Option<Guarded> {
+pub fn shell_guarded(line: &str, slots: &[&str], own: Own, folders: Option<Folders>) -> Option<Guarded> {
     let only = |because: Because| Some(Guarded::Because { because, reaching: None, to: None, kind: None });
     let line = line.trim();
     if line.is_empty() {
@@ -166,7 +166,7 @@ fn redirected_into(said: &str, word: &str) -> bool {
 /// space. **Quoted text is an argument, not shell**: a commit message's
 /// `<noreply@...>` and a `sed 's|a|b|'` script asked, as an overwrite, on
 /// every commit a Session made (8 Oct 2026).
-pub(super) fn unquoted(line: &str) -> String {
+pub fn unquoted(line: &str) -> String {
     let mut quote: Option<char> = None;
     let mut escaped = false;
     line.chars()
@@ -206,7 +206,7 @@ pub(super) fn unquoted(line: &str) -> String {
 
 /// Whether `word` appears in `line` as a word rather than inside a longer one,
 /// so `evaluate.sh` is not an `eval`.
-pub(super) fn word_in(line: &str, word: &str) -> bool {
+pub fn word_in(line: &str, word: &str) -> bool {
     line.split(|c: char| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
         .any(|said| said == word)
 }
@@ -214,21 +214,21 @@ pub(super) fn word_in(line: &str, word: &str) -> bool {
 /// The slots a session's line may write in, and whether a relative path in it is
 /// still read against one of them.
 #[derive(Clone, Copy)]
-pub(in crate::auto_gate) struct Slot<'a> {
-    pub(in crate::auto_gate) slots: &'a [&'a str],
+pub struct Slot<'a> {
+    pub slots: &'a [&'a str],
     /// The owner's home, which `$HOME` names. Empty where it is not known.
-    pub(in crate::auto_gate) home: &'a str,
-    pub(in crate::auto_gate) relative: bool,
+    pub home: &'a str,
+    pub relative: bool,
 }
 
 impl Slot<'_> {
-    pub(in crate::auto_gate) fn holds(&self, word: &str) -> bool {
+    pub fn holds(&self, word: &str) -> bool {
         in_the_slot(word, self.slots, self.relative, self.home)
     }
 }
 
 /// One segment of a shell line, already split from the rest.
-pub(super) fn segment(said: &str, slot: Option<Slot>, own: Own, covered: &[&str]) -> Option<Because> {
+pub fn segment(said: &str, slot: Option<Slot>, own: Own, covered: &[&str]) -> Option<Because> {
     if truncating_redirect(said)
         && !redirect_targets(said).iter().all(|target| {
             slot.is_some_and(|slot| slot.holds(target))
@@ -315,7 +315,7 @@ pub(super) fn segment(said: &str, slot: Option<Slot>, own: Own, covered: &[&str]
 
 /// A `>` that is not `>>` and not `>&`. **It destroys what the file held**,
 /// however ordinary the command in front of it.
-pub(in crate::auto_gate) fn truncating_redirect(said: &str) -> bool {
+pub fn truncating_redirect(said: &str) -> bool {
     let written: Vec<char> = said.chars().collect();
     written.iter().enumerate().any(|(at, c)| {
         *c == '>'
@@ -327,7 +327,7 @@ pub(in crate::auto_gate) fn truncating_redirect(said: &str) -> bool {
 }
 
 /// The paths each truncating `>` in `said` writes to.
-pub(super) fn redirect_targets(said: &str) -> Vec<&str> {
+pub fn redirect_targets(said: &str) -> Vec<&str> {
     let written: Vec<char> = said.chars().collect();
     let mut targets = Vec::new();
     for (at, c) in said.char_indices() {
@@ -346,7 +346,7 @@ pub(super) fn redirect_targets(said: &str) -> Vec<&str> {
 
 /// A redirect into `/dev/null`, `/dev/stderr` and the rest. **A device holds
 /// nothing to destroy**, and `2>/dev/null` is on most lines a session runs.
-pub(super) fn into_a_device(after: &[char]) -> bool {
+pub fn into_a_device(after: &[char]) -> bool {
     let target: String = after.iter().collect();
     target.trim_start().starts_with("/dev/")
 }

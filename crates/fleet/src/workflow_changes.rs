@@ -43,15 +43,15 @@ const NO_AGENT: &str = "fleet.workflow_change_no_agent";
 /// Fleet kept no change by that id. A 404.
 const NO_SUCH_CHANGE: &str = "fleet.no_such_workflow_change";
 /// The change is not ready to approve. A 409.
-pub(crate) const NOT_READY: &str = "fleet.workflow_change_not_ready";
+pub const NOT_READY: &str = "fleet.workflow_change_not_ready";
 /// The file no longer holds what the change was made from. A 409.
-pub(crate) const CHANGED_SINCE: &str = "fleet.workflow_changed_since";
+pub const CHANGED_SINCE: &str = "fleet.workflow_changed_since";
 /// The change is drafting or settled, so it cannot be sent back. A 409.
 const NOT_SENDABLE: &str = "fleet.workflow_change_not_sendable";
 /// Only a change Armada can't make yet is built for. A 409.
 const NOT_BUILDABLE: &str = "fleet.workflow_change_not_buildable";
 /// The change is settled already. A 409.
-pub(crate) const SETTLED: &str = "fleet.workflow_change_settled";
+pub const SETTLED: &str = "fleet.workflow_change_settled";
 /// Fleet does not serve Armada's own repository. A 422.
 const ARMADA_NOT_SERVED: &str = "fleet.workflow_armada_not_served";
 /// The store would not answer. A 500.
@@ -59,7 +59,7 @@ const NOT_KEPT: &str = "fleet.workflow_change_not_kept";
 
 /// The question as it ships: `prompts.workflowChange`'s default. **The words that say how to read what
 /// follows come first**; the definition, the request and any earlier draft come after them as material.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 You are rewriting one workflow definition of a tool that dispatches coding agents. A workflow is a \
 file of steps. Each step has an `id`, a `label` and `instructions`, the words the agent is told on \
 entering it, and fields the tool reads for itself. You run nothing; you answer from the text below.
@@ -137,7 +137,7 @@ impl Fleet
     }
 
     /// Ask for a change in the owner's words.
-    pub(crate) async fn workflow_change_asked(
+    pub async fn workflow_change_asked(
         self: &Arc<Self>,
         asked: AskWorkflowChange,
         manifest_id: Option<ManifestId>,
@@ -162,7 +162,7 @@ impl Fleet
     /// Keep a workflow a Job proposes as a change that is ready at once. **Nothing is written**: the
     /// definition is checked as a save would check it, without replacing, so an id the scope already
     /// holds is refused here and not at Approve.
-    pub(crate) async fn new_workflow_proposed(
+    pub async fn new_workflow_proposed(
         &self,
         proposed: ProposeNewWorkflow,
         manifest_id: Option<ManifestId>,
@@ -193,7 +193,7 @@ impl Fleet
 
     /// `propose_workflow_change`: a Job proposes new text for a workflow that exists in `source`, for every
     /// Job. It waits on the owner's Approve like a drafted change, and nothing is written before.
-    pub(crate) async fn workflow_change_proposed(
+    pub async fn workflow_change_proposed(
         &self,
         proposed: ProposeWorkflowChange,
         manifest_id: Option<ManifestId>,
@@ -209,7 +209,7 @@ impl Fleet
     /// Keep `after` as the owner's to approve for `workflow` in `source`, and raise his call on `job`. **The
     /// text is checked as a save would check it**, replacing the file. A place that holds no file of that id is
     /// refused unless `new_allowed`, which is where Armada carries the workflow and the repository does not yet.
-    pub(crate) async fn workflow_proposed(
+    pub async fn workflow_proposed(
         &self,
         served: &Served,
         job: Option<&str>,
@@ -257,7 +257,7 @@ impl Fleet
 
     /// The open changes to one workflow in one place. **A draft that has been out longer than two
     /// attempts can take is read as failed**, since a Fleet that stopped mid-draft will never finish it.
-    pub(crate) async fn workflow_changes_listed(
+    pub async fn workflow_changes_listed(
         &self,
         workflow_id: &WorkflowId,
         source: &str,
@@ -287,7 +287,7 @@ impl Fleet
     }
 
     /// Write a ready change through the save path, if the file is as the draft was made from it.
-    pub(crate) async fn workflow_change_approved(
+    pub async fn workflow_change_approved(
         &self,
         change: WorkflowChangeRef,
     ) -> Result<WorkflowChangeApproved, Refusal> {
@@ -332,7 +332,7 @@ impl Fleet
     }
 
     /// Put an open change aside.
-    pub(crate) async fn workflow_change_dismissed(&self, change: WorkflowChangeRef) -> Result<WorkflowChange, Refusal> {
+    pub async fn workflow_change_dismissed(&self, change: WorkflowChangeRef) -> Result<WorkflowChange, Refusal> {
         let kept = self.change_held(change.change).await?;
         let at = self.now();
         let mut store = self.store().lock().await;
@@ -349,7 +349,7 @@ impl Fleet
 
     /// Start a Job on Armada's own repository that builds what a `cannot` change lacks, then dismiss the
     /// change: what it asked for is that Job's now, and he asks again once it lands.
-    pub(crate) async fn workflow_support_built(
+    pub async fn workflow_support_built(
         self: &Arc<Self>,
         change: WorkflowChangeRef,
     ) -> Result<WorkflowSupportBuilding, Refusal> {
@@ -409,7 +409,7 @@ impl Fleet
     }
 
     /// Send a ready or failed change back with notes, to be drafted again.
-    pub(crate) async fn workflow_change_sent_back(
+    pub async fn workflow_change_sent_back(
         self: &Arc<Self>,
         back: SendBackWorkflowChange,
     ) -> Result<WorkflowChange, Refusal> {
@@ -442,7 +442,7 @@ impl Fleet
     }
 
     /// Start a Job on Armada's own repository that lands a definition, so it ships to every install.
-    pub(crate) async fn workflow_proposed_to_armada(self: &Arc<Self>, proposed: ProposeToArmada) -> Result<ArmadaProposed, Refusal> {
+    pub async fn workflow_proposed_to_armada(self: &Arc<Self>, proposed: ProposeToArmada) -> Result<ArmadaProposed, Refusal> {
         if proposed.definition.trim().is_empty() {
             return Err(self.change_blank("The definition is blank; there is nothing to propose"));
         }
@@ -552,7 +552,7 @@ impl Fleet
 
     /// Draft one change: ask, check, and ask once more with the reason if it does not fit. **Never an
     /// error**: what happens is the change's state.
-    pub(crate) async fn change_drafted(self: Arc<Self>, id: i64) {
+    pub async fn change_drafted(self: Arc<Self>, id: i64) {
         let Ok(Some(kept)) = self.store().lock().await.workflow_change(id) else { return };
         if kept.state != store::CHANGE_DRAFTING {
             return;

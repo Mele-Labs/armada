@@ -23,7 +23,7 @@ impl Fleet
     /// whose branch row still stands**, so a branch given back is nobody's. **Never a second
     /// Session, and never a pull request a Session already holds**, in any state: a merged one a
     /// Session took again is the pull reading's to settle, not this.
-    pub(crate) async fn pulls_attached(self: &Arc<Self>, served: &Served, followed: &[FollowedPull]) {
+    pub async fn pulls_attached(self: &Arc<Self>, served: &Served, followed: &[FollowedPull]) {
         let manifest = served.manifest().id().as_str().to_string();
         let now = self.now().as_str().to_string();
         let mut changed = Vec::new();

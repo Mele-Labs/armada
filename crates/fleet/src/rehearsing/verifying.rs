@@ -34,13 +34,13 @@ use crate::repositories::Served;
 
 /// How long a finished step waits for its Verify to take the hand-over before
 /// it is published anyway: the next step's start is a directory made.
-pub(crate) const HANDING_OVER: Duration = Duration::from_secs(30);
+pub const HANDING_OVER: Duration = Duration::from_secs(30);
 
 /// One step's record, handed back to its Verify before the step is published.
 /// `ack` is answered once the next step is out or the Verify has ended.
-pub(crate) struct Handed {
-    pub(crate) record: Record,
-    pub(crate) ack: oneshot::Sender<()>,
+pub struct Handed {
+    pub record: Record,
+    pub ack: oneshot::Sender<()>,
 }
 
 /// What Verify runs against `manifest`, in order, as the steps of one that has
@@ -69,7 +69,7 @@ fn wired(group: VerifyGroup, entry: &Entry, state: &VerifyStepState) -> VerifySt
 /// [`Served`] leaves no way to ask after a Job's. `std`'s lock, never held
 /// across an `.await`.
 #[derive(Clone, Default)]
-pub(crate) struct Verifies(Arc<Mutex<BTreeMap<String, Verifying>>>);
+pub struct Verifies(Arc<Mutex<BTreeMap<String, Verifying>>>);
 
 struct Verifying {
     id: String,
@@ -81,13 +81,13 @@ struct Verifying {
 }
 
 impl Verifies {
-    pub(crate) fn underway(&self, root: &str) -> bool {
+    pub fn underway(&self, root: &str) -> bool {
         self.held()
             .get(root)
             .is_some_and(|one| one.ended_at.is_none())
     }
 
-    pub(crate) fn seen(&self, root: &str) -> Option<CheckoutVerify> {
+    pub fn seen(&self, root: &str) -> Option<CheckoutVerify> {
         self.held().get(root).map(|one| CheckoutVerify {
             id: one.id.clone(),
             started_at: one.started_at.clone(),
@@ -161,7 +161,7 @@ impl Fleet
 {
     /// Begin a Verify in the main checkout, and answer once its first step is
     /// out. `asked` names a workspace whose own file runs instead of the root's.
-    pub(crate) async fn begin_checkout_verify(
+    pub async fn begin_checkout_verify(
         self: Arc<Self>,
         checkout: impl Into<Checkout>,
         asked: Option<&str>,

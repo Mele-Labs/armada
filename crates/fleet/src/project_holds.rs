@@ -19,7 +19,7 @@ use crate::session_host::NO_SUCH_SESSION;
 const JOB_ENDED: &str = "fleet.project_job_ended";
 
 /// The ids of the subtasks of task `row`.
-pub(crate) fn subtasks_of<'k>(kept: &'k KeptProjects, row: &'k str) -> impl Iterator<Item = String> + 'k {
+pub fn subtasks_of<'k>(kept: &'k KeptProjects, row: &'k str) -> impl Iterator<Item = String> + 'k {
     kept.projects
         .iter()
         .flat_map(|project| &project.rows)
@@ -34,7 +34,7 @@ const LOOSE_ASK: &str = "loose";
 
 /// What the person is asked about the tasks a Job finished in one project. Choice 0 and 1 are the
 /// options in this order: `answer_waiting` takes the index.
-pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
+pub fn task_done_item(asked: &KeptAsked) -> WaitingItem {
     let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
     let which = if asked.project_id == LOOSE_PROJECT { LOOSE_ASK } else { asked.project_id.as_str() };
     let id = format!("{TASK_DONE}{which}");
@@ -65,7 +65,7 @@ impl Fleet
     /// The written tasks among `named`, by row id, once every row is known. **All or nothing**: one
     /// row that is missing refuses the start. A row of any repository is held, whatever the Job's
     /// own: a task keeps the repository it was filed in. An issue row passes and is not returned.
-    pub(crate) async fn project_rows_checked(&self, named: &[ProjectRowRef]) -> Result<Vec<String>, Refusal> {
+    pub async fn project_rows_checked(&self, named: &[ProjectRowRef]) -> Result<Vec<String>, Refusal> {
         let store = self.store().lock().await;
         let kept = store.projects().map_err(|why| self.ledger_fault(why))?;
         let mut tasks = Vec::new();
@@ -83,7 +83,7 @@ impl Fleet
     }
 
     /// `session` may hold tasks: a Job Fleet has a record of, still running, in any repository.
-    pub(crate) fn job_may_hold(&self, store: &Store, session: &str) -> Result<(), Refusal> {
+    pub fn job_may_hold(&self, store: &Store, session: &str) -> Result<(), Refusal> {
         let Some(job) = store.session(session).map_err(|why| self.ledger_fault(why))? else {
             return Err(Refusal::NotFound(self.project_refusal(NO_SUCH_SESSION, format!("no job is named {session}"))));
         };
@@ -94,7 +94,7 @@ impl Fleet
     }
 
     /// `session` holds `tasks`, by row id, from now, and his projects are published.
-    pub(crate) async fn project_tasks_held(&self, session: &str, tasks: &[String]) {
+    pub async fn project_tasks_held(&self, session: &str, tasks: &[String]) {
         let held = self.store().lock().await.hold_project_tasks(session, tasks);
         if let Err(why) = held {
             self.session_warned(session, "a job's project tasks were not held", format!("{why:?}"));
@@ -104,7 +104,7 @@ impl Fleet
     }
 
     /// His projects as they stand, published as `projects.changed`.
-    pub(crate) async fn projects_published(&self) {
+    pub async fn projects_published(&self) {
         let kept = self.store().lock().await.projects();
         let Ok(kept) = kept else {
             return;
@@ -115,7 +115,7 @@ impl Fleet
 
     /// `answer_waiting` on a `task_done` item: choice 0 marks what the Job asked about in that
     /// project done, 1 opens it again. The agent is told nothing: it finished, and the Job may be gone.
-    pub(crate) async fn task_done_chosen(
+    pub async fn task_done_chosen(
         &self,
         session: &str,
         item: &str,
@@ -150,7 +150,7 @@ impl Fleet
 
     /// `session` said it is done, or its pull request merged: what it holds is asked about, and
     /// the Job and the projects are published. Nothing happens for a Job holding no task.
-    pub(crate) async fn project_tasks_asked(&self, session: &str) {
+    pub async fn project_tasks_asked(&self, session: &str) {
         let at = self.now().as_str().to_string();
         match self.store().lock().await.ask_held_project_tasks(session, &at) {
             Ok(0) | Err(_) => return,
@@ -162,7 +162,7 @@ impl Fleet
 
     /// Pull request `number` merged: every Job that held it is asked about its held tasks. **Held, not
     /// standing**, as a merge reads it, and idempotent: a task already asked is not asked again.
-    pub(crate) async fn tasks_asked_by_merge(&self, served: &crate::repositories::Served, number: u64) {
+    pub async fn tasks_asked_by_merge(&self, served: &crate::repositories::Served, number: u64) {
         let manifest = served.manifest().id().as_str().to_string();
         let holders: Vec<String> = self
             .store()
@@ -183,7 +183,7 @@ impl Fleet
     /// **Whoever opened it**: a person linked it, and nobody's Job need have. A Job holding a task keeps its
     /// ask on its list; a task with none is asked on the rows alone. The forge's answer for it is kept as
     /// merged. Whether any task was asked, in which case the projects are published.
-    pub(crate) async fn tasks_asked_by_linked_pull(&self, manifest: &str, number: u64, title: &str) -> bool {
+    pub async fn tasks_asked_by_linked_pull(&self, manifest: &str, number: u64, title: &str) -> bool {
         self.tracking().pulls.keep(manifest, number, self.now(), (TaskPullState::Merged, title.to_string()));
         let at = self.now().as_str().to_string();
         let asked = self.store().lock().await.ask_pulled_project_tasks(manifest, number, &at);
@@ -204,7 +204,7 @@ impl Fleet
     }
 
     /// `session` is over: what it held and did not finish is open again. What it asked about stays asked.
-    pub(crate) async fn project_tasks_freed(&self, session: &str) {
+    pub async fn project_tasks_freed(&self, session: &str) {
         match self.store().lock().await.free_held_project_tasks(session) {
             Ok(0) | Err(_) => return,
             Ok(_) => {}

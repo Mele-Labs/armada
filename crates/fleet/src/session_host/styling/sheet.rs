@@ -5,14 +5,14 @@
 use std::path::{Path, PathBuf};
 
 /// Most one stylesheet weighs once its imports are in.
-pub(crate) const SHEET_AT_MOST: usize = 256 * 1024;
+pub const SHEET_AT_MOST: usize = 256 * 1024;
 /// Most one file is read at all, so a stray bundle costs a stat and not a read.
 const FILE_AT_MOST: u64 = 4 * 1024 * 1024;
 /// Most imports deep one sheet goes.
 const DEPTH_AT_MOST: usize = 16;
 
 /// A `@font-face` of a sheet whose file is on disk inside the checkout.
-pub(crate) struct Face {
+pub struct Face {
     pub family: String,
     /// As written: `400`, or `100 900` for a variable font.
     pub weight: String,
@@ -20,7 +20,7 @@ pub(crate) struct Face {
     pub file: PathBuf,
 }
 
-pub(crate) struct Made {
+pub struct Made {
     pub css: String,
     pub faces: Vec<Face>,
     /// Every file that went into `css`, canonical.
@@ -28,7 +28,7 @@ pub(crate) struct Made {
 }
 
 /// `file` (canonical, inside `root`) as a sheet a frame can adopt, or why it cannot be.
-pub(crate) fn make(root: &Path, file: &Path) -> Result<Made, String> {
+pub fn make(root: &Path, file: &Path) -> Result<Made, String> {
     let mut loader = Loader { root, seen: Vec::new(), faces: Vec::new(), read: Vec::new(), weight: 0 };
     let css = loader.load(file, 0)?;
     let css = theme_as_root(&css);
@@ -287,12 +287,12 @@ fn unquoted(value: &str) -> String {
 }
 
 /// A case-insensitive `find` for an ASCII needle. Lower-casing ASCII keeps every byte offset.
-pub(crate) fn find_ci(text: &str, needle: &str) -> Option<usize> {
+pub fn find_ci(text: &str, needle: &str) -> Option<usize> {
     text.to_ascii_lowercase().find(&needle.to_ascii_lowercase())
 }
 
 /// The text without `/* ... */` comments, leaving strings alone.
-pub(crate) fn strip_comments(text: &str) -> String {
+pub fn strip_comments(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut chars = text.chars().peekable();
     let mut quote: Option<char> = None;

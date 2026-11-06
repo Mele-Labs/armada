@@ -50,7 +50,7 @@ fn session(id: String, one: UsageSplit) -> SessionUsageSummary {
     }
 }
 
-pub(crate) fn wire(read: UsageSummaryRead, tz_offset_minutes: i32) -> UsageSummary {
+pub fn wire(read: UsageSummaryRead, tz_offset_minutes: i32) -> UsageSummary {
     let prior = read.prior;
     let plain = |(day, units): (String, f64)| DayUnits { day, units, by_model: Vec::new() };
     UsageSummary {
@@ -83,7 +83,7 @@ fn split(one: &store::SpentSplit) -> ipc::SpentSplit {
 
 /// What the burn was spent on, as the wire carries it. `docs/practices/protocol.md`, *What the burn
 /// was spent on*.
-pub(crate) fn spent_wire(read: store::UsageSpentRead) -> ipc::UsageSpent {
+pub fn spent_wire(read: store::UsageSpentRead) -> ipc::UsageSpent {
     ipc::UsageSpent {
         until: read.until,
         windows: read

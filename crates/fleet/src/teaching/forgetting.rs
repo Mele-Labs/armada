@@ -12,7 +12,7 @@ use crate::mods;
 /// their names. **Called inside forget's store lock**, so no save can write a mod for the entry
 /// between the entry going and the mods following it. A folder that is a link is left alone: only a
 /// folder this machine made is removed.
-pub(crate) fn forget_effects(mods_dir: &Path, entry_id: &str) -> Vec<String> {
+pub fn forget_effects(mods_dir: &Path, entry_id: &str) -> Vec<String> {
     let Ok(listing) = std::fs::read_dir(mods_dir) else {
         return Vec::new();
     };

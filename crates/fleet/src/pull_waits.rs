@@ -10,7 +10,7 @@ use ipc::{WaitingActKind, WaitingItem, WaitingSource};
 use crate::daemon::Fleet;
 
 /// Whether `item` waits on the person to approve pull request `number`: its `approve_pr` act names it.
-pub(crate) fn waits_on(item: &WaitingItem, number: u64) -> bool {
+pub fn waits_on(item: &WaitingItem, number: u64) -> bool {
     if !matches!(item.source, WaitingSource::Agent | WaitingSource::Replied) {
         return false;
     }
@@ -20,7 +20,7 @@ pub(crate) fn waits_on(item: &WaitingItem, number: u64) -> bool {
 }
 
 /// `#2589`, `2589` or a pull request's address, as an `approve_pr` act's target is written.
-pub(crate) fn number_of(target: &str) -> Option<u64> {
+pub fn number_of(target: &str) -> Option<u64> {
     let tail = target.trim().trim_end_matches('/').rsplit(['/', '#']).next()?;
     tail.parse().ok()
 }
@@ -30,7 +30,7 @@ impl Fleet
     /// Take off a Session's own items, and the asks read off its reply, whose `approve_pr` act names pull request `number`, as [`Self::run_item_settled`] does for a
     /// command: the notice Fleet tells next says why, in Fleet's voice, and the turn it starts clears
     /// an ask read off a reply. The texts of the items taken off.
-    pub(crate) async fn waits_taken_off(&self, session: &str, number: u64) -> Vec<String> {
+    pub async fn waits_taken_off(&self, session: &str, number: u64) -> Vec<String> {
         let record = {
             let mut store = self.store().lock().await;
             let Ok(Some(kept)) = store.session(session) else { return Vec::new() };

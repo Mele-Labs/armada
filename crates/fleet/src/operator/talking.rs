@@ -323,7 +323,7 @@ fn form_read(form: &str, board: &Board, live: &[LiveJob]) -> Option<OperatorOrde
 
 impl Operator {
     /// What Fleet holds that a message or an order is read against.
-    pub(super) async fn board_and_live(&self) -> (Board, Vec<LiveJob>) {
+    pub async fn board_and_live(&self) -> (Board, Vec<LiveJob>) {
         let mut board = self.desk.board().await;
         board.queue = self.queued();
         (board, self.desk.live().await)
@@ -353,7 +353,7 @@ impl Operator {
 impl Fleet
 {
     /// What the box may answer from, read now.
-    pub(crate) async fn operator_board(&self) -> Board {
+    pub async fn operator_board(&self) -> Board {
         let day_began = crate::clock::rfc3339_utc(crate::clock::local_day_began(self.now().epoch_millis().unwrap_or(0)).await);
         let store = self.store().lock().await;
         let log = store
@@ -404,14 +404,14 @@ impl Fleet
     }
 
     /// `operator_talk`: the conversation so far.
-    pub(crate) async fn operator_talk_wire(&self) -> Result<OperatorTalk, Refusal> {
+    pub async fn operator_talk_wire(&self) -> Result<OperatorTalk, Refusal> {
         let kept = self.store().lock().await.operator_talk(LINES_HANDED).map_err(|why| self.ledger_fault(why))?;
         Ok(OperatorTalk { lines: kept.into_iter().map(|one| OperatorTalkLine { from_person: one.from_person, text: one.text, at: one.at, about: one.about }).collect() })
     }
 
     /// `talk_to_operator`: one message from the person. **Refused** while the Operator is off, at the
     /// day's ceiling, and where the call fails or says what cannot be read. Nothing is kept then.
-    pub(crate) async fn operator_talked(self: &Arc<Self>, words: &str, about: Option<&str>) -> Result<OperatorSaid, Refusal> {
+    pub async fn operator_talked(self: &Arc<Self>, words: &str, about: Option<&str>) -> Result<OperatorSaid, Refusal> {
         let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off"));
         };

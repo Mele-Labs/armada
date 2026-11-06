@@ -74,7 +74,7 @@ pub struct Profiles {
 
 /// Written beside `name` in `machine` and renamed over it, so a reader meets the
 /// whole of one version or the whole of the last and never half of either.
-pub(crate) fn write_beside(machine: &Path, name: &str, text: &str) -> Result<(), String> {
+pub fn write_beside(machine: &Path, name: &str, text: &str) -> Result<(), String> {
     let file = machine.join(name);
     let beside = machine.join(format!(".{name}.{}.tmp", std::process::id()));
     let written = std::fs::File::create(&beside)

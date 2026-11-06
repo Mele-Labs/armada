@@ -27,12 +27,12 @@
 //! start finds each server up and answers with them. A server two runs list is one process, so
 //! stopping either run stops it.
 
-pub(crate) mod draft;
-pub(crate) mod links;
-mod pins;
-pub(crate) mod save;
-mod serving;
-mod unrunnable;
+pub mod draft;
+pub mod links;
+pub mod pins;
+pub mod save;
+pub mod serving;
+pub mod unrunnable;
 
 pub use serving::keep_the_runs;
 
@@ -53,7 +53,7 @@ use unrunnable::Unrunnable;
 /// Which checkout a run is started on. **A target and never the caller's own Session**, so Bridge's
 /// ▶ on a repository and ▶ inside a Job say where they mean.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum RunTarget {
+pub enum RunTarget {
     /// The repository's main checkout, named by its Manifest where there are several repositories.
     Main(Option<ipc::ManifestId>),
     /// The worktree a Job holds, by the Job's id.
@@ -63,7 +63,7 @@ pub(crate) enum RunTarget {
 /// Where one process of a run stands. A server that exits on its own has failed, whatever its
 /// code, so `Exited` is only one somebody stopped.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ProcessState {
+pub enum ProcessState {
     /// Nothing of this process has been started on this checkout.
     NotStarted,
     Starting,
@@ -75,7 +75,7 @@ pub(crate) enum ProcessState {
 }
 
 impl ProcessState {
-    pub(crate) fn of(server: &ServerState) -> ProcessState {
+    pub fn of(server: &ServerState) -> ProcessState {
         match (server.phase, server.stopped) {
             (ServerPhase::Starting, _) => ProcessState::Starting,
             (ServerPhase::Serving, _) => ProcessState::Ready,
@@ -87,43 +87,43 @@ impl ProcessState {
 
 /// One server of a run: its state, its port and the instance row behind them.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RunProcess {
+pub struct RunProcess {
     /// The server's name in the Manifest.
-    pub(crate) name: String,
-    pub(crate) state: ProcessState,
+    pub name: String,
+    pub state: ProcessState,
     /// The ports its fields name, `serve` first. Empty before it has started once.
-    pub(crate) ports: Vec<ServerPort>,
+    pub ports: Vec<ServerPort>,
     /// The live instance, or the last that ended. What `observe_server` and `stop_server` take the
     /// id of.
-    pub(crate) server: Option<ServerState>,
+    pub server: Option<ServerState>,
     /// The folder under the checkout it starts in. `None` is the root.
-    pub(crate) dir: Option<String>,
+    pub dir: Option<String>,
     /// What starts it, as the Manifest wrote it.
-    pub(crate) serve: String,
+    pub serve: String,
     /// The port its `serve` names, `${port.NAME}`'s NAME: what `ARMADA_PORT_*` is named for.
-    pub(crate) port_name: Option<String>,
+    pub port_name: Option<String>,
     /// The number it is pinned to, where it is.
-    pub(crate) pinned: Option<u16>,
+    pub pinned: Option<u16>,
 }
 
 /// The name in the first `${port.NAME}` of `serve`.
-pub(crate) fn port_name_in(serve: &str) -> Option<String> {
+pub fn port_name_in(serve: &str) -> Option<String> {
     let rest = serve.split_once("${port.")?.1;
     Some(rest.split_once('}')?.0.to_string()).filter(|name| !name.is_empty())
 }
 
 impl RunProcess {
     /// Where it answers: the first port its fields name.
-    pub(crate) fn port(&self) -> Option<u16> {
+    pub fn port(&self) -> Option<u16> {
         self.ports.first().map(|port| port.port)
     }
 }
 
 /// How a run stands as a whole. **Only tests read it**: the wire sends each process's state and a
 /// client derives the whole's from them.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum RunPhase {
+pub enum RunPhase {
     /// Nothing of it is up, and nothing of it fell over.
     Stopped,
     /// Something is starting and nothing has failed.
@@ -138,23 +138,23 @@ pub(crate) enum RunPhase {
 
 /// One run on one checkout, as it stands now.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RunView {
+pub struct RunView {
     /// The run's name in the Manifest.
-    pub(crate) name: String,
+    pub name: String,
     /// What a person is shown: its `label`, else its name.
-    pub(crate) label: String,
+    pub label: String,
     /// The repository it runs in, by the id its servers carry.
-    pub(crate) manifest_id: ipc::ManifestId,
+    pub manifest_id: ipc::ManifestId,
     /// The checkout it runs on, by path.
-    pub(crate) checkout: String,
+    pub checkout: String,
     /// Whether it is opened at an address: some server of it listens on a leased port and offers a link.
-    pub(crate) browser: bool,
-    pub(crate) processes: Vec<RunProcess>,
+    pub browser: bool,
+    pub processes: Vec<RunProcess>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 impl RunView {
-    pub(crate) fn phase(&self) -> RunPhase {
+    pub fn phase(&self) -> RunPhase {
         let any = |wanted: ProcessState| self.processes.iter().any(|one| one.state == wanted);
         let all_ready = !self.processes.is_empty()
             && self.processes.iter().all(|one| one.state == ProcessState::Ready);
@@ -219,7 +219,7 @@ impl Fleet
 {
     /// The checkout `target` names. **A Job's is read from Fleet's own record of its lease**, never
     /// from a path a caller sent.
-    pub(crate) async fn run_checkout(&self, target: &RunTarget) -> Result<Checkout, Refusal> {
+    pub async fn run_checkout(&self, target: &RunTarget) -> Result<Checkout, Refusal> {
         match target {
             RunTarget::Main(manifest_id) => {
                 Ok(Checkout::main(self.served_named(manifest_id.as_ref())?))
@@ -240,7 +240,7 @@ impl Fleet
     }
 
     /// Every run the Manifest declares, in the file's order, as each stands on `target`.
-    pub(crate) async fn runs_listed(&self, target: &RunTarget) -> Result<Vec<RunView>, Refusal> {
+    pub async fn runs_listed(&self, target: &RunTarget) -> Result<Vec<RunView>, Refusal> {
         let checkout = self.run_checkout(target).await?;
         let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
         let id = ipc::ManifestId::from(checkout.served().manifest().id());
@@ -252,8 +252,8 @@ impl Fleet
     }
 
     /// One run as it stands on `target`. The wire lists every run, so only tests read one.
-    #[cfg(test)]
-    pub(crate) async fn run_read(&self, target: &RunTarget, name: &str) -> Result<RunView, Refusal> {
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn run_read(&self, target: &RunTarget, name: &str) -> Result<RunView, Refusal> {
         let checkout = self.run_checkout(target).await?;
         let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
         self.run_viewed(&manifest, &checkout, name)
@@ -262,7 +262,7 @@ impl Fleet
     /// Start `name` on `target` — **or answer with the run already up**, `true` beside the view
     /// where this call started at least one of its processes. A process that will not start stops
     /// the ones this call started, so a run is up whole or not at all.
-    pub(crate) async fn run_started(
+    pub async fn run_started(
         self: Arc<Self>,
         target: &RunTarget,
         name: &str,
@@ -272,7 +272,7 @@ impl Fleet
     }
 
     /// [`run_started`](Fleet::run_started) on a checkout already resolved.
-    pub(crate) async fn run_started_on(
+    pub async fn run_started_on(
         self: Arc<Self>,
         checkout: Checkout,
         name: &str,
@@ -310,13 +310,13 @@ impl Fleet
 
     /// Stop every process of `name` on `target`, and wait for each. **Only this run's servers**: no
     /// other the checkout holds. A run with nothing up answers as it stands.
-    pub(crate) async fn run_stopped(&self, target: &RunTarget, name: &str) -> Result<RunView, Refusal> {
+    pub async fn run_stopped(&self, target: &RunTarget, name: &str) -> Result<RunView, Refusal> {
         let checkout = self.run_checkout(target).await?;
         self.run_stopped_on(&checkout, name).await
     }
 
     /// [`run_stopped`](Fleet::run_stopped) on a checkout already resolved.
-    pub(crate) async fn run_stopped_on(&self, checkout: &Checkout, name: &str) -> Result<RunView, Refusal> {
+    pub async fn run_stopped_on(&self, checkout: &Checkout, name: &str) -> Result<RunView, Refusal> {
         let manifest = self.run_manifest(checkout.served(), checkout.path()).await?;
         let run = manifest
             .app_run(name)
@@ -327,7 +327,7 @@ impl Fleet
     }
 
     /// Stop `name`, then start it again: the run as a whole, never one process of it.
-    pub(crate) async fn run_restarted(
+    pub async fn run_restarted(
         self: Arc<Self>,
         target: &RunTarget,
         name: &str,
@@ -340,7 +340,7 @@ impl Fleet
     /// every `server.starting`, `server.serving` and `server.exited`**: the event carries the
     /// instance, and this says whose run it is part of. **Read from what the checkout was last
     /// run from**, not the file again: an event is not a reason to reach Kit's copy where it is kept.
-    pub(crate) fn runs_moved_by(&self, state: &ServerState) -> Vec<RunView> {
+    pub fn runs_moved_by(&self, state: &ServerState) -> Vec<RunView> {
         let Ok(served) = self.served_named(state.manifest_id.as_ref()) else {
             return Vec::new();
         };
@@ -363,7 +363,7 @@ impl Fleet
     /// where it has one, so a Job that adds a server can run it, else the repository's file, each
     /// with Kit's copy laid over it. A tree with neither falls back to the Manifest Fleet holds.
     /// One that will not read is refused, since what it declares is not known.
-    pub(crate) async fn run_manifest(&self, served: &Served, path: &str) -> Result<Manifest, Refusal> {
+    pub async fn run_manifest(&self, served: &Served, path: &str) -> Result<Manifest, Refusal> {
         let held = served.manifest();
         let own = held.path().file_name().map(|file| Path::new(path).join(file));
         let file = match own {

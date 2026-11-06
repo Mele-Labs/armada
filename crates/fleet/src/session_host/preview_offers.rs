@@ -21,7 +21,7 @@ const REFRESH: &str = "scripts/preview --restart";
 
 /// The newest offer of each branch the person has not skipped, as items. An older tip of a branch
 /// is not shown beside a newer one: the newer refresh takes both.
-pub(crate) fn offer_items(offers: &[KeptPreviewOffer], dismissed: &[String]) -> Vec<WaitingItem> {
+pub fn offer_items(offers: &[KeptPreviewOffer], dismissed: &[String]) -> Vec<WaitingItem> {
     let newest = offers.iter().enumerate().filter(|(n, one)| offers.get(n + 1).is_none_or(|next| next.branch != one.branch));
     newest.map(|(_, one)| offer_item(one)).filter(|item| !dismissed.contains(&item.id)).collect()
 }
@@ -48,7 +48,7 @@ impl Fleet
 {
     /// Offer a refresh to each live Job holding a branch the preview left out that has moved, and drop
     /// the offers of a build no longer running. On the sweep; **nothing here fails the turn**.
-    pub(crate) async fn preview_offered_when_left_out_moved(&self) {
+    pub async fn preview_offered_when_left_out_moved(&self) {
         let support = crate::runtime::support_dir(&self.host().home);
         let now = SystemTime::now();
         // Mid-restart the commit on file is not yet the build, so nothing is dropped or offered.

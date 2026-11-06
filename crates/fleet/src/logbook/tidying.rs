@@ -31,7 +31,7 @@ const EVERY_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 const RETRY_MS: u64 = 24 * 60 * 60 * 1000;
 
 /// The question as it ships.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 A person keeps a Logbook: short entries that tell a coding agent what to do in a repository, on \
 this Mac, and how the person works. Over time it collects entries that say one thing in different \
 words, such as the same test command with a different log file or flag, or several entries \
@@ -68,7 +68,7 @@ struct Shown<'a> {
 
 /// One set of entries the model says are one.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Group {
+pub struct Group {
     pub keep: i64,
     pub text: String,
     pub absorb: Vec<i64>,
@@ -87,7 +87,7 @@ struct SaidGroup {
     absorb: Vec<i64>,
 }
 
-pub(super) async fn ask_model(explaining: &crate::judging::Explaining, question: &str) -> Result<String, String> {
+pub async fn ask_model(explaining: &crate::judging::Explaining, question: &str) -> Result<String, String> {
     let ask = Ask::put(explaining.model.clone(), question, explaining.environment.clone())
         .map_err(|_| "the call could not be put together".to_string())?;
     crate::judging::said(explaining.client.as_ref(), &ask, explaining.budget)
@@ -96,7 +96,7 @@ pub(super) async fn ask_model(explaining: &crate::judging::Explaining, question:
 }
 
 /// Whether Tidy may touch an entry: a live one nobody locked and no person wrote.
-pub(super) fn tidyable(entry: &LogEntry) -> bool {
+pub fn tidyable(entry: &LogEntry) -> bool {
     entry.id.is_some() && entry.state != LogState::Faded && !entry.locked && !entry.edited_by_person
 }
 
@@ -107,7 +107,7 @@ fn touched(entry: &LogEntry) -> u64 {
     entry.first_seen.max(entry.last_confirmed).max(evidence).max(history)
 }
 
-pub(super) fn question(entries: &[LogEntry]) -> Result<String, String> {
+pub fn question(entries: &[LogEntry]) -> Result<String, String> {
     let of = |section: LogSection| -> Vec<Offered<'_>> {
         entries
             .iter()
@@ -122,7 +122,7 @@ pub(super) fn question(entries: &[LogEntry]) -> Result<String, String> {
 
 /// The groups an answer names, held to the entries offered. **Read whole**: one wrong group is an
 /// `Err` for them all.
-pub(super) fn read(said: &str, entries: &[LogEntry]) -> Result<Vec<Group>, String> {
+pub fn read(said: &str, entries: &[LogEntry]) -> Result<Vec<Group>, String> {
     let said: Said = crate::review_runs::said(crate::review_runs::object_in(said)?)?;
     let offered: BTreeMap<i64, LogSection> =
         entries.iter().filter(|entry| tidyable(entry)).filter_map(|entry| Some((entry.id?, entry.section))).collect();
@@ -149,7 +149,7 @@ pub(super) fn read(said: &str, entries: &[LogEntry]) -> Result<Vec<Group>, Strin
 
 /// Fold `absorbed` into `kept`: the kept entry takes their evidence and paths and reads `text`, and
 /// they are archived. The count is those archived; none where the text is forgotten.
-pub(super) fn fold(store: &mut store::Store, mut kept: LogEntry, mut absorbed: Vec<LogEntry>, text: &str, now: u64) -> Result<usize, String> {
+pub fn fold(store: &mut store::Store, mut kept: LogEntry, mut absorbed: Vec<LogEntry>, text: &str, now: u64) -> Result<usize, String> {
     for one in &absorbed {
         kept.evidence.extend(one.evidence.iter().cloned());
         kept.paths.extend(one.paths.iter().filter(|path| !kept.paths.contains(path)).cloned().collect::<Vec<_>>());
@@ -173,7 +173,7 @@ pub(super) fn fold(store: &mut store::Store, mut kept: LogEntry, mut absorbed: V
 
 /// Whether a repository is due: a week since its last tidy, and an entry changed since, with two
 /// to fold.
-pub(crate) async fn due(store: &StoreLock, key: &str, now: u64) -> Result<bool, String> {
+pub async fn due(store: &StoreLock, key: &str, now: u64) -> Result<bool, String> {
     let store = store.lock().await;
     let last = store.logbook_last_tidied(key).map_err(|why| why.to_string())?;
     if last.is_some_and(|last| now.saturating_sub(last) < EVERY_MS) {
@@ -186,7 +186,7 @@ pub(crate) async fn due(store: &StoreLock, key: &str, now: u64) -> Result<bool, 
 
 /// Tidy one repository's entries, and the habits and this Mac's beside them, with one question.
 /// The count is the entries folded into another; `Err` is why nothing was changed.
-pub(crate) async fn pass<F, Fut>(store: &StoreLock, key: &str, ask: F, now: u64) -> Result<usize, String>
+pub async fn pass<F, Fut>(store: &StoreLock, key: &str, ask: F, now: u64) -> Result<usize, String>
 where
     F: Fn(String) -> Fut,
     Fut: Future<Output = Result<String, String>>,
@@ -216,7 +216,7 @@ impl Fleet
 {
     /// Start tidying the repositories that are due, on a task of its own, one pass at a time.
     /// Called on the notice loop's tick, so it never holds up a turn.
-    pub(crate) fn logbook_tidy_run(self: &Arc<Self>) {
+    pub fn logbook_tidy_run(self: &Arc<Self>) {
         if self.logbook_distils().tidying.swap(true, Ordering::AcqRel) {
             return;
         }
@@ -229,7 +229,7 @@ impl Fleet
 
     /// Start a tidy on a task of its own, and return at once. Where a pass is already running
     /// (this one's or the tick's) nothing starts: the one going will fold what is there.
-    pub(crate) fn logbook_tidy_started_with<F, Fut>(self: &Arc<Self>, repository: Option<String>, ask: F)
+    pub fn logbook_tidy_started_with<F, Fut>(self: &Arc<Self>, repository: Option<String>, ask: F)
     where
         F: Fn(String) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<String, String>> + Send,
@@ -246,7 +246,7 @@ impl Fleet
     }
 
     /// [`Self::logbook_tidy_started_with`] asking the retro model.
-    pub(crate) fn logbook_tidy_started(self: &Arc<Self>, repository: Option<String>) -> Result<(), String> {
+    pub fn logbook_tidy_started(self: &Arc<Self>, repository: Option<String>) -> Result<(), String> {
         let explaining = Arc::new(self.writing_retros().map_err(|_| "the call could not be put together on this machine")?);
         self.logbook_tidy_started_with(repository, move |question: String| {
             let explaining = Arc::clone(&explaining);
@@ -272,7 +272,7 @@ impl Fleet
 
     /// Tidy one served repository by its root, or every one, now. The count is the entries folded
     /// into another. `Err` is the last repository whose call failed; the others were tidied.
-    pub(crate) async fn logbook_tidied(&self, repository: Option<&str>) -> Result<usize, String> {
+    pub async fn logbook_tidied(&self, repository: Option<&str>) -> Result<usize, String> {
         let explaining = self.writing_retros().map_err(|_| "the call could not be put together on this machine")?;
         self.logbook_tidied_asking(repository, |question: String| {
             let explaining = &explaining;
@@ -282,7 +282,7 @@ impl Fleet
     }
 
     /// [`Self::logbook_tidied`] with the model's answer from `ask`.
-    pub(crate) async fn logbook_tidied_asking<F, Fut>(&self, repository: Option<&str>, ask: F) -> Result<usize, String>
+    pub async fn logbook_tidied_asking<F, Fut>(&self, repository: Option<&str>, ask: F) -> Result<usize, String>
     where
         F: Fn(String) -> Fut,
         Fut: Future<Output = Result<String, String>>,

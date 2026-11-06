@@ -154,7 +154,7 @@ impl Fleet
     /// a step that asks how the work is delivered, the question where `text` names no delivery, or the
     /// choice the start card made. The steps the person skipped are said after it. `None` where there
     /// is nothing to carry.
-    pub(crate) async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
+    pub async fn first_step_kept(&self, id: &str, hosting: &KeptHosting, text: &str) -> Option<String> {
         let said = self.first_step_said(id, hosting, text).await;
         if hosting.ran {
             return said;
@@ -205,7 +205,7 @@ impl Fleet
         card_choice(&rows).filter(|_| step.asks_delivery).map(chosen_words)
     }
 
-    pub(crate) fn workflow_name(&self, manifest: &str, workflow: &str) -> String {
+    pub fn workflow_name(&self, manifest: &str, workflow: &str) -> String {
         self.repositories()
             .serving(manifest)
             .and_then(|served| {

@@ -31,7 +31,7 @@ const PROPOSAL_UNWRITABLE: &str = "fleet.proposal_unwritable";
 
 /// Every proposal this Fleet holds, by workspace.
 #[derive(Default)]
-pub(crate) struct Held(Mutex<BTreeMap<String, Draft>>);
+pub struct Held(Mutex<BTreeMap<String, Draft>>);
 
 impl Held {
     fn lock(&self) -> MutexGuard<'_, BTreeMap<String, Draft>> {
@@ -42,7 +42,7 @@ impl Held {
 impl Fleet
 {
     /// `get_manifest_proposals`. A workspace already held is not rebuilt over.
-    pub(crate) fn manifest_proposals(
+    pub fn manifest_proposals(
         &self,
         repository: &crate::repositories::Repository,
     ) -> ManifestProposals {
@@ -64,7 +64,7 @@ impl Fleet
     }
 
     /// `edit_manifest_proposal`.
-    pub(crate) fn edit_manifest_proposal(
+    pub fn edit_manifest_proposal(
         &self,
         asked: EditManifestProposal,
         repository: &crate::repositories::Repository,
@@ -82,7 +82,7 @@ impl Fleet
     }
 
     /// `write_manifest_proposal` — the file, from the proposal as it stands.
-    pub(crate) fn write_manifest_proposal(
+    pub fn write_manifest_proposal(
         &self,
         asked: WriteManifestProposal,
         repository: &crate::repositories::Repository,

@@ -47,7 +47,7 @@ pub fn one_component(id: &str) -> bool {
 /// keeping the beginning keeps the part nobody opened the Job for.
 ///
 /// `crate::asked::read_back` reads a kept brief through the same window.
-pub(crate) const A_READING: usize = 2_000;
+pub const A_READING: usize = 2_000;
 
 /// How many bytes of those lines one read carries.
 ///
@@ -55,7 +55,7 @@ pub(crate) const A_READING: usize = 2_000;
 /// minified bundle. The window loses its oldest lines to stay under it, which
 /// keeps this read's cost a property of the code rather than of whatever a
 /// Check printed.
-pub(crate) const MOST: usize = 256 * 1024;
+pub const MOST: usize = 256 * 1024;
 
 /// A window kept over a stream of lines: whichever bound is hit first evicts
 /// the oldest line, so what survives is the tail under both — [`kept_output`]
@@ -65,9 +65,9 @@ pub(crate) const MOST: usize = 256 * 1024;
 /// Returns the window, the file's own number for the window's first line
 /// (counted from one), and how many lines the stream held in total.
 ///
-/// `pub(crate)` for `crate::studio_runs`, which windows a swept run's log to
+/// `pub` for `crate::studio_runs`, which windows a swept run's log to
 /// the Studio's own bound rather than restating the eviction rule.
-pub(crate) fn windowed(
+pub fn windowed(
     lines: impl Iterator<Item = String>,
     most_lines: usize,
     most_bytes: usize,

@@ -23,7 +23,7 @@ const DESTRUCTIVE: &[&str] = &[
 const DESTRUCTIVE_WORDS: &[&str] = &["rm", "kill", "undo"];
 
 /// Whether the item, read with its options, may be destructive or irreversible.
-pub(crate) fn destructive(item: &WaitingItem) -> bool {
+pub fn destructive(item: &WaitingItem) -> bool {
     let mut text = item.text.clone();
     for option in &item.options {
         text.push('\n');
@@ -33,7 +33,7 @@ pub(crate) fn destructive(item: &WaitingItem) -> bool {
 }
 
 /// [`destructive`] over plain text.
-pub(crate) fn destructive_text(text: &str) -> bool {
+pub fn destructive_text(text: &str) -> bool {
     let text = text.to_lowercase();
     DESTRUCTIVE.iter().any(|word| text.contains(word))
         || text
@@ -42,7 +42,7 @@ pub(crate) fn destructive_text(text: &str) -> bool {
 }
 
 /// The index of the option labelled "(Recommended)", if one is.
-pub(crate) fn recommended(item: &WaitingItem) -> Option<usize> {
+pub fn recommended(item: &WaitingItem) -> Option<usize> {
     item.options
         .iter()
         .position(|one| one.label.to_lowercase().contains(RECOMMENDED))

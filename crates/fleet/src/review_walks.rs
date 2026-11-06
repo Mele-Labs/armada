@@ -50,7 +50,7 @@ fn opens(place: &WalkPlace) -> &str {
 }
 
 /// The host and port an http or https address is served on.
-pub(crate) fn endpoint_of(address: &str) -> Option<(String, u16)> {
+pub fn endpoint_of(address: &str) -> Option<(String, u16)> {
     let (rest, default) = match (address.strip_prefix("https://"), address.strip_prefix("http://")) {
         (Some(rest), _) => (rest, 443),
         (_, Some(rest)) => (rest, 80),
@@ -106,7 +106,7 @@ impl Fleet
 {
     /// Hold up the place for a walk. **Answers at once**: a deployed place `ready`, a pulled-down one
     /// `checking_out`, whose work goes on a task of its own and arrives as `review_walk.changed`.
-    pub(crate) async fn review_walk_opened(
+    pub async fn review_walk_opened(
         self: Arc<Self>,
         manifest_id: ManifestId,
         open: OpenReviewWalk,
@@ -142,7 +142,7 @@ impl Fleet
 
     /// Close a held walk: stop its server and give its bay back. **Idempotent**: one already closed
     /// or never held is answered `closed`.
-    pub(crate) async fn review_walk_closed(&self, manifest_id: ManifestId, id: String) -> Result<ReviewWalk, Refusal> {
+    pub async fn review_walk_closed(&self, manifest_id: ManifestId, id: String) -> Result<ReviewWalk, Refusal> {
         self.served_named(Some(&manifest_id))?;
         self.review_walks_swept().await;
         let going = self.review_going().lock().await.remove(&going_key(&id));
@@ -157,7 +157,7 @@ impl Fleet
 
     /// Give back every bay a walk holds that nothing here is serving, and every one held past a day.
     /// **Run at the start of every review walk call**, which is how a bay a dead Fleet held is found.
-    pub(crate) async fn review_walks_swept(&self) {
+    pub async fn review_walks_swept(&self) {
         let held = self.store().lock().await.review_walks_held().unwrap_or_default();
         let now = self.now().epoch_millis();
         for row in held {

@@ -1,0 +1,598 @@
+//! One Fleet serving several repositories: adding one by folder, every
+//! Manifest listed, a Job created in each against its own Checks, and a restart
+//! that reconciles both.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, PoisonError};
+
+use axum::http::StatusCode;
+use ipc::{ManifestSummary, RepositoryList, RepositoryScan, RunId, WireError};
+use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
+
+use fleet::daemon::Fleet;
+use fleet::repositories::{
+    Catalogued, Located, Locating, NotLocated, SavedWorkflow, SetUp, WorkflowNotRemoved, WorkflowNotSaved,
+};
+use crate::daemon::fitted_with;
+use crate::daemon::manifest;
+use crate::daemon::one;
+use crate::http::call;
+use fleet::tests::tmp::TempDir;
+
+pub(crate) type Fixture = Fleet;
+
+/// The id the second repository's `armada.yml` declares.
+const SECOND: &str = "01SECONDMANIFEST";
+/// The id the fixture's own `armada.yml` declares.
+const FIRST: &str = "01FIXTUREMANIFEST";
+
+/// Folders a case planted, read the way the composition root would read them.
+#[derive(Default)]
+pub struct Planted {
+    folders: Mutex<BTreeMap<PathBuf, Located>>,
+    served: Mutex<Vec<String>>,
+    /// What the next save answers, and every save asked for.
+    saving: Mutex<Option<Result<SavedWorkflow, WorkflowNotSaved>>>,
+    saves: Mutex<Vec<ipc::SaveWorkflow>>,
+    /// What each check answers in turn, `Ok` once they run out, and every check asked for.
+    checking: Mutex<std::collections::VecDeque<Result<(), WorkflowNotSaved>>>,
+    checks: Mutex<Vec<ipc::SaveWorkflow>>,
+    /// What the next removal answers, and every removal asked for: the scope and the id.
+    removing: Mutex<Option<Result<String, WorkflowNotRemoved>>>,
+    removals: Mutex<Vec<(ipc::WorkflowScope, String)>>,
+    /// What the folders read as when Fleet reads them again.
+    reading: Mutex<Option<Catalogued>>,
+    /// Folders in no git repository, until one is started there.
+    in_none: Mutex<Vec<PathBuf>>,
+    /// Every folder Fleet asked the composition root to start a repository in.
+    started: Mutex<Vec<PathBuf>>,
+    /// The watch recipe files every repository reads as holding.
+    recipes: Mutex<Vec<config::WatchRecipeWritten>>,
+    /// Where this machine's own recipes are written, where a test gives one.
+    machine_watches: Mutex<Option<PathBuf>>,
+}
+
+impl Planted {
+    pub fn nothing() -> Planted {
+        Planted::default()
+    }
+
+    pub fn with(self, folder: impl Into<PathBuf>, located: Located) -> Planted {
+        self.plant(folder, located);
+        self
+    }
+
+    /// A folder in no git repository, which Fleet may start one in.
+    pub fn in_no_repository(&self, folder: impl Into<PathBuf>) {
+        self.in_none
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(folder.into());
+    }
+
+    /// Every folder a repository was started in, in order.
+    pub fn started(&self) -> Vec<PathBuf> {
+        self.started
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// What a folder reads as from now on — an `armada.yml` Write just put down.
+    pub fn plant(&self, folder: impl Into<PathBuf>, located: Located) {
+        self.folders
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(folder.into(), located);
+    }
+
+    /// What the next save answers. Nothing is written: what a save checks and
+    /// writes is the composition root's, tested there against real files.
+    pub fn will_save(&self, answer: Result<SavedWorkflow, WorkflowNotSaved>) {
+        *self.saving.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    }
+
+    /// What the next removal answers. Nothing is deleted: what a removal deletes is the composition
+    /// root's, tested there against real files.
+    pub fn will_remove(&self, answer: Result<String, WorkflowNotRemoved>) {
+        *self.removing.lock().unwrap_or_else(PoisonError::into_inner) = Some(answer);
+    }
+
+    /// Every removal Fleet asked the composition root to make.
+    pub fn removals(&self) -> Vec<(ipc::WorkflowScope, String)> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// What the next checks answer, one each.
+    pub fn will_check(&self, answers: Vec<Result<(), WorkflowNotSaved>>) {
+        *self.checking.lock().unwrap_or_else(PoisonError::into_inner) = answers.into();
+    }
+
+    /// Every check Fleet asked the composition root to make.
+    pub fn checks(&self) -> Vec<ipc::SaveWorkflow> {
+        self.checks
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// The watch recipe files every repository reads as holding from now on.
+    pub fn will_offer_recipes(&self, recipes: Vec<config::WatchRecipeWritten>) {
+        *self.recipes.lock().unwrap_or_else(PoisonError::into_inner) = recipes;
+    }
+
+    /// This machine's recipes are kept in `folder` from now on, and read from it with the ones
+    /// offered.
+    pub fn keeps_machine_recipes_in(&self, folder: PathBuf) {
+        *self.machine_watches.lock().unwrap_or_else(PoisonError::into_inner) = Some(folder);
+    }
+
+    /// What the folders read as from now on.
+    pub fn will_read(&self, read: Catalogued) {
+        *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(read);
+    }
+
+    /// Every save Fleet asked the composition root to make.
+    pub fn saves(&self) -> Vec<ipc::SaveWorkflow> {
+        self.saves
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Every root Fleet said it now serves, in order.
+    pub fn served(&self) -> Vec<String> {
+        self.served
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+}
+
+impl Locating for Planted {
+    fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
+        self.machine_watch_recipes()
+    }
+
+    fn machine_watch_recipes(&self) -> Vec<config::WatchRecipeWritten> {
+        let mut written = self.recipes.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        if let Some(folder) = self.machine_watch_folder() {
+            let mut files: Vec<PathBuf> = std::fs::read_dir(&folder).into_iter().flatten().flatten().map(|entry| entry.path()).collect();
+            files.sort();
+            for path in files.into_iter().filter(|path| path.extension().is_some_and(|ext| ext == "yml")) {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    written.push(config::WatchRecipeWritten::on_machine(path, text));
+                }
+            }
+        }
+        written
+    }
+
+    fn machine_watch_folder(&self) -> Option<PathBuf> {
+        self.machine_watches.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    fn started(&self, folder: &Path) -> Result<(), NotLocated> {
+        self.started
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(folder.to_path_buf());
+        let root = folder.to_string_lossy().to_string();
+        self.plant(
+            folder,
+            Located {
+                records_root: format!("{root}-records"),
+                root,
+                set_up: None,
+            },
+        );
+        Ok(())
+    }
+
+    fn located(&self, folder: &Path) -> Result<Located, NotLocated> {
+        let in_none = self.in_none.lock().unwrap_or_else(PoisonError::into_inner);
+        if in_none.iter().any(|one| one == folder) && self.started().iter().all(|one| one != folder) {
+            return Err(NotLocated::InNoRepository {
+                folder: folder.display().to_string(),
+            });
+        }
+        drop(in_none);
+        let folders = self.folders.lock().unwrap_or_else(PoisonError::into_inner);
+        folders
+            .get(folder)
+            .cloned()
+            .ok_or_else(|| NotLocated::NotARepository {
+                folder: folder.display().to_string(),
+                why: String::from("nothing is planted there"),
+            })
+    }
+
+    fn save_workflow(
+        &self,
+        _root: &Path,
+        _manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<SavedWorkflow, WorkflowNotSaved> {
+        self.saves
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(asked.clone());
+        self.saving
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that saves says what the save answers")
+    }
+
+    fn remove_workflow(
+        &self,
+        _root: &Path,
+        scope: ipc::WorkflowScope,
+        id: &str,
+    ) -> Result<String, WorkflowNotRemoved> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, id.to_string()));
+        self.removing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that removes says what the removal answers")
+    }
+
+    fn remove_workflow_file(
+        &self,
+        _root: &Path,
+        scope: ipc::WorkflowScope,
+        file: &Path,
+    ) -> Result<String, WorkflowNotRemoved> {
+        self.removals.lock().unwrap_or_else(PoisonError::into_inner).push((scope, file.display().to_string()));
+        self.removing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .expect("a case that removes says what the removal answers")
+    }
+
+    fn check_workflow(
+        &self,
+        _root: &Path,
+        _manifest: &config::Manifest,
+        asked: &ipc::SaveWorkflow,
+    ) -> Result<(), WorkflowNotSaved> {
+        self.checks
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(asked.clone());
+        self.checking
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .pop_front()
+            .unwrap_or(Ok(()))
+    }
+
+    fn workflows(
+        &self,
+        _root: &Path,
+        _manifest: &config::Manifest,
+        _workspaces: &[config::Manifest],
+    ) -> Catalogued {
+        self.reading
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .unwrap_or_default()
+    }
+
+    fn serving(&self, root: &str) {
+        self.served
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(root.to_string());
+    }
+}
+
+/// A second checkout under `home`, whose Manifest declares a Check the fixture's
+/// does not, and whose own `fixture-workflow` gates on every Check it declares.
+pub(crate) fn second_repository(home: &TempDir) -> Located {
+    let root = home.path().join("second");
+    std::fs::create_dir_all(&root).expect("a second checkout");
+    let text = format!("version: 1\nid: {SECOND}\nchecks:\n  deliver:\n    run: go test ./...\n");
+    let manifest = config::Manifest::parse(&root.join("armada.yml"), &text)
+        .expect("the second Manifest loads");
+    let def = config::WorkflowDef::parse(
+        Path::new("second.yml"),
+        "version: 1\nworkflow_id: fixture-workflow\nname: fixture\nsteps:\n  \
+         - id: implement\n    label: \"Implement\"\n    evidence: {submitted: {type: diff}}\n    \
+         mechanical_checks:\n      - type: every_manifest_check\n    delivers: false\n    \
+         advance_gate: auto\n",
+        &config::Roster::offering_nothing(),
+    )
+    .expect("the second workflow parses");
+    let workflow = config::ResolvedWorkflow::resolve(&def, &manifest).expect("and resolves there");
+    let left = ipc::LeftOutWorkflow {
+        id: None,
+        source: String::from("kit"),
+        file: String::from("/kit/workflows/broken.yml"),
+        said: String::from("a Kit definition that does not resolve here"),
+        instead: None,
+    };
+    let set_up = SetUp::of(manifest, one(workflow)).leaving_out(vec![left]);
+    folder_at(home, "second", Some(set_up))
+}
+
+fn folder_at(home: &TempDir, name: &str, set_up: Option<SetUp>) -> Located {
+    Located {
+        root: home.path().join(name).to_string_lossy().to_string(),
+        records_root: home
+            .path()
+            .join(format!("{name}-records"))
+            .to_string_lossy()
+            .to_string(),
+        set_up,
+    }
+}
+
+pub(crate) fn a_fleet_reading(home: &TempDir, planted: &Arc<Planted>) -> Fixture {
+    let mut fittings = fitted_with(
+        home,
+        FakeWorkProduct::untouched(),
+        FakeHarness::that_listens(),
+    );
+    fittings.locating = Arc::clone(planted) as Arc<dyn Locating>;
+    Fleet::assembled(fittings)
+}
+
+pub(crate) fn served(fleet: &Arc<Fixture>) -> axum::Router {
+    api::router(api::Served::sharing(
+        Arc::clone(fleet),
+        RunId::carried("01RUN"),
+        fleet.events(),
+    ))
+}
+
+pub(crate) fn body_of(path: &str) -> String {
+    format!(r#"{{"path":"{path}"}}"#)
+}
+
+pub(crate) fn code(body: &[u8]) -> String {
+    let refused: WireError = ipc::decode("a refusal", body).expect("a WireError");
+    refused.code
+}
+
+/// **A Fleet started in one repository adds a second by folder**, and both
+/// Manifests list — the first one first.
+#[tokio::test]
+async fn a_fleet_adds_a_second_repository_by_folder_and_lists_both_manifests() {
+    let home = TempDir::new();
+    let second = second_repository(&home);
+    let folder = second.root.clone();
+    let planted = Arc::new(Planted::nothing().with(&folder, second));
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+
+    let (status, body) = call(&app, "POST", "/repositories/add", &body_of(&folder)).await;
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "{}",
+        String::from_utf8_lossy(&body)
+    );
+    let added: ipc::RepositorySummary = ipc::decode("the repository", &body).expect("a repository");
+    assert_eq!(
+        added.manifest.map(|held| held.id.as_str().to_string()),
+        Some(SECOND.to_string())
+    );
+    assert_eq!(
+        planted.served(),
+        [folder.clone()],
+        "and the composition root is told it is served"
+    );
+
+    let (_, body) = call(&app, "GET", "/manifests", "").await;
+    let listed: Vec<ManifestSummary> = ipc::decode("manifests", &body).expect("manifests");
+    let ids: Vec<&str> = listed.iter().map(|one| one.id.as_str()).collect();
+    assert_eq!(ids, [FIRST, SECOND]);
+
+    let (_, body) = call(
+        &app,
+        "GET",
+        &format!("/workflows/left_out?manifest_id={SECOND}"),
+        "",
+    )
+    .await;
+    let left_out: Vec<ipc::LeftOutWorkflow> = ipc::decode("left out", &body).expect("a list");
+    assert_eq!(left_out.len(), 1, "the second repository's own list");
+    let (_, body) = call(&app, "GET", "/workflows/left_out", "").await;
+    let left_out: Vec<ipc::LeftOutWorkflow> = ipc::decode("left out", &body).expect("a list");
+    assert!(left_out.is_empty(), "and not the first's");
+
+    let (_, body) = call(&app, "GET", "/repositories", "").await;
+    let listed: RepositoryList = ipc::decode("repositories", &body).expect("repositories");
+    let roots: Vec<&str> = listed
+        .repositories
+        .iter()
+        .map(|one| one.root.as_str())
+        .collect();
+    assert_eq!(
+        roots,
+        [home.path().to_string_lossy().as_ref(), folder.as_str()]
+    );
+}
+
+/// **Refused, and said why:** a folder that is not a repository, one already
+/// served, and one whose Manifest id another served repository declares.
+#[tokio::test]
+async fn a_folder_that_is_not_a_repository_or_is_already_served_is_refused() {
+    let home = TempDir::new();
+    let second = second_repository(&home);
+    let folder = second.root.clone();
+    let copy = folder_at(&home, "copy", Some(SetUp::of(manifest(), BTreeMap::new())));
+    let first = home.path().to_string_lossy().to_string();
+    let planted = Arc::new(
+        Planted::nothing()
+            .with(&folder, second)
+            .with(&copy.root.clone(), copy.clone())
+            .with(&first, folder_at(&home, "", None)),
+    );
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+
+    for nowhere in ["/nowhere/at/all", "second"] {
+        let (status, body) = call(&app, "POST", "/repositories/add", &body_of(nowhere)).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{nowhere}");
+        assert_eq!(code(&body), "fleet.not_a_repository");
+    }
+    let (status, _) = call(&app, "POST", "/repositories/add", &body_of(&folder)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    for served_already in [folder.as_str(), copy.root.as_str()] {
+        let (status, body) =
+            call(&app, "POST", "/repositories/add", &body_of(served_already)).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{served_already}");
+        assert_eq!(code(&body), "fleet.repository_served");
+    }
+    assert_eq!(planted.served(), [folder], "and nothing refused was served");
+}
+
+/// **Each repository's main checkout claims its own span**, so two servers
+/// with no Job never share a port.
+#[tokio::test]
+async fn two_repositories_main_checkouts_claim_separate_spans() {
+    let home = TempDir::new();
+    let ports = "version: 1\nid: {id}\nports:\n  web: {}\n";
+    let declaring = |root: &str, id: &str| {
+        let text = ports.replace("{id}", id);
+        let at = Path::new(root).join("armada.yml");
+        SetUp::of(
+            config::Manifest::parse(&at, &text).expect("loads"),
+            BTreeMap::new(),
+        )
+    };
+    let other = folder_at(&home, "other", None);
+    let set_up = declaring(&other.root, SECOND);
+    let planted = Arc::new(Planted::nothing());
+    let mut fittings = fitted_with(
+        &home,
+        FakeWorkProduct::untouched(),
+        FakeHarness::that_listens(),
+    );
+    fittings.starting().manifest = declaring(&home.path().to_string_lossy(), FIRST)
+        .manifest()
+        .clone();
+    fittings.locating = Arc::clone(&planted) as Arc<dyn Locating>;
+    // A range no other case probes, since a probe binds for an instant.
+    fittings.port_range = fleet::ports::PortRange::of(44_200, 44_299, 8);
+    let fleet = Fleet::assembled(fittings);
+    fleet
+        .repositories()
+        .add(Located {
+            set_up: Some(set_up),
+            ..other
+        })
+        .expect("added");
+
+    let first = fleet.main_checkout_ports(&fleet.first()).await;
+    let second = fleet.repositories().serving(SECOND).expect("served");
+    let second = fleet.main_checkout_ports(&second).await;
+    assert!(first.get("web").is_some() && second.get("web").is_some());
+    assert_ne!(first.get("web"), second.get("web"));
+    fleet.released_checkout_ports().await;
+    assert!(fleet
+        .store()
+        .lock()
+        .await
+        .every_port_claim()
+        .expect("read")
+        .is_empty());
+}
+
+/// **A folder with no `armada.yml` is served for Scan**, lists as a repository
+/// and not a Manifest, and becomes one when an `armada.yml` loads at its root.
+#[tokio::test]
+async fn a_folder_with_no_manifest_is_scanned_and_set_up_once_one_loads() {
+    let home = TempDir::new();
+    let unset = folder_at(&home, "unset-up", None);
+    std::fs::create_dir_all(&unset.root).expect("a checkout");
+    let package = r#"{"scripts":{"test":"vitest run"}}"#;
+    std::fs::write(Path::new(&unset.root).join("package.json"), package).expect("a package");
+    let root = unset.root.clone();
+    let planted = Arc::new(Planted::nothing().with(&root, unset));
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+
+    let (status, body) = call(&app, "POST", "/repositories/add", &body_of(&root)).await;
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "{}",
+        String::from_utf8_lossy(&body)
+    );
+    assert!(
+        planted.served().is_empty(),
+        "nothing to watch until a Manifest loads"
+    );
+    let (_, body) = call(&app, "GET", "/manifests", "").await;
+    assert_eq!(
+        ipc::decode::<Vec<ManifestSummary>>("manifests", &body)
+            .expect("listed")
+            .len(),
+        1
+    );
+
+    let (status, body) = call(
+        &app,
+        "GET",
+        &format!("/repository/scan?repository={root}"),
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let scan: RepositoryScan = ipc::decode("a scan", &body).expect("a scan");
+    assert!(scan.workspaces[0]
+        .runnables
+        .iter()
+        .any(|one| one.name == "test"));
+    let (status, body) = call(&app, "GET", "/repository/scan?repository=/not/served", "").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(code(&body), "fleet.no_such_repository");
+
+    let text = "version: 1\nid: 01SETUPMANIFEST\n";
+    let written =
+        config::Manifest::parse(&Path::new(&root).join("armada.yml"), text).expect("loads");
+    planted.plant(
+        &root,
+        folder_at(&home, "unset-up", Some(SetUp::of(written, BTreeMap::new()))),
+    );
+    let repository = fleet.repositories().at(&root).expect("served");
+    fleet.set_up_after_write(&repository);
+    let (_, body) = call(&app, "GET", "/manifests", "").await;
+    assert_eq!(
+        ipc::decode::<Vec<ManifestSummary>>("manifests", &body)
+            .expect("listed")
+            .len(),
+        2
+    );
+    assert_eq!(
+        planted.served(),
+        [root],
+        "and it is watched once it has one"
+    );
+}
+
+/// **A relative root is refused, in words, and nothing is served.**
+#[test]
+fn a_relative_root_is_refused_and_nothing_is_served() {
+    let repositories = fleet::repositories::Repositories::none();
+    let why = repositories
+        .add(Located {
+            root: String::from("repos/one"),
+            records_root: String::from("/records/repos/one"),
+            set_up: None,
+        })
+        .err()
+        .expect("a relative root is refused");
+    assert!(
+        why.to_string().starts_with("repos/one is a relative path"),
+        "{why}"
+    );
+    assert!(repositories.served().is_empty());
+}

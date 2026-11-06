@@ -39,11 +39,11 @@ use crate::daemon::Fleet;
 pub struct Owed(Notify);
 
 impl Owed {
-    pub(crate) fn wake(&self) {
+    pub fn wake(&self) {
         self.0.notify_one();
     }
 
-    pub(crate) async fn woken(&self) {
+    pub async fn woken(&self) {
         self.0.notified().await;
     }
 }
@@ -128,7 +128,7 @@ impl Fleet
 
     /// Draw the Job again where an act settled, and tell the Workflow view what it holds, so neither
     /// waits for the next reading.
-    pub(super) async fn rule_act_published(&self, session: &str) {
+    pub async fn rule_act_published(&self, session: &str) {
         let _ = self.published_hosted(session).await;
         self.job_lifecycles_published(session).await;
     }

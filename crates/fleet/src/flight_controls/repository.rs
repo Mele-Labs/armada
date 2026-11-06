@@ -32,10 +32,10 @@ use crate::daemon::Fleet;
 use crate::run_memory::{cloud, places};
 
 /// The folder beside `runs/` that holds each repository's file.
-pub(crate) const FOLDER: &str = "flight-controls";
+pub const FOLDER: &str = "flight-controls";
 
 /// The repository's own file, committed, beside `.armada/workflows/`.
-pub(crate) const IN_REPOSITORY: &str = ".armada/flight-controls.toml";
+pub const IN_REPOSITORY: &str = ".armada/flight-controls.toml";
 
 /// A place that cannot take a save now. A 422.
 const UNPLACED: &str = "fleet.flight_controls_unplaced";
@@ -49,7 +49,7 @@ enum Kept {
 }
 
 /// The machine file's rules, and every tile an own action.
-pub(crate) fn check_repository(controls: &FlightControls) -> Result<(), String> {
+pub fn check_repository(controls: &FlightControls) -> Result<(), String> {
     check(controls)?;
     own_actions("job", &controls.job)?;
     own_actions("deck", &controls.deck)
@@ -62,7 +62,7 @@ fn own_actions(list: &str, tiles: &[FlightControl]) -> Result<(), String> {
     }
 }
 
-pub(crate) fn parse_repository(text: &str) -> Result<FlightControls, String> {
+pub fn parse_repository(text: &str) -> Result<FlightControls, String> {
     let controls = parse(text)?;
     own_actions("job", &controls.job)?;
     own_actions("deck", &controls.deck)?;
@@ -85,7 +85,7 @@ impl Fleet
     }
 
     /// The repository's own committed file, from the tree of the Job `job` names or the checkout.
-    pub(super) async fn in_repository_read(&self, root: &str, job: Option<&SessionId>) -> FlightControlsRead {
+    pub async fn in_repository_read(&self, root: &str, job: Option<&SessionId>) -> FlightControlsRead {
         let tree = match self.job_tree_in(root, job).await {
             Some(tree) => PathBuf::from(tree.path),
             None => PathBuf::from(root),
@@ -95,7 +95,7 @@ impl Fleet
 
     /// `get_repository_flight_controls`: the file at the repository's place, as it is now, and the
     /// repository's own in the tree of the Job `job` names, or the checkout with none.
-    pub(crate) async fn repository_flight_controls_read(
+    pub async fn repository_flight_controls_read(
         &self,
         repository: String,
         job: Option<SessionId>,
@@ -125,7 +125,7 @@ impl Fleet
 
     /// `save_repository_flight_controls`: check, write whole at the place, and answer with it read
     /// again.
-    pub(crate) async fn repository_flight_controls_saved(
+    pub async fn repository_flight_controls_saved(
         &self,
         saving: SaveRepositoryFlightControls,
     ) -> Result<RepositoryFlightControls, Refusal> {

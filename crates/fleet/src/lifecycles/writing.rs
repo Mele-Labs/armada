@@ -68,14 +68,14 @@ impl Writes {
 
 /// A tracker write with the tracker's own word put in, owned so it can go to a blocking thread.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Resolved {
+pub enum Resolved {
     Move(String),
     Assign(String),
     Close(Option<String>),
 }
 
 impl Resolved {
-    pub(crate) fn as_write(&self) -> IssueWrite<'_> {
+    pub fn as_write(&self) -> IssueWrite<'_> {
         match self {
             Resolved::Move(status) => IssueWrite::Move { status },
             Resolved::Assign(to) => IssueWrite::Assign { to },
@@ -103,7 +103,7 @@ fn ticket<'a>(on: Option<(&'a str, &'a str)>) -> Result<&'a str, String> {
 
 /// `write` as the tracker is asked to make it. **A move writes the first of the target state's
 /// words**, which the Job's own ticket lifecycle gives, so the Workspace says what its tracker calls it.
-pub(crate) fn tracker_write(write: &TrackerWrite, on: Option<(&str, &str)>, lifecycles: &[Lifecycle]) -> Result<Resolved, String> {
+pub fn tracker_write(write: &TrackerWrite, on: Option<(&str, &str)>, lifecycles: &[Lifecycle]) -> Result<Resolved, String> {
     ticket(on)?;
     let tickets = lifecycles.iter().find(|one| one.id().as_str() == TICKET);
     match write {
@@ -182,7 +182,7 @@ impl Fleet
 {
     /// What the repository `manifest` names can write: its tracker's and the forge's. Pure, and the
     /// same for every Job in it.
-    pub(crate) fn writes_for(&self, manifest: Option<&str>) -> Writes {
+    pub fn writes_for(&self, manifest: Option<&str>) -> Writes {
         let Some(served) = manifest.and_then(|id| self.repositories().serving(id)) else {
             return Writes::nowhere("the Job is in no repository this Fleet serves");
         };
@@ -191,7 +191,7 @@ impl Fleet
 
     /// Whether the repository the Job of `row` is in still carries `act`, and why not. Asked before
     /// each try, so an act is not tried against a tracker that can no longer make it.
-    pub(super) fn rule_act_carried(&self, store: &Store, row: &KeptRuleAct, act: &Act, lifecycles: &[Lifecycle]) -> Result<(), String> {
+    pub fn rule_act_carried(&self, store: &Store, row: &KeptRuleAct, act: &Act, lifecycles: &[Lifecycle]) -> Result<(), String> {
         let manifest = store.session(&row.session_id).ok().flatten().and_then(|one| one.manifest_id);
         let on = row.on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
         self.writes_for(manifest.as_deref()).carries(act, on, lifecycles)
@@ -210,7 +210,7 @@ impl Fleet
     }
 
     /// Make the write to the ticket the act is done to, in the Job's repository's tracker.
-    pub(super) async fn rule_tracker_written(
+    pub async fn rule_tracker_written(
         self: &Arc<Self>,
         row: &KeptRuleAct,
         write: &TrackerWrite,
@@ -228,7 +228,7 @@ impl Fleet
     }
 
     /// Make the write to the pull request the act is done to, through the forge Fleet holds.
-    pub(super) async fn rule_forge_written(self: &Arc<Self>, row: &KeptRuleAct, write: &ForgeWrite) -> Result<String, String> {
+    pub async fn rule_forge_written(self: &Arc<Self>, row: &KeptRuleAct, write: &ForgeWrite) -> Result<String, String> {
         let root = self.rule_repository(row).await?.root().to_string();
         let (write, on) = (write.clone(), row.on.clone());
         self.forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {

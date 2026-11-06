@@ -54,12 +54,12 @@ const DEFAULT_WORKFLOW: &str = "feature";
 const DEFAULT_LANDING: DeliveryChoice = DeliveryChoice::AutoLand;
 
 /// The id of the waiting item a held Job raises, followed by the Job's.
-pub(crate) const FIRST_MESSAGE_ITEM: &str = "unsent:";
+pub const FIRST_MESSAGE_ITEM: &str = "unsent:";
 
 /// A held Job's first turn as the store keeps it: what its thread row will say, and what the agent
 /// reads in place of the words where Fleet adds to them (`instead`) or puts a line ahead (`ahead`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct FirstTurn {
+pub struct FirstTurn {
     pub from: SessionVoice,
     pub text: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -74,12 +74,12 @@ pub(crate) struct FirstTurn {
 
 impl FirstTurn {
     /// Words sent as `from`, as the agent will read them.
-    pub(crate) fn said(from: SessionVoice, text: &str) -> FirstTurn {
+    pub fn said(from: SessionVoice, text: &str) -> FirstTurn {
         FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), instead: None, ahead: None }
     }
 
     /// A turn already on the thread, kept for a Resume. Its row is written, so `from` is not read again.
-    pub(crate) fn kept_of(held: &Held) -> FirstTurn {
+    pub fn kept_of(held: &Held) -> FirstTurn {
         FirstTurn {
             from: SessionVoice::You,
             text: held.text.clone(),
@@ -91,7 +91,7 @@ impl FirstTurn {
     }
 
     /// What the agent reads of it, short of the lines a turn starts with.
-    pub(crate) fn reads(&self) -> &str {
+    pub fn reads(&self) -> &str {
         self.instead.as_deref().unwrap_or(&self.text)
     }
 
@@ -125,13 +125,13 @@ fn spelled(choice: DeliveryChoice) -> &'static str {
     }
 }
 
-pub(crate) fn chosen(word: &str) -> Option<DeliveryChoice> {
+pub fn chosen(word: &str) -> Option<DeliveryChoice> {
     DeliveryChoice::OFFERED.into_iter().find(|one| spelled(*one) == word)
 }
 
 /// The usual landing among `picks`, newest first: the most frequent, the latest of those that tie.
 /// None below three picks.
-pub(crate) fn usual_of(picks: &[DeliveryChoice]) -> Option<DeliveryChoice> {
+pub fn usual_of(picks: &[DeliveryChoice]) -> Option<DeliveryChoice> {
     if picks.len() < FEWEST {
         return None;
     }
@@ -147,7 +147,7 @@ pub(crate) fn usual_of(picks: &[DeliveryChoice]) -> Option<DeliveryChoice> {
 }
 
 /// What the start card is drawn from, taken under the store lock.
-pub(crate) struct StartReads {
+pub struct StartReads {
     first: Option<FirstTurn>,
     usual: Option<DeliveryChoice>,
     /// The Job's own copy of its workflow, where it changed a step before it started.
@@ -155,19 +155,19 @@ pub(crate) struct StartReads {
 }
 
 /// A kept first turn read back. One that will not read is none: the card shows an empty box.
-pub(super) fn first_turn_of(body: &str) -> Option<FirstTurn> {
+pub fn first_turn_of(body: &str) -> Option<FirstTurn> {
     ipc::decode::<FirstTurn>("a held job's first turn", body.as_bytes()).ok()
 }
 
 impl StartReads {
     /// The first turn the card holds, as it reads.
-    pub(crate) fn first_said(&self) -> Option<String> {
+    pub fn first_said(&self) -> Option<String> {
         self.first.as_ref().map(|first| first.reads().to_string())
     }
 }
 
 /// The held Job's first turn and the usual landing for its workflow.
-pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartReads, store::WriteError> {
+pub fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartReads, store::WriteError> {
     let first = store.held_first_turn(&hosting.session_id)?.as_deref().and_then(first_turn_of);
     let usual = match hosting.workflow.as_deref() {
         Some(workflow) => {
@@ -181,7 +181,7 @@ pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartRe
 }
 
 /// Another Job's message, held for the agent to read as `said`.
-pub(crate) fn job_turn(text: &str, said: String) -> Held {
+pub fn job_turn(text: &str, said: String) -> Held {
     let kept = Kept { files: Vec::new(), pictures: Vec::new(), paths: Vec::new(), picture_paths: Vec::new() };
     Held { text: text.to_string(), kept, addressed: Vec::new(), ahead: None, instead: Some(said) }
 }
@@ -200,7 +200,7 @@ impl Fleet
 
     /// The card's facts. The landing the first message names beats the usual one, and Auto land
     /// stands in for both where the card asks. `queued` is read by the caller, which holds the runtime.
-    pub(crate) fn start_wire(&self, hosting: &KeptHosting, reads: StartReads, queued: bool) -> StartHeld {
+    pub fn start_wire(&self, hosting: &KeptHosting, reads: StartReads, queued: bool) -> StartHeld {
         let asks_delivery = self.asks_delivery_of(hosting, reads.own.as_ref());
         let named = reads.first.as_ref().and_then(|first| named_delivery(&first.text));
         let picked = named
@@ -211,7 +211,7 @@ impl Fleet
     }
 
     /// The landing the card shows as picked now, `start.picked`: what a press that named none takes.
-    pub(crate) async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
+    pub async fn card_picked(&self, id: &str) -> Option<DeliveryChoice> {
         let (hosting, reads) = {
             let store = self.store().lock().await;
             let hosting = store.hosting(id).ok().flatten()?;
@@ -223,13 +223,13 @@ impl Fleet
 
     /// Keep `turn` as the held Job's first, where it is held and has none yet. `false` where it is not
     /// the first, or the Job is not held: the caller writes and sends it as any other.
-    pub(crate) async fn first_turn_kept(&self, id: &str, turn: &FirstTurn) -> Result<bool, Refusal> {
+    pub async fn first_turn_kept(&self, id: &str, turn: &FirstTurn) -> Result<bool, Refusal> {
         self.held_turn_kept(id, turn, false).await
     }
 
     /// Keep `turn` off the thread, as the held Job's first where it has none and behind its others where
     /// it has. `false` only where the Job is not held: the caller writes and sends it as any other.
-    pub(crate) async fn turn_kept_while_held(&self, id: &str, turn: &FirstTurn) -> Result<bool, Refusal> {
+    pub async fn turn_kept_while_held(&self, id: &str, turn: &FirstTurn) -> Result<bool, Refusal> {
         self.held_turn_kept(id, turn, true).await
     }
 
@@ -261,7 +261,7 @@ impl Fleet
 
     /// Hold a Job that is not yet held, as a met wait's is, and keep `message` as its first turn, his
     /// to edit and send: an agent's start, a fork it made and a wait it set all wait for him so.
-    pub(crate) async fn held_with(&self, id: &str, message: &str) -> Result<(), Refusal> {
+    pub async fn held_with(&self, id: &str, message: &str) -> Result<(), Refusal> {
         {
             let mut store = self.store().lock().await;
             let mut hosting = store
@@ -290,7 +290,7 @@ impl Fleet
     /// first that is on, else none: once, never over a choice the person made (none too, which the
     /// hosting keeps across a restart), and not while a reading is out, whose end calls this again.
     /// With nothing on it is not counted as weighed, so one switched on later is still taken.
-    pub(crate) async fn held_defaulted(&self, id: &str) {
+    pub async fn held_defaulted(&self, id: &str) {
         {
             let runtime = self.hosts().of(id);
             let mut state = runtime.state();
@@ -321,7 +321,7 @@ impl Fleet
     }
 
     /// Keep that the person chose `choice` for the Job's kind of work. A custom Job has no kind.
-    pub(crate) async fn delivery_pick_kept(&self, id: &str, choice: DeliveryChoice) {
+    pub async fn delivery_pick_kept(&self, id: &str, choice: DeliveryChoice) {
         let mut store = self.store().lock().await;
         let Ok(Some(hosting)) = store.hosting(id) else { return };
         let Some(workflow) = hosting.workflow.as_deref() else { return };
@@ -333,7 +333,7 @@ impl Fleet
     /// Keep how the Job starts, as it stands as its process first runs: the first write stands, so a
     /// later change of model, effort or mode leaves what the Job began with. The model is the one the
     /// process runs on, the machine's own where none was picked.
-    pub(crate) async fn started_kept(&self, id: &str, hosting: &KeptHosting) {
+    pub async fn started_kept(&self, id: &str, hosting: &KeptHosting) {
         let rows = self.rows_of(id).await.unwrap_or_default();
         let delivery = rows.iter().find_map(|row| match row {
             SessionRow::Delivery { choice: Some(choice), .. } => Some(spelled(*choice).to_string()),
@@ -354,7 +354,7 @@ impl Fleet
     /// Make the runtime agree with a Job held across a restart: it holds back. The turns that came to it
     /// are in the store, not the runtime, so nothing is read back. Once per Fleet, and before anything is
     /// done to the Job.
-    pub(crate) async fn start_hold_restored(self: &Arc<Self>, id: &str, hosting: &KeptHosting) -> Result<(), Refusal> {
+    pub async fn start_hold_restored(self: &Arc<Self>, id: &str, hosting: &KeptHosting) -> Result<(), Refusal> {
         if !hosting.start_held {
             return Ok(());
         }
@@ -419,7 +419,7 @@ impl Fleet
     }
 
     /// A kept turn as the agent is sent it, its row not written again.
-    pub(crate) async fn held_again(&self, id: &str, turn: FirstTurn) -> Result<Held, Refusal> {
+    pub async fn held_again(&self, id: &str, turn: FirstTurn) -> Result<Held, Refusal> {
         let FirstTurn { text, files, tags, instead, ahead, .. } = turn;
         let addressed = self.addressed(&tags).await?;
         Ok(Held { text, kept: self.uploads_again(id, &files), addressed, ahead, instead })
@@ -430,7 +430,7 @@ impl Fleet
     /// proposer is still reading: the Job stays held (`start.queued`) and begins when the reading ends,
     /// with this press's edit and landing, or the landing the card then picks where it named none; a
     /// second press meanwhile is settled already. Otherwise [`Self::begun`].
-    pub(crate) async fn session_begun(self: &Arc<Self>, begin: BeginSession) -> Result<SessionRecord, Refusal> {
+    pub async fn session_begun(self: &Arc<Self>, begin: BeginSession) -> Result<SessionRecord, Refusal> {
         let id = begin.session_id.as_str().to_string();
         let (session, hosting) = self.session_and_hosting(&id).await?;
         if session.state == store::SessionState::Ended {
@@ -459,7 +459,7 @@ impl Fleet
     }
 
     /// A press that waited on the reading, run now it has ended. Its refusal has no caller to reach.
-    pub(crate) async fn queued_begun(self: &Arc<Self>, mut begin: BeginSession) {
+    pub async fn queued_begun(self: &Arc<Self>, mut begin: BeginSession) {
         let id = begin.session_id.as_str().to_string();
         if begin.delivery.is_none() {
             begin.delivery = self.card_picked(&id).await;

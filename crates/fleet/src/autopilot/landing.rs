@@ -18,7 +18,7 @@ const READ: usize = 1_500;
 impl Fleet
 {
     /// Land each green pull request the Jobs in scope hold. Answers how many it landed.
-    pub(super) async fn pulls_landed(self: &Arc<Self>, helping: &mut Helping, jobs: &[Job]) -> usize {
+    pub async fn pulls_landed(self: &Arc<Self>, helping: &mut Helping, jobs: &[Job]) -> usize {
         if !helping.kinds.contains(&AutopilotDecision::Land) {
             return 0;
         }

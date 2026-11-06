@@ -21,7 +21,7 @@ pub trait PhoneSwitch: Send + Sync + 'static {
 
 /// The switch, once the composition root has handed it in.
 #[derive(Default)]
-pub(crate) struct PhoneHeld {
+pub struct PhoneHeld {
     switch: OnceLock<Arc<dyn PhoneSwitch>>,
 }
 
@@ -42,11 +42,11 @@ impl Fleet
         })
     }
 
-    pub(crate) fn phone_now(&self) -> Result<PhoneGateway, Refusal> {
+    pub fn phone_now(&self) -> Result<PhoneGateway, Refusal> {
         Ok(self.phone_switch()?.state())
     }
 
-    pub(crate) fn phone_set(&self, on: bool) -> Result<PhoneGateway, Refusal> {
+    pub fn phone_set(&self, on: bool) -> Result<PhoneGateway, Refusal> {
         Ok(self.phone_switch()?.set(on))
     }
 }

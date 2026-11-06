@@ -13,19 +13,19 @@ use crate::daemon::Fleet;
 /// What names one item of a Session's retro: the Session, its retro's number
 /// and the item's place. A Session's id holds hyphens, so the number is
 /// marked `r`, which [`parsed_session`] reads back.
-pub(crate) fn session_lesson_id(session: &str, retro: i64, ordinal: usize) -> String {
+pub fn session_lesson_id(session: &str, retro: i64, ordinal: usize) -> String {
     format!("{session}-r{retro}-{ordinal}")
 }
 
 /// The Session, retro and place an id names, or `None` where it names none.
-pub(crate) fn parsed_session(id: &str) -> Option<(String, i64, u32)> {
+pub fn parsed_session(id: &str) -> Option<(String, i64, u32)> {
     let (rest, ordinal) = id.rsplit_once('-')?;
     let (session, retro) = rest.rsplit_once('-')?;
     let retro = retro.strip_prefix('r')?.parse().ok()?;
     (!session.is_empty()).then_some((session.to_string(), retro, ordinal.parse().ok()?))
 }
 
-pub(crate) fn item_named(id: String, line: RetroLine) -> RetroItem {
+pub fn item_named(id: String, line: RetroLine) -> RetroItem {
     RetroItem {
         id,
         who: line.whose.into(),
@@ -44,7 +44,7 @@ pub(crate) fn item_named(id: String, line: RetroLine) -> RetroItem {
 
 /// One row of the Lessons listing for a Session's item. Its `handle` is the
 /// Session's address.
-pub(crate) fn session_lesson_of(
+pub fn session_lesson_of(
     lesson: store::KeptSessionLesson,
     session: ipc::RetroSession,
 ) -> Lesson {

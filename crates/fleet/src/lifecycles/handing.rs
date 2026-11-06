@@ -30,7 +30,7 @@ impl Fleet
     /// of it ends as handed standing where it was, and the parent's instance of the child is linked to
     /// the ticket, which is how a rule or the Workflow view finds the ticket through the Job. The child
     /// also holds it on its ledger, as every Job holds what it works; that row is written after.
-    pub(super) async fn ticket_handed(&self, parent: &str, child: &SessionRecord) {
+    pub async fn ticket_handed(&self, parent: &str, child: &SessionRecord) {
         let (Some(group), Some(manifest)) = (group_of(child), child.manifest_id.as_ref()) else { return };
         let (child_id, at) = (child.id.as_str(), self.now().as_str().to_string());
         let key = {

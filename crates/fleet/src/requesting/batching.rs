@@ -14,7 +14,7 @@ use ipc::{RequestBy, RequestHeader, RequestLine, RequestToSend, RequestsSent, Se
 use super::{sent, Bounds, Filling, Unsent};
 
 /// The most requests one call sends.
-pub(crate) const MOST: usize = 1000;
+pub const MOST: usize = 1000;
 const CONCURRENCY: u32 = 5;
 const MOST_CONCURRENCY: u32 = 10;
 const STOP_AFTER: u32 = 5;
@@ -22,7 +22,7 @@ const STOP_AFTER: u32 = 5;
 const ERROR_CAP: usize = 160;
 
 /// One request of the batch and the file name its answer is saved under.
-pub(crate) struct Item {
+pub struct Item {
     pub name: String,
     pub send: SendRequest,
 }
@@ -56,7 +56,7 @@ fn as_file_name(text: &str) -> String {
 }
 
 /// Every request of `batch`: one for each of `files` (a stem and its text) and each value.
-pub(crate) fn expanded(batch: &SendRequests, files: &[(String, String)]) -> Result<Vec<Item>, String> {
+pub fn expanded(batch: &SendRequests, files: &[(String, String)]) -> Result<Vec<Item>, String> {
     let values: Vec<Option<&str>> = match &batch.vary {
         Some(vary) if !vary.values.is_empty() => vary.values.iter().map(|value| Some(value.as_str())).collect(),
         Some(_) => return Err("`vary` names no values".to_string()),
@@ -135,7 +135,7 @@ struct Progress {
 
 /// Send `items` with at most `concurrency` in flight, saving each answer under `folder`, and
 /// stop starting new ones after `stop_after` failures in a row. **A secret's value is in no line.**
-pub(crate) fn run(
+pub fn run(
     items: &[Item],
     sender: &(dyn RequestSender + Send + Sync),
     secrets: &(dyn RequestSecrets + Send + Sync),

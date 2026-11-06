@@ -19,7 +19,7 @@ use crate::clashing::listed;
 
 /// Which stranding a reading is of: its branch, and when its lease began as the wire spells it.
 /// Empty where the slot named neither.
-pub(crate) fn key_of(reading: &SlotReading) -> (String, String) {
+pub fn key_of(reading: &SlotReading) -> (String, String) {
     (
         reading.branch.clone().unwrap_or_default(),
         crate::wire::since_of(reading.since)
@@ -55,7 +55,7 @@ impl Fleet
 {
     /// A Session as a slot's last holder: open while the ledger holds it live. **One the ledger does
     /// not know is not open**, which is how a Session Fleet forgot reads as gone.
-    pub(crate) async fn session_holder(&self, id: &str) -> SlotLastHolder {
+    pub async fn session_holder(&self, id: &str) -> SlotLastHolder {
         let kept = self.store().lock().await.session(id).ok().flatten();
         SlotLastHolder {
             kind: SlotHolderKind::Session,
@@ -72,7 +72,7 @@ impl Fleet
     ///
     /// **One Scout reads at a time.** A Fleet that comes up on several stranded slots would otherwise
     /// start a model call for each at once.
-    pub(crate) async fn strandings_attended(self: &Arc<Self>, held: &WorktreesHeld) {
+    pub async fn strandings_attended(self: &Arc<Self>, held: &WorktreesHeld) {
         let kept = self.store().lock().await.strandings().unwrap_or_default();
         let mut reading = held.slots.iter().any(|slot| {
             slot.rescue

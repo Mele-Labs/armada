@@ -28,7 +28,7 @@ const SHOWN_NOT_TEXT: &str = "fleet.shown_file_not_text";
 const MOST_SENT: u64 = 1024 * 1024;
 
 /// The pictures a phone draws, by extension, and the type each is sent under.
-pub(super) const PICTURES: [(&str, &str); 7] = [
+pub const PICTURES: [(&str, &str); 7] = [
     ("png", "image/png"),
     ("jpg", "image/jpeg"),
     ("jpeg", "image/jpeg"),
@@ -58,7 +58,7 @@ fn media_type_in(table: &[(&str, &'static str)], path: &str) -> Option<&'static 
 
 impl Fleet
 {
-    pub(crate) async fn file_shown(
+    pub async fn file_shown(
         &self,
         caller: Option<api::Caller>,
         show: ShowFile,
@@ -170,7 +170,7 @@ impl Fleet
 
     /// `get_shown_file`: the file at `path`, only where this session showed it or kept it as a revision
     /// of its document. The page in the worktree is never read: another Job's slot may hold it by then.
-    pub(crate) async fn shown_file_read(&self, id: &str, path: &str) -> Result<ShownFile, Refusal> {
+    pub async fn shown_file_read(&self, id: &str, path: &str) -> Result<ShownFile, Refusal> {
         let not_found = |code: &'static str, why: String| Refusal::NotFound(WireError::raised(code, why, self.run_id()));
         let showed = {
             let store = self.store().lock().await;

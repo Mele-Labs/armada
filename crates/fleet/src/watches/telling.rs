@@ -31,7 +31,7 @@ fn failing(watch: &core_model::Watch) -> Vec<String> {
 }
 
 /// The parts set aside in `watch`'s last reading that failed, in the order the reading named them.
-pub(crate) fn aside_failing(watch: &core_model::Watch) -> Vec<String> {
+pub fn aside_failing(watch: &core_model::Watch) -> Vec<String> {
     watch
         .last
         .as_ref()
@@ -41,7 +41,7 @@ pub(crate) fn aside_failing(watch: &core_model::Watch) -> Vec<String> {
 
 /// What the Job is told, and the person's Needs you item says, of a watch that ended `not_ours`:
 /// each part that failed with the sentence that set it aside, and the run's link.
-pub(crate) fn not_ours_said(watch: &core_model::Watch) -> (Vec<(String, String)>, Option<String>) {
+pub fn not_ours_said(watch: &core_model::Watch) -> (Vec<(String, String)>, Option<String>) {
     let parts = aside_failing(watch)
         .into_iter()
         .map(|part| {
@@ -54,7 +54,7 @@ pub(crate) fn not_ours_said(watch: &core_model::Watch) -> (Vec<(String, String)>
 
 /// The notice `watch` owes its Job in the state it is in, as the key a store row keeps once.
 /// `None` for `waiting`, `running`, a pass or a not ours not yet finished, and `stopped`.
-pub(crate) fn owed(watch: &core_model::Watch) -> Option<String> {
+pub fn owed(watch: &core_model::Watch) -> Option<String> {
     match watch.state {
         WatchState::Failed => {
             let mut parts = failing(watch);
@@ -74,7 +74,7 @@ pub(crate) fn owed(watch: &core_model::Watch) -> Option<String> {
 }
 
 /// `owed`, less what was already told of it.
-pub(crate) fn unsaid(store: &Store, id: &str, watch: &core_model::Watch) -> Option<String> {
+pub fn unsaid(store: &Store, id: &str, watch: &core_model::Watch) -> Option<String> {
     owed(watch).filter(|key| !store.watch_notice_kept(id, key).unwrap_or(true))
 }
 
@@ -96,7 +96,7 @@ fn trimmed(output: &str) -> String {
 }
 
 /// What the Job is told of `kept` in the state `watch` is in. `None` where it owes nothing.
-pub(crate) fn notice(kept: &KeptWatchWhole, watch: &core_model::Watch) -> Option<String> {
+pub fn notice(kept: &KeptWatchWhole, watch: &core_model::Watch) -> Option<String> {
     let name = &kept.watch.name;
     let said = match watch.state {
         WatchState::Failed => {
@@ -159,7 +159,7 @@ pub(crate) fn notice(kept: &KeptWatchWhole, watch: &core_model::Watch) -> Option
 impl Fleet
 {
     /// Offer every notice a watch still owes, each a minute apart at most.
-    pub(crate) async fn watches_told_when_due(self: &Arc<Self>) {
+    pub async fn watches_told_when_due(self: &Arc<Self>) {
         let Ok(unsaid) = self.store().lock().await.unsaid_watches() else { return };
         for kept in unsaid {
             self.watch_told(&kept.watch.id).await;
@@ -167,7 +167,7 @@ impl Fleet
     }
 
     /// Tell `id`'s Job what it owes, unless it was told or was offered it within the minute.
-    pub(crate) async fn watch_told(self: &Arc<Self>, id: &str) {
+    pub async fn watch_told(self: &Arc<Self>, id: &str) {
         let Ok(Some(kept)) = self.store().lock().await.watch_whole(id) else { return };
         let Some(key) = kept.watch.unsaid.clone() else { return };
         if !self.watches().may_offer(&format!("{id}/{key}"), &self.now()) {
@@ -199,7 +199,7 @@ impl Fleet
 
     /// End every live watch of `job` `stopped`, and take back what it still owed: the Job is gone,
     /// so there is nobody to wake. `crate::session_host::ending`'s wind up calls it.
-    pub(crate) async fn watches_ended_with(&self, job: &str) {
+    pub async fn watches_ended_with(&self, job: &str) {
         let now = self.now();
         let ended: Vec<String> = {
             let mut store = self.store().lock().await;

@@ -11,7 +11,7 @@ impl Fleet
 {
     /// Keep what the process said it came up with. **A store that will not take it loses the
     /// report's line and nothing else**: the Job goes on as it did.
-    pub(super) async fn init_kept(self: &Arc<Self>, id: &str, reading: &HarnessReading) {
+    pub async fn init_kept(self: &Arc<Self>, id: &str, reading: &HarnessReading) {
         let kept = KeptInit {
             harness_version: reading.version.clone(),
             mod_loaded: reading.mod_loaded,

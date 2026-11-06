@@ -3,7 +3,7 @@
 //! A line is `core_model::Envelope` in the shape `docs/concepts/log-envelope.md`
 //! names, so a query and the redactor reach it.
 
-mod row;
+pub mod row;
 
 use std::io;
 

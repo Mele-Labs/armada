@@ -216,7 +216,7 @@ fn children_of(pid: u32) -> Vec<u32> {
 }
 
 /// The file `pid` is running, or `None` for a process that has gone or is not ours to ask about.
-pub(super) fn executable_of(pid: u32) -> Option<String> {
+pub fn executable_of(pid: u32) -> Option<String> {
     let mut path = vec![0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
     // SAFETY: the pointer is to `path`, live for this call, and the size handed over is that
     // allocation's own; the kernel writes no more than it is told and answers how many bytes.

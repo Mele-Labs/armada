@@ -42,7 +42,7 @@ const OUTPUT_KEPT: usize = 4 * 1024;
 
 /// How often a watch is read: as it asked, then no more than every 2 minutes once nothing has
 /// changed for 30, and every 5 once nothing has for an hour.
-pub(crate) fn interval(every_seconds: u32, unchanged: Duration) -> Duration {
+pub fn interval(every_seconds: u32, unchanged: Duration) -> Duration {
     let every = Duration::from_secs(u64::from(every_seconds));
     let slowest = match unchanged {
         u if u >= Duration::from_secs(60 * 60) => Duration::from_secs(5 * 60),
@@ -53,7 +53,7 @@ pub(crate) fn interval(every_seconds: u32, unchanged: Duration) -> Duration {
 }
 
 /// Whether `kept` is due a reading at `now`: never read, or read an [`interval`] ago.
-pub(crate) fn due(kept: &KeptWatchWhole, now: &Timestamp) -> bool {
+pub fn due(kept: &KeptWatchWhole, now: &Timestamp) -> bool {
     let Some(last) = kept.readings.last() else { return true };
     let unchanged = elapsed(&Timestamp::from_rfc3339(kept.watch.changed_at.clone()), now);
     elapsed(&Timestamp::from_rfc3339(last.at.clone()), now) >= interval(kept.watch.every_seconds, unchanged)
@@ -72,7 +72,7 @@ fn read_as(taken: &KeptWatchTaken) -> String {
 }
 
 /// Where a watch's command runs.
-pub(crate) enum Folder {
+pub enum Folder {
     At(PathBuf),
     /// Its folder is not there: a broken reading saying so.
     Gone(String),
@@ -102,7 +102,7 @@ fn tail(text: &str, most: usize) -> String {
 }
 
 /// What a finished run reads as. Only a run that exited 0 is read for its line.
-pub(crate) fn reading_of(attempt: &Attempt, budget: Duration) -> KeptWatchTaken {
+pub fn reading_of(attempt: &Attempt, budget: Duration) -> KeptWatchTaken {
     let output = || {
         let both = [attempt.output.stderr.trim(), attempt.output.stdout.trim()]
             .into_iter()
@@ -173,7 +173,7 @@ impl Fleet
 {
     /// End each live watch past its give-up time, and start each due one while fewer than
     /// `limits.watchesAtOnce` commands run, the oldest watch first.
-    pub(crate) async fn watches_run_when_due(self: &Arc<Self>) {
+    pub async fn watches_run_when_due(self: &Arc<Self>) {
         let now = self.now();
         let at_once = usize::try_from(self.machine_settings().now().get(keys::WATCHES_AT_ONCE)).unwrap_or(0);
         let Ok(live) = self.store().lock().await.live_watches() else { return };
@@ -218,7 +218,7 @@ impl Fleet
 
     /// Where `job`'s watch runs: the slot its hosted Job works in, else the folder a terminal Job
     /// was started in.
-    pub(crate) async fn watch_folder(&self, job: &str) -> Folder {
+    pub async fn watch_folder(&self, job: &str) -> Folder {
         let (session, hosting) = {
             let store = self.store().lock().await;
             let Ok(Some(session)) = store.session(job) else { return Folder::JobEnded };
@@ -280,7 +280,7 @@ impl Fleet
 
     /// A Job is paused: each command its watches have running is ended. **The watches stay**, live,
     /// and run again when the Job is resumed.
-    pub(crate) async fn watches_paused(&self, job: &str) {
+    pub async fn watches_paused(&self, job: &str) {
         let Ok(watches) = self.store().lock().await.watches_of(job) else { return };
         for kept in watches.iter().filter(|one| one.watch.live) {
             self.watches().interrupt(&kept.watch.id);
@@ -291,7 +291,7 @@ impl Fleet
     /// environment `environment` names laid over it, until `stop`. What it read, every secret's
     /// value put back as its name, and its whole output for a log. **The one run** a watch's reading
     /// and a try share.
-    pub(crate) async fn watch_once(
+    pub async fn watch_once(
         &self,
         job: &str,
         command: &[String],
@@ -336,14 +336,14 @@ impl Fleet
     /// Keep one reading of `id`, and what it comes to: its state, the end it reaches, and the
     /// notice it owes. **An ended watch keeps none**, so a run that finishes after a Stop changes
     /// nothing.
-    pub(crate) async fn watch_read(self: &Arc<Self>, id: &str, taken: KeptWatchTaken) {
+    pub async fn watch_read(self: &Arc<Self>, id: &str, taken: KeptWatchTaken) {
         self.watch_read_ending(id, taken, false, None).await;
     }
 
     /// `watch_read`, and with `last` the watch ends on it as it reads: a terminal watch whose
     /// terminal is gone has nothing left to hear. A reading that failed or broke keeps `log`, its
     /// run's whole output, as a file.
-    pub(crate) async fn watch_read_ending(self: &Arc<Self>, id: &str, taken: KeptWatchTaken, last: bool, log: Option<String>) {
+    pub async fn watch_read_ending(self: &Arc<Self>, id: &str, taken: KeptWatchTaken, last: bool, log: Option<String>) {
         let now = self.now();
         let read_state = match &taken {
             KeptWatchTaken::Read { state, .. } => core_model::ReadingState::from_wire(state),
@@ -416,7 +416,7 @@ impl Fleet
     }
 
     /// End `id` `how`, where it is live, and tell what it owes.
-    pub(crate) async fn watch_ended(self: &Arc<Self>, id: &str, how: WatchState) {
+    pub async fn watch_ended(self: &Arc<Self>, id: &str, how: WatchState) {
         let now = self.now();
         let job = {
             let mut store = self.store().lock().await;

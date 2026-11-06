@@ -19,12 +19,12 @@
 //! stopping ends none of them, and the next Fleet adopts each one from its
 //! record ([`left`]) with its ports still claimed.
 
-mod held;
-mod launched;
-pub(crate) mod left;
-mod moved;
-mod running;
-mod unservable;
+pub mod held;
+pub mod launched;
+pub mod left;
+pub mod moved;
+pub mod running;
+pub mod unservable;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -40,8 +40,8 @@ use ipc::{
 use crate::checkouts::Checkout;
 use crate::daemon::Fleet;
 use crate::rehearsing::records;
-pub(crate) use held::{Holder, Servers};
-pub(crate) use launched::Launch;
+pub use held::{Holder, Servers};
+pub use launched::Launch;
 pub use unservable::Unservable;
 
 /// A path that is not a checkout of the repository a server was asked for.
@@ -59,7 +59,7 @@ impl Fleet
     /// where this call started it. It reads the Manifest Fleet holds.
     /// `${port.NAME}` is resolved in every field from the span the server runs
     /// under, and the claim's variables ride in its environment.
-    pub(crate) async fn hold_server(
+    pub async fn hold_server(
         self: Arc<Self>,
         checkout: Checkout,
         name: &str,
@@ -73,7 +73,7 @@ impl Fleet
     /// [`hold_server`](Fleet::hold_server) reading the server from `manifest`, which is not
     /// the one Fleet holds: **a run is read fresh when it starts**, so one saved a moment ago
     /// starts without a restart. Its ports are claimed or widened to fit `manifest`.
-    pub(crate) async fn hold_server_from(
+    pub async fn hold_server_from(
         self: Arc<Self>,
         checkout: Checkout,
         manifest: &config::Manifest,
@@ -156,7 +156,7 @@ impl Fleet
     }
 
     /// End an instance's group, and answer with it once it has ended.
-    pub(crate) async fn stopped_server(&self, id: &str) -> Result<ServerState, Unservable> {
+    pub async fn stopped_server(&self, id: &str) -> Result<ServerState, Unservable> {
         let Some((stop, mut now)) = self.servers().stopping(id) else {
             return Err(match self.servers().has_ended(id) {
                 true => Unservable::NotRunning { id: id.to_string() },
@@ -178,7 +178,7 @@ impl Fleet
     }
 
     /// Every instance Fleet holds, and the last of each that ended.
-    pub(crate) fn server_list(&self) -> ipc::ServerList {
+    pub fn server_list(&self) -> ipc::ServerList {
         ipc::ServerList {
             servers: self.servers().every(),
         }
@@ -187,7 +187,7 @@ impl Fleet
     /// An instance's socket, resolved before it opens: **the subscription
     /// first, then the log as history**. An ended one opens too, with its
     /// whole log — which is how one that fell over is read.
-    pub(crate) fn observed_server(&self, id: &str) -> Result<api::ObservedServer, Unservable> {
+    pub fn observed_server(&self, id: &str) -> Result<api::ObservedServer, Unservable> {
         let Some((state, live, dir)) = self.servers().watching(id) else {
             return Err(Unservable::NoSuchServer { id: id.to_string() });
         };
@@ -209,7 +209,7 @@ impl Fleet
     }
 
     /// The servers `manifest` declares, each with `holder`'s instance.
-    pub(crate) fn declared_servers(
+    pub fn declared_servers(
         &self,
         holder: &Holder,
         manifest: &config::Manifest,
@@ -243,13 +243,13 @@ impl Fleet
     /// slot about to be given back has no one left to serve. **By where they
     /// run**, which is the only record there is of a server in a slot: a
     /// server's `StartedBy` says a person or a Drone, never a session.
-    pub(crate) async fn stopped_servers_in(&self, path: &str) {
+    pub async fn stopped_servers_in(&self, path: &str) {
         stopped_in(self.servers().clone(), path).await;
     }
 
     /// Stop the servers named, in the checkout at `path`, and wait for each. **A run stopped as a
     /// whole**: only its own servers go, never another the checkout holds.
-    pub(crate) async fn stopped_servers_named(&self, path: &str, names: &[String]) {
+    pub async fn stopped_servers_named(&self, path: &str, names: &[String]) {
         let held = self.servers().held_named(&Holder::Checkout(path.to_string()), names);
         stopped_and_waited(held).await;
     }
@@ -265,7 +265,7 @@ impl Fleet
     /// re-probed**, so the ports those servers held are free when it is. What
     /// is still held for a checkout that is there is taken back, and keeps its
     /// ports. See [`left`].
-    pub(crate) async fn adopted_left_servers(self: &Arc<Self>, records_root: &str) -> left::Reaped {
+    pub async fn adopted_left_servers(self: &Arc<Self>, records_root: &str) -> left::Reaped {
         let root = records_root.to_string();
         let (reaped, kept) = tokio::task::spawn_blocking(move || left::reaped(&root, true))
             .await
@@ -278,7 +278,7 @@ impl Fleet
 
     /// [`adopted_left_servers`](Fleet::adopted_left_servers) for a repository added while Fleet
     /// runs: every server it left is ended.
-    pub(crate) async fn reaped_left_servers(&self, records_root: &str) -> left::Reaped {
+    pub async fn reaped_left_servers(&self, records_root: &str) -> left::Reaped {
         let root = records_root.to_string();
         tokio::task::spawn_blocking(move || left::reaped(&root, false).0)
             .await
@@ -291,7 +291,7 @@ impl Fleet
     /// server is a task of its own.
     ///
     /// **Not `budgeted`**: a server answers through its own refusal.
-    pub(crate) async fn start_server_answered(
+    pub async fn start_server_answered(
         self: Arc<Self>,
         caller: Option<api::Caller>,
         asked: ipc::StartServer,
@@ -335,7 +335,7 @@ impl Fleet
     /// A path that is not a checkout of the repository asked about. **A 422**,
     /// `NotAServer`'s shape: a name that names nothing rather than a conflict
     /// with where things stand.
-    pub(crate) fn checkout_refusal(&self, why: crate::checkouts::NotACheckout) -> Refusal {
+    pub fn checkout_refusal(&self, why: crate::checkouts::NotACheckout) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             NOT_A_CHECKOUT,
             why.to_string(),
@@ -343,14 +343,14 @@ impl Fleet
         ))
     }
 
-    pub(crate) fn server_refusal(&self, why: Unservable) -> Refusal {
+    pub fn server_refusal(&self, why: Unservable) -> Refusal {
         let (code, refusal) = why.spelled();
         refusal(WireError::raised(code, why.to_string(), self.run_id()))
     }
 }
 
 /// [`Fleet::stopped_servers_in`], for a task that holds the book and not Fleet.
-pub(crate) async fn stopped_in(servers: Servers, path: &str) {
+pub async fn stopped_in(servers: Servers, path: &str) {
     let path = std::fs::canonicalize(path)
         .map(|real| real.to_string_lossy().into_owned())
         .unwrap_or_else(|_| path.to_string());

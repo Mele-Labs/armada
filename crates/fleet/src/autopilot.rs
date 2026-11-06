@@ -9,24 +9,24 @@
 //! reading the picker's answer makes one, and only a sure pick starts a Session with no person
 //! pressing. The owner's call of 11 Oct 2026, `2026-10-11-autopilots-clear-picks-start-unasked.md`.
 
-mod acts;
+pub mod acts;
 pub mod bounds;
-pub(crate) mod deciding;
-mod decisions;
-pub(crate) mod destructive;
-mod editing;
-mod landing;
-mod pass;
+pub mod deciding;
+pub mod decisions;
+pub mod destructive;
+pub mod editing;
+pub mod landing;
+pub mod pass;
 pub mod picking;
 pub mod sentence;
-mod red;
-mod reviewing;
-mod set_aside;
-pub(crate) mod sorting;
-mod starting;
-pub(crate) mod wire;
+pub mod red;
+pub mod reviewing;
+pub mod set_aside;
+pub mod sorting;
+pub mod starting;
+pub mod wire;
 
-pub(crate) use starting::report_brief;
+pub use starting::report_brief;
 
 use std::sync::Arc;
 
@@ -56,7 +56,7 @@ pub struct Asking {
 /// What a pass remembers between intervals, and nothing a restart needs. Held on
 /// `crate::tracking::Tracking`, beside the issue lists it is about.
 #[derive(Default)]
-pub(crate) struct Remembered {
+pub struct Remembered {
     /// Per repository, the issues the picker last said none of fit. **Not asked again until the
     /// list changes**, or every interval would pay for the same answer.
     declined: std::sync::Mutex<std::collections::BTreeMap<String, Vec<String>>>,
@@ -78,42 +78,42 @@ const FIRST_REST_MS: i64 = 30_000;
 const LONGEST_REST_MS: i64 = 15 * 60_000;
 
 impl Remembered {
-    pub(crate) fn declined(&self, manifest: &str, offered: &[String]) -> bool {
+    pub fn declined(&self, manifest: &str, offered: &[String]) -> bool {
         held(&self.declined)
             .get(manifest)
             .is_some_and(|last| last == offered)
     }
 
-    pub(crate) fn decline(&self, manifest: &str, offered: Vec<String>) {
+    pub fn decline(&self, manifest: &str, offered: Vec<String>) {
         held(&self.declined).insert(manifest.to_string(), offered);
     }
 
     /// Keep why a pass failed, or clear it where it went through.
-    pub(crate) fn faulted(&self, manifest: &str, why: Option<String>) {
+    pub fn faulted(&self, manifest: &str, why: Option<String>) {
         match why {
             Some(why) => held(&self.faults).insert(manifest.to_string(), why),
             None => held(&self.faults).remove(manifest),
         };
     }
 
-    pub(crate) fn fault(&self, manifest: &str) -> Option<String> {
+    pub fn fault(&self, manifest: &str) -> Option<String> {
         held(&self.faults).get(manifest).cloned()
     }
 
     /// Clear what the picker declined, for a start whose instruction may cover it.
-    pub(crate) fn forget(&self, manifest: &str) {
+    pub fn forget(&self, manifest: &str) {
         held(&self.declined).remove(manifest);
     }
 
     /// True while the picker rests after failing.
-    pub(crate) fn picker_resting(&self, manifest: &str, now_ms: i64) -> bool {
+    pub fn picker_resting(&self, manifest: &str, now_ms: i64) -> bool {
         held(&self.resting)
             .get(manifest)
             .is_some_and(|(_, until)| now_ms < *until)
     }
 
     /// A picker call failed: rest, twice as long as the last time where the one before failed too.
-    pub(crate) fn picker_failed(&self, manifest: &str, now_ms: i64) {
+    pub fn picker_failed(&self, manifest: &str, now_ms: i64) {
         let mut resting = held(&self.resting);
         let failed = resting.get(manifest).map_or(1, |(failed, _)| failed + 1);
         let rest = FIRST_REST_MS
@@ -122,21 +122,21 @@ impl Remembered {
         resting.insert(manifest.to_string(), (failed, now_ms.saturating_add(rest)));
     }
 
-    pub(crate) fn picker_answered(&self, manifest: &str) {
+    pub fn picker_answered(&self, manifest: &str) {
         held(&self.resting).remove(manifest);
     }
 
     /// True where the helper already left this decision as it stands.
-    pub(crate) fn left_as_it_is(&self, decision: &str, what: &str) -> bool {
+    pub fn left_as_it_is(&self, decision: &str, what: &str) -> bool {
         held(&self.left).get(decision).is_some_and(|last| last == what)
     }
 
-    pub(crate) fn leave(&self, decision: &str, what: String) {
+    pub fn leave(&self, decision: &str, what: String) {
         held(&self.left).insert(decision.to_string(), what);
     }
 
     /// True where `now` differs from what was last published for its repository.
-    pub(crate) fn moved(&self, now: &ipc::Autopilot) -> bool {
+    pub fn moved(&self, now: &ipc::Autopilot) -> bool {
         let mut published = held(&self.published);
         let key = now.manifest_id.as_str().to_string();
         if published.get(&key) == Some(now) {

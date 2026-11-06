@@ -32,7 +32,7 @@ enum WalkOut {
 impl Fleet
 {
     /// The place a walk run is written against: required, and held to the rules a saved place is.
-    pub(crate) fn walk_place_required(&self, place: Option<&WalkPlace>) -> Result<WalkPlace, Refusal> {
+    pub fn walk_place_required(&self, place: Option<&WalkPlace>) -> Result<WalkPlace, Refusal> {
         let Some(place) = place else {
             return Err(Refusal::Unacceptable(self.pr_refusal(
                 NEEDS_A_PLACE,
@@ -48,7 +48,7 @@ impl Fleet
 
 /// The brief's section on where the change runs. **The command that starts it is left out**: the
 /// agent has no use for it, and it is the person's own text.
-pub(crate) fn place_section(place: &WalkPlace) -> String {
+pub fn place_section(place: &WalkPlace) -> String {
     let how = match place.how {
         WalkHow::Deployed => "It is already running there.",
         WalkHow::Pull => "Armada pulls this commit down and starts it there when the person walks.",
@@ -69,7 +69,7 @@ pub(crate) fn place_section(place: &WalkPlace) -> String {
 }
 
 /// How the answer is shaped, for the brief.
-pub(crate) fn walk_contract() -> String {
+pub fn walk_contract() -> String {
     "{\"kind\": \"web\", \"steps\": [<step>, ...]} for a change a person sees and presses, or \
      {\"kind\": \"api\", \"requests\": [{\"say\": \"what this request shows\", \"method\": \"GET\" | \"POST\" | \"PUT\" | \
      \"PATCH\" | \"DELETE\", \"path\": \"/path on the API base\", \"body\": \"JSON text, optional\", \"look\": \"what to \
@@ -134,7 +134,7 @@ fn requests_held(requests: &[ReviewRequest]) -> Result<(), String> {
 
 /// The answer, held to the place it was written against and kept with that place. A walk of a kind
 /// the place cannot play is refused.
-pub(crate) fn walk_read(json: &str, place: &WalkPlace) -> Result<ReviewResult, String> {
+pub fn walk_read(json: &str, place: &WalkPlace) -> Result<ReviewResult, String> {
     match said::<WalkOut>(json)? {
         WalkOut::Web { steps } => {
             if place.address.is_empty() {

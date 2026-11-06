@@ -83,7 +83,7 @@ impl Fleet
     }
 
     /// `path` of the clash between `session_id` and the other holder, as each changed it.
-    pub(crate) async fn clash_file(
+    pub async fn clash_file(
         &self,
         session_id: &str,
         other_kind: ClashSide,

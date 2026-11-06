@@ -25,7 +25,7 @@ const SHORTEST_NAME: usize = 3;
 const MOST_PATHS: usize = 64;
 
 /// What the read knows about one served repository.
-pub(crate) struct Candidate {
+pub struct Candidate {
     pub manifest: String,
     pub root: PathBuf,
     /// The Manifest id and the root directory's name, the words that mean it.
@@ -36,7 +36,7 @@ pub(crate) struct Candidate {
 }
 
 impl Candidate {
-    pub(crate) fn of(manifest: &str, root: &str, sessions: usize) -> Candidate {
+    pub fn of(manifest: &str, root: &str, sessions: usize) -> Candidate {
         let root = PathBuf::from(root);
         let mut names = vec![manifest.to_string()];
         if let Some(directory) = root.file_name().and_then(|name| name.to_str()) {
@@ -61,7 +61,7 @@ struct Hits {
     pathed: Vec<bool>,
 }
 
-pub(crate) fn read(words: &str, candidates: &[Candidate]) -> RequestRepository {
+pub fn read(words: &str, candidates: &[Candidate]) -> RequestRepository {
     let hits = Hits {
         linked: linked(words, candidates),
         named: named(words, candidates),
@@ -201,7 +201,7 @@ impl Fleet
 {
     /// `read_request_repository`: every served repository is a candidate, a
     /// Manifest or none, named by the id a Job there carries.
-    pub(crate) async fn request_repository(&self, words: String) -> RequestRepository {
+    pub async fn request_repository(&self, words: String) -> RequestRepository {
         let mut candidates: Vec<Candidate> = {
             let store = self.store().lock().await;
             self.repositories()

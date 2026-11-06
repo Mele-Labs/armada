@@ -4,7 +4,7 @@ use super::*;
 
 /// The `version` the `armada` plugin declares, where it carries one: the installed copy under `home`
 /// first, which is the one a session loads, and the repository's own where there is none.
-pub(super) fn mod_version_in(home: &str, root: &str) -> Option<String> {
+pub fn mod_version_in(home: &str, root: &str) -> Option<String> {
     let installed = crate::runtime::mod_dir(home).join(adapters::MOD_INSTALLED_MANIFEST);
     let bytes = std::fs::read(installed)
         .or_else(|_| std::fs::read(std::path::Path::new(root).join(adapters::MOD_MANIFEST)))
@@ -14,7 +14,7 @@ pub(super) fn mod_version_in(home: &str, root: &str) -> Option<String> {
 
 /// The `version` Fleet's own copy of the plugin declares, and nothing of any repository's: the copy
 /// is what a hosted Job's process loads, so it is what that process is older or newer than.
-pub(crate) fn mod_copy_version(home: &str) -> Option<String> {
+pub fn mod_copy_version(home: &str) -> Option<String> {
     declared(&std::fs::read(crate::runtime::mod_dir(home).join(adapters::MOD_INSTALLED_MANIFEST)).ok()?)
 }
 
@@ -28,7 +28,7 @@ fn declared(bytes: &[u8]) -> Option<String> {
 
 /// Whether `reported` is behind `current`. No version reported is behind; a version that does not
 /// read as dotted numbers is behind unless it is the same text.
-pub(crate) fn mod_is_older(reported: Option<&str>, current: &str) -> bool {
+pub fn mod_is_older(reported: Option<&str>, current: &str) -> bool {
     let Some(reported) = reported else {
         return true;
     };
@@ -39,14 +39,14 @@ pub(crate) fn mod_is_older(reported: Option<&str>, current: &str) -> bool {
     }
 }
 
-pub(super) fn origin_text(origin: ipc::SessionOrigin) -> &'static str {
+pub fn origin_text(origin: ipc::SessionOrigin) -> &'static str {
     match origin {
         ipc::SessionOrigin::Terminal => "terminal",
         ipc::SessionOrigin::Bridge => "bridge",
     }
 }
 
-pub(super) fn attachment_state(state: ipc::AttachmentState) -> AttachmentState {
+pub fn attachment_state(state: ipc::AttachmentState) -> AttachmentState {
     match state {
         ipc::AttachmentState::Standing => AttachmentState::Standing,
         ipc::AttachmentState::Spent => AttachmentState::Spent,
@@ -54,18 +54,18 @@ pub(super) fn attachment_state(state: ipc::AttachmentState) -> AttachmentState {
     }
 }
 
-pub(super) fn session_state(state: SessionState) -> store::SessionState {
+pub fn session_state(state: SessionState) -> store::SessionState {
     match state {
         SessionState::Live => store::SessionState::Live,
         SessionState::Ended => store::SessionState::Ended,
     }
 }
 
-pub(super) fn wire_instant(at: &str) -> ipc::Instant {
+pub fn wire_instant(at: &str) -> ipc::Instant {
     ipc::Instant::carried(at)
 }
 
-pub(super) fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
+pub fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
     ipc::Attachment {
         kind: row.kind.clone(),
         manifest_id: (!row.manifest_id.is_empty()).then(|| ManifestId::carried(&row.manifest_id)),
@@ -81,7 +81,7 @@ pub(super) fn attachment_wire(row: &KeptAttachment) -> ipc::Attachment {
     }
 }
 
-pub(super) fn version_wire(row: &store::KeptAttachmentVersion) -> ipc::AttachmentVersion {
+pub fn version_wire(row: &store::KeptAttachmentVersion) -> ipc::AttachmentVersion {
     ipc::AttachmentVersion {
         kind: row.kind.clone(),
         manifest_id: (!row.manifest_id.is_empty()).then(|| ManifestId::carried(&row.manifest_id)),
@@ -98,7 +98,7 @@ pub(super) fn version_wire(row: &store::KeptAttachmentVersion) -> ipc::Attachmen
     }
 }
 
-pub(super) fn held_wire(row: &KeptAttachment, title: Option<String>) -> ipc::Ownership {
+pub fn held_wire(row: &KeptAttachment, title: Option<String>) -> ipc::Ownership {
     ipc::Ownership {
         holder: ipc::Holder { kind: ipc::HolderKind::Session, id: row.holder.id.clone() },
         attachment: attachment_wire(row),
@@ -106,7 +106,7 @@ pub(super) fn held_wire(row: &KeptAttachment, title: Option<String>) -> ipc::Own
     }
 }
 
-pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord {
+pub fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord {
     SessionRecord {
         id: ipc::SessionId::carried(&session.id),
         harness: session.harness.clone(),

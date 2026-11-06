@@ -20,7 +20,7 @@ impl Fleet
     /// Everything the pull reading does for one pull request, after `state` was read and the ledger
     /// followed it: an open one's owners told and its merge line entry read again, a merged one's
     /// merge told on the pull reading's rule, and one that is over taken off the merge line.
-    pub(crate) async fn pull_request_refreshed(self: &Arc<Self>, served: &Served, state: &PullRequestState) {
+    pub async fn pull_request_refreshed(self: &Arc<Self>, served: &Served, state: &PullRequestState) {
         let root = served.root().to_string();
         let base = served.manifest().base().unwrap_or("the base").to_string();
         let _reading = self.pulls_reading(&root).await;

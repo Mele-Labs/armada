@@ -21,7 +21,7 @@ impl Fleet
     /// running is asked again at the next call, so a turn is never cut. **Boxed**, as `listening` is:
     /// the restart starts a process, whose start spawns the timer that calls this, and a future that
     /// contains itself cannot be proved `Send`.
-    pub(crate) fn processes_moved_onto_mod(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    pub fn processes_moved_onto_mod(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
         let fleet = Arc::clone(self);
         Box::pin(async move {
             let Some(current) = crate::sessioning::mod_copy_version(&fleet.host().home) else {

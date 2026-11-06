@@ -7,10 +7,10 @@ use ipc::SessionRow;
 /// The agent CLI's transcript of a Session and of each of its subagents, as
 /// lines, and the thread drawn from the first.
 #[derive(Default)]
-pub(super) struct Files {
-    pub(super) main: Vec<String>,
-    pub(super) subagents: Vec<(String, Vec<String>)>,
-    pub(super) drawn: Vec<SessionRow>,
+pub struct Files {
+    pub main: Vec<String>,
+    pub subagents: Vec<(String, Vec<String>)>,
+    pub drawn: Vec<SessionRow>,
 }
 
 fn lines_of(file: &Path) -> Vec<String> {
@@ -19,7 +19,7 @@ fn lines_of(file: &Path) -> Vec<String> {
         .unwrap_or_default()
 }
 
-pub(super) fn transcripts_of(home: &str, id: &str) -> Files {
+pub fn transcripts_of(home: &str, id: &str) -> Files {
     let Some(file) = adapters::terminal_thread::find(home, id) else {
         return Files::default();
     };

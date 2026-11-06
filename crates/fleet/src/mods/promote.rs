@@ -33,7 +33,7 @@ const MOD: &str = "mod";
 
 impl Fleet
 {
-    pub(super) async fn mod_promoted(self: &Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
+    pub async fn mod_promoted(self: &Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
         let name = promote.name;
         if let Named::BuiltIn(_) = self.mod_named(&name)? {
             return Err(self.cannot_promote(&name, format!("`{name}` is built in, so it is in the repository already")));
@@ -108,7 +108,7 @@ impl Fleet
 
     /// Each mod a promote's Job holds an open pull request for, by name. A ledger that will not read
     /// leaves a mod out, since nothing here may fail the list.
-    pub(super) async fn mods_in_review(&self) -> BTreeMap<String, ModPullRequest> {
+    pub async fn mods_in_review(&self) -> BTreeMap<String, ModPullRequest> {
         let served = self.repositories().served();
         let store = self.store().lock().await;
         let mut open = BTreeMap::new();

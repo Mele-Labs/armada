@@ -7,7 +7,7 @@
 
 /// What a path is, against the repository's root.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Place {
+pub enum Place {
     Main,
     Slot(u32),
     Elsewhere,
@@ -15,7 +15,7 @@ pub(super) enum Place {
 
 /// `path` with `.` and `..` resolved by reading it, never by touching disk.
 /// A relative path is returned as it came.
-pub(super) fn normalised(path: &str) -> String {
+pub fn normalised(path: &str) -> String {
     if !path.starts_with('/') {
         return path.to_string();
     }
@@ -32,12 +32,12 @@ pub(super) fn normalised(path: &str) -> String {
     format!("/{}", kept.join("/"))
 }
 
-pub(super) fn inside(path: &str, directory: &str) -> bool {
+pub fn inside(path: &str, directory: &str) -> bool {
     let directory = directory.trim_end_matches('/');
     path == directory || path.starts_with(&format!("{directory}/"))
 }
 
-pub(super) fn place_of(path: &str, root: &str) -> Place {
+pub fn place_of(path: &str, root: &str) -> Place {
     let path = normalised(path);
     let root = root.trim_end_matches('/');
     if !inside(&path, root) {
@@ -63,7 +63,7 @@ pub(super) fn place_of(path: &str, root: &str) -> Place {
 /// `armada worktree release`'s) and anything inside a script it runs are not seen. **A line that
 /// runs an interpreter is read for every slot path in its text**, since what the interpreter
 /// writes cannot be read from the line.
-pub(super) fn written_by(line: &str, cwd: &str) -> Vec<String> {
+pub fn written_by(line: &str, cwd: &str) -> Vec<String> {
     let mut found = Vec::new();
     let mut interpreted = false;
     // Where the line stands: `cwd` until a `cd`, then where the `cd` left it. A place this cannot
@@ -228,7 +228,7 @@ fn after_cd(words: &[&str], from: Option<&str>) -> Option<String> {
 /// from where the first left the line. A target built from a variable, a `~` or a
 /// substitution is not followed, and neither is a subshell's end. A bare `armada worktree
 /// release` with no `cd` before it gives back `cwd`.
-pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
+pub fn worked_in(line: &str, cwd: &str) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
     let mut here = Some(cwd.to_string());
     let mut moved = false;
@@ -264,7 +264,7 @@ pub(super) fn worked_in(line: &str, cwd: &str) -> Vec<String> {
 /// The directory a call started in, where a line runs something that is not a read before it
 /// `cd`s anywhere. **A working directory persists between a session's calls**, so a session that
 /// went into a slot once is standing in it at every call after, with no path in the line to read.
-pub(super) fn run_from(line: &str, cwd: &str) -> Option<String> {
+pub fn run_from(line: &str, cwd: &str) -> Option<String> {
     if !cwd.starts_with('/') {
         return None;
     }

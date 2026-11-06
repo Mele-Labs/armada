@@ -99,7 +99,7 @@ fn with_address(mut file: WordsFile, key: &str, template: &str, found: AddressFo
 /// Give the Words mod `name` an address for `key`, a Manifest id or `*`. **Without `replace` an
 /// address the mod already has for `key` stays**, so what a person wrote is never undone by what
 /// was found. Whether the mod now holds `template` for `key`.
-pub(crate) fn address_given(
+pub fn address_given(
     mods_dir: &Path,
     name: &str,
     key: &str,
@@ -128,7 +128,7 @@ pub(crate) fn address_given(
 }
 
 /// The Words file of the mod `name`, where it is a valid Words mod. Switched off or not.
-pub(crate) fn words_file(mods_dir: &Path, name: &str) -> Option<WordsFile> {
+pub fn words_file(mods_dir: &Path, name: &str) -> Option<WordsFile> {
     match mods::examine(mods_dir, name).files?.payload {
         mods::Payload::Words(text) => words::read(&text).ok(),
         _ => None,
@@ -265,7 +265,7 @@ impl Fleet
 
     /// `save_teaching`. The Logbook entry is made first, so a mod from a Job records it; a part that
     /// is refused is refused before either is written.
-    pub(crate) async fn teaching_saved(self: Arc<Self>, save: SaveTeaching) -> Result<SavedTeaching, Refusal> {
+    pub async fn teaching_saved(self: Arc<Self>, save: SaveTeaching) -> Result<SavedTeaching, Refusal> {
         let proposal = &save.proposal;
         if proposal.note.is_none()
             && proposal.words.is_none()

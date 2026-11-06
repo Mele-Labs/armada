@@ -37,7 +37,7 @@ fn beside(file: &Path) -> PathBuf {
 /// failure — nothing broke, and what a person does next is reconcile rather
 /// than retry.
 #[derive(Debug)]
-pub(crate) enum NotSaved {
+pub enum NotSaved {
     /// The file would not open to be compared against.
     Unreadable(io::Error),
     /// It changed after the edit started, and this is what is there now —
@@ -62,7 +62,7 @@ pub(crate) enum NotSaved {
 /// a crash, in the one file a person is least able to afford one. The watcher
 /// re-resolves the path each round, so a rename over the target is one change
 /// like any other — `crates/armada/src/watching.rs`, `SETTLE`.
-pub(crate) fn save(file: &Path, read: &str, text: &str) -> Result<(), NotSaved> {
+pub fn save(file: &Path, read: &str, text: &str) -> Result<(), NotSaved> {
     // **The window between this read and the rename below is microseconds**,
     // against the minutes a person spends editing. Closing it would mean a lock
     // on a repository file held across a request, which is a worse thing to
@@ -78,7 +78,7 @@ pub(crate) fn save(file: &Path, read: &str, text: &str) -> Result<(), NotSaved> 
 
 /// Why a create did not happen.
 #[derive(Debug)]
-pub(crate) enum NotCreated {
+pub enum NotCreated {
     /// Something is at the path already, with what it holds where it reads.
     Appeared(Option<String>),
     Unwritable(io::Error),
@@ -86,7 +86,7 @@ pub(crate) enum NotCreated {
 
 /// Put `text` at `file` only where nothing is there. A hard link, not a rename, so a file
 /// that appeared is refused in the same call that would make the name.
-pub(crate) fn create(file: &Path, text: &str) -> Result<(), NotCreated> {
+pub fn create(file: &Path, text: &str) -> Result<(), NotCreated> {
     let staged = beside(file);
     let linked = fs::write(&staged, text).and_then(|()| fs::hard_link(&staged, file));
     let _ = fs::remove_file(&staged);
@@ -125,7 +125,7 @@ impl Fleet
     /// **The path is spelled as `ManifestReading` spells it** and never
     /// canonicalised, so the two answers a surface draws together agree about
     /// which file they are about.
-    pub(crate) fn read_manifest_file(
+    pub fn read_manifest_file(
         &self,
         served: &crate::repositories::Served,
     ) -> Result<ManifestFile, Refusal> {
@@ -166,7 +166,7 @@ impl Fleet
     /// **Where a form's edit is pending, the text goes into its pull request**
     /// as a commit of the whole text, and the file on disk is left alone, as a
     /// second form save does. `crate::pending_edit`.
-    pub(crate) async fn write_manifest_file(
+    pub async fn write_manifest_file(
         &self,
         asked: SaveManifestFile,
         served: &crate::repositories::Served,

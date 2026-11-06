@@ -20,14 +20,14 @@ use crate::daemon::Fleet;
 use crate::session_running::{shell, Ended};
 
 /// How long a command runs before it is stopped.
-pub(crate) const TIMEOUT: Duration = Duration::from_secs(120);
+pub const TIMEOUT: Duration = Duration::from_secs(120);
 /// How long a stopped group has to leave before it is killed.
 const GRACE: Duration = Duration::from_secs(3);
 /// How long output still in the pipe is read for after the shell has exited. A background process
 /// the command left holding the pipe open must not hold the answer.
 const DRAIN: Duration = Duration::from_millis(300);
 /// Bytes of output kept: the last of it.
-pub(crate) const TAIL: usize = 64 * 1024;
+pub const TAIL: usize = 64 * 1024;
 
 /// A shell action that was refused: a 422.
 const REFUSED: &str = "fleet.session_shell_refused";
@@ -49,7 +49,7 @@ fn signal(pgid: u32, signal: &str) {
 }
 
 /// `$SHELL -lc <command>` in `dir`, until it ends or `timeout` stops it.
-pub(crate) async fn run_in(
+pub async fn run_in(
     dir: &str,
     command: &str,
     timeout: Duration,
@@ -124,14 +124,14 @@ impl Fleet
 {
     /// `run_session_shell`. The Session is told how it ended, as it is for a block run from its
     /// thread.
-    pub(crate) async fn shell_action_run(
+    pub async fn shell_action_run(
         self: Arc<Self>,
         run: RunSessionShell,
     ) -> Result<SessionShellRan, Refusal> {
         self.shell_action_run_within(run, TIMEOUT).await
     }
 
-    pub(crate) async fn shell_action_run_within(
+    pub async fn shell_action_run_within(
         self: Arc<Self>,
         mut run: RunSessionShell,
         timeout: Duration,

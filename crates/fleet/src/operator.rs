@@ -19,28 +19,28 @@
 //! ([`FIRST_WRITE_WAIT`], [`NEEDS_YOU_WAIT`]); so does every item once the day's calls reach the
 //! ceiling. A ruling that comes back after its item passed on is dropped.
 
-mod acting;
-mod answering;
-mod arriving;
-mod asking;
-mod boarding;
-mod calling;
-mod candidates;
-mod desk;
-mod handing;
-mod holding;
-mod orders;
-mod placing;
-mod questions;
-mod ruling;
-mod seat;
-pub(crate) mod shortlist;
-mod sources;
-mod sourcing;
-mod stalling;
-mod stalls;
-mod suggesting;
-mod talking;
+pub mod acting;
+pub mod answering;
+pub mod arriving;
+pub mod asking;
+pub mod boarding;
+pub mod calling;
+pub mod candidates;
+pub mod desk;
+pub mod handing;
+pub mod holding;
+pub mod orders;
+pub mod placing;
+pub mod questions;
+pub mod ruling;
+pub mod seat;
+pub mod shortlist;
+pub mod sources;
+pub mod sourcing;
+pub mod stalling;
+pub mod stalls;
+pub mod suggesting;
+pub mod talking;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -57,18 +57,18 @@ pub use boarding::{OnBoard, Unknown};
 use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use acting::FleetActing;
-pub(crate) use answering::answers;
+pub use answering::answers;
 pub use desk::FleetDesk;
 pub use orders::{Order, Orders};
-pub(crate) use seat::{Moved, Seat};
+pub use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub use sources::{Filed, Handed, NewIssue, Note, RedMain, Report, ReviewRequest};
-pub(crate) use sourcing::Sources;
-pub(crate) use stalling::{seen_of, Stalls};
+pub use sourcing::Sources;
+pub use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
 pub use talking::{Board, EndedJob, HeldJob, LogRead, NeedsYou, Repository, StoppedJob, TalkFailed, TalkLine, Talked};
-pub(crate) use suggesting::{reads_shown, suggestion_items, SKIP};
+pub use suggesting::{reads_shown, suggestion_items, SKIP};
 
 /// How long a Job's first write waits for the ruling on its start.
 pub const FIRST_WRITE_WAIT: Duration = Duration::from_secs(20);
@@ -466,7 +466,7 @@ impl Operator {
     /// `ruling` done: as it came back with its role On, or on the person's press on a suggestion.
     /// The arrival's Job is the one that has done less: a start has written nothing, since its
     /// first write waits on this ruling, and a plan is recorded before its building.
-    pub(crate) fn acted(&self, arrival: &Arrival, ruling: &Ruling) {
+    pub fn acted(&self, arrival: &Arrival, ruling: &Ruling) {
         let session = arrival.session_id.as_str();
         if arrival.arrived.is_sourced() {
             self.acting.sourced(arrival, ruling);

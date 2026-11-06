@@ -32,7 +32,7 @@ impl Fleet
     /// The pull requests live Jobs in `manifest_id` hold that no end state has taken, for the pull
     /// reading to go on asking about. **A ledger row settled says nothing of them**: the mod's own
     /// `gh pr view` or a press here settles it, and neither moves the instance.
-    pub(crate) async fn lifecycle_pulls_in_flight(&self, manifest_id: &str) -> Vec<u64> {
+    pub async fn lifecycle_pulls_in_flight(&self, manifest_id: &str) -> Vec<u64> {
         let store = self.store().lock().await;
         let Ok(holders) = store.live_lifecycle_holders(PULL_REQUEST) else { return Vec::new() };
         holders
@@ -47,7 +47,7 @@ impl Fleet
     /// A pull request as the pull ledger just read it. **The forge is asked once more, for its
     /// reviewers and reviews, and only for an open pull request some Job holds**: draft, merged and
     /// closed are in what was read, and a forge that stays silent leaves the instance as it was.
-    pub(crate) async fn lifecycle_pull_seen(&self, manifest_id: &ManifestId, root: &str, state: &PullRequestState) {
+    pub async fn lifecycle_pull_seen(&self, manifest_id: &ManifestId, root: &str, state: &PullRequestState) {
         let number = state.number.to_string();
         let holders = self.lifecycle_holders_of(PULL_REQUEST, manifest_id.as_str(), &number).await;
         if holders.is_empty() {
@@ -73,7 +73,7 @@ impl Fleet
     }
 
     /// An issue as the issue ledger just read it, handed to every live Job that holds it.
-    pub(crate) async fn lifecycle_ticket_seen(&self, manifest_id: &ManifestId, issue: &str, read: &ReadIssue) {
+    pub async fn lifecycle_ticket_seen(&self, manifest_id: &ManifestId, issue: &str, read: &ReadIssue) {
         let word = tracker_word(read);
         for job in self.lifecycle_holders_of(TICKET, manifest_id.as_str(), issue).await {
             self.lifecycle_seen(&job, TICKET, issue, Observed::Tracker(&word)).await;
@@ -81,7 +81,7 @@ impl Fleet
     }
 
     /// A reading a watch just kept, handed to what the watch follows.
-    pub(crate) async fn lifecycle_watch_seen(&self, watch: &str, state: ReadingState) {
+    pub async fn lifecycle_watch_seen(&self, watch: &str, state: ReadingState) {
         let Ok(followed) = self.store().lock().await.lifecycle_instances_followed_by(watch) else { return };
         for one in followed {
             self.lifecycle_seen(&one.session_id, &one.lifecycle, &one.key, Observed::Watch(state)).await;

@@ -8,7 +8,7 @@
 use ipc::{CommandsFile, PaletteCommand};
 
 /// The most `commands.toml` may weigh.
-pub(crate) const MOST_BYTES: u64 = 16 * 1024;
+pub const MOST_BYTES: u64 = 16 * 1024;
 
 /// Keys that are a word and not a character, spelled as the registry spells them.
 const NAMED_KEYS: [&str; 14] = [
@@ -59,7 +59,7 @@ fn text_of(one: &PaletteCommand) -> Option<&str> {
 }
 
 /// `text` read, with each row's blanks filled in, or the problem with where it stopped.
-pub(crate) fn read(text: &str) -> Result<CommandsFile, String> {
+pub fn read(text: &str) -> Result<CommandsFile, String> {
     let mut file: CommandsFile =
         toml::from_str(text).map_err(|why| crate::mods::toml_problem("commands.toml", text, &why))?;
     for one in &mut file.command {
@@ -141,7 +141,7 @@ fn blanks_line(text: &str, open: usize, close: usize) -> Option<usize> {
 }
 
 /// Every problem in `text`, empty where Bridge may act on it. Each names its row and the line it opens on.
-pub(crate) fn problems(text: &str, mod_name: &str) -> Vec<String> {
+pub fn problems(text: &str, mod_name: &str) -> Vec<String> {
     let file = match read(text) {
         Ok(file) => file,
         Err(why) => return vec![why],

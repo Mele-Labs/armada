@@ -240,7 +240,7 @@ impl Fleet
     }
 
     /// The proposer's client, budget, model and environment.
-    pub(crate) fn asking(&self) -> Result<Asking, adapter_traits::SpawnConfigRefused> {
+    pub fn asking(&self) -> Result<Asking, adapter_traits::SpawnConfigRefused> {
         let proposing = self.proposing()?;
         Ok(Asking {
             client: proposing.client,
@@ -265,7 +265,7 @@ impl Fleet
 
     /// Whether `manifest_id`'s Autopilot is running: the owner is away. **A paused or stopped one is
     /// not**, and a store that cannot say reads as not.
-    pub(crate) async fn autopilot_running(&self, manifest_id: &str) -> bool {
+    pub async fn autopilot_running(&self, manifest_id: &str) -> bool {
         let kept = self.store().lock().await.autopilot(manifest_id);
         matches!(kept, Ok(Some(kept)) if State::from_stored(&kept.state) == Some(State::Running))
     }
@@ -330,7 +330,7 @@ impl Fleet
     }
 
     /// Publish this repository's Autopilot as it stands now, if it moved since last told.
-    pub(crate) async fn autopilot_told(&self, manifest_id: &ipc::ManifestId) {
+    pub async fn autopilot_told(&self, manifest_id: &ipc::ManifestId) {
         let kept = self.store().lock().await.autopilot(manifest_id.as_str());
         if let Ok(Some(kept)) = kept {
             if let Ok(gathered) = self.autopilot_gathered(kept).await {
@@ -340,7 +340,7 @@ impl Fleet
     }
 
     /// The wire's Autopilot, with why the last pass picked nothing where one did.
-    pub(crate) fn autopilot_wire(&self, gathered: &Gathered) -> ipc::Autopilot {
+    pub fn autopilot_wire(&self, gathered: &Gathered) -> ipc::Autopilot {
         let mut now = gathered.wire();
         now.fault = self.tracking().autopilot.fault(&gathered.kept.manifest_id);
         now

@@ -25,31 +25,31 @@ use crate::daemon::Fleet;
 use crate::asks::NotAnswerable;
 use crate::repositories::Served;
 
-mod batching;
-mod conditions;
-mod living;
-mod sending;
-mod starting;
-mod telling;
+pub mod batching;
+pub mod conditions;
+pub mod living;
+pub mod sending;
+pub mod starting;
+pub mod telling;
 
-pub(crate) use batching::NoticeBatches;
+pub use batching::NoticeBatches;
 
 /// A session id that names nothing. A 422.
-pub(crate) const NO_SUCH_SESSION: &str = "fleet.no_such_session";
+pub const NO_SUCH_SESSION: &str = "fleet.no_such_session";
 /// A message or a tune to a session that was closed. A 409.
 const SESSION_CLOSED: &str = "fleet.session_closed";
 /// The ledger rows that say a session holds a slot in the pool.
-pub(super) const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
+pub const SLOT_KINDS: [&str; 2] = ["slot", "branch"];
 /// A command that is not one slash command, or a session that is not a terminal one. A 422.
-pub(super) const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
+pub const SESSION_COMMAND_REFUSED: &str = "fleet.session_command_refused";
 /// A message with neither words nor a file. A 422.
-pub(crate) const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
+pub const MESSAGE_EMPTY: &str = "fleet.session_message_empty";
 /// A reattached session the keeper called busy, and that then says nothing for
 /// this long, missed its turn's end: it goes to Idle.
 const REATTACH_QUIET: Duration = Duration::from_secs(120);
 
 /// The agent's process would not start. A 500.
-pub(crate) const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
+pub const SESSION_UNSTARTED: &str = "fleet.session_unstarted";
 /// An answer naming no ask that is waiting. A 409.
 const SESSION_ASK_NOT_WAITING: &str = "fleet.session_ask_not_waiting";
 
@@ -61,10 +61,10 @@ const SESSION_ANSWER_NOT_A_FOLDER: &str = "fleet.session_answer_not_a_folder";
 const SESSION_ANSWER_NOT_ITS_KIND: &str = "fleet.session_answer_not_its_kind";
 /// How Fleet signs a word it sends a session: a named voice beside the sessions that write to
 /// one, so no new kind of row reaches Bridge.
-pub(crate) const FLEET_NAME: &str = "Fleet";
+pub const FLEET_NAME: &str = "Fleet";
 
 /// How a run ended, as a hosted thread keeps it in a `ran` row.
-pub(crate) struct RunEnd {
+pub struct RunEnd {
     pub command: String,
     /// `None` where the run was stopped or a signal ended it.
     pub code: Option<i32>,
@@ -85,7 +85,7 @@ enum Written {
 /// What Fleet marks a hosted session as at its start. **No `start_session` call can**: the mark is
 /// Fleet's to give.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Marked {
+pub enum Marked {
     Plain,
     /// A Mod Job, started by `start_mod_session`.
     Mod,
@@ -94,7 +94,7 @@ pub(crate) enum Marked {
     ModsFolder,
 }
 
-pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
+pub fn mode_text(mode: SessionMode) -> &'static str {
     match mode {
         SessionMode::Ask => "ask",
         SessionMode::Auto => "auto",
@@ -103,7 +103,7 @@ pub(crate) fn mode_text(mode: SessionMode) -> &'static str {
     }
 }
 
-pub(crate) fn mode_of(text: &str) -> SessionMode {
+pub fn mode_of(text: &str) -> SessionMode {
     match text {
         "ask" => SessionMode::Ask,
         "accept_edits" => SessionMode::AcceptEdits,
@@ -113,7 +113,7 @@ pub(crate) fn mode_of(text: &str) -> SessionMode {
 }
 
 /// The first line of a message, as the title of a session that has none.
-pub(super) fn title_of(text: &str) -> Option<String> {
+pub fn title_of(text: &str) -> Option<String> {
     let line = text.lines().map(str::trim).find(|line| !line.is_empty())?;
     Some(line.chars().take(60).collect())
 }

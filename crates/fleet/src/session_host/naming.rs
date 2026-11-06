@@ -24,7 +24,7 @@ const SESSION_NOT_NAMED: &str = "fleet.session_not_named";
 
 impl Fleet
 {
-    pub(crate) async fn named_by_armada(&self, name: NameSession) -> Result<SessionRecord, Refusal> {
+    pub async fn named_by_armada(&self, name: NameSession) -> Result<SessionRecord, Refusal> {
         let id = name.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -77,7 +77,7 @@ impl Fleet
 
     /// One call for the title alone, of a Job holding a stand-in: after its reading failed, or a
     /// fork an agent titled. The answer lands only over the stand-in, and a failure leaves it.
-    pub(crate) async fn title_tried_again(self: Arc<Self>, id: String, request: String, hint: Option<String>) {
+    pub async fn title_tried_again(self: Arc<Self>, id: String, request: String, hint: Option<String>) {
         match self.title_answered(&id, &request, hint.as_deref()).await {
             Ok(title) => self.stand_in_named(&id, title).await,
             Err(why) => eprintln!("job {id}: the title was not read, so the job keeps its title: {why}"),
@@ -118,7 +118,7 @@ impl Fleet
 
     /// A fork an agent titled is named once, when Start sends its first turn, from that turn's words.
     /// A fork has no reading to do it, and its agent's call returns before anything could.
-    pub(crate) fn fork_named(self: &Arc<Self>, id: &str, first: &str) {
+    pub fn fork_named(self: &Arc<Self>, id: &str, first: &str) {
         let hint = {
             let runtime = self.hosts().of(id);
             let mut state = runtime.state();

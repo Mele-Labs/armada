@@ -2,7 +2,7 @@
 
 /// A path as the repository names it. The harness may spell it absolute or from the home
 /// directory.
-pub(crate) fn repository_relative(path: &str, worktree: &str, home: &str) -> String {
+pub fn repository_relative(path: &str, worktree: &str, home: &str) -> String {
     let whole = match path.strip_prefix("~/") {
         Some(rest) => format!("{}/{rest}", home.trim_end_matches('/')),
         None => path.to_string(),

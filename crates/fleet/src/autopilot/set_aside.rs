@@ -17,7 +17,7 @@ use crate::daemon::Fleet;
 impl Fleet
 {
     /// Start each set-aside pick of this run the helper is sure of. Answers how many it started.
-    pub(super) async fn set_asides_started(self: &Arc<Self>, helping: &mut Helping) -> usize {
+    pub async fn set_asides_started(self: &Arc<Self>, helping: &mut Helping) -> usize {
         if !helping.kinds.contains(&AutopilotDecision::Unsure) {
             return 0;
         }

@@ -22,7 +22,7 @@ const CHECKS_FAILED: &str = "checks_failed";
 
 /// What a read of a Job's row found it gone quiet with.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Seen {
+pub enum Seen {
     /// Marked Stopped at `at`, with the tasks its own list still holds open.
     Stopped { at: String, tasks: Vec<String> },
     /// At rest on an open pull request whose required checks failed.
@@ -32,7 +32,7 @@ pub(crate) enum Seen {
 /// What `record` says of a Job gone quiet. `at_rest` is the ledger's read that it is live, between
 /// turns with nothing asked, and not parked. A dead process is not one: Fleet starts a
 /// repair Job for it.
-pub(crate) fn seen_of(record: &ipc::SessionRecord, at_rest: bool) -> Option<Seen> {
+pub fn seen_of(record: &ipc::SessionRecord, at_rest: bool) -> Option<Seen> {
     // Work still running is not quiet: a subagent or a task may yet fix what it left.
     if !record.running.is_empty() {
         return None;
@@ -58,14 +58,14 @@ pub(crate) fn seen_of(record: &ipc::SessionRecord, at_rest: bool) -> Option<Seen
 
 /// The stalls the last read of each row found, and those a call is out on.
 #[derive(Default)]
-pub(crate) struct Stalls {
+pub struct Stalls {
     seen: Mutex<BTreeMap<String, Seen>>,
     out: Arc<Mutex<BTreeSet<String>>>,
 }
 
 impl Seat {
     /// What a read of `session`'s row found. `None` is a Job not gone quiet.
-    pub(crate) fn stall_noted(&self, session: &str, seen: Option<Seen>) {
+    pub fn stall_noted(&self, session: &str, seen: Option<Seen>) {
         let mut held_now = held(&self.stalls.seen);
         match seen {
             Some(seen) => held_now.insert(session.to_string(), seen),
@@ -151,7 +151,7 @@ impl Fleet
 
     /// What is left of a Job gone quiet starts as a Job of its own, nested under it and briefed
     /// with what Fleet saw. **The quiet Job is left to the person**: its branch may hold work.
-    pub(super) async fn operator_started_rest(self: &Arc<Self>, id: &str, seen: &str) {
+    pub async fn operator_started_rest(self: &Arc<Self>, id: &str, seen: &str) {
         let Ok((session, hosting)) = self.session_and_hosting(id).await else { return };
         let title = session.title.clone().unwrap_or_else(|| id.to_string());
         let made = self
@@ -193,7 +193,7 @@ impl Fleet
     }
 
     /// A Job gone quiet goes on his Needs you list with the Operator's read.
-    pub(super) async fn operator_raised(&self, id: &str, read: &str) {
+    pub async fn operator_raised(&self, id: &str, read: &str) {
         let text = format!("The Operator raised this Job: {read}");
         self.fleet_note(id, text.clone()).await;
         self.call_raised(id, Notice::Operator, &text).await;

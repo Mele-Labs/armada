@@ -19,23 +19,23 @@ use crate::daemon::Fleet;
 
 /// How long a stop stands before Fleet says anything, and how long a nudge has to start a turn. A
 /// minute, and nothing measured it; the week's read after landing does.
-pub(crate) const STOP_AFTER: Duration = Duration::from_secs(60);
+pub const STOP_AFTER: Duration = Duration::from_secs(60);
 
 /// How often every live Job is read again, for an excuse that lapsed with nothing published.
-pub(crate) const SWEEP: Duration = Duration::from_secs(5 * 60);
+pub const SWEEP: Duration = Duration::from_secs(5 * 60);
 
 /// How often Fleet writes that it is up, and how long past that it was away rather than busy.
-pub(crate) const BEAT: Duration = Duration::from_secs(15);
-pub(crate) const OUTAGE_SECONDS: i64 = 90;
+pub const BEAT: Duration = Duration::from_secs(15);
+pub const OUTAGE_SECONDS: i64 = 90;
 
 /// The word to a Job stopped with no step of its own to finish.
-pub(crate) const NUDGE: &str = "Fleet: your turn ended with nothing running and nothing asked. Carry on now. If you wait on the person, \
+pub const NUDGE: &str = "Fleet: your turn ended with nothing running and nothing asked. Carry on now. If you wait on the person, \
      name it with waiting_for. If nothing is left, call all_done. A second stop like this one calls the \
      person and marks this Job Stopped.";
 
 /// Where a Job with no excuse stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Read {
+pub enum Read {
     /// Nothing to say: passed over, or the nudge has not had its time.
     Quiet,
     /// It has not been told about this stop.
@@ -51,7 +51,7 @@ fn millis(at: &str) -> Option<i64> {
 /// Where a Job stands whose turn ended at `stop` and that nothing excuses. **One nudge per stop**: the
 /// stop after a nudge goes to Stopped, so a Job can never loop with Fleet, unless the person has written
 /// since or something else woke it, which clears what was told.
-pub(crate) fn read(stop: &str, kept: &KeptStop, spoke: Option<&str>, now: i64) -> Read {
+pub fn read(stop: &str, kept: &KeptStop, spoke: Option<&str>, now: i64) -> Read {
     if kept.passed_over.as_deref() == Some(stop) {
         return Read::Quiet;
     }
@@ -72,7 +72,7 @@ pub(crate) fn read(stop: &str, kept: &KeptStop, spoke: Option<&str>, now: i64) -
 
 /// What the row says of a Job that stopped with its agent alive: why, and that only he moves it now,
 /// since a repair Job would have nothing to fix.
-pub(crate) fn stopped(stop: &str, record: &ipc::SessionRecord) -> ipc::SessionStopped {
+pub fn stopped(stop: &str, record: &ipc::SessionRecord) -> ipc::SessionStopped {
     let tasks: Vec<String> = record
         .activity
         .iter()
@@ -93,16 +93,16 @@ pub(crate) fn stopped(stop: &str, record: &ipc::SessionRecord) -> ipc::SessionSt
 }
 
 /// What Fleet's note in the thread begins with when a process ends.
-pub(crate) const PROCESS_ENDED: &str = "The job's process ended";
+pub const PROCESS_ENDED: &str = "The job's process ended";
 
 /// Its process died with the turn open and Fleet's one restart did not bring it back.
-pub(crate) fn restart_spent(turn: &store::KeptOpenTurn) -> bool {
+pub fn restart_spent(turn: &store::KeptOpenTurn) -> bool {
     turn.ended_at.is_some() && turn.started_again >= 1
 }
 
 /// What the row says of a Job dead with its restart spent: a repair Job is at it, or Fleet has run out.
 /// `away` is the outages its open turn overlapped. A repair Job gets no repair of its own.
-pub(crate) fn dead(
+pub fn dead(
     turn: &store::KeptOpenTurn,
     kept: &KeptStop,
     repair_over: bool,
@@ -130,11 +130,11 @@ pub(crate) fn dead(
 /// The Jobs whose stop is owed a word, by when it ended and the last thing that could have moved it, so
 /// the tick reads no Job it has nothing to say to.
 #[derive(Default)]
-pub(crate) struct Owed(std::sync::Mutex<HashMap<String, (String, i64)>>);
+pub struct Owed(std::sync::Mutex<HashMap<String, (String, i64)>>);
 
 impl Owed {
     /// What a read of the Job found. `None` is nothing owed.
-    pub(crate) fn noted(&self, session: &str, owed: Option<(&str, i64)>) {
+    pub fn noted(&self, session: &str, owed: Option<(&str, i64)>) {
         let mut held = self.0.lock().expect("held across no panic");
         match owed {
             Some((stop, from)) => {
@@ -147,12 +147,12 @@ impl Owed {
     }
 
     /// The Jobs whose minute is up.
-    pub(crate) fn ripe(&self, now: i64) -> Vec<String> {
+    pub fn ripe(&self, now: i64) -> Vec<String> {
         let held = self.0.lock().expect("held across no panic");
         held.iter().filter(|(_, (_, from))| now - from >= STOP_AFTER.as_millis() as i64).map(|(id, _)| id.clone()).collect()
     }
 
-    pub(crate) fn stop_of(&self, session: &str) -> Option<String> {
+    pub fn stop_of(&self, session: &str) -> Option<String> {
         self.0.lock().expect("held across no panic").get(session).map(|(stop, _)| stop.clone())
     }
 }
@@ -161,7 +161,7 @@ impl Fleet
 {
     /// Every live Job read again, at start and every [`SWEEP`], so a stop is noticed that no publish
     /// would say: one standing across a restart, or one whose excuse lapsed quietly.
-    pub(crate) async fn stops_swept(self: &Arc<Self>) {
+    pub async fn stops_swept(self: &Arc<Self>) {
         let live = self.store().lock().await.live_session_ids().unwrap_or_default();
         for id in live {
             let _ = self.stop_read_again(&id).await;

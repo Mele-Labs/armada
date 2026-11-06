@@ -32,7 +32,7 @@ impl Fleet
 {
     /// One thing a process said. `generation` is the process's own: what a
     /// process let go says afterwards is not the session's.
-    pub(crate) async fn heard(self: &Arc<Self>, id: &str, generation: u64, said: Heard) {
+    pub async fn heard(self: &Arc<Self>, id: &str, generation: u64, said: Heard) {
         let runtime = self.hosts().of(id);
         if runtime.state().generation != generation {
             return;
@@ -172,7 +172,7 @@ impl Fleet
 
     /// Start a replacement for a process that was gone before it took these
     /// lines, which resumes the conversation, and write them to it.
-    pub(crate) async fn send_again(
+    pub async fn send_again(
         self: &Arc<Self>,
         id: &str,
         runtime: &Arc<Runtime>,
@@ -527,7 +527,7 @@ impl Fleet
     /// session with the slot as its directory, then tell it where it is.
     /// **What was written to the old process and not started goes to the new one after**, as Fleet's
     /// notices told while the write was held: `let_go` clears them with the process.
-    pub(super) async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
+    pub async fn moved_into(self: &Arc<Self>, id: &str, moving: Move) {
         let runtime = self.hosts().of(id);
         let unstarted = {
             let mut state = runtime.state();
@@ -663,6 +663,6 @@ impl Fleet
 }
 
 /// What the agent reads of another Job's message.
-pub(crate) fn from_job(from: &str, title: &str, message: &str) -> String {
+pub fn from_job(from: &str, title: &str, message: &str) -> String {
     format!("A message from job \"{title}\" (address {}): {message}", address_of(from))
 }

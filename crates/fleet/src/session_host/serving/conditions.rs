@@ -20,7 +20,7 @@ impl Fleet
 {
     /// What `rule` does with the notice now: the first of its `when` that holds replaces its own
     /// `does`. Conditions are asked in order and no further than the first that holds.
-    pub(super) async fn does_now(&self, rule: &ipc::FleetRule, session: &str, manifest: &str) -> ipc::Does {
+    pub async fn does_now(&self, rule: &ipc::FleetRule, session: &str, manifest: &str) -> ipc::Does {
         for instead in &rule.when {
             if self.condition_holds(instead.condition, session, manifest).await {
                 return instead.does;

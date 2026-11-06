@@ -27,7 +27,7 @@ impl Fleet
     /// Whether the Job has a subagent or a background task working, which ending its process takes
     /// down. The turn is over, so this is work the agent left running. With no process there is
     /// nothing to take down, whatever its rows still say.
-    pub(super) async fn work_beyond_the_turn(&self, id: &str) -> bool {
+    pub async fn work_beyond_the_turn(&self, id: &str) -> bool {
         let held = self.store().lock().await.attachments_of(&Holder::session(id)).unwrap_or_default();
         !self.running_of(id, &held).is_empty()
     }
@@ -36,7 +36,7 @@ impl Fleet
     /// kind, what it is and since when. **The one read of what is running**, so `work_beyond_the_turn`
     /// and what the listings and the Operator say of a Job are the same rule. Takes the attachments
     /// rather than the store, so a caller holding the store's lock reads it too.
-    pub(crate) fn running_of(&self, id: &str, held: &[KeptAttachment]) -> Vec<ipc::RunningWork> {
+    pub fn running_of(&self, id: &str, held: &[KeptAttachment]) -> Vec<ipc::RunningWork> {
         if self.hosts().of(id).state().process.is_none() {
             return Vec::new();
         }
@@ -69,7 +69,7 @@ impl Fleet
     /// sweep's timer, and by a test**, which would not wait for one. A turn's end makes the move
     /// itself, so this is for agents that end with no turn after them. **Boxed**, as
     /// `processes_moved_onto_mod` is: the move starts a process, whose start spawns the timer.
-    pub(crate) fn held_moves_made(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
+    pub fn held_moves_made(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> {
         let fleet = Arc::clone(self);
         Box::pin(async move {
             for (id, runtime) in fleet.hosts().all() {
@@ -92,7 +92,7 @@ impl Fleet
     /// The subagents the session's last process had not finished, one line each. **Called
     /// where a new process starts for a session that has run**, so nothing it names can still be
     /// working. Their ledger rows are given back: they were let go before they were used.
-    pub(crate) async fn cut_off_subagents(&self, id: &str) -> Vec<String> {
+    pub async fn cut_off_subagents(&self, id: &str) -> Vec<String> {
         let holder = Holder::session(id);
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
@@ -119,12 +119,12 @@ impl Fleet
 }
 
 /// What the retro keeps of a restart that cut subagents off.
-pub(super) fn cut_off_said(cut: &[String]) -> Option<String> {
+pub fn cut_off_said(cut: &[String]) -> Option<String> {
     (!cut.is_empty()).then(|| format!("cut off: {}", cut.join("; ")))
 }
 
 /// `turn`, with what the last restart cut off ahead of it, once.
-pub(super) fn told(state: &mut State, turn: String) -> String {
+pub fn told(state: &mut State, turn: String) -> String {
     if state.cut_off.is_empty() {
         return turn;
     }

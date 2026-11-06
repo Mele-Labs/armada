@@ -4,7 +4,7 @@ use super::*;
 
 /// `git`, by its subcommand. **Reading history is not writing it**: `log`,
 /// `status`, `diff`, `show` and `worktree list` run.
-pub(super) fn git(arguments: &[&str], slot: Option<Slot>, own: Own) -> Option<Because> {
+pub fn git(arguments: &[&str], slot: Option<Slot>, own: Own) -> Option<Because> {
     // `-C <path>` and `-c <key=value>` carry a value, which is not the verb.
     let mut words = arguments.iter();
     let subcommand = loop {
@@ -95,7 +95,7 @@ pub(super) fn git(arguments: &[&str], slot: Option<Slot>, own: Own) -> Option<Be
 
 /// `kill` naming only processes the session started. **A signal first, then pids and nothing
 /// else**: a negative pid is a process group, and `kill -9 -1` is every process the user owns.
-pub(super) fn kills_only_its_own(arguments: &[&str], own: Own) -> bool {
+pub fn kills_only_its_own(arguments: &[&str], own: Own) -> bool {
     let mut words = arguments.iter().copied();
     let mut pids = Vec::new();
     let mut first = true;
@@ -120,7 +120,7 @@ pub(super) fn kills_only_its_own(arguments: &[&str], own: Own) -> bool {
 
 /// `git branch -d` or `-D` naming only branches of the session's own that the base holds. **No
 /// other flag**: `-r` is a remote's branch and `-m` a rename.
-pub(super) fn deletes_only_its_own(arguments: &[&str], own: Own) -> bool {
+pub fn deletes_only_its_own(arguments: &[&str], own: Own) -> bool {
     let mut words = arguments.iter().copied().skip_while(|word| *word != "branch").skip(1);
     let mut deleting = false;
     let mut named = Vec::new();
@@ -134,7 +134,7 @@ pub(super) fn deletes_only_its_own(arguments: &[&str], own: Own) -> bool {
     deleting && !named.is_empty() && named.into_iter().all(|branch| own.merged(branch))
 }
 
-pub(super) fn takes_something_away(word: &str) -> bool {
+pub fn takes_something_away(word: &str) -> bool {
     matches!(
         word,
         "-D" | "-d" | "--delete" | "-f" | "--force" | "remove" | "prune" | "rm"
@@ -144,7 +144,7 @@ pub(super) fn takes_something_away(word: &str) -> bool {
 /// The code host's own CLI, by its subcommand pair. **A read of somebody
 /// else's repository is still a read**: `view`, `list`, `diff`, `status` and
 /// `checks` run.
-pub(super) fn forge(arguments: &[&str]) -> Option<Because> {
+pub fn forge(arguments: &[&str]) -> Option<Because> {
     let words: Vec<&str> = arguments
         .iter()
         .copied()
@@ -176,7 +176,7 @@ pub(super) fn forge(arguments: &[&str]) -> Option<Because> {
 
 /// `curl` and its kin. **A GET is a read.** Anything carrying a body, or naming
 /// a method other than GET or HEAD, writes to somebody else's machine.
-pub(super) fn fetching(arguments: &[&str]) -> Option<Because> {
+pub fn fetching(arguments: &[&str]) -> Option<Because> {
     let mut words = arguments.iter().copied().peekable();
     while let Some(word) = words.next() {
         let writes = match word {
@@ -203,7 +203,7 @@ pub(super) fn fetching(arguments: &[&str]) -> Option<Because> {
 /// A package manager sending a build where other people install from.
 /// **`publish` and nothing else** — `cargo build` and `pnpm test` are the
 /// ordinary case, which is why this reads the subcommand and not the program.
-pub(super) fn publishing(program: &str, arguments: &[&str]) -> bool {
+pub fn publishing(program: &str, arguments: &[&str]) -> bool {
     const MANAGERS: &[&str] = &[
         "cargo", "npm", "pnpm", "yarn", "gem", "pip", "pip3", "twine",
     ];

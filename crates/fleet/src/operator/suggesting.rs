@@ -27,12 +27,12 @@ const SUGGESTION_UNKNOWN: &str = "fleet.operator_suggestion_unknown";
 const SUGGESTION: &str = "suggestion:";
 
 /// Choice 0 does what On would have.
-pub(crate) const DO_IT: u32 = 0;
+pub const DO_IT: u32 = 0;
 /// Choice 1 leaves it.
-pub(crate) const SKIP: u32 = 1;
+pub const SKIP: u32 = 1;
 
 /// The rows of a Job's Needs you list for what it would do. An answer's shows on its question.
-pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = WaitingItem> + '_ {
+pub fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = WaitingItem> + '_ {
     kept.iter().filter(|one| one.item.is_none()).map(|one| {
         let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
         let id = format!("{SUGGESTION}{}", one.n);
@@ -55,7 +55,7 @@ pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = 
 }
 
 /// Each question the Operator would answer, with its read and its pick.
-pub(crate) fn reads_shown(items: &mut [WaitingItem], kept: &[KeptSuggestion]) {
+pub fn reads_shown(items: &mut [WaitingItem], kept: &[KeptSuggestion]) {
     for one in kept {
         let (Some(item), Some(pick)) = (&one.item, &one.pick) else { continue };
         if let Some(asked) = items.iter_mut().find(|asked| &asked.id == item) {
@@ -117,7 +117,7 @@ impl Fleet
 {
     /// `ruling` kept for one press, and the Job's list drawn again. The board is told too, which lists
     /// the ones no Job holds.
-    pub(super) async fn operator_suggested(&self, arrival: &Arrival, ruling: &Ruling) {
+    pub async fn operator_suggested(&self, arrival: &Arrival, ruling: &Ruling) {
         let raised_at = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
@@ -163,7 +163,7 @@ impl Fleet
     /// `answer_waiting` on a suggestion's row. **Settled in the store first**, so a second press finds
     /// it settled: the first one wins and the other is a 409. Do it is the person's, so it goes
     /// whatever the role stands at by now, and the Log keeps it signed by him.
-    pub(crate) async fn suggestion_chosen(self: &Arc<Self>, session: &str, item: &str, choice: Option<u32>) -> Result<SessionRecord, Refusal> {
+    pub async fn suggestion_chosen(self: &Arc<Self>, session: &str, item: &str, choice: Option<u32>) -> Result<SessionRecord, Refusal> {
         let go = self.suggestion_go(choice)?;
         let n = suggestion_number(item).ok_or_else(|| self.settled_already())?;
         self.suggestion_settled(session, n, go).await?;
@@ -173,7 +173,7 @@ impl Fleet
     /// `answer_waiting` with words and no choice on a suggestion's row. **The words are the person's to
     /// the Operator**, talk about this suggestion's arrival, as `talk_to_operator` takes it; the row
     /// stays standing and the Operator's reply lands in the conversation.
-    pub(crate) async fn suggestion_talked(self: &Arc<Self>, session: &str, item: &str, words: &str) -> Result<SessionRecord, Refusal> {
+    pub async fn suggestion_talked(self: &Arc<Self>, session: &str, item: &str, words: &str) -> Result<SessionRecord, Refusal> {
         let n = suggestion_number(item).ok_or_else(|| self.settled_already())?;
         let kept = self.store().lock().await.operator_suggestion(n).map_err(|why| self.ledger_fault(why))?.filter(|one| one.session_id == session);
         let kept = kept.ok_or_else(|| self.settled_already())?;
@@ -183,7 +183,7 @@ impl Fleet
 
     /// `answer_operator_suggestion`: one press on a suggestion no Job holds, which is the only kind it
     /// takes. **404** where `id` names none, a Job's own suggestion included; 409 where it is settled.
-    pub(crate) async fn suggestion_answered(self: &Arc<Self>, press: AnswerOperatorSuggestion) -> Result<OperatorBoard, Refusal> {
+    pub async fn suggestion_answered(self: &Arc<Self>, press: AnswerOperatorSuggestion) -> Result<OperatorBoard, Refusal> {
         let go = self.suggestion_go(Some(press.choice))?;
         let unknown = || {
             Refusal::NotFound(WireError::raised(SUGGESTION_UNKNOWN, format!("{} is not a suggestion waiting on a press", press.id), self.run_id()))

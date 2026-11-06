@@ -10,8 +10,8 @@
 //! A repository's own tiles are kept where its runs are: [`repository`]. A shell tile its team
 //! committed asks before it runs on this Mac: [`approving`].
 
-pub(crate) mod approving;
-pub(crate) mod repository;
+pub mod approving;
+pub mod repository;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -36,7 +36,7 @@ static WRITING: Mutex<()> = Mutex::new(());
 
 /// The rules a file keeps, the first broken one named by its field. A hand-edited file is held to
 /// them as a save is, so what is read is what could have been saved.
-pub(crate) fn check(controls: &FlightControls) -> Result<(), String> {
+pub fn check(controls: &FlightControls) -> Result<(), String> {
     if controls.version != FLIGHT_CONTROLS_VERSION {
         return Err(format!(
             "version is {}, and this Fleet reads {FLIGHT_CONTROLS_VERSION}",
@@ -84,14 +84,14 @@ fn check_list(list: &str, tiles: &[FlightControl]) -> Result<(), String> {
 }
 
 /// What the file's text comes to.
-pub(crate) fn parse(text: &str) -> Result<FlightControls, String> {
+pub fn parse(text: &str) -> Result<FlightControls, String> {
     let controls: FlightControls = toml::from_str(text).map_err(|why| why.to_string())?;
     check(&controls)?;
     Ok(controls)
 }
 
 /// The file at `path` as it is now, by `parse`. An absent file is Armada's own.
-pub(crate) async fn read_at(path: &Path, parse: fn(&str) -> Result<FlightControls, String>) -> FlightControlsRead {
+pub async fn read_at(path: &Path, parse: fn(&str) -> Result<FlightControls, String>) -> FlightControlsRead {
     match tokio::fs::read_to_string(path).await {
         Ok(text) => match parse(&text) {
             Ok(controls) => FlightControlsRead::Read { controls },
@@ -123,12 +123,12 @@ impl Fleet
     }
 
     /// `get_flight_controls`: the file as it is now.
-    pub(crate) async fn flight_controls_read(&self) -> FlightControlsRead {
+    pub async fn flight_controls_read(&self) -> FlightControlsRead {
         read_at(&self.flight_controls_path(), parse).await
     }
 
     /// `save_flight_controls`: check, write whole, and answer with the file read again.
-    pub(crate) async fn flight_controls_saved(
+    pub async fn flight_controls_saved(
         &self,
         controls: FlightControls,
     ) -> Result<FlightControlsRead, Refusal> {
@@ -152,7 +152,7 @@ impl Fleet
     }
 
     /// Write `controls` whole at `path`, already checked.
-    pub(crate) async fn flight_controls_written(&self, path: &Path, controls: &FlightControls) -> Result<(), Refusal> {
+    pub async fn flight_controls_written(&self, path: &Path, controls: &FlightControls) -> Result<(), Refusal> {
         let named = path.display().to_string();
         let text = self.flight_controls_text(&named, controls)?;
         let target = path.to_path_buf();

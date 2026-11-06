@@ -45,7 +45,7 @@ impl Room {
     }
 
     /// A room in `places`, asking as `asking`.
-    pub(crate) fn sharing(
+    pub fn sharing(
         places: &Places,
         asking: Asking,
         machine: Arc<dyn Machine>,
@@ -70,13 +70,13 @@ impl Room {
     }
 
     /// Join the line for a place.
-    pub(crate) fn ask(&self) -> Ask {
+    pub fn ask(&self) -> Ask {
         self.places.ask(self.asking, 1)
     }
 
     /// The place `ask` waits for. `waiting` is told how many places are held
     /// each time it waits. **Safe to drop and call again.**
-    pub(crate) async fn granted(&self, ask: &mut Ask, waiting: impl FnMut(usize)) -> Place {
+    pub async fn granted(&self, ask: &mut Ask, waiting: impl FnMut(usize)) -> Place {
         ask.granted(&self.machine, self.headroom, waiting).await
     }
 

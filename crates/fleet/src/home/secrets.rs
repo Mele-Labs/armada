@@ -16,7 +16,7 @@ fn ends_address(c: char) -> bool {
 
 /// Why `text` may not leave this machine, naming the host and never the credential. `None` where
 /// it may.
-pub(crate) fn leak(text: &str) -> Option<String> {
+pub fn leak(text: &str) -> Option<String> {
     let mut rest = text;
     while let Some(at) = rest.find("://") {
         let after = &rest[at + 3..];

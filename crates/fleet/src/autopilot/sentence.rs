@@ -18,7 +18,7 @@ use crate::prompts::Prompts;
 
 /// The question, with `{sentence}`, `{now}` and `{local_now}` to fill. As it ships:
 /// `prompts.autopilotSentence` is the setting that overrides it.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 A person typed one sentence to set a repository working through its own backlog of issues \
 while they are away. Read it as settings. Answer only the block at the end.
 
@@ -204,7 +204,7 @@ fn quoted(answer: &str, key: &str, sentence: &str) -> Option<String> {
 }
 
 /// The value of the first `key:` line, trimmed, with surrounding backticks taken off.
-pub(crate) fn line(answer: &str, key: &str) -> Option<String> {
+pub fn line(answer: &str, key: &str) -> Option<String> {
     answer.lines().find_map(|line| {
         let (named, value) = line.trim().split_once(':')?;
         (named.trim().eq_ignore_ascii_case(key))
@@ -213,7 +213,7 @@ pub(crate) fn line(answer: &str, key: &str) -> Option<String> {
 }
 
 /// An RFC 3339 instant with `Z` or an offset, held in UTC. `None` where it has no zone.
-pub(crate) fn utc(said: &str) -> Option<Timestamp> {
+pub fn utc(said: &str) -> Option<Timestamp> {
     utc_millis(said).map(|millis| Timestamp::from_rfc3339(rfc3339_utc(millis)))
 }
 

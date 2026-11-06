@@ -13,22 +13,22 @@ use serde::Serialize;
 use crate::daemon::Fleet;
 
 /// A row that would not encode or a thread that would not read.
-pub(super) const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
+pub const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
 
 impl Fleet
 {
-    pub(crate) fn instant(&self) -> Instant {
+    pub fn instant(&self) -> Instant {
         Instant::from(&self.now())
     }
 
-    pub(crate) fn row_id(&self, session: &str) -> String {
+    pub fn row_id(&self, session: &str) -> String {
         self.hosts()
             .next_row(session, &self.now().as_str().replace([':', '-', '.'], ""))
     }
 
     /// Keep a row and publish it. **Best effort**: a thread that will not write
     /// costs the row its place in the record and not the person the turn.
-    pub(crate) async fn row_put(&self, session: &str, row: SessionRow) {
+    pub async fn row_put(&self, session: &str, row: SessionRow) {
         if let Ok(body) = ipc::encode(&row) {
             let _ = self
                 .store()
@@ -44,7 +44,7 @@ impl Fleet
 
     /// Fleet's own note in a session's thread, in Fleet's voice. **Never a `Tool` row**: Bridge
     /// names a tool row by its first word, and a note drawn that way read as a call named "the".
-    pub(crate) async fn fleet_note(&self, session: &str, text: String) {
+    pub async fn fleet_note(&self, session: &str, text: String) {
         self.row_put(
             session,
             SessionRow::Message {
@@ -67,7 +67,7 @@ impl Fleet
     /// A document the session wrote (`file`) or a picture it looked at
     /// (`image`) goes on its ledger as an artifact. The terminal mod tells the
     /// same fact from its own side; see `session.md`.
-    pub(crate) async fn artifact_made(&self, session: &str, path: String, form: &str) {
+    pub async fn artifact_made(&self, session: &str, path: String, form: &str) {
         let title = path.rsplit('/').next().unwrap_or(&path).to_string();
         let _ = self
             .report_session(SessionReport {
@@ -87,7 +87,7 @@ impl Fleet
     /// The thread, oldest first. **A row that will not read is left out**, as `waiting_from` leaves
     /// it: a Fleet a build behind the one that wrote the thread meets a kind it does not know, and
     /// failing the whole thread on it left a question he answered standing.
-    pub(crate) async fn rows_of(&self, session: &str) -> Result<Vec<SessionRow>, Refusal> {
+    pub async fn rows_of(&self, session: &str) -> Result<Vec<SessionRow>, Refusal> {
         let kept = self
             .store()
             .lock()
@@ -103,7 +103,7 @@ impl Fleet
 
 /// The line Fleet adds ahead of a message that names something. **Written for
 /// the agent**, and never shown on the thread, which keeps the person's words.
-pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<String> {
+pub fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<String> {
     if tags.is_empty() {
         return None;
     }
@@ -163,7 +163,7 @@ fn address_suffix(tag: &SessionTag) -> String {
 
 /// A file name as one path component: anything that is not a letter, a digit,
 /// `.`, `-` or `_` is written as `_`, so no name can leave its directory.
-pub(crate) fn safe_name(name: &str) -> String {
+pub fn safe_name(name: &str) -> String {
     let kept: String = name
         .chars()
         .map(|c| {
@@ -184,7 +184,7 @@ pub(crate) fn safe_name(name: &str) -> String {
 
 /// One line of the agent CLI's input: a person's turn.
 #[derive(Serialize)]
-pub(crate) struct UserLine {
+pub struct UserLine {
     #[serde(rename = "type")]
     kind: &'static str,
     message: UserMessage,
@@ -213,7 +213,7 @@ struct Source {
 
 impl UserLine {
     /// `text` and each picture as `(media type, base64)`.
-    pub(crate) fn of(text: String, pictures: Vec<(String, String)>) -> UserLine {
+    pub fn of(text: String, pictures: Vec<(String, String)>) -> UserLine {
         let mut content = vec![Block::Text { text }];
         content.extend(pictures.into_iter().map(|(media_type, data)| Block::Image {
             source: Source {
@@ -233,7 +233,7 @@ impl UserLine {
 }
 
 /// A uuid, as the agent CLI insists a session id be. **Random, version 4.**
-pub(crate) fn new_id() -> String {
+pub fn new_id() -> String {
     let mut bytes: [u8; 16] = rand::random();
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;

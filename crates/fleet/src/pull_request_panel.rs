@@ -98,7 +98,7 @@ fn comment_of(comment: &PullReviewComment) -> FactComment {
 }
 
 /// What the reviews have come to, in the wire's words.
-pub(crate) fn review_state(review: ReviewStanding) -> PullRequestReviewState {
+pub fn review_state(review: ReviewStanding) -> PullRequestReviewState {
     match review {
         ReviewStanding::Approved => PullRequestReviewState::Approved,
         ReviewStanding::ChangesRequested => PullRequestReviewState::ChangesRequested,

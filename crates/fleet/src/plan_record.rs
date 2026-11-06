@@ -22,11 +22,11 @@ use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask};
 const TEXT_AT_MOST: usize = 200;
 
 /// Words compared with case and spacing ignored, so a task the agent retyped is the same task.
-pub(crate) fn norm(text: &str) -> String {
+pub fn norm(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
 }
 
-pub(crate) fn cut_norm(text: &str) -> String {
+pub fn cut_norm(text: &str) -> String {
     norm(&text.trim().chars().take(TEXT_AT_MOST).collect::<String>())
 }
 
@@ -36,7 +36,7 @@ pub(crate) fn cut_norm(text: &str) -> String {
 /// its text**; the rest are new and take the next `g<n>` or `t<n>`. An id the agent made up that the
 /// version before never held is not an id: the text decides. What differs is kept on the version.
 /// A new version is pending, whatever the one before was.
-pub(crate) fn recorded(
+pub fn recorded(
     before: Option<&KeptPlan>,
     groups: &[PlanGroupInput],
     sketch: Option<(String, String)>,
@@ -226,7 +226,7 @@ enum Pass {
 /// say which of several began last. A task no item matches keeps what it had. An item that says
 /// completed always takes down Fleet's in-progress mark, even where the list said so before. Whether
 /// the plan moved.
-pub(crate) fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> bool {
+pub fn listed(plan: &mut KeptPlan, list: &[ReportedTask], now: &str) -> bool {
     let recorded = plan.recorded_at.clone();
     let mut moved = false;
     let items: Vec<String> = list.iter().map(|item| cut_norm(&item.text)).collect();
@@ -284,7 +284,7 @@ fn claims_of(plan: &KeptPlan, items: &[String]) -> Vec<Option<usize>> {
 /// Mark each item of the agent's list with the plan task `listed` takes it for, so Bridge draws that
 /// work once. Read off the same claims, never kept, so a re-recorded plan or a changed list is right
 /// at the next reading.
-pub(crate) fn mark_listed(plan: &KeptPlan, todos: &mut [SessionTodo]) {
+pub fn mark_listed(plan: &KeptPlan, todos: &mut [SessionTodo]) {
     let items: Vec<String> = todos.iter().map(|todo| cut_norm(&todo.text)).collect();
     let ids = plan.groups.iter().flat_map(|group| &group.tasks).map(|task| &task.id);
     for (id, claim) in ids.zip(claims_of(plan, &items)) {
@@ -295,7 +295,7 @@ pub(crate) fn mark_listed(plan: &KeptPlan, todos: &mut [SessionTodo]) {
 }
 
 /// The plan as the record carries it, with the pull requests it lands in bound.
-pub(crate) fn wire_read(plan: &KeptPlan, pulls: &[PlanPull]) -> SessionPlan {
+pub fn wire_read(plan: &KeptPlan, pulls: &[PlanPull]) -> SessionPlan {
     let mut wired = wire(plan);
     bind_lands_in(&mut wired, plan, pulls);
     wired
@@ -303,7 +303,7 @@ pub(crate) fn wire_read(plan: &KeptPlan, pulls: &[PlanPull]) -> SessionPlan {
 
 /// A pull request the plan may land in, as the ledger holds it. Oldest first where several are given.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct PlanPull {
+pub struct PlanPull {
     pub number: u64,
     pub title: String,
     pub state: PlanLandsInState,
@@ -318,7 +318,7 @@ pub(crate) struct PlanPull {
 /// In three passes, each binding only labels the pass before left bare, a later pull request replacing an
 /// earlier one within its pass: a group's own Job's, then those that followed a task of the plan, then
 /// those that followed none, each taking the first label in plan order nothing has bound.
-pub(crate) fn bind_lands_in(wired: &mut SessionPlan, plan: &KeptPlan, pulls: &[PlanPull]) {
+pub fn bind_lands_in(wired: &mut SessionPlan, plan: &KeptPlan, pulls: &[PlanPull]) {
     let labels: Vec<String> = wired.groups.iter().map(|group| group.lands_in.label.clone()).collect();
     let label_of_group = |id: &str| wired.groups.iter().find(|group| group.id == id).map(|group| group.lands_in.label.clone());
     let label_of_task = |task: &str| {
@@ -364,7 +364,7 @@ fn words(text: &str) -> Vec<&str> {
 /// task's words in a row inside the item's, or the item's inside the task's, come next, the closer in
 /// length the better; failing that, 0.6 of the longer line's words shared. Two words at least, so one
 /// word that two tasks share never says either.
-pub(crate) fn said(task: &str, item: &str) -> Option<f64> {
+pub fn said(task: &str, item: &str) -> Option<f64> {
     if task == item {
         return Some(3.0);
     }
@@ -410,7 +410,7 @@ fn under(paths: &[String], path: &str) -> bool {
 
 /// What an edit moved in the plan.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct Seen {
+pub struct Seen {
     /// Whether the edit lay under any group's paths, so the plan is kept again.
     pub moved: bool,
     /// A row would show it: a group worked for the first time, or a task that is now solid.
@@ -420,7 +420,7 @@ pub(crate) struct Seen {
 /// An edit of `path` (from the repository's root), seen now. Every group whose paths hold it is
 /// worked, and a task of it that is in progress has an edit seen. It marks no task. Changes `plan` as
 /// the store will.
-pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
+pub fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
     let mut seen = Seen::default();
     for group in plan.groups.iter_mut().filter(|group| under(&group.paths, path)) {
         seen.moved = true;
@@ -435,7 +435,7 @@ pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
 }
 
 /// What a task's state is: Fleet's mark where it set one, else what the agent's list last said.
-pub(crate) fn status(task: &KeptPlanTask) -> Option<&str> {
+pub fn status(task: &KeptPlanTask) -> Option<&str> {
     task.marked.as_deref().or(task.listed.as_deref())
 }
 
@@ -462,7 +462,7 @@ fn completed_by_fleet(plan: &mut KeptPlan, at: (usize, usize), why: String, now:
 /// A commit whose first line says a task not yet completed, as an item of the list says one
 /// (`said`): that task is completed on its proof. The best said wins, and the earlier task a tie.
 /// Whether a task moved.
-pub(crate) fn commit_named(plan: &mut KeptPlan, commit: &str, subject: &str, now: &str) -> bool {
+pub fn commit_named(plan: &mut KeptPlan, commit: &str, subject: &str, now: &str) -> bool {
     let subject = cut_norm(subject);
     let mut best: Option<(f64, (usize, usize))> = None;
     for (g, group) in plan.groups.iter().enumerate() {
@@ -483,7 +483,7 @@ pub(crate) fn commit_named(plan: &mut KeptPlan, commit: &str, subject: &str, now
 }
 
 /// A task's state and whether an edit was seen for it.
-pub(crate) fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
+pub fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
     match status(task) {
         Some("completed") if task.edited => (PlanTaskState::Done, true),
         Some("completed") => (PlanTaskState::HandedIn, false),
@@ -493,7 +493,7 @@ pub(crate) fn state_of(task: &KeptPlanTask) -> (PlanTaskState, bool) {
 }
 
 /// The plan as the record carries it.
-pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
+pub fn wire(plan: &KeptPlan) -> SessionPlan {
     let mut scope: Vec<String> = Vec::new();
     for path in plan.groups.iter().flat_map(|group| group.paths.iter()) {
         if !scope.contains(path) {

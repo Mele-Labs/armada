@@ -20,10 +20,10 @@ use super::reading::{fleet_fact, JobSeen};
 use super::taking_on::{holds, landed, opened_pull_request, started_by};
 use crate::daemon::Fleet;
 
-pub(super) const TICKET: &str = "ticket";
-pub(super) const PULL_REQUEST: &str = "pr";
-pub(super) const JOB: &str = "job";
-pub(super) const DEPLOY: &str = "deploy";
+pub const TICKET: &str = "ticket";
+pub const PULL_REQUEST: &str = "pr";
+pub const JOB: &str = "job";
+pub const DEPLOY: &str = "deploy";
 
 /// What of a row decides whether anything a Job holds moved.
 type Row = (String, String, AttachmentState, String, String);
@@ -94,7 +94,7 @@ pub fn keep_the_lifecycles(fleet: Arc<Fleet>) -> JoinHandle<()>
 impl Fleet
 {
     /// What a Job's row says it holds now: instances taken on, and a Job it started read.
-    pub(crate) async fn lifecycles_moved(self: &Arc<Self>, record: SessionRecord) {
+    pub async fn lifecycles_moved(self: &Arc<Self>, record: SessionRecord) {
         let id = record.id.as_str().to_string();
         if self.store().lock().await.is_lifecycle_job(&id).unwrap_or(false) {
             self.lifecycles_taken_on(&id, &record).await;
@@ -171,7 +171,7 @@ impl Fleet
     /// here**, so the Job's instances are rebuilt, read through `observe` and written in one hold of
     /// the store, and two readers cannot both record the same entering of a state. `None` where the
     /// Job does not hold it or it stood there already.
-    pub(crate) async fn lifecycle_seen(
+    pub async fn lifecycle_seen(
         &self,
         session: &str,
         lifecycle: &str,
@@ -184,7 +184,7 @@ impl Fleet
     /// [`lifecycle_seen`](Self::lifecycle_seen), with the Job's instances rebuilt against `before`, the
     /// lifecycles it read until one was just changed. **Rebuilt against the new ones, a word already
     /// seen stands where they put it**, so reading it again would move nothing and record nothing.
-    pub(crate) async fn lifecycle_seen_since(
+    pub async fn lifecycle_seen_since(
         &self,
         session: &str,
         lifecycle: &str,

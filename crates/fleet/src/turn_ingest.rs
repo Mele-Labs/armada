@@ -26,13 +26,13 @@ use crate::daemon::Fleet;
 use crate::turn_usage_keeping::{kept_form, reading_kept};
 
 /// How far back the start-up pass looks, by when a file was last written.
-pub(crate) const BACKFILL_DAYS: u64 = 7;
+pub const BACKFILL_DAYS: u64 = 7;
 /// How much of a file one read takes in.
 const CHUNK: u64 = 8 * 1024 * 1024;
 /// How often the notice loop reads the live sessions' transcripts.
-pub(crate) const EVERY: Duration = Duration::from_secs(5);
+pub const EVERY: Duration = Duration::from_secs(5);
 /// How long after start the week's backfill waits, so it does not compete with Fleet coming up.
-pub(crate) const BACKFILL_AFTER: Duration = Duration::from_secs(30);
+pub const BACKFILL_AFTER: Duration = Duration::from_secs(30);
 /// How long the reader rests between reads.
 const PAUSE: Duration = Duration::from_millis(40);
 
@@ -41,7 +41,7 @@ impl Fleet
     /// Read every transcript written to in the last week that has more in it than was read. How
     /// many turns changed the store. `from_start` ignores the offsets kept, which a test uses to
     /// show that reading again changes nothing.
-    pub(crate) async fn turns_backfilled(&self, from_start: bool) -> usize {
+    pub async fn turns_backfilled(&self, from_start: bool) -> usize {
         let home = self.host().home.clone();
         let since = SystemTime::now() - Duration::from_secs(BACKFILL_DAYS * 86_400);
         let Ok(files) = tokio::task::spawn_blocking(move || turn_lines::transcripts_since(&home, since)).await else {
@@ -69,7 +69,7 @@ impl Fleet
 
     /// [`Self::turns_gained`], and then the Jobs whose turns changed are read against the token
     /// rules (`crate::usage_following`). How many turns changed the store.
-    pub(crate) async fn turns_followed_and_read(self: &Arc<Self>) -> usize {
+    pub async fn turns_followed_and_read(self: &Arc<Self>) -> usize {
         let (changed, gained) = self.turns_gained().await;
         self.usage_rules_read(&gained).await;
         changed
@@ -77,8 +77,8 @@ impl Fleet
 
     /// Read what the live sessions' transcripts gained since they were last read. How many turns
     /// changed the store. A transcript that has not grown costs a `stat`.
-    #[cfg(test)]
-    pub(crate) async fn turns_followed(&self) -> usize {
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn turns_followed(&self) -> usize {
         self.turns_gained().await.0
     }
 
@@ -115,7 +115,7 @@ impl Fleet
     }
 
     /// One transcript, read from its kept offset to its end in bounded reads.
-    pub(crate) async fn transcript_taken_in(&self, file: &TranscriptFile, from_start: bool) -> usize {
+    pub async fn transcript_taken_in(&self, file: &TranscriptFile, from_start: bool) -> usize {
         let key = file.path.to_string_lossy().to_string();
         let (mut changed, mut first) = (0, true);
         loop {

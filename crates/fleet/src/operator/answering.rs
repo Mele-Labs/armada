@@ -25,14 +25,14 @@ use crate::daemon::Fleet;
 const RUN: &str = "Bash";
 
 /// Whether `item` is of a kind with an Answer path: a question or a permission card.
-pub(crate) fn answers(item: &WaitingItem) -> bool {
+pub fn answers(item: &WaitingItem) -> bool {
     matches!(item.source, WaitingSource::AskCard | WaitingSource::Agent | WaitingSource::Permission)
 }
 
 /// The items each row's last read found waiting with an Answer path, those a call is out on, and
 /// those found with none.
 #[derive(Default)]
-pub(crate) struct Questions {
+pub struct Questions {
     seen: Mutex<BTreeMap<String, Vec<WaitingItem>>>,
     out: Arc<Mutex<BTreeSet<String>>>,
     left: Mutex<BTreeSet<String>>,
@@ -40,7 +40,7 @@ pub(crate) struct Questions {
 
 impl Seat {
     /// What a read of `session`'s row found it waiting on.
-    pub(crate) fn asked_noted(&self, session: &str, waiting: &[WaitingItem]) {
+    pub fn asked_noted(&self, session: &str, waiting: &[WaitingItem]) {
         let asked: Vec<WaitingItem> = waiting.iter().filter(|item| answers(item)).cloned().collect();
         let mut held_now = held(&self.questions.seen);
         match asked.is_empty() {
@@ -115,7 +115,7 @@ impl Fleet
     /// `item` as the Operator reads it: what Fleet's rules make of it, the plan group its Job works
     /// on, the person's earlier answer to the same, and whether he is away. `None` for an item with
     /// no Answer path, or a Job in a terminal, whose prompt is answered there.
-    pub(crate) async fn question_of(&self, session: &str, item: &WaitingItem) -> Option<Question> {
+    pub async fn question_of(&self, session: &str, item: &WaitingItem) -> Option<Question> {
         if !matches!(self.terminal_session(session).await, Ok(None)) {
             return None;
         }
@@ -170,7 +170,7 @@ impl Fleet
     }
 
     /// Item `item` of `id` is settled as his press on `choice` would, and the Job's thread says so.
-    pub(super) async fn operator_answered(self: &Arc<Self>, id: &str, item: &str, choice: &Choice, because: &str) {
+    pub async fn operator_answered(self: &Arc<Self>, id: &str, item: &str, choice: &Choice, because: &str) {
         let said = AnswerWaiting {
             session_id: SessionId::carried(id),
             item_id: item.to_string(),
@@ -190,7 +190,7 @@ impl Fleet
     }
 
     /// Why the Operator's answer to `arrival` can no longer be given, as its call comes back.
-    pub(super) async fn answer_settled(&self, arrival: &Arrival) -> Option<String> {
+    pub async fn answer_settled(&self, arrival: &Arrival) -> Option<String> {
         if !self.operator_on() {
             return Some("the Operator was turned off before the ruling came".into());
         }
@@ -203,7 +203,7 @@ impl Fleet
 
     /// The person's own press on a question, kept in the Log while the Operator is on, so a second
     /// Job asking the same is offered his answer. Read before the press settles it.
-    pub(crate) async fn person_answer_of(&self, said: &AnswerWaiting) -> Option<Logged> {
+    pub async fn person_answer_of(&self, said: &AnswerWaiting) -> Option<Logged> {
         if !self.operator_on() {
             return None;
         }
@@ -240,7 +240,7 @@ impl Fleet
     }
 
     /// Keep `row`, the person's own answer, once his press has settled it.
-    pub(crate) async fn person_answer_kept(&self, row: Logged) {
+    pub async fn person_answer_kept(&self, row: Logged) {
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
     }
 }

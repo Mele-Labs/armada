@@ -32,7 +32,7 @@ use crate::slot_holders::{pool_backs, stand_in_slot};
 use crate::timeline::{Doer, FileAct};
 
 /// What a session's row reads from the store, taken under the lock.
-pub(crate) struct LedgerReads {
+pub struct LedgerReads {
     held: Vec<KeptAttachment>,
     hosting: Option<store::KeptHosting>,
     waiting: WaitingReads,
@@ -84,13 +84,13 @@ enum SubagentRow {
     Settled(String, ipc::ToolSubagentState),
 }
 
-mod ledger;
-mod shown;
-mod wire;
+pub mod ledger;
+pub mod shown;
+pub mod wire;
 
-pub(crate) use ledger::{placed, Placed};
-pub(crate) use shown::steps_shown;
-pub(crate) use wire::{mod_copy_version, mod_is_older};
+pub use ledger::{placed, Placed};
+pub use shown::steps_shown;
+pub use wire::{mod_copy_version, mod_is_older};
 use shown::{brief_shown, origins_named, shows_a_page, sign_in_named, takes_shown, ONE_AT_A_TIME};
 use wire::{
     attachment_state, held_wire, mod_version_in, origin_text, session_state, session_wire,

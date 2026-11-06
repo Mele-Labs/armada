@@ -34,7 +34,7 @@ const GOES_ON: [&str; 2] = ["clear", "resume"];
 /// the person left (`prompt_input_exit`), the window closed or the process was
 /// signalled (`other`), or a logout. A crash reports no end at all, so its slot
 /// stays held for a resume. The park still waits for the process to be gone.
-pub(crate) fn parks_on_end(reason: &str) -> bool {
+pub fn parks_on_end(reason: &str) -> bool {
     !GOES_ON.contains(&reason)
 }
 
@@ -45,7 +45,7 @@ impl Fleet
     /// the row ends when the terminal reports it ended, and the slot is parked
     /// only after that (`park_once_gone`). A terminal not listening is refused,
     /// with nothing ended and nothing parked.
-    pub(crate) async fn end_terminal(&self, session: &KeptSession) -> Result<SessionRecord, Refusal> {
+    pub async fn end_terminal(&self, session: &KeptSession) -> Result<SessionRecord, Refusal> {
         if session.state != SessionState::Ended {
             if crate::sessioning::mod_is_older(session.mod_version.as_deref(), ENDS_FROM) {
                 return Err(self.mod_cannot_end());
@@ -63,7 +63,7 @@ impl Fleet
     /// refuses because its holder still runs is asked again for
     /// [`PARK_WITHIN`], and a holder that outlives that (a person's own
     /// terminal, another session's lease) is left alone.
-    pub(crate) fn park_once_gone(&self, session: &str, manifest: &str, slot: u32) {
+    pub fn park_once_gone(&self, session: &str, manifest: &str, slot: u32) {
         let Ok(served) = self.served_named(Some(&ipc::ManifestId::carried(manifest))) else {
             return;
         };
@@ -97,7 +97,7 @@ impl Fleet
     /// and the notes sent to it, done or let go. Its slot's processes and
     /// servers are ended by the park (`Vcs::park_hosted_slot`), and a run's
     /// process is among them, since Fleet holds no pid for a run its CLI makes.
-    pub(crate) async fn session_wound_up(&self, session: &str) {
+    pub async fn session_wound_up(&self, session: &str) {
         self.logbook_distils().queue(session);
         self.activity_ended(session);
         self.window_sign_ins().forget(session);
@@ -118,7 +118,7 @@ impl Fleet
     /// back, and the record is answered. **What is owed** is the hosting of a session whose slots
     /// are still to be parked ([`Self::parked_after_close`]); a terminal session, or one already
     /// ended, owes nothing.
-    pub(crate) async fn session_ended(
+    pub async fn session_ended(
         &self,
         closed: CloseSession,
     ) -> Result<(SessionRecord, Option<(String, KeptHosting)>), Refusal> {
@@ -189,7 +189,7 @@ impl Fleet
     /// The slow half of a close: every slot the session holds is parked, and only then does the
     /// line move, so no other Job takes a slot mid-park. A slot the pool still holds for it stays
     /// on the ledger as held, for the boot pass.
-    pub(crate) async fn parked_after_close(&self, id: &str, hosting: KeptHosting) {
+    pub async fn parked_after_close(&self, id: &str, hosting: KeptHosting) {
         let still_held = match self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) {
             // Parked: what is in each slot is committed to the branch it is on and nothing is
             // pushed, so closing loses no work.
@@ -206,7 +206,7 @@ impl Fleet
 
     /// [`HostedSessions::close_session`] for a caller that has no `Arc` to spawn with, or needs the
     /// slots parked by the time it goes on: the whole close, awaited.
-    pub(crate) async fn closed_and_parked(&self, closed: CloseSession) -> Result<SessionRecord, Refusal> {
+    pub async fn closed_and_parked(&self, closed: CloseSession) -> Result<SessionRecord, Refusal> {
         let (ended, owed) = self.session_ended(closed).await?;
         let Some((id, hosting)) = owed else {
             return Ok(ended);

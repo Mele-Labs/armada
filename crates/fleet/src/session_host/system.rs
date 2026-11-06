@@ -22,7 +22,7 @@ impl Fleet
 {
     /// `get_session_system`: the Job's processes and what they and its slot take, its worktrees and logs.
     /// Refused for a Job Fleet does not host. The readings run on a blocking thread.
-    pub(crate) async fn system_of(self: Arc<Self>, session_id: SessionId) -> Result<SessionSystem, Refusal> {
+    pub async fn system_of(self: Arc<Self>, session_id: SessionId) -> Result<SessionSystem, Refusal> {
         let id = session_id.as_str().trim().to_string();
         let (_, hosting) = self.session_and_hosting(&id).await?;
         let served = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?;
@@ -84,7 +84,7 @@ impl Fleet
     /// `stop_process`: end one process the Job started. **Refused unless the Job started it**, which is
     /// [`Fleet::started_by`]'s word, and a port is resolved to a pid from the same listing. The ending
     /// runs on a blocking thread and is not waited for.
-    pub(crate) async fn process_stopped(
+    pub async fn process_stopped(
         self: Arc<Self>,
         caller: Option<api::Caller>,
         stop: StopProcess,

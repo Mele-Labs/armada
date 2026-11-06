@@ -9,7 +9,7 @@ use ipc::WordsFile;
 use crate::teaching::link;
 
 /// The most `words.toml` may weigh.
-pub(crate) const MOST_BYTES: u64 = 16 * 1024;
+pub const MOST_BYTES: u64 = 16 * 1024;
 
 const MOST_NAME: usize = 60;
 const MOST_ADDRESSES: usize = 100;
@@ -17,12 +17,12 @@ const MOST_ADDRESSES: usize = 100;
 const MOST_REPOSITORY: usize = 80;
 
 /// `text` read, or the problem with where it stopped: `words.toml line 3: ...`.
-pub(crate) fn read(text: &str) -> Result<WordsFile, String> {
+pub fn read(text: &str) -> Result<WordsFile, String> {
     toml::from_str(text).map_err(|why| crate::mods::toml_problem("words.toml", text, &why))
 }
 
 /// Every problem in `text`, empty where Bridge may act on it.
-pub(crate) fn problems(text: &str) -> Vec<String> {
+pub fn problems(text: &str) -> Vec<String> {
     let file = match read(text) {
         Ok(file) => file,
         Err(why) => return vec![why],

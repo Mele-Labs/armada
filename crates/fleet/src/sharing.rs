@@ -15,8 +15,8 @@
 //! written before it written: workflows, then review tools, then manifests, then requests, then one
 //! repository's tiles at a time, then the unbound pieces.
 
-mod package;
-mod unbound;
+pub mod package;
+pub mod unbound;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -116,7 +116,7 @@ impl Fleet
     }
 
     /// `share_package`: the chosen pieces as one package's text.
-    pub(crate) async fn package_made(&self, asked: SharePieces) -> Result<SharedPackage, Refusal> {
+    pub async fn package_made(&self, asked: SharePieces) -> Result<SharedPackage, Refusal> {
         if asked.pieces.is_empty() {
             return Err(self.share_refusal(NOT_YOURS, String::from("No pieces are chosen.")));
         }
@@ -201,19 +201,19 @@ impl Fleet
     }
 
     /// The place the person's Kit keeps the pieces of the repository at `root`.
-    pub(crate) async fn kit_place_of(&self, root: &str) -> Result<ipc::RunPlace, Refusal> {
+    pub async fn kit_place_of(&self, root: &str) -> Result<ipc::RunPlace, Refusal> {
         let held = self.kept_place(root).await?;
         Ok(crate::run_memory::places::where_kept(&self.kit(), held.as_ref()).0)
     }
 
     /// Kit's copy of the `armada.yml` for `root`, at the place their Kit keeps it, to lay over a file.
-    pub(crate) async fn kit_copy_of(&self, root: &str) -> Result<std::sync::Arc<dyn config::KitCopy>, Refusal> {
+    pub async fn kit_copy_of(&self, root: &str) -> Result<std::sync::Arc<dyn config::KitCopy>, Refusal> {
         let held = self.kept_place(root).await?;
         Ok(std::sync::Arc::new(KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()))))
     }
 
     /// The person's `armada.yml` for `root`, read from the place their Kit keeps it, off this thread.
-    pub(crate) async fn kit_manifest_read(&self, root: &str) -> Result<(PathBuf, KitRead), Refusal> {
+    pub async fn kit_manifest_read(&self, root: &str) -> Result<(PathBuf, KitRead), Refusal> {
         let held = self.kept_place(root).await?;
         let copy = KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();
@@ -231,7 +231,7 @@ impl Fleet
     }
 
     /// Replace the person's `armada.yml` for `root` with `text`, at the place their Kit keeps it.
-    pub(crate) async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
+    pub async fn manifest_written(&self, root: &str, text: String) -> Result<(), Refusal> {
         let held = self.kept_place(root).await?;
         let copy = KitManifest::at(&self.kit(), root, held.as_ref(), std::sync::Arc::clone(self.reaching()));
         let label = copy.label();
@@ -257,7 +257,7 @@ impl Fleet
     /// copy wins over the repository's and can replace a Check, so an agent that could keep one
     /// for another repository could weaken that repository's gate. `caller` is the connection a
     /// door call arrived on; Bridge's own call has none and may keep one for any repository.
-    pub(crate) async fn kit_manifest_saved(&self, caller: Option<Caller>, saving: SaveKitManifest) -> Result<KitManifestSaved, Refusal> {
+    pub async fn kit_manifest_saved(&self, caller: Option<Caller>, saving: SaveKitManifest) -> Result<KitManifestSaved, Refusal> {
         let refuse = |code: &str, said: String| {
             let raised = WireError::raised(code, said, self.run_id());
             match code {
@@ -297,7 +297,7 @@ impl Fleet
     }
 
     /// `read_package`: every piece, and what adding it would do.
-    pub(crate) async fn package_read(&self, asked: PackageText) -> Result<PackageRead, Refusal> {
+    pub async fn package_read(&self, asked: PackageText) -> Result<PackageRead, Refusal> {
         let pieces = package::read(&asked.text).map_err(|why| self.share_refusal(MALFORMED, why))?;
         let slugs = self.served_slugs().await;
         let mut read = Vec::new();
@@ -350,7 +350,7 @@ impl Fleet
     }
 
     /// `add_package`: every piece into the person's Kit, or unbound where its remote is none's.
-    pub(crate) async fn package_added(&self, asked: AddPackage) -> Result<PackageAdded, Refusal> {
+    pub async fn package_added(&self, asked: AddPackage) -> Result<PackageAdded, Refusal> {
         let pieces = package::read(&asked.text).map_err(|why| self.share_refusal(MALFORMED, why))?;
         let slugs = self.served_slugs().await;
         let placed = pieces.into_iter().map(|piece| { let at = matching(&slugs, piece.remote()); (piece, at) }).collect();
@@ -358,7 +358,7 @@ impl Fleet
     }
 
     /// `list_unbound_pieces`.
-    pub(crate) fn unbound_listed(&self) -> UnboundPieces {
+    pub fn unbound_listed(&self) -> UnboundPieces {
         let pieces = unbound::all(&self.kit())
             .into_iter()
             .map(|(unbound_id, piece)| {
@@ -370,7 +370,7 @@ impl Fleet
     }
 
     /// `bind_unbound_piece`: the piece, once, onto the repository chosen.
-    pub(crate) async fn unbound_bound(&self, asked: BindUnboundPiece) -> Result<PieceAdded, Refusal> {
+    pub async fn unbound_bound(&self, asked: BindUnboundPiece) -> Result<PieceAdded, Refusal> {
         let Some(piece) = unbound::held(&self.kit(), &asked.unbound_id) else {
             return Err(self.share_refusal(NO_UNBOUND, format!("Nothing is kept unbound as `{}`.", asked.unbound_id)));
         };

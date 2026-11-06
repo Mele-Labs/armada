@@ -73,7 +73,7 @@ fn kept_as(standing: &BranchInBuild) -> String {
 }
 
 /// The branches each live Session of `served` stands on, as the slot pool allows, by Session.
-pub(crate) fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, BTreeSet<String>> {
+pub fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, BTreeSet<String>> {
     let manifest = served.manifest().id().as_str();
     let live = |id: &str| store.session(id).ok().flatten().is_some_and(|one| one.state != SessionState::Ended);
     let mut held: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -92,7 +92,7 @@ pub(crate) fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, 
 impl Fleet
 {
     /// The build on file, once an interval. Its own gate, beside the pull requests'.
-    pub(crate) async fn builds_told_when_due(self: &Arc<Self>) {
+    pub async fn builds_told_when_due(self: &Arc<Self>) {
         let now = self.now();
         {
             let mut sweep = self.sweeping().lock().await;
@@ -108,7 +108,7 @@ impl Fleet
 
     /// Tell the sessions that care about the build on file, unless this process settled it
     /// already. **Nothing here fails the turn.**
-    pub(crate) async fn builds_told(self: &Arc<Self>) {
+    pub async fn builds_told(self: &Arc<Self>) {
         let support = crate::runtime::support_dir(&self.host().home);
         let (Ok(build), Some(commit)) = (source_in(&support), commit_in(&support)) else {
             return;

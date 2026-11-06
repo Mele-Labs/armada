@@ -20,10 +20,10 @@ use crate::repositories::Served;
 const AUTOPILOT: &str = "Autopilot";
 
 /// The address a reported bug is offered and picked under, in place of a tracker's.
-pub(super) const REPORT_URL: &str = "report:";
+pub const REPORT_URL: &str = "report:";
 
 /// The issue a Session is started on.
-pub(super) struct Issue<'a> {
+pub struct Issue<'a> {
     pub url: &'a str,
     pub title: &'a str,
     /// What the tracker listed of its body, for when the issue cannot be read in full.
@@ -36,7 +36,7 @@ impl Fleet
     /// sent its brief is closed**: one left idle would hold a place for nothing.
     ///
     /// `because` is the picker's reason, said at the foot of the brief where Autopilot chose.
-    pub(super) async fn session_on_issue(
+    pub async fn session_on_issue(
         self: &Arc<Self>,
         served: &Served,
         issue: &Issue<'_>,
@@ -116,7 +116,7 @@ fn foot(body: String, because: Option<&str>) -> String {
 
 /// A report as a brief, the parts Bridge's own brief of one has: the title, what happened, then the
 /// steps numbered, the errors and the logs, each left out where empty.
-pub(crate) fn report_brief(report: &KeptBugReport) -> String {
+pub fn report_brief(report: &KeptBugReport) -> String {
     let mut brief = format!("{}\n\n{}", report.title, report.what);
     let mut part = |name: &str, lines: Vec<String>| {
         if !lines.is_empty() {

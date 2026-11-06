@@ -44,20 +44,20 @@ use crate::daemon::Fleet;
 pub const EVERY: Duration = Duration::from_secs(15);
 
 /// The id of the call Fleet raises for a session that found every slot held.
-pub(crate) const SLOT_CHOICE_ITEM: &str = "slot-choice";
+pub const SLOT_CHOICE_ITEM: &str = "slot-choice";
 
 /// A session's open `slot_choice` call, as the item is drawn from it.
-pub(crate) struct SlotCall {
-    pub(crate) since: Instant,
-    pub(crate) holders: Vec<SlotHolder>,
-    pub(crate) creating_since: Option<Instant>,
-    pub(crate) create_refused: Option<String>,
+pub struct SlotCall {
+    pub since: Instant,
+    pub holders: Vec<SlotHolder>,
+    pub creating_since: Option<Instant>,
+    pub create_refused: Option<String>,
 }
 
 /// What the person is asked when a session finds every worktree slot held. Choice 0 and 1 are the
 /// options in this order: `answer_waiting` takes the index. **Both are always sent**, whether or not
 /// there are rows to free: a client that draws no rows keeps its Add.
-pub(crate) fn slot_choice_item(call: SlotCall) -> WaitingItem {
+pub fn slot_choice_item(call: SlotCall) -> WaitingItem {
     let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
     WaitingItem {
         id: SLOT_CHOICE_ITEM.to_string(),
@@ -78,7 +78,7 @@ pub(crate) fn slot_choice_item(call: SlotCall) -> WaitingItem {
 
 /// What the person has said about a session in the line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Choice {
+pub enum Choice {
     /// Not asked yet, or asked and not answered: the call is on his list.
     Pending,
     /// Wait for the next slot to free.
@@ -90,23 +90,23 @@ pub(crate) enum Choice {
 }
 
 /// One session in a line.
-pub(super) struct Entry {
-    pub(super) manifest: String,
+pub struct Entry {
+    pub manifest: String,
     /// Where it stands in its line, lowest served first.
-    pub(super) place: i64,
-    pub(super) choice: Choice,
-    pub(super) since: Instant,
+    pub place: i64,
+    pub choice: Choice,
+    pub since: Instant,
     /// The slots a Job Fleet hosts holds, as the call lists them. Read by `slot_holders`.
-    pub(super) holders: Vec<SlotHolder>,
+    pub holders: Vec<SlotHolder>,
     /// When the slot the person asked for was begun, while its task is out. **Kept past a Wait**,
     /// so a second Add while one is out changes nothing.
-    pub(super) creating_since: Option<Instant>,
+    pub creating_since: Option<Instant>,
     /// Why the last slot was not made, until the next Add.
-    pub(super) create_refused: Option<String>,
+    pub create_refused: Option<String>,
 }
 
 /// What a press of Add found for a session in a line.
-pub(crate) enum Begun {
+pub enum Begun {
     /// A slot is being made for it already.
     Out,
     /// Begun now, in the repository named.
@@ -114,34 +114,34 @@ pub(crate) enum Begun {
 }
 
 #[derive(Default)]
-pub(super) struct Lines {
-    pub(super) by_manifest: HashMap<String, VecDeque<String>>,
-    pub(super) entries: HashMap<String, Entry>,
+pub struct Lines {
+    pub by_manifest: HashMap<String, VecDeque<String>>,
+    pub entries: HashMap<String, Entry>,
     /// Sessions whose `armada worktree lease` is asking, see [`super::slot_asking`].
-    pub(super) wants: HashMap<String, super::slot_asking::Want>,
+    pub wants: HashMap<String, super::slot_asking::Want>,
     /// Sessions a slot is being made for, and the repository it is made in.
-    pub(super) making: HashMap<String, String>,
+    pub making: HashMap<String, String>,
 }
 
 /// Who waits for a slot, by repository.
 #[derive(Default)]
-pub(crate) struct SlotQueue {
-    pub(super) waiting: Mutex<Lines>,
+pub struct SlotQueue {
+    pub waiting: Mutex<Lines>,
     wake: Notify,
     /// Held while a slot is leased to someone out of turn, and across the whole of a grant, so
     /// the two never take the same slot.
-    pub(super) granting: tokio::sync::Mutex<()>,
+    pub granting: tokio::sync::Mutex<()>,
 }
 
 impl SlotQueue {
     /// Put the session at the back of the repository's line unless it is in it, and say how many
     /// are ahead of it, and the place it took where it was not in the line before.
-    pub(crate) fn join(&self, manifest: &str, session: &str, now: &Instant) -> (usize, Option<i64>) {
+    pub fn join(&self, manifest: &str, session: &str, now: &Instant) -> (usize, Option<i64>) {
         self.joined(manifest, session, None, now)
     }
 
     /// [`Self::join`] at `place`, ahead of everyone placed after it: a line read back from the store.
-    pub(crate) fn join_at(&self, manifest: &str, session: &str, place: i64, since: &Instant) -> usize {
+    pub fn join_at(&self, manifest: &str, session: &str, place: i64, since: &Instant) -> usize {
         self.joined(manifest, session, Some(place), since).0
     }
 
@@ -173,7 +173,7 @@ impl SlotQueue {
 
     /// How many are ahead of the session: its place if it waits, and everyone
     /// if it does not, because a newcomer goes to the back.
-    pub(crate) fn ahead_of(&self, manifest: &str, session: &str) -> usize {
+    pub fn ahead_of(&self, manifest: &str, session: &str) -> usize {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         let Some(line) = waiting.by_manifest.get(manifest) else {
             return 0;
@@ -183,7 +183,7 @@ impl SlotQueue {
 
     /// The session is not waiting any more, in whichever line it was. Whether it had a call open
     /// on the person's list, which is then gone and wants publishing.
-    pub(crate) fn leave(&self, session: &str) -> bool {
+    pub fn leave(&self, session: &str) -> bool {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting.by_manifest.retain(|_, line| {
             line.retain(|one| one != session);
@@ -193,7 +193,7 @@ impl SlotQueue {
     }
 
     /// What the person chose for the session, if it is in a line and he has answered.
-    pub(crate) fn chosen(&self, session: &str) -> Option<Choice> {
+    pub fn chosen(&self, session: &str) -> Option<Choice> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting.entries.get(session).map(|one| one.choice)
     }
@@ -201,7 +201,7 @@ impl SlotQueue {
     /// The session's call, while the person has not answered it or a slot he asked for is being
     /// made. **One call**: the line's where the session is in it, and otherwise its command's, if
     /// that is still heard from. A command's call has no rows and nothing being made.
-    pub(crate) fn pending(&self, session: &str) -> Option<SlotCall> {
+    pub fn pending(&self, session: &str) -> Option<SlotCall> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         if let Some(entry) = waiting.entries.get(session) {
             return match entry.choice {
@@ -225,7 +225,7 @@ impl SlotQueue {
 
     /// The person pressed Add for a session in a line: a slot is to be made for it. `None` where it is
     /// in none.
-    pub(crate) fn creation_begun(&self, session: &str, now: &Instant) -> Option<Begun> {
+    pub fn creation_begun(&self, session: &str, now: &Instant) -> Option<Begun> {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let entry = waiting.entries.get_mut(session)?;
         if entry.creating_since.is_some() {
@@ -241,7 +241,7 @@ impl SlotQueue {
 
     /// The task making the slot is done, whichever way. Whether the session was still in a line with
     /// its call open, which is then to be published.
-    pub(crate) fn creation_ended(&self, session: &str, refused: Option<String>) -> bool {
+    pub fn creation_ended(&self, session: &str, refused: Option<String>) -> bool {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         waiting.making.remove(session);
         let Some(entry) = waiting.entries.get_mut(session) else {
@@ -261,7 +261,7 @@ impl SlotQueue {
 
     /// Record what the person chose for a session that is in a line, and the repository it waits
     /// in. `None` where it is not in one.
-    pub(crate) fn choose(&self, session: &str, choice: Choice) -> Option<String> {
+    pub fn choose(&self, session: &str, choice: Choice) -> Option<String> {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let entry = waiting.entries.get_mut(session)?;
         entry.choice = choice;
@@ -280,7 +280,7 @@ impl SlotQueue {
 
     /// Whoever keeps the grant is to look now. Stored if it is not waiting, so
     /// a slot given back in the instant between two looks is not missed.
-    pub(crate) fn freed(&self) {
+    pub fn freed(&self) {
         self.wake.notify_one();
     }
 }
@@ -291,7 +291,7 @@ impl Fleet
     /// and move that session into it. **Strictly in order**: a head that finds
     /// the pool full ends the repository's turn, so nobody behind it is served
     /// ahead of it.
-    pub(crate) async fn grant_queued_slots(self: &Arc<Self>) {
+    pub async fn grant_queued_slots(self: &Arc<Self>) {
         let queue = Arc::clone(self.hosts().slot_queue());
         let _alone = queue.granting.lock().await;
         // A command that died without telling Fleet takes its call and its reservation with it.
@@ -317,7 +317,7 @@ impl Fleet
 
     /// `answer_waiting` on the slot call. **Neither choice is a message**: the agent was told to end
     /// its turn when it was queued, and is moved in when a slot is granted.
-    pub(crate) async fn slot_chosen(self: &Arc<Self>, id: &str, choice: Option<u32>) -> Result<SessionRecord, api::Refusal> {
+    pub async fn slot_chosen(self: &Arc<Self>, id: &str, choice: Option<u32>) -> Result<SessionRecord, api::Refusal> {
         match choice {
             Some(0) => {
                 let queue = self.hosts().slot_queue();
@@ -342,7 +342,7 @@ impl Fleet
     /// answers at once** and makes the slot in a task ([`Self::slot_created`]), because the checkout
     /// can take a while and the person may press Free meanwhile. A command with no line gets a slot
     /// held for it, as it always did.
-    pub(crate) async fn slot_added_for(self: &Arc<Self>, id: &str) -> Result<(), api::Refusal> {
+    pub async fn slot_added_for(self: &Arc<Self>, id: &str) -> Result<(), api::Refusal> {
         let queue = Arc::clone(self.hosts().slot_queue());
         match queue.creation_begun(id, &self.instant()) {
             Some(Begun::Out) => return Ok(()),
@@ -432,7 +432,7 @@ impl Fleet
 
     /// What a lease for a session in the line came to, other than the pool being full: it leaves
     /// the line, and is moved if it was leased a slot.
-    pub(super) async fn granted(self: &Arc<Self>, id: &str, taken: Taken) {
+    pub async fn granted(self: &Arc<Self>, id: &str, taken: Taken) {
         match taken {
             // Ended, or leased a slot some other way: nothing to give it.
             Taken::Gone | Taken::Held { .. } => self.line_left(id).await,
@@ -455,7 +455,7 @@ impl Fleet
     }
 
     /// Out of the line, and the call taken off his list if it was still there.
-    pub(crate) async fn line_left(&self, id: &str) {
+    pub async fn line_left(&self, id: &str) {
         let had_a_call = self.hosts().slot_queue().leave(id);
         self.line_let_go(id).await;
         if had_a_call {
@@ -466,19 +466,19 @@ impl Fleet
 
     /// A wait for a slot began (`line` or `move`), kept for the split of the Job's time. A fault
     /// here fails nothing: the wait is only counted.
-    pub(crate) async fn slot_wait_began(&self, id: &str, phase: &str) {
+    pub async fn slot_wait_began(&self, id: &str, phase: &str) {
         let at = self.now().as_str().to_string();
         let _ = self.store().lock().await.begin_slot_wait(id, phase, &at);
     }
 
     /// A Job's process ended on its own, kept for the split of the Job's time.
-    pub(crate) async fn stop_kept(&self, id: &str) {
+    pub async fn stop_kept(&self, id: &str) {
         let at = self.now().as_str().to_string();
         let _ = self.store().lock().await.keep_session_stop(id, &at);
     }
 
     /// The wait of `phase` ended, or every standing wait of the Job where it is `None`.
-    pub(crate) async fn slot_wait_ended(&self, id: &str, phase: Option<&str>) {
+    pub async fn slot_wait_ended(&self, id: &str, phase: Option<&str>) {
         let at = self.now().as_str().to_string();
         let _ = self.store().lock().await.end_slot_waits(id, phase, &at);
     }

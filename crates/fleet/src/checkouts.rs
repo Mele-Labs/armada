@@ -22,7 +22,7 @@ use crate::repositories::Served;
 /// A checkout a server may be held on: this repository's main checkout, or a
 /// worktree of it that is nobody's Job.
 #[derive(Clone)]
-pub(crate) struct Checkout {
+pub struct Checkout {
     served: Served,
     path: String,
     branch: Option<String>,
@@ -30,7 +30,7 @@ pub(crate) struct Checkout {
 
 /// Why a path is not a checkout a server may be held on.
 #[derive(Debug)]
-pub(crate) enum NotACheckout {
+pub enum NotACheckout {
     /// Not a worktree of this repository — a directory that is not there, one
     /// that is not a checkout at all, or one belonging to another repository.
     Elsewhere { path: String, root: String },
@@ -64,7 +64,7 @@ impl Checkout {
     /// **Its root verbatim, never canonicalised.** The root is the key a
     /// claim, a `Holder` and a records directory were already written under,
     /// and a second spelling of one directory is a second span.
-    pub(crate) fn main(served: Served) -> Checkout {
+    pub fn main(served: Served) -> Checkout {
         let path = served.root().to_string();
         Checkout {
             served,
@@ -75,7 +75,7 @@ impl Checkout {
 
     /// A worktree of this repository at `path`, **confirmed on disk**. The
     /// root itself answers as [`Checkout::main`] rather than being refused.
-    pub(crate) fn beside(served: Served, path: &str) -> Result<Checkout, NotACheckout> {
+    pub fn beside(served: Served, path: &str) -> Result<Checkout, NotACheckout> {
         let elsewhere = || NotACheckout::Elsewhere {
             path: path.to_string(),
             root: served.root().to_string(),
@@ -112,7 +112,7 @@ impl Checkout {
     /// `beside` refuses a Job's, this is the way to one: the path comes from Fleet's own record
     /// of the Job's lease and never from a caller, and the run started on it is stopped with
     /// the slot (`stopped_servers_in`), which a Job's end already calls.
-    pub(crate) fn of_a_job(served: Served, path: &str) -> Result<Checkout, NotACheckout> {
+    pub fn of_a_job(served: Served, path: &str) -> Result<Checkout, NotACheckout> {
         let elsewhere = || NotACheckout::Elsewhere {
             path: path.to_string(),
             root: served.root().to_string(),
@@ -132,20 +132,20 @@ impl Checkout {
         })
     }
 
-    pub(crate) fn served(&self) -> &Served {
+    pub fn served(&self) -> &Served {
         &self.served
     }
 
     /// The directory the server runs in, and the key its span is claimed
     /// under.
-    pub(crate) fn path(&self) -> &str {
+    pub fn path(&self) -> &str {
         &self.path
     }
 
     /// The branch checked out there. **Absent for the main checkout**, which a
     /// person moves between branches under a running server — its path and the
     /// commit it came up on are what say which build is answering.
-    pub(crate) fn branch(&self) -> Option<&str> {
+    pub fn branch(&self) -> Option<&str> {
         self.branch.as_deref()
     }
 
@@ -156,7 +156,7 @@ impl Checkout {
 
     /// Where this checkout's server records go, under `.armada/servers/`.
     /// `main` for the root, so nothing a Fleet already has on disk moves.
-    pub(crate) fn under(&self) -> String {
+    pub fn under(&self) -> String {
         match self.is_the_root() {
             true => String::from("main"),
             false => format!("checkouts/{}", named(&self.path, self.served.root())),
@@ -164,7 +164,7 @@ impl Checkout {
     }
 
     /// How a record a crashed Fleet left behind says whose server this was.
-    pub(crate) fn whose(&self) -> String {
+    pub fn whose(&self) -> String {
         match self.is_the_root() {
             true => String::from("main-checkout"),
             false => format!("checkout {}", self.path),

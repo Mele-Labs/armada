@@ -12,10 +12,10 @@ use store::settings_file::SettingValue;
 use crate::prompts::fill;
 
 /// The most answers to the agent's message, and learnt lines, one Job's bar is offered.
-pub(crate) const MOST_ASKED: usize = 3;
-pub(crate) const MOST_LEARNT: usize = 6;
+pub const MOST_ASKED: usize = 3;
+pub const MOST_LEARNT: usize = 6;
 /// The longest line a chip carries, in characters.
-pub(crate) const LINE_AT_MOST: usize = 60;
+pub const LINE_AT_MOST: usize = 60;
 /// A line is learnt once he has sent it this many times.
 const SENT_AT_LEAST: usize = 2;
 /// What a sending is worth halves in this long.
@@ -26,10 +26,10 @@ const DAY_MS: f64 = 86_400_000.0;
 /// The most of the agent's message the model is shown, from its end: a question comes last.
 const MESSAGE_AT_MOST: usize = 1_500;
 /// The most of his own lines the model is shown to catch his voice.
-pub(crate) const VOICE_LINES: usize = 5;
+pub const VOICE_LINES: usize = 5;
 
 /// The prompt as it ships. **Not an editable setting**, as the account's is not: the answer is read as lines.
-pub(crate) const SHIPPED: &str = "\
+pub const SHIPPED: &str = "\
 A coding agent has just sent a person this message, and the person is about to answer it. Write the \
 short replies he might send back, in his own voice.
 
@@ -46,7 +46,7 @@ than sixty characters, written as he would type it. No numbering, no quotes, no 
 a reply only where it would plainly be a fine answer; where nothing short fits, write nothing.";
 
 /// The question, filled in. `his` are lines he sent, most recent first.
-pub(crate) fn question(message: &str, his: &[String]) -> String {
+pub fn question(message: &str, his: &[String]) -> String {
     let voice = match his.is_empty() {
         true => String::from("  (none yet)"),
         false => his.iter().map(|one| format!("  - {one}")).collect::<Vec<_>>().join("\n"),
@@ -65,7 +65,7 @@ fn tail(text: &str, most: usize) -> String {
 /// The model's answer, read into at most [`MOST_ASKED`] lines. **Lenient about the dressing**: a number, a
 /// bullet or quotes round a line are taken off, and a line that is not a reply (a lead-in ending in a colon, a
 /// word for nothing, one past the chip's length) is dropped.
-pub(crate) fn read_asked(reply: &str) -> Vec<String> {
+pub fn read_asked(reply: &str) -> Vec<String> {
     let mut kept: Vec<String> = Vec::new();
     for line in reply.lines() {
         let line = undressed(line);
@@ -99,14 +99,14 @@ fn undressed(line: &str) -> &str {
 }
 
 /// `text` as a chip carries it: trimmed, one line, and no longer than [`LINE_AT_MOST`].
-pub(crate) fn one_line(text: &str) -> Option<String> {
+pub fn one_line(text: &str) -> Option<String> {
     let text = text.trim();
     (!text.is_empty() && !text.contains('\n') && text.chars().count() <= LINE_AT_MOST).then(|| text.to_string())
 }
 
 /// Lines that are alike: equal once lowercased, trimmed, with their whitespace collapsed and no punctuation
 /// trailing. Empty where nothing but punctuation is left.
-pub(crate) fn alike(line: &str) -> String {
+pub fn alike(line: &str) -> String {
     let words: Vec<&str> = line.split_whitespace().collect();
     let joined = words.join(" ").to_lowercase();
     joined.trim_end_matches(|c: char| c.is_ascii_punctuation() || c == '…' || c.is_whitespace()).to_string()
@@ -114,12 +114,12 @@ pub(crate) fn alike(line: &str) -> String {
 
 /// Whether a message of the agent's asks something: it ends with a question, ignoring the quotes, brackets
 /// and emphasis a model closes a sentence with.
-pub(crate) fn asks(message: &str) -> bool {
+pub fn asks(message: &str) -> bool {
     message.trim().trim_end_matches(|c: char| QUOTES.contains(&c) || matches!(c, ')' | ']' | '_')).ends_with('?')
 }
 
 /// The agent's last message, with its row's id, where the thread's last message is the agent's.
-pub(crate) fn agent_spoke_last(rows: &[SessionRow]) -> Option<(&str, &str)> {
+pub fn agent_spoke_last(rows: &[SessionRow]) -> Option<(&str, &str)> {
     rows.iter().rev().find_map(|row| match row {
         SessionRow::Message { id, from, text, .. } => Some(matches!(from, SessionVoice::Agent).then_some((id.as_str(), text.as_str()))),
         _ => None,
@@ -128,7 +128,7 @@ pub(crate) fn agent_spoke_last(rows: &[SessionRow]) -> Option<(&str, &str)> {
 
 /// One line he sent, and the moment he sent it in.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Sent {
+pub struct Sent {
     pub text: String,
     pub at_ms: i64,
     /// The message before it was the agent's, and asked something.
@@ -137,7 +137,7 @@ pub(crate) struct Sent {
 
 /// What a thread holds of lines he sent that a chip could carry. **His words only**: a note of Fleet's, a line with a link, a row
 /// carrying a file or a tag, and a line that is more than a line are not.
-pub(crate) fn sent_in(rows: &[SessionRow]) -> Vec<Sent> {
+pub fn sent_in(rows: &[SessionRow]) -> Vec<Sent> {
     let mut sent = Vec::new();
     let mut before: Option<&SessionRow> = None;
     for row in rows {
@@ -160,7 +160,7 @@ pub(crate) fn sent_in(rows: &[SessionRow]) -> Vec<Sent> {
 /// last. A line is offered once he sent it twice; it ranks by how often and how recently, each sending worth
 /// half as much for every [`HALF_LIFE_DAYS`] since, and worth more again while `asking`, when it followed a
 /// question the way the agent's last message is one. `left_out` are lines as [`alike`] reads them.
-pub(crate) fn learnt(sent: &[Sent], left_out: &HashSet<String>, asking: bool, now_ms: i64) -> Vec<String> {
+pub fn learnt(sent: &[Sent], left_out: &HashSet<String>, asking: bool, now_ms: i64) -> Vec<String> {
     struct Tally {
         wording: String,
         latest: i64,
@@ -190,7 +190,7 @@ pub(crate) fn learnt(sent: &[Sent], left_out: &HashSet<String>, asking: bool, no
 
 /// What `thread.look` says that Fleet acts on. Absent or unreadable is Bridge's default: learning on, the bar shown.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct QuickLook {
+pub struct QuickLook {
     pub learn: bool,
     off: bool,
     off_for: Vec<String>,
@@ -199,7 +199,7 @@ pub(crate) struct QuickLook {
 }
 
 impl QuickLook {
-    pub(crate) fn read(look: Option<&SettingValue>) -> QuickLook {
+    pub fn read(look: Option<&SettingValue>) -> QuickLook {
         let SettingValue::Map(look) = look.unwrap_or(&SettingValue::Null) else {
             return QuickLook { learn: true, off: false, off_for: Vec::new(), left_out: HashSet::new() };
         };
@@ -237,7 +237,7 @@ impl QuickLook {
     }
 
     /// The bar is not drawn in this Job, so nothing is offered for it.
-    pub(crate) fn hides(&self, session: &str) -> bool {
+    pub fn hides(&self, session: &str) -> bool {
         self.off || self.off_for.iter().any(|one| one == session)
     }
 }

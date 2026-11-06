@@ -16,7 +16,7 @@ use ipc::{WaitingItem, WaitingSource};
 /// The cosine at and above which a text is the one he marked: the lowest at which no `different` pair of
 /// the 150 development pairs scored at or above it (the closest scored 0.8445), measured 21 Oct 2026
 /// on the base encoder's vectors, where it caught 11 of 45 `same`.
-pub(crate) const FOLDS_AT: f32 = 0.845;
+pub const FOLDS_AT: f32 = 0.845;
 
 /// Vectors kept; past this they are all forgotten at once, since an item stands only until it is settled.
 const KEPT: usize = 512;
@@ -28,7 +28,7 @@ fn cosine(one: &[f32], other: &[f32]) -> f32 {
 /// `items` with every sentence read from a reply that is within `at` of one he marked Not a question
 /// left off: the reader called it once and he said it asks nothing. An item the agent stated stands, and
 /// one with no vector yet is kept this read.
-pub(crate) fn left_off_as_misread(items: Vec<WaitingItem>, misreads: &[String], vector: impl Fn(&str) -> Option<Vec<f32>>, at: f32) -> Vec<WaitingItem> {
+pub fn left_off_as_misread(items: Vec<WaitingItem>, misreads: &[String], vector: impl Fn(&str) -> Option<Vec<f32>>, at: f32) -> Vec<WaitingItem> {
     let marked: Vec<Vec<f32>> = misreads.iter().filter_map(|one| vector(one)).collect();
     items
         .into_iter()
@@ -43,7 +43,7 @@ pub(crate) fn left_off_as_misread(items: Vec<WaitingItem>, misreads: &[String], 
 /// Modelled on `asks_model::Reads`: kept by the text's hash, embedded in one batch per read on a
 /// blocking thread, and the Session published again once they are in.
 #[derive(Default)]
-pub(crate) struct Vectors {
+pub struct Vectors {
     inner: Mutex<Inner>,
 }
 
@@ -59,7 +59,7 @@ impl Vectors {
     /// batch on a blocking thread, so the next read has them, and `session` is named by
     /// [`Self::settled`] once they are in. A batch that failed stays in `going`, so it is not tried
     /// again on every read.
-    pub(crate) fn known(self: &Arc<Self>, model: Arc<dyn TextModel>, session: &str, texts: &[&str]) -> HashMap<String, Vec<f32>> {
+    pub fn known(self: &Arc<Self>, model: Arc<dyn TextModel>, session: &str, texts: &[&str]) -> HashMap<String, Vec<f32>> {
         let mut inner = self.inner.lock().expect("never poisoned");
         let mut known = HashMap::new();
         let mut missing: Vec<(u64, String)> = Vec::new();
@@ -100,7 +100,7 @@ impl Vectors {
     }
 
     /// The Sessions whose items the model embedded since the last call, once each.
-    pub(crate) fn settled(&self) -> Vec<String> {
+    pub fn settled(&self) -> Vec<String> {
         let mut settled = std::mem::take(&mut self.inner.lock().expect("never poisoned").settled);
         settled.sort();
         settled.dedup();

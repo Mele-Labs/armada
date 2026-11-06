@@ -16,15 +16,15 @@ use super::Runtime;
 use crate::daemon::Fleet;
 
 /// A job that runs in a terminal, whose process Fleet does not host. A 422.
-pub(crate) const SESSION_TOOLS_UNMENDABLE: &str = "fleet.session_tools_unmendable";
+pub const SESSION_TOOLS_UNMENDABLE: &str = "fleet.session_tools_unmendable";
 /// Fleet's copy of the mod could not be filled, so a restart would come up without it. A 422.
-pub(crate) const SESSION_MOD_NOT_FILLED: &str = "fleet.session_mod_not_filled";
+pub const SESSION_MOD_NOT_FILLED: &str = "fleet.session_mod_not_filled";
 
 /// What a process with nothing unfinished to send again is told, so the restart has a turn to carry it.
 const MENDED: &str = "Fleet restarted your process with the armada mod. Nothing is asked of you.";
 
 /// Who asked for a restart onto Fleet's copy of the mod.
-pub(super) enum Restart<'a> {
+pub enum Restart<'a> {
     /// The person pressed Restart the agent, and the process is let go whatever it is doing.
     Pressed,
     /// Fleet, because the mod the process reported is older than the copy `to`: only between turns,
@@ -33,7 +33,7 @@ pub(super) enum Restart<'a> {
 }
 
 /// What `reading` lacks, in the wire's order. Empty is nothing missing.
-pub(crate) fn missing_of(reading: &HarnessReading) -> Vec<ToolMissing> {
+pub fn missing_of(reading: &HarnessReading) -> Vec<ToolMissing> {
     [
         (!reading.mod_loaded, ToolMissing::Mod),
         (!reading.door_connected, ToolMissing::Door),
@@ -60,7 +60,7 @@ impl Fleet
     /// **The restart is once per process Fleet started for it.** The replacement is marked by its
     /// generation, so its own failure keeps the mark and does not loop, and a process started later
     /// for any other reason is mended again.
-    pub(crate) async fn tools_healed(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, reading: &HarnessReading) -> bool {
+    pub async fn tools_healed(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, reading: &HarnessReading) -> bool {
         let missing = missing_of(reading);
         let mendable = missing.contains(&ToolMissing::Door)
             || (missing.contains(&ToolMissing::Mod) && self.launch_loads_mod());
@@ -95,7 +95,7 @@ impl Fleet
     /// with no once-guard since a person asked. A Job with none has no turn to carry the restart, so
     /// the replacement is started by a word of Fleet's. **A Job waiting to be moved into a slot, or
     /// paused, is left as it is**: the move and the resume start a process, which loads the filled copy.
-    pub(crate) async fn tools_mended(self: &Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
+    pub async fn tools_mended(self: &Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str();
         if self.terminal_session(id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -120,7 +120,7 @@ impl Fleet
     /// starts none: the Job's next line does, as after a quiet spell, so an idle Job spends no turn on
     /// it. Whether it let the process go: a Job waiting to be moved into a slot or paused is left as it
     /// is, and so is one a turn has begun in when Fleet itself asked, since that turn is not Fleet's to cut.
-    pub(super) async fn restarted_onto_mod(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, paused: bool, why: Restart<'_>) -> bool {
+    pub async fn restarted_onto_mod(self: &Arc<Self>, id: &str, runtime: &Arc<Runtime>, paused: bool, why: Restart<'_>) -> bool {
         let lines = {
             let mut state = runtime.state();
             let waits = state.moving.is_some() || paused || (matches!(why, Restart::Moved { .. }) && !state.between_turns());

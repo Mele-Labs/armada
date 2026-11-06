@@ -36,7 +36,7 @@ impl Fleet
 {
     /// Change keys of settings.json, checked whole against the file it would
     /// write, then put it in force. Nothing is written on a refusal.
-    pub(crate) async fn save_settings_now(&self, save: SaveSettings) -> Result<SettingsList, Refusal> {
+    pub async fn save_settings_now(&self, save: SaveSettings) -> Result<SettingsList, Refusal> {
         let settings = self.machine_settings();
         let _one = settings.saving.lock().await;
         let now = settings.now();

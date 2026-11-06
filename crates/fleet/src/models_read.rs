@@ -23,7 +23,7 @@ pub trait ModelReader: Send + Sync + 'static {
 
 /// The last answer, and who gives the next.
 #[derive(Default)]
-pub(crate) struct ModelsHeld {
+pub struct ModelsHeld {
     reader: OnceLock<Arc<dyn ModelReader>>,
     answer: Mutex<Option<Result<Vec<OfferedModel>, String>>>,
     /// One ask at a time, so a press of fresh during the start's ask waits and reads the same answer.
@@ -74,7 +74,7 @@ impl Fleet
 
     /// The models as served: the rows with their switches, the ones switched on, and whether
     /// the harness was read. `default` and `session` are the settings' as they stand.
-    pub(crate) fn models_now(&self) -> ModelChoices {
+    pub fn models_now(&self) -> ModelChoices {
         let now = self.machine_settings().now();
         let on = now.models();
         let (rows, read) = match self.models_held().answer().clone() {

@@ -36,11 +36,11 @@ use crate::repositories::Served;
 use crate::test_map_feed::Feed;
 
 /// The most files read when main moves.
-pub(crate) const FILES_A_MOVE: usize = 20;
+pub const FILES_A_MOVE: usize = 20;
 /// The most of a file's text the model is shown.
-pub(crate) const TEXT_BYTES: usize = 12 * 1024;
+pub const TEXT_BYTES: usize = 12 * 1024;
 /// The most test files the model may choose from.
-pub(crate) const TESTS_LISTED: usize = 200;
+pub const TESTS_LISTED: usize = 200;
 
 impl Feed {
     /// The files left unread by an earlier move of `manifest`'s main, taken so that two passes
@@ -58,12 +58,12 @@ impl Feed {
 
 /// One file to read, and the test files it is read against.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Reading {
-    pub(crate) file: String,
+pub struct Reading {
+    pub file: String,
     /// The nearest first, each once.
-    pub(crate) tests: Vec<String>,
+    pub tests: Vec<String>,
     /// The Checks whose directories hold each test file.
-    pub(crate) checks: BTreeMap<String, Vec<String>>,
+    pub checks: BTreeMap<String, Vec<String>>,
 }
 
 /// Which of `files` are read, and against what.
@@ -74,7 +74,7 @@ pub(crate) struct Reading {
 /// | Named like a test | Not read: a test is its own edge |
 /// | Covered by no Check, or by one that has a collector (`measured`, by Check key) | Not read |
 /// | Covered, and by none that has a collector | Read, if a test file stands in a covering Check's directory |
-pub(crate) fn readings(
+pub fn readings(
     root: &config::Manifest,
     workspaces: &[config::Manifest],
     measured: &BTreeSet<String>,
@@ -151,7 +151,7 @@ fn shared_names(one: &str, other: &str) -> usize {
 /// The question as it ships: `prompts.testMapReading`'s default. **The words that say how to
 /// read what follows come first**, and the file, its text and the paths come after them as
 /// material. `{bytes}` and `{most}` are the caps below.
-pub(crate) const QUESTION: &str = "\
+pub const QUESTION: &str = "\
 You are reading one file of a code repository to name the tests that exercise it. You run \
 nothing; you answer from the text below.
 
@@ -185,7 +185,7 @@ THE TEST FILES
 const CUT_AT: &str = "\n[the text stops here: the file was cut]";
 
 /// What the model is asked, in the words of `prompts.testMapReading`.
-pub(crate) fn question(prompts: &Prompts, file: &str, text: &Text, tests: &[String]) -> String {
+pub fn question(prompts: &Prompts, file: &str, text: &Text, tests: &[String]) -> String {
     let shown = match text.cut {
         true => format!("{}{CUT_AT}", text.text),
         false => text.text.clone(),
@@ -204,7 +204,7 @@ pub(crate) fn question(prompts: &Prompts, file: &str, text: &Text, tests: &[Stri
 
 /// The test files an answer names: one path a line, only those on `tests`, each once. A bullet or
 /// backticks around a path are the model's decoration and not part of it.
-pub(crate) fn named_in(reply: &str, tests: &[String]) -> Vec<String> {
+pub fn named_in(reply: &str, tests: &[String]) -> Vec<String> {
     let listed: BTreeSet<&str> = tests.iter().map(String::as_str).collect();
     let mut named = Vec::new();
     for line in reply.lines() {
@@ -220,7 +220,7 @@ impl Fleet
 {
     /// Main moved to `tip` and `changed` is what moved. Read, at most [`FILES_A_MOVE`] of the
     /// files that changed or were left by an earlier move, those no collector can measure.
-    pub(crate) async fn unmeasurable_read(&self, served: &Served, tip: &str, changed: &[String]) {
+    pub async fn unmeasurable_read(&self, served: &Served, tip: &str, changed: &[String]) {
         let repository = served.manifest().id().clone();
         let manifest = repository.as_str().to_string();
         let mut files = self.feed().unread_taken(&manifest);

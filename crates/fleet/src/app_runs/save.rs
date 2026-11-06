@@ -28,31 +28,31 @@ use crate::daemon::Fleet;
 
 /// Where a run went: the place the person's Kit is kept, and the file in it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct SavedIn {
+pub struct SavedIn {
     /// As the person chose it: `this_mac`, the synced folder, or the cloud.
-    pub(crate) place: ipc::RunPlace,
+    pub place: ipc::RunPlace,
     /// Kit's copy, as that place names it.
-    pub(crate) file: String,
+    pub file: String,
 }
 
 /// What a save did. **A saved run starts at once**: a run is read from the file when it starts.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct SavedRun {
-    pub(crate) name: String,
-    pub(crate) saved_in: SavedIn,
+pub struct SavedRun {
+    pub name: String,
+    pub saved_in: SavedIn,
 }
 
 /// Where a saved run is written. **The one place that chooses**: Kit's copy for the repository,
 /// at the place its Kit keeps it.
-pub(super) struct SaveTarget {
-    pub(super) place: ipc::RunPlace,
-    pub(super) label: PathBuf,
+pub struct SaveTarget {
+    pub place: ipc::RunPlace,
+    pub label: PathBuf,
     /// What Kit's copy holds now, or `None` where there is none yet.
-    pub(super) text: Option<String>,
+    pub text: Option<String>,
 }
 
 /// The edits that declare `draft`: each process's port, then its server, then the run.
-pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
+pub fn edits(draft: &RunDraft) -> Vec<Edit> {
     let mut edits = Vec::new();
     for process in &draft.processes {
         if let Some(port) = &process.port {
@@ -88,13 +88,13 @@ pub(crate) fn edits(draft: &RunDraft) -> Vec<Edit> {
 }
 
 /// What [`Fleet::run_drafted`] read.
-pub(crate) struct Drafted {
+pub struct Drafted {
     /// The run proposed, or `None` where the files and Jobs name nothing a saved run lacks.
-    pub(crate) draft: Option<RunDraft>,
+    pub draft: Option<RunDraft>,
     /// Where a proposed process expects another, proposed or saved.
-    pub(crate) links: Vec<links::Link>,
+    pub links: Vec<links::Link>,
     /// The port each process, proposed or saved, listens on by name: `ARMADA_PORT_*` is named for it.
-    pub(crate) ports: std::collections::BTreeMap<String, String>,
+    pub ports: std::collections::BTreeMap<String, String>,
 }
 
 /// A draft a person confirmed that cannot be written as it stands, said before the file is read.
@@ -119,7 +119,7 @@ fn refused(draft: &RunDraft) -> Option<String> {
 
 /// `text` with `draft` declared in it, or why it cannot be. `first` is what a new copy needs before
 /// the draft: a version and an id, where Kit's copy is to be the whole Manifest.
-pub(crate) fn spliced(text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
+pub fn spliced(text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
     if let Some(why) = refused(draft) {
         return Err(Unrunnable::DraftRefused { why });
     }
@@ -132,7 +132,7 @@ pub(crate) fn spliced(text: &str, draft: &RunDraft, first: &[Edit]) -> Result<St
 
 /// The text of Kit's copy once `draft` is in it: spliced, then loaded over the repository's file at
 /// `file` as Kit's copy is, so what comes back is what the run will start from.
-pub(crate) fn written(file: &Path, label: &Path, text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
+pub fn written(file: &Path, label: &Path, text: &str, draft: &RunDraft, first: &[Edit]) -> Result<String, Unrunnable> {
     let written = spliced(text, draft, first)?;
     loaded(file, label, &written, draft).map(|()| written)
 }
@@ -189,7 +189,7 @@ impl Fleet
     /// What the repository's files and its Jobs' dev servers suggest **that no saved run already
     /// starts**, and where its processes expect one another. Saves nothing but the links found,
     /// which run memory keeps. The repository may declare runs: *Add a way to run* drafts beside them.
-    pub(crate) async fn run_drafted(
+    pub async fn run_drafted(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
     ) -> Result<Drafted, Refusal> {
@@ -257,7 +257,7 @@ impl Fleet
     /// Declare a confirmed `draft` in the person's copy in Kit, at the place they keep it. **The
     /// copy is the whole Manifest of a repository with no `armada.yml`**, and only the names it
     /// changes of one that has. The run starts at once: it is read from the file when it starts.
-    pub(crate) async fn run_saved(
+    pub async fn run_saved(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
         draft: RunDraft,
@@ -283,7 +283,7 @@ impl Fleet
 
     /// Where a run for the repository at `root` is saved, and what is there now. A place that cannot
     /// be reached refuses here, before anything is built to write.
-    pub(super) async fn run_save_target(&self, root: &str) -> Result<SaveTarget, Refusal> {
+    pub async fn run_save_target(&self, root: &str) -> Result<SaveTarget, Refusal> {
         let place = self.kit_place_of(root).await?;
         let (label, read) = self.kit_manifest_read(root).await?;
         let text = match read {

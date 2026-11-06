@@ -8,19 +8,19 @@
 use core_model::{StudioGraph, StudioNode, StudioNodeId, StudioPosition};
 
 /// Room between a frame's edge and what it holds, in canvas units.
-pub(crate) const INSET: i64 = 24;
+pub const INSET: i64 = 24;
 /// Room above what a frame holds, for its title.
-pub(crate) const HEAD: i64 = 48;
+pub const HEAD: i64 = 48;
 
 /// A frame drawn around nodes already on a Studio.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Framed {
+pub struct Framed {
     /// What holds the frame: what every member already sat in, or the board.
-    pub(crate) within: Option<StudioNodeId>,
+    pub within: Option<StudioNodeId>,
     /// The frame's corner, measured from what holds it.
-    pub(crate) corner: StudioPosition,
+    pub corner: StudioPosition,
     /// Each member, at its spot from the frame's corner.
-    pub(crate) holding: Vec<(StudioNodeId, StudioPosition)>,
+    pub holding: Vec<(StudioNodeId, StudioPosition)>,
 }
 
 /// The frame around `members`, leaving each where it is on the board.
@@ -28,7 +28,7 @@ pub(crate) struct Framed {
 /// **It stays in the frame they share, where they share one**, so a Cluster
 /// made of Notes in a read-in's Zone is drawn inside that Zone. Notes from two
 /// places, or from nowhere, are framed on the board.
-pub(crate) fn around(graph: &StudioGraph, members: &[&StudioNode]) -> Framed {
+pub fn around(graph: &StudioGraph, members: &[&StudioNode]) -> Framed {
     let first = members.first().and_then(|node| node.within());
     let shared = members.iter().all(|node| node.within() == first);
     let within = if shared { first.cloned() } else { None };

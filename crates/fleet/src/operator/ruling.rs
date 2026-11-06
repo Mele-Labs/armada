@@ -52,11 +52,11 @@ impl Way {
     }
 
     /// The way a word from the store names.
-    pub(super) fn from_word(word: &str) -> Option<Way> {
+    pub fn from_word(word: &str) -> Option<Way> {
         [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File].into_iter().find(|way| way.word() == word)
     }
 
-    pub(super) fn word_shown(self) -> &'static str {
+    pub fn word_shown(self) -> &'static str {
         match self {
             Way::NewJob => "new job",
             Way::ExistingJob => "existing job",
@@ -227,7 +227,7 @@ impl Outcome {
 /// Read one answer to a call that held `items`, one ruling an item in their order, each held to
 /// the Jobs `near` it and the Jobs waiting to start in its `line`. An item the answer has no block
 /// for, or a block that names what it was not offered, passes on.
-pub(super) fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>], line: &[Vec<InLine>]) -> Vec<Ruled> {
+pub fn read_rulings(answer: &str, items: &[Arrival], near: &[Vec<Near>], line: &[Vec<InLine>]) -> Vec<Ruled> {
     let blocks = blocks(answer);
     items
         .iter()

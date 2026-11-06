@@ -29,7 +29,7 @@ const BUDGET: Duration = Duration::from_secs(4 * 60);
 const TAIL_LINES: usize = 40;
 
 /// One Check to run: its key, its command, the directory it runs in and the exit it expects.
-pub(crate) struct ToRun {
+pub struct ToRun {
     pub name: String,
     pub run: String,
     pub dir: std::path::PathBuf,
@@ -38,7 +38,7 @@ pub(crate) struct ToRun {
 
 /// Run each in turn, and say what they came to. **Every Check runs, so a second failure is in the
 /// same answer as the first** and the agent fixes both before it asks again.
-pub(crate) async fn ran(checks: Vec<ToRun>) -> PrePrChecked {
+pub async fn ran(checks: Vec<ToRun>) -> PrePrChecked {
     let mut ran: Vec<PrePrCheckRan> = Vec::new();
     for check in checks {
         let attempt = checks_runner::run(&check.run, &check.dir, BUDGET).await;
@@ -59,7 +59,7 @@ const DIRTY_LISTED: usize = 10;
 /// So a slot with any uncommitted change that git does not ignore (untracked files too, since a new
 /// file left out of the commit is left out of the pull request) answers `passed: false` and runs
 /// nothing. `None` where the slot is clean or git will not say, so the Checks run as before.
-pub(crate) fn commit_first(slot: &Path) -> Option<PrePrChecked> {
+pub fn commit_first(slot: &Path) -> Option<PrePrChecked> {
     let out = std::process::Command::new("git")
         .arg("-C")
         .arg(slot)
@@ -96,7 +96,7 @@ pub(crate) fn commit_first(slot: &Path) -> Option<PrePrChecked> {
 }
 
 /// `ran`, once the slot's changes are committed. No Check to run asks nothing of the slot.
-pub(crate) async fn ran_in(slot: std::path::PathBuf, checks: Vec<ToRun>) -> PrePrChecked {
+pub async fn ran_in(slot: std::path::PathBuf, checks: Vec<ToRun>) -> PrePrChecked {
     if checks.is_empty() {
         return ran(checks).await;
     }
@@ -145,7 +145,7 @@ impl Fleet
 {
     /// `check_before_pr`: the pre-PR Checks the Job's changes reach, run in its slot. **The Job is
     /// placed by the connection** where Fleet hosts it, else by the body, as `show_window`'s is.
-    pub(crate) async fn pre_pr_checked(
+    pub async fn pre_pr_checked(
         &self,
         caller: Option<api::Caller>,
         asked: CheckBeforePr,

@@ -25,20 +25,20 @@ use crate::daemon::Fleet;
 use crate::repositories::Served;
 
 /// The folder lifecycles are kept in, under Kit's home and under a repository's `.armada/`.
-pub(crate) const LIFECYCLES: &str = "lifecycles";
+pub const LIFECYCLES: &str = "lifecycles";
 /// The folder lifecycle rules are kept in, in the same two places.
-pub(crate) const RULES: &str = "rules";
+pub const RULES: &str = "rules";
 /// The folder Workspaces are kept in, in the same two places.
-pub(crate) const WORKSPACES: &str = "workspaces";
+pub const WORKSPACES: &str = "workspaces";
 /// The folder autonomy defaults are kept in, in the same two places.
-pub(crate) const AUTONOMY: &str = "autonomy";
+pub const AUTONOMY: &str = "autonomy";
 /// What a piece file may be written as, the same set a workflow's is.
 const EXTENSIONS: &[&str] = &["json", "yml", "yaml"];
 
 /// Every piece file in `folder`, by name. A folder that is not there holds none, and a file that
 /// will not read is skipped: a person cannot be told what is not readable except as a file that
 /// did not fit, and that sentence needs text.
-pub(crate) fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
+pub fn files_in(folder: &Path, place: impl Fn(PathBuf, String) -> PieceWritten) -> Vec<PieceWritten> {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return Vec::new();
     };
@@ -61,7 +61,7 @@ fn in_repository(root: &str, kind: &str) -> PathBuf {
 impl Fleet
 {
     /// Where Kit keeps a kind of piece on this Mac.
-    pub(crate) fn kit_pieces(&self, kind: &str) -> PathBuf {
+    pub fn kit_pieces(&self, kind: &str) -> PathBuf {
         PathBuf::from(&self.host().kit_home).join(kind)
     }
 
@@ -125,7 +125,7 @@ impl Fleet
     /// rule that applies, and the autonomy defaults laid over each other. **The text, and not the
     /// parsed value**, so what a Job keeps is what was written then. The four lifecycles Armada
     /// carries are not files and are not kept: they are the same for every Job.
-    pub(crate) fn job_copy_for(&self, repository: &str) -> Result<KeptCopy, Refusal> {
+    pub fn job_copy_for(&self, repository: &str) -> Result<KeptCopy, Refusal> {
         let served = self.repositories().serving(repository).ok_or_else(|| {
             self.refusal(Adrift::NoSuchManifest {
                 named: repository.to_string(),

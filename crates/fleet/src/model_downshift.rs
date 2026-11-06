@@ -9,7 +9,7 @@ use store::KeptDownshift;
 
 /// Where the step down stands, with what each phase must remember.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Phase {
+pub enum Phase {
     Offered { percent: u32, was: String, to: String },
     /// `until` is the reset of the window it was accepted in; `restore_to` is what settings.json held
     /// for `models.session`, `None` being not saved, so restoring removes the key.
@@ -20,30 +20,30 @@ pub(crate) enum Phase {
 /// The state, and the window an offer was last made for. **The window outlives the state**: a settled
 /// or restored offer is not made again before the window resets.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Downshift {
-    pub(crate) phase: Option<Phase>,
-    pub(crate) offered_for: Option<String>,
+pub struct Downshift {
+    pub phase: Option<Phase>,
+    pub offered_for: Option<String>,
 }
 
 /// The weekly window as a session last read it.
-pub(crate) struct Weekly<'a> {
-    pub(crate) percent: u32,
-    pub(crate) resets_at: &'a str,
+pub struct Weekly<'a> {
+    pub percent: u32,
+    pub resets_at: &'a str,
 }
 
 /// What the owner's settings say a reading is judged by.
-pub(crate) struct Terms<'a> {
-    pub(crate) line: u32,
-    pub(crate) to: &'a str,
+pub struct Terms<'a> {
+    pub line: u32,
+    pub to: &'a str,
     /// `models.session` as it stands.
-    pub(crate) current: &'a str,
+    pub current: &'a str,
     /// An environment variable names the Session model, so writing the setting would change nothing.
-    pub(crate) pinned: bool,
+    pub pinned: bool,
 }
 
 impl Downshift {
     /// A reading of the weekly window. **True where the state or the window remembered moved.**
-    pub(crate) fn read(&mut self, weekly: &Weekly<'_>, terms: &Terms<'_>) -> bool {
+    pub fn read(&mut self, weekly: &Weekly<'_>, terms: &Terms<'_>) -> bool {
         let mut moved = false;
         match self.phase.take() {
             Some(Phase::Shifted { was, to, until, restore_to }) if until != weekly.resets_at => {
@@ -81,7 +81,7 @@ impl Downshift {
 
     /// `models.session` was changed by somebody. **True where that ends the state**: while offered,
     /// any value but the one it was offered over; while shifted or reset, any value but `to`.
-    pub(crate) fn edited_to(&mut self, current: &str) -> bool {
+    pub fn edited_to(&mut self, current: &str) -> bool {
         let unchanged = match &self.phase {
             None => return false,
             Some(Phase::Offered { was, .. }) => was == current,
@@ -93,7 +93,7 @@ impl Downshift {
         !unchanged
     }
 
-    pub(crate) fn wire(&self) -> ModelDownshiftState {
+    pub fn wire(&self) -> ModelDownshiftState {
         ModelDownshiftState {
             downshift: self.phase.as_ref().map(|phase| match phase {
                 Phase::Offered { percent, was, to } => {
@@ -109,7 +109,7 @@ impl Downshift {
         }
     }
 
-    pub(crate) fn kept(&self) -> KeptDownshift {
+    pub fn kept(&self) -> KeptDownshift {
         let mut kept = KeptDownshift { offered_for: self.offered_for.clone(), ..KeptDownshift::default() };
         match &self.phase {
             None => {}
@@ -138,7 +138,7 @@ impl Downshift {
 
     /// The state as the store kept it. A phase this build does not know, or a shifted row with no
     /// window, reads as none: the default stays what settings.json says, and nothing is offered over it.
-    pub(crate) fn from_kept(kept: KeptDownshift) -> Downshift {
+    pub fn from_kept(kept: KeptDownshift) -> Downshift {
         let phase = match (kept.phase.as_deref(), kept.until) {
             (Some("offered"), _) => Some(Phase::Offered { percent: kept.percent, was: kept.was, to: kept.to }),
             (Some("shifted"), Some(until)) => {

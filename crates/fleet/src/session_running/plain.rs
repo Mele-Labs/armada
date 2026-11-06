@@ -6,7 +6,7 @@ use std::str::Chars;
 /// The last `count` lines of `output` as the screen drew them. Escape sequences are dropped, a
 /// carriage return or a backspace writes over what was there, and erase-in-line is honoured, so a
 /// progress bar that redrew itself fifty times reads as its last line.
-pub(crate) fn last_lines(output: &str, count: usize) -> String {
+pub fn last_lines(output: &str, count: usize) -> String {
     let mut done: Vec<String> = Vec::new();
     let mut line: Vec<char> = Vec::new();
     let mut col: usize = 0;
@@ -40,7 +40,7 @@ pub(crate) fn last_lines(output: &str, count: usize) -> String {
 /// `output`'s printable characters in the order they arrived, with escapes, controls and spaces
 /// taken out and nothing written over, so text a shell wrote and then moved back over still reads
 /// here where [`last_lines`] would read it overwritten.
-pub(crate) fn printed_through(output: &str) -> String {
+pub fn printed_through(output: &str) -> String {
     let (mut scratch, mut col) = (Vec::new(), 0);
     let mut kept = String::new();
     let mut chars = output.chars().peekable();

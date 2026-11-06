@@ -39,7 +39,7 @@ impl core::fmt::Display for NotPermitted {
     }
 }
 
-pub(crate) fn chains(arguments: &str) -> bool {
+pub fn chains(arguments: &str) -> bool {
     arguments.contains(['&', '|', ';', '<', '>', '`', '\n', '\r']) || arguments.contains("$(")
 }
 
@@ -138,7 +138,7 @@ impl Fleet
     }
 
     /// [`NotPermitted`] as a 409 with no Job to name.
-    pub(crate) fn repository_allow_refusal(&self, why: NotPermitted) -> Refusal {
+    pub fn repository_allow_refusal(&self, why: NotPermitted) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             NOT_PERMITTED_IN_REPOSITORY,
             why.to_string(),

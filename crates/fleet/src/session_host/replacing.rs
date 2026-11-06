@@ -43,11 +43,11 @@ use crate::daemon::Fleet;
 
 /// On the new Job's ledger, naming the Job it took the place of; `spent`, a fact that stays.
 /// `detail.context` is what the new Job starts from.
-pub(crate) const REPLACES: &str = "replaces";
+pub const REPLACES: &str = "replaces";
 /// On the old Job's ledger, naming its successor; `spent`.
-pub(crate) const REPLACED_BY: &str = "replaced_by";
+pub const REPLACED_BY: &str = "replaced_by";
 /// On the old Job while the successor comes up: `standing`, settled when the hand ends either way.
-pub(crate) const STARTING: &str = "handoff_starting";
+pub const STARTING: &str = "handoff_starting";
 /// On the old Job when the successor did not start: `standing` until the person next writes to it or
 /// retries. `detail.reason` says why, `detail.brief` keeps the brief for a retry. The target is the
 /// instant, so a second failure is a second row.
@@ -77,13 +77,13 @@ const BRIEF_CHARS: usize = 6_000;
 
 /// What a Job is told when the Large context setting carries it on with no card: no card carries a
 /// brief, so it is asked for one.
-pub(crate) const BRIEF_ASKED: &str = "Reply with your brief only: where the work is, what is open, what you hold. Make no tool calls. Your context is past the limit, and this job carries on in a new one from your reply.";
+pub const BRIEF_ASKED: &str = "Reply with your brief only: where the work is, what is open, what you hold. Make no tool calls. Your context is past the limit, and this job carries on in a new one from your reply.";
 /// How long the hand waits for that reply before it carries on with the composed context alone.
 const BRIEF_WAIT: std::time::Duration = std::time::Duration::from_secs(180);
 const BRIEF_POLL: std::time::Duration = std::time::Duration::from_millis(200);
 
 /// What a successor's agent is told it is: bare facts, and what came with it.
-pub(crate) fn replace_note(old_title: Option<&str>, old: &str, when: &str, context: &str) -> String {
+pub fn replace_note(old_title: Option<&str>, old: &str, when: &str, context: &str) -> String {
     let title = old_title
         .map(|title| title.split_whitespace().collect::<Vec<_>>().join(" "))
         .filter(|title| !title.is_empty())
@@ -101,17 +101,17 @@ pub(crate) fn replace_note(old_title: Option<&str>, old: &str, when: &str, conte
 
 // The step a test has broken by arrangement (`start` or `close`), where the real faults cannot be
 // made. Never set outside a test.
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 thread_local! {
-    pub(crate) static FAULT: std::cell::Cell<Option<&'static str>> = const { std::cell::Cell::new(None) };
+    pub static FAULT: std::cell::Cell<Option<&'static str>> = const { std::cell::Cell::new(None) };
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 fn faulted(at: &str) -> Option<String> {
     (FAULT.with(|one| one.get()) == Some(at)).then(|| format!("{at} refused by arrangement"))
 }
 
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "test-support")))]
 fn faulted(_: &str) -> Option<String> {
     None
 }
@@ -135,7 +135,7 @@ impl Fleet
 {
     /// The brief the Job wrote on its card: the description of the option that carries on. Read off the
     /// question Fleet holds, so nothing the agent calls says it.
-    pub(crate) fn handoff_brief(questions: &[ipc::AskedQuestion]) -> Option<String> {
+    pub fn handoff_brief(questions: &[ipc::AskedQuestion]) -> Option<String> {
         let said = questions
             .iter()
             .flat_map(|question| question.options.iter())
@@ -147,7 +147,7 @@ impl Fleet
 
     /// The person said yes to Job `old`'s card. Marks the hand running, starts it on a task of its own
     /// and answers the call at once: the hand ends the process this call came from.
-    pub(crate) async fn handed_on(self: &Arc<Self>, old: &str, brief: Option<String>) -> RunOrNot {
+    pub async fn handed_on(self: &Arc<Self>, old: &str, brief: Option<String>) -> RunOrNot {
         self.handoff_mark(old, STARTING, old, AttachmentState::Standing, brief_of(&brief)).await;
         let (fleet, old) = (Arc::clone(self), old.to_string());
         tokio::spawn(async move { fleet.handing_on(&old, brief).await });
@@ -157,7 +157,7 @@ impl Fleet
     /// [`Self::handed_on`] on a task of its own, for a caller with no call to answer. **Not async, and
     /// the task boxed**: the hand starts a Job, whose messages come back through the caller, and an
     /// awaited hand would make the caller's future contain itself.
-    pub(crate) fn handed_on_apart(self: &Arc<Self>, old: &str, brief: Option<String>) {
+    pub fn handed_on_apart(self: &Arc<Self>, old: &str, brief: Option<String>) {
         let (fleet, old) = (Arc::clone(self), old.to_string());
         let hand: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> = Box::pin(async move {
             fleet.handed_on(&old, brief).await;
@@ -168,7 +168,7 @@ impl Fleet
     /// The Context rule tripped with the Large context setting at carry on automatically, the owner's
     /// standing consent: the same hand as his yes, on a task of its own, with the brief the Job
     /// replies to [`BRIEF_ASKED`]. Nothing else starts a successor unasked.
-    pub(crate) async fn handed_on_by_setting(self: &Arc<Self>, old: &str) {
+    pub async fn handed_on_by_setting(self: &Arc<Self>, old: &str) {
         self.handoff_mark(old, STARTING, old, AttachmentState::Standing, BTreeMap::new()).await;
         let (fleet, old) = (Arc::clone(self), old.to_string());
         tokio::spawn(async move {
@@ -209,7 +209,7 @@ impl Fleet
 
     /// `retry_handoff`: the person's press on a hand that failed. The same steps as the yes, with the
     /// brief the failed row kept; his press is the consent, and no card is raised. Answers the new Job.
-    pub(crate) async fn handoff_retried(self: Arc<Self>, retry: RetryHandoff) -> Result<SessionRecord, Refusal> {
+    pub async fn handoff_retried(self: Arc<Self>, retry: RetryHandoff) -> Result<SessionRecord, Refusal> {
         let old = retry.session_id.as_str().to_string();
         self.session_and_hosting(&old).await?;
         let held = self
@@ -477,7 +477,7 @@ impl Fleet
 
     /// What every process of the new Job `id` is told it is: what it took the place of, and what the
     /// old Job left it. Read at each start, so the note is the same after a restart.
-    pub(crate) async fn successor_note_of(&self, id: &str) -> Option<String> {
+    pub async fn successor_note_of(&self, id: &str) -> Option<String> {
         let store = self.store().lock().await;
         let held = store.attachments_of(&Holder::session(id)).ok()?;
         let link = held.into_iter().find(|one| one.kind == REPLACES && one.state == AttachmentState::Spent)?;
@@ -487,7 +487,7 @@ impl Fleet
     }
 
     /// The failure fact is the person's to have seen: his next message to the Job puts it away.
-    pub(crate) async fn handoff_failure_cleared(&self, session: &str) {
+    pub async fn handoff_failure_cleared(&self, session: &str) {
         let now = self.now().as_str().to_string();
         let cleared = self.store().lock().await.settle_held(&Holder::session(session), Some(FAILED), AttachmentState::GivenBack, &now);
         if cleared.unwrap_or(false) {

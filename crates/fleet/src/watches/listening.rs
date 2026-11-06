@@ -26,7 +26,7 @@ const QUOTED: usize = 300;
 const PATTERN_SIZE: usize = 1 << 20;
 
 /// What `text` matches: the words themselves, or with `regex` the pattern it spells.
-pub(crate) fn wanted(text: &str, regex: bool) -> Result<Regex, String> {
+pub fn wanted(text: &str, regex: bool) -> Result<Regex, String> {
     let pattern = if regex { text.to_string() } else { regex::escape(text) };
     RegexBuilder::new(&pattern)
         .size_limit(PATTERN_SIZE)
@@ -35,7 +35,7 @@ pub(crate) fn wanted(text: &str, regex: bool) -> Result<Regex, String> {
 }
 
 /// `chunk` added to what is `pending`, and the first line in it that `wanted` matches, as drawn.
-pub(crate) fn matched(pending: &mut String, chunk: &str, wanted: &Regex) -> Option<String> {
+pub fn matched(pending: &mut String, chunk: &str, wanted: &Regex) -> Option<String> {
     pending.push_str(chunk);
     while let Some(at) = pending.find('\n') {
         let line: String = pending.drain(..=at).collect();
@@ -62,7 +62,7 @@ fn read(state: ReadingState, says: String) -> KeptWatchTaken {
 impl Fleet
 {
     /// Hear `kept`'s Job's terminal until it prints what the watch waits for, it ends, or `stopped`.
-    pub(crate) async fn watch_listened(self: &Arc<Self>, kept: KeptWatchWhole, mut stopped: tokio::sync::oneshot::Receiver<()>) {
+    pub async fn watch_listened(self: &Arc<Self>, kept: KeptWatchWhole, mut stopped: tokio::sync::oneshot::Receiver<()>) {
         let id = kept.watch.id.clone();
         let Some(text) = kept.watch.in_terminal.clone() else { return };
         let wanted = match wanted(&text, kept.watch.regex) {

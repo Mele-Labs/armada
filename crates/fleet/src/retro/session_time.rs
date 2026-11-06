@@ -14,7 +14,7 @@ const FAR: u64 = 2;
 const MARGIN_MS: u64 = 10 * 60 * 1000;
 
 /// What the row is made from: the Job's split, and the usual of its workflow.
-pub(crate) struct TimingSources {
+pub struct TimingSources {
     pub workflow: String,
     /// How many kept Jobs of the workflow the usual is the median of.
     pub jobs: u32,
@@ -27,7 +27,7 @@ fn far_over(spent: u64, usual: u64) -> bool {
 }
 
 /// The row, or none where no bucket is far over.
-pub(super) fn timed(from: &TimingSources) -> Option<RecordTime> {
+pub fn timed(from: &TimingSources) -> Option<RecordTime> {
     let over: Vec<String> = from
         .spent
         .each()

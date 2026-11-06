@@ -37,12 +37,12 @@ const SESSION_MOVE_LISTENING: &str = "fleet.session_move_listening";
 const NO_SUCH_MANIFEST: &str = "fleet.no_such_manifest";
 
 /// On the old session's ledger, naming the fork.
-pub(crate) const FORKED_TO: &str = "forked_to";
+pub const FORKED_TO: &str = "forked_to";
 /// On the fork's ledger, naming the session it came from.
-pub(crate) const FORKED_FROM: &str = "forked_from";
+pub const FORKED_FROM: &str = "forked_from";
 /// On both `forked_*` rows of a move, which a fork has not: the id of the repository on the other
 /// side, the one the session came from on `forked_from` and the one it went to on `forked_to`.
-pub(crate) const MOVED: &str = "moved";
+pub const MOVED: &str = "moved";
 /// On a move's `forked_from` detail: the old session's branch or branches, comma-separated.
 const BRANCH: &str = "branch";
 /// On `forked_from`'s detail: the thread row the fork ends at, which Bridge cuts the old rows by.
@@ -52,7 +52,7 @@ const CUT: &str = "cut";
 
 /// What a fork's agent is told it is: bare facts, and what to do with the old session's work.
 /// `old_title` is the title the old session had, `ended` whether it had ended when this was read.
-pub(crate) fn fork_note(old_title: Option<&str>, old: &str, when: &str, ended: bool) -> String {
+pub fn fork_note(old_title: Option<&str>, old: &str, when: &str, ended: bool) -> String {
     let title = old_title
         .map(|title| title.split_whitespace().collect::<Vec<_>>().join(" "))
         .filter(|title| !title.is_empty())
@@ -74,7 +74,7 @@ pub(crate) fn fork_note(old_title: Option<&str>, old: &str, when: &str, ended: b
 
 /// What a moved session's agent is told it is: bare facts, and what stayed behind. `from` and `to`
 /// are the repositories' roots, `branch` what the old session's branch or branches were.
-pub(crate) fn move_note(
+pub fn move_note(
     old_title: Option<&str>,
     old: &str,
     when: &str,
@@ -114,7 +114,7 @@ impl Fleet
 {
     /// The transcript line a fork's first process ends its copy at, where the fork was taken at a
     /// message. Kept on the ledger, so a Fleet that restarted before that process started has it.
-    pub(crate) async fn fork_cut_of(&self, id: &str) -> Option<String> {
+    pub async fn fork_cut_of(&self, id: &str) -> Option<String> {
         let store = self.store().lock().await;
         let held = store.attachments_of(&Holder::session(id)).ok()?;
         held.into_iter()
@@ -124,7 +124,7 @@ impl Fleet
 
     /// What every process of fork `id` is told it is, of the session `old` it came from. Read at
     /// each start, so whether the old session is live is as of then.
-    pub(crate) async fn fork_note_of(&self, id: &str, old: &str) -> Option<String> {
+    pub async fn fork_note_of(&self, id: &str, old: &str) -> Option<String> {
         let store = self.store().lock().await;
         let held = store.attachments_of(&Holder::session(id)).ok()?;
         let link = held.into_iter().find(|one| one.kind == FORKED_FROM)?;
@@ -157,7 +157,7 @@ impl Fleet
         ))
     }
 
-    pub(crate) async fn start_forked(
+    pub async fn start_forked(
         &self,
         start: StartSession,
         from: ForkFrom,
@@ -167,7 +167,7 @@ impl Fleet
 
     /// Ends session `moved.session_id` if it is live and starts its whole conversation again in
     /// `moved.manifest_id`, under the same title. Every refusal comes before anything is ended.
-    pub(crate) async fn moved_session(self: Arc<Self>, moved: MoveSession) -> Result<SessionRecord, Refusal> {
+    pub async fn moved_session(self: Arc<Self>, moved: MoveSession) -> Result<SessionRecord, Refusal> {
         let old_id = moved.session_id.as_str().to_string();
         let to = moved.manifest_id.as_str().to_string();
         let (session, hosting, branches) = {

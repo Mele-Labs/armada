@@ -22,7 +22,7 @@ const APP_RUN_MANIFEST_UNREADABLE: &str = "fleet.app_run_manifest_unreadable";
 const APP_RUN_UNSAVED: &str = "fleet.app_run_unsaved";
 
 #[derive(Debug)]
-pub(crate) enum Unrunnable {
+pub enum Unrunnable {
     NotARun { name: String, runs: Vec<String> },
     NoSuchJob { id: String },
     JobHasNoWorktree { id: String },
@@ -35,7 +35,7 @@ pub(crate) enum Unrunnable {
 impl Unrunnable {
     /// The code and the refusal. **A conflict with where things stand is a 409; a name or a draft
     /// that is wrong is a 422**; a file that would not write is Fleet's fault.
-    pub(crate) fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
+    pub fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
         use Unrunnable::*;
         match self {
             NotARun { .. } => (NOT_AN_APP_RUN, Refusal::Unacceptable),

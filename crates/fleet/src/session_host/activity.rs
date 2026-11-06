@@ -23,7 +23,7 @@ use super::account::Writing;
 use crate::daemon::Fleet;
 
 /// The most often a session's row is published for what it is doing.
-pub(crate) const PUBLISH_EVERY: Duration = Duration::from_secs(2);
+pub const PUBLISH_EVERY: Duration = Duration::from_secs(2);
 
 /// The longest word `now` carries from a command or a file name, and the longest todo.
 const WORD_AT_MOST: usize = 40;
@@ -33,7 +33,7 @@ const SAID_AT_MOST: usize = 160;
 
 /// What a session did last, and when its row last went out for it.
 #[derive(Default)]
-pub(crate) struct Activity {
+pub struct Activity {
     now: Option<String>,
     said: Option<String>,
     todos: Vec<SessionTodo>,
@@ -46,12 +46,12 @@ pub(crate) struct Activity {
     /// A task is waiting to publish `unsent`. At most one.
     trailing: bool,
     /// What the account is written from, and the account.
-    pub(super) writing: Writing,
+    pub writing: Writing,
 }
 
 /// What a call asks of the publisher.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Publish {
+pub enum Publish {
     Not,
     Now,
     After(Duration),
@@ -59,7 +59,7 @@ pub(crate) enum Publish {
 
 impl Activity {
     /// Take one call. `every` is the most often a row goes out for it.
-    pub(crate) fn saw(&mut self, gate: &SessionGate, every: Duration) -> Publish {
+    pub fn saw(&mut self, gate: &SessionGate, every: Duration) -> Publish {
         if let Some(agent) = gate.agent_id.as_deref() {
             return match self.subagent_saw(agent, gate) {
                 true => self.changed(every),
@@ -97,7 +97,7 @@ impl Activity {
     /// The task list the mod heard, whole, which is the agent's list where its CLI serves `TaskCreate`
     /// and `TaskUpdate` and the gate sees no `TodoWrite`. Whether it changed. The caller publishes the
     /// row, since the report that brought it already does.
-    pub(crate) fn tasks_told(&mut self, tasks: &[ReportedTask]) -> bool {
+    pub fn tasks_told(&mut self, tasks: &[ReportedTask]) -> bool {
         let todos: Vec<SessionTodo> = tasks
             .iter()
             .filter_map(|one| {
@@ -134,7 +134,7 @@ impl Activity {
 
     /// The agent said something this turn: the first line of it, at most [`SAID_AT_MOST`] characters.
     /// A text with nothing in it changes nothing.
-    pub(crate) fn said(&mut self, text: &str, every: Duration) -> Publish {
+    pub fn said(&mut self, text: &str, every: Duration) -> Publish {
         let Some(line) = said_line(text) else { return Publish::Not };
         self.writing.said_seen(text);
         if self.said.as_deref() == Some(line.as_str()) {
@@ -145,7 +145,7 @@ impl Activity {
     }
 
     /// A subagent ended: its line goes. Whether it had one.
-    pub(crate) fn subagent_ended(&mut self, agent: &str) -> bool {
+    pub fn subagent_ended(&mut self, agent: &str) -> bool {
         let held = self.subagents.len();
         self.subagents.retain(|one| one.id != agent);
         self.subagents.len() != held
@@ -153,7 +153,7 @@ impl Activity {
 
     /// Something the row carries changed, though not through a call this holds: the row goes out
     /// at most once in `every`, as for a call.
-    pub(crate) fn changed(&mut self, every: Duration) -> Publish {
+    pub fn changed(&mut self, every: Duration) -> Publish {
         self.unsent = true;
         if self.trailing {
             return Publish::Not;
@@ -171,7 +171,7 @@ impl Activity {
     }
 
     /// The wait is over. Whether there is a change to publish.
-    pub(crate) fn trailed(&mut self) -> bool {
+    pub fn trailed(&mut self) -> bool {
         self.trailing = false;
         let owed = self.unsent;
         if owed {
@@ -188,7 +188,7 @@ impl Activity {
 
     /// A turn began, and Fleet publishes the row at once. What the last turn was doing is not what
     /// this one is: `now` goes, and the agent's list stays, true across turns.
-    pub(crate) fn turn_began(&mut self) {
+    pub fn turn_began(&mut self) {
         self.now = None;
         self.said = None;
         self.subagents.clear();
@@ -198,12 +198,12 @@ impl Activity {
     }
 
     /// The session ended: nothing is kept, and a waiting task finds nothing owed.
-    pub(crate) fn ended(&mut self) {
+    pub fn ended(&mut self) {
         *self = Activity::default();
     }
 
     /// As the row carries it. Absent where it holds nothing.
-    pub(crate) fn wire(&self) -> Option<SessionActivity> {
+    pub fn wire(&self) -> Option<SessionActivity> {
         let held = SessionActivity {
             now: self.now.clone(),
             todos: self.todos.clone(),
@@ -272,7 +272,7 @@ fn plan_of(gate: &SessionGate) -> Option<Observed> {
 }
 
 /// The one short fact a call makes of `now`. `None` for a tool Fleet does not name, which leaves it as it was.
-pub(crate) fn now_of(gate: &SessionGate) -> Option<String> {
+pub fn now_of(gate: &SessionGate) -> Option<String> {
     let text = |key: &str| gate.tool_input.get(key).and_then(|said| said.as_str());
     match gate.tool_name.as_str() {
         "Edit" | "Write" | "MultiEdit" | "NotebookEdit" => {
@@ -401,7 +401,7 @@ impl Fleet
 {
     /// A hosted session's tool call, before it runs. **Takes a std lock for a moment and awaits
     /// nothing**: the gate answers the call, and the publish, when there is one, is a task of its own.
-    pub(super) fn call_seen(self: &Arc<Self>, gate: &SessionGate) {
+    pub fn call_seen(self: &Arc<Self>, gate: &SessionGate) {
         let id = gate.session_id.as_str();
         let runtime = self.hosts().of(id);
         let step = runtime.state().activity.saw(gate, self.hosts().activity_every());
@@ -422,7 +422,7 @@ impl Fleet
     }
 
     /// Publish the row as [`Activity`] said: now, after a wait, or not.
-    pub(crate) fn publish_step(self: &Arc<Self>, id: String, step: Publish) {
+    pub fn publish_step(self: &Arc<Self>, id: String, step: Publish) {
         let fleet = Arc::clone(self);
         match step {
             Publish::Not => {}
@@ -444,24 +444,24 @@ impl Fleet
     }
 
     /// What the row carries of it.
-    pub(crate) fn activity_of(&self, id: &str) -> Option<SessionActivity> {
+    pub fn activity_of(&self, id: &str) -> Option<SessionActivity> {
         self.hosts().of(id).state().activity.wire()
     }
 
     /// The agent's own text, as it is heard: its first line goes on the row, like `now`.
-    pub(super) fn said_seen(self: &Arc<Self>, id: &str, text: &str) {
+    pub fn said_seen(self: &Arc<Self>, id: &str, text: &str) {
         let step = self.hosts().of(id).state().activity.said(text, self.hosts().activity_every());
         self.account_wanted(id);
         self.publish_step(id.to_string(), step);
     }
 
     /// A subagent of the session ended: its line goes. Whether the row changed, which the caller publishes.
-    pub(crate) fn activity_subagent_over(&self, id: &str, agent: &str) -> bool {
+    pub fn activity_subagent_over(&self, id: &str, agent: &str) -> bool {
         self.hosts().of(id).state().activity.subagent_ended(agent)
     }
 
     /// The session ended.
-    pub(crate) fn activity_ended(&self, id: &str) {
+    pub fn activity_ended(&self, id: &str) {
         self.hosts().of(id).state().activity.ended();
     }
 }

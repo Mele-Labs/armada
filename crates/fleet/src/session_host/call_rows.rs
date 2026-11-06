@@ -20,7 +20,7 @@ const CALLS_AT_MOST: usize = 64;
 
 /// In memory: a Fleet that restarts settles a row it kept from the thread itself.
 #[derive(Default)]
-pub(crate) struct CallRows {
+pub struct CallRows {
     calls: VecDeque<Call>,
     /// The person's rows put `queued`, to be put again once the agent has read them.
     queued: Vec<SessionRow>,
@@ -55,14 +55,14 @@ impl Drawn {
 }
 
 /// What a subagent's latest call asks of its row.
-pub(crate) enum Latest {
+pub enum Latest {
     Put(SessionRow),
     After(Duration),
     Held,
 }
 
 impl CallRows {
-    pub(crate) fn spawned(&mut self, call: &str, background: bool) {
+    pub fn spawned(&mut self, call: &str, background: bool) {
         self.call(call).background = background;
     }
 
@@ -81,7 +81,7 @@ impl CallRows {
     }
 
     /// The agent's own call was drawn as row `id`: the row to put, where the call started a subagent.
-    pub(crate) fn drawn(&mut self, call: &str, id: &str, at: &Instant, text: &str) -> Option<SessionRow> {
+    pub fn drawn(&mut self, call: &str, id: &str, at: &Instant, text: &str) -> Option<SessionRow> {
         let one = self.calls.iter_mut().find(|one| one.call == call)?;
         let subagent = one.early.take();
         if subagent.is_some() {
@@ -94,16 +94,16 @@ impl CallRows {
     }
 
     /// A foreground subagent call is drawn and has not returned, so the CLI holds what the person writes.
-    pub(crate) fn holds_the_turn(&self) -> bool {
+    pub fn holds_the_turn(&self) -> bool {
         self.calls.iter().any(|one| !one.background && !one.answered && one.row.is_some())
     }
 
-    pub(crate) fn queued(&mut self, row: SessionRow) {
+    pub fn queued(&mut self, row: SessionRow) {
         self.queued.push(row);
     }
 
     /// The agent's own call `call` returned. The person's held rows, once nothing holds the turn.
-    pub(crate) fn answered(&mut self, call: &str) -> Vec<SessionRow> {
+    pub fn answered(&mut self, call: &str) -> Vec<SessionRow> {
         if let Some(one) = self.calls.iter_mut().find(|one| one.call == call) {
             one.answered = true;
         }
@@ -114,7 +114,7 @@ impl CallRows {
     }
 
     /// The person's held rows, read: the turn ended, or the process went.
-    pub(crate) fn read(&mut self) -> Vec<SessionRow> {
+    pub fn read(&mut self) -> Vec<SessionRow> {
         std::mem::take(&mut self.queued)
             .into_iter()
             .map(|row| match row {
@@ -127,7 +127,7 @@ impl CallRows {
     }
 
     /// The subagent call `call` started, running. Its row, where the call was drawn; else it waits for the row.
-    pub(crate) fn started(&mut self, call: &str, subagent: ToolSubagent) -> Option<SessionRow> {
+    pub fn started(&mut self, call: &str, subagent: ToolSubagent) -> Option<SessionRow> {
         let one = self.call(call);
         let Some(drawn) = one.row.as_mut() else {
             one.early = Some(subagent);
@@ -138,7 +138,7 @@ impl CallRows {
         Some(drawn.row())
     }
 
-    pub(crate) fn latest(&mut self, call: &str, latest: String, now: std::time::Instant) -> Latest {
+    pub fn latest(&mut self, call: &str, latest: String, now: std::time::Instant) -> Latest {
         let Some(one) = self.calls.iter_mut().find(|one| one.call == call) else { return Latest::Held };
         let Some(subagent) = one.row.as_mut().and_then(|drawn| drawn.subagent.as_mut()) else { return Latest::Held };
         if subagent.state != ToolSubagentState::Running {
@@ -158,7 +158,7 @@ impl CallRows {
     }
 
     /// The put a held latest call was waiting for, unless it settled meanwhile.
-    pub(crate) fn owed(&mut self, call: &str, now: std::time::Instant) -> Option<SessionRow> {
+    pub fn owed(&mut self, call: &str, now: std::time::Instant) -> Option<SessionRow> {
         let one = self.calls.iter_mut().find(|one| one.call == call && one.owed)?;
         one.owed = false;
         one.put_at = Some(now);
@@ -168,7 +168,7 @@ impl CallRows {
     }
 
     /// Subagent `target` settled. Its row, where this Fleet drew it; the call is forgotten.
-    pub(crate) fn settled(&mut self, target: &str, state: ToolSubagentState, ended: &Instant) -> Option<SessionRow> {
+    pub fn settled(&mut self, target: &str, state: ToolSubagentState, ended: &Instant) -> Option<SessionRow> {
         let at = self.calls.iter().position(|one| {
             one.row.as_ref().and_then(|drawn| drawn.subagent.as_ref()).is_some_and(|subagent| subagent.id == target)
         })?;
@@ -186,12 +186,12 @@ impl CallRows {
     }
 
     /// The settled row of call `call`, where it settled while its latest call was being put.
-    pub(crate) fn settled_since(&self, call: &str) -> Option<SessionRow> {
+    pub fn settled_since(&self, call: &str) -> Option<SessionRow> {
         self.settled.iter().find(|(one, _)| one == call).map(|(_, row)| row.clone())
     }
 
     /// The process went, and every call with it.
-    pub(crate) fn forgotten(&mut self) {
+    pub fn forgotten(&mut self) {
         self.calls.clear();
     }
 }
@@ -213,7 +213,7 @@ fn settled_row(row: SessionRow, pick: impl Fn(&str) -> bool, state: ToolSubagent
 impl Fleet
 {
     /// The mod told of subagent `target`, started by the agent's call `call`: that call's row carries it.
-    pub(crate) async fn subagent_started(&self, id: &str, target: &str, call: &str, detail: &BTreeMap<String, String>) {
+    pub async fn subagent_started(&self, id: &str, target: &str, call: &str, detail: &BTreeMap<String, String>) {
         let runtime = self.hosts().of(id);
         let row = {
             let mut state = runtime.state();
@@ -235,7 +235,7 @@ impl Fleet
     }
 
     /// Subagent `call`'s latest call, `latest`: its row is put again at most every [`LATEST_EVERY`].
-    pub(crate) async fn subagent_called(self: &Arc<Self>, id: &str, call: &str, latest: String) {
+    pub async fn subagent_called(self: &Arc<Self>, id: &str, call: &str, latest: String) {
         let runtime = self.hosts().of(id);
         let now = std::time::Instant::now();
         let said = runtime.state().call_rows.latest(call, latest, now);
@@ -266,7 +266,7 @@ impl Fleet
 
     /// Subagent `target` settled as `state`. **A row this Fleet did not draw is read off the thread**,
     /// so one a restart of Fleet came between still settles.
-    pub(crate) async fn subagent_settled(&self, id: &str, target: &str, state: ToolSubagentState) {
+    pub async fn subagent_settled(&self, id: &str, target: &str, state: ToolSubagentState) {
         let ended = self.instant();
         let kept = self.hosts().of(id).state().call_rows.settled(target, state, &ended);
         let rows = match kept {
@@ -280,7 +280,7 @@ impl Fleet
 
     /// The process went: every subagent still running on the thread is cut off, and the person's
     /// held rows are read, since what was written to the process is gone or sent again.
-    pub(crate) async fn calls_let_go(&self, id: &str) {
+    pub async fn calls_let_go(&self, id: &str) {
         let read = {
             let runtime = self.hosts().of(id);
             let mut state = runtime.state();

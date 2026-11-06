@@ -68,7 +68,7 @@ impl Fleet
     ///
     /// **It never refuses.** A probe that could not read is a `fail` row
     /// carrying why; a health check that 500s is the thing being unhealthy.
-    pub(crate) async fn health(&self) -> Result<FleetHealth, Refusal> {
+    pub async fn health(&self) -> Result<FleetHealth, Refusal> {
         let mut probes = vec![probe(
             "Fleet",
             PASS,

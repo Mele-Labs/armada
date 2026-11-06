@@ -1,9 +1,9 @@
 //! Proposals against a real directory, for `scanning::tests`' reason.
 
-mod amending;
-mod building;
-mod creating;
-mod writing;
+pub mod amending;
+pub mod building;
+pub mod creating;
+pub mod writing;
 
 use ipc::ManifestProposal;
 

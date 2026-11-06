@@ -27,15 +27,15 @@ use store::{AttachmentState, Holder, KeptAttachment, Store};
 use crate::daemon::Fleet;
 
 /// The key on a window's artifact: present with this value while the session is changing the page.
-pub(crate) const WORKING: &str = "working";
+pub const WORKING: &str = "working";
 
 /// The key on a window's artifact: present with this value from the first write after the page was
 /// shown, until the session shows it again.
-pub(crate) const CHANGED: &str = "changed";
+pub const CHANGED: &str = "changed";
 
 /// The address a note taken in the window names, `On <element>, <where>, at <address>`, or `None`
 /// for any other message. Exactly the shape Bridge's note sends (`session-note.ts`).
-pub(crate) fn note_address(text: &str) -> Option<&str> {
+pub fn note_address(text: &str) -> Option<&str> {
     let last = text.trim().lines().last()?;
     let (_, address) = last.strip_prefix("On ")?.rsplit_once(", at ")?;
     let web = address.starts_with("http://") || address.starts_with("https://");
@@ -44,7 +44,7 @@ pub(crate) fn note_address(text: &str) -> Option<&str> {
 
 /// Set every window the session showed to working or ready, and say whether any changed. **Under the
 /// caller's lock**, as the other facts are kept.
-pub(crate) fn windows_set(
+pub fn windows_set(
     store: &mut Store,
     holder: &Holder,
     now: &str,
@@ -76,7 +76,7 @@ pub(crate) fn windows_set(
 /// on what they show. **A subagent `ended` says finished, by its own transcript, is settled spent
 /// here**: the mod never settles one, and one left standing kept every window changing for good.
 /// **Under the caller's lock**, as `windows_set` is.
-pub(crate) fn turn_ended(
+pub fn turn_ended(
     store: &mut Store,
     holder: &Holder,
     now: &str,
@@ -103,7 +103,7 @@ impl Fleet
 {
     /// The person took a note in the window: the session will change the page, so its windows are
     /// working. Best effort, as a row is.
-    pub(crate) async fn window_noted(&self, session: &str) {
+    pub async fn window_noted(&self, session: &str) {
         let harness = {
             let store = self.store().lock().await;
             match store.session(session) {

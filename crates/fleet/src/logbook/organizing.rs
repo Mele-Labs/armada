@@ -28,7 +28,7 @@ const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 const MOST_FAULT: usize = 160;
 
 /// The question as it ships.
-pub(crate) const BUGS_QUESTION: &str = "\
+pub const BUGS_QUESTION: &str = "\
 A person keeps a Logbook: short entries that tell a coding agent what to do in a repository, on \
 this Mac, and how the person works. Some entries only exist because Armada, the tool the agents \
 work through, has a fault: a tool refuses or errors, a command must be run in a roundabout way, \
@@ -66,7 +66,7 @@ struct SaidFault {
 
 /// The repository's entries, with the habits and this Mac's only where `shared`, so a pass over
 /// several repositories offers those once.
-pub(crate) fn in_scope(entries: Vec<LogEntry>, shared: bool) -> Vec<LogEntry> {
+pub fn in_scope(entries: Vec<LogEntry>, shared: bool) -> Vec<LogEntry> {
     entries.into_iter().filter(|entry| shared || entry.section == LogSection::Repo).collect()
 }
 
@@ -77,7 +77,7 @@ fn proposal(entry: &LogEntry, note: String) -> Option<OrganizeProposal> {
 
 /// Standing, unlocked entries nobody has confirmed in 45 days and no Job has met the warning of in
 /// that time. No model is asked.
-pub(crate) fn stale(entries: &[LogEntry], now: u64) -> Vec<OrganizeProposal> {
+pub fn stale(entries: &[LogEntry], now: u64) -> Vec<OrganizeProposal> {
     entries
         .iter()
         .filter(|entry| entry.state == LogState::Standing && !entry.locked)
@@ -89,7 +89,7 @@ pub(crate) fn stale(entries: &[LogEntry], now: u64) -> Vec<OrganizeProposal> {
 
 /// The groups the model says are one, as proposals. **Read whole**, as Tidy's answer is: `Err`
 /// where any group is wrong.
-pub(crate) async fn merges<F, Fut>(entries: &[LogEntry], ask: F) -> Result<Vec<OrganizeProposal>, String>
+pub async fn merges<F, Fut>(entries: &[LogEntry], ask: F) -> Result<Vec<OrganizeProposal>, String>
 where
     F: Fn(String) -> Fut,
     Fut: Future<Output = Result<String, String>>,
@@ -110,7 +110,7 @@ where
 }
 
 /// The entries the model says read as workarounds for Armada's own fault, each with its fault.
-pub(crate) async fn bugs<F, Fut>(entries: &[LogEntry], ask: F) -> Result<Vec<OrganizeProposal>, String>
+pub async fn bugs<F, Fut>(entries: &[LogEntry], ask: F) -> Result<Vec<OrganizeProposal>, String>
 where
     F: Fn(String) -> Fut,
     Fut: Future<Output = Result<String, String>>,
@@ -146,7 +146,7 @@ fn ids_of(proposal: &OrganizeProposal) -> Option<Vec<i64>> {
 
 /// Carry out proposals. The count is entries folded or archived; the keys are the repositories
 /// whose entries changed, for the files to be written again.
-pub(crate) async fn apply(
+pub async fn apply(
     store: &StoreLock,
     action: OrganizeAction,
     proposals: Vec<OrganizeProposal>,

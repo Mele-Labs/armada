@@ -72,7 +72,7 @@ const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
 
 /// Why a Fleet has no build to offer.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum NotOffered {
+pub enum NotOffered {
     /// No served repository holds `scripts/restart-build`.
     NoWrapper,
     /// `restart-source` names a tree other than the preview.
@@ -81,7 +81,7 @@ pub(crate) enum NotOffered {
 
 /// Why a restart was not started.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum NotChanged {
+pub enum NotChanged {
     NotOffered(NotOffered),
     /// One is under way.
     Restarting(BuildSource),
@@ -91,7 +91,7 @@ pub(crate) enum NotChanged {
 
 /// Why a revert was not started.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum NotReverted {
+pub enum NotReverted {
     /// No previous build is kept, or launchd's Fleet is not on `builds/current`: the reason in a line.
     NotRevertible(String),
     /// A restart is under way.
@@ -117,19 +117,19 @@ struct Fetched {
 
 /// What Fleet holds of its build: when it last fetched.
 #[derive(Clone, Default)]
-pub(crate) struct Building {
+pub struct Building {
     fetched: Arc<Mutex<Fetched>>,
 }
 
 /// The first served root that holds the wrapper: the checkout a restart runs from.
-pub(crate) fn checkout_of<'a>(roots: impl IntoIterator<Item = &'a str>) -> Option<PathBuf> {
+pub fn checkout_of<'a>(roots: impl IntoIterator<Item = &'a str>) -> Option<PathBuf> {
     roots
         .into_iter()
         .map(PathBuf::from)
         .find(|root| root.join(WRAPPER).is_file())
 }
 
-pub(crate) fn source_in(support: &Path) -> Result<BuildSource, NotOffered> {
+pub fn source_in(support: &Path) -> Result<BuildSource, NotOffered> {
     let recorded = std::fs::read_to_string(support.join(SOURCE)).unwrap_or_default();
     let tree = recorded.trim();
     if tree.is_empty() {
@@ -142,7 +142,7 @@ pub(crate) fn source_in(support: &Path) -> Result<BuildSource, NotOffered> {
 }
 
 /// The recorded commit, if it is a full object name.
-pub(crate) fn commit_in(support: &Path) -> Option<String> {
+pub fn commit_in(support: &Path) -> Option<String> {
     let recorded = std::fs::read_to_string(support.join(COMMIT)).ok()?;
     let commit = recorded.trim();
     (commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit())).then(|| commit.to_string())
@@ -150,14 +150,14 @@ pub(crate) fn commit_in(support: &Path) -> Option<String> {
 
 /// A branch `scripts/preview` left out of the build: where its tip stood then, and why.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct LeftOut {
-    pub(crate) tip: String,
-    pub(crate) why: String,
+pub struct LeftOut {
+    pub tip: String,
+    pub why: String,
 }
 
 /// The branches `scripts/preview` left out of the build at `commit`: its first line, then
 /// `branch<TAB>tip<TAB>why` lines. **Empty** where the file is missing or was written for another build.
-pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, LeftOut> {
+pub fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, LeftOut> {
     let Ok(recorded) = std::fs::read_to_string(support.join(LEFT_OUT)) else {
         return BTreeMap::new();
     };
@@ -177,14 +177,14 @@ pub(crate) fn left_out_in(support: &Path, commit: &str) -> BTreeMap<String, Left
 
 /// What a preview holds: the main commit under it and the branches merged into it.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Held {
-    pub(crate) main_commit: String,
-    pub(crate) branches: Vec<String>,
+pub struct Held {
+    pub main_commit: String,
+    pub branches: Vec<String>,
 }
 
 /// What `scripts/preview` recorded the build at `commit` holds: its first line, then the main commit,
 /// then `branch<TAB>tip` lines. **`None`** where the file is missing or was written for another build.
-pub(crate) fn held_in(support: &Path, commit: &str) -> Option<Held> {
+pub fn held_in(support: &Path, commit: &str) -> Option<Held> {
     let recorded = std::fs::read_to_string(support.join(HELD)).ok()?;
     let mut lines = recorded.lines();
     if lines.next().map(str::trim) != Some(commit) {
@@ -196,7 +196,7 @@ pub(crate) fn held_in(support: &Path, commit: &str) -> Option<Held> {
 }
 
 /// When the restart wrote `restart-commit`, in milliseconds since the epoch: when the build began.
-pub(crate) fn commit_written_in(support: &Path) -> Option<i64> {
+pub fn commit_written_in(support: &Path) -> Option<i64> {
     let written = std::fs::metadata(support.join(COMMIT)).ok()?.modified().ok()?;
     i64::try_from(written.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_millis()).ok()
 }
@@ -246,11 +246,11 @@ fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
 }
 
 /// Whether `scripts/restart-build` is working now, so the commit on file is not yet the build.
-pub(crate) fn restarting_in(support: &Path, now: SystemTime) -> bool {
+pub fn restarting_in(support: &Path, now: SystemTime) -> bool {
     matches!(status_in(support, now), Some(Status::Running(..)))
 }
 
-pub(crate) fn build_word(build: BuildSource) -> &'static str {
+pub fn build_word(build: BuildSource) -> &'static str {
     match build {
         BuildSource::Main => "main",
         BuildSource::Preview => "preview",
@@ -270,19 +270,19 @@ impl Fetched {
 
 /// A branch the running preview left out whose tip has moved since: worth a refresh, if the owner says.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Moved {
-    pub(crate) branch: String,
+pub struct Moved {
+    pub branch: String,
     /// Where `tip_of` reads it now.
-    pub(crate) tip: String,
-    pub(crate) why: String,
+    pub tip: String,
+    pub why: String,
     /// The commit of the build that left it out.
-    pub(crate) build: String,
+    pub build: String,
 }
 
 /// The branches the running preview left out whose tip, as `tip_of` reads it, is not the one they were
 /// left out at. **Only a reading**: none while a restart is under way, and none left out for a breaking
 /// migration, which only main can bring back.
-pub(crate) fn left_out_moved(support: &Path, now: SystemTime, tip_of: impl Fn(&str) -> Option<String>) -> Vec<Moved> {
+pub fn left_out_moved(support: &Path, now: SystemTime, tip_of: impl Fn(&str) -> Option<String>) -> Vec<Moved> {
     if !matches!(source_in(support), Ok(BuildSource::Preview)) || restarting_in(support, now) {
         return Vec::new();
     }
@@ -303,7 +303,7 @@ impl Building {
     /// The build as the files and the repository say it is. **Never waits on the
     /// network**: a fetch that is due runs in the background, and this answers
     /// with the refs as they stand.
-    pub(crate) async fn report(
+    pub async fn report(
         &self,
         checkout: Option<&Path>,
         support: &Path,
@@ -404,7 +404,7 @@ impl Building {
     /// Start the undo, `builds/previous/armada build revert`, detached and answer. **Run by the build
     /// reverted to**, so a broken build never has to run its own undo; **the status is written first**,
     /// as `change` writes its own.
-    pub(crate) fn revert(&self, support: &Path, label: &str, now: SystemTime) -> Result<FleetBuildReverting, NotReverted> {
+    pub fn revert(&self, support: &Path, label: &str, now: SystemTime) -> Result<FleetBuildReverting, NotReverted> {
         if let Some(Status::Running(build, _)) = status_in(support, now) {
             return Err(NotReverted::Restarting(build));
         }
@@ -430,7 +430,7 @@ impl Building {
     /// Start the wrapper detached and answer. **The status is written first**,
     /// so a read between the answer and the wrapper's first line already says a
     /// restart is under way.
-    pub(crate) fn change(
+    pub fn change(
         &self,
         checkout: Option<&Path>,
         support: &Path,
@@ -466,14 +466,14 @@ impl Building {
 
 impl Fleet
 {
-    pub(crate) fn build_checkout(&self) -> Option<PathBuf> {
+    pub fn build_checkout(&self) -> Option<PathBuf> {
         let roots = self.ledger_roots();
         checkout_of(roots.iter().map(|(_, root)| root.as_str()))
     }
 
     /// `get_fleet_build`. **Names the Jobs a revert moves** and lists the Jobs a restart would carry,
     /// which the files cannot: both are read off the store and the host.
-    pub(crate) async fn fleet_build(&self) -> Result<FleetBuildReport, Refusal> {
+    pub async fn fleet_build(&self) -> Result<FleetBuildReport, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
         let checkout = self.build_checkout();
         let mut report = self
@@ -538,7 +538,7 @@ impl Fleet
     }
 
     /// `revert_fleet_build`.
-    pub(crate) fn revert_fleet_build_now(&self) -> Result<FleetBuildReverting, Refusal> {
+    pub fn revert_fleet_build_now(&self) -> Result<FleetBuildReverting, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
         self.building()
             .revert(&support, &kept_builds::fleet_label(), SystemTime::now())
@@ -557,7 +557,7 @@ impl Fleet
     }
 
     /// `change_fleet_build`.
-    pub(crate) fn change_fleet_build_now(
+    pub fn change_fleet_build_now(
         &self,
         asked: &ChangeFleetBuild,
     ) -> Result<FleetBuildChanging, Refusal> {

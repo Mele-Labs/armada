@@ -9,7 +9,7 @@ use ipc::PlanGroupInput;
 
 /// Give each group with no `issue` the one ticket of `held` its title or tasks name, if they name one.
 /// `held` is the targets of the Job's `issue` rows.
-pub(crate) fn name_the_tickets(groups: &mut [PlanGroupInput], held: &[String]) {
+pub fn name_the_tickets(groups: &mut [PlanGroupInput], held: &[String]) {
     for group in groups.iter_mut().filter(|group| group.issue.is_none()) {
         let words = std::iter::once(group.title.as_str()).chain(group.tasks.iter().map(|task| task.title.as_str()));
         let mut named: Vec<&String> = Vec::new();

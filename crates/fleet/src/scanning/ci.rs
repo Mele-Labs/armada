@@ -11,7 +11,7 @@ use ipc::{CiCommand, RepositoryScan};
 
 use super::not_read;
 
-pub(super) fn join(scan: &mut RepositoryScan, reading: CiReading) {
+pub fn join(scan: &mut RepositoryScan, reading: CiReading) {
     let claimed: BTreeSet<&str> = reading.claimed.iter().map(String::as_str).collect();
     scan.not_read
         .retain(|one| !claimed.contains(one.file.as_str()));

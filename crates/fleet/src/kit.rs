@@ -76,7 +76,7 @@ impl Fleet
     /// **Empty where the store will not read**, which is what
     /// `Fleet::repository_allowed` answers too: a Kit that cannot be read is a
     /// Drone with the Evidence server alone, never a Drone with everything.
-    pub(crate) async fn kit_here(
+    pub async fn kit_here(
         &self,
         served: &crate::repositories::Served,
     ) -> Vec<(KitServer, Option<ManifestReach>)> {
@@ -299,7 +299,7 @@ impl Fleet
     }
 
     /// [`NotInKit`] as a 409 with no Job to name.
-    pub(crate) fn kit_refusal(&self, why: NotInKit) -> Refusal {
+    pub fn kit_refusal(&self, why: NotInKit) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             KIT_REFUSED,
             why.to_string(),

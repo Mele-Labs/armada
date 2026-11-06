@@ -11,16 +11,16 @@ use super::domain;
 use super::telling::not_ours_said;
 
 /// The id of the item for one watch: `watch_not_ours:<watch id>`.
-pub(crate) const NOT_OURS_ITEM: &str = "watch_not_ours:";
+pub const NOT_OURS_ITEM: &str = "watch_not_ours:";
 
 /// Choice 0 settles it and tells nobody.
-pub(crate) const IGNORE: u32 = 0;
+pub const IGNORE: u32 = 0;
 /// Choice 1 asks the agent to fix what broke.
-pub(crate) const FIX_IT: u32 = 1;
+pub const FIX_IT: u32 = 1;
 
 /// The item for `kept`, which ended `not_ours`: the watch and the parts that failed. Its act
 /// names the watch. `None` where no set-aside part failed, so there is nothing to name.
-pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
+pub fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
     let (parts, _) = not_ours_said(&domain(kept));
     if parts.is_empty() {
         return None;
@@ -46,7 +46,7 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
 }
 
 /// What the agent is sent on Fix it: each part, the sentence that set it aside, and the link.
-pub(crate) fn fix_it(kept: &KeptWatchWhole) -> String {
+pub fn fix_it(kept: &KeptWatchWhole) -> String {
     let (parts, link) = not_ours_said(&domain(kept));
     let names: Vec<&str> = parts.iter().map(|(part, _)| part.as_str()).collect();
     let mut said = format!(

@@ -38,7 +38,7 @@ struct Record {
 /// The rest of [`examine`] for a tracker mod: `tracker.toml` read and checked, and its last try
 /// where it tried this text. **Runs nothing**, so a scan stays a read of a few small files. A
 /// built-in tracker has no folder here to keep a try in, so it has none.
-pub(super) fn examined(source: &Source, found: &mut Examined, mut stamps: Vec<i64>, manifest: Option<String>) {
+pub fn examined(source: &Source, found: &mut Examined, mut stamps: Vec<i64>, manifest: Option<String>) {
     match source.read(TRACKER, taught_tracker::MOST_BYTES) {
         Ok((text, ms)) => {
             stamps.extend(ms);
@@ -98,7 +98,7 @@ fn keep(dir: &Path, text: &str, tried: &TrackerTry) -> Result<(), String> {
 }
 
 /// Why a try did not run at all.
-pub(crate) enum NotTried {
+pub enum NotTried {
     /// The mod is not a tracker. A 422.
     NotATracker(String),
     /// The record could not be written. A 500.
@@ -108,7 +108,7 @@ pub(crate) enum NotTried {
 /// Try the tracker mod `name` against the checkout at `root`: its Open query, then a read of the
 /// first issue it listed. **Blocking**, and every call in it bounded by the adapter. A mod that is
 /// not valid answers why and keeps nothing, since no file passed to be tried.
-pub(crate) fn try_it(mods_dir: &Path, name: &str, root: &str, manifest_id: ManifestId, at: Instant) -> Result<TrackerTry, NotTried> {
+pub fn try_it(mods_dir: &Path, name: &str, root: &str, manifest_id: ManifestId, at: Instant) -> Result<TrackerTry, NotTried> {
     let found = examine(mods_dir, name);
     if found.manifest.kind != Some(ModKind::Tracker) {
         return Err(NotTried::NotATracker(format!("`{name}` is not a tracker mod")));
@@ -160,7 +160,7 @@ fn outcome(file: &TrackerFile, root: &str) -> Result<(u32, Option<String>), (u32
 pub struct ModSwitches(Arc<RwLock<BTreeMap<String, bool>>>);
 
 impl ModSwitches {
-    pub(crate) fn replace(&self, now: &BTreeMap<String, bool>) {
+    pub fn replace(&self, now: &BTreeMap<String, bool>) {
         *self.0.write().unwrap_or_else(|poisoned| poisoned.into_inner()) = now.clone();
     }
 

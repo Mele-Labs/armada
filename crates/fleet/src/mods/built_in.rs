@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 /// Ahead of a built-in mod's folder name in its id. No slug has a `:`.
-pub(crate) const PREFIX: &str = "built-in:";
+pub const PREFIX: &str = "built-in:";
 
 /// Each folder's name and its files, as `build.rs` found them under `packages/mods/`.
 const COMPILED: &[(&str, &[(&str, &[u8])])] = include!(concat!(env!("OUT_DIR"), "/built_in_mods.rs"));
@@ -22,24 +22,24 @@ pub struct BuiltIn {
 }
 
 impl BuiltIn {
-    #[cfg(test)]
-    pub(crate) fn new(name: &str, files: &[(&str, &str)]) -> BuiltIn {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn new(name: &str, files: &[(&str, &str)]) -> BuiltIn {
         let files = files.iter().map(|(file, text)| (file.to_string(), text.as_bytes().to_vec())).collect();
         BuiltIn { name: name.to_string(), files }
     }
 
     /// The folder's name, which its `mod.toml` repeats.
-    pub(crate) fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub(crate) fn id(&self) -> String {
+    pub fn id(&self) -> String {
         format!("{PREFIX}{}", self.name)
     }
 
     /// `file`, held to what [`super::read_small`] holds a file on disk to: there, at most `most`
     /// bytes, and UTF-8.
-    pub(super) fn read(&self, file: &str, most: u64) -> Result<String, String> {
+    pub fn read(&self, file: &str, most: u64) -> Result<String, String> {
         let Some((_, bytes)) = self.files.iter().find(|(held, _)| held == file) else {
             return Err(format!("{file} is missing"));
         };
@@ -61,16 +61,16 @@ impl BuiltIns {
         BuiltIns::of(COMPILED.iter().map(|(name, files)| BuiltIn { name: name.to_string(), files: held(files) }).collect())
     }
 
-    pub(crate) fn of(mods: Vec<BuiltIn>) -> BuiltIns {
+    pub fn of(mods: Vec<BuiltIn>) -> BuiltIns {
         BuiltIns(Arc::new(mods))
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &BuiltIn> {
+    pub fn iter(&self) -> impl Iterator<Item = &BuiltIn> {
         self.0.iter()
     }
 
     /// The built-in mod `id` names, where it names one.
-    pub(crate) fn named(&self, id: &str) -> Option<&BuiltIn> {
+    pub fn named(&self, id: &str) -> Option<&BuiltIn> {
         let name = id.strip_prefix(PREFIX)?;
         self.0.iter().find(|one| one.name == name)
     }

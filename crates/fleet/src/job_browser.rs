@@ -44,9 +44,9 @@ const ANSWER_REFUSED: &str = "fleet.browser_answer_refused";
 const ASK_REFUSED: &str = "fleet.browser_ask_refused";
 
 /// The front of a page ask's item id, the rest being Bridge's tab id.
-pub(crate) const ASK_ITEM: &str = "browser_ask:";
+pub const ASK_ITEM: &str = "browser_ask:";
 
-pub(crate) const UNANSWERED_SAID: &str = "Bridge did not answer. Is the Job browser open?";
+pub const UNANSWERED_SAID: &str = "Bridge did not answer. Is the Job browser open?";
 
 type Done = Result<BrowserAnswer, BrowserError>;
 
@@ -73,7 +73,7 @@ enum Ended {
 }
 
 /// The calls held for Bridge, by request id, and the last ids that ended.
-pub(crate) struct Browsers {
+pub struct Browsers {
     held: Mutex<BTreeMap<String, Held>>,
     ended: Mutex<VecDeque<(String, Ended)>>,
     /// Pages' asks in raise order. Memory only: a restart loses them, and Bridge still has its own.
@@ -98,15 +98,15 @@ impl Default for Browsers {
 
 impl Browsers {
     /// Fleet is stopping: every held call is let go, and none is held again.
-    pub(crate) fn all_withdrawn(&self) {
+    pub fn all_withdrawn(&self) {
         if let Ok(mut held) = self.held.lock() {
             self.stopping.store(true, Ordering::SeqCst);
             held.clear();
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn held_within(&self, within: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn held_within(&self, within: Duration) {
         self.within_ms.store(within.as_millis() as u64, Ordering::SeqCst);
     }
 
@@ -186,7 +186,7 @@ enum NotTaken {
 impl Fleet
 {
     /// `act` held for Bridge, published as `browser.request`, and answered with what Bridge did.
-    pub(crate) async fn browser_driven(
+    pub async fn browser_driven(
         &self,
         caller: Option<api::Caller>,
         named: Option<SessionId>,
@@ -277,7 +277,7 @@ impl Fleet
     }
 
     /// Bridge's answer to one held call.
-    pub(crate) async fn browser_request_answered(&self, said: AnswerBrowserRequest) -> Result<BrowserRequestAnswered, Refusal> {
+    pub async fn browser_request_answered(&self, said: AnswerBrowserRequest) -> Result<BrowserRequestAnswered, Refusal> {
         let raised = |code: &'static str, why: String| WireError::raised(code, why, self.run_id());
         let id = said.request_id.trim().to_string();
         let done: Done = match (said.answer, said.error) {
@@ -323,7 +323,7 @@ impl Fleet
 impl Fleet
 {
     /// `raise_browser_ask`: a page's ask held in the Job's Needs you. The agent is told nothing.
-    pub(crate) async fn browser_ask_raised(&self, ask: RaiseBrowserAsk) -> Result<BrowserAskNoted, Refusal> {
+    pub async fn browser_ask_raised(&self, ask: RaiseBrowserAsk) -> Result<BrowserAskNoted, Refusal> {
         let (id, text) = (ask.ask_id.trim().to_string(), ask.text.trim().to_string());
         if id.is_empty() || text.is_empty() {
             let why = String::from("a page's ask carries the tab's id and the words it asks");
@@ -341,7 +341,7 @@ impl Fleet
     }
 
     /// `end_browser_ask`: the tab settled it or closed. Nothing is published to the tab.
-    pub(crate) async fn browser_ask_ended(&self, ask: EndBrowserAsk) -> Result<BrowserAskNoted, Refusal> {
+    pub async fn browser_ask_ended(&self, ask: EndBrowserAsk) -> Result<BrowserAskNoted, Refusal> {
         let (session, id) = (ask.session_id.as_str().to_string(), ask.ask_id.trim().to_string());
         if self.job_browser().ask_taken(&session, &id).is_some() {
             self.browser_asks_published(&session).await?;
@@ -351,7 +351,7 @@ impl Fleet
 
     /// The owner answered `choice`, or `None` dismissed, the ask under `item`. The tab is told, the
     /// item goes, and the agent is told nothing.
-    pub(crate) async fn browser_ask_settled(&self, session: &str, item: &str, choice: Option<u32>) -> Result<ipc::SessionRecord, Refusal> {
+    pub async fn browser_ask_settled(&self, session: &str, item: &str, choice: Option<u32>) -> Result<ipc::SessionRecord, Refusal> {
         let id = item.strip_prefix(ASK_ITEM).unwrap_or(item);
         if self.job_browser().ask_taken(session, id).is_none() {
             return Err(self.settled_already());
@@ -378,7 +378,7 @@ impl Fleet
     /// The Job's page asks as Needs you items, while a client holds `/events` open. **With none, the
     /// tabs that raised them are gone, so they are dropped for good** and a Bridge that opens next
     /// starts with none.
-    pub(crate) fn browser_ask_items(&self, session: &str) -> Vec<ipc::WaitingItem> {
+    pub fn browser_ask_items(&self, session: &str) -> Vec<ipc::WaitingItem> {
         self.job_browser().asks_of(session, self.events().watching() > 0).into_iter().map(page_ask_item).collect()
     }
 }

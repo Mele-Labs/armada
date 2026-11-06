@@ -26,13 +26,13 @@ const LARGEST_READ: u64 = 1024 * 1024;
 
 impl Fleet
 {
-    pub(crate) async fn note_sent(self: Arc<Self>, sent: SendSessionNote) -> Result<NoteSent, Refusal> {
+    pub async fn note_sent(self: Arc<Self>, sent: SendSessionNote) -> Result<NoteSent, Refusal> {
         self.note_sent_after(sent, None).await
     }
 
     /// [`Self::note_sent`], with `brief` ahead of his words in what the agent reads: a Mod Job's.
     /// The thread still keeps his words alone.
-    pub(super) async fn note_sent_after(
+    pub async fn note_sent_after(
         self: Arc<Self>,
         sent: SendSessionNote,
         brief: Option<&str>,
@@ -64,7 +64,7 @@ impl Fleet
 
     /// `send_session_notes`: one turn, each note numbered with its words and its own lines, and the
     /// handoff once. The thread keeps the words alone, numbered; a batch of one is a single note.
-    pub(crate) async fn notes_sent(self: Arc<Self>, sent: SendSessionNotes) -> Result<NotesSent, Refusal> {
+    pub async fn notes_sent(self: Arc<Self>, sent: SendSessionNotes) -> Result<NotesSent, Refusal> {
         let SendSessionNotes { session_id, mut notes } = sent;
         if notes.len() == 1 {
             let note = notes.remove(0);

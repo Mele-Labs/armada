@@ -159,7 +159,7 @@ impl Desk for FleetDesk
 /// Who started `id`, nearest first and up to the root: `(id, title)` of its starter, then of the
 /// starter's. Read from each Job's own `started_by` attachment, which is the row already read for
 /// its issues, so no new read. An ended starter still counts; a repeat ends the walk.
-pub(super) fn started_by_chain(store: &store::Store, id: &str) -> Vec<(String, String)> {
+pub fn started_by_chain(store: &store::Store, id: &str) -> Vec<(String, String)> {
     let mut chain: Vec<(String, String)> = Vec::new();
     let mut at = id.to_string();
     loop {
@@ -176,7 +176,7 @@ pub(super) fn started_by_chain(store: &store::Store, id: &str) -> Vec<(String, S
 }
 
 /// One Job's paths, issues and words, as [`FleetDesk::live`] reads them. What will not read is left out.
-pub(super) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
+pub fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<String>, String) {
     let mut paths = BTreeSet::new();
     let mut issues = BTreeSet::new();
     let plan = store.session_plan(id).ok().flatten();
@@ -200,7 +200,7 @@ pub(super) fn held_of(store: &store::Store, id: &str) -> (Vec<String>, Vec<Strin
 
 /// The first message in a Job's thread that is not its agent's: the dispatch, or the brief the
 /// Job that started it wrote.
-pub(super) fn first_words(store: &store::Store, id: &str) -> String {
+pub fn first_words(store: &store::Store, id: &str) -> String {
     store
         .session_rows(id)
         .unwrap_or_default()

@@ -36,7 +36,7 @@ impl Fleet
     ///
     /// **Who may add one and whether anything is drawn are asked first, and
     /// the Studio is held next**, so a refused add leaves no file behind.
-    pub(crate) async fn sketch_added(
+    pub async fn sketch_added(
         &self,
         studio_id: ipc::StudioId,
         drawn: SketchDrawn,
@@ -80,7 +80,7 @@ impl Fleet
     }
 
     /// `edit_studio_sketch`: the whole drawing a person left on the pad.
-    pub(crate) async fn sketch_redrawn(
+    pub async fn sketch_redrawn(
         &self,
         studio_id: ipc::StudioId,
         edit: EditStudioSketch,

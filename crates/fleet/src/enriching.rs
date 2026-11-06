@@ -13,10 +13,10 @@ use tokio::time::timeout;
 
 /// How long a request's own link may take to resolve before the request goes through
 /// unresolved. The failure this waits out is a slow network, not a model that will not answer.
-pub(crate) const LOOKUP_BUDGET: Duration = Duration::from_secs(10);
+pub const LOOKUP_BUDGET: Duration = Duration::from_secs(10);
 
 /// What became of the request's own link, once it was looked at.
-pub(crate) enum Enriched {
+pub enum Enriched {
     /// Nothing in the request named a link this could resolve.
     AsGiven,
     /// Resolved, and appended: the URL is never replaced, only added to.
@@ -29,7 +29,7 @@ pub(crate) enum Enriched {
 /// Look once for a link in `request` and answer with what came of it. **A link read by the
 /// lookup itself is read off this thread**, where it may wait on the network; one it renders as
 /// a call is run here.
-pub(crate) async fn enrich(request: &str, links: Arc<dyn LinkLookup + Send + Sync>) -> Enriched {
+pub async fn enrich(request: &str, links: Arc<dyn LinkLookup + Send + Sync>) -> Enriched {
     let read = {
         let (links, request) = (Arc::clone(&links), request.to_string());
         tokio::task::spawn_blocking(move || links.read_link(&request)).await.ok().flatten()
@@ -50,7 +50,7 @@ pub(crate) async fn enrich(request: &str, links: Arc<dyn LinkLookup + Send + Syn
 }
 
 /// Run one rendered lookup and answer with what it printed.
-pub(crate) async fn resolved(call: &LookupCall) -> Result<String, String> {
+pub async fn resolved(call: &LookupCall) -> Result<String, String> {
     let mut spawning = Command::new(call.program());
     spawning
         .args(call.args())

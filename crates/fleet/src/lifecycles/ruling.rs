@@ -54,7 +54,7 @@ fn course_wire(course: Course) -> &'static str {
 ///
 /// **An act the Job's repository cannot make is kept as not carried, with the reason**, and raises
 /// nothing, so the owner is never asked to press what pressing cannot do. `writes` says which.
-pub(crate) fn plan_and_keep(
+pub fn plan_and_keep(
     store: &mut Store,
     session: &str,
     seen: &Occurrence,
@@ -117,7 +117,7 @@ impl Fleet
     /// Freeze the lifecycles and rules that apply to the Job's repository, and tell its rules the
     /// Job started. **Nothing here fails the start**: a Job whose copy could not be kept has none,
     /// and runs as a Job from before rules did.
-    pub(crate) async fn job_copy_frozen(&self, session: &str, manifest: &str) {
+    pub async fn job_copy_frozen(&self, session: &str, manifest: &str) {
         let Ok(copy) = self.job_copy_for(manifest) else { return };
         let at = self.now().as_str().to_string();
         let writes = self.writes_for(Some(manifest));
@@ -136,14 +136,14 @@ impl Fleet
     }
 
     /// An instance of the Job moved: hand its rules the move a reader just made.
-    pub(crate) async fn rules_heard_move(&self, session: &str, transition: &Transition, move_id: i64) {
+    pub async fn rules_heard_move(&self, session: &str, transition: &Transition, move_id: i64) {
         let stamp = format!("{}#{move_id}", transition.at);
         let seen = Occurrence::entered(transition.instance.clone(), transition.moved.clone(), &stamp);
         self.rules_heard(session, &seen).await;
     }
 
     /// Hand `seen` to the Job's rules, with the Job as the last look left it.
-    pub(crate) async fn rules_heard(&self, session: &str, seen: &Occurrence) {
+    pub async fn rules_heard(&self, session: &str, seen: &Occurrence) {
         let at = self.now().as_str().to_string();
         let kept = {
             let mut store = self.store().lock().await;
@@ -162,7 +162,7 @@ impl Fleet
     /// Hand every live Job's rules the moves its instances made that they have not seen. **For a
     /// Fleet that stopped between keeping a move and hearing it**: a move a rule has seen is found
     /// in what it ran for and plans nothing, so this is safe to run on every start.
-    pub(crate) async fn rules_caught_up(&self) {
+    pub async fn rules_caught_up(&self) {
         let at = self.now().as_str().to_string();
         let jobs = self.store().lock().await.live_job_copies().unwrap_or_default();
         for session in jobs {
@@ -189,7 +189,7 @@ impl Fleet
     }
 
     /// The row changed: find what happened to the Job since the last look, and hand it to its rules.
-    pub(crate) async fn rules_looked_at(&self, record: &SessionRecord) {
+    pub async fn rules_looked_at(&self, record: &SessionRecord) {
         let session = record.id.as_str();
         // The Job's own steps, so a step it added or moved is the one its rules read.
         let step = match (record.manifest_id.as_ref(), record.workflow.as_deref(), record.workflow_step) {

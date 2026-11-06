@@ -24,7 +24,7 @@ const UNACCEPTABLE_TIME_FORMAT: &str = "fleet.unacceptable_time_format";
 
 /// The preferences settings.json holds, as the older wire spells them. A JSON
 /// preference is carried as its text, which is what Bridge parses.
-pub(crate) fn preferences_of(settings: &Resolved) -> Preferences {
+pub fn preferences_of(settings: &Resolved) -> Preferences {
     let text = |value: Option<settings_file::SettingValue>| value.map(|v| v.to_json_text()).unwrap_or_default();
     Preferences {
         where_things_are_open: settings.get(keys::WHERE_THINGS_ARE_OPEN),
@@ -47,13 +47,13 @@ fn json_change(text: &str) -> Option<SettingValue> {
 impl Fleet
 {
     /// Every preference in force, off the last good read of the file.
-    pub(crate) fn preferences_in_force(&self) -> Preferences {
+    pub fn preferences_in_force(&self) -> Preferences {
         preferences_of(&self.machine_settings().now())
     }
 
     /// Save one preference into settings.json, then answer with every
     /// preference now in force. Each refusal keeps the code it always had.
-    pub(crate) async fn save_preference_now(&self, save: SavePreference) -> Result<Preferences, Refusal> {
+    pub async fn save_preference_now(&self, save: SavePreference) -> Result<Preferences, Refusal> {
         let text = save.text.as_deref().unwrap_or_default();
         let unacceptable = |code: &str, why: String| Refusal::Unacceptable(ipc::WireError::raised(code, why, self.run_id()));
         let (key, value) = match save.name.as_str() {

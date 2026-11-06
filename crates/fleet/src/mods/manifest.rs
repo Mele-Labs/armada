@@ -8,33 +8,33 @@
 use ipc::ModKind;
 
 /// The most `mod.toml` may weigh.
-pub(crate) const MOST_BYTES: u64 = 4 * 1024;
+pub const MOST_BYTES: u64 = 4 * 1024;
 
 const MOST_VERSION: usize = 32;
-pub(crate) const MOST_DESCRIPTION: usize = 200;
-pub(crate) const MOST_TAUGHT_ON: usize = 120;
+pub const MOST_DESCRIPTION: usize = 200;
+pub const MOST_TAUGHT_ON: usize = 120;
 const MOST_ENTRY: usize = 80;
 const MOST_GLYPH: usize = 40;
 
 /// What was read, field by field. A field that was wrong is `None` and has a
 /// problem beside it, so a list can still show the ones that were right.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct Manifest {
-    pub(crate) kind: Option<ModKind>,
-    pub(crate) version: Option<String>,
-    pub(crate) description: Option<String>,
+pub struct Manifest {
+    pub kind: Option<ModKind>,
+    pub version: Option<String>,
+    pub description: Option<String>,
     /// A tab or instrument mod's glyph, by its name in the icon registry.
-    pub(crate) glyph: Option<String>,
+    pub glyph: Option<String>,
     /// What Teach was pressed on, where a person taught the mod.
-    pub(crate) taught_on: Option<String>,
+    pub taught_on: Option<String>,
     /// The Logbook entry a teaching from a Job made, which forgetting removes the mod with.
-    pub(crate) entry: Option<String>,
+    pub entry: Option<String>,
     /// The Job whose `scaffold_mod` made the mod, where that call named one.
-    pub(crate) made_by: Option<String>,
+    pub made_by: Option<String>,
 }
 
 /// `text` read for the mod in the folder called `folder`, and everything wrong with it.
-pub(crate) fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
+pub fn read(text: &str, folder: &str) -> (Manifest, Vec<String>) {
     let mut problems = Vec::new();
     let mut name = None;
     let mut kind = None;

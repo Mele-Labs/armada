@@ -12,8 +12,8 @@
 //! **A milestone takes no scout.** It is a list, and a model asked to echo one
 //! back is cost spent on a transcription; Fleet mints a Link per issue itself.
 
-mod epic;
-mod zone;
+pub mod epic;
+pub mod zone;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,19 +49,19 @@ const MOST_CHARACTERS: usize = 120_000;
 
 /// What the one Note a read-in that found nothing lands says. The owner's own
 /// words, 2 Oct 2026.
-pub(crate) const NOTHING_FOUND: &str = "Nothing was found that could be pulled into the studio.";
+pub const NOTHING_FOUND: &str = "Nothing was found that could be pulled into the studio.";
 
 /// How far apart nodes a read-in made are placed, in canvas units.
-pub(crate) const ACROSS: i64 = 340;
-pub(crate) const DOWN: i64 = 180;
+pub const ACROSS: i64 = 340;
+pub const DOWN: i64 = 180;
 /// How many nodes a read-in puts in one column before starting another.
-pub(crate) const DOWN_A_COLUMN: i64 = 6;
+pub const DOWN_A_COLUMN: i64 = 6;
 
 impl Fleet
 {
     /// `read_in_link`. The node survives and keeps its address; what comes
     /// back hangs off it by `produced` edges.
-    pub(crate) async fn link_read_in(
+    pub async fn link_read_in(
         self: Arc<Self>,
         studio_id: ipc::StudioId,
         read_in: ReadInLink,
@@ -320,7 +320,7 @@ impl Fleet
     /// **Nothing here refuses.** The read-in is over by the time this runs and
     /// its Finding is already kept, so an answer that is not the shape leaves
     /// the Finding saying what the scout said and no node beside it.
-    pub(crate) async fn what_came_back(
+    pub async fn what_came_back(
         &self,
         studio: &StudioId,
         link: &StudioNodeId,
@@ -675,7 +675,7 @@ async fn ran(call: &LookupCall, path: &str) -> Result<String, String> {
 }
 
 /// The `n`th node of a read-in, down a column and then across.
-pub(crate) fn laid_out(from: StudioPosition, n: i64) -> StudioPosition {
+pub fn laid_out(from: StudioPosition, n: i64) -> StudioPosition {
     StudioPosition {
         x: from.x + (n / DOWN_A_COLUMN) * ACROSS,
         y: from.y + (n % DOWN_A_COLUMN) * DOWN,

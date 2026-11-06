@@ -70,7 +70,7 @@ impl std::fmt::Display for NotMapped {
 }
 
 /// The edge source a collector's laps carry.
-pub(crate) fn source_of(source: CollectorSource) -> EdgeSource {
+pub fn source_of(source: CollectorSource) -> EdgeSource {
     match source {
         CollectorSource::Reading => EdgeSource::Reading,
         CollectorSource::Static => EdgeSource::Static,
@@ -119,7 +119,7 @@ impl Fleet
         Ok(kept)
     }
 
-    pub(crate) fn edges_of(
+    pub fn edges_of(
         &self,
         repository: &ManifestId,
         check: &str,
@@ -148,7 +148,7 @@ impl Fleet
     }
 
     /// The map read for `paths`, grouped by Check and member for the wire.
-    pub(crate) async fn tests_reaching(
+    pub async fn tests_reaching(
         &self,
         repository: &ManifestId,
         paths: &[String],

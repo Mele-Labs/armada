@@ -59,7 +59,7 @@ impl Fleet
     /// Read one repository's main, if it is time to. **Empty nearly every
     /// turn**: too soon, nothing served names a base, the head has not moved
     /// and nothing is running, or the forge would not answer.
-    pub(crate) async fn notice_main(&self) -> Result<Vec<MainChanged>, Adrift> {
+    pub async fn notice_main(&self) -> Result<Vec<MainChanged>, Adrift> {
         let Some((served, base)) = self.main_due().await else {
             return Ok(Vec::new());
         };
@@ -284,7 +284,7 @@ impl Fleet
     }
 
     /// Read main and act on what changed, outside any turn.
-    pub(crate) async fn read_main(self: &Arc<Self>) -> Result<(), Adrift> {
+    pub async fn read_main(self: &Arc<Self>) -> Result<(), Adrift> {
         let changed = self.notice_main().await?;
         self.base_moves_started();
         self.main_acted_on(&changed).await;
@@ -324,7 +324,7 @@ impl Fleet
     }
 
     /// One forge ask, off the runtime's own thread.
-    pub(crate) async fn forge_asked<T: Send + 'static>(
+    pub async fn forge_asked<T: Send + 'static>(
         &self,
         root: &str,
         ask: impl FnOnce(&dyn adapter_traits::DynVcs, &str) -> T + Send + 'static,

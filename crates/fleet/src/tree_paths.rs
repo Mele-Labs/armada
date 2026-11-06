@@ -11,7 +11,7 @@ use crate::timeline::{bare, DETAIL};
 
 /// Which kind of worktree a file lies in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Tree {
+pub enum Tree {
     /// The repository's own checkout.
     Main,
     /// A slot of the pool.
@@ -22,18 +22,18 @@ pub(crate) enum Tree {
 
 /// A file inside a repository, as its own worktree names it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct InTree {
+pub struct InTree {
     /// The worktree's root, absolute.
-    pub(crate) worktree: String,
+    pub worktree: String,
     /// From that root, with no `.` or `..` left in it.
-    pub(crate) path: String,
-    pub(crate) tree: Tree,
+    pub path: String,
+    pub tree: Tree,
 }
 
 /// `path` as an agent standing in `cwd` named it (absolute, from `~/`, or from `cwd`), read against
 /// the repository at `root`. `linked` says whether a directory is a linked worktree's root; the
 /// pool's slots are known by their place. None where it lies outside the repository.
-pub(crate) fn in_tree(root: &str, cwd: Option<&str>, home: &str, path: &str, linked: &dyn Fn(&str) -> bool) -> Option<InTree> {
+pub fn in_tree(root: &str, cwd: Option<&str>, home: &str, path: &str, linked: &dyn Fn(&str) -> bool) -> Option<InTree> {
     let whole = absolute(cwd, home, path)?;
     let root = root.trim_end_matches('/');
     let rest = whole.strip_prefix(root)?.strip_prefix('/')?;
@@ -84,7 +84,7 @@ fn absolute(cwd: Option<&str>, home: &str, path: &str) -> Option<String> {
 
 /// Whether `dir` is a linked worktree's root: its `.git` is a file naming a directory under a
 /// repository's `.git/worktrees/`. A submodule's names `.git/modules/`, and is not one.
-pub(crate) fn linked_worktree(dir: &str) -> bool {
+pub fn linked_worktree(dir: &str) -> bool {
     std::fs::read_to_string(Path::new(dir).join(".git"))
         .ok()
         .and_then(|said| said.lines().find_map(|line| line.strip_prefix("gitdir:")).map(|to| to.trim().contains("/.git/worktrees/")))
@@ -94,10 +94,10 @@ pub(crate) fn linked_worktree(dir: &str) -> bool {
 /// A file as a timeline entry names it. **Only [`file_name`] makes one**, so no entry carries a path
 /// spelled from wherever the agent happened to stand.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct FileName(String);
+pub struct FileName(String);
 
 impl FileName {
-    pub(crate) fn into_string(self) -> String {
+    pub fn into_string(self) -> String {
         self.0
     }
 }
@@ -105,7 +105,7 @@ impl FileName {
 /// `path` from its worktree's root, whole, where it lies in one of the repositories `roots` serves;
 /// else as it came, cut to a line as any detail is. A line break, which an entry's item cannot hold,
 /// is the one thing changed in a whole path.
-pub(crate) fn file_name(roots: &[(String, String)], cwd: Option<&str>, home: &str, path: &str, linked: &dyn Fn(&str) -> bool) -> FileName {
+pub fn file_name(roots: &[(String, String)], cwd: Option<&str>, home: &str, path: &str, linked: &dyn Fn(&str) -> bool) -> FileName {
     let mut deepest: Vec<&str> = roots.iter().map(|(_, root)| root.trim_end_matches('/')).collect();
     deepest.sort_by_key(|root| std::cmp::Reverse(root.len()));
     let inside = deepest.into_iter().find_map(|root| in_tree(root, cwd, home, path, linked));
@@ -119,7 +119,7 @@ pub(crate) fn file_name(roots: &[(String, String)], cwd: Option<&str>, home: &st
 impl Fleet
 {
     /// A file an agent standing in `cwd` named, as the timeline names it.
-    pub(crate) fn file_named(&self, cwd: Option<&str>, path: &str) -> FileName {
+    pub fn file_named(&self, cwd: Option<&str>, path: &str) -> FileName {
         file_name(&self.ledger_roots(), cwd, &self.host().home, path, &linked_worktree)
     }
 }

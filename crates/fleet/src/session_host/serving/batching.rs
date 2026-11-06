@@ -13,7 +13,7 @@ use super::*;
 
 /// What is held for each Job and notice word, until the window ends.
 #[derive(Default)]
-pub(crate) struct NoticeBatches(Mutex<BTreeMap<(String, &'static str), Held>>);
+pub struct NoticeBatches(Mutex<BTreeMap<(String, &'static str), Held>>);
 
 struct Held {
     texts: Vec<String>,
@@ -44,7 +44,7 @@ impl Fleet
 {
     /// Hold `text` for `session`. The first held for a Job and word opens the window; the one message
     /// goes when it ends.
-    pub(super) fn batch_held(self: &Arc<Self>, session: &str, text: &str, news: bool, notice: ipc::Notice) {
+    pub fn batch_held(self: &Arc<Self>, session: &str, text: &str, news: bool, notice: ipc::Notice) {
         if !self.notice_batches().hold(session, notice, text, news) {
             return;
         }
@@ -59,7 +59,7 @@ impl Fleet
     /// Send what is held for `session` under `notice` as one message. **Not asked of the rules again**:
     /// the rule that held it already spoke. A Job that cannot be told now (ended, or a terminal one
     /// that is not listening) loses what was held, since the caller was told it was handled.
-    pub(super) async fn batch_sent(self: &Arc<Self>, session: &str, notice: ipc::Notice) {
+    pub async fn batch_sent(self: &Arc<Self>, session: &str, notice: ipc::Notice) {
         let Some(held) = self.notice_batches().take(session, notice) else { return };
         let _ = self.fleet_word(session, &held.texts.join("\n\n"), held.news, Some(Written::Noticed(notice))).await;
     }

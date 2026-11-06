@@ -14,7 +14,7 @@ use tokio::sync::watch;
 
 /// Whose worktree and span a server runs in.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Holder {
+pub enum Holder {
     /// A checkout, by its path — a repository's main checkout is the one at
     /// its root. **One instance per checkout per name**, so two checkouts of
     /// one repository each hold their own.
@@ -24,11 +24,11 @@ pub(crate) enum Holder {
 type Key = (Holder, String);
 
 /// How to stop one instance, and hear where it stands.
-pub(crate) type Stopping = (Arc<watch::Sender<bool>>, watch::Receiver<ServerState>);
+pub type Stopping = (Arc<watch::Sender<bool>>, watch::Receiver<ServerState>);
 
 /// `std`'s lock: it is never held across an `.await`.
 #[derive(Clone, Default)]
-pub(crate) struct Servers(
+pub struct Servers(
     Arc<Mutex<Book>>,
     Arc<tokio::sync::Mutex<()>>,
     Arc<Mutex<BTreeMap<String, Arc<config::Manifest>>>>,
@@ -38,7 +38,7 @@ pub(crate) struct Servers(
 
 /// Told each whole line a server's output grew by, from the pass that already reads it for
 /// `observe_server`. **Called on that pass and never to wait**: it filters and hands on.
-pub(crate) type LineTap = Arc<dyn Fn(&ServerState, &[(u64, String)]) + Send + Sync>;
+pub type LineTap = Arc<dyn Fn(&ServerState, &[(u64, String)]) + Send + Sync>;
 
 #[derive(Default)]
 struct Book {
@@ -47,17 +47,17 @@ struct Book {
 }
 
 /// One instance that is starting or serving.
-pub(crate) struct Live {
+pub struct Live {
     /// Where it stands. **The sender, not a receiver** — the task moves it on
     /// each phase, and [`Servers::moved_on`] moves it from outside the task
     /// when the checkout it serves gains commits. A receiver here would have
     /// made that a fact only the task could ever write.
-    pub(crate) now: Arc<watch::Sender<ServerState>>,
-    pub(crate) stop: Arc<watch::Sender<bool>>,
+    pub now: Arc<watch::Sender<ServerState>>,
+    pub stop: Arc<watch::Sender<bool>>,
     /// Its output, held here so a viewer can subscribe. The task holds the
     /// other end; both going is what tells a viewer it ended.
-    pub(crate) feed: api::RunFeed,
-    pub(crate) dir: PathBuf,
+    pub feed: api::RunFeed,
+    pub dir: PathBuf,
 }
 
 struct Ended {
@@ -67,7 +67,7 @@ struct Ended {
 
 impl Servers {
     /// The instance up for this holder and name, if one is.
-    pub(crate) fn running(
+    pub fn running(
         &self,
         holder: &Holder,
         name: &str,
@@ -79,7 +79,7 @@ impl Servers {
     }
 
     /// This holder's instance of `name`: the live one, or the last that ended.
-    pub(crate) fn instance(&self, holder: &Holder, name: &str) -> Option<ServerState> {
+    pub fn instance(&self, holder: &Holder, name: &str) -> Option<ServerState> {
         let key = (holder.clone(), name.to_string());
         let book = self.book();
         match book.live.get(&key) {
@@ -90,7 +90,7 @@ impl Servers {
 
     /// Hold `live` for this holder and name — **or hand back the one already
     /// held**, which is the whole of "one instance per Job per server".
-    pub(crate) fn take(
+    pub fn take(
         &self,
         holder: &Holder,
         name: &str,
@@ -115,7 +115,7 @@ impl Servers {
     }
 
     /// How to stop the instance `id` — only while it is up.
-    pub(crate) fn stopping(&self, id: &str) -> Option<Stopping> {
+    pub fn stopping(&self, id: &str) -> Option<Stopping> {
         self.book()
             .live
             .values()
@@ -124,14 +124,14 @@ impl Servers {
     }
 
     /// Whether `id` is an instance that has ended.
-    pub(crate) fn has_ended(&self, id: &str) -> bool {
+    pub fn has_ended(&self, id: &str) -> bool {
         self.book().ended.values().any(|ended| ended.state.id == id)
     }
 
     /// `id`'s state, a subscription to its output while it is up, and its
     /// directory. **The subscription is taken under the lock**, before the
     /// caller reads the log, for `observe_run`'s reason.
-    pub(crate) fn watching(
+    pub fn watching(
         &self,
         id: &str,
     ) -> Option<(ServerState, Option<api::RunWatch>, PathBuf)> {
@@ -150,7 +150,7 @@ impl Servers {
     }
 
     /// Every instance held, and the last of each that ended, newest first.
-    pub(crate) fn every(&self) -> Vec<ServerState> {
+    pub fn every(&self) -> Vec<ServerState> {
         let book = self.book();
         let mut every: Vec<ServerState> = book
             .live
@@ -165,7 +165,7 @@ impl Servers {
 
     /// How to stop every instance `holder` has up — every one Fleet has, where
     /// `holder` is `None`.
-    pub(crate) fn held_by(&self, holder: Option<&Holder>) -> Vec<Stopping> {
+    pub fn held_by(&self, holder: Option<&Holder>) -> Vec<Stopping> {
         self.book()
             .live
             .iter()
@@ -177,18 +177,18 @@ impl Servers {
     /// Held while a run's servers are started, so two runs sharing a checkout are never handed one
     /// free port for two names: what is free is read from the instances held, and each start is
     /// held before the next reads.
-    pub(crate) fn starting(&self) -> Arc<tokio::sync::Mutex<()>> {
+    pub fn starting(&self) -> Arc<tokio::sync::Mutex<()>> {
         Arc::clone(&self.1)
     }
 
     /// The Manifest the last run on the checkout at `path` was read from, so an event for a server
     /// maps to its run without reading the file, or Kit's copy wherever that is kept, again.
-    pub(crate) fn declared_at(&self, path: &str) -> Option<Arc<config::Manifest>> {
+    pub fn declared_at(&self, path: &str) -> Option<Arc<config::Manifest>> {
         self.2.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(path).cloned()
     }
 
     /// Remember `manifest` as what the checkout at `path` is run from.
-    pub(crate) fn declared_seen(&self, path: &str, manifest: config::Manifest) {
+    pub fn declared_seen(&self, path: &str, manifest: config::Manifest) {
         self.2
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -197,29 +197,29 @@ impl Servers {
 
     /// The links the checkout at `path` was last read to hold, so an event for a run shows what a
     /// list did and a bay that fixed its copy is not told the main checkout's.
-    pub(crate) fn links_at(&self, path: &str) -> Option<Vec<crate::app_runs::links::Link>> {
+    pub fn links_at(&self, path: &str) -> Option<Vec<crate::app_runs::links::Link>> {
         self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).get(path).cloned()
     }
 
     /// Remember `links` as what the checkout at `path` holds.
-    pub(crate) fn links_seen(&self, path: &str, links: Vec<crate::app_runs::links::Link>) {
+    pub fn links_seen(&self, path: &str, links: Vec<crate::app_runs::links::Link>) {
         self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).insert(path.to_string(), links);
     }
 
     /// Forget every link that expects `process`, on every checkout: it was given back to leasing.
-    pub(crate) fn links_forgotten_to(&self, process: &str) {
+    pub fn links_forgotten_to(&self, process: &str) {
         for links in self.3.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).values_mut() {
             links.retain(|link| link.to != process);
         }
     }
 
     /// Hear every server's output lines, as [`LineTap`] says. The last tap set is the one told.
-    pub(crate) fn lines_tapped(&self, tap: LineTap) {
+    pub fn lines_tapped(&self, tap: LineTap) {
         *self.4.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(tap);
     }
 
     /// Tell the tap what `state`'s output grew by, if there is one.
-    pub(crate) fn lines_heard(&self, state: &ServerState, lines: &[(u64, String)]) {
+    pub fn lines_heard(&self, state: &ServerState, lines: &[(u64, String)]) {
         let tap = self.4.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone();
         if let Some(tap) = tap {
             tap(state, lines);
@@ -227,7 +227,7 @@ impl Servers {
     }
 
     /// The ports `holder`'s live instances are on, by name: what is not free in its span.
-    pub(crate) fn ports_live(&self, holder: &Holder) -> Vec<ipc::ServerPort> {
+    pub fn ports_live(&self, holder: &Holder) -> Vec<ipc::ServerPort> {
         self.book()
             .live
             .iter()
@@ -237,12 +237,12 @@ impl Servers {
     }
 
     /// Whether `holder` has any instance up.
-    pub(crate) fn any_live(&self, holder: &Holder) -> bool {
+    pub fn any_live(&self, holder: &Holder) -> bool {
         self.book().live.keys().any(|(whose, _)| whose == holder)
     }
 
     /// How to stop the instances of `names` that `holder` has up. A name with none up is left out.
-    pub(crate) fn held_named(&self, holder: &Holder, names: &[String]) -> Vec<Stopping> {
+    pub fn held_named(&self, holder: &Holder, names: &[String]) -> Vec<Stopping> {
         let book = self.book();
         names
             .iter()
@@ -263,7 +263,7 @@ impl Servers {
     ///
     /// **Nothing is restarted here.** `docs/concepts/fleet.md`, *Servers*:
     /// restarting under somebody mid-look is worse than telling them.
-    pub(crate) fn moved_on(&self, holder: &Holder, commits: u32, published: impl Fn(&ServerState)) {
+    pub fn moved_on(&self, holder: &Holder, commits: u32, published: impl Fn(&ServerState)) {
         let book = self.book();
         for ((whose, _), live) in book.live.iter() {
             if whose != holder {
@@ -278,7 +278,7 @@ impl Servers {
     }
 
     /// Every instance up, by id — what a sweep of old directories keeps.
-    pub(crate) fn live_ids(&self) -> Vec<String> {
+    pub fn live_ids(&self) -> Vec<String> {
         self.book()
             .live
             .values()
@@ -295,7 +295,7 @@ impl Servers {
 
 /// One holder's name held for an instance, given back **however the task
 /// ends** — a `Drop`, so a task that panics leaves the name startable.
-pub(crate) struct Held {
+pub struct Held {
     servers: Servers,
     key: Key,
     id: String,
@@ -310,7 +310,7 @@ impl Held {
     /// **`ending` is applied to the row as it stands under the lock**, the one
     /// [`Servers::moved_on`] writes under, so no merge falls between the read
     /// and the instance leaving what `moved_on` walks. Answers the ended row.
-    pub(crate) fn ended(
+    pub fn ended(
         mut self,
         now: &watch::Sender<ServerState>,
         ending: impl FnOnce(&mut ServerState),

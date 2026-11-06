@@ -181,13 +181,13 @@ impl SessionRuns {
     }
 
     /// The run id of `session`'s terminal `number`, where its shell is in flight.
-    pub(super) fn shell_open(&self, session: &str, number: u32) -> Option<String> {
+    pub fn shell_open(&self, session: &str, number: u32) -> Option<String> {
         let id = self.shells.lock().expect("not poisoned").get(session)?.get(&number).cloned()?;
         self.in_flight(&id).map(|_| id)
     }
 
     /// `session`'s terminals whose shells are in flight, lowest number first, with their run ids.
-    pub(crate) fn shells_open(&self, session: &str) -> Vec<(u32, String)> {
+    pub fn shells_open(&self, session: &str) -> Vec<(u32, String)> {
         let shells = self.shells.lock().expect("not poisoned");
         let Some(own) = shells.get(session) else {
             return Vec::new();
@@ -196,7 +196,7 @@ impl SessionRuns {
     }
 
     /// Whether a program other than the shell has the foreground of the shell `run_id`.
-    pub(super) fn shell_running(&self, run_id: &str) -> bool {
+    pub fn shell_running(&self, run_id: &str) -> bool {
         self.in_flight(run_id).is_some_and(|run| run.foreground_taken())
     }
 
@@ -239,13 +239,13 @@ impl SessionRuns {
 
     /// What `session`'s terminal `number` prints from now on, where its shell is in flight: a
     /// terminal watch's.
-    pub(crate) fn shell_heard(&self, session: &str, number: u32) -> Option<tokio::sync::broadcast::Receiver<SessionRunEvent>> {
+    pub fn shell_heard(&self, session: &str, number: u32) -> Option<tokio::sync::broadcast::Receiver<SessionRunEvent>> {
         let id = self.shell_open(session, number)?;
         Some(self.in_flight(&id)?.feed.subscribe())
     }
 
     /// Stop every shell `session` has in flight, as a run is stopped.
-    pub(super) fn stop_shells(&self, session: &str) {
+    pub fn stop_shells(&self, session: &str) {
         let open: Vec<String> = self.shells.lock().expect("not poisoned").get(session).into_iter().flat_map(|own| own.values().cloned()).collect();
         for run_id in open {
             self.stop(&run_id);
@@ -253,7 +253,7 @@ impl SessionRuns {
     }
 
     /// Forget `run_id` as `session`'s terminal `number`, unless a newer shell has taken its place.
-    pub(super) fn shell_ended(&self, session: &str, number: u32, run_id: &str) {
+    pub fn shell_ended(&self, session: &str, number: u32, run_id: &str) {
         let mut shells = self.shells.lock().expect("not poisoned");
         if let Some(own) = shells.get_mut(session) {
             if own.get(&number).is_some_and(|id| id == run_id) {
@@ -266,8 +266,8 @@ impl SessionRuns {
 impl Fleet
 {
     /// The person's plain open, as the tests make it: [`Opening::Any`], answered with the run id.
-    #[cfg(test)]
-    pub(crate) async fn open_job_shell(
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn open_job_shell(
         self: Arc<Self>,
         session_id: &str,
         cols: Option<u16>,
@@ -278,7 +278,7 @@ impl Fleet
 
     /// A terminal of the Job as `opening` says, its shell started where none is in flight under it:
     /// its number, its run id, and whether the shell started now.
-    pub(super) async fn job_shell(
+    pub async fn job_shell(
         self: Arc<Self>,
         session_id: &str,
         opening: Opening,
@@ -326,7 +326,7 @@ impl Fleet
     }
 
     /// The Job a call is about: the hosted one holding the connection, else the one named.
-    pub(super) fn shell_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>) -> Result<String, Refusal> {
+    pub fn shell_job(&self, caller: Option<api::Caller>, named: Option<&ipc::SessionId>) -> Result<String, Refusal> {
         caller
             .and_then(|caller| self.session_holding(&caller))
             .or_else(|| named.map(|named| named.as_str().trim().to_string()))
@@ -342,7 +342,7 @@ impl Fleet
     /// The agent's typing, into the terminal it named, its last used, or a new one opened for it.
     /// **Never the person's terminal by default**: an agent that never used one, or whose last has
     /// ended, is given a new one.
-    pub(crate) async fn typed_in_job_shell(
+    pub async fn typed_in_job_shell(
         self: Arc<Self>,
         caller: Option<api::Caller>,
         typed: TypeInTerminal,
@@ -412,7 +412,7 @@ impl Fleet
 
     /// The last `lines` of the terminal the agent named, its last used, or the Job's first open, as
     /// the person's pane shows them, once `until` was printed or its wait ran out.
-    pub(crate) async fn job_shell_read(
+    pub async fn job_shell_read(
         &self,
         caller: Option<api::Caller>,
         asked: ReadTerminal,

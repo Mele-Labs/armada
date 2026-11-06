@@ -42,21 +42,21 @@ use crate::session_proposer::{Proposing, SessionBrief, SessionProposed};
 use crate::timeline::{Fact, Subject};
 
 /// A workflow id the Session's repository does not hold. A 422.
-pub(super) const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
+pub const WORKFLOW_NOT_HELD: &str = "fleet.session_workflow_not_held";
 
 /// A workflow set while `features.workflows` is off, or while `workflows.off` names it for the
 /// Job's repository. A 422.
-pub(super) const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
+pub const WORKFLOWS_OFF: &str = "fleet.session_workflows_off";
 
 /// A Session whose proposal call is out. In memory: a Fleet that restarts reads nothing.
 #[derive(Debug, Default)]
-pub(crate) struct Reading {
+pub struct Reading {
     /// The fields the person set while the call was out, which the answer leaves alone.
     person: Vec<ProposedField>,
 }
 
 /// A message already on the thread whose turn waits for the proposal.
-pub(crate) struct Held {
+pub struct Held {
     pub text: String,
     pub kept: Kept,
     pub addressed: Vec<(ipc::SessionTag, Option<String>)>,
@@ -67,7 +67,7 @@ pub(crate) struct Held {
 
 /// What a Session's runtime keeps while its proposal is being read and its held turns are sent.
 #[derive(Default)]
-pub(crate) struct ProposalState {
+pub struct ProposalState {
     pub reading: Option<Reading>,
     /// Turns held, oldest first. Drained in order before anything newer is sent.
     pub held: VecDeque<Held>,
@@ -96,12 +96,12 @@ pub(crate) struct ProposalState {
 
 impl ProposalState {
     /// Whether a new message waits behind the proposal.
-    pub(crate) fn holds_back(&self) -> bool {
+    pub fn holds_back(&self) -> bool {
         self.reading.is_some() || self.draining || self.start_held
     }
 
     /// The person set `field`: the answer leaves it alone, and a title of his ends the hint and the stand-in.
-    pub(crate) fn person_set(&mut self, field: ProposedField) {
+    pub fn person_set(&mut self, field: ProposedField) {
         if field == ProposedField::Title {
             self.hint = None;
             self.stand_in = None;
@@ -113,7 +113,7 @@ impl ProposalState {
         }
     }
 
-    pub(crate) fn begin(person: Vec<ProposedField>) -> ProposalState {
+    pub fn begin(person: Vec<ProposedField>) -> ProposalState {
         ProposalState {
             reading: Some(Reading { person }),
             asked: true,
@@ -123,14 +123,14 @@ impl ProposalState {
 }
 
 /// The proposer's answer to the start's question, and the workflows it was shown.
-pub(crate) struct Answered {
+pub struct Answered {
     pub brief: SessionBrief,
     pub reply: String,
     pub workflows: Arc<std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>>,
 }
 
 /// The fields of a hosting's `proposed` list.
-pub(crate) fn picked_of(proposed: &str) -> Vec<ProposedField> {
+pub fn picked_of(proposed: &str) -> Vec<ProposedField> {
     proposed
         .split(',')
         .filter_map(|one| ProposedField::from_wire(one.trim()))
@@ -183,7 +183,7 @@ impl Fleet
 {
     /// `start_session`, reading `request` where the start is a plain one. **Answers at once**: the
     /// Session exists with `proposal.reading` set and the call runs in a task.
-    pub(crate) async fn started_reading(
+    pub async fn started_reading(
         self: Arc<Self>,
         mut start: StartSession,
     ) -> Result<SessionRecord, Refusal> {
@@ -256,7 +256,7 @@ impl Fleet
     /// run, is not a fork, is not Setup's or a Mod Job's (which follows no workflow) and holds no proposal; what it already carries is the
     /// person's (or the agent's) and stands over the answer. `true` where a reading began, and the turn is
     /// held behind it as a dispatch's is. A missing proposer reads nothing and the Session starts as it is.
-    pub(crate) fn reading_begun(
+    pub fn reading_begun(
         self: &Arc<Self>,
         session: &KeptSession,
         hosting: &KeptHosting,
@@ -339,7 +339,7 @@ impl Fleet
     /// The start's question about `request` put to the proposer, with the workflows it was shown and
     /// `hint`, the title an agent gave the Job. `name_session` and the second try for a title ask
     /// through this too, so the questions cannot drift apart.
-    pub(crate) async fn proposer_answered(
+    pub async fn proposer_answered(
         &self,
         proposing: &Proposing,
         manifest_id: &str,
@@ -481,7 +481,7 @@ impl Fleet
 
     /// Send the turns that waited, oldest first. The caller has set `draining`, so a message arriving
     /// meanwhile joins the line instead of overtaking it.
-    pub(crate) async fn held_sent(self: &Arc<Self>, id: &str) {
+    pub async fn held_sent(self: &Arc<Self>, id: &str) {
         let runtime = self.hosts().of(id);
         loop {
             let next = {
@@ -503,7 +503,7 @@ impl Fleet
 
     /// The person changed `field`: the answer to a call still out leaves it alone, and it is no
     /// longer the proposer's pick. Called with the store held, from the change itself.
-    pub(crate) fn person_changed(&self, store: &mut Store, id: &str, field: ProposedField) {
+    pub fn person_changed(&self, store: &mut Store, id: &str, field: ProposedField) {
         self.hosts().of(id).state().proposal.person_set(field);
         if let Ok(Some(mut hosting)) = store.hosting(id) {
             let mut picked = picked_of(&hosting.proposed);
@@ -517,7 +517,7 @@ impl Fleet
 
     /// Armada named the Job on request: the title is listed as its pick, not his, and the answer to
     /// a call still out leaves it alone. Called with the store held.
-    pub(crate) fn armada_named(&self, store: &mut Store, id: &str) {
+    pub fn armada_named(&self, store: &mut Store, id: &str) {
         self.hosts().of(id).state().proposal.person_set(ProposedField::Title);
         if let Ok(Some(mut hosting)) = store.hosting(id) {
             let mut picked = picked_of(&hosting.proposed);
@@ -531,7 +531,7 @@ impl Fleet
 
     /// A warning in the envelope on Fleet's standard error, about a Session. A Session has no Job log to
     /// write into, and what failed here raises nothing for the person.
-    pub(crate) fn session_warned(&self, session: &str, msg: &str, why: impl std::fmt::Display) {
+    pub fn session_warned(&self, session: &str, msg: &str, why: impl std::fmt::Display) {
         let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
             .with_field("session", FieldValue::Str(session.to_string()))
             .with_field("why", FieldValue::Str(why.to_string()));
@@ -539,12 +539,12 @@ impl Fleet
     }
 
     /// An entry on the Session's timeline, for the thread to draw.
-    pub(crate) fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
+    pub fn session_noted(&self, session: &KeptSession, kind: TimelineKind, says: String) {
         self.session_noted_with(session, kind, says, None);
     }
 
     /// [`Self::session_noted`] with a `detail`, which for a change to the Job's own copy says who made it.
-    pub(crate) fn session_noted_with(&self, session: &KeptSession, kind: TimelineKind, says: String, detail: Option<String>) {
+    pub fn session_noted_with(&self, session: &KeptSession, kind: TimelineKind, says: String, detail: Option<String>) {
         self.timeline().note(
             Fact::new(
                 self.timeline().now(),
@@ -566,7 +566,7 @@ impl Fleet
     /// The first turn compares against nothing: it is where the baseline is kept, and it tells the
     /// agent only the workflow. A change made while a turn runs waits for the process to restart
     /// on it, and the turn that starts then tells.
-    pub(crate) async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
+    pub async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
         let mut said: Vec<String> = Vec::new();
         let followed = hosting.workflow.as_deref().is_some_and(|workflow| self.workflow_on(&hosting.manifest_id, workflow));
         if !hosting.ran && followed {
@@ -626,7 +626,7 @@ impl Fleet
     }
 
     /// `set_session_workflow`: the person picked the Session's workflow in a panel, or cleared it.
-    pub(crate) async fn workflow_set(
+    pub async fn workflow_set(
         self: &Arc<Self>,
         set: SetSessionWorkflow,
     ) -> Result<SessionRecord, Refusal> {
@@ -636,7 +636,7 @@ impl Fleet
 
     /// The workflow a Job of the repository `manifest` may follow, trimmed and none where blank, with the
     /// repository's workflows. Refused where it holds no such workflow, or it is switched off.
-    pub(crate) fn workflow_checked(
+    pub fn workflow_checked(
         &self,
         manifest: &str,
         workflow: Option<String>,
@@ -666,7 +666,7 @@ impl Fleet
     }
 
     /// Job `id` follows `workflow`, or none, as `by` chose.
-    pub(crate) async fn workflow_put(
+    pub async fn workflow_put(
         self: &Arc<Self>,
         id: &str,
         workflow: Option<String>,

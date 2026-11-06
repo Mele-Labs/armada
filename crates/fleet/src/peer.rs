@@ -128,7 +128,7 @@ pub fn started_within(roots: &[u32], pid: u32, peers: &dyn PeerOf) -> bool {
 pub use self::kernel::Kernel;
 
 #[cfg(target_vendor = "apple")]
-mod kernel;
+pub mod kernel;
 
 #[cfg(not(target_vendor = "apple"))]
 mod kernel {

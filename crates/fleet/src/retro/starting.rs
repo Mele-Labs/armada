@@ -48,7 +48,7 @@ struct Held {
 impl Fleet
 {
     /// Start a Session for an item and send it the brief.
-    pub(crate) async fn started_from(
+    pub async fn started_from(
         self: &Arc<Self>,
         lesson_id: &str,
     ) -> Result<LessonSessionStarted, Refusal> {
@@ -244,7 +244,7 @@ fn source_of(lesson: &Lesson) -> String {
 /// The first message an agent is sent for an item: the same parts
 /// `request_of` hands the proposer, as words to the one who will do the work.
 /// **Sent as it stands**, so it is short and plain.
-pub(super) fn brief_of(line: &store::RetroLine, source: &str) -> String {
+pub fn brief_of(line: &store::RetroLine, source: &str) -> String {
     let title = line.title.as_deref().unwrap_or(&line.said);
     let what = line.what.as_deref().unwrap_or(&line.said);
     let mut brief = format!("{title}\n\nThis came up in a retro. {what}");

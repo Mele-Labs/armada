@@ -20,7 +20,7 @@ impl Fleet
 {
     /// Spawned, so a caller that stops waiting does not strand a folder that was
     /// made and never served.
-    pub(crate) async fn created_project(
+    pub async fn created_project(
         self: Arc<Self>,
         asked: CreateProject,
     ) -> Result<RepositorySummary, Refusal> {

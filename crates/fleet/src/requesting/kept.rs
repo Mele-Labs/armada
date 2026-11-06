@@ -28,18 +28,18 @@ use crate::daemon::Fleet;
 use crate::run_memory::{cloud, places};
 
 /// The folder beside `runs/` that holds each repository's file.
-pub(crate) const FOLDER: &str = "requests";
+pub const FOLDER: &str = "requests";
 /// The repository's own file, committed, beside `.armada/flight-controls.toml`.
-pub(crate) const IN_REPOSITORY: &str = ".armada/requests.toml";
+pub const IN_REPOSITORY: &str = ".armada/requests.toml";
 /// The person's own file will not read, so it is not written over. A 409.
-pub(crate) const UNREAD: &str = "fleet.requests_unread";
+pub const UNREAD: &str = "fleet.requests_unread";
 /// The place could not be written. A 500.
-pub(crate) const UNWRITABLE: &str = "fleet.requests_unwritable";
+pub const UNWRITABLE: &str = "fleet.requests_unwritable";
 
 /// One writer of a file at a time, so two writes cannot interleave their staging file.
 static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// One save at a time, so a read, a change and a write are one step and no save is lost.
-pub(super) static SAVING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub static SAVING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// Where the person's own file is.
 enum Kept {
@@ -50,7 +50,7 @@ enum Kept {
 }
 
 /// The file at `path`. An absent file is an empty one.
-pub(crate) async fn read_file(path: &Path) -> Result<RequestsFile, String> {
+pub async fn read_file(path: &Path) -> Result<RequestsFile, String> {
     match tokio::fs::read_to_string(path).await {
         Ok(text) => parse(&text).map_err(|why| format!("{}: {why}", path.display())),
         Err(cause) if cause.kind() == std::io::ErrorKind::NotFound => Ok(RequestsFile::default()),
@@ -101,7 +101,7 @@ impl Fleet
     }
 
     /// The person's own file for `root`, and the place it was read at.
-    pub(super) async fn own_requests(&self, root: &str) -> Result<(RunPlace, Result<RequestsFile, String>), Refusal> {
+    pub async fn own_requests(&self, root: &str) -> Result<(RunPlace, Result<RequestsFile, String>), Refusal> {
         let (place, kept) = self.requests_kept(root).await?;
         let read = match kept {
             Kept::File(path) => read_file(&path).await,
@@ -123,7 +123,7 @@ impl Fleet
     }
 
     /// The person's own file for `root`, or why it did not read.
-    pub(crate) async fn own_requests_file(&self, root: &str) -> Result<RequestsFile, String> {
+    pub async fn own_requests_file(&self, root: &str) -> Result<RequestsFile, String> {
         match self.own_requests(root).await {
             Ok((_, read)) => read,
             Err(_) => Err(String::from("the place chosen for this repository could not be read")),
@@ -132,7 +132,7 @@ impl Fleet
 
     /// The person's own file, to change and write back. **One that will not read is refused**,
     /// never saved over.
-    pub(super) async fn own_requests_to_change(&self, root: &str) -> Result<RequestsFile, Refusal> {
+    pub async fn own_requests_to_change(&self, root: &str) -> Result<RequestsFile, Refusal> {
         match self.own_requests(root).await?.1 {
             Ok(file) => Ok(file),
             Err(why) => Err(Refusal::IllegalMove(WireError::raised(
@@ -144,7 +144,7 @@ impl Fleet
     }
 
     /// Write the person's own file whole, already checked.
-    pub(super) async fn own_requests_written(&self, root: &str, file: &RequestsFile) -> Result<(), Refusal> {
+    pub async fn own_requests_written(&self, root: &str, file: &RequestsFile) -> Result<(), Refusal> {
         let unwritable = |named: &str, why: String| {
             Refusal::Fault(WireError::raised(UNWRITABLE, format!("{named} could not be written: {why}"), self.run_id()))
         };
@@ -170,7 +170,7 @@ impl Fleet
     }
 
     /// The repository's own committed file, from the tree of the Job `job` names or the checkout.
-    pub(super) async fn repository_requests(&self, root: &str, job: Option<&str>) -> Result<RequestsFile, String> {
+    pub async fn repository_requests(&self, root: &str, job: Option<&str>) -> Result<RequestsFile, String> {
         let named = job.map(SessionId::carried);
         let tree = match self.job_tree_in(root, named.as_ref()).await {
             Some(tree) => PathBuf::from(tree.path),
@@ -180,7 +180,7 @@ impl Fleet
     }
 
     /// The repository a Job stands in, where Fleet serves it.
-    pub(super) async fn job_repository(&self, job: &str) -> Option<String> {
+    pub async fn job_repository(&self, job: &str) -> Option<String> {
         let session = self.store().lock().await.session(job).ok().flatten()?;
         let manifest = match session.manifest_id.filter(|id| !id.is_empty()) {
             Some(id) => id,
@@ -192,7 +192,7 @@ impl Fleet
 
     /// `get_requests`' answer for `root`: both files, the person's own over the repository's,
     /// and a server's environment for each server `job` runs.
-    pub(super) async fn requests_answer(&self, root: &str, job: Option<&str>) -> Result<Requests, Refusal> {
+    pub async fn requests_answer(&self, root: &str, job: Option<&str>) -> Result<Requests, Refusal> {
         let (place, own) = self.own_requests(root).await?;
         let theirs = self.repository_requests(root, job).await;
         let mut not_read = Vec::new();
@@ -257,7 +257,7 @@ impl Fleet
 
     /// The values of the Requests environment `named`, for `job`'s watch command, every secret
     /// read from the Keychain. `Err` says why, and never holds a value.
-    pub(crate) async fn watch_values(&self, job: &str, named: &str) -> Result<Option<super::Values>, String> {
+    pub async fn watch_values(&self, job: &str, named: &str) -> Result<Option<super::Values>, String> {
         let root = self.job_repository(job).await;
         let filling = self.filling_for(root.as_deref(), Some(job)).await.map_err(|why| why.error().message.clone())?;
         let secrets = std::sync::Arc::clone(&self.requests().secrets);
@@ -273,7 +273,7 @@ impl Fleet
 
     /// What a send for `root` is filled from: both files, the person's own over the repository's,
     /// and `job`'s servers. A file that will not read lends nothing.
-    pub(super) async fn filling_for(&self, root: Option<&str>, job: Option<&str>) -> Result<Filling, Refusal> {
+    pub async fn filling_for(&self, root: Option<&str>, job: Option<&str>) -> Result<Filling, Refusal> {
         let mut filling = Filling::default();
         if let Some(root) = root {
             let own = self.own_requests(root).await?.1.unwrap_or_default();

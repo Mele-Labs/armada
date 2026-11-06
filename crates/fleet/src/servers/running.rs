@@ -40,24 +40,24 @@ const GOING_EVERY: Duration = Duration::from_millis(50);
 const ONE_ASK: Duration = Duration::from_secs(30);
 
 /// Everything the task needs, decided before it was spawned.
-pub(crate) struct Plan {
+pub struct Plan {
     /// How a record left behind by a crashed Fleet says whose server this was.
-    pub(crate) whose: String,
-    pub(crate) run: Option<String>,
-    pub(crate) serve: String,
-    pub(crate) ready: Option<String>,
-    pub(crate) worktree: PathBuf,
-    pub(crate) env: Vec<(String, String)>,
-    pub(crate) dir: PathBuf,
-    pub(crate) feed: api::RunFeed,
+    pub whose: String,
+    pub run: Option<String>,
+    pub serve: String,
+    pub ready: Option<String>,
+    pub worktree: PathBuf,
+    pub env: Vec<(String, String)>,
+    pub dir: PathBuf,
+    pub feed: api::RunFeed,
     /// Where the server stands. **Shared with `super::held::Live`**, so a
     /// merge that moved the checkout can write the row too — see
     /// [`super::held::Servers::moved_on`].
-    pub(crate) now: std::sync::Arc<watch::Sender<ServerState>>,
+    pub now: std::sync::Arc<watch::Sender<ServerState>>,
     /// The group and start time of a server a Fleet before this one started, and this one took
     /// back. **Not this process's child**, so it cannot be waited on: it is watched by asking
     /// whether the process at the group is still the one that started then.
-    pub(crate) adopted: Option<(NonZeroU32, StartedAt)>,
+    pub adopted: Option<(NonZeroU32, StartedAt)>,
 }
 
 struct End {
@@ -75,7 +75,7 @@ impl Fleet
     /// `server.exited` is published **before** the final state is sent, so a
     /// caller waiting on it — a Job's teardown — returns after the event is
     /// out, and the Job's own terminal event follows it rather than racing it.
-    pub(crate) async fn served(&self, plan: Plan, held: Held, stopped: watch::Receiver<bool>) {
+    pub async fn served(&self, plan: Plan, held: Held, stopped: watch::Receiver<bool>) {
         let log = plan.dir.join(records::LOG);
         let (finished, finishing) = watch::channel(false);
         let lived = async {
@@ -191,7 +191,7 @@ impl Fleet
             }
         };
         // A server outlives Fleet, and under test that is a leak: the directory it runs in ends it.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let Some(group) = served.group().and_then(NonZeroU32::new) {
             crate::tests::tmp::spawned_in(group, path);
         }

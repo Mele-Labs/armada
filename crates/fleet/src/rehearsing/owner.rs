@@ -23,22 +23,22 @@ const REPOSITORY_NAMED_TWICE: &str = "fleet.repository_named_twice";
 /// A repository's main checkout. **Its root Manifest may be absent**, so a
 /// workspace's own file can be verified before the root has one.
 #[derive(Clone)]
-pub(crate) struct Checkout {
+pub struct Checkout {
     repository: Arc<Repository>,
     served: Option<Served>,
 }
 
 impl Checkout {
-    pub(crate) fn root(&self) -> &str {
+    pub fn root(&self) -> &str {
         self.repository.root()
     }
 
-    pub(crate) fn records_root(&self) -> &str {
+    pub fn records_root(&self) -> &str {
         self.repository.records_root()
     }
 
     /// The repository with its root Manifest, where it has one.
-    pub(crate) fn served(&self) -> Option<&Served> {
+    pub fn served(&self) -> Option<&Served> {
         self.served.as_ref()
     }
 }
@@ -53,28 +53,28 @@ impl From<Served> for Checkout {
 }
 
 /// The directory the main checkout's runs are kept under.
-pub(crate) const CHECKOUT_HANDLE: &str = "main";
+pub const CHECKOUT_HANDLE: &str = "main";
 
 /// The key one run at a time is held per.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Owner {
+pub enum Owner {
     /// The main checkout of the repository at this root.
     Checkout(String),
 }
 
 /// A tree a run happens in, as a path and — where there is one — as what
 /// `WorkProduct` reads a diff from.
-pub(crate) struct Tree {
-    pub(crate) path: PathBuf,
+pub struct Tree {
+    pub path: PathBuf,
     /// Where commands run, relative to `path`, and the ports they draw: a
     /// workspace's own in a Verify of its file. The snapshot and Undo stay on
     /// `path`.
-    pub(crate) within: Option<Within>,
+    pub within: Option<Within>,
 }
 
 impl Tree {
     /// The directory a command runs in.
-    pub(crate) fn commands_in(&self) -> PathBuf {
+    pub fn commands_in(&self) -> PathBuf {
         match &self.within {
             Some(within) => self.path.join(&within.dir),
             None => self.path.clone(),
@@ -83,17 +83,17 @@ impl Tree {
 }
 
 /// An owner resolved: what a run of its needs that the owner alone decides.
-pub(crate) struct Place {
-    pub(crate) owner: Owner,
+pub struct Place {
+    pub owner: Owner,
     /// The directory under `.armada/runs/` this owner's runs are kept in.
-    pub(crate) handle: String,
+    pub handle: String,
     /// The checkout of the repository the tree is in.
-    pub(crate) checkout: Checkout,
+    pub checkout: Checkout,
 }
 
 impl Place {
 
-    pub(crate) fn of_checkout(checkout: impl Into<Checkout>) -> Place {
+    pub fn of_checkout(checkout: impl Into<Checkout>) -> Place {
         let checkout = checkout.into();
         Place {
             owner: Owner::Checkout(checkout.root().to_string()),
@@ -108,7 +108,7 @@ impl Fleet
     /// The tree this owner's runs happen in. **The main checkout is always
     /// there**: it is the repository Fleet is running on, and Fleet answering
     /// at all is the proof.
-    pub(crate) fn tree_at(&self, place: &Place) -> Tree {
+    pub fn tree_at(&self, place: &Place) -> Tree {
         Tree {
             path: PathBuf::from(place.checkout.root()),
             within: None,
@@ -117,14 +117,14 @@ impl Fleet
 
     /// The Manifest this owner's entries are read from: the one Fleet holds.
     /// `None` where the checkout's root has no Manifest.
-    pub(crate) fn manifest_at<'a>(&self, place: &'a Place) -> Option<&'a config::Manifest> {
+    pub fn manifest_at<'a>(&self, place: &'a Place) -> Option<&'a config::Manifest> {
         Some(place.checkout.served()?.manifest())
     }
 
     /// The checkout a route names, by `?manifest_id=` or by `?repository=` root,
     /// which also reaches a repository with no root Manifest. Both is refused
     /// rather than one quietly chosen.
-    pub(crate) fn checkout_named(
+    pub fn checkout_named(
         &self,
         manifest_id: Option<&ipc::ManifestId>,
         root: Option<&str>,

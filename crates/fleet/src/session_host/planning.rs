@@ -35,14 +35,14 @@ const PLAN_STALE: &str = "fleet.plan_version_stale";
 const PLAN_MARK_REFUSED: &str = "fleet.plan_mark_refused";
 
 /// The text of the call a recorded plan makes of the person.
-pub(crate) const PLAN_TO_APPROVE: &str = "Plan to approve";
+pub const PLAN_TO_APPROVE: &str = "Plan to approve";
 
 /// What the agent is told when he puts a plan away to keep talking.
-pub(crate) const NOT_YET_TOLD: &str =
+pub const NOT_YET_TOLD: &str =
     "Not ready for a plan yet. Keep talking, and record no plan until I ask for one.";
 
 /// The call a recorded plan makes of the person until he approves it: id `plan:<version>`.
-pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem {
+pub fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem {
     WaitingItem {
         id: format!("plan:{version}"),
         text: String::from(PLAN_TO_APPROVE),
@@ -61,7 +61,7 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
 }
 
 /// What holds a pending plan back, and when it can be answered once nothing does.
-pub(crate) struct Holds {
+pub struct Holds {
     pub held_by: Vec<PlanHold>,
     /// The latest of the recording, when the windows that count were last shown or made ready, and
     /// his Approves of them.
@@ -78,7 +78,7 @@ pub(crate) struct Holds {
 /// Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to them, and
 /// showing the window again after the recording makes it hold again. His answer to one of the Job's
 /// questions is not such words: it answers the question, not the walk.
-pub(crate) fn plan_holds(
+pub fn plan_holds(
     recorded: &str,
     walk: Option<&str>,
     attachments: &[ipc::Attachment],
@@ -170,7 +170,7 @@ fn stands_since(rows: &[SessionRow], lists_walk: bool, now: &str) -> String {
 /// The call a pending plan makes, if it makes one yet. **It is put to him when it can be answered**,
 /// once nothing in [`plan_holds`] holds it back. It begins then, so it calls even after he viewed the
 /// Job.
-pub(crate) fn plan_called(session: &str, version: u32, holds: &Holds) -> Option<WaitingItem> {
+pub fn plan_called(session: &str, version: u32, holds: &Holds) -> Option<WaitingItem> {
     holds.held_by.is_empty().then(|| plan_item(session, version, holds.since.as_str()))
 }
 
@@ -186,7 +186,7 @@ fn decoded_rows(store: &store::Store, id: &str) -> Vec<SessionRow> {
 
 impl Fleet
 {
-    pub(crate) async fn plan_recorded(
+    pub async fn plan_recorded(
         &self,
         caller: Option<api::Caller>,
         record: RecordPlan,
@@ -292,7 +292,7 @@ impl Fleet
     /// His Approve of the window at `address`, about to be sent: a plan held behind that window alone
     /// stands with it, where the step lists a walk, rather than coming up as a second card. **Before the
     /// send**, so what he is owed never shows the plan for a moment.
-    pub(crate) async fn plan_settled_by_walk(self: &Arc<Self>, id: &str, address: &str) -> Result<(), Refusal> {
+    pub async fn plan_settled_by_walk(self: &Arc<Self>, id: &str, address: &str) -> Result<(), Refusal> {
         if !self.plan_steps(id).await.is_some_and(|steps| rail::walk_settles_plan(&steps)) {
             return Ok(());
         }
@@ -323,7 +323,7 @@ impl Fleet
 
     /// Put the plan version the call `item` names away. A call for a version that is not the one held
     /// anymore changes nothing.
-    pub(crate) async fn plan_set_aside(&self, id: &str, item: &str) -> Result<(), Refusal> {
+    pub async fn plan_set_aside(&self, id: &str, item: &str) -> Result<(), Refusal> {
         let Some(version) = item.strip_prefix("plan:").and_then(|version| version.parse::<u32>().ok()) else {
             return Ok(());
         };
@@ -358,7 +358,7 @@ impl Fleet
         }
     }
 
-    pub(crate) async fn plan_approved(self: Arc<Self>, approve: ApprovePlan) -> Result<SessionRecord, Refusal> {
+    pub async fn plan_approved(self: Arc<Self>, approve: ApprovePlan) -> Result<SessionRecord, Refusal> {
         let id = approve.session_id.as_str().trim().to_string();
         let plan = self.plan_at(&id, approve.version).await?;
         if plan.approved_at.is_none() {
@@ -374,7 +374,7 @@ impl Fleet
         self.published_hosted(&id).await
     }
 
-    pub(crate) async fn plan_changes_sent(self: Arc<Self>, sent: SendPlanChanges) -> Result<SessionRecord, Refusal> {
+    pub async fn plan_changes_sent(self: Arc<Self>, sent: SendPlanChanges) -> Result<SessionRecord, Refusal> {
         let id = sent.session_id.as_str().trim().to_string();
         let plan = self.plan_at(&id, sent.version).await?;
         let said = plan_marks::checked(&plan, &sent.marks, sent.approve)

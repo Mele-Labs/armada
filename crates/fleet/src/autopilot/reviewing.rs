@@ -35,13 +35,13 @@ fn decided(row: KeptDecision) -> Option<AutopilotDecided> {
 impl Fleet
 {
     /// `get_autopilot_decisions`.
-    pub(super) async fn autopilot_decisions_state(&self) -> Result<AutopilotDecisions, Refusal> {
+    pub async fn autopilot_decisions_state(&self) -> Result<AutopilotDecisions, Refusal> {
         let rows = self.store().lock().await.autopilot_decisions_to_review().map_err(|why| self.ledger_fault(why))?;
         Ok(AutopilotDecisions { to_review: rows.into_iter().filter_map(decided).collect() })
     }
 
     /// Publish the answers to review as they stand now.
-    pub(super) async fn autopilot_decisions_published(&self) -> Result<AutopilotDecisions, Refusal> {
+    pub async fn autopilot_decisions_published(&self) -> Result<AutopilotDecisions, Refusal> {
         let state = self.autopilot_decisions_state().await?;
         self.publish(ipc::Event::AutopilotDecisionsChanged(state.clone()));
         Ok(state)
@@ -52,7 +52,7 @@ impl Fleet
     }
 
     /// `review_autopilot_decision`: the person kept one, so it leaves the review.
-    pub(super) async fn autopilot_decision_reviewed(&self, review: ReviewAutopilotDecision) -> Result<AutopilotDecisions, Refusal> {
+    pub async fn autopilot_decision_reviewed(&self, review: ReviewAutopilotDecision) -> Result<AutopilotDecisions, Refusal> {
         let kept = self
             .store()
             .lock()
@@ -67,7 +67,7 @@ impl Fleet
 
     /// `override_autopilot_decision`: the correction goes to the Job first, so a send that fails leaves
     /// the answer in the review to correct again.
-    pub(super) async fn autopilot_decision_overridden(
+    pub async fn autopilot_decision_overridden(
         self: Arc<Self>,
         over: OverrideAutopilotDecision,
     ) -> Result<AutopilotDecisions, Refusal> {

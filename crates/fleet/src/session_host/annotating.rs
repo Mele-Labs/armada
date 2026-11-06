@@ -35,18 +35,18 @@ const DONE: &str = "done";
 const RETURNED: &str = "returned";
 
 /// What a note artifact shows of a note, read from what Bridge sent or from its file.
-pub(super) struct NoteShown {
-    pub(super) id: String,
-    pub(super) text: String,
-    pub(super) screen: Option<String>,
-    pub(super) component: Option<String>,
-    pub(super) tag: String,
-    pub(super) address: Option<String>,
+pub struct NoteShown {
+    pub id: String,
+    pub text: String,
+    pub screen: Option<String>,
+    pub component: Option<String>,
+    pub tag: String,
+    pub address: Option<String>,
 }
 
 impl NoteShown {
     /// A pinned note Bridge's own layer took, which alone carries a note id.
-    pub(super) fn pinned(note: &SessionNote) -> Option<NoteShown> {
+    pub fn pinned(note: &SessionNote) -> Option<NoteShown> {
         let id = note.note_id.as_deref().filter(|id| is_note_id(id))?;
         Some(NoteShown {
             id: id.to_string(),
@@ -101,7 +101,7 @@ impl Fleet
 {
     /// Find the note under the served root, set its `status` to `done` and its `updatedAt` to now,
     /// and write it back through a rename. Refused unless its `sent.sessionId` is this session.
-    pub(crate) async fn annotation_done(
+    pub async fn annotation_done(
         &self,
         caller: Option<api::Caller>,
         mark: MarkAnnotationDone,
@@ -148,14 +148,14 @@ impl Fleet
 
     /// The note `note` of repository `manifest`, which the Operator filed or linked, marked done in
     /// its file wherever it sits. Whether a file was rewritten.
-    pub(crate) async fn note_settled_by_operator(&self, manifest: &str, note: &str) -> bool {
+    pub async fn note_settled_by_operator(&self, manifest: &str, note: &str) -> bool {
         let at = self.now().as_str().to_string();
         self.note_rewritten(manifest, note, move |bytes| filed_done(bytes, &at)).await.is_some()
     }
 
     /// The note `note` of repository `manifest`, which the Operator started or told Job `job` on,
     /// marked sent to it as Bridge's own send leaves a note, and kept as an artifact on the Job.
-    pub(crate) async fn note_given_by_operator(&self, manifest: &str, note: &str, job: &str, title: &str) {
+    pub async fn note_given_by_operator(&self, manifest: &str, note: &str, job: &str, title: &str) {
         let (at, to, called) = (self.now().as_str().to_string(), job.to_string(), title.to_string());
         let Some(bytes) = self.note_rewritten(manifest, note, move |bytes| sent_to(bytes, &to, &called, &at)).await else {
             return;
@@ -191,7 +191,7 @@ impl Fleet
 
     /// Keep each note sent to `id` as an artifact on it. A note whose file is not found is still
     /// kept, from what was sent; nothing here refuses the send it follows.
-    pub(super) async fn notes_kept(&self, id: &str, notes: Vec<NoteShown>) {
+    pub async fn notes_kept(&self, id: &str, notes: Vec<NoteShown>) {
         if notes.is_empty() {
             return;
         }
@@ -225,7 +225,7 @@ impl Fleet
 
     /// The window-scope notes a plain message carries, by what Bridge names in it, kept as
     /// [`Self::notes_kept`] keeps a pinned note: read from their files, which must exist.
-    pub(super) async fn window_notes_kept(&self, id: &str, named: Vec<String>) {
+    pub async fn window_notes_kept(&self, id: &str, named: Vec<String>) {
         if named.is_empty() {
             return;
         }
@@ -243,7 +243,7 @@ impl Fleet
 
     /// A Job's close settles each open note sent to it: done where it had said it was done and
     /// nothing came after, let go otherwise.
-    pub(super) async fn notes_settled(&self, id: &str) {
+    pub async fn notes_settled(&self, id: &str) {
         let Some(root) = self.notes_root(id).await else {
             return;
         };
@@ -310,7 +310,7 @@ impl Fleet
 
 /// The note ids a plain message names the way Bridge's window-scope send does: its picture as
 /// `annotation-<id>.png`, or its line `- Note file: .armada/annotations/<id>.json`.
-pub(super) fn window_notes_named(sent: &ipc::SendSessionMessage) -> Vec<String> {
+pub fn window_notes_named(sent: &ipc::SendSessionMessage) -> Vec<String> {
     let by_picture = sent
         .attachments
         .iter()

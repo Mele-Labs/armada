@@ -5,10 +5,10 @@
 //! reaches it, are [`hosting`]. What starting and stopping one does to the
 //! Studio is `crate::scouting`.
 
-mod brief;
-mod hosting;
+pub mod brief;
+pub mod hosting;
 
-pub(crate) use brief::{
+pub use brief::{
     shipped_ask, shipped_read_in, shipped_rescue, told, told_a_read_in, told_a_rescue, Stranded,
 };
 pub use hosting::{ScoutHost, Scouts};

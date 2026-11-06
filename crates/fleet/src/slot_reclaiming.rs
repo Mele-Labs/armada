@@ -81,7 +81,7 @@ impl Fleet
     /// Tell the Session holding each slot leased on `branch` that pull request `number` merged, once
     /// a slot. **The lease names the branch**, and the pool the holder: a Session that moved off the
     /// branch in its slot is told all the same, since the lease is what it holds.
-    pub(crate) async fn slots_told_of_merge(self: &Arc<Self>, served: &Served, number: u64, branch: &str) {
+    pub async fn slots_told_of_merge(self: &Arc<Self>, served: &Served, number: u64, branch: &str) {
         let manifest = served.manifest().id().as_str().to_string();
         let root = served.root().to_string();
         for slot in slots_on_disk(served) {
@@ -112,7 +112,7 @@ impl Fleet
 
     /// A hosted session's turn ended and it has nothing queued: give back each slot of its that was
     /// told to it as free, if nothing new is in it, or tell it what keeps the slot.
-    pub(crate) async fn slots_reclaimed(self: &Arc<Self>, session: &str) {
+    pub async fn slots_reclaimed(self: &Arc<Self>, session: &str) {
         let Some(hosting) = self.store().lock().await.hosting(session).ok().flatten() else {
             return;
         };

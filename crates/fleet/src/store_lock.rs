@@ -12,16 +12,16 @@ use tokio::sync::{Mutex, MutexGuard};
 const LONG: Duration = Duration::from_millis(250);
 
 /// The store's `Mutex`, whose guard says on stderr (Fleet's log) where it was taken when held past [`LONG`].
-pub(crate) struct StoreLock(Mutex<Store>);
+pub struct StoreLock(Mutex<Store>);
 
 impl StoreLock {
-    pub(crate) fn new(store: Store) -> Self {
+    pub fn new(store: Store) -> Self {
         Self(Mutex::new(store))
     }
 
     /// Not an `async fn`, so `#[track_caller]` sees the call site rather than this file.
     #[track_caller]
-    pub(crate) fn lock(&self) -> impl Future<Output = StoreGuard<'_>> + '_ {
+    pub fn lock(&self) -> impl Future<Output = StoreGuard<'_>> + '_ {
         let at = Location::caller();
         async move {
             StoreGuard { held: self.0.lock().await, since: Instant::now(), at }
@@ -29,7 +29,7 @@ impl StoreLock {
     }
 }
 
-pub(crate) struct StoreGuard<'a> {
+pub struct StoreGuard<'a> {
     held: MutexGuard<'a, Store>,
     since: Instant,
     at: &'static Location<'static>,

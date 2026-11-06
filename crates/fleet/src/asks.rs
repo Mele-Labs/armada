@@ -11,8 +11,8 @@
 //! one process inside one tool call, and a Fleet that restarts has lost the
 //! process whose call it was. A restart leaves nothing to resume.
 
-mod permitting;
-mod serving;
+pub mod permitting;
+pub mod serving;
 
 pub use permitting::SHIPPED_ASK_HOLD;
 

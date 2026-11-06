@@ -16,12 +16,12 @@ use super::{refusal, SessionRuns};
 use crate::daemon::Fleet;
 
 /// `t2` for the Job's second terminal.
-pub(crate) fn terminal_id(number: u32) -> String {
+pub fn terminal_id(number: u32) -> String {
     format!("t{number}")
 }
 
 /// The number in `id`, where it is spelled as [`terminal_id`] spells it.
-pub(crate) fn terminal_number(id: &str) -> Option<u32> {
+pub fn terminal_number(id: &str) -> Option<u32> {
     let number = id.strip_prefix('t')?.parse().ok()?;
     (terminal_id(number) == id).then_some(number)
 }
@@ -32,7 +32,7 @@ fn default_name(number: u32) -> String {
 }
 
 /// Which terminal a call opens.
-pub(super) enum Opening {
+pub enum Opening {
     /// This one: its running shell, or a new shell under its number where it has ended.
     Named(u32),
     /// The next number, with a shell.
@@ -52,7 +52,7 @@ impl Fleet
 {
     /// The person's open: terminal `named`, a `new` one, or neither, as [`Opening`] says. The
     /// terminal's ID and its run id.
-    pub(crate) async fn open_job_terminal(
+    pub async fn open_job_terminal(
         self: Arc<Self>,
         session_id: &str,
         named: Option<&str>,
@@ -74,7 +74,7 @@ impl Fleet
     }
 
     /// The number `opening` means, minted where it is new. Called with the Job's opens held.
-    pub(super) async fn terminal_opened(&self, session: &str, opening: Opening) -> Result<u32, Refusal> {
+    pub async fn terminal_opened(&self, session: &str, opening: Opening) -> Result<u32, Refusal> {
         match opening {
             Opening::Named(number) => {
                 let had = self.terminals_kept(session).await?.iter().any(|one| one.number == number);
@@ -102,13 +102,13 @@ impl Fleet
     }
 
     /// The terminal `named` and its run id, where its shell is in flight.
-    pub(super) fn terminal_named_open(&self, session: &str, named: &str) -> Result<(u32, String), Refusal> {
+    pub fn terminal_named_open(&self, session: &str, named: &str) -> Result<(u32, String), Refusal> {
         terminal_number(named)
             .and_then(|number| self.session_runs().shell_open(session, number).map(|run_id| (number, run_id)))
             .ok_or_else(|| self.terminal_not_open(named))
     }
 
-    pub(super) fn terminal_not_open(&self, named: &str) -> Refusal {
+    pub fn terminal_not_open(&self, named: &str) -> Refusal {
         refusal(format!("terminal {named} is not open. list_terminals names the open ones"), self.run_id())
     }
 
@@ -116,12 +116,12 @@ impl Fleet
         refusal(format!("this job has never had a terminal {named}. list_terminals names the open ones"), self.run_id())
     }
 
-    pub(super) fn terminal_and_new(&self) -> Refusal {
+    pub fn terminal_and_new(&self) -> Refusal {
         refusal("`new` opens a terminal and `terminal` names one: give one of them", self.run_id())
     }
 
     /// The terminal `session`'s agent last typed into or read, whether or not its shell is open.
-    pub(super) async fn terminal_last_used(&self, session: &str) -> Option<u32> {
+    pub async fn terminal_last_used(&self, session: &str) -> Option<u32> {
         let kept = self.terminals_kept(session).await.ok()?;
         kept.iter()
             .filter_map(|one| one.seen_at.as_ref().map(|at| (at, one.number)))
@@ -131,7 +131,7 @@ impl Fleet
 
     /// The terminal a read or a watch with none named means: the agent's last used where it is
     /// open, else the lowest-numbered open one.
-    pub(crate) async fn terminal_read_by_default(&self, session: &str) -> Option<u32> {
+    pub async fn terminal_read_by_default(&self, session: &str) -> Option<u32> {
         if let Some(last) = self.terminal_last_used(session).await.filter(|last| self.session_runs().shell_open(session, *last).is_some()) {
             return Some(last);
         }
@@ -140,7 +140,7 @@ impl Fleet
 
     /// The terminal a terminal watch listens to, fixed when it starts: the one `named`, else
     /// [`Self::terminal_read_by_default`]. `None` where it is not open.
-    pub(crate) async fn terminal_watched(&self, session: &str, named: Option<&str>) -> Option<u32> {
+    pub async fn terminal_watched(&self, session: &str, named: Option<&str>) -> Option<u32> {
         match named {
             Some(named) => self.terminal_named_open(session, named).ok().map(|(number, _)| number),
             None => self.terminal_read_by_default(session).await,
@@ -149,18 +149,18 @@ impl Fleet
 
     /// The run id of the shell `session`'s agent last typed into or read in terminal `number`.
     /// **Kept in the store**, since a shell whose keeper is gone is a new one under the same ID.
-    pub(super) async fn terminal_seen(&self, session: &str, number: u32) -> Option<String> {
+    pub async fn terminal_seen(&self, session: &str, number: u32) -> Option<String> {
         let kept = self.terminals_kept(session).await.ok()?;
         kept.into_iter().find(|one| one.number == number).and_then(|one| one.seen_run)
     }
 
-    pub(super) async fn terminal_saw(&self, session: &str, number: u32, run_id: &str) {
+    pub async fn terminal_saw(&self, session: &str, number: u32, run_id: &str) {
         let now = self.now();
         let _ = self.store().lock().await.keep_job_terminal_seen(session, number, run_id, &now);
     }
 
     /// The Job's open terminals, the lowest number first.
-    pub(crate) async fn job_terminals_listed(
+    pub async fn job_terminals_listed(
         &self,
         caller: Option<api::Caller>,
         asked: ListTerminals,
@@ -177,7 +177,7 @@ impl Fleet
     }
 
     /// Name the Job's open terminal; a blank name restores `Terminal N`. The terminal as it stands.
-    pub(crate) async fn job_terminal_renamed(&self, rename: RenameTerminal) -> Result<ListedTerminal, Refusal> {
+    pub async fn job_terminal_renamed(&self, rename: RenameTerminal) -> Result<ListedTerminal, Refusal> {
         let session = rename.session_id.as_str().trim();
         let (number, run_id) = self.terminal_named_open(session, &rename.terminal)?;
         let mut store = self.store().lock().await;
@@ -188,7 +188,7 @@ impl Fleet
 
     /// The agent's ask that Bridge bring a terminal to the front, `terminal.shown`. The terminal as
     /// it stands. Not a use: the agent's last used stays where it was.
-    pub(crate) async fn job_terminal_shown(
+    pub async fn job_terminal_shown(
         &self,
         caller: Option<api::Caller>,
         asked: ShowTerminal,
@@ -228,11 +228,11 @@ impl Fleet
     }
 
     /// A Job that ended takes its shells with it.
-    pub(crate) fn job_shell_wound_up(&self, session: &str) {
+    pub fn job_shell_wound_up(&self, session: &str) {
         self.session_runs().stop_shells(session);
     }
 
-    pub(super) fn job_shell_ended(&self, session: &str, number: u32, run_id: &str) {
+    pub fn job_shell_ended(&self, session: &str, number: u32, run_id: &str) {
         self.session_runs().shell_ended(session, number, run_id);
         self.publish(ipc::Event::TerminalExited(JobTerminal {
             session_id: ipc::SessionId::carried(session),

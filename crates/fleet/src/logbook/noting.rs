@@ -6,10 +6,10 @@ use store::LogSection;
 use super::serving::Logged;
 
 /// What the note holds, in tokens, header included. What the cap leaves out is found with `recall`.
-pub(crate) const NOTE_TOKENS: usize = 2000;
+pub const NOTE_TOKENS: usize = 2000;
 
 /// What the header costs, in tokens, taken off the entries' share.
-pub(crate) const HEADER_TOKENS: usize = 60;
+pub const HEADER_TOKENS: usize = 60;
 
 const HEADER: &str = "The Logbook: what earlier Jobs learnt, kept for you. Each line stands. \
                       The `recall` tool searches what this leaves out.";
@@ -17,7 +17,7 @@ const HEADER: &str = "The Logbook: what earlier Jobs learnt, kept for you. Each 
 const SUBAGENT_HEADER: &str = "The Logbook, for where you work. Each line stands. The `recall` tool searches the rest.";
 
 /// What the subagent header costs, in tokens.
-pub(crate) const SUBAGENT_HEADER_TOKENS: usize = 30;
+pub const SUBAGENT_HEADER_TOKENS: usize = 30;
 
 /// The sections as the note takes them, with the words that open each.
 const SECTIONS: [(LogSection, &str); 3] = [
@@ -28,12 +28,12 @@ const SECTIONS: [(LogSection, &str); 3] = [
 
 /// The note for the entries served, kept in the order they came within each section. `None` where
 /// nothing was served.
-pub(crate) fn note(served: &[Logged]) -> Option<String> {
+pub fn note(served: &[Logged]) -> Option<String> {
     rendered(HEADER, served)
 }
 
 /// What a subagent is handed: the same lines under a shorter header, with no section of this Mac's.
-pub(crate) fn subagent_note(served: &[Logged]) -> Option<String> {
+pub fn subagent_note(served: &[Logged]) -> Option<String> {
     rendered(SUBAGENT_HEADER, served)
 }
 

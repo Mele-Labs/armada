@@ -302,7 +302,7 @@ impl Fleet
     /// Start an Organize look on a task of its own, and return at once. Where one is already going
     /// nothing starts. `sorts` places topics first, which needs the model. The result replaces a
     /// held one only when the look finishes.
-    pub(crate) fn logbook_organize_started_with<F, Fut>(
+    pub fn logbook_organize_started_with<F, Fut>(
         self: &Arc<Self>,
         organize: OrganizeLogbook,
         sorts: bool,

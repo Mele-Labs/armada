@@ -18,7 +18,7 @@ use crate::session_host::walking::{replaced, walk_approval};
 
 /// What a row's step is derived from.
 #[derive(Default)]
-pub(crate) struct RailReads {
+pub struct RailReads {
     pub extra: Extra,
     /// When each step began, as the rail kept it.
     pub visits: Vec<(u32, String)>,
@@ -38,7 +38,7 @@ pub(crate) struct RailReads {
 
 /// Read what the rail needs beyond the record. **The commit, the Check run, the thread and the plan's
 /// walk are looked for only where the Session follows a workflow**, since nothing else reads them.
-pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
+pub fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> Result<RailReads, WriteError> {
     let rail = store.session_rail(&session.id)?;
     let mut held = Held::default();
     let mut lifecycles = None;
@@ -85,7 +85,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool) -> 
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
 /// notices and other Jobs' words are not his.
-pub(crate) fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> StepBits {
+pub fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> StepBits {
     let wrote = |since: &str| {
         rows.iter().any(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, at, .. } if at.as_str() >= since))
     };
@@ -99,7 +99,7 @@ pub(crate) fn messaged_on(rows: &[SessionRow], visits: &[(u32, String)]) -> Step
 /// the Job showed a window and he approved one (since the plan's approval, at `plan_approved_at`, and
 /// at all), he approved a sketch or a draft, and he picked an idea. **Only `You` is the person**: Fleet's own
 /// notices and other Sessions' words are not a reply.
-pub(crate) fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instant>) -> Extra {
+pub fn thread_facts(rows: &[SessionRow], plan_approved_at: Option<&Instant>) -> Extra {
     let spoke = rows.iter().position(|row| match row {
         SessionRow::Message { from, .. } => *from == SessionVoice::Agent,
         SessionRow::Tool { .. } => true,
@@ -198,7 +198,7 @@ impl Fleet
 {
     /// The steps of the workflow `workflow` names in the repository `manifest`, as the rail reads them.
     /// Absent where the repository is not served or no longer holds it.
-    pub(crate) fn rail_steps(&self, manifest: &str, workflow: &str) -> Option<Vec<RailStep>> {
+    pub fn rail_steps(&self, manifest: &str, workflow: &str) -> Option<Vec<RailStep>> {
         let served = self.repositories().serving(manifest)?;
         let held = served.workflows();
         let found = held.get(&WorkflowId::carried(Ulid::carried(workflow)))?;
@@ -207,7 +207,7 @@ impl Fleet
 
     /// Draw what the rail adds to a hosted Session's row: the step it is on. **A Session that ended has no step.** A step that ends
     /// on his reply waits on him from `reply_owed_since`, the turn's end, where nothing else does.
-    pub(crate) fn rail_drawn(
+    pub fn rail_drawn(
         &self,
         session: &KeptSession,
         reads: &RailReads,

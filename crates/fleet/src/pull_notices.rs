@@ -114,7 +114,7 @@ fn said(about: &About<'_>, cause: Cause, detail: &str) -> String {
     out
 }
 
-pub(crate) fn short(commit: &str) -> &str {
+pub fn short(commit: &str) -> &str {
     &commit[..commit.len().min(7)]
 }
 
@@ -133,7 +133,7 @@ fn failing_lines(checks: &[&FollowedCheck]) -> String {
 impl Fleet
 {
     /// Every served repository's pull requests, once an interval. Its own gate, beside main's.
-    pub(crate) async fn pulls_told_when_due(self: &Arc<Self>) {
+    pub async fn pulls_told_when_due(self: &Arc<Self>) {
         let now = self.now();
         {
             let mut sweep = self.sweeping().lock().await;
@@ -151,7 +151,7 @@ impl Fleet
 
     /// Read one repository's pull requests and tell each owner what changed. **Nothing here fails
     /// the turn**, and a forge that will not answer leaves everything as it was.
-    pub(crate) async fn pulls_told(self: &Arc<Self>, served: &Served) {
+    pub async fn pulls_told(self: &Arc<Self>, served: &Served) {
         let base = served.manifest().base().unwrap_or("the base").to_string();
         let root = served.root().to_string();
         // Before the forge is asked, which may not answer: the pool is local.
@@ -209,7 +209,7 @@ impl Fleet
 
     /// One repository's pull request reading, held while it reads and writes the queue last seen
     /// (`pulls_seen_queued`), **so a refresh and the pull reading never read it at once**.
-    pub(crate) async fn pulls_reading(&self, root: &str) -> tokio::sync::OwnedMutexGuard<()> {
+    pub async fn pulls_reading(&self, root: &str) -> tokio::sync::OwnedMutexGuard<()> {
         let one = Arc::clone(self.sweeping().lock().await.pull_readings.entry(root.to_string()).or_default());
         one.lock_owned().await
     }
@@ -217,7 +217,7 @@ impl Fleet
     /// One followed pull request of the person's own: the queue's bookkeeping, then its owners
     /// told. `before` is the queue last seen. **True where it stays in the queue last seen**:
     /// queued now, or a drop not yet told to everyone, looked at again next reading.
-    pub(crate) async fn followed_told(
+    pub async fn followed_told(
         self: &Arc<Self>,
         served: &Served,
         base: &str,
@@ -454,7 +454,7 @@ impl Fleet
     }
 
     /// Pull requests that merged lately, told to the Sessions and Jobs that held them.
-    pub(crate) async fn merges_told(self: &Arc<Self>, served: &Served, base: &str, mine: &Mine) {
+    pub async fn merges_told(self: &Arc<Self>, served: &Served, base: &str, mine: &Mine) {
         let root = served.root().to_string();
         let merged = self
             .sweeping()

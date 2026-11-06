@@ -14,13 +14,13 @@ use store::{AttachmentState, KeptAttachment};
 use crate::daemon::Fleet;
 
 /// How often the notice loop looks: a resumed subagent reads as running within this.
-pub(crate) const EVERY: Duration = Duration::from_secs(2);
+pub const EVERY: Duration = Duration::from_secs(2);
 
 impl Fleet
 {
     /// Every settled subagent of a live session whose transcript shows work after it settled is
     /// standing again, and its session published. An unchanged transcript costs a `stat`.
-    pub(crate) async fn subagents_followed(&self) {
+    pub async fn subagents_followed(&self) {
         let Ok(settled) = self.store().lock().await.settled_subagents() else {
             return;
         };

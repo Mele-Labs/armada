@@ -20,7 +20,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn servers_within(&self, within: Option<ManifestId>) -> Result<ServerList, Refusal> {
+    pub fn servers_within(&self, within: Option<ManifestId>) -> Result<ServerList, Refusal> {
         let within = self.scoped(within)?;
         let mut listed = self.server_list();
         listed.servers.retain(|server| match (&within, &server.manifest_id) {
@@ -31,7 +31,7 @@ impl Fleet
         Ok(listed)
     }
 
-    pub(crate) fn worktrees_within(
+    pub fn worktrees_within(
         &self,
         mut held: WorktreesHeld,
         within: Option<ManifestId>,

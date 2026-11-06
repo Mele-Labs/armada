@@ -13,9 +13,9 @@
 //! the store lock, so entries are numbered in the order they were queued. `at` is stamped by
 //! whoever saw the thing happen, and the window is cut by it and never by the number.
 
-mod events;
-mod merge;
-mod tools;
+pub mod events;
+pub mod merge;
+pub mod tools;
 
 use std::sync::{Arc, Mutex};
 
@@ -26,12 +26,12 @@ use tokio::task::JoinHandle;
 
 use crate::clock::Clock;
 
-pub(crate) use merge::Between;
-pub(crate) use tools::{tool_of, Doer, FileAct, Seen};
+pub use merge::Between;
+pub use tools::{tool_of, Doer, FileAct, Seen};
 
 /// What it happened to, before the wire spells it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Subject {
+pub enum Subject {
     Session(String),
     Pull(u64, Option<String>),
     Main,
@@ -39,7 +39,7 @@ pub(crate) enum Subject {
 
 /// One thing that happened, as the code that saw it states it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Fact {
+pub struct Fact {
     at: String,
     kind: TimelineKind,
     subject: Subject,
@@ -56,7 +56,7 @@ pub(crate) struct Fact {
 }
 
 impl Fact {
-    pub(crate) fn new(
+    pub fn new(
         at: impl Into<String>,
         kind: TimelineKind,
         subject: Subject,
@@ -80,90 +80,90 @@ impl Fact {
         }
     }
 
-    pub(crate) fn titled(mut self, title: Option<String>) -> Fact {
+    pub fn titled(mut self, title: Option<String>) -> Fact {
         self.title = title.filter(|title| !title.trim().is_empty());
         self
     }
 
-    pub(crate) fn detail(mut self, detail: Option<String>) -> Fact {
+    pub fn detail(mut self, detail: Option<String>) -> Fact {
         self.detail = detail.map(|detail| bare(&detail, DETAIL)).filter(|detail| !detail.is_empty());
         self
     }
 
     /// A detail already shaped by whoever made it: a file's whole name, which [`Fact::detail`] would cut.
-    pub(crate) fn detail_as_is(mut self, detail: Option<String>) -> Fact {
+    pub fn detail_as_is(mut self, detail: Option<String>) -> Fact {
         self.detail = detail.filter(|detail| !detail.is_empty());
         self
     }
 
     /// What a burst counted, newest first. **The caller has already made each one line** and cut the list to
     /// [`ipc::MOST_TIMELINE_ITEMS`], and the first is the `detail`.
-    pub(crate) fn items(mut self, items: Vec<String>) -> Fact {
+    pub fn items(mut self, items: Vec<String>) -> Fact {
         self.items = items;
         self
     }
 
     /// The service a `session.called` entry went to, and what it is called; its line is the `detail`.
-    pub(crate) fn calling(mut self, service: String, name: String) -> Fact {
+    pub fn calling(mut self, service: String, name: String) -> Fact {
         self.service = Some((service, name));
         self
     }
 
     /// The Session a `session.messaged` entry's message was delivered to.
-    pub(crate) fn to_session(mut self, id: String) -> Fact {
+    pub fn to_session(mut self, id: String) -> Fact {
         self.to = Some(id);
         self
     }
 
-    pub(crate) fn in_repository(mut self, manifest: Option<String>) -> Fact {
+    pub fn in_repository(mut self, manifest: Option<String>) -> Fact {
         self.manifest = manifest;
         self
     }
 
     /// The subject is still working after this.
-    pub(crate) fn live(mut self) -> Fact {
+    pub fn live(mut self) -> Fact {
         self.live = true;
         self
     }
 
     /// The subject is over after this.
-    pub(crate) fn over(mut self) -> Fact {
+    pub fn over(mut self) -> Fact {
         self.over = true;
         self
     }
 
-    #[cfg(test)]
-    pub(crate) fn kind_name(&self) -> String {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn kind_name(&self) -> String {
         self.kind.as_wire()
     }
 
-    #[cfg(test)]
-    pub(crate) fn says(&self) -> &str {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn says(&self) -> &str {
         &self.says
     }
 
-    #[cfg(test)]
-    pub(crate) fn at(&self) -> &str {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn at(&self) -> &str {
         &self.at
     }
 
-    #[cfg(test)]
-    pub(crate) fn is_over(&self) -> bool {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn is_over(&self) -> bool {
         self.over
     }
 
-    #[cfg(test)]
-    pub(crate) fn detail_text(&self) -> Option<&str> {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn detail_text(&self) -> Option<&str> {
         self.detail.as_deref()
     }
 
-    #[cfg(test)]
-    pub(crate) fn call_service(&self) -> Option<&str> {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn call_service(&self) -> Option<&str> {
         self.service.as_ref().map(|(service, _)| service.as_str())
     }
 
-    #[cfg(test)]
-    pub(crate) fn item_texts(&self) -> &[String] {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn item_texts(&self) -> &[String] {
         &self.items
     }
 
@@ -196,10 +196,10 @@ impl Fact {
 
 /// How long a fact reads, in characters. A question or a command is cut here.
 const SAYS: usize = 90;
-pub(crate) const DETAIL: usize = 120;
+pub const DETAIL: usize = 120;
 
 /// One line: whitespace collapsed, cut at `most` characters with an ellipsis.
-pub(crate) fn bare(text: &str, most: usize) -> String {
+pub fn bare(text: &str, most: usize) -> String {
     let one: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if one.chars().count() <= most {
         return one;
@@ -229,7 +229,7 @@ pub struct Timeline {
 }
 
 impl Timeline {
-    pub(crate) fn new(clock: Arc<dyn Clock>) -> Timeline {
+    pub fn new(clock: Arc<dyn Clock>) -> Timeline {
         let (queue, unwritten) = unbounded_channel();
         Timeline {
             queue,
@@ -241,12 +241,12 @@ impl Timeline {
 
     /// Queue one fact. Never blocks and never fails: a timeline that cannot be
     /// written is not a reason for the act it describes to fail.
-    pub(crate) fn note(&self, fact: Fact) {
+    pub fn note(&self, fact: Fact) {
         let _ = self.queue.send(Msg::Kept(Box::new(fact.entry())));
     }
 
     /// Fleet's clock now, for a fact nothing else dated.
-    pub(crate) fn now(&self) -> String {
+    pub fn now(&self) -> String {
         self.clock.now().as_str().to_string()
     }
 
@@ -332,7 +332,7 @@ impl crate::Fleet
     }
 
     /// `get_fleet_timeline`: the newest entries inside the window, oldest first.
-    pub(crate) async fn fleet_timeline(
+    pub async fn fleet_timeline(
         &self,
         ask: TimelineAsk,
     ) -> Result<ipc::FleetTimeline, api::Refusal> {
@@ -357,7 +357,7 @@ impl crate::Fleet
     }
 
     /// A person's answer to a Session, entered under the Session it settled.
-    pub(crate) fn session_answered(&self, record: &ipc::SessionRecord, says: String) {
+    pub fn session_answered(&self, record: &ipc::SessionRecord, says: String) {
         self.timeline().note(
             Fact::new(
                 self.timeline().now(),
@@ -373,7 +373,7 @@ impl crate::Fleet
     }
 
     /// A Session's agent started another Session, or forked its own: `spawned` is the new one's title.
-    pub(crate) fn session_spawned(
+    pub fn session_spawned(
         &self,
         id: &str,
         (title, manifest): (Option<String>, Option<String>),
@@ -391,7 +391,7 @@ impl crate::Fleet
     }
 
     /// A Session's message was delivered to `to`'s thread: one entry, under the sender, naming both.
-    pub(crate) fn session_messaged(
+    pub fn session_messaged(
         &self,
         from: &str,
         (title, manifest): (Option<String>, Option<String>),
@@ -418,7 +418,7 @@ impl crate::Fleet
     /// turn (`SessionRecord::standing`), never what an event's flag says. **Nothing is entered
     /// without a start**: a turn reattached after a restart has none, and a length guessed is not a
     /// fact.
-    pub(crate) fn session_turn(
+    pub fn session_turn(
         &self,
         id: &str,
         (title, manifest): (Option<String>, Option<String>),
@@ -444,7 +444,7 @@ impl crate::Fleet
     }
 
     /// A Session was given a pool slot, or gave it back.
-    pub(crate) fn session_slot(
+    pub fn session_slot(
         &self,
         id: &str,
         title: Option<String>,
@@ -484,7 +484,7 @@ fn slot_fact(
 }
 
 /// A length of time in milliseconds, as a person reads one: `42s`, `2m 14s`, `1h 5m`.
-pub(crate) fn lasted(millis: i64) -> String {
+pub fn lasted(millis: i64) -> String {
     let seconds = millis / 1000;
     match seconds {
         0 => "under 1s".to_string(),
@@ -495,7 +495,7 @@ pub(crate) fn lasted(millis: i64) -> String {
 }
 
 /// What a person's answer to a Session's permission card reads as.
-pub(crate) fn card_answer_says(answer: ipc::CallAnswer) -> String {
+pub fn card_answer_says(answer: ipc::CallAnswer) -> String {
     match answer {
         ipc::CallAnswer::AllowOnce => "Answered: allow",
         ipc::CallAnswer::AllowAndRemember => "Answered: always allow",
@@ -530,7 +530,7 @@ fn road_stop(entry: &store::TimelineEntry) -> Option<RoadOf> {
 
 /// A kept entry as the wire spells it. `None` for a row this build cannot spell
 /// — a kind a newer Fleet wrote — which is left out rather than guessed at.
-pub(crate) fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
+pub fn wire(kept: &store::KeptTimeline) -> Option<ipc::TimelineEvent> {
     let entry = &kept.entry;
     let subject = match entry.subject_kind.as_str() {
         "session" => TimelineSubject::Session { id: ipc::SessionId::carried(&entry.subject_id) },

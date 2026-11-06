@@ -6,10 +6,10 @@ use ipc::{LoadoutItems, LoadoutSummary, LoadoutTurn, LoadoutUse, SessionLoadout}
 use store::{Store, WriteError};
 
 /// How many of a session's turns keep their uses.
-pub(crate) const TURNS: usize = 50;
+pub const TURNS: usize = 50;
 
 /// The latest list, kept. Whether it differs from the one held.
-pub(crate) fn equipped(store: &mut Store, id: &str, loadout: &LoadoutItems) -> Result<bool, WriteError> {
+pub fn equipped(store: &mut Store, id: &str, loadout: &LoadoutItems) -> Result<bool, WriteError> {
     match ipc::encode(loadout) {
         Ok(kept) => store.keep_session_loadout(id, &kept),
         Err(_) => Ok(false),
@@ -19,7 +19,7 @@ pub(crate) fn equipped(store: &mut Store, id: &str, loadout: &LoadoutItems) -> R
 /// One use, kept in its turn. Whether it was new: the same use again in its turn is counted, not
 /// kept twice, so it changes nothing a record shows until the next record is published. The count a
 /// mod sent is dropped before the row is keyed: Fleet's field, and it would make a use its own row.
-pub(crate) fn used(store: &mut Store, id: &str, used: &LoadoutUse) -> Result<bool, WriteError> {
+pub fn used(store: &mut Store, id: &str, used: &LoadoutUse) -> Result<bool, WriteError> {
     let heard = LoadoutUse { count: None, ..used.clone() };
     match ipc::encode(&heard) {
         Ok(kept) => store.keep_session_use(id, used.turn_started_at.as_str(), &kept, TURNS),
@@ -35,19 +35,19 @@ fn counted(kept: &str, times: u32) -> Option<LoadoutUse> {
 }
 
 /// What the record's summary is read from.
-pub(crate) struct LoadoutReads {
+pub struct LoadoutReads {
     items: Option<String>,
     latest: Option<(String, Vec<(String, u32)>)>,
 }
 
-pub(crate) fn summary_read(store: &Store, id: &str) -> Result<LoadoutReads, WriteError> {
+pub fn summary_read(store: &Store, id: &str) -> Result<LoadoutReads, WriteError> {
     let items = store.session_loadout(id)?;
     let latest = if items.is_some() { store.session_latest_uses(id)? } else { None };
     Ok(LoadoutReads { items, latest })
 }
 
 /// The summary, absent where no list was ever reported. A kept row that no longer reads is left out.
-pub(crate) fn summary(reads: LoadoutReads) -> Option<LoadoutSummary> {
+pub fn summary(reads: LoadoutReads) -> Option<LoadoutSummary> {
     let items: LoadoutItems = ipc::decode("a Loadout", reads.items?.as_bytes()).ok()?;
     let latest_turn = reads.latest.map(|(started_at, uses)| LoadoutTurn {
         started_at: ipc::Instant::carried(started_at),
@@ -57,7 +57,7 @@ pub(crate) fn summary(reads: LoadoutReads) -> Option<LoadoutSummary> {
 }
 
 /// The whole Loadout: the latest list, empty where none was reported, and the kept turns in order.
-pub(crate) fn whole(store: &Store, id: &str) -> Result<SessionLoadout, WriteError> {
+pub fn whole(store: &Store, id: &str) -> Result<SessionLoadout, WriteError> {
     let items = store
         .session_loadout(id)?
         .and_then(|kept| ipc::decode::<LoadoutItems>("a Loadout", kept.as_bytes()).ok())

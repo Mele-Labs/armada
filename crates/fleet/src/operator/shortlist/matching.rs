@@ -17,15 +17,15 @@ use crate::language_model::LanguageModel;
 
 /// Whether this reader is in force, and so whether Fleet fetches and loads the model for it. In
 /// force because no direct route disagreed with the agent on the 19 reads it was measured on.
-pub(crate) const IN_FORCE: bool = true;
+pub const IN_FORCE: bool = true;
 
 /// The cosine similarity at and above which the best Session is a clear match: the lowest score of a
 /// route that agreed with the agent, with the best one that did not at 0.74.
-pub(crate) const ROUTES_AT: f32 = 0.78;
+pub const ROUTES_AT: f32 = 0.78;
 
 /// How far the best Session must lead the second to be the one. A single Session has no second, so
 /// it leads by its whole score.
-pub(crate) const LEADS_BY: f32 = 0.10;
+pub const LEADS_BY: f32 = 0.10;
 
 /// The longest words read here, in characters. A longer message is a paste or several thoughts, and
 /// a vector of its start says little of where all of it belongs.
@@ -34,7 +34,7 @@ const MOST_WORDS: usize = 300;
 /// Each live Session's vector by (id, title), so a read embeds only the Sessions it has not seen. The
 /// title is the key, so a Session that is renamed is read again.
 #[derive(Default)]
-pub(crate) struct Vectors {
+pub struct Vectors {
     kept: Mutex<HashMap<(String, String), Vec<f32>>>,
 }
 
@@ -72,7 +72,7 @@ fn similarity(one: &[f32], other: &[f32]) -> f32 {
 
 /// The index of the one `scores` name as a clear match: best at `ROUTES_AT` and ahead of the second by
 /// `LEADS_BY`.
-pub(crate) fn clear_match(scores: &[f32]) -> Option<usize> {
+pub fn clear_match(scores: &[f32]) -> Option<usize> {
     let (best, top) = scores.iter().copied().enumerate().max_by(|a, b| a.1.total_cmp(&b.1))?;
     let second = scores.iter().copied().enumerate().filter(|&(at, _)| at != best).map(|(_, score)| score).max_by(f32::total_cmp);
     (top >= ROUTES_AT && top - second.unwrap_or(0.0) >= LEADS_BY).then_some(best)
@@ -83,7 +83,7 @@ pub(crate) fn clear_match(scores: &[f32]) -> Option<usize> {
 /// **A message that ends in a question mark is not read here.** The model tells what a message is
 /// about, not whether it asks or tells, and "is the walk variations Session done?" is about that
 /// Session and is a question.
-pub(crate) fn matched(
+pub fn matched(
     model: &dyn TextModel,
     vectors: &Vectors,
     words: &str,
@@ -99,7 +99,7 @@ pub(crate) fn matched(
 }
 
 /// [`matched`] on a thread of its own, with the model once it is loaded. `None` while it is not.
-pub(crate) async fn matched_by(
+pub async fn matched_by(
     language_model: &LanguageModel,
     words: &str,
     candidates: &[Candidate],

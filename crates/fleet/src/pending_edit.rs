@@ -40,22 +40,22 @@ use crate::repositories::Served;
 
 /// What the pull request holds of the Manifest, and where it is.
 #[derive(Clone, Debug)]
-pub(crate) struct Pending {
-    pub(crate) branch: String,
+pub struct Pending {
+    pub branch: String,
     /// The tip of the branch, which a second edit is made on.
-    pub(crate) commit: String,
-    pub(crate) pull_request: String,
+    pub commit: String,
+    pub pull_request: String,
     /// The Manifest whole, as the branch holds it.
-    pub(crate) text: String,
+    pub text: String,
     /// What the forge said when it would not turn auto-merge on, in its own
     /// words. **Kept across a second save**: the pull request is the same one.
-    pub(crate) auto_merge_refused: Option<String>,
+    pub auto_merge_refused: Option<String>,
 }
 
 impl Pending {
     /// The number of the pull request when it waits for a person, or `None`
     /// while the forge is going to merge it itself.
-    pub(crate) fn merge_by_hand(&self) -> Option<u64> {
+    pub fn merge_by_hand(&self) -> Option<u64> {
         self.auto_merge_refused.as_ref()?;
         self.pull_request.rsplit('/').next()?.parse().ok()
     }
@@ -63,7 +63,7 @@ impl Pending {
 
 /// Whether a second edit may be made on a pending one's branch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Stacking {
+pub enum Stacking {
     /// The pull request is open, or the forge would not say.
     Open,
     /// Merged, and the checkout has not caught up to it yet: its text is still
@@ -73,7 +73,7 @@ pub(crate) enum Stacking {
 
 /// The pending edit of one repository.
 #[derive(Default)]
-pub(crate) struct Held {
+pub struct Held {
     standing: Mutex<Option<Pending>>,
     /// One save, or one settling, at a time: both read the pending edit and
     /// then ask the forge, and neither may be answered from before the other.
@@ -81,7 +81,7 @@ pub(crate) struct Held {
 }
 
 impl Held {
-    pub(crate) fn standing(&self) -> Option<Pending> {
+    pub fn standing(&self) -> Option<Pending> {
         self.standing
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -89,7 +89,7 @@ impl Held {
     }
 
     /// The text a reading of the Manifest is drawn from, where one is pending.
-    pub(crate) fn text(&self) -> Option<String> {
+    pub fn text(&self) -> Option<String> {
         self.standing().map(|pending| pending.text)
     }
 
@@ -97,7 +97,7 @@ impl Held {
         *self.standing.lock().unwrap_or_else(PoisonError::into_inner) = pending;
     }
 
-    pub(crate) async fn turn(&self) -> tokio::sync::MutexGuard<'_, ()> {
+    pub async fn turn(&self) -> tokio::sync::MutexGuard<'_, ()> {
         self.turns.lock().await
     }
 }
@@ -106,7 +106,7 @@ impl Fleet
 {
     /// The pending edit, after dropping one the forge says was closed unmerged.
     /// **Called with the turn held.**
-    pub(crate) async fn pending_edit_standing(
+    pub async fn pending_edit_standing(
         &self,
         served: &Served,
     ) -> Option<(Pending, Stacking)> {
@@ -132,7 +132,7 @@ impl Fleet
     /// Send `edits` as a commit on the pending edit's branch, or on a new one
     /// off the base. **Re-applied to the text the target holds**, which is not
     /// always the text the form was drawn from.
-    pub(crate) async fn edit_through_a_pull_request(
+    pub async fn edit_through_a_pull_request(
         &self,
         served: &Served,
         base: String,
@@ -174,7 +174,7 @@ impl Fleet
     /// branch, or open a pull request for it where the pending one has merged.
     /// **Called with the turn held.** `text` is parsed first and refused as a
     /// form's edit that would not load is, with nothing committed or pushed.
-    pub(crate) async fn raw_text_through_a_pull_request(
+    pub async fn raw_text_through_a_pull_request(
         &self,
         served: &Served,
         base: String,
@@ -290,7 +290,7 @@ impl Fleet
     /// seen, so the merge is in it whatever commit it made: a squash or a
     /// rebase puts a different commit on the base, and the first way never
     /// answers for those (#2394).
-    pub(crate) async fn pending_edit_settled(&self, served: &Served) {
+    pub async fn pending_edit_settled(&self, served: &Served) {
         let held = served.repository().pending_edit();
         let _turn = held.turn().await;
         let Some(pending) = held.standing() else {

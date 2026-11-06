@@ -13,13 +13,13 @@ const START_AGAIN_AFTER: std::time::Duration = std::time::Duration::from_secs(1)
 /// The line after the person's words when a done stood as they wrote. The message clears the done
 /// and the agent is not otherwise told, so it answered in prose and never called `all_done` again.
 /// Only the agent reads it: the person's row keeps their words.
-pub(crate) const TAKES_DONE_BACK: &str = "You had called all_done, and this message takes that back. If nothing is left once you have dealt with it, call all_done again.";
+pub const TAKES_DONE_BACK: &str = "You had called all_done, and this message takes that back. If nothing is left once you have dealt with it, call all_done again.";
 
 impl Fleet
 {
     /// **A paused Job is told nothing**: `Ok(false)`, so the caller asks again, and a notice reaches
     /// it after the person resumes it. Only a person's Resume lifts a pause, and a word is a wake.
-    pub(super) async fn fleet_word(
+    pub async fn fleet_word(
         self: &Arc<Self>,
         session: &str,
         text: &str,
@@ -137,7 +137,7 @@ impl Fleet
     /// own notices come through [`Self::told_by_fleet`].** **The thread's row keeps the words as
     /// typed**, so the line is the agent's and never drawn: a line saying where they are is the one
     /// caller that sets it.
-    pub(super) async fn send_hosted_ahead(
+    pub async fn send_hosted_ahead(
         self: Arc<Self>,
         sent: SendSessionMessage,
         from: SessionVoice,
@@ -152,7 +152,7 @@ impl Fleet
     /// someone, or the `ran` row of a command that ended. `instead` is what the agent reads in place
     /// of the words, Fleet's lines with them, as pinned notes' are, and is no more the thread's than
     /// `ahead` is. `followed` makes the row the one the Session's artifacts follow, as a person's is.
-    pub(super) async fn send_hosted_written(
+    pub async fn send_hosted_written(
         self: Arc<Self>,
         sent: SendSessionMessage,
         written: Written,
@@ -284,7 +284,7 @@ impl Fleet
 
     /// Start the process if it has none, and write the turn to it. A Job whose process would not
     /// start keeps the turn behind the ones that waited already, and tries them all again.
-    pub(crate) async fn deliver_turn(
+    pub async fn deliver_turn(
         self: &Arc<Self>,
         id: &str,
         held: super::super::proposing::Held,
@@ -308,7 +308,7 @@ impl Fleet
 
     /// `start_again`: the turns a Job's process would not start for, sent again in order. One that
     /// fails again keeps itself and those after it.
-    pub(crate) async fn started_again(self: &Arc<Self>, id: &str) -> Result<SessionRecord, Refusal> {
+    pub async fn started_again(self: &Arc<Self>, id: &str) -> Result<SessionRecord, Refusal> {
         let held = self.hosts().of(id).state().start_failed.take().map(|failed| failed.held);
         let mut held = held.unwrap_or_default().into_iter();
         while let Some(one) = held.next() {
@@ -418,7 +418,7 @@ impl Fleet
 
     /// Each session a message names, with the address another session writes
     /// to where Fleet hosts it.
-    pub(crate) async fn addressed(
+    pub async fn addressed(
         &self,
         tags: &[ipc::SessionTag],
     ) -> Result<Vec<(ipc::SessionTag, Option<String>)>, Refusal> {
@@ -438,7 +438,7 @@ impl Fleet
     }
 
     /// The title a first message gives.
-    pub(super) async fn noted_on_the_ledger(
+    pub async fn noted_on_the_ledger(
         &self,
         session: &KeptSession,
         text: &str,
@@ -466,7 +466,7 @@ impl Fleet
 
     /// A message to a session whose kind the caller has already read: `terminal` is the session
     /// where it is a terminal one.
-    pub(crate) async fn send_known(
+    pub async fn send_known(
         self: Arc<Self>,
         terminal: Option<KeptSession>,
         sent: SendSessionMessage,
@@ -476,7 +476,7 @@ impl Fleet
 
     /// [`Self::send_known`] with the line [`Self::send_hosted_ahead`] puts ahead of the words.
     /// Read only for a hosted session.
-    pub(crate) async fn send_known_ahead(
+    pub async fn send_known_ahead(
         self: Arc<Self>,
         terminal: Option<KeptSession>,
         sent: SendSessionMessage,
@@ -487,7 +487,7 @@ impl Fleet
 
     /// [`Self::send_known_ahead`] with what the agent reads in place of the words as well, for a
     /// terminal session too: pinned notes', the words with Fleet's lines.
-    pub(crate) async fn send_known_added(
+    pub async fn send_known_added(
         self: Arc<Self>,
         terminal: Option<KeptSession>,
         sent: SendSessionMessage,

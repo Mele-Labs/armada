@@ -54,7 +54,7 @@ impl Fleet
 {
     /// Pin `process` to `to`, or give it back where `to` is `None`, and answer the run that lists
     /// it as it now stands on `target`. **Where it is already as asked nothing is written.**
-    pub(crate) async fn run_port_pinned(
+    pub async fn run_port_pinned(
         &self,
         target: &RunTarget,
         process: &str,

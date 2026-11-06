@@ -19,7 +19,7 @@ use ipc::{RunOutput, UnreadableRun};
 use super::record::Record;
 use crate::check_output::one_component;
 
-pub(crate) const LOG: &str = "output.log";
+pub const LOG: &str = "output.log";
 const RECORD: &str = "run.json";
 
 /// Lines and bytes of a log one read carries — `check_output`'s two bounds.
@@ -31,19 +31,19 @@ fn runs_dir(root: &str, handle: &str) -> PathBuf {
 }
 
 /// The log's path relative to the records root, as the record carries it.
-pub(crate) fn relative_log(handle: &str, id: &str) -> String {
+pub fn relative_log(handle: &str, id: &str) -> String {
     format!(".armada/runs/{handle}/{id}/{LOG}")
 }
 
 /// One run's directory. `None` where either name is not one path component,
 /// so an id from a caller cannot reach outside the Job's own runs.
-pub(crate) fn dir_of(root: &str, handle: &str, id: &str) -> Option<PathBuf> {
+pub fn dir_of(root: &str, handle: &str, id: &str) -> Option<PathBuf> {
     (one_component(handle) && one_component(id)).then(|| runs_dir(root, handle).join(id))
 }
 
 /// Make a run's directory and an empty log, so the log is there to read from
 /// the moment the run is.
-pub(crate) fn made(root: &str, handle: &str, id: &str) -> std::io::Result<PathBuf> {
+pub fn made(root: &str, handle: &str, id: &str) -> std::io::Result<PathBuf> {
     let dir = dir_of(root, handle, id)
         .ok_or_else(|| std::io::Error::other("a run id that is not one path component"))?;
     std::fs::create_dir_all(&dir)?;
@@ -52,7 +52,7 @@ pub(crate) fn made(root: &str, handle: &str, id: &str) -> std::io::Result<PathBu
 }
 
 /// Write the record whole or not at all: a reader never finds half of one.
-pub(crate) fn write(dir: &Path, record: &Record) -> std::io::Result<()> {
+pub fn write(dir: &Path, record: &Record) -> std::io::Result<()> {
     let text = ipc::encode(record).map_err(|why| std::io::Error::other(why.to_string()))?;
     let next = dir.join(format!("{RECORD}.next"));
     std::fs::write(&next, text)?;
@@ -60,7 +60,7 @@ pub(crate) fn write(dir: &Path, record: &Record) -> std::io::Result<()> {
 }
 
 /// One run's record. `None` where there is no such run, or it wrote none.
-pub(crate) fn read(root: &str, handle: &str, id: &str) -> Option<Result<Record, String>> {
+pub fn read(root: &str, handle: &str, id: &str) -> Option<Result<Record, String>> {
     let dir = dir_of(root, handle, id)?;
     let bytes = match std::fs::read(dir.join(RECORD)) {
         Ok(bytes) => bytes,
@@ -72,7 +72,7 @@ pub(crate) fn read(root: &str, handle: &str, id: &str) -> Option<Result<Record, 
 
 /// Every run of one owner, newest first, and the directories that would not
 /// read — **said, never dropped**. `running` is skipped: it has no record yet.
-pub(crate) fn every(
+pub fn every(
     root: &str,
     handle: &str,
     running: Option<&str>,
@@ -122,7 +122,7 @@ pub(crate) fn every(
 /// composition root — [`Fleet::run_log_retention`](crate::daemon::Fleet) —
 /// and handed in rather than read from a constant here, the same reason every
 /// other Machine setting is.
-pub(crate) fn due(root: &str, handle: &str, now: &Timestamp, kept_for: Duration) -> Vec<Record> {
+pub fn due(root: &str, handle: &str, now: &Timestamp, kept_for: Duration) -> Vec<Record> {
     let Some(now) = now.epoch_millis() else {
         return Vec::new();
     };
@@ -143,7 +143,7 @@ pub(crate) fn due(root: &str, handle: &str, now: &Timestamp, kept_for: Duration)
 /// **`held_back` names the runs to leave where they are**, by id: a run whose
 /// holder could not keep what it said is worth another retention cycle on
 /// disk, where a node pointing at nothing is worth none.
-pub(crate) fn sweep(
+pub fn sweep(
     root: &str,
     handle: &str,
     due: &[Record],
@@ -166,7 +166,7 @@ pub(crate) fn sweep(
 /// The lines a log holds after byte `from`, each with the offset just past it,
 /// and where the next pass starts. **Whole lines only unless `to_the_end`**;
 /// a log not made yet is nothing yet. `None` where it will not read.
-pub(crate) fn lines_from(
+pub fn lines_from(
     log: &Path,
     from: u64,
     to_the_end: bool,
@@ -204,7 +204,7 @@ pub(crate) fn lines_from(
 /// What a viewer opening a run's socket is sent first: the log's tail, how
 /// many older lines it left out, and the byte it read to. `None` where the log
 /// will not read.
-pub(crate) fn history(log: &Path, to_the_end: bool) -> Option<(Vec<String>, u64, u64)> {
+pub fn history(log: &Path, to_the_end: bool) -> Option<(Vec<String>, u64, u64)> {
     let (lines, read_to) = lines_from(log, 0, to_the_end)?;
     let mut window: VecDeque<String> = lines.into_iter().map(|(_, line)| line).collect();
     let (mut held, mut skipped): (usize, u64) = (window.iter().map(String::len).sum(), 0);
@@ -223,7 +223,7 @@ pub(crate) fn history(log: &Path, to_the_end: bool) -> Option<(Vec<String>, u64,
 /// **Lossy on bytes that are not text** rather than stopping at them: a
 /// command's output is whatever it printed, and a log that ended at the
 /// first bad byte would hide the rest.
-pub(crate) fn output(root: &str, handle: &str, id: &str, name: String) -> Option<RunOutput> {
+pub fn output(root: &str, handle: &str, id: &str, name: String) -> Option<RunOutput> {
     let log = dir_of(root, handle, id)?.join(LOG);
     output_of(&log, id.to_string(), name, relative_log(handle, id))
 }
@@ -231,7 +231,7 @@ pub(crate) fn output(root: &str, handle: &str, id: &str, name: String) -> Option
 /// [`output`] against a log wherever it is, so a **server**'s — which sits
 /// under `.armada/servers` and not under a run's handle — is read by the one
 /// function that holds the eviction rule. `crate::studio_servers`, `#1345`.
-pub(crate) fn output_of(
+pub fn output_of(
     log: &std::path::Path,
     id: String,
     name: String,

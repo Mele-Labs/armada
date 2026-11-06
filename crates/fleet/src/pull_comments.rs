@@ -18,14 +18,14 @@ use crate::pull_owners::Owner;
 use crate::repositories::Served;
 
 /// The file's name in the scratch folder.
-pub(crate) fn file_of(number: u64) -> String {
+pub fn file_of(number: u64) -> String {
     format!("comments-{number}.md")
 }
 
 /// The whole file, oldest first. **One heading a comment, its fields always in this order**, so
 /// `grep -A` on an id reads that comment: then its link, then its body quoted, so a `##` it wrote
 /// is never read as a heading.
-pub(crate) fn filed(number: u64, comments: &[&PullComment]) -> String {
+pub fn filed(number: u64, comments: &[&PullComment]) -> String {
     let mut out = format!(
         "# Comments on #{number}, oldest first\n\
          Each is `## id · author · bot · path:line · resolved · written · edited`, the fields it has, \
@@ -109,7 +109,7 @@ impl Fleet
     /// One pull request of the person's own, its comments filed for each Job that holds it.
     /// **Asked of the forge only where a Job holds it**, one call; a forge that will not answer
     /// leaves the file and the store as they were.
-    pub(crate) async fn comments_told(self: &Arc<Self>, served: &Served, pull: &FollowedPull, mine: &Mine) {
+    pub async fn comments_told(self: &Arc<Self>, served: &Served, pull: &FollowedPull, mine: &Mine) {
         let owners = self.owners_of(served, pull.number, pull.branch.as_written(), false).await;
         if owners.is_empty() {
             return;

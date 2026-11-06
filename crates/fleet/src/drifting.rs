@@ -62,10 +62,10 @@ use std::path::Path;
 use config::Manifest;
 use ipc::{Declaration, Drift, ManifestDrift, Unfollowed};
 
-pub(crate) use declared::Repository;
+pub use declared::Repository;
 
-pub(crate) mod declared;
-mod following;
+pub mod declared;
+pub mod following;
 
 /// Read one Manifest against the checkout it was loaded from.
 ///
@@ -73,7 +73,7 @@ mod following;
 /// Nothing here needs a store, a roster or a clock, and the seam is what lets
 /// the cases below drive it with a parsed file and a temporary directory —
 /// `checks_runner`'s own argument for being a crate, one scale down.
-pub(crate) fn drift(manifest: &Manifest, checkout: &Path) -> ManifestDrift {
+pub fn drift(manifest: &Manifest, checkout: &Path) -> ManifestDrift {
     let mut declarations = Vec::new();
     let repo = &mut Repository::at(checkout);
 
@@ -139,7 +139,7 @@ fn declared(section: &str, name: &str, key: &str, run: &str, repo: &mut Reposito
 /// `gone` — which is what keeps a tool this read does not know out of the
 /// verdict.
 #[derive(Default)]
-pub(crate) struct Found {
+pub struct Found {
     checked: u32,
     missing: Vec<String>,
     unfollowed: Vec<Unfollowed>,
@@ -170,7 +170,7 @@ impl Found {
 /// parser does not admit — an empty `run` is refused at load. It is answered
 /// here as nothing checked rather than as a fault, because a read that could
 /// refuse would be a second opinion about a file `config` already accepted.
-pub(crate) fn judged(run: &str, repo: &mut Repository) -> (Drift, Vec<Unfollowed>) {
+pub fn judged(run: &str, repo: &mut Repository) -> (Drift, Vec<Unfollowed>) {
     let Some((program, arguments)) = checks_runner::split(run) else {
         return (Drift::Current { checked: 0 }, Vec::new());
     };
@@ -206,7 +206,7 @@ pub(crate) fn judged(run: &str, repo: &mut Repository) -> (Drift, Vec<Unfollowed
 /// worse than a missed one here: the missed one is the state this whole module
 /// is replacing, and the false one teaches a person that the amber means
 /// nothing.
-pub(crate) fn named_path(word: &str) -> Option<&str> {
+pub fn named_path(word: &str) -> Option<&str> {
     // A flag. `--manifest-path=a/b` carries a path and is not one; the value
     // spelled as its own word — `-C packages/web` — is, and arrives here as
     // that word.

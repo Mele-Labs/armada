@@ -17,14 +17,14 @@ use self::reading::{
     changes_only_held, command_of, kind_of, queries, reaches_into_owners_files, segment_only_reads, segment_writes, with_variables,
 };
 
-mod folders;
-mod programs;
-mod reading;
-mod shell;
+pub mod folders;
+pub mod programs;
+pub mod reading;
+pub mod shell;
 
 pub use folders::{guarded_in_a_session, pages_opened, Folders, KindAllowed};
-pub(in crate::auto_gate) use folders::{reaches_outside, read_refused};
-pub(in crate::auto_gate) use shell::{truncating_redirect, Slot};
+pub use folders::{reaches_outside, read_refused};
+pub use shell::{truncating_redirect, Slot};
 use folders::{cd_stays, in_the_slot, inside_the_directory, Listed};
 use programs::{fetching, forge, git, kills_only_its_own, publishing};
 use shell::{shell, shell_guarded};

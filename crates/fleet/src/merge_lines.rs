@@ -55,7 +55,7 @@ pub fn with_hubs(
 }
 
 /// The served roots, Manifest or none, in the order they were added.
-pub(crate) async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
+pub async fn roots<D: Queries>(daemon: &D) -> Vec<String> {
     daemon
         .list_repositories()
         .await

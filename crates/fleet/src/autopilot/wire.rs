@@ -13,7 +13,7 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 
 /// One Autopilot with this run's picks and what their Sessions say now.
-pub(crate) struct Gathered {
+pub struct Gathered {
     pub kept: KeptAutopilot,
     pub picks: Vec<KeptPick>,
     /// By pick id, for each started pick whose Session still loads.
@@ -105,7 +105,7 @@ const DECISIONS: [ipc::AutopilotDecision; 10] = [
 ];
 
 /// The word the store keeps for a kind of decision.
-pub(super) fn decision_word(decision: ipc::AutopilotDecision) -> &'static str {
+pub fn decision_word(decision: ipc::AutopilotDecision) -> &'static str {
     use ipc::AutopilotDecision as D;
     match decision {
         D::Recommended => "recommended",
@@ -121,7 +121,7 @@ pub(super) fn decision_word(decision: ipc::AutopilotDecision) -> &'static str {
     }
 }
 
-pub(crate) fn decision_from_word(word: &str) -> Option<ipc::AutopilotDecision> {
+pub fn decision_from_word(word: &str) -> Option<ipc::AutopilotDecision> {
     DECISIONS.into_iter().find(|kind| decision_word(*kind) == word)
 }
 
@@ -152,7 +152,7 @@ impl Fleet
     ///
     /// **Spend is each Session's own reported cost**, summed. **Started counts a pick that started
     /// a Session**, and a withdrawn one too: it was started, and the cap is on starts.
-    pub(crate) async fn autopilot_gathered(&self, kept: KeptAutopilot) -> Result<Gathered, Adrift> {
+    pub async fn autopilot_gathered(&self, kept: KeptAutopilot) -> Result<Gathered, Adrift> {
         let picks = self
             .store()
             .lock()
@@ -193,7 +193,7 @@ impl Fleet
     /// **No reading is `None`, never zero**: an account with no window, or a reading from before the
     /// window reset, must not pause or refuse anything. The held reading is not trimmed of reset
     /// windows as the restored one is, so the reset is checked here.
-    pub(crate) async fn weekly_reading(&self) -> Option<u32> {
+    pub async fn weekly_reading(&self) -> Option<u32> {
         let held = self.hosts().plan_usage();
         let usage = if held.windows.is_empty() { self.plan_usage_restored().await } else { held };
         let now = self.now().epoch_millis();

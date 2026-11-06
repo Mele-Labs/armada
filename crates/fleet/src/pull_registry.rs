@@ -25,13 +25,13 @@ const MOST_KEYS: usize = 100;
 
 /// A pull request's registered owner, and whether this machine wrote the row.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct PullOwner {
-    pub(crate) holder: Holder,
-    pub(crate) here: bool,
+pub struct PullOwner {
+    pub holder: Holder,
+    pub here: bool,
 }
 
 impl PullOwner {
-    pub(crate) fn on_the_wire(&self) -> ipc::PullRequestOwner {
+    pub fn on_the_wire(&self) -> ipc::PullRequestOwner {
         let kind = match self.holder.kind {
             HolderKind::Session => ipc::HolderKind::Session,
         };
@@ -54,7 +54,7 @@ impl Fleet
     /// Register `by` as the owner of pull request `number` in the repository at `root`.
     /// `Ok(false)` is no store applying: the switch is off, this machine is signed out or no
     /// address is set, and nothing was asked.
-    pub(crate) async fn pull_request_registered(
+    pub async fn pull_request_registered(
         &self,
         root: &str,
         number: u64,
@@ -89,7 +89,7 @@ impl Fleet
     /// The registered owners among `numbers`, one `owners` call. **An empty answer is also what
     /// a store that did not answer, a signed-out machine and a switch that is off give**, since
     /// the field is absent in each.
-    pub(crate) async fn owners_read(&self, root: &str, numbers: Vec<u64>) -> BTreeMap<u64, PullOwner> {
+    pub async fn owners_read(&self, root: &str, numbers: Vec<u64>) -> BTreeMap<u64, PullOwner> {
         if numbers.is_empty() {
             return BTreeMap::new();
         }
@@ -122,7 +122,7 @@ impl Fleet
     }
 
     /// Delete the rows of pull requests that are no longer open.
-    pub(crate) async fn owners_deleted(&self, root: &str, numbers: Vec<u64>) {
+    pub async fn owners_deleted(&self, root: &str, numbers: Vec<u64>) {
         if numbers.is_empty() {
             return;
         }
@@ -139,7 +139,7 @@ impl Fleet
     }
 
     /// The pull requests the last reading listed for `root` and this one does not.
-    pub(crate) async fn pulls_that_left(&self, root: &str, listed: &[u64]) -> Vec<u64> {
+    pub async fn pulls_that_left(&self, root: &str, listed: &[u64]) -> Vec<u64> {
         self.sweeping()
             .lock()
             .await
@@ -157,7 +157,7 @@ impl Fleet
 
     /// The owner the last reading found for a pull request, **as the wire carries it**. Absent
     /// where the repository's switch is off, whatever an earlier reading kept.
-    pub(crate) async fn owner_known(&self, root: &str, number: u64) -> Option<ipc::PullRequestOwner> {
+    pub async fn owner_known(&self, root: &str, number: u64) -> Option<ipc::PullRequestOwner> {
         if !self.registers_owners(root) {
             return None;
         }

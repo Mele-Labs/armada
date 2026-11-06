@@ -34,8 +34,8 @@ impl SessionRuns {
 
     /// A test's stand-in for a Fleet that died: every connection to a keeper closes, and what finds
     /// the keepers is left where it is.
-    #[cfg(test)]
-    pub(crate) fn connections_dropped(&self) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn connections_dropped(&self) {
         for run in self.held.lock().expect("not poisoned").values() {
             if let Some(kept) = &run.kept {
                 kept.link.close();
@@ -47,7 +47,7 @@ impl SessionRuns {
 impl Fleet
 {
     /// How the Job's terminal `number` is kept: where its files are, and how its keeper starts.
-    pub(super) fn terminal_keeping(&self, session: &str, number: u32) -> super::Keeping {
+    pub fn terminal_keeping(&self, session: &str, number: u32) -> super::Keeping {
         super::Keeping {
             starting: self.host().terminal_keeper.clone(),
             files: Files::of(Path::new(&self.host().keepers_dir), session, number),

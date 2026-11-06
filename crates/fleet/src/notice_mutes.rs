@@ -15,7 +15,7 @@ const HOUR_MILLIS: i64 = 3_600_000;
 impl Fleet
 {
     /// `set_notice_mute`. Answers with the body.
-    pub(crate) async fn notice_mute_set(&self, asked: SetNoticeMute) -> Result<SetNoticeMute, Refusal> {
+    pub async fn notice_mute_set(&self, asked: SetNoticeMute) -> Result<SetNoticeMute, Refusal> {
         let (scope, key, until) = match &asked.scope {
             NoticeScope::Job { session_id } => ("job", session_id, None),
             NoticeScope::Repo { manifest_id } => ("repo", manifest_id, None),

@@ -21,7 +21,7 @@ fn worker_label(detail: &BTreeMap<String, String>) -> String {
 }
 
 /// The subagents a Session has running, each as `Type: what it was asked`.
-pub(crate) fn workers_of(attachments: &[ipc::Attachment]) -> Vec<String> {
+pub fn workers_of(attachments: &[ipc::Attachment]) -> Vec<String> {
     attachments
         .iter()
         .filter(|one| one.kind == "subagent" && one.state == AttachmentState::Standing)
@@ -49,7 +49,7 @@ impl Fleet
 {
     /// A Session's plan or road fact, heard. Answers whether the row shows it. A commit or a push is
     /// entered on the timeline first, so the road is there when the row is next built.
-    pub(crate) fn build_told(&self, store: &mut Store, session: &KeptSession, fact: SessionFact, now: &str) -> Result<bool, WriteError> {
+    pub fn build_told(&self, store: &mut Store, session: &KeptSession, fact: SessionFact, now: &str) -> Result<bool, WriteError> {
         let heard = match fact {
             SessionFact::Tasks { tasks } => {
                 Observed::Tasks(labelled(tasks, &store.attachments_of(&Holder::session(&session.id))?))
@@ -85,7 +85,7 @@ impl Fleet
 
     /// A Session showed a page. The road reads a walk off the timeline: the `walk` item on its list is
     /// not entered there.
-    pub(crate) fn walk_noted(&self, id: &str, record: &ipc::SessionRecord, page: &str) {
+    pub fn walk_noted(&self, id: &str, record: &ipc::SessionRecord, page: &str) {
         self.timeline().note(
             Fact::new(self.timeline().now(), TimelineKind::SessionWalked, Subject::Session(id.to_string()), TimelineTone::Idle, "Walk shown")
                 .titled(record.title.clone())

@@ -22,28 +22,28 @@ struct State {
 
 /// One run, shared by the calls that feed it and the sockets that read it.
 #[derive(Default)]
-pub(crate) struct Run {
+pub struct Run {
     state: Mutex<State>,
 }
 
 /// Every Session run that is out, by run id.
 #[derive(Default)]
-pub(crate) struct SessionCheckLive {
+pub struct SessionCheckLive {
     runs: Mutex<HashMap<i64, Arc<Run>>>,
 }
 
 impl SessionCheckLive {
     /// The run's entry, made if it is not there: a Fleet restarted mid-run still hears the rest.
-    pub(crate) fn run(&self, id: i64) -> Arc<Run> {
+    pub fn run(&self, id: i64) -> Arc<Run> {
         Arc::clone(self.runs.lock().expect("not poisoned").entry(id).or_default())
     }
 
-    pub(crate) fn find(&self, id: i64) -> Option<Arc<Run>> {
+    pub fn find(&self, id: i64) -> Option<Arc<Run>> {
         self.runs.lock().expect("not poisoned").get(&id).cloned()
     }
 
     /// The run ended: readers see it as final, and the entry goes.
-    pub(crate) fn ended(&self, id: i64) {
+    pub fn ended(&self, id: i64) {
         if let Some(run) = self.runs.lock().expect("not poisoned").remove(&id) {
             run.state.lock().expect("not poisoned").ended = true;
         }
@@ -52,7 +52,7 @@ impl SessionCheckLive {
 
 impl Run {
     /// Add what printed, and answer the stop standing.
-    pub(crate) fn heard(&self, text: &str) -> Option<SessionCheckStop> {
+    pub fn heard(&self, text: &str) -> Option<SessionCheckStop> {
         let mut state = self.state.lock().expect("not poisoned");
         if state.log.len() + text.len() <= HELD {
             state.log.extend_from_slice(text.as_bytes());
@@ -62,7 +62,7 @@ impl Run {
 
     /// A person asked for `stop`. **Force outranks graceful and nothing goes back.** `None` where the
     /// run has already ended.
-    pub(crate) fn asked(&self, stop: SessionCheckStop) -> Option<SessionCheckStop> {
+    pub fn asked(&self, stop: SessionCheckStop) -> Option<SessionCheckStop> {
         let mut state = self.state.lock().expect("not poisoned");
         if state.ended {
             return None;
@@ -74,7 +74,7 @@ impl Run {
 }
 
 /// A live run's log, read as `api::Follow` reads any: from a byte, whole lines until the end.
-pub(crate) struct Live(pub(crate) Arc<Run>);
+pub struct Live(pub Arc<Run>);
 
 impl api::Follow for Live {
     fn read(&self, from: u64, to_the_end: bool) -> api::Followed {
@@ -89,7 +89,7 @@ impl api::Follow for Live {
 }
 
 /// A run's kept log, for one that is over: read whole, never writing.
-pub(crate) struct Kept(pub(crate) String);
+pub struct Kept(pub String);
 
 impl api::Follow for Kept {
     fn read(&self, from: u64, to_the_end: bool) -> api::Followed {

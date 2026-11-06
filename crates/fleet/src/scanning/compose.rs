@@ -13,21 +13,21 @@
 use super::workspaces::scalar;
 
 /// One service, and each entry under its `ports`.
-pub(super) struct Service {
-    pub(super) name: String,
-    pub(super) ports: Vec<Port>,
+pub struct Service {
+    pub name: String,
+    pub ports: Vec<Port>,
 }
 
 /// One `ports` entry: its key in the file, and its container port or why
 /// there is none to read.
-pub(super) struct Port {
-    pub(super) key: String,
-    pub(super) container: Result<u16, String>,
+pub struct Port {
+    pub key: String,
+    pub container: Result<u16, String>,
 }
 
 /// Every service under a top-level `services:`, or `None` where the file is in
 /// a shape this does not read. No `services:` at all is no services.
-pub(super) fn services(text: &str) -> Option<Vec<Service>> {
+pub fn services(text: &str) -> Option<Vec<Service>> {
     let lines: Vec<(usize, &str)> = text
         .lines()
         .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with('#'))

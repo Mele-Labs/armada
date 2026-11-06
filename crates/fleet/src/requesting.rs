@@ -14,14 +14,14 @@
 //! characters is left, since replacing every `dark` in a body would wreck the body and hide
 //! nothing worth hiding. An encoded echo (percent, base64) is not caught.
 
-pub(crate) mod batching;
-mod copying;
-mod files;
-mod filling;
-mod kept;
-mod reading;
-mod saving;
-mod serving;
+pub mod batching;
+pub mod copying;
+pub mod files;
+pub mod filling;
+pub mod kept;
+pub mod reading;
+pub mod saving;
+pub mod serving;
 
 use std::path::Path;
 use std::time::Duration;
@@ -34,8 +34,8 @@ pub use files::{
     check, check_collection, check_environment, environment_written, parse, written, SecretChange,
 };
 pub use filling::{hidden, Filling};
-pub(crate) use filling::Values;
-pub(crate) use kept::{read_file, IN_REPOSITORY};
+pub use filling::Values;
+pub use kept::{read_file, IN_REPOSITORY};
 
 /// `settings.request-timeout`: how long a request may take, connecting included.
 pub const TIMEOUT: Duration = Duration::from_secs(30);
@@ -52,7 +52,7 @@ pub const REQUEST_BODY_CAP: usize = 64 * 1024;
 pub const FILE_CAP: usize = 16 * 1024 * 1024;
 
 /// The methods a request may use.
-pub(crate) const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
 /// What sends a request and what holds the secrets. **A seam so a test plants both**: the shipped
 /// pair opens sockets and asks the Keychain.
@@ -227,7 +227,7 @@ fn cut(text: &str, most: usize) -> (String, bool) {
 }
 
 /// Whether `name` is a header name a request line may carry.
-pub(crate) fn header_named(name: &str) -> bool {
+pub fn header_named(name: &str) -> bool {
     let token = |c: char| c.is_ascii_alphanumeric() || "!#$%&'*+-.^_`|~".contains(c);
     !name.is_empty() && name.chars().all(token)
 }
@@ -242,7 +242,7 @@ fn header_fits(name: &str, value: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn is_named(name: &str, wanted: &str) -> bool {
+pub fn is_named(name: &str, wanted: &str) -> bool {
     name.trim().eq_ignore_ascii_case(wanted.trim())
 }
 

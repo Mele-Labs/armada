@@ -11,7 +11,7 @@
 //! no shell, so a redirect or a `&` would be handed to the program as an argument. A literal port
 //! becomes `${port.NAME}`, so each checkout gets a span of its own.
 
-mod files;
+pub mod files;
 
 use std::path::Path;
 
@@ -19,7 +19,7 @@ use store::KeptRun;
 
 /// What a draft process is read from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum DraftSource {
+pub enum DraftSource {
     /// A dev server a Job started.
     RunMemory,
     /// The `dev` script of a `package.json`.
@@ -33,55 +33,55 @@ pub(crate) enum DraftSource {
 /// The port a process answers on. **Named, never a number**, so two checkouts of one repository
 /// do not start two servers on one port.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct DraftPort {
+pub struct DraftPort {
     /// The `ports:` entry, and the `${port.NAME}` in the process's lines.
-    pub(crate) name: String,
+    pub name: String,
     /// The variable Armada sets to it, for a program that reads its port from the environment.
-    pub(crate) env: Option<String>,
+    pub env: Option<String>,
 }
 
 /// One server of a drafted run, written as a `commands.<name>` with `serve`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct DraftProcess {
+pub struct DraftProcess {
     /// The Command's name, and the process's name in the run.
-    pub(crate) name: String,
-    pub(crate) serve: String,
+    pub name: String,
+    pub serve: String,
     /// The folder under the checkout it starts in. `None` is the root.
-    pub(crate) dir: Option<String>,
+    pub dir: Option<String>,
     /// `None` where nothing in what it was read from names a port.
-    pub(crate) port: Option<DraftPort>,
-    pub(crate) from: DraftSource,
+    pub port: Option<DraftPort>,
+    pub from: DraftSource,
 }
 
 /// A run proposed whole.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RunDraft {
+pub struct RunDraft {
     /// The run's key under `runs:`.
-    pub(crate) name: String,
+    pub name: String,
     /// What a person is shown for it.
-    pub(crate) label: Option<String>,
-    pub(crate) processes: Vec<DraftProcess>,
+    pub label: Option<String>,
+    pub processes: Vec<DraftProcess>,
 }
 
 /// What a repository's saved runs already hold, so a draft proposes only the rest.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Beside {
+pub struct Beside {
     /// The folders a saved server starts in, `.` for the root.
-    pub(crate) dirs: Vec<String>,
+    pub dirs: Vec<String>,
     /// Every name a Command, server or port is declared under: a proposal never takes one, since
     /// Kit's copy would win by name and change what it is.
-    pub(crate) reserved: Vec<String>,
+    pub reserved: Vec<String>,
 }
 
 /// The run `facts` and the files under `root` suggest, or `None` where neither names a server.
 /// **Only tests draft with nothing saved beside**: the wire always has a [`Beside`].
-#[cfg(test)]
-pub(crate) fn drafted(root: &Path, facts: &[KeptRun]) -> Option<RunDraft> {
+#[cfg(any(test, feature = "test-support"))]
+pub fn drafted(root: &Path, facts: &[KeptRun]) -> Option<RunDraft> {
     drafted_beside(root, facts, &Beside::default())
 }
 
 /// [`drafted`] leaving out every process in a folder `beside` says a saved server starts in.
-pub(crate) fn drafted_beside(root: &Path, facts: &[KeptRun], beside: &Beside) -> Option<RunDraft> {
+pub fn drafted_beside(root: &Path, facts: &[KeptRun], beside: &Beside) -> Option<RunDraft> {
     let mut processes = from_memory(facts);
     let taken: Vec<String> = processes
         .iter()
@@ -144,7 +144,7 @@ fn from_memory(facts: &[KeptRun]) -> Vec<DraftProcess> {
 /// The folder a fact's workspace names inside the repository, `.` for its root. **A slot's copy is
 /// the same folder**: a Job worked in `.armada/slots/slot-4/apps/web`, and the facts it left
 /// belong to `apps/web`. A path outside the repository is none.
-pub(super) fn in_the_repository(workspace: &str) -> Option<String> {
+pub fn in_the_repository(workspace: &str) -> Option<String> {
     let parts: Vec<&str> = workspace.split('/').filter(|part| !part.is_empty() && *part != ".").collect();
     let parts = match parts.as_slice() {
         [".armada", "slots", _, rest @ ..] => rest,
@@ -228,7 +228,7 @@ fn name_of(folder: &str, line: &str) -> String {
 }
 
 /// A name that is a YAML key and a `${port.NAME}` without quoting.
-pub(super) fn safe_name(word: &str) -> String {
+pub fn safe_name(word: &str) -> String {
     let name: String = word
         .rsplit('/')
         .next()

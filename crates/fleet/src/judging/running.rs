@@ -73,7 +73,7 @@ fn own_words(failure: Option<&str>, stderr: &str) -> String {
 /// killed there rather than left to run out the budget with nobody waiting.
 /// [`CallFailed::Stopped`](super::CallFailed::Stopped) is **not a fault** —
 /// somebody decided.
-pub(crate) async fn watched(
+pub async fn watched(
     client: &(dyn ModelClient + Send + Sync),
     ask: &Ask,
     budget: JudgeBudget,
@@ -201,10 +201,10 @@ fn started(call: &adapter_traits::JudgeCall) -> Result<tokio::process::Child, Ca
 
 /// Run one rendered call and answer with what it printed.
 ///
-/// `pub(crate)` because the Job proposer's call is the same call: one turn, one
+/// `pub` because the Job proposer's call is the same call: one turn, one
 /// question on stdin, a directory with no repository under it. A second runner
 /// beside this one would be a second answer to what a failed call is.
-pub(crate) async fn said(
+pub async fn said(
     client: &(dyn ModelClient + Send + Sync),
     ask: &Ask,
     budget: JudgeBudget,
@@ -216,13 +216,13 @@ pub(crate) async fn said(
 
 /// A rendered call started with its question not yet written, so it is ready when one comes: the
 /// Operator's, kept started and waiting so an arrival pays only for the model.
-pub(crate) fn waiting(call: &adapter_traits::JudgeCall) -> Result<tokio::process::Child, CallFailed> {
+pub fn waiting(call: &adapter_traits::JudgeCall) -> Result<tokio::process::Child, CallFailed> {
     started(call)
 }
 
 /// Put `question` to a started call and answer with what it printed. **The one reading of a
 /// failed call** for [`said`] and for a call kept waiting.
-pub(crate) async fn answered(
+pub async fn answered(
     mut child: tokio::process::Child,
     question: &str,
     budget: JudgeBudget,

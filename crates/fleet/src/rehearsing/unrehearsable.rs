@@ -82,7 +82,7 @@ impl Unrehearsable {
     /// The code and the refusal. **A conflict with the tree's state is a 409;
     /// a name or a narrowing that cannot work is a 422**; a disk that would
     /// not read or write is Fleet's fault.
-    pub(super) fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
+    pub fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
         use Unrehearsable::*;
         match self {
             AlreadyRunning { .. }
@@ -107,7 +107,7 @@ impl Unrehearsable {
 
     /// A workspace file's faults as `[key, fault]` pairs, the shape a refused
     /// Write carries them in.
-    pub(super) fn faults(&self) -> Option<WireValue> {
+    pub fn faults(&self) -> Option<WireValue> {
         let Unrehearsable::WorkspaceManifest { refused, .. } = self else {
             return None;
         };

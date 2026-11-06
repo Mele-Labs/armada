@@ -15,14 +15,14 @@ struct Held {
 
 /// The sign-in addresses held, one set per session: a session has one window.
 #[derive(Default)]
-pub(crate) struct SignIns {
+pub struct SignIns {
     held: Mutex<BTreeMap<String, Held>>,
 }
 
 impl SignIns {
     /// Hold `sign_in` for the window on `url`, in place of any held for the session. An empty list
     /// holds nothing, so a window shown again without one clears the last.
-    pub(crate) fn hold(&self, session: &str, url: &str, sign_in: Vec<String>) {
+    pub fn hold(&self, session: &str, url: &str, sign_in: Vec<String>) {
         let Ok(mut held) = self.held.lock() else { return };
         held.remove(session);
         if !sign_in.is_empty() {
@@ -31,14 +31,14 @@ impl SignIns {
     }
 
     /// Let go of what is held for a session that ended.
-    pub(crate) fn forget(&self, session: &str) {
+    pub fn forget(&self, session: &str) {
         if let Ok(mut held) = self.held.lock() {
             held.remove(session);
         }
     }
 
     /// The addresses held for the window on `url`, once. A window on another address is no match.
-    pub(crate) fn take(&self, session: &str, url: &str) -> Vec<String> {
+    pub fn take(&self, session: &str, url: &str) -> Vec<String> {
         let Ok(mut held) = self.held.lock() else { return Vec::new() };
         match held.get(session) {
             Some(one) if one.url == url => held.remove(session).map(|one| one.sign_in).unwrap_or_default(),

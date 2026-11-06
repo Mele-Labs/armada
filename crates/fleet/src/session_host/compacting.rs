@@ -12,27 +12,27 @@ use ipc::SessionTurn;
 use crate::daemon::Fleet;
 
 /// What the Job is sent. The harness reads it as its own command, not as words for the agent.
-pub(crate) const COMPACT: &str = adapters::COMPACT_COMMAND;
+pub const COMPACT: &str = adapters::COMPACT_COMMAND;
 /// Most of the cache's hour: a sweep at most 30 seconds apart and a resume still land inside it.
-pub(crate) const COMPACT_AFTER: Duration = Duration::from_secs(50 * 60);
+pub const COMPACT_AFTER: Duration = Duration::from_secs(50 * 60);
 /// The context under which a cold start costs too little to be worth a compaction.
-pub(crate) const COMPACT_FROM: u64 = 100_000;
+pub const COMPACT_FROM: u64 = 100_000;
 
 /// One Job as the sweep reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Waiting {
+pub struct Waiting {
     /// It has an item on its waiting list.
-    pub(crate) on_the_owner: bool,
+    pub on_the_owner: bool,
     /// Since its last main-thread turn.
-    pub(crate) quiet: Duration,
+    pub quiet: Duration,
     /// That turn's input, cache-creation and cache-read tokens.
-    pub(crate) context: u64,
+    pub context: u64,
     /// A compaction is kept after that turn.
-    pub(crate) compacted: bool,
+    pub compacted: bool,
 }
 
 /// Whether the sweep sends the Job [`COMPACT`] now.
-pub(crate) fn compacts(on: bool, job: Waiting) -> bool {
+pub fn compacts(on: bool, job: Waiting) -> bool {
     on && job.on_the_owner && job.quiet >= COMPACT_AFTER && job.context >= COMPACT_FROM && !job.compacted
 }
 
@@ -41,7 +41,7 @@ impl Fleet
     /// Every hosted Job with no turn running that [`compacts`], sent [`COMPACT`] and kept. **Awaited
     /// in the sweep, never spawned**, so the next sweep reads the compaction this one kept. **Boxed**,
     /// because the send can start a process, which starts the sweep that calls this.
-    pub(crate) fn compacted_while_waiting(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
+    pub fn compacted_while_waiting(self: &Arc<Self>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + '_>> {
         Box::pin(self.compacting())
     }
 

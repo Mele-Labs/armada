@@ -29,7 +29,7 @@ use crate::group::{ask_the_group_to_end, end_the_group};
 use crate::process::{holder_of, Holder};
 
 /// The variable [`crate::Detached::spawn`] sets on every process it starts.
-pub(crate) const MARK: &str = "ARMADA_SPAWNED_BY";
+pub const MARK: &str = "ARMADA_SPAWNED_BY";
 
 /// How often the sweep runs after the one at start.
 pub const EVERY: Duration = Duration::from_secs(60);
@@ -39,7 +39,7 @@ const GRACE: Duration = Duration::from_secs(2);
 
 /// What a process started by this one carries. `None` where the start cannot be
 /// read: such a process goes unmarked and is never swept.
-pub(crate) fn own_mark() -> Option<String> {
+pub fn own_mark() -> Option<String> {
     static OWN: OnceLock<Option<String>> = OnceLock::new();
     OWN.get_or_init(|| match holder_of(std::process::id()) {
         Ok(Holder::Held(started)) => Some(mark_of(std::process::id(), started.as_str())),
@@ -49,7 +49,7 @@ pub(crate) fn own_mark() -> Option<String> {
 }
 
 /// No whitespace, so the value is one word in `ps`'s output.
-pub(crate) fn mark_of(pid: u32, started: &str) -> String {
+pub fn mark_of(pid: u32, started: &str) -> String {
     let started = started.split_whitespace().collect::<Vec<_>>().join("_");
     format!("{pid}:{started}")
 }
@@ -85,7 +85,7 @@ pub fn keep_ending_orphans(
 }
 
 /// The groups to end: orphans of a Fleet that is gone.
-pub(crate) fn find() -> io::Result<Vec<NonZeroU32>> {
+pub fn find() -> io::Result<Vec<NonZeroU32>> {
     let listing = listing()?;
     let temp = temp_prefixes();
     let mut probed: HashMap<u32, Option<String>> = HashMap::new();
@@ -143,8 +143,8 @@ fn listing() -> io::Result<String> {
 
 /// The mark the listing reads for `pid`: the outer `None` is a process the
 /// listing does not have, the rest is [`mark_of_process`].
-#[cfg(test)]
-pub(crate) fn listed_mark(pid: u32) -> io::Result<Option<Option<Option<(u32, String)>>>> {
+#[cfg(any(test, feature = "test-support"))]
+pub fn listed_mark(pid: u32) -> io::Result<Option<Option<Option<(u32, String)>>>> {
     Ok(listing()?
         .lines()
         .filter_map(Row::parse)
@@ -153,7 +153,7 @@ pub(crate) fn listed_mark(pid: u32) -> io::Result<Option<Option<Option<(u32, Str
 }
 
 /// Ask each group to end, and after `grace` end those `still` names.
-pub(crate) fn end(
+pub fn end(
     found: Vec<NonZeroU32>,
     grace: Duration,
     still: impl FnOnce() -> Vec<NonZeroU32>,
@@ -228,8 +228,8 @@ fn mark_in(command: &str) -> Option<Option<(u32, String)>> {
 }
 
 /// The mark in a NUL-separated environment block, as `/proc/<pid>/environ` has it.
-#[cfg(any(not(target_os = "macos"), test))]
-pub(crate) fn mark_in_environment(environment: &[u8]) -> Option<Option<(u32, String)>> {
+#[cfg(any(not(target_os = "macos"), test, feature = "test-support"))]
+pub fn mark_in_environment(environment: &[u8]) -> Option<Option<(u32, String)>> {
     let prefix = format!("{MARK}=");
     let value = environment
         .split(|byte| *byte == 0)
@@ -253,7 +253,7 @@ fn temp_prefixes() -> Vec<String> {
 }
 
 /// An argument `<temp>/armada-fleet-<pid>-<n>/..` whose `<pid>` is vacant.
-pub(crate) fn names_a_dead_test(
+pub fn names_a_dead_test(
     command: &str,
     temp: &[String],
     gone: &mut impl FnMut(u32, Option<&str>) -> bool,

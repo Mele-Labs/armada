@@ -9,7 +9,7 @@ use super::sheet::strip_comments;
 const VALUE_CHARS: usize = 80;
 
 /// The tokens of `text`, first to last, each name once.
-pub(crate) fn tokens_in(kind: StyleKind, text: &str) -> Vec<StyleToken> {
+pub fn tokens_in(kind: StyleKind, text: &str) -> Vec<StyleToken> {
     let bare = strip_comments(text);
     let mut found: Vec<StyleToken> = match kind {
         StyleKind::Scss => declared(&bare, '$', false),
@@ -23,7 +23,7 @@ pub(crate) fn tokens_in(kind: StyleKind, text: &str) -> Vec<StyleToken> {
 }
 
 /// How many tokens set a colour or a size, which is what a search ranks a file by.
-pub(crate) fn visual_count(tokens: &[StyleToken]) -> usize {
+pub fn visual_count(tokens: &[StyleToken]) -> usize {
     tokens.iter().filter(|token| looks_visual(&token.value)).count()
 }
 

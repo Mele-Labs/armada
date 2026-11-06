@@ -8,7 +8,7 @@
 //! no Job behind; the checkout is read and never written. **A pull request that does not open
 //! loses nothing**: the Job keeps the commit on its branch, and the stream says why.
 
-mod pieces;
+pub mod pieces;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -31,17 +31,17 @@ use crate::requesting::{self, NotCopied};
 use crate::run_memory::JobTree;
 
 /// The piece is not one of the person's own. A 422.
-pub(crate) const NOT_YOURS: &str = "fleet.commit_not_yours";
+pub const NOT_YOURS: &str = "fleet.commit_not_yours";
 /// The repository's base already holds the id and `overwrite` was not asked for, or holds the
 /// piece as written. A 422.
-pub(crate) const EXISTS: &str = "fleet.commit_exists";
+pub const EXISTS: &str = "fleet.commit_exists";
 /// What the branch would hold breaks a rule, the base's file will not read, or no Job could be
 /// made. A 422.
-pub(crate) const REFUSED: &str = "fleet.commit_refused";
+pub const REFUSED: &str = "fleet.commit_refused";
 /// A file could not be written or git refused the commit. A 500.
-pub(crate) const UNWRITABLE: &str = "fleet.commit_unwritable";
+pub const UNWRITABLE: &str = "fleet.commit_unwritable";
 /// The commit is on the Job's branch and the pull request would not open. A 500, told as `act.failed`.
-pub(crate) const PULL_REQUEST_NOT_OPENED: &str = "fleet.commit_pull_request_not_opened";
+pub const PULL_REQUEST_NOT_OPENED: &str = "fleet.commit_pull_request_not_opened";
 
 /// The repository's own folders, relative to its root.
 const WORKFLOWS: &str = ".armada/workflows";
@@ -61,7 +61,7 @@ struct Copy {
 impl Fleet
 {
 /// The tree and branch of the Job `id` names, where it is in `root` and holds a slot.
-    pub(crate) async fn job_tree_in(&self, root: &str, id: Option<&SessionId>) -> Option<JobTree> {
+    pub async fn job_tree_in(&self, root: &str, id: Option<&SessionId>) -> Option<JobTree> {
         let (_, hosting) = self.session_and_hosting(id?.as_str()).await.ok()?;
         let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))).ok()?;
         match (served.root() == root, hosting.lease_slot, hosting.lease_branch) {
@@ -82,7 +82,7 @@ impl Fleet
     /// commits it on its branch, pushes it and opens its pull request. **Answered once the Job and
     /// its branch exist**; the commit, the push and the pull request finish in a task of their own,
     /// and a failure there is `act.failed` for that Job.
-    pub(crate) async fn committed_to_repository(
+    pub async fn committed_to_repository(
         self: &Arc<Self>,
         asked: CommitToRepository,
     ) -> Result<CommittedToRepository, Refusal> {

@@ -8,15 +8,15 @@ use store::LogSection;
 use super::serving::{served, Logged};
 
 /// What a subagent is handed, in tokens, header included.
-pub(crate) const SUBAGENT_TOKENS: usize = 800;
+pub const SUBAGENT_TOKENS: usize = 800;
 
 /// The most entries a search answers.
-pub(crate) const MOST_RECALLED: usize = 20;
+pub const MOST_RECALLED: usize = 20;
 
 /// The paths a prompt names, repository-relative: each word with a `/` in it, cut of the
 /// punctuation round it, of a `:line` after it, and of the repository's root or a slot's folder in
 /// front. A link is no path.
-pub(crate) fn named_paths(prompt: &str, root: &str) -> Vec<String> {
+pub fn named_paths(prompt: &str, root: &str) -> Vec<String> {
     let root = root.trim_end_matches('/');
     let mut found: Vec<String> = Vec::new();
     for word in prompt.split(|c: char| c.is_whitespace() || matches!(c, '`' | '"' | '\'' | '(' | ')' | '[' | ']' | '<' | '>' | ',')) {
@@ -42,7 +42,7 @@ pub(crate) fn named_paths(prompt: &str, root: &str) -> Vec<String> {
 
 /// Whether `glob` matches `path`: `*` stands for any run of a name, `?` for one character of it,
 /// `**` for any run of folders, and a folder named matches the globs of what is under it.
-pub(crate) fn matches(glob: &str, path: &str) -> bool {
+pub fn matches(glob: &str, path: &str) -> bool {
     let glob = glob.trim_start_matches("./").trim_start_matches('/');
     wild(glob.as_bytes(), path.as_bytes()) || wild(glob.as_bytes(), format!("{}/", path.trim_end_matches('/')).as_bytes())
 }
@@ -66,7 +66,7 @@ fn wild(glob: &[u8], text: &[u8]) -> bool {
 /// What a subagent is handed: standing entries only, the habits, then the repository's entries
 /// whose paths match one `named`, or, where it names none, the repository's best-ranked, cut to
 /// `budget` tokens in the order the start note serves.
-pub(crate) fn for_subagent(all: Vec<Logged>, named: &[String], budget: usize) -> Vec<Logged> {
+pub fn for_subagent(all: Vec<Logged>, named: &[String], budget: usize) -> Vec<Logged> {
     let chosen = all
         .into_iter()
         .filter(|one| match one.entry.section {
@@ -87,7 +87,7 @@ fn held(query: &[String], one: &Logged) -> usize {
 /// The entries whose text holds any word of `query`, those holding more first, then those more
 /// Sessions bore out, then the most recently confirmed, at most [`MOST_RECALLED`]. Faded and
 /// candidate entries are in it. `section` narrows it.
-pub(crate) fn searched(all: Vec<Logged>, query: &str, section: Option<LogSection>) -> Vec<Logged> {
+pub fn searched(all: Vec<Logged>, query: &str, section: Option<LogSection>) -> Vec<Logged> {
     let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
     let mut hits: Vec<(usize, Logged)> = all
         .into_iter()

@@ -51,7 +51,7 @@ pub struct HomeFittings {
 
 /// The fittings, once handed in.
 #[derive(Default)]
-pub(crate) struct HomeHeld {
+pub struct HomeHeld {
     fittings: OnceLock<Arc<HomeFittings>>,
     /// The logins the forge was asked about a home made on another Mac, this run.
     asked: Mutex<BTreeSet<String>>,

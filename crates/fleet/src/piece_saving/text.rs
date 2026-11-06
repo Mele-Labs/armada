@@ -63,7 +63,7 @@ struct TransitionText<'a> {
     to: &'a str,
 }
 
-pub(super) fn lifecycle(lifecycle: &LifecycleDefinition) -> Result<String, String> {
+pub fn lifecycle(lifecycle: &LifecycleDefinition) -> Result<String, String> {
     config::piece_text(&LifecycleText {
         version: VERSION,
         lifecycle_id: &lifecycle.id,
@@ -284,7 +284,7 @@ fn act_of(act: &RuleAct) -> ActText<'_> {
     }
 }
 
-pub(super) fn rule(rule: &LifecycleRule) -> Result<String, String> {
+pub fn rule(rule: &LifecycleRule) -> Result<String, String> {
     config::piece_text(&RuleText {
         version: VERSION,
         rule_id: &rule.id,
@@ -324,7 +324,7 @@ struct WorkspaceText<'a> {
     repositories: Vec<&'a str>,
 }
 
-pub(super) fn workspace(workspace: &WorkspaceToSave) -> Result<String, String> {
+pub fn workspace(workspace: &WorkspaceToSave) -> Result<String, String> {
     config::piece_text(&WorkspaceText {
         version: VERSION,
         workspace_id: &workspace.id,
@@ -342,7 +342,7 @@ struct AutonomyText<'a> {
     defaults: &'a BTreeMap<String, String>,
 }
 
-pub(super) fn autonomy(autonomy: &AutonomyToSave) -> Result<String, String> {
+pub fn autonomy(autonomy: &AutonomyToSave) -> Result<String, String> {
     config::piece_text(&AutonomyText {
         version: VERSION,
         autonomy_id: &autonomy.id,

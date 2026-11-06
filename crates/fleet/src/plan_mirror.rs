@@ -14,13 +14,13 @@ use store::{KeptBead, KeptPlan, KeptPlanTask};
 use crate::plan_record::state_of;
 
 /// What a close says for a task or group the plan finished.
-pub(crate) const FINISHED: &str = "done in the plan";
+pub const FINISHED: &str = "done in the plan";
 
 /// What a close says for one the plan no longer holds.
-pub(crate) const REMOVED: &str = "removed from the plan";
+pub const REMOVED: &str = "removed from the plan";
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Step {
+pub enum Step {
     /// File `id` as a child of the group `parent`, or of the issue where there is none.
     Create { id: String, parent: Option<String>, title: String },
     Retitle { id: String, title: String },
@@ -45,7 +45,7 @@ fn wanted(task: &KeptPlanTask) -> BeadState {
 /// **Structure follows the approved version only**: groups, tasks and their order are filed once
 /// the head of the plan is approved. A version recorded since and not yet approved changes nothing
 /// but the states of beads already filed, since a task's state is the plan's whichever version holds it.
-pub(crate) fn steps(plan: &KeptPlan, held: &[KeptBead]) -> Vec<Step> {
+pub fn steps(plan: &KeptPlan, held: &[KeptBead]) -> Vec<Step> {
     let have = |id: &str| held.iter().find(|one| one.plan_id == id);
     let approved = plan.approved_at.is_some();
     let mut out = Vec::new();

@@ -27,15 +27,15 @@ use super::thread_cache::ThreadCache;
 use crate::daemon::Fleet;
 
 /// A send to a session whose mod has not asked lately. A 409.
-pub(super) const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
+pub const TERMINAL_UNREACHABLE: &str = "fleet.terminal_session_unreachable";
 
 /// How long after its mod last asked a session still counts as listening. A
 /// mod holding an ask open is listening throughout, and this covers the moment
 /// between one ask's end and the next.
-pub(crate) const LISTENING_FOR: Duration = Duration::from_secs(10);
+pub const LISTENING_FOR: Duration = Duration::from_secs(10);
 
 /// The longest Fleet holds an ask for held messages, whatever the mod asked for.
-pub(crate) const HELD_HOLD_MAX: Duration = Duration::from_secs(25);
+pub const HELD_HOLD_MAX: Duration = Duration::from_secs(25);
 
 /// How often a thread being watched is looked at. One `stat` when nothing grew.
 const LOOKS_EVERY: Duration = Duration::from_secs(1);
@@ -110,7 +110,7 @@ pub struct Terminals {
     /// Fleet that restarts gives every mod a fresh lapse to poll again in.
     polled: Mutex<HashMap<String, Instant>>,
     /// Rung when a question is answered or closed, for the polls holding on it.
-    pub(crate) rung: tokio::sync::Notify,
+    pub rung: tokio::sync::Notify,
     /// The terminal Sessions with a turn running, and when anything was last heard from each. Memory
     /// only: a Fleet that restarts does not know a turn is running until the mod says something.
     running: Mutex<HashMap<String, Instant>>,
@@ -123,7 +123,7 @@ pub struct Terminals {
 
 /// A permission prompt open in a terminal: the tool, its command or path, and when Fleet heard of it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct PromptOpen {
+pub struct PromptOpen {
     pub tool: String,
     pub detail: String,
     pub since: String,
@@ -131,13 +131,13 @@ pub(crate) struct PromptOpen {
 
 impl Terminals {
     /// A turn began in this terminal Session. Any prompt the last one left open is gone with it.
-    pub(crate) fn turn_began(&self, session: &str) {
+    pub fn turn_began(&self, session: &str) {
         self.running.lock().expect("held across no panic").insert(session.to_string(), Instant::now());
         self.prompt_closed(session);
     }
 
     /// The harness opened a permission prompt. True where it was not already the one open.
-    pub(crate) fn prompt_opened(&self, session: &str, open: PromptOpen) -> bool {
+    pub fn prompt_opened(&self, session: &str, open: PromptOpen) -> bool {
         let mut table = self.prompts.lock().expect("held across no panic");
         let same = table
             .get(session)
@@ -149,30 +149,30 @@ impl Terminals {
     }
 
     /// The prompt closed. True where one was open.
-    pub(crate) fn prompt_closed(&self, session: &str) -> bool {
+    pub fn prompt_closed(&self, session: &str) -> bool {
         self.prompts.lock().expect("held across no panic").remove(session).is_some()
     }
 
     /// The permission prompt open in this Session's terminal, if one is.
-    pub(crate) fn prompt_of(&self, session: &str) -> Option<PromptOpen> {
+    pub fn prompt_of(&self, session: &str) -> Option<PromptOpen> {
         self.prompts.lock().expect("held across no panic").get(session).cloned()
     }
 
     /// The mod said something about this Session: a running turn is not quiet.
-    pub(crate) fn turn_heard(&self, session: &str) {
+    pub fn turn_heard(&self, session: &str) {
         if let Some(at) = self.running.lock().expect("held across no panic").get_mut(session) {
             *at = Instant::now();
         }
     }
 
     /// The turn is over, or the Session is, and any prompt it held open with it.
-    pub(crate) fn turn_over(&self, session: &str) {
+    pub fn turn_over(&self, session: &str) {
         self.running.lock().expect("held across no panic").remove(session);
         self.prompt_closed(session);
     }
 
     /// Every terminal Session with a turn running and how long it has been quiet.
-    pub(crate) fn running_quiet(&self) -> Vec<(String, Duration)> {
+    pub fn running_quiet(&self) -> Vec<(String, Duration)> {
         self.running
             .lock()
             .expect("held across no panic")
@@ -182,7 +182,7 @@ impl Terminals {
     }
 
     /// How long the running turn has been quiet, where one is running.
-    pub(crate) fn quiet_for(&self, session: &str) -> Option<Duration> {
+    pub fn quiet_for(&self, session: &str) -> Option<Duration> {
         self.running.lock().expect("held across no panic").get(session).map(Instant::elapsed)
     }
 
@@ -197,7 +197,7 @@ impl Terminals {
 
     /// The mod asked and will wait: it is listening for as long as this holds,
     /// and the answer comes the moment something is held, or empty after `wait`.
-    pub(super) async fn asked_for(&self, session: &str, wait: Duration) -> MessagesHeld {
+    pub async fn asked_for(&self, session: &str, wait: Duration) -> MessagesHeld {
         if wait.is_zero() {
             return self.asked(session);
         }
@@ -228,7 +228,7 @@ impl Terminals {
     }
 
     /// The mod polled for this question just now.
-    pub(crate) fn polled(&self, call: &str) {
+    pub fn polled(&self, call: &str) {
         self.polled
             .lock()
             .expect("held across no panic")
@@ -237,7 +237,7 @@ impl Terminals {
 
     /// How long since the mod polled for this question. **A question nobody has
     /// polled for since Fleet began counts from now.**
-    pub(crate) fn since_polled(&self, call: &str) -> Duration {
+    pub fn since_polled(&self, call: &str) -> Duration {
         self.polled
             .lock()
             .expect("held across no panic")
@@ -246,7 +246,7 @@ impl Terminals {
             .elapsed()
     }
 
-    pub(crate) fn forget_polls(&self, call: &str) {
+    pub fn forget_polls(&self, call: &str) {
         self.polled
             .lock()
             .expect("held across no panic")
@@ -272,7 +272,7 @@ impl Terminals {
     }
 
     /// Hold the end for the mod, or say nobody is listening. True where it was held.
-    pub(super) fn hold_end(&self, session: &str, listening_for: Duration) -> bool {
+    pub fn hold_end(&self, session: &str, listening_for: Duration) -> bool {
         let held = self.held_for_mod(session, listening_for, |one| one.end = true);
         if held {
             self.ending
@@ -284,7 +284,7 @@ impl Terminals {
     }
 
     /// Whether a person ended this session from Bridge, forgotten as it is read.
-    pub(crate) fn was_ended_from_bridge(&self, session: &str) -> bool {
+    pub fn was_ended_from_bridge(&self, session: &str) -> bool {
         self.ending
             .lock()
             .expect("held across no panic")
@@ -292,7 +292,7 @@ impl Terminals {
     }
 
     /// Whether the session's mod is holding an ask, or has asked within [`LISTENING_FOR`].
-    pub(crate) fn listening(&self, session: &str) -> bool {
+    pub fn listening(&self, session: &str) -> bool {
         self.listening
             .lock()
             .expect("held across no panic")
@@ -301,7 +301,7 @@ impl Terminals {
     }
 
     /// What the session's mod said it runs on.
-    pub(crate) fn facts_of(&self, session: &str) -> Option<TerminalFacts> {
+    pub fn facts_of(&self, session: &str) -> Option<TerminalFacts> {
         self.tuned
             .lock()
             .expect("held across no panic")
@@ -311,7 +311,7 @@ impl Terminals {
 
     /// Fold what the mod said into what is held. **A field left out is
     /// unchanged.** True where anything changed.
-    pub(crate) fn tuned(&self, session: &str, said: TerminalFacts) -> bool {
+    pub fn tuned(&self, session: &str, said: TerminalFacts) -> bool {
         let mut table = self.tuned.lock().expect("held across no panic");
         let held = table.entry(session.to_string()).or_default();
         let before = held.clone();
@@ -325,7 +325,7 @@ impl Terminals {
     }
 
     /// Keep `text` for the mod, or say nobody is listening.
-    pub(super) fn hold(&self, session: &str, text: String, listening_for: Duration) -> bool {
+    pub fn hold(&self, session: &str, text: String, listening_for: Duration) -> bool {
         self.held_for_mod(session, listening_for, |one| one.held.push(text))
     }
 
@@ -344,7 +344,7 @@ impl Terminals {
         self.threads.forget(session);
     }
 
-    pub(super) fn threads(&self) -> Arc<ThreadCache> {
+    pub fn threads(&self) -> Arc<ThreadCache> {
         Arc::clone(&self.threads)
     }
 }
@@ -353,7 +353,7 @@ impl Fleet
 {
     /// A terminal session's thread as the transcript stands, and from here on
     /// each line it gains as a `session.row`, until the session ends.
-    pub(crate) async fn terminal_thread(
+    pub async fn terminal_thread(
         self: &Arc<Self>,
         session: &KeptSession,
     ) -> Result<Vec<SessionRow>, Refusal> {
@@ -415,7 +415,7 @@ impl Fleet
 
     /// What a person sent a terminal session. It starts a turn when the mod
     /// next asks, so a session that is not asking is refused at once.
-    pub(crate) async fn send_to_terminal(
+    pub async fn send_to_terminal(
         &self,
         session: &KeptSession,
         sent: SendSessionMessage,
@@ -481,7 +481,7 @@ impl Fleet
     /// and not marked listening. **Where the ask carries `wait_ms` it is held,
     /// up to [`HELD_HOLD_MAX`], until something is held**, and the store is not
     /// held with it.
-    pub(crate) async fn held_for(&self, ask: TakeHeld) -> Result<MessagesHeld, Refusal> {
+    pub async fn held_for(&self, ask: TakeHeld) -> Result<MessagesHeld, Refusal> {
         let kept = self
             .store()
             .lock()
@@ -504,7 +504,7 @@ impl Fleet
     /// `/effort`. **The mode is not here**: the mods API cannot switch a live
     /// session's, so it is shown and not set. A value the terminal already has
     /// is not sent again.
-    pub(crate) async fn tune_terminal(
+    pub async fn tune_terminal(
         &self,
         session: &KeptSession,
         tuned: TuneSession,
@@ -545,7 +545,7 @@ impl Fleet
 
     /// A slash command a person pressed in the thread, held for the mod to run as typed. **One slash
     /// command on one line**: anything else is refused, so the mod is never handed free text to run.
-    pub(crate) async fn run_terminal_command(
+    pub async fn run_terminal_command(
         &self,
         session: &KeptSession,
         text: &str,
@@ -570,7 +570,7 @@ impl Fleet
         self.ledger_row(&store, session)
     }
 
-    pub(crate) fn terminal_unreachable(&self) -> Refusal {
+    pub fn terminal_unreachable(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             TERMINAL_UNREACHABLE,
             "that job is not listening. It has ended, or its terminal is closed, or \

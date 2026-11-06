@@ -43,7 +43,7 @@ use crate::rail_lifecycle::StepBits;
 
 /// The observable fact a step between anchors fits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Fit {
+pub enum Fit {
     /// A first edit.
     Edited,
     /// A Check run the Session asked for, or a pull request's checks.
@@ -56,7 +56,7 @@ pub(crate) enum Fit {
 
 /// What the rail needs to know of one step.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct RailStep {
+pub struct RailStep {
     pub id: String,
     pub label: String,
     pub about: Option<String>,
@@ -81,11 +81,11 @@ pub(crate) struct RailStep {
 impl RailStep {
     /// The lifecycle states that end the step. A step that lists one waits on the world, and is
     /// placed by what it holds rather than by a fact that fits it.
-    pub(crate) fn lifecycle_ends(&self) -> impl Iterator<Item = &LifecycleEnd> {
+    pub fn lifecycle_ends(&self) -> impl Iterator<Item = &LifecycleEnd> {
         self.ends_on.iter().filter_map(StepEnd::lifecycle)
     }
 
-    pub(crate) fn has_lifecycle_end(&self) -> bool {
+    pub fn has_lifecycle_end(&self) -> bool {
         self.lifecycle_ends().next().is_some()
     }
 }
@@ -106,7 +106,7 @@ fn fit_of(step: &ResolvedStep) -> Option<Fit> {
 }
 
 /// The workflow's steps as the rail reads them.
-pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
+pub fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
     workflow
         .steps()
         .iter()
@@ -130,7 +130,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
 
 /// Facts the record does not carry.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Extra {
+pub struct Extra {
     pub committed: bool,
     pub checked: bool,
     /// The person wrote after the agent's first turn.
@@ -162,18 +162,18 @@ pub(crate) struct Extra {
 }
 
 /// The most steps the person can skip: the bits of [`Skipped`].
-pub(crate) const SKIPPABLE: usize = 64;
+pub const SKIPPABLE: usize = 64;
 
 /// The steps the person skipped, one bit an index, so the facts stay `Copy`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Skipped(u64);
+pub struct Skipped(u64);
 
 impl Skipped {
-    pub(crate) fn of(steps: &[u32]) -> Skipped {
+    pub fn of(steps: &[u32]) -> Skipped {
         Skipped(steps.iter().filter(|at| (**at as usize) < SKIPPABLE).fold(0, |bits, at| bits | 1 << at))
     }
 
-    pub(crate) fn has(self, at: usize) -> bool {
+    pub fn has(self, at: usize) -> bool {
         at < SKIPPABLE && self.0 & (1 << at) != 0
     }
 
@@ -184,7 +184,7 @@ impl Skipped {
 
 /// What was observed, as the rules read it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Facts {
+pub struct Facts {
     pub replied: bool,
     pub plan_recorded: bool,
     pub plan_approved: bool,
@@ -218,12 +218,12 @@ pub(crate) struct Facts {
 }
 
 /// Whether the Job landed: its build says so, or its ledger holds a merged pull request.
-pub(crate) fn landed_by(extra: Extra, build: Option<&ipc::SessionBuild>) -> bool {
+pub fn landed_by(extra: Extra, build: Option<&ipc::SessionBuild>) -> bool {
     extra.landed || build.is_some_and(|build| build.phase == BuildPhase::Landed || build.landed_at.is_some())
 }
 
 impl Facts {
-    pub(crate) fn of(record: &SessionRecord, extra: Extra) -> Facts {
+    pub fn of(record: &SessionRecord, extra: Extra) -> Facts {
         let reached = |id: BuildStopId| {
             record.build.as_ref().is_some_and(|build| build.stops.iter().any(|stop| stop.id == id && stop.at.is_some()))
         };
@@ -274,7 +274,7 @@ impl Facts {
 
     /// A walk is expected: the plan said the person would see the change or named a walk, or a
     /// window was shown.
-    pub(crate) fn walk_expected(&self) -> bool {
+    pub fn walk_expected(&self) -> bool {
         self.plan_expects_walk || self.walk_shown
     }
 
@@ -283,14 +283,14 @@ impl Facts {
     /// plan is its tasks finished. A walk approved before the plan was ends a step before the plan and
     /// never this one. **Not the push**: the push ends the step after, so a Job waiting to be moved
     /// on from a walk it had nothing to show for waited for good (30 Oct 2026).
-    pub(crate) fn walk_passed(&self, walk: &RailStep) -> bool {
+    pub fn walk_passed(&self, walk: &RailStep) -> bool {
         self.walk_approved
             || (self.plan_approved && !self.walk_expected() && (!walk.follows_plan || !self.tasks_open || self.pushed))
     }
 
     /// Whether `end`, listed by the step at `at`, holds. **A lifecycle end holds when it has come, or
     /// when the person wrote on the step**: a Job parked on one he cannot see the end of is his to move.
-    pub(crate) fn ended(&self, at: usize, end: &StepEnd) -> bool {
+    pub fn ended(&self, at: usize, end: &StepEnd) -> bool {
         match end {
             StepEnd::Lifecycle(_) => self.lifecycle_met.has(at) || self.messaged.has(at),
             StepEnd::Replied => self.replied,
@@ -318,7 +318,7 @@ impl Facts {
 
 /// Whether a plan recorded now stands with no card: its step does not ask, or he already approved one
 /// of the things it lists.
-pub(crate) fn plan_stands(steps: &[RailStep], extra: Extra) -> bool {
+pub fn plan_stands(steps: &[RailStep], extra: Extra) -> bool {
     let facts = Facts {
         replied: extra.replied,
         any_walk_approved: extra.any_walk_approved,
@@ -333,7 +333,7 @@ pub(crate) fn plan_stands(steps: &[RailStep], extra: Extra) -> bool {
 
 /// Whether a plan held behind the walks he has now approved stands with them: its step lists a walk
 /// approved. **Only a held plan**: one already put to him stays his to answer.
-pub(crate) fn walk_settles_plan(steps: &[RailStep]) -> bool {
+pub fn walk_settles_plan(steps: &[RailStep]) -> bool {
     recorder(steps).is_some_and(|at| steps[at].ends_on.contains(&StepEnd::WalkApproved))
 }
 
@@ -423,7 +423,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
 
 /// The step the Session is on: the last one entered, else the first standing. **Absent** once the
 /// delivering step's pull request merged and nothing follows it, and for a workflow of no steps.
-pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
+pub fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
     if steps.is_empty() {
         return None;
     }
@@ -451,7 +451,7 @@ fn standing(steps: &[RailStep], facts: &Facts) -> usize {
 }
 
 /// The one message to a Job that has run when the person skips a step of its workflow, or undoes it.
-pub(crate) fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> String {
+pub fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> String {
     if skipped {
         format!(
             "Fleet: the person skipped the \"{}\" step of this Job's {workflow} workflow. Do not do that step, \
@@ -469,7 +469,7 @@ pub(crate) fn skip_told(workflow: &str, step: &RailStep, skipped: bool) -> Strin
 
 /// The one message to a Job that has run when the person moves it to a step to come, past `passed`, the
 /// steps that jump skipped. The target's own instructions are the rail's, sent as it places the Job.
-pub(crate) fn jump_told(workflow: &str, to: &RailStep, passed: &[&RailStep]) -> String {
+pub fn jump_told(workflow: &str, to: &RailStep, passed: &[&RailStep]) -> String {
     let moved = format!("Fleet: the person moved this Job to the \"{}\" step of its {workflow} workflow", to.label);
     if passed.is_empty() {
         return format!("{moved}.");
@@ -480,7 +480,7 @@ pub(crate) fn jump_told(workflow: &str, to: &RailStep, passed: &[&RailStep]) -> 
 
 /// The steps the person skipped, said with a Job's first turn: a message before it would start the
 /// Job ahead of the turn it waits for. `None` where none is.
-pub(crate) fn skips_said(workflow: &str, steps: &[RailStep], skipped: &[u32]) -> Option<String> {
+pub fn skips_said(workflow: &str, steps: &[RailStep], skipped: &[u32]) -> Option<String> {
     let labels: Vec<String> =
         skipped.iter().filter_map(|at| steps.get(*at as usize)).map(|step| format!("\"{}\"", step.label)).collect();
     match labels.as_slice() {
@@ -497,6 +497,6 @@ pub(crate) fn skips_said(workflow: &str, steps: &[RailStep], skipped: &[u32]) ->
 
 /// How a step reads in the timeline's `says`: its label, `start` before the first and `done` past the
 /// last.
-pub(crate) fn named(steps: &[RailStep], at: Option<usize>, none: &str) -> String {
+pub fn named(steps: &[RailStep], at: Option<usize>, none: &str) -> String {
     at.and_then(|at| steps.get(at)).map_or_else(|| none.to_string(), |step| step.label.clone())
 }

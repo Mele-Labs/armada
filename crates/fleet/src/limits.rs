@@ -94,7 +94,7 @@ impl Fleet
 {
     /// The limits in force and what shipped, read under the roster so the bound
     /// and the headroom are one instant.
-    pub(crate) async fn limits_in_force(&self) -> FleetLimits {
+    pub async fn limits_in_force(&self) -> FleetLimits {
         FleetLimits {
             values: Limits {
                 concurrency: self.concurrency(),
@@ -107,7 +107,7 @@ impl Fleet
     }
 
     /// Save into settings.json, then answer with what is in force.
-    pub(crate) async fn save_limits_now(&self, save: SaveLimits) -> Result<FleetLimits, Refusal> {
+    pub async fn save_limits_now(&self, save: SaveLimits) -> Result<FleetLimits, Refusal> {
         self.save_settings_now(as_changes(&save)).await?;
         Ok(self.limits_in_force().await)
     }
@@ -116,7 +116,7 @@ impl Fleet
     ///
     /// The file is already written by the time this runs, so nothing in memory moves on a save
     /// that did not land.
-    pub(crate) async fn relimited(&self, settings: &Resolved) {
+    pub async fn relimited(&self, settings: &Resolved) {
         let limits = self.shipped().overlaid_by(settings);
         self.reconcurred(limits.concurrency);
         self.rehoused(limits.headroom);

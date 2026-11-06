@@ -32,10 +32,10 @@ use crate::repositories::Served;
 /// The branch name a log asked for under when it is main's own run. It is the
 /// word the head sends whatever the repository calls its base, and no branch
 /// is named for the base, so it names no Job's.
-pub(crate) const MAIN: &str = "main";
+pub const MAIN: &str = "main";
 
 /// A log read off the forge and held, read the way a file is.
-pub(crate) struct HeldLog(Vec<u8>);
+pub struct HeldLog(Vec<u8>);
 
 impl api::Follow for HeldLog {
     fn read(&self, from: u64, to_the_end: bool) -> api::Followed {
@@ -53,19 +53,19 @@ impl api::Follow for HeldLog {
 
 /// An open pull request as last read.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct OpenPulled {
-    pub(crate) pull: OpenPull,
+pub struct OpenPulled {
+    pub pull: OpenPull,
     /// Who registered it in the central store. Absent where nobody did, the switch is off or
     /// the store did not answer. `crate::pull_registry`.
-    pub(crate) owner: Option<PullOwner>,
+    pub owner: Option<PullOwner>,
     /// Opened by the person using this Fleet, `crate::my_pulls`.
-    pub(crate) mine: bool,
+    pub mine: bool,
 }
 
 /// A recently merged pull request as last read.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct MergedPulled {
-    pub(crate) pull: RecentlyMerged,
+pub struct MergedPulled {
+    pub pull: RecentlyMerged,
 }
 
 /// How many merged pull requests the hub carries.
@@ -82,7 +82,7 @@ const RUN_MAY_START: Duration = Duration::from_secs(600);
 
 /// What a commit's jobs add up to, for deciding main's state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Reduced {
+pub enum Reduced {
     Green,
     Running,
     Red,
@@ -90,18 +90,18 @@ pub(crate) enum Reduced {
 
 /// The CI run on one commit of main, as last read.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct MergedRun {
+pub struct MergedRun {
     /// Absent where nothing ran.
-    pub(crate) run: Option<MainRun>,
+    pub run: Option<MainRun>,
     /// Nothing is still going, so it is not asked again.
-    pub(crate) settled: bool,
+    pub settled: bool,
     /// The jobs themselves, for the commit that decides main.
-    pub(crate) runs: Vec<adapter_traits::CiRun>,
+    pub runs: Vec<adapter_traits::CiRun>,
 }
 
 impl MergedRun {
     /// `None` where nothing ran: a commit that proves nothing either way.
-    pub(crate) fn class(&self) -> Option<Reduced> {
+    pub fn class(&self) -> Option<Reduced> {
         Some(match self.run.as_ref()?.state {
             MainRunState::Failed => Reduced::Red,
             MainRunState::Passed => Reduced::Green,
@@ -115,7 +115,7 @@ impl Fleet
     /// Read one repository's open pull requests. **A forge that will not answer
     /// keeps the last reading**, rather than drawing every pull request as gone.
     /// Says whether the forge answered, as the next two do.
-    pub(crate) async fn notice_pulls(&self, served: &Served) -> bool {
+    pub async fn notice_pulls(&self, served: &Served) -> bool {
         let gate = served.manifest().ci_gate().to_string();
         let listed = self
             .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
@@ -176,7 +176,7 @@ impl Fleet
     /// The base branch's merge queue, **a forge call on the same visit** as
     /// the open pull requests, which it marks. A forge that will not answer
     /// keeps the last reading.
-    pub(crate) async fn notice_queue(&self, served: &Served) -> bool {
+    pub async fn notice_queue(&self, served: &Served) -> bool {
         let Some(base) = served.manifest().base().map(str::to_string) else {
             return true;
         };
@@ -196,7 +196,7 @@ impl Fleet
 
     /// The newest merged pull requests, **a second forge call on the same
     /// visit**. A forge that will not answer keeps the last reading.
-    pub(crate) async fn notice_merged(&self, served: &Served) -> bool {
+    pub async fn notice_merged(&self, served: &Served) -> bool {
         let Some(base) = served.manifest().base().map(str::to_string) else {
             return true;
         };
@@ -217,7 +217,7 @@ impl Fleet
 
     /// Note how the forge answered a repository's visit. **One call unanswered makes it quiet**,
     /// from the first such visit until a visit is answered whole.
-    pub(crate) async fn forge_visited(&self, root: &str, answered: bool) {
+    pub async fn forge_visited(&self, root: &str, answered: bool) {
         let now = self.now();
         let mut sweep = self.sweeping().lock().await;
         let visit = sweep.forge_visits.entry(root.to_string()).or_default();
@@ -240,7 +240,7 @@ impl Fleet
     /// The head and the newest [`MERGED_SHOWN`] are always read; older merges
     /// only while none of the newer has finished, up to [`DECIDING_WINDOW`]. Usually
     /// none after the first visit. Also says whether every ask was answered.
-    pub(crate) async fn notice_merged_runs(
+    pub async fn notice_merged_runs(
         &self,
         served: &Served,
         head: &str,
@@ -342,7 +342,7 @@ impl Fleet
     /// The log of one job that failed on a merged commit's run on main, for
     /// `observe_land_check` under `main@<commit>`. **`None` unless that run is
     /// one the hub shows as failed for that job.**
-    pub(crate) async fn main_run_log(
+    pub async fn main_run_log(
         &self,
         root: String,
         commit: String,
@@ -383,7 +383,7 @@ impl Fleet
     /// `observe_land_check` under [`MAIN`]. `check` is the Check a failed job
     /// maps to, or the job's own name. **`None` unless main is red for that
     /// job**; the forge is asked for the job's log now, bounded.
-    pub(crate) async fn main_log(&self, root: String, check: String) -> Option<api::LandOutput> {
+    pub async fn main_log(&self, root: String, check: String) -> Option<api::LandOutput> {
         self.repositories()
             .served()
             .iter()
@@ -417,7 +417,7 @@ impl Fleet
     /// The Session that held a pull request, else its branch, in any state, **given back and spent
     /// included**: the question is who made it, and a Session that has finished still did. The
     /// newest hold stands where several do.
-    pub(crate) fn session_of_pull(
+    pub fn session_of_pull(
         &self,
         store: &store::Store,
         served: &Served,
@@ -439,7 +439,7 @@ impl Fleet
 
     /// Each served repository's hub, by root. A repository Fleet has read
     /// nothing for is left out.
-    pub(crate) async fn merge_hubs(&self) -> Vec<(String, MergeLineHub)> {
+    pub async fn merge_hubs(&self) -> Vec<(String, MergeLineHub)> {
         // The pull request each repository's pending form edit waits on a person for.
         let (roots, by_hand): (Vec<String>, BTreeMap<String, u64>) = {
             let served = self.repositories().served();
@@ -542,7 +542,7 @@ fn fixing_elsewhere(holder: &adapter_traits::Holder) -> ipc::FixingElsewhere {
 }
 
 /// The hub for one repository, or `None` where there is nothing to say.
-pub(crate) fn hub_of(
+pub fn hub_of(
     main: Option<&MainCi>,
     pulls: Option<&Vec<OpenPulled>>,
     merged: Option<&Vec<MergedPulled>>,

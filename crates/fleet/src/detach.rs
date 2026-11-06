@@ -45,10 +45,10 @@ pub struct Detached {
     unmarked: bool,
     /// Where a test's child runs, so the test's own directory can end it.
     /// `crate::tests::tmp` holds the reason; a build that ships has no field.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     directory: Option<std::path::PathBuf>,
     /// A test's stand-in for another Fleet's mark, in place of this process's.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     marked_by: Option<String>,
 }
 
@@ -68,17 +68,17 @@ impl Detached {
         Detached {
             command,
             unmarked: false,
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             directory: None,
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             marked_by: None,
         }
     }
 
     /// Carry the mark of a Fleet that is not this process, so a test can spawn
     /// a Drone whose Fleet is gone, or another live one's.
-    #[cfg(test)]
-    pub(crate) fn marked_by(mut self, mark: &str) -> Detached {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn marked_by(mut self, mark: &str) -> Detached {
         self.marked_by = Some(mark.to_string());
         self
     }
@@ -145,7 +145,7 @@ impl Detached {
 
     /// The worktree the child runs in.
     pub fn in_directory(mut self, directory: impl AsRef<Path>) -> Detached {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         {
             self.directory = Some(directory.as_ref().to_path_buf());
         }
@@ -224,15 +224,15 @@ impl Detached {
     pub fn spawn(mut self) -> io::Result<Child> {
         // After `in_environment` cleared and filled it, so no caller's
         // environment can leave the mark out: `crate::orphans` reads it.
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         let mark = self.marked_by.take().or_else(crate::orphans::own_mark);
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "test-support")))]
         let mark = crate::orphans::own_mark();
         if let (false, Some(mark)) = (self.unmarked, mark) {
             self.command.env(crate::orphans::MARK, mark);
         }
         let child = self.command.spawn()?;
-        #[cfg(test)]
+        #[cfg(any(test, feature = "test-support"))]
         if let (Some(pid), Some(directory)) = (
             child.id().and_then(std::num::NonZeroU32::new),
             self.directory.as_deref(),

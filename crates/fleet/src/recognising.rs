@@ -27,7 +27,7 @@ impl Fleet
     /// happens to a board, a page or a session. **Nothing to log under**, as
     /// `scouts_left_gathering` has it: a Studio has no Job's log, and a store
     /// that will not read now answers the next read the same way.
-    pub(crate) async fn links_recognised(&self) -> usize {
+    pub async fn links_recognised(&self) -> usize {
         let mut store = self.store().lock().await;
         let Ok(links) = store.every_link() else {
             return 0;

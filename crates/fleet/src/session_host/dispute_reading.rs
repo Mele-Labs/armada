@@ -20,13 +20,13 @@ use crate::daemon::Fleet;
 use crate::judging::watched;
 
 /// How often the notices are looked over. The wait itself is the setting's.
-pub(crate) const EVERY: Duration = Duration::from_secs(60);
+pub const EVERY: Duration = Duration::from_secs(60);
 /// The most of the job's replies after the notice that are read.
 const REPLIES: usize = 5;
 
 /// What the model said of the replies.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Read {
+pub enum Read {
     PushedBack { why: String },
     Not,
 }
@@ -34,7 +34,7 @@ pub(crate) enum Read {
 impl Fleet
 {
     /// Read the replies to every notice whose wait is over, and keep a dispute where they pushed back.
-    pub(crate) async fn notices_read(self: &Arc<Self>) {
+    pub async fn notices_read(self: &Arc<Self>) {
         // Off, a kept notice stays unread, so switching back on reads it then.
         if !self.dispute_reviews_on() {
             return;
@@ -101,7 +101,7 @@ impl Fleet
     }
 
     /// `question` put once to `models.dispute` through the Judge's client and the proposer's budget.
-    pub(super) async fn dispute_asked(&self, question: &str, model: &str) -> Result<String, String> {
+    pub async fn dispute_asked(&self, question: &str, model: &str) -> Result<String, String> {
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let model = Model::named_at(model, None).unwrap_or_else(|_| proposing.model.clone());
         let ask = Ask::put(model, question, proposing.environment.clone())
@@ -125,11 +125,11 @@ fn replies_after<'a>(rows: &'a [SessionRow], notice_row: &str) -> Vec<&'a str> {
         .collect()
 }
 
-pub(crate) const PUSHBACK: &str = "pushback:";
+pub const PUSHBACK: &str = "pushback:";
 const WHY: &str = "why:";
 
 /// What the model is asked.
-pub(crate) fn question(notice: &str, replies: &[&str]) -> String {
+pub fn question(notice: &str, replies: &[&str]) -> String {
     let said: Vec<String> = replies.iter().enumerate().map(|(n, text)| format!("Reply {}:\n{}", n + 1, text.trim())).collect();
     format!(
         "A tool that supervises a coding agent sent it this notice:\n\n{notice}\n\n\
@@ -146,7 +146,7 @@ pub(crate) fn question(notice: &str, replies: &[&str]) -> String {
 }
 
 /// The model's answer, read. Anything but a `yes` is no pushback.
-pub(crate) fn read_of(reply: &str, replies: &[&str]) -> Read {
+pub fn read_of(reply: &str, replies: &[&str]) -> Read {
     let field = |name: &str| {
         reply.lines().find_map(|line| {
             let line = line.trim();

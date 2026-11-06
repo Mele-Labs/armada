@@ -15,15 +15,15 @@ use super::waiting::SESSION_WAITING_EMPTY;
 use crate::daemon::Fleet;
 
 /// The id of the item for one act: `rule_act:<row id>`.
-pub(crate) const RULE_ACT: &str = "rule_act:";
+pub const RULE_ACT: &str = "rule_act:";
 
 /// Choice 0 carries the act out, or tries a failed one again.
-pub(crate) const DO_IT: u32 = 0;
+pub const DO_IT: u32 = 0;
 /// Choice 1 records the act skipped.
-pub(crate) const SKIP: u32 = 1;
+pub const SKIP: u32 = 1;
 
 /// The items for the acts waiting on the owner, in the order they were planned.
-pub(crate) fn rule_act_items(acts: &[KeptRuleAct]) -> Vec<WaitingItem> {
+pub fn rule_act_items(acts: &[KeptRuleAct]) -> Vec<WaitingItem> {
     acts.iter().filter_map(rule_act_item).collect()
 }
 
@@ -60,7 +60,7 @@ impl Fleet
 {
     /// `answer_waiting` on a `rule_act` item. **The act is settled in the store first**, and a second
     /// answer finds it settled: the first one wins and the other is a 409.
-    pub(crate) async fn rule_act_chosen(&self, session: &str, item: &str, choice: Option<u32>) -> Result<SessionRecord, Refusal> {
+    pub async fn rule_act_chosen(&self, session: &str, item: &str, choice: Option<u32>) -> Result<SessionRecord, Refusal> {
         let go = match choice {
             Some(DO_IT) => true,
             Some(SKIP) => false,
@@ -99,7 +99,7 @@ impl Fleet
     }
 
     /// Dismissing the item is Skip.
-    pub(crate) async fn rule_act_skipped(&self, session: &str, item: &str) -> Result<(), Refusal> {
+    pub async fn rule_act_skipped(&self, session: &str, item: &str) -> Result<(), Refusal> {
         self.rule_act_chosen(session, item, Some(SKIP)).await.map(|_| ())
     }
 }

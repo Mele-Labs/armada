@@ -19,20 +19,20 @@ use crate::daemon::Fleet;
 use crate::rail;
 
 /// The delivering step, or an index past the last step. A 422.
-pub(crate) const STEP_NOT_SKIPPABLE: &str = "fleet.session_step_not_skippable";
+pub const STEP_NOT_SKIPPABLE: &str = "fleet.session_step_not_skippable";
 
 /// A jump to a step at or before the one the Job is on, or past the last step. A 422.
-pub(crate) const STEP_NOT_AHEAD: &str = "fleet.session_step_not_ahead";
+pub const STEP_NOT_AHEAD: &str = "fleet.session_step_not_ahead";
 
 /// What the agent opened on a step and still holds open: walk windows by address, drafts by row id.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct OpenOnStep {
+pub struct OpenOnStep {
     pub windows: Vec<String>,
     pub drafts: Vec<String>,
 }
 
 /// The windows and drafts still open that the thread shows since `since`, when the step began.
-pub(crate) fn open_since(rows: &[SessionRow], since: &str) -> OpenOnStep {
+pub fn open_since(rows: &[SessionRow], since: &str) -> OpenOnStep {
     let mut open = OpenOnStep::default();
     for row in rows {
         match row {
@@ -48,7 +48,7 @@ impl Fleet
 {
     /// `skip_session_step`: keep the skip, enter it on the timeline, take back what the agent opened on
     /// the step it is on, and tell a Job that has run.
-    pub(crate) async fn step_skipped(self: &Arc<Self>, skip: SkipSessionStep) -> Result<SessionRecord, Refusal> {
+    pub async fn step_skipped(self: &Arc<Self>, skip: SkipSessionStep) -> Result<SessionRecord, Refusal> {
         let (id, by) = self.copy_placed(Some(&skip.session_id))?;
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -149,7 +149,7 @@ impl Fleet
     /// `jump_session_step`: skip every step from the one the Job is on up to the one before the target,
     /// in one write, enter one line on the timeline, take back what the agent opened on the step it was
     /// on, and tell a Job that has run once. The rail places the Job and sends the target's instructions.
-    pub(crate) async fn step_jumped(self: &Arc<Self>, jump: JumpSessionStep) -> Result<SessionRecord, Refusal> {
+    pub async fn step_jumped(self: &Arc<Self>, jump: JumpSessionStep) -> Result<SessionRecord, Refusal> {
         let (id, by) = self.copy_placed(Some(&jump.session_id))?;
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(

@@ -23,7 +23,7 @@ impl Fleet
 {
     /// When the Manifest was last changed by a commit made at or before
     /// `before`.
-    pub(super) fn edited_before(
+    pub fn edited_before(
         &self,
         place: &Place,
         before: &Timestamp,
@@ -40,7 +40,7 @@ impl Fleet
 
     /// The entry a run names and the tree it would run in, checked in the
     /// order that refuses before anything is written.
-    pub(super) fn entry_at(
+    pub fn entry_at(
         &self,
         place: &Place,
         name: &str,
@@ -62,7 +62,7 @@ impl Fleet
         Ok((entries::declared(manifest).named(name)?, tree))
     }
 
-    pub(super) fn history_at(&self, place: &Place) -> (Vec<Record>, Vec<ipc::UnreadableRun>) {
+    pub fn history_at(&self, place: &Place) -> (Vec<Record>, Vec<ipc::UnreadableRun>) {
         let running = self.rehearsals().in_flight(&place.owner).map(|out| out.id);
         records::every(
             place.checkout.records_root(),
@@ -71,14 +71,14 @@ impl Fleet
         )
     }
 
-    pub(super) fn no_such_run(&self, place: &Place, id: String) -> Refusal {
+    pub fn no_such_run(&self, place: &Place, id: String) -> Refusal {
         self.refused_run(
             &place.owner,
             Unrehearsable::NoSuchRun { id },
         )
     }
 
-    pub(super) fn observed_at(&self, place: &Place, id: &str) -> Option<Seen> {
+    pub fn observed_at(&self, place: &Place, id: &str) -> Option<Seen> {
         let (root, handle) = (place.checkout.records_root(), place.handle.as_str());
         let (name, live) = match self.rehearsals().watching(&place.owner, id) {
             Some((name, watch)) => (name, Some(watch)),
@@ -106,7 +106,7 @@ impl Fleet
 
     /// One run's log. **The owner's own runs are the allowlist**: an id that
     /// names none of them reaches no file.
-    pub(super) fn output_at(&self, place: &Place, id: &str) -> Option<ipc::RunOutput> {
+    pub fn output_at(&self, place: &Place, id: &str) -> Option<ipc::RunOutput> {
         let (root, handle) = (place.checkout.records_root(), place.handle.as_str());
         let name = match self
             .rehearsals()
@@ -122,7 +122,7 @@ impl Fleet
         name.and_then(|name| records::output(root, handle, id, name))
     }
 
-    pub(super) fn refused_run(&self, owner: &Owner, why: Unrehearsable) -> Refusal {
+    pub fn refused_run(&self, owner: &Owner, why: Unrehearsable) -> Refusal {
         let (code, refusal) = why.spelled();
         let raised = WireError::raised(code, why.to_string(), self.run_id());
         let raised = match why.faults() {
@@ -136,7 +136,7 @@ impl Fleet
     /// Take the owner's one run slot, make the run's directory, and spawn it.
     /// `verify` is the Verify this run is a step of, where it is one.
     #[allow(clippy::too_many_arguments)]
-    pub(super) async fn started_at(
+    pub async fn started_at(
         self: Arc<Self>,
         place: Place,
         tree: Tree,
@@ -193,7 +193,7 @@ impl Fleet
         Ok(underway)
     }
 
-    pub(super) async fn stopped_at(
+    pub async fn stopped_at(
         &self,
         place: &Place,
         id: String,
@@ -216,7 +216,7 @@ impl Fleet
         })
     }
 
-    pub(super) async fn undone_at(
+    pub async fn undone_at(
         &self,
         place: &Place,
         id: String,
@@ -283,7 +283,7 @@ impl Fleet
 {
     /// Where the Manifest Fleet holds sits, relative to the repository, so the
     /// same file can be read in a worktree and in git.
-    pub(super) fn manifest_file(&self, served: &crate::repositories::Served) -> PathBuf {
+    pub fn manifest_file(&self, served: &crate::repositories::Served) -> PathBuf {
         let held = served.manifest().path();
         held.strip_prefix(served.root())
             .map(Path::to_path_buf)

@@ -10,9 +10,9 @@
 //! stays here: the budget, the standing rules a brief carries, and every way a
 //! call can fail.
 
-mod running;
+pub mod running;
 
-pub(crate) use running::{answered, said, waiting, watched};
+pub use running::{answered, said, waiting, watched};
 
 use std::fmt;
 use std::time::Duration;
@@ -60,7 +60,7 @@ pub struct Explaining {
 ///
 /// `root` is the repository's own checkout and never a Job's worktree, so a
 /// Drone cannot rewrite what its Judge is told the repository requires.
-pub(crate) fn standing(manifest: &config::Manifest, root: &str, cap: usize) -> Standing {
+pub fn standing(manifest: &config::Manifest, root: &str, cap: usize) -> Standing {
     let Some(path) = manifest.standing_rules() else {
         return Standing::unstated();
     };
@@ -145,7 +145,7 @@ impl fmt::Display for CallFailed {
 impl CallFailed {
     /// One short sentence for a surface that draws it in a line. [`Display`](fmt::Display) keeps
     /// everything a log wants, and for a refused call that is the whole of what it printed.
-    pub(crate) fn in_a_line(&self, call: &str) -> String {
+    pub fn in_a_line(&self, call: &str) -> String {
         let CallFailed::Refused { code, said, .. } = self else {
             return self.to_string();
         };

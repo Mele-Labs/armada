@@ -8,7 +8,7 @@
 //! into the file once, at the first start that finds no file, and after that
 //! the rows are never read again. [`serving`] is the part that speaks for Fleet.
 
-mod serving;
+pub mod serving;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -164,7 +164,7 @@ fn read_checked(path: &Path, base: &Resolved) -> Result<Saved, Refused> {
 
 /// `config`'s table, then the four rules a Bridge preference is held to — a
 /// theme's name, a layout.json, key bindings Bridge can read, a time format of three switches.
-pub(crate) fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Result<Saved, Refused> {
+pub fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Result<Saved, Refused> {
     let saved = checked(document, base.supplied(), base.env())?;
     let refused = |key: &str, why: String| Refused { key: Some(key.to_string()), reason: format!("`{key}` {why}") };
     if let Some(SettingValue::Text(theme)) = saved.get(keys::THEME.name()) {
@@ -222,7 +222,7 @@ fn wire_kind(kind: &Kind, options: impl FnOnce() -> Vec<String>) -> SettingKind 
 }
 
 /// A value the file holds, as the wire carries it.
-pub(crate) fn wire_value(value: &SettingValue) -> ipc::SettingValue {
+pub fn wire_value(value: &SettingValue) -> ipc::SettingValue {
     match value {
         SettingValue::Null => ipc::SettingValue::Null,
         SettingValue::Bool(flag) => ipc::SettingValue::Bool(*flag),
@@ -237,7 +237,7 @@ pub(crate) fn wire_value(value: &SettingValue) -> ipc::SettingValue {
 }
 
 /// A value off the wire, as the file will hold it.
-pub(crate) fn file_value(value: &ipc::SettingValue) -> SettingValue {
+pub fn file_value(value: &ipc::SettingValue) -> SettingValue {
     match value {
         ipc::SettingValue::Null => SettingValue::Null,
         ipc::SettingValue::Bool(flag) => SettingValue::Bool(*flag),

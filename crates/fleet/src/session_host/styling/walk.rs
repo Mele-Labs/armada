@@ -51,7 +51,7 @@ struct Package {
 /// The stylesheets nearest `named`, or else the first of `tiers` with a file in it. `tiers` are
 /// the Job's changed files, then those it read, then those its plan names. `root` is the
 /// checkout's canonical path.
-pub(crate) fn sources_near(root: &Path, named: Option<&str>, tiers: &[Vec<String>]) -> StyleSources {
+pub fn sources_near(root: &Path, named: Option<&str>, tiers: &[Vec<String>]) -> StyleSources {
     let packages = packages_of(root);
     let start = match named {
         Some(path) => Some(path.to_string()),
@@ -82,7 +82,7 @@ fn is_ui(root: &Path, path: &str) -> bool {
 }
 
 /// What the file at `rel` is, or why a frame cannot use it as it stands.
-pub(crate) fn usable_kind(root: &Path, rel: &str) -> Result<StyleKind, String> {
+pub fn usable_kind(root: &Path, rel: &str) -> Result<StyleKind, String> {
     let file = inside(root, rel).filter(|file| file.is_file()).ok_or_else(|| String::from("is not a file inside this job's checkout"))?;
     let kind = if is_style(&file) { kind_of(&file, &read_head(&file)) } else { theme_file_kind(&file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()).unwrap_or(StyleKind::ThemeModule) };
     if matches!(kind, StyleKind::Scss | StyleKind::Less | StyleKind::TailwindConfig | StyleKind::ThemeModule) {
@@ -102,7 +102,7 @@ fn kind_name(kind: StyleKind) -> &'static str {
 }
 
 /// `rel` as a canonical path inside `root`, or `None` where it is missing or leads out.
-pub(crate) fn inside(root: &Path, rel: &str) -> Option<PathBuf> {
+pub fn inside(root: &Path, rel: &str) -> Option<PathBuf> {
     let joined = root.join(rel.trim_start_matches("./"));
     let canonical = std::fs::canonicalize(joined).ok()?;
     canonical.starts_with(root).then_some(canonical)

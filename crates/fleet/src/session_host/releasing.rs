@@ -25,7 +25,7 @@ impl Fleet
     /// [`change_slot_pool`](Fleet::change_slot_pool), with a `release` whose
     /// holder is a session Fleet hosts taken here, where the ledger can be asked.
     /// Any other holder, a terminal's, goes the way it always did.
-    pub(crate) async fn slot_pool_changed(
+    pub async fn slot_pool_changed(
         &self,
         asked: ChangeSlotPool,
         manifest_id: Option<&ManifestId>,
@@ -57,7 +57,7 @@ impl Fleet
     /// checkout holding files no commit has is refused as `fleet.slot_uncommitted`, where a Clear
     /// commits them to the Job's branch. Asked after the turn, so a Job that is running is
     /// refused as working first, and before anything is ended.
-    pub(super) async fn hosted_released(
+    pub async fn hosted_released(
         &self,
         served: &Served,
         slot: u32,

@@ -25,7 +25,7 @@ const TICKET: &str = "ticket";
 
 /// `word` taken off every state of `ticket` that lists it and added to `state`'s, matched exactly.
 /// The sentence says why where `state` is not a state the tracker is read for.
-pub(crate) fn taught(ticket: &mut LifecycleDefinition, word: &str, state: &str) -> Result<(), String> {
+pub fn taught(ticket: &mut LifecycleDefinition, word: &str, state: &str) -> Result<(), String> {
     let Some(target) = ticket.states.iter().position(|one| one.id == state) else {
         let held: Vec<&str> = ticket.states.iter().map(|one| one.id.as_str()).collect();
         return Err(format!("The {} has no state `{state}`; its states are {}", ticket.name, held.join(", ")));
@@ -84,7 +84,7 @@ impl Fleet
 {
     /// Teach `word` as `state` in Kit's Ticket for the repository, then in each live Job's copy the
     /// scope reaches, then read again each ticket those Jobs hold that last said `word`.
-    pub(crate) async fn ticket_word_taught(&self, asked: TeachTicketWord) -> Result<TicketWordTaught, Refusal> {
+    pub async fn ticket_word_taught(&self, asked: TeachTicketWord) -> Result<TicketWordTaught, Refusal> {
         let word = asked.word.trim().to_string();
         let unfit = |said: String| self.piece_refusal(PIECE_UNFIT, said, None);
         if word.is_empty() {

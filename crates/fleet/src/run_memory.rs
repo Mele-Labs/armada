@@ -18,9 +18,9 @@
 //! **A failed guess is never kept** (a command whose every run failed is not a fact), **and a
 //! dropped line never comes back**: it sits on a deny list the merge reads first.
 
-pub(crate) mod cloud;
-pub(crate) mod manifest;
-pub(crate) mod places;
+pub mod cloud;
+pub mod manifest;
+pub mod places;
 
 use std::path::{Path, PathBuf};
 
@@ -37,29 +37,29 @@ use crate::clock::rfc3339_utc;
 use crate::daemon::Fleet;
 
 /// A place that cannot be used as asked. A 422.
-pub(crate) const PLACE_REFUSED: &str = "fleet.run_place_refused";
+pub const PLACE_REFUSED: &str = "fleet.run_place_refused";
 /// A cloud place with nothing to sign in with: no profile for the repository, or no credentials
 /// for the bucket. A 422.
-pub(crate) const CLOUD_UNSIGNED: &str = "fleet.run_cloud_unsigned";
+pub const CLOUD_UNSIGNED: &str = "fleet.run_cloud_unsigned";
 /// A cloud place that did not answer. A 422.
-pub(crate) const CLOUD_UNREACHABLE: &str = "fleet.run_cloud_unreachable";
+pub const CLOUD_UNREACHABLE: &str = "fleet.run_cloud_unreachable";
 /// A cloud place that answered no. A 422.
-pub(crate) const CLOUD_REFUSED: &str = "fleet.run_cloud_refused";
+pub const CLOUD_REFUSED: &str = "fleet.run_cloud_refused";
 /// A repository Fleet does not serve. A 404.
-pub(crate) const NOT_SERVED: &str = "fleet.run_memory_repository_not_served";
+pub const NOT_SERVED: &str = "fleet.run_memory_repository_not_served";
 
 /// The most records a session keeps, oldest dropped first.
 const MOST_RECORDS: usize = 2000;
 
 /// The commands a session ran and what came back, in memory.
 #[derive(Default)]
-pub(crate) struct RunLog {
+pub struct RunLog {
     records: Vec<Record>,
 }
 
 impl RunLog {
     /// A stream line names no folder, so a call without one ran where the session runs.
-    pub(crate) fn heard(&mut self, records: Vec<Record>, directory: &str) {
+    pub fn heard(&mut self, records: Vec<Record>, directory: &str) {
         for mut record in records {
             if let Record::Call { cwd, .. } = &mut record {
                 if cwd.is_none() && !directory.is_empty() {
@@ -73,7 +73,7 @@ impl RunLog {
     }
 
     /// What the session ran, oldest first: the Logbook's record of commands.
-    pub(crate) fn records(&self) -> &[Record] {
+    pub fn records(&self) -> &[Record] {
         &self.records
     }
 }
@@ -112,7 +112,7 @@ fn wire_kind(word: &str) -> Option<RunFactKind> {
     })
 }
 
-pub(crate) fn place_word(place: RunPlace) -> &'static str {
+pub fn place_word(place: RunPlace) -> &'static str {
     match place {
         RunPlace::ThisMac => "this_mac",
         RunPlace::Repository => "repository",
@@ -121,7 +121,7 @@ pub(crate) fn place_word(place: RunPlace) -> &'static str {
     }
 }
 
-pub(crate) fn place_of(word: &str) -> RunPlace {
+pub fn place_of(word: &str) -> RunPlace {
     match word {
         "repository" => RunPlace::Repository,
         "synced" => RunPlace::Synced,
@@ -135,15 +135,15 @@ fn instant(millis: u64) -> Instant {
 }
 
 /// A Job's tree and branch, where `repository` writes.
-pub(crate) struct JobTree {
-    pub(crate) path: String,
-    pub(crate) branch: String,
+pub struct JobTree {
+    pub path: String,
+    pub branch: String,
 }
 
 impl Fleet
 {
     /// What a session's stream said it ran.
-    pub(crate) fn runs_heard(&self, runtime: &crate::session_host::Runtime, records: Vec<Record>) {
+    pub fn runs_heard(&self, runtime: &crate::session_host::Runtime, records: Vec<Record>) {
         let mut state = runtime.state();
         let directory = state.directory.clone();
         state.runs.heard(records, &directory);
@@ -151,7 +151,7 @@ impl Fleet
 
     /// A turn ended: derive what the session has run, merge it, and write it to the place.
     /// Quiet on every failure; the facts wait and the next turn tries again.
-    pub(crate) async fn runs_learnt(&self, id: &str, runtime: &crate::session_host::Runtime) {
+    pub async fn runs_learnt(&self, id: &str, runtime: &crate::session_host::Runtime) {
         if let Some((root, job)) = self.runs_kept(id, runtime).await {
             self.run_memory_written(&root, job).await;
         }
@@ -160,7 +160,7 @@ impl Fleet
     /// Derive what the session has run and merge it into the store, so the next Job started is
     /// told it; the place is written when the turn ends. The repository and the Job's tree, where
     /// anything was merged.
-    pub(crate) async fn runs_kept(
+    pub async fn runs_kept(
         &self,
         id: &str,
         runtime: &crate::session_host::Runtime,
@@ -201,7 +201,7 @@ impl Fleet
 
     /// The first time a repository is touched: the runs its past sessions show are merged in, and
     /// the place is `this_mac` until a person chooses another.
-    pub(crate) async fn run_memory_started(&self, root: &str) -> Result<(), Refusal> {
+    pub async fn run_memory_started(&self, root: &str) -> Result<(), Refusal> {
         let started = self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))?.is_some();
         if started {
             return Ok(());
@@ -232,7 +232,7 @@ impl Fleet
     }
 
     /// Write what a repository remembers to its place, and say where each fact stands.
-    pub(crate) async fn run_memory_written(&self, root: &str, job: Option<JobTree>) {
+    pub async fn run_memory_written(&self, root: &str, job: Option<JobTree>) {
         let Ok(Some(KeptPlace { place, synced_folder: folder, cloud })) = self.store().lock().await.run_memory_place(root) else {
             return;
         };
@@ -339,7 +339,7 @@ impl Fleet
     }
 
     /// The served repository a root names.
-    pub(crate) fn run_repository(&self, repository: &str) -> Result<String, Refusal> {
+    pub fn run_repository(&self, repository: &str) -> Result<String, Refusal> {
         match self.repositories().served().iter().find(|one| one.root() == repository) {
             Some(served) => Ok(served.root().to_string()),
             None => Err(Refusal::NotFound(WireError::raised(
@@ -350,7 +350,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn run_fault(&self, why: impl std::fmt::Display) -> Refusal {
+    pub fn run_fault(&self, why: impl std::fmt::Display) -> Refusal {
         Refusal::Fault(WireError::raised("fleet.run_memory_failed", why.to_string(), self.run_id()))
     }
 
@@ -393,7 +393,7 @@ impl Fleet
     }
 
     /// `get_run_memory`.
-    pub(crate) async fn run_memory_read(&self, repository: String) -> Result<RunMemory, Refusal> {
+    pub async fn run_memory_read(&self, repository: String) -> Result<RunMemory, Refusal> {
         let root = self.run_repository(&repository)?;
         self.run_memory_started(&root).await?;
         // A read is not a reason to call the cloud: what it holds is brought level when a turn
@@ -406,7 +406,7 @@ impl Fleet
     }
 
     /// `get_run_memory_place`.
-    pub(crate) async fn run_memory_place_read(&self, repository: String) -> Result<RunMemoryPlace, Refusal> {
+    pub async fn run_memory_place_read(&self, repository: String) -> Result<RunMemoryPlace, Refusal> {
         let root = self.run_repository(&repository)?;
         let place = self.store().lock().await.run_memory_place(&root).map_err(|why| self.run_fault(why))?;
         Ok(match place {
@@ -421,12 +421,12 @@ impl Fleet
     }
 
     /// The place chosen for the repository at `root`, `None` where none was.
-    pub(crate) async fn kept_place(&self, root: &str) -> Result<Option<store::KeptPlace>, Refusal> {
+    pub async fn kept_place(&self, root: &str) -> Result<Option<store::KeptPlace>, Refusal> {
         self.store().lock().await.run_memory_place(root).map_err(|why| self.run_fault(why))
     }
 
     /// `set_run_memory_place`.
-    pub(crate) async fn run_memory_place_set(&self, chosen: RunMemoryPlace) -> Result<RunMemoryPlace, Refusal> {
+    pub async fn run_memory_place_set(&self, chosen: RunMemoryPlace) -> Result<RunMemoryPlace, Refusal> {
         let root = self.run_repository(&chosen.repository)?;
         let refused = |code: &str, said: String| Refusal::Unacceptable(WireError::raised(code, said, self.run_id()));
         let mut cloud = None;
@@ -464,7 +464,7 @@ impl Fleet
     }
 
     /// `drop_run_fact`.
-    pub(crate) async fn run_fact_dropped(&self, drop: DropRunFact) -> Result<RunMemory, Refusal> {
+    pub async fn run_fact_dropped(&self, drop: DropRunFact) -> Result<RunMemory, Refusal> {
         let root = self.run_repository(&drop.repository)?;
         self.run_memory_started(&root).await?;
         let at = self.now().as_str().to_string();

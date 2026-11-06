@@ -8,7 +8,7 @@ use crate::tree_paths::Tree;
 
 /// Where a directory is, as far as Fleet can tell.
 #[derive(Debug, Default, PartialEq, Eq)]
-pub(crate) struct Placed {
+pub struct Placed {
     pub manifest: Option<String>,
     pub slot: Option<u32>,
 }
@@ -16,7 +16,7 @@ pub(crate) struct Placed {
 /// The repository and pool slot `cwd` stands in, over `roots` of
 /// `(manifest, repository root)`. **The deepest root wins**, so a repository
 /// nested in another is its own.
-pub(crate) fn placed(cwd: &str, roots: &[(String, String)]) -> Placed {
+pub fn placed(cwd: &str, roots: &[(String, String)]) -> Placed {
     let mut best: Option<(usize, &str, &str)> = None;
     for (manifest, root) in roots {
         let root = root.trim_end_matches('/');
@@ -49,7 +49,7 @@ pub(crate) fn placed(cwd: &str, roots: &[(String, String)]) -> Placed {
 
 impl Fleet
 {
-    pub(crate) fn ledger_roots(&self) -> Vec<(String, String)> {
+    pub fn ledger_roots(&self) -> Vec<(String, String)> {
         self.repositories()
             .hosted()
             .iter()
@@ -64,7 +64,7 @@ impl Fleet
 
     /// The worktree `cwd` stands in: the pool slot's folder where it is in one, else `cwd` itself.
     /// The one place Fleet can tell where the tree starts, which a Job's touches are named from.
-    pub(crate) fn worktree_of(&self, cwd: &str) -> String {
+    pub fn worktree_of(&self, cwd: &str) -> String {
         let roots = self.ledger_roots();
         let place = placed(cwd, &roots);
         match (place.manifest, place.slot) {
@@ -77,7 +77,7 @@ impl Fleet
         .unwrap_or_else(|| cwd.to_string())
     }
 
-    pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
+    pub fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
             format!("a job report needs {what}"),
@@ -85,14 +85,14 @@ impl Fleet
         ))
     }
 
-    pub(crate) fn ledger_fault(&self, why: store::WriteError) -> Refusal {
+    pub fn ledger_fault(&self, why: store::WriteError) -> Refusal {
         self.refusal(Adrift::Writing(why))
     }
 
     /// The reading the store kept, for a Fleet no session has reported to since it started: the
     /// windows not yet reset, taken as the one held so the next report is judged against it. Nothing
     /// is published or judged for it; only a session's own report does that.
-    pub(crate) async fn plan_usage_restored(&self) -> ipc::PlanUsage {
+    pub async fn plan_usage_restored(&self) -> ipc::PlanUsage {
         let Ok(Some(kept)) = self.store().lock().await.plan_reading() else {
             return self.hosts().plan_usage();
         };
@@ -111,7 +111,7 @@ impl Fleet
     }
 
     /// The row, with everything its holder holds, as the wire carries it.
-    pub(crate) fn ledger_row(
+    pub fn ledger_row(
         &self,
         store: &Store,
         session: &KeptSession,
@@ -121,7 +121,7 @@ impl Fleet
 
     /// Everything [`ledger_built`](Self::ledger_built) needs from the store, and nothing else:
     /// a caller that holds the lock takes this and lets go before the row is drawn.
-    pub(crate) fn ledger_reads(
+    pub fn ledger_reads(
         &self,
         store: &Store,
         session: &KeptSession,
@@ -130,7 +130,7 @@ impl Fleet
     }
 
     /// [`ledger_reads`](Self::ledger_reads) for many rows under one hold of the lock, which share `forecasts`.
-    pub(crate) fn ledger_reads_with(
+    pub fn ledger_reads_with(
         &self,
         store: &Store,
         session: &KeptSession,
@@ -222,7 +222,7 @@ impl Fleet
     /// What the session waits on, off what [`ledger_reads`](Self::ledger_reads) took, for a caller that
     /// wants no more of the row than that. **The row's own list**, drawn whole, so the wait a step
     /// raises is answered and dismissed as any other item is.
-    pub(crate) fn ledger_waiting(
+    pub fn ledger_waiting(
         &self,
         session: &KeptSession,
         reads: LedgerReads,
@@ -232,7 +232,7 @@ impl Fleet
 
     /// The row off what [`ledger_reads`](Self::ledger_reads) took: the disk is read here, not
     /// under the store lock.
-    pub(crate) fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
+    pub fn ledger_built(&self, session: &KeptSession, reads: LedgerReads) -> SessionRecord {
         let mut record = session_wire(session, &reads.held);
         if session.state == store::SessionState::Live {
             self.slots_held_drawn(session, &mut record.attachments);
@@ -439,7 +439,7 @@ impl Fleet
     }
 
     /// Keep the version a mod reported. A fact that carries none leaves what is kept.
-    pub(super) fn mod_said(session: &mut KeptSession, version: Option<String>) -> bool {
+    pub fn mod_said(session: &mut KeptSession, version: Option<String>) -> bool {
         let Some(version) = version.filter(|one| session.mod_version.as_ref() != Some(one)) else {
             return false;
         };
@@ -467,7 +467,7 @@ impl Fleet
     /// of the worktree it lies in: one the Session stands in, a pool slot whose lease is not
     /// another's, or any other linked worktree. **A write to the main checkout is not credited**:
     /// Fleet cannot tell whose change in it a file is.
-    pub(super) fn session_wrote(&self, store: &Store, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
+    pub fn session_wrote(&self, store: &Store, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
         let Some(manifest) = placed(&session.cwd, roots).manifest else {
             return;
         };

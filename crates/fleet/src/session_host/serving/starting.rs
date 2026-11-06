@@ -6,7 +6,7 @@ impl Fleet
 {
     /// The model the session runs on, as its process or its mod named it, and the window it last
     /// reported: what a subagent on the same model id is measured against. `None` unless both are known.
-    pub(super) async fn parent_window(&self, id: &str) -> Option<(String, u64)> {
+    pub async fn parent_window(&self, id: &str) -> Option<(String, u64)> {
         let window = self.store().lock().await.session(id).ok().flatten()?.figures.context_window?;
         let model = self.hosts().of(id).state().resolved_model.clone();
         let model = model.or_else(|| self.hosts().terminals().facts_of(id).and_then(|facts| facts.model))?;
@@ -14,7 +14,7 @@ impl Fleet
     }
 
     /// A hosted session's ledger row and its hosting, marked as `marked` says.
-    pub(crate) async fn started_hosted(
+    pub async fn started_hosted(
         &self,
         mut start: StartSession,
         marked: Marked,

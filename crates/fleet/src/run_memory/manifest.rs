@@ -53,15 +53,15 @@ fn edit_of(run: &KeptRun) -> Option<Edit> {
 
 /// What a write did.
 #[derive(Default)]
-pub(crate) struct Written {
+pub struct Written {
     /// Each run, with `Ok` where `armada.yml` now holds it and why not where it does not.
-    pub(crate) standing: Vec<(KeptRun, Result<(), String>)>,
+    pub standing: Vec<(KeptRun, Result<(), String>)>,
     /// The files changed, relative to the tree, to be committed.
-    pub(crate) changed: Vec<String>,
+    pub changed: Vec<String>,
 }
 
 /// Write `runs` into the `armada.yml` of each workspace under `tree`.
-pub(crate) fn write(tree: &Path, runs: &[KeptRun]) -> Written {
+pub fn write(tree: &Path, runs: &[KeptRun]) -> Written {
     let mut written = Written::default();
     let mut by_workspace: BTreeMap<&str, Vec<&KeptRun>> = BTreeMap::new();
     for run in runs {

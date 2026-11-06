@@ -21,7 +21,7 @@ use crate::build_record::{
 /// **A row with no first edit is filled from the timeline first**, in one bounded read of that
 /// Session's own entries: what Fleet heard before this run started, or before the row was made, is
 /// there and not in the row.
-pub(crate) fn build_heard(store: &mut Store, id: &str, heard: &Observed, now: &str) -> Result<bool, WriteError> {
+pub fn build_heard(store: &mut Store, id: &str, heard: &Observed, now: &str) -> Result<bool, WriteError> {
     let mut build = store.session_build(id)?;
     let mut tasks = store.session_build_tasks(id)?;
     if heard.begins_work() {
@@ -65,7 +65,7 @@ fn work_from(store: &Store, id: &str) -> Result<String, WriteError> {
 
 /// What a row's build is derived from, taken from the store.
 #[derive(Default)]
-pub(crate) struct BuildReads {
+pub struct BuildReads {
     kept: Option<(KeptBuild, Vec<KeptTask>)>,
     road: RoadTimes,
     pull_since: Option<String>,
@@ -77,7 +77,7 @@ pub(crate) struct BuildReads {
 /// It is a reading of the repository's recent landings and says nothing of the Session, yet costs
 /// twenty road reads, so a list of every Session paid it once per row.
 #[derive(Default)]
-pub(crate) struct Forecasts(HashMap<String, Vec<BuildStopId>>);
+pub struct Forecasts(HashMap<String, Vec<BuildStopId>>);
 
 impl Forecasts {
     fn of(&mut self, store: &Store, manifest: &str) -> Result<Vec<BuildStopId>, WriteError> {
@@ -92,7 +92,7 @@ impl Forecasts {
 
 /// Read what the build is derived from. A Session with no kept build reads nothing more. A caller
 /// reading several rows under one hold of the lock shares `forecasts` between them.
-pub(crate) fn build_read(
+pub fn build_read(
     store: &Store,
     session: &KeptSession,
     held: &[KeptAttachment],
@@ -126,7 +126,7 @@ pub(crate) fn build_read(
 
 /// The stops a repository's last [`FORECAST_WINDOW`] landed pull requests (those a Session held)
 /// usually reached. Each is read over the stretch from the Session's previous landing to its own.
-pub(crate) fn forecast_of(store: &Store, manifest: &str) -> Result<Vec<BuildStopId>, WriteError> {
+pub fn forecast_of(store: &Store, manifest: &str) -> Result<Vec<BuildStopId>, WriteError> {
     let mut history = Vec::new();
     for landed in store.landed_pulls(manifest, FORECAST_WINDOW)? {
         let from = store.previous_landing(&landed.session, manifest, &landed.merged_at)?.unwrap_or_default();
@@ -145,7 +145,7 @@ pub(crate) fn forecast_of(store: &Store, manifest: &str) -> Result<Vec<BuildStop
 
 impl BuildReads {
     /// The record, absent where nothing was observed of the Session's work.
-    pub(crate) fn record(&self, stuck: bool, workers: Vec<String>) -> Option<SessionBuild> {
+    pub fn record(&self, stuck: bool, workers: Vec<String>) -> Option<SessionBuild> {
         let (build, tasks) = self.kept.as_ref()?;
         Some(derived(&Read {
             build,

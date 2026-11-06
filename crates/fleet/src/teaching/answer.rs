@@ -21,12 +21,12 @@ use crate::mods::{fleet_rules, stylesheet};
 /// The most characters of a note, and its most lines: what the Logbook keeps an entry to.
 const MOST_CHARS: usize = 400;
 const MOST_LINES: usize = 2;
-pub(super) const MOST_NAME: usize = 60;
+pub const MOST_NAME: usize = 60;
 const MOST_TWEAKS: usize = 12;
 
 /// Why an answer is not a proposal.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Unfit {
+pub enum Unfit {
     /// It is not an object with the fields asked for. The call failed.
     Unread(String),
     Words(String),
@@ -39,33 +39,33 @@ pub(crate) enum Unfit {
 }
 
 /// What an answer is read against.
-pub(crate) struct Context<'a> {
+pub struct Context<'a> {
     /// The selected words, or what a pressed thing shows.
-    pub(crate) subject: &'a str,
-    pub(crate) kind: TeachingSourceKind,
-    pub(crate) reach: TeachingReach,
+    pub subject: &'a str,
+    pub kind: TeachingSourceKind,
+    pub reach: TeachingReach,
     /// The notice a `notice` source was pressed on.
-    pub(crate) notice: Option<&'a str>,
+    pub notice: Option<&'a str>,
     /// The text of that notice, which a rule's pattern must find words in.
-    pub(crate) notice_text: Option<&'a str>,
-    pub(crate) session: Option<&'a str>,
+    pub notice_text: Option<&'a str>,
+    pub session: Option<&'a str>,
     /// The Manifest id of the repository the teaching is in.
-    pub(crate) manifest: Option<&'a str>,
+    pub manifest: Option<&'a str>,
     /// What a rule is read against. Absent where the source makes none.
-    pub(crate) rule: Option<&'a Ground>,
+    pub rule: Option<&'a Ground>,
 }
 
 /// What a source may propose.
-pub(crate) struct Allowed {
-    pub(crate) note: bool,
-    pub(crate) words: bool,
-    pub(crate) fleet: bool,
-    pub(crate) tweak: bool,
-    pub(crate) layout: bool,
-    pub(crate) rule: bool,
+pub struct Allowed {
+    pub note: bool,
+    pub words: bool,
+    pub fleet: bool,
+    pub tweak: bool,
+    pub layout: bool,
+    pub rule: bool,
 }
 
-pub(crate) fn allowed(kind: TeachingSourceKind) -> Allowed {
+pub fn allowed(kind: TeachingSourceKind) -> Allowed {
     let bridge = kind.is_bridge();
     Allowed {
         note: !bridge,
@@ -168,7 +168,7 @@ struct LayoutFile<'a> {
 }
 
 /// The proposal an answer makes, or why it is not one.
-pub(crate) fn read(said: &str, at: &Context) -> Result<TeachingProposal, Unfit> {
+pub fn read(said: &str, at: &Context) -> Result<TeachingProposal, Unfit> {
     let json = crate::review_runs::object_in(said).map_err(Unfit::Unread)?;
     let said: Said = crate::review_runs::said(json).map_err(Unfit::Unread)?;
     let may = allowed(at.kind);
@@ -193,7 +193,7 @@ pub(crate) fn read(said: &str, at: &Context) -> Result<TeachingProposal, Unfit> 
 }
 
 /// A note as a Logbook entry takes it, for the reach the person chose.
-pub(crate) fn note_fault(section: LogbookSection, kind: LogbookKind, text: &str, reach: TeachingReach) -> Option<String> {
+pub fn note_fault(section: LogbookSection, kind: LogbookKind, text: &str, reach: TeachingReach) -> Option<String> {
     let fits = match section {
         LogbookSection::Repo => matches!(kind, LogbookKind::Command | LogbookKind::Gotcha | LogbookKind::Convention),
         LogbookSection::Machine => kind == LogbookKind::Environment,
@@ -220,7 +220,7 @@ fn note(said: SaidNote, reach: TeachingReach) -> Result<TeachingNote, Unfit> {
 }
 
 /// Why a words rule cannot work in Bridge, where it cannot.
-pub(crate) fn words_fault(name: &str, pattern: &str, address: Option<&str>, example: &str) -> Option<String> {
+pub fn words_fault(name: &str, pattern: &str, address: Option<&str>, example: &str) -> Option<String> {
     if name.trim().is_empty() || name.chars().count() > MOST_NAME || name.chars().any(char::is_control) {
         return Some(format!("the name is 1 to {MOST_NAME} characters on one line"));
     }
@@ -292,13 +292,13 @@ fn rule(said: SaidFleet, at: &Context) -> Result<ProposedFleet, Unfit> {
 }
 
 /// The `tweak.css` a list of changes makes.
-pub(crate) fn tweak_css(changes: &[(String, String)]) -> String {
+pub fn tweak_css(changes: &[(String, String)]) -> String {
     let lines: String = changes.iter().map(|(token, now)| format!("  {token}: {now};\n")).collect();
     format!(":root {{\n{lines}}}\n")
 }
 
 /// Why these changes cannot be a tweak, where they cannot. **The stylesheet checks a theme gets.**
-pub(crate) fn tweak_fault(changes: &[(String, String)]) -> Option<String> {
+pub fn tweak_fault(changes: &[(String, String)]) -> Option<String> {
     if changes.is_empty() || changes.len() > MOST_TWEAKS {
         return Some(format!("a tweak sets 1 to {MOST_TWEAKS} tokens"));
     }

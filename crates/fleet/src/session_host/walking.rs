@@ -19,7 +19,7 @@ const APPROVED: &str = "Approved";
 
 /// The address an Approve message approves, or `None` where the text is anything else. Exactly the
 /// two shapes Bridge sends, so a person's own sentence that begins with the word is not one.
-pub(crate) fn approved_address(text: &str) -> Option<&str> {
+pub fn approved_address(text: &str) -> Option<&str> {
     let rest = text.trim().strip_prefix(APPROVED)?;
     if let Some(address) = rest.strip_prefix(": ") {
         return Some(address.trim());
@@ -31,7 +31,7 @@ pub(crate) fn approved_address(text: &str) -> Option<&str> {
 }
 
 /// The windows the Job showed that still stand: one artifact per page.
-pub(crate) fn walk_windows(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
+pub fn walk_windows(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::Attachment> {
     attachments.iter().filter(|one| {
         one.kind == "artifact"
             && one.detail.get("form").map(String::as_str) == Some("window")
@@ -40,18 +40,18 @@ pub(crate) fn walk_windows(attachments: &[ipc::Attachment]) -> impl Iterator<Ite
 }
 
 /// Whether the Job is changing the page now (`readiness.rs`).
-pub(crate) fn is_working(window: &ipc::Attachment) -> bool {
+pub fn is_working(window: &ipc::Attachment) -> bool {
     window.detail.get(super::readiness::WORKING).map(String::as_str) == Some("true")
 }
 
 /// Whether the page was changed after it was shown and has not been shown again. **Ready does not
 /// clear it**; only showing the page again does (`readiness.rs`).
-pub(crate) fn is_changed(window: &ipc::Attachment) -> bool {
+pub fn is_changed(window: &ipc::Attachment) -> bool {
     window.detail.get(super::readiness::CHANGED).map(String::as_str) == Some("true")
 }
 
 /// When the newest window row showing `walk` went out, or `None` for a page never shown.
-pub(crate) fn walk_shown_at<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a Instant> {
+pub fn walk_shown_at<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a Instant> {
     rows.iter().rev().find_map(|row| match row {
         SessionRow::Window { at, url, variations, .. } if url == walk || variations.iter().any(|take| take.url == walk) => Some(at),
         _ => None,
@@ -61,7 +61,7 @@ pub(crate) fn walk_shown_at<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'
 /// When the person approved the walk on `walk`, or `None` while he has not. **Only an Approve at or
 /// after the newest window row showing it counts**, so a page shown again must be approved again. A
 /// take's Approve is the window's, as it is for the walk item. A page never shown is not approved.
-pub(crate) fn walk_approval<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a Instant> {
+pub fn walk_approval<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a Instant> {
     let (shown, url, takes) = rows.iter().rev().find_map(|row| match row {
         SessionRow::Window { at, url, variations, .. }
             if url == walk || variations.iter().any(|take| take.url == walk) =>
@@ -96,7 +96,7 @@ fn page_of(address: &str) -> String {
 /// Whether a newer window replaced the one on `walk`: a later `window` row on another address shows
 /// one of its pages, page or take, compared by [`page_of`]. **Only the same page replaces**: a newer
 /// window of another page leaves this one waiting until his Approve.
-pub(crate) fn replaced(rows: &[SessionRow], walk: &str) -> bool {
+pub fn replaced(rows: &[SessionRow], walk: &str) -> bool {
     let pages = |url: &str, takes: &[ipc::WindowTake]| -> Vec<String> {
         std::iter::once(url).chain(takes.iter().map(|take| take.url.as_str())).map(page_of).collect()
     };
@@ -114,7 +114,7 @@ pub(crate) fn replaced(rows: &[SessionRow], walk: &str) -> bool {
 }
 
 /// The window on `walk`, page or take: the address it was shown on, from its newest row.
-pub(crate) fn window_of<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a str> {
+pub fn window_of<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a str> {
     rows.iter().rev().find_map(|row| match row {
         SessionRow::Window { url, variations, .. } if url == walk || variations.iter().any(|take| take.url == walk) => {
             Some(url.as_str())
@@ -126,13 +126,13 @@ pub(crate) fn window_of<'a>(rows: &'a [SessionRow], walk: &str) -> Option<&'a st
 /// Whether what Bridge said of a window is that nothing answered on its address: Chromium's own
 /// error (`ERR_CONNECTION_REFUSED`) or a code it gave no name, as `capture/failed.ts` words a failed
 /// load. A page that answered broken (`HTTP 500`, the error overlay) is still to be walked once fixed.
-pub(crate) fn could_not_load(why: &str) -> bool {
+pub fn could_not_load(why: &str) -> bool {
     let why = why.trim();
     why.starts_with("ERR_") || why.starts_with("load failed")
 }
 
 /// The address of the walk open on this thread: the newest `window` row, unless it has ended.
-pub(crate) fn open_walk(rows: &[SessionRow]) -> Option<&str> {
+pub fn open_walk(rows: &[SessionRow]) -> Option<&str> {
     rows.iter().rev().find_map(|row| match row {
         SessionRow::Window { url, ended_at, .. } => Some(ended_at.is_none().then_some(url.as_str())),
         _ => None,
@@ -142,14 +142,14 @@ pub(crate) fn open_walk(rows: &[SessionRow]) -> Option<&str> {
 impl Fleet
 {
     /// The address of the session's open walk. **A thread that will not read is no walk.**
-    pub(crate) async fn walk_open(&self, session: &str) -> Option<String> {
+    pub async fn walk_open(&self, session: &str) -> Option<String> {
         let rows = self.rows_of(session).await.ok()?;
         open_walk(&rows).map(str::to_string)
     }
 
     /// End the newest walk on `url` that is still open, whether `url` is its page or one of its
     /// takes: its row gets `ended_at` and is published again. Where none is open, nothing happens.
-    pub(crate) async fn walk_ended(&self, session: &str, url: &str) {
+    pub async fn walk_ended(&self, session: &str, url: &str) {
         let Ok(rows) = self.rows_of(session).await else {
             return;
         };
@@ -170,7 +170,7 @@ impl Fleet
     /// leaves his list and holds no plan, and its walk ends, so the job's questions are not refused
     /// for it. Showing the page again lifts the dismissal (`show_window`). **Only a window this job
     /// showed**, placed by the connection as `show_window` places it.
-    pub(crate) async fn window_withdrawn(
+    pub async fn window_withdrawn(
         &self,
         caller: Option<api::Caller>,
         withdraw: WithdrawWindow,

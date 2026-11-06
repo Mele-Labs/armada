@@ -21,10 +21,10 @@ use ipc::{Instant, SessionStanding, WaitingAct, WaitingActKind, WaitingItem, Wai
 
 /// A running turn that nothing has been heard from for this long is stuck. Ten minutes, and nothing
 /// measured it; carried as a constant until a user setting reads it.
-pub(crate) const STUCK_AFTER: Duration = Duration::from_secs(10 * 60);
+pub const STUCK_AFTER: Duration = Duration::from_secs(10 * 60);
 
 /// The facts a Session's standing is read from.
-pub(crate) struct Seen<'a> {
+pub struct Seen<'a> {
     /// A turn is running: how long since anything was heard from it. `None` between turns.
     pub running: Option<Duration>,
     /// A subagent of it is still at work, which a turn that ended to wait on it does not say.
@@ -56,7 +56,7 @@ pub(crate) struct Seen<'a> {
 }
 
 /// A Fleet tell whose refusal in prose is read, and the reader.
-pub(crate) struct Told<'a> {
+pub struct Told<'a> {
     /// When Fleet sent it: the id of the item a refusal raises.
     pub at: &'a str,
     /// The sentence of a reply that turns the tell down, if one does. Nothing until the model is loaded.
@@ -127,7 +127,7 @@ fn done<'a>(seen: &Seen<'a>) -> Option<(String, &'a str)> {
 /// `stuck_after` (never while it waits on the person); between turns a subagent at work is working,
 /// and a done wins over a reply. A reply that asks is no unread mark: it is an item, or the agent
 /// asked through a tool.
-pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
+pub fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
     if let Some(quiet) = seen.running {
         return if quiet > stuck_after && !seen.held {
             SessionStanding::Stuck
@@ -148,7 +148,7 @@ pub(crate) fn standing(seen: &Seen, stuck_after: Duration) -> SessionStanding {
 
 /// How a Session stands between turns with a background command or a Check of its own running: working,
 /// where it would be resting. **An ask in its reply still raises its item**, which [`derived`] reads apart.
-pub(crate) fn beside_the_turn(standing: SessionStanding, running: bool) -> SessionStanding {
+pub fn beside_the_turn(standing: SessionStanding, running: bool) -> SessionStanding {
     match standing {
         SessionStanding::Idle | SessionStanding::Replied if running => SessionStanding::Working,
         other => other,
@@ -156,7 +156,7 @@ pub(crate) fn beside_the_turn(standing: SessionStanding, running: bool) -> Sessi
 }
 
 /// The items Fleet derives from the turn: the done, a reply that asks, and one that turns a Fleet tell down.
-pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
+pub fn derived(seen: &Seen) -> Vec<WaitingItem> {
     let mut items = Vec::new();
     let done = done(seen);
     if let Some((id, since)) = &done {
@@ -216,7 +216,7 @@ fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingIt
 const TAIL: usize = 1500;
 
 /// The end of what the agent said, from the start of a line, for [`Seen::asks`] to read.
-pub(crate) fn tail(said: &str) -> String {
+pub fn tail(said: &str) -> String {
     let said = said.trim();
     let count = said.chars().count();
     if count <= TAIL {
@@ -232,7 +232,7 @@ pub(crate) fn tail(said: &str) -> String {
 
 /// The first line of what the agent said, as the item's text: trimmed, and no longer than a line of a
 /// card can hold.
-pub(crate) fn first_line(said: &str) -> String {
+pub fn first_line(said: &str) -> String {
     let line = said.lines().map(str::trim).find(|one| !one.is_empty()).unwrap_or("");
     if line.chars().count() <= 200 {
         return line.to_string();

@@ -18,32 +18,32 @@ use crate::rehearsing::records;
 
 /// Everything a server needs that is decided before it starts. Every `${port.NAME}` in `serve`,
 /// `ready`, `run` and the links is already resolved.
-pub(crate) struct Launch {
-    pub(crate) holder: Holder,
-    pub(crate) name: String,
-    pub(crate) manifest_id: ipc::ManifestId,
-    pub(crate) checkout: ipc::ServerCheckout,
+pub struct Launch {
+    pub holder: Holder,
+    pub name: String,
+    pub manifest_id: ipc::ManifestId,
+    pub checkout: ipc::ServerCheckout,
     /// Where under `.armada/servers/` its log directory goes.
-    pub(crate) under: String,
-    pub(crate) ports: Vec<ServerPort>,
-    pub(crate) links: Vec<ServerLink>,
-    pub(crate) by: StartedBy,
+    pub under: String,
+    pub ports: Vec<ServerPort>,
+    pub links: Vec<ServerLink>,
+    pub by: StartedBy,
     /// The Session whose agent asked for it, where one did.
-    pub(crate) session: Option<String>,
+    pub session: Option<String>,
     /// How a record left behind by a crashed Fleet says whose server this was.
-    pub(crate) whose: String,
-    pub(crate) run: Option<String>,
-    pub(crate) serve: String,
-    pub(crate) ready: Option<String>,
-    pub(crate) worktree: PathBuf,
-    pub(crate) env: Vec<(String, String)>,
+    pub whose: String,
+    pub run: Option<String>,
+    pub serve: String,
+    pub ready: Option<String>,
+    pub worktree: PathBuf,
+    pub env: Vec<(String, String)>,
 }
 
 impl Fleet
 {
     /// Start the server `launch` describes, **or answer with the instance its holder already has
     /// up**, `true` beside the state where this call started it.
-    pub(crate) async fn launched(
+    pub async fn launched(
         self: Arc<Self>,
         records_root: &str,
         launch: Launch,
@@ -151,7 +151,7 @@ impl Fleet
     /// id, ports, links and log, serving.** Its ports are in the row, so they stay the ones its
     /// checkout has up. Where the holder already has an instance, the server is nobody's and is
     /// ended.
-    pub(super) fn adopted(self: &Arc<Self>, kept: Kept) {
+    pub fn adopted(self: &Arc<Self>, kept: Kept) {
         let Kept {
             mut state,
             probe,

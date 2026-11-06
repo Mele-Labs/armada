@@ -12,7 +12,7 @@ use store::KeptPlan;
 const TEXT_AT_MOST: usize = 2_000;
 
 /// One mark, worded twice: for the thread's row, and for the agent, which needs the ids to answer by.
-pub(crate) struct Said {
+pub struct Said {
     pub line: PlanChangeLine,
     pub agent: String,
 }
@@ -87,7 +87,7 @@ fn blank(what: &str, text: &str) -> Result<(), String> {
 
 /// The marks against `plan`, each worded, or the first reason one cannot be: it names a group or task
 /// the version does not hold, or says nothing.
-pub(crate) fn checked(plan: &KeptPlan, marks: &[PlanMark], approve: bool) -> Result<Vec<Said>, String> {
+pub fn checked(plan: &KeptPlan, marks: &[PlanMark], approve: bool) -> Result<Vec<Said>, String> {
     if marks.is_empty() && !approve {
         return Err(String::from("there is nothing to send: no marks and no approval"));
     }
@@ -155,7 +155,7 @@ pub(crate) fn checked(plan: &KeptPlan, marks: &[PlanMark], approve: bool) -> Res
 }
 
 /// The one message the agent gets for the marks. `approve` says the plan is approved with them.
-pub(crate) fn message(plan: &KeptPlan, approve: bool, said: &[Said]) -> String {
+pub fn message(plan: &KeptPlan, approve: bool, said: &[Said]) -> String {
     let version = plan.version;
     let head = match approve {
         true => format!("The owner approved plan v{version} with changes marked on it."),
@@ -179,7 +179,7 @@ fn the_tasks(plan: &KeptPlan) -> String {
 }
 
 /// The one message for an approval with no marks.
-pub(crate) fn approved_message(plan: &KeptPlan) -> String {
+pub fn approved_message(plan: &KeptPlan) -> String {
     format!(
         "The owner approved plan v{}. Build it as recorded, and record it again if the work shows it is wrong.\n\n{}",
         plan.version,

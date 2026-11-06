@@ -52,9 +52,9 @@ const NOT_WRITABLE_UP: &str = "fleet.studio_not_writable_up";
 /// An edit or a dispatch of a node that is not an Issue draft. A 422.
 const NOT_A_DRAFT: &str = "fleet.studio_not_a_draft";
 /// A line written on, or a read-in asked of, a node that is not a Link. A 422.
-pub(crate) const NOT_A_LINK: &str = "fleet.studio_not_a_link";
+pub const NOT_A_LINK: &str = "fleet.studio_not_a_link";
 /// A drawing asked of a node that is not a Sketch. A 422.
-pub(crate) const NOT_A_SKETCH: &str = "fleet.studio_not_a_sketch";
+pub const NOT_A_SKETCH: &str = "fleet.studio_not_a_sketch";
 /// An outcome asked of a node that is not a Contradiction. A 422.
 const NOT_A_CONTRADICTION: &str = "fleet.studio_not_a_contradiction";
 
@@ -73,7 +73,7 @@ const WRITABLE_UP: &[StudioNodeKind] = &[
 impl Fleet
 {
     /// A rewrite the node would not take, as the wire says it.
-    pub(crate) fn not_rewritable(&self, code: &'static str, fault: NotRewritable) -> Refusal {
+    pub fn not_rewritable(&self, code: &'static str, fault: NotRewritable) -> Refusal {
         let said = format!("a {} node does not take that", fault.kind.as_wire());
         match fault.state {
             // A Contradiction of the right kind that would not take it has
@@ -94,7 +94,7 @@ impl Fleet
     }
 
     /// The node `node_id` names, on this Studio.
-    pub(crate) fn node_on<'a>(
+    pub fn node_on<'a>(
         &self,
         graph: &'a StudioGraph,
         node_id: &StudioNodeId,
@@ -133,7 +133,7 @@ impl Fleet
 {
     /// `group_studio_nodes`: a Cluster or an Outline, made of the nodes named,
     /// with a `produced` edge from each in the order given.
-    pub(crate) async fn nodes_grouped(
+    pub async fn nodes_grouped(
         &self,
         studio_id: ipc::StudioId,
         group: GroupStudioNodes,
@@ -224,7 +224,7 @@ impl Fleet
     }
 
     /// `defer_on_studio`: a Deferral, against what it blocks.
-    pub(crate) async fn deferred(
+    pub async fn deferred(
         &self,
         studio_id: ipc::StudioId,
         deferring: DeferOnStudio,
@@ -295,7 +295,7 @@ impl Fleet
     }
 
     /// `write_up_studio_node`: an Issue draft, made from one node.
-    pub(crate) async fn written_up(
+    pub async fn written_up(
         &self,
         studio_id: ipc::StudioId,
         writing: WriteUpStudioNode,
@@ -354,7 +354,7 @@ impl Fleet
     }
 
     /// `edit_studio_draft`: the title and body a person left on a draft.
-    pub(crate) async fn draft_edited(
+    pub async fn draft_edited(
         &self,
         studio_id: ipc::StudioId,
         edit: EditStudioDraft,
@@ -382,7 +382,7 @@ impl Fleet
     ///
     /// **The address is read off the node and never off the request**, so an
     /// edit cannot move a Link somewhere else. A blank line clears it.
-    pub(crate) async fn link_relabelled(
+    pub async fn link_relabelled(
         &self,
         studio_id: ipc::StudioId,
         edit: EditStudioLink,
@@ -405,7 +405,7 @@ impl Fleet
     }
 
     /// `settle_contradiction`: the two outcomes that write nothing else down.
-    pub(crate) async fn contradiction_settled(
+    pub async fn contradiction_settled(
         &self,
         studio_id: ipc::StudioId,
         settling: SettleContradiction,

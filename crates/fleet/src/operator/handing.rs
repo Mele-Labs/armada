@@ -40,7 +40,7 @@ impl Fleet
     }
 
     /// Seat an Operator making its calls through `call`, kept started while the switch is on.
-    pub(crate) async fn operator_kept(self: &Arc<Self>, call: Arc<KeptStarted>) {
+    pub async fn operator_kept(self: &Arc<Self>, call: Arc<KeptStarted>) {
         if self.operator_seated_with(call.clone()) {
             self.operator_seat().keep(call);
             self.operator_kept_in_step().await;
@@ -63,14 +63,14 @@ impl Fleet
     }
 
     /// What went wrong for the Operator, in Fleet's log.
-    pub(super) fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
+    pub fn operator_warned(&self, msg: &str, why: impl std::fmt::Display) {
         let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg)
             .with_field("why", FieldValue::Str(why.to_string()));
         crate::transcript::note_aloud(&envelope);
     }
 
     /// Seat an Operator making its calls through `call`. `false` where one is already seated.
-    pub(crate) fn operator_seated_with(self: &Arc<Self>, call: Arc<dyn Calling>) -> bool {
+    pub fn operator_seated_with(self: &Arc<Self>, call: Arc<dyn Calling>) -> bool {
         let fleet = Arc::downgrade(self);
         let desk = FleetDesk::on(self, move |why| {
             if let Some(fleet) = fleet.upgrade() {
@@ -81,7 +81,7 @@ impl Fleet
     }
 
     /// A Job's start, handed to the Operator with `words`, what it was asked.
-    pub(crate) async fn start_handed(&self, id: &str, source: Source, words: &str) {
+    pub async fn start_handed(&self, id: &str, source: Source, words: &str) {
         if !self.operator_on() {
             return;
         }
@@ -112,7 +112,7 @@ impl Fleet
 
     /// Each group of `kept`, just recorded, that `before` did not hold with the same paths. A group
     /// that goes to a Job of its own is that Job's start to rule, so it is not handed here.
-    pub(crate) async fn plan_handed(&self, id: &str, before: Option<&KeptPlan>, kept: &KeptPlan) {
+    pub async fn plan_handed(&self, id: &str, before: Option<&KeptPlan>, kept: &KeptPlan) {
         if !self.operator_on() {
             return;
         }
@@ -149,7 +149,7 @@ impl Fleet
 
     /// What a Job's first write is told where its start's ruling sends its work to another Job,
     /// having waited for that ruling at most [`FIRST_WRITE_WAIT`]. `None` lets the write go on.
-    pub(crate) async fn first_write_ruled(&self, id: &str) -> Option<String> {
+    pub async fn first_write_ruled(&self, id: &str) -> Option<String> {
         if !self.operator_on() {
             return None;
         }

@@ -47,7 +47,7 @@ impl Fleet
 
     /// `pause_session`. **Refused, nothing changes**, except that a pool that refuses the park
     /// after the turn was ended leaves the turn ended, as a stop does.
-    pub(crate) async fn session_paused(&self, asked: PauseSession) -> Result<SessionRecord, Refusal> {
+    pub async fn session_paused(&self, asked: PauseSession) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -154,7 +154,7 @@ impl Fleet
     /// clears the pause in**, so a turn that arrives as it is pressed is kept before the Resume takes
     /// the kept turns, or finds the Job resumed and goes on as any other. The turn is on the thread
     /// already.
-    pub(crate) async fn turn_kept_while_paused(&self, id: &str, turn: &Held) -> Result<bool, Refusal> {
+    pub async fn turn_kept_while_paused(&self, id: &str, turn: &Held) -> Result<bool, Refusal> {
         let body = ipc::encode(&FirstTurn::kept_of(turn))
             .map_err(|why| self.hosted_fault(super::serving::SESSION_UNSTARTED, &why.to_string()))?;
         let mut store = self.store().lock().await;
@@ -168,7 +168,7 @@ impl Fleet
     /// The Job holds a slot again, at Resume or when the line grants one: the turns kept while it
     /// was paused go as its next turns, in the order they came, and with none kept Fleet tells it
     /// that it was resumed.
-    pub(crate) async fn pause_lifted(self: &Arc<Self>, id: &str) {
+    pub async fn pause_lifted(self: &Arc<Self>, id: &str) {
         let kept = self.store().lock().await.take_held_later_turns(id);
         let kept = match kept {
             Ok(kept) => kept,
@@ -195,7 +195,7 @@ impl Fleet
 
     /// `resume_session`. **A slot is taken if one is free and waited for if not**; the line is
     /// first come first served and nobody is moved out of a slot for it.
-    pub(crate) async fn session_resumed(self: &Arc<Self>, asked: ResumeSession) -> Result<SessionRecord, Refusal> {
+    pub async fn session_resumed(self: &Arc<Self>, asked: ResumeSession) -> Result<SessionRecord, Refusal> {
         let id = asked.session_id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(

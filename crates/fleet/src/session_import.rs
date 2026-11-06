@@ -21,9 +21,9 @@ use crate::clock::rfc3339_utc;
 use crate::daemon::Fleet;
 
 /// `install_agent_mod` without a request. A 422.
-pub(crate) const INSTALL_NOT_REQUESTED: &str = "fleet.install_not_requested";
+pub const INSTALL_NOT_REQUESTED: &str = "fleet.install_not_requested";
 /// A folder the sessions do not name. A 422.
-pub(crate) const NOT_AN_IMPORT_FOLDER: &str = "fleet.not_an_import_folder";
+pub const NOT_AN_IMPORT_FOLDER: &str = "fleet.not_an_import_folder";
 
 /// How long one step of the install may take before it is stopped.
 const STEP_WITHIN: Duration = Duration::from_secs(120);
@@ -67,7 +67,7 @@ impl Fleet
     }
 
     /// `list_import_folders`: read fresh, because a person who just worked in a folder expects to see it.
-    pub(crate) async fn import_folders(&self) -> Result<ImportFolders, Refusal> {
+    pub async fn import_folders(&self) -> Result<ImportFolders, Refusal> {
         let projects = self.sessions_dir();
         let folders = tokio::task::spawn_blocking(move || session_folders::list_folders(&projects))
             .await
@@ -88,7 +88,7 @@ impl Fleet
     }
 
     /// `get_import_runs`: how one of those folders was run.
-    pub(crate) async fn import_runs(&self, path: String) -> Result<ImportRuns, Refusal> {
+    pub async fn import_runs(&self, path: String) -> Result<ImportRuns, Refusal> {
         let projects = self.sessions_dir();
         let asked = path.clone();
         let read = tokio::task::spawn_blocking(move || {
@@ -131,7 +131,7 @@ impl Fleet
     }
 
     /// `install_agent_mod`: refused unless the body says it was requested.
-    pub(crate) async fn agent_mod_installed(&self, body: ipc::InstallAgentMod) -> Result<ModInstalled, Refusal> {
+    pub async fn agent_mod_installed(&self, body: ipc::InstallAgentMod) -> Result<ModInstalled, Refusal> {
         let Some(asked) = Asked::when(body.requested) else {
             return Err(Refusal::Unacceptable(WireError::raised(
                 INSTALL_NOT_REQUESTED,
@@ -162,7 +162,7 @@ impl Fleet
     /// app's bundle where there is one, else from a served repository, and nothing once it is there.
     /// Copying and the script run on a blocking thread. **A failure only means the
     /// process starts without the mod**, so it is logged and never fails the launch.
-    pub(crate) async fn mod_filled_for_launch(&self) {
+    pub async fn mod_filled_for_launch(&self) {
         if let Err(said) = self.mod_filled().await {
             let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "the mod's copy was not filled, so the job starts without it")
                 .with_field("why", FieldValue::Str(said));
@@ -187,7 +187,7 @@ impl Fleet
     ///
     /// **An app's bundle first**, filled again where its plugin version is not the copy's, so an
     /// update to the app is an update to the mod. With none, a copy that is there is left as it is.
-    pub(crate) async fn mod_filled(&self) -> Result<(), String> {
+    pub async fn mod_filled(&self) -> Result<(), String> {
         let home = PathBuf::from(&self.host().home);
         let folder = crate::runtime::mod_dir(&self.host().home);
         let bundle = self.host().mod_bundle.clone().map(PathBuf::from);

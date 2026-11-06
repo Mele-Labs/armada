@@ -26,13 +26,13 @@ const UNACCEPTABLE_MOD: &str = "fleet.unacceptable_mod";
 const NO_SUCH_MOD: &str = "fleet.no_such_mod";
 /// A mod that cannot be promoted: invalid, built in, no `packages/` to put it in,
 /// no free slot, or already there exactly. A 409.
-pub(super) const MOD_NOT_PROMOTABLE: &str = "fleet.mod_not_promotable";
+pub const MOD_NOT_PROMOTABLE: &str = "fleet.mod_not_promotable";
 /// Git or the disk would not scaffold or promote. A 500: a scaffold leaves nothing behind, and a
 /// promote leaves its Job holding the tree.
-pub(super) const MOD_NOT_WRITTEN: &str = "fleet.mod_not_written";
+pub const MOD_NOT_WRITTEN: &str = "fleet.mod_not_written";
 
 /// Which mod a name names.
-pub(super) enum Named {
+pub enum Named {
     /// A folder in the machine's `mods/`.
     Local,
     BuiltIn(BuiltIn),
@@ -40,16 +40,16 @@ pub(super) enum Named {
 
 impl Fleet
 {
-    pub(crate) fn mods_dir(&self) -> PathBuf {
+    pub fn mods_dir(&self) -> PathBuf {
         PathBuf::from(&self.host().mods_dir)
     }
 
-    pub(crate) fn mod_fault(&self, said: String) -> Refusal {
+    pub fn mod_fault(&self, said: String) -> Refusal {
         Refusal::Fault(WireError::raised(MOD_NOT_WRITTEN, said, self.run_id()))
     }
 
     /// This machine's switches, by mod name.
-    pub(crate) async fn mod_switches_read(&self) -> Result<std::collections::BTreeMap<String, bool>, Refusal> {
+    pub async fn mod_switches_read(&self) -> Result<std::collections::BTreeMap<String, bool>, Refusal> {
         self.store()
             .lock()
             .await
@@ -74,7 +74,7 @@ impl Fleet
 
     /// Say the list now, because something here just changed it. The rescan
     /// would find it in a moment; this is for the Bridge that is waiting.
-    pub(crate) async fn mods_announced(&self) -> Result<ModList, Refusal> {
+    pub async fn mods_announced(&self) -> Result<ModList, Refusal> {
         let list = self.mods_listed().await?;
         self.mods().published(&list);
         self.publish(Event::ModsChanged(list.clone()));
@@ -82,7 +82,7 @@ impl Fleet
     }
 
     /// `name` as a built-in mod's id, or a slug naming a folder that is there, or the refusal.
-    pub(super) fn mod_named(&self, name: &str) -> Result<Named, Refusal> {
+    pub fn mod_named(&self, name: &str) -> Result<Named, Refusal> {
         let none = || {
             Refusal::NotFound(
                 WireError::raised(NO_SUCH_MOD, format!("there is no mod called `{name}`"), self.run_id())

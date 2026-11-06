@@ -11,7 +11,7 @@ use super::{other, shell, Keeping, Launch};
 use crate::terminal_keeping::{client, Files, Keep, Record};
 
 /// What a run is resized and asked about through, wherever its shell lives.
-pub(super) trait Pty: Send {
+pub trait Pty: Send {
     fn resize(&self, size: PtySize) -> bool;
     /// Whether a program other than the shell, which leads `pgid`, has the foreground.
     fn foreground_taken(&self, pgid: i32) -> bool;
@@ -38,29 +38,29 @@ impl Pty for Arc<client::Link> {
 }
 
 /// What a run is typed into and resized through. Gone once the run has ended.
-pub(super) struct Terminal {
-    pub(super) pty: Box<dyn Pty>,
-    pub(super) keys: Box<dyn Write + Send>,
+pub struct Terminal {
+    pub pty: Box<dyn Pty>,
+    pub keys: Box<dyn Write + Send>,
 }
 
 /// A run's shell as a keeper holds it: the connection that ends it, and the files that find it.
-pub(super) struct Kept {
-    pub(super) link: Arc<client::Link>,
-    pub(super) files: Files,
+pub struct Kept {
+    pub link: Arc<client::Link>,
+    pub files: Files,
 }
 
 /// What a run is driven through, wherever its shell lives: the reading end, the terminal, and the
 /// wait for the shell to leave. **The one place that yields a reader, a writer and a resize.**
-pub(super) struct Driven {
-    pub(super) pgid: i32,
-    pub(super) reader: Box<dyn Read + Send>,
-    pub(super) terminal: Terminal,
-    pub(super) waiting: Box<dyn FnOnce() -> Waited + Send>,
-    pub(super) kept: Option<Kept>,
+pub struct Driven {
+    pub pgid: i32,
+    pub reader: Box<dyn Read + Send>,
+    pub terminal: Terminal,
+    pub waiting: Box<dyn FnOnce() -> Waited + Send>,
+    pub kept: Option<Kept>,
 }
 
 /// How a wait for the shell ended.
-pub(super) enum Waited {
+pub enum Waited {
     /// The shell left, with its code unless a signal ended it.
     Exited(Option<i32>),
     /// The connection to its keeper closed first: the shell may be running still.
@@ -68,7 +68,7 @@ pub(super) enum Waited {
 }
 
 /// A command or shell that is Fleet's own child, on a pseudo-terminal of Fleet's.
-pub(super) fn local_driven(launch: &Launch<'_>) -> std::io::Result<Driven> {
+pub fn local_driven(launch: &Launch<'_>) -> std::io::Result<Driven> {
     let pair = native_pty_system().openpty(launch.size).map_err(other)?;
     let mut shell = CommandBuilder::new(shell());
     match launch.command {
@@ -97,7 +97,7 @@ pub(super) fn local_driven(launch: &Launch<'_>) -> std::io::Result<Driven> {
 }
 
 /// A Job's shell under a new keeper, written down so the next Fleet finds it.
-pub(super) fn kept_driven(id: &str, launch: &Launch<'_>, keeping: &Keeping) -> std::io::Result<Driven> {
+pub fn kept_driven(id: &str, launch: &Launch<'_>, keeping: &Keeping) -> std::io::Result<Driven> {
     let session = launch.session.ok_or_else(|| other("a Job's shell names its Job"))?;
     let files = &keeping.files;
     // What an earlier shell under this number left, gone before the new keeper binds.
@@ -127,7 +127,7 @@ pub(super) fn kept_driven(id: &str, launch: &Launch<'_>, keeping: &Keeping) -> s
 }
 
 /// A run over a keeper already attached to.
-pub(super) fn driven_by(attached: client::Attached, files: Files) -> Driven {
+pub fn driven_by(attached: client::Attached, files: Files) -> Driven {
     let client::Attached { pid, printed, keys, link, exit } = attached;
     Driven {
         pgid: pid as i32,

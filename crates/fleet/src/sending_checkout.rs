@@ -41,7 +41,7 @@ impl Fleet
     /// was sent already, and the hold lists files to send. The commit, the push and the pull request
     /// finish in a task of their own, which the hub shows by the pull request on the hold, and a
     /// refusal there is `act.failed`.
-    pub(crate) async fn checkout_sent_as_pull_request(
+    pub async fn checkout_sent_as_pull_request(
         self: std::sync::Arc<Self>,
         asked: ipc::CheckoutToPullRequest,
     ) -> Result<ipc::CheckoutSentAsPullRequest, Refusal> {

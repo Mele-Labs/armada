@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 /// The text of the file `named` names, where it is inside one of `roots` and at most `cap` bytes.
 /// An `Err` says why not, and never quotes the file.
-pub(crate) fn read_body(named: &str, roots: &[PathBuf], cap: usize) -> Result<String, String> {
+pub fn read_body(named: &str, roots: &[PathBuf], cap: usize) -> Result<String, String> {
     let named = named.trim();
     if named.is_empty() {
         return Err("`body_file` is empty".to_string());

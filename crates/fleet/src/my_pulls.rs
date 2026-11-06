@@ -14,10 +14,10 @@ use crate::repository_profiles::Repo;
 
 /// The logins that are the person's. `None` is none known.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Mine(Option<Vec<String>>);
+pub struct Mine(Option<Vec<String>>);
 
 impl Mine {
-    pub(crate) fn of(logins: impl IntoIterator<Item = Option<String>>) -> Mine {
+    pub fn of(logins: impl IntoIterator<Item = Option<String>>) -> Mine {
         let known: Vec<String> = logins
             .into_iter()
             .flatten()
@@ -29,16 +29,16 @@ impl Mine {
 
     /// The first login known, **as the forge wrote it**: the account Armada is signed in as,
     /// else the forge command line's. Absent where neither is.
-    pub(crate) fn login(&self) -> Option<&str> {
+    pub fn login(&self) -> Option<&str> {
         self.0.as_ref()?.first().map(String::as_str)
     }
 
     /// Every login known, **as the forge wrote it**, the signed-in account first. Empty where none is.
-    pub(crate) fn logins(&self) -> &[String] {
+    pub fn logins(&self) -> &[String] {
         self.0.as_deref().unwrap_or(&[])
     }
 
-    pub(crate) fn owns(&self, author: Option<&str>) -> bool {
+    pub fn owns(&self, author: Option<&str>) -> bool {
         match (&self.0, author.map(str::trim).filter(|it| !it.is_empty())) {
             (Some(known), Some(author)) => known.iter().any(|login| login.eq_ignore_ascii_case(author)),
             _ => true,
@@ -49,7 +49,7 @@ impl Mine {
 impl Fleet
 {
     /// Who the repository at `root`'s pull requests are mine by.
-    pub(crate) async fn mine_in(&self, root: &str) -> Mine {
+    pub async fn mine_in(&self, root: &str) -> Mine {
         let (reaching, signing, at) = (Arc::clone(self.reaching()), self.signing_in().clone(), root.to_string());
         let signed = tokio::task::spawn_blocking(move || {
             let slug = reaching.slug(&at);

@@ -11,7 +11,7 @@ use super::{Opposed, Side, Who};
 use crate::daemon::Fleet;
 
 /// The first three paths, and a count for the rest.
-pub(crate) fn listed(paths: &[String]) -> String {
+pub fn listed(paths: &[String]) -> String {
     const NAMED: usize = 3;
     let named = paths
         .iter()
@@ -58,7 +58,7 @@ fn session_says(about: &About, paths: &[String]) -> String {
 impl Fleet
 {
     /// A clash is new, or its files changed: tell each holder in it.
-    pub(crate) async fn clash_announced(self: &Arc<Self>, opposed: &Opposed) {
+    pub async fn clash_announced(self: &Arc<Self>, opposed: &Opposed) {
         self.clash_told(opposed, &opposed.0).await;
         if let Side::Holder(other) = &opposed.1 {
             self.clash_told(opposed, other).await;
@@ -66,7 +66,7 @@ impl Fleet
     }
 
     /// Anyone a standing clash has not reached yet, a Session whose terminal was not listening.
-    pub(crate) async fn clashes_told(self: &Arc<Self>) {
+    pub async fn clashes_told(self: &Arc<Self>) {
         for (opposed, reading) in self.writes().untold() {
             for who in std::iter::once(&opposed.0).chain(match &opposed.1 {
                 Side::Holder(other) => Some(other),

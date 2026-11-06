@@ -20,33 +20,33 @@ use crate::judging::JudgeBudget;
 /// Every live dial below the four limits, which `crate::limits` holds under
 /// the roster lock instead.
 #[derive(Clone, Debug)]
-pub(crate) struct Tuning {
-    pub(crate) judge_budget: JudgeBudget,
-    pub(crate) proposer_budget: JudgeBudget,
-    pub(crate) budget: CheckBudget,
-    pub(crate) polling: Polling,
-    pub(crate) noticing: Noticing,
-    pub(crate) run_log_retention: Duration,
-    pub(crate) action_authority: crate::on_your_words::Authority,
+pub struct Tuning {
+    pub judge_budget: JudgeBudget,
+    pub proposer_budget: JudgeBudget,
+    pub budget: CheckBudget,
+    pub polling: Polling,
+    pub noticing: Noticing,
+    pub run_log_retention: Duration,
+    pub action_authority: crate::on_your_words::Authority,
     /// Whether a Session may follow a workflow: `features.workflows`.
-    pub(crate) workflows: bool,
+    pub workflows: bool,
     /// The workflows switched off for the machine and for single repositories: `workflows.off`.
-    pub(crate) workflows_off: ipc::workflows_off::WorkflowsOff,
+    pub workflows_off: ipc::workflows_off::WorkflowsOff,
     /// Whether a disputed notice starts a review and replies are read for one: `features.disputeReviews`.
-    pub(crate) dispute_reviews: bool,
-    pub(crate) judge_model: Model,
-    pub(crate) proposer_model: Model,
-    pub(crate) retro_model: Model,
-    pub(crate) standing_rules_bytes: usize,
+    pub dispute_reviews: bool,
+    pub judge_model: Model,
+    pub proposer_model: Model,
+    pub retro_model: Model,
+    pub standing_rules_bytes: usize,
     /// The words of every prompt a person may override, read when one is built.
-    pub(crate) prompts: crate::prompts::Prompts,
+    pub prompts: crate::prompts::Prompts,
 }
 
 const DAY: u64 = 24 * 60 * 60;
 
 impl Tuning {
     /// These dials with every value the file chose put over them.
-    pub(crate) fn overlaid_by(&self, settings: &Resolved) -> Tuning {
+    pub fn overlaid_by(&self, settings: &Resolved) -> Tuning {
         let seconds = |key, shipped: Duration| settings.chosen(key).unwrap_or(shipped);
         let days = |key, shipped: Duration| {
             settings.chosen(key).map_or(shipped, |n: i64| Duration::from_secs(u64::try_from(n).unwrap_or(0) * DAY))
@@ -104,7 +104,7 @@ pub fn effort_of(word: &str) -> Option<Effort> {
 impl crate::daemon::Fittings {
     /// The live dials as handed in, and the ones no fitting carries at what
     /// ships — `Fleet::assembled`'s, before the file is put over them.
-    pub(crate) fn shipped_tuning(&self) -> Tuning {
+    pub fn shipped_tuning(&self) -> Tuning {
         Tuning {
             judge_budget: self.judge_budget,
             proposer_budget: self.proposer_budget,

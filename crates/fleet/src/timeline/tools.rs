@@ -32,7 +32,7 @@ const QUIET: i64 = 15_000;
 /// A burst is entered at most this long after it began, in milliseconds, whatever it is still doing.
 const MOST: i64 = 120_000;
 /// How often the writer looks for a burst that is over.
-pub(super) const TICK: Duration = Duration::from_secs(5);
+pub const TICK: Duration = Duration::from_secs(5);
 
 /// What was done.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -44,7 +44,7 @@ enum Act {
 
 /// What was done to a file.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum FileAct {
+pub enum FileAct {
     Read,
     Edit,
 }
@@ -60,18 +60,18 @@ impl From<FileAct> for Act {
 
 /// Who did it, as the entry will name them.
 #[derive(Clone, Debug)]
-pub(crate) struct Doer {
-    pub(crate) subject: Subject,
-    pub(crate) title: Option<String>,
-    pub(crate) manifest: Option<String>,
+pub struct Doer {
+    pub subject: Subject,
+    pub title: Option<String>,
+    pub manifest: Option<String>,
 }
 
 impl Doer {
-    pub(crate) fn session(id: &str, title: Option<String>, manifest: Option<String>) -> Doer {
+    pub fn session(id: &str, title: Option<String>, manifest: Option<String>) -> Doer {
         Doer { subject: Subject::Session(id.to_string()), title, manifest }
     }
 
-    pub(crate) fn of_session(session: &store::KeptSession) -> Doer {
+    pub fn of_session(session: &store::KeptSession) -> Doer {
         Doer::session(&session.id, session.title.clone(), session.manifest_id.clone())
     }
 
@@ -96,7 +96,7 @@ struct Burst {
 
 /// The bursts open now, by subject and act.
 #[derive(Default)]
-pub(crate) struct Bursts {
+pub struct Bursts {
     open: BTreeMap<(String, Act), Burst>,
 }
 
@@ -170,7 +170,7 @@ fn fact(act: Act, burst: Burst) -> Fact {
 }
 
 /// What a Drone's call did that the timeline enters.
-pub(crate) enum Seen {
+pub enum Seen {
     /// A file changed or read, as the call named it.
     File(FileAct, String),
     /// A command run.
@@ -182,7 +182,7 @@ pub(crate) enum Seen {
 /// What a Drone's call did that the timeline enters, and what it named: a file it changed, a file it
 /// read, a command it ran, a service it called. **The harness says which tools these are**, so no
 /// tool is named here.
-pub(crate) fn tool_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEvent) -> Option<Seen> {
+pub fn tool_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEvent) -> Option<Seen> {
     if let Some(path) = harness.edited(event) {
         return Some(Seen::File(FileAct::Edit, path));
     }
@@ -199,18 +199,18 @@ fn millis(at: &str) -> Option<i64> {
 
 impl Timeline {
     /// `doer` called a service outside the repository, now: one entry, at once.
-    pub(crate) fn called(&self, doer: Doer, reach: Reach) {
+    pub fn called(&self, doer: Doer, reach: Reach) {
         self.note(called_fact(self.now(), doer, reach));
     }
 
     /// `count` files read or written by `doer`, now, `file` the latest. **Nothing is entered until
     /// the burst closes.**
-    pub(crate) fn touched(&self, doer: Doer, act: FileAct, count: usize, file: Option<FileName>) {
+    pub fn touched(&self, doer: Doer, act: FileAct, count: usize, file: Option<FileName>) {
         self.used(doer, act.into(), count, file.map(FileName::into_string));
     }
 
     /// One command run by `doer`, now, with what looks like a secret in it hidden.
-    pub(crate) fn ran(&self, doer: Doer, command: String) {
+    pub fn ran(&self, doer: Doer, command: String) {
         self.used(doer, Act::Ran, 1, Some(scrubbed(&command)));
     }
 
@@ -223,7 +223,7 @@ impl Timeline {
     }
 
     /// Enter every burst that is over. Called on a tick.
-    pub(super) fn flush_due(&self) {
+    pub fn flush_due(&self) {
         if let Some(now) = millis(&self.now()) {
             self.flush_at(now);
         }
@@ -235,7 +235,7 @@ impl Timeline {
     }
 
     /// Enter every open burst of one subject: its turn ended, or it did.
-    pub(crate) fn close_bursts_of(&self, doer: &Doer) {
+    pub fn close_bursts_of(&self, doer: &Doer) {
         let facts = self.bursts.lock().map(|mut bursts| bursts.closed(doer)).unwrap_or_default();
         facts.into_iter().for_each(|fact| self.note(fact));
     }
@@ -298,7 +298,7 @@ fn hide_pairs(word: &str) -> String {
 /// name says it is one, what follows `Authorization:`, `Bearer` or `Basic`, a password in an address,
 /// and any long token-shaped word. **It errs toward hiding**, since an entry is read by anyone who
 /// can see the Cockpit.
-pub(crate) fn scrubbed(command: &str) -> String {
+pub fn scrubbed(command: &str) -> String {
     const HIDDEN: &str = "***";
     let mut hide = 0;
     let mut words = Vec::new();

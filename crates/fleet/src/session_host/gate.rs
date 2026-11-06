@@ -82,7 +82,7 @@ fn touch(gate: &SessionGate) -> Touch {
 
 impl Fleet
 {
-    pub(crate) async fn gated(self: &Arc<Self>, gate: SessionGate) -> GateAnswer {
+    pub async fn gated(self: &Arc<Self>, gate: SessionGate) -> GateAnswer {
         let id = gate.session_id.clone();
         let Ok((session, mut hosting)) = self.session_and_hosting(&id).await else {
             return GateAnswer::pass();
@@ -299,7 +299,7 @@ impl Fleet
 
     /// Whether the workflow a Job follows declares `carries_no_code`. A Job on no workflow, or one
     /// the repository no longer holds, carries code as it always did.
-    pub(crate) fn carries_no_code(&self, served: &Served, workflow: Option<&str>) -> bool {
+    pub fn carries_no_code(&self, served: &Served, workflow: Option<&str>) -> bool {
         let Some(workflow) = workflow else { return false };
         served
             .workflows()
@@ -309,7 +309,7 @@ impl Fleet
 
     /// [`Self::carries_no_code`] for the workflow `session` follows. A session Fleet does not host,
     /// or whose repository is not served, carries code.
-    pub(crate) async fn job_carries_no_code(&self, session: &str) -> bool {
+    pub async fn job_carries_no_code(&self, session: &str) -> bool {
         let hosting = self.store().lock().await.hosting(session).ok().flatten();
         let Some(hosting) = hosting else { return false };
         let Some(served) = self.repositories().serving(&hosting.manifest_id) else { return false };
@@ -365,7 +365,7 @@ impl Fleet
     /// it. **A resumed session otherwise starts in the main checkout and is moved by whatever its
     /// first tool call is**, which cost it that call and a turn. A full pool, or a line of
     /// sessions already waiting, leaves the hosting as it was and the first write queues as before.
-    pub(crate) async fn leased_for_resume(
+    pub async fn leased_for_resume(
         &self,
         served: &Served,
         hosting: &KeptHosting,
@@ -401,7 +401,7 @@ impl Fleet
 
     /// The session is in the repository's line for a slot, and the person has been asked what to
     /// do about it if this is its first time there. How many are ahead of it.
-    pub(super) async fn line_joined(&self, manifest: &str, id: &str) -> usize {
+    pub async fn line_joined(&self, manifest: &str, id: &str) -> usize {
         let queue = self.hosts().slot_queue();
         let since = self.instant();
         let (mut ahead, placed) = queue.join(manifest, id, &since);
@@ -421,13 +421,13 @@ impl Fleet
     /// two writes in one turn lease one slot. Shared by the gate and by the grant
     /// that serves a queued session, which is why it answers a verdict and not a
     /// [`GateAnswer`]. **A paused session is refused**: no write or message lifts a pause.
-    pub(super) async fn take_lease(&self, id: &str, served: &Served) -> Taken {
+    pub async fn take_lease(&self, id: &str, served: &Served) -> Taken {
         self.lease_taken(id, served, false).await
     }
 
     /// [`Self::take_lease`] for the person's Resume of a paused Job, at once or when the line grants
     /// the slot. **The only lease that seats a paused Job**: any other finds it paused and refuses.
-    pub(super) async fn take_lease_resuming(&self, id: &str, served: &Served) -> Taken {
+    pub async fn take_lease_resuming(&self, id: &str, served: &Served) -> Taken {
         self.lease_taken(id, served, true).await
     }
 
@@ -533,7 +533,7 @@ impl Fleet
 }
 
 /// What taking a session's lease came to.
-pub(super) enum Taken {
+pub enum Taken {
     /// Leased now, and `Runtime::moving` says the session is to be moved into it.
     Moving(Move),
     /// It held a slot already.

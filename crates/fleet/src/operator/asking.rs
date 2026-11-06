@@ -71,7 +71,7 @@ Answer with nothing but one block for each item, in this form:
 ";
 
 /// The question for `items`, each with the live Jobs near it, every Job shown once, and its `line`.
-pub(super) fn question(items: &[Arrival], near: &[Vec<Near>], line: &[Vec<InLine>]) -> String {
+pub fn question(items: &[Arrival], near: &[Vec<Near>], line: &[Vec<InLine>]) -> String {
     let mut out = String::from(OPENING);
     out.push_str("\nThe live Jobs that share something with an item:\n");
     let mut shown: BTreeMap<&str, Vec<String>> = BTreeMap::new();

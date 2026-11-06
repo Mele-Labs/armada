@@ -11,17 +11,17 @@ use crate::clock::elapsed;
 
 /// The least time between a write that puts two holders on one file and the check of them, and
 /// between two checks of one pair.
-pub(crate) const DEBOUNCE: Duration = Duration::from_secs(30);
+pub const DEBOUNCE: Duration = Duration::from_secs(30);
 
 /// Something that writes in a repository: a Session.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Who {
+pub enum Who {
     Session(String),
 }
 
 /// What a holder's changes are set against.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Side {
+pub enum Side {
     Holder(Who),
     Main,
 }
@@ -29,22 +29,22 @@ pub(crate) enum Side {
 /// One clash, or the check of one: a holder against another holder or main. **Two holders are in
 /// id order**, so either side finds the same key.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct Opposed(pub Who, pub Side);
+pub struct Opposed(pub Who, pub Side);
 
 impl Opposed {
-    pub(crate) fn pair(one: &Who, other: &Who) -> Opposed {
+    pub fn pair(one: &Who, other: &Who) -> Opposed {
         let (first, second) = if one <= other { (one, other) } else { (other, one) };
         Opposed(first.clone(), Side::Holder(second.clone()))
     }
 
-    pub(crate) fn involves(&self, who: &Who) -> bool {
+    pub fn involves(&self, who: &Who) -> bool {
         self.0 == *who || self.1 == Side::Holder(who.clone())
     }
 }
 
 /// What the last check found, kept while it conflicts.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Reading {
+pub struct Reading {
     pub paths: BTreeSet<String>,
     /// When this pair first conflicted. A change in the files keeps it.
     pub since: Timestamp,
@@ -56,7 +56,7 @@ pub(crate) struct Reading {
 
 /// What a check's verdict did to the reading.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum Changed {
+pub enum Changed {
     Nothing,
     /// A new set of files, to be told.
     Set(BTreeSet<String>),
@@ -87,7 +87,7 @@ struct State {
 
 /// The table. Shared with the taps that read a Drone's stream, which may not await.
 #[derive(Default)]
-pub(crate) struct Writes(Mutex<State>);
+pub struct Writes(Mutex<State>);
 
 impl Writes {
     fn state(&self) -> std::sync::MutexGuard<'_, State> {
@@ -96,7 +96,7 @@ impl Writes {
 
     /// `who` wrote these paths. Every other holder that has written one of the files `who` has
     /// written is due a check against it, and so is `who` against main if it conflicts there.
-    pub(crate) fn wrote(
+    pub fn wrote(
         &self,
         who: &Who,
         manifest: &str,
@@ -129,7 +129,7 @@ impl Writes {
     }
 
     /// `who` wrote these paths, each named from the root of the worktree at `worktree`.
-    pub(crate) fn wrote_in(&self, who: &Who, manifest: &str, worktree: &str, paths: Vec<String>, now: &Timestamp) {
+    pub fn wrote_in(&self, who: &Who, manifest: &str, worktree: &str, paths: Vec<String>, now: &Timestamp) {
         self.wrote(who, manifest, paths, now);
         if let Some(held) = self.state().by_holder.get_mut(who) {
             held.worktrees.insert(worktree.to_string());
@@ -137,12 +137,12 @@ impl Writes {
     }
 
     /// The worktrees `who` was credited a write in by [`Writes::wrote_in`].
-    pub(crate) fn worktrees_of(&self, who: &Who) -> Vec<String> {
+    pub fn worktrees_of(&self, who: &Who) -> Vec<String> {
         self.state().by_holder.get(who).map(|held| held.worktrees.iter().cloned().collect()).unwrap_or_default()
     }
 
     /// `who` is over: gone from the table, and every clash it was in with it.
-    pub(crate) fn left(&self, who: &Who) {
+    pub fn left(&self, who: &Who) {
         let mut state = self.state();
         if let Some(held) = state.by_holder.remove(who) {
             if let Some(in_manifest) = state.by_path.get_mut(&held.manifest) {
@@ -161,7 +161,7 @@ impl Writes {
     }
 
     /// The checks that have waited out [`DEBOUNCE`].
-    pub(crate) fn due(&self, now: &Timestamp) -> Vec<Opposed> {
+    pub fn due(&self, now: &Timestamp) -> Vec<Opposed> {
         self.state()
             .due
             .iter()
@@ -171,12 +171,12 @@ impl Writes {
     }
 
     /// This check is being run; a write from here on schedules the next.
-    pub(crate) fn taken(&self, opposed: &Opposed) {
+    pub fn taken(&self, opposed: &Opposed) {
         self.state().due.remove(opposed);
     }
 
     /// What a check found. `None` is a pair that does not conflict.
-    pub(crate) fn found(
+    pub fn found(
         &self,
         opposed: &Opposed,
         paths: Option<BTreeSet<String>>,
@@ -215,14 +215,14 @@ impl Writes {
     }
 
     /// `who` has been told the files of this clash as they stand.
-    pub(crate) fn told(&self, opposed: &Opposed, who: &Who) {
+    pub fn told(&self, opposed: &Opposed, who: &Who) {
         if let Some(reading) = self.state().readings.get_mut(opposed) {
             reading.told.insert(who.clone());
         }
     }
 
     /// Every clash and who in it has not heard its files yet.
-    pub(crate) fn untold(&self) -> Vec<(Opposed, Reading)> {
+    pub fn untold(&self) -> Vec<(Opposed, Reading)> {
         self.state()
             .readings
             .iter()
@@ -237,12 +237,12 @@ impl Writes {
             .collect()
     }
 
-    pub(crate) fn reading(&self, opposed: &Opposed) -> Option<Reading> {
+    pub fn reading(&self, opposed: &Opposed) -> Option<Reading> {
         self.state().readings.get(opposed).cloned()
     }
 
     /// Every standing clash of one repository's holders.
-    pub(crate) fn readings_in(&self, manifest: &str) -> Vec<(Opposed, Reading)> {
+    pub fn readings_in(&self, manifest: &str) -> Vec<(Opposed, Reading)> {
         let state = self.state();
         state
             .readings
@@ -255,7 +255,7 @@ impl Writes {
     }
 
     /// Every holder, with its repository and what it has written.
-    pub(crate) fn holders(&self) -> Vec<(Who, String, BTreeSet<String>)> {
+    pub fn holders(&self) -> Vec<(Who, String, BTreeSet<String>)> {
         self.state()
             .by_holder
             .iter()
@@ -264,24 +264,24 @@ impl Writes {
     }
 
     /// What `who` has written, repository-relative. Empty for a holder the table does not hold.
-    pub(crate) fn written_by(&self, who: &Who) -> BTreeSet<String> {
+    pub fn written_by(&self, who: &Who) -> BTreeSet<String> {
         self.state().by_holder.get(who).map(|held| held.paths.clone()).unwrap_or_default()
     }
 
     /// Which repository `who` writes in.
-    pub(crate) fn manifest_of(&self, who: &Who) -> Option<String> {
+    pub fn manifest_of(&self, who: &Who) -> Option<String> {
         self.state().by_holder.get(who).map(|held| held.manifest.clone())
     }
 
     /// Nothing is held, nothing moved and nothing waits to be sent.
-    pub(crate) fn idle(&self) -> bool {
+    pub fn idle(&self) -> bool {
         let state = self.state();
         state.by_holder.is_empty() && state.main_moved.is_empty()
     }
 
     /// Main's tip in this repository is `tip`. **True where it moved** from one seen before; the
     /// first sight only sets what later moves are measured from.
-    pub(crate) fn main_seen(&self, manifest: &str, tip: &str) -> bool {
+    pub fn main_seen(&self, manifest: &str, tip: &str) -> bool {
         let mut state = self.state();
         let before = state.main_tip.insert(manifest.to_string(), tip.to_string());
         let moved = before.is_some_and(|before| before != tip);
@@ -292,17 +292,17 @@ impl Writes {
     }
 
     /// Moves of main nothing has acted on yet.
-    pub(crate) fn main_moves(&self) -> Vec<(String, String)> {
+    pub fn main_moves(&self) -> Vec<(String, String)> {
         std::mem::take(&mut self.state().main_moved).into_iter().collect()
     }
 
     /// Main's tip as last seen.
-    pub(crate) fn main_tip(&self, manifest: &str) -> Option<String> {
+    pub fn main_tip(&self, manifest: &str) -> Option<String> {
         self.state().main_tip.get(manifest).cloned()
     }
 
     /// True the first time it is asked, when the table is to be filled from what git holds.
-    pub(crate) fn first_pass(&self) -> bool {
+    pub fn first_pass(&self) -> bool {
         !std::mem::replace(&mut self.state().seeded, true)
     }
 }

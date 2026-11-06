@@ -27,7 +27,7 @@ impl crate::Fleet
     /// `get_slot_history`: the slot's leases, releases and checkouts of the last [`KEPT_DAYS`] days,
     /// newest first, cut to [`ipc::MOST_BAY_HISTORY`]. **A slot with no history answers none**, and a
     /// repository Fleet does not serve is refused.
-    pub(crate) async fn slot_history(&self, ask: BayHistoryAsk) -> Result<BayHistory, api::Refusal> {
+    pub async fn slot_history(&self, ask: BayHistoryAsk) -> Result<BayHistory, api::Refusal> {
         let served = self.served_named(Some(&ask.manifest_id))?;
         let path = PathBuf::from(adapter_traits::slot_path(served.root(), ask.slot));
         let now = self.now().epoch_millis().unwrap_or(0);

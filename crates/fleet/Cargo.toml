@@ -16,7 +16,12 @@ publish = false
 [lints.rust]
 unsafe_code = "deny"
 
+[features]
+# The helpers `tests\/suite` reaches, which are `cfg(test)` for the lib's own tests. Fleet enables it on itself.
+test-support = ["dep:testkit"]
+
 [dependencies]
+testkit = { path = "../testkit", optional = true }
 core-model = { path = "../core-model" }
 adapter-traits = { path = "../adapter-traits" }
 store = { path = "../store" }
@@ -66,6 +71,7 @@ toml = "1"
 regex = { version = "1", default-features = false, features = ["std", "unicode-perl"] }
 
 [dev-dependencies]
+fleet = { path = ".", features = ["test-support"] }
 # Fixtures and fakes. `testkit` never ships and nothing that ships depends on it.
 testkit = { path = "../testkit" }
 # One test calls `api::router` over a real Fleet, with no socket at all: a

@@ -41,27 +41,27 @@ use crate::refusing::{
 /// The forge would not say what the pull request is: no tool, nobody signed in,
 /// no such number, or a state this build has no word for. A 500, because
 /// asking again is reasonable.
-pub(crate) const UNREADABLE: &str = "fleet.pull_request_unreadable";
+pub const UNREADABLE: &str = "fleet.pull_request_unreadable";
 /// A draft cannot be merged, or have auto-merge asked of it. A 409.
-pub(crate) const IS_A_DRAFT: &str = "fleet.pull_request_is_a_draft";
+pub const IS_A_DRAFT: &str = "fleet.pull_request_is_a_draft";
 /// Taking out of draft what is not one. A 409.
-pub(crate) const NOT_A_DRAFT: &str = "fleet.pull_request_not_a_draft";
+pub const NOT_A_DRAFT: &str = "fleet.pull_request_not_a_draft";
 /// The forge would not take it out of draft, in its own sentence. A 409.
-pub(crate) const READY_REFUSED: &str = "fleet.ready_refused";
+pub const READY_REFUSED: &str = "fleet.ready_refused";
 /// The forge would not turn auto-merge on, in its own sentence. A 409.
-pub(crate) const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
+pub const AUTO_MERGE_REFUSED: &str = "fleet.auto_merge_refused";
 /// A review pressed from a Session the ledger has never heard of. A 422.
-pub(crate) const SESSION_UNKNOWN: &str = "fleet.session_unknown";
+pub const SESSION_UNKNOWN: &str = "fleet.session_unknown";
 
 /// The ledger's kind for a pull request a Session holds, and the kind its owners are read under.
-pub(crate) const PR: &str = "pr";
+pub const PR: &str = "pr";
 
 /// The `detail` key a Session's `pr` row keeps once the person dismissed that pull request from what holds
 /// the Job open. Every write of the row's detail carries it forward, so a later read of the forge keeps it.
-pub(crate) const WAIT_DISMISSED: &str = "wait_dismissed";
+pub const WAIT_DISMISSED: &str = "wait_dismissed";
 
 /// `detail` as the forge now says it, with the dismissal `held` already made carried over.
-pub(crate) fn dismissal_kept(mut detail: BTreeMap<String, String>, held: &BTreeMap<String, String>) -> BTreeMap<String, String> {
+pub fn dismissal_kept(mut detail: BTreeMap<String, String>, held: &BTreeMap<String, String>) -> BTreeMap<String, String> {
     if let Some(dismissed) = held.get(WAIT_DISMISSED) {
         detail.insert(WAIT_DISMISSED.to_string(), dismissed.clone());
     }
@@ -86,7 +86,7 @@ fn named(said: &str) -> Option<Named> {
 }
 
 /// The number a pull request's address ends in.
-pub(crate) fn number_of(address: &str) -> Option<u64> {
+pub fn number_of(address: &str) -> Option<u64> {
     match named(address)? {
         Named::Number(number) | Named::Address { number, .. } => Some(number),
     }
@@ -118,7 +118,7 @@ fn checks_of(ran: &WhatTheForgeRan) -> Option<ForgeChecks> {
 /// `detail` first, and `spent` only where the forge has not described it. **A
 /// row is spent by a `gh pr` command the mod read, which the forge may not
 /// bear out** (#2027, #3042), so spent alone is never a merge it contradicts.
-pub(crate) fn pull_merged(detail: &BTreeMap<String, String>, spent: bool) -> bool {
+pub fn pull_merged(detail: &BTreeMap<String, String>, spent: bool) -> bool {
     match detail.get("state").map(String::as_str) {
         Some("merged") => true,
         Some("open" | "draft" | "closed") => false,
@@ -171,7 +171,7 @@ fn detail_of(state: &PullRequestState) -> BTreeMap<String, String> {
 }
 
 /// What one read of a pull request needs from the Manifest, owned so it can go to a thread.
-pub(crate) struct PullRequestAsk {
+pub struct PullRequestAsk {
     manifest_id: ManifestId,
     root: String,
     number: u64,
@@ -240,14 +240,14 @@ fn read_from_forge(
 
 impl Fleet
 {
-    pub(crate) fn pr_refusal(&self, code: &'static str, message: impl Into<String>) -> WireError {
+    pub fn pr_refusal(&self, code: &'static str, message: impl Into<String>) -> WireError {
         WireError::raised(code, message, self.run_id())
     }
 
     /// The pull request as the forge shows it, or the forge's silence. **Two
     /// asks, and either one silent is silent**: a state with no checks would
     /// let a merge be pressed on a guess.
-    pub(crate) fn pull_request_read(
+    pub fn pull_request_read(
         &self,
         manifest_id: &ManifestId,
         root: &str,
@@ -263,7 +263,7 @@ impl Fleet
 
     /// [`pull_request_read`](Self::pull_request_read), asked of the forge off the runtime's
     /// threads: three processes in a row are not for a worker to wait on.
-    pub(crate) async fn pull_request_read_off(
+    pub async fn pull_request_read_off(
         &self,
         manifest_id: &ManifestId,
         root: &str,
@@ -283,7 +283,7 @@ impl Fleet
     /// **Held, never raised**: the forge has already answered and the person
     /// asked about the pull request, not about the ledger, so a row that would
     /// not write is no reason to refuse an answer.
-    pub(crate) async fn ledger_follows(&self, state: &PullRequestState) {
+    pub async fn ledger_follows(&self, state: &PullRequestState) {
         let target = state.number.to_string();
         let detail = detail_of(state);
         let over = match state.state {
@@ -346,7 +346,7 @@ impl Fleet
     /// whose sheet is open**. Rows the forge will not answer for stay as they were.
     /// **So is every pull request a live Job holds that has not reached an end**,
     /// whatever its row says, or a row settled first would hold the Job open for good.
-    pub(crate) async fn pull_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
+    pub async fn pull_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
         let mut numbers: Vec<u64> = {
             let store = self.store().lock().await;
             let Ok(rows) = store.followed_of_kind(PR, manifest_id.as_str()) else {
@@ -384,7 +384,7 @@ impl Fleet
     /// pull reading, so its row has its title. **Only where its address is in the Session's own
     /// repository**: its number names another pull request here. A repository Fleet does not serve,
     /// and a forge that will not answer, leave the row as the mod told it.
-    pub(crate) async fn opened_pull_read(&self, manifest: &str, address: &str) {
+    pub async fn opened_pull_read(&self, manifest: &str, address: &str) {
         let Some(number) = self.own_repository(manifest).and_then(|repository| adapters::pull_linked_in(address, &repository)) else {
             return;
         };
@@ -398,7 +398,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn not_merged_refusal(&self, number: u64, why: NotMerged) -> Refusal {
+    pub fn not_merged_refusal(&self, number: u64, why: NotMerged) -> Refusal {
         let said = why.said();
         let raised = |code: &'static str| {
             self.pr_refusal(code, said.clone())
@@ -422,7 +422,7 @@ impl Fleet
     }
 
     /// A pull request that is not open, as a refusal. `None` where it is.
-    pub(crate) fn not_open_refusal(&self, state: &PullRequestState) -> Option<Refusal> {
+    pub fn not_open_refusal(&self, state: &PullRequestState) -> Option<Refusal> {
         let raised = |code: &'static str, said: &str| {
             Refusal::IllegalMove(
                 self.pr_refusal(code, format!("pull request {} {said}", state.number)),
@@ -440,7 +440,7 @@ impl Fleet
     }
 
     /// What a check that has not passed is called to a person.
-    pub(crate) fn checks_not_passed(&self, state: &PullRequestState) -> Refusal {
+    pub fn checks_not_passed(&self, state: &PullRequestState) -> Refusal {
         let said = match &state.checks {
             ForgeChecks::Failed { failing, .. } => {
                 format!(
@@ -511,7 +511,7 @@ impl PullRequests for Fleet
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-support"))]
 mod named_as {
     use super::{named, Named};
 

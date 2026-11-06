@@ -8,16 +8,16 @@ use ipc::{
     ProposedPolicy, ProposedPort, ProposedSetup, Provenance, RepositoryScan,
 };
 
-mod amending;
-mod building;
-mod held;
-mod writing;
+pub mod amending;
+pub mod building;
+pub mod held;
+pub mod writing;
 
 #[cfg(test)]
 mod tests;
 
 pub use amending::NotAmended;
-pub(crate) use held::Held;
+pub use held::Held;
 
 /// What `config` reads an absent `auto_merge` as. Its word list is private, so a test
 /// holds this to the parser.

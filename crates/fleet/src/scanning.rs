@@ -17,10 +17,10 @@ use ipc::{
     EvidenceStrength, MissingName, NotRead, RepositoryScan, ScannedWorkspace, WorkspaceGlob,
 };
 
-mod ci;
-mod compose;
-mod findings;
-mod workspaces;
+pub mod ci;
+pub mod compose;
+pub mod findings;
+pub mod workspaces;
 
 #[cfg(test)]
 mod tests;
@@ -83,12 +83,12 @@ pub fn manifested(tree: &impl Tree) -> Vec<String> {
 }
 
 /// One workspace as it is being read, before it is put on the wire.
-pub(crate) struct Reading {
-    pub(crate) scanned: ScannedWorkspace,
+pub struct Reading {
+    pub scanned: ScannedWorkspace,
     /// Whether every file that could name a runnable here was read. An unread
     /// name is not an absent one, so such a workspace is neither marked nor
     /// compared against.
-    pub(crate) names_known: bool,
+    pub names_known: bool,
 }
 
 /// Read every workspace in `tree`, and what its CI jobs run through `ci`,
@@ -150,7 +150,7 @@ fn strength(workspace: &ScannedWorkspace) -> EvidenceStrength {
 /// grid is drawn over a batch, and one thin sibling declaring nothing would
 /// otherwise erase every mark. **The root is not a sibling** — it holds its own
 /// commands, never hoisted from a workspace's.
-pub(crate) fn mark_missing(readings: &mut [Reading]) {
+pub fn mark_missing(readings: &mut [Reading]) {
     let named: BTreeMap<String, BTreeSet<String>> = readings
         .iter()
         .filter(|one| one.scanned.dir != "." && one.names_known)
@@ -185,7 +185,7 @@ pub(crate) fn mark_missing(readings: &mut [Reading]) {
 }
 
 /// `dir` and `name` as one repository path.
-pub(crate) fn at(dir: &str, name: &str) -> String {
+pub fn at(dir: &str, name: &str) -> String {
     match dir.is_empty() {
         true => name.to_string(),
         false => format!("{dir}/{name}"),
@@ -193,14 +193,14 @@ pub(crate) fn at(dir: &str, name: &str) -> String {
 }
 
 /// A directory as a person searches for it: `.` for the root.
-pub(crate) fn shown(dir: &str) -> String {
+pub fn shown(dir: &str) -> String {
     match dir.is_empty() {
         true => ".".to_string(),
         false => dir.to_string(),
     }
 }
 
-pub(crate) fn not_read(file: String, why: impl Into<String>) -> NotRead {
+pub fn not_read(file: String, why: impl Into<String>) -> NotRead {
     NotRead {
         file,
         why: why.into(),

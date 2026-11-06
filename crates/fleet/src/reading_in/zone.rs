@@ -14,14 +14,14 @@ use crate::framing::{HEAD, INSET};
 
 /// Where each thing a read-in made goes, in the order the answer gave them.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) struct Laid {
+pub struct Laid {
     /// Each Cluster's corner, beside the Finding's.
-    pub(crate) clusters: Vec<StudioPosition>,
+    pub clusters: Vec<StudioPosition>,
     /// Each Note: the Cluster it is drawn in, by its place in `clusters`, and
     /// its spot — from that Cluster's corner, or beside the Finding where it is
     /// in none.
-    pub(crate) notes: Vec<(Option<usize>, StudioPosition)>,
-    pub(crate) contradictions: Vec<StudioPosition>,
+    pub notes: Vec<(Option<usize>, StudioPosition)>,
+    pub contradictions: Vec<StudioPosition>,
 }
 
 /// `read` with every Cluster that would hold fewer than two Notes taken out.
@@ -31,7 +31,7 @@ pub(crate) struct Laid {
 /// held to the same: the owner, 2 Oct 2026, of a one-note frame. Repeated until
 /// nothing changes, because a Note drawn in a dropped Cluster may be the second
 /// a later one names.
-pub(crate) fn without_thin_clusters(mut read: ReadIn) -> ReadIn {
+pub fn without_thin_clusters(mut read: ReadIn) -> ReadIn {
     loop {
         let mut held: Vec<Vec<&str>> = vec![Vec::new(); read.clusters.len()];
         for note in &read.notes {
@@ -60,7 +60,7 @@ pub(crate) fn without_thin_clusters(mut read: ReadIn) -> ReadIn {
 /// cost the owner took for a Cluster drawn as a frame: one Note in two frames
 /// would be drawn twice. A Note no Cluster names, and every Contradiction,
 /// are laid out down columns after the last Cluster.
-pub(crate) fn laid_out_beside(from: StudioPosition, read: &ReadIn) -> Laid {
+pub fn laid_out_beside(from: StudioPosition, read: &ReadIn) -> Laid {
     let in_cluster = |handle: &str| {
         read.clusters
             .iter()

@@ -47,7 +47,7 @@ type Said = (IssueState, String);
 /// Issues read one by one because they were not on the open list, by repository and reference.
 /// **In memory**, for [`crate::tracking::Tracking`]'s reason. `None` is an issue the tracker has none of.
 #[derive(Default)]
-pub(crate) struct IssueReads(Mutex<BTreeMap<(String, String), (Timestamp, Option<Said>)>>);
+pub struct IssueReads(Mutex<BTreeMap<(String, String), (Timestamp, Option<Said>)>>);
 
 impl IssueReads {
     fn held(&self, manifest: &str, reference: &str, now: &Timestamp) -> Option<Option<Said>> {
@@ -69,7 +69,7 @@ type PullSaid = (TaskPullState, String);
 /// Pull requests linked in a project and read one by one, by repository and number. **In memory**, as
 /// [`IssueReads`] is. A forge that said nothing is not kept: asking again is reasonable.
 #[derive(Default)]
-pub(crate) struct PullReads(Mutex<BTreeMap<(String, u64), (Timestamp, PullSaid)>>);
+pub struct PullReads(Mutex<BTreeMap<(String, u64), (Timestamp, PullSaid)>>);
 
 impl PullReads {
     fn held(&self, manifest: &str, number: u64, now: &Timestamp) -> Option<PullSaid> {
@@ -77,7 +77,7 @@ impl PullReads {
         held.get(&(manifest.to_string(), number)).filter(|(at, _)| elapsed(at, now) < HELD_FOR).map(|(_, said)| said.clone())
     }
 
-    pub(crate) fn keep(&self, manifest: &str, number: u64, at: Timestamp, said: PullSaid) {
+    pub fn keep(&self, manifest: &str, number: u64, at: Timestamp, said: PullSaid) {
         let mut held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         held.insert((manifest.to_string(), number), (at, said));
     }
@@ -190,7 +190,7 @@ fn pull_numbers(kept: &KeptProjects) -> BTreeMap<String, Vec<u64>> {
 
 impl Fleet
 {
-    pub(crate) fn project_refusal(&self, code: &'static str, said: impl Into<String>) -> WireError {
+    pub fn project_refusal(&self, code: &'static str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said, self.run_id())
     }
 
@@ -198,7 +198,7 @@ impl Fleet
         Refusal::Unacceptable(self.project_refusal(BLANK, said))
     }
 
-    pub(crate) fn project_in<'k>(&self, kept: &'k KeptProjects, project: &str) -> Result<&'k store::KeptProject, Refusal> {
+    pub fn project_in<'k>(&self, kept: &'k KeptProjects, project: &str) -> Result<&'k store::KeptProject, Refusal> {
         kept.projects.iter().find(|one| one.id == project).ok_or_else(|| {
             Refusal::NotFound(self.project_refusal(NO_SUCH_PROJECT, format!("there is no project {project}")))
         })
@@ -213,7 +213,7 @@ impl Fleet
     }
 
     /// Row `row` wherever it stands, and the project it is in ([`LOOSE_PROJECT`] for none).
-    pub(crate) fn row_in<'k>(&self, kept: &'k KeptProjects, row: &str) -> Result<(&'k str, &'k KeptProjectRow), Refusal> {
+    pub fn row_in<'k>(&self, kept: &'k KeptProjects, row: &str) -> Result<(&'k str, &'k KeptProjectRow), Refusal> {
         let found = kept
             .projects
             .iter()
@@ -360,7 +360,7 @@ impl Fleet
         said
     }
 
-    pub(crate) async fn projects_on_the_wire(&self, kept: KeptProjects) -> ipc::Projects {
+    pub async fn projects_on_the_wire(&self, kept: KeptProjects) -> ipc::Projects {
         let (mut said, mut pulled): (SaidBy, PulledBy) = (BTreeMap::new(), BTreeMap::new());
         for (manifest, references) in issue_references(&kept) {
             let read = self.issues_said(&ManifestId::carried(manifest.clone()), references).await;

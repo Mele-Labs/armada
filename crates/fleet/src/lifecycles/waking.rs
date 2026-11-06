@@ -23,7 +23,7 @@ impl Fleet
 {
     /// A move was just kept for `session`. If its step waits on a lifecycle, draw the row again so the
     /// rail sees it; a Job on any other step is left alone.
-    pub(crate) async fn lifecycle_wakes(&self, session: &str) {
+    pub async fn lifecycle_wakes(&self, session: &str) {
         let (manifest, workflow, at) = {
             let store = self.store().lock().await;
             let Some(hosting) = store.hosting(session).ok().flatten() else { return };
@@ -40,7 +40,7 @@ impl Fleet
     /// The one line that wakes the agent on leaving `step`, where the step waited on a lifecycle and
     /// its end has come. **`None` for a step the person skipped or wrote on first**: nothing got there.
     /// **And for a delivering step**, which landing leaves and not the state: see [`Self::lifecycle_lifted`].
-    pub(crate) async fn lifecycle_woken(&self, session: &str, step: &RailStep, workflow: &str, manifest: &str) -> Option<String> {
+    pub async fn lifecycle_woken(&self, session: &str, step: &RailStep, workflow: &str, manifest: &str) -> Option<String> {
         if !step.has_lifecycle_end() || step.delivers {
             return None;
         }
@@ -57,7 +57,7 @@ impl Fleet
     /// The one line that lifts the wait of a **delivering** step gated by a lifecycle, once its end has
     /// come: the step is not left, so this is sent where the Job stands. **`None` once the thread holds
     /// it, and when the person wrote on the step**, which lifts the wait himself.
-    pub(crate) async fn lifecycle_lifted(
+    pub async fn lifecycle_lifted(
         &self,
         session: &str,
         at: usize,
@@ -94,7 +94,7 @@ fn held_of(store: &Store, session: &str) -> Option<Held> {
 }
 
 /// What a Job's own title is, for each Job it holds: how `named` calls one.
-pub(crate) fn titles_of(store: &Store, held: &Held) -> HashMap<String, String> {
+pub fn titles_of(store: &Store, held: &Held) -> HashMap<String, String> {
     held.instances
         .iter()
         .filter(|one| one.lifecycle == "job")

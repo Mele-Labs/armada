@@ -16,9 +16,9 @@
 //! **Read when asked, never cached**, as `piece_places` reads: the next read sees what was written.
 //! Nothing outside Kit's folder is touched.
 
-pub(crate) mod identity;
-pub(crate) mod teaching;
-mod text;
+pub mod identity;
+pub mod teaching;
+pub mod text;
 
 use std::path::{Path, PathBuf};
 
@@ -35,13 +35,13 @@ use crate::daemon::Fleet;
 use crate::lifecycles::wire;
 
 /// The piece does not parse. **A 422 carrying the parser's own sentence**, and nothing is written.
-pub(crate) const PIECE_UNFIT: &str = "fleet.piece_unfit";
+pub const PIECE_UNFIT: &str = "fleet.piece_unfit";
 /// Kit already holds the kind, id and scope and `overwrite` was not set. A 422 naming the file.
-pub(crate) const PIECE_EXISTS: &str = "fleet.piece_exists";
+pub const PIECE_EXISTS: &str = "fleet.piece_exists";
 /// Kit holds no piece of the kind, id and scope a delete named. A 422.
-pub(crate) const PIECE_NOT_KEPT: &str = "fleet.piece_not_kept";
+pub const PIECE_NOT_KEPT: &str = "fleet.piece_not_kept";
 /// The folder or the file could not be written or removed. A 500.
-pub(crate) const PIECE_UNWRITABLE: &str = "fleet.piece_unwritable";
+pub const PIECE_UNWRITABLE: &str = "fleet.piece_unwritable";
 
 /// Write `text` to `<path>.writing` and rename it over `path`, so a read sees the old file or the
 /// new and never half of one. The staged name has no extension a read takes.
@@ -56,7 +56,7 @@ fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
 }
 
 /// The kind of a piece and the text of the file a save would write for it.
-pub(crate) fn written_as(piece: &LifecyclePiece) -> (LifecyclePieceKind, Result<String, String>) {
+pub fn written_as(piece: &LifecyclePiece) -> (LifecyclePieceKind, Result<String, String>) {
     match piece {
         LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, text::lifecycle(lifecycle)),
         LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, text::rule(rule)),
@@ -81,7 +81,7 @@ fn free_name(folder: &Path, declared: &Identity) -> PathBuf {
 /// lifecycle or state that `lifecycles` lack. **The rule as that read would answer it**, with each
 /// act's kind and autonomy worked out, so what a person is shown is what a save would keep. The
 /// sentence is the parser's own, or the read's for a name that does not apply.
-pub(crate) fn rule_as_read(rule: &LifecycleRule, lifecycles: &[Lifecycle]) -> Result<LifecycleRule, String> {
+pub fn rule_as_read(rule: &LifecycleRule, lifecycles: &[Lifecycle]) -> Result<LifecycleRule, String> {
     let text = text::rule(rule).map_err(|why| format!("The rule could not be written as a file: {why}"))?;
     let parsed = config::parse_rule(Path::new("(rule)"), &text).map_err(|why| why.to_string())?;
     let held: Vec<&Lifecycle> = lifecycles.iter().collect();
@@ -110,7 +110,7 @@ impl Fleet
     }
 
     /// Check one piece with its own parser, then write it in Kit's folder.
-    pub(crate) fn lifecycle_piece_saved(&self, asked: SaveLifecyclePiece) -> Result<LifecyclePieceSaved, Refusal> {
+    pub fn lifecycle_piece_saved(&self, asked: SaveLifecyclePiece) -> Result<LifecyclePieceSaved, Refusal> {
         let (kind, written) = written_as(&asked.piece);
         let text = written.map_err(|why| {
             self.piece_refusal(PIECE_UNFIT, format!("The {} could not be written as a file: {why}", kind.as_wire()), None)
@@ -148,7 +148,7 @@ impl Fleet
     }
 
     /// Delete the file or files in Kit that declare one piece.
-    pub(crate) fn lifecycle_piece_deleted(&self, asked: DeleteLifecyclePiece) -> Result<LifecyclePieceDeleted, Refusal> {
+    pub fn lifecycle_piece_deleted(&self, asked: DeleteLifecyclePiece) -> Result<LifecyclePieceDeleted, Refusal> {
         let wanted = Identity::of(asked.kind, &asked.id, asked.scope);
         let held = declaring(&self.kit_pieces(folder_of(wanted.kind)), &wanted);
         let Some((first, _)) = held.first() else {

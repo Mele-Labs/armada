@@ -3,7 +3,7 @@
 //! that is the number the sibling was expected on.
 
 /// The port a line says a connection to this machine was refused on, or none.
-pub(crate) fn refused_port(line: &str) -> Option<u16> {
+pub fn refused_port(line: &str) -> Option<u16> {
     let refused = line.contains("ECONNREFUSED") || line.contains("onnection refused") || line.contains("http proxy error");
     if !refused {
         return None;

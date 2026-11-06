@@ -21,18 +21,18 @@ use crate::language_model::LanguageModel;
 
 /// Whether this reader is in force, and so whether Fleet fetches and loads the model for it. Off:
 /// no pick it makes saves the call.
-pub(crate) const IN_FORCE: bool = false;
+pub const IN_FORCE: bool = false;
 
 /// The cosine similarity at and above which the best workflow is a clear pick. Above every best score
 /// of the 38 requests (the highest, 0.66, was a workflow Claude did not pick).
-pub(crate) const PICKS_AT: f32 = 0.70;
+pub const PICKS_AT: f32 = 0.70;
 
 /// How far the best workflow must lead the second. Twice the widest lead (0.05) the 38 showed.
-pub(crate) const LEADS_BY: f32 = 0.10;
+pub const LEADS_BY: f32 = 0.10;
 
 /// Each workflow text's vector, so a read embeds only the workflows it has not seen.
 #[derive(Default)]
-pub(crate) struct Vectors {
+pub struct Vectors {
     kept: Mutex<HashMap<String, Vec<f32>>>,
 }
 
@@ -57,7 +57,7 @@ fn clear_pick(scores: &[f32]) -> Option<usize> {
 }
 
 /// The workflow `request` plainly is, if the model reads one. Blocking: it embeds.
-pub(crate) fn picked(
+pub fn picked(
     model: &dyn TextModel,
     vectors: &Vectors,
     request: &str,
@@ -89,7 +89,7 @@ pub(crate) fn picked(
 /// [`picked`] on a thread of its own, with the model once it is loaded. `None` while it is not, and
 /// while the reader is not in force.
 #[allow(dead_code)]
-pub(crate) async fn picked_by(
+pub async fn picked_by(
     language_model: &LanguageModel,
     request: &str,
     workflows: &BTreeMap<WorkflowId, ResolvedWorkflow>,

@@ -312,7 +312,7 @@ fn said(command: &mut Command) -> Option<String> {
 /// line differs: darwin writes `load averages: 1.2 1.1 1.0` and Linux writes
 /// `load average: 1.20, 1.10, 1.00`. The last three fields are the averages on
 /// both, and a trailing comma is the only other difference.
-pub(crate) fn load_in_use(said: &str, cores: usize) -> Option<InUse> {
+pub fn load_in_use(said: &str, cores: usize) -> Option<InUse> {
     let fields: Vec<&str> = said.split_whitespace().collect();
     let first_of_three = fields.len().checked_sub(3)?;
     let one_minute: f64 = fields[first_of_three].trim_end_matches(',').parse().ok()?;
@@ -335,7 +335,7 @@ pub(crate) fn load_in_use(said: &str, cores: usize) -> Option<InUse> {
 ///
 /// **An unreadable line is skipped, not fatal.** `ps` walks a live process
 /// table and a process that exits mid-walk can leave a short one.
-pub(crate) fn memory_in_use(said: &str) -> Option<InUse> {
+pub fn memory_in_use(said: &str) -> Option<InUse> {
     let mut total = 0.0f64;
     let mut seen = 0usize;
     for line in said.lines() {
@@ -353,7 +353,7 @@ pub(crate) fn memory_in_use(said: &str) -> Option<InUse> {
 /// device name wraps onto its own line and the columns move. `-k` fixes the
 /// block size at 1024 on both platforms, which darwin otherwise takes from the
 /// environment.
-pub(crate) fn disk_free(said: &str) -> Option<Bytes> {
+pub fn disk_free(said: &str) -> Option<Bytes> {
     let last = said.lines().rfind(|line| !line.trim().is_empty())?;
     let available: u64 = last.split_whitespace().nth(3)?.parse().ok()?;
     Some(Bytes::kibibytes(available))

@@ -51,7 +51,7 @@ impl Fleet
 {
     /// Keep that a Session's process came back. **A restart that will not
     /// keep fails nothing**: the process is already back.
-    pub(crate) async fn kept_restart(&self, session: &str, kind: &str, said: Option<&str>) {
+    pub async fn kept_restart(&self, session: &str, kind: &str, said: Option<&str>) {
         let at = self.now();
         let _ = self
             .store()
@@ -63,7 +63,7 @@ impl Fleet
     /// Write a Session's retro now, covering what happened since its last.
     /// **Answers when it is written.** Refused while one is being written for
     /// the Session, and where there is nothing new to write about.
-    pub(crate) async fn write_session_retro(
+    pub async fn write_session_retro(
         self: &Arc<Self>,
         session_id: &str,
     ) -> Result<Retro, Refusal> {
@@ -114,7 +114,7 @@ impl Fleet
 
     /// The newest retro of a Session as the wire has it, `pending` where it
     /// has none.
-    pub(crate) async fn read_session_retro(
+    pub async fn read_session_retro(
         &self,
         session_id: &str,
         retro: Option<i64>,
@@ -234,7 +234,7 @@ impl Fleet
     }
 
     /// The record of a Session between two moments, with what it is read from.
-    pub(crate) async fn session_sources(
+    pub async fn session_sources(
         &self,
         session: &KeptSession,
         since: Option<&str>,
@@ -420,7 +420,7 @@ impl Fleet
 }
 
 /// The Session a retro or an item names.
-pub(crate) fn session_of(session: &KeptSession) -> RetroSession {
+pub fn session_of(session: &KeptSession) -> RetroSession {
     RetroSession {
         id: session.id.clone(),
         title: session.title.clone(),
@@ -428,13 +428,13 @@ pub(crate) fn session_of(session: &KeptSession) -> RetroSession {
 }
 
 /// How a Session's address reads: its handle.
-pub(crate) fn handle_of(session: &str) -> String {
+pub fn handle_of(session: &str) -> String {
     address_of(session)
 }
 
-pub(crate) struct Gathered {
-    pub(crate) record: RetroRecord,
-    pub(crate) thread: Vec<SessionRow>,
+pub struct Gathered {
+    pub record: RetroRecord,
+    pub thread: Vec<SessionRow>,
 }
 
 struct FreeOnDrop(Arc<crate::session_host::Runtime>);

@@ -25,11 +25,11 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock};
 use config::{Manifest, ResolvedWorkflow, WorkflowFile};
 use core_model::WorkflowId;
 
-mod adding;
-pub(crate) use adding::NO_SUCH_REPOSITORY;
-mod cloning;
-mod creating;
-pub(crate) mod reading;
+pub mod adding;
+pub use adding::NO_SUCH_REPOSITORY;
+pub mod cloning;
+pub mod creating;
+pub mod reading;
 
 pub use cloning::{folder_named_by, CLONE_BUDGET};
 
@@ -96,7 +96,7 @@ impl SetUp {
     }
 
     /// Replace the workspaces held, whole: one whose file is gone is gone.
-    pub(crate) fn workspaces_read(&self, workspaces: Vec<Manifest>) {
+    pub fn workspaces_read(&self, workspaces: Vec<Manifest>) {
         self.held
             .write()
             .unwrap_or_else(PoisonError::into_inner)
@@ -131,7 +131,7 @@ impl SetUp {
 
     /// The workflows this repository runs as of a re-read, replacing every one
     /// held. **Whole, never merged**: a definition whose file is gone is gone.
-    pub(crate) fn catalogued(&self, read: Catalogued) {
+    pub fn catalogued(&self, read: Catalogued) {
         let mut held = self.held.write().unwrap_or_else(PoisonError::into_inner);
         held.workflows = Arc::new(read.workflows);
         held.left_out = Arc::new(read.left_out);
@@ -373,22 +373,22 @@ impl Repository {
         self.implicit.manifest().id().as_str()
     }
 
-    pub(crate) fn proposals(&self) -> &crate::manifest_proposal::Held {
+    pub fn proposals(&self) -> &crate::manifest_proposal::Held {
         &self.proposals
     }
 
-    pub(crate) fn pending_edit(&self) -> &crate::pending_edit::Held {
+    pub fn pending_edit(&self) -> &crate::pending_edit::Held {
         &self.pending_edit
     }
 
-    pub(crate) fn reading(&self) -> Option<ipc::ManifestReading> {
+    pub fn reading(&self) -> Option<ipc::ManifestReading> {
         self.reading
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
 
-    pub(crate) fn read(&self, reading: ipc::ManifestReading) {
+    pub fn read(&self, reading: ipc::ManifestReading) {
         *self.reading.lock().unwrap_or_else(PoisonError::into_inner) = Some(reading);
     }
 }
@@ -409,7 +409,7 @@ impl Served {
 
     /// Any repository, as a Job reaches it: under its Manifest where it has one
     /// and its implicit one where it has none.
-    pub(crate) fn hosting(repository: &Arc<Repository>) -> Served {
+    pub fn hosting(repository: &Arc<Repository>) -> Served {
         Served(Arc::clone(repository))
     }
 
@@ -436,7 +436,7 @@ impl Served {
     }
 
     /// Hold the workspaces a re-read found, replacing every one held.
-    pub(crate) fn workspaces_read(&self, workspaces: Vec<Manifest>) {
+    pub fn workspaces_read(&self, workspaces: Vec<Manifest>) {
         self.set_up().workspaces_read(workspaces);
     }
 

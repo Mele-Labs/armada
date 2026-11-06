@@ -17,7 +17,7 @@ use crate::repositories::Served;
 
 /// What the pool says of a slot a session may own.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum Standing {
+pub enum Standing {
     /// Held for this session: by Fleet on its behalf, or by its process tree.
     Ours,
     /// Free, or held by somebody else.
@@ -26,7 +26,7 @@ pub(super) enum Standing {
 
 /// Whether `holder` is this session's: the Job-style lease Fleet took for it
 /// by id, or a live process that is the agent or one it started.
-pub(super) fn standing(
+pub fn standing(
     holder: Option<&Holder>,
     session: &str,
     in_tree: impl Fn(u32) -> bool,
@@ -40,7 +40,7 @@ pub(super) fn standing(
 
 /// The pid of the `armada session-keep` serving `socket`, in a `ps -axo
 /// pid=,command=` listing.
-pub(crate) fn keeper_in(listing: &str, socket: &str) -> Option<u32> {
+pub fn keeper_in(listing: &str, socket: &str) -> Option<u32> {
     listing.lines().find_map(|line| {
         let mut words = line.split_whitespace();
         let pid = words.next()?.parse().ok()?;
@@ -51,19 +51,19 @@ pub(crate) fn keeper_in(listing: &str, socket: &str) -> Option<u32> {
 
 /// A Session as a pool slot's holder names it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct SlotSession {
-    pub(crate) id: String,
-    pub(crate) title: Option<String>,
+pub struct SlotSession {
+    pub id: String,
+    pub title: Option<String>,
 }
 
 /// The pid in a holder as the pool says it: `zsh (pid 4120)`.
-pub(crate) fn pid_in(said: &str) -> Option<u32> {
+pub fn pid_in(said: &str) -> Option<u32> {
     said.rsplit_once("(pid ")?.1.strip_suffix(')')?.parse().ok()
 }
 
 /// `ps -axo pid=,command=`, for [`keeper_in`]. Blocking, and empty where `ps`
 /// cannot run.
-pub(crate) fn process_listing() -> String {
+pub fn process_listing() -> String {
     std::process::Command::new("ps")
         .args(["-axo", "pid=,command="])
         .output()
@@ -74,7 +74,7 @@ pub(crate) fn process_listing() -> String {
 impl Fleet
 {
     /// The pids this session's agent and everything it started are among.
-    pub(super) fn tree_roots(&self, id: &str) -> Vec<u32> {
+    pub fn tree_roots(&self, id: &str) -> Vec<u32> {
         let process = self.hosts().of(id).state().process.clone();
         match process.and_then(|process| process.pid()) {
             Some(agent) => vec![agent],
@@ -101,7 +101,7 @@ impl Fleet
     /// listing. **A subagent's or a tool's lease is the Session's own work**,
     /// so a bay held by one names the Session it began from. `None` for a
     /// process no hosted Session started, and for one that has gone.
-    pub(crate) fn session_holding_pid(&self, pid: u32, listing: &str) -> Option<String> {
+    pub fn session_holding_pid(&self, pid: u32, listing: &str) -> Option<String> {
         let mut ids: Vec<String> = self.hosts().all().into_iter().map(|(id, _)| id).collect();
         ids.sort();
         ids.into_iter().find(|id| {
@@ -120,7 +120,7 @@ impl Fleet
     }
 
     /// The Session the ledger holds under `id`, with its title.
-    pub(crate) async fn session_in_ledger(&self, id: &str) -> Option<SlotSession> {
+    pub async fn session_in_ledger(&self, id: &str) -> Option<SlotSession> {
         let kept = self.store().lock().await.session(id).ok()??;
         Some(SlotSession {
             id: kept.id,
@@ -128,7 +128,7 @@ impl Fleet
         })
     }
 
-    pub(super) fn held_by_the_tree(&self, id: &str, path: &str) -> Standing {
+    pub fn held_by_the_tree(&self, id: &str, path: &str) -> Standing {
         let roots = self.tree_roots(id);
         let holder = adapters::leasing::holder_of(std::path::Path::new(path));
         standing(holder.as_ref(), id, |pid| {
@@ -141,7 +141,7 @@ impl Fleet
     /// the session's**: it holds the slot under the session's id, or under a process the
     /// session's tree holds, so a slot the ledger has never recorded for the session is still
     /// its own.
-    pub(super) fn held_directories(
+    pub fn held_directories(
         &self,
         id: &str,
         served: &Served,
@@ -165,7 +165,7 @@ impl Fleet
     /// [`Self::held_directories`] without the repository root. **The root holds every slot and
     /// the preview Bridge runs from**, so a session with no slot, one that gave it back with
     /// `finish_up` among them, ended Bridge and every other Job's binaries on its close (29 Oct).
-    pub(crate) fn process_directories(
+    pub fn process_directories(
         &self,
         id: &str,
         served: &Served,
@@ -184,7 +184,7 @@ impl Fleet
     /// covers a server whose agent was replaced**: the old agent's children go to launchd, and
     /// one run by `node` runs no file from the slot (30 Oct). The keeper carries the id too, and
     /// is never the session's to end.
-    pub(super) fn started_by<'a>(&'a self, id: &str, held: &'a [String]) -> impl Fn(u32) -> bool + 'a {
+    pub fn started_by<'a>(&'a self, id: &str, held: &'a [String]) -> impl Fn(u32) -> bool + 'a {
         let roots = self.tree_roots(id);
         let keeper = self.keeper_of(id);
         let session = id.to_string();
@@ -200,7 +200,7 @@ impl Fleet
     /// the session cut itself is its own** though no slot is on it any more: a session that
     /// switches its slot back after opening a pull request was refused deleting the merged branch
     /// and asked the owner to (#2343, 15 Oct 2026).
-    pub(super) async fn pull_branches_of(&self, id: &str, manifest: &str) -> Vec<String> {
+    pub async fn pull_branches_of(&self, id: &str, manifest: &str) -> Vec<String> {
         let rows = self.store().lock().await.attachments_of(&Keeper::session(id));
         rows.unwrap_or_default()
             .into_iter()
@@ -213,7 +213,7 @@ impl Fleet
     /// The branches the session may delete by hand: the one it was leased, each one a slot it
     /// holds is on and each of its pull requests', where the base already holds every commit
     /// on them.
-    pub(super) async fn own_merged_branches(
+    pub async fn own_merged_branches(
         &self,
         id: &str,
         served: &Served,
@@ -249,7 +249,7 @@ impl Fleet
     ///
     /// **Returns the slots the pool still holds for the session**, with why.
     /// The caller leaves those slots' ledger rows standing: a row given back over a held slot is how one gets stranded.
-    pub(super) async fn park_every_slot_of(
+    pub async fn park_every_slot_of(
         &self,
         id: &str,
         served: &Served,
@@ -298,7 +298,7 @@ impl Fleet
     /// closed before this fix parked them, or refused then. Each is parked as a
     /// close parks it, and its ledger rows given back once the pool lets go.
     /// Run where the pool is reconciled, so nothing needs a timer.
-    pub(crate) async fn freed_from_ended_sessions(&self, served: &Served) {
+    pub async fn freed_from_ended_sessions(&self, served: &Served) {
         let pool = crate::leasing::pool_of(served);
         let vcs = Arc::clone(self.vcs());
         let held: Vec<(u32, String)> = {
@@ -342,7 +342,7 @@ impl Fleet
     /// longer shows as the session's is given back; with none recorded, a slot
     /// held by the session's own tree is attached with its branch. Returns the
     /// hosting as it now stands.
-    pub(crate) async fn follow_the_pool(
+    pub async fn follow_the_pool(
         &self,
         id: &str,
         served: &Served,

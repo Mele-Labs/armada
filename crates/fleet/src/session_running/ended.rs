@@ -13,7 +13,7 @@ use crate::session_host::RunEnd;
 const TOLD_LINES: usize = 40;
 
 /// How a run ended, as the task that waited for it saw it.
-pub(crate) struct Ended {
+pub struct Ended {
     /// `None` for a run no Job asked for.
     pub session: Option<String>,
     pub command: String,
@@ -25,7 +25,7 @@ pub(crate) struct Ended {
 }
 
 /// `text` in a fence that no run of backticks inside it can close.
-pub(crate) fn fenced(text: &str) -> String {
+pub fn fenced(text: &str) -> String {
     let (mut longest, mut run) = (0, 0);
     for c in text.chars() {
         run = if c == '`' { run + 1 } else { 0 };
@@ -41,7 +41,7 @@ fn tail_of(ended: &Ended) -> String {
 }
 
 /// What the Session reads. `taken_off` is whether its waiting list lost an item to the exit.
-pub(crate) fn told(ended: &Ended, taken_off: bool) -> String {
+pub fn told(ended: &Ended, taken_off: bool) -> String {
     let how = match (ended.code, ended.stopped) {
         (Some(code), _) => format!("Exit {code}."),
         (None, true) => "Stopped.".to_string(),
@@ -71,7 +71,7 @@ impl Fleet
 {
     /// A clean exit takes the matching `run` item off the Session's list first, so Bridge has
     /// nothing to settle. **A Session that has ended is not told**, which `told_by_fleet` answers.
-    pub(crate) async fn session_run_ended(self: Arc<Self>, ended: Ended) {
+    pub async fn session_run_ended(self: Arc<Self>, ended: Ended) {
         let Some(session) = ended.session.clone() else { return };
         let taken_off =
             ended.code == Some(0) && self.run_item_settled(&session, &ended.command).await;

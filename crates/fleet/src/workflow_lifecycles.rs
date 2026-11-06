@@ -18,7 +18,7 @@ impl Fleet
 {
     /// `read`, with each workflow that names a lifecycle there is not set aside among the ones left
     /// out. **No other place answers for its id**: the catalogue kept only the one that ran.
-    pub(crate) fn lifecycle_ends_checked(&self, manifest: &str, mut read: Catalogued) -> Catalogued {
+    pub fn lifecycle_ends_checked(&self, manifest: &str, mut read: Catalogued) -> Catalogued {
         let waits = |steps: &[core_model::ResolvedStep]| steps.iter().any(|step| step.ends_on().iter().any(|end| end.lifecycle().is_some()));
         if !read.workflows.values().any(|one| waits(one.steps())) {
             return read;
@@ -50,7 +50,7 @@ impl Fleet
     /// What a definition about to be saved would be refused for, if it ends a step on a lifecycle
     /// the repository does not have. **A definition that will not parse is the loader's to refuse**,
     /// with every fault it has.
-    pub(crate) fn lifecycle_ends_unnamed(&self, manifest: &str, definition: &str) -> Result<(), WorkflowNotSaved> {
+    pub fn lifecycle_ends_unnamed(&self, manifest: &str, definition: &str) -> Result<(), WorkflowNotSaved> {
         let roster = config::Roster::of(self.models_on());
         let Ok(def) = WorkflowDef::parse(Path::new("(definition).json"), definition.trim(), &roster) else { return Ok(()) };
         let steps = || def.steps().iter().map(|step| (step.id().as_str(), step.ends_on()));

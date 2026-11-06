@@ -83,7 +83,7 @@ impl Fleet
 
     /// A Job left its start card: its parent is told once, off the begin itself rather than the event
     /// tap, and published so its `held_child` item goes.
-    pub(crate) async fn linked_started(self: &Arc<Self>, record: &SessionRecord) {
+    pub async fn linked_started(self: &Arc<Self>, record: &SessionRecord) {
         let Some((parent, group)) = followed_by(record) else { return };
         let child = record.id.as_str().to_string();
         let title = record.title.clone().unwrap_or_else(|| child.clone());

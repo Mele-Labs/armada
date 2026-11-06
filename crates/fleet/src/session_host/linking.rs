@@ -18,7 +18,7 @@ use super::agent_starting::Words;
 use crate::daemon::Fleet;
 
 /// On a link row: the id of the parent's plan group the child was handed.
-pub(crate) const GROUP: &str = "group";
+pub const GROUP: &str = "group";
 
 const GROUP_UNKNOWN: &str = "fleet.group_unknown";
 const GROUP_HANDED: &str = "fleet.group_handed";
@@ -41,7 +41,7 @@ impl Fleet
     /// The title and the brief of handing `group` of `parent`'s plan to a Session: the group's tasks
     /// word for word, its paths, then the parent's handoff. Refused 422 where the plan holds no such
     /// group and 409 where the group has a Session already.
-    pub(super) async fn group_brief(&self, parent: &str, group: &str) -> Result<(String, String), Refusal> {
+    pub async fn group_brief(&self, parent: &str, group: &str) -> Result<(String, String), Refusal> {
         let (plan, held) = {
             let store = self.store().lock().await;
             (
@@ -76,7 +76,7 @@ impl Fleet
 
     /// What a Session handed work starts knowing of the one that handed it: its title and id, where
     /// it works, its open pull requests and the last of what was said in its thread.
-    pub(super) async fn handoff_of(&self, parent: &str) -> Result<String, Refusal> {
+    pub async fn handoff_of(&self, parent: &str) -> Result<String, Refusal> {
         let (session, held) = {
             let store = self.store().lock().await;
             (
@@ -118,7 +118,7 @@ impl Fleet
     /// `hand_to_session`: the person hands `group` of a Session's plan to a Session of its own. **The
     /// brief is sent, not held**, since the press is the person's; a send that is refused leaves it
     /// held, where the new Session's waiting item offers it.
-    pub(crate) async fn group_handed(self: Arc<Self>, hand: HandToSession) -> Result<SessionHeld, Refusal> {
+    pub async fn group_handed(self: Arc<Self>, hand: HandToSession) -> Result<SessionHeld, Refusal> {
         let parent = hand.session_id.as_str().to_string();
         let group = hand.group.trim().to_string();
         let (_, hosting) = self.session_and_hosting(&parent).await?;

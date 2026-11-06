@@ -28,16 +28,16 @@ pub struct Filling {
 }
 
 /// A request before it is filled.
-pub(super) struct Asked {
-    pub(super) method: String,
-    pub(super) url: String,
-    pub(super) headers: Vec<RequestHeader>,
-    pub(super) body: Option<String>,
+pub struct Asked {
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<RequestHeader>,
+    pub body: Option<String>,
 }
 
 impl Asked {
     /// Every text a `{{name}}` is filled in.
-    pub(super) fn texts(&self) -> Vec<&str> {
+    pub fn texts(&self) -> Vec<&str> {
         let mut texts = vec![self.url.as_str()];
         texts.extend(self.headers.iter().map(|one| one.value.as_str()));
         texts.extend(self.body.as_deref());
@@ -46,7 +46,7 @@ impl Asked {
 }
 
 /// `under` with each header `over` names, in any case, taken out, then `over`.
-pub(crate) fn layered(under: &[RequestHeader], over: &[RequestHeader]) -> Vec<RequestHeader> {
+pub fn layered(under: &[RequestHeader], over: &[RequestHeader]) -> Vec<RequestHeader> {
     under
         .iter()
         .filter(|one| !over.iter().any(|top| is_named(&top.name, &one.name)))
@@ -56,7 +56,7 @@ pub(crate) fn layered(under: &[RequestHeader], over: &[RequestHeader]) -> Vec<Re
 }
 
 /// The one of `items` whose id is `named`, or failing that whose name is.
-pub(crate) fn by_id_or_name<'a, T>(
+pub fn by_id_or_name<'a, T>(
     items: &'a [T],
     named: &str,
     id: impl Fn(&T) -> &str,
@@ -73,7 +73,7 @@ impl Filling {
     }
 
     /// The request `send` names, its collection's headers under its own and the send's over both.
-    pub(super) fn asked(&self, send: &SendRequest) -> Result<Asked, String> {
+    pub fn asked(&self, send: &SendRequest) -> Result<Asked, String> {
         match &send.request {
             RequestToSend::Saved(saved) => {
                 let collection = self.collection(&saved.collection)?;
@@ -103,7 +103,7 @@ impl Filling {
 
     /// The values `environment` fills `texts` with: its plain ones, and the secrets they name read
     /// from `secrets`.
-    pub(super) fn values(
+    pub fn values(
         &self,
         environment: Option<&str>,
         texts: &[&str],
@@ -116,7 +116,7 @@ impl Filling {
 
     /// Every value of `named`, each secret read: a watch's command is given the environment
     /// whole, since no text names what it reads.
-    pub(crate) fn every_value(&self, named: &str, secrets: &dyn RequestSecrets) -> Result<Values, Unsent> {
+    pub fn every_value(&self, named: &str, secrets: &dyn RequestSecrets) -> Result<Values, Unsent> {
         self.values_where(named, |_| true, secrets)
     }
 
@@ -188,7 +188,7 @@ fn placeholders(text: &str) -> Vec<(usize, usize, String)> {
 /// The values a send is filled with. **Holds secrets' values**, so it never leaves this module's
 /// caller and has no `Debug`.
 #[derive(Default)]
-pub(crate) struct Values {
+pub struct Values {
     known: BTreeMap<String, String>,
     /// Each secret filled in, by name: what [`Values::hidden`] takes back out.
     secret: Vec<(String, String)>,
@@ -196,7 +196,7 @@ pub(crate) struct Values {
 
 impl Values {
     /// `text` with each `{{name}}` a value is known for replaced by it.
-    pub(super) fn filled(&self, text: &str) -> String {
+    pub fn filled(&self, text: &str) -> String {
         let mut out = String::with_capacity(text.len());
         let mut at = 0;
         for (open, close, name) in placeholders(text) {
@@ -211,7 +211,7 @@ impl Values {
     }
 
     /// Each name written in `texts` that no value fills, once, in the order written.
-    pub(super) fn unfilled(&self, texts: &[&str]) -> Vec<String> {
+    pub fn unfilled(&self, texts: &[&str]) -> Vec<String> {
         let mut names: Vec<String> = Vec::new();
         for name in texts.iter().flat_map(|text| names_in(text)) {
             if !self.known.contains_key(&name) && !names.contains(&name) {
@@ -222,22 +222,22 @@ impl Values {
     }
 
     /// `text` with each secret's value put back as `{{name}}`.
-    pub(super) fn hidden(&self, text: &str) -> String {
+    pub fn hidden(&self, text: &str) -> String {
         hidden(text, &self.secret)
     }
 
     /// Every value, by name, secrets among them: a watch command's environment.
-    pub(crate) fn variables(&self) -> Vec<(String, String)> {
+    pub fn variables(&self) -> Vec<(String, String)> {
         self.known.iter().map(|(name, value)| (name.clone(), value.clone())).collect()
     }
 
     /// Each secret filled in, by name, for [`hidden`] to take back out of what is kept.
-    pub(crate) fn secrets(&self) -> &[(String, String)] {
+    pub fn secrets(&self) -> &[(String, String)] {
         &self.secret
     }
 
     /// The longest secret's length.
-    pub(super) fn longest(&self) -> usize {
+    pub fn longest(&self) -> usize {
         self.secret.iter().map(|(_, value)| value.len()).max().unwrap_or(0)
     }
 }

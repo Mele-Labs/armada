@@ -18,16 +18,16 @@ use crate::flight_controls::repository::check_repository;
 /// The whole text.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Package {
-    pub(super) version: u32,
+pub struct Package {
+    pub version: u32,
     #[serde(default, rename = "piece")]
-    pub(super) pieces: Vec<Piece>,
+    pub pieces: Vec<Piece>,
 }
 
 /// One piece, as stored.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub(super) enum Piece {
+pub enum Piece {
     Tile {
         list: TileList,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -67,24 +67,24 @@ pub(super) enum Piece {
 }
 
 /// The id a manifest piece carries: the file's own name, since Kit keeps one per repository.
-pub(super) const MANIFEST_ID: &str = "armada.yml";
+pub const MANIFEST_ID: &str = "armada.yml";
 /// The id a requests piece carries: one requests file is kept per repository.
-pub(super) const REQUESTS_ID: &str = "requests";
+pub const REQUESTS_ID: &str = "requests";
 
 /// What a piece is, said without writing anything.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Shown {
-    pub(super) kind: PieceKind,
-    pub(super) id: String,
-    pub(super) name: String,
-    pub(super) list: Option<TileList>,
-    pub(super) action: Option<FlightControlKind>,
-    pub(super) commands: Vec<String>,
-    pub(super) remote: Option<String>,
+pub struct Shown {
+    pub kind: PieceKind,
+    pub id: String,
+    pub name: String,
+    pub list: Option<TileList>,
+    pub action: Option<FlightControlKind>,
+    pub commands: Vec<String>,
+    pub remote: Option<String>,
 }
 
 impl Piece {
-    pub(super) fn remote(&self) -> Option<&str> {
+    pub fn remote(&self) -> Option<&str> {
         match self {
             Piece::Tile { remote, .. }
             | Piece::Workflow { remote, .. }
@@ -98,7 +98,7 @@ impl Piece {
 
     /// The piece's id, name and commands. A workflow and a review tool were checked when the
     /// package was read, so this cannot fail for a piece that came out of [`read`].
-    pub(super) fn shown(&self) -> Shown {
+    pub fn shown(&self) -> Shown {
         match self {
             Piece::Tile { list, remote, tile } => Shown {
                 kind: PieceKind::Tile,
@@ -142,7 +142,7 @@ impl Piece {
     }
 
     /// A requests piece as the file it is put into.
-    pub(super) fn requests_file(&self) -> Option<RequestsFile> {
+    pub fn requests_file(&self) -> Option<RequestsFile> {
         match self {
             Piece::Requests { collections, environments, .. } => {
                 Some(RequestsFile { collections: collections.clone(), environments: environments.clone(), ..RequestsFile::default() })
@@ -164,7 +164,7 @@ impl Piece {
 }
 
 /// A review tool file's id and name, by the rules a file in Kit is held to.
-pub(super) fn review_tool_of(text: &str) -> Result<(String, String), String> {
+pub fn review_tool_of(text: &str) -> Result<(String, String), String> {
     let resolved = tools::resolve([Written::in_kit(PathBuf::from("package.md"), text.to_string())]);
     match (resolved.defs.first(), resolved.left_out.first()) {
         (Some(def), _) => Ok((def.id.clone(), def.name.clone())),
@@ -174,7 +174,7 @@ pub(super) fn review_tool_of(text: &str) -> Result<(String, String), String> {
 }
 
 /// The text of a package holding `pieces`.
-pub(super) fn written(pieces: Vec<Piece>) -> Result<String, String> {
+pub fn written(pieces: Vec<Piece>) -> Result<String, String> {
     toml::to_string(&Package { version: PACKAGE_VERSION, pieces }).map_err(|why| why.to_string())
 }
 
@@ -189,7 +189,7 @@ fn remote_problem(remote: &str) -> Option<String> {
 
 /// The pieces a package's text holds, each checked by the rules the same piece is held to in Kit.
 /// The refusal names the piece by its place in the package, counting from 1.
-pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
+pub fn read(text: &str) -> Result<Vec<Piece>, String> {
     // The line is named and never quoted: a line spelling a secret's value would carry it.
     let package: Package = toml::from_str(text).map_err(|why| match why.span() {
         Some(span) => format!("The package is not one: line {}: {}", text[..span.start.min(text.len())].matches('\n').count() + 1, why.message()),
@@ -244,7 +244,7 @@ pub(super) fn read(text: &str) -> Result<Vec<Piece>, String> {
 }
 
 /// A name for the file: what the pieces are for, as a slug.
-pub(super) fn file_name(pieces: &[Piece]) -> String {
+pub fn file_name(pieces: &[Piece]) -> String {
     let shown: Vec<Shown> = pieces.iter().map(Piece::shown).collect();
     let remotes: Vec<&str> = shown.iter().filter_map(|one| one.remote.as_deref()).collect();
     let name = match shown.as_slice() {

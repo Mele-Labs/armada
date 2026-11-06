@@ -30,7 +30,7 @@ use std::path::Path;
 /// **Lazy and cached**, because sixteen lines naming the root `package.json`
 /// four times should read it once — and a line that names no cargo word should
 /// not pay for walking the workspace.
-pub(crate) struct Repository<'a> {
+pub struct Repository<'a> {
     checkout: &'a Path,
     scripts: BTreeMap<String, Option<BTreeSet<String>>>,
     aliases: Option<Option<BTreeMap<String, String>>>,
@@ -38,7 +38,7 @@ pub(crate) struct Repository<'a> {
 }
 
 impl<'a> Repository<'a> {
-    pub(crate) fn at(checkout: &'a Path) -> Repository<'a> {
+    pub fn at(checkout: &'a Path) -> Repository<'a> {
         Repository {
             checkout,
             scripts: BTreeMap::new(),
@@ -47,14 +47,14 @@ impl<'a> Repository<'a> {
         }
     }
 
-    pub(crate) fn checkout(&self) -> &Path {
+    pub fn checkout(&self) -> &Path {
         self.checkout
     }
 
     /// The script names in `<dir>/package.json`. `dir` is relative to the
     /// checkout and empty for the root. **`None` where the file is absent or
     /// does not scan** — the caller tells the two apart by looking for it.
-    pub(crate) fn scripts(&mut self, dir: &str) -> Option<&BTreeSet<String>> {
+    pub fn scripts(&mut self, dir: &str) -> Option<&BTreeSet<String>> {
         let checkout = self.checkout;
         self.scripts
             .entry(dir.to_string())
@@ -68,7 +68,7 @@ impl<'a> Repository<'a> {
     /// Every `[alias]` in `.cargo/config.toml`, with what it expands to.
     /// **Empty where there is no such file**; `None` only where one is there
     /// and could not be read.
-    pub(crate) fn aliases(&mut self) -> Option<&BTreeMap<String, String>> {
+    pub fn aliases(&mut self) -> Option<&BTreeMap<String, String>> {
         let checkout = self.checkout;
         self.aliases
             .get_or_insert_with(|| {
@@ -87,7 +87,7 @@ impl<'a> Repository<'a> {
 
     /// The package names this workspace holds. `None` where there is no root
     /// `Cargo.toml`, or its members could not all be resolved.
-    pub(crate) fn members(&mut self) -> Option<&BTreeSet<String>> {
+    pub fn members(&mut self) -> Option<&BTreeSet<String>> {
         let checkout = self.checkout;
         self.members
             .get_or_insert_with(|| members(checkout))
@@ -100,14 +100,14 @@ impl<'a> Repository<'a> {
 /// **`None` where it will not decode**, and the caller turns that into *not
 /// followed*. No `"scripts"` key at all decodes to an empty set, since that is a
 /// package declaring no scripts.
-pub(crate) fn scripts(bytes: &[u8]) -> Option<BTreeSet<String>> {
+pub fn scripts(bytes: &[u8]) -> Option<BTreeSet<String>> {
     Some(script_lines(bytes)?.into_keys().collect())
 }
 
 /// Each script with the command it runs — the one decode both drift and
 /// `crate::scanning` read a `package.json` through, so the two cannot come to
 /// disagree about what a script is.
-pub(crate) fn script_lines(bytes: &[u8]) -> Option<BTreeMap<String, String>> {
+pub fn script_lines(bytes: &[u8]) -> Option<BTreeMap<String, String>> {
     let decoded = ipc::decode::<ipc::PackageScripts>("a package.json", bytes).ok()?;
     Some(decoded.scripts)
 }
@@ -116,7 +116,7 @@ pub(crate) fn script_lines(bytes: &[u8]) -> Option<BTreeMap<String, String>> {
 /// line. Both TOML forms cargo accepts — a string, or an array of strings.
 /// **`None` where an entry is in a shape this does not read**, rather than
 /// dropping the entry and answering as though it were not declared.
-pub(crate) fn aliases(text: &str) -> Option<BTreeMap<String, String>> {
+pub fn aliases(text: &str) -> Option<BTreeMap<String, String>> {
     let mut found = BTreeMap::new();
     let mut in_alias = false;
     for line in text.lines() {
@@ -146,7 +146,7 @@ pub(crate) fn aliases(text: &str) -> Option<BTreeMap<String, String>> {
 
 /// Every quoted string in a one-line TOML array. `None` where the array does
 /// not close on the line, which is a shape this read does not follow.
-pub(crate) fn quoted(value: &str) -> Option<Vec<String>> {
+pub fn quoted(value: &str) -> Option<Vec<String>> {
     let inner = value.strip_prefix('[')?.split(']').next()?;
     if !value.contains(']') {
         return None;
@@ -212,7 +212,7 @@ fn package_name(text: &str) -> Option<String> {
 /// The `members` array under `[workspace]`, which may span lines. An empty
 /// list where the file declares no workspace — a single package is a real
 /// answer, carried by [`package_name`].
-pub(crate) fn member_entries(text: &str) -> Option<Vec<String>> {
+pub fn member_entries(text: &str) -> Option<Vec<String>> {
     let mut in_workspace = false;
     let mut collecting: Option<String> = None;
     for line in text.lines() {

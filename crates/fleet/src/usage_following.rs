@@ -27,7 +27,7 @@ impl Fleet
 {
     /// Read the rules against each of `sessions`, whose turns just changed, and tell those that
     /// crossed one they have not been told.
-    pub(crate) async fn usage_rules_read(self: &Arc<Self>, sessions: &[String]) {
+    pub async fn usage_rules_read(self: &Arc<Self>, sessions: &[String]) {
         let limits = Limits::of(&self.machine_settings().now());
         let mut sessions = sessions.to_vec();
         for held in self.usage_following().waiting_for_quiet() {

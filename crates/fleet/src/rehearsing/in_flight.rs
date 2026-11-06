@@ -22,7 +22,7 @@ type Stopping = (Arc<watch::Sender<bool>>, watch::Receiver<Option<Record>>);
 
 /// `std`'s lock: it is never held across an `.await`.
 #[derive(Clone, Default)]
-pub(crate) struct Rehearsals {
+pub struct Rehearsals {
     out: Arc<Mutex<BTreeMap<Owner, InFlight>>>,
     /// Each repository's latest Verify. Here rather than on `Fleet`: it is this
     /// one-run-at-a-time state, one sequence up — `super::verifying`.
@@ -40,20 +40,20 @@ struct InFlight {
 }
 
 impl Rehearsals {
-    pub(super) fn verifies(&self) -> &Verifies {
+    pub fn verifies(&self) -> &Verifies {
         &self.verifies
     }
 
-    pub(crate) fn workspace_dirs(&self) -> &WorkspaceDirs {
+    pub fn workspace_dirs(&self) -> &WorkspaceDirs {
         &self.workspace_dirs
     }
 
-    pub(super) fn in_flight(&self, owner: &Owner) -> Option<Underway> {
+    pub fn in_flight(&self, owner: &Owner) -> Option<Underway> {
         self.held().get(owner).map(|out| out.underway.clone())
     }
 
     /// Take this owner for a run, or `None` where one is already out.
-    pub(super) fn take(
+    pub fn take(
         &self,
         owner: &Owner,
         underway: &Underway,
@@ -82,7 +82,7 @@ impl Rehearsals {
 
     /// How to stop the run `id`, and hear that it ended — only while it is the
     /// one out on this owner.
-    pub(super) fn stopping(&self, owner: &Owner, id: &str) -> Option<Stopping> {
+    pub fn stopping(&self, owner: &Owner, id: &str) -> Option<Stopping> {
         self.held()
             .get(owner)
             .filter(|out| out.underway.id == id)
@@ -91,7 +91,7 @@ impl Rehearsals {
 
     /// A subscription to the run `id`'s output, with its name — only while it
     /// is the one out on this owner.
-    pub(super) fn watching(&self, owner: &Owner, id: &str) -> Option<(String, api::RunWatch)> {
+    pub fn watching(&self, owner: &Owner, id: &str) -> Option<(String, api::RunWatch)> {
         self.held()
             .get(owner)
             .filter(|out| out.underway.id == id)
@@ -107,7 +107,7 @@ impl Rehearsals {
 
 /// One owner held for a run, given back **however the run ends** — a `Drop`,
 /// so a run that panics still leaves the owner runnable.
-pub(crate) struct Held {
+pub struct Held {
     rehearsals: Rehearsals,
     owner: Owner,
 }

@@ -16,13 +16,13 @@ use crate::daemon::Fleet;
 
 /// Commits behind the base from which a holder is told. Bridge's `BEHIND_FROM` in
 /// `slot-trouble.ts` is the same number: below it a merge is routine and not worth a turn.
-pub(crate) const BEHIND_FROM: u32 = 20;
+pub const BEHIND_FROM: u32 = 20;
 
 /// Whom each slot's notice went to, by Manifest and slot. A slot is absent once it is no longer
 /// behind or no Session holds it, so falling behind again is a new notice. A reading that cannot
 /// tell (`unread`) forgets nothing.
 #[derive(Default)]
-pub(crate) struct BehindTold(Mutex<BTreeMap<(String, u32), String>>);
+pub struct BehindTold(Mutex<BTreeMap<(String, u32), String>>);
 
 impl BehindTold {
     fn told(&self, key: &(String, u32), session: &str) -> bool {
@@ -88,7 +88,7 @@ impl Fleet
     /// its own, and has not been told since it last caught up. Marked told once the message was queued or taken, so a
     /// Session that was not listening is asked again at the next reading. **A mute is not a told
     /// mark**: `told_by_fleet` answers a muted notice as untold, so lifting the mute resumes it.
-    pub(crate) async fn behind_bays_told(self: &Arc<Self>, held: &WorktreesHeld) {
+    pub async fn behind_bays_told(self: &Arc<Self>, held: &WorktreesHeld) {
         let leaving = self.branches_leaving().await;
         let mut by_session: BTreeMap<&str, Vec<(&WorktreeSlot, u32)>> = BTreeMap::new();
         for slot in &held.slots {

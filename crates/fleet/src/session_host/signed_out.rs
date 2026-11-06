@@ -25,7 +25,7 @@ const SIGN_IN_WITHIN: Duration = Duration::from_secs(10 * 60);
 /// What signs the account in again: the harness's program with the adapter's arguments, in the person's
 /// home, on the `PATH` an agent is given. A test plants another.
 #[derive(Clone, Debug)]
-pub(crate) struct SignInRun {
+pub struct SignInRun {
     pub program: String,
     pub args: Vec<String>,
     pub directory: String,
@@ -33,7 +33,7 @@ pub(crate) struct SignInRun {
 }
 
 impl SignInRun {
-    pub(crate) fn of(host: &crate::daemon::Host) -> SignInRun {
+    pub fn of(host: &crate::daemon::Host) -> SignInRun {
         SignInRun {
             program: host.agent_binary.clone(),
             args: adapters::HeadlessAgent::sign_in_args().iter().map(|one| one.to_string()).collect(),
@@ -80,7 +80,7 @@ impl SignInRun {
 
 /// The Fleet-wide state, what a press runs, and the Jobs owed a wake. `std` locks, never held across
 /// an `.await`.
-pub(crate) struct Held {
+pub struct Held {
     state: Mutex<ipc::AgentSignIn>,
     run: Mutex<SignInRun>,
     /// Jobs to tell `Continue`, for a caller that cannot tell them itself: a terminal Job's report.
@@ -88,7 +88,7 @@ pub(crate) struct Held {
 }
 
 impl Held {
-    pub(crate) fn running(run: SignInRun) -> Held {
+    pub fn running(run: SignInRun) -> Held {
         Held { state: Mutex::default(), run: Mutex::new(run), owed: Mutex::default() }
     }
 
@@ -101,12 +101,12 @@ impl Held {
     }
 
     /// Where a test plants a run that answers at once, in place of the browser.
-    #[cfg(test)]
-    pub(crate) fn plant(&self, run: SignInRun) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn plant(&self, run: SignInRun) {
         *self.run.lock().expect("the run is not held across a panic") = run;
     }
 
-    pub(crate) fn now(&self) -> ipc::AgentSignIn {
+    pub fn now(&self) -> ipc::AgentSignIn {
         self.held().clone()
     }
 
@@ -162,7 +162,7 @@ impl Fleet
 {
     /// The harness said its sign-in ran out: the Job is marked, and the Fleet is signed out where it
     /// was not.
-    pub(crate) fn signed_out_heard(&self, runtime: &Arc<Runtime>) {
+    pub fn signed_out_heard(&self, runtime: &Arc<Runtime>) {
         runtime.state().signed_out = true;
         if let Some(now) = self.agent_sign_in().signed_out(self.now().as_str()) {
             self.publish(ipc::Event::AgentSignInChanged(now));
@@ -172,7 +172,7 @@ impl Fleet
     /// The model answered in hosted `id`, so the account works: where the Fleet was signed out, every
     /// other Job it stopped is woken. **Not a turn's start**: the harness says `init` before every turn,
     /// the failed ones too.
-    pub(crate) async fn signed_in_heard(self: &Arc<Self>, id: &str) {
+    pub async fn signed_in_heard(self: &Arc<Self>, id: &str) {
         if self.signed_in_by(id) {
             self.sign_in_wakes_owed().await;
         }
@@ -181,7 +181,7 @@ impl Fleet
     /// The account works, as `id`'s answer shows: where the Fleet was signed out, it is signed in and
     /// every other Job it stopped is owed a wake. Whether it was signed out. **A terminal Job's
     /// report** has no `Arc` to tell with, so the notice loop's next tick pays what it owes.
-    pub(crate) fn signed_in_by(&self, id: &str) -> bool {
+    pub fn signed_in_by(&self, id: &str) -> bool {
         if !self.agent_sign_in().is_signed_out() {
             return false;
         }
@@ -195,7 +195,7 @@ impl Fleet
 
     /// `start_agent_sign_in`: Fleet runs the sign-in, and the state is answered as it left it. **One at
     /// a time**: a press while one runs starts nothing.
-    pub(crate) fn agent_sign_in_pressed(self: &Arc<Self>) -> ipc::AgentSignIn {
+    pub fn agent_sign_in_pressed(self: &Arc<Self>) -> ipc::AgentSignIn {
         let Some((run, now)) = self.agent_sign_in().started() else {
             return self.agent_sign_in().now();
         };
@@ -212,7 +212,7 @@ impl Fleet
 
     /// The sign-in exited clean. **One sign-in is every Job's**, since they share the account: each mark
     /// is cleared and each marked Job woken.
-    pub(crate) async fn signed_in_everywhere(self: &Arc<Self>) {
+    pub async fn signed_in_everywhere(self: &Arc<Self>) {
         let marked = self.marks_taken();
         self.publish(ipc::Event::AgentSignInChanged(self.agent_sign_in().finished(true)));
         self.agent_sign_in().owe(marked);
@@ -231,7 +231,7 @@ impl Fleet
 
     /// Each Job owed a wake told `Continue`. **The notice loop's tick calls it too.** A Job that ended
     /// is not told, which `told_by_fleet` answers.
-    pub(crate) async fn sign_in_wakes_owed(self: &Arc<Self>) {
+    pub async fn sign_in_wakes_owed(self: &Arc<Self>) {
         for id in self.agent_sign_in().owed() {
             let _ = self.told_by_fleet(&id, WAKE, ipc::Notice::SignInWake).await;
         }

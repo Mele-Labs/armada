@@ -10,7 +10,7 @@ use super::*;
 impl Fleet
 {
     /// What a hosted session carries beyond a terminal's row.
-    pub(crate) fn hosted_facts_of(
+    pub fn hosted_facts_of(
         &self,
         id: &str,
         hosting: KeptHosting,
@@ -45,7 +45,7 @@ impl Fleet
     }
 
     /// The row as it stands, published whole, and answered.
-    pub(crate) async fn published_hosted(&self, id: &str) -> Result<SessionRecord, Refusal> {
+    pub async fn published_hosted(&self, id: &str) -> Result<SessionRecord, Refusal> {
         let record = {
             let store = self.store().lock().await;
             let session = store
@@ -62,7 +62,7 @@ impl Fleet
 
     /// Let a process go: it is ended and its late word is not read as the new
     /// one's. The caller holds the state.
-    pub(crate) fn let_go(state: &mut super::super::State) {
+    pub fn let_go(state: &mut super::super::State) {
         if let Some(process) = state.process.take() {
             process.end();
         }
@@ -74,7 +74,7 @@ impl Fleet
 
     /// A process runs on what it was started with, so a running one ends once its turn is over
     /// and the next message resumes on what the Job names now.
-    pub(crate) fn restarts_on_what_it_names(&self, id: &str) {
+    pub fn restarts_on_what_it_names(&self, id: &str) {
         let runtime = self.hosts().of(id);
         let mut state = runtime.state();
         if state.process.is_some() {
@@ -99,7 +99,7 @@ impl Fleet
 
     /// The models on were `was_on` before settings.json changed. Every open Job on one that is now
     /// off moves as a change in its model picker moves it: when its turn is over.
-    pub(crate) async fn models_switched_off(&self, was_on: &[String]) {
+    pub async fn models_switched_off(&self, was_on: &[String]) {
         let on = self.models_on();
         if was_on.iter().all(|model| on.contains(model)) {
             return;
@@ -136,7 +136,7 @@ impl Fleet
 
     /// Start the session's process if none is running. A keeper a Fleet before
     /// this one started is reattached to rather than replaced.
-    pub(crate) async fn ensure_process(
+    pub async fn ensure_process(
         self: &Arc<Self>,
         id: &str,
         hosting: &KeptHosting,
@@ -177,7 +177,7 @@ impl Fleet
 
     /// Every slot wait the last Fleet left standing ended, but the moves owed again: the line is
     /// read back after, and its waits begin again. Called once, after the reattach at boot.
-    pub(crate) async fn slot_waits_ended_at_boot(&self) {
+    pub async fn slot_waits_ended_at_boot(&self) {
         let at = self.now().as_str().to_string();
         let owed: Vec<String> = self
             .hosts()
@@ -191,7 +191,7 @@ impl Fleet
 
     /// The session's process, reattached or (where `may_start`) started.
     /// Whether it has one.
-    pub(super) async fn process_of(
+    pub async fn process_of(
         self: &Arc<Self>,
         id: &str,
         hosting: &KeptHosting,
@@ -360,7 +360,7 @@ impl Fleet
     /// Everything one process says, in order. **Boxed**, because hearing a
     /// message from one session can start another's process, which listens
     /// again, and a future that contains itself cannot be proved `Send`.
-    pub(super) fn listening(
+    pub fn listening(
         fleet: Arc<Self>,
         id: String,
         generation: u64,
@@ -376,7 +376,7 @@ impl Fleet
     /// End every process that has been quiet for longer than the setting, unless an agent of it is
     /// still working, then compact the Jobs waiting on the owner whose cache is nearly out. **Called
     /// on a timer, and by a test**, which would not wait for one.
-    pub(crate) async fn sweep_quiet(self: &Arc<Self>) {
+    pub async fn sweep_quiet(self: &Arc<Self>) {
         let quiet = self.hosts().quiet();
         let is_quiet = |state: &super::super::State| {
             state.process.is_some()

@@ -46,7 +46,7 @@ struct Following {
 impl BaseMoves {
     /// The checkout of `repository` stands at `tip`. Starts a run where none is going and queues
     /// one where one is; a tip already seen does neither.
-    pub(crate) fn moved(&self, repository: &str, tip: &str) {
+    pub fn moved(&self, repository: &str, tip: &str) {
         let mut all = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         let one = all.entry(repository.to_string()).or_default();
         if one.seen.as_deref() == Some(tip) {
@@ -64,13 +64,13 @@ impl BaseMoves {
 
     /// Whether `tip` is the last tip `repository` ran or queued for, so a reading of an unmoved
     /// base asks nothing of git.
-    pub(crate) fn seen(&self, repository: &str, tip: &str) -> bool {
+    pub fn seen(&self, repository: &str, tip: &str) -> bool {
         let all = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         all.get(repository).is_some_and(|one| one.seen.as_deref() == Some(tip))
     }
 
     /// The repositories whose run is owed, each handed out once.
-    pub(crate) fn due(&self) -> Vec<String> {
+    pub fn due(&self) -> Vec<String> {
         let mut all = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         all.iter_mut()
             .filter_map(|(repository, one)| std::mem::take(&mut one.due).then(|| repository.clone()))
@@ -78,7 +78,7 @@ impl BaseMoves {
     }
 
     /// A run in `repository` ended. Whether to run once more, for moves seen while it went.
-    pub(crate) fn ended(&self, repository: &str) -> bool {
+    pub fn ended(&self, repository: &str) -> bool {
         let mut all = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         let Some(one) = all.get_mut(repository) else {
             return false;
@@ -93,7 +93,7 @@ impl Fleet
 {
     /// Main's tip on the forge is `head`, read after the catch-up. Noted where the repository
     /// names something to run and its checkout's `HEAD` is that commit.
-    pub(crate) async fn base_move_seen(&self, served: &Served, head: &str) {
+    pub async fn base_move_seen(&self, served: &Served, head: &str) {
         let repository = served.manifest().id().as_str().to_string();
         if served.manifest().when_base_moves().is_empty() || self.base_moves().seen(&repository, head) {
             return;
@@ -109,7 +109,7 @@ impl Fleet
     }
 
     /// Start each run owed, on a task of its own, so the reading of main goes on.
-    pub(crate) fn base_moves_started(self: &Arc<Self>) {
+    pub fn base_moves_started(self: &Arc<Self>) {
         for repository in self.base_moves().due() {
             let fleet = Arc::clone(self);
             tokio::spawn(async move {

@@ -79,7 +79,7 @@ impl Fleet
     /// The lifecycles `session` reads its instances against: the copy it froze, else the ones that
     /// apply to its repository now. **Every reader of a Job's instances asks here**, so a lifecycle
     /// saved after the Job started changes nothing it holds.
-    pub(crate) fn lifecycles_of_job(&self, store: &Store, session: &str, manifest: &str) -> Vec<Lifecycle> {
+    pub fn lifecycles_of_job(&self, store: &Store, session: &str, manifest: &str) -> Vec<Lifecycle> {
         frozen_lifecycles(store, session, self.built_in_lifecycles(Some(manifest))).unwrap_or_else(|| self.lifecycles_that_apply(manifest))
     }
 }

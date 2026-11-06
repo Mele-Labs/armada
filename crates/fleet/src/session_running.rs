@@ -13,12 +13,12 @@
 //! under, so a viewer loses no output and reads none twice. **A character a read ends inside waits
 //! for the read that finishes it**, so no message splits one.
 
-mod driven;
-mod ended;
-mod job_shell;
-mod job_terminals;
-mod kept_terminals;
-pub(crate) mod plain;
+pub mod driven;
+pub mod ended;
+pub mod job_shell;
+pub mod job_terminals;
+pub mod kept_terminals;
+pub mod plain;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -43,8 +43,8 @@ use crate::mint::{Mint, UlidMint};
 use crate::terminal_keeping::{Files, Starting};
 
 use driven::{kept_driven, local_driven, Driven, Kept, Terminal, Waited};
-pub(crate) use ended::{fenced, Ended};
-pub(crate) use job_terminals::{terminal_id, terminal_number};
+pub use ended::{fenced, Ended};
+pub use job_terminals::{terminal_id, terminal_number};
 
 /// Bytes of output a run keeps.
 const RING: usize = 256 * 1024;
@@ -154,7 +154,7 @@ impl Run {
 
 /// Every run Fleet holds, in flight or lately ended. Never written down.
 #[derive(Default)]
-pub(crate) struct SessionRuns {
+pub struct SessionRuns {
     held: Arc<Mutex<BTreeMap<String, Arc<Run>>>>,
     minted: UlidMint,
     /// Each Job's shells, by the Job's id and then the terminal's number.
@@ -186,7 +186,7 @@ fn refusal(why: impl Into<String>, run_id: ipc::RunId) -> Refusal {
     Refusal::Unacceptable(WireError::raised(REFUSED, why, run_id))
 }
 
-pub(crate) fn shell() -> String {
+pub fn shell() -> String {
     std::env::var("SHELL")
         .ok()
         .filter(|shell| !shell.trim().is_empty())
@@ -380,7 +380,7 @@ fn read_output(mut reader: Box<dyn Read + Send>, run: &Run) {
 
 /// Take the text off the front of `pending`, leaving a character that is not yet whole. A byte
 /// that can never begin one is replaced.
-pub(crate) fn whole_characters(pending: &mut Vec<u8>) -> String {
+pub fn whole_characters(pending: &mut Vec<u8>) -> String {
     let mut text = String::new();
     loop {
         match std::str::from_utf8(pending) {
@@ -409,7 +409,7 @@ pub(crate) fn whole_characters(pending: &mut Vec<u8>) -> String {
 
 impl Fleet
 {
-    pub(crate) async fn begin_session_run(
+    pub async fn begin_session_run(
         self: Arc<Self>,
         start: StartSessionRun,
     ) -> Result<SessionRunUnderway, Refusal> {
@@ -442,7 +442,7 @@ impl Fleet
     }
 
     /// A command the person runs in `start.dir` with no Job behind it: nothing is told how it ended.
-    pub(crate) async fn begin_terminal_run(
+    pub async fn begin_terminal_run(
         self: Arc<Self>,
         start: ipc::StartTerminalRun,
     ) -> Result<SessionRunUnderway, Refusal> {
@@ -498,7 +498,7 @@ impl Fleet
             .unwrap_or(session.cwd))
     }
 
-    pub(crate) fn end_session_run(
+    pub fn end_session_run(
         &self,
         stop: StopSessionRun,
     ) -> Result<SessionRunUnderway, Refusal> {
@@ -509,7 +509,7 @@ impl Fleet
         }
     }
 
-    pub(crate) async fn type_into_session_run(
+    pub async fn type_into_session_run(
         &self,
         write: WriteSessionRun,
     ) -> Result<SessionRunUnderway, Refusal> {
@@ -520,7 +520,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn resize_session_run_terminal(
+    pub fn resize_session_run_terminal(
         &self,
         resize: ResizeSessionRun,
     ) -> Result<SessionRunUnderway, Refusal> {
@@ -534,7 +534,7 @@ impl Fleet
         }
     }
 
-    pub(crate) fn watch_session_run(&self, run_id: &str) -> Result<ObservedSessionRun, Refusal> {
+    pub fn watch_session_run(&self, run_id: &str) -> Result<ObservedSessionRun, Refusal> {
         self.session_runs()
             .watch(run_id)
             .ok_or_else(|| refusal("Fleet holds no such run", self.run_id()))

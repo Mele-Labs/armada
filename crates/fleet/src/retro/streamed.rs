@@ -84,7 +84,7 @@ impl Reading {
 /// The items the answer has settled so far, in the order written. An item appears once one of
 /// its fields has ended. **The model's items, before Fleet holds them to the record**, so the
 /// kept retro can have fewer.
-pub(crate) fn settled_items(written: &str) -> Vec<PartialRetroItem> {
+pub fn settled_items(written: &str) -> Vec<PartialRetroItem> {
     let mut reading = Reading::default();
     let mut began = false;
     let mut text: Option<String> = None;

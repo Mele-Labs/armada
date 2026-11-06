@@ -176,12 +176,12 @@ impl Question {
 }
 
 /// The arrival's id for item `item` of Job `session`: `asked:<session>:<item>`.
-pub(crate) fn asked_id(session: &str, item: &str) -> String {
+pub fn asked_id(session: &str, item: &str) -> String {
     format!("asked:{session}:{item}")
 }
 
 /// The item an arrival named by [`asked_id`] is about. A Job's id holds no colon, so the first
 /// after the prefix ends it, and an item's own colons stay in the item.
-pub(crate) fn asked_item(arrival: &Arrival) -> Option<&str> {
+pub fn asked_item(arrival: &Arrival) -> Option<&str> {
     arrival.id.strip_prefix("asked:")?.split_once(':').map(|(_, item)| item)
 }

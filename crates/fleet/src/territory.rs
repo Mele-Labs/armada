@@ -42,7 +42,7 @@ struct Tree {
 }
 
 #[derive(Default)]
-pub(crate) struct Territory {
+pub struct Territory {
     trees: Mutex<BTreeMap<String, Tree>>,
     touched: Mutex<Option<(Instant, SlotTouches)>>,
     /// One read of the touches at a time, so a second asker finds the first's answer kept.
@@ -53,14 +53,14 @@ pub(crate) struct Territory {
 
 impl Territory {
     /// How many times git was asked for a tree. A read at a kept head is not one.
-    #[cfg(test)]
-    pub(crate) fn tree_reads(&self) -> u64 {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn tree_reads(&self) -> u64 {
         self.tree_reads.load(Ordering::Relaxed)
     }
 
     /// How many slots git was asked about.
-    #[cfg(test)]
-    pub(crate) fn slot_reads(&self) -> u64 {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn slot_reads(&self) -> u64 {
         self.slot_reads.load(Ordering::Relaxed)
     }
 }
@@ -68,7 +68,7 @@ impl Territory {
 /// The largest directories, a top directory with the ones inside it that made the list, and how many
 /// were left out. **A top directory holds at least as many files as any directory inside it and sorts
 /// before it on a tie**, so a directory is listed only where its top directory is.
-pub(crate) fn capped(mut directories: Vec<Directory>) -> (Vec<RepositoryArea>, u32) {
+pub fn capped(mut directories: Vec<Directory>) -> (Vec<RepositoryArea>, u32) {
     directories.sort_by(|one, other| other.files.cmp(&one.files).then_with(|| one.path.cmp(&other.path)));
     let omitted = directories.len().saturating_sub(MOST_AREAS) as u32;
     let mut tops: Vec<RepositoryArea> = Vec::new();
@@ -98,7 +98,7 @@ impl Fleet
 {
     /// Every served repository's directories, read at its base's head. One git cannot name a head
     /// for is left out.
-    pub(crate) async fn repository_areas(&self) -> Result<RepositoryAreas, Refusal> {
+    pub async fn repository_areas(&self) -> Result<RepositoryAreas, Refusal> {
         let mut repositories = Vec::new();
         for served in self.repositories().served() {
             let manifest = served.manifest().id().as_str().to_string();
@@ -125,7 +125,7 @@ impl Fleet
 
     /// What each hosted Session holding a slot has changed in it. The slots and their holders
     /// are `list_worktrees`' answer, so this adds no pool read of its own.
-    pub(crate) async fn slot_touches(&self) -> Result<SlotTouches, Refusal> {
+    pub async fn slot_touches(&self) -> Result<SlotTouches, Refusal> {
         if let Some(kept) = self.territory().kept() {
             return Ok(kept);
         }

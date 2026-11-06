@@ -18,14 +18,14 @@ const TERMINAL_GONE: Duration = Duration::from_secs(6 * 60 * 60);
 
 /// Where one holder writes: a Job's one worktree, or every slot a Session holds.
 #[derive(Clone, Debug)]
-pub(crate) struct Standing {
-    pub(crate) manifest: String,
-    pub(crate) worktrees: Vec<PathBuf>,
+pub struct Standing {
+    pub manifest: String,
+    pub worktrees: Vec<PathBuf>,
 }
 
 /// How the other side is named to an agent.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Peer {
+pub enum Peer {
     Session {
         id: String,
         /// `s-` and the first eight characters of the id: what `SendMessage` takes.
@@ -39,7 +39,7 @@ pub(crate) enum Peer {
 
 impl Peer {
     /// What a person would call it.
-    pub(crate) fn label(&self) -> String {
+    pub fn label(&self) -> String {
         match self {
             Peer::Session { address, title, .. } => title.clone().unwrap_or_else(|| address.clone()),
         }
@@ -49,7 +49,7 @@ impl Peer {
 impl Fleet
 {
     /// Where `who` writes, or `None` once it is over, however that came about.
-    pub(crate) async fn writing_in(&self, who: &Who) -> Option<Standing> {
+    pub async fn writing_in(&self, who: &Who) -> Option<Standing> {
         match who {
             Who::Session(id) => self.session_standing(id).await,
         }
@@ -115,7 +115,7 @@ impl Fleet
     }
 
     /// How an agent is to reach `who`, and what to call it.
-    pub(crate) async fn peer_of(&self, who: &Who) -> Option<Peer> {
+    pub async fn peer_of(&self, who: &Who) -> Option<Peer> {
         match who {
             Who::Session(id) => {
                 let store = self.store().lock().await;

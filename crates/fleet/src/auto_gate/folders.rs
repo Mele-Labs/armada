@@ -23,7 +23,7 @@ pub struct KindAllowed {
 
 /// What the list says about one path.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) enum Listed {
+pub enum Listed {
     Allowed,
     Blocked(String),
     Unlisted,
@@ -32,7 +32,7 @@ pub(super) enum Listed {
 impl Folders<'_> {
     /// **The deepest entry holding `path` wins, and a block wins a tie.** The session's own folders
     /// are read after the owner's list, so any block of his wins over them.
-    pub(super) fn listed(&self, path: &str) -> Listed {
+    pub fn listed(&self, path: &str) -> Listed {
         let Some(path) = resolved(path, "/") else {
             return Listed::Unlisted;
         };
@@ -57,7 +57,7 @@ impl Folders<'_> {
     /// Whether a kind allowed for this session takes a reach into `path` by a segment of `kind`:
     /// the same program, the same script where the entry names one, and inside its folder where it
     /// has one. **Read only after [`Folders::listed`]**, so a block of the owner's still wins.
-    pub(super) fn kind_allowed(&self, kind: Option<&CallKind>, path: &str) -> bool {
+    pub fn kind_allowed(&self, kind: Option<&CallKind>, path: &str) -> bool {
         let (Some(kind), Some(path)) = (kind, resolved(path, "/")) else {
             return false;
         };
@@ -70,7 +70,7 @@ impl Folders<'_> {
 
     /// `word` as an absolute path, `~` and `$HOME` read as the home, with `.` and `..` folded.
     /// `None` for a relative path or one spelled through another variable.
-    pub(super) fn absolute(&self, word: &str) -> Option<String> {
+    pub fn absolute(&self, word: &str) -> Option<String> {
         let word = word.rsplit('=').next().unwrap_or(word);
         let word = word.trim_matches(|c| c == '\'' || c == '"');
         // A search path such as `$HOME/.rbenv/shims:$PATH` names its first folder.
@@ -199,7 +199,7 @@ pub fn pages_opened(line: &str) -> Vec<String> {
 /// volume or the whole disk. **A path that names Armada is let through**: it
 /// is most likely looking for something of Armada's (the owner, 8 Oct 2026).
 /// The system's own folders (`/opt`, `/usr`, `/tmp`) are no one's files.
-pub(in crate::auto_gate) fn reaches_outside(word: &str) -> bool {
+pub fn reaches_outside(word: &str) -> bool {
     let word = word.rsplit('=').next().unwrap_or(word);
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     if word.to_lowercase().contains("armada") {
@@ -218,7 +218,7 @@ pub(in crate::auto_gate) fn reaches_outside(word: &str) -> bool {
 
 /// Folders under the owner's home that macOS puts a privacy prompt in front of, and the ones
 /// holding his credentials. Compared without case, as the disk does.
-pub(super) const GUARDED: &[&str] = &[
+pub const GUARDED: &[&str] = &[
     "desktop",
     "documents",
     "downloads",
@@ -243,7 +243,7 @@ pub(super) const GUARDED: &[&str] = &[
 /// [`GUARDED`] names, another volume, or a search (`walks`) from the root, `/Users` or the
 /// home, which reaches every one of them. **Every other read outside the slots runs** (the
 /// owner, 16 Oct 2026: "reads are fine, writes are the ones we need to be careful of").
-pub(in crate::auto_gate) fn read_refused(word: &str, walks: bool) -> bool {
+pub fn read_refused(word: &str, walks: bool) -> bool {
     let word = word.rsplit('=').next().unwrap_or(word);
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     if word.to_lowercase().contains("armada") {
@@ -276,7 +276,7 @@ pub(in crate::auto_gate) fn read_refused(word: &str, walks: bool) -> bool {
 /// The directories of `held` that are slots, or the Job's scratch folder, which is read as one.
 /// Before its first lease a session runs in the repository's root, the owner's own checkout, and
 /// nothing is taken away there unasked.
-pub(super) fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
+pub fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
     held.iter()
         .copied()
         .filter(|directory| directory.contains("/.armada/slots/") || crate::scratch::is_scratch(directory))
@@ -288,7 +288,7 @@ pub(super) fn slots_of<'a>(held: &[&'a str]) -> Vec<&'a str> {
 /// (the owner, 8 Oct 2026); its root, a `..`, a `~` or a `$` other than `$TMPDIR`,
 /// `$ARMADA_SCRATCH` and `$HOME` is never read as inside, and a relative path only where
 /// the line has not moved with `cd`.
-pub(super) fn in_the_slot(word: &str, slots: &[&str], relative: bool, home: &str) -> bool {
+pub fn in_the_slot(word: &str, slots: &[&str], relative: bool, home: &str) -> bool {
     let word = word.trim_matches(|c| c == '\'' || c == '"');
     // `$TMPDIR` is scratch space spelled by variable, and read as inside wherever it leads.
     if let Some(under) = word.strip_prefix("$TMPDIR/").or_else(|| word.strip_prefix("${TMPDIR}/")) {
@@ -329,7 +329,7 @@ fn spelled_out(word: &str, slots: &[&str], home: &str) -> Option<String> {
 
 /// Whether a `cd` to `to` lands in one of `slots`, its root included: unlike a
 /// removal, standing at the root of a slot is the slot's own.
-pub(super) fn cd_stays(to: &str, slots: &[&str]) -> bool {
+pub fn cd_stays(to: &str, slots: &[&str]) -> bool {
     let to = to.trim_matches(|c| c == '\'' || c == '"');
     !to.is_empty()
         && !to.contains(['$', '~'])
@@ -337,7 +337,7 @@ pub(super) fn cd_stays(to: &str, slots: &[&str]) -> bool {
 }
 
 /// Where a session may write and remove besides its slot.
-pub(super) const SCRATCH: &[&str] = &[
+pub const SCRATCH: &[&str] = &[
     "/tmp/",
     "/private/tmp/",
     "/var/folders/",
@@ -347,7 +347,7 @@ pub(super) const SCRATCH: &[&str] = &[
 /// Whether `path` is under `directory`, a relative path being read against it.
 /// **Read where it lands**: a `..` and a symlink are followed first, so
 /// `/tmp/../etc/hosts` is not scratch and `slot/a/../b` is the slot's own.
-pub(super) fn inside_the_directory(path: &str, directory: &str) -> bool {
+pub fn inside_the_directory(path: &str, directory: &str) -> bool {
     match (resolved(path, directory), resolved(directory, "/")) {
         (Some(path), Some(directory)) => path.starts_with(directory),
         _ => false,
@@ -355,7 +355,7 @@ pub(super) fn inside_the_directory(path: &str, directory: &str) -> bool {
 }
 
 /// Whether `path` is an absolute path inside the system's scratch folders.
-pub(super) fn in_scratch(path: &str) -> bool {
+pub fn in_scratch(path: &str) -> bool {
     path.starts_with('/')
         && resolved(path, "/").is_some_and(|real| {
             // `/tmp/` resolves to `/private/tmp`, the folder itself, which no `/…/` prefix matches.
@@ -368,7 +368,7 @@ pub(super) fn in_scratch(path: &str) -> bool {
 /// folded away and every symlink that exists followed. The part of the path
 /// that does not exist yet is read as written, so a write that creates a file
 /// is placed by its directory. `None` where a `..` climbs past the root.
-pub(super) fn resolved(path: &str, base: &str) -> Option<std::path::PathBuf> {
+pub fn resolved(path: &str, base: &str) -> Option<std::path::PathBuf> {
     let whole = if path.starts_with('/') {
         path.to_string()
     } else {
@@ -402,7 +402,7 @@ pub(super) fn resolved(path: &str, base: &str) -> Option<std::path::PathBuf> {
 /// A shell line with its heredoc bodies cut out and its substitutions turned
 /// into segments, so the commands inside them are read like any other.
 /// `eval` and `exec` are still read where they stand.
-pub(super) fn flattened(line: &str) -> String {
+pub fn flattened(line: &str) -> String {
     let mut kept: Vec<&str> = Vec::new();
     let mut ending: Option<String> = None;
     for each in line.lines() {

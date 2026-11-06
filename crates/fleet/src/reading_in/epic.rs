@@ -19,14 +19,14 @@ use core_model::{
 use super::{laid_out, ACROSS, DOWN, DOWN_A_COLUMN};
 
 /// What a read-in of an Epic leaves the Studio holding.
-pub(crate) struct WhatTheEpicTook {
+pub struct WhatTheEpicTook {
     /// One Issue node per issue the answer takes that is not already here, and
     /// where to place each.
-    pub(crate) made: Vec<(StudioNodeContent, StudioPosition)>,
+    pub made: Vec<(StudioNodeContent, StudioPosition)>,
     /// The nodes the read-in made and is taking back.
-    pub(crate) taken_back: Vec<StudioNodeId>,
+    pub taken_back: Vec<StudioNodeId>,
     /// What the Epic now says about itself.
-    pub(crate) read_in: EpicRead,
+    pub read_in: EpicRead,
 }
 
 /// Which issues to take, which nodes to take back, and what the Epic then says.
@@ -34,7 +34,7 @@ pub(crate) struct WhatTheEpicTook {
 /// `at` is where the person is looking, and is used only where this Epic has no
 /// block of issues yet: **one Epic has one block for its life**, so widening it
 /// fills the gaps in that block rather than starting a second one.
-pub(crate) fn what_it_took(
+pub fn what_it_took(
     graph: &StudioGraph,
     epic: &StudioNode,
     take: EpicTake,
@@ -107,7 +107,7 @@ pub(crate) fn what_it_took(
 /// The Zone this Epic's read-in laid its issues out in, where it made one —
 /// `#1620`. **Its block is measured from the Zone's corner**, so dragging the
 /// Zone moves the block without touching any issue in it.
-pub(crate) fn zone_of<'a>(graph: &'a StudioGraph, epic: &StudioNodeId) -> Option<&'a StudioNode> {
+pub fn zone_of<'a>(graph: &'a StudioGraph, epic: &StudioNodeId) -> Option<&'a StudioNode> {
     graph
         .nodes
         .iter()
@@ -123,7 +123,7 @@ pub(crate) fn zone_of<'a>(graph: &'a StudioGraph, epic: &StudioNodeId) -> Option
 /// Whether this Epic has laid out a block of issues before. **One read before
 /// Zones were built keeps its block on the board**, so a widening fills that
 /// block rather than starting a second one in a Zone.
-pub(crate) fn laid_out_before(graph: &StudioGraph, epic: &StudioNode) -> bool {
+pub fn laid_out_before(graph: &StudioGraph, epic: &StudioNode) -> bool {
     already_read(epic)
         .and_then(|read| read.laid_out_from)
         .is_some()

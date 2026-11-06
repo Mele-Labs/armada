@@ -12,10 +12,10 @@ use store::KeptPullRequestNote;
 use crate::daemon::Fleet;
 
 /// A note that cannot be made, edited or sent. A 422.
-pub(crate) const INVALID: &str = "fleet.pull_request_note_invalid";
+pub const INVALID: &str = "fleet.pull_request_note_invalid";
 
 /// The note as the wire has it.
-pub(crate) fn note_read(row: &KeptPullRequestNote) -> PullRequestNote {
+pub fn note_read(row: &KeptPullRequestNote) -> PullRequestNote {
     PullRequestNote {
         id: row.id.clone(),
         repository: row.repository.clone(),
@@ -54,7 +54,7 @@ impl Fleet
         Ok(PullRequestNotes { notes: rows.iter().map(note_read).collect() })
     }
 
-    pub(crate) async fn pull_request_notes_listed(
+    pub async fn pull_request_notes_listed(
         &self,
         manifest_id: ManifestId,
         number: u32,
@@ -64,7 +64,7 @@ impl Fleet
     }
 
     /// Make a note, or change the body of one that is open and unsent.
-    pub(crate) async fn pull_request_note_saved(
+    pub async fn pull_request_note_saved(
         &self,
         manifest_id: ManifestId,
         number: u32,
@@ -112,7 +112,7 @@ impl Fleet
         Ok(note_read(&kept))
     }
 
-    pub(crate) async fn pull_request_note_removed(
+    pub async fn pull_request_note_removed(
         &self,
         manifest_id: ManifestId,
         number: u32,
@@ -132,7 +132,7 @@ impl Fleet
     }
 
     /// Record that the notes named went to a session. **Sends nothing.**
-    pub(crate) async fn pull_request_notes_sent(
+    pub async fn pull_request_notes_sent(
         &self,
         manifest_id: ManifestId,
         number: u32,

@@ -34,7 +34,7 @@ const NO_SUCH_STUDIO: &str = "fleet.no_such_studio";
 /// `fleet.job_in_another_repository` is.
 const STUDIO_ELSEWHERE: &str = "fleet.studio_in_another_repository";
 /// A node named that is not on this Studio. A 422.
-pub(crate) const NO_SUCH_NODE: &str = "fleet.no_such_studio_node";
+pub const NO_SUCH_NODE: &str = "fleet.no_such_studio_node";
 /// An edge named that is not on this Studio. A 422.
 const NO_SUCH_EDGE: &str = "fleet.no_such_studio_edge";
 /// The same relation between the same two nodes again. A 409.
@@ -42,9 +42,9 @@ const EDGE_EXISTS: &str = "fleet.studio_edge_exists";
 /// An accept or reject of an edge that is not proposed. A 409.
 const EDGE_NOT_PROPOSED: &str = "fleet.studio_edge_not_proposed";
 /// A proposed edge from a node to itself. A 422.
-pub(crate) const EDGE_TO_ITSELF: &str = "fleet.studio_edge_to_itself";
+pub const EDGE_TO_ITSELF: &str = "fleet.studio_edge_to_itself";
 /// A node added with a field left blank, naming which. A 422.
-pub(crate) const NODE_BLANK: &str = "fleet.studio_node_blank";
+pub const NODE_BLANK: &str = "fleet.studio_node_blank";
 /// A node a Job on your words added of a kind that does not start proposed. A 422.
 const NODE_NOT_A_JOBS: &str = "fleet.studio_node_not_a_jobs";
 /// A node a person added by hand of a kind only an act mints. A 422.
@@ -67,9 +67,9 @@ const NO_FRAME_KEPT: &str = "fleet.studio_frame_not_kept";
 /// The most one frame may weigh. A window at twice its CSS pixels is under a
 /// megabyte and a half of PNG; four leaves room for a large display without
 /// letting a Studio grow without bound, since nothing expires one.
-pub(crate) const MOST_A_FRAME_MAY_WEIGH: u64 = 4 * 1024 * 1024;
+pub const MOST_A_FRAME_MAY_WEIGH: u64 = 4 * 1024 * 1024;
 /// Who is kept as having acted: the transport's word, never the body's.
-pub(crate) fn author(by: Redirector) -> StudioAuthor {
+pub fn author(by: Redirector) -> StudioAuthor {
     match by {
         Redirector::Person => StudioAuthor::Person,
         Redirector::Job => StudioAuthor::Job,
@@ -87,7 +87,7 @@ pub(crate) fn author(by: Redirector) -> StudioAuthor {
 ///
 /// **The line a person typed is carried over**, because they typed it about
 /// this address whatever it turned out to be.
-pub(crate) fn recognised(content: StudioNodeContent) -> StudioNodeContent {
+pub fn recognised(content: StudioNodeContent) -> StudioNodeContent {
     let StudioNodeContent::Link { address, said, .. } = &content else {
         return content;
     };
@@ -105,7 +105,7 @@ const STAYS_IN_ITS_CLUSTER: &str = "fleet.studio_note_stays_in_its_cluster";
 impl Fleet
 {
     /// A store refusal, as the wire says it.
-    pub(crate) fn studio_refusal(&self, why: StudioError) -> Refusal {
+    pub fn studio_refusal(&self, why: StudioError) -> Refusal {
         let said = why.to_string();
         let raised = |code| WireError::raised(code, said.clone(), self.run_id());
         match why {
@@ -127,13 +127,13 @@ impl Fleet
         }
     }
 
-    pub(crate) fn studio_unacceptable(&self, code: &str, said: String) -> Refusal {
+    pub fn studio_unacceptable(&self, code: &str, said: String) -> Refusal {
         Refusal::Unacceptable(WireError::raised(code, said, self.run_id()))
     }
 
     /// The Studio `studio_id` names, refused where a door session's repository
     /// does not own it.
-    pub(crate) fn studio_held(
+    pub fn studio_held(
         &self,
         store: &Store,
         studio_id: &StudioId,
@@ -161,7 +161,7 @@ impl Fleet
 
     /// Check the scope, make one write, then read the Studio back and publish
     /// it whole.
-    pub(crate) async fn written(
+    pub async fn written(
         &self,
         studio_id: &ipc::StudioId,
         within: Option<ManifestId>,
@@ -182,7 +182,7 @@ impl Fleet
 
     /// Where one Studio's frames are kept: a directory of its own, beside the
     /// records rather than in them.
-    pub(crate) fn studio_frames(&self, studio_id: &StudioId) -> std::path::PathBuf {
+    pub fn studio_frames(&self, studio_id: &StudioId) -> std::path::PathBuf {
         std::path::Path::new(&self.host().studio_frames_dir).join(studio_id.as_str())
     }
 
@@ -191,7 +191,7 @@ impl Fleet
     /// legitimate one always passes; this stands behind the record for the
     /// row that holds a name nothing here minted, so it reaches no file
     /// outside the Studio's own directory.
-    pub(crate) fn kept_frame(
+    pub fn kept_frame(
         &self,
         studio_id: &StudioId,
         filename: &str,
@@ -202,7 +202,7 @@ impl Fleet
 
     /// Whether `by` may add a node of `kind` at all, asked before anything is
     /// written — a Picture's file included.
-    pub(crate) fn addable_by(&self, kind: StudioNodeKind, by: Redirector) -> Result<(), Refusal> {
+    pub fn addable_by(&self, kind: StudioNodeKind, by: Redirector) -> Result<(), Refusal> {
         if by == Redirector::Job && !kind.starts_proposed() {
             return Err(self.studio_unacceptable(
                 NODE_NOT_A_JOBS,
@@ -234,7 +234,7 @@ impl Fleet
     /// belongs to. **Refused, not dropped**, for the reason `drafting`'s
     /// attachments are: a person who saw a frame taken and gets a Note with
     /// none is worse off than one whose capture was refused.
-    pub(crate) fn frame_kept(
+    pub fn frame_kept(
         &self,
         studio_id: &StudioId,
         node_id: &StudioNodeId,
@@ -245,7 +245,7 @@ impl Fleet
 
     /// [`frame_kept`](Self::frame_kept), under a name Fleet minted — a
     /// Sketch keeps one per picture, so the node alone cannot name each.
-    pub(crate) fn frame_kept_as(
+    pub fn frame_kept_as(
         &self,
         studio_id: &StudioId,
         filename: String,
@@ -286,7 +286,7 @@ impl Fleet
     /// Publish `act` as a Job's own, **after** the write's `studio.changed` and
     /// only where the transport placed the call as a Job on your words: a person's
     /// act on a Studio is `studio.changed` alone.
-    pub(crate) fn published_as_jobs(
+    pub fn published_as_jobs(
         &self,
         by: Redirector,
         studio: &ipc::Studio,

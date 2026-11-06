@@ -19,11 +19,11 @@ const WINDOW_ASK_EMPTY: &str = "fleet.window_ask_empty";
 const WINDOW_ASK_NOT_WALKED: &str = "fleet.window_ask_not_walked";
 
 /// The id a question's waiting item goes by, from its row's.
-pub(crate) const WINDOW_ASK_PREFIX: &str = "window_ask:";
+pub const WINDOW_ASK_PREFIX: &str = "window_ask:";
 
 /// Scheme, host and port, lowercased, with the scheme's own port dropped: `http://localhost:5173`.
 /// `None` for anything but an `http` or `https` address with a host.
-pub(crate) fn origin_of(url: &str) -> Option<String> {
+pub fn origin_of(url: &str) -> Option<String> {
     let lowered = url.trim();
     let (scheme, rest) = lowered.split_once("://")?;
     let scheme = scheme.to_ascii_lowercase();
@@ -47,7 +47,7 @@ pub(crate) fn origin_of(url: &str) -> Option<String> {
 
 impl Fleet
 {
-    pub(crate) async fn window_asked(
+    pub async fn window_asked(
         &self,
         caller: Option<api::Caller>,
         ask: AskInWindow,
@@ -168,7 +168,7 @@ impl Fleet
 
     /// Keep how a question asked in the window was answered, on its row. **Best effort**, as
     /// `row_put` is: the message to the session is what carries the answer.
-    pub(crate) async fn window_ask_answered(&self, session: &str, row_id: &str, answer: String) {
+    pub async fn window_ask_answered(&self, session: &str, row_id: &str, answer: String) {
         let Ok(rows) = self.rows_of(session).await else {
             return;
         };

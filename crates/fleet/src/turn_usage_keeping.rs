@@ -6,7 +6,7 @@ use adapters::turn_lines::{Part, TurnRead};
 use store::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage, Store, WriteError};
 
 /// A turn as the store keeps it.
-pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
+pub fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
     KeptTurnUsage {
         message_id: turn.message_id.clone(),
         at: turn.at.as_str().to_string(),
@@ -23,7 +23,7 @@ pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
 }
 
 /// What a read learnt of when its turns ran, as the store keeps it.
-pub(crate) fn reading_kept(read: &TurnRead) -> KeptReading {
+pub fn reading_kept(read: &TurnRead) -> KeptReading {
     KeptReading {
         times: read
             .times
@@ -71,12 +71,12 @@ fn named(shares: &[(Part, f64)]) -> Vec<(String, f64)> {
 }
 
 /// One turn, kept. Whether the store changed.
-pub(crate) fn kept(store: &mut Store, id: &str, turn: &TurnUsage) -> Result<bool, WriteError> {
+pub fn kept(store: &mut Store, id: &str, turn: &TurnUsage) -> Result<bool, WriteError> {
     store.keep_turn_usage(id, &kept_form(turn))
 }
 
 /// The session's turns in the window, oldest first.
-pub(crate) fn window(
+pub fn window(
     store: &Store,
     id: &str,
     since: Option<&str>,

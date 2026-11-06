@@ -12,7 +12,7 @@ impl Fleet
 {
     /// The Job's time and the usual of its workflow, read in one short hold of the store. None where
     /// no time is kept for it, or its workflow has no name or no other Job to be usual from.
-    pub(crate) async fn timing_of(&self, id: &str) -> Result<Option<TimingSources>, Refusal> {
+    pub async fn timing_of(&self, id: &str) -> Result<Option<TimingSources>, Refusal> {
         let (kept, usual) = {
             let store = self.store().lock().await;
             let kept = store.job_time(id).map_err(|why| self.ledger_fault(why))?;

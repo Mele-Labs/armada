@@ -21,7 +21,7 @@ use crate::daemon::Fleet;
 use crate::plan_mirror::{steps, Step, FINISHED, REMOVED};
 use crate::repositories::Served;
 
-pub(crate) type Door = Arc<dyn Backlog + Send + Sync>;
+pub type Door = Arc<dyn Backlog + Send + Sync>;
 
 /// One Job's plan to mirror.
 struct Work {
@@ -32,7 +32,7 @@ struct Work {
 }
 
 /// `call` on the backlog, off the async thread.
-pub(crate) async fn writing<T: Send + 'static>(
+pub async fn writing<T: Send + 'static>(
     backlog: &Door,
     call: impl FnOnce(&dyn Backlog) -> Result<T, NotTracked> + Send + 'static,
 ) -> Result<T, NotTracked> {
@@ -47,7 +47,7 @@ impl Fleet
     /// Make the beads issue of each Job in `served` say what its plan says. What went wrong, one
     /// line each. **A Job with no beads issue mirrors nothing.** Only the first issue a Job holds
     /// has its plan under it.
-    pub(crate) async fn plans_mirrored(
+    pub async fn plans_mirrored(
         &self,
         served: &Served,
         backlog: &Door,
@@ -180,6 +180,6 @@ impl Fleet
 }
 
 /// The start of a Job's id, as the claim's actor names it.
-pub(crate) fn short(id: &str) -> String {
+pub fn short(id: &str) -> String {
     id.chars().take(8).collect()
 }

@@ -7,20 +7,20 @@
 //! refused here if it could not work where it will run. Saving makes a Logbook entry for the agent
 //! note and writes the mods; see [`saving`].
 
-mod answer;
-mod asking;
-pub(crate) mod finding;
-mod forgetting;
-pub(crate) mod link;
-mod ruling;
-mod saving;
-mod serving;
-mod tokens;
+pub mod answer;
+pub mod asking;
+pub mod finding;
+pub mod forgetting;
+pub mod link;
+pub mod ruling;
+pub mod saving;
+pub mod serving;
+pub mod tokens;
 
-pub(crate) use finding::Searched;
-pub(crate) use forgetting::forget_effects;
-#[cfg(test)]
-pub(crate) use saving::address_given;
+pub use finding::Searched;
+pub use forgetting::forget_effects;
+#[cfg(any(test, feature = "test-support"))]
+pub use saving::address_given;
 
 use adapter_traits::{AgentHarness, Ask, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -52,7 +52,7 @@ const MOST_MESSAGE: usize = 8_000;
 const MOST_SAID: usize = 2_000;
 
 /// The reader's question as it ships: `prompts.teachingRead`'s default.
-pub(crate) const QUESTION: &str =
+pub const QUESTION: &str =
     "A person is working with a coding agent in Bridge, the app around it. They pressed Teach on \
      {source} and wrote what it is or what should change. Read that into a proposal they will check.\n\n\
      {may}\n\n\
@@ -201,13 +201,13 @@ fn may_propose(kind: TeachingSourceKind, reach: TeachingReach, notice: Option<&s
 impl Fleet
 {
     /// The Manifest id of the served repository at `root`.
-    pub(crate) fn manifest_id_at(&self, root: &str) -> Option<String> {
+    pub fn manifest_id_at(&self, root: &str) -> Option<String> {
         self.repositories().served().into_iter().find(|one| one.root() == root).map(|one| one.manifest().id().as_str().to_string())
     }
 
     /// Read a teaching into a proposal. **Refused before the model is asked** where an input is
     /// empty or over a bound, or the reach names a repository Fleet does not serve.
-    pub(crate) async fn teaching_read(&self, teach: ReadTeaching) -> Result<TeachingProposal, Refusal> {
+    pub async fn teaching_read(&self, teach: ReadTeaching) -> Result<TeachingProposal, Refusal> {
         let source = teach.source.clone().unwrap_or(TeachingSource {
             kind: TeachingSourceKind::Words,
             text: teach.words.clone(),

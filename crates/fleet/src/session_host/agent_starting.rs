@@ -28,12 +28,12 @@ use crate::daemon::Fleet;
 const AGENT_START_EMPTY: &str = "fleet.agent_start_empty";
 
 /// On the new Session, naming the one whose agent started it; and on that one, naming the new.
-pub(crate) const STARTED_BY: &str = "started_by";
+pub const STARTED_BY: &str = "started_by";
 use crate::started_jobs::STARTED_TO;
 
 /// A Job this one's agent started that still waits on its start card.
 #[derive(Clone)]
-pub(crate) struct HeldChild {
+pub struct HeldChild {
     pub id: String,
     pub title: String,
     /// When the link was written: the item waits from then.
@@ -42,7 +42,7 @@ pub(crate) struct HeldChild {
 
 /// The Jobs `parent`'s agent started that are live and held on their start cards. A press queued
 /// while the proposer reads leaves one held, so it is still listed.
-pub(crate) fn held_children(store: &Store, parent: &str) -> Result<Vec<HeldChild>, store::WriteError> {
+pub fn held_children(store: &Store, parent: &str) -> Result<Vec<HeldChild>, store::WriteError> {
     let mut held = Vec::new();
     for link in store.attachments_of(&Holder::session(parent))?.into_iter().filter(|one| one.kind == STARTED_TO) {
         let Some(child) = store.session(&link.target)? else { continue };
@@ -55,7 +55,7 @@ pub(crate) fn held_children(store: &Store, parent: &str) -> Result<Vec<HeldChild
 }
 
 /// The parent's item for a held child: pressing it opens the child, whose Start settles it.
-pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
+pub fn held_child_item(child: &HeldChild) -> WaitingItem {
     WaitingItem {
         id: format!("start:{}", child.id),
         text: format!("Press Start on \"{}\"", child.title),
@@ -74,15 +74,15 @@ pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
 }
 
 /// An agent's own item that sends the person to one of `held`, which the held child's item already says.
-pub(crate) fn repeats_held_child(item: &WaitingItem, held: &[HeldChild]) -> bool {
+pub fn repeats_held_child(item: &WaitingItem, held: &[HeldChild]) -> bool {
     item.source == WaitingSource::Agent
         && item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Message && held.iter().any(|child| child.id == act.target))
 }
 
 /// The words a call must carry, trimmed.
-pub(super) struct Words {
-    pub(super) title: String,
-    pub(super) message: String,
+pub struct Words {
+    pub title: String,
+    pub message: String,
 }
 
 impl Fleet
@@ -109,7 +109,7 @@ impl Fleet
     }
 
     /// `start_another_session`.
-    pub(crate) async fn another_session_started(
+    pub async fn another_session_started(
         self: &Arc<Self>,
         caller: Option<Caller>,
         start: StartAnotherSession,
@@ -121,7 +121,7 @@ impl Fleet
     /// [`Self::another_session_started`] for a Job named, which is the parent. **The door a rule of
     /// the Job goes through**: no connection places it, and what it makes is held for the person to
     /// start as anything an agent starts is.
-    pub(crate) async fn another_session_started_by(
+    pub async fn another_session_started_by(
         self: &Arc<Self>,
         me: String,
         start: StartAnotherSession,
@@ -192,7 +192,7 @@ impl Fleet
     }
 
     /// `fork_this_session`.
-    pub(crate) async fn this_session_forked(
+    pub async fn this_session_forked(
         &self,
         caller: Option<Caller>,
         fork: ForkThisSession,
@@ -237,7 +237,7 @@ impl Fleet
 
     /// Link the two ledgers, write the callout in the caller's thread and publish both. **A fork's
     /// links are the fork's own** (`forked_from`, `forked_to`), written when it was made.
-    pub(super) async fn held_for_person(
+    pub async fn held_for_person(
         &self,
         caller: &str,
         made: SessionRecord,
@@ -273,7 +273,7 @@ impl Fleet
 
     /// `started_by` on `new` and `started_to` on `caller`, which Bridge nests `new` under. **Written
     /// alone** where the caller's thread already names the new Session, as a dispute's row does.
-    pub(crate) async fn started_linked(&self, caller: &str, new: &str, manifest: &str, group: Option<&str>) -> Result<(), Refusal> {
+    pub async fn started_linked(&self, caller: &str, new: &str, manifest: &str, group: Option<&str>) -> Result<(), Refusal> {
         let now = self.now().as_str().to_string();
         // The group a linked Session was handed rides on both link rows, so each ledger serves it.
         let linked: BTreeMap<String, String> =

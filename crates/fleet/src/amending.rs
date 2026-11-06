@@ -53,7 +53,7 @@ impl Fleet
 {
     /// `edit_manifest` — the edits spliced into the file they were drawn from,
     /// parsed, and either sent as a pull request or written through [`save`].
-    pub(crate) async fn edit_manifest_file(
+    pub async fn edit_manifest_file(
         &self,
         asked: EditManifest,
         served: &crate::repositories::Served,
@@ -135,7 +135,7 @@ impl Fleet
         })
     }
 
-    pub(crate) fn not_amended(&self, why: NotAmended) -> Refusal {
+    pub fn not_amended(&self, why: NotAmended) -> Refusal {
         let said = why.to_string();
         Refusal::Unacceptable(match why {
             NotAmended::Misnamed { key, .. } => {
@@ -324,7 +324,7 @@ fn link(wire: LinkDraft) -> NewLink {
 
 /// What a Manifest declares, in the drafts a form sends back — so a key the
 /// form reads is a key it can write, and nothing it draws is a second spelling.
-pub(crate) fn declared_in(manifest: &config::Manifest) -> ManifestDeclared {
+pub fn declared_in(manifest: &config::Manifest) -> ManifestDeclared {
     let patterns = |covers: Option<&Covers>| {
         covers.map_or_else(Vec::new, |covers| {
             covers

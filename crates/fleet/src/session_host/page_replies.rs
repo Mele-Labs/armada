@@ -28,7 +28,7 @@ use super::walking::approved_address;
 use crate::daemon::Fleet;
 
 /// How often the pages still asking are looked over.
-pub(crate) const EVERY: Duration = Duration::from_secs(60);
+pub const EVERY: Duration = Duration::from_secs(60);
 
 /// The most of his replies after the page that are read in one pass, newest kept.
 const REPLIES: usize = 3;
@@ -36,12 +36,12 @@ const REPLIES: usize = 3;
 /// What a card's answer sends the Job, which settles the page itself (`document_answers::approved`, `sent_back`).
 const CARD_SENT: [&str; 2] = ["Approved document:", "Sent back document:"];
 
-pub(crate) const APPROVES: &str = "approves:";
+pub const APPROVES: &str = "approves:";
 
 /// When his newest reply read for each page's revision was sent, so a pass reads only later ones.
 /// Kept while Fleet runs: after a restart his replies are read again, and a settled page is not read.
 #[derive(Default)]
-pub(crate) struct Reads {
+pub struct Reads {
     read: Mutex<BTreeMap<String, String>>,
 }
 
@@ -56,7 +56,7 @@ impl Reads {
 }
 
 /// His replies sent after `since`, oldest first, with when each was sent.
-pub(crate) fn replies_after<'a>(rows: &'a [SessionRow], since: &str) -> Vec<(&'a str, &'a str)> {
+pub fn replies_after<'a>(rows: &'a [SessionRow], since: &str) -> Vec<(&'a str, &'a str)> {
     rows.iter()
         .filter_map(|row| match row {
             SessionRow::Message { id, at, from: SessionVoice::You, text, notice: None, .. }
@@ -74,7 +74,7 @@ pub(crate) fn replies_after<'a>(rows: &'a [SessionRow], since: &str) -> Vec<(&'a
 }
 
 /// What the model is asked.
-pub(crate) fn question(title: &str, replies: &[&str]) -> String {
+pub fn question(title: &str, replies: &[&str]) -> String {
     let said: Vec<String> = replies.iter().enumerate().map(|(n, text)| format!("Message {}:\n{}", n + 1, text.trim())).collect();
     format!(
         "A coding agent wrote a design page titled \"{title}\" with a plan, and put it to a person to \
@@ -89,7 +89,7 @@ pub(crate) fn question(title: &str, replies: &[&str]) -> String {
 }
 
 /// The model's answer, read. Anything but a `yes` approves nothing.
-pub(crate) fn approves(answer: &str) -> bool {
+pub fn approves(answer: &str) -> bool {
     answer.lines().any(|line| {
         let line = line.trim().to_lowercase();
         line.strip_prefix(APPROVES).is_some_and(|said| said.trim().starts_with("yes"))
@@ -99,7 +99,7 @@ pub(crate) fn approves(answer: &str) -> bool {
 impl Fleet
 {
     /// Read his replies to every page a live Job put to him and he has not answered.
-    pub(crate) async fn pages_read(self: &Arc<Self>) {
+    pub async fn pages_read(self: &Arc<Self>) {
         let asking: Vec<(String, String)> = {
             let store = self.store().lock().await;
             let live = store.find_sessions(&SessionSearch { state: Some(SessionState::Live), ..Default::default() }).unwrap_or_default();

@@ -35,7 +35,7 @@ impl Fleet
     /// reply goes; **each open pull request is asked after it**, in a task of its own, because a
     /// Job holding five asks the forge some twenty-five times and Bridge stops waiting at twenty
     /// seconds. The forge's refusals reach the Job as one `auto_land_refused` notice.
-    pub(crate) async fn session_auto_land_set(
+    pub async fn session_auto_land_set(
         self: &Arc<Self>,
         asked: SetSessionAutoLand,
     ) -> Result<SessionRecord, Refusal> {
@@ -43,7 +43,7 @@ impl Fleet
     }
 
     /// [`Self::session_auto_land_set`], with the task asking the forge, for a caller that waits on it.
-    pub(crate) async fn auto_land_answered(
+    pub async fn auto_land_answered(
         self: &Arc<Self>,
         asked: SetSessionAutoLand,
     ) -> Result<(SessionRecord, tokio::task::JoinHandle<()>), Refusal> {
@@ -55,7 +55,7 @@ impl Fleet
 
     /// The flag alone, kept and published, with the Manifest its pull requests are in. What a
     /// delivery named in the first message takes, before any pull request exists.
-    pub(crate) async fn auto_land_flag_set(&self, asked: &SetSessionAutoLand) -> Result<(SessionRecord, String), Refusal> {
+    pub async fn auto_land_flag_set(&self, asked: &SetSessionAutoLand) -> Result<(SessionRecord, String), Refusal> {
         let id = asked.id.as_str().to_string();
         if self.terminal_session(&id).await?.is_some() {
             return Err(self.hosted_refusal(
@@ -78,7 +78,7 @@ impl Fleet
 
     /// Each open pull request asked to follow the flag, after the reply. **Stops where the flag has
     /// changed since**, so an off pressed straight after an on is not undone by the on's asks.
-    pub(crate) async fn auto_land_asked_of_forge(self: &Arc<Self>, id: &str, manifest: &str, on: bool) {
+    pub async fn auto_land_asked_of_forge(self: &Arc<Self>, id: &str, manifest: &str, on: bool) {
         let manifest_id = ManifestId::carried(manifest);
         let mut refused = Vec::new();
         for number in self.open_pulls_of(id, manifest).await {
@@ -102,7 +102,7 @@ impl Fleet
     }
 
     /// The numbers of the pull requests a Session holds standing, in one repository.
-    pub(crate) async fn open_pulls_of(&self, session: &str, manifest: &str) -> Vec<u64> {
+    pub async fn open_pulls_of(&self, session: &str, manifest: &str) -> Vec<u64> {
         let store = self.store().lock().await;
         let rows = store.attachments_of(&Holder::session(session)).unwrap_or_default();
         rows.iter()
@@ -117,7 +117,7 @@ impl Fleet
     /// while the pull request clashes with one ahead of it in the merge queue**, which is then the
     /// `Ok(Some(_))`; the pull reading tells the Job and asks again once the clash is gone.
     /// `head` is the commit where the caller has read it, else the forge is asked.
-    pub(crate) async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64, head: Option<&str>) -> Result<Option<Blocker>, Refusal> {
+    pub async fn auto_merge_asked_for(&self, manifest: &ManifestId, number: u64, head: Option<&str>) -> Result<Option<Blocker>, Refusal> {
         let served = self.served_named(Some(manifest))?;
         let before = self.pull_request_read_off(manifest, served.root(), number).await?;
         if matches!(before.state, PullRequestStanding::Merged | PullRequestStanding::Closed) {
@@ -163,7 +163,7 @@ impl Fleet
     /// A pull request just attached to a Session: asked for auto-merge where Auto land is on.
     /// `None` where it is off, or the forge took it, or it is held behind a clash (the pull reading
     /// tells the Job so); the forge's words where it did not.
-    pub(crate) async fn auto_land_attached(&self, session: &str, manifest: &str, number: u64) -> Option<String> {
+    pub async fn auto_land_attached(&self, session: &str, manifest: &str, number: u64) -> Option<String> {
         self.auto_land_tried(session, manifest, number, None).await.err()
     }
 
@@ -178,7 +178,7 @@ impl Fleet
             .map_err(|refusal| refusal.error().message.clone())
     }
 
-    pub(crate) async fn auto_land_on(&self, session: &str) -> bool {
+    pub async fn auto_land_on(&self, session: &str) -> bool {
         self.store().lock().await.hosting(session).ok().flatten().is_some_and(|it| it.auto_land)
     }
 
@@ -192,7 +192,7 @@ impl Fleet
     /// as asked**, so it is tested again on every reading and asked once the clash is gone. One
     /// already queued is tested against what is ahead of it each reading, and taken out if it
     /// now clashes.
-    pub(crate) async fn auto_land_followed(self: &Arc<Self>, served: &Served, pull: &FollowedPull, head: &str) {
+    pub async fn auto_land_followed(self: &Arc<Self>, served: &Served, pull: &FollowedPull, head: &str) {
         let queued = pull.queue != PullQueue::Outside;
         let merging = pull.auto_merge || queued;
         let ready = pull.passed() && !pull.conflicting && !merging;

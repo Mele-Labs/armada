@@ -100,20 +100,20 @@ pub struct Host {
 /// repository a Job is in. **What Fleet holds**, so a repository's root is
 /// only ever read off the repository — `crate::repositories`.
 #[derive(Clone, Debug)]
-pub(crate) struct Local {
-    pub(crate) path: String,
-    pub(crate) home: String,
-    pub(crate) user: String,
-    pub(crate) port: u16,
-    pub(crate) attachments_dir: String,
-    pub(crate) keepers_dir: String,
-    pub(crate) terminal_keeper: crate::terminal_keeping::Starting,
-    pub(crate) studio_frames_dir: String,
-    pub(crate) kit_home: String,
-    pub(crate) mods_dir: String,
-    pub(crate) mod_bundle: Option<String>,
-    pub(crate) mod_switches: crate::mods::ModSwitches,
-    pub(crate) built_in_mods: crate::mods::BuiltIns,
+pub struct Local {
+    pub path: String,
+    pub home: String,
+    pub user: String,
+    pub port: u16,
+    pub attachments_dir: String,
+    pub keepers_dir: String,
+    pub terminal_keeper: crate::terminal_keeping::Starting,
+    pub studio_frames_dir: String,
+    pub kit_home: String,
+    pub mods_dir: String,
+    pub mod_bundle: Option<String>,
+    pub mod_switches: crate::mods::ModSwitches,
+    pub built_in_mods: crate::mods::BuiltIns,
 }
 
 /// One repository a Fleet is assembled already serving.
@@ -419,23 +419,33 @@ impl Fleet
         self
     }
 
-    pub(crate) fn session_check_live(&self) -> &crate::session_check_live::SessionCheckLive {
+    pub fn session_check_live(&self) -> &crate::session_check_live::SessionCheckLive {
         &self.session_check_live
     }
 
-    pub(crate) fn session_runs(&self) -> &crate::session_running::SessionRuns {
+    pub fn session_runs(&self) -> &crate::session_running::SessionRuns {
         &self.session_runs
     }
 
-    pub(crate) fn window_sign_ins(&self) -> &crate::window_sign_in::SignIns {
+    pub fn window_sign_ins(&self) -> &crate::window_sign_in::SignIns {
         &self.window_sign_ins
     }
 
-    pub(crate) fn job_browser(&self) -> &crate::job_browser::Browsers {
+    pub fn job_browser(&self) -> &crate::job_browser::Browsers {
         &self.job_browser
     }
 
-    pub(crate) fn scouts(&self) -> &crate::scout::Scouts {
+    pub fn scouts(&self) -> &crate::scout::Scouts {
         &self.scouts
+    }
+}
+
+#[cfg(any(test, feature = "test-support"))]
+impl Fittings {
+    /// The repository a fixture starts in, for a case that varies it.
+    pub fn starting(&mut self) -> &mut StartingIn {
+        self.starting_in
+            .as_mut()
+            .expect("a fixture starts in a repository")
     }
 }

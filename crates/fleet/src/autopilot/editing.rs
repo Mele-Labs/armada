@@ -18,7 +18,7 @@ use crate::daemon::Fleet;
 impl Fleet
 {
     /// `settings` as a person confirmed them, or the 422 that says what nothing could run under.
-    pub(super) fn confirmed(
+    pub fn confirmed(
         &self,
         settings: &AutopilotSettings,
         now: &Timestamp,
@@ -43,7 +43,7 @@ impl Fleet
     }
 
     /// `update_autopilot`: the new settings on the run, its state, `capped_by` and picks kept.
-    pub(super) async fn autopilot_updated(
+    pub async fn autopilot_updated(
         &self,
         manifest_id: &ManifestId,
         settings: &AutopilotSettings,

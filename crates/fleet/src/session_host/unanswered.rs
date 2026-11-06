@@ -15,14 +15,14 @@ use super::State;
 use crate::daemon::Fleet;
 
 /// What the agent reads when it asks a question before writing him anything since his message.
-pub(crate) const UNANSWERED_QUESTION: &str = "Not asked: since his last message you have written him nothing, and he reads only what you write, never your reasoning. Write your answer to his message, then ask this question again.";
+pub const UNANSWERED_QUESTION: &str = "Not asked: since his last message you have written him nothing, and he reads only what you write, never your reasoning. Write your answer to his message, then ask this question again.";
 
 /// How long the door waits for the stream to reach the question. The text before a call comes ahead
 /// of it in the stream, and the stream is read apart from the door, so the door can be first.
 const CAUGHT_UP_WITHIN: Duration = Duration::from_secs(2);
 
 /// The person wrote, or answered a question: the agent owes him a reply.
-pub(crate) fn owed(state: &mut State) {
+pub fn owed(state: &mut State) {
     state.owes_reply = true;
 }
 
@@ -30,7 +30,7 @@ impl Fleet
 {
     /// Whether the question `call` is to be sent back for the answer, read once the stream has
     /// reached it. Taking the debt, so the same question asked again is put to him.
-    pub(crate) async fn question_unanswered(&self, id: &str, call: Option<&str>) -> bool {
+    pub async fn question_unanswered(&self, id: &str, call: Option<&str>) -> bool {
         let runtime = self.hosts().of(id);
         if !runtime.state().owes_reply {
             return false;

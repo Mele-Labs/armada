@@ -24,14 +24,14 @@ const TESTED: &str = "auto_land_tested";
 
 /// The pull request ahead in the queue that a head clashes with, and the files that do.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Blocker {
+pub struct Blocker {
     pub number: u64,
     pub files: Vec<String>,
 }
 
 /// What testing a head against the queue ahead of it decided.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Guard {
+pub enum Guard {
     /// Everything ahead was tested and merges clean, or nothing is ahead.
     Go,
     /// Something ahead could not be tested, and nothing tested clashed. Acts as `Go`, and is not
@@ -45,7 +45,7 @@ pub(crate) enum Guard {
 
 /// How one entry ahead tested against the head.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Tested {
+pub enum Tested {
     Clean,
     Clash(Vec<String>),
     /// Git could not say, or the queue named no head for it.
@@ -54,7 +54,7 @@ pub(crate) enum Tested {
 
 /// The entries that merge before pull request `number`, soonest first: all of them where it is not
 /// in the queue (it would go last), those at a lower position where it is.
-pub(crate) fn ahead_of(number: u64, queue: &[QueueEntry]) -> Vec<QueueEntry> {
+pub fn ahead_of(number: u64, queue: &[QueueEntry]) -> Vec<QueueEntry> {
     let own = queue.iter().find(|entry| entry.number == number).map(|entry| entry.position);
     let mut ahead: Vec<QueueEntry> = queue
         .iter()
@@ -67,7 +67,7 @@ pub(crate) fn ahead_of(number: u64, queue: &[QueueEntry]) -> Vec<QueueEntry> {
 
 /// The decision, with the test of one entry against the head given. The first entry that clashes
 /// is the blocker, so a pull request waits on the next one to merge rather than the last.
-pub(crate) fn decide(number: u64, queue: &[QueueEntry], mut test: impl FnMut(&QueueEntry) -> Tested) -> Guard {
+pub fn decide(number: u64, queue: &[QueueEntry], mut test: impl FnMut(&QueueEntry) -> Tested) -> Guard {
     let queued = queue.iter().any(|entry| entry.number == number);
     let mut unknown = false;
     for entry in ahead_of(number, queue) {
@@ -100,7 +100,7 @@ impl Fleet
     /// Pull request `number` at `head`, tested against the queue ahead of it. **A clean test is kept
     /// for the queue it was made against**, so a queued pull request costs git nothing on the
     /// readings where nothing moved; a clash is tested again each time.
-    pub(super) async fn queue_guarded(&self, served: &Served, number: u64, head: &str) -> Guard {
+    pub async fn queue_guarded(&self, served: &Served, number: u64, head: &str) -> Guard {
         let Some(base) = served.manifest().base().map(str::to_string) else {
             return Guard::Go;
         };
@@ -154,7 +154,7 @@ impl Fleet
     /// Tell the Job what its pull request waits on, **once a commit and a blocker**: a blocker that
     /// merges and is followed by another is told again, the same one on the next reading is not.
     /// Kept only where the Job was told, so a Job not listening is told on a later reading.
-    pub(super) async fn hold_told(
+    pub async fn hold_told(
         self: &std::sync::Arc<Self>,
         root: &str,
         session: &str,

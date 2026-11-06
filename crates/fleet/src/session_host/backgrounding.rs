@@ -21,7 +21,7 @@ use store::{AttachmentState, Holder};
 use crate::daemon::Fleet;
 
 /// The kind a background task is kept under.
-pub(super) const KIND: &str = "background";
+pub const KIND: &str = "background";
 
 /// How many calls are remembered. A task starts within moments of its call, so this is how many a
 /// subagent's burst of commands may be ahead of the line that names the first.
@@ -29,7 +29,7 @@ const REMEMBERED: usize = 64;
 
 /// What a shell or watch call asked, by the id of the call. In memory.
 #[derive(Default)]
-pub(crate) struct Calls(VecDeque<(String, &'static str, String)>);
+pub struct Calls(VecDeque<(String, &'static str, String)>);
 
 impl Calls {
     fn told(&mut self, call: &str, form: &'static str, command: &str) {
@@ -48,7 +48,7 @@ impl Calls {
 impl Fleet
 {
     /// One thing the session's process or a subagent in it said, as it bears on its background tasks.
-    pub(super) async fn background_heard(&self, id: &str, event: &DroneEvent) {
+    pub async fn background_heard(&self, id: &str, event: &DroneEvent) {
         match event {
             DroneEvent::Called { tool, call, detail } => {
                 if let Some(form) = adapters::background_form(tool) {
@@ -109,7 +109,7 @@ impl Fleet
     /// The background tasks a replaced process had not finished, one line each. **Called where a new
     /// process starts for a session that has run**: they ran in the process that is gone, so none of
     /// them can still be running. Their rows are given back.
-    pub(crate) async fn cut_off_background(&self, id: &str) -> Vec<String> {
+    pub async fn cut_off_background(&self, id: &str) -> Vec<String> {
         let holder = Holder::session(id);
         let at = self.now().as_str().to_string();
         let mut store = self.store().lock().await;

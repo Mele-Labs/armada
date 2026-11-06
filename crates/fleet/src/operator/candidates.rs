@@ -24,16 +24,16 @@ const ISSUES_SHOWN: usize = 8;
 
 /// One live Job, and what it shares with one item.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Near {
-    pub(super) job: LiveJob,
-    pub(super) paths: Vec<String>,
-    pub(super) issues: Vec<String>,
-    pub(super) words: Vec<String>,
+pub struct Near {
+    pub job: LiveJob,
+    pub paths: Vec<String>,
+    pub issues: Vec<String>,
+    pub words: Vec<String>,
 }
 
 impl Near {
     /// What the two share, as the call reads it.
-    pub(super) fn said(&self) -> String {
+    pub fn said(&self) -> String {
         let mut parts = Vec::new();
         if !self.paths.is_empty() {
             parts.push(format!("paths {}", self.paths.join(", ")));
@@ -49,7 +49,7 @@ impl Near {
 }
 
 /// The live Jobs other than the item's own that share something with it, in `live`'s order.
-pub(super) fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
+pub fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
     let words = uncommon(&format!("{} {}", item.subject, item.words));
     live.iter()
         .filter(|job| job.session_id != item.session_id && job.manifest_id == item.manifest_id)
@@ -69,7 +69,7 @@ pub(super) fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
 
 /// The open issues whose titles share two uncommon words with `text`, those sharing most first.
 /// **An issue sharing fewer is not offered**, so a link can name only one Fleet found near.
-pub(super) fn open_near(text: &str, open: &[Filed]) -> Vec<Filed> {
+pub fn open_near(text: &str, open: &[Filed]) -> Vec<Filed> {
     let words = uncommon(text);
     let mut near: Vec<(usize, &Filed)> = open
         .iter()
@@ -81,7 +81,7 @@ pub(super) fn open_near(text: &str, open: &[Filed]) -> Vec<Filed> {
 }
 
 /// Each of `ours` that meets one of `theirs`, the more exact of the two named.
-pub(super) fn shared_paths(ours: &[String], theirs: &[String]) -> Vec<String> {
+pub fn shared_paths(ours: &[String], theirs: &[String]) -> Vec<String> {
     let mut shared = BTreeSet::new();
     for one in ours {
         for other in theirs {

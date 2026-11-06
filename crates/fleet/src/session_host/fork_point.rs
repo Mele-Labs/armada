@@ -15,7 +15,7 @@ use super::serving::NO_SUCH_SESSION;
 use crate::daemon::Fleet;
 
 /// No message of the thread has the id, or it has no line in the transcript. A 422.
-pub(super) const FORK_POINT_UNWRITTEN: &str = "fleet.fork_point_unwritten";
+pub const FORK_POINT_UNWRITTEN: &str = "fleet.fork_point_unwritten";
 
 /// A message, as far as the two threads can be told apart: whether the agent
 /// said it, and the words.
@@ -85,7 +85,7 @@ fn line_of_hosted_row(thread: &[SessionRow], transcript: &[SessionRow], at: &str
 }
 
 /// Which line a row stands for, given the thread and the transcript as they are.
-pub(super) fn cut_in(hosted: bool, thread: &[SessionRow], transcript: &[SessionRow], at: &str) -> Option<String> {
+pub fn cut_in(hosted: bool, thread: &[SessionRow], transcript: &[SessionRow], at: &str) -> Option<String> {
     if hosted {
         line_of_hosted_row(thread, transcript, at)
     } else {
@@ -117,7 +117,7 @@ impl Fleet
 
     /// The transcript line session `old`'s row `at` was written as. **Read before anything is
     /// written**, so a refusal leaves no session behind.
-    pub(super) async fn fork_cut(&self, old: &str, at: &str) -> Result<String, Refusal> {
+    pub async fn fork_cut(&self, old: &str, at: &str) -> Result<String, Refusal> {
         let (hosted, thread, transcript) = self.fork_reads(old).await?;
         cut_in(hosted, &thread, &transcript, at).ok_or_else(|| {
             self.hosted_refusal(
@@ -130,7 +130,7 @@ impl Fleet
     /// The row of session `old`'s thread a fork with no `at` ends at: its latest message of its own
     /// that the transcript holds. **The agent's, not the person's**, so the fork's first message
     /// follows an agent turn as it would in the old conversation.
-    pub(crate) async fn latest_fork_point(&self, old: &str) -> Result<String, Refusal> {
+    pub async fn latest_fork_point(&self, old: &str) -> Result<String, Refusal> {
         let (hosted, thread, transcript) = self.fork_reads(old).await?;
         thread
             .iter()

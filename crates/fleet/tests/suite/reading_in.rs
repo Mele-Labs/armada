@@ -1,0 +1,946 @@
+//! Reading a Link in, under Fleet. `#1293`.
+//!
+//! **Nothing here reaches a network.** A session is a file this test writes
+//! under the project directory the checkout's own path keys, a thread on your words is
+//! the rows a Job on your words keeps, and the forge is a stand-in `gh` on the PATH
+//! Fleet gives every process it spawns — which is the point being held as much
+//! as the fixture: the scout fetches nothing, so a read-in is testable without
+//! one.
+
+use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
+use std::time::Duration;
+
+use adapters::HeadlessAgent;
+use api::{Redirector, Refusal, Studios};
+use ipc::{AddStudioNode, CreateStudio, ReadInLink, StudioNode, StudioNodeContent, StudioPosition};
+use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
+
+use fleet::daemon::Fleet;
+use fleet::drone::HostPaths;
+use fleet::scout::ScoutHost;
+use crate::daemon::fittings;
+use fleet::tests::tmp::TempDir;
+
+type Reading = Fleet;
+
+/// The agent CLI as a read-in's scout meets it: it writes the turn it was told
+/// to a file, then answers with the block the brief asks for.
+const STAND_IN: &str = r##"#!/bin/sh
+state='@STATE@'
+IFS= read -r turn
+printf '%s\n' "$turn" >> "$state/turns.log"
+# Single-quoted, so the escapes below stay as escapes and `%s` prints them
+# into the JSON string rather than printf resolving them first.
+answer='Read it.\n\n```json\n@ANSWER@\n```'
+printf '{"type":"system","subtype":"init","session_id":"read-in","model":"stand-in","mcp_servers":[]}\n'
+printf '{"type":"assistant","message":{"content":[{"type":"text","text":"%s"}]}}\n' "$answer"
+printf '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"total_cost_usd":0.0031,"permission_denials":[]}\n'
+"##;
+
+/// What the stand-in answers unless a test says otherwise, escaped as the
+/// script's single-quoted `answer` holds it.
+const READ: &str = r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The thread settled on one Studio per repository\"}],\"contradictions\":[{\"id\":\"c1\",\"first\":\"The source says the rail is per Workspace\",\"second\":\"The checkout says a Studio names no Workspace\"}],\"relations\":[{\"from\":\"n1\",\"relation\":\"blocks\",\"to\":\"c1\"}]}"#;
+
+/// A stand-in forge. `api repos/.../milestones/N` prints the milestone's line;
+/// anything else prints one issue per line, as `--jq` would have reduced it.
+const FORGE: &str = r##"#!/bin/sh
+case "$*" in
+  *milestones/*)
+    printf 'Studio\t3\n'
+    ;;
+  *)
+    printf 'https://example.invalid/o/r/issues/1\t1\tThe rail is unreadable\topen\n'
+    printf 'https://example.invalid/o/r/issues/2\t2\tThe legend wraps\tclosed\n'
+    ;;
+esac
+"##;
+
+fn reading(home: &TempDir) -> Arc<Reading> {
+    reading_answered(home, READ)
+}
+
+/// A Fleet whose scout answers `read`.
+fn reading_answered(home: &TempDir, read: &str) -> Arc<Reading> {
+    let root = home.path();
+    std::fs::create_dir_all(root.join("src")).expect("a source directory");
+    std::fs::write(root.join("src/routing.rs"), "fn route() {}\n").expect("written");
+    // A real checkout: a Finding records the commit before the scout reads.
+    for args in [
+        vec!["init", "-q"],
+        vec!["add", "src/routing.rs"],
+        vec![
+            "-c",
+            "user.email=a@b.c",
+            "-c",
+            "user.name=a",
+            "commit",
+            "-qm",
+            "routing",
+        ],
+    ] {
+        let ran = std::process::Command::new("git")
+            .args(&args)
+            .current_dir(root)
+            .output()
+            .expect("git runs");
+        assert!(ran.status.success(), "git {args:?}: {ran:?}");
+    }
+    let state = root.join("stand-in");
+    std::fs::create_dir_all(&state).expect("a state directory");
+    let script = root.join("stand-in.sh");
+    std::fs::write(
+        &script,
+        STAND_IN
+            .replace("@STATE@", &state.to_string_lossy())
+            .replace("@ANSWER@", read),
+    )
+    .expect("written");
+    executable(&script);
+    let forge = root.join("forge");
+    std::fs::create_dir_all(&forge).expect("a forge directory");
+    std::fs::write(forge.join("gh"), FORGE).expect("written");
+    executable(&forge.join("gh"));
+
+    let home_dir = root.to_string_lossy().to_string();
+    let host = ScoutHost::new(
+        HeadlessAgent::at(script.to_string_lossy()),
+        "stand-in",
+        root.join("stand-in-mcp.json"),
+        HostPaths {
+            path: "/usr/bin:/bin",
+            home: &home_dir,
+            user: "someone",
+            width: checks_runner::CheckWidth::of(2),
+        },
+    );
+    let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
+    // The PATH a fetch runs with is Fleet's own, so the stand-in forge is put
+    // on it rather than on the test process's.
+    fittings.host.path = format!("{}:/usr/bin:/bin", forge.to_string_lossy());
+    Arc::new(Fleet::assembled(fittings).scouting_on(host))
+}
+
+/// The repository's Job on your words, with a thread of what was said in it: the person's words and
+/// the Job's, as the rows a Session keeps. **Written to the store as `start_session` and a turn would
+/// have left them**, which is all a read-in reads.
+async fn a_thread_on_your_words(fleet: &Arc<Reading>, manifest: &str, said: &[(ipc::SessionVoice, &str)]) {
+    let id = "00000000-0000-4000-8000-0000000000a1";
+    let at = "2026-09-17T09:00:00.000Z";
+    let mut store = fleet.store().lock().await;
+    store
+        .keep_session(&store::KeptSession {
+            id: id.to_string(),
+            harness: String::from(adapters::HOSTED_HARNESS),
+            origin: String::from("bridge"),
+            manifest_id: Some(manifest.to_string()),
+            cwd: String::new(),
+            title: Some(String::from("Job on your words")),
+            state: store::SessionState::Live,
+            started_at: at.to_string(),
+            last_seen_at: at.to_string(),
+            last_turn_at: None,
+            ended_at: None,
+            end_reason: None,
+            figures: Default::default(),
+            mod_version: None,
+        })
+        .expect("a session");
+    store
+        .keep_hosting(&store::KeptHosting {
+            session_id: id.to_string(),
+            manifest_id: manifest.to_string(),
+            model: None,
+            effort: None,
+            mode: String::from("auto"),
+            ran: false,
+            lease_slot: None,
+            lease_branch: None,
+            fork_of: None,
+            on_your_words: true,
+            setup: false,
+            workflow: None,
+            proposed: String::new(),
+            turn_model: None,
+            turn_effort: None,
+            paused_at: None,
+            paused_resuming: false,
+            auto_land: false,
+            mod_job: false,
+            start_held: false,
+            workflow_chosen: false,
+            from_job: None,
+            from_tab: None,
+            mod_of_bay: false,
+        })
+        .expect("a hosting");
+    for (at_row, (from, text)) in said.iter().enumerate() {
+        let row = ipc::SessionRow::Message {
+            id: format!("r{at_row}"),
+            at: ipc::Instant::carried(at),
+            from: from.clone(),
+            text: text.to_string(),
+            files: Vec::new(),
+            tags: Vec::new(),
+            notice: None,
+            queued: false,
+        };
+        let body = ipc::encode(&row).expect("a row");
+        store
+            .keep_session_row(id, row.id(), &body)
+            .expect("kept");
+    }
+}
+
+/// What the stand-in was told, once the scout it ran as has ended.
+///
+/// **After the end, never while it runs**: the shell writes a long turn 1024
+/// bytes at a time, and a read between two writes had half of it. **No
+/// deadline**: a 10s one ran out while process spawns stalled for 30s.
+async fn turns(fleet: &Arc<Reading>, studio: &ipc::Studio, home: &TempDir) -> String {
+    while !fleet
+        .get_studio(studio.id.clone(), None)
+        .await
+        .expect("reads")
+        .nodes
+        .iter()
+        .any(|node| {
+            matches!(
+                &node.content,
+                StudioNodeContent::Finding { ended: Some(_), .. }
+            )
+        })
+    {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    let told = std::fs::read_to_string(home.path().join("stand-in/turns.log")).unwrap_or_default();
+    assert!(!told.trim().is_empty(), "the scout was never told anything");
+    told
+}
+
+fn executable(at: &std::path::Path) {
+    std::fs::set_permissions(at, std::fs::Permissions::from_mode(0o755)).expect("runs");
+}
+
+/// A Studio with one Link on it, and the Link's node id.
+async fn a_link(fleet: &Arc<Reading>, address: &str) -> (ipc::Studio, ipc::StudioNodeId) {
+    let studio = fleet
+        .create_studio(CreateStudio { name: None }, None)
+        .await
+        .expect("created");
+    let with = fleet
+        .add_studio_node(
+            studio.id.clone(),
+            AddStudioNode {
+                content: StudioNodeContent::Link {
+                    address: address.to_string(),
+                    said: None,
+                    named: None,
+                }
+                .try_into()
+                .expect("not a picture"),
+                position: StudioPosition { x: 0, y: 0 },
+                produced_by: None,
+                within: None,
+            },
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("a Link pasted");
+    let node = with.nodes[0].id.clone();
+    (studio, node)
+}
+
+fn reading_in(node_id: &ipc::StudioNodeId) -> ReadInLink {
+    ReadInLink {
+        node_id: node_id.clone(),
+        position: StudioPosition { x: 400, y: 0 },
+        take: None,
+    }
+}
+
+/// A read-in that answers what to take, which only an Epic is asked. `#1405`.
+fn taking(node_id: &ipc::StudioNodeId, take: ipc::EpicTake) -> ReadInLink {
+    ReadInLink {
+        take: Some(take),
+        ..reading_in(node_id)
+    }
+}
+
+fn code(refusal: &Refusal) -> &str {
+    match refusal {
+        Refusal::NotFound(e)
+        | Refusal::IllegalMove(e)
+        | Refusal::Unacceptable(e)
+        | Refusal::Fault(e) => &e.code,
+    }
+}
+
+/// **Everything a read-in made sits in one Zone**, and the Zone is the one
+/// node the Link produced that sits on the board — so the one line drawn from
+/// the Link is to the Zone. The owner, 2 Oct 2026, `#1620`.
+fn in_one_zone(read: &ipc::Studio, link: &ipc::StudioNodeId) {
+    let zones: Vec<_> = read
+        .nodes
+        .iter()
+        .filter(|node| matches!(node.content, StudioNodeContent::Zone))
+        .collect();
+    assert_eq!(zones.len(), 1, "one Zone");
+    let zone = &zones[0].id;
+    let made: Vec<&StudioNode> = read
+        .edges
+        .iter()
+        .filter(|edge| edge.kind.as_wire() == "produced" && &edge.from == link)
+        .filter_map(|edge| read.nodes.iter().find(|node| node.id == edge.to))
+        .collect();
+    let on_the_board: Vec<_> = made.iter().filter(|node| node.within.is_none()).collect();
+    assert_eq!(
+        on_the_board.len(),
+        1,
+        "one node off the Link is on the board"
+    );
+    assert_eq!(&on_the_board[0].id, zone, "and it is the Zone");
+    let inside = |node: &StudioNode| {
+        let mut at = node.within.clone();
+        while let Some(frame) = at {
+            if &frame == zone {
+                return true;
+            }
+            at = read
+                .nodes
+                .iter()
+                .find(|one| one.id == frame)
+                .and_then(|one| one.within.clone());
+        }
+        false
+    };
+    for node in made.iter().filter(|node| &node.id != zone) {
+        assert!(inside(node), "{:?} is inside the Zone", node.content);
+    }
+    assert_eq!(
+        zones[0].position,
+        ipc::StudioPosition { x: 400, y: 0 },
+        "the Zone lands where the read-in was asked to put it"
+    );
+}
+
+/// The Studio once it holds `wanted` nodes. **No deadline**, for `turns`'
+/// reason.
+async fn once_there_are(fleet: &Arc<Reading>, studio: &ipc::Studio, wanted: usize) -> ipc::Studio {
+    loop {
+        let read = fleet
+            .get_studio(studio.id.clone(), None)
+            .await
+            .expect("reads");
+        if read.nodes.len() >= wanted {
+            return read;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+fn kinds(studio: &ipc::Studio) -> Vec<&'static str> {
+    studio.nodes.iter().map(kind).collect()
+}
+
+fn kind(node: &StudioNode) -> &'static str {
+    match &node.content {
+        StudioNodeContent::Note { .. } => "note",
+        StudioNodeContent::Cluster { .. } => "cluster",
+        StudioNodeContent::Zone => "zone",
+        StudioNodeContent::Finding { .. } => "finding",
+        StudioNodeContent::Contradiction { .. } => "contradiction",
+        StudioNodeContent::Link { .. } => "link",
+        StudioNodeContent::Issue { .. } => "issue",
+        StudioNodeContent::PullRequest { .. } => "pull_request",
+        StudioNodeContent::Epic { .. } => "epic",
+        other => panic!("nothing else is read in: {other:?}"),
+    }
+}
+
+/// `#1293`'s definition of done, the scout's half: **a source is read in, the
+/// Link survives with its address, and Notes and a Contradiction hang off it.**
+///
+/// A thread on your words is the source, because it is the one Fleet reads off its own
+/// store — `get_session` refuses every agent, so nothing a scout could call
+/// reaches one.
+#[tokio::test]
+async fn a_thread_read_in_leaves_the_link_standing_with_notes_and_a_contradiction_off_it() {
+    let home = TempDir::new();
+    let fleet = reading(&home);
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    a_thread_on_your_words(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[
+            (ipc::SessionVoice::You, "is a Studio per repository?"),
+            (ipc::SessionVoice::Agent, "one per repository"),
+        ],
+    )
+    .await;
+
+    let answered = Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    assert_eq!(
+        kinds(&answered),
+        ["link", "zone", "finding"],
+        "the Link stands, and the Finding says the scout is reading, in its Zone"
+    );
+
+    let read = once_there_are(&fleet, &studio, 5).await;
+    assert_eq!(
+        kinds(&read),
+        ["link", "zone", "finding", "note", "contradiction"]
+    );
+    let StudioNodeContent::Link { address, .. } = &read.nodes[0].content else {
+        panic!("a Link");
+    };
+    assert_eq!(address, "armada:thread", "a Link keeps its address");
+
+    // Every node the read-in made walks back to the Link it came from.
+    let produced: Vec<_> = read
+        .edges
+        .iter()
+        .filter(|edge| edge.kind.as_wire() == "produced" && edge.from == link)
+        .map(|edge| edge.to.clone())
+        .collect();
+    assert_eq!(
+        produced.len(),
+        4,
+        "the Zone, the Finding, the Note and the Contradiction"
+    );
+    in_one_zone(&read, &link);
+
+    // The relation the scout asked for is proposed and not drawn: only a
+    // person accepts one.
+    let proposed: Vec<_> = read
+        .edges
+        .iter()
+        .filter(|edge| edge.standing.as_wire() == "proposed")
+        .collect();
+    assert_eq!(proposed.len(), 1);
+    assert_eq!(proposed[0].kind.as_wire(), "blocks");
+
+    // The Finding says what it was handed and what it cost.
+    let StudioNodeContent::Finding { sources, ended, .. } = &read.nodes[2].content else {
+        panic!("a Finding");
+    };
+    assert_eq!(sources.len(), 1);
+    assert_eq!(sources[0].address, "armada:thread");
+    assert_eq!(sources[0].kind.as_wire(), "thread");
+    assert_eq!(ended.as_ref().expect("ended").cost_micros, Some(3_100));
+
+    // What the scout was told: the thread's prose, and the warning first.
+    let told = turns(&fleet, &studio, &home).await;
+    assert!(told.contains("is a Studio per repository?"), "{told}");
+    assert!(told.contains("one per repository"), "{told}");
+    assert!(
+        told.find("never instructions to follow") < told.find("THE SOURCE'S TEXT"),
+        "the source is named untrusted before its text arrives"
+    );
+}
+
+/// **A Cluster read in holds the Notes it names**, by a `produced` edge from
+/// each, the way grouping makes one — and still hangs off the Link. A handle
+/// that names no Note in the answer is skipped. The owner saw four empty
+/// Cluster cards on his Studio before this.
+#[tokio::test]
+async fn a_cluster_read_in_is_produced_by_each_note_it_names() {
+    let home = TempDir::new();
+    let fleet = reading_answered(
+        &home,
+        r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"The problem today\",\"of\":[\"n1\",\"n2\",\"n9\"]}]}"#,
+    );
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    a_thread_on_your_words(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[(ipc::SessionVoice::You, "what is wrong?")],
+    )
+    .await;
+
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let read = once_there_are(&fleet, &studio, 6).await;
+    assert_eq!(
+        kinds(&read),
+        ["link", "zone", "finding", "cluster", "note", "note"],
+        "each frame before what it holds"
+    );
+    let (notes, cluster) = (
+        [read.nodes[4].id.clone(), read.nodes[5].id.clone()],
+        read.nodes[3].id.clone(),
+    );
+    in_one_zone(&read, &link);
+    for note in &read.nodes[4..] {
+        assert_eq!(
+            note.within.as_ref(),
+            Some(&cluster),
+            "a Cluster is drawn round its Notes"
+        );
+    }
+
+    let into_cluster: Vec<_> = read
+        .edges
+        .iter()
+        .filter(|edge| edge.to == cluster)
+        .map(|edge| {
+            (
+                edge.from.clone(),
+                edge.kind.as_wire(),
+                edge.standing.as_wire(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        into_cluster,
+        [
+            (link.clone(), "produced", "accepted"),
+            (notes[0].clone(), "produced", "accepted"),
+            (notes[1].clone(), "produced", "accepted"),
+        ],
+        "the Link it came from and each Note it names, and nothing for `n9`"
+    );
+}
+
+/// **A read-in lands no Cluster of fewer than two Notes**, as grouping by hand
+/// refuses one: a Cluster naming one Note, and one naming none that came back,
+/// make no frame, and the Notes still land in the Zone. The owner, 2 Oct 2026.
+#[tokio::test]
+async fn a_cluster_of_one_note_or_none_lands_no_frame_and_its_note_still_lands() {
+    let home = TempDir::new();
+    let fleet = reading_answered(
+        &home,
+        r#"{\"notes\":[{\"id\":\"n1\",\"said\":\"The rail is unreadable\"},{\"id\":\"n2\",\"said\":\"The legend wraps\"}],\"clusters\":[{\"title\":\"One\",\"of\":[\"n1\"]},{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
+    );
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    a_thread_on_your_words(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[(ipc::SessionVoice::You, "what is wrong?")],
+    )
+    .await;
+
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let read = once_there_are(&fleet, &studio, 5).await;
+    assert_eq!(
+        kinds(&read),
+        ["link", "zone", "finding", "note", "note"],
+        "no frame round one Note, and none round nothing"
+    );
+    for note in &read.nodes[3..] {
+        assert_eq!(
+            note.within.as_ref(),
+            Some(&read.nodes[1].id),
+            "loose in the Zone"
+        );
+    }
+}
+
+/// **A read-in answered with nothing to place lands one Note saying so**, in
+/// its Zone and produced by its Finding. A Cluster naming no Note that came
+/// back is nothing to place. The owner, 2 Oct 2026, over a toast.
+#[tokio::test]
+async fn a_read_in_answered_with_nothing_lands_one_note_from_its_finding() {
+    let home = TempDir::new();
+    let fleet = reading_answered(
+        &home,
+        r#"{\"clusters\":[{\"title\":\"None\",\"of\":[\"n9\"]}]}"#,
+    );
+    let (studio, link) = a_link(&fleet, "armada:thread").await;
+    a_thread_on_your_words(
+        &fleet,
+        studio.manifest_id.as_str(),
+        &[(ipc::SessionVoice::You, "what is wrong?")],
+    )
+    .await;
+
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let read = once_there_are(&fleet, &studio, 4).await;
+    assert_eq!(kinds(&read), ["link", "zone", "finding", "note"]);
+    let (zone, finding, note) = (&read.nodes[1], &read.nodes[2], &read.nodes[3]);
+    let StudioNodeContent::Note { said, .. } = &note.content else {
+        panic!("a Note");
+    };
+    assert_eq!(said, fleet::reading_in::NOTHING_FOUND);
+    assert_eq!(
+        note.within.as_ref(),
+        Some(&zone.id),
+        "in the read-in's Zone"
+    );
+    assert!(
+        read.edges
+            .iter()
+            .any(|edge| edge.kind.as_wire() == "produced"
+                && edge.from == finding.id
+                && edge.to == note.id),
+        "produced by the Finding"
+    );
+}
+
+/// **A session is found by this checkout's own project directory**, so one
+/// belonging to another repository is not addressable rather than refused.
+#[tokio::test]
+async fn a_session_of_this_repository_is_read_in_and_another_repositorys_is_not_addressable() {
+    let home = TempDir::new();
+    let fleet = reading(&home);
+    let ours: String = home
+        .path()
+        .to_string_lossy()
+        .chars()
+        .map(|c| match c.is_ascii_alphanumeric() {
+            true => c,
+            false => '-',
+        })
+        .collect();
+    let projects = home.path().join(adapters::SESSIONS);
+    for (project, id) in [(ours.as_str(), "aaaa"), ("-somewhere-else", "bbbb")] {
+        std::fs::create_dir_all(projects.join(project)).expect("a project directory");
+        std::fs::write(
+            projects.join(project).join(format!("{id}.jsonl")),
+            "{\"type\":\"user\",\"message\":{\"content\":\"why is the rail per repository?\"}}\n\
+             {\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"thinking\",\"thinking\":\"hm\"},\
+             {\"type\":\"text\",\"text\":\"because the Job answers for one\"}]}}\n",
+        )
+        .expect("a transcript");
+    }
+
+    let (studio, link) = a_link(&fleet, "armada:session/aaaa").await;
+    Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    let told = turns(&fleet, &studio, &home).await;
+    assert!(told.contains("why is the rail per repository?"), "{told}");
+    assert!(told.contains("because the Job answers for one"), "{told}");
+    assert!(
+        !told.contains("\"thinking\""),
+        "what was argued, not the agent's working: {told}"
+    );
+
+    let (elsewhere, other) = a_link(&fleet, "armada:session/bbbb").await;
+    let refused = Arc::clone(&fleet)
+        .read_in_link(
+            elsewhere.id.clone(),
+            reading_in(&other),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect_err("another repository's session is not a source");
+    assert_eq!(code(&refused), "fleet.studio_link_stays_a_link");
+}
+
+/// The owner's first case: **a milestone fills the Studio with one node per
+/// issue**, each carrying the address a Job is dispatched from — and the
+/// milestone's own Link says how many of how many were read in.
+///
+/// **No scout and no Finding.** Nothing was learned; a list was copied.
+#[tokio::test]
+async fn a_milestone_read_in_puts_one_link_per_issue_on_the_studio() {
+    let home = TempDir::new();
+    let fleet = reading(&home);
+    let address_pasted = format!("https://{}o/r/milestone/17", adapters::FORGE_HOST);
+    let (studio, link) = a_link(&fleet, &address_pasted).await;
+
+    let read = Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("read in");
+    assert_eq!(
+        kinds(&read),
+        ["epic", "zone", "issue", "issue"],
+        "one Issue per issue, in one Zone, and no Finding"
+    );
+    in_one_zone(&read, &link);
+
+    let StudioNodeContent::Epic {
+        address,
+        number,
+        title,
+        read_in,
+        ..
+    } = &read.nodes[0].content
+    else {
+        panic!("an Epic");
+    };
+    assert_eq!(address, &address_pasted, "an Epic keeps its address");
+    assert_eq!(number, "17", "read off the address");
+    assert_eq!(title.as_deref(), Some("Studio"));
+    assert_eq!(
+        read_in.map(|read| (read.issues, read.total)),
+        Some((2, 3)),
+        "a read that did not take every issue says so as two numbers"
+    );
+
+    let issues: Vec<_> = read.nodes[2..]
+        .iter()
+        .map(|node| match &node.content {
+            StudioNodeContent::Issue {
+                address,
+                number,
+                title,
+                state,
+                ..
+            } => (
+                address.clone(),
+                number.clone(),
+                title.clone().unwrap_or_default(),
+                state.map(|state| format!("{state:?}")).unwrap_or_default(),
+            ),
+            other => panic!("an Issue: {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        issues,
+        [
+            (
+                "https://example.invalid/o/r/issues/1".to_string(),
+                "1".to_string(),
+                "The rail is unreadable".to_string(),
+                "Open".to_string()
+            ),
+            (
+                "https://example.invalid/o/r/issues/2".to_string(),
+                "2".to_string(),
+                "The legend wraps".to_string(),
+                "Closed".to_string()
+            ),
+        ],
+        "its number, title and state as fields, beside the address a Job comes from"
+    );
+    assert!(
+        read.edges
+            .iter()
+            .all(|edge| edge.from == link && edge.kind.as_wire() == "produced"),
+        "every issue walks back to the milestone"
+    );
+}
+
+/// **A Link to anything no scout reads stays a Link**, and a node that is not
+/// a Link has no read-in at all.
+#[tokio::test]
+async fn a_board_stays_a_link_and_a_note_is_not_read_in() {
+    let home = TempDir::new();
+    let fleet = reading(&home);
+    let (studio, link) = a_link(&fleet, "miro://board/uXjVK").await;
+    let refused = Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&link),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect_err("a board is not read");
+    assert_eq!(code(&refused), "fleet.studio_link_stays_a_link");
+
+    let with = fleet
+        .add_studio_node(
+            studio.id.clone(),
+            AddStudioNode {
+                content: StudioNodeContent::Note {
+                    said: "the rail is unreadable".to_string(),
+                    capture: None,
+                }
+                .try_into()
+                .expect("not a picture"),
+                position: StudioPosition { x: 0, y: 200 },
+                produced_by: None,
+                within: None,
+            },
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect("a Note");
+    let note = with.nodes[1].id.clone();
+    let refused = Arc::clone(&fleet)
+        .read_in_link(
+            studio.id.clone(),
+            reading_in(&note),
+            Redirector::Person,
+            None,
+        )
+        .await
+        .expect_err("reading in is a Link's own rung");
+    assert_eq!(code(&refused), "fleet.studio_not_a_link");
+}
+
+/// `#1405`'s definition of done: **reading a milestone in asks what to take,
+/// and reading it in again with the other answer narrows what is on the board
+/// — except what a person has worked on.**
+///
+/// The stand-in forge holds three issues, one of them closed. Taking every
+/// issue and then only the open ones takes the closed one back; a Note written
+/// against it keeps it, and the Epic counts it.
+#[tokio::test]
+async fn narrowing_takes_back_a_closed_issue_and_keeps_one_a_note_hangs_off() {
+    let home = TempDir::new();
+    let fleet = reading(&home);
+    let address = format!("https://{}o/r/milestone/17", adapters::FORGE_HOST);
+
+    // One board where nothing was worked on, and one where a Note was written
+    // against the closed issue.
+    for note_it in [false, true] {
+        let (studio, link) = a_link(&fleet, &address).await;
+        let read = Arc::clone(&fleet)
+            .read_in_link(
+                studio.id.clone(),
+                taking(&link, ipc::EpicTake::Everything),
+                Redirector::Person,
+                None,
+            )
+            .await
+            .expect("read in");
+        assert_eq!(kinds(&read), ["epic", "zone", "issue", "issue"]);
+        assert_eq!(
+            epic_read(&read),
+            Some((2, 3, Some(ipc::EpicTake::Everything), 0, 0)),
+            "both issues, and nothing left out"
+        );
+        let closed = read.nodes[3].id.clone();
+
+        if note_it {
+            fleet
+                .add_studio_node(
+                    studio.id.clone(),
+                    AddStudioNode {
+                        content: StudioNodeContent::Note {
+                            said: "this one shipped without the legend".to_string(),
+                            capture: None,
+                        }
+                        .try_into()
+                        .expect("not a picture"),
+                        position: StudioPosition { x: 900, y: 0 },
+                        produced_by: Some(closed.clone()),
+                        within: None,
+                    },
+                    Redirector::Person,
+                    None,
+                )
+                .await
+                .expect("a Note against the closed issue");
+        }
+
+        let narrowed = Arc::clone(&fleet)
+            .read_in_link(
+                studio.id.clone(),
+                taking(&link, ipc::EpicTake::Open),
+                Redirector::Person,
+                None,
+            )
+            .await
+            .expect("read in again");
+        let standing: Vec<&ipc::StudioNodeId> =
+            narrowed.nodes.iter().map(|node| &node.id).collect();
+        match note_it {
+            false => {
+                assert_eq!(
+                    kinds(&narrowed),
+                    ["epic", "zone", "issue"],
+                    "the closed one is gone"
+                );
+                assert_eq!(
+                    epic_read(&narrowed),
+                    Some((1, 3, Some(ipc::EpicTake::Open), 1, 0)),
+                    "one of three, one left out, none kept"
+                );
+            }
+            true => {
+                assert_eq!(kinds(&narrowed), ["epic", "zone", "issue", "issue", "note"]);
+                assert!(
+                    standing.contains(&&closed),
+                    "a node a person worked on is not the read-in's to remove"
+                );
+                assert_eq!(
+                    epic_read(&narrowed),
+                    Some((2, 3, Some(ipc::EpicTake::Open), 1, 1)),
+                    "one taken and one kept, and the Epic says it kept one"
+                );
+            }
+        }
+
+        // Widening puts it back, in the block it already had.
+        let widened = Arc::clone(&fleet)
+            .read_in_link(
+                studio.id.clone(),
+                taking(&link, ipc::EpicTake::Everything),
+                Redirector::Person,
+                None,
+            )
+            .await
+            .expect("read in again");
+        assert_eq!(
+            epic_read(&widened).map(|read| (read.0, read.3, read.4)),
+            Some((2, 0, 0)),
+            "both issues back, nothing left out and nothing to keep"
+        );
+        let block: Vec<ipc::StudioPosition> = widened
+            .nodes
+            .iter()
+            .filter(|node| matches!(node.content, StudioNodeContent::Issue { .. }))
+            .map(|node| node.position)
+            .collect();
+        assert_eq!(
+            block,
+            [
+                StudioPosition { x: 24, y: 48 },
+                StudioPosition { x: 24, y: 228 }
+            ],
+            "one block in the Zone, and a widening fills its gaps"
+        );
+        in_one_zone(&widened, &link);
+    }
+}
+
+/// What an Epic says about itself, as the five numbers `#1405` added.
+fn epic_read(studio: &ipc::Studio) -> Option<(u64, u64, Option<ipc::EpicTake>, u64, u64)> {
+    studio.nodes.iter().find_map(|node| match &node.content {
+        StudioNodeContent::Epic { read_in, .. } => {
+            read_in.map(|read| (read.issues, read.total, read.took, read.left_out, read.kept))
+        }
+        _ => None,
+    })
+}

@@ -14,7 +14,7 @@ use crate::editing::{create, NotCreated};
 
 /// Why Write did not land.
 #[derive(Debug)]
-pub(crate) enum NotWritten {
+pub enum NotWritten {
     Written,
     Refused(ManifestRefused),
     Appeared(Option<String>),
@@ -31,7 +31,7 @@ impl Draft {
     }
 
     /// Put the file down, only where it loads and nothing is at the path.
-    pub(crate) fn write(&mut self, at: Instant) -> Result<ManifestSaved, NotWritten> {
+    pub fn write(&mut self, at: Instant) -> Result<ManifestSaved, NotWritten> {
         if self.written.is_some() {
             return Err(NotWritten::Written);
         }

@@ -52,7 +52,7 @@ impl Arrived {
     }
 
     /// Every kind there is.
-    pub(super) const EVERY: [Arrived; 12] = [
+    pub const EVERY: [Arrived; 12] = [
         Arrived::Start,
         Arrived::Question,
         Arrived::Card,
@@ -68,12 +68,12 @@ impl Arrived {
     ];
 
     /// What a word from the store names.
-    pub(super) fn from_word(word: &str) -> Option<Arrived> {
+    pub fn from_word(word: &str) -> Option<Arrived> {
         Arrived::EVERY.into_iter().find(|arrived| arrived.word() == word)
     }
 
     /// What a standing order calls this kind of thing.
-    pub(super) fn named(self) -> &'static str {
+    pub fn named(self) -> &'static str {
         match self {
             Arrived::Start => "Job starts",
             Arrived::Question => "questions",
@@ -223,7 +223,7 @@ pub struct Arrival {
 
 impl Arrival {
     /// The item as the call reads it, numbered `at`.
-    pub(super) fn shown(&self, at: usize) -> String {
+    pub fn shown(&self, at: usize) -> String {
         let mut out = format!("  {at}. {}, {}: \"{}\" in repository {}", self.arrived.said(), self.source.said(), self.subject, self.manifest_id);
         // An issue, a red main and a review request are no Job's.
         if !self.session_id.is_empty() {
@@ -292,7 +292,7 @@ pub struct LiveJob {
 
 /// A Job's starters, nearest first: `Job <id> "<title>", which Job <id> "<title>" started`, each
 /// further one started the one before it.
-pub(super) fn started_by_shown(chain: &[(String, String)]) -> String {
+pub fn started_by_shown(chain: &[(String, String)]) -> String {
     let mut named = chain.iter().map(|(id, title)| format!("Job {id} \"{title}\""));
     let mut out = named.next().unwrap_or_default();
     for one in named {
@@ -302,7 +302,7 @@ pub(super) fn started_by_shown(chain: &[(String, String)]) -> String {
 }
 
 impl LiveJob {
-    pub(super) fn shown(&self) -> String {
+    pub fn shown(&self) -> String {
         let mut out = format!("  Job {}: \"{}\" in repository {}\n", self.session_id, self.title, self.manifest_id);
         if !self.words.trim().is_empty() {
             out.push_str(&format!("    Its words: {}\n", one_line(&self.words)));
@@ -343,7 +343,7 @@ pub struct InLine {
 }
 
 /// The Jobs waiting to start that a start may be placed among, as the call reads them.
-pub(super) fn line_shown(line: &[InLine]) -> String {
+pub fn line_shown(line: &[InLine]) -> String {
     let mut out = String::from("     Waiting to start in its repository, first served first:");
     for (at, one) in line.iter().enumerate() {
         out.push_str(&format!(" {}. Job {} \"{}\"", at + 1, one.session_id, one.title));

@@ -11,14 +11,14 @@ use serde::{Deserialize, Deserializer, Serialize};
 use store::{LogKind, LogSection};
 
 /// The most characters of an entry's text, and its most lines: one or two lines saying what to do.
-pub(crate) const MOST_CHARS: usize = 400;
+pub const MOST_CHARS: usize = 400;
 const MOST_LINES: usize = 2;
 /// The most characters of an entry's title: a few words.
 const MOST_TITLE: usize = 80;
 
 /// One command a Session ran and how it came back, as the record lays it: `ran:n`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub(crate) struct Ran {
+pub struct Ran {
     pub cite: String,
     pub command: String,
     pub failed: bool,
@@ -29,7 +29,7 @@ pub(crate) struct Ran {
 }
 
 /// What an answer may name: the record's cites, the entries offered and the commands it ran.
-pub(crate) struct Known<'a> {
+pub struct Known<'a> {
     pub cites: &'a BTreeSet<String>,
     pub ids: &'a BTreeSet<i64>,
     pub ran: &'a [Ran],
@@ -37,7 +37,7 @@ pub(crate) struct Known<'a> {
 
 /// A claim about an entry the Logbook holds.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Claim {
+pub struct Claim {
     pub id: i64,
     /// The entry as it should read: required to contradict, optional to trip.
     pub text: Option<String>,
@@ -49,7 +49,7 @@ pub(crate) struct Claim {
 
 /// Something the record shows that no entry says.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Learnt {
+pub struct Learnt {
     pub section: LogSection,
     pub kind: LogKind,
     pub title: Option<String>,
@@ -61,7 +61,7 @@ pub(crate) struct Learnt {
 
 /// Distil's answer, every claim held to the record.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Distilled {
+pub struct Distilled {
     pub confirmed: Vec<Claim>,
     pub contradicted: Vec<Claim>,
     pub tripped: Vec<Claim>,
@@ -72,7 +72,7 @@ pub(crate) struct Distilled {
 
 /// A title the model gave an entry that had none.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Titled {
+pub struct Titled {
     pub id: i64,
     pub title: String,
 }
@@ -129,7 +129,7 @@ enum OrNot<T> {
     Unread(IgnoredAny),
 }
 
-pub(super) fn lenient<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) -> Result<Vec<T>, D::Error> {
+pub fn lenient<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) -> Result<Vec<T>, D::Error> {
     Ok(Option::<Vec<OrNot<T>>>::deserialize(input)?
         .unwrap_or_default()
         .into_iter()
@@ -141,7 +141,7 @@ pub(super) fn lenient<'de, D: Deserializer<'de>, T: Deserialize<'de>>(input: D) 
 }
 
 /// An entry's text as it may be kept: trimmed, one or two lines, not too long. `None` otherwise.
-pub(super) fn written(text: &str) -> Option<String> {
+pub fn written(text: &str) -> Option<String> {
     let text = text.trim();
     let lines = text.lines().filter(|line| !line.trim().is_empty()).count();
     (!text.is_empty() && lines <= MOST_LINES && text.chars().count() <= MOST_CHARS).then(|| text.to_string())
@@ -149,13 +149,13 @@ pub(super) fn written(text: &str) -> Option<String> {
 
 /// An entry's title as it may be kept: trimmed, on one line, not too long. `None` otherwise, which
 /// costs the title and never the item it came with.
-pub(super) fn named(title: &str) -> Option<String> {
+pub fn named(title: &str) -> Option<String> {
     let title = title.trim();
     (!title.is_empty() && !title.contains('\n') && title.chars().count() <= MOST_TITLE).then(|| title.to_string())
 }
 
 /// The section and kind a new entry names, where they go together.
-pub(super) fn placed(section: &str, kind: &str) -> Option<(LogSection, LogKind)> {
+pub fn placed(section: &str, kind: &str) -> Option<(LogSection, LogKind)> {
     let section = LogSection::of_text(section)?;
     let kind = LogKind::of_text(kind)?;
     let fits = match section {
@@ -168,7 +168,7 @@ pub(super) fn placed(section: &str, kind: &str) -> Option<(LogSection, LogKind)>
 
 /// Whether cites show a command that failed and a different one that then worked: the one session
 /// evidence that stands an entry alone.
-pub(crate) fn hard(cites: &[String], ran: &[Ran]) -> bool {
+pub fn hard(cites: &[String], ran: &[Ran]) -> bool {
     let cited: Vec<(usize, &Ran)> =
         ran.iter().enumerate().filter(|(_, one)| cites.iter().any(|cite| *cite == one.cite)).collect();
     cited.iter().any(|(at, failed)| {
@@ -209,7 +209,7 @@ impl Known<'_> {
 }
 
 /// The claims an answer makes that the record holds up.
-pub(crate) fn read(said: &str, known: &Known<'_>) -> Result<Distilled, String> {
+pub fn read(said: &str, known: &Known<'_>) -> Result<Distilled, String> {
     let json = crate::review_runs::object_in(said)?;
     let said: Said = crate::review_runs::said(json)?;
     Ok(Distilled {

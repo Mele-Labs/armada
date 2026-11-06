@@ -22,7 +22,7 @@ const ALREADY_SERVED: &str = "fleet.repository_served";
 /// A repository served and not written down, so a restart forgets it. A 500.
 const NOT_REMEMBERED: &str = "fleet.repository_not_remembered";
 /// A `?repository=` naming nothing served. A 422.
-pub(crate) const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
+pub const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
 /// A request that needs a repository, when Fleet serves none yet. A 422.
 const NO_REPOSITORY: &str = "fleet.no_repository";
 
@@ -30,7 +30,7 @@ impl Fleet
 {
     /// The repository a Manifest-scoped request names. Absent is the first
     /// added that has a Manifest, and refused where there is none.
-    pub(crate) fn served_named(&self, named: Option<&ipc::ManifestId>) -> Result<Served, Refusal> {
+    pub fn served_named(&self, named: Option<&ipc::ManifestId>) -> Result<Served, Refusal> {
         let Some(named) = named else {
             return self
                 .repositories()
@@ -46,7 +46,7 @@ impl Fleet
     }
 
     /// Every Manifest id served, for a refusal to name.
-    pub(crate) fn held_manifests(&self) -> String {
+    pub fn held_manifests(&self) -> String {
         let held: Vec<String> = self
             .repositories()
             .served()
@@ -58,7 +58,7 @@ impl Fleet
 
     /// The repository Scan and its proposals read, by root. Absent is the
     /// first added, Manifest or none, and refused where nothing is served.
-    pub(crate) fn repository_named(&self, root: Option<&str>) -> Result<Arc<Repository>, Refusal> {
+    pub fn repository_named(&self, root: Option<&str>) -> Result<Arc<Repository>, Refusal> {
         let Some(root) = root else {
             let first = self.repositories().every().into_iter().next();
             return first.ok_or_else(|| self.nothing_served("is served"));
@@ -73,8 +73,8 @@ impl Fleet
     }
 
     /// The repository a fixture starts in, for a test that has only the one.
-    #[cfg(test)]
-    pub(crate) fn first(&self) -> Served {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn first(&self) -> Served {
         self.repositories()
             .first()
             .expect("a fixture starts in a repository")
@@ -97,7 +97,7 @@ impl Fleet
     }
 
     /// `list_repositories`.
-    pub(crate) fn repository_list(&self) -> RepositoryList {
+    pub fn repository_list(&self) -> RepositoryList {
         RepositoryList {
             repositories: self
                 .repositories()
@@ -111,7 +111,7 @@ impl Fleet
     /// `add_repository`: read the folder, serve it, and reconcile the Jobs the
     /// store already holds for it — a repository served again after a restart
     /// is cleaned up the way the one Fleet started in is.
-    pub(crate) async fn added_repository(
+    pub async fn added_repository(
         &self,
         asked: AddRepository,
     ) -> Result<RepositorySummary, Refusal> {
@@ -168,7 +168,7 @@ impl Fleet
 
     /// Read `folder`, starting a git repository in it first where it is in none.
     /// A subfolder of a repository is never started, and is refused as it was.
-    pub(super) async fn located_or_started(
+    pub async fn located_or_started(
         &self,
         folder: PathBuf,
     ) -> Result<super::Located, Refusal> {
@@ -255,7 +255,7 @@ impl Fleet
     /// Give a repository served without a Manifest the one Write just put at
     /// its root. **Quiet where nothing loads**: Write has already answered, and
     /// what the file came to is the Manifest surface's to read.
-    pub(crate) fn set_up_after_write(&self, repository: &Repository) {
+    pub fn set_up_after_write(&self, repository: &Repository) {
         if repository.manifest().is_some() {
             return;
         }

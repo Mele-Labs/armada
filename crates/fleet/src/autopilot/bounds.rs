@@ -282,7 +282,7 @@ impl State {
 
 /// What became of a pick, by the word the store keeps.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum PickState {
+pub enum PickState {
     Started,
     SetAside,
     Withdrawn,
@@ -290,7 +290,7 @@ pub(crate) enum PickState {
 }
 
 impl PickState {
-    pub(crate) fn as_stored(self) -> &'static str {
+    pub fn as_stored(self) -> &'static str {
         match self {
             PickState::Started => "started",
             PickState::SetAside => "set_aside",
@@ -299,7 +299,7 @@ impl PickState {
         }
     }
 
-    pub(crate) fn from_stored(word: &str) -> Option<PickState> {
+    pub fn from_stored(word: &str) -> Option<PickState> {
         [
             PickState::Started,
             PickState::SetAside,

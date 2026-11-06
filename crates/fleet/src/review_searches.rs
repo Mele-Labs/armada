@@ -71,7 +71,7 @@ struct MatchOut {
 
 /// The answer, held to the open set: each match as the index of the pull request it names and its
 /// reason. `open` is `(repository, number)` for each pull request Fleet gathered.
-pub(crate) fn matches_read(answer: &str, open: &[(String, u64)]) -> Result<Vec<(usize, String)>, String> {
+pub fn matches_read(answer: &str, open: &[(String, u64)]) -> Result<Vec<(usize, String)>, String> {
     let out: MatchesOut = said(object_in(answer)?)?;
     if out.matches.len() > MATCHES_AT_MOST {
         return Err(format!("it has {} matches, and at most {MATCHES_AT_MOST} are kept", out.matches.len()));
@@ -152,7 +152,7 @@ fn brief(words: &str, open: &[Open], touched: &[(String, Vec<String>)]) -> Strin
 impl Fleet
 {
     /// Every search kept or going, newest first. A search the last Fleet left going ends failed here.
-    pub(crate) async fn review_searches_read(&self) -> Result<ReviewRuns, Refusal> {
+    pub async fn review_searches_read(&self) -> Result<ReviewRuns, Refusal> {
         let from = self.served_named(None)?;
         let scope = ManifestId::carried(SEARCH_RUN_SCOPE);
         self.review_runs_swept(&from, &scope, 0).await;
@@ -168,7 +168,7 @@ impl Fleet
     }
 
     /// Drop a kept search. **One going is not stopped**: it finishes and is kept again.
-    pub(crate) async fn review_search_forgotten(&self, forget: ForgetReviewSearch) -> Result<ReviewRuns, Refusal> {
+    pub async fn review_search_forgotten(&self, forget: ForgetReviewSearch) -> Result<ReviewRuns, Refusal> {
         self.store()
             .lock()
             .await
@@ -179,7 +179,7 @@ impl Fleet
 
     /// Press a search. **Answers at once**: a kept one as it stands, the one already going, or a new
     /// one `queued` whose work goes on a task of its own.
-    pub(crate) async fn review_search_started(
+    pub async fn review_search_started(
         self: Arc<Self>,
         start: StartReviewSearch,
     ) -> Result<ReviewRun, Refusal> {

@@ -22,21 +22,21 @@ impl Fleet
 {
     /// A turn began: keep it open until it ends or its process is found dead. A store that will
     /// not keep it fails nothing, as with [`Self::kept_restart`].
-    pub(crate) async fn turn_opened(&self, id: &str, at: &str) {
+    pub async fn turn_opened(&self, id: &str, at: &str) {
         let mut store = self.store().lock().await;
         let _ = store.turn_opened(id, at);
         let _ = store.clear_repair(id);
     }
 
     /// The turn stopped counting as open without a death: it finished, or was stopped, paused or closed.
-    pub(crate) async fn turn_closed(&self, id: &str) {
+    pub async fn turn_closed(&self, id: &str) {
         let _ = self.store().lock().await.turn_closed(id);
     }
 
     /// The process of a Job ended with a turn open. **Started once, never in a loop**: a Job
     /// already started again for this turn stays on its row, which is what the person is told of.
     /// Whether the process was started.
-    pub(crate) async fn died_with_a_turn_open(self: &Arc<Self>, id: &str) -> bool {
+    pub async fn died_with_a_turn_open(self: &Arc<Self>, id: &str) -> bool {
         if self.kept_from_starting(id).await {
             return false;
         }

@@ -22,7 +22,7 @@ impl Fleet
     /// park a Clear makes. **Only for the holder the person was
     /// shown**, so a slot re-leased since is refused. The session's process is
     /// never touched.
-    pub(crate) fn session_released(
+    pub fn session_released(
         &self,
         served: &Served,
         asked: &ChangeSlotPool,
@@ -46,7 +46,7 @@ impl Fleet
     }
 
     /// A refused park of a session's slot, as the 409 it is.
-    pub(crate) fn slot_park_refusal(&self, why: SlotParkRefused) -> Refusal {
+    pub fn slot_park_refusal(&self, why: SlotParkRefused) -> Refusal {
         let raised = |code: &str, said: String| WireError::raised(code, said, self.run_id());
         let said = why.said();
         match why {
@@ -60,7 +60,7 @@ impl Fleet
 }
 
 /// What a release answers once the pool has parked the slot.
-pub(crate) fn released_answer(served: &Served, slot: u32, parked: SlotParked) -> SlotPoolChanged {
+pub fn released_answer(served: &Served, slot: u32, parked: SlotParked) -> SlotPoolChanged {
     let saved = parked.commit.map(|commit| ipc::ReclaimedSaved {
         commit,
         files: parked.files,

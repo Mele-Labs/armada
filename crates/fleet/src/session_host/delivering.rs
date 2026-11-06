@@ -18,10 +18,10 @@ use ipc::{
 use crate::daemon::Fleet;
 
 /// The item's id, and the target of its `answer` act.
-pub(crate) const DELIVERY_ITEM: &str = "delivery";
+pub const DELIVERY_ITEM: &str = "delivery";
 
 /// What the owner is asked. Choices 0, 1 and 2 are [`DeliveryChoice::OFFERED`] in order.
-pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
+pub fn delivery_item(since: Instant) -> WaitingItem {
     WaitingItem {
         id: DELIVERY_ITEM.to_string(),
         text: String::from("How should this work be delivered?"),
@@ -45,7 +45,7 @@ pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
 /// The answer kept on the Job: the choice of its `delivery` row, if it has one and it is answered.
 // The agent is told the answer in words, so only the tests read it so far.
 #[allow(dead_code)]
-pub(crate) fn delivery_of(rows: &[SessionRow]) -> Option<DeliveryChoice> {
+pub fn delivery_of(rows: &[SessionRow]) -> Option<DeliveryChoice> {
     rows.iter().find_map(|row| match row {
         SessionRow::Delivery { choice, .. } => *choice,
         _ => None,
@@ -53,18 +53,18 @@ pub(crate) fn delivery_of(rows: &[SessionRow]) -> Option<DeliveryChoice> {
 }
 
 /// Whether the thread already has a `delivery` row, asked or answered.
-pub(crate) fn delivery_asked(rows: &[SessionRow]) -> bool {
+pub fn delivery_asked(rows: &[SessionRow]) -> bool {
     rows.iter().any(|row| matches!(row, SessionRow::Delivery { .. }))
 }
 
 /// What the agent is told of a landing the owner chose.
-pub(crate) fn chosen_words(choice: DeliveryChoice) -> String {
+pub fn chosen_words(choice: DeliveryChoice) -> String {
     format!("Fleet: the owner chose {}. {}", choice.label(), choice.detail())
 }
 
 /// The landing the start card answered, for a Job whose first message did not name one: the agent was
 /// not told it with the message.
-pub(crate) fn card_choice(rows: &[SessionRow]) -> Option<DeliveryChoice> {
+pub fn card_choice(rows: &[SessionRow]) -> Option<DeliveryChoice> {
     rows.iter().find_map(|row| match row {
         SessionRow::Delivery { choice: Some(choice), named: false, .. } => Some(*choice),
         _ => None,
@@ -72,7 +72,7 @@ pub(crate) fn card_choice(rows: &[SessionRow]) -> Option<DeliveryChoice> {
 }
 
 /// The Job's first message from the person.
-pub(crate) fn first_message(rows: &[SessionRow]) -> Option<&str> {
+pub fn first_message(rows: &[SessionRow]) -> Option<&str> {
     rows.iter().find_map(|row| match row {
         SessionRow::Message { from: SessionVoice::You, text, .. } => Some(text.as_str()),
         _ => None,
@@ -97,7 +97,7 @@ const NEGATED: &[&str] = &["not merge", "n't merge", "not land", "n't land", "no
 
 /// The delivery a message names, if it names exactly one. **Conservative**: no phrase, two different
 /// deliveries, or a negated one is `None`, and the owner is asked.
-pub(crate) fn named_delivery(text: &str) -> Option<DeliveryChoice> {
+pub fn named_delivery(text: &str) -> Option<DeliveryChoice> {
     let said = text.to_lowercase().replace('\u{2019}', "'");
     if NEGATED.iter().any(|phrase| said.contains(phrase)) {
         return None;
@@ -119,7 +119,7 @@ pub(crate) fn named_delivery(text: &str) -> Option<DeliveryChoice> {
 
 /// What the agent is told when the question is put: stop until it is answered. **It says Fleet asked**,
 /// or the agent, told a decision of the owner's goes on `waiting_for`, asks it a second time.
-pub(crate) const ASKED: &str = "Fleet: the owner is choosing how this work is delivered: auto land, open a pull request only, or keep it local. \
+pub const ASKED: &str = "Fleet: the owner is choosing how this work is delivered: auto land, open a pull request only, or keep it local. \
 Fleet has asked him already, so do not ask it again, in waiting_for or with AskUserQuestion. \
 Stop now and end your turn. Do not edit, commit or push. Fleet sends the choice when it is made.";
 
@@ -130,7 +130,7 @@ impl Fleet
     /// **Answers whether the step's own instructions were held back**: they go with the choice. A
     /// Job whose thread has no message from the person yet is left alone, and a row already kept
     /// is never written again.
-    pub(crate) async fn delivery_entered(self: &Arc<Self>, id: &str) -> bool {
+    pub async fn delivery_entered(self: &Arc<Self>, id: &str) -> bool {
         let Ok(rows) = self.rows_of(id).await else { return false };
         if delivery_asked(&rows) {
             return false;
@@ -146,7 +146,7 @@ impl Fleet
     /// Auto land answered turns the Session's flag on, by the path `set_session_auto_land` takes.
     /// The other two answers leave the flag as it is. **A refusal never undoes the answer**: the
     /// forge is asked after the reply, and its words go to the agent as a notice of their own.
-    pub(crate) async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
+    pub async fn auto_land_follows(self: &Arc<Self>, id: &str, choice: Option<DeliveryChoice>) {
         if choice != Some(DeliveryChoice::AutoLand) {
             return;
         }
@@ -159,7 +159,7 @@ impl Fleet
 
     /// Keep the `delivery` row `message` gives: answered where it names a delivery, open where it does
     /// not. `true` where the question is open.
-    pub(crate) async fn delivery_row_kept(&self, id: &str, message: &str) -> bool {
+    pub async fn delivery_row_kept(&self, id: &str, message: &str) -> bool {
         let named = named_delivery(message);
         let row = SessionRow::Delivery { id: self.row_id(id), at: self.instant(), choice: named, named: named.is_some() };
         self.row_put(id, row).await;
@@ -178,7 +178,7 @@ impl Fleet
 
     /// `answer_waiting` on the `delivery` item: keep the choice on its row and tell the agent, with the
     /// instructions of the step that asked.
-    pub(crate) async fn delivery_chosen(
+    pub async fn delivery_chosen(
         self: &Arc<Self>,
         id: &str,
         choice: Option<u32>,

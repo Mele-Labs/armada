@@ -23,7 +23,7 @@ const MOST_FOLDERS: usize = 300;
 const DEEPEST: usize = 2;
 
 /// One process for each folder whose files name a server.
-pub(super) fn found(root: &Path) -> Vec<DraftProcess> {
+pub fn found(root: &Path) -> Vec<DraftProcess> {
     let folders = folders(root);
     let root_has_dev = dev_script_in(root).is_some();
     let mut out = Vec::new();

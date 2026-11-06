@@ -27,22 +27,22 @@ const RECORD: &str = ".toml";
 
 /// One piece, on either side.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Piece {
-    pub(crate) name: String,
+pub struct Piece {
+    pub name: String,
     /// A memory note's repository, by its folder's name.
-    pub(crate) repository: Option<String>,
+    pub repository: Option<String>,
     /// Each file's text, by its path relative to where the kind is kept: `humanizer/SKILL.md`,
     /// `bug.yml`. Empty for a kind that is only there or not: an allowlist line, a plugin.
-    pub(crate) files: BTreeMap<String, String>,
-    pub(crate) says: Option<String>,
-    pub(crate) source: Option<String>,
+    pub files: BTreeMap<String, String>,
+    pub says: Option<String>,
+    pub source: Option<String>,
 }
 
 /// One side of one kind.
 #[derive(Default)]
-pub(crate) struct Side {
-    pub(crate) pieces: Vec<Piece>,
-    pub(crate) unreadable: Vec<HomeUnreadable>,
+pub struct Side {
+    pub pieces: Vec<Piece>,
+    pub unreadable: Vec<HomeUnreadable>,
 }
 
 /// Where a kind's files sit in one folder.
@@ -227,7 +227,7 @@ struct ServerKept {
 
 /// What a server is at, as a host: an address's host and port with no userinfo, or a program's
 /// own file name. Never a path, a query or an argument.
-pub(crate) fn host_of(address: &ServerAddress) -> String {
+pub fn host_of(address: &ServerAddress) -> String {
     match address {
         ServerAddress::Http { url } => {
             let after = url.split_once("://").map_or(url.as_str(), |(_, rest)| rest);
@@ -304,7 +304,7 @@ fn read_memory(places: &Places<'_>, dir: String, repository: &str, side: &mut Si
 }
 
 /// Every piece of `kind` on this machine.
-pub(crate) fn here(places: &Places<'_>, kind: HomeKind) -> Side {
+pub fn here(places: &Places<'_>, kind: HomeKind) -> Side {
     let mut side = Side::default();
     match kind {
         HomeKind::Allowlist => read_lines(places.kit, ALLOWLIST_HERE, &mut side),
@@ -329,7 +329,7 @@ pub(crate) fn here(places: &Places<'_>, kind: HomeKind) -> Side {
 }
 
 /// Every piece of `kind` in the home's copy here.
-pub(crate) fn home(places: &Places<'_>, kind: HomeKind) -> Side {
+pub fn home(places: &Places<'_>, kind: HomeKind) -> Side {
     let mut side = Side::default();
     let folder = places.home.files();
     match kind {
@@ -415,7 +415,7 @@ fn indexed(places: &Places<'_>, dir: &str, piece: &Piece) -> Result<(), Refused>
 }
 
 /// Put `piece` on this machine, over `replacing` where it replaces this machine's own.
-pub(crate) fn put_here(places: &Places<'_>, kind: HomeKind, piece: &Piece, replacing: Option<&Piece>) -> Result<(), Refused> {
+pub fn put_here(places: &Places<'_>, kind: HomeKind, piece: &Piece, replacing: Option<&Piece>) -> Result<(), Refused> {
     match kind {
         HomeKind::Allowlist => append_line(places.kit, ALLOWLIST_HERE, piece).map(|_| ()),
         HomeKind::McpServers => Err(cannot(
@@ -440,7 +440,7 @@ pub(crate) fn put_here(places: &Places<'_>, kind: HomeKind, piece: &Piece, repla
 }
 
 /// Put `piece` in the home's copy here, and the paths it touched, to publish.
-pub(crate) fn put_home(places: &Places<'_>, kind: HomeKind, piece: &Piece, replacing: Option<&Piece>) -> Result<Vec<String>, Refused> {
+pub fn put_home(places: &Places<'_>, kind: HomeKind, piece: &Piece, replacing: Option<&Piece>) -> Result<Vec<String>, Refused> {
     let folder = places.home.files();
     match kind {
         HomeKind::Allowlist => append_line(folder, ALLOWLIST_HOME, piece),

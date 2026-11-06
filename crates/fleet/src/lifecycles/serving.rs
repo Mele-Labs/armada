@@ -31,7 +31,7 @@ const UNPLACED: &str = "fleet.job_lifecycles_unplaced";
 
 /// What a person reads for an instance: the ticket's key, `PR #812`, the Job's title. **A Job with
 /// no title, or none Fleet holds, is its id**, and nothing is made up in its place.
-pub(super) fn label_of(store: &Store, subject: &InstanceRef) -> String {
+pub fn label_of(store: &Store, subject: &InstanceRef) -> String {
     match subject.lifecycle().as_str() {
         PULL_REQUEST => format!("PR #{}", subject.key()),
         JOB => store
@@ -75,7 +75,7 @@ fn copy_rules(store: &Store, session: &str) -> Vec<AppliedRule> {
 /// What `session` holds, as the wire spells it. **Empty** for a Job that holds nothing, which is every
 /// Job that began before lifecycles existed, and for one in no repository. **`applying` is
 /// `Fleet::lifecycles_that_apply`**, passed in because the pieces it reads are Fleet's and not the store's.
-pub(crate) fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(&str) -> Vec<Lifecycle>) -> JobLifecycles {
+pub fn job_lifecycles_of(store: &Store, session: &str, applying: &dyn Fn(&str) -> Vec<Lifecycle>) -> JobLifecycles {
     let mut held = JobLifecycles {
         session_id: SessionId::carried(session),
         lifecycles: Vec::new(),
@@ -156,7 +156,7 @@ impl Fleet
 {
     /// Tell Bridge what `session` holds now. **A Job that holds nothing, and has changed nothing in its copy,
     /// publishes nothing.**
-    pub(crate) async fn job_lifecycles_published(&self, session: &str) {
+    pub async fn job_lifecycles_published(&self, session: &str) {
         let held = {
             let store = self.store().lock().await;
             job_lifecycles_of(&store, session, &|manifest| self.lifecycles_that_apply(manifest))

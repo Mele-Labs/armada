@@ -81,7 +81,7 @@ impl Fleet
 {
     /// `get_debug_report`: every part Fleet can read, laid out. `root` names the repository for its
     /// block, and none leaves the block out.
-    pub(crate) async fn debug_report(&self, root: Option<String>) -> Result<ipc::DebugReport, Refusal> {
+    pub async fn debug_report(&self, root: Option<String>) -> Result<ipc::DebugReport, Refusal> {
         let fault = |why: &str| self.hosted_fault(REPORT_FAILED, why);
         let (jobs, place) = {
             let store = self.store().lock().await;

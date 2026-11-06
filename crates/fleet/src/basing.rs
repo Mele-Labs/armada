@@ -17,7 +17,7 @@ impl Fleet
     ///
     /// `adapters` cannot read a Manifest — the layers forbid it — so this is
     /// where the base is attached.
-    pub(crate) fn based(
+    pub fn based(
         &self,
         served: &crate::repositories::Served,
         worktree: Worktree,

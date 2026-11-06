@@ -95,7 +95,7 @@ impl ScoutHost {
     }
 
     /// The CLI and the model a hosted Job's host runs, for `ProcessHost`'s reasons.
-    pub(crate) fn on_this_machine(host: &Host, width: checks_runner::CheckWidth) -> ScoutHost {
+    pub fn on_this_machine(host: &Host, width: checks_runner::CheckWidth) -> ScoutHost {
         ScoutHost::new(
             HeadlessAgent::at(host.agent_binary.clone()),
             HeadlessAgent::default_model(),
@@ -110,7 +110,7 @@ impl ScoutHost {
     }
 
     /// Start one scout in `directory`, told `told` on its only turn.
-    pub(crate) async fn start(&self, directory: &str, told: &str) -> Result<Started, String> {
+    pub async fn start(&self, directory: &str, told: &str) -> Result<Started, String> {
         adapters::no_servers(&self.servers)
             .map_err(|why| format!("the scout's server file would not be written: {why}"))?;
         let model = Model::named(&self.model).map_err(|why| why.said())?;
@@ -149,7 +149,7 @@ impl ScoutHost {
 
     /// Read a started scout to its end, sending each thing it read as it is
     /// answered, and answer what it said last and how it ended.
-    pub(crate) async fn read(
+    pub async fn read(
         &self,
         started: Started,
         running: &Running,
@@ -302,7 +302,7 @@ fn domain(looked: Looked) -> ScoutLook {
 }
 
 /// A scout's process, started and not yet read.
-pub(crate) struct Started {
+pub struct Started {
     child: Child,
     pid: Option<NonZeroU32>,
     directory: String,
@@ -310,7 +310,7 @@ pub(crate) struct Started {
 
 /// One scout running, as its stop reaches it.
 #[derive(Default)]
-pub(crate) struct Running {
+pub struct Running {
     stop: Notify,
     stopping: AtomicBool,
 }
@@ -343,12 +343,12 @@ impl Scouts {
         }
     }
 
-    pub(crate) fn host(&self) -> Arc<ScoutHost> {
+    pub fn host(&self) -> Arc<ScoutHost> {
         Arc::clone(&self.host)
     }
 
     /// Listed as running, until [`Scouts::ended`].
-    pub(crate) fn listed(&self, node: &str) -> Arc<Running> {
+    pub fn listed(&self, node: &str) -> Arc<Running> {
         let running = Arc::new(Running::default());
         self.running
             .lock()
@@ -357,7 +357,7 @@ impl Scouts {
         running
     }
 
-    pub(crate) fn ended(&self, node: &str) {
+    pub fn ended(&self, node: &str) {
         self.running
             .lock()
             .expect("the scouts are not held across a panic")
@@ -365,7 +365,7 @@ impl Scouts {
     }
 
     /// Stop the scout reading for `node`. `false` where none is.
-    pub(crate) fn stop(&self, node: &str) -> bool {
+    pub fn stop(&self, node: &str) -> bool {
         let running = self
             .running
             .lock()

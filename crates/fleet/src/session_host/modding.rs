@@ -49,7 +49,7 @@ never about mods, branches, pull requests or landing.";
 impl Fleet
 {
     /// Start a Mod Job and send it the brief and the note.
-    pub(crate) async fn mod_job_started(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
+    pub async fn mod_job_started(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
         let StartModSession { title, model, effort, aim, note, said, from_job, from_tab } = start;
         let said = said.map(|words| words.trim().to_string());
         let first = match (note, said) {
@@ -178,7 +178,7 @@ impl Fleet
     /// brief ahead of it**, as a start with words is, and an untitled one is retitled `Mod` and the
     /// first line of what he wrote. **His `aim` rides with that first message only**, a line between
     /// the brief and his words; on any other message it is ignored. The thread keeps his words alone.
-    pub(crate) async fn mod_message_sent(
+    pub async fn mod_message_sent(
         self: Arc<Self>,
         terminal: Option<store::KeptSession>,
         sent: SendSessionMessage,

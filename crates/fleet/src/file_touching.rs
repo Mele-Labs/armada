@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 use adapter_traits::{AgentHarness, DroneEvent, FileAct, ToolUse};
 
 /// How many touches a Session keeps. They ride on the record, which goes out whole on every change.
-pub(crate) const WINDOW: usize = 60;
+pub const WINDOW: usize = 60;
 
 /// The most subagent calls remembered, oldest forgotten first: enough for any one turn's.
 const SPAWNS_AT_MOST: usize = 64;
@@ -22,10 +22,10 @@ const REMOVED_AT_MOST: usize = 8;
 /// What a subagent's call was asked to be, by the id of the call. In memory: a Fleet that restarted
 /// names a subagent whose call it did not hear by what it is, a subagent.
 #[derive(Default)]
-pub(crate) struct Spawns(VecDeque<(String, String)>);
+pub struct Spawns(VecDeque<(String, String)>);
 
 impl Spawns {
-    pub(crate) fn told(&mut self, call: &str, kind: &str) {
+    pub fn told(&mut self, call: &str, kind: &str) {
         self.0.retain(|(held, _)| held != call);
         self.0.push_back((call.to_string(), kind.to_string()));
         while self.0.len() > SPAWNS_AT_MOST {
@@ -33,18 +33,18 @@ impl Spawns {
         }
     }
 
-    pub(crate) fn kind_of(&self, call: &str) -> Option<&str> {
+    pub fn kind_of(&self, call: &str) -> Option<&str> {
         self.0.iter().find(|(held, _)| held == call).map(|(_, kind)| kind.as_str())
     }
 }
 
 /// What a call did to a file: `write`, `edit` or `remove`, as the store keeps it.
-pub(crate) type Act = &'static str;
+pub type Act = &'static str;
 
 /// The files an event changed, as the call named them, and how. A file changed by an edit tool is the
 /// harness's to name; one taken away is read from a plain `rm` or `git rm`, and a command that
 /// removes by a pattern or a variable names nothing.
-pub(crate) fn touches_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEvent) -> Vec<(String, Act)> {
+pub fn touches_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEvent) -> Vec<(String, Act)> {
     if let Some(path) = harness.edited(event) {
         let act = match harness.edit_act(event) {
             FileAct::Write => "write",
@@ -59,7 +59,7 @@ pub(crate) fn touches_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEve
 }
 
 /// The paths a shell line removes with `rm` or `git rm`: its plain words after the flags.
-pub(crate) fn removed_by(command: &str) -> Vec<String> {
+pub fn removed_by(command: &str) -> Vec<String> {
     let mut found = Vec::new();
     for segment in command.replace("&&", ";").replace("||", ";").replace('\n', ";").split(';') {
         let mut words = segment.split_whitespace().skip_while(|word| matches!(*word, "sudo" | "command") || word.contains('='));
@@ -91,7 +91,7 @@ pub(crate) fn removed_by(command: &str) -> Vec<String> {
 /// worktree and `cwd` the directory the Session works in, which may be below it. `~/` is `home`, an
 /// absolute path loses `root`, and a relative one is from `cwd`, so it gains `cwd`'s way down from
 /// `root`. A path that lies outside `root`, climbs out with `..`, or names the directory itself is none.
-pub(crate) fn rooted(root: &str, cwd: &str, home: &str, path: &str) -> Option<String> {
+pub fn rooted(root: &str, cwd: &str, home: &str, path: &str) -> Option<String> {
     let path = match path.strip_prefix("~/") {
         Some(rest) if !home.is_empty() => format!("{}/{rest}", home.trim_end_matches('/')),
         _ => path.to_string(),

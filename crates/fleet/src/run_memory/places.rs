@@ -17,7 +17,7 @@ use store::{KeptPlace, KeptRun};
 use super::cloud;
 
 /// The folder inside Kit's, or a synced folder, that holds the files.
-pub(crate) const FOLDER: &str = "runs";
+pub const FOLDER: &str = "runs";
 const VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +42,7 @@ struct Entry {
 }
 
 /// What names a repository on disk: its remote's `owner--name`, else its path made safe.
-pub(crate) fn key_of(root: &str) -> String {
+pub fn key_of(root: &str) -> String {
     match adapters::remote_of(Path::new(root)) {
         Some(address) => address.slug().replace('/', "--"),
         None => {
@@ -53,7 +53,7 @@ pub(crate) fn key_of(root: &str) -> String {
 }
 
 /// The folder inside Kit's that holds a person's own `armada.yml` for each repository.
-pub(crate) const MANIFESTS: &str = "manifests";
+pub const MANIFESTS: &str = "manifests";
 
 /// Where Kit keeps a person's own `armada.yml` for the repository at `root`:
 /// `manifests/<owner--name>.yml` under Kit's folder on this Mac. `docs/concepts/manifest.md`,
@@ -63,7 +63,7 @@ pub fn kit_manifest(kit: &Path, root: &str) -> PathBuf {
 }
 
 /// Where a repository's pieces of the person's own are kept.
-pub(crate) enum Where {
+pub enum Where {
     /// Under this folder: Kit's own, or the synced folder.
     Folder(PathBuf),
     /// In this bucket, under its prefix; the text is the address as it was chosen.
@@ -74,7 +74,7 @@ pub(crate) enum Where {
 
 /// The place a repository's pieces are kept, and where in it: the one its runs are, `this_mac` where
 /// none was chosen or where the choice would share a person's own.
-pub(crate) fn where_kept(kit: &Path, held: Option<&KeptPlace>) -> (RunPlace, Where) {
+pub fn where_kept(kit: &Path, held: Option<&KeptPlace>) -> (RunPlace, Where) {
     let this_mac = || Where::Folder(kit.to_path_buf());
     let Some(KeptPlace { place, synced_folder, cloud }) = held else {
         return (RunPlace::ThisMac, this_mac());
@@ -100,18 +100,18 @@ pub(crate) fn where_kept(kit: &Path, held: Option<&KeptPlace>) -> (RunPlace, Whe
 
 /// The object a person's own `armada.yml` for a repository is, under a bucket's prefix: the same
 /// layout as `manifests/<key>.yml` under a folder.
-pub(crate) fn manifest_object(root: &str) -> String {
+pub fn manifest_object(root: &str) -> String {
     format!("{MANIFESTS}/{}.yml", key_of(root))
 }
 
 /// A repository's file in `folder` under `base`: `runs`, or another kept in the same layout.
-pub(crate) fn file_for(base: &Path, folder: &str, root: &str) -> PathBuf {
+pub fn file_for(base: &Path, folder: &str, root: &str) -> PathBuf {
     base.join(folder).join(format!("{}.toml", key_of(root)))
 }
 
 /// The runs a file holds. A file that is not there holds none; one that will not read is an error,
 /// since writing over it would lose what a person kept.
-pub(super) fn read(path: &Path) -> Result<Vec<KeptRun>, String> {
+pub fn read(path: &Path) -> Result<Vec<KeptRun>, String> {
     match std::fs::read_to_string(path) {
         Ok(text) => decode(&text, &path.display().to_string()),
         Err(why) if why.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
@@ -120,7 +120,7 @@ pub(super) fn read(path: &Path) -> Result<Vec<KeptRun>, String> {
 }
 
 /// The runs a document in this layout holds; `named` is what an error calls it, a path or an object.
-pub(super) fn decode(text: &str, named: &str) -> Result<Vec<KeptRun>, String> {
+pub fn decode(text: &str, named: &str) -> Result<Vec<KeptRun>, String> {
     let file: File = toml::from_str(text).map_err(|why| format!("{named} could not be read: {why}"))?;
     if file.version != VERSION {
         return Err(format!("{named} is version {}, and this Fleet reads {VERSION}", file.version));
@@ -143,7 +143,7 @@ pub(super) fn decode(text: &str, named: &str) -> Result<Vec<KeptRun>, String> {
 }
 
 /// `runs` as a document in this layout.
-pub(crate) fn encode(root: &str, runs: &[KeptRun]) -> Result<String, String> {
+pub fn encode(root: &str, runs: &[KeptRun]) -> Result<String, String> {
     let file = File {
         version: VERSION,
         repository: root.to_string(),
@@ -164,7 +164,7 @@ pub(crate) fn encode(root: &str, runs: &[KeptRun]) -> Result<String, String> {
 }
 
 /// Write `runs` as the file, over a temporary file renamed into place.
-pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), String> {
+pub fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), String> {
     let text = encode(root, runs)?;
     let folder = path.parent().ok_or_else(|| format!("{} has no folder", path.display()))?;
     std::fs::create_dir_all(folder).map_err(|why| format!("{} could not be made: {why}", folder.display()))?;
@@ -174,7 +174,7 @@ pub(super) fn write(path: &Path, root: &str, runs: &[KeptRun]) -> Result<(), Str
 }
 
 /// The object a repository's file in `folder` is, under a bucket's prefix: the same layout as a file.
-pub(crate) fn object_for(folder: &str, root: &str) -> String {
+pub fn object_for(folder: &str, root: &str) -> String {
     format!("{folder}/{}.toml", key_of(root))
 }
 

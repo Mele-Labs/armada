@@ -29,7 +29,7 @@ const WALK_CAP: usize = 20_000;
 ///
 /// **Never fails.** A subdirectory this cannot read is skipped rather than
 /// failing the search: `ipc::FilesFound`'s own notes carry the reasoning.
-pub(crate) fn search(root: &Path, query: &str) -> Vec<String> {
+pub fn search(root: &Path, query: &str) -> Vec<String> {
     let query: Vec<char> = query.chars().map(lower).collect();
     let mut ranked: Vec<(i32, String)> = listed(root)
         .unwrap_or_else(|| walked(root))

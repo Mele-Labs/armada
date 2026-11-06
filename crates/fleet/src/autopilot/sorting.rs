@@ -19,7 +19,7 @@ const RUN: &str = "Bash";
 
 /// The kind of `item`, or `None` where it waits for a person. `card` is the open permission card,
 /// which a permission item is read from.
-pub(crate) fn sorted(item: &WaitingItem, card: Option<&CallInFlight>) -> Option<AutopilotDecision> {
+pub fn sorted(item: &WaitingItem, card: Option<&CallInFlight>) -> Option<AutopilotDecision> {
     if destructive(item) {
         return None;
     }

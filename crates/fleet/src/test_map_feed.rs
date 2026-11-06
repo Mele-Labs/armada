@@ -35,7 +35,7 @@ use crate::repositories::Served;
 use crate::test_map::{source_of, NotMapped};
 
 /// How often the notice loop looks for a repository whose Autopilot is running.
-pub(crate) const EVERY: Duration = Duration::from_secs(10);
+pub const EVERY: Duration = Duration::from_secs(10);
 
 /// What Fleet remembers between a tip being seen and the pass that feeds the map from it.
 /// Never written down: the moves are re-derived from the forge, and a map a restart did
@@ -49,7 +49,7 @@ pub struct Feed {
     autopilot_bay: AtomicBool,
     /// Per Manifest id, the changed files a model has not yet read: a move reads a bounded number.
     /// `crate::test_map_reading`.
-    pub(crate) unread: Mutex<BTreeMap<String, BTreeSet<String>>>,
+    pub unread: Mutex<BTreeMap<String, BTreeSet<String>>>,
 }
 
 impl Feed {
@@ -60,15 +60,15 @@ impl Feed {
         moved.insert(manifest.to_string(), (from, to.to_string()));
     }
 
-    pub(crate) fn moves(&self) -> Vec<(String, String, String)> {
+    pub fn moves(&self) -> Vec<(String, String, String)> {
         let taken = std::mem::take(&mut *self.moved.lock().unwrap_or_else(PoisonError::into_inner));
         taken.into_iter().map(|(manifest, (from, to))| (manifest, from, to)).collect()
     }
 
     /// A collector of this repository's own, beside the ones its Manifest's Checks name. Only a
     /// case plants one so far: no Manifest key adds a collector.
-    #[cfg(test)]
-    pub(crate) fn add(&self, manifest: &ManifestId, feeder: Feeder) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn add(&self, manifest: &ManifestId, feeder: Feeder) {
         self.added
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -113,7 +113,7 @@ impl Fleet
     /// the first sight after a start from the tip the map was last fed to**, so one made while
     /// Fleet was down is still marked; it waits for [`Fleet::test_map_moves_fed`]. A repository
     /// the map was never fed in has no tip to move from, and `head` is the first.
-    pub(crate) async fn main_tip_seen(&self, manifest: &str, head: &str) {
+    pub async fn main_tip_seen(&self, manifest: &str, head: &str) {
         let seen = self.writes().main_tip(manifest);
         self.writes().main_seen(manifest, head);
         let repository = ManifestId::carried(core_model::Ulid::carried(manifest));
@@ -132,7 +132,7 @@ impl Fleet
 
     /// Start feeding the map from each move of main seen since the last tick. Each repository
     /// is fed on a task of its own, so the notice loop goes on.
-    pub(crate) fn test_map_moves_fed(self: &Arc<Self>) {
+    pub fn test_map_moves_fed(self: &Arc<Self>) {
         for (manifest, from, to) in self.feed().moves() {
             let fleet = Arc::clone(self);
             tokio::spawn(async move { fleet.main_moved_fed(&manifest, &from, &to).await });
@@ -141,7 +141,7 @@ impl Fleet
 
     /// Start an Autopilot pass unless one is under way. It runs on a task of its own: a measured
     /// test takes minutes, and the loop it rides on carries Sessions.
-    pub(crate) fn test_map_slept_over(self: &Arc<Self>) {
+    pub fn test_map_slept_over(self: &Arc<Self>) {
         if self.feed().autopilot_bay.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -154,7 +154,7 @@ impl Fleet
 
     /// Main went from `from` to `to`: the files between them make their edges stale, and each
     /// stale test a collector can read at no cost is read again at `to`.
-    pub(crate) async fn main_moved_fed(&self, manifest: &str, from: &str, to: &str) {
+    pub async fn main_moved_fed(&self, manifest: &str, from: &str, to: &str) {
         let Some(served) = self.repositories().serving(manifest) else { return };
         let repository = served.manifest().id().clone();
         let (root, held_from, held_to) = (served.root().to_string(), from.to_string(), to.to_string());
@@ -228,7 +228,7 @@ impl Fleet
     /// measured in a free bay at main's tip, one at a time, holding one of the machine's places and
     /// stopping as soon as that Autopilot is paused or stopped. **A repository whose map holds no edges has no stale test**, so
     /// it is never seeded from here; that is the forge's recording.
-    pub(crate) async fn autopilot_bay_recorded(&self) {
+    pub async fn autopilot_bay_recorded(&self) {
         for served in self.repositories().served() {
             if !self.autopilot_running(served.manifest().id().as_str()).await {
                 continue;
@@ -272,7 +272,7 @@ impl Fleet
     /// in the checkout at `root`, and the ones the repository added. **A Check's key is its
     /// name at the root and `<dir>:<name>` in a workspace**, as a Job's rows spell it. Coverage
     /// is built one wide for an Autopilot bay and as wide as the Check runs elsewhere.
-    pub(crate) fn feeders_in(&self, served: &Served, root: &Path, in_a_bay: bool) -> Vec<Feeder> {
+    pub fn feeders_in(&self, served: &Served, root: &Path, in_a_bay: bool) -> Vec<Feeder> {
         let workspaces = served.workspaces();
         let mut feeders = Vec::new();
         for manifest in std::iter::once(served.manifest()).chain(workspaces.iter()) {
@@ -402,7 +402,7 @@ impl Fleet
     }
 
     /// A line in the envelope on Fleet's standard error: the repository and what the call adds.
-    pub(crate) fn said(
+    pub fn said(
         &self,
         level: Level,
         msg: &str,
@@ -412,7 +412,7 @@ impl Fleet
         crate::transcript::note_aloud(&self.feed_envelope(level, msg, repository, fields));
     }
 
-    pub(crate) fn feed_envelope(
+    pub fn feed_envelope(
         &self,
         level: Level,
         msg: &str,

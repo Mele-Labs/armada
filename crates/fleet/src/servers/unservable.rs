@@ -73,7 +73,7 @@ impl Unservable {
     /// The code and the refusal. **A conflict with where things stand is a
     /// 409; a name that names nothing is a 422**; a disk that would not write
     /// is Fleet's fault.
-    pub(crate) fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
+    pub fn spelled(&self) -> (&'static str, fn(WireError) -> Refusal) {
         use Unservable::*;
         match self {
             NotAServer { .. } | IsACommand { .. } => (NOT_A_SERVER, Refusal::Unacceptable),

@@ -8,112 +8,112 @@
 //! its tool calls show it doing, `asking` is the permission door and `rows`
 //! writes the thread.
 
-pub(crate) mod account;
-pub(crate) mod activity;
-pub(crate) mod after;
-mod agent_starting;
-mod commanding;
-mod annotating;
-mod note_resolving;
-pub(crate) mod asking;
-mod backgrounding;
-mod call_rows;
-pub(crate) mod compacting;
-mod cut_off;
-pub(crate) mod disputing;
-pub(crate) mod bug_reports;
-pub(crate) mod document_answers;
-pub(crate) mod document_page;
-pub(crate) mod documents;
-pub(crate) mod dispute_review;
-pub(crate) mod dispute_reading;
-pub(crate) mod ending;
-pub(crate) mod asking_in_window;
-pub(crate) mod drafting;
-pub(crate) mod lapsed_asks;
-pub(crate) mod merge_waits;
-pub(crate) mod showing_file;
-pub(crate) mod styling;
-pub(crate) mod sketching;
-pub(crate) mod following;
-mod finishing;
-pub(crate) mod job_command;
-mod later;
-mod fork_point;
-mod forking;
-mod gate;
-mod job_of_its_own;
-mod job_piece_keeping;
-mod handing;
-pub(crate) mod handoff_answers;
-pub(crate) mod replacing;
-pub(crate) mod linking;
-mod hearing;
-mod reviving;
-mod tools_missing;
-mod init_kept;
-mod mod_moved;
+pub mod account;
+pub mod activity;
+pub mod after;
+pub mod agent_starting;
+pub mod commanding;
+pub mod annotating;
+pub mod note_resolving;
+pub mod asking;
+pub mod backgrounding;
+pub mod call_rows;
+pub mod compacting;
+pub mod cut_off;
+pub mod disputing;
+pub mod bug_reports;
+pub mod document_answers;
+pub mod document_page;
+pub mod documents;
+pub mod dispute_review;
+pub mod dispute_reading;
+pub mod ending;
+pub mod asking_in_window;
+pub mod drafting;
+pub mod lapsed_asks;
+pub mod merge_waits;
+pub mod showing_file;
+pub mod styling;
+pub mod sketching;
+pub mod following;
+pub mod finishing;
+pub mod job_command;
+pub mod later;
+pub mod fork_point;
+pub mod forking;
+pub mod gate;
+pub mod job_of_its_own;
+pub mod job_piece_keeping;
+pub mod handing;
+pub mod handoff_answers;
+pub mod replacing;
+pub mod linking;
+pub mod hearing;
+pub mod reviving;
+pub mod tools_missing;
+pub mod init_kept;
+pub mod mod_moved;
 pub mod keeper;
 /// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
 /// `act_on_session_mcp`.
-pub(crate) mod mcp_servers;
-pub(crate) mod kept;
+pub mod mcp_servers;
+pub mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
 /// drawn from.
-mod naming;
-mod noting;
-mod modding;
-mod auto_landing;
-pub(crate) mod queue_guard;
-mod pausing;
-pub(crate) mod quick;
-mod reach_folders;
-pub(crate) mod token_use;
-pub(crate) mod delivering;
-pub(crate) mod start_card;
-pub(crate) mod fleet_calls;
-pub(crate) mod preview_offers;
-pub(crate) mod rule_asks;
-pub(crate) mod stopping;
-pub(crate) mod planning;
-mod places;
-mod process;
-pub(crate) mod processes;
-mod system;
-pub(crate) mod proposing;
+pub mod naming;
+pub mod noting;
+pub mod modding;
+pub mod auto_landing;
+pub mod queue_guard;
+pub mod pausing;
+pub mod quick;
+pub mod reach_folders;
+pub mod token_use;
+pub mod delivering;
+pub mod start_card;
+pub mod fleet_calls;
+pub mod preview_offers;
+pub mod rule_asks;
+pub mod stopping;
+pub mod planning;
+pub mod places;
+pub mod process;
+pub mod processes;
+pub mod system;
+pub mod proposing;
 pub mod queueing;
-mod line_keeping;
-pub(crate) mod slot_asking;
-mod slot_holders;
-pub(crate) mod releasing;
-mod rows;
-#[cfg(test)]
-pub(crate) use rows::mention_line;
-pub(crate) mod signed_out;
-mod serving;
-pub(crate) use serving::NoticeBatches;
-pub(crate) mod asks;
-pub(crate) mod asks_model;
-pub(crate) mod dedup;
-pub(crate) mod extracting;
-pub(crate) mod tell_refusal;
-pub(crate) mod unanswered;
-pub(crate) mod page_replies;
-pub(crate) mod standing;
-pub(crate) mod workflow_pick;
-mod standing_tick;
-mod thread_cache;
-pub(crate) use start_card::FIRST_MESSAGE_ITEM;
-pub(crate) use serving::{mode_of, Marked, RunEnd, NO_SUCH_SESSION};
-mod terminal;
-pub(crate) mod uploads;
-pub(crate) mod waiting;
-pub(crate) mod readiness;
-pub(crate) mod walking;
-pub(crate) mod pre_pr;
-pub(crate) mod walk_asks;
-pub(crate) mod step_skipping;
-pub(crate) mod job_copying;
+pub mod line_keeping;
+pub mod slot_asking;
+pub mod slot_holders;
+pub mod releasing;
+pub mod rows;
+#[cfg(any(test, feature = "test-support"))]
+pub use rows::mention_line;
+pub mod signed_out;
+pub mod serving;
+pub use serving::NoticeBatches;
+pub mod asks;
+pub mod asks_model;
+pub mod dedup;
+pub mod extracting;
+pub mod tell_refusal;
+pub mod unanswered;
+pub mod page_replies;
+pub mod standing;
+pub mod workflow_pick;
+pub mod standing_tick;
+pub mod thread_cache;
+pub use start_card::FIRST_MESSAGE_ITEM;
+pub use serving::{mode_of, Marked, RunEnd, NO_SUCH_SESSION};
+pub mod terminal;
+pub mod uploads;
+pub mod waiting;
+pub mod readiness;
+pub mod walking;
+pub mod pre_pr;
+pub mod walk_asks;
+pub mod step_skipping;
+pub mod job_copying;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -125,9 +125,9 @@ use ipc::{CallInFlight, SessionTurn};
 use crate::asks::{AskHold, Asks};
 
 pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
-pub(crate) use process::{keepers_made, PRIVATE_ROOT};
+pub use process::{keepers_made, PRIVATE_ROOT};
 pub use terminal::Terminals;
-pub(crate) use terminal::PromptOpen;
+pub use terminal::PromptOpen;
 
 /// How long a session's process may sit with no turn before Fleet ends it, and
 /// the next message resumes it. **`settings.session-quiet-timeout`**.
@@ -169,13 +169,13 @@ pub struct Hosts {
     /// His replies to each page already read for whether they approve it. Memory only.
     page_reads: page_replies::Reads,
     /// The quick bar's answers to each Job's last message, and the lines he sends often.
-    pub(crate) quick: quick::Kept,
+    pub quick: quick::Kept,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
 /// it exists**: the item comes off the list only after the send, so a second press inside that
 /// send found it still open, and the agent was told the same answer once per press.
-pub(crate) struct Settling {
+pub struct Settling {
     held: Arc<Mutex<std::collections::HashSet<(String, String)>>>,
     key: (String, String),
 }
@@ -210,50 +210,50 @@ impl Hosts {
         }
     }
 
-    pub(crate) fn page_reads(&self) -> &page_replies::Reads {
+    pub fn page_reads(&self) -> &page_replies::Reads {
         &self.page_reads
     }
 
     /// Claim a waiting item for one answer or removal. `None` where another is being delivered.
-    pub(crate) fn settling(&self, session: &str, item: &str) -> Option<Settling> {
+    pub fn settling(&self, session: &str, item: &str) -> Option<Settling> {
         let key = (session.to_string(), item.to_string());
         let fresh = self.settling.lock().expect("held across no panic").insert(key.clone());
         fresh.then(|| Settling { held: Arc::clone(&self.settling), key })
     }
 
-    pub(crate) fn activity_every(&self) -> Duration {
+    pub fn activity_every(&self) -> Duration {
         Duration::from_millis(self.activity_every.load(Ordering::Relaxed))
     }
 
-    pub(crate) fn account_every(&self) -> Duration {
+    pub fn account_every(&self) -> Duration {
         Duration::from_millis(self.account_every.load(Ordering::Relaxed))
     }
 
     /// A shorter wait between model calls than the shipped one, so a test does not sit through it.
-    #[cfg(test)]
-    pub(crate) fn write_account_every(&self, every: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn write_account_every(&self, every: Duration) {
         self.account_every.store(every.as_millis() as u64, Ordering::Relaxed);
     }
 
     /// A shorter wait than the shipped one, so a test does not sit through it.
-    #[cfg(test)]
-    pub(crate) fn publish_activity_every(&self, every: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn publish_activity_every(&self, every: Duration) {
         self.activity_every.store(every.as_millis() as u64, Ordering::Relaxed);
     }
 
     /// Where a test plants the bound a running turn is stuck past, so it need not outlive ten minutes.
-    #[cfg(test)]
-    pub(crate) fn plant_stuck_after(&self, stuck_after: Duration) {
+    #[cfg(any(test, feature = "test-support"))]
+    pub fn plant_stuck_after(&self, stuck_after: Duration) {
         *self.stuck_after.lock().expect("held across no panic") = stuck_after;
     }
 
-    pub(crate) fn stuck_after(&self) -> Duration {
+    pub fn stuck_after(&self) -> Duration {
         *self.stuck_after.lock().expect("held across no panic")
     }
 
     /// Every Session with a turn running and how long nothing has been heard from it. A turn held on
     /// a question or a permission is left out: it waits on the person, which is not stuck.
-    pub(crate) fn turns_quiet(&self) -> Vec<(String, Duration)> {
+    pub fn turns_quiet(&self) -> Vec<(String, Duration)> {
         let hosted: Vec<(String, Arc<Runtime>)> = self
             .runtime
             .lock()
@@ -282,34 +282,34 @@ impl Hosts {
 
     /// The Sessions whose stuck standing moved since the last look, given the ones stuck now: those
     /// that went quiet past the bound and those that were heard from again.
-    pub(crate) fn stuck_moved(&self, now: std::collections::HashSet<String>) -> Vec<String> {
+    pub fn stuck_moved(&self, now: std::collections::HashSet<String>) -> Vec<String> {
         let mut was = self.stuck.lock().expect("held across no panic");
         let moved = was.symmetric_difference(&now).cloned().collect();
         *was = now;
         moved
     }
 
-    pub(crate) fn stops_owed(&self) -> &stopping::Owed {
+    pub fn stops_owed(&self) -> &stopping::Owed {
         &self.stops_owed
     }
 
-    pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
+    pub fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
         &self.slot_queue
     }
 
     /// A slot was given back, or the pool grew: the sessions waiting for one are served.
-    pub(crate) fn slot_freed(&self) {
+    pub fn slot_freed(&self) {
         self.slot_queue.freed();
     }
 
     /// The reading held.
-    pub(crate) fn plan_usage(&self) -> ipc::PlanUsage {
+    pub fn plan_usage(&self) -> ipc::PlanUsage {
         self.plan.lock().expect("the reading is not held across a panic").clone()
     }
 
     /// Take the reading the store kept as the one held, where none is. What is held after, which is a
     /// fresher one where a session reported first.
-    pub(crate) fn plan_restored(&self, kept: ipc::PlanUsage) -> ipc::PlanUsage {
+    pub fn plan_restored(&self, kept: ipc::PlanUsage) -> ipc::PlanUsage {
         let mut held = self.plan.lock().expect("the reading is not held across a panic");
         if held.windows.is_empty() {
             *held = kept;
@@ -320,7 +320,7 @@ impl Hosts {
     /// Keep a session's reading as the newest. `Some` of the reading now where it differs from the
     /// one held. An empty report is a session off a subscription: the reading where none was taken,
     /// so Bridge stops waiting for one, and nothing where windows are held.
-    pub(crate) fn plan_read(&self, windows: Vec<ipc::PlanWindow>, at: &str) -> Option<ipc::PlanUsage> {
+    pub fn plan_read(&self, windows: Vec<ipc::PlanWindow>, at: &str) -> Option<ipc::PlanUsage> {
         let mut held = self.plan.lock().expect("the reading is not held across a panic");
         if windows.is_empty() && (!held.windows.is_empty() || held.read_at.is_some()) {
             return None;
@@ -335,12 +335,12 @@ impl Hosts {
         Some(held.clone())
     }
 
-    pub(crate) fn terminals(&self) -> &Terminals {
+    pub fn terminals(&self) -> &Terminals {
         &self.terminals
     }
 
     /// Remember what a process said it has.
-    pub(crate) fn heard_commands(&self, names: Vec<String>) {
+    pub fn heard_commands(&self, names: Vec<String>) {
         *self
             .commands
             .lock()
@@ -348,7 +348,7 @@ impl Hosts {
     }
 
     /// The commands the last process said it had.
-    pub(crate) fn commands(&self) -> Vec<String> {
+    pub fn commands(&self) -> Vec<String> {
         self.commands
             .lock()
             .expect("the commands are not held across a panic")
@@ -359,16 +359,16 @@ impl Hosts {
         self.quiet
     }
 
-    pub(crate) fn asks(&self) -> &Asks {
+    pub fn asks(&self) -> &Asks {
         &self.asks
     }
 
-    pub(crate) fn processes(&self) -> &Arc<dyn Processes> {
+    pub fn processes(&self) -> &Arc<dyn Processes> {
         &self.processes
     }
 
     /// The runtime state of one session, made on first ask.
-    pub(crate) fn of(&self, session: &str) -> Arc<Runtime> {
+    pub fn of(&self, session: &str) -> Arc<Runtime> {
         let mut held = self
             .runtime
             .lock()
@@ -385,7 +385,7 @@ impl Hosts {
     }
 
     /// Every session with a runtime, by id.
-    pub(crate) fn all(&self) -> Vec<(String, Arc<Runtime>)> {
+    pub fn all(&self) -> Vec<(String, Arc<Runtime>)> {
         self.runtime
             .lock()
             .expect("the runtime table is not held across a panic")
@@ -395,12 +395,12 @@ impl Hosts {
     }
 
     /// A row id no other row of the session has had.
-    pub(crate) fn next_row(&self, session: &str, at: &str) -> String {
+    pub fn next_row(&self, session: &str, at: &str) -> String {
         let n = self.minted.fetch_add(1, Ordering::SeqCst);
         format!("{}-{at}-{n}", &session[..session.len().min(8)])
     }
 
-    pub(crate) fn start_sweeping(&self) -> bool {
+    pub fn start_sweeping(&self) -> bool {
         !self.sweeping.swap(true, Ordering::SeqCst)
     }
 }
@@ -414,7 +414,7 @@ pub fn address_of(session: &str) -> String {
 
 /// The lease a session is waiting to be moved into.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Move {
+pub struct Move {
     pub slot: u32,
     pub branch: String,
     pub directory: String,
@@ -424,27 +424,27 @@ pub(crate) struct Move {
 }
 
 /// One session's state that lives only as long as Fleet.
-pub(crate) struct Runtime {
+pub struct Runtime {
     /// Held while a lease is taken, so two writes in one turn lease one slot.
-    pub(crate) lease: tokio::sync::Mutex<()>,
+    pub lease: tokio::sync::Mutex<()>,
     /// Held while a turn is delivered, so turns sent one after another reach the process in order.
-    pub(crate) delivery: tokio::sync::Mutex<()>,
+    pub delivery: tokio::sync::Mutex<()>,
     /// Held while the process is found or started, so two senders at once start one process.
-    pub(crate) starting: tokio::sync::Mutex<()>,
+    pub starting: tokio::sync::Mutex<()>,
     /// Whether this session's retro is being written, so a second press waits.
-    pub(crate) writing_retro: AtomicBool,
+    pub writing_retro: AtomicBool,
     state: Mutex<State>,
 }
 
 /// Why a Job's process would not start, and what it was to be told.
-pub(crate) struct StartFailed {
+pub struct StartFailed {
     pub cause: String,
     /// The last lines the agent wrote to its log.
     pub log: Vec<String>,
     pub held: Vec<proposing::Held>,
 }
 
-pub(crate) struct State {
+pub struct State {
     pub process: Option<Arc<dyn Process>>,
     pub turn: SessionTurn,
     /// Messages Fleet wrote whose turn has not started.
@@ -488,7 +488,7 @@ pub(crate) struct State {
     pub retried: bool,
     /// The process would not start, tried twice, with the turns that waited on it. Start again,
     /// or a message from him, sends them.
-    pub(crate) start_failed: Option<StartFailed>,
+    pub start_failed: Option<StartFailed>,
     /// The subagents the last restart cut off, told to the agent with its next turn.
     pub cut_off: Vec<String>,
     /// The keeper said busy on reattach and nothing has been heard since, so
@@ -554,7 +554,7 @@ impl State {
 
     /// A live process with no turn running, none on its way and no question waiting: the only time
     /// Fleet restarts one for a reason of its own.
-    pub(crate) fn between_turns(&self) -> bool {
+    pub fn between_turns(&self) -> bool {
         self.process.is_some()
             && matches!(self.turn, SessionTurn::Idle)
             && self.queued == 0
@@ -566,7 +566,7 @@ impl State {
     }
 
     /// Whether a move waits on nothing but the agents still working.
-    pub(crate) fn move_due(&self) -> bool {
+    pub fn move_due(&self) -> bool {
         self.moving.is_some()
             && matches!(self.turn, SessionTurn::Idle)
             && self.queued == 0
@@ -619,7 +619,7 @@ impl State {
 }
 
 impl Runtime {
-    pub(crate) fn state(&self) -> std::sync::MutexGuard<'_, State> {
+    pub fn state(&self) -> std::sync::MutexGuard<'_, State> {
         self.state
             .lock()
             .expect("a session's state is not held across a panic")

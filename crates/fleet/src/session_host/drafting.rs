@@ -14,13 +14,13 @@ const DRAFT_UNNAMED: &str = "fleet.draft_unnamed";
 const DRAFT_EMPTY: &str = "fleet.draft_empty";
 const DRAFT_WITHDRAW_UNNAMED: &str = "fleet.draft_withdraw_unnamed";
 const DRAFT_WITHDRAW_NOT_OPEN: &str = "fleet.draft_withdraw_not_open";
-pub(crate) const FIXED_NOT_A_DRAFT: &str = "fleet.fixed_not_a_draft";
+pub const FIXED_NOT_A_DRAFT: &str = "fleet.fixed_not_a_draft";
 
 /// The id a draft's waiting item goes by, from its row's.
-pub(crate) const DRAFT_PREFIX: &str = "draft:";
+pub const DRAFT_PREFIX: &str = "draft:";
 
 /// The person's message for each way a draft is settled. `title` is the item's text.
-pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
+pub fn approved(title: &str, words: Option<&str>) -> String {
     let mut body = format!("Approved: {title}\nApply it as written.");
     if let Some(words) = words {
         body.push('\n');
@@ -29,16 +29,16 @@ pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
     body
 }
 
-pub(crate) fn fixed(title: &str, text: &str) -> String {
+pub fn fixed(title: &str, text: &str) -> String {
     format!("Approved with my fixes: {title}\nUse exactly this text, as written:\n\n{text}")
 }
 
-pub(crate) fn sent_back(title: &str, note: &str) -> String {
+pub fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back: {title}\n{note}\nRewrite it and propose it again with propose_draft.")
 }
 
 /// The person's Dismiss on a draft. A blank reason adds no line.
-pub(crate) fn withdrawn(title: &str, reason: Option<&str>) -> String {
+pub fn withdrawn(title: &str, reason: Option<&str>) -> String {
     let mut body = format!("Withdrawn: {title}\nDo not propose it again.");
     if let Some(reason) = reason.map(str::trim).filter(|why| !why.is_empty()) {
         body.push('\n');
@@ -49,7 +49,7 @@ pub(crate) fn withdrawn(title: &str, reason: Option<&str>) -> String {
 
 impl Fleet
 {
-    pub(crate) async fn draft_proposed(
+    pub async fn draft_proposed(
         &self,
         caller: Option<api::Caller>,
         draft: ProposeDraft,
@@ -100,7 +100,7 @@ impl Fleet
     /// `withdraw_draft`: the session takes back an open draft of its own. The row settles `withdrawn`
     /// with no words and the session is sent nothing, since it withdrew it. **Only an open draft on
     /// this job's thread**, placed by the connection as `propose_draft` places it.
-    pub(crate) async fn draft_withdrawn(
+    pub async fn draft_withdrawn(
         &self,
         caller: Option<api::Caller>,
         withdraw: WithdrawDraft,
@@ -136,7 +136,7 @@ impl Fleet
 
     /// Keep how a draft was settled on its row, and publish the session so the item leaves the list.
     /// Called only once the person's message is sent, so a failed send leaves the draft standing.
-    pub(crate) async fn draft_settled(
+    pub async fn draft_settled(
         &self,
         session: &str,
         row_id: &str,
@@ -163,13 +163,13 @@ impl Fleet
 
     /// A workflow a Job proposed waits on the owner as a draft that names its change. The item
     /// leaves the list when the change is no longer ready, whoever settled it.
-    pub(crate) async fn proposal_waits(&self, session: &str, change: i64, workflow: &str, definition: &str, before: Option<String>) {
+    pub async fn proposal_waits(&self, session: &str, change: i64, workflow: &str, definition: &str, before: Option<String>) {
         self.proposal_titled(session, change, format!("Workflow {workflow}"), definition, before).await;
     }
 
     /// A proposal that waits as a draft named `title`: a rule or a lifecycle is named for what it is, as a
     /// workflow is.
-    pub(crate) async fn proposal_titled(&self, session: &str, change: i64, title: String, definition: &str, before: Option<String>) {
+    pub async fn proposal_titled(&self, session: &str, change: i64, title: String, definition: &str, before: Option<String>) {
         self.row_put(
             session,
             SessionRow::Draft {
@@ -187,7 +187,7 @@ impl Fleet
     }
 
     /// The change an open draft is the say on, where it is one.
-    pub(crate) async fn draft_change(&self, session: &str, row: &str) -> Option<i64> {
+    pub async fn draft_change(&self, session: &str, row: &str) -> Option<i64> {
         self.rows_of(session).await.ok()?.into_iter().find_map(|one| match one {
             SessionRow::Draft { id, change, .. } if id == row => change,
             _ => None,

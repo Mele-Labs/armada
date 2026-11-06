@@ -3,6 +3,6 @@
 //! The seam a slot's lease clones through: [`CopyOnWrite`] is a seam so a fixture has no volume
 //! to clone on, and [`TheVolume`] is the shipped answer. #1064.
 
-mod cloning;
+pub mod cloning;
 
 pub use cloning::{CopyOnWrite, NotCloned, TheVolume};

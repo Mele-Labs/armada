@@ -1,0 +1,274 @@
+//! Attributing a call to the Drone that made it.
+//!
+//! **The naive lookup is the one that is wrong, so a test that passes against
+//! it proves nothing.** `docs/spikes/012-peer-identity-under-concurrency.md`
+//! reproduced a second process holding the same local port to somewhere else,
+//! and every route keyed on that number alone named the wrong pid — not
+//! sometimes, but whenever the scan met the impostor first. So the first case
+//! here opens two real connections from this process, one to the listener under
+//! test and one to a decoy, and asserts that the pair distinguishes them.
+//!
+//! The kernel cases run against real sockets this process opened, because the
+//! thing being tested is a transcription of `sys/proc_info.h` and a fake would
+//! be a transcription of the transcription.
+
+use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::sync::{Arc, Mutex};
+
+use fleet::peer::{held_within, Kernel, PeerOf};
+use api::Caller;
+
+/// A `PeerOf` a test plants, for the cases that are about Fleet rather than
+/// about the kernel. It answers from a list of connections somebody wrote down.
+#[derive(Debug, Default)]
+pub struct Placing(Mutex<Vec<(u32, u16, u16)>>, Mutex<Vec<(u32, u32)>>, Mutex<Vec<(u32, String)>>);
+
+impl Placing {
+    /// Nobody holds anything. The default a fixture is assembled with — a fake
+    /// harness opens no sockets, so a fixture that answered otherwise would be
+    /// asserting against a machine.
+    pub fn nothing() -> Arc<Placing> {
+        Arc::new(Placing::default())
+    }
+
+    /// This process holds this connection.
+    pub fn holding(&self, pid: u32, from: u16, to: u16) {
+        self.0
+            .lock()
+            .expect("the plant is not held across a panic")
+            .push((pid, from, to));
+    }
+
+    /// `parent` started `child`, which is still running.
+    pub fn started(&self, parent: u32, child: u32) {
+        self.1
+            .lock()
+            .expect("the plant is not held across a panic")
+            .push((parent, child));
+    }
+
+    /// `pid` was started with `key=value` in its environment.
+    pub fn carrying(&self, pid: u32, key: &str, value: &str) {
+        self.2
+            .lock()
+            .expect("the plant is not held across a panic")
+            .push((pid, format!("{key}={value}")));
+    }
+}
+
+impl PeerOf for Placing {
+    fn holds(&self, pid: u32, from: u16, to: u16) -> bool {
+        self.0
+            .lock()
+            .expect("the plant is not held across a panic")
+            .iter()
+            .any(|held| *held == (pid, from, to))
+    }
+
+    fn children(&self, pid: u32) -> Vec<u32> {
+        self.1
+            .lock()
+            .expect("the plant is not held across a panic")
+            .iter()
+            .filter(|(parent, _)| *parent == pid)
+            .map(|(_, child)| *child)
+            .collect()
+    }
+
+    fn carries(&self, pid: u32, key: &str, value: &str) -> bool {
+        let entry = format!("{key}={value}");
+        self.2
+            .lock()
+            .expect("the plant is not held across a panic")
+            .iter()
+            .any(|(carrier, one)| *carrier == pid && *one == entry)
+    }
+}
+
+/// The attribution a fixture is assembled with: **there is one Drone, so the
+/// caller is it.**
+///
+/// That is exactly the binding Fleet had before `#50` — one working slot, one
+/// caller, nothing to ask — and it is what keeps every fixture written under it
+/// asserting the thing it was written to assert. A fake harness holds no
+/// socket, so the real lookup would answer nothing here and every one of those
+/// tests would be testing the refusal instead of its subject. The real matching
+/// is asserted below, against the kernel.
+#[derive(Debug, Default)]
+pub struct TheOnlyDrone;
+
+impl PeerOf for TheOnlyDrone {
+    fn holds(&self, _pid: u32, _from: u16, _to: u16) -> bool {
+        true
+    }
+
+    fn children(&self, _pid: u32) -> Vec<u32> {
+        Vec::new()
+    }
+}
+
+// The kernel half is `proc_pidfdinfo`; elsewhere `Kernel` is a stub that
+// answers nothing, so there is nothing for this to prove.
+#[cfg(target_vendor = "apple")]
+#[test]
+fn the_port_pair_tells_two_connections_apart_and_the_local_port_alone_does_not() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("the listener under test");
+    let served_on = listener.local_addr().expect("its address").port();
+    let decoy = TcpListener::bind("127.0.0.1:0").expect("somewhere else entirely");
+    let elsewhere = decoy.local_addr().expect("its address").port();
+
+    let to_fleet = TcpStream::connect(("127.0.0.1", served_on)).expect("a connection to Fleet");
+    let _accepted = listener.accept().expect("Fleet accepts it");
+    let to_elsewhere = TcpStream::connect(("127.0.0.1", elsewhere)).expect("and one to the decoy");
+    let _also = decoy.accept().expect("the decoy accepts it");
+
+    let mine = std::process::id();
+    let from_fleet = to_fleet.local_addr().expect("its own port").port();
+    let from_elsewhere = to_elsewhere.local_addr().expect("its own port").port();
+
+    // The connection Fleet is holding.
+    assert!(
+        Kernel.holds(mine, from_fleet, served_on),
+        "the pair (this port, Fleet's port) is a connection this process holds"
+    );
+    // **The assertion the naive lookup fails.** This local port is live and
+    // this process holds it — a lookup keyed on the port alone says yes — and
+    // it is not a connection to Fleet.
+    assert!(
+        !Kernel.holds(mine, from_elsewhere, served_on),
+        "a live local port talking somewhere else is not a caller of Fleet"
+    );
+    assert!(
+        Kernel.holds(mine, from_elsewhere, elsewhere),
+        "and it is exactly a caller of the decoy"
+    );
+}
+
+#[test]
+fn a_port_nothing_holds_attributes_to_nobody() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("a listener");
+    let served_on = listener.local_addr().expect("its address").port();
+    // Bound and dropped, so the port was real and is now nobody's.
+    let gone = {
+        let stream = TcpStream::connect(("127.0.0.1", served_on)).expect("a connection");
+        let _accepted = listener.accept().expect("accepted");
+        stream.local_addr().expect("its port").port()
+    };
+    assert!(
+        !Kernel.holds(std::process::id(), gone, served_on),
+        "a connection this process has closed is not one it holds"
+    );
+}
+
+/// **A hosted Job's relay is its agent's child**, and the child holds the
+/// socket. So a call is placed within a session anywhere in the tree the host
+/// started, and nowhere outside it. `#941`.
+#[test]
+fn a_call_from_a_process_a_session_started_is_placed_within_it() {
+    let peers = Placing::nothing();
+    peers.started(7000, 7001);
+    peers.started(7001, 7002);
+    peers.holding(7002, 52000, 12345);
+    peers.holding(9000, 52001, 12345);
+
+    let relay = Caller::at("127.0.0.1:52000".parse::<SocketAddr>().expect("an address"));
+    assert!(held_within(&relay, 12345, &[7000], peers.as_ref()));
+    assert!(
+        !held_within(&relay, 54321, &[7000], peers.as_ref()),
+        "the same port to another listener is not a call to Fleet"
+    );
+    let outsider = Caller::at("127.0.0.1:52001".parse::<SocketAddr>().expect("an address"));
+    assert!(
+        !held_within(&outsider, 12345, &[7000], peers.as_ref()),
+        "a process no session started is not the session, whatever it sends"
+    );
+    assert!(!held_within(&relay, 12345, &[], peers.as_ref()));
+    assert!(!held_within(
+        &Caller::unplaceable(),
+        12345,
+        &[7000],
+        peers.as_ref()
+    ));
+}
+
+/// The kernel's half, against a real tree: a shell whose subshell opens the
+/// connection, so the socket is held by a process this test never started.
+#[cfg(target_vendor = "apple")]
+#[tokio::test]
+async fn the_kernel_places_a_connection_held_by_a_child_of_the_root() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("a listener");
+    let served_on = listener.local_addr().expect("its address").port();
+    let script = format!("(exec 3<>/dev/tcp/127.0.0.1/{served_on}; read -r _ <&3); :");
+    let mut shell = fleet::detach::Detached::program("/bin/bash")
+        .args(["-c", script.as_str()])
+        .spawn()
+        .expect("a shell");
+    let root = shell.id().expect("a running shell");
+
+    listener
+        .set_nonblocking(true)
+        .expect("a listener that can be polled");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    let (accepted, peer) = loop {
+        match listener.accept() {
+            Ok(accepted) => break accepted,
+            Err(_) if std::time::Instant::now() < deadline => {
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await
+            }
+            Err(why) => panic!("the subshell never connected: {why}"),
+        }
+    };
+
+    assert!(
+        !Kernel.children(root).is_empty(),
+        "the shell started a subshell"
+    );
+    assert!(
+        !Kernel.holds(root, peer.port(), served_on),
+        "the shell itself does not hold the connection"
+    );
+    assert!(held_within(&Caller::at(peer), served_on, &[root], &Kernel));
+    // **A sibling, not this test's own pid**: a detached child keeps its
+    // parent, so the shell is inside this process's tree and would be found.
+    let mut sibling = fleet::detach::Detached::program("/bin/sleep")
+        .args(["5"])
+        .spawn()
+        .expect("a process beside the shell");
+    let beside = sibling.id().expect("a running sibling");
+    assert!(
+        !held_within(&Caller::at(peer), served_on, &[beside], &Kernel),
+        "a process that did not start the caller is not where the call came from"
+    );
+
+    drop(accepted);
+    let _ = sibling.kill().await;
+    let _ = shell.wait().await;
+}
+
+// A process the session's own binary runs as is its own though it left the tree, and one running
+// a file from anywhere else is not.
+#[cfg(target_vendor = "apple")]
+#[test]
+fn a_process_running_a_file_from_a_held_directory_is_the_holders() {
+    let exe = std::env::current_exe().expect("this test's binary");
+    let here = exe.parent().expect("its directory").to_string_lossy().into_owned();
+    let mine = std::process::id();
+    assert!(fleet::peer::runs_from(mine, &[here.clone()], &Kernel));
+    assert!(!fleet::peer::runs_from(mine, &["/usr/share".to_string()], &Kernel));
+    assert!(!fleet::peer::runs_from(mine, &[], &Kernel));
+    // A pid nothing runs under, and a fake that cannot say, are not anyone's.
+    assert!(!fleet::peer::runs_from(u32::MAX - 1, &[here.clone()], &Kernel));
+    assert!(!fleet::peer::runs_from(mine, &[here], &Placing::default()));
+}
+
+// The environment a process was started with is read from the kernel: what this test was started
+// with is there, a value it was not started with is not, and a pid nothing runs under carries nothing.
+#[cfg(target_vendor = "apple")]
+#[test]
+fn the_kernel_reads_the_environment_a_process_was_started_with() {
+    let mine = std::process::id();
+    let path = std::env::var("PATH").expect("a PATH this test was started with");
+    assert!(Kernel.carries(mine, "PATH", &path));
+    assert!(!Kernel.carries(mine, "PATH", "/nowhere"));
+    assert!(!Kernel.carries(u32::MAX - 1, "PATH", &path));
+}

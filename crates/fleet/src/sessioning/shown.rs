@@ -5,7 +5,7 @@ use super::*;
 
 /// Whether an address is one Bridge's window will load: any `http` or `https` address with a host
 /// and no blank in it (`docs/practices/capture-window.md`).
-pub(super) fn shows_a_page(url: &str) -> bool {
+pub fn shows_a_page(url: &str) -> bool {
     let Some(rest) = url
         .strip_prefix("http://")
         .or_else(|| url.strip_prefix("https://"))
@@ -23,7 +23,7 @@ pub(super) fn shows_a_page(url: &str) -> bool {
 
 /// An address a Job opened outside Bridge, as its reminder row shows it: **no query, fragment or
 /// sign-in**, which is where a token rides, and at most 300 characters. `None` where it is blank.
-pub(crate) fn address_shown(address: &str) -> Option<String> {
+pub fn address_shown(address: &str) -> Option<String> {
     let address = address.trim().split(['?', '#']).next().unwrap_or_default();
     let address = match address.split_once("://") {
         Some((scheme, rest)) => {
@@ -38,7 +38,7 @@ pub(crate) fn address_shown(address: &str) -> Option<String> {
 
 /// The takes a call named, trimmed, or why they cannot be shown. **Each address is held to the one
 /// `url` is**, and a call that names takes shows the first: `url` must be that same page.
-pub(super) fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<ipc::WindowTake>, &'static str> {
+pub fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<ipc::WindowTake>, &'static str> {
     let takes: Vec<_> = named
         .into_iter()
         .map(|one| ipc::WindowTake { name: one.name.trim().to_string(), url: one.url.trim().to_string() })
@@ -60,7 +60,7 @@ pub(super) fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<
 const MOST_BRIEF: usize = 400;
 
 /// The brief a call named, trimmed, or why it cannot be shown. **Blank is none.**
-pub(super) fn brief_shown(named: Option<String>) -> Result<Option<String>, &'static str> {
+pub fn brief_shown(named: Option<String>) -> Result<Option<String>, &'static str> {
     let brief = named.map(|text| text.trim().to_string()).filter(|text| !text.is_empty());
     match brief {
         Some(text) if text.chars().count() > MOST_BRIEF => Err("a `brief` of at most 400 characters"),
@@ -157,7 +157,7 @@ fn step_problem(step: &ipc::WalkStep) -> Option<&'static str> {
 
 /// The steps a call named, trimmed, or what the report needs of them. **The first step that is
 /// wrong is named by its place**, so the session fixes that one and not the whole list.
-pub(crate) fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> {
+pub fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep>, String> {
     if named.len() > MOST_STEPS {
         return Err(String::from("no more than 200 steps"));
     }
@@ -179,7 +179,7 @@ pub(crate) fn steps_shown(named: Vec<ipc::WalkStep>) -> Result<Vec<ipc::WalkStep
 
 /// The origins a call named, trimmed, or why they cannot be passed through. **An origin only**:
 /// `http` or `https`, a host and an optional port, and no path, query, fragment or sign-in of its own.
-pub(super) fn origins_named(named: Vec<String>) -> Result<Vec<String>, &'static str> {
+pub fn origins_named(named: Vec<String>) -> Result<Vec<String>, &'static str> {
     let origins: Vec<String> = named.into_iter().map(|one| one.trim().to_string()).collect();
     let bare = |one: &String| {
         shows_a_page(one) && one.split_once("://").is_some_and(|(_, rest)| !rest.contains(['/', '?', '#', '@']))
@@ -193,7 +193,7 @@ pub(super) fn origins_named(named: Vec<String>) -> Result<Vec<String>, &'static 
 
 /// The sign-in addresses a call named, trimmed, or why they cannot be loaded. **Each is a page
 /// on the shown origin or on one of `origins`**, so a sign-in reaches nowhere the window may not.
-pub(super) fn sign_in_named(url: &str, origins: &[String], named: Vec<String>) -> Result<Vec<String>, &'static str> {
+pub fn sign_in_named(url: &str, origins: &[String], named: Vec<String>) -> Result<Vec<String>, &'static str> {
     let addresses: Vec<String> = named.into_iter().map(|one| one.trim().to_string()).collect();
     let allowed: Vec<String> = std::iter::once(url).chain(origins.iter().map(String::as_str)).filter_map(origin_of).collect();
     let on_one = |one: &String| shows_a_page(one) && origin_of(one).is_some_and(|origin| allowed.contains(&origin));
@@ -206,4 +206,4 @@ pub(super) fn sign_in_named(url: &str, origins: &[String], named: Vec<String>) -
 
 /// The two kinds a session holds one of at a time. Every other kind is kept as
 /// the open word it arrived as.
-pub(super) const ONE_AT_A_TIME: [&str; 2] = ["branch", "slot"];
+pub const ONE_AT_A_TIME: [&str; 2] = ["branch", "slot"];

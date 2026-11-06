@@ -23,7 +23,7 @@ impl Fleet
 {
     /// A Job titled `title` in `served`, holding a slot and its own branch. The inner `Err` says
     /// why no slot was leased, and the Job is closed again.
-    pub(crate) async fn job_of_its_own(
+    pub async fn job_of_its_own(
         &self,
         served: &Served,
         title: String,
@@ -68,14 +68,14 @@ impl Fleet
 
     /// Write each file in the Job's tree and commit those paths alone on its branch with `message`.
     /// `None` where the branch already held them as written; the `Err` says what failed.
-    pub(crate) async fn committed_in(&self, tree: &JobTree, files: &[(String, String)], message: &str) -> Result<Option<String>, String> {
+    pub async fn committed_in(&self, tree: &JobTree, files: &[(String, String)], message: &str) -> Result<Option<String>, String> {
         self.committed_in_removing(tree, files, &[], message).await
     }
 
     /// [`Self::committed_in`], and each of `removals` deleted from the tree first. **A path the tree
     /// no longer holds is committed as a deletion** by `commit_paths`, so the deletion is in the same
     /// commit as the writes and nothing else is.
-    pub(crate) async fn committed_in_removing(
+    pub async fn committed_in_removing(
         &self,
         tree: &JobTree,
         files: &[(String, String)],
@@ -109,7 +109,7 @@ impl Fleet
 
     /// Push the Job's branch and open its pull request into the base, through the forge every
     /// Job's delivery uses. The address, or why there is none.
-    pub(crate) async fn delivered_for_review(&self, served: &Served, tree: &JobTree, review: Review) -> Result<String, String> {
+    pub async fn delivered_for_review(&self, served: &Served, tree: &JobTree, review: Review) -> Result<String, String> {
         let (vcs, branch) = (Arc::clone(self.vcs()), tree.branch.clone());
         let worktree = Worktree::at(tree.path.clone(), tree.branch.clone());
         let declared = served.manifest().base().map(str::to_string);
@@ -137,7 +137,7 @@ impl Fleet
 
     /// The pull request on the Job's ledger row, as a claim puts it, so the pull reading, the merge
     /// and Fleet's reports follow it from now rather than from the pull reading's next pass.
-    pub(crate) async fn pull_attached(&self, served: &Served, id: &str, branch: &str, url: &str) {
+    pub async fn pull_attached(&self, served: &Served, id: &str, branch: &str, url: &str) {
         let Some(number) = crate::pull_requesting::number_of(url) else { return };
         let now = self.now().as_str().to_string();
         let kept = KeptAttachment {

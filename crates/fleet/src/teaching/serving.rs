@@ -18,15 +18,15 @@ use crate::mods::{self, fleet_rules, words};
 const FAILED: &str = "fleet.teaching_failed";
 
 /// A Words mod that is on and valid.
-pub(crate) struct KeptWords {
-    pub(crate) name: String,
-    pub(crate) file: WordsFile,
+pub struct KeptWords {
+    pub name: String,
+    pub file: WordsFile,
 }
 
 impl KeptWords {
     /// Where this pattern opens for `manifest`: the repository's own address, else the one for every
     /// repository.
-    pub(crate) fn address_for(&self, manifest: &str) -> Option<&WordsAddress> {
+    pub fn address_for(&self, manifest: &str) -> Option<&WordsAddress> {
         let named = |key: &str| self.file.address.iter().find(|one| one.repository == key);
         named(manifest).or_else(|| named("*"))
     }
@@ -75,7 +75,7 @@ impl Teaching for Fleet
 
 impl Fleet
 {
-    pub(crate) fn teaching_fault(&self, why: impl std::fmt::Display) -> Refusal {
+    pub fn teaching_fault(&self, why: impl std::fmt::Display) -> Refusal {
         Refusal::Fault(WireError::raised(FAILED, why.to_string(), self.run_id()))
     }
 
@@ -89,14 +89,14 @@ impl Fleet
     }
 
     /// Every Words mod that is on and valid, by name.
-    pub(crate) async fn words_kept(&self) -> Result<Vec<KeptWords>, Refusal> {
+    pub async fn words_kept(&self) -> Result<Vec<KeptWords>, Refusal> {
         let files = self.mod_files_kept(ModKind::Words).await?;
         Ok(files.into_iter().filter_map(|(name, text)| words::read(&text).ok().map(|file| KeptWords { name, file })).collect())
     }
 
     /// What the Fleet mods say to do with `notice` for `session` in the repository `manifest`, if
     /// any does. **Read by what sends every notice**, `told_by_fleet`, after the person's mute.
-    pub(crate) async fn fleet_rule_for(&self, notice: &str, text: &str, session: &str, manifest: &str) -> Option<FleetRule> {
+    pub async fn fleet_rule_for(&self, notice: &str, text: &str, session: &str, manifest: &str) -> Option<FleetRule> {
         let files = self.mod_files_kept(ModKind::Fleet).await.ok()?;
         let read: Vec<FleetFile> = files.iter().filter_map(|(_, text)| fleet_rules::read(text).ok()).collect();
         fleet_rules::rule_for(&read, notice, text, session, manifest).cloned()

@@ -20,7 +20,7 @@ impl Fleet
     /// on, the one the session was leased and its pull requests', where the base already holds
     /// them. **Anything
     /// refused stays and is named in `kept`**; nothing is committed for the agent.
-    pub(crate) async fn finished_up(
+    pub async fn finished_up(
         &self,
         caller: Option<api::Caller>,
         finish: FinishUp,

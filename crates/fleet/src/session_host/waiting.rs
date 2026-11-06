@@ -65,7 +65,7 @@ use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
 const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
-pub(crate) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
+pub const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
@@ -76,10 +76,10 @@ const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
 /// stated the item again. Bridge leaves the line off the person's row, so keep it in step there.
-pub(crate) const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
+pub const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
 
 /// A walk window a session showed, as the merge reads it.
-pub(crate) struct Window {
+pub struct Window {
     pub url: String,
     pub title: String,
     pub since: String,
@@ -87,18 +87,18 @@ pub(crate) struct Window {
 
 /// What [`Fleet::waiting_from`] needs from the store: SQL only, taken under the lock.
 #[derive(Clone)]
-pub(crate) struct WaitingReads {
+pub struct WaitingReads {
     kept: Vec<KeptWaiting>,
     rows: Vec<String>,
     dismissed: Vec<String>,
     /// The items the person closed, kept whole, newest first.
     closed: Vec<store::KeptClosed>,
     /// When the agent said it was done, if that still stands.
-    pub(crate) done: Option<String>,
+    pub done: Option<String>,
     /// What the agent said the Job achieved, with the done.
-    pub(crate) done_summary: Option<String>,
+    pub done_summary: Option<String>,
     /// The running summary of what the Job has done.
-    pub(crate) so_far: Option<String>,
+    pub so_far: Option<String>,
     /// How the last turn ended while nothing has followed it: when, and the end of what the agent said.
     turn_end: Option<(String, String)>,
     /// The last Fleet tell it was sent whose refusal is read.
@@ -136,7 +136,7 @@ pub(crate) struct WaitingReads {
 }
 
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
-pub(crate) struct Waited {
+pub struct Waited {
     pub items: Vec<WaitingItem>,
     /// The items the person closed, newest first, and whether each would wait again.
     pub closed: Vec<ipc::ClosedWaiting>,
@@ -157,7 +157,7 @@ pub(crate) struct Waited {
     pub lapsed: bool,
 }
 
-pub(crate) fn waiting_reads(
+pub fn waiting_reads(
     store: &Store,
     session: &KeptSession,
 ) -> Result<WaitingReads, store::WriteError> {
@@ -205,7 +205,7 @@ impl WaitingReads {
 
     /// When the last turn ended, while nothing has followed it, the Job is not paused and he has not
     /// dismissed what that turn raised: what a step that ends on his reply waits from.
-    pub(crate) fn reply_owed_since(&self) -> Option<String> {
+    pub fn reply_owed_since(&self) -> Option<String> {
         let (at, _) = self.turn_end.as_ref().filter(|_| !self.paused && self.done.is_none())?;
         let id = format!("replied:{at}");
         let dismissed = self.dismissed.iter().any(|one| one == &id || one.starts_with(&format!("{id}:")));
@@ -216,7 +216,7 @@ impl WaitingReads {
 /// The item a step that ends on his reply raises once a turn ends, a reply that only reports
 /// included: the step waits on him whatever the reply said. Its id is the one a reply that asks takes,
 /// so dismissing either settles both.
-pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
+pub fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
     WaitingItem {
         id: format!("replied:{ended}"),
         text: format!("{step}: {}", crate::rail_ends::End::Replied.for_person()),
@@ -344,7 +344,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
 /// and so is one with a `walk` act (`walk_asks.rs`), kept before `waiting_for` refused it.
-pub(crate) fn merged(
+pub fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&CallInFlight>,
     windows: &[Window],
@@ -423,7 +423,7 @@ impl Fleet
 {
     /// What the session waits on now: its agent's list with Fleet's own merged in, off what
     /// [`waiting_reads`] took, so decoding a thread's rows happens after the store lock is let go.
-    pub(crate) fn waiting_from(
+    pub fn waiting_from(
         &self,
         reads: WaitingReads,
         session: &KeptSession,
@@ -769,7 +769,7 @@ impl Fleet
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
-    pub(crate) async fn set_waiting(
+    pub async fn set_waiting(
         &self,
         caller: Option<api::Caller>,
         set: SetWaitingFor,
@@ -859,7 +859,7 @@ impl Fleet
     }
 
     /// The session a call is about: the hosted one holding the connection, else the named one.
-    pub(super) fn waiting_session(
+    pub fn waiting_session(
         &self,
         caller: Option<api::Caller>,
         named: Option<&ipc::SessionId>,
@@ -874,7 +874,7 @@ impl Fleet
     /// `all_done`: the agent has nothing left to work on. **It gives back what `finish_up` gives back
     /// first**, so one call finishes a Job, and where it is refused it names every reason at once.
     /// A second call keeps the first instant.
-    pub(crate) async fn say_done(
+    pub async fn say_done(
         &self,
         caller: Option<api::Caller>,
         done: AllDone,
@@ -936,14 +936,14 @@ impl Fleet
     }
 
     /// The agent's word that it was done no longer stands. Whether it had stood.
-    pub(crate) async fn done_cleared(&self, id: &str) -> bool {
+    pub async fn done_cleared(&self, id: &str) -> bool {
         self.store().lock().await.clear_done(id).unwrap_or(false)
     }
 
     /// A turn ended at `at`, on `said` where the agent said something to the person: its end is kept, so
     /// the Session reads as having replied, and as asking where the close asks. A turn that ended on tools alone leaves what stood as it was: the turn that
     /// began it already forgot the reply before.
-    pub(crate) async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>) {
+    pub async fn turn_end_kept(&self, id: &str, at: &str, said: Option<&str>) {
         let tail = said.map(super::standing::tail).filter(|tail| !tail.is_empty());
         if let Some(tail) = tail {
             let _ = self.store().lock().await.keep_turn_end(id, at, &tail);
@@ -951,12 +951,12 @@ impl Fleet
     }
 
     /// The reply the last turn left no longer stands: he wrote, or another turn began. Whether it had.
-    pub(crate) async fn turn_end_cleared(&self, id: &str) -> bool {
+    pub async fn turn_end_cleared(&self, id: &str) -> bool {
         self.store().lock().await.clear_turn_end(id).unwrap_or(false)
     }
 
     /// `answer_waiting`: route the answer by where the item came from.
-    pub(crate) async fn settle_waiting(
+    pub async fn settle_waiting(
         self: Arc<Self>,
         said: AnswerWaiting,
     ) -> Result<SessionRecord, Refusal> {
@@ -1230,7 +1230,7 @@ impl Fleet
     /// reason. **A walk, or a sentence read from the agent's reply, is told too**: the session is sent
     /// `Owner dismissed "<item text>"`. Any other item Fleet derived is only dropped.
     /// The message goes first, so a send that fails leaves the item standing to try again.
-    pub(crate) async fn dismiss_waited(
+    pub async fn dismiss_waited(
         self: Arc<Self>,
         dismiss: DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
@@ -1355,7 +1355,7 @@ impl Fleet
     /// `reopen_waiting`: let an item the person closed wait again. **The agent's own item goes back on
     /// its list as it was stated**, and the agent is told, so its next `waiting_for` keeps it. An item whose subject has ended is
     /// refused, as the record's `closed` says of it.
-    pub(crate) async fn waiting_reopened(self: Arc<Self>, reopen: ReopenWaiting) -> Result<SessionRecord, Refusal> {
+    pub async fn waiting_reopened(self: Arc<Self>, reopen: ReopenWaiting) -> Result<SessionRecord, Refusal> {
         let id = reopen.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?;
         if terminal.is_some() {
@@ -1424,7 +1424,7 @@ impl Fleet
     }
 
     /// `list_closed_waiting`: what the person closed from the Job's list, newest first.
-    pub(crate) async fn closed_waiting_listed(
+    pub async fn closed_waiting_listed(
         &self,
         caller: Option<api::Caller>,
         named: Option<ipc::SessionId>,
@@ -1442,7 +1442,7 @@ impl Fleet
     /// `confirm_waiting`: thumbs up on a question read from a reply. Its sentence is kept for good as one
     /// that asks, the item stays, and every read from then on carries it as confirmed. The agent is told
     /// nothing: the item was never its own.
-    pub(crate) async fn confirm_waited(
+    pub async fn confirm_waited(
         self: Arc<Self>,
         confirm: ConfirmWaiting,
     ) -> Result<SessionRecord, Refusal> {
@@ -1487,7 +1487,7 @@ impl Fleet
     }
 
     /// An item no longer waiting, or one another answer or removal is being delivered for.
-    pub(crate) fn settled_already(&self) -> Refusal {
+    pub fn settled_already(&self) -> Refusal {
         Refusal::IllegalMove(WireError::raised(
             SESSION_WAITING_UNHELD,
             "nothing is waiting under that item. It was settled already, or the job stopped waiting",
@@ -1519,7 +1519,7 @@ impl Fleet
     /// A run the person made ended clean: take off the agent's `run` items for that command, so Bridge
     /// has none to settle. Whether any was taken off. **An item with steps stays**: its command is one
     /// step of several, and Bridge ticks that step where the run was pressed.
-    pub(crate) async fn run_item_settled(&self, id: &str, command: &str) -> bool {
+    pub async fn run_item_settled(&self, id: &str, command: &str) -> bool {
         let record = {
             let mut store = self.store().lock().await;
             let Ok(Some(session)) = store.session(id) else {

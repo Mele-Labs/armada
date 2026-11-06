@@ -156,7 +156,7 @@ const SOCKET_PATH_MOST: usize = 103;
 const LONGEST_SESSION: &str = "00000000-0000-0000-0000-000000000000";
 
 /// Where keepers go when the machine folder is too deep for a socket: `/tmp/armada-<user>/sessions`.
-pub(crate) const PRIVATE_ROOT: &str = "/tmp";
+pub const PRIVATE_ROOT: &str = "/tmp";
 
 /// Where each Job's keeper socket goes: `machine/sessions` while a socket there fits, so keepers
 /// already running are found after an upgrade. A long username puts it past the limit, and then a
@@ -191,7 +191,7 @@ fn fits(keepers: &Path) -> bool {
 
 /// Make the keepers' folder if it is gone, as /tmp's cleaning may leave it. One under `root` is made
 /// 0700 and refused unless it is a folder owned by whoever owns `home` that nobody else may open.
-pub(crate) fn keepers_made(keepers: &Path, home: &Path, root: &Path) -> Result<(), String> {
+pub fn keepers_made(keepers: &Path, home: &Path, root: &Path) -> Result<(), String> {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt};
     let Some(private) = keepers.parent().filter(|_| keepers.starts_with(root)) else {
         return std::fs::create_dir_all(keepers).map_err(|why| why.to_string());
@@ -224,7 +224,7 @@ impl ProcessHost {
         }
     }
 
-    pub(crate) fn on_this_machine(
+    pub fn on_this_machine(
         host: &crate::daemon::Host,
         width: checks_runner::CheckWidth,
     ) -> ProcessHost {

@@ -8,35 +8,35 @@ use serde::{Deserialize, Serialize};
 /// A run's `run.json`. Not an `ipc` type: it is Fleet's own format for its own
 /// directory, and the wire shapes below are projections of it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct Record {
-    pub(crate) id: String,
-    pub(crate) name: String,
-    pub(crate) command: String,
-    pub(crate) required: Vec<String>,
-    pub(crate) started_at: Instant,
-    pub(crate) ended_at: Instant,
-    pub(crate) duration_ms: u64,
+pub struct Record {
+    pub id: String,
+    pub name: String,
+    pub command: String,
+    pub required: Vec<String>,
+    pub started_at: Instant,
+    pub ended_at: Instant,
+    pub duration_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) exit_code: Option<i32>,
-    pub(crate) expect_exit_code: i64,
-    pub(crate) ended: String,
-    pub(crate) stopped: bool,
-    pub(crate) changed: Vec<ChangedFile>,
+    pub exit_code: Option<i32>,
+    pub expect_exit_code: i64,
+    pub ended: String,
+    pub stopped: bool,
+    pub changed: Vec<ChangedFile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) changed_unreadable: Option<String>,
+    pub changed_unreadable: Option<String>,
     /// Where the tree before the run is kept. Absent: nothing to undo from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) snapshot: Option<String>,
+    pub snapshot: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) undone_at: Option<Instant>,
-    pub(crate) log: String,
+    pub undone_at: Option<Instant>,
+    pub log: String,
     /// The workspace whose own file declared it. Absent is the root's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) workspace: Option<String>,
+    pub workspace: Option<String>,
     /// Who asked for it. **Absent on a record written before 23.40 reads as
     /// outside**, which is what every such run was.
     #[serde(default)]
-    pub(crate) requester: ipc::Requester,
+    pub requester: ipc::Requester,
 }
 
 impl Record {
@@ -46,7 +46,7 @@ impl Record {
     /// a surface in the main checkout has to know is whether Undo is there to
     /// offer, because this tree holds a person's own uncommitted work — the
     /// reference it would be restored from is Fleet's business.
-    pub(crate) fn of_checkout(&self) -> CheckoutRunRecord {
+    pub fn of_checkout(&self) -> CheckoutRunRecord {
         CheckoutRunRecord {
             id: self.id.clone(),
             name: self.name.clone(),
@@ -77,19 +77,19 @@ impl Record {
 ///
 /// [`Rehearsals`]: super::in_flight::Rehearsals
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Underway {
-    pub(crate) id: String,
-    pub(crate) name: String,
+pub struct Underway {
+    pub id: String,
+    pub name: String,
     /// The command line that is running.
-    pub(crate) command: String,
-    pub(crate) started_at: Instant,
-    pub(crate) workspace: Option<String>,
-    pub(crate) requester: ipc::Requester,
+    pub command: String,
+    pub started_at: Instant,
+    pub workspace: Option<String>,
+    pub requester: ipc::Requester,
 }
 
 impl Underway {
 
-    pub(crate) fn of_checkout(&self) -> ipc::CheckoutRunUnderway {
+    pub fn of_checkout(&self) -> ipc::CheckoutRunUnderway {
         ipc::CheckoutRunUnderway {
             id: self.id.clone(),
             name: self.name.clone(),

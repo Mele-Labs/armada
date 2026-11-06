@@ -10,7 +10,7 @@ use crate::daemon::Fleet;
 const NOT_SETTLEABLE: &str = "fleet.later_not_settleable";
 const NOT_DEFERRABLE: &str = "fleet.later_not_deferrable";
 const NOT_OPEN: &str = "fleet.later_not_open";
-pub(super) const LATER_OPEN: &str = "fleet.later_open";
+pub const LATER_OPEN: &str = "fleet.later_open";
 
 /// What `all_done` is told while follow-ups are open: each one, and the three ways to settle it.
 fn open_text(open: &[store::KeptLater]) -> String {
@@ -24,22 +24,22 @@ fn open_text(open: &[store::KeptLater]) -> String {
 impl Fleet
 {
     /// Keep `sentences` the way `defer_later` does, said when a reply ended at `said_at`. Whether any was new.
-    #[cfg(test)]
-    pub(crate) async fn later_kept(&self, id: &str, sentences: &[String], said_at: &str) -> bool {
+    #[cfg(any(test, feature = "test-support"))]
+    pub async fn later_kept(&self, id: &str, sentences: &[String], said_at: &str) -> bool {
         let mut store = self.store().lock().await;
         sentences.iter().fold(false, |any, sentence| store.keep_later(id, sentence, said_at).unwrap_or(false) || any)
     }
 
     /// What `all_done` is told while any follow-up is open, naming each. **Only the agent's call asks**:
     /// the person's End job is `close_session` and never reads this.
-    pub(crate) fn later_open_text(&self, store: &store::Store, id: &str) -> Result<Option<String>, Refusal> {
+    pub fn later_open_text(&self, store: &store::Store, id: &str) -> Result<Option<String>, Refusal> {
         let open = store.later_of(id).map_err(|why| self.ledger_fault(why))?;
         Ok((!open.is_empty()).then(|| open_text(&open)))
     }
 
     /// `defer_later`: the job keeps one follow-up for itself. The same sentence, trimmed, is the item it
     /// was, and one settled already is not kept again.
-    pub(crate) async fn later_deferred(&self, caller: Option<api::Caller>, defer: DeferLater) -> Result<LaterDeferred, Refusal> {
+    pub async fn later_deferred(&self, caller: Option<api::Caller>, defer: DeferLater) -> Result<LaterDeferred, Refusal> {
         let id = self.waiting_session(caller, defer.session_id.as_ref())?;
         let sentence = defer.sentence.trim();
         if sentence.is_empty() {
@@ -73,7 +73,7 @@ impl Fleet
     /// `settle_later`: one open follow-up is done, filed, dropped or handed to the Operator. **A job's own call must say
     /// enough**: an issue it can name for a filed, a reason for a drop. The person's Drop is a call
     /// no connection places, and says nothing more.
-    pub(crate) async fn later_settled(&self, caller: Option<api::Caller>, settle: SettleLater) -> Result<LaterSettled, Refusal> {
+    pub async fn later_settled(&self, caller: Option<api::Caller>, settle: SettleLater) -> Result<LaterSettled, Refusal> {
         let by_agent = caller.as_ref().is_some_and(|caller| self.session_holding(caller).is_some());
         let id = self.waiting_session(caller, settle.session_id.as_ref())?;
         if settle.misread && (by_agent || !matches!(settle.how, LaterHow::Dropped)) {
@@ -132,7 +132,7 @@ impl Fleet
 
     /// `confirm_later`: thumbs up on an open follow-up. Its sentence is kept for good as one, the row
     /// stays open and reads confirmed. The agent is told nothing.
-    pub(crate) async fn later_confirmed(&self, confirm: ipc::ConfirmLater) -> Result<ipc::SessionRecord, Refusal> {
+    pub async fn later_confirmed(&self, confirm: ipc::ConfirmLater) -> Result<ipc::SessionRecord, Refusal> {
         let id = self.waiting_session(None, confirm.session_id.as_ref())?;
         let now = self.clock().now().as_str().to_string();
         let record = {

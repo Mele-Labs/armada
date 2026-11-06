@@ -22,7 +22,7 @@ use crate::leasing::{pool_of, SLOT_HOLDER_CHANGED};
 
 impl SlotQueue {
     /// The repositories where a session in a line has its call open.
-    pub(super) fn open_call_manifests(&self) -> Vec<String> {
+    pub fn open_call_manifests(&self) -> Vec<String> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         let mut open: Vec<String> = waiting
             .entries
@@ -37,7 +37,7 @@ impl SlotQueue {
 
     /// Take `holders` as what every session in `manifest`'s line is offered. The sessions with a call
     /// open whose rows changed, which are to be published.
-    pub(super) fn set_holders(&self, manifest: &str, holders: &[SlotHolder]) -> Vec<String> {
+    pub fn set_holders(&self, manifest: &str, holders: &[SlotHolder]) -> Vec<String> {
         let mut waiting = self.waiting.lock().expect("the line is not held across a panic");
         let mut changed = Vec::new();
         for (id, entry) in waiting.entries.iter_mut().filter(|(_, one)| one.manifest == manifest) {
@@ -54,7 +54,7 @@ impl SlotQueue {
 
     /// The row a session's open call offers for `slot`, and the repository it waits in.
     /// `Err(false)` where the session has no call open, `Err(true)` where the call has no such row.
-    pub(super) fn holder_row(&self, session: &str, slot: u32) -> Result<(String, SlotHolder), bool> {
+    pub fn holder_row(&self, session: &str, slot: u32) -> Result<(String, SlotHolder), bool> {
         let waiting = self.waiting.lock().expect("the line is not held across a panic");
         let entry = waiting
             .entries
@@ -70,7 +70,7 @@ impl Fleet
 {
     /// Read the holders of every repository where a call is open, and publish the Jobs whose rows
     /// changed.
-    pub(crate) async fn refresh_slot_holders(&self) {
+    pub async fn refresh_slot_holders(&self) {
         let queue = Arc::clone(self.hosts().slot_queue());
         for manifest in queue.open_call_manifests() {
             self.refresh_holders_of(&queue, &manifest).await;
@@ -142,7 +142,7 @@ impl Fleet
     /// runs, and whether its checkout holds uncommitted work, each refused with nothing changed. The
     /// release is `change_slot_pool`'s for a Job's bay, and the lease the one the line's grant takes,
     /// both under `granting`, which nothing here holds across a checkout being made.
-    pub(crate) async fn slot_freed_for(self: &Arc<Self>, free: FreeSlot) -> Result<SessionRecord, Refusal> {
+    pub async fn slot_freed_for(self: &Arc<Self>, free: FreeSlot) -> Result<SessionRecord, Refusal> {
         let id = free.session_id.as_str();
         if free.item_id != SLOT_CHOICE_ITEM {
             return Err(self.settled_already());

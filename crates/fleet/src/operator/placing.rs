@@ -20,7 +20,7 @@ const LINE_PLACE_UNKNOWN: &str = "fleet.line_place_unknown";
 impl Fleet
 {
     /// The Operator ruled `id` a place: kept for when it joins the line, or taken now where it waits.
-    pub(super) async fn operator_placed(&self, id: &str, place: Place) {
+    pub async fn operator_placed(&self, id: &str, place: Place) {
         // Kept before the line is read, so a Job joining in between still takes it as it joins.
         self.operator_seat().place(id, place);
         let Some(manifest) = self.hosts().slot_queue().line_holding(id) else { return };
@@ -32,7 +32,7 @@ impl Fleet
     /// The person moved `id` to `place` in Waiting to start: it moves, and the Log keeps it as a
     /// correction of the Operator's order. **Refused, with nothing moved**, while the Operator is off,
     /// where `id` is not waiting, and where `place` names a Job not waiting in the same line.
-    pub(crate) async fn line_corrected(self: &Arc<Self>, id: &str, place: Place) -> Result<(), Refusal> {
+    pub async fn line_corrected(self: &Arc<Self>, id: &str, place: Place) -> Result<(), Refusal> {
         if !self.operator_on() {
             return Err(self.hosted_refusal(LINE_UNORDERED, "Waiting to start is first come, first served while the Operator is off"));
         }
@@ -52,7 +52,7 @@ impl Fleet
     }
 
     /// Keep a row of the Operator's Log that no call made. Nothing while the Operator is off.
-    pub(super) async fn operator_logged(&self, row: Logged) {
+    pub async fn operator_logged(&self, row: Logged) {
         if !self.operator_on() {
             return;
         }
@@ -64,7 +64,7 @@ impl Fleet
 
 impl Logged {
     /// A row about `session` after its ruling, made by no call: a correction, or what became of a hold.
-    pub(crate) fn about(session: &str, manifest: &str, subject: &str, outcome: Outcome, by: Actor, at: core_model::Timestamp) -> Logged {
+    pub fn about(session: &str, manifest: &str, subject: &str, outcome: Outcome, by: Actor, at: core_model::Timestamp) -> Logged {
         let (arrival, source) = match outcome {
             Outcome::Corrected => (format!("line:{session}"), Source::Person),
             _ => (format!("hold:{session}"), Source::Fleet),

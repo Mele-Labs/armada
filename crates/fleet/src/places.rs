@@ -24,7 +24,7 @@ use crate::headroom::{Headroom, Machine};
 
 pub use room::Room;
 
-mod room;
+pub mod room;
 
 /// How many later asks may take a place ahead of one already waiting, before
 /// it goes next whoever else asks. Four Drones' Checks, each cut short at its
@@ -202,7 +202,7 @@ impl Places {
 
     /// Put a saved limit in force. It counts from the next place given out,
     /// and the machine's slots, which `armada check` shares, move with it.
-    pub(crate) fn limit(&self, at_once: ChecksAtOnce) {
+    pub fn limit(&self, at_once: ChecksAtOnce) {
         self.state().at_once = at_once;
         if let Some(slots) = &self.0.slots {
             slots.resize(at_once.get());
@@ -217,7 +217,7 @@ impl Places {
 
     /// Put a width in force, after a saved Jobs bound moved. It counts from the
     /// next batch that starts; nothing running is re-sized. #1444.
-    pub(crate) fn widen(&self, width: CheckWidth) {
+    pub fn widen(&self, width: CheckWidth) {
         self.state().width = width;
     }
 
@@ -257,7 +257,7 @@ impl Places {
 
 /// One place asked for. **The turn is the `Ask`'s**, so a caller can stop
 /// waiting and wait again without losing its position; dropping it leaves the line.
-pub(crate) struct Ask {
+pub struct Ask {
     places: Places,
     seq: u64,
     /// How many places had been given back when the machine last read short.
@@ -418,6 +418,6 @@ impl Drop for Place {
 /// clamp in [`Places::ask`] already bounds `wants` to the limit in force, so
 /// this is what lets a Check wider than a limit lowered after it clamped
 /// still run alone rather than wait for room that will never be free. #1102.
-pub(crate) fn may_start(held: usize, wants: usize, at_once: ChecksAtOnce, short: bool) -> bool {
+pub fn may_start(held: usize, wants: usize, at_once: ChecksAtOnce, short: bool) -> bool {
     held == 0 || (held + wants <= at_once.get() && !short)
 }

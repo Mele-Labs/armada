@@ -30,14 +30,14 @@ const STORE_WORD: &str = "store";
 
 /// A parsed `cloud` choice.
 #[derive(Clone, Debug)]
-pub(crate) enum Target {
+pub enum Target {
     Store,
     Bucket(BucketAddress, String),
 }
 
 impl Target {
     /// The choice a request carries, or the sentence that says what is wrong with its address.
-    pub(super) fn of(cloud: &RunCloud) -> Result<Target, String> {
+    pub fn of(cloud: &RunCloud) -> Result<Target, String> {
         match cloud {
             RunCloud::Store {} => Ok(Target::Store),
             RunCloud::Bucket(text) => BucketAddress::parse(text).map(|address| Target::Bucket(address, text.trim().to_string())),
@@ -45,7 +45,7 @@ impl Target {
     }
 
     /// What Fleet's record keeps, to read back with [`Target::kept`].
-    pub(super) fn text(&self) -> String {
+    pub fn text(&self) -> String {
         match self {
             Target::Store => STORE_WORD.to_string(),
             Target::Bucket(_, text) => text.clone(),
@@ -53,14 +53,14 @@ impl Target {
     }
 
     /// A choice as Fleet's record keeps it.
-    pub(crate) fn kept(text: &str) -> Result<Target, String> {
+    pub fn kept(text: &str) -> Result<Target, String> {
         match text {
             STORE_WORD => Ok(Target::Store),
             address => Target::of(&RunCloud::Bucket(address.to_string())),
         }
     }
 
-    pub(super) fn wire(&self) -> RunCloud {
+    pub fn wire(&self) -> RunCloud {
         match self {
             Target::Store => RunCloud::Store {},
             Target::Bucket(_, text) => RunCloud::Bucket(text.clone()),
@@ -70,7 +70,7 @@ impl Target {
 
 /// Why a cloud place could not be used, with the words for a person.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Fault {
+pub enum Fault {
     /// Nothing to sign with: no profile, no store address, no credentials.
     Unsigned(String),
     Unreachable(String),
@@ -78,14 +78,14 @@ pub(crate) enum Fault {
 }
 
 impl Fault {
-    pub(crate) fn said(&self) -> &str {
+    pub fn said(&self) -> &str {
         match self {
             Fault::Unsigned(why) | Fault::Unreachable(why) | Fault::Refused(why) => why,
         }
     }
 
     /// The 422's code a person is answered with.
-    pub(crate) fn code(&self) -> &'static str {
+    pub fn code(&self) -> &'static str {
         match self {
             Fault::Unsigned(_) => super::CLOUD_UNSIGNED,
             Fault::Unreachable(_) => super::CLOUD_UNREACHABLE,
@@ -145,7 +145,7 @@ const NO_STORE: &str = "Armada's store is not available for this repository: it 
 impl Fleet
 {
     /// What the cloud holds for the repository at `root`. Empty where it holds none.
-    pub(super) async fn cloud_read(&self, root: &str, target: &Target) -> Result<Vec<KeptRun>, Fault> {
+    pub async fn cloud_read(&self, root: &str, target: &Target) -> Result<Vec<KeptRun>, Fault> {
         match target {
             Target::Store => {
                 let read = self
@@ -193,7 +193,7 @@ impl Fleet
 
     /// Bring the cloud and Fleet's record level: read what the cloud holds, merge it in, and write
     /// the whole set back. Quiet success is `Ok`; the record keeps the facts either way.
-    pub(super) async fn cloud_synced(&self, root: &str, target: &Target) -> Result<(), Fault> {
+    pub async fn cloud_synced(&self, root: &str, target: &Target) -> Result<(), Fault> {
         let held = self.cloud_read(root, target).await?;
         let facts = {
             let mut store = self.store().lock().await;
@@ -205,7 +205,7 @@ impl Fleet
 }
 
 /// `work` on a blocking thread, where a blocking client may be made and dropped.
-pub(crate) async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, BucketError> + Send + 'static) -> Result<T, Fault> {
+pub async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, BucketError> + Send + 'static) -> Result<T, Fault> {
     match tokio::task::spawn_blocking(work).await {
         Ok(done) => done.map_err(Fault::from),
         Err(why) => Err(Fault::Refused(format!("the call to the bucket was abandoned: {why}"))),

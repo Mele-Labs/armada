@@ -31,7 +31,7 @@ static NEXT: AtomicU64 = AtomicU64::new(0);
 static SPAWNED: Mutex<Vec<(NonZeroU32, PathBuf)>> = Mutex::new(Vec::new());
 
 /// Record a detached child, so the [`TempDir`] it runs in can end its group.
-pub(crate) fn spawned_in(group: NonZeroU32, directory: &Path) {
+pub fn spawned_in(group: NonZeroU32, directory: &Path) {
     let directory = resolved(directory);
     SPAWNED
         .lock()

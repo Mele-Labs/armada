@@ -249,7 +249,7 @@ const CARGO_BARE_FLAGS: &[&str] = &[
 ];
 
 /// Follow one line's program into the build files it would consult.
-pub(super) fn follow(
+pub fn follow(
     program: &str,
     arguments: &[String],
     repo: &mut Repository,

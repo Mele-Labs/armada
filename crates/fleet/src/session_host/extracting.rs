@@ -12,16 +12,16 @@ use super::asks::{self, Closing};
 
 /// Whether the sentence reader is in force. **It is**: the head is measured and the owner
 /// picked them on 22 Oct 2026. A reply raises each of its asks as an item, not one by the asks reader.
-pub(crate) const IN_FORCE: bool = true;
+pub const IN_FORCE: bool = true;
 
 /// The probability at and above which a sentence asks the person: the most recall at which the dev
 /// half's five folds by reply (1,564 sentences, 125 asks) kept precision at 0.90, for `sentence_asks`
 /// trained 8 epochs. Held out, it read 0.90 precision and 0.20 recall at this point, 21 Oct 2026.
-pub(crate) const ASKS_AT: f32 = 0.85;
+pub const ASKS_AT: f32 = 0.85;
 
 /// What pressing the item does, read from the sentence.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Act {
+pub enum Act {
     /// A shell command fenced right after the sentence.
     Run(String),
     /// A pull request the sentence names with approve, merge or land: `#N`.
@@ -32,7 +32,7 @@ pub(crate) enum Act {
 
 /// One thing the reply asks of the person.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Ask {
+pub struct Ask {
     pub sentence: String,
     /// Its place among the reply's asks: the `n` of `replied:<ended>:<n>`.
     pub index: usize,
@@ -43,26 +43,26 @@ pub(crate) struct Ask {
 
 /// What the readers made of one reply.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Extracted {
+pub struct Extracted {
     pub asks: Vec<Ask>,
 }
 
 impl Extracted {
     /// Without the asks that only name his approval, which a walk already waiting on him has asked; the
     /// rest are numbered again among themselves.
-    pub(crate) fn beside_a_walk(self) -> Self {
+    pub fn beside_a_walk(self) -> Self {
         let asks = self.asks.into_iter().filter(|one| !asks::only_approving(&one.sentence)).enumerate();
         Self { asks: asks.map(|(index, one)| Ask { index, ..one }).collect(), ..self }
     }
 }
 
 /// The sentences the head reads: the close with its headings left out.
-pub(crate) fn candidates(reply: &str) -> Vec<Closing> {
+pub fn candidates(reply: &str) -> Vec<Closing> {
     asks::closing(reply)
 }
 
 /// The reply read by the head, a sentence at a time.
-pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<Extracted, NotEmbedded> {
+pub fn read(model: &dyn TextModel, reply: &str) -> Result<Extracted, NotEmbedded> {
     let close = candidates(reply);
     let texts: Vec<&str> = close.iter().map(|one| one.sentence.as_str()).collect();
     let asks = model.read(TextReading::SentenceAsks, &texts)?;
@@ -71,7 +71,7 @@ pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<Extracted, NotE
 
 /// From the close's sentences and each one's probability. The rules' own sentence is the first
 /// ask where the rules call it, so nothing the asks reader catches today is lost.
-pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32]) -> Extracted {
+pub fn extracted(reply: &str, close: &[Closing], asks: &[f32]) -> Extracted {
     let rules = asks::asking_line(reply);
     let mut found: Vec<String> = Vec::new();
     if let Some(line) = rules {
@@ -111,7 +111,7 @@ fn act_of(sentence: &str) -> Act {
 
 /// The choices a question offers: the alternatives of an "X, or Y?", each without the question's
 /// lead, or the items of the list the sentence closes. Empty where neither shape fits.
-pub(crate) fn options_of(sentence: &str, close: &[Closing], at: Option<usize>) -> Vec<String> {
+pub fn options_of(sentence: &str, close: &[Closing], at: Option<usize>) -> Vec<String> {
     let choices = alternatives(sentence);
     if !choices.is_empty() {
         return choices;

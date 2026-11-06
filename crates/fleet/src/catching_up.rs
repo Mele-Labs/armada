@@ -26,11 +26,11 @@ use crate::repositories::Served;
 
 /// A catch-up pressed for a checkout nothing holds back, or that could not be
 /// read. A 409: Bridge's card was drawn before the owner or Fleet moved it.
-pub(crate) const CHECKOUT_NOT_HELD: &str = "fleet.checkout_not_held";
+pub const CHECKOUT_NOT_HELD: &str = "fleet.checkout_not_held";
 /// A catch-up pressed for a hold the one safe pull does not clear: another
 /// branch, commits main lacks, a file main also changed, or nothing uncommitted
 /// to set aside. A 409, and the message names which.
-pub(crate) const CHECKOUT_NOT_CATCHABLE: &str = "fleet.checkout_not_catchable";
+pub const CHECKOUT_NOT_CATCHABLE: &str = "fleet.checkout_not_catchable";
 /// A diff asked for a path the hold does not list as uncommitted. A 409: nothing
 /// outside the list is read, whatever the path.
 const CHECKOUT_PATH_NOT_HELD: &str = "fleet.checkout_path_not_held";
@@ -46,7 +46,7 @@ const CHECKOUT_DIFF_BYTES: usize = 256 * 1024;
 
 /// A change cut to the lines and bytes the card can draw, and whether it was cut.
 /// **Whole lines only**, except where a single line is itself past the byte bound.
-pub(crate) fn cut_for_the_card(diff: String) -> (String, bool) {
+pub fn cut_for_the_card(diff: String) -> (String, bool) {
     let mut end = diff.len();
     if let Some((at, _)) = diff.match_indices('\n').nth(CHECKOUT_DIFF_LINES - 1) {
         end = at + 1;
@@ -70,7 +70,7 @@ pub(crate) fn cut_for_the_card(diff: String) -> (String, bool) {
 /// code and a sentence. **The same four conditions Bridge's card names**, read
 /// again here because the card may be old: on the base, ahead of nothing, no
 /// uncommitted file main also changed, and a file to set aside.
-pub(crate) fn why_not_pull(held: Option<&HeldBack>) -> Option<(&'static str, String)> {
+pub fn why_not_pull(held: Option<&HeldBack>) -> Option<(&'static str, String)> {
     let Some(held) = held else {
         return Some((CHECKOUT_NOT_HELD, String::from("nothing holds the checkout back, or git could not be read there")));
     };
@@ -107,7 +107,7 @@ impl Fleet
     /// Bring `served`'s checkout up to `head`, main's tip on the forge, or keep
     /// why it could not be. Nothing is asked of git past one in-process read
     /// while the checkout already has `head`.
-    pub(crate) async fn checkout_caught_up(&self, served: &Served, base: &str, head: &str) {
+    pub async fn checkout_caught_up(&self, served: &Served, base: &str, head: &str) {
         let root = served.root().to_string();
         let has_it = self
             .forge_asked(&root, {
@@ -217,7 +217,7 @@ impl Fleet
     /// `checkout_caught_up`'s reason. **No command crosses the wire.** Afterwards
     /// the checkout is read again so the hub's `checkout` clears, and the hub
     /// loop publishes it. A stash git left stays in git's stash.
-    pub(crate) async fn caught_up_checkout(
+    pub async fn caught_up_checkout(
         &self,
         asked: ipc::CatchUpCheckout,
     ) -> Result<ipc::CheckoutCaughtUp, Refusal> {
@@ -272,7 +272,7 @@ impl Fleet
     /// reading of main, which is the one Bridge drew the card from, so no path
     /// outside it is read and the press costs no fetch. Reads only, so it takes
     /// no part in the merge end.
-    pub(crate) async fn checkout_diff_of(&self, ask: ipc::CheckoutDiffAsk) -> Result<ipc::CheckoutDiff, Refusal> {
+    pub async fn checkout_diff_of(&self, ask: ipc::CheckoutDiffAsk) -> Result<ipc::CheckoutDiff, Refusal> {
         let raised = |code: &'static str, said: String| WireError::raised(code, said, self.run_id());
         let Some(served) = self.repositories().serving(ask.manifest_id.as_str()) else {
             return Err(Refusal::Unacceptable(raised(

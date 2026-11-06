@@ -37,7 +37,7 @@ use crate::daemon::Fleet;
 use crate::judging::watched;
 use crate::session_proposer::{unread_wait, PlanPart, WaitBrief};
 
-mod dropping;
+pub mod dropping;
 
 const WAIT_UNKNOWN: &str = "fleet.wait_session_unknown";
 const WAIT_ON_ITSELF: &str = "fleet.wait_on_itself";
@@ -49,7 +49,7 @@ const WAIT_UNPLACED: &str = "fleet.wait_unplaced";
 // ---- The wire and the store, each in its own spelling ----------------------------------------------------
 
 /// The condition as the store keeps it: its kind and the plan part it names.
-pub(crate) fn condition_kept(condition: &StartCondition) -> (&'static str, String) {
+pub fn condition_kept(condition: &StartCondition) -> (&'static str, String) {
     match condition {
         StartCondition::Ends => ("ends", String::new()),
         StartCondition::GroupDone { group } => ("group_done", group.clone()),
@@ -59,7 +59,7 @@ pub(crate) fn condition_kept(condition: &StartCondition) -> (&'static str, Strin
     }
 }
 
-pub(crate) fn condition_of(wait: &KeptWait) -> StartCondition {
+pub fn condition_of(wait: &KeptWait) -> StartCondition {
     match wait.condition.as_str() {
         "group_done" => StartCondition::GroupDone { group: wait.part.clone() },
         "task_done" => StartCondition::TaskDone { task: wait.part.clone() },
@@ -69,14 +69,14 @@ pub(crate) fn condition_of(wait: &KeptWait) -> StartCondition {
     }
 }
 
-pub(crate) fn base_kept(base: StartBase) -> &'static str {
+pub fn base_kept(base: StartBase) -> &'static str {
     match base {
         StartBase::Main => "main",
         StartBase::Branch => "branch",
     }
 }
 
-pub(crate) fn base_of(wait: &KeptWait) -> StartBase {
+pub fn base_of(wait: &KeptWait) -> StartBase {
     if wait.base == "branch" {
         StartBase::Branch
     } else {
@@ -86,7 +86,7 @@ pub(crate) fn base_of(wait: &KeptWait) -> StartBase {
 
 /// The store's word for a wait the Operator set: a hold until another Job pushes. On the wire it is
 /// not the person's, so it reads as the agent's.
-pub(crate) const BY_OPERATOR: &str = "operator";
+pub const BY_OPERATOR: &str = "operator";
 
 fn by_kept(by: WaitBy) -> &'static str {
     match by {
@@ -103,13 +103,13 @@ fn by_of(wait: &KeptWait) -> WaitBy {
     }
 }
 
-pub(crate) fn pull_of(wait: &KeptWait) -> Option<WaitPull> {
+pub fn pull_of(wait: &KeptWait) -> Option<WaitPull> {
     let number = wait.pull_number.as_deref()?.parse().ok()?;
     Some(WaitPull { number, branch: wait.pull_branch.clone().unwrap_or_default() })
 }
 
 /// The wait as the record carries it.
-pub(crate) fn wait_wire(wait: &KeptWait, on_title: Option<String>, part_title: Option<String>) -> SessionWait {
+pub fn wait_wire(wait: &KeptWait, on_title: Option<String>, part_title: Option<String>) -> SessionWait {
     SessionWait {
         on: SessionLink { id: ipc::SessionId::carried(&wait.on_session), title: on_title.unwrap_or_else(|| wait.on_session.clone()) },
         condition: condition_of(wait),
@@ -127,7 +127,7 @@ pub(crate) fn wait_wire(wait: &KeptWait, on_title: Option<String>, part_title: O
 }
 
 /// The title of a group or task of a plan.
-pub(crate) fn plan_part_title(plan: &ipc::SessionPlan, id: &str) -> Option<String> {
+pub fn plan_part_title(plan: &ipc::SessionPlan, id: &str) -> Option<String> {
     plan.groups.iter().find_map(|group| {
         if group.id == id {
             return Some(group.title.clone());
@@ -190,7 +190,7 @@ fn change_said(was: &KeptWait, now: &KeptWait, parts: &[PlanPart]) -> (String, S
 }
 
 /// A group is done when it holds tasks and every one is; a task when it is. A task handed in without an edit reads done.
-pub(crate) fn plan_part_done(plan: &ipc::SessionPlan, wait: &KeptWait) -> bool {
+pub fn plan_part_done(plan: &ipc::SessionPlan, wait: &KeptWait) -> bool {
     let done = |task: &ipc::SessionPlanTask| matches!(task.state, ipc::PlanTaskState::Done | ipc::PlanTaskState::HandedIn);
     match wait.condition.as_str() {
         "group_done" => plan
@@ -231,7 +231,7 @@ impl Fleet
     }
 
     /// The Session `after` names, checked: hosted, live, not the waiting one, and holding the plan part it names.
-    pub(super) async fn after_checked(&self, waiting: &str, after: &StartAfter) -> Result<(), Refusal> {
+    pub async fn after_checked(&self, waiting: &str, after: &StartAfter) -> Result<(), Refusal> {
         let session = self.after_known(waiting, after).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(after.session.as_str()));
@@ -266,7 +266,7 @@ impl Fleet
 
     /// Keep the wait of a Session just made, tell the Session it waits on, and publish both.
     /// **The waiting Session's record carries the wait from here on**, which is what [`crate::after_following`] reads.
-    pub(crate) async fn wait_begun(
+    pub async fn wait_begun(
         &self,
         waiting: &str,
         after: StartAfter,
@@ -281,7 +281,7 @@ impl Fleet
     /// [`Self::wait_begun`] for the Operator's hold of a Job on its start card, which stays held for
     /// the person once the wait ends. Kept as the Operator's, so a hold whose condition can no longer
     /// be met is known to be its to lift.
-    pub(crate) async fn held_by_operator(&self, waiting: &str, after: StartAfter, brief: String) -> Result<SessionRecord, Refusal> {
+    pub async fn held_by_operator(&self, waiting: &str, after: StartAfter, brief: String) -> Result<SessionRecord, Refusal> {
         self.wait_kept(waiting, after, brief, true, BY_OPERATOR, true).await
     }
 
@@ -320,7 +320,7 @@ impl Fleet
 
     /// A hand on: every open wait on `old` now waits on `new`, which is told of each. Linked once `old`
     /// has ended, as its parent's link is: a hand undone before then closes `new`.
-    pub(crate) async fn waits_followed(self: &Arc<Self>, old: &str, new: &str) {
+    pub async fn waits_followed(self: &Arc<Self>, old: &str, new: &str) {
         let parts = self.plan_parts(old).await;
         let mut followed: Vec<(KeptWait, KeptWait)> = Vec::new();
         {
@@ -360,7 +360,7 @@ impl Fleet
 
     /// At Fleet's start: a wait still on a Session that was handed on follows to the last of the chain.
     /// A Fleet that stopped partway through a hand left it there, as did one from before waits followed.
-    pub(crate) async fn waits_left_followed(self: &Arc<Self>) {
+    pub async fn waits_left_followed(self: &Arc<Self>) {
         let moves: Vec<(String, String)> = {
             let store = self.store().lock().await;
             let open = store.open_waits().unwrap_or_default();
@@ -389,7 +389,7 @@ impl Fleet
 
     /// The Session waited on is told what the new one needs, in its thread and as a message. **Once**: the
     /// first call to claim it tells, and a Fleet that restarts finds it told.
-    pub(crate) async fn waiter_told_of_wait(self: &Arc<Self>, waiting: &str) {
+    pub async fn waiter_told_of_wait(self: &Arc<Self>, waiting: &str) {
         self.waiter_told(waiting, "").await;
     }
 
@@ -493,7 +493,7 @@ impl Fleet
 
     /// The condition is met: the waiting Session starts on the handoff followed by its brief. **Once**:
     /// the first call to claim the wait starts it, and any other finds it started.
-    pub(crate) async fn wait_met(self: &Arc<Self>, wait: KeptWait, met: String) {
+    pub async fn wait_met(self: &Arc<Self>, wait: KeptWait, met: String) {
         let at = self.now().as_str().to_string();
         let claimed = self.store().lock().await.claim_wait_start(&wait.session_id, &at);
         if !matches!(claimed, Ok(true)) {
@@ -558,7 +558,7 @@ impl Fleet
     /// `read_session_wait`: what the proposer reads of a brief that tags a Session. **Never refused for
     /// what it could not read**: a call that fails or answers badly is the defaults, as the Session
     /// proposer's is, and says why on Fleet's standard error.
-    pub(crate) async fn wait_read(self: &Arc<Self>, read: ReadSessionWait) -> Result<WaitReading, Refusal> {
+    pub async fn wait_read(self: &Arc<Self>, read: ReadSessionWait) -> Result<WaitReading, Refusal> {
         let on = read.session_id.as_str().to_string();
         let request = read.request.trim().to_string();
         if request.is_empty() {
@@ -593,7 +593,7 @@ impl Fleet
     /// `change_waiting`. **The agent of the Session waited on may change a Session that waits on it and
     /// no other; the person may change any.** Both threads get a row, and the Session waited on is
     /// told in words when the person changed it.
-    pub(crate) async fn waiting_changed(
+    pub async fn waiting_changed(
         self: &Arc<Self>,
         caller: Option<Caller>,
         change: ChangeWaiting,
@@ -616,7 +616,7 @@ impl Fleet
     }
 
     /// The wait of a Job that has not started, or the refusal that it does not wait.
-    pub(crate) async fn open_wait_of(&self, waiting: &str) -> Result<KeptWait, Refusal> {
+    pub async fn open_wait_of(&self, waiting: &str) -> Result<KeptWait, Refusal> {
         let kept = self.store().lock().await.wait_of(waiting).map_err(|why| self.ledger_fault(why))?;
         kept.filter(|one| one.started_at.is_none()).ok_or_else(|| self.wait_over(waiting))
     }
@@ -631,7 +631,7 @@ impl Fleet
 
     /// `change` made to the wait `was` of `waiting` by `by`. **`starter` is the Job that started `waiting`
     /// where it is the one changing it**, which is told to the Job waited on in words, as the person's is.
-    pub(crate) async fn wait_changed_by(
+    pub async fn wait_changed_by(
         self: &Arc<Self>,
         waiting: String,
         was: KeptWait,
@@ -700,7 +700,7 @@ impl Fleet
     }
 
     /// `start_waiting_now`: the person starts a waiting Session at once, whatever its condition.
-    pub(crate) async fn waiting_started_now(self: &Arc<Self>, session: &str) -> Result<SessionRecord, Refusal> {
+    pub async fn waiting_started_now(self: &Arc<Self>, session: &str) -> Result<SessionRecord, Refusal> {
         let kept = self.store().lock().await.wait_of(session).map_err(|why| self.ledger_fault(why))?;
         let Some(wait) = kept.filter(|one| one.started_at.is_none()) else {
             return Err(Refusal::IllegalMove(ipc::WireError::raised(
@@ -732,6 +732,6 @@ fn handed_to(store: &store::Store, on: &str) -> Option<String> {
 }
 
 /// The first non-blank line of some words, cut to a title's length.
-pub(crate) fn first_line(words: &str) -> String {
+pub fn first_line(words: &str) -> String {
     super::serving::title_of(words).unwrap_or_default()
 }

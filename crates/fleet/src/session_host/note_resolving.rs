@@ -13,7 +13,7 @@ const NOTE_REFUSED: &str = "fleet.pull_request_note_refused";
 impl Fleet
 {
     /// Mark the note done. Refused unless it was sent to this session and is still open.
-    pub(crate) async fn pull_request_note_resolved(
+    pub async fn pull_request_note_resolved(
         &self,
         caller: Option<api::Caller>,
         resolve: ResolvePullRequestNote,

@@ -27,7 +27,7 @@ use ipc::{
 use super::documents::{keep, one_name, revisions_in};
 use crate::daemon::Fleet;
 
-pub(crate) const SKETCH_REFUSED: &str = "fleet.sketch_refused";
+pub const SKETCH_REFUSED: &str = "fleet.sketch_refused";
 const SKETCH_UNNAMED: &str = "fleet.sketch_unnamed";
 const SKETCH_AGAINST_UNKNOWN: &str = "fleet.sketch_against_unknown";
 const SKETCH_NOT_OPEN: &str = "fleet.sketch_not_open";
@@ -38,11 +38,11 @@ const SKETCH_WITHDRAW_NOT_SHOWN: &str = "fleet.sketch_withdraw_not_shown";
 const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
-pub(crate) const TARGET_PREFIX: &str = "sketch:";
+pub const TARGET_PREFIX: &str = "sketch:";
 
 impl Fleet
 {
-    pub(crate) async fn sketch_shown(
+    pub async fn sketch_shown(
         &self,
         caller: Option<api::Caller>,
         show: ShowSketch,
@@ -130,7 +130,7 @@ impl Fleet
         .await
     }
 
-    pub(crate) async fn sketch_withdrawn(
+    pub async fn sketch_withdrawn(
         &self,
         caller: Option<api::Caller>,
         withdraw: ipc::WithdrawSketch,
@@ -158,7 +158,7 @@ impl Fleet
     /// Mark the sketch held as `target` withdrawn. **The one place the mark is written**: the job's
     /// `withdraw_sketch` and the person's Withdraw both come here. A new drawing of the title replaces the
     /// attachment, so it does not carry the mark. A sketch the job does not hold is left alone.
-    pub(crate) async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
+    pub async fn sketch_withdrawn_mark(&self, id: &str, target: &str) {
         let Ok((harness, Some(mut sketch))) = self.sketch_held(id, target).await else { return };
         sketch.detail.insert(SKETCH_WITHDRAWN.into(), "true".into());
         let _ = self
@@ -195,7 +195,7 @@ impl Fleet
 const APPROVED: &str = "Approved sketch: ";
 
 /// The person's message for each answer to a sketch. Words with an approval go on a line after it.
-pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
+pub fn approved(title: &str, words: Option<&str>) -> String {
     let mut body = format!("{APPROVED}{title}\nGo on from it as drawn.");
     if let Some(words) = words {
         body.push('\n');
@@ -204,13 +204,13 @@ pub(crate) fn approved(title: &str, words: Option<&str>) -> String {
     body
 }
 
-pub(crate) fn sent_back(title: &str, note: &str) -> String {
+pub fn sent_back(title: &str, note: &str) -> String {
     format!("Sent back sketch: {title}\n{note}\nDraw it again with show_sketch under the same title.")
 }
 
 /// When the person last approved any sketch, or `None` while he has not. **Read off the thread**, as
 /// `walk_approval` reads a walk's: his message [`approved`] wrote, which stays when the sketch is redrawn.
-pub(crate) fn sketch_approved(rows: &[SessionRow]) -> Option<&str> {
+pub fn sketch_approved(rows: &[SessionRow]) -> Option<&str> {
     rows.iter()
         .filter_map(|row| match row {
             SessionRow::Message { at, from: SessionVoice::You, text, .. } if text.starts_with(APPROVED) => Some(at),
@@ -224,7 +224,7 @@ impl Fleet
 {
     /// `answer_sketch`: the person approves a sketch, or sends it back with a note. The job is told as
     /// his message first, so a failed send leaves the sketch open, then `detail` keeps how it ended.
-    pub(crate) async fn sketch_answered(self: Arc<Self>, said: AnswerSketch) -> Result<SessionRecord, Refusal> {
+    pub async fn sketch_answered(self: Arc<Self>, said: AnswerSketch) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().trim().to_string();
         let target = said.sketch.trim().to_string();
         let words = said.words.as_deref().map(str::trim).filter(|words| !words.is_empty());
@@ -307,7 +307,7 @@ impl Fleet
 
 /// A sketch as the ledger keeps it: the artifact a title replaces where it stands. A plan's sketch is
 /// kept the same way, so the scene is on the ledger once and the plan names it.
-pub(crate) fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
+pub fn sketch_attachment(sketch: Sketch) -> AttachmentReport {
     AttachmentReport {
         kind: String::from("artifact"),
         target: format!("{TARGET_PREFIX}{}", sketch.title),
@@ -358,7 +358,7 @@ fn open_sketches(attachments: &[ipc::Attachment]) -> impl Iterator<Item = &ipc::
 /// so it is never one of these. **Only the newest drawn**, as Bridge answers only that one: an older one
 /// still open, which an earlier Fleet left when a newer one replaced it, never waits again once the
 /// newer is answered or taken back.
-pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
+pub fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
     asked_sketches(attachments)
         .max_by_key(|one| drawn_at(one))
         .filter(|newest| is_open(newest))

@@ -21,10 +21,10 @@ use std::time::Duration;
 use config::Manifest;
 use store::{PortClaim, PortClaimant};
 
-mod widening;
+pub mod widening;
 
-#[cfg(test)]
-pub(crate) use widening::spread as spread_for_tests;
+#[cfg(any(test, feature = "test-support"))]
+pub use widening::spread as spread_for_tests;
 
 /// The range a checkout's port span is claimed from, and the unit its width rounds
 /// up to. `settings.port-range-base`, `settings.port-range-ceiling` and
@@ -405,7 +405,7 @@ impl Fleet
     /// before probing a candidate.
     ///
     /// [`Store::every_port_claim`]: store::Store::every_port_claim
-    pub(crate) async fn try_claim(
+    pub async fn try_claim(
         &self,
         claimant: PortClaimant,
         manifest: &Manifest,
@@ -446,7 +446,7 @@ impl Fleet
     /// general shape, and what a server started on another checkout uses.
     ///
     /// [`checkout_ports`]: Fleet::checkout_ports
-    pub(crate) async fn main_checkout_ports(
+    pub async fn main_checkout_ports(
         &self,
         served: &crate::repositories::Served,
     ) -> BTreeMap<String, u16> {
@@ -461,7 +461,7 @@ impl Fleet
     /// repository each declare its `ports:`, and one span between them is the
     /// number two servers bind — `#1577`. Whether `path` is a checkout of this
     /// repository is settled before here, in `crate::checkouts`.
-    pub(crate) async fn checkout_ports(
+    pub async fn checkout_ports(
         &self,
         served: &crate::repositories::Served,
         path: &str,
@@ -485,7 +485,7 @@ impl Fleet
     /// Every variable the main checkout's claimed span sets:
     /// `ARMADA_PORT_<NAME>` and any declared `env`, for the proof run after a
     /// merge and for a server started on it.
-    pub(crate) async fn main_checkout_port_env(
+    pub async fn main_checkout_port_env(
         &self,
         served: &crate::repositories::Served,
     ) -> Vec<(String, String)> {
@@ -493,7 +493,7 @@ impl Fleet
     }
 
     /// Every variable one checkout's claimed span sets.
-    pub(crate) async fn checkout_port_env(
+    pub async fn checkout_port_env(
         &self,
         served: &crate::repositories::Served,
         path: &str,
@@ -522,7 +522,7 @@ impl Fleet
     /// one proof run and the next. **A checkout with a server up keeps its
     /// span**: the server outlives Fleet, and the next one holds its ports.
     ///
-    /// **`pub`, and not `pub(crate)`**: the composition root calls this
+    /// **`pub`, and not `pub`**: the composition root calls this
     /// directly once the turn loop has drained. See `armada::serve`.
     pub async fn released_checkout_ports(&self) {
         for claim in self.checkout_claims().await {
@@ -559,7 +559,7 @@ impl Fleet
     /// only that the last Fleet to hold them believed they were. A span that
     /// fails the probe is released rather than reused, so the next call to
     /// [`checkout_ports`](Fleet::checkout_ports) claims a fresh one.
-    pub(crate) async fn reconciled_checkout_ports(&self) {
+    pub async fn reconciled_checkout_ports(&self) {
         for claim in self.checkout_claims().await {
             // The ports are bound by the server a Fleet before this one left up, which is
             // adopted by now: the claim is the one it is on.

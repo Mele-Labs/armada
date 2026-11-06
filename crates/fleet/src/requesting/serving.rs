@@ -69,7 +69,7 @@ impl Fleet
     }
 
     /// One environment for each server running in `job`'s slot, at the first port it serves on.
-    pub(super) async fn server_environments(&self, job: Option<&str>) -> Vec<RequestEnvironment> {
+    pub async fn server_environments(&self, job: Option<&str>) -> Vec<RequestEnvironment> {
         let Some(job) = job else { return Vec::new() };
         let Ok((_, hosting)) = self.session_and_hosting(job).await else { return Vec::new() };
         if hosting.lease_slot.is_none() {
@@ -97,7 +97,7 @@ impl Fleet
     }
 
     /// Where a `body_file` may be read from: `job`'s scratch folder, and its slot once it holds one.
-    pub(super) async fn body_places(&self, job: Option<&str>) -> Vec<std::path::PathBuf> {
+    pub async fn body_places(&self, job: Option<&str>) -> Vec<std::path::PathBuf> {
         let Some(job) = job else { return Vec::new() };
         let mut places = vec![self.scratch_of(job)];
         if let Ok((_, hosting)) = self.session_and_hosting(job).await {

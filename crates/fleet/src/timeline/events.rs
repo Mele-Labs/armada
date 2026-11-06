@@ -32,13 +32,13 @@ struct SeenSession {
 }
 
 /// The tap on the event stream.
-pub(super) struct Hearing {
+pub struct Hearing {
     timeline: Timeline,
     seen: Mutex<Seen>,
 }
 
 impl Hearing {
-    pub(super) fn new(timeline: Timeline) -> Hearing {
+    pub fn new(timeline: Timeline) -> Hearing {
         Hearing {
             timeline,
             seen: Mutex::new(Seen::default()),
@@ -46,7 +46,7 @@ impl Hearing {
     }
 
     /// Queue what this event is, if it is anything. Runs inside `publish`.
-    pub(super) fn hear(&self, event: &Event) {
+    pub fn hear(&self, event: &Event) {
         let Ok(mut seen) = self.seen.lock() else {
             return;
         };

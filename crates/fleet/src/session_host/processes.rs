@@ -13,7 +13,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use crate::daemon::Fleet;
 
 /// How long a process is given after `TERM` before it is `KILL`ed.
-pub(crate) const GRACE: Duration = Duration::from_secs(2);
+pub const GRACE: Duration = Duration::from_secs(2);
 
 /// One process a Job started.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,7 +33,7 @@ pub struct Load {
 }
 
 /// `(pid, command)` for each line of `ps -axo pid=,command=`.
-pub(crate) fn listed(listing: &str) -> Vec<(u32, String)> {
+pub fn listed(listing: &str) -> Vec<(u32, String)> {
     listing
         .lines()
         .filter_map(|line| {
@@ -45,7 +45,7 @@ pub(crate) fn listed(listing: &str) -> Vec<(u32, String)> {
 }
 
 /// `(pid, cpu percent, resident bytes)` for each line of `ps -o pid=,pcpu=,rss=`; `rss` is in KiB.
-pub(crate) fn loads(listing: &str) -> Vec<(u32, f32, u64)> {
+pub fn loads(listing: &str) -> Vec<(u32, f32, u64)> {
     listing
         .lines()
         .filter_map(|line| {
@@ -59,18 +59,18 @@ pub(crate) fn loads(listing: &str) -> Vec<(u32, f32, u64)> {
 }
 
 /// The bytes in `du -sk`'s first line.
-pub(crate) fn disk(listing: &str) -> Option<u64> {
+pub fn disk(listing: &str) -> Option<u64> {
     let kib: u64 = listing.split_whitespace().next()?.parse().ok()?;
     Some(kib * 1024)
 }
 
 /// The bytes `sysctl -n hw.memsize` printed.
-pub(crate) fn memory_of(listing: &str) -> Option<u64> {
+pub fn memory_of(listing: &str) -> Option<u64> {
     listing.trim().parse().ok()
 }
 
 /// The size of the volume in `df -k`'s second line: its second field, in KiB.
-pub(crate) fn volume_of(listing: &str) -> Option<u64> {
+pub fn volume_of(listing: &str) -> Option<u64> {
     let kib: u64 = listing.lines().nth(1)?.split_whitespace().nth(1)?.parse().ok()?;
     Some(kib * 1024)
 }
@@ -86,7 +86,7 @@ impl Fleet
     /// The processes the session started and that still run, its agent, its keeper and Fleet itself
     /// left out; the keeper by [`Self::started_by`].
     /// Blocking: it runs `ps` and `lsof`.
-    pub(crate) fn processes_of(&self, id: &str, held: &[String]) -> Vec<Process> {
+    pub fn processes_of(&self, id: &str, held: &[String]) -> Vec<Process> {
         let Some(table) = printed("ps", &["-axo", "pid=,command="]) else {
             return Vec::new();
         };
@@ -106,7 +106,7 @@ impl Fleet
     }
 
     /// What `processes` and the folder `slot` take. Blocking.
-    pub(crate) fn load_of(&self, processes: &[Process], slot: &str) -> Load {
+    pub fn load_of(&self, processes: &[Process], slot: &str) -> Load {
         let reading = (!processes.is_empty())
             .then(|| {
                 let pids: Vec<String> = processes.iter().map(|one| one.pid.to_string()).collect();
@@ -122,7 +122,7 @@ impl Fleet
     }
 
     /// The machine's memory and the size of the volume `slot` is on, to set a [`Load`] against. Blocking.
-    pub(crate) fn machine_of(slot: &str) -> (Option<u64>, Option<u64>) {
+    pub fn machine_of(slot: &str) -> (Option<u64>, Option<u64>) {
         (
             printed("sysctl", &["-n", "hw.memsize"]).and_then(|said| memory_of(&said)),
             printed("df", &["-k", slot]).and_then(|said| volume_of(&said)),
@@ -132,7 +132,7 @@ impl Fleet
     /// End what the session started and left running: `TERM`, then `KILL` after a short wait.
     /// The listing is read now, while the agent's tree still stands, and the ending runs on a
     /// blocking thread; a no-op where `ps` will not answer. Call within a runtime.
-    pub(crate) fn processes_ended(&self, id: &str, held: &[String]) {
+    pub fn processes_ended(&self, id: &str, held: &[String]) {
         let processes = self.processes_of(id, held);
         // Named in the log, so a process that vanished at a close can be traced to it.
         for one in &processes {
