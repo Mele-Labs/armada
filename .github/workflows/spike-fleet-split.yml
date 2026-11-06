@@ -1,0 +1,99 @@
+# Throwaway: what each way of cutting fleet would save, on the runner the Rust
+# shards use. Lives only on armada/spike-fleet-split and is never merged.
+name: spike-fleet-split
+on:
+  push:
+    branches: [armada/spike-fleet-split]
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test
+          shared: test-test
+          nextest: "true"
+      - name: Warm fleet's dependencies
+        run: |
+          nproc; rustc -V
+          cargo test -p fleet --lib --no-run 2>&1 | tail -2
+          cargo build -p fleet --lib 2>&1 | tail -2
+      - name: Clean builds, the shards' settings
+        run: |
+          set +e
+          out="$RUNNER_TEMP/out"; mkdir -p "$out"
+          one() {
+            label="$1"; shift
+            touch crates/fleet/src/lib.rs
+            start=$(date +%s.%N)
+            cargo rustc -p fleet --lib "$@" > "$out/$label.log" 2>&1
+            code=$?
+            end=$(date +%s.%N)
+            printf '%s\t%.1f\texit %s\n' "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/clean.tsv"
+          }
+          for rep in 1 2; do
+            one "lib_$rep"
+            one "libtest_$rep" --profile test
+          done
+          cp crates/fleet/src/lib.rs "$RUNNER_TEMP/lib.rs"
+          # The harness with src/tests/ gone but for the TempDir the crate's own
+          # inline tests use: what a lib-test costs with the suite moved out.
+          perl -0pi -e 's/#\[cfg\(test\)\]\nmod tests;/#[cfg(test)]\nmod tests { pub(crate) mod tmp; }/' crates/fleet/src/lib.rs
+          grep -n 'mod tests' crates/fleet/src/lib.rs
+          for rep in 1 2; do one "libtest_nosuite_$rep" --profile test; done
+          tail -5 "$out/libtest_nosuite_1.log"
+          cp "$RUNNER_TEMP/lib.rs" crates/fleet/src/lib.rs
+      - name: Incremental edit loop, an agent's settings
+        env:
+          CARGO_INCREMENTAL: "1"
+          CARGO_PROFILE_DEV_DEBUG: line-tables-only
+          CARGO_PROFILE_TEST_DEBUG: line-tables-only
+          CARGO_TARGET_DIR: ${{ runner.temp }}/inc
+        run: |
+          set +e
+          unset RUSTC_WORKSPACE_WRAPPER
+          out="$RUNNER_TEMP/out"
+          t() {
+            label="$1"; shift
+            start=$(date +%s.%N)
+            "$@" > "$out/$label.log" 2>&1
+            code=$?
+            end=$(date +%s.%N)
+            printf '%s\t%.1f\texit %s\n' "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/inc.tsv"
+          }
+          n=0
+          edit() { n=$((n+1)); printf '\n#[allow(dead_code)]\nfn spike_edit_%s() -> u32 { %s }\n' "$n" "$n" >> "$1"; }
+          t first_whole cargo nextest run --no-run
+          t first_fleet cargo test -p fleet --lib --no-run
+          for f in clock.rs daemon.rs tests/backlog.rs; do
+            k=$(echo "$f" | tr '/.' '__')
+            edit "crates/fleet/src/$f"; t "fleet_after_$k" cargo test -p fleet --lib --no-run
+            edit "crates/fleet/src/$f"; t "whole_after_$k" cargo nextest run --no-run
+          done
+          # A crate below fleet, for scale: how long a store edit costs.
+          edit crates/store/src/lib.rs; t whole_after_store cargo nextest run --no-run
+          git checkout -- crates
+      - name: Summary
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/out"
+          { echo '## clean'; echo '```'; cat "$out/clean.tsv"; echo '```'
+            echo '## incremental'; echo '```'; cat "$out/inc.tsv"; echo '```'
+            echo '## what the incremental whole runs compiled'; echo '```'
+            for f in "$out"/whole_after_*.log; do echo "$(basename "$f")"; grep -E '^\s*Compiling' "$f" | sed 's/ (.*//' | sort | uniq | head -20; done
+            echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: spike-fleet-split
+          path: ${{ runner.temp }}/out
