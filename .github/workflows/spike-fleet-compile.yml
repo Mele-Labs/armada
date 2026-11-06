@@ -54,3 +54,37 @@ jobs:
         with:
           name: spike-fleet-compile
           path: ${{ runner.temp }}/out
+
+  tmpfs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test
+          shared: test-test
+          nextest: "true"
+      - name: Build store and fleet tests
+        run: |
+          df -h /tmp /dev/shm; findmnt -T /tmp; nproc
+          cargo nextest run -p store -p fleet --no-run 2>&1 | tail -2
+      - name: The migration-count test and the store and fleet suites, disk against RAM
+        run: |
+          set +e
+          one() {
+            label="$1"; dir="$2"; shift 2
+            TMPDIR="$dir" cargo nextest run -p store -p fleet --test-threads 4 --no-fail-fast "$@" > "$RUNNER_TEMP/$label.log" 2>&1
+            echo "$label: $(grep -oE 'Summary \[ *[0-9.]+s\][^\n]*' "$RUNNER_TEMP/$label.log" | head -1)" | tee -a "$RUNNER_TEMP/tmpfs.txt"
+          }
+          one count_disk /tmp -E 'test(a_numbered_file_converts_at_every_count_the_old_list_had)'
+          one count_ram /dev/shm -E 'test(a_numbered_file_converts_at_every_count_the_old_list_had)'
+          one suites_disk /tmp
+          one suites_ram /dev/shm
+          for l in suites_disk suites_ram; do
+            echo "$l slowest:" >> "$RUNNER_TEMP/tmpfs.txt"
+            grep -oE '(PASS|FAIL) \[ *[0-9.]+s\].*' "$RUNNER_TEMP/$l.log" | sort -t'[' -k2 -rn | head -5 >> "$RUNNER_TEMP/tmpfs.txt"
+            grep -cE '^ *FAIL' "$RUNNER_TEMP/$l.log" >> "$RUNNER_TEMP/tmpfs.txt"
+          done
+          { echo '## disk against RAM'; echo '```'; cat "$RUNNER_TEMP/tmpfs.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/tmpfs.txt"
