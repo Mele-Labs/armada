@@ -111,7 +111,7 @@ where
     /// Pick a Job for the next snapshot and start building it — [`crate::building`]. **Not
     /// `budgeted`**, for the same reason: no Job is touched, and the answer is that the build has started.
     async fn pick_fleet_build_job(&self, asked: ipc::PickFleetBuildJob) -> Result<ipc::FleetBuildSnapshotting, Refusal> {
-        self.pick_fleet_build_job_now(&asked)
+        self.pick_fleet_build_job_now(&asked).await
     }
 
     /// Start the swap onto the snapshot — [`crate::building`]. **Not `budgeted`**, `revert_fleet_build`'s reason.

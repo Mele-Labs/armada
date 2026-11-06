@@ -54,8 +54,10 @@ export type {
   FleetBuildDrone,
   FleetBuildKept,
   FleetBuildLeftOut,
+  FleetBuildPicked,
   FleetBuildPrevious,
   FleetBuildPosition,
+  FleetBuildSnapshot,
   FleetBuildStage,
 } from "./compositions/FleetBuild/FleetBuild";
 export * from "./compositions/DroneTurns/DroneTurns";

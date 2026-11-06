@@ -50,6 +50,10 @@ export const core: Slice<CoreApi<BridgeState>, CoreState> = {
       // The Fleet panel's own scenarios restart through `mock/fleet-build.tsx`; the fixtures hold no Fleet to restart.
       changeFleetBuild: async () => OK,
       revertFleetBuild: async () => OK,
+      askRevertFleetBuild: async () => {},
+      pickFleetBuildJob: async () => OK,
+      swapFleetBuild: async () => OK,
+      keepFleetBuild: async () => OK,
       restartFleet: async () => {
         const now = fleet.state().connection;
         if (scenario.name === "fleet/protocol-mismatch-unmanaged" || !("fleet" in now)) {

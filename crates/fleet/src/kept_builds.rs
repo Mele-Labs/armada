@@ -70,6 +70,12 @@ pub struct KeptBuild {
     pub source: String,
     /// A hash of Bridge's `out/`: two builds with the same one run the same Bridge.
     pub bridge: Option<String>,
+    /// A hash of `out/main` and `out/preload` alone: two builds with the same one differ only in the page.
+    pub bridge_shell: Option<String>,
+    /// The Electron version Bridge runs on.
+    pub electron: Option<String>,
+    /// Its Bridge reloads its page in place, from the build `current` names, when Fleet comes back.
+    pub page_reload: bool,
     /// The branches merged into it, which only a preview build has.
     pub jobs: Vec<String>,
     /// Why a swap onto it was undone: its Fleet did not answer in time.
@@ -84,6 +90,10 @@ struct Record {
     commit: String,
     source: String,
     bridge: Option<String>,
+    bridge_shell: Option<String>,
+    electron: Option<String>,
+    #[serde(default)]
+    page_reload: bool,
     unhealthy: Option<String>,
     tree: Option<String>,
     #[serde(default, rename = "job")]
@@ -113,15 +123,24 @@ pub fn kept_named(builds: &Path, name: &str) -> Option<KeptBuild> {
         commit: record.commit,
         source: record.source,
         bridge: record.bridge,
+        bridge_shell: record.bridge_shell,
+        electron: record.electron,
+        page_reload: record.page_reload,
         jobs: record.jobs.into_iter().map(|row| row.branch).collect(),
         unhealthy: record.unhealthy,
         tree: record.tree,
     })
 }
 
-/// Bridge is booted onto the build reverted to: its `out/` differs, or a record lacks the hash.
+/// Bridge is booted onto the build moved to where its main process, preload or Electron differs, or a
+/// record lacks the hash. **Where only the page differs**, the running Bridge reloads its window from the
+/// build `current` names once Fleet comes back (`apps/desktop/src/main/page-reload.ts`), if its build
+/// says it can: one kept before it could is booted as before.
 fn bridge_reopens(from: &KeptBuild, to: &KeptBuild) -> bool {
-    from.bridge.is_none() || from.bridge != to.bridge
+    if from.bridge.is_some() && from.bridge == to.bridge {
+        return false;
+    }
+    from.bridge.is_none() || !from.page_reload || from.bridge_shell.is_none() || from.bridge_shell != to.bridge_shell || from.electron != to.electron
 }
 
 /// The build running and the one a revert would go to, or why there is none to go to. **The one

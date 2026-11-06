@@ -18,6 +18,7 @@ import type {
 import type {
   BuildSource,
   ChangeSlotPool,
+  PickFleetBuildJob,
   LandCheckAt,
   RescueSlot,
   RetroSubject,
@@ -304,6 +305,10 @@ export const restartFleet = () => window.armada.restartFleet();
 export const changeFleetBuild = (build: BuildSource, adopt: boolean) =>
   window.armada.changeFleetBuild(build, adopt);
 export const revertFleetBuild = () => window.armada.revertFleetBuild();
+export const askRevertFleetBuild = () => window.armada.askRevertFleetBuild();
+export const pickFleetBuildJob = (pick: PickFleetBuildJob) => window.armada.pickFleetBuildJob(pick);
+export const swapFleetBuild = () => window.armada.swapFleetBuild();
+export const keepFleetBuild = () => window.armada.keepFleetBuild();
 
 // The capture window on a server Run — #1294. One entry, and everything the
 // window then does is its own bar's.

@@ -174,4 +174,127 @@ describe("the build as the panel is handed it", () => {
   it("keeps text that is no instant as it came", () => {
     expect(builtSaid("not a time")).toBe("not a time");
   });
+
+  it("draws no chips, snapshot or swap where Fleet reported none", () => {
+    const build = fleetBuildOf(
+      report({}),
+      () => {},
+      () => {},
+      {
+        unpick: () => {},
+        swap: () => {},
+      },
+    );
+    for (const key of [
+      "picked",
+      "snapshot",
+      "swapping",
+    ]) {
+      expect(build).not.toHaveProperty(key);
+    }
+  });
+
+  it("carries the picked branches as Fleet named them, and presses a take-out through by branch", () => {
+    const unpick = vi.fn();
+    const build = fleetBuildOf(
+      report({
+        picked: [
+          {
+            branch: "armada/one",
+            title: "One",
+          },
+          {
+            branch: "armada/two",
+          },
+        ],
+      }),
+      () => {},
+      () => {},
+      {
+        unpick,
+        swap: () => {},
+      },
+    );
+    expect(build?.picked).toEqual([
+      {
+        branch: "armada/one",
+        title: "One",
+      },
+      {
+        branch: "armada/two",
+      },
+    ]);
+    build?.onUnpick?.("armada/two");
+    expect(unpick).toHaveBeenCalledWith("armada/two");
+  });
+
+  it("carries a snapshot building with its stage", () => {
+    const build = fleetBuildOf(
+      report({
+        snapshot: {
+          state: "building",
+          stage: "building_bridge",
+        },
+      }),
+      () => {},
+      () => {},
+    );
+    expect(build?.snapshot).toEqual({
+      state: "building",
+      stage: "building_bridge",
+      jobs: [],
+      bridgeReopens: false,
+    });
+  });
+
+  it("carries a ready snapshot with its Jobs and whether Bridge reopens, and presses swap through", () => {
+    const swap = vi.fn();
+    const build = fleetBuildOf(
+      report({
+        snapshot: {
+          state: "ready",
+          jobs: [
+            "One",
+            "armada/two",
+          ],
+          bridge_reopens: true,
+        },
+        swapping: true,
+      }),
+      () => {},
+      () => {},
+      {
+        unpick: () => {},
+        swap,
+      },
+    );
+    expect(build?.snapshot).toEqual({
+      state: "ready",
+      jobs: [
+        "One",
+        "armada/two",
+      ],
+      bridgeReopens: true,
+    });
+    expect(build?.swapping).toBe(true);
+    build?.onSwap?.();
+    expect(swap).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the line a failed snapshot gave", () => {
+    const build = fleetBuildOf(
+      report({
+        snapshot: {
+          state: "failed",
+          failed: "armada/one conflicts with main",
+        },
+      }),
+      () => {},
+      () => {},
+    );
+    expect(build?.snapshot).toMatchObject({
+      state: "failed",
+      failed: "armada/one conflicts with main",
+    });
+  });
 });

@@ -67,6 +67,7 @@ import type {
   Holdings,
   FollowedLog,
   BuildSource,
+  PickFleetBuildJob,
   FleetBuildReport,
   FleetLimits,
   MergeLines,
@@ -415,6 +416,10 @@ type OldBridgeApi = {
   restartFleet: () => Promise<FleetRestart>;
   changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
   revertFleetBuild: () => Promise<Outcome>;
+  askRevertFleetBuild: () => Promise<void>;
+  pickFleetBuildJob: (pick: PickFleetBuildJob) => Promise<Outcome>;
+  swapFleetBuild: () => Promise<Outcome>;
+  keepFleetBuild: () => Promise<Outcome>;
   readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
   stopSessionCheck: (run: number, force: boolean) => Promise<Outcome>;
   readRetro: (subject: RetroSubject) => Promise<RetroRead>;
@@ -903,6 +908,10 @@ const OLD_CHANNELS = {
   restartFleet: "bridge:restart-fleet",
   changeFleetBuild: "bridge:change-fleet-build",
   revertFleetBuild: "bridge:revert-fleet-build",
+  askRevertFleetBuild: "bridge:ask-revert-fleet-build",
+  pickFleetBuildJob: "bridge:pick-fleet-build-job",
+  swapFleetBuild: "bridge:swap-fleet-build",
+  keepFleetBuild: "bridge:keep-fleet-build",
   readSessionCheckOutput: "bridge:read-session-check-output",
   stopSessionCheck: "bridge:stop-session-check",
   readRetro: "bridge:read-retro",

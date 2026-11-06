@@ -221,9 +221,14 @@ pub struct FleetBuildReverting {
 }
 
 /// `pick_fleet_build_job`'s body: pick a Job's branch for the next snapshot, or take it back out.
+/// **The branch, or the Job holding it**: a chip names its branch, and Try it on a Job's row names
+/// the Job, whose branch Fleet reads off the slot it holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PickFleetBuildJob {
-    pub branch: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
     pub picked: bool,
 }
 
