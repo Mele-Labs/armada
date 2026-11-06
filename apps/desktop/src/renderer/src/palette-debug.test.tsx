@@ -15,6 +15,7 @@ const hands = (debugBridge: () => void, copyDebugInfo: () => void = () => {}): P
   openSession: () => {},
   compose: () => {},
   createMod: () => {},
+  askRevert: () => {},
   surface: () => {},
   run: () => {},
   copyDebugInfo,

@@ -609,6 +609,8 @@ const api: BridgeApi = {
   // Swap back onto the build kept before this one. Fleet starts the undo and answers at once; the
   // outcome arrives as `fleetBuild` on the published state.
   revertFleetBuild: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.revertFleetBuild),
+  // The same revert, confirmed in a native dialog by main, as the app menu's item does it.
+  askRevertFleetBuild: (): Promise<void> => ipcRenderer.invoke(CHANNELS.askRevertFleetBuild),
   // Pick a Job's branch for the snapshot, or take it out. The snapshot arrives as `fleetBuild`.
   pickFleetBuildJob: (pick: PickFleetBuildJob): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.pickFleetBuildJob, pick),

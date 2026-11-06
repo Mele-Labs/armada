@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -38,6 +39,8 @@ import { StateSends } from "./state-sends";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { onCurrentBuild, PageReloads, pageAfterSwap } from "./page-reload";
+import { appMenuTemplate } from "./app-menu";
+import { canRevert, revertAsked } from "./revert-asked";
 import { machinePath } from "./runtime-file";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
@@ -436,6 +439,53 @@ function keptBuilds(): string | null {
 }
 
 /**
+ * Revert to the build before, from the app menu and the palette: the native confirm, then Fleet's revert, or
+ * the build before's own undo where Fleet is not there to ask — `revert-asked.ts`. **All of it runs here**, so
+ * it works with Bridge's page blank.
+ */
+function askToRevert(): Promise<void> {
+  const file = machinePath(process.env["HOME"]);
+  const undo = file === null ? null : join(dirname(file), "builds", "previous", "armada");
+  return revertAsked({
+    report: () => published.fleetBuild,
+    revert: async () => connection?.fleetBuild.revert(),
+    show: async (box) => {
+      const window = bridgeWindow();
+      const { response } = await (window === null
+        ? dialog.showMessageBox(box)
+        : dialog.showMessageBox(window, box));
+      return response;
+    },
+    undo: () => undo,
+    exists: existsSync,
+    run: (command, args) =>
+      spawn(command, args, {
+        detached: true,
+        stdio: "ignore",
+      }).unref(),
+  });
+}
+
+/** Whether the menu's revert item is on, as last set. Rebuilt only when this moves. */
+let menuRevert: boolean | null = null;
+
+/** Set the application menu on the first call, and again only when the revert item turns on or off. */
+function menuFollows(): void {
+  if (!app.isReady()) return;
+  const enabled = canRevert(published.fleetBuild);
+  if (enabled === menuRevert) return;
+  menuRevert = enabled;
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(
+      appMenuTemplate(app.name, {
+        enabled,
+        click: () => void askToRevert(),
+      }),
+    ),
+  );
+}
+
+/**
  * What main last published.
  *
  * Kept here rather than read back off the connection, because the one caller
@@ -504,6 +554,7 @@ const toWindows = coalesce((state: BridgeState) => {
  */
 function publish(state: BridgeState): void {
   published = state;
+  menuFollows();
   pageReloads.connection(state.connection.state === "connected");
   // A Run that has stopped serving ends capture in its own window — #1294.
   captureWindows.changed(state);
@@ -673,6 +724,7 @@ const sessionAttention = new SessionAttention({
 });
 
 void app.whenReady().then(() => {
+  menuFollows();
   wearTheMark();
   protocol.handle(VIDEO_SCHEME, (request) =>
     answerVideoRequest(request, (sessionId) => connection?.sessions.recordOf(sessionId)),
@@ -1014,6 +1066,8 @@ void app.whenReady().then(() => {
   );
   // Asks Fleet, which starts `builds/previous/armada build revert` detached: `fleet-build.ts`.
   ipcMain.handle(CHANNELS.revertFleetBuild, () => connection?.fleetBuild.revert());
+  // The same confirm the app menu's item shows, native, for the palette's row: `revert-asked.ts`.
+  ipcMain.handle(CHANNELS.askRevertFleetBuild, () => askToRevert());
   // Pick for the snapshot, swap onto it, keep the Jobs tried: `fleet-build.ts`.
   ipcMain.handle(CHANNELS.pickFleetBuildJob, (_event, pick: PickFleetBuildJob) =>
     connection?.fleetBuild.pick(pick),

@@ -1192,6 +1192,7 @@ export function App() {
                         checkoutRunSheet={state.checkoutRunSheet}
                         failing={failing}
                         live={live}
+                        buildBefore={state.fleetBuild?.previous !== undefined}
                         repositories={repositories.map((one) => ({
                           root: one.root,
                           label: repositoryLabel(one, repositories),

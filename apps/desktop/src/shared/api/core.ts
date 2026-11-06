@@ -71,6 +71,11 @@ export type CoreApi<S = CoreState> = {
    */
   revertFleetBuild: () => Promise<Outcome>;
   /**
+   * Revert to the build before, asked as the app menu asks it: **main shows a native confirm and
+   * does the rest**, so the answer is nothing. A refusal is shown by main in a dialog of its own.
+   */
+  askRevertFleetBuild: () => Promise<void>;
+  /**
    * Pick a Job's branch for the snapshot Fleet builds beside the running build, or take it back
    * out. **Fleet starts the snapshot detached and answers at once**: what it came to arrives as
    * `fleetBuild`'s `snapshot`. Nothing that runs is touched.
@@ -204,6 +209,7 @@ export const CORE_CHANNELS = {
   restartFleet: "bridge:restart-fleet",
   changeFleetBuild: "bridge:change-fleet-build",
   revertFleetBuild: "bridge:revert-fleet-build",
+  askRevertFleetBuild: "bridge:ask-revert-fleet-build",
   pickFleetBuildJob: "bridge:pick-fleet-build-job",
   swapFleetBuild: "bridge:swap-fleet-build",
   keepFleetBuild: "bridge:keep-fleet-build",
