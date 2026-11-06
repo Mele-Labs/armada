@@ -1,6 +1,5 @@
-//! The follow-ups an agent keeps for itself, kept across its replies until they are settled.
-//! `extracting` reads them off the close of one reply; here each is held a Session at a time, so the
-//! next reply does not wipe it.
+//! The follow-ups an agent keeps for itself with `defer_later`, kept across its replies until they
+//! are settled.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -32,44 +31,11 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Keep `sentences`, said when a reply ended at `said_at`. A sentence already kept, open or
-    /// settled, is not kept again. Whether any was new.
+    /// Keep `sentences` the way `defer_later` does, said when a reply ended at `said_at`. Whether any was new.
+    #[cfg(test)]
     pub(crate) async fn later_kept(&self, id: &str, sentences: &[String], said_at: &str) -> bool {
-        // A sentence near one he marked Not deferred is not kept, by the vectors the asks read; one not
-        // embedded yet is kept this read.
-        let misreads = self.store().lock().await.later_misreads().unwrap_or_default();
-        let sentences = match (misreads.is_empty(), self.language_model().model()) {
-            (false, Some(model)) => {
-                let texts: Vec<&str> = sentences.iter().chain(misreads.iter()).map(String::as_str).collect();
-                let known = self.item_vectors().known(model, id, &texts);
-                super::dedup::left_off_as_misread_sentences(sentences.to_vec(), &misreads, |text| known.get(text).cloned(), super::dedup::FOLDS_AT)
-            }
-            _ => sentences.to_vec(),
-        };
         let mut store = self.store().lock().await;
         sentences.iter().fold(false, |any, sentence| store.keep_later(id, sentence, said_at).unwrap_or(false) || any)
-    }
-
-    /// The follow-ups of the Session's last reply, once the model has read it. Nothing while the
-    /// readers are off, the reply is not read yet, or the Session has ended.
-    pub(crate) async fn later_read(&self, id: &str) {
-        if !super::extracting::IN_FORCE {
-            return;
-        }
-        let Some(model) = self.language_model().model() else {
-            return;
-        };
-        let reply = {
-            let store = self.store().lock().await;
-            let live = store.session(id).ok().flatten().is_some_and(|session| session.state != store::SessionState::Ended);
-            store.turn_end(id).ok().flatten().filter(|_| live)
-        };
-        let Some((at, said)) = reply else {
-            return;
-        };
-        if let Some(read) = self.extract_reads().read_of(super::extracting::read, model, id, &said) {
-            self.later_kept(id, &read.later, &at).await;
-        }
     }
 
     /// What `all_done` is told while any follow-up is open, naming each. **Only the agent's call asks**:

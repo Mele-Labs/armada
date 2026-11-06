@@ -24,15 +24,11 @@
 //!
 //! **An agent item that asks him to walk is refused, and one kept is dropped.** The window is the
 //! one record of a walk, so the agent's item is a call with nothing behind it before `show_window`
-//! and a second one after, which outlives his Approve. `walk_asks.rs` reads it.
+//! and a second one after, which outlives his Approve. `walk_asks.rs` refuses an item with a `walk` act.
 //!
 //! **So is one that repeats a question that lapsed**, nobody answered it in time or it was kept for a walk:
 //! it is already in his Needs you from the `AskUserQuestion` call and his answer comes as a message.
 //! `lapsed_asks.rs` reads it, and a read leaves off one kept before the rule.
-//!
-//! **So is one that repeats the plan he has not approved**, which `plan_asks.rs` reads with the model.
-//!
-//! **And one he could not act on**, once `clarity::IN_FORCE`: a status, a pointer, or no verb aimed at him.
 //!
 //! **A question asked in the walk window waits until answered**, read off its row as `window_ask:<row>`.
 //!
@@ -62,7 +58,6 @@ use store::{KeptClosed, KeptSession, KeptWaiting, Store};
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
-use crate::session_host::clarity::{first_unclear, unclear_item_refusal, IN_FORCE as CLARITY_IN_FORCE};
 use crate::session_host::handoff_answers::lapsed_question;
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
@@ -74,7 +69,6 @@ const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
-const SESSION_WAITING_UNCLEAR: &str = "fleet.session_waiting_unclear";
 const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -345,7 +339,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
 
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
-/// and so is one that asks him to walk (`walk_asks.rs`), kept before `waiting_for` refused it.
+/// and so is one with a `walk` act (`walk_asks.rs`), kept before `waiting_for` refused it.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
     asked: Option<&CallInFlight>,
@@ -383,7 +377,7 @@ pub(crate) fn merged(
         .into_iter()
         .filter(|one| {
             !dismissed.contains(&one.item_id)
-                && !asks_to_walk(&one.item_id, &one.text, one.act.as_ref().and_then(|(kind, _)| act_kind_of(kind)))
+                && !asks_to_walk(one.act.as_ref().and_then(|(kind, _)| act_kind_of(kind)))
                 && !derived
                     .iter()
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
@@ -793,7 +787,7 @@ where
             if !seen.insert(item.id.trim().to_string()) {
                 return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "two items share an id"));
             }
-            if asks_to_walk(&item.id, &item.text, item.act.as_ref().map(|act| act.kind)) {
+            if asks_to_walk(item.act.as_ref().map(|act| act.kind)) {
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
@@ -805,15 +799,6 @@ where
                 }
             }
         }
-        let unclear = set.items.iter().map(|item| {
-            let runs = item.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Run && !act.target.trim().is_empty());
-            (item.id.trim(), item.text.trim(), runs)
-        });
-        if let Some((item, text, why)) = first_unclear(unclear, CLARITY_IN_FORCE) {
-            return Err(self.hosted_refusal(SESSION_WAITING_UNCLEAR, &unclear_item_refusal(item, text, why)));
-        }
-        let said = set.items.iter().map(|item| (item.id.trim().to_string(), item.text.trim().to_string())).collect();
-        self.plan_repeated(&id, said).await?;
         let now = self.clock().now().as_str().to_string();
         let record = {
             let mut store = self.store().lock().await;
