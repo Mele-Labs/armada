@@ -286,7 +286,7 @@ fn the_rules_say_to_start_a_watch_and_that_a_live_one_is_a_wait() {
 #[test]
 fn the_rules_never_put_an_open_pull_requests_wait_in_waiting_for() {
     let finishing = rules().split("\n\n").find(|block| block.starts_with("Finishing.")).expect("a finishing paragraph");
-    assert!(finishing.contains("never put a wait on it in `waiting_for`: Fleet takes such an item off Needs you"));
+    assert!(finishing.contains("never put a wait on it in `waiting_for`: Fleet refuses such an item"));
     assert!(!rules().contains("name the wait in `waiting_for`"));
 }
 

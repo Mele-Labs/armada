@@ -444,9 +444,11 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 **News is the exception (decided 28 Oct 2026).** A merge, and auto-merge turned on, are told to every Job whose standing `pr` row holds the number, the owner first: a Job asked to see a pull request merge holds it from another branch than the one it was opened on, and was told nothing.
 A failure or a conflict still goes to one.
 
-**A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
-While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item whose `approve_pr` act names it, and tells the Job only where something came off.
-Fleet reads the act and never the item's words: a line that only says the number, its link, its branch or its title stays.
+**A Job's wait on a merge is not the owner's, and `waiting_for` refuses it.**
+An item is a merge wait when its `approve_pr` act names a pull request of the Job that is queued, has auto-merge on or has merged, or when its words name that pull request's number (`#12`, `PR 12`, `pull request 12`) or its link.
+Fleet refuses it as the agent writes it (`fleet.session_waiting_merging`, `session_host/merge_waits.rs`): a merge wait is not a Needs you item, and Fleet tells the Job when the pull request merges.
+**Fleet never takes a kept item off for a queue or auto-merge**, and an item kept before the rule, or written again unchanged, stands.
+Only a merge, a fact, takes off an `approve_pr` item that names the merged number.
 The job note tells agents not to state it.
 
 ### Watches
