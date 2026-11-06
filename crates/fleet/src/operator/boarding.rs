@@ -155,7 +155,6 @@ fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String) -> String {
         "existing_job" => said("Handed over", format!("to {}", other())),
         "merge" => said("Merged", format!("into {}", other())),
         "keep_in_touch" => said("Kept in touch", format!("with {}", other())),
-        "nudge" => "Nudged".to_string(),
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
         "passed_on" => "Passed on".to_string(),

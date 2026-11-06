@@ -90,7 +90,7 @@ impl Arrived {
         }
     }
 
-    /// A Job gone quiet with work left, which is nudged, started anew or raised.
+    /// A Job gone quiet with work left, which is started anew or raised.
     pub fn is_stall(self) -> bool {
         matches!(self, Arrived::Stopped | Arrived::Red)
     }
