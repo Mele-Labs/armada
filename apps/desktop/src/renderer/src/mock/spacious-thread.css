@@ -22,10 +22,33 @@
   margin-inline: auto;
 }
 
-/* The rows scroll, which clips what stands past them: room each side for a hovered line's wash and its bar. */
+/* The rows scroll across the whole pane, so their scrollbar keeps to its edge, away from the words; the column is padding
+   either side, never less than room for a hovered line's wash and its bar, which the scroll would clip. */
 :root[data-thread-take="spacious"][data-look] .armada-session-thread__rows {
-  max-width: calc(var(--spacious-column) + var(--space-6) * 2);
-  padding: var(--space-6) var(--space-6) 0;
+  max-width: none;
+  padding: var(--space-6) max(var(--space-6), calc((100% - var(--spacious-column)) / 2)) 0;
+}
+
+/* A thin thumb with no track, there only while the pointer is over the thread. */
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar {
+  width: calc(var(--space-1) + var(--space-1) / 2);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows:hover::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-subtle);
 }
 
 /* Messages scrolled past fade out under the Job's head, and into the composer at the foot, rather than stopping at an edge.
@@ -203,12 +226,12 @@
   background: transparent;
 }
 
-/* Its answers: full height, the body's size, Send back a quiet fill with no edge. */
+/* Its answers: full height, the body's size, the bubble's corners, Send back a quiet fill with no edge. */
 :root[data-thread-take="spacious"][data-look] .armada-session-done__acts .armada-button,
 :root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-button {
   height: var(--h-control-lg);
   padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: var(--spacious-radius);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
 }
@@ -280,4 +303,88 @@
 :root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt .armada-button:hover {
   color: var(--fg-default);
   background: var(--bg-hover);
+}
+
+/* ---- A working agent: what it is doing, in words beside the mark. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__working {
+  gap: var(--space-2);
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-session-fold__head {
+  gap: var(--space-2);
+}
+
+/* Its calls, one to a line in the order made: those done in the past tense, the one running with the mark. */
+:root[data-thread-take="spacious"][data-look] .armada-session-live {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-live__call {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+  color: var(--fg-subtle);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-live__call[data-now] {
+  color: var(--fg-default);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-live__mark {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: var(--space-4);
+}
+
+/* ---- Nothing left to do: the thread's last entry, edged as the document is. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-session-end {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--spacious-radius);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-end__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--spacious-body);
+  line-height: var(--spacious-leading);
+  font-weight: var(--weight-medium);
+  color: var(--fg-default);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-end__head svg {
+  color: var(--step-advanced);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-end .armada-session-done__summary {
+  padding: 0;
+  font-size: var(--spacious-body);
+  line-height: var(--spacious-leading);
+  color: var(--fg-muted);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-end .armada-session-done__acts {
+  margin-top: var(--space-1);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-live__line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

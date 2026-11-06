@@ -313,6 +313,8 @@ type SessionThreadKinds =
       kind: "reasoning";
       seconds: number;
       text: string;
+      /** Still reasoning: the row reads Thinking, open on the words so far. */
+      live?: true;
     }
   /**
    * The agent disputed Fleet's notice, the message row `notice`: one line in Fleet's voice with the reason, how it was
@@ -1193,6 +1195,10 @@ function namesOf(
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
+/** The spacious take on the thread (`?thread=spacious` in the mock); without it the thread is as it is. */
+const spaciousTake = (): boolean =>
+  typeof document !== "undefined" && document.documentElement.dataset["threadTake"] === "spacious";
+
 function Calls({
   rows,
   working,
@@ -1211,6 +1217,43 @@ function Calls({
 }) {
   const names = namesOf(rows);
   const line = callsLine(rows, working === true);
+  // The spacious take draws a working agent's calls one to a line, the newest with the mark.
+  if (working === true && spaciousTake())
+    return (
+      <li
+        className="armada-session-fold armada-session-fold--live"
+        aria-label={`Tool calls: ${names.join(", ")}`}
+      >
+        <ol className="armada-session-live">
+          {rows.map((one, at) => {
+            const now = at === rows.length - 1;
+            return (
+              <li
+                key={one.id}
+                className="armada-session-live__call"
+                data-now={now ? "" : undefined}
+              >
+                <span className="armada-session-live__mark">
+                  {now ? <SessionMark state="working" said="Working" /> : null}
+                </span>
+                <span className="armada-session-live__line">
+                  {/* A run says its whole command; the line cuts it where the column ends. */}
+                  {one.text.startsWith("Bash ")
+                    ? `${now ? "Running" : "Ran"} ${one.text.slice("Bash ".length)}`
+                    : callsLine(
+                        [
+                          one,
+                        ],
+                        now,
+                      )}
+                </span>
+                {now && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
+              </li>
+            );
+          })}
+        </ol>
+      </li>
+    );
   return (
     <li className="armada-session-fold armada-session-fold--calls">
       <details>
@@ -2215,7 +2258,7 @@ function Row({
   if (row.kind === "reasoning") {
     return (
       <li className="armada-session-fold armada-session-fold--reasoning">
-        <details>
+        <details open={row.live === true}>
           <summary className="armada-session-fold__head">
             <ChevronRight
               size={12}
@@ -2223,7 +2266,14 @@ function Row({
               aria-hidden
               className="armada-session-fold__chevron"
             />
-            Thought for {row.seconds}s
+            {row.live === true ? (
+              <>
+                <SessionMark state="working" said="Working" />
+                Thinking
+              </>
+            ) : (
+              `Thought for ${row.seconds}s`
+            )}
           </summary>
           <div className="armada-session-fold__body">
             <Prose text={row.text} />
@@ -3598,7 +3648,11 @@ export function SessionThread({
   ]);
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
-  const endsInCalls = items[items.length - 1]?.kind === "calls";
+  const last = items[items.length - 1];
+  // Calls still running, or reasoning still written, carry the working mark themselves.
+  const endsInCalls =
+    last?.kind === "calls" ||
+    (last?.kind === "row" && last.row.kind === "reasoning" && last.row.live === true);
   const cardsAfter = (at: number): ThreadCard[] =>
     (inline ?? []).filter((card) => afterWhich(items, card) === at);
   // What waits on him is the thread's last card, answered in place.
@@ -3930,6 +3984,9 @@ export function SessionThread({
                         {working === true && (!endsInCalls || asking) ? (
                           <li className="armada-session-thread__working">
                             <SessionMark state="working" said="Working" />
+                            {spaciousTake() ? (
+                              <span className="armada-session-thread__working-said">Thinking</span>
+                            ) : null}
                             {onStop === undefined ? null : <SessionStop onStop={onStop} />}
                           </li>
                         ) : null}

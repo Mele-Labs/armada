@@ -694,6 +694,8 @@ type SessionRowKinds =
       kind: "reasoning";
       seconds: number;
       text: string;
+      /** Still reasoning: the words so far. */
+      live?: true;
     }
   /** The agent disputed Fleet's notice `notice`: its reason, how it was spotted, and the review Job where one was started. */
   | {

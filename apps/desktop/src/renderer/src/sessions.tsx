@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
+  Check,
   CornerUpRight,
   ExternalLink,
   GitFork,
@@ -41,6 +42,7 @@ import {
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
+  DoneBody,
   NotOursCard,
   ProseTerminal,
   Tooltip,
@@ -2654,7 +2656,10 @@ export function SessionView({
             ?.focus();
         },
       };
-  const endShown = doneProp !== undefined && !waits;
+  // The spacious take (`?thread=spacious` in the mock) draws the ending as the thread's last entry, and the composer carries no band for it.
+  const endInThread =
+    doneProp !== undefined && !waits && document.documentElement.dataset.threadTake === "spacious";
+  const endShown = doneProp !== undefined && !waits && !endInThread;
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   // Open on coming into the Session, until he folds it there.
@@ -3134,10 +3139,26 @@ export function SessionView({
                             : {
                                 onStop: () => draft.stop!(session.id),
                               })}
-                          {...(trailing === undefined
+                          {...(trailing === undefined && !endInThread
                             ? {}
                             : {
-                                trailing,
+                                trailing: (
+                                  <>
+                                    {trailing}
+                                    {endInThread ? (
+                                      <section
+                                        className="armada-session-end"
+                                        aria-label="Nothing left to do"
+                                      >
+                                        <h3 className="armada-session-end__head">
+                                          <Check size={14} strokeWidth={2} aria-hidden />
+                                          Nothing left to do
+                                        </h3>
+                                        <DoneBody done={doneProp!} />
+                                      </section>
+                                    ) : null}
+                                  </>
+                                ),
                               })}
                           {...(runner === undefined
                             ? {}

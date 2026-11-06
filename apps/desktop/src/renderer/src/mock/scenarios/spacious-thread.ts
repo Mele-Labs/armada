@@ -115,6 +115,61 @@ const thinking: Session = {
       },
       text: "Shorter, and say what it is in the first three words.",
     },
+    {
+      id: "th4",
+      at: "11:21:34",
+      kind: "reasoning",
+      seconds: 4,
+      live: true,
+      text: "The first three words have to name the thing. Agents, Jobs or Armada could lead. Agents is the word people search for, so it goes first, and the line ends on what they get back.",
+    },
+  ],
+  attachments: [],
+};
+
+/** A Job whose agent is partway through its calls. */
+const calling: Session = {
+  id: "s94",
+  title: "Notes for 0.4",
+  turn: {
+    state: "working",
+  },
+  lastTurnAt: ago(0),
+  rows: [
+    {
+      id: "rn1",
+      at: "11:30:00",
+      kind: "message",
+      from: {
+        kind: "you",
+      },
+      text: "Write the release notes for 0.4 from what merged since 0.3.",
+    },
+    {
+      id: "rn2",
+      at: "11:30:05",
+      kind: "reasoning",
+      seconds: 6,
+      text: "What merged since the 0.3 tag is in the git log. The changelog has the last release's headings to follow.",
+    },
+    {
+      id: "rn3",
+      at: "11:30:11",
+      kind: "tool",
+      text: "Read CHANGELOG.md",
+    },
+    {
+      id: "rn4",
+      at: "11:30:14",
+      kind: "tool",
+      text: "Bash git log --oneline v0.3..main",
+    },
+    {
+      id: "rn5",
+      at: "11:30:20",
+      kind: "tool",
+      text: "Grep Breaking in docs/releases",
+    },
   ],
   attachments: [],
 };
@@ -217,6 +272,7 @@ const base = videoScriptScenario(
   1,
   [
     thinking,
+    calling,
     reasoned,
     finished,
   ],
