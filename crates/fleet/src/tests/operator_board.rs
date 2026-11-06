@@ -77,13 +77,13 @@ fn question(job: &str, manifest: &str, id: &str, title: &str, words: &str) -> Ar
 }
 
 /// A question out in a call, and two more waiting behind it, in that order.
-struct Waiting {
-    rig: Rig,
+pub(super) struct Waiting {
+    pub(super) rig: Rig,
     call: Arc<Gated>,
     manifest: String,
 }
 
-async fn waiting(rulings: &[&str], talks: &[&str]) -> Waiting {
+pub(super) async fn waiting(rulings: &[&str], talks: &[&str]) -> Waiting {
     let rig = rig_placing(None);
     dispatch(&rig, false).await;
     let call = Gated::saying(rulings, talks);
@@ -112,7 +112,7 @@ impl Waiting {
     }
 
     /// The handing runs in the background: until `count` wait behind the call.
-    async fn waits_for(&self, count: usize) {
+    pub(super) async fn waits_for(&self, count: usize) {
         let fleet = Arc::clone(&self.rig.fleet);
         eventually(|| {
             let fleet = Arc::clone(&fleet);
@@ -121,7 +121,7 @@ impl Waiting {
         .await;
     }
 
-    async fn next(&self) -> Vec<String> {
+    pub(super) async fn next(&self) -> Vec<String> {
         self.rig.fleet.operator_board_wire().await.expect("read").next.into_iter().map(|one| one.id).collect()
     }
 }

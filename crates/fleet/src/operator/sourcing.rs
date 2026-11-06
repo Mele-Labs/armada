@@ -99,18 +99,24 @@ impl Seat {
         true
     }
 
-    /// Rule on `arrival` in the background, unless a call on it is already out.
-    fn hand_sourced(&self, arrival: Arrival) {
-        let Some(operator) = self.operator() else { return };
+    /// Whether `id` is waiting for the Operator or out on a call.
+    pub(super) fn is_out(&self, id: &str) -> bool {
+        held(&self.sources.out).contains(id)
+    }
+
+    /// Rule on `arrival` in the background, unless a call on it is already out. Whether it was handed.
+    fn hand_sourced(&self, arrival: Arrival) -> bool {
+        let Some(operator) = self.operator() else { return false };
         let out = Arc::clone(&self.sources.out);
         if !held(&out).insert(arrival.id.clone()) {
-            return;
+            return false;
         }
         tokio::spawn(async move {
             let id = arrival.id.clone();
             operator.ruled(arrival, NEEDS_YOU_WAIT).await;
             held(&out).remove(&id);
         });
+        true
     }
 }
 
@@ -124,12 +130,12 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Hand `arrival` to the Operator, unless the Log already holds it.
-    pub(crate) async fn hand_once(&self, arrival: Arrival) {
+    /// Hand `arrival` to the Operator, unless the Log already holds it or it is waiting. Whether it was handed.
+    pub(crate) async fn hand_once(&self, arrival: Arrival) -> bool {
         if self.store().lock().await.operator_ruled(&arrival.id).unwrap_or(true) {
-            return;
+            return false;
         }
-        self.operator_seat().hand_sourced(arrival);
+        self.operator_seat().hand_sourced(arrival)
     }
 
     /// Each report kept, issue new, Later item handed over and note left since the last tick, handed
@@ -273,6 +279,9 @@ where
             (Arrived::Ended | Arrived::Merged, Way::ExistingJob, Some(into), _) => self.operator_told_ending(arrival, ruling, into).await,
             (Arrived::Ended | Arrived::Merged, Way::NewJob, _, _) => made.job = self.operator_started_next(arrival, ruling).await,
             (Arrived::Ended | Arrived::Merged, Way::File, _, _) => made.issue = self.operator_filed_next(arrival, ruling).await,
+            (Arrived::Error, Way::File, _, _) => made.issue = self.operator_filed_error(manifest, arrival).await,
+            (Arrived::Error, Way::NewJob, _, _) => made.job = self.operator_started_error(manifest, arrival).await,
+            (Arrived::Error, Way::ExistingJob, Some(into), _) => self.operator_told_error(arrival, into).await,
             _ => {}
         }
         made

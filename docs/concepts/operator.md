@@ -47,6 +47,7 @@ An item reaches the Operator before it starts a Job or pulses in Needs you.
 | A review request | The forge |
 | A note | The person, left on Bridge. One new since Fleet started, open and sent to no Job |
 | A Job ending, or a pull request merging | Fleet's own detection, for every hosted Job whoever started it. Only those after Fleet started, and none while the Operator is off |
+| An error | Bridge, for a failure card it showed the person. It carries the code, message, fields, cause chain, log paths, commit and time |
 
 **A note is only ever proposed.**
 A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Off, so no note is filed, started or sent to a Job unasked.
@@ -58,6 +59,12 @@ It may be told to a live Job, started as the next piece, filed, linked, raised o
 The role positions decide as they do for a report: at Suggest a start, a tell or a filing waits on one press, and `noted` needs no role.
 A Job ending also settles its own arrivals still waiting or out on a call, such as its start, plan, stall or questions, as Done with `Ended`.
 A Job handed on for context is no end.
+
+**An error goes first, once.**
+It stands ahead of every waiting arrival that is not an error, and errors keep the order they came in.
+Its id is a fingerprint of its code and message, less the numbers, ids and paths that differ between two of the same fault, with the machine's local day, so the same error is one item for the day however often Bridge shows it.
+It is weighed against live Jobs as a report is, the Job it was raised in included, and it goes by the role's position: acted on at On, kept as a suggestion at Suggest.
+A Job it starts is briefed with every word the card carried.
 
 **Detection stays Fleet's**, read from state as it always was.
 The Operator is never asked whether something happened.

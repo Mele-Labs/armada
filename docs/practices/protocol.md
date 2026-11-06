@@ -1545,7 +1545,7 @@ The box at the foot of the Operator panel, and the orders it turns words into. N
 
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
 
-## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion` and `operator.board_changed`
+## The Operator's board: `get_operator_board`, `move_on_operator_board`, `answer_operator_suggestion`, `report_bridge_error` and `operator.board_changed`
 
 The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` and `on`, read whole.
 
@@ -1561,8 +1561,13 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   The row reads `Ended: <first line of the Job's summary>` or `Ended`, and `Merged: #<number> <title>`, unless the Operator did more (`Started`, `Handed over`, `Filed`, `Linked` or `Raised`).
   An arrival of the Job's own that was waiting or out on a call when it ended is in `done` as `Ended`, and leaves `now` and `next`.
   A suggestion on an end is kept with no Job, so it is in `suggestions`.
+- **`report_bridge_error` is how Bridge hands an error it showed the person to the Operator**: `POST /operator/errors`, `ReportBridgeError` `{ code, message, fields?: [{ key, value }], chain?, logs?, commit?, job_id?, at }`, answered `BridgeErrorTaken` `{ id, repeated }`.
+  It answers 200 whatever became of the error: while the Operator is off it is let go with `repeated: false`, so Bridge never shows a refusal for it.
+  `id` is `error:<fingerprint>:<local day>`; an error with an id already waiting, out on a call or in the Log answers `repeated: true` and arrives no more.
+  It leads `next` ahead of every waiting item that is not an error, as a `report`.
+  The types are in `packages/protocol/src/operator-errors.ts`.
 - **`operator.board_changed` carries nothing.** Bridge reads the board again.
-- **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main, a Later item, a note, a Job's end and a pull request's merge are each a `report`.
+- **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main, a Later item, a note, an error, a Job's end and a pull request's merge are each a `report`.
   Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
 - **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.

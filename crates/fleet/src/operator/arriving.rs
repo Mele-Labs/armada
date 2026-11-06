@@ -35,6 +35,8 @@ pub enum Arrived {
     Ended,
     /// A pull request a hosted Job held merged.
     Merged,
+    /// An error Bridge showed the person, which goes first in the order.
+    Error,
 }
 
 impl Arrived {
@@ -54,11 +56,12 @@ impl Arrived {
             Arrived::Note => "note",
             Arrived::Ended => "ended",
             Arrived::Merged => "merged",
+            Arrived::Error => "error",
         }
     }
 
     /// Every kind there is.
-    pub(super) const EVERY: [Arrived; 14] = [
+    pub(super) const EVERY: [Arrived; 15] = [
         Arrived::Start,
         Arrived::Question,
         Arrived::Card,
@@ -73,6 +76,7 @@ impl Arrived {
         Arrived::Note,
         Arrived::Ended,
         Arrived::Merged,
+        Arrived::Error,
     ];
 
     /// What a word from the store names.
@@ -97,6 +101,7 @@ impl Arrived {
             Arrived::Note => "notes",
             Arrived::Ended => "Job ends",
             Arrived::Merged => "merges",
+            Arrived::Error => "errors",
         }
     }
 
@@ -112,7 +117,7 @@ impl Arrived {
 
     /// Work from outside a Job's own run, which [`super::Acting::sourced`] does what is ruled on.
     pub fn is_sourced(self) -> bool {
-        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged)
+        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error)
     }
 
     /// An end or a merge: what happened to a Job, not work it asks for.
@@ -149,6 +154,7 @@ impl Arrived {
             Arrived::Note => "The person left a note",
             Arrived::Ended => "A Job ended",
             Arrived::Merged => "A pull request merged",
+            Arrived::Error => "Bridge showed the person an error",
         }
     }
 }
@@ -174,6 +180,8 @@ pub enum Source {
     Tracker,
     /// The forge, for someone else's pull request: words from off this machine.
     Forge,
+    /// Bridge, for an error it showed the person.
+    Bridge,
 }
 
 impl Source {
@@ -188,6 +196,7 @@ impl Source {
             Source::Person => "person",
             Source::Tracker => "tracker",
             Source::Forge => "forge",
+            Source::Bridge => "bridge",
         }
     }
 
@@ -210,6 +219,7 @@ impl Source {
             Source::Person => "by the person's own hand".to_string(),
             Source::Tracker => "from the tracker".to_string(),
             Source::Forge => "from the forge".to_string(),
+            Source::Bridge => "from Bridge".to_string(),
         }
     }
 }

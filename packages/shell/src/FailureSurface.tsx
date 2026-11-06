@@ -22,11 +22,12 @@ import {
 import type { DebugPayload, Filing } from "@armada/components";
 
 import type { BridgeIdentity } from "@armada/protocol";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { CopiedToast, ToastRegion, useCopied } from "./CopiedToast";
 import type { Caught, Failure } from "./failures";
 import { rendererFailure } from "./failures";
+import { failureShown } from "./failure-shown";
 
 /**
  * Copy debug info, for one of Bridge's failures.
@@ -147,6 +148,13 @@ export function FailureBlock({
   onDispatchSession,
 }: FailureBlockProps) {
   const [dispatching, setDispatching] = useState(false);
+  // Every card, toast or band, is drawn here, so this is where each is passed on, once when it is drawn and again only
+  // where the same block comes to show another failure.
+  useEffect(() => {
+    failureShown(failure.payload);
+  }, [
+    failure.payload.code,
+  ]);
   const filing = useFileAnIssue({
     compose: () => filingFor(failure),
     onCopied,

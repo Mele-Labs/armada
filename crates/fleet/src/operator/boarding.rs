@@ -113,7 +113,7 @@ pub fn kind_of(arrived: Arrived) -> OperatorBoardKind {
         Arrived::Question => OperatorBoardKind::Question,
         Arrived::Card => OperatorBoardKind::Card,
         Arrived::Stopped | Arrived::Red => OperatorBoardKind::Stall,
-        Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged => OperatorBoardKind::Report,
+        Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error => OperatorBoardKind::Report,
     }
 }
 
