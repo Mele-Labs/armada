@@ -1197,6 +1197,19 @@ function namesOf(
  */
 export const SpaciousTake = createContext(false);
 
+/** Calls the take leaves out of the thread: the agent's own task list and tool loading, and a shown window, whose own row stands for it. */
+const UNDRAWN = new Set([
+  "TaskCreate",
+  "TaskUpdate",
+  "TaskList",
+  "TaskGet",
+  "ToolSearch",
+  "show_window",
+]);
+
+const undrawn = (row: SessionThreadRow): boolean =>
+  row.kind === "tool" && UNDRAWN.has((row.text.split(/\s/, 1)[0] ?? "").split("__").pop() ?? "");
+
 /**
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
@@ -3610,13 +3623,14 @@ export function SessionThread({
   const pinnedSketch = sketching?.sketch;
   const all = useMemo(() => {
     // The pin is the card of the sketch it holds, so the thread does not draw it a second time; an earlier card of the same sketch stays as the replaced one.
-    const shown =
+    const pinned =
       pinnedSketch === undefined
         ? rows
         : rows.filter(
             (row) =>
               !(row.kind === "sketch" && row.sketch === pinnedSketch && row.replaced !== true),
           );
+    const shown = spacious ? pinned.filter((row) => !undrawn(row)) : pinned;
     const folded = itemsOf(shown, disputes);
     const last = folded[folded.length - 1];
     const turn =
@@ -3643,6 +3657,7 @@ export function SessionThread({
     asking,
     waitingOnYou,
     pinnedSketch,
+    spacious,
   ]);
   const [drawn, setDrawn] = useState(DRAWN);
   useLayoutEffect(() => {

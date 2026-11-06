@@ -90,6 +90,7 @@ const STATES: readonly {
   { name: "Reasoned, then answered", id: "s92" },
   { name: "Nothing left to do", id: "s93" },
   { name: "A thread like this one", id: "st9" },
+  { name: "Mixed calls between two messages", id: "st11" },
   { name: "Pictures, a video and a doc", id: "st10" },
   { name: "An empty thread", id: "st7" },
   { name: "A narrow pane, 360 wide", id: "st1", width: 360 },

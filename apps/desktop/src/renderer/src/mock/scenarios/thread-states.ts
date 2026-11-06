@@ -263,6 +263,29 @@ const media: Session = {
   })),
 };
 
+/** A run of mixed calls between two messages, as this take's own thread had one: a commit, two pages shown, a task ticked. */
+const chain = job("st11", "Show the sheets", [
+  agent("st11a", "22:08:25", "The walk still plays, and types pass. Committing, then showing both pages."),
+  tool("st11b", "22:08:27", "Bash git add -A apps/desktop/src/renderer/src/mock"),
+  {
+    id: "st11c",
+    at: "22:08:33",
+    kind: "window",
+    title: "Thread states, today and spacious",
+    url: "http://localhost:40024/?scenario=thread-states&sheet=thread-states",
+  },
+  tool("st11d", "22:08:33", "mcp__armada-fleet__show_window"),
+  {
+    id: "st11e",
+    at: "22:08:34",
+    kind: "window",
+    title: "Where the spacious take reaches",
+    url: "http://localhost:40024/?scenario=thread-states&sheet=ripple",
+  },
+  tool("st11f", "22:08:35", "TaskUpdate"),
+  agent("st11g", "22:08:43", "Both pages are open in the Job's tabs."),
+]);
+
 /** A Job with nothing in its thread yet. */
 const empty = job("st7", "New Job", []);
 
@@ -279,6 +302,7 @@ const base = videoScriptScenario(
     walked,
     asks,
     ours,
+    chain,
     operator,
     media,
     empty,
