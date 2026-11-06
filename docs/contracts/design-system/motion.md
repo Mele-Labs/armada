@@ -120,7 +120,8 @@ a loop takes the clock if it sits inside an element marked `data-loop-clock` (th
 Any other infinite loop runs free.
 An animation that ends takes the clock if it runs 5 seconds or more, wherever it is, since nobody sees its steps.
 Every renderer entry starts the clock through `startMotionRules` in `still.ts`, the walk window's page, bar and panel without the focus half, since they hold that window's focus in turn.
-Both tiers stand still while the window is hidden or unfocused (`data-still`), and after a minute with no input (`data-idle`). A loop out of sight does not move, since a move nobody can see still costs a frame.
+Both tiers stand still while the window is hidden or unfocused (`data-still`), and after a minute with no input (`data-idle`).
+A loop out of sight does not move, since a move nobody can see still costs a frame.
 The owner asked for the split on 6 Nov 2026, after a spinner on the clock read "like a video game running at 5 fps".
 
 Why the clock existed: a smooth loop holds the display's frames, and while the panels were blurred one faint row pulse held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule added up.
