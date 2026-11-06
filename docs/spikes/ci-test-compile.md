@@ -5,6 +5,7 @@ The compile of the whole `test` Check is 278 seconds of wall time, and 212 of th
 sccache caches only rlib and staticlib compiles, so at best it takes off the libraries before that unit; a nextest archive saves runner time but puts a second job, and a second wait for a runner, on the queue's path.
 What it did find: a pull request's `test_compile` never restored `main`'s cache, and compiled every third-party crate on 5 of 6 pull requests; restoring it saved crates compiled, not time.
 What did pay, on 6 Nov: type-checking Armada's own crates on four threads with no debug info takes 31% off `fleet`'s test harness (*Four threads and no debug info*).
+What did not, on 6 Nov: splitting `fleet`, measured as a prototype that took 13 s off a shard's 265 s compile (*Splitting fleet*).
 
 Measured on 5 Nov 2026 on a 4-core, 16 GB `ubuntu-latest` runner, run 42111453908, from a branch that was never merged.
 The job was named `test` so rust-cache restored `main`'s own entry, `ci1-test-test-Linux-x64-0fb4cc59-4b1d9d8e`, as a queue shard does.
@@ -101,6 +102,32 @@ A person's machine and the shipped build are unchanged.
 Two other levers were measured and not taken.
 `TMPDIR` on `/dev/shm`: the store and `fleet` suites went from 255 to 212 s, and 8 tests failed; the runner's disk is ext4 with `nobarrier` and `data=writeback`, so a sync is already cheap.
 The slowest test, `a_numbered_file_converts_at_every_count_the_old_list_had` at 55 to 101 s, was cut instead by #3323.
+
+## Splitting fleet
+
+Measured on 6 Nov 2026 on the same runner with the shards' settings, runs 42161928164, 42164177926 and 42168375559, from branches never merged.
+
+Splitting `fleet`'s code into crates was ruled out from its shape.
+144 of its 220 modules form one cycle through `daemon`, and 139 modules, 84% of its code, add methods to `Fleet`, which cannot leave `Fleet`'s crate.
+
+`fleet`'s harness compiled in 106 s, and in 14 s with `src/tests/` taken out, so its 88,800 lines of tests cost about 92 s.
+`cargo llvm-lines` found why the rest of `fleet` costs so little there: `Fleet<H, V, W>` is generic over its three adapters, so its methods are generated only where the types are named.
+`armada` generated 3.5 M lines of `Fleet` for the real adapters, the harness 3.3 M for the fakes, and `fleet`'s library none.
+
+So the prototype, `armada/proto-dyn-fleet`, held the adapters as trait objects (`3f8737581e`) and then moved `src/tests/` to `crates/fleet/tests/suite` (`cbe9730709`).
+
+| Seconds, two runs each | `main` | Trait objects | Trait objects, suite out |
+|---|---|---|---|
+| A shard's whole compile | 260, 271 | 258, 250 | 252, 253 |
+| Every `fleet` test target | 122, 121 | 122, 123 | 113, 115 |
+| `fleet`'s harness, or the suite once moved | 107, 109 | 107, 109 | 103, 105 |
+| `armada` | 73, 83 | 70, 77 | 80, 78 |
+| What `armada check test` rebuilds after a `daemon.rs` edit, incremental | 35.1 | 33.7 | 37.5 |
+
+Trait objects moved 1.6 M generated lines from `armada` into `fleet`'s library, and neither compile moved beyond the 10 to 18 s two runs of one build differ by.
+Moving the suite out took 3.7 M generated lines and 4 s off it.
+The time is in the test code itself, wherever it compiles, and what in it costs most was not counted.
+Not taken, so `docs/practices/rust.md`'s rule that unit tests live beside their code stands.
 
 ## What was not measured
 
