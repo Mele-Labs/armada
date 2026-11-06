@@ -353,7 +353,7 @@ const FRESH_ENTRY = "fresh";
 const FRESH_FORK_ENTRY = "fresh-fork";
 
 /** The menu the caller gave, with the fresh start's acts added before its first rule, or last when it has none. */
-function menuWithFresh(
+export function menuWithFresh(
   menu: SessionFrameProps["menu"],
   fresh: FreshStart | undefined,
 ): SessionFrameProps["menu"] {
@@ -479,6 +479,8 @@ export type SessionFrameProps = {
    * The head keeps the state, the name, the menu and `back`. Absent, the tools stay in the head.
    */
   toolsUnder?: boolean;
+  /** No head at all: the host draws the state, the name and the menu elsewhere, as a Job in panes does on its Thread tab. */
+  headless?: boolean;
   children: ReactNode;
 };
 
@@ -639,6 +641,7 @@ export function SessionFrame({
   headViews,
   headTake,
   toolsUnder = false,
+  headless = false,
   children,
 }: SessionFrameProps) {
   const named = address ?? id;
@@ -733,38 +736,40 @@ export function SessionFrame({
       className="armada-session-panels"
     >
       <Card className="armada-session-frame" role="region" aria-label={`Job ${named}`}>
-        <header
-          className="armada-session-frame__head"
-          {...(headTake === undefined || toolsUnder
-            ? {}
-            : {
-                "data-take": headTake,
-              })}
-          {...(headTake === "overflow" && !toolsUnder
-            ? {
-                "data-room": "",
-              }
-            : {})}
-        >
-          {rowed ? (
-            <div className="armada-session-frame__row">
-              {lead}
-              {back}
-            </div>
-          ) : (
-            lead
-          )}
-          {rowed ? (
-            <div className="armada-session-frame__row" data-row="tools" data-room="">
-              {tools}
-              {menuButton}
-            </div>
-          ) : toolsUnder ? null : (
-            tools
-          )}
-          {rowed ? null : menuButton}
-          {rowed ? null : back}
-        </header>
+        {headless ? null : (
+          <header
+            className="armada-session-frame__head"
+            {...(headTake === undefined || toolsUnder
+              ? {}
+              : {
+                  "data-take": headTake,
+                })}
+            {...(headTake === "overflow" && !toolsUnder
+              ? {
+                  "data-room": "",
+                }
+              : {})}
+          >
+            {rowed ? (
+              <div className="armada-session-frame__row">
+                {lead}
+                {back}
+              </div>
+            ) : (
+              lead
+            )}
+            {rowed ? (
+              <div className="armada-session-frame__row" data-row="tools" data-room="">
+                {tools}
+                {menuButton}
+              </div>
+            ) : toolsUnder ? null : (
+              tools
+            )}
+            {rowed ? null : menuButton}
+            {rowed ? null : back}
+          </header>
+        )}
         {notice}
         <ToolbeltContext.Provider value={toolsUnder ? tools : null}>
           <div className="armada-session-frame__body">{children}</div>

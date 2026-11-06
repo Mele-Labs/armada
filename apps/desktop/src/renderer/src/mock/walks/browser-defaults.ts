@@ -12,12 +12,7 @@ const pane = (name: string) =>
 const empty = region("Empty pane", {
   exact: true,
 });
-const thread = inside(
-  pane("Thread"),
-  tab("Thread", {
-    exact: true,
-  }),
-);
+const thread = inside(pane("Thread"), tab(/^Thread(: |$)/));
 const browser = inside(
   pane("localhost:5173"),
   role("group", "Job browser", {

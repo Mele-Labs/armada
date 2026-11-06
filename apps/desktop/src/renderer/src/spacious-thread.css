@@ -2,7 +2,9 @@
    (`main.tsx`); the mock's sheets set it beside today's look to compare. Fonts, spacing and weight only: every colour is the theme's. */
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
-  --spacious-column: 680px;
+  /* The column grows with the pane, so a wide one is not mostly margin, and stops where a line gets too long to read. */
+  container-type: inline-size;
+  --spacious-column: clamp(680px, 70cqi, 960px);
   /* How far code, tables and his bubbles reach past the words, so their own words line up with the prose. */
   --spacious-bleed: calc(var(--space-4) + var(--space-1));
   /* The column the box, Needs you, his bubbles and the cards share: the words' column and the bleed either side. */
@@ -423,6 +425,68 @@
   .armada-session-sketch__answers
   .armada-card-footer {
   gap: var(--space-2);
+}
+
+/* ---- An item opened in Needs you: Back stands in its title line, not on a row of its own, while it is all that row holds. ---- */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-needs-panel__detail:has(.armada-session-ledger__rows) {
+  position: relative;
+}
+
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-needs-panel__detail:has(.armada-session-ledger__rows)
+  > .armada-needs-panel__head:has(> :only-child) {
+  position: absolute;
+  top: calc(var(--space-1) + var(--border-width));
+  left: calc(var(--space-2) + var(--border-width));
+  z-index: 1;
+}
+
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-needs-panel__detail:has(> .armada-needs-panel__head > :only-child):has(
+    .armada-session-ledger__rows
+  )
+  .armada-session-ledger__open {
+  padding-inline-start: calc(var(--space-2) + var(--h-control-sm) + var(--space-2));
+}
+
+/* Remove sits on the title's line, as far in from the edge as Back. */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-needs-panel
+  .armada-session-ledger__row
+  > .armada-tooltip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  height: calc(var(--space-6) + var(--space-2) + var(--border-width) * 2);
+  margin-inline-end: var(--space-2);
+}
+
+/* The reply box is drawn on the card, not sunk below it: no fill, a hairline edge, a brighter one while typing. */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-ledger__reply
+  .armada-textarea {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-ledger__reply
+  .armada-textarea:focus {
+  border-color: var(--border-default);
 }
 
 /* ---- Needs you: its band in sentence case, the composer under it rounder and roomier. ---- */
@@ -1144,6 +1208,16 @@
   .armada-prose
   > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) {
   margin-inline: calc(var(--spacious-bleed) * -1);
+}
+
+/* A table is as wide as its content elsewhere; here it fills the column as code does, or it reaches out on the left alone. */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose
+  > .armada-prose__table {
+  width: calc(100% + var(--spacious-bleed) * 2);
 }
 
 :root[data-look]
