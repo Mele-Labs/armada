@@ -80,7 +80,7 @@ const ROWS: readonly SessionRow[] = [
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
 /** A Job whose agent is working on his last message. */
-const thinking: Session = {
+export const spaciousThinkingJob: Session = {
   id: "s91",
   title: "Landing page copy",
   turn: {
@@ -128,7 +128,7 @@ const thinking: Session = {
 };
 
 /** A Job whose agent is partway through its calls. */
-const calling: Session = {
+export const spaciousCallingJob: Session = {
   id: "s94",
   title: "Notes for 0.4",
   turn: {
@@ -175,7 +175,7 @@ const calling: Session = {
 };
 
 /** A Job whose agent reasoned before it answered. */
-const reasoned: Session = {
+export const spaciousReasonedJob: Session = {
   id: "s92",
   title: "Retry budget",
   turn: {
@@ -219,7 +219,7 @@ const reasoned: Session = {
 };
 
 /** A Job whose agent says it has nothing left to do. */
-const finished: Session = {
+export const spaciousFinishedJob: Session = {
   id: "s93",
   title: "Quiet the slot logs",
   turn: {
@@ -271,10 +271,10 @@ const base = videoScriptScenario(
   "A Job's thread with every kind of row, to judge the spacious take by",
   1,
   [
-    thinking,
-    calling,
-    reasoned,
-    finished,
+    spaciousThinkingJob,
+    spaciousCallingJob,
+    spaciousReasonedJob,
+    spaciousFinishedJob,
   ],
 );
 

@@ -49,6 +49,7 @@ import { mockPhone, type PhoneMoment } from "./phone";
 import { TerminalWindows } from "./TerminalWindows";
 import { JobBrowserWindows } from "./JobBrowserWindows";
 import { WalkJobPanel } from "./WalkJobPanel";
+import { ThreadSheets } from "./thread-sheets";
 import { AutopilotDecisionsSourceProvider } from "../autopilot-decisions";
 import { createFleetAutopilotDecisions } from "../fleet-autopilot-decisions";
 import { PlanUsageSourceProvider } from "../plan-usage";
@@ -332,6 +333,7 @@ export function mountApp(
                                                                     >
                                                                       <App />
                                                                       <WalkJobPanel />
+                                                                      <ThreadSheets />
                                                                       <TerminalWindows api={api} />
                                                                       <JobBrowserWindows />
                                                                       <TweaksApplied />
@@ -342,6 +344,7 @@ export function mountApp(
                                                                     >
                                                                       <App />
                                                                       <WalkJobPanel />
+                                                                      <ThreadSheets />
                                                                       <TerminalWindows api={api} />
                                                                       <JobBrowserWindows />
                                                                       <TweaksApplied />
