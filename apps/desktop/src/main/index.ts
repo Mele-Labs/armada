@@ -13,7 +13,7 @@ import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
@@ -37,6 +37,8 @@ import { coalesce } from "./coalesce";
 import { StateSends } from "./state-sends";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
+import { onCurrentBuild, PageReloads, pageAfterSwap } from "./page-reload";
+import { machinePath } from "./runtime-file";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
 import { handleFilePanel } from "./file-panel-channels";
@@ -390,17 +392,47 @@ function createWindow(): BrowserWindow {
   //
   // **`--no-mods` is safe mode**: the renderer reads `?nomods` and loads without any mod's theme.
   // A query on the page, so the preload surface gains nothing.
-  void window.loadFile(
-    join(__dirname, "../renderer/index.html"),
-    process.argv.includes("--no-mods")
-      ? {
-          query: {
-            nomods: "1",
-          },
-        }
-      : {},
-  );
+  const first = join(__dirname, "../renderer/index.html");
+  pageReloads.loaded(first);
+  void window.loadFile(first, pageOptions());
   return window;
+}
+
+/** What every load of the main window's page carries: `--no-mods` as a query, nothing else. */
+function pageOptions(): {
+  query?: Record<string, string>;
+} {
+  return process.argv.includes("--no-mods")
+    ? {
+        query: {
+          nomods: "1",
+        },
+      }
+    : {};
+}
+
+/**
+ * The main window's page, reloaded in place when Fleet comes back on another kept build whose shell
+ * matches this one — `page-reload.ts`. **Only the main window**: a terminal, a browser or any other
+ * window keeps its page until it is reopened.
+ */
+const pageReloads = new PageReloads({
+  after: () => {
+    const builds = keptBuilds();
+    return builds === null ? null : pageAfterSwap(app.getAppPath(), builds);
+  },
+  onOwnBuild: () => {
+    const builds = keptBuilds();
+    return builds !== null && onCurrentBuild(app.getAppPath(), builds);
+  },
+  load: (page) => void bridgeWindow()?.loadFile(page, pageOptions()),
+  log: (line) => console.info(line),
+});
+
+/** `Armada/builds` in Application Support, where each kept build and the `current` link to one live. */
+function keptBuilds(): string | null {
+  const file = machinePath(process.env["HOME"]);
+  return file === null ? null : join(dirname(file), "builds");
 }
 
 /**
@@ -472,6 +504,7 @@ const toWindows = coalesce((state: BridgeState) => {
  */
 function publish(state: BridgeState): void {
   published = state;
+  pageReloads.connection(state.connection.state === "connected");
   // A Run that has stopped serving ends capture in its own window — #1294.
   captureWindows.changed(state);
   toWindows(state);

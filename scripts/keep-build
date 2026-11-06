@@ -30,6 +30,15 @@
 # Clones are APFS clones (`cp -c`), near free; where they cannot be made (CI is
 # Ubuntu) the same call copies.
 #
+# **Electron is kept once per version**, in `$support/electron/<version>/`, as
+# the app `launch-bridge` runs: a relaunch onto an older build needs that
+# build's own Electron, and a lockfile that moved while Electron did not shares
+# it. `point` deletes a version no remaining build names.
+#
+# **`page_reload = true`** says this build's Bridge reloads its page in place
+# when `current` moves to a build with the same `bridge_shell` and `electron`:
+# its `out/main` holds the mark `apps/desktop/src/main/page-reload.ts` logs.
+#
 # **`bridge` and `bridge_shell` in `build.toml`** are the first 16 hex of one
 # sha256 over every file under `bridge/out` (or only `main/` and `preload/`),
 # sorted by path relative to `out/`, each fed as the path, a NUL, then the
@@ -58,9 +67,11 @@ clone() {
 
 making=""
 making_modules=""
+making_electron=""
 cleanup() {
   [[ -n "$making" ]] && rm -rf "$making"
   [[ -n "$making_modules" ]] && rm -rf "$making_modules"
+  [[ -n "$making_electron" ]] && rm -rf "$making_electron"
   return 0
 }
 
@@ -108,6 +119,21 @@ make() {
     # The clone's own link resolved, so the path never names the tree built from.
     electron="$(cd "$modules/apps/desktop/node_modules/electron/dist/Electron.app/Contents/MacOS" 2>/dev/null && pwd -P)/Electron" \
       || fail "no Electron.app under $modules/apps/desktop/node_modules/electron/dist"
+  fi
+  local version app kept_app
+  version=$(head -n 1 "$src/apps/desktop/node_modules/electron/dist/version" 2>/dev/null | tr -d '[:space:]' || true)
+  if [[ -n "$version" ]]; then
+    app="${electron%/Contents/MacOS/*}"
+    kept_app="$support/electron/$version/$(basename "$app")"
+    if [[ ! -d "$kept_app" ]]; then
+      mkdir -p "$support/electron/$version"
+      making_electron="$support/electron/$version/.making-$(basename "$app").$$"
+      rm -rf "$making_electron"
+      clone "$app" "$making_electron"
+      mv "$making_electron" "$kept_app"
+      making_electron=""
+    fi
+    electron="$kept_app/Contents/MacOS/$(basename "$electron")"
   fi
 
   making="$builds/.making-$name.$$"
@@ -180,6 +206,19 @@ electron = first_line(os.path.join(src, "apps", "desktop", "node_modules", "elec
 if electron:
     rows.append(("electron", electron))
 rows += [("node_modules", lock), ("bridge", digest()), ("bridge_shell", digest({"main", "preload"}))]
+
+
+def reloads():
+    for folder, _, names in os.walk(os.path.join(out, "main")):
+        for name in names:
+            with open(os.path.join(folder, name), "rb") as f:
+                if b"armada:page-reload" in f.read():
+                    return True
+    return False
+
+
+if reloads():
+    rows.append(("page_reload", True))
 text = "".join(f"{key} = {json.dumps(value)}\n" for key, value in rows)
 for branch, tip in jobs:
     text += f"\n[[job]]\nbranch = {json.dumps(branch)}\ntip = {json.dumps(tip)}\n"
@@ -196,10 +235,10 @@ point() {
   [[ $# -eq 1 ]] || fail "usage: keep-build point <snapshot path>"
   local snapshot="${1%/}"
   [[ -d "$snapshot" && "$(dirname "$snapshot")" == "$builds" ]] || fail "$snapshot is not a folder in $builds"
-  python3 - "$builds" "$support/node_modules" "$(basename "$snapshot")" <<'PY'
-import os, re, shutil, sys
+  python3 - "$builds" "$support/node_modules" "$(basename "$snapshot")" "$support/electron" <<'PY'
+import os, re, shutil, subprocess, sys
 
-builds, modules, name = sys.argv[1:4]
+builds, modules, name, electrons = sys.argv[1:5]
 KEEP = 5
 FOLDER = re.compile(r"\d{4}-\d{2}-\d{2}T\d{6}Z-[0-9a-f]+")
 
@@ -227,21 +266,33 @@ replace("current", name)
 
 folders = sorted(f for f in os.listdir(builds) if FOLDER.fullmatch(f) and os.path.isdir(os.path.join(builds, f)))
 held = set(folders[-KEEP:]) | {target("current"), target("previous")}
+# A Bridge that reloaded its page in place still runs from the build it was opened on.
+try:
+    running = subprocess.run(["ps", "-axo", "command="], capture_output=True, text=True).stdout
+except OSError:
+    running = ""
+held |= {folder for folder in folders if f"{os.path.join(builds, folder)}/" in running}
 for folder in folders:
     if folder not in held:
         shutil.rmtree(os.path.join(builds, folder))
 
-named = set()
+named, versions = set(), set()
 for folder in os.listdir(builds):
     try:
         with open(os.path.join(builds, folder, "build.toml")) as f:
-            named.update(re.findall(r'^node_modules = "([^"]*)"$', f.read(), re.M))
+            record = f.read()
     except OSError:
-        pass
+        continue
+    named.update(re.findall(r'^node_modules = "([^"]*)"$', record, re.M))
+    versions.update(re.findall(r'^electron = "([^"]*)"$', record, re.M))
 if os.path.isdir(modules):
     for lock in os.listdir(modules):
         if lock not in named and os.path.isdir(os.path.join(modules, lock)):
             shutil.rmtree(os.path.join(modules, lock))
+if os.path.isdir(electrons):
+    for version in os.listdir(electrons):
+        if version not in versions and os.path.isdir(os.path.join(electrons, version)):
+            shutil.rmtree(os.path.join(electrons, version))
 PY
 }
 
