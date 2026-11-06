@@ -2,8 +2,9 @@
 //! **Each arrives once**: a report as it is kept, an issue new since the last read of its tracker,
 //! a red main as Autopilot's red kind finds it, a review request read at most every ten minutes
 //! beside the read of main, a Later item as a Job hands it over, and a note the person left on
-//! Bridge once its file is new to the repository's annotations. Nothing arrives while the Operator
-//! is off.
+//! Bridge once its file is new to the repository's annotations and has waited, open and sent to no
+//! Job. A note he sends to a Job meanwhile is his row in the Log, and then arrives as a note of its
+//! own, to be moved or left. Nothing arrives while the Operator is off.
 //!
 //! **Nothing is written to the forge.** A link is kept on this Mac, and File writes only to the
 //! repository's beads, never to an issue the person or anyone else filed.
@@ -18,13 +19,18 @@ use ipc::annotations::{note_read, NoteRead};
 use ipc::{ManifestId, Notice, SessionTag, SessionVoice, StartSession, TagKind, MOST_PER_LIST};
 
 use super::seat::Seat;
-use super::{held, Arrival, Arrived, Filed, Handed, NewIssue, Note, Report, ReviewRequest, Ruling, Way, NEEDS_YOU_WAIT};
+use super::suggesting::pressed;
+use super::{held, Arrival, Arrived, Filed, Handed, NewIssue, Note, Outcome, Report, ReviewRequest, Ruling, Way, NEEDS_YOU_WAIT};
 use crate::autopilot::report_brief;
 use crate::daemon::Fleet;
 use crate::pull_review_lists::row_of;
 
 /// The least time between two reads of the pull requests that ask for the person's review.
 pub(crate) const REVIEWS_EVERY: Duration = Duration::from_secs(10 * 60);
+
+/// How long an open note sent to no Job is read again each tick, for the person to send it, before
+/// it is handed on as it stands.
+pub(crate) const NOTE_SENT_WAIT: Duration = Duration::from_secs(10 * 60);
 
 const OPERATOR: &str = "Operator";
 
@@ -44,6 +50,28 @@ pub(crate) struct Sources {
     /// The note files each repository's last listing held. A repository with no entry has not been
     /// listed since Fleet started, so its first listing only marks what is there.
     notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
+    /// The open notes sent to no Job yet, by repository and id, read again each tick.
+    watching: Mutex<BTreeMap<(String, String), Watched>>,
+    /// How long they are watched where it is not [`NOTE_SENT_WAIT`], which a test shortens.
+    sent_wait: Mutex<Option<Duration>>,
+}
+
+/// An open note the person may still send to a Job.
+struct Watched {
+    since: tokio::time::Instant,
+    /// Whether it is handed on if it waits out. A note already there when Fleet started is not.
+    hand: bool,
+    /// Whether it was new since the last listing, so that its being sent already is news.
+    news: bool,
+    /// Whether a read of it has been made.
+    read: bool,
+}
+
+/// A note that gained `sent`: the note, and the Job it went to as `(id, title)`.
+pub(super) struct Sent {
+    note: Note,
+    job: String,
+    title: Option<String>,
 }
 
 impl Seat {
@@ -77,16 +105,27 @@ impl Seat {
     }
 
     /// What `manifest`'s annotation directories hold now, as note ids: those not seen in an earlier
-    /// listing, which the first listing since Fleet started leaves empty.
-    fn notes_new(&self, manifest: &str, listed: BTreeSet<String>) -> Vec<String> {
+    /// listing, and whether this is the first listing since Fleet started, which marks what is there.
+    fn notes_new(&self, manifest: &str, listed: BTreeSet<String>) -> (Vec<String>, bool) {
         let mut notes = held(&self.sources.notes);
         match notes.get_mut(manifest) {
-            Some(seen) => listed.into_iter().filter(|id| seen.insert(id.clone())).collect(),
+            Some(seen) => (listed.into_iter().filter(|id| seen.insert(id.clone())).collect(), false),
             None => {
-                notes.insert(manifest.to_string(), listed);
-                Vec::new()
+                notes.insert(manifest.to_string(), listed.clone());
+                (listed.into_iter().collect(), true)
             }
         }
+    }
+
+    /// How long a note waits to be sent to a Job.
+    fn note_wait(&self) -> Duration {
+        held(&self.sources.sent_wait).unwrap_or(NOTE_SENT_WAIT)
+    }
+
+    /// Watch notes for a shorter time than [`NOTE_SENT_WAIT`].
+    #[cfg(test)]
+    pub(crate) fn note_wait_is(&self, wait: Duration) {
+        *held(&self.sources.sent_wait) = Some(wait);
     }
 
     /// Whether the review requests are due a read, marking them read where they are.
@@ -161,37 +200,112 @@ where
                 self.hand_once(arrival).await;
             }
         }
-        for arrival in self.notes_arrived().await {
+        let (arrivals, sends) = self.notes_arrived().await;
+        for sent in sends {
+            self.note_sent_kept(sent).await;
+        }
+        for arrival in arrivals {
             self.hand_once(arrival).await;
         }
     }
 
-    /// The notes left since the last listing of each hosted repository, as arrivals: those open and
-    /// sent to no Job. **Only the files new since the last listing are read**, and the first listing
-    /// since Fleet started reads none.
-    async fn notes_arrived(&self) -> Vec<Arrival> {
-        let mut arrivals = Vec::new();
+    /// The notes of each hosted repository, as arrivals and as sends. **A note is read again each tick
+    /// while it is open and sent to no Job**, for as long as [`NOTE_SENT_WAIT`]: one that gains `sent`
+    /// is a send, and one that waits that long, still open and unsent, is an arrival as it stands. A
+    /// note already there when Fleet started is watched too, but never handed on unsent.
+    async fn notes_arrived(&self) -> (Vec<Arrival>, Vec<Sent>) {
+        let (mut arrivals, mut sends) = (Vec::new(), Vec::new());
+        let seat = self.operator_seat();
+        let wait = seat.note_wait();
         for served in self.repositories().hosted() {
             let manifest = served.manifest().id().as_str().to_string();
             let places = adapters::annotation_places(std::path::Path::new(served.root()));
             let listed = tokio::task::spawn_blocking(move || note_files(&places)).await.unwrap_or_default();
             let ids: BTreeSet<String> = listed.iter().map(|(id, _)| id.clone()).collect();
-            let new = self.operator_seat().notes_new(&manifest, ids);
-            let reads: Vec<NoteRead> = {
-                let new: Vec<std::path::PathBuf> = listed.into_iter().filter(|(id, _)| new.contains(id)).map(|(_, path)| path).collect();
-                tokio::task::spawn_blocking(move || new.iter().filter_map(|path| note_read(&std::fs::read(path).ok()?).ok()).collect()).await.unwrap_or_default()
+            let (new, first) = seat.notes_new(&manifest, ids);
+            {
+                let mut watching = held(&seat.sources.watching);
+                for id in new {
+                    watching.entry((manifest.clone(), id)).or_insert(Watched { since: tokio::time::Instant::now(), hand: !first, news: !first, read: false });
+                }
+            }
+            let ours: Vec<(String, std::path::PathBuf)> = {
+                let watching = held(&seat.sources.watching);
+                listed.iter().filter(|(id, _)| watching.contains_key(&(manifest.clone(), id.clone()))).cloned().collect()
             };
-            let reads: Vec<NoteRead> = reads.into_iter().filter(|read| read.status == "open" && read.sent.is_none()).collect();
-            if reads.is_empty() {
+            let gone: Vec<(String, String)> = {
+                let watching = held(&seat.sources.watching);
+                watching.keys().filter(|(of, id)| *of == manifest && !ours.iter().any(|(there, _)| there == id)).cloned().collect()
+            };
+            for key in gone {
+                held(&seat.sources.watching).remove(&key);
+            }
+            let paths: Vec<std::path::PathBuf> = ours.iter().map(|(_, path)| path.clone()).collect();
+            let reads: Vec<Option<NoteRead>> = tokio::task::spawn_blocking(move || paths.iter().map(|path| note_read(&std::fs::read(path).ok()?).ok()).collect()).await.unwrap_or_default();
+            let (mut left, mut sent) = (Vec::new(), Vec::new());
+            for ((id, _), read) in ours.into_iter().zip(reads) {
+                let key = (manifest.clone(), id);
+                let Some(watched) = held(&seat.sources.watching).get(&key).map(|one| (one.since, one.hand, one.news, one.read)) else { continue };
+                let (since, hand, news, was_read) = watched;
+                let done = |key: &(String, String)| {
+                    held(&seat.sources.watching).remove(key);
+                };
+                let Some(read) = read else {
+                    done(&key);
+                    continue;
+                };
+                if read.status != "open" {
+                    done(&key);
+                    continue;
+                }
+                if let Some(to) = &read.sent {
+                    done(&key);
+                    if news || was_read {
+                        sent.push((to.session_id.clone(), to.title.clone(), read));
+                    }
+                    continue;
+                }
+                if let Some(one) = held(&seat.sources.watching).get_mut(&key) {
+                    one.read = true;
+                }
+                if since.elapsed() >= wait {
+                    done(&key);
+                    if hand {
+                        left.push(read);
+                    }
+                }
+            }
+            if left.is_empty() && sent.is_empty() {
                 continue;
             }
             let open = self.open_of(&manifest).await;
             let files = self.served_named(Some(&ManifestId::carried(&manifest))).ok().is_some_and(|served| self.backlog_of(&served).is_some());
-            for read in reads {
-                arrivals.push(Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component, open: open.clone(), files }.arrival());
-            }
+            let note = |read: NoteRead| Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component, open: open.clone(), files };
+            arrivals.extend(left.into_iter().map(|read| note(read).arrival()));
+            sends.extend(sent.into_iter().map(|(job, title, read)| Sent { note: note(read), job, title }));
         }
-        arrivals
+        (arrivals, sends)
+    }
+
+    /// A note the person sent to a Job: his send is a row of the Log, signed by him, and then the
+    /// Operator is handed the note as its own arrival, to move or leave. **Nothing is kept where the
+    /// Log already holds the note**, such as one handed on as it stood.
+    async fn note_sent_kept(&self, sent: Sent) {
+        let unsent = sent.note.arrival();
+        if self.store().lock().await.operator_ruled(&unsent.id).unwrap_or(true) {
+            return;
+        }
+        let title = match sent.title {
+            Some(title) => title,
+            None => self.title_of(&sent.job).await,
+        };
+        let mut row = pressed(&unsent, Outcome::Sent, "the person sent it from Bridge", self.now());
+        row.other = Some(sent.job.clone());
+        if self.store().lock().await.add_operator_ruling(&row.kept()).is_err() {
+            return;
+        }
+        self.operator_board_changed();
+        self.hand_once(sent.note.sent_arrival(&sent.job, &title)).await;
     }
 
     /// The issues open in `manifest`'s tracker, as Fleet holds them.
@@ -330,7 +444,7 @@ where
             return None;
         }
         let title = self.title_of(&job).await;
-        self.note_given_by_operator(manifest, note, &job, &title).await;
+        self.note_given_by_operator(manifest, note, &job, &title, arrival.is_sent_note()).await;
         Some(job)
     }
 
@@ -340,7 +454,7 @@ where
         let text = format!("The Operator handed you a note the person left on Bridge, as your work is near it:\n\n{}\n\nDo it as part of your work, or say why it is not yours.", arrival.words);
         if matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
             let title = self.title_of(into).await;
-            self.note_given_by_operator(manifest, note, into, &title).await;
+            self.note_given_by_operator(manifest, note, into, &title, arrival.is_sent_note()).await;
         }
     }
 

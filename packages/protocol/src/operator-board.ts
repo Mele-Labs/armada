@@ -28,7 +28,7 @@ export type OperatorBoardSettled = {
   session_id?: string;
   title: string;
   repository?: string;
-  /** `Kind: what`, a one or two word kind and a short what, or the kind alone: `Answered: Keep them in the store`, `Passed on`. */
+  /** `Kind: what`, a one or two word kind and a short what, or the kind alone: `Answered: Keep them in the store`, `Sent: to Fix the pane`, `Passed on`. */
   outcome: string;
   /** RFC 3339. */
   at: string;

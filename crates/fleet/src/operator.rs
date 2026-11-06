@@ -470,7 +470,8 @@ impl Operator {
             OperatorPosition::Off => {}
             // A note is the person's own idea, so Fleet only proposes what to do with it, and a
             // raise is already a row on his list.
-            OperatorPosition::On if arrival.arrived == Arrived::Note && ruling.way != Way::Raise => self.acting.suggest(arrival, ruling),
+            // One the person sent to a Job himself is moved as any ruling is, and left where it is.
+            OperatorPosition::On if arrival.arrived == Arrived::Note && !arrival.is_sent_note() && !matches!(ruling.way, Way::Raise | Way::Leave) => self.acting.suggest(arrival, ruling),
             OperatorPosition::On => self.acted(arrival, ruling),
             OperatorPosition::Suggest => match ruling.way {
                 // A raise is already a row on his list.
@@ -512,7 +513,7 @@ impl Operator {
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.
-            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Answer | Way::Link | Way::File | Way::Noted, _) => {}
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Answer | Way::Link | Way::File | Way::Noted | Way::Leave, _) => {}
         }
         if let (Some(first), Some(other)) = (ruling.first.as_deref(), ruling.other.as_deref()) {
             let held = if first == session { other } else { session };
@@ -528,7 +529,7 @@ impl Operator {
 /// neither has one, and a raise of anything but a quiet Job is only its Log row.
 fn role_of(arrived: Arrived, way: Way) -> Option<OperatorRole> {
     match way {
-        Way::Noted => None,
+        Way::Noted | Way::Leave => None,
         Way::Answer => Some(OperatorRole::Answer),
         Way::File => Some(OperatorRole::File),
         Way::Link => None,

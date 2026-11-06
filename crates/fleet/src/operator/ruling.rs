@@ -34,6 +34,8 @@ pub enum Way {
     File,
     /// An end or a merge is read and nothing follows: it goes to Done.
     Noted,
+    /// A note the person sent to a Job stays where he sent it. Nothing follows and nothing is in Done.
+    Leave,
 }
 
 impl Way {
@@ -51,12 +53,13 @@ impl Way {
             Way::Link => "link",
             Way::File => "file",
             Way::Noted => "noted",
+            Way::Leave => "leave",
         }
     }
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File, Way::Noted].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -70,6 +73,7 @@ impl Way {
             Way::Link => "link to an open issue",
             Way::File => "file a new issue",
             Way::Noted => "noted, nothing follows",
+            Way::Leave => "leave it with the Job he sent it to",
         }
     }
 
@@ -216,6 +220,8 @@ pub enum Outcome {
     Skipped,
     /// The Job an item waited on ended, so the item is Done unruled.
     Ended,
+    /// The person sent a note to a Job himself, from Bridge.
+    Sent,
 }
 
 impl Outcome {
@@ -229,6 +235,7 @@ impl Outcome {
             Outcome::Answered => "answered",
             Outcome::Skipped => "skipped",
             Outcome::Ended => "ended",
+            Outcome::Sent => "sent",
         }
     }
 }

@@ -45,13 +45,20 @@ An item reaches the Operator before it starts a Job or pulses in Needs you.
 | A bug report, a Later item, a new issue | A Job, or the repository's tracker |
 | A red main | The repository's own checks |
 | A review request | The forge |
-| A note | The person, left on Bridge. One new since Fleet started, open and sent to no Job |
+| A note | The person, left on Bridge. One new since Fleet started, still open and sent to no Job once it has waited ten minutes for the person to send it. One he sends to a Job is a second arrival, below |
 | A Job ending, or a pull request merging | Fleet's own detection, for every hosted Job whoever started it. Only those after Fleet started, and none while the Operator is off |
 | An error | Bridge, for a failure card it showed the person. It carries the code, message, fields, cause chain, log paths, commit and time |
 
 **A note is only ever proposed.**
 A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Off, so no note is filed, started or sent to a Job unasked.
 Its row has no Job, so it is kept for the panel, and Do it marks the note sent to the Job it went to, or done where it was filed or linked.
+
+**A note the person sends to a Job is his row first.**
+Fleet reads an open note with no `sent` again on each tick, for ten minutes, until it gains `sent`, is no longer open, or has waited that long and is handed on as it stands.
+When it gains `sent`, the Log keeps a row signed by the person with the outcome `sent` and the Job it went to, and Done reads `Sent: to <Job title>` with the person as its decider.
+The Operator is then handed the note as its own arrival, `note-sent:<repository>:<note>`, whose words say he sent it to that Job.
+It may send the note to another live Job, start a Job on it, or leave it where he sent it, which writes nothing that shows in Done.
+A move goes by the role of its way like any ruling: at Suggest it is a suggestion, and at On it is done and the note is marked sent to the Job it moved to.
 
 **An end or a merge is told once, and never replayed.**
 Its words carry the Job's title, summary and end reason, its pull requests, who started it and the Jobs it started that are live, and what it may unblock: Jobs waiting to start on it, its Later items not yet settled, open issues near it, and Needs you items that name it or wait on a restart.

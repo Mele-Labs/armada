@@ -158,8 +158,9 @@ where
                 arrival: arrival.id.clone(),
                 arrived: arrival.arrived.word().to_string(),
                 way: ruling.way.word().to_string(),
-                // An end's suggestion is kept for the panel: the Job it is about has ended.
-                session_id: if arrival.arrived.is_ending() { String::new() } else { arrival.session_id.clone() },
+                // An end's suggestion is kept for the panel: the Job it is about has ended. So is a
+                // note's he sent to a Job, which is the note's and not that Job's to settle.
+                session_id: if arrival.arrived.is_ending() || arrival.is_sent_note() { String::new() } else { arrival.session_id.clone() },
                 manifest_id: arrival.manifest_id.clone(),
                 subject: arrival.subject.clone(),
                 words: arrival.words.clone(),
@@ -285,7 +286,7 @@ fn suggestion_number(id: &str) -> Option<i64> {
 }
 
 /// A row of the Log for the person's press on `arrival`'s suggestion.
-fn pressed(arrival: &Arrival, outcome: Outcome, because: &str, at: core_model::Timestamp) -> Logged {
+pub(super) fn pressed(arrival: &Arrival, outcome: Outcome, because: &str, at: core_model::Timestamp) -> Logged {
     Logged {
         arrival: arrival.id.clone(),
         arrived: arrival.arrived,
