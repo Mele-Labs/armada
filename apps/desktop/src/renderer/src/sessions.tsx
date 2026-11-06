@@ -12,6 +12,7 @@ import {
   useActs,
   useActsPlace,
 } from "./job-panes/acts";
+import { usePublishJobHead } from "./job-panes/job-head";
 import {
   useCallback,
   useContext,
@@ -78,6 +79,7 @@ import {
   useTerminalDock,
   FILE_SHOWN,
   mediaKindOf,
+  menuWithFresh,
 } from "@armada/components";
 import type {
   DebugPayload,
@@ -2771,6 +2773,103 @@ export function SessionView({
     const watch = of.watches?.find((one) => one.live && one.name === held.name);
     if (watch !== undefined) draft.stopWatch?.(of.id, watch.id);
   };
+  /** The Job's other acts, behind the head's three dots, or on its Thread tab while the Job stands in panes. */
+  const headMenu: {
+    entries: DropdownMenuEntry[];
+    onSelect: (id: string) => void;
+  } = {
+    entries: [
+      ...(deck?.acts ?? []).map(
+        (one): DropdownMenuEntry => ({
+          kind: "item",
+          id: one.id,
+          label: one.label,
+          icon: one.icon,
+        }),
+      ),
+      ...(menuActs.length > 0
+        ? [
+            ...menuActs,
+            {
+              kind: "separator",
+              id: "acts-rule",
+            } as const,
+          ]
+        : []),
+      ...(draft.fork === undefined || session.dead === undefined
+        ? []
+        : [
+            {
+              kind: "item",
+              id: "fork",
+              label: "Fork",
+              icon: GitFork,
+            } as const,
+          ]),
+      ...(retro.press === undefined
+        ? []
+        : [
+            {
+              kind: "item",
+              id: "retro",
+              label: retro.writing.has(session.id) ? "Writing the retro" : "Retro",
+              icon: Rewind,
+              disabled: retro.writing.has(session.id),
+            } as const,
+          ]),
+      ...(draft.close === undefined || session.dead !== undefined
+        ? []
+        : [
+            {
+              kind: "separator",
+              id: "end-rule",
+            } as const,
+            {
+              kind: "item",
+              id: "end",
+              label: "End job",
+              icon: PowerOff,
+              danger: true,
+            } as const,
+          ]),
+    ],
+    onSelect: (id) => {
+      if (runActEntry(jobActs, id)) return;
+      if (id === "fork") opening(draft.fork!(session.id), onOpen);
+      else if (id === "retro") retro.press?.(session, true);
+      else if (id === "end") end();
+      else deck?.acts.find((one) => one.id === id)?.run();
+    },
+  };
+  // In panes the Thread tab is the Job's head: its state, its name, Rename and this menu (`job-panes/job-head.ts`).
+  const onTab = inPanes(session.id);
+  const tabMenu = menuWithFresh(headMenu, fresh);
+  usePublishJobHead(
+    session.id,
+    onTab
+      ? {
+          state,
+          // The mark's tooltip carries the address, as the head's did.
+          said: `${said} · ${session.address ?? session.id}`,
+          ...(session.title === undefined
+            ? {}
+            : {
+                title: session.title,
+              }),
+          ...(draft.rename === undefined
+            ? {}
+            : {
+                onRename: (title: string) => draft.rename?.(session.id, title),
+              }),
+          ...(draft.nameForMe === undefined
+            ? {}
+            : {
+                onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve(),
+              }),
+          menu: tabMenu ?? headMenu,
+        }
+      : undefined,
+  );
   return (
     <SpaciousTake.Provider value={spacious}>
       <TeachHereContext.Provider value={teachHere}>
@@ -2856,6 +2955,7 @@ export function SessionView({
                     }
                   : {})}
                 toolsUnder
+                headless={onTab}
                 repository={
                   <SessionRepositoryOf
                     key={session.id}
@@ -2877,70 +2977,7 @@ export function SessionView({
                         onOpen: () => goes.onOpenLoadout(session.id),
                       },
                     })}
-                menu={{
-                  entries: [
-                    ...(deck?.acts ?? []).map(
-                      (one): DropdownMenuEntry => ({
-                        kind: "item",
-                        id: one.id,
-                        label: one.label,
-                        icon: one.icon,
-                      }),
-                    ),
-                    ...(menuActs.length > 0
-                      ? [
-                          ...menuActs,
-                          {
-                            kind: "separator",
-                            id: "acts-rule",
-                          } as const,
-                        ]
-                      : []),
-                    ...(draft.fork === undefined || session.dead === undefined
-                      ? []
-                      : [
-                          {
-                            kind: "item",
-                            id: "fork",
-                            label: "Fork",
-                            icon: GitFork,
-                          } as const,
-                        ]),
-                    ...(retro.press === undefined
-                      ? []
-                      : [
-                          {
-                            kind: "item",
-                            id: "retro",
-                            label: retro.writing.has(session.id) ? "Writing the retro" : "Retro",
-                            icon: Rewind,
-                            disabled: retro.writing.has(session.id),
-                          } as const,
-                        ]),
-                    ...(draft.close === undefined || session.dead !== undefined
-                      ? []
-                      : [
-                          {
-                            kind: "separator",
-                            id: "end-rule",
-                          } as const,
-                          {
-                            kind: "item",
-                            id: "end",
-                            label: "End job",
-                            icon: PowerOff,
-                            danger: true,
-                          } as const,
-                        ]),
-                  ],
-                  onSelect: (id) => {
-                    if (runActEntry(jobActs, id)) return;
-                    if (id === "fork") opening(draft.fork!(session.id), onOpen);
-                    else if (id === "retro") retro.press?.(session, true);
-                    else if (id === "end") end();
-                    else deck?.acts.find((one) => one.id === id)?.run();
-                  },
-                }}
+                menu={headMenu}
                 {...(deck === undefined
                   ? {}
                   : {
