@@ -12,7 +12,7 @@ use crate::kept_builds::{
 };
 use crate::tests::tmp::TempDir;
 
-const LABEL: &str = "com.armada.fleet";
+const LABEL: &str = "com.test.fleet";
 
 /// launchd and the store copy, recorded.
 #[derive(Default)]
@@ -82,7 +82,7 @@ fn a_revert_copies_the_store_then_swaps_the_links_and_boots_fleet_then_bridge() 
     assert!(support.join("backups/armada-20261105T162000Z.db").is_file());
     assert!(reverted.bridge_reopened);
     let did = services.did.lock().unwrap().clone();
-    assert_eq!(did, ["copy", "reboot com.armada.fleet", "up", "reboot com.armada.fleet.bridge"]);
+    assert_eq!(did, ["copy".to_string(), format!("reboot {LABEL}"), "up".to_string(), format!("reboot {LABEL}.bridge")]);
 }
 
 #[test]
