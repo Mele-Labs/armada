@@ -34,12 +34,13 @@ jobs:
             end=$(date +%s.%N)
             printf '%s\t%.1f\texit %s\n' "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/summary.tsv"
           }
-          one baseline
-          one baseline_again
-          one debuginfo0 -Cdebuginfo=0
-          one threads4 -Zthreads=4
-          one threads4_debuginfo0 -Zthreads=4 -Cdebuginfo=0
-          one cgu16 -Ccodegen-units=16
+          one warmup
+          for rep in 1 2 3; do
+            one "baseline_$rep"
+            one "debuginfo0_$rep" -Cdebuginfo=0
+            one "threads4_$rep" -Zthreads=4
+            one "both_$rep" -Zthreads=4 -Cdebuginfo=0
+          done
           one time_passes -Ztime-passes
           {
             echo '## fleet harness, seconds'; echo '```'; cat "$out/summary.tsv"; echo '```'
@@ -56,6 +57,7 @@ jobs:
           path: ${{ runner.temp }}/out
 
   tmpfs:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
