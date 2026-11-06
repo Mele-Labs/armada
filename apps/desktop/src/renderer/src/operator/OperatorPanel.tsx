@@ -1236,9 +1236,14 @@ function CardMarker({ store, id, ends }: { store: OperatorStore; id: string; end
 function openingOf(store: OperatorStore): string | null {
   const open = (store.state.turns ?? []).filter((one) => one.done === undefined);
   const first = (store.state.raises ?? []).find((one) => one.settled === undefined);
+  // A turn about a Job is named by the Job, with what it asks after.
+  const named = (turn: OperatorTurn) =>
+    turn.job === undefined || turn.job.title === turn.text
+      ? `${turn.text.replace(/[.?!]$/, "")}.`
+      : `${turn.job.title}: ${turn.text}`;
   const said = [
-    open[0] === undefined ? null : `I'm on ${open[0].text}.`,
-    open[1] === undefined ? null : `Next is ${open[1].text}.`,
+    open[0] === undefined ? null : `I'm on ${named(open[0])}`,
+    open[1] === undefined ? null : `Next is ${named(open[1])}`,
     first === undefined ? null : `First for you: ${first.item}, under Needs you.`,
   ].filter((one) => one !== null);
   return said.length === 0 ? null : said.join(" ");

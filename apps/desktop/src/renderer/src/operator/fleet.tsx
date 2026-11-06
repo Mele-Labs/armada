@@ -77,10 +77,19 @@ const ROLE_KEY: Readonly<Record<OperatorRole, string>> = {
   file: "features.operatorFile",
 };
 
-const turnOf = (item: OperatorBoardItem): OperatorTurn => ({
+/** A board item as a card: the Job it is about by its name, where Fleet names one, and its words under it. */
+const turnOf = (item: OperatorBoardItem, sessions: readonly Session[]): OperatorTurn => ({
   id: item.id,
   text: item.title,
   tag: KIND_TAG[item.kind],
+  ...(item.session_id === undefined
+    ? {}
+    : {
+        job: {
+          session: item.session_id,
+          title: sessions.find((each) => each.id === item.session_id)?.title ?? item.title,
+        },
+      }),
   ...(item.repository === undefined
     ? {}
     : {
@@ -362,11 +371,11 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       ...(board?.now === undefined
         ? []
         : [
-            turnOf(board.now),
+            turnOf(board.now, sessions),
           ]),
-      ...(board?.next ?? []).map(turnOf),
+      ...(board?.next ?? []).map((one) => turnOf(one, sessions)),
       ...(board?.done ?? []).map((one) => ({
-        ...turnOf(one),
+        ...turnOf(one, sessions),
         done: one.outcome,
         by: one.by === "person" ? "You" : "Operator",
         at: one.at,
@@ -374,14 +383,6 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
           ? {}
           : {
               because: one.because,
-            }),
-        ...(one.session_id === undefined
-          ? {}
-          : {
-              job: {
-                session: one.session_id,
-                title: sessions.find((each) => each.id === one.session_id)?.title ?? one.title,
-              },
             }),
       })),
     ];
@@ -435,6 +436,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     lines,
     kept,
     raises,
+    sessions,
     switched,
     dispatch,
     delegate,

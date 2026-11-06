@@ -85,13 +85,12 @@
     padding-inline: var(--space-6);
   }
 
-  /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns and every panel of an open Job wear the same one, so moving between them is one ship. ---- */
+  /* ---- The quiet panel: square, a hairline round it and a heavier one along its head, the console's hood at rest. The Cockpit's columns wear it; a Job's panes are rounded with a faint edge, in `job-panes.css`. ---- */
   &
     :is(
       .deck-right > .deck-bays,
       .deck-left > .deck-list,
       .armada-logbook__log,
-      .job-pane,
       .sv-panel:not(.job-pane__body *, .console-calls *),
       .deck-foot > .deck-controls:has(> .deck-controls__block[data-subject])
     ) {
@@ -103,13 +102,6 @@
     border-radius: 0;
     background: var(--bg-raised);
     box-shadow: none;
-  }
-  & .job-pane[data-focused] {
-    --edge: var(--border-strong);
-    border-color: var(--border-strong);
-  }
-  & .job-pane__strip {
-    background: var(--bg-sunken);
   }
   & .sv-panel:not(.job-pane__body *, .console-calls *) > .sv-panel__band {
     background: var(--bg-sunken);

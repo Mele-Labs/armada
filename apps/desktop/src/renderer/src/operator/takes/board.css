@@ -231,11 +231,24 @@
   font-size: var(--text-meta);
 }
 
+/* The card's foot: its presses, and the repository it is in at the far end, quiet. */
+.armada-board__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-block-start: var(--space-1);
+}
+
+/* The repository sits at the card's end corner, with or without an act beside it. */
+.armada-board__foot > :not(.armada-board__act) {
+  margin-inline-start: auto;
+}
+
 .armada-board__act {
   display: flex;
   min-width: 0;
   gap: var(--space-2);
-  margin-block-start: var(--space-1);
 }
 
 /* A press is never wider than its card: a long face is cut short, with the whole of it in its name. */
@@ -424,7 +437,7 @@
   line-height: var(--leading-sm);
 }
 
-[data-thread-take="spacious"] .armada-board__act {
+[data-thread-take="spacious"] .armada-board__foot {
   margin-block-start: var(--space-2);
 }
 

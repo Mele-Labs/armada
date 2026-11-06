@@ -1,5 +1,5 @@
-// The board take of the Operator: drag a card up and it is taken next, ask for priority in words, put an item waiting on you into Up
-// next to talk over, settle it from Discussion, and see it slide to Done. Over `operator-take-board`.
+// The board take of the Operator: drag a card up and it is taken next, ask for priority in words, bring an item waiting on you up in
+// Discussion, settle it there, and see it slide to Done. Over `operator-take-board`.
 
 import { button, inside, region, role, text, walk } from "../walk";
 import type { Target } from "../walk";
@@ -22,9 +22,8 @@ const needsYou = inside(body("Queue"), region("Needs you"));
 const done = inside(body("Queue"), region("Done"));
 const watch = inside(upNext, role("listitem", /^A watch stayed live/));
 const doctor = inside(upNext, role("listitem", /^Doctor lists new checks/));
-const consoleCard = inside(needsYou, role("listitem", /^Cockpit Console asks/));
-const consoleNext = inside(upNext, role("listitem", /^Cockpit Console asks/));
-const card = inside(discussion, role("group", /^Item: Cockpit Console/));
+const consoleCard = inside(needsYou, role("listitem", /^Cockpit Console/));
+const card = inside(discussion, role("group", /^Discussing: Cockpit Console/));
 const box = inside(discussion, role("textbox", "Message to the Operator"));
 const send = inside(
   discussion,
@@ -75,41 +74,19 @@ export const operatorTakeBoard = walk("operator-take-board", [
     say: "Each card in Needs you has the Operator's pick on its button. You want to talk this one over first",
   },
   {
-    press: role("menuitem", /^Discuss when ready/),
-    say: "The Operator is busy, so ask to discuss it when it is ready",
-  },
-  {
-    later: consoleNext,
-    say: "The card slid into Up next, last in line",
-  },
-  {
-    drag: consoleNext,
-    onto: inside(now, role("listitem", /^Doctor lists new checks/)),
-    say: "You would rather settle it next. Drop it on the card in Now",
-  },
-  {
-    later: consoleNext,
-    say: "The Operator finishes what it is on",
+    press: role("menuitem", /^Discuss now/),
+    say: "Bring it up in Discussion",
   },
   {
     look: card,
-    say: "When it gets there, the item comes up in Discussion, pinned above the messages with its button",
+    say: "It comes up in Discussion at once, with the Operator's pick and the other ways on its buttons",
   },
   {
-    type: "Keep the order, but put the running ones first",
-    into: box,
-    say: "You want it a little different",
+    press: inside(card, button(/^Go with Keep the order/)),
+    say: "Go with what it recommends",
   },
   {
-    press: send,
-    say: "Send it",
-  },
-  {
-    press: inside(card, button(/^Send: Running bays first/)),
-    say: "Its button changed to match. Press it to send that to the Job",
-  },
-  {
-    look: inside(done, role("listitem", /^Cockpit Console asks/)),
-    say: "The card slid to Done, saying what was sent, with Open Job beside it",
+    look: inside(done, role("listitem", /^Cockpit Console/)),
+    say: "The card slid to Done, saying what was sent and who decided it, with Open Job beside it",
   },
 ]);

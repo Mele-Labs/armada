@@ -234,9 +234,6 @@ function Card({
           </span>
         </Tooltip>
         <span className="armada-board__tag">{tag}</span>
-        {repository === undefined || repository === "" ? null : (
-          <span className="armada-board__repo">{repository}</span>
-        )}
       </span>
       <span className="armada-board__title">{title}</span>
       {line === undefined ? null : <span className="armada-board__line">{line}</span>}
@@ -254,10 +251,23 @@ function Card({
       {opened && detail !== undefined ? (
         <span className="armada-board__detail">{detail}</span>
       ) : null}
-      {act === undefined ? null : <span className="armada-board__act">{act}</span>}
+      {act === undefined && (repository === undefined || repository === "") ? null : (
+        <span className="armada-board__foot">
+          {act === undefined ? null : <span className="armada-board__act">{act}</span>}
+          {repository === undefined || repository === "" ? null : (
+            <Tooltip label="Repository">
+              <span className="armada-board__repo">{repository}</span>
+            </Tooltip>
+          )}
+        </span>
+      )}
     </li>
   );
 }
+
+/** What a card about a Job asks, under the Job's name. Absent where its words are the Job's name, as a Job to start is. */
+const asks = (turn: OperatorTurn): string | undefined =>
+  turn.job === undefined || turn.job.title === turn.text ? undefined : turn.text;
 
 /** What a settled card opens to: what was asked, why it went the way it did, and the Job it was about. Nothing kept, it does not open. */
 function detailOf({ asked, why, job }: { asked?: string; why?: string; job?: string }) {
@@ -527,8 +537,8 @@ function Queue({ store }: { store: OperatorStore }) {
           : {
               repository,
             })}
-        title={turn.text}
-        {...(line === undefined || line === ""
+        title={turn.job?.title ?? turn.text}
+        {...(asks(turn) === undefined && (line === undefined || line === "")
           ? {}
           : {
               line:
@@ -536,7 +546,7 @@ function Queue({ store }: { store: OperatorStore }) {
                   ? "Comes up in Discussion when the Operator gets here"
                   : turn.result !== undefined
                     ? "You pressed it. The Operator does it in its turn"
-                    : line,
+                    : (asks(turn) ?? line!),
             })}
         glyph={live ? SPIN : <Clock size={12} strokeWidth={2} aria-hidden />}
         said={live ? "The Operator is on this" : "Waits its turn"}
@@ -666,7 +676,12 @@ function Queue({ store }: { store: OperatorStore }) {
               key={one.id}
               id={one.id}
               tag={turnTag(one)}
-              title={one.text}
+              title={one.job?.title ?? one.text}
+              {...(asks(one) === undefined
+                ? {}
+                : {
+                    line: asks(one),
+                  })}
               outcome={one.done!}
               glyph={<Check size={12} strokeWidth={2} aria-hidden />}
               said="Settled"

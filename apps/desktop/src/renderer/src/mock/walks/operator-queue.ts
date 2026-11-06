@@ -23,7 +23,7 @@ const legend = inside(queue, role("listitem", /^Rework the Map legend/));
 const doctor = inside(queue, role("listitem", /^Doctor lists new checks/));
 const toDiscuss = inside(queue, role("listitem", /^Cockpit Console asks/));
 const consoleRow = inside(waiting, role("listitem", /^Cockpit Console asks/));
-const card = inside(discussion, role("group", /^Item: Cockpit Console/));
+const card = inside(discussion, role("group", /^Discussing: Cockpit Console/));
 const box = inside(discussion, role("textbox", "Message to the Operator"));
 const send = inside(
   discussion,
