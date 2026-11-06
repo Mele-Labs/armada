@@ -33,6 +33,7 @@ import { HapticsProvider, MockStylesContext, watchClippedText } from "@armada/co
 import { createKeptStyles } from "@armada/screens/src/kept-styles";
 import { WiredNumbered } from "./numbered-fleet";
 import { WiredSessions } from "./sessions-wired";
+import { OperatorFromFleet } from "./operator/fleet";
 import { ThreadLookSaved } from "./thread-look-here";
 import { AutopilotDecisionsSourceProvider } from "./autopilot-decisions";
 import { createFleetAutopilotDecisions } from "./fleet-autopilot-decisions";
@@ -178,7 +179,9 @@ function Root() {
                                               <MockStylesContext.Provider value={MOCK_STYLES}>
                                                 <DebugReportFrom read={DEBUG_REPORT}>
                                                   <WiredSharedPanel>
-                                                    <App />
+                                                    <OperatorFromFleet>
+                                                      <App />
+                                                    </OperatorFromFleet>
                                                     <TweaksApplied />
                                                   </WiredSharedPanel>
                                                 </DebugReportFrom>

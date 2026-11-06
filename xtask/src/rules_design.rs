@@ -249,12 +249,14 @@ fn off_contract(code: &str) -> Vec<String> {
         // selector's bracket hangs off a class, an id, another selector or a
         // nesting `&`. The preceding character alone is not enough — a real
         // `class="bg-[#161C23]"` sits behind a quote too, so quotes are not on
-        // the list and that violation is still caught.
+        // the list and that violation is still caught. A BEM element's `__`
+        // is a class too: `.armada-operator__talk-pane[data-off]` stops the
+        // tail at `talk-pane`, behind an underscore.
         if is_attribute_test(&inside) {
             continue;
         }
         let before_tail = before[..before.len() - tail.len()].chars().next_back();
-        if matches!(before_tail, Some('.' | '#' | ']' | ')' | '&' | '*')) {
+        if matches!(before_tail, Some('.' | '#' | ']' | ')' | '&' | '*' | '_')) {
             continue;
         }
         let utility: String = tail.chars().rev().collect();

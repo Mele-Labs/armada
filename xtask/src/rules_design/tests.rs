@@ -128,3 +128,17 @@ fn the_field_the_quote_and_the_digits_all_have_to_hold() {
     assert!(!is_issue_reference(r#"  unbuilt: ""#, "12345", Some('"')));
     assert!(!is_issue_reference(r#"  unbuilt: ""#, "", Some('"')));
 }
+
+/// A BEM element whose name has a hyphen, testing an attribute, is a selector:
+/// the tail stops at the `__`, which is still the class.
+#[test]
+fn an_element_selector_with_an_attribute_is_not_an_arbitrary_value() {
+    for code in [
+        ".armada-operator__talk-pane[data-off] .armada-operator__conversation {",
+        ".armada-operator__queue-row[data-dragging],",
+    ] {
+        assert!(clean(code), "{code} — {:?}", found(code));
+    }
+    let what = found(r#"<div className="bg-[#161C23] h-[84px]" />"#);
+    assert!(what.iter().any(|one| one.contains("`h-[84px]` is an arbitrary value")), "{what:?}");
+}

@@ -51,6 +51,7 @@ test("The tab bar maps each tab to its surface", () => {
       ...bar.querySelectorAll('[role="tab"]'),
     ].map((one) => one.textContent),
   ).toEqual([
+    "Operator",
     "Cockpit",
     "Jobs",
     "Jobs",
@@ -153,7 +154,7 @@ const cmd = (digit: string) =>
       ),
   );
 
-test("Cmd+1..8 open the drawn tabs in the bar's order, a tab left off takes no digit, and no other digit reaches a place; Cmd+, opens Settings", () => {
+test("Cmd+1..9 open the drawn tabs in the bar's order, a tab left off takes no digit, and no other digit reaches a place; Cmd+, opens Settings", () => {
   const went: string[] = [];
   mount(<Keys onSurface={(id) => went.push(id)} />);
   for (const digit of [
@@ -169,6 +170,7 @@ test("Cmd+1..8 open the drawn tabs in the bar's order, a tab left off takes no d
   ])
     cmd(digit);
   expect(went).toEqual([
+    SURFACE.operator,
     SURFACE.overview,
     SURFACE.sessions,
     SURFACE.studios,
@@ -201,6 +203,7 @@ test("Cmd+1..8 open the drawn tabs in the bar's order, a tab left off takes no d
   ])
     cmd(digit);
   expect(went).toEqual([
+    SURFACE.operator,
     SURFACE.overview,
     SURFACE.studios,
     SURFACE.logbook,

@@ -88,6 +88,7 @@ import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
 import { handleSessionSystem } from "./session-system-channels";
 import { handleLogbook } from "./logbook-channels";
+import { handleOperator } from "./operator-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
 import { handleUsageTime } from "./usage-time-channels";
 import { handleDebugReport } from "./debug-report-channels";
@@ -1256,6 +1257,10 @@ void app.whenReady().then(() => {
     connection: () => connection,
   });
   handleLogbook({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleOperator({
     ipc: ipcMain,
     connection: () => connection,
   });

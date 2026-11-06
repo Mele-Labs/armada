@@ -227,6 +227,7 @@ function rowsDrawn(
         row.kind === "started" ||
         row.kind === "waiter" ||
         row.kind === "linked" ||
+        row.kind === "operator" ||
         row.kind === "ran" ||
         row.kind === "check" ||
         row.kind === "retro" ||
