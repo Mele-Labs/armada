@@ -1317,9 +1317,7 @@ export function SessionComposer({
                 efforts={efforts}
                 said={(one) =>
                   one === null
-                    ? defaultModel === undefined
-                      ? "Default"
-                      : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`
+                    ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel ?? "Default")
                     : (resolvedSaidFor(model === one ? one : undefined) ?? one)
                 }
                 onTune={onTune}

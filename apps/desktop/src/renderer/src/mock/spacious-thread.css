@@ -686,11 +686,12 @@
   white-space: nowrap;
 }
 
+/* The meter is as tall as the name's capitals, so centred beside it, it stands on the baseline and rises to their top. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__meter {
   display: inline-flex;
   align-items: flex-end;
   gap: 2px;
-  height: 12px;
+  height: 10px;
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar {
@@ -699,11 +700,6 @@
   background: color-mix(in srgb, var(--fg-default) 16%, transparent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar:nth-child(1) { height: 4px; }
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar:nth-child(2) { height: 6px; }
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar:nth-child(3) { height: 8px; }
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar:nth-child(4) { height: 10px; }
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar:nth-child(5) { height: 12px; }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar[data-on] {
   background: var(--accent);
@@ -874,4 +870,13 @@
   border-color: var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-overlay);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__default {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__follows {
+  color: var(--fg-subtle);
 }

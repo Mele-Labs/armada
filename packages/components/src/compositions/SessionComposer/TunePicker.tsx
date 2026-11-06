@@ -12,7 +12,7 @@ export type TunePickerProps = {
   models: readonly string[];
   /** Lowest first. */
   efforts: readonly string[];
-  /** The words a model is drawn as; `null` is the one the Session follows while it names none. */
+  /** The words a model is drawn as; `null` is the one the Session follows while it names none, drawn by its own name. */
   said: (model: string | null) => string;
   onTune: (tuning: { model: string | null; effort: string | null }) => void;
 };
@@ -40,7 +40,14 @@ export function TunePicker({ model, effort, models, efforts, said, onTune }: Tun
               aria-label={effort === null ? "Effort: auto" : `Effort: ${effort}`}
             >
               {efforts.map((one, at) => (
-                <span key={one} className="armada-tune__bar" data-on={at < level || undefined} />
+                <span
+                  key={one}
+                  className="armada-tune__bar"
+                  data-on={at < level || undefined}
+                  style={{
+                    height: `${((at + 1) / efforts.length) * 100}%`,
+                  }}
+                />
               ))}
             </span>
             <ChevronDown size={14} strokeWidth={2} aria-hidden />
@@ -112,7 +119,14 @@ function TunePanel({
                 })
               }
             >
-              <span>{said(one)}</span>
+              {one === null ? (
+                <span className="armada-tune__default">
+                  Default
+                  <span className="armada-tune__follows">{said(null)}</span>
+                </span>
+              ) : (
+                <span>{said(one)}</span>
+              )}
               {picked ? <Check size={14} strokeWidth={2} aria-hidden /> : null}
             </button>
           );
