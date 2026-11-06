@@ -1,0 +1,7 @@
+[icons.grip-vertical]
+  means = "Two columns of dots: a handle to drag a row by"
+  group = "Operator"
+  size = "12px"
+  status = "Proposed"
+  reserved = "The handle on a row the person can drag to reorder, on the Operator's queue. Never a menu, never a move to another place, never a resize."
+  notes = "Proposed 5 Nov 2026 with the Operator's Queue, where the person drags what waits for the Operator into the order it takes it. Drawn only on a row that can still move: none on the row being read or on a settled one."
