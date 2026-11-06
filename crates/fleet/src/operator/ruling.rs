@@ -57,6 +57,22 @@ impl Way {
         }
     }
 
+    /// The Log's outcome for this way kept as a proposal.
+    pub(super) fn proposed_word(self) -> &'static str {
+        match self {
+            Way::NewJob => "proposed_new_job",
+            Way::ExistingJob => "proposed_existing_job",
+            Way::Merge => "proposed_merge",
+            Way::KeepInTouch => "proposed_keep_in_touch",
+            Way::Raise => "proposed_raise",
+            Way::Answer => "proposed_answer",
+            Way::Link => "proposed_link",
+            Way::File => "proposed_file",
+            Way::Noted => "proposed_noted",
+            Way::Leave => "proposed_leave",
+        }
+    }
+
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
         [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
@@ -181,6 +197,10 @@ pub enum PassedOn {
     Ceiling(u32),
     /// An answer that could no longer be given, such as to a question the person answered first.
     Settled(String),
+    /// Every way it could go is Read-only, so no call was made. **Not in Done.**
+    ReadOnly,
+    /// The ruling came back, and Fleet could not carry it out.
+    Undone(String),
 }
 
 impl fmt::Display for PassedOn {
@@ -192,6 +212,8 @@ impl fmt::Display for PassedOn {
             PassedOn::Refused(why) => write!(out, "the ruling was refused: {why}"),
             PassedOn::Ceiling(calls) => write!(out, "today's ceiling of {calls} calls was reached, so no call was made"),
             PassedOn::Settled(why) => write!(out, "{why}"),
+            PassedOn::ReadOnly => write!(out, "every way it could go is Read-only, so no call was made"),
+            PassedOn::Undone(why) => write!(out, "it could not be carried out: {why}"),
         }
     }
 }
@@ -222,6 +244,11 @@ pub enum Outcome {
     Ended,
     /// The person sent a note to a Job himself, from Bridge.
     Sent,
+    /// Its role is Read-only, so no call was made or none was acted on. **Not in Done.**
+    ReadOnly,
+    /// The ruling was kept to wait on a press, or is the press a start's own card already is. **Not in
+    /// Done**: the press is the row.
+    Proposed(Way),
 }
 
 impl Outcome {
@@ -236,6 +263,8 @@ impl Outcome {
             Outcome::Skipped => "skipped",
             Outcome::Ended => "ended",
             Outcome::Sent => "sent",
+            Outcome::ReadOnly => "read_only",
+            Outcome::Proposed(way) => way.proposed_word(),
         }
     }
 }

@@ -155,3 +155,28 @@ fn the_persons_answers_to_one_question_read_back_newest_first_and_the_operators_
     assert_eq!(said, vec![("01third", Some("Shared")), ("01first", Some("Per tab"))]);
     assert!(store.operator_answers_to("01REPOSITORY", "Something else?").expect("read").is_empty());
 }
+
+#[test]
+fn what_settled_leaves_out_what_was_read_only_proposed_or_left_and_a_note_passed_on_but_keeps_the_persons_send() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let row = |arrival: &str, outcome: &str, by: &str, minute: u32| KeptRuling {
+        outcome: outcome.to_string(),
+        by: by.to_string(),
+        ..ruled(arrival, None, &format!("2026-11-04T10:{minute:02}:00.000Z"))
+    };
+    for kept in [
+        row("a-done", "merge", "operator", 0),
+        row("b-read-only", "read_only", "operator", 1),
+        row("c-proposed", "proposed_file", "operator", 2),
+        row("d-left", "leave", "operator", 3),
+        row("note-sent:m:1", "passed_on", "operator", 4),
+        row("note-sent:m:2", "sent", "human", 5),
+        row("e-passed", "passed_on", "operator", 6),
+    ] {
+        store.add_operator_ruling(&kept).expect("kept");
+    }
+
+    let settled: Vec<String> = store.operator_rulings_signed(10).expect("read").into_iter().map(|one| one.arrival).collect();
+    assert_eq!(settled, ["e-passed", "note-sent:m:2", "a-done"]);
+}

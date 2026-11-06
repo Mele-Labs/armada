@@ -1,6 +1,6 @@
 //! What a role at Suggest would do, waiting on one press.
 //!
-//! **Kept with what On would have acted on**, so a restart keeps it and `Do it` goes through
+//! **Kept with what Decide would have acted on**, so a restart keeps it and `Do it` goes through
 //! [`Operator::acted`] as On does. An answer's suggestion shows on the question it would settle, where
 //! his press on the option is the one press; any other is a row of its own on the Job's Needs you
 //! list. A suggestion with no Job, on a report nothing reported from a Job, on a note he left or on an error Bridge showed him, is
@@ -26,7 +26,7 @@ const SUGGESTION_UNKNOWN: &str = "fleet.operator_suggestion_unknown";
 /// The id of the item for one suggestion: `suggestion:<n>`.
 const SUGGESTION: &str = "suggestion:";
 
-/// Choice 0 does what On would have.
+/// Choice 0 does what Decide would have.
 pub(crate) const DO_IT: u32 = 0;
 /// Choice 1 leaves it.
 pub(crate) const SKIP: u32 = 1;
@@ -147,7 +147,7 @@ where
 {
     /// `ruling` kept for one press, and the Job's list drawn again. The board is told too, which lists
     /// the ones no Job holds.
-    pub(super) async fn operator_suggested(&self, arrival: &Arrival, ruling: &Ruling) {
+    pub(super) async fn operator_suggested(&self, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
         let raised_at = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
@@ -177,11 +177,12 @@ where
                 raised_at,
             };
             if store.keep_operator_suggestion(&kept).is_err() {
-                return;
+                return Err("the suggestion was not kept".to_string());
             }
         }
         self.operator_board_changed();
         let _ = self.published_hosted(&arrival.session_id).await;
+        Ok(())
     }
 
     /// Whether choice `choice` is Do it, or Skip. Anything else is refused.
@@ -253,23 +254,27 @@ where
     }
 
     /// What `kept` would have done, done, with a row of the Log saying who pressed. **A note's is done
-    /// here and waited for**, so the row can name the issue it was filed as or the Job it started.
+    /// here and waited for**, so the row can name the issue it was filed as or the Job it started. The
+    /// row is kept once it is done, and where it could not be it says so.
     async fn suggestion_done(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp) {
         let (Some(arrival), Some(ruling), Some(operator)) = (arrival_of(kept), ruling_of(kept), self.operator_seat().operator()) else { return };
         let mut row = pressed(&arrival, Outcome::Ruled(ruling.way), &ruling.because, at);
         row.other = ruling.other.clone();
         row.shared = ruling.shared.clone();
         row.first = ruling.first.clone();
-        let sourced = arrival.arrived.is_sourced();
-        if sourced {
-            let made = self.operator_sourced(&arrival, &ruling).await;
-            row.issue = made.issue;
-            row.other = made.job.or(row.other);
+        let done = if arrival.arrived.is_sourced() {
+            self.operator_sourced(&arrival, &ruling).await.map(|made| {
+                row.issue = made.issue;
+                row.other = made.job.or(row.other.take());
+            })
+        } else {
+            operator.acted(&arrival, &ruling).await
+        };
+        if let Err(why) = done {
+            row.outcome = Outcome::PassedOn;
+            row.because = format!("it could not be carried out: {why}");
         }
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
-        if !sourced {
-            operator.acted(&arrival, &ruling);
-        }
     }
 
     /// A Skip, in the Log as the person's.

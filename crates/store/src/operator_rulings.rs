@@ -124,8 +124,8 @@ impl Store {
     }
 
     /// The latest rows that settled something, newest first: the Operator's own rulings, except those it
-    /// only suggested (the person's press on the suggestion is the row) and those that leave a note
-    /// where the person sent it or a note's failed ruling, and the person's press on a suggestion or
+    /// only suggested or withheld (the person's press on the suggestion is the row) and those that leave
+    /// a note where the person sent it or a note's failed ruling, and the person's press on a suggestion or
     /// his send of a note to a Job. A person's correction or answer of his own is not one.
     pub fn operator_rulings_signed(&self, limit: u32) -> Result<Vec<KeptRuling>, WriteError> {
         let doing = "reading the Operator's rulings";
@@ -134,7 +134,8 @@ impl Store {
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM operator_rulings
                  WHERE (by = 'operator' AND arrival NOT IN (SELECT arrival FROM operator_suggestions)
-                        AND outcome <> 'leave'
+                        AND outcome NOT IN ('leave', 'read_only')
+                        AND outcome NOT LIKE 'proposed_%'
                         AND NOT (outcome = 'passed_on' AND arrival LIKE 'note-sent:%'))
                     OR (by = 'human' AND outcome NOT IN ('corrected', 'answered'))
                  ORDER BY position DESC LIMIT ?1"

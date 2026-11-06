@@ -408,7 +408,7 @@ export type WaitingAct = {
  * the Job's browser asking him for a permission, which Bridge raised with `raise_browser_ask`. Fleet holds it in memory only. Answering with a `choice`
  * publishes `browser.ask_answered` with that index and removes it, and dismissing publishes it with `choice: null`. The agent is told nothing and is not
  * woken. Words alone are refused. It goes when `end_browser_ask` names it, when Fleet restarts, and when no client holds `/events` open.
- * `operator_suggestion` (id `suggestion:<n>`, text what the Operator would do and why, act `answer`) is a role of the Operator's standing at Suggest: `Do it` (choice 0) does what On would
+ * `operator_suggestion` (id `suggestion:<n>`, text what the Operator would do and why, act `answer`) is a role of the Operator's standing at Suggest: `Do it` (choice 0) does what Decide would
  * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no

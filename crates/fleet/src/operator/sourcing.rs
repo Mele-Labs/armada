@@ -366,39 +366,47 @@ where
         }
     }
 
-    /// What the Operator ruled for work from outside a Job's own run. A raise is its Log row. **What it
-    /// made of a note** comes back, so a press on a suggestion can say it in the Log.
-    pub(super) async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Sourced {
+    /// What the Operator ruled for work from outside a Job's own run, and whether Fleet did it. A raise
+    /// is its Log row. **What it made of a note** comes back, so a press on a suggestion can say it in
+    /// the Log. A red main is Autopilot's own act, which says nothing of how it came out.
+    pub(super) async fn operator_sourced(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Result<Sourced, String> {
         let (manifest, last) = (arrival.manifest_id.as_str(), arrival.id.rsplit(':').next().unwrap_or_default());
         let mut made = Sourced::default();
+        let undone = |what: &str| Err(what.to_string());
         match (arrival.arrived, ruling.way, ruling.other.as_deref(), ruling.issue.as_deref()) {
             (Arrived::Report, Way::Link, _, Some(issue)) => {
-                let _ = self.store().lock().await.link_bug_report(last, issue);
+                if self.store().lock().await.link_bug_report(last, issue).is_err() {
+                    return undone("the report was not linked");
+                }
             }
-            (Arrived::Report, Way::NewJob, _, _) => self.operator_started_report(last, manifest).await,
-            (Arrived::Report, Way::ExistingJob, Some(into), _) => self.operator_handed_report(last, manifest, into).await,
+            (Arrived::Report, Way::NewJob, _, _) => self.operator_started_report(last, manifest).await?,
+            (Arrived::Report, Way::ExistingJob, Some(into), _) => self.operator_handed_report(last, manifest, into).await?,
             (Arrived::RedMain, Way::NewJob, _, _) => self.operator_fixed_red(manifest, last).await,
             (Arrived::RedMain, Way::ExistingJob, Some(into), _) => self.operator_gave_red(manifest, last, into).await,
             (Arrived::Later, Way::Link, _, Some(issue)) => {
                 let now = self.now();
-                let _ = self.store().lock().await.later_handed_filed(&arrival.session_id, last, issue, now.as_str());
+                if self.store().lock().await.later_handed_filed(&arrival.session_id, last, issue, now.as_str()).is_err() {
+                    return undone("the item was not linked");
+                }
             }
-            (Arrived::Later, Way::File, _, _) => self.operator_filed(&arrival.session_id, last, manifest, &arrival.subject).await,
+            (Arrived::Later, Way::File, _, _) => self.operator_filed(&arrival.session_id, last, manifest, &arrival.subject).await?,
             (Arrived::Note, Way::Link, _, _) => {
-                self.note_settled_by_operator(manifest, last).await;
+                if !self.note_settled_by_operator(manifest, last).await {
+                    return undone("the note was not marked done");
+                }
             }
-            (Arrived::Note, Way::File, _, _) => made.issue = self.operator_filed_note(manifest, last, arrival).await,
-            (Arrived::Note, Way::NewJob, _, _) => made.job = self.operator_started_note(manifest, last, arrival).await,
-            (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await,
-            (Arrived::Ended | Arrived::Merged, Way::ExistingJob, Some(into), _) => self.operator_told_ending(arrival, ruling, into).await,
-            (Arrived::Ended | Arrived::Merged, Way::NewJob, _, _) => made.job = self.operator_started_next(arrival, ruling).await,
-            (Arrived::Ended | Arrived::Merged, Way::File, _, _) => made.issue = self.operator_filed_next(arrival, ruling).await,
-            (Arrived::Error, Way::File, _, _) => made.issue = self.operator_filed_error(manifest, arrival).await,
-            (Arrived::Error, Way::NewJob, _, _) => made.job = self.operator_started_error(manifest, arrival).await,
-            (Arrived::Error, Way::ExistingJob, Some(into), _) => self.operator_told_error(arrival, into).await,
+            (Arrived::Note, Way::File, _, _) => made.issue = Some(self.operator_filed_note(manifest, last, arrival).await.ok_or("the issue was not filed")?),
+            (Arrived::Note, Way::NewJob, _, _) => made.job = Some(self.operator_started_note(manifest, last, arrival).await.ok_or("the Job did not start")?),
+            (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await?,
+            (Arrived::Ended | Arrived::Merged, Way::ExistingJob, Some(into), _) => self.operator_told_ending(arrival, ruling, into).await?,
+            (Arrived::Ended | Arrived::Merged, Way::NewJob, _, _) => made.job = Some(self.operator_started_next(arrival, ruling).await.ok_or("the Job did not start")?),
+            (Arrived::Ended | Arrived::Merged, Way::File, _, _) => made.issue = Some(self.operator_filed_next(arrival, ruling).await.ok_or("the issue was not filed")?),
+            (Arrived::Error, Way::File, _, _) => made.issue = Some(self.operator_filed_error(manifest, arrival).await.ok_or("the issue was not filed")?),
+            (Arrived::Error, Way::NewJob, _, _) => made.job = Some(self.operator_started_error(manifest, arrival).await.ok_or("the Job did not start")?),
+            (Arrived::Error, Way::ExistingJob, Some(into), _) => self.operator_told_error(arrival, into).await?,
             _ => {}
         }
-        made
+        Ok(made)
     }
 
     /// A note no open issue covers, filed in the repository's beads with his words, and marked done.
@@ -450,17 +458,19 @@ where
 
     /// A note the Operator ruled to live Job `into`, whose work is near it: told it, and the note
     /// marked sent to it.
-    async fn operator_told_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival, into: &str) {
+    async fn operator_told_note(self: &Arc<Self>, manifest: &str, note: &str, arrival: &Arrival, into: &str) -> Result<(), String> {
         let text = format!("The Operator handed you a note the person left on Bridge, as your work is near it:\n\n{}\n\nDo it as part of your work, or say why it is not yours.", arrival.words);
-        if matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
-            let title = self.title_of(into).await;
-            self.note_given_by_operator(manifest, note, into, &title, arrival.is_sent_note()).await;
+        if !matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
+            return Err("the Job did not take the note".to_string());
         }
+        let title = self.title_of(into).await;
+        self.note_given_by_operator(manifest, note, into, &title, arrival.is_sent_note()).await;
+        Ok(())
     }
 
     /// A report the Operator ruled a Job of its own: started on it, briefed with it, and holding it.
-    async fn operator_started_report(self: &Arc<Self>, id: &str, manifest: &str) {
-        let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return };
+    async fn operator_started_report(self: &Arc<Self>, id: &str, manifest: &str) -> Result<(), String> {
+        let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return Err("the report is not there".to_string()) };
         let started = self
             .start_session(StartSession {
                 manifest_id: ManifestId::carried(manifest),
@@ -477,43 +487,47 @@ where
                 on_your_words: None,
             })
             .await;
-        let Ok(record) = started else { return };
+        let Ok(record) = started else { return Err("the Job did not start".to_string()) };
         let job = record.id.as_str().to_string();
         let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
         if self.first_message_from(&job, voice, &report_brief(&report)).await.is_err() {
             let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
-            return;
+            return Err("the Job was not briefed".to_string());
         }
         let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
         self.reports_named(&job, manifest, &[tag]).await;
+        Ok(())
     }
 
     /// A report the Operator ruled to live Job `into`, whose work is near it: told it, and holding it.
-    async fn operator_handed_report(self: &Arc<Self>, id: &str, manifest: &str, into: &str) {
-        let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return };
+    async fn operator_handed_report(self: &Arc<Self>, id: &str, manifest: &str, into: &str) -> Result<(), String> {
+        let Some(report) = self.store().lock().await.bug_report(id).ok().flatten() else { return Err("the report is not there".to_string()) };
         let text = format!(
             "The Operator handed you a bug report, as your work is near it:\n\n{}\n\nFix it as part of your work, or say why it is not yours.",
             report_brief(&report)
         );
-        if matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
-            let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
-            self.reports_named(into, manifest, &[tag]).await;
+        if !matches!(self.told_by_fleet(into, &text, Notice::Operator).await, Ok(true)) {
+            return Err("the Job did not take the report".to_string());
         }
+        let tag = SessionTag { kind: TagKind::Report, id: report.id, title: report.title, url: None };
+        self.reports_named(into, manifest, &[tag]).await;
+        Ok(())
     }
 
     /// A Later item no open issue covers, filed in the repository's beads and settled as filed.
-    async fn operator_filed(&self, session: &str, later: &str, manifest: &str, sentence: &str) {
-        let Ok(served) = self.served_named(Some(&ManifestId::carried(manifest))) else { return };
-        let Some(backlog) = self.backlog_of(&served) else { return };
+    async fn operator_filed(&self, session: &str, later: &str, manifest: &str, sentence: &str) -> Result<(), String> {
+        let Ok(served) = self.served_named(Some(&ManifestId::carried(manifest))) else { return Err("the repository is not served".to_string()) };
+        let Some(backlog) = self.backlog_of(&served) else { return Err("the repository files nowhere".to_string()) };
         let title = self.store().lock().await.session(session).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| session.to_string());
         let body = format!("Kept for later by Job \"{title}\", and filed by the Operator.");
         let (root, sentence) = (served.root().to_string(), sentence.to_string());
         let filed = tokio::task::spawn_blocking(move || backlog.file(&root, &sentence, &body)).await;
-        let Ok(Ok(reference)) = filed else { return };
+        let Ok(Ok(reference)) = filed else { return Err("the issue was not filed".to_string()) };
         held(&self.operator_seat().sources.filed).insert(reference.clone());
         let now = self.now();
         let _ = self.store().lock().await.later_handed_filed(session, later, &reference, now.as_str());
         self.tracking().forget(manifest);
+        Ok(())
     }
 }
 

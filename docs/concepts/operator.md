@@ -50,7 +50,7 @@ An item reaches the Operator before it starts a Job or pulses in Needs you.
 | An error | Bridge, for a failure card it showed the person. It carries the code, message, fields, cause chain, log paths, commit and time |
 
 **A note is only ever proposed.**
-A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Off, so no note is filed, started or sent to a Job unasked.
+A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Read-only, so no note is filed, started or sent to a Job unasked.
 Its row has no Job, so it is kept for the panel, and Do it marks the note sent to the Job it went to, or done where it was filed or linked.
 
 **A note the person sends to a Job is his row first.**
@@ -58,7 +58,7 @@ Fleet reads an open note with no `sent` again on each tick, for ten minutes, unt
 When it gains `sent`, the Log keeps a row signed by the person with the outcome `sent` and the Job it went to, and Done reads `Sent: to <Job title>` with the person as its decider.
 The Operator is then handed the note as its own arrival, `note-sent:<repository>:<note>`, whose words say he sent it to that Job.
 It may send the note to another live Job, start a Job on it, or leave it where he sent it, which writes nothing that shows in Done.
-A move goes by the role of its way like any ruling: at Suggest it is a suggestion, and at On it is done and the note is marked sent to the Job it moved to.
+A move goes by the role of its way like any ruling: at Suggest it is a suggestion, and at Decide it is done and the note is marked sent to the Job it moved to.
 
 **An end or a merge is told once, and never replayed.**
 Its words carry the Job's title, summary and end reason, its pull requests, who started it and the Jobs it started that are live, and what it may unblock: Jobs waiting to start on it, its Later items not yet settled, open issues near it, and Needs you items that name it or wait on a restart.
@@ -70,7 +70,7 @@ A Job handed on for context is no end.
 **An error goes first, once.**
 It stands ahead of every waiting arrival that is not an error, and errors keep the order they came in.
 Its id is a fingerprint of its code and message, less the numbers, ids and paths that differ between two of the same fault, with the machine's local day, so the same error is one item for the day however often Bridge shows it.
-It is weighed against live Jobs as a report is, the Job it was raised in included, and it goes by the role's position: acted on at On, kept as a suggestion at Suggest.
+It is weighed against live Jobs as a report is, the Job it was raised in included, and it goes by the role's position: acted on at Decide, kept as a suggestion at Suggest.
 A Job it starts is briefed with every word the card carried.
 
 **Detection stays Fleet's**, read from state as it always was.
@@ -87,7 +87,7 @@ What arrives while a call is out is ruled together in the next one, so three Job
 A ruling is one way: start a new Job, send the words to an existing Job, merge two Jobs, keep two in touch, raise it to the person, answer a question, link a report to an open issue, or file a new one.
 A way between two Jobs names the other Job and the paths or plan group they share, or Fleet refuses it.
 
-Each role that acts has a position, Off, Suggest or On.
+Each role that acts has a position, Read-only, Suggest or Decide.
 
 | Role | What it does | Setting |
 |---|---|---|
@@ -98,15 +98,15 @@ Each role that acts has a position, Off, Suggest or On.
 | Raise | Puts the item in Needs you with the Operator's read and its pick. It has no position | None |
 | File | Files a new issue for a Later item or a note no open issue covers. It only ever creates | `operator-file` |
 
-**Every role starts Off**, and any role can differ for one repository (`operator-repositories`).
-A word that is not Off, Suggest or On reads Off.
+**Every role starts Read-only**, and any role can differ for one repository (`operator-repositories`).
+A word that is not Read-only, Suggest or Decide reads Read-only, and the older `off` and `on` read Read-only and Decide.
 The settings are in `crates/config/settings.toml`.
 
 | Position | What a ruling does |
 |---|---|
-| Off | Is in the Log and does nothing. A first write does not wait on it |
+| Read-only | The way is not offered to the call. With only a raise left, no call is made and the item goes to the person, and nothing shows in Done. A first write does not wait on it |
 | Suggest | Is in the Log and waits on one press. A question carries the Operator's read and its pick, and a press on that option is the press the person would make anyway |
-| On | Fleet does what is ruled |
+| Decide | Fleet does what is ruled, and the ruling is kept as done only once the act has gone through. A refused act keeps its refusal |
 
 **Fleet's rules decide first and only narrow, in every position.**
 A destructive option is never picked, and a card is only ever answered Allow once.

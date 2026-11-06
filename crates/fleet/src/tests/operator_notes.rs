@@ -171,18 +171,19 @@ async fn a_note_ruled_to_a_live_job_tells_it_on_do_it_and_is_marked_sent_to_it()
 }
 
 #[tokio::test]
-async fn with_file_off_a_note_ruled_filed_is_kept_in_the_log_and_proposes_nothing() {
+async fn with_file_read_only_a_note_is_not_offered_the_file_way() {
     let rig = filing().await;
     switched(&rig, "features.operatorFile", false).await;
-    let call = Answers::with(&["item: 1\nway: 1\nbecause: no open issue covers it"]);
+    let call = Answers::with(&["item: 1\nway: 1\nbecause: it needs a person"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     rig.fleet.sources_handed().await;
     leave(&rig, "n-1", "open", None, TEXT);
     rig.fleet.sources_handed().await;
 
-    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty());
+    eventually(|| async { !call.asked().is_empty() }).await;
+    let asked = call.asked().remove(0);
+    let offered = asked.lines().find(|line| line.contains("The ways it is offered:")).expect("the ways are listed");
+    assert!(!offered.contains("file a new issue"), "{offered}");
     assert_eq!(read(&rig, "n-1").status, "open");
 }
 
@@ -318,4 +319,48 @@ async fn a_redirect_of_a_note_he_sent_is_done_at_on_and_its_row_is_the_operators
     eventually(|| async { board_done(&rig).await.len() == 2 }).await;
     let done = board_done(&rig).await;
     assert_eq!((done[0].outcome.as_str(), done[0].by), (format!("Handed over: to {SCROLLBACK_JOB}").as_str(), ipc::operator_board::OperatorDecider::Operator));
+}
+
+/// A note ruled filed, with the three roles it may fall to at `word`.
+async fn note_at(word: &str, answers: &[&str]) -> (Rig, Arc<Answers>) {
+    let rig = filing().await;
+    for key in ["features.operatorFile", "features.operatorDispatch", "features.operatorDelegate"] {
+        positioned(&rig, key, word).await;
+    }
+    let call = Answers::with(answers);
+    assert!(rig.fleet.operator_seated_with(call.clone()));
+    rig.fleet.sources_handed().await;
+    leave(&rig, "n-1", "open", None, TEXT);
+    rig.fleet.sources_handed().await;
+    (rig, call)
+}
+
+#[tokio::test]
+async fn a_note_whose_roles_are_all_read_only_makes_no_call_and_shows_nothing_in_done() {
+    let (rig, call) = note_at("read_only", &["item: 1\nway: 1\nbecause: no open issue covers it"]).await;
+
+    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+    assert!(call.asked().is_empty());
+    assert_eq!(rulings(&rig).await[0].outcome, "read_only");
+    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty());
+    assert!(board_done(&rig).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_note_at_suggest_or_decide_is_a_suggestion_and_done_shows_only_his_press() {
+    for word in ["suggest", "decide"] {
+        let (rig, call) = note_at(word, &["item: 1\nway: 1\nbecause: no open issue covers it"]).await;
+
+        eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
+        eventually(|| async { !rulings(&rig).await.is_empty() }).await;
+        assert_eq!(call.asked().len(), 1, "{word}");
+        assert!(board_done(&rig).await.is_empty(), "{word}: the Operator only suggested it, so nothing happened");
+
+        do_it(&rig, &kept(&rig).await).await;
+        eventually(|| async { board_done(&rig).await.len() == 1 }).await;
+        let done = board_done(&rig).await;
+        assert_eq!((done[0].by, done[0].outcome.starts_with("Filed")), (ipc::operator_board::OperatorDecider::Person, true), "{word}");
+    }
 }

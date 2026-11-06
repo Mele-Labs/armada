@@ -22,7 +22,7 @@ const ASKED: &str = "Which clock do the tests use?";
 async fn switched(rig: &Rig, key: &str, on: bool) {
     let value = match key {
         "features.operator" => ipc::SettingValue::Bool(on),
-        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+        _ => ipc::SettingValue::Text(if on { "decide" } else { "read_only" }.to_string()),
     };
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
@@ -266,25 +266,63 @@ async fn while_autopilot_runs_he_is_away_its_setup_widens_answer_and_its_pass_le
     assert_eq!(here.arrival().expect("on").ways, vec![Way::Raise]);
 }
 
-#[tokio::test]
-async fn with_answer_off_a_question_is_ruled_into_the_log_and_left_on_his_list_as_dispatch_off_leaves_a_start() {
+async fn done_on_the_board(rig: &Rig) -> Vec<ipc::operator_board::OperatorBoardSettled> {
+    rig.fleet.operator_board_wire().await.expect("read").done
+}
+
+/// A question handed to a call that would answer it, with Answer standing at `position`. The call.
+async fn asked_at(position: &str) -> (Rig, SessionId, Arc<Answers>) {
     let rig = rig_placing(None);
     switched(&rig, "features.operator", true).await;
-    assert!(!rig.fleet.operator_answering("any repository"), "Answer ships Off under the Operator");
+    positioned(&rig, "features.operatorAnswer", position).await;
     let call = Answers::with(&["item: 1\nway: 1\nanswer: 1\nbecause: a frozen clock is the one the agent recommends"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let id = rig.start().await;
     planned(&rig, &id, false).await;
     keep(&rig, &id, &[item("a", ASKED, &["Frozen (Recommended)", "Fake"])]).await;
-
     read_and_handed(&rig, &id).await;
+    (rig, id, call)
+}
+
+#[tokio::test]
+async fn with_answer_read_only_a_question_makes_no_call_settles_nothing_and_shows_nothing_in_done() {
+    let (rig, id, call) = asked_at("read_only").await;
+    assert!(!rig.fleet.operator_answering("any repository"), "Answer ships Read-only under the Operator");
+
+    eventually(|| async { !log_of(&rig).await.is_empty() }).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+    assert!(call.asked().is_empty(), "no call is spent on what it could not do");
+    assert!(waiting(&rig, &id).await.contains(&"a".to_string()), "it stays on his list");
+    assert!(!said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered")), "and the thread says nothing");
+    assert!(done_on_the_board(&rig).await.is_empty(), "nothing happened, so Done holds nothing");
+    assert_eq!(log_of(&rig).await[0].outcome, "read_only");
+}
+
+#[tokio::test]
+async fn with_answer_at_suggest_a_question_is_suggested_and_done_shows_nothing_until_his_press() {
+    let (rig, id, call) = asked_at("suggest").await;
+    eventually(|| async { read_on_a(&rig, &id).await.is_some() }).await;
     eventually(|| async { !log_of(&rig).await.is_empty() }).await;
 
-    let log = log_of(&rig).await;
-    assert_eq!((log[0].outcome.as_str(), log[0].answer.as_deref()), ("answer", Some("Frozen (Recommended)")), "the Log keeps what it would have answered");
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-    assert!(waiting(&rig, &id).await.contains(&"a".to_string()), "nothing is settled");
-    assert!(!said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered")), "and the thread says nothing");
+    assert_eq!(call.asked().len(), 1);
+    assert!(done_on_the_board(&rig).await.is_empty(), "a suggestion is not something that happened");
+
+    let said_to = AnswerWaiting { session_id: id.clone(), item_id: "a".into(), choice: Some(0), text: None, mode: None, fixed: None };
+    Arc::clone(&rig.fleet).settle_waiting(said_to).await.expect("his press");
+    eventually(|| async { !waiting(&rig, &id).await.contains(&"a".to_string()) }).await;
+}
+
+#[tokio::test]
+async fn with_answer_at_decide_a_question_is_answered_and_done_shows_it_only_once_it_is() {
+    let (rig, id, call) = asked_at("decide").await;
+    eventually(|| async { call.asked().len() == 1 }).await;
+    eventually(|| async { !waiting(&rig, &id).await.contains(&"a".to_string()) }).await;
+    eventually(|| async { !done_on_the_board(&rig).await.is_empty() }).await;
+
+    let done = done_on_the_board(&rig).await;
+    assert_eq!((done[0].outcome.as_str(), done[0].by), ("Answered: Frozen (Recommended)", ipc::operator_board::OperatorDecider::Operator));
+    assert!(said(&rig, &id).await.iter().any(|one| one.contains("The Operator answered")), "the Job's thread says so");
 }
 
 #[tokio::test]
@@ -400,7 +438,7 @@ async fn with_answer_at_suggest_a_question_shows_the_read_and_the_pick_and_his_p
 
 #[tokio::test]
 async fn a_repository_stands_apart_from_the_machine_in_either_direction() {
-    for (machine, repository, settled) in [("on", "off", false), ("off", "on", true), ("off", "suggest", false)] {
+    for (machine, repository, settled) in [("decide", "read_only", false), ("read_only", "decide", true), ("read_only", "suggest", false)] {
         let rig = rig_placing(None);
         switched(&rig, "features.operator", true).await;
         positioned(&rig, "features.operatorAnswer", machine).await;
@@ -455,7 +493,7 @@ async fn a_role_off_by_a_standing_order_settles_nothing_until_it_is_removed() {
 
     rig.fleet.operator_order_removed(orders.orders[0].id).await.expect("one press");
     assert!(rig.fleet.operator_orders_wire().await.orders.is_empty());
-    assert_eq!(rig.fleet.operator_position(OperatorRole::Answer, &rig.manifest.as_str().to_string()), ipc::operator_positions::OperatorPosition::On);
+    assert_eq!(rig.fleet.operator_position(OperatorRole::Answer, &rig.manifest.as_str().to_string()), ipc::operator_positions::OperatorPosition::Decide);
 }
 
 /// A call held out until released, which then answers the first option.

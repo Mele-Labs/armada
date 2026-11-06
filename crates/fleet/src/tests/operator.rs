@@ -13,7 +13,7 @@ use testkit::FakeJudge;
 
 use super::session_host::rig_placing;
 use crate::operator::{
-    Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, InLine, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Place, Ruled,
+    carried, Acted, Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, InLine, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Place, Ruled,
     Source, Way, FIRST_WRITE_WAIT,
 };
 use crate::{CallFailed, JudgeBudget};
@@ -174,20 +174,24 @@ impl Desk for Held {
 }
 
 impl Acting for Held {
-    fn go_ahead(&self, session: &str) {
+    fn go_ahead(&self, session: &str) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("go_ahead {session}"));
+        carried()
     }
 
-    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) {
+    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("hand_over {session} {into}"));
+        carried()
     }
 
-    fn merge(&self, ending: &str, into: &str, _shared: &[String]) {
+    fn merge(&self, ending: &str, into: &str, _shared: &[String]) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("merge {ending} {into}"));
+        carried()
     }
 
-    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) {
+    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("keep_in_touch {one} {other}"));
+        carried()
     }
 
     fn place(&self, session: &str, place: &Place) {

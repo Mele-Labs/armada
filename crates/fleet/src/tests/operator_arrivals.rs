@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use core_model::Timestamp;
 
-use crate::operator::{Acting, Answering, Arrival, Arrived, Calling, Desk, Done, LiveJob, Logged, Operator, PassedOn, Ruled, Source, Way, FIRST_WRITE_WAIT};
+use crate::operator::{carried, Acted, Acting, Answering, Arrival, Arrived, Calling, Desk, Done, LiveJob, Logged, Operator, PassedOn, Ruled, Source, Way, FIRST_WRITE_WAIT};
 use crate::CallFailed;
 
 const REPO: &str = "01REPO";
@@ -55,10 +55,10 @@ impl Desk for Desked {
 }
 
 impl Acting for Desked {
-    fn go_ahead(&self, _session: &str) {}
-    fn hand_over(&self, _session: &str, _group: Option<&str>, _into: &str, _shared: &[String]) {}
-    fn merge(&self, _ending: &str, _into: &str, _shared: &[String]) {}
-    fn keep_in_touch(&self, _one: &str, _other: &str, _shared: &[String]) {}
+    fn go_ahead(&self, _session: &str) -> Acted<'_> { carried() }
+    fn hand_over(&self, _session: &str, _group: Option<&str>, _into: &str, _shared: &[String]) -> Acted<'_> { carried() }
+    fn merge(&self, _ending: &str, _into: &str, _shared: &[String]) -> Acted<'_> { carried() }
+    fn keep_in_touch(&self, _one: &str, _other: &str, _shared: &[String]) -> Acted<'_> { carried() }
 }
 
 fn job(id: &str, manifest: &str, words: &str, paths: &[&str], issues: &[&str]) -> LiveJob {

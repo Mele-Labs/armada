@@ -251,7 +251,7 @@ async fn a_question_with_a_recommended_option_from_a_job_on_a_group_not_seen_is_
 async fn a_role_goes_by_where_it_stands_off_only_in_the_log_suggest_on_one_press_and_on_done() {
     use ipc::operator_positions::OperatorPosition;
     let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option keeps what each tab shows, and nothing he sees changes";
-    for (stands, settled, suggested) in [(OperatorPosition::Off, false, false), (OperatorPosition::Suggest, false, true), (OperatorPosition::On, true, false)] {
+    for (stands, settled, suggested) in [(OperatorPosition::ReadOnly, false, false), (OperatorPosition::Suggest, false, true), (OperatorPosition::Decide, true, false)] {
         let call = FakeCall::replying(vec![Reply::Says(answered.into(), Duration::from_secs(3))]);
         let fleet = FakeFleet::with(live(), 100);
         let operator = operator(&call, &fleet);
