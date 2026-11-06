@@ -22,6 +22,7 @@ fn suggestion(arrival: &str, session: &str, because: &str) -> KeptSuggestion {
         item: None,
         pick: None,
         because: because.to_string(),
+        what: None,
         text: "The Operator would hand this work over".to_string(),
         raised_at: "2026-11-06T09:00:00Z".to_string(),
     }

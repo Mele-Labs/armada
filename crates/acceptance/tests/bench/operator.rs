@@ -82,6 +82,7 @@ pub fn started(session: &str, source: Source) -> Arrival {
         answers: Vec::new(),
         rule: None,
         open: Vec::new(),
+        ties: Vec::new(),
     }
 }
 
