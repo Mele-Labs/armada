@@ -11,7 +11,7 @@ use rusqlite::{params, OptionalExtension};
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
 use crate::retro::{line_of, RetroLine, Texts};
-use crate::row::{column, enum_value};
+use crate::row::{column, enum_value, known};
 
 /// A written retro of a Session.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -422,7 +422,8 @@ impl Store {
             };
             let lands_in = optional(7, "lands_in")?;
             let state = text(11, "state")?;
-            out.push(KeptSessionLesson {
+            let lesson = || -> Result<KeptSessionLesson, RowError> {
+                Ok(KeptSessionLesson {
                 session_id: text(0, "session_id")?,
                 retro_id: row.get(1).map_err(column("session_retro_items", "retro_id"))?,
                 ordinal: u32::try_from(
@@ -450,7 +451,9 @@ impl Store {
                     .get::<_, i64>(14)
                     .map_err(column("session_retro_items", "applied"))?
                     == 1,
-            });
+                })
+            };
+            out.extend(known(lesson())?);
         }
         Ok(out)
     }
