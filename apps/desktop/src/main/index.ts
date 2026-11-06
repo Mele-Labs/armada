@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -13,7 +14,7 @@ import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { CHANNELS, NOTHING_YET } from "../shared/bridge";
 import type { BridgeState, PickedView, Summons } from "../shared/bridge";
@@ -37,6 +38,10 @@ import { coalesce } from "./coalesce";
 import { StateSends } from "./state-sends";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
+import { onCurrentBuild, PageReloads, pageAfterSwap } from "./page-reload";
+import { appMenuTemplate } from "./app-menu";
+import { canRevert, revertAsked } from "./revert-asked";
+import { machinePath } from "./runtime-file";
 import { handleTaps } from "./haptics";
 import { installSounds } from "./dev-sounds";
 import { handleFilePanel } from "./file-panel-channels";
@@ -390,17 +395,94 @@ function createWindow(): BrowserWindow {
   //
   // **`--no-mods` is safe mode**: the renderer reads `?nomods` and loads without any mod's theme.
   // A query on the page, so the preload surface gains nothing.
-  void window.loadFile(
-    join(__dirname, "../renderer/index.html"),
-    process.argv.includes("--no-mods")
-      ? {
-          query: {
-            nomods: "1",
-          },
-        }
-      : {},
-  );
+  const first = join(__dirname, "../renderer/index.html");
+  pageReloads.loaded(first);
+  void window.loadFile(first, pageOptions());
   return window;
+}
+
+/** What every load of the main window's page carries: `--no-mods` as a query, nothing else. */
+function pageOptions(): {
+  query?: Record<string, string>;
+} {
+  return process.argv.includes("--no-mods")
+    ? {
+        query: {
+          nomods: "1",
+        },
+      }
+    : {};
+}
+
+/**
+ * The main window's page, reloaded in place when Fleet comes back on another kept build whose shell
+ * matches this one — `page-reload.ts`. **Only the main window**: a terminal, a browser or any other
+ * window keeps its page until it is reopened.
+ */
+const pageReloads = new PageReloads({
+  after: () => {
+    const builds = keptBuilds();
+    return builds === null ? null : pageAfterSwap(app.getAppPath(), builds);
+  },
+  onOwnBuild: () => {
+    const builds = keptBuilds();
+    return builds !== null && onCurrentBuild(app.getAppPath(), builds);
+  },
+  load: (page) => void bridgeWindow()?.loadFile(page, pageOptions()),
+  log: (line) => console.info(line),
+});
+
+/** `Armada/builds` in Application Support, where each kept build and the `current` link to one live. */
+function keptBuilds(): string | null {
+  const file = machinePath(process.env["HOME"]);
+  return file === null ? null : join(dirname(file), "builds");
+}
+
+/**
+ * Revert to the build before, from the app menu and the palette: the native confirm, then Fleet's revert, or
+ * the build before's own undo where Fleet is not there to ask — `revert-asked.ts`. **All of it runs here**, so
+ * it works with Bridge's page blank.
+ */
+function askToRevert(): Promise<void> {
+  const file = machinePath(process.env["HOME"]);
+  const undo = file === null ? null : join(dirname(file), "builds", "previous", "armada");
+  return revertAsked({
+    report: () => published.fleetBuild,
+    revert: async () => connection?.fleetBuild.revert(),
+    show: async (box) => {
+      const window = bridgeWindow();
+      const { response } = await (window === null
+        ? dialog.showMessageBox(box)
+        : dialog.showMessageBox(window, box));
+      return response;
+    },
+    undo: () => undo,
+    exists: existsSync,
+    run: (command, args) =>
+      spawn(command, args, {
+        detached: true,
+        stdio: "ignore",
+      }).unref(),
+  });
+}
+
+/** Whether the menu's revert item is on, as last set. Rebuilt only when this moves. */
+let menuRevert: boolean | null = null;
+
+/** Set the application menu on the first call, and again only when the revert item turns on or off. */
+function menuFollows(): void {
+  if (!app.isReady()) return;
+  const enabled = canRevert(published.fleetBuild);
+  if (enabled === menuRevert) return;
+  menuRevert = enabled;
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(
+      appMenuTemplate(app.name, {
+        enabled,
+        click: () => void askToRevert(),
+      }),
+    ),
+  );
 }
 
 /**
@@ -472,6 +554,8 @@ const toWindows = coalesce((state: BridgeState) => {
  */
 function publish(state: BridgeState): void {
   published = state;
+  menuFollows();
+  pageReloads.connection(state.connection.state === "connected");
   // A Run that has stopped serving ends capture in its own window — #1294.
   captureWindows.changed(state);
   toWindows(state);
@@ -640,6 +724,7 @@ const sessionAttention = new SessionAttention({
 });
 
 void app.whenReady().then(() => {
+  menuFollows();
   wearTheMark();
   protocol.handle(VIDEO_SCHEME, (request) =>
     answerVideoRequest(request, (sessionId) => connection?.sessions.recordOf(sessionId)),
@@ -981,6 +1066,8 @@ void app.whenReady().then(() => {
   );
   // Asks Fleet, which starts `builds/previous/armada build revert` detached: `fleet-build.ts`.
   ipcMain.handle(CHANNELS.revertFleetBuild, () => connection?.fleetBuild.revert());
+  // The same confirm the app menu's item shows, native, for the palette's row: `revert-asked.ts`.
+  ipcMain.handle(CHANNELS.askRevertFleetBuild, () => askToRevert());
   // Pick for the snapshot, swap onto it, keep the Jobs tried: `fleet-build.ts`.
   ipcMain.handle(CHANNELS.pickFleetBuildJob, (_event, pick: PickFleetBuildJob) =>
     connection?.fleetBuild.pick(pick),

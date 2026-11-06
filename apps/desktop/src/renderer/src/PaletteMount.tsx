@@ -7,7 +7,7 @@
 // thing; the object is the shape that function already agrees on.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, GitPullRequest, Puzzle } from "lucide-react";
+import { Copy, GitPullRequest, Puzzle, Undo2 } from "lucide-react";
 import {
   choiceOf,
   Palette,
@@ -42,6 +42,7 @@ import { askToDebugBridge } from "./debug-bridge";
 import { askToOpenSession, openSessionIn } from "./open-session";
 import { openInPanel, openRequestsInPanel } from "./shared-panel/store";
 import { askToCreateMod } from "./create-mod";
+import { askRevertFleetBuild } from "./commands";
 import { useDebugReport } from "./debug-report/debug-report";
 import {
   absentIn,
@@ -50,6 +51,7 @@ import {
   CREATE_MOD,
   dormantIn,
   FLEET_DOWN,
+  revertRows,
 } from "./palette";
 import { displayOf, keysOf, useModRows, type ModRow } from "./mod-commands";
 import { firstStep } from "./palette-blanks";
@@ -71,6 +73,8 @@ export type PaletteMountProps = {
   failing: unknown | null;
   /** Whether Fleet is connected. */
   live: boolean;
+  /** Whether a build before the running one is kept, which is when Revert to the build before is offered. Absent is no. */
+  buildBefore?: boolean;
   /** The repositories the title row's picker lists, and the one picked: `null` is All. */
   repositories: readonly PaletteRepository[];
   picked: string | null;
@@ -81,7 +85,13 @@ export type PaletteMountProps = {
    */
   acts: Omit<
     Parameters<typeof carryOut>[1],
-    "studioRun" | "studioAdd" | "createMod" | "debugBridge" | "openSession" | "requests"
+    | "studioRun"
+    | "studioAdd"
+    | "createMod"
+    | "debugBridge"
+    | "openSession"
+    | "requests"
+    | "askRevert"
   >;
   /** The page showing, by its surface id: the palette heads its results with that page's own acts. */
   showing?: string;
@@ -111,6 +121,7 @@ export function PaletteMount({
   checkoutRunSheet,
   failing,
   live,
+  buildBefore,
   repositories,
   picked,
   showing,
@@ -251,6 +262,7 @@ export function PaletteMount({
       studioRun: askStudioRun,
       studioAdd: askStudioAdd,
       createMod: askToCreateMod,
+      askRevert: () => void askRevertFleetBuild(),
       debugBridge: askToDebugBridge,
       openSession: askToOpenSession,
       requests: () => void openRequestsInPanel(openSessionIn(document)),
@@ -347,6 +359,10 @@ export function PaletteMount({
                   icon: Copy,
                 },
               ]),
+          ...revertRows(buildBefore === true).map((row) => ({
+            ...row,
+            icon: Undo2,
+          })),
           ...extras.map(({ id, label, icon }) => ({
             id,
             label,

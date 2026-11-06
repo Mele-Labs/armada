@@ -177,10 +177,30 @@ export type PaletteHands = {
   studioAdd: (kind: StudioNodeByHandKind) => void;
   /** Open the box that starts a Mod Job from his words. */
   createMod: () => void;
+  /** Revert to the build before: main shows the native confirm and does the rest. */
+  askRevert: () => void;
 };
 
 /** The palette's rows about the window as a whole, which no registry row answers. */
 export const CREATE_MOD = "create_mod";
+
+/** The row that reverts Fleet and Bridge to the build before. A board row, listed only while a build before is kept. */
+export const REVERT_BUILD = "revert_build";
+
+/** The revert row, or none: **offered while a build before is kept**, so a row that can only say there is none is not drawn. */
+export function revertRows(kept: boolean): {
+  id: string;
+  label: string;
+}[] {
+  return kept
+    ? [
+        {
+          id: REVERT_BUILD,
+          label: "Revert to the build before",
+        },
+      ]
+    : [];
+}
 
 /**
  * The row that opens the debug report. **A board row, so it draws after every registry act**: "debug" then Return
@@ -227,6 +247,7 @@ export function carryOut(choice: PaletteChoice, hands: PaletteHands): void {
       return;
     case "board":
       if (choice.id === CREATE_MOD) hands.createMod();
+      else if (choice.id === REVERT_BUILD) hands.askRevert();
       return;
     case "act":
       act(choice.id, hands);

@@ -618,9 +618,9 @@ if $dry_run; then
   echo "would boot $service out if it is loaded, then bootstrap it from $plist"
   echo "would wait up to 60 s for the new Fleet to answer /health, and otherwise mark the build and swap back onto the one before"
   echo "would write $bridge_plist: [$kept_current/bridge-launch, $kept_current/launch-bridge] in $kept_current/bridge, reopened by launchd when it stops without a quit"
-  echo "would reopen Bridge too if its job is loaded from anywhere but $kept_current/bridge, or the kept Bridge's files differ from the build before's"
+  echo "would reopen Bridge too if its job is loaded from anywhere but $kept_current/bridge, or the kept Bridge's main, preload or Electron differ from the build before's; where only its page differs, Bridge reloads it in place"
   if bridge_electron=$(armada_electron); then
-    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing, cloned into $support/node_modules"
+    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing, kept once per Electron version in $support/electron"
   else
     echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
   fi
@@ -795,6 +795,9 @@ $keep_only || refuse_if_drone_working
 kept_source=main
 [[ -n "$from" ]] && kept_source=preview
 old_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
+old_bridge_shell=$(sed -n 's/^bridge_shell = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
+old_electron=$(sed -n 's/^electron = "\(.*\)"$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
+old_page_reload=$(sed -n 's/^page_reload = \(.*\)$/\1/p' "$kept_current/build.toml" 2>/dev/null || true)
 kept_build=$("$root/scripts/keep-build" make "$src" "$armada_bin" "$kept_source" "$(tree_protocol)") \
   || fail "could not keep the build from $src"
 say "Keeping the build in $kept_build"
@@ -809,6 +812,8 @@ if $keep_only; then
 fi
 "$root/scripts/keep-build" point "$kept_build" || fail "could not point $kept_current at $kept_build"
 new_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
+new_bridge_shell=$(sed -n 's/^bridge_shell = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
+new_electron=$(sed -n 's/^electron = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
 
 # A copy of the database the new build is about to open, so a migration that
 # goes wrong is recoverable. `.backup` is SQLite's own online copy and is safe
@@ -955,15 +960,27 @@ git -C "$src" rev-parse HEAD >"$support/restart-commit" 2>/dev/null || rm -f "$s
 # not a reason: a Bridge someone started by hand is left alone as it always was.
 # `bridge_rebuilt` is left as it was, because the stamp below says what *this
 # run built*, and a reopen that built nothing must not vouch for an edit it never saw.
+#
+# **Where only the page differs**, Bridge is not reopened: the running one reloads
+# its window from `builds/current` once Fleet is back
+# (`apps/desktop/src/main/page-reload.ts`), which is safe only while main, preload
+# and Electron are the same, and only where the running build says it can.
 bridge_reopened=false
+bridge_reloads=false
 bridge_reopen=$bridge_rebuilt
 loaded_bridge_dir=$(launchctl print "$bridge_service" 2>/dev/null | sed -n 's/^[[:space:]]*working directory = //p' || true)
 if [[ -n "$loaded_bridge_dir" && "$loaded_bridge_dir" != "$kept_current/bridge" ]]; then
   say "Bridge runs from $loaded_bridge_dir, not the kept build — reopening it there"
   bridge_reopen=true
 elif [[ -n "$old_bridge_key" && "$old_bridge_key" != "$new_bridge_key" ]]; then
-  say "Bridge's files differ from the build before's — reopening it"
-  bridge_reopen=true
+  if [[ "$old_page_reload" == true && -n "$old_bridge_shell" && "$old_bridge_shell" == "$new_bridge_shell" && "$old_electron" == "$new_electron" ]]; then
+    say "Only Bridge's page differs from the build before's — Bridge reloads it in place"
+    bridge_reopen=false
+    bridge_reloads=true
+  else
+    say "Bridge's files differ from the build before's — reopening it"
+    bridge_reopen=true
+  fi
 fi
 if $bridge_reopen; then
   # **Quit the running Bridge by a handle proven to be this repository's,
@@ -1079,7 +1096,7 @@ fi
 # running yet. Nothing needed here when Bridge was never rebuilt — the
 # existing stamp already covers it, and touching it would only move its
 # time later for no reason.
-if $bridge_rebuilt && $bridge_reopened; then
+if $bridge_rebuilt && { $bridge_reopened || $bridge_reloads; }; then
   mkdir -p "$src/apps/desktop/out"
   if [[ -f "$bridge_pending" ]]; then
     mv -f "$bridge_pending" "$bridge_stamp"
@@ -1089,12 +1106,13 @@ if $bridge_rebuilt && $bridge_reopened; then
 fi
 
 if [[ -n "$from" ]]; then
-  $bridge_reopened && printf '%s\n' "$src" > "$source_record"
+  { $bridge_reopened || $bridge_reloads; } && printf '%s\n' "$src" > "$source_record"
   echo "Built from $src; serving $root"
-elif $bridge_reopened; then
+elif $bridge_reopened || $bridge_reloads; then
   rm -f "$source_record"
 fi
 
 say "Done"
 echo "Fleet: pid ${old_pid:-none} -> $new_pid, port $new_port, protocol $protocol"
 echo "Bridge reopened: $bridge_reopened"
+$bridge_reloads && echo "Bridge reloads its page in place"

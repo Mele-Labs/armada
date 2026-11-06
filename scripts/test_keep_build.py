@@ -26,6 +26,8 @@ def parse(text):
             jobs.append(into)
         elif m := re.fullmatch(r'(\w+) = "(.*)"', line):
             (flat if into is None else into)[m.group(1)] = m.group(2)
+        elif m := re.fullmatch(r'(\w+) = (true|false)', line):
+            (flat if into is None else into)[m.group(1)] = m.group(2) == "true"
         else:
             assert line == "", f"unreadable build.toml line: {line!r}"
     return flat, jobs
@@ -102,9 +104,11 @@ class KeepBuild(unittest.TestCase):
         self.git("commit", "-q", "--allow-empty", "-m", "c")
         return self.git("rev-parse", "HEAD")
 
-    def run_keep(self, *args):
-        return subprocess.run([self.keep, *args], env={**os.environ, "HOME": self.home},
-                              capture_output=True, text=True)
+    def run_keep(self, *args, path=None):
+        env = {**os.environ, "HOME": self.home}
+        if path is not None:
+            env["PATH"] = f"{path}:{env['PATH']}"
+        return subprocess.run([self.keep, *args], env=env, capture_output=True, text=True)
 
     def make(self, source="main", protocol="proto1", binary=None):
         done = self.run_keep("make", self.src, binary or self.armada, source, protocol)
@@ -219,11 +223,28 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make()
         with open(os.path.join(snapshot, "launch-bridge")) as f:
             lines = f.read().splitlines()
-        electron = os.path.join(self.modules, self.lock_of("lock one\n"), "node_modules", ".cache",
-                                "armada-bridge", "Armada.app", "Contents", "MacOS", "Armada")
+        electron = os.path.join(self.support, "electron", "40.1.2", "Armada.app", "Contents", "MacOS", "Armada")
         self.assertEqual(lines, ["#!/bin/sh", f'exec "{electron}" "{snapshot}/bridge"'])
         self.assertTrue(os.path.isfile(electron))
         self.assertNotIn(self.src, "\n".join(lines))
+
+    def test_electron_is_kept_once_per_version_whatever_the_lockfile(self):
+        first = self.make()
+        self.write(os.path.join(self.src, "pnpm-lock.yaml"), "lock two\n")
+        self.commit()
+        second = self.make()
+        self.assertEqual(os.listdir(os.path.join(self.support, "electron")), ["40.1.2"])
+        self.assertEqual(os.listdir(os.path.join(self.support, "electron", "40.1.2")), ["Armada.app"])
+        for snapshot in (first, second):
+            self.assertIn(os.path.join(self.support, "electron", "40.1.2", "Armada.app"),
+                          self.read(snapshot, "launch-bridge"))
+
+    def test_page_reload_is_written_only_where_bridges_main_holds_the_mark(self):
+        self.assertNotIn("page_reload", self.toml(self.make())[0])
+        self.write(os.path.join(self.src, "apps", "desktop", "out", "main", "index.js"),
+                   'log("armada:page-reload")\n')
+        self.commit()
+        self.assertIs(self.toml(self.make())[0]["page_reload"], True)
 
     def test_launch_bridge_falls_back_to_the_real_electron_in_the_clone(self):
         shutil.rmtree(os.path.join(self.src, "node_modules", ".cache"))
@@ -235,8 +256,8 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make()
         with open(os.path.join(snapshot, "launch-bridge")) as f:
             exec_line = f.read().splitlines()[1]
-        electron = os.path.realpath(os.path.join(self.modules, self.lock_of("lock one\n"), "node_modules", ".pnpm",
-                                                 "electron-real", "dist", "Electron.app", "Contents", "MacOS", "Electron"))
+        # Kept by its version, like the Armada-named copy.
+        electron = os.path.join(self.support, "electron", "40.1.2", "Electron.app", "Contents", "MacOS", "Electron")
         self.assertEqual(exec_line, f'exec "{electron}" "{snapshot}/bridge"')
         self.assertTrue(os.path.isfile(electron))
 
@@ -382,6 +403,30 @@ class KeepBuild(unittest.TestCase):
         self.set_link("current", names[2])
         self.point(os.path.join(self.builds, names[2]))
         self.assertEqual(os.listdir(self.modules), [LOCK])
+
+    def test_an_electron_version_no_build_names_is_deleted(self):
+        names = [f"2026-01-0{day}T000000Z-abcdef{day}" for day in range(1, 3)]
+        for name in names:
+            self.fake_build(name)
+        with open(os.path.join(self.builds, names[1], "build.toml"), "a") as f:
+            f.write('electron = "40.1.2"\n')
+        for version in ("40.1.2", "39.0.0"):
+            os.makedirs(os.path.join(self.support, "electron", version, "Armada.app"))
+        self.set_link("current", names[1])
+        self.point(os.path.join(self.builds, names[1]))
+        self.assertEqual(os.listdir(os.path.join(self.support, "electron")), ["40.1.2"])
+
+    def test_a_build_a_running_bridge_was_opened_from_is_kept_past_the_five(self):
+        names = [f"2026-01-0{day}T000000Z-abcdef{day}" for day in range(1, 8)]
+        for name in names:
+            self.fake_build(name)
+        stub = os.path.join(self.tmp, "stub-bin")
+        self.write(os.path.join(stub, "ps"),
+                   f'#!/bin/sh\necho "/x/Armada.app/Contents/MacOS/Armada {self.builds}/{names[0]}/bridge"\n', mode=0o755)
+        self.set_link("current", names[-1])
+        done = self.run_keep("point", os.path.join(self.builds, names[-1]), path=stub)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.folders(), [names[0], *names[2:]])
 
     def test_a_node_modules_folder_only_a_pruned_build_named_is_deleted(self):
         old = [f"2026-01-0{day}T000000Z-abcdef{day}" for day in range(1, 3)]

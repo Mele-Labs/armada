@@ -253,6 +253,14 @@ owner's own `com.armada.fleet`.
 `keep-build point` then moves `previous` to the old `current` and `current` to the new build, and deletes all but the newest five and the two the links name.
 Its `tree` line is that tree's path, where Bridge's annotation layer writes notes, since a kept Bridge has no repository above it.
 `node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
+Electron is kept once per version under `Armada/electron/<version>/`, and `launch-bridge` runs that copy, so a relaunch onto an older build gets its own Electron.
+A build a running Bridge was opened from is kept past the five, since that Bridge may have reloaded another build's page and still runs its main process.
+
+**Bridge reloads its page in place where only the page changed.**
+A swap, a revert or a restart reopens Bridge only where the two builds' `bridge_shell` (a hash of `out/main` and `out/preload`) or `electron` differ.
+Otherwise the running Bridge, once Fleet is back, loads its window's page from the build `current` names (`apps/desktop/src/main/page-reload.ts`), which keeps the window, its process and the voice addon in it.
+A build kept before Bridge could do this has no `page_reload = true` line, and is reopened as before.
+Only the main window reloads; another window keeps its page until it is opened again.
 
 **Launchd runs both jobs through `builds/current`.**
 A tree's `target/` and `out/` are rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
@@ -260,8 +268,10 @@ The first restart onto kept builds reopens Bridge, because its job still names a
 
 **`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
 It refuses before changing anything when no previous build is kept, or when Fleet's plist does not name `builds/current/armada`.
-Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' Bridge hashes differ.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' main, preload or Electron differ.
 A second revert swaps back.
+**The app menu's "Revert to the build before…" and the palette's row start it too**, from Bridge's main process, so they work with the page blank.
+Both ask with a native dialog, and where Fleet does not answer they run `builds/previous/armada build revert` themselves (`apps/desktop/src/main/revert-asked.ts`).
 **The Fleet panel's Revert press starts it**: `revert_fleet_build` writes `Armada/revert.status` as `running`, then runs `builds/previous/armada build revert` detached from Fleet.
 The command removes the file when the swap took, and when it did not writes `failed`, the build `current` names, and one line, which the panel shows until a restart moves `current`.
 A `running` file older than two minutes reads as no revert.
