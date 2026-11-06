@@ -28,13 +28,15 @@ pub struct KeptSuggestion {
     /// The option an answer would pick, in its words.
     pub pick: Option<String>,
     pub because: String,
+    /// The next piece of work a suggestion on an end or a merge would start or file.
+    pub what: Option<String>,
     /// What the row says.
     pub text: String,
     pub raised_at: String,
 }
 
 const COLUMNS: &str = "n, arrival, arrived, way, session_id, manifest_id, subject, words, group_id, other_session, shared, \
-                       first_session, step, item, pick, because, text, raised_at";
+                       first_session, step, item, pick, because, text, raised_at, what";
 
 fn suggestion_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptSuggestion> {
     let shared: String = row.get(10)?;
@@ -57,6 +59,7 @@ fn suggestion_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptSuggestion> {
         because: row.get(15)?,
         text: row.get(16)?,
         raised_at: row.get(17)?,
+        what: row.get(18)?,
     })
 }
 
@@ -73,8 +76,8 @@ impl Store {
         self.conn
             .execute(
                 "INSERT INTO operator_suggestions (arrival, arrived, way, session_id, manifest_id, subject, words, group_id, other_session,
-                     shared, first_session, step, item, pick, because, text, raised_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                     shared, first_session, step, item, pick, because, text, raised_at, what)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 params![
                     one.arrival,
                     one.arrived,
@@ -92,7 +95,8 @@ impl Store {
                     one.pick,
                     one.because,
                     one.text,
-                    one.raised_at
+                    one.raised_at,
+                    one.what
                 ],
             )
             .map(|_| ())
