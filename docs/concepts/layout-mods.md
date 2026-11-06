@@ -33,7 +33,7 @@ Every entry is drawn until a layout hides it.
 |---|---|---|---|---|
 | `dashboard.panels` | The Cockpit's panels: `list`, `field`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | |
 | `job.panels` | An open Job's panels: `done`, `now`, `next` | `now` | no | |
-| `rail` | The places: `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues` | `overview`, `mods`, `settings` | no | |
+| `rail` | The places: `operator`, `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues`, `projects` | `overview`, `mods`, `settings` | no | |
 
 **`rail` is the region of places, and it hides them and never orders them.** The key keeps its name and its label is Places.
 An entry is a tab or a System strip page: Cockpit, Jobs, Studios, Logbook and Reviews (`reviews`) are tabs, and Kit, Mods, Settings, Guides and Workflows are strip pages.

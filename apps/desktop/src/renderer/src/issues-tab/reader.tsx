@@ -15,6 +15,7 @@ import {
 
 import { PullRequestMenuOn } from "../pull-request-menu";
 import { IssueState, Open } from "../shared-panel/panels";
+import { useOperator } from "../operator/store";
 import type { Band } from "./bands";
 import { ISSUES_KEYS } from "./key-table";
 import { IssueJobCard, jobTitle, toneOfHolders, useHolders } from "./marks";
@@ -85,6 +86,7 @@ function Reader({
   ticket: TicketRead;
 }) {
   const holders = useHolders(ticket.holders);
+  const startLabel = useOperator() === null ? "Start a Job" : "Dispatch";
   return (
     <section
       className="deck-pane issues-reader"
@@ -100,14 +102,14 @@ function Reader({
             <Kbd>{ISSUES_KEYS.reader}</Kbd>
           </Tooltip>
           {holders.length > 0 ? null : (
-            <Tooltip label="Start a Job" shortcut={ISSUES_KEYS.start}>
+            <Tooltip label={startLabel} shortcut={ISSUES_KEYS.start}>
               <Button
                 variant="secondary"
                 size="sm"
                 data-start
                 onClick={() => onStart(band, ticket)}
               >
-                Start a Job
+                {startLabel}
               </Button>
             </Tooltip>
           )}
@@ -211,6 +213,7 @@ function ReportReader({
   report: ReportedBug;
 }) {
   const store = useIssuesStore()!;
+  const startLabel = useOperator() === null ? "Start a Job" : "Dispatch";
   const job = jobOfReport(useSessions(), report.id);
   const { state, said } =
     job === undefined
@@ -241,14 +244,14 @@ function ReportReader({
             </Button>
           ) : report.fixed !== undefined ? null : report.kept ? (
             armada === undefined ? null : (
-              <Tooltip label="Start a Job" shortcut={ISSUES_KEYS.start}>
+              <Tooltip label={startLabel} shortcut={ISSUES_KEYS.start}>
                 <Button
                   variant="secondary"
                   size="sm"
                   data-start
                   onClick={() => onStartReport(armada.root, report)}
                 >
-                  Start a Job
+                  {startLabel}
                 </Button>
               </Tooltip>
             )

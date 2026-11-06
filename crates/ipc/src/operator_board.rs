@@ -47,6 +47,21 @@ pub struct OperatorBoardSettled {
     pub outcome: String,
     /// RFC 3339.
     pub at: String,
+    /// Who settled it: the Operator's ruling, or the person's press on a suggestion.
+    #[serde(default)]
+    pub by: OperatorDecider,
+    /// Why, in the words kept with the ruling. Empty where none were.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub because: String,
+}
+
+/// Who settled a row of the Log.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorDecider {
+    #[default]
+    Operator,
+    Person,
 }
 
 /// One thing a suggestion offers to do.

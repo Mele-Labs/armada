@@ -2,6 +2,7 @@ import { Children, isValidElement, useState, type ReactNode } from "react";
 import {
   AppWindow,
   BellRing,
+  Bot,
   Link,
   CircleCheck,
   CircleX,
@@ -184,6 +185,8 @@ export type LedgerEntry = {
   finished?: boolean;
   /** A `waiting` row: what its press does, which is its glyph and what the glyph's tooltip names. */
   act?: WaitingActKind;
+  /** A `waiting` row the Operator raised or would act on: its glyph is the Operator's, this its tooltip, and in the Needs you list its choices stand at its end for one press. */
+  operator?: string;
   /** A `waiting` row for a question with choices: drawn as the question deck, the row's name its question, `onOther` taking the words of Other, and no Other without it. */
   options?: readonly {
     label: string;
@@ -891,6 +894,11 @@ export function waitingMark(row: LedgerEntry): {
   said: string;
 } {
   const replies = row.act === undefined && row.onReply !== undefined;
+  if (row.operator !== undefined)
+    return {
+      Glyph: Bot,
+      said: row.operator,
+    };
   if (row.fromReply === true && (row.options !== undefined || replies)) return READ_FROM_REPLY;
   if (row.options !== undefined) return QUESTION;
   if (row.start !== undefined) return HELD_CHILD;
