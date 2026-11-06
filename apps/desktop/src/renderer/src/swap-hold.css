@@ -1,0 +1,36 @@
+/* The dim over the window while a swap is under way. It catches clicks and nothing under it is unmounted. */
+.armada-swap-hold__dim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--scrim);
+  pointer-events: auto;
+}
+
+/* The one banner, at the top centre, above the dim. */
+.armada-swap-hold__banner {
+  position: fixed;
+  top: var(--space-6);
+  left: 50%;
+  z-index: var(--z-toast);
+  width: min(var(--palette-width), 100%);
+  transform: translateX(-50%);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-md);
+}
+
+.armada-swap-hold__spin {
+  animation: armada-swap-hold-spin var(--duration-pulse) linear infinite;
+}
+
+@keyframes armada-swap-hold-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-swap-hold__spin {
+    animation: none;
+  }
+}

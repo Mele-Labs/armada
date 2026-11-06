@@ -7,6 +7,7 @@ import type {
   FleetBuildReport,
   FleetRestart,
   Outcome,
+  PickFleetBuildJob,
   BridgeIdentity,
   Connection,
   Holdings,
@@ -69,6 +70,19 @@ export type CoreApi<S = CoreState> = {
    * while it works and `failed` with one line if it did not take.
    */
   revertFleetBuild: () => Promise<Outcome>;
+  /**
+   * Pick a Job's branch for the snapshot Fleet builds beside the running build, or take it back
+   * out. **Fleet starts the snapshot detached and answers at once**: what it came to arrives as
+   * `fleetBuild`'s `snapshot`. Nothing that runs is touched.
+   */
+  pickFleetBuildJob: (pick: PickFleetBuildJob) => Promise<Outcome>;
+  /**
+   * Swap Fleet and Bridge onto the kept snapshot. **Fleet stops during it**: the report says
+   * `swapping` until the Fleet that comes back answers, and `failed` with one line if it swapped back.
+   */
+  swapFleetBuild: () => Promise<Outcome>;
+  /** Keep the Jobs being tried: Fleet tells each live Job holding one to land its change. */
+  keepFleetBuild: () => Promise<Outcome>;
   /**
    * Where a pressed notification says to go.
    *
@@ -190,6 +204,9 @@ export const CORE_CHANNELS = {
   restartFleet: "bridge:restart-fleet",
   changeFleetBuild: "bridge:change-fleet-build",
   revertFleetBuild: "bridge:revert-fleet-build",
+  pickFleetBuildJob: "bridge:pick-fleet-build-job",
+  swapFleetBuild: "bridge:swap-fleet-build",
+  keepFleetBuild: "bridge:keep-fleet-build",
   summoned: "bridge:summoned",
   // A pull request's link opened from outside, main to the window. Sent by main, never invoked.
   pullLinked: "bridge:pull-linked",

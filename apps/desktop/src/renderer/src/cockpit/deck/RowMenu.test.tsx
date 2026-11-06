@@ -290,3 +290,47 @@ test("Close on a Job that holds nothing in flight ends it at once", async () => 
   expect(close).toHaveBeenCalledTimes(1);
   expect(close).toHaveBeenCalledWith("s-1");
 });
+
+test("Try it in your app picks the row's Job for the snapshot, and a Job with no branch is told so on the row", async () => {
+  const pick = vi.fn(async () => ({
+    ok: false as const,
+    why: "refused" as const,
+    error: {
+      code: "fleet.build_no_branch",
+      message: "This Job holds no branch",
+      run_id: "r",
+      fields: {},
+      chain: [],
+    },
+  }));
+  const told = vi.fn();
+  const hear = (event: Event) =>
+    told(
+      (
+        event as CustomEvent<{
+          sentence: string;
+        }>
+      ).detail.sentence,
+    );
+  window.addEventListener("armada:tell", hear);
+  const was = window.armada;
+  window.armada = {
+    pickFleetBuildJob: pick,
+  } as unknown as typeof window.armada;
+  try {
+    openOn(serving({}));
+    await page
+      .getByRole("menuitem", {
+        name: "Try it in your app",
+      })
+      .click();
+    expect(pick).toHaveBeenCalledWith({
+      session_id: "s-1",
+      picked: true,
+    });
+    await vi.waitFor(() => expect(told).toHaveBeenCalledWith("This Job holds no branch yet"));
+  } finally {
+    window.armada = was;
+    window.removeEventListener("armada:tell", hear);
+  }
+});

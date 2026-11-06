@@ -293,7 +293,13 @@ import type {
   StudioPromotion,
 } from "@armada/protocol";
 import type { StudioAnswer } from "@armada/screens/src/studio-reads";
-import type { BuildSource, Followed, FleetRestart, LandCheckAt } from "@armada/protocol";
+import type {
+  BuildSource,
+  Followed,
+  FleetRestart,
+  LandCheckAt,
+  PickFleetBuildJob,
+} from "@armada/protocol";
 import type { RunOutputRead } from "@armada/protocol";
 import type { CheckoutRunListRead, StartCheckoutRun } from "@armada/protocol";
 import type { EditManifest, SaveManifestFile } from "@armada/protocol";
@@ -603,6 +609,13 @@ const api: BridgeApi = {
   // Swap back onto the build kept before this one. Fleet starts the undo and answers at once; the
   // outcome arrives as `fleetBuild` on the published state.
   revertFleetBuild: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.revertFleetBuild),
+  // Pick a Job's branch for the snapshot, or take it out. The snapshot arrives as `fleetBuild`.
+  pickFleetBuildJob: (pick: PickFleetBuildJob): Promise<Outcome> =>
+    ipcRenderer.invoke(CHANNELS.pickFleetBuildJob, pick),
+  // Swap onto the kept snapshot. Fleet stops during it; the outcome arrives as `fleetBuild`.
+  swapFleetBuild: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.swapFleetBuild),
+  // Keep the Jobs being tried: each live Job holding one is told to land it.
+  keepFleetBuild: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.keepFleetBuild),
 
   readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),

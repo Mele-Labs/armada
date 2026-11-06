@@ -354,3 +354,163 @@ export const Failed: Story = {
     ).toBeEnabled();
   },
 };
+
+/** Each Job picked for the snapshot is a chip, named by its title, or by the branch where no Job holds it; the cross takes it out. */
+export const InYourApp: Story = {
+  args: base({
+    picked: [
+      {
+        branch: "armada/pick-jobs-bridge",
+        title: "Try a Job in the app",
+      },
+      {
+        branch: "armada/orphan-branch",
+      },
+    ],
+    onUnpick: fn(),
+  }),
+  play: async ({ args, canvas, userEvent }) => {
+    const chips = canvas.getByRole("list", {
+      name: "In your app",
+    });
+    await expect(chips).toHaveTextContent("Try a Job in the app");
+    await expect(chips).toHaveTextContent("armada/orphan-branch");
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Take armada/orphan-branch out",
+      }),
+    );
+    await expect(args.build.onUnpick).toHaveBeenCalledWith("armada/orphan-branch");
+  },
+};
+
+/** A snapshot being built says so, with the stage in the restart's own words. */
+export const SnapshotBuilding: Story = {
+  args: base({
+    snapshot: {
+      state: "building",
+      stage: "building_fleet",
+      jobs: [],
+      bridgeReopens: false,
+    },
+  }),
+  play: async ({ canvas }) => {
+    const building = canvas.getByRole("status");
+    await expect(building).toHaveTextContent("Building");
+    await expect(building).toHaveTextContent("Building Fleet");
+  },
+};
+
+/** A snapshot ready names the Jobs it holds, says Bridge reopens, and offers Swap. */
+export const SnapshotReady: Story = {
+  args: base({
+    picked: [
+      {
+        branch: "armada/pick-jobs-bridge",
+        title: "Try a Job in the app",
+      },
+    ],
+    snapshot: {
+      state: "ready",
+      jobs: [
+        "Try a Job in the app",
+      ],
+      bridgeReopens: true,
+    },
+    onSwap: fn(),
+  }),
+  play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByText("Ready")).toBeVisible();
+    await expect(canvas.getByText("Bridge reopens")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Swap",
+      }),
+    );
+    await expect(args.build.onSwap).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** A snapshot that did not build says why in one line, and offers no Swap. */
+export const SnapshotFailed: Story = {
+  args: base({
+    snapshot: {
+      state: "failed",
+      jobs: [],
+      bridgeReopens: false,
+      failed: "armada/pick-jobs-bridge conflicts with main in crates/ipc/src/building.rs",
+    },
+  }),
+  play: async ({ canvas }) => {
+    await expect(canvas.getByRole("alert")).toHaveTextContent("conflicts with main");
+    await expect(
+      canvas.queryByRole("button", {
+        name: "Swap",
+      }),
+    ).toBeNull();
+  },
+};
+
+/** While a swap is under way Swap is held down, and so is Revert's and the restart's, which would collide with it. */
+export const Swapping: Story = {
+  args: base({
+    swapping: true,
+    previous: {
+      built: "5 Nov, 16:20",
+      commit: "a1b2c3d",
+      bridgeReopens: false,
+      takesOut: [],
+      bringsBack: [],
+    },
+    snapshot: {
+      state: "ready",
+      jobs: [
+        "Try a Job in the app",
+      ],
+      bridgeReopens: false,
+    },
+    onSwap: fn(),
+  }),
+  play: async ({ canvas }) => {
+    const swap = canvas.getByRole("button", {
+      name: "Swapping",
+    });
+    await expect(swap).toHaveAttribute("aria-disabled", "true");
+    await expect(
+      canvas.getByRole("button", {
+        name: "Revert",
+      }),
+    ).toBeDisabled();
+  },
+};
+
+/** The chip's name at the narrowest panel is cut with an ellipsis, and the cross keeps its place. */
+export const LongChipAtTheNarrowestPanel: Story = {
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          width: 160,
+        }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+  args: base({
+    picked: [
+      {
+        branch: "armada/a-very-long-branch-name-for-a-job",
+        title: "A very long Job title that cannot fit the panel",
+      },
+    ],
+    onUnpick: fn(),
+  }),
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", {
+        name: /^Take .* out$/,
+      }),
+    ).toBeVisible();
+  },
+};

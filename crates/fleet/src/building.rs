@@ -48,6 +48,8 @@ const REVERT_NOT_STARTED: &str = "fleet.build_revert_not_started";
 
 /// A snapshot is already being built. A 409.
 const SNAPSHOTTING: &str = "fleet.build_snapshotting";
+/// A pick named a Job that holds no branch, or named neither. A 409.
+const NO_BRANCH: &str = "fleet.build_no_branch";
 /// A swap onto the snapshot is already under way. A 409.
 const SWAPPING: &str = "fleet.build_swapping";
 /// No snapshot is kept to swap onto, or Fleet does not run from the kept builds. A 409.
@@ -761,10 +763,23 @@ where
     }
 
     /// `pick_fleet_build_job`.
-    pub(crate) fn pick_fleet_build_job_now(&self, asked: &PickFleetBuildJob) -> Result<FleetBuildSnapshotting, Refusal> {
+    pub(crate) async fn pick_fleet_build_job_now(&self, asked: &PickFleetBuildJob) -> Result<FleetBuildSnapshotting, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
+        let checkout = self.build_checkout();
+        let branch = match (&asked.branch, &asked.session_id) {
+            (Some(branch), _) => branch.clone(),
+            (None, Some(session)) => self
+                .holders_of_held(checkout.as_deref())
+                .await
+                .into_iter()
+                .find_map(|(branch, (holder, _))| (holder == *session).then_some(branch))
+                .ok_or_else(|| Refusal::IllegalMove(WireError::raised(NO_BRANCH, "that Job holds no branch", self.run_id())))?,
+            (None, None) => {
+                return Err(Refusal::IllegalMove(WireError::raised(NO_BRANCH, "name a branch or the Job holding one", self.run_id())))
+            }
+        };
         self.building()
-            .snapshot(self.build_checkout().as_deref(), &support, &asked.branch, asked.picked, SystemTime::now())
+            .snapshot(checkout.as_deref(), &support, &branch, asked.picked, SystemTime::now())
             .map_err(|why| match why {
                 NotSnapshotted::NotOffered(why) => self.build_refusal(why),
                 NotSnapshotted::Restarting(build) => Refusal::IllegalMove(WireError::raised(

@@ -142,7 +142,9 @@ export type FleetBuildReverting = {
 
 /** `POST /fleet/build/pick`: pick a Job's branch for the next snapshot, or take it back out. */
 export type PickFleetBuildJob = {
-  branch: string;
+  /** The branch, as a chip names it; or `session_id`, the Job holding it, as Try it on a row names it. */
+  branch?: string;
+  session_id?: string;
   picked: boolean;
 };
 

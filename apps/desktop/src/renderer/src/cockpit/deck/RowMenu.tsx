@@ -1,10 +1,12 @@
-// A Session row's context menu: Pause (Resume while paused), Auto Pilot, Name it for me, Teach, Close, then View, then Mod and Report from `PointActs`. It opens at the pointer on a right press, and beside the
+// A Session row's context menu: Pause (Resume while paused), Auto Pilot, Name it for me, Teach, Try it in your app, Close, then View, then Mod and Report from `PointActs`. It opens at the pointer on a right press, and beside the
 // row on the ContextMenu key or Shift+F10; the row carries no icon for it. Mounted once by the list.
 
 import { CirclePause, GraduationCap, Play, Plane, WandSparkles, X } from "lucide-react";
 import { DropdownMenu, type DropdownMenuEntry } from "@armada/components";
 
+import { pickFleetBuildJob } from "../../commands";
 import { askToEnd } from "../../end-job";
+import { pickRefusedSaid } from "../../fleet-build";
 import { useSessions, useSessionsDraft } from "../../sessions-draft";
 import { useTeachBridge } from "../../teach";
 import { toggleSessionPause } from "./acts";
@@ -76,6 +78,12 @@ export function RowMenu({
             icon: GraduationCap,
           },
         ]),
+    // Which Jobs the snapshot already holds is not known on a row (the report names branches), so it is offered on every Job.
+    {
+      kind: "item",
+      id: "try",
+      label: "Try it in your app",
+    },
     ...(draft?.close === undefined
       ? []
       : [
@@ -121,6 +129,11 @@ export function RowMenu({
         if (chosen === "autopilot") onAutopilot(at.root);
         if (chosen === "name") void draft?.nameForMe?.(at.id);
         if (chosen === "teach") teach?.("row", at.title);
+        if (chosen === "try")
+          void pickFleetBuildJob({
+            session_id: at.id,
+            picked: true,
+          }).then(pickRefusedSaid);
         if (chosen === "close" && draft !== undefined) askToEnd(draft, at.id);
       }}
     />

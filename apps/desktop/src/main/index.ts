@@ -25,7 +25,7 @@ import type {
   RetroSubject,
 } from "@armada/protocol";
 import type { AskTurn } from "@armada/screens/src/lessons/review-wire";
-import type { LandCheckAt } from "@armada/protocol";
+import type { LandCheckAt, PickFleetBuildJob } from "@armada/protocol";
 import { landCheckAt } from "./land-following";
 import type { SavePreference, SaveSettings } from "@armada/protocol";
 import { ANNOTATE_FLAG, ANNOTATION_CHANNELS } from "../shared/annotations";
@@ -981,6 +981,12 @@ void app.whenReady().then(() => {
   );
   // Asks Fleet, which starts `builds/previous/armada build revert` detached: `fleet-build.ts`.
   ipcMain.handle(CHANNELS.revertFleetBuild, () => connection?.fleetBuild.revert());
+  // Pick for the snapshot, swap onto it, keep the Jobs tried: `fleet-build.ts`.
+  ipcMain.handle(CHANNELS.pickFleetBuildJob, (_event, pick: PickFleetBuildJob) =>
+    connection?.fleetBuild.pick(pick),
+  );
+  ipcMain.handle(CHANNELS.swapFleetBuild, () => connection?.fleetBuild.swap());
+  ipcMain.handle(CHANNELS.keepFleetBuild, () => connection?.fleetBuild.keep());
   ipcMain.handle(CHANNELS.readSessionCheckOutput, (_event, run: number) =>
     connection?.readSessionCheckOutput(run),
   );
