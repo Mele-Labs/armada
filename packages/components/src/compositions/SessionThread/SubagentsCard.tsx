@@ -58,7 +58,7 @@ export function SubagentsCard({
             const ran = ranFor(one, now);
             const body = (
               <>
-                <StepActivityMark activity="running" label="Running" says={saidOf(one)} />
+                <StepActivityMark activity="running" label="Running" says={saidOf(one)} pulsing />
                 <span className="armada-subagents__line">
                   <span className="armada-subagents__task">{one.task}</span>
                   {ran === undefined ? null : <span className="armada-subagents__ran">{ran}</span>}
