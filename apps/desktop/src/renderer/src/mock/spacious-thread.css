@@ -849,3 +849,28 @@
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line]:hover .armada-session-lease__at {
   opacity: 1;
 }
+
+/* ---- A long block's Copy stays in view: it rides down the block's top edge as the thread scrolls, below the head's fade, and
+   stops at the block's foot. The block and its acts share one grid cell, so the acts are sticky within the block alone. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-block {
+  display: grid;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-block > :is(.armada-prose__block, .armada-prose__run-acts) {
+  grid-area: 1 / 1;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-acts {
+  position: sticky;
+  top: var(--spacious-fade-top, var(--space-8));
+  z-index: 1;
+  align-self: start;
+  justify-self: end;
+  margin: var(--space-2);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-acts .armada-button {
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-overlay);
+}

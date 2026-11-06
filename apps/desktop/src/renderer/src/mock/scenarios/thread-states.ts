@@ -307,6 +307,16 @@ const slotted = job("st12", "Kept builds", [
   },
 ]);
 
+/** A Job whose answer is one long block of code, longer than the pane. */
+const longCode = job("st13", "Revert to the last build", [
+  you("st13a", "11:02:00", "Write the module that keeps builds and puts the previous one back."),
+  agent(
+    "st13b",
+    "11:06:40",
+    "Here it is, in `builds.ts`:\n\n```ts\nimport { readFile } from \"node:fs/promises\";\n\nexport type Build = {\n  id: string;\n  at: number;\n  path: string;\n};\n\n/** The builds kept on disk, newest first, read from the folder's index. */\nexport async function keptBuilds(folder: string): Promise<Build[]> {\n  const text = await readFile(`${folder}/index.json`, \"utf8\");\n  const builds = JSON.parse(text) as Build[];\n  return builds.sort((a, b) => b.at - a.at);\n}\n\n/** The build to go back to: the newest that is not the one running. */\nexport function previous(builds: readonly Build[], running: string): Build | null {\n  for (const one of builds) {\n    if (one.id !== running) return one;\n  }\n  return null;\n}\n\n/** Keeps the newest `keep` builds and names the rest to delete. */\nexport function pruned(builds: readonly Build[], keep = 2): {\n  kept: Build[];\n  gone: Build[];\n} {\n  const sorted = [...builds].sort((a, b) => b.at - a.at);\n  return {\n    kept: sorted.slice(0, keep),\n    gone: sorted.slice(keep),\n  };\n}\n\n/** Puts the previous build back, and says which it was. */\nexport async function revert(folder: string, running: string): Promise<Build> {\n  const builds = await keptBuilds(folder);\n  const back = previous(builds, running);\n  if (back === null) throw new Error(\"No earlier build is kept\");\n  await swap(folder, back);\n  return back;\n}\n\nasync function swap(folder: string, to: Build): Promise<void> {\n  const { rename, symlink, unlink } = await import(\"node:fs/promises\");\n  const link = `${folder}/current`;\n  const next = `${folder}/current.next`;\n  await symlink(to.path, next);\n  await rename(next, link).catch(async () => {\n    await unlink(link);\n    await rename(next, link);\n  });\n}\n```\n\nThe swap is a rename over a link, so a running Fleet never sees a half-written one.",
+  ),
+]);
+
 /** A Job with nothing in its thread yet. */
 const empty = job("st7", "New Job", []);
 
@@ -325,6 +335,7 @@ const base = videoScriptScenario(
     ours,
     chain,
     slotted,
+    longCode,
     operator,
     media,
     empty,
