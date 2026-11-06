@@ -1,5 +1,5 @@
-// What a Session runs on, and a fresh start once it is big or old. The model is read in the composer's Model
-// select, the version its process resolved. A Session over 300k of context, or past a day
+// What a Session runs on, and a fresh start once it is big or old. The model is read on the composer's model
+// picker, the version its process resolved. A Session over 300k of context, or past a day
 // old, holds two acts in its More menu: New Job, which opens on a short handoff, and Fork.
 // Over the `session-fresh` scenario.
 
@@ -11,9 +11,7 @@ const sessions = region("Jobs", {
 });
 const more = inside(region(/^Job s-01FRESH/), button("More"));
 const menu = role("menu");
-const model = role("combobox", "Model", {
-  exact: true,
-});
+const model = button(/^Model /);
 
 const fresh = walk("session-fresh", [
   toSessions,

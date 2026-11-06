@@ -17,6 +17,8 @@ import {
 } from "@armada/components";
 
 import "../styles/index.css";
+// After the app's own, as `main.tsx` has it, so the thread's rules win where they weigh the same.
+import "../spacious-thread.css";
 import "@armada/components/src/look";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";
@@ -49,6 +51,7 @@ import { mockPhone, type PhoneMoment } from "./phone";
 import { TerminalWindows } from "./TerminalWindows";
 import { JobBrowserWindows } from "./JobBrowserWindows";
 import { WalkJobPanel } from "./WalkJobPanel";
+import { ThreadSheets } from "./thread-sheets";
 import { AutopilotDecisionsSourceProvider } from "../autopilot-decisions";
 import { createFleetAutopilotDecisions } from "../fleet-autopilot-decisions";
 import { PlanUsageSourceProvider } from "../plan-usage";
@@ -332,6 +335,7 @@ export function mountApp(
                                                                     >
                                                                       <App />
                                                                       <WalkJobPanel />
+                                                                      <ThreadSheets />
                                                                       <TerminalWindows api={api} />
                                                                       <JobBrowserWindows />
                                                                       <TweaksApplied />
@@ -342,6 +346,7 @@ export function mountApp(
                                                                     >
                                                                       <App />
                                                                       <WalkJobPanel />
+                                                                      <ThreadSheets />
                                                                       <TerminalWindows api={api} />
                                                                       <JobBrowserWindows />
                                                                       <TweaksApplied />

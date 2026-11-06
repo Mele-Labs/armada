@@ -80,6 +80,11 @@ export const ProseLinks = createContext<((address: string) => void) | null>(null
  */
 export const ProseWalk = createContext<((address: string) => void) | null>(null);
 
+/** What colours a fenced block's text by its language. Without one the block is plain, as it is everywhere today. */
+export const ProseCodeColour = createContext<
+  ((language: string | undefined, source: string) => ReactNode) | null
+>(null);
+
 function isWalkLink(address: string): boolean {
   try {
     const url = new URL(address);
@@ -505,6 +510,11 @@ function Block({ children }: { children?: ReactNode }) {
       ? code.props.children
       : null;
   const command = runner === null || source === null ? null : commandOf(language, source);
+  const colour = useContext(ProseCodeColour);
+  const shown =
+    colour !== null && source !== null && isValidElement(code)
+      ? cloneElement(code, undefined, colour(language, source.replace(/\n$/, "")))
+      : children;
   // The block leaves room for the acts drawn over its corner: one, or two where Run sits beside Copy.
   const pre = (
     <InBlock.Provider value>
@@ -512,7 +522,7 @@ function Block({ children }: { children?: ReactNode }) {
         className="armada-prose__block"
         data-acts={source === null ? undefined : command === null ? 1 : 2}
       >
-        {children}
+        {shown}
       </pre>
     </InBlock.Provider>
   );

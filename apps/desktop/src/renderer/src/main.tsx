@@ -2,12 +2,16 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import "./styles/index.css";
+// After the app's own, so the thread's rules win where they weigh the same.
+import "./spacious-thread.css";
 import "@armada/components/src/look";
 import { startMotionRules } from "./still";
 import { wireJobBrowsers } from "./job-browser/store";
 import { wireFailureReports } from "./report-failure";
 
 startMotionRules();
+// Every Job's thread is drawn with room to read (`spacious-thread.css`).
+document.body.dataset.threadTake = "spacious";
 watchClippedText();
 
 // Each Job's browser, held in main: the store folds what it shows, and the side panel opens where main asks.

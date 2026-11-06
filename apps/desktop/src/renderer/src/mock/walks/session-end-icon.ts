@@ -1,6 +1,6 @@
 // End job in the More menu of a Session in the done state: the act wears `power-off` and the Done mark stays `power`, so
 // the two no longer stand identical. At 1512 by 949 with the Job open, where the breakdown opens
-// leftward inside the panel. The Session end band's own End job is put away first, so the head's is the one pointed at.
+// leftward inside the panel. The done card's own End job is put away first, so the head's is the one pointed at.
 // Over the `session-head` scenario.
 
 import { button, inside, region, role, walk } from "../walk";
@@ -20,12 +20,12 @@ const sessionEndIcon = walk(
       say: "A Job that said it is done",
     },
     {
-      look: inside(head, button("Nothing left to do")),
-      say: "Its Job end band is open",
+      look: region("Nothing left to do"),
+      say: "Its card is at the end of the thread",
     },
     {
-      press: inside(head, button("Keep going")),
-      say: "Keep going puts the band away, and the state stays Done",
+      press: inside(region("Nothing left to do"), button("Keep going")),
+      say: "Keep going puts the card away, and the state stays Done",
     },
     {
       look: inside(head, role("img", /^Done/)),
