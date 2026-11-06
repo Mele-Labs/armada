@@ -246,6 +246,12 @@
   border-radius: var(--spacious-radius);
 }
 
+/* Typing in it lights no edge: the caret says where the words go. The edge Needs you or an ending gives it still holds, and
+   a control in its bar still rings when reached by key. */
+:root[data-thread-take="spacious"][data-look] .armada-session-composer:focus-within {
+  border-color: var(--border-subtle);
+}
+
 :root[data-thread-take="spacious"][data-look] .armada-session-composer__editor {
   padding: var(--space-3) var(--space-4);
   font-size: var(--spacious-body);
