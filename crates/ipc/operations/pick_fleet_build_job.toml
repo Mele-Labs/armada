@@ -4,9 +4,11 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "Pick a Job's branch for the next snapshot build, or take it back out, and start building the snapshot"
 notes = """
-`POST /fleet/build/pick`, body `PickFleetBuildJob { branch, picked }`, answered `FleetBuildSnapshotting { picked }` with a 202: the snapshot has begun, over the branches now picked, and has not finished. What it came to is `get_fleet_build`'s `snapshot`.
+`POST /fleet/build/pick`, body `PickFleetBuildJob { branch?, session_id?, picked }`, answered `FleetBuildSnapshotting { picked }` with a 202: the snapshot has begun, over the branches now picked, and has not finished. What it came to is `get_fleet_build`'s `snapshot`.
 
 Fleet writes the branch into, or out of, `Armada/preview-picked`, writes `Armada/snapshot.status` as `running`, `snapshot` and removes `Armada/snapshot`, then starts `scripts/restart-build snapshot` detached and unmarked, as `change_fleet_build` starts its wrapper. **The snapshot is built and kept and nothing that runs is touched**: swapping onto it is `swap_fleet_build`. A snapshot is offered on `main` as well as on the preview, so the tree the running build came from is not asked.
+
+A chip names its `branch`; Try it on a Job's row names the Job as `session_id`, and Fleet picks the branch the slot it holds is on, refusing with a 409 `fleet.build_no_branch` where it holds none or the body names neither.
 
 Refused with a 409 where the build would collide: `fleet.build_restarting` while a restart is under way, `fleet.build_snapshotting` while a snapshot is, and `fleet.build_not_offered` where no served repository holds `scripts/restart-build`. A start that failed is a 500 `fleet.build_not_started`, and leaves no status behind.
 

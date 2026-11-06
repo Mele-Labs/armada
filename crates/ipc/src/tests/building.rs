@@ -204,7 +204,14 @@ fn a_report_from_before_the_snapshot_reads_with_none() {
 
 #[test]
 fn the_three_commands_cross_as_their_bodies_and_answers() {
-    assert_eq!(encode(&PickFleetBuildJob { branch: "armada/a".into(), picked: true }).unwrap(), r#"{"branch":"armada/a","picked":true}"#);
+    assert_eq!(
+        encode(&PickFleetBuildJob { branch: Some("armada/a".into()), session_id: None, picked: true }).unwrap(),
+        r#"{"branch":"armada/a","picked":true}"#
+    );
+    assert_eq!(
+        encode(&PickFleetBuildJob { branch: None, session_id: Some("s-1".into()), picked: true }).unwrap(),
+        r#"{"session_id":"s-1","picked":true}"#
+    );
     assert!(decode::<PickFleetBuildJob>("pick", br#"{"branch":"armada/a"}"#).is_err(), "the flag is not defaulted");
     assert_eq!(encode(&FleetBuildSnapshotting { picked: vec!["armada/a".into()] }).unwrap(), r#"{"picked":["armada/a"]}"#);
     assert_eq!(encode(&FleetBuildSwapping { commit: "a1b2c3d".into() }).unwrap(), r#"{"commit":"a1b2c3d"}"#);
