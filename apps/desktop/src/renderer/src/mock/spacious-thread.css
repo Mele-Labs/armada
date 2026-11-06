@@ -773,3 +773,35 @@
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune .armada-slider__input::-webkit-slider-runnable-track {
   background: color-mix(in srgb, var(--fg-default) 12%, transparent);
 }
+
+/* ---- Code and tables reach the edge a hovered line's card and his bubble reach, their words still in line with the prose's. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame {
+  --spacious-bleed: calc(var(--space-4) + var(--space-1));
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) {
+  margin-inline: calc(var(--spacious-bleed) * -1);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__block {
+  padding-inline: var(--spacious-bleed);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__table :is(th, td):first-child {
+  padding-left: var(--spacious-bleed);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__table :is(th, td):last-child {
+  padding-right: var(--spacious-bleed);
+}
+
+/* A paragraph and the code or table beside it stand apart far enough that a hovered line's card clears the block by a gap of its own. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > p + :is(.armada-prose__run, .armada-prose__block, .armada-prose__table),
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) + p {
+  margin-top: var(--space-8);
+}
+
+/* The hover bar sits on the card's top edge rather than above it, so it covers no row before. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts {
+  bottom: calc(100% - var(--space-1));
+}
