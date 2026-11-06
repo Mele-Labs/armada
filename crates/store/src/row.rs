@@ -20,6 +20,19 @@ pub(crate) fn column(
     }
 }
 
+/// A row read whole, or none where a newer build wrote it with a value this build does not have.
+///
+/// **An older build leaves out what it does not know**, rather than failing the list the row is in: after a
+/// revert the build before reads every row it can, and the row is there again for the build that wrote it.
+/// Any other damage still fails. `docs/practices/store-migrations.md`, *Rows from a newer build*.
+pub(crate) fn known<T>(read: Result<T, RowError>) -> Result<Option<T>, RowError> {
+    match read {
+        Ok(value) => Ok(Some(value)),
+        Err(RowError::UnknownEnumValue { .. }) => Ok(None),
+        Err(other) => Err(other),
+    }
+}
+
 pub(crate) fn enum_value<T>(
     from_wire: impl Fn(&str) -> Option<T>,
     table: &'static str,
