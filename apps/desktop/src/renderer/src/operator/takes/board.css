@@ -144,9 +144,6 @@
 
 .armada-board__card[data-state="on-it"] {
   border-color: color-mix(in srgb, var(--accent) 60%, var(--border-subtle));
-  box-shadow:
-    inset calc(var(--border-width) * 3) 0 0 var(--accent),
-    var(--shadow-card);
 }
 
 .armada-board__card[data-state="discussing"] {
@@ -163,27 +160,34 @@
   font-weight: var(--weight-body);
 }
 
+/* A card's kind and state, as a label tinted in its lane's hue: the colour is told by the label, never by an edge. Up next is the
+   one lane with nothing to tell, so its label stays neutral. */
+.armada-board__lane[data-hue="work"] .armada-board__card {
+  --hue: var(--fg-muted);
+}
+
+.armada-board__lane[data-hue="done"] .armada-board__card {
+  --hue: var(--status-completed-success);
+}
+
 .armada-board__card-head {
   display: flex;
+  align-self: flex-start;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--hue) 14%, transparent);
+  color: var(--hue);
 }
 
 .armada-board__glyph {
   display: inline-flex;
-  color: var(--fg-muted);
-}
-
-.armada-board__card[data-state="on-it"] .armada-board__glyph {
-  color: var(--accent);
+  color: inherit;
 }
 
 .armada-board__card[data-state="on-it"] .armada-board__glyph svg {
   animation: armada-board-turn var(--duration-spin, 1.6s) linear infinite;
-}
-
-.armada-board__card[data-state="done"] .armada-board__glyph {
-  color: var(--status-completed-success, var(--fg-muted));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -200,7 +204,7 @@
 
 .armada-board__tag {
   flex: none;
-  color: var(--fg-muted);
+  color: inherit;
   white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
@@ -234,6 +238,7 @@
 /* The card's foot: its presses, and the repository it is in at the far end, quiet. */
 .armada-board__foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
@@ -269,7 +274,6 @@
   flex-direction: column;
   gap: 0;
   padding: var(--space-1) var(--space-2);
-  border-left: calc(var(--border-width) * 2) solid var(--hue);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--hue) 10%, var(--bg-sunken));
 }
@@ -400,9 +404,7 @@
 }
 
 [data-thread-take="spacious"] .armada-board__card[data-state="on-it"] {
-  box-shadow:
-    inset calc(var(--border-width) * 3) 0 0 var(--accent),
-    var(--board-card-edge);
+  box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 [data-thread-take="spacious"] .armada-board__card[data-state="discussing"] {
@@ -443,7 +445,35 @@
 
 [data-thread-take="spacious"] .armada-board__outcome {
   padding: var(--space-2) var(--space-3);
-  border-left: none;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--hue) 8%, transparent);
+}
+
+/* The Job a card is about, drawn as the Job chip at a title's size: its state's mark, its name, and a press opens it. */
+.armada-board__job.job-chip {
+  align-self: flex-start;
+  align-items: baseline;
+  height: auto;
+  text-align: start;
+  margin-inline-start: calc(var(--space-1) * -1);
+  padding: 0 var(--space-1);
+  background: transparent;
+  font-size: inherit;
+}
+
+.armada-board__job.job-chip:hover {
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+}
+
+.armada-board__job .job-chip__title {
+  white-space: normal;
+}
+
+.armada-board__job .armada-session-mark {
+  align-self: center;
+}
+
+[data-thread-take="spacious"] .armada-board__job.job-chip {
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
 }

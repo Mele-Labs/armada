@@ -80,16 +80,20 @@ const prArrangement = (): Arrangement =>
     },
   });
 
-/** The Operator's, the owner's own arrangement: Talk over Permissions on the left, and the Log with Waiting to start as tabs on the right. */
+/** The Operator's, the owner's own arrangement: Discussion with Permissions as tabs in the left third, and the Queue with the Log and
+    Waiting to start as tabs in the rest. */
 const operatorArrangement = (): Arrangement =>
   build({
     dir: "row",
-    ratio: 0.45,
+    ratio: 0.34,
     a: [
       "op-talk",
+      "op-permissions",
     ],
     b: [
       "op-queue",
+      "op-log",
+      "op-waiting",
     ],
   });
 

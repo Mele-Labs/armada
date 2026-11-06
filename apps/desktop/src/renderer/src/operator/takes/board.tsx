@@ -7,6 +7,7 @@ import { Button, SplitButton, Tooltip, timeSaid, useTimeFormat } from "@armada/c
 import { askToCloseOperator } from "@armada/shell";
 
 import { select } from "../../cockpit/deck/store";
+import { JobChip } from "../../job-chip";
 import { operatorPanes } from "../../job-panes/store";
 import { activate, addTab, holderOf, panesOf } from "../../job-panes/tree";
 import { outcomeOf, turnLine, turnTag } from "../model";
@@ -139,6 +140,7 @@ function Card({
   who,
   when,
   detail,
+  job,
 }: {
   id: string;
   tag: string;
@@ -163,6 +165,11 @@ function Card({
   when?: string;
   /** What a press on the card opens under it. Absent, the card does not open. */
   detail?: ReactNode;
+  /** The Job it is about: its title is drawn as the Job, with its state's mark, and a press on it opens the Job. */
+  job?: {
+    session: string;
+    title: string;
+  };
 }) {
   const [over, setOver] = useState<"above" | "below" | null>(null);
   const [opened, setOpened] = useState(false);
@@ -235,7 +242,18 @@ function Card({
         </Tooltip>
         <span className="armada-board__tag">{tag}</span>
       </span>
-      <span className="armada-board__title">{title}</span>
+      {job === undefined ? (
+        <span className="armada-board__title">{title}</span>
+      ) : (
+        <JobChip
+          className="armada-board__title armada-board__job"
+          job={{
+            id: job.session,
+            title: job.title,
+          }}
+          onOpen={openJob}
+        />
+      )}
       {line === undefined ? null : <span className="armada-board__line">{line}</span>}
       {outcome === undefined ? null : <Outcome text={outcome} />}
       {who === undefined && when === undefined ? null : (
@@ -538,6 +556,11 @@ function Queue({ store }: { store: OperatorStore }) {
               repository,
             })}
         title={turn.job?.title ?? turn.text}
+        {...(turn.job === undefined
+          ? {}
+          : {
+              job: turn.job,
+            })}
         {...(asks(turn) === undefined && (line === undefined || line === "")
           ? {}
           : {
@@ -604,6 +627,11 @@ function Queue({ store }: { store: OperatorStore }) {
                 tag={one.tag ?? "Item"}
                 repository={one.repository}
                 title={one.item}
+                {...(one.job === undefined
+                  ? {}
+                  : {
+                      job: one.job,
+                    })}
                 line={discussing ? "In Discussion now" : one.read}
                 glyph={
                   discussing ? (
@@ -638,6 +666,11 @@ function Queue({ store }: { store: OperatorStore }) {
               tag={one.tag ?? "Item"}
               repository={one.repository}
               title={one.item}
+              {...(one.job === undefined
+                ? {}
+                : {
+                    job: one.job,
+                  })}
               outcome={one.settled!}
               glyph={<Check size={12} strokeWidth={2} aria-hidden />}
               said="Settled"
@@ -677,6 +710,11 @@ function Queue({ store }: { store: OperatorStore }) {
               id={one.id}
               tag={turnTag(one)}
               title={one.job?.title ?? one.text}
+              {...(one.job === undefined
+                ? {}
+                : {
+                    job: one.job,
+                  })}
               {...(asks(one) === undefined
                 ? {}
                 : {
