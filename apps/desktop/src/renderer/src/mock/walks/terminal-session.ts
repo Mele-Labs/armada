@@ -40,18 +40,22 @@ function steps(narrow: boolean): Step[] {
       say: "And what the agent answered",
     },
     {
-      look: role("combobox", "Model"),
+      press: button(/^Model /),
       say: "The model is the terminal's, and it can be changed from here",
     },
     {
-      type: "opus",
-      into: role("combobox", "Model"),
+      press: role("radio", /opus/i),
       say: "Run in the terminal as /model opus",
     },
     {
-      type: "high",
-      into: role("combobox", "Effort"),
+      key: "End",
+      on: role("slider", "Effort"),
       say: "And the effort, as /effort high",
+    },
+    {
+      key: "Enter",
+      on: role("slider", "Effort"),
+      say: "Enter puts the picker away",
     },
     {
       look: role("combobox", "Permission mode"),
@@ -75,7 +79,7 @@ function steps(narrow: boolean): Step[] {
       say: "A screenshot pasted in",
     },
     {
-      look: inside(role("group", "Attached"), text("Screenshot")),
+      look: inside(role("group", "Attached"), role("img", /Screenshot/)),
       say: "Saved by Fleet and sent to the terminal as a path",
     },
     {

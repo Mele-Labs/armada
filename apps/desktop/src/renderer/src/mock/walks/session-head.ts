@@ -54,7 +54,7 @@ const sessionHead = walk(
       say: "The state mark stands first",
     },
     {
-      look: button(/^Opus 5\.5/),
+      look: button(/^Model Opus 5\.5/),
       say: "The model is the composer's, read in full",
     },
     {

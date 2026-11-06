@@ -1330,6 +1330,7 @@ export function SessionComposer({
                     : (resolvedSaidFor(model === one ? one : undefined) ?? one)
                 }
                 onTune={onTune}
+                {...(proposed === undefined ? {} : { proposed })}
               />
             ) : (
               <>

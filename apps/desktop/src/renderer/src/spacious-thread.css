@@ -1209,3 +1209,10 @@
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar[data-held] {
   opacity: 1;
 }
+
+/* The picker and the proposer's mark beside it. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune-at {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

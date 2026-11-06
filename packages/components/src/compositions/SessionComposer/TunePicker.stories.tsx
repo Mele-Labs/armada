@@ -66,6 +66,62 @@ export const OnTheButton: Story = {
   },
 };
 
+/** The button is named for both, so a key user hears the model and the effort it opens on. */
+export const NamedForBoth: Story = {
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", {
+        name: "Model Sonnet, effort high",
+      }),
+    ).toBeVisible();
+  },
+};
+
+/** What the proposer picked carries its mark beside the button, naming which of the two it picked. */
+export const ProposedMark: Story = {
+  args: {
+    proposed: {
+      model: true,
+      effort: true,
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("img", {
+        name: "Model and effort picked by the proposer",
+      }),
+    ).toBeVisible();
+  },
+};
+
+/** Once he changes the effort, the mark names only the model. */
+export const ProposedModelOnly: Story = {
+  args: {
+    proposed: {
+      model: true,
+      effort: false,
+    },
+  },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("img", {
+        name: "Model picked by the proposer",
+      }),
+    ).toBeVisible();
+  },
+};
+
+/** Nothing proposed, no mark. */
+export const NoProposedMark: Story = {
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("img", {
+        name: /picked by the proposer/,
+      }),
+    ).toBeNull();
+  },
+};
+
 /** An effort the Session names none for reads as auto. */
 export const EffortAuto: Story = {
   args: {
