@@ -134,10 +134,15 @@ const SEEDS: Record<string, Seed> = {
       built: "5 Nov, 16:20",
       commit: "a1b2c3d",
       bridgeReopens: true,
-      takesOut: ["Fleet core and mods"],
+      takesOut: [
+        "Fleet core and mods",
+      ],
       bringsBack: [],
     },
-    carried: ["Operator board", "Store tests open a migrated copy"],
+    carried: [
+      "Operator board",
+      "Store tests open a migrated copy",
+    ],
   },
   // Two branches left out, one with commits since: `scenarios/preview-offer.ts`.
   "preview-offer": {

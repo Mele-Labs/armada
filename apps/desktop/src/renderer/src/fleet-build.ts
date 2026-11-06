@@ -14,7 +14,20 @@ export function useFleetBuild(): FleetBuild | undefined {
   return useContext(Held);
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 /** An instant in this window's local time, as a kept build is named: `5 Nov, 17:05`. Text that is no instant comes back as it came. */
 export function builtSaid(at: string): string {

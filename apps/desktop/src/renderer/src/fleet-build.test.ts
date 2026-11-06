@@ -59,12 +59,27 @@ describe("the build as the panel is handed it", () => {
   });
 
   it("has no left-out list where Fleet reported none", () => {
-    expect(fleetBuildOf(report({}), () => {}, () => {})).not.toHaveProperty("leftOut");
+    expect(
+      fleetBuildOf(
+        report({}),
+        () => {},
+        () => {},
+      ),
+    ).not.toHaveProperty("leftOut");
   });
 
   it("draws no kept builds, no Revert and no carried Jobs where Fleet reported none", () => {
-    const build = fleetBuildOf(report({}), () => {}, () => {});
-    for (const key of ["running", "previous", "reverting", "carried"]) {
+    const build = fleetBuildOf(
+      report({}),
+      () => {},
+      () => {},
+    );
+    for (const key of [
+      "running",
+      "previous",
+      "reverting",
+      "carried",
+    ]) {
       expect(build).not.toHaveProperty(key);
     }
   });
@@ -94,8 +109,12 @@ describe("the build as the panel is handed it", () => {
           built_at: new Date(2026, 10, 5, 9, 0).toISOString(),
           commit: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
           bridge_reopens: true,
-          takes_out: ["Fleet core and mods"],
-          brings_back: ["armada/old-branch"],
+          takes_out: [
+            "Fleet core and mods",
+          ],
+          brings_back: [
+            "armada/old-branch",
+          ],
         },
       }),
       () => {},
@@ -105,8 +124,12 @@ describe("the build as the panel is handed it", () => {
       built: "5 Nov, 09:00",
       commit: "a1b2c3d",
       bridgeReopens: true,
-      takesOut: ["Fleet core and mods"],
-      bringsBack: ["armada/old-branch"],
+      takesOut: [
+        "Fleet core and mods",
+      ],
+      bringsBack: [
+        "armada/old-branch",
+      ],
     });
   });
 
@@ -133,13 +156,17 @@ describe("the build as the panel is handed it", () => {
     const build = fleetBuildOf(
       report({
         reverting: true,
-        carried: ["Kept builds"],
+        carried: [
+          "Kept builds",
+        ],
       }),
       () => {},
       revert,
     );
     expect(build?.reverting).toBe(true);
-    expect(build?.carried).toEqual(["Kept builds"]);
+    expect(build?.carried).toEqual([
+      "Kept builds",
+    ]);
     build?.onRevert?.();
     expect(revert).toHaveBeenCalledTimes(1);
   });

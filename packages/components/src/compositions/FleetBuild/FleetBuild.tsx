@@ -405,7 +405,9 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
             )}
             <RevertRow
               label="Restarts"
-              value={previous.bridgeReopens ? "Fleet, and this window" : "Fleet. This window stays open"}
+              value={
+                previous.bridgeReopens ? "Fleet, and this window" : "Fleet. This window stays open"
+              }
             />
             {carried.length === 0 ? null : (
               <RevertRow
