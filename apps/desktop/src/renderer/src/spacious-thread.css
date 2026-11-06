@@ -52,9 +52,24 @@
     .armada-session-sketch,
     .armada-session-end,
     .armada-session-thread__ask,
-    .armada-session-thread__subagents
+    .armada-session-thread__subagents,
+    .armada-session-subagent
   ) {
   margin-inline: calc(var(--spacious-bleed) * -1);
+}
+
+/* A subagent's row, and the card's, reach the cards' edge, and their marks and words stand on the prose's. */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-session-subagent__press,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  :is(.armada-subagents__toggle, .armada-subagents__row) {
+  padding-inline: var(--spacious-bleed);
 }
 
 /* A thin thumb with no track, there only while the pointer is over the thread. */
