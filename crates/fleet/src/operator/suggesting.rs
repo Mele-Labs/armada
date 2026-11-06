@@ -77,7 +77,6 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
         (Arrived::Note, _) => format!("The Operator would send your note \"{subject}\" to \"{other}\": {because}"),
         (Arrived::Later, _) => format!("The Operator would file \"{subject}\" as a new issue: {because}"),
         (_, Way::NewJob) => format!("The Operator would start what is left of this Job as a Job of its own: {because}"),
-        (_, Way::Nudge) => format!("The Operator would tell this Job: {}", ruling.step.as_deref().unwrap_or(because)),
         (_, Way::Merge) => format!("The Operator would end this Job into \"{other}\": {because}"),
         (_, Way::KeepInTouch) => format!("The Operator would tell this Job and \"{other}\" of each other: {because}"),
         _ => format!("The Operator would hand this work to \"{other}\": {because}"),
@@ -109,7 +108,6 @@ fn ruling_of(one: &KeptSuggestion) -> Option<Ruling> {
     Some(Ruling {
         other: one.other_session.clone(),
         shared: one.shared.clone(),
-        step: one.step.clone(),
         first: one.first_session.clone(),
         ..Ruling::alone(Way::from_word(&one.way)?, one.because.clone())
     })
@@ -146,7 +144,7 @@ where
                 other_session: ruling.other.clone(),
                 shared: ruling.shared.clone(),
                 first_session: ruling.first.clone(),
-                step: ruling.step.clone(),
+                step: None,
                 item: asked_item(arrival).map(str::to_string),
                 pick: ruling.answer.as_ref().map(|choice| choice.label.clone()),
                 because: ruling.because.clone(),

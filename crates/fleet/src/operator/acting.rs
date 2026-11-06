@@ -96,11 +96,6 @@ where
         self.doing(move |fleet| async move { fleet.operator_kept_in_touch(&one, &other, &shared).await });
     }
 
-    fn nudge(&self, session: &str, step: &str) {
-        let (session, step) = (session.to_string(), step.to_string());
-        self.doing(move |fleet| async move { fleet.operator_nudged(&session, &step).await });
-    }
-
     fn start_rest(&self, session: &str, seen: &str) {
         let (session, seen) = (session.to_string(), seen.to_string());
         self.doing(move |fleet| async move { fleet.operator_started_rest(&session, &seen).await });
