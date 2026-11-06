@@ -169,7 +169,15 @@ where
         self.machine_settings().now().get(keys::OPERATOR)
     }
 
-    /// How far `role` goes in the repository `manifest`, as settings.json reads now: Off under the
+    /// The week's plan against the share where the Operator pauses, as the setting and Autopilot's weekly
+    /// reading stand now. **No reading is no pause**, and so is a week below the share.
+    pub(crate) async fn operator_paused(&self) -> Option<super::Paused> {
+        let at = u32::try_from(self.machine_settings().now().get(keys::OPERATOR_PLAN_PAUSE).clamp(0, 100)).unwrap_or(100);
+        let week = self.weekly_reading().await?;
+        (week >= at).then_some(super::Paused { week, at })
+    }
+
+    /// How far `role` goes in the repository `manifest`, as settings.json reads now: Read-only under the
     /// Operator's own switch or a standing order, else what the repository sets, else the machine's.
     pub(crate) fn operator_position(&self, role: OperatorRole, manifest: &str) -> OperatorPosition {
         let settings = self.machine_settings().now();

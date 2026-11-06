@@ -120,7 +120,9 @@ While Autopilot runs, the person is away, and its checked kinds widen what Answe
 **A call that fails passes the item on untouched.**
 So does one that answers what cannot be read, one that rules what Fleet did not offer, and one with no ruling by the time its item could wait.
 A first write waits at most 20 seconds for its start's ruling, and a Needs you item at most 60 before it pulses with no read.
-Every item passes on once the day's calls reach the ceiling (`limits.operatorDailyCalls`), which counts from the Log, so a restart does not reset it.
+Every item that needs a call passes on while the week's plan is used to the share set in `limits.operatorPlanPause`, read as Autopilot reads the week, and the board says so with `paused`.
+No reading of the plan is no pause.
+A message in the box is refused with `fleet.operator_paused` then.
 A ruling that comes back after its item passed on is dropped.
 
 **Nothing is dropped.**
@@ -228,7 +230,7 @@ Words sent to a Job are published as `operator.words_sent`.
 | `operator`, and a position for each role | Machine |
 | `operator-repositories`, a role's position for one repository | Machine |
 | `operator-model`, `sonnet`, never the proposer's cheap tier | Machine |
-| `limits.operatorDailyCalls` | Machine |
+| `limits.operatorPlanPause`, the share of the week's plan where it stops making calls | Machine |
 | `features.onYourWordsCanAct` | Machine |
 
 `../contracts/configuration.md` is the contract and `crates/config/settings.toml` has each row.

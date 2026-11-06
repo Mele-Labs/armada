@@ -19,8 +19,8 @@
 //!
 //! **Fail open.** A call that fails, answers what cannot be read, or rules what Fleet did not offer
 //! passes the item on untouched, and so does one with no ruling by the time it could wait
-//! ([`FIRST_WRITE_WAIT`], [`NEEDS_YOU_WAIT`]); so does every item once the day's calls reach the
-//! ceiling. A ruling that comes back after its item passed on is dropped.
+//! ([`FIRST_WRITE_WAIT`], [`NEEDS_YOU_WAIT`]); so does every item once the week's plan is used to the
+//! Operator's pause ([`Paused`]). A ruling that comes back after its item passed on is dropped.
 
 mod acting;
 mod answering;
@@ -85,21 +85,26 @@ pub const FIRST_WRITE_WAIT: Duration = Duration::from_secs(20);
 /// How long a Needs you item waits for its ruling before it pulses.
 pub const NEEDS_YOU_WAIT: Duration = Duration::from_secs(60);
 
+/// The week's plan used to the share where the Operator pauses: both in percent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Paused {
+    pub week: u32,
+    pub at: u32,
+}
+
 /// What a [`Desk`] answers, in time.
 pub type Done<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 /// Fleet, as far as the Operator reaches it.
 pub trait Desk: Send + Sync {
     fn now(&self) -> Timestamp;
-    /// The instant this machine's day began, at its local midnight: the ceiling counts from it.
-    fn day_began(&self) -> Done<'_, Timestamp>;
-    /// The most calls a day, as the setting reads now.
-    fn daily_calls(&self) -> u32;
+    /// Whether the week's plan is used to the Operator's pause, as the setting and the plan's reading
+    /// stand now. **No reading of the plan is `None`**, so no reading makes no pause.
+    fn plan_pause(&self) -> Done<'_, Option<Paused>> {
+        Box::pin(async { None })
+    }
     /// The Jobs live now, which a call may name.
     fn live(&self) -> Done<'_, Vec<LiveJob>>;
-    /// How many calls the Log names from `since`. **A count it cannot read is the ceiling
-    /// reached**, so a broken count makes no calls rather than unbounded ones.
-    fn calls_since(&self, since: Timestamp) -> Done<'_, u32>;
     /// Keep one row of the Log.
     fn keep(&self, row: Logged) -> Done<'_, ()>;
     /// The Jobs waiting to start, each repository's in its order. None where Fleet keeps no line.
@@ -428,11 +433,10 @@ impl Operator {
                 continue;
             }
             let now = self.desk.now();
-            let ceiling = self.desk.daily_calls();
-            if self.desk.calls_since(self.desk.day_began().await).await >= ceiling {
+            if let Some(paused) = self.desk.plan_pause().await {
                 let still = std::mem::take(&mut held(&self.queue).out);
                 for one in still {
-                    self.settled_apart(one, Ruled::PassedOn(PassedOn::Ceiling(ceiling)), None);
+                    self.settled_apart(one, Ruled::PassedOn(PassedOn::Paused(paused)), None);
                 }
                 continue;
             }

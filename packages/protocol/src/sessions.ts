@@ -652,7 +652,7 @@ export type RemoveOperatorOrder = {
 
 /**
  * `talk_to_operator` (`POST /operator/talk`): one message in the box. A fresh call with no tools answers it. 422
- * `fleet.operator_off`, `fleet.operator_ceiling`, `fleet.operator_said_nothing`. Answers `OperatorSaid`.
+ * `fleet.operator_off`, `fleet.operator_paused`, `fleet.operator_said_nothing`. Answers `OperatorSaid`.
  */
 export type TalkToOperator = {
   words: string;

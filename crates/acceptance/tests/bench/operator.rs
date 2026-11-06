@@ -172,12 +172,11 @@ impl Calling for FakeCall {
     }
 }
 
-/// Fleet, as far as the Operator reaches it: the live Jobs, the Log, the day's ceiling and what
+/// Fleet, as far as the Operator reaches it: the live Jobs, the Log and what
 /// becomes of each Job.
 pub struct FakeFleet {
     live: Vec<LiveJob>,
     log: Mutex<Vec<Logged>>,
-    ceiling: u32,
     ended: Mutex<Vec<(String, String)>>,
     in_touch: Mutex<Vec<(String, String)>>,
     raised: Mutex<Vec<(String, String)>>,
@@ -202,11 +201,10 @@ pub struct Sourced {
 }
 
 impl FakeFleet {
-    pub fn with(live: Vec<LiveJob>, ceiling: u32) -> Arc<FakeFleet> {
+    pub fn with(live: Vec<LiveJob>) -> Arc<FakeFleet> {
         Arc::new(FakeFleet {
             live,
             log: Mutex::new(Vec::new()),
-            ceiling,
             ended: Mutex::new(Vec::new()),
             in_touch: Mutex::new(Vec::new()),
             raised: Mutex::new(Vec::new()),
@@ -305,10 +303,6 @@ impl Desk for FakeFleet {
         Timestamp::from_rfc3339(NOW)
     }
 
-    fn day_began(&self) -> Done<'_, Timestamp> {
-        Box::pin(async move { Timestamp::from_rfc3339(format!("{}T00:00:00.000Z", &NOW[..10])) })
-    }
-
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move { self.live.clone() })
     }
@@ -324,22 +318,6 @@ impl Desk for FakeFleet {
                 repositories: vec![Repository { id: REPOSITORY.to_string(), name: "armada".to_string() }],
                 ..Board::default()
             }
-        })
-    }
-
-    fn daily_calls(&self) -> u32 {
-        self.ceiling
-    }
-
-    fn calls_since(&self, since: Timestamp) -> Done<'_, u32> {
-        Box::pin(async move {
-            let log = self.log.lock().expect("not poisoned");
-            let calls: BTreeSet<&str> = log
-                .iter()
-                .filter(|row| row.at.as_str() >= since.as_str())
-                .filter_map(|row| row.call.as_deref())
-                .collect();
-            calls.len() as u32
         })
     }
 

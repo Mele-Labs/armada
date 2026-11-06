@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Timestamp;
 use ipc::operator_board::{
-    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorDecider,
+    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorDecider, OperatorPaused,
 };
 use store::KeptRuling;
 
@@ -239,7 +239,8 @@ where
                 .collect();
             (suggestions, done)
         };
-        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done })
+        let paused = if self.operator_on() { self.operator_paused().await } else { None }.map(|paused| OperatorPaused { week: paused.week, at: paused.at });
+        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done, paused })
     }
 
     /// `move_on_operator_board`: one press. **404** where `id`, or the `before` it goes ahead of,

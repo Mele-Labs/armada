@@ -12,6 +12,7 @@ use std::time::Duration;
 use super::arriving::{Arrival, InLine};
 use super::candidates::Near;
 use super::questions::Choice;
+use super::Paused;
 
 /// One way an item can go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,8 +194,8 @@ pub enum PassedOn {
     Unreadable(String),
     /// The answer named something Fleet did not offer.
     Refused(String),
-    /// The day's calls reached the ceiling, so no call was made.
-    Ceiling(u32),
+    /// The week's plan is used to the Operator's pause, so no call was made.
+    Paused(Paused),
     /// An answer that could no longer be given, such as to a question the person answered first.
     Settled(String),
     /// Every way it could go is Read-only, so no call was made. **Not in Done.**
@@ -210,7 +211,7 @@ impl fmt::Display for PassedOn {
             PassedOn::Late(waited) => write!(out, "no ruling came within {} seconds", waited.as_secs()),
             PassedOn::Unreadable(why) => write!(out, "the answer could not be read: {why}"),
             PassedOn::Refused(why) => write!(out, "the ruling was refused: {why}"),
-            PassedOn::Ceiling(calls) => write!(out, "today's ceiling of {calls} calls was reached, so no call was made"),
+            PassedOn::Paused(paused) => write!(out, "the week's plan is {}% used, past the Operator's pause at {}%, so no call was made", paused.week, paused.at),
             PassedOn::Settled(why) => write!(out, "{why}"),
             PassedOn::ReadOnly => write!(out, "every way it could go is Read-only, so no call was made"),
             PassedOn::Undone(why) => write!(out, "it could not be carried out: {why}"),

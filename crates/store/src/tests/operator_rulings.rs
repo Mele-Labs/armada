@@ -57,23 +57,6 @@ fn a_ruling_reads_back_whole_with_its_shared_paths_and_signer() {
 }
 
 #[test]
-fn the_calls_of_a_day_are_counted_once_each_and_a_row_with_no_call_is_not_one() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    for (arrival, call, at) in [
-        ("yesterday", Some("c0"), "2026-11-03T23:59:00.000Z"),
-        ("a", Some("c1"), "2026-11-04T09:00:00.000Z"),
-        ("b", Some("c1"), "2026-11-04T09:00:00.000Z"),
-        ("c", Some("c2"), "2026-11-04T09:05:00.000Z"),
-        ("ceiling", None, "2026-11-04T09:06:00.000Z"),
-    ] {
-        store.add_operator_ruling(&ruled(arrival, call, at)).expect("kept");
-    }
-    assert_eq!(store.operator_calls_since("2026-11-04T00:00:00.000Z").expect("counted"), 2);
-    assert_eq!(store.operator_calls_since("2026-11-03T00:00:00.000Z").expect("counted"), 3);
-}
-
-#[test]
 fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled_and_since_when() {
     let dir = TempDir::new();
     let mut store = open(&dir);

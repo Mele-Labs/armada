@@ -68,6 +68,8 @@ export type OperatorBoard = {
   /** The unsettled suggestions tied to no Job, oldest first. */
   suggestions: OperatorBoardSuggestion[];
   done: OperatorBoardSettled[];
+  /** Present only while the week's plan is used to the share where the Operator pauses; both are percent. */
+  paused?: { week: number; at: number };
 };
 
 /**

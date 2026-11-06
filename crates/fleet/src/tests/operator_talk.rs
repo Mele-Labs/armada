@@ -53,7 +53,7 @@ fn code(refused: api::Refusal) -> String {
 }
 
 #[tokio::test]
-async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_counts_toward_the_ceiling() {
+async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_is_kept() {
     let rig = rig_placing(None);
     let first = reply("none", "Nothing has been raised today.");
     let second = reply("none", "Because nothing arrived.");
@@ -73,7 +73,6 @@ async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_co
         (true, "why?"),
         (false, "Because nothing arrived."),
     ]);
-    assert_eq!(rig.fleet.store().lock().await.operator_calls_since("2000-01-01T00:00:00.000Z").expect("counted"), 2);
 }
 
 #[tokio::test]

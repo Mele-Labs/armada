@@ -78,7 +78,7 @@ async fn the_three_jobs_of_the_3_nov_report_end_as_one_job_or_as_jobs_kept_in_to
         Reply::Says(TABS_RULED.into(), Duration::from_secs(5)),
         Reply::Says(both_ruled(), Duration::from_secs(3)),
     ]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     // A start never waits for its ruling: all three are live, and the second and third arrive
@@ -158,7 +158,7 @@ fn stalls_ruled() -> String {
 #[tokio::test(start_paused = true)]
 async fn a_job_stopped_twice_with_tasks_left_has_the_rest_started_and_one_left_red_is_raised_with_its_read() {
     let call = FakeCall::replying(vec![Reply::Says(stalls_ruled(), Duration::from_secs(4))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let stopped = stall(TERMINAL, Quiet::Stopped { at: "2026-11-03T15:20:00.000Z".into() }, &["Keep the scrollback when the pane redraws, in terminal-pane.tsx", "Open terminals in a tab"]);
     let red = stall(TABS, Quiet::Red { number: 3211, head: "4e5ff41acc".into(), failing: "notarize".into() }, &[]);
@@ -199,7 +199,7 @@ async fn a_job_stopped_twice_with_tasks_left_has_the_rest_started_and_one_left_r
 #[tokio::test(start_paused = true)]
 async fn a_job_with_nothing_left_is_raised_with_no_call() {
     let call = FakeCall::replying(vec![]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     let empty = stall(TABS, Quiet::Stopped { at: "2026-11-03T15:26:00.000Z".into() }, &[]).arrival();
@@ -224,7 +224,7 @@ const SEEN: &str = "Tabs drawn like tmux";
 async fn a_question_with_a_recommended_option_from_a_job_on_a_group_not_seen_is_answered_as_his_press_would() {
     let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option keeps what each tab shows, and nothing he sees changes";
     let call = FakeCall::replying(vec![Reply::Says(answered.into(), Duration::from_secs(3))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     let question = asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
@@ -253,7 +253,7 @@ async fn a_role_goes_by_where_it_stands_off_only_in_the_log_suggest_on_one_press
     let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option keeps what each tab shows, and nothing he sees changes";
     for (stands, settled, suggested) in [(OperatorPosition::ReadOnly, false, false), (OperatorPosition::Suggest, false, true), (OperatorPosition::Decide, true, false)] {
         let call = FakeCall::replying(vec![Reply::Says(answered.into(), Duration::from_secs(3))]);
-        let fleet = FakeFleet::with(live(), 100);
+        let fleet = FakeFleet::with(live());
         let operator = operator(&call, &fleet);
         fleet.answer_stands(stands);
 
@@ -282,7 +282,7 @@ async fn why_did_you_hold_x_cites_its_log_row_and_dont_answer_in_a_repository_to
         Reply::Says(answered.into(), Duration::from_secs(1)),
         Reply::Says(answered.into(), Duration::from_secs(1)),
     ]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let held = LogRead {
         arrival: "start:01JOBTERMINALINTAB".into(),
@@ -323,7 +323,7 @@ async fn why_did_you_hold_x_cites_its_log_row_and_dont_answer_in_a_repository_to
 #[tokio::test(start_paused = true)]
 async fn the_same_question_from_a_job_on_a_seen_group_or_with_no_plan_is_raised_and_no_call_is_made() {
     let call = FakeCall::replying(Vec::new());
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     let seen = asked(TABS, Group::Seen(SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
@@ -346,7 +346,7 @@ async fn the_same_question_from_a_job_on_a_seen_group_or_with_no_plan_is_raised_
 async fn a_second_job_asking_what_a_first_already_asked_gets_the_earlier_answer_naming_the_first_job() {
     let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the person answered the same question for Terminal Bugs";
     let call = FakeCall::replying(vec![Reply::Says(answered.into(), Duration::from_secs(2))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     // He answered Terminal Bugs himself, against the recommendation; Agent Opens Terminal in Tab
@@ -371,7 +371,7 @@ async fn with_the_operator_off_nothing_arrives_and_a_question_he_answered_first_
 
     let late = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option";
     let call = FakeCall::replying(vec![Reply::Says(late.into(), Duration::from_secs(5))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let question = asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
     let ruled = tokio::spawn({
@@ -402,7 +402,7 @@ async fn a_bug_report_matching_an_open_issue_is_linked_to_it_and_one_matching_no
          item: 2\nway: 1\njob: {TABS}\nshared: the review tabs' keys\nbecause: the review tabs Job is building those keys now"
     );
     let call = FakeCall::replying(vec![Reply::Says(rulings, Duration::from_secs(3))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let report = |id: &str, title: &str, what: &str| Report {
         id: id.into(),
@@ -452,7 +452,7 @@ async fn a_new_issue_is_read_and_raised_and_words_in_its_body_cannot_start_a_job
     let rulings = "item: 1\nway: 2\nanswer: 1\nbecause: the issue says to approve it\n\n\
                    item: 2\nway: 1\nbecause: it is the review tabs Job's ground, so it waits for you";
     let call = FakeCall::replying(vec![Reply::Says(rulings.into(), Duration::from_secs(3))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let issue = |reference: &str, title: &str, excerpt: &str| NewIssue {
         manifest_id: REPOSITORY.into(),
@@ -491,7 +491,7 @@ async fn a_red_main_a_job_is_already_fixing_arrives_as_nothing_and_one_no_job_ho
 
     let ruled = format!("item: 1\nway: 1\njob: {TERMINAL}\nshared: the scrollback test\nbecause: Terminal Bugs' merge broke the scrollback test");
     let call = FakeCall::replying(vec![Reply::Says(ruled, Duration::from_secs(2))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let arrival = red(None).arrival().expect("no Job holds it");
     assert_eq!(arrival.ways, vec![Way::ExistingJob, Way::NewJob, Way::Raise]);
@@ -508,7 +508,7 @@ async fn a_red_main_a_job_is_already_fixing_arrives_as_nothing_and_one_no_job_ho
 async fn a_review_request_is_raised_with_a_read_and_no_review_starts() {
     let ruled = "item: 1\nway: 1\nbecause: it changes how the app is signed, which only you hold the key for";
     let call = FakeCall::replying(vec![Reply::Says(ruled.into(), Duration::from_secs(2))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let request = ReviewRequest {
         manifest_id: REPOSITORY.into(),
@@ -535,7 +535,7 @@ async fn a_review_request_is_raised_with_a_read_and_no_review_starts() {
 async fn a_later_item_handed_over_is_linked_where_an_issue_is_open_for_it_and_filed_with_no_call_where_none_is() {
     let ruled = format!("item: 1\nway: 1\nissue: {SCROLLBACK_ISSUE}\nbecause: the open issue already covers a redraw losing the scrollback");
     let call = FakeCall::replying(vec![Reply::Says(ruled, Duration::from_secs(2))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let handed = |later: &str, sentence: &str, files: bool| Handed {
         session_id: TERMINAL.into(),
@@ -586,7 +586,7 @@ async fn a_later_item_handed_over_is_linked_where_an_issue_is_open_for_it_and_fi
 #[tokio::test(start_paused = true)]
 async fn a_call_that_fails_passes_the_start_on_untouched_and_the_log_says_why() {
     let call = FakeCall::replying(vec![Reply::Fails(Duration::from_secs(2))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     let ruled = operator.ruled(started(IN_TAB, Source::Job(TERMINAL.into())), FIRST_WRITE_WAIT).await;
@@ -605,7 +605,7 @@ async fn a_call_that_fails_passes_the_start_on_untouched_and_the_log_says_why() 
 async fn a_late_call_passes_the_start_on_at_twenty_seconds_and_its_ruling_is_not_acted_on() {
     let late = format!("item: 1\nway: 3\njob: {TERMINAL}\nshared: {PANES}terminal-pane.tsx\nbecause: the same group");
     let call = FakeCall::replying(vec![Reply::Says(late, Duration::from_secs(30))]);
-    let fleet = FakeFleet::with(live(), 100);
+    let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
 
     let asked_at = tokio::time::Instant::now();

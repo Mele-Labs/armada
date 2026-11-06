@@ -33,20 +33,8 @@ impl Desk for Desked {
         Timestamp::from_rfc3339("2026-11-04T10:00:00.000Z")
     }
 
-    fn day_began(&self) -> Done<'_, Timestamp> {
-        Box::pin(async move { Timestamp::from_rfc3339("2026-11-04T00:00:00.000Z") })
-    }
-
-    fn daily_calls(&self) -> u32 {
-        100
-    }
-
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move { self.live.clone() })
-    }
-
-    fn calls_since(&self, _since: Timestamp) -> Done<'_, u32> {
-        Box::pin(async move { 0 })
     }
 
     fn keep(&self, row: Logged) -> Done<'_, ()> {
