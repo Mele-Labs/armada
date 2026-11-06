@@ -6,6 +6,9 @@
 //! (`candidates`); one fresh [`Calling`] with no tools names one of them; the ruling, or why there
 //! was none, goes in the Log through the [`Desk`], signed by the Operator, and [`Acting`] does it.
 //!
+//! **An error Bridge showed the person goes first.** In the queue it stands ahead of every waiting
+//! arrival that is not one, and errors keep the order they came in.
+//!
 //! **One call out at a time on this machine.** What arrives while a call is out is ruled together
 //! in the next call, so three Jobs dispatched at once are seen side by side.
 //!
@@ -27,6 +30,7 @@ mod boarding;
 mod calling;
 mod candidates;
 mod desk;
+mod erroring;
 mod handing;
 mod holding;
 mod orders;
@@ -58,12 +62,14 @@ use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use acting::FleetActing;
 pub(crate) use answering::answers;
+#[cfg(test)]
+pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;
 pub use orders::{Order, Orders};
 pub(crate) use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
-pub use sources::{Filed, Handed, NewIssue, Note, RedMain, Report, ReviewRequest};
+pub use sources::{BridgeError, Filed, Handed, NewIssue, Note, RedMain, Report, ReviewRequest};
 pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
@@ -290,7 +296,16 @@ impl Operator {
             let mut queue = held(&self.queue);
             let token = queue.next;
             queue.next += 1;
-            queue.pending.push(Held { token, handed, arrival, tell });
+            // An error goes ahead of everything waiting that is not one, after the errors before it.
+            let at = match arrival.arrived {
+                Arrived::Error => queue.pending.iter().position(|one| one.arrival.arrived != Arrived::Error),
+                _ => None,
+            };
+            let one = Held { token, handed, arrival, tell };
+            match at {
+                Some(at) => queue.pending.insert(at, one),
+                None => queue.pending.push(one),
+            }
             let start = !queue.running;
             queue.running = true;
             (token, start)

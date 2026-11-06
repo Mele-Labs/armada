@@ -171,12 +171,27 @@ async fn always_raise_note_reads_as_a_standing_order_in_fleets_words_and_stands_
 
     let said = rig.fleet.operator_talked("always bring my notes to me", None).await.expect("answered");
 
-    assert!(call.asked()[0].contains("review, later or note>"), "the form is one the call is told of");
+    assert!(call.asked()[0].contains("review, later, note or error>"), "the form is one the call is told of");
     let proposed = said.order.expect("a form");
     assert_eq!(proposed.form, OperatorOrderForm::AlwaysRaise { what: "note".into() });
     assert_eq!(proposed.said, "Always raise notes");
     rig.fleet.operator_order_confirmed(proposed.form).await.expect("it stands");
     assert!(rig.fleet.operator_seat().orders().always_raises(crate::operator::Arrived::Note));
+}
+
+#[tokio::test]
+async fn always_raise_error_reads_as_a_standing_order_and_stands_once_confirmed() {
+    let rig = rig_placing(None);
+    let asked_for = reply("always_raise error", "Errors will always come to you.");
+    seated(&rig, &[&asked_for]).await;
+
+    let said = rig.fleet.operator_talked("always bring me the errors Bridge shows", None).await.expect("answered");
+
+    let proposed = said.order.expect("a form");
+    assert_eq!(proposed.form, OperatorOrderForm::AlwaysRaise { what: "error".into() });
+    assert_eq!(proposed.said, "Always raise errors");
+    rig.fleet.operator_order_confirmed(proposed.form).await.expect("it stands");
+    assert!(rig.fleet.operator_seat().orders().always_raises(crate::operator::Arrived::Error));
 }
 
 #[tokio::test]

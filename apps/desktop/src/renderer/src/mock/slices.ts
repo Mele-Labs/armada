@@ -19,6 +19,7 @@ import { planUsage } from "./slices/plan-usage";
 import { modelDownshift } from "./slices/model-downshift";
 import { projects } from "./slices/projects";
 import { bugReports } from "./slices/bug-reports";
+import { operatorErrors } from "./slices/operator-errors";
 import { lifecycles } from "./slices/lifecycles";
 import { agentSignIn } from "./slices/agent-sign-in";
 import { clashes } from "./slices/clashes";
@@ -70,6 +71,7 @@ const BY_NAME = {
   modelDownshift,
   projects,
   bugReports,
+  operatorErrors,
   lifecycles,
   agentSignIn,
   clashes,

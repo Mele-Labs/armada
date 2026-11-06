@@ -1,0 +1,14 @@
+[operations.report_bridge_error]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Bridge sends an error it showed the person to the Operator, as an arrival at the head of its order"
+notes = """
+`POST /operator/errors`, body `ReportBridgeError`: `code`, `message`, `fields` (`[{ key, value }]`), `chain` (outermost cause first), `logs` (paths), `commit`, `job_id` and `at` (RFC 3339, when the card was taken). `fields`, `chain` and `logs` may be absent. Answered with `BridgeErrorTaken`: `id` (the arrival's, `error:<fingerprint>:<local day>`) and `repeated`.
+
+**One error is one item.** The fingerprint is the `code` and the `message` with what differs between two of the same fault read as one placeholder: a word holding a `/` or `\\`, or starting with `~`, is a path; one of eight or more hex digits, or of eight or more characters with a digit and a letter, is an id; any other run of digits is a number. The local day is this machine's, `YYYY-MM-DD`. An error with the same id already waiting, out on a call or in the Operator's Log that day answers `repeated: true` and arrives no more.
+
+**It goes first.** An arrival of this kind leads every waiting arrival that is not an error, and errors keep the order they came in, so the board's `next` shows it first. It is a `report` on the board. It goes through the role positions as a bug report does, so it acts or is kept as a suggestion by what the person set, and nothing is filed or started before Do it where the role is Suggest.
+
+**Always 200.** While the Operator is off the error is accepted and let go: `repeated` is `false` and nothing arrives, so Bridge never shows a refusal for it. The same is true where Fleet serves no repository to put it in. A body that does not read is 400.
+"""

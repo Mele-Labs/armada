@@ -370,14 +370,15 @@ export const InYourApp: Story = {
     onUnpick: fn(),
   }),
   play: async ({ args, canvas, userEvent }) => {
+    await expect(canvas.getByText("Next build holds")).toBeVisible();
     const chips = canvas.getByRole("list", {
-      name: "In your app",
+      name: "Next build holds",
     });
     await expect(chips).toHaveTextContent("Try a Job in the app");
     await expect(chips).toHaveTextContent("armada/orphan-branch");
     await userEvent.click(
       canvas.getByRole("button", {
-        name: "Take armada/orphan-branch out",
+        name: "Leave armada/orphan-branch out of the build",
       }),
     );
     await expect(args.build.onUnpick).toHaveBeenCalledWith("armada/orphan-branch");
@@ -509,7 +510,7 @@ export const LongChipAtTheNarrowestPanel: Story = {
   play: async ({ canvas }) => {
     await expect(
       canvas.getByRole("button", {
-        name: /^Take .* out$/,
+        name: /^Leave .* out of the build$/,
       }),
     ).toBeVisible();
   },
