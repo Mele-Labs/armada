@@ -264,7 +264,7 @@ async fn a_commit_is_read_as_its_diff_from_the_checkout_and_one_the_checkout_lac
     let held = Arc::clone(&judge);
     let rig = rig_fitted(|fittings| {
         fittings.judge = held;
-        fittings.work = testkit::FakeWorkProduct::changed(&[]).holding_commit("a1b2c3d", patch);
+        fittings.work = std::sync::Arc::new(testkit::FakeWorkProduct::changed(&[]).holding_commit("a1b2c3d", patch));
     });
     let id = a_job_with_a_plan(&rig).await;
 

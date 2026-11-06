@@ -46,7 +46,7 @@ pub fn fitted_with(
 
 /// The same fittings over any version control: a real one where git's own
 /// answer is the subject — `crate::tests::cloning`.
-pub fn fitted_over<V>(
+pub fn fitted_over<V: adapter_traits::DynVcs + 'static>(
     home: &TempDir,
     work: FakeWorkProduct,
     harness: FakeHarness,
@@ -55,9 +55,9 @@ pub fn fitted_over<V>(
     let root = home.path().to_string_lossy().to_string();
     Fittings {
         store: Store::open_migrated_copy(&home.path().join("armada.db")).expect("a store"),
-        harness,
-        vcs,
-        work,
+        harness: Arc::new(harness),
+        vcs: Arc::new(vcs),
+        work: Arc::new(work),
         clock: Arc::new(Ticking::from_nine()),
         mint: Arc::new(Counted::from_one()),
         // The real reader, pointed at the fixture's own home. A fixture that

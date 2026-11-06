@@ -134,7 +134,7 @@ async fn a_bay_a_dead_fleet_held_is_given_back_on_the_next_walk_call() {
     let (_, root) = manifest(&fleet);
     let pool = crate::leasing::pool_of(&fleet.repositories().first().expect("served"));
     let adapter_traits::ReviewBay::Took { slot, path, .. } =
-        adapter_traits::Vcs::lease_review_bay(fleet.fake_vcs().as_ref(), &pool, 12, "review-walk-lost").expect("leased")
+        adapter_traits::Vcs::lease_review_bay(fleet.fake_vcs(), &pool, 12, "review-walk-lost").expect("leased")
     else {
         panic!("a free pool gives a bay");
     };

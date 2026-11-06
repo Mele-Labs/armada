@@ -44,13 +44,13 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
         "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\n",
     )
     .expect("parses");
-    fittings.vcs = FakeVcs::new().delivering(Delivering {
+    fittings.vcs = std::sync::Arc::new(FakeVcs::new().delivering(Delivering {
         pull_request_diff: Some(PullRequestDiff {
             files: vec!["a.rs".into()],
             patch: DIFF.into(),
         }),
         ..Delivering::default()
-    });
+    }));
     fittings.judge = judge;
     let fleet = Fleet::assembled(fittings);
     fleet.fake_vcs().now_pull_request(Some(PullRequestFacts {

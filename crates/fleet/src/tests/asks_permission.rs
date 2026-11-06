@@ -20,7 +20,7 @@ use crate::tests::tmp::TempDir;
 #[tokio::test]
 async fn an_unplaced_ask_is_denied_at_once_and_nothing_is_left_waiting() {
     let home = TempDir::new();
-    let fleet = Arc::new(Fleet::<FakeHarness, FakeVcs, FakeWorkProduct>::assembled(fittings(
+    let fleet = Arc::new(Fleet::assembled(fittings(
         &home,
         FakeWorkProduct::changed(&[]),
     )));

@@ -169,11 +169,10 @@ async fn committing_with_no_job_open_makes_a_job_of_its_own_with_one_commit_and_
 #[tokio::test]
 async fn a_pull_request_that_does_not_open_leaves_the_jobs_branch_pushed_and_says_so() {
     let rig = rig_fitted(|fittings| {
-        let vcs = std::mem::replace(&mut fittings.vcs, FakeVcs::new());
-        fittings.vcs = vcs.delivering(Delivering {
+        fittings.vcs = std::sync::Arc::new(FakeVcs::new().delivering(Delivering {
             review: Opened::NoTool { why: String::from("gh is not installed") },
             ..Delivering::default()
-        });
+        }));
     });
     yours(&rig, vec![own("specs", None)]).await;
     let mut watching = rig.fleet.events().subscribe();
@@ -219,8 +218,7 @@ async fn the_reply_comes_back_while_the_push_is_held_and_the_pull_request_follow
 #[tokio::test]
 async fn a_commit_git_refuses_after_the_reply_is_told_as_act_failed() {
     let rig = rig_fitted(|fittings| {
-        let vcs = std::mem::replace(&mut fittings.vcs, FakeVcs::new());
-        fittings.vcs = vcs.refusing_to_commit("hooks refused it");
+        fittings.vcs = std::sync::Arc::new(FakeVcs::new().refusing_to_commit("hooks refused it"));
     });
     yours(&rig, vec![own("specs", None)]).await;
     let mut watching = rig.fleet.events().subscribe();

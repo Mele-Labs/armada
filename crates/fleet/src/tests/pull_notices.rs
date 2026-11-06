@@ -547,7 +547,7 @@ fn a_rig_holding(branch: Option<&str>) -> Rig {
         crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&["src/log.rs"]));
     fittings.noticing = crate::noticing::Noticing::every(Duration::ZERO);
     if let Some(branch) = branch {
-        fittings.vcs = FakeVcs::new().with_ref_at(branch, ONE);
+        fittings.vcs = std::sync::Arc::new(FakeVcs::new().with_ref_at(branch, ONE));
     }
     let fleet = Fleet::assembled(fittings).hosting_sessions_on(
         Arc::new(Shared(Arc::clone(&stand_in))),

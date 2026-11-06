@@ -107,11 +107,10 @@ async fn promoting_a_mod_opens_its_pull_request_in_a_job_of_its_own_and_briefs_t
 #[tokio::test]
 async fn a_pull_request_that_does_not_open_answers_why_and_still_names_the_job() {
     let rig = rig_fitted(|fittings| {
-        let vcs = std::mem::replace(&mut fittings.vcs, FakeVcs::new());
-        fittings.vcs = vcs.delivering(Delivering {
+        fittings.vcs = std::sync::Arc::new(FakeVcs::new().delivering(Delivering {
             review: Opened::NoTool { why: String::from("gh is not installed") },
             ..Delivering::default()
-        });
+        }));
     });
     a_mod_to_promote(&rig);
 
