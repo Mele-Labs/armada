@@ -151,6 +151,8 @@ pub(crate) struct Waited {
     pub paused: bool,
     /// The windows holding back the plan he has not approved.
     pub plan_held: Vec<ipc::PlanHold>,
+    /// A question that lapsed still stands for him: it is no item, but it waits on him all the same.
+    pub lapsed: bool,
 }
 
 pub(crate) fn waiting_reads(
@@ -522,6 +524,7 @@ where
         let holds = plan.as_ref().map(|(_, recorded, walk)| {
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
+        let lapsed_open = !ended && lapsed_question(&rows).is_some();
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
@@ -768,7 +771,7 @@ where
         crate::operator::reads_shown(&mut items, &suggestions);
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
