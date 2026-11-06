@@ -74,8 +74,8 @@ export const oneSessionView = walk("one-session-view", [
     say: "Esc shuts the menu",
   },
   {
-    look: role("combobox", "Model"),
-    say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort in the composer's own dropdowns, each marked as picked by it",
+    look: role("img", "Model and effort picked by the proposer"),
+    say: "The agent has begun on its own. The name is in the header, and the proposer has preset the model and the effort on the composer's picker, marked as picked by it",
   },
   {
     look: plan,
@@ -110,9 +110,18 @@ export const oneSessionView = walk("one-session-view", [
     say: "Feature again, told the same way",
   },
   {
-    type: "medium",
-    into: role("combobox", "Effort"),
-    say: "Less effort, in the composer. This wakes nobody and the mark on it goes",
+    press: button(/^Model /),
+    say: "The composer's picker",
+  },
+  {
+    key: "ArrowLeft",
+    on: role("slider", "Effort"),
+    say: "Less effort. This wakes nobody and the mark says only the model now",
+  },
+  {
+    key: "Enter",
+    on: role("slider", "Effort"),
+    say: "Enter puts the picker away",
   },
   {
     press: inside(stage, button(/^Needs you/)),

@@ -770,7 +770,7 @@ function pressKey(element: HTMLElement, spec: string): void {
       : key;
   // xterm reads a Control chord from the legacy key code, which is the letter's capital.
   const keyCode = /^[0-9a-z]$/i.test(key) ? key.toUpperCase().charCodeAt(0) : 0;
-  element.dispatchEvent(
+  const taken = !element.dispatchEvent(
     new KeyboardEvent("keydown", {
       key,
       code,
@@ -781,6 +781,36 @@ function pressKey(element: HTMLElement, spec: string): void {
       ctrlKey: held.has("Control"),
       bubbles: true,
       cancelable: true,
+    }),
+  );
+  if (!taken) slideRange(element, key);
+}
+
+/** A synthetic key does not move a range, so its arrows, Home and End are moved here, as the browser moves them. */
+function slideRange(element: HTMLElement, key: string): void {
+  if (!(element instanceof HTMLInputElement) || element.type !== "range") return;
+  const min = Number(element.min || 0);
+  const max = Number(element.max || 100);
+  const step = Number(element.step || 1);
+  const now = Number(element.value);
+  const to =
+    key === "Home"
+      ? min
+      : key === "End"
+        ? max
+        : key === "ArrowLeft" || key === "ArrowDown"
+          ? Math.max(min, now - step)
+          : key === "ArrowRight" || key === "ArrowUp"
+            ? Math.min(max, now + step)
+            : undefined;
+  if (to === undefined || to === now) return;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+    element,
+    String(to),
+  );
+  element.dispatchEvent(
+    new Event("input", {
+      bubbles: true,
     }),
   );
 }

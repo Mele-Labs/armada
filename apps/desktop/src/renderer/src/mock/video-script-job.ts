@@ -192,6 +192,8 @@ export function videoScriptScenario(
   name: string,
   says: string,
   stage: 1 | 2 | "handed_on",
+  /** Jobs open beside it. */
+  beside: readonly Session[] = [],
 ): Scenario {
   const base = holding(name, says);
   return {
@@ -204,6 +206,7 @@ export function videoScriptScenario(
       sessions: () => {
         const store = sessionsStore([
           stage === "handed_on" ? handedOn() : job(stage),
+          ...beside,
         ]);
         return {
           ...store,

@@ -30,6 +30,10 @@ const query = new URLSearchParams(window.location.search);
 // `?take=overflow` draws a Thread head with too little room on one row, the name held at 18 characters (`job-panes/acts.tsx`); without it the head is as in the app.
 const take = query.get("take");
 if (take !== null) document.documentElement.dataset.headTake = take;
+// A Job's thread is drawn as in the app (`spacious-thread.css`). `?thread=today` draws the look before it, and a `?sheet=` sets
+// the two side by side itself.
+const threadTake = query.get("thread") ?? (query.has("sheet") ? null : "spacious");
+if (threadTake !== null) document.body.dataset.threadTake = threadTake;
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 // `?steps=` is a walk handed over whole, as `show_window` hands Bridge its steps.
 const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-state");

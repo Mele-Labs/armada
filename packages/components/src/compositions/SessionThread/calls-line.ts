@@ -207,3 +207,20 @@ export function callsLine(
   const about = aboutOf(last, of);
   return about === "" ? verb : `${verb} ${about}`;
 }
+
+/** One call on a line of its own: a tool with no verb says its whole call, since its name alone says nothing of what ran. */
+export function callLine(
+  row: {
+    text: string;
+  },
+  working: boolean,
+): string {
+  return familyOf(toolOf(row.text).tool) === undefined
+    ? clip(row.text)
+    : callsLine(
+        [
+          row,
+        ],
+        working,
+      );
+}

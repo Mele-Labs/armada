@@ -60,12 +60,8 @@ const firstRunNew = walk("first-run-new", [
     say: "Send starts the Job",
   },
   {
-    press: inside(thread, text("Editing multiple files")),
-    say: "The first calls are one closed row, and it opens",
-  },
-  {
     look: inside(thread, text(/^git init/)),
-    say: "The first event is git init",
+    say: "The calls stand one to a line while the agent works, and the first is git init",
   },
 ]);
 

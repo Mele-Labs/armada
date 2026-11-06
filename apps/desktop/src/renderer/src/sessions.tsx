@@ -12,10 +12,19 @@ import {
   useActs,
   useActsPlace,
 } from "./job-panes/acts";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
+  Check,
   CornerUpRight,
   ExternalLink,
   GitFork,
@@ -41,6 +50,10 @@ import {
   NeedsYouPanel,
   type PlanApproval,
   SessionEndBand,
+  DoneBody,
+  SpaciousTake,
+  ProseCodeColour,
+  colourCode,
   NotOursCard,
   ProseTerminal,
   Tooltip,
@@ -1697,6 +1710,8 @@ export function SessionView({
   trailing?: ReactNode;
 }) {
   const draft = useSessionsDraft();
+  // The spacious thread, which the app always draws (`main.tsx`) and a mock sheet's column sets; only this view hands it to its thread.
+  const spacious = useContext(SpaciousTake) || document.body.dataset.threadTake === "spacious";
   const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const runBook = useRunBook();
   const account = useAccount();
@@ -2654,7 +2669,9 @@ export function SessionView({
             ?.focus();
         },
       };
-  const endShown = doneProp !== undefined && !waits;
+  // The spacious thread draws the ending as the thread's last entry, and the composer carries no band for it.
+  const endInThread = doneProp !== undefined && !waits && spacious;
+  const endShown = doneProp !== undefined && !waits && !endInThread;
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
   // Open on coming into the Session, until he folds it there.
@@ -2729,812 +2746,836 @@ export function SessionView({
     if (watch !== undefined) draft.stopWatch?.(of.id, watch.id);
   };
   return (
-    <TeachHereContext.Provider value={teachHere}>
-      <SessionRefs session={session}>
-        <ProseTerminal.Provider value={terminal}>
-          <SessionWorkspace
-            session={session}
-            ed={planEditing}
-            entries={entries}
-            repositories={repositories}
-            hosts={deck?.hosts}
-            bays={bays}
-            onOpenSketch={(sketch, at) =>
-              read({
-                kind: "sketch",
-                id: sketch,
-                ...(at === undefined
+    <SpaciousTake.Provider value={spacious}>
+      <TeachHereContext.Provider value={teachHere}>
+        <SessionRefs session={session}>
+          <ProseTerminal.Provider value={terminal}>
+            <SessionWorkspace
+              session={session}
+              ed={planEditing}
+              entries={entries}
+              repositories={repositories}
+              hosts={deck?.hosts}
+              bays={bays}
+              onOpenSketch={(sketch, at) =>
+                read({
+                  kind: "sketch",
+                  id: sketch,
+                  ...(at === undefined
+                    ? {}
+                    : {
+                        at,
+                      }),
+                })
+              }
+              onOpenSession={onOpen}
+              onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
+              live={{
+                open: reading?.kind === "live",
+                onOpen: (url) =>
+                  read({
+                    kind: "live",
+                    id: url,
+                  }),
+              }}
+            >
+              <SessionFrame
+                state={state}
+                said={said}
+                id={session.id}
+                notice={<HeldNotice session={session.id} />}
+                {...(session.address === undefined
                   ? {}
                   : {
-                      at,
-                    }),
-              })
-            }
-            onOpenSession={onOpen}
-            onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
-            live={{
-              open: reading?.kind === "live",
-              onOpen: (url) =>
-                read({
-                  kind: "live",
-                  id: url,
-                }),
-            }}
-          >
-            <SessionFrame
-              state={state}
-              said={said}
-              id={session.id}
-              notice={<HeldNotice session={session.id} />}
-              {...(session.address === undefined
-                ? {}
-                : {
-                    address: session.address,
-                  })}
-              {...(session.title === undefined
-                ? {}
-                : {
-                    title: session.title,
-                  })}
-              {...(draft.rename === undefined
-                ? {}
-                : {
-                    onRename: (title: string) => draft.rename?.(session.id, title),
-                  })}
-              {...(draft.nameForMe === undefined
-                ? {}
-                : {
-                    onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve(),
-                  })}
-              {...(session.modOutOfDate === true
-                ? {
-                    modOutOfDate: true,
-                  }
-                : {})}
-              {...(session.toolsMissing === undefined
-                ? {}
-                : {
-                    toolsMissing: toolsMissingSaid(session.toolsMissing),
-                  })}
-              {...(toolsFixing === undefined
-                ? {}
-                : {
-                    toolsFixes: toolsFixing,
-                  })}
-              {...(toolsBand
-                ? {}
-                : {
-                    toolsApparent: true,
-                  })}
-              {...(deck?.flight === true
-                ? {
-                    headTake: headTake(),
-                  }
-                : {})}
-              toolsUnder
-              repository={
-                <SessionRepositoryOf
-                  key={session.id}
-                  session={session}
-                  repositories={repositories}
-                  onOpen={onOpen}
-                />
-              }
-              {...(fresh === undefined
-                ? {}
-                : {
-                    fresh,
-                  })}
-              {...(session.loadout === undefined
-                ? {}
-                : {
-                    loadout: {
-                      summary: session.loadout,
-                      onOpen: () => goes.onOpenLoadout(session.id),
-                    },
-                  })}
-              menu={{
-                entries: [
-                  ...(deck?.acts ?? []).map(
-                    (one): DropdownMenuEntry => ({
-                      kind: "item",
-                      id: one.id,
-                      label: one.label,
-                      icon: one.icon,
-                    }),
-                  ),
-                  ...(menuActs.length > 0
-                    ? [
-                        ...menuActs,
-                        {
-                          kind: "separator",
-                          id: "acts-rule",
-                        } as const,
-                      ]
-                    : []),
-                  ...(draft.fork === undefined || session.dead === undefined
-                    ? []
-                    : [
-                        {
-                          kind: "item",
-                          id: "fork",
-                          label: "Fork",
-                          icon: GitFork,
-                        } as const,
-                      ]),
-                  ...(retro.press === undefined
-                    ? []
-                    : [
-                        {
-                          kind: "item",
-                          id: "retro",
-                          label: retro.writing.has(session.id) ? "Writing the retro" : "Retro",
-                          icon: Rewind,
-                          disabled: retro.writing.has(session.id),
-                        } as const,
-                      ]),
-                  ...(draft.close === undefined || session.dead !== undefined
-                    ? []
-                    : [
-                        {
-                          kind: "separator",
-                          id: "end-rule",
-                        } as const,
-                        {
-                          kind: "item",
-                          id: "end",
-                          label: "End job",
-                          icon: PowerOff,
-                          danger: true,
-                        } as const,
-                      ]),
-                ],
-                onSelect: (id) => {
-                  if (runActEntry(jobActs, id)) return;
-                  if (id === "fork") opening(draft.fork!(session.id), onOpen);
-                  else if (id === "retro") retro.press?.(session, true);
-                  else if (id === "end") end();
-                  else deck?.acts.find((one) => one.id === id)?.run();
-                },
-              }}
-              {...(deck === undefined
-                ? {}
-                : {
-                    back: deck.back,
-                  })}
-              {...{
-                actions: (
-                  <>
-                    {deck !== undefined ? null : narrow ? (
-                      <Tooltip label="Open what this Job holds">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Attachments"
-                          aria-expanded={ledgerOpen}
-                          onClick={() => setLedgerOpen(true)}
-                        >
-                          <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
-                        </Button>
-                      </Tooltip>
-                    ) : minimized ? (
-                      <Tooltip label="Show attachments">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Show attachments"
-                          onClick={() => minimize(false)}
-                        >
-                          <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
-                        </Button>
-                      </Tooltip>
-                    ) : null}
-                    {docked.terminal === undefined ||
-                    session.dead !== undefined ||
-                    deck?.flight === true ? null : (
-                      <Button variant="ghost" size="sm" onClick={docked.terminal}>
-                        Terminal
-                      </Button>
-                    )}
-                    {lookHere?.head}
-                    {marked}
-                    {deck?.flight === true ? <JobActsSlot /> : null}
-                  </>
-                ),
-              }}
-              {...(narrow || minimized || deck !== undefined
-                ? {}
-                : {
-                    aside: (
-                      <>
-                        <div className="armada-shell__dock-head">
-                          <h2 className="armada-shell__dock-title">Ledger</h2>
-                          <Tooltip label="Hide attachments">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label="Hide attachments"
-                              onClick={() => minimize(true)}
-                            >
-                              <PanelRightClose size={16} strokeWidth={2} aria-hidden />
-                            </Button>
-                          </Tooltip>
-                        </div>
-                        <SessionLedger key={session.id} entries={ledger} keepKey={session.id} />
-                      </>
+                      address: session.address,
+                    })}
+                {...(session.title === undefined
+                  ? {}
+                  : {
+                      title: session.title,
+                    })}
+                {...(draft.rename === undefined
+                  ? {}
+                  : {
+                      onRename: (title: string) => draft.rename?.(session.id, title),
+                    })}
+                {...(draft.nameForMe === undefined
+                  ? {}
+                  : {
+                      onNameForMe: () => draft.nameForMe?.(session.id) ?? Promise.resolve(),
+                    })}
+                {...(session.modOutOfDate === true
+                  ? {
+                      modOutOfDate: true,
+                    }
+                  : {})}
+                {...(session.toolsMissing === undefined
+                  ? {}
+                  : {
+                      toolsMissing: toolsMissingSaid(session.toolsMissing),
+                    })}
+                {...(toolsFixing === undefined
+                  ? {}
+                  : {
+                      toolsFixes: toolsFixing,
+                    })}
+                {...(toolsBand
+                  ? {}
+                  : {
+                      toolsApparent: true,
+                    })}
+                {...(deck?.flight === true
+                  ? {
+                      headTake: headTake(),
+                    }
+                  : {})}
+                toolsUnder
+                repository={
+                  <SessionRepositoryOf
+                    key={session.id}
+                    session={session}
+                    repositories={repositories}
+                    onOpen={onOpen}
+                  />
+                }
+                {...(fresh === undefined
+                  ? {}
+                  : {
+                      fresh,
+                    })}
+                {...(session.loadout === undefined
+                  ? {}
+                  : {
+                      loadout: {
+                        summary: session.loadout,
+                        onOpen: () => goes.onOpenLoadout(session.id),
+                      },
+                    })}
+                menu={{
+                  entries: [
+                    ...(deck?.acts ?? []).map(
+                      (one): DropdownMenuEntry => ({
+                        kind: "item",
+                        id: one.id,
+                        label: one.label,
+                        icon: one.icon,
+                      }),
                     ),
-                  })}
-            >
-              <div ref={centre} className="armada-session-frame__centre">
-                {/* The thread's waiting cards and the composer's answer to the same four keys (`thread-keys.tsx`). */}
-                <ThreadKeys key={session.id}>
-                  <Refused />
-                  {origin === undefined || carried ? null : (
-                    <ForkedFrom
-                      title={origin.title ?? origin.id}
-                      onOpen={() => draft.watch?.(origin.id)}
-                    >
-                      <SessionThread
-                        sessionId={origin.id}
-                        rows={originRows}
-                        onAnswer={() => undefined}
-                        onOpenSession={onOpen}
-                      />
-                    </ForkedFrom>
-                  )}
-                  {startedBy}
-                  <>
-                    <RequestOpen.Provider value={openRequest}>
-                      <SavedOpen.Provider value={openSaved}>
+                    ...(menuActs.length > 0
+                      ? [
+                          ...menuActs,
+                          {
+                            kind: "separator",
+                            id: "acts-rule",
+                          } as const,
+                        ]
+                      : []),
+                    ...(draft.fork === undefined || session.dead === undefined
+                      ? []
+                      : [
+                          {
+                            kind: "item",
+                            id: "fork",
+                            label: "Fork",
+                            icon: GitFork,
+                          } as const,
+                        ]),
+                    ...(retro.press === undefined
+                      ? []
+                      : [
+                          {
+                            kind: "item",
+                            id: "retro",
+                            label: retro.writing.has(session.id) ? "Writing the retro" : "Retro",
+                            icon: Rewind,
+                            disabled: retro.writing.has(session.id),
+                          } as const,
+                        ]),
+                    ...(draft.close === undefined || session.dead !== undefined
+                      ? []
+                      : [
+                          {
+                            kind: "separator",
+                            id: "end-rule",
+                          } as const,
+                          {
+                            kind: "item",
+                            id: "end",
+                            label: "End job",
+                            icon: PowerOff,
+                            danger: true,
+                          } as const,
+                        ]),
+                  ],
+                  onSelect: (id) => {
+                    if (runActEntry(jobActs, id)) return;
+                    if (id === "fork") opening(draft.fork!(session.id), onOpen);
+                    else if (id === "retro") retro.press?.(session, true);
+                    else if (id === "end") end();
+                    else deck?.acts.find((one) => one.id === id)?.run();
+                  },
+                }}
+                {...(deck === undefined
+                  ? {}
+                  : {
+                      back: deck.back,
+                    })}
+                {...{
+                  actions: (
+                    <>
+                      {deck !== undefined ? null : narrow ? (
+                        <Tooltip label="Open what this Job holds">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Attachments"
+                            aria-expanded={ledgerOpen}
+                            onClick={() => setLedgerOpen(true)}
+                          >
+                            <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+                          </Button>
+                        </Tooltip>
+                      ) : minimized ? (
+                        <Tooltip label="Show attachments">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Show attachments"
+                            onClick={() => minimize(false)}
+                          >
+                            <PanelRightOpen size={16} strokeWidth={2} aria-hidden />
+                          </Button>
+                        </Tooltip>
+                      ) : null}
+                      {docked.terminal === undefined ||
+                      session.dead !== undefined ||
+                      deck?.flight === true ? null : (
+                        <Button variant="ghost" size="sm" onClick={docked.terminal}>
+                          Terminal
+                        </Button>
+                      )}
+                      {lookHere?.head}
+                      {marked}
+                      {deck?.flight === true ? <JobActsSlot /> : null}
+                    </>
+                  ),
+                }}
+                {...(narrow || minimized || deck !== undefined
+                  ? {}
+                  : {
+                      aside: (
+                        <>
+                          <div className="armada-shell__dock-head">
+                            <h2 className="armada-shell__dock-title">Ledger</h2>
+                            <Tooltip label="Hide attachments">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Hide attachments"
+                                onClick={() => minimize(true)}
+                              >
+                                <PanelRightClose size={16} strokeWidth={2} aria-hidden />
+                              </Button>
+                            </Tooltip>
+                          </div>
+                          <SessionLedger key={session.id} entries={ledger} keepKey={session.id} />
+                        </>
+                      ),
+                    })}
+              >
+                <div ref={centre} className="armada-session-frame__centre">
+                  {/* The thread's waiting cards and the composer's answer to the same four keys (`thread-keys.tsx`). */}
+                  <ThreadKeys key={session.id}>
+                    <Refused />
+                    {origin === undefined || carried ? null : (
+                      <ForkedFrom
+                        title={origin.title ?? origin.id}
+                        onOpen={() => draft.watch?.(origin.id)}
+                      >
                         <SessionThread
-                          sessionId={session.id}
-                          rows={withJudged}
-                          {...(!cardLead && !modEmpty
-                            ? {}
-                            : {
-                                lead: (
-                                  <>
-                                    {cardLead ? <RunsPlaceCard {...where!} /> : null}
-                                    {modEmpty ? <ModEmpty sessionId={session.id} /> : null}
-                                  </>
-                                ),
-                              })}
-                          {...(session.transcript === undefined
-                            ? {}
-                            : {
-                                transcript: session.transcript,
-                              })}
-                          {...(inlineCards.length === 0
-                            ? {}
-                            : {
-                                inline: inlineCards,
-                              })}
-                          onOpenRetro={openRetro}
-                          {...(draft.retry === undefined
-                            ? {}
-                            : {
-                                onRetry: (rowId: string) => draft.retry!(session.id, rowId),
-                              })}
-                          {...(draft.startAgain === undefined
-                            ? {}
-                            : {
-                                onStartAgain: () => draft.startAgain!(session.id),
-                              })}
-                          onReport={() => askToReportJob(session.id)}
-                          {...(draft.forkAt === undefined
-                            ? {}
-                            : {
-                                onForkAt: (pick) =>
-                                  opening(
-                                    forkAtPick(draft.forkAt!, session.id, pick, setFocusFor),
-                                    onOpen,
-                                  ),
-                              })}
-                          {...(teachOpen === undefined
-                            ? {}
-                            : {
-                                onTeachAt: ({ quote }: { quote: string }) =>
-                                  teachOpen("words", wordsOfQuote(quote)),
-                                onTeachRow: ({ kind, text, at, ids }: TeachPick) =>
-                                  teachOpen(kind, text, at, ids),
-                              })}
-                          {...(draft.muteNotice === undefined
-                            ? {}
-                            : {
-                                onMuteNotice: (notice, choice) =>
-                                  muteNoticeFor(draft.muteNotice!, session, notice, choice),
-                              })}
-                          {...(session.dead !== undefined
-                            ? {}
-                            : {
-                                onReplyAt: ({ quote }) => {
-                                  quoteIntoDraft(session.id, quote);
-                                  setFocusFor({
-                                    key: session.id,
-                                    at: Date.now(),
-                                  });
-                                },
-                              })}
-                          {...(approval === undefined
-                            ? {}
-                            : {
-                                approval,
-                              })}
-                          {...(sketching === undefined
-                            ? {}
-                            : {
-                                sketching,
-                              })}
-                          {...(session.asked === undefined
-                            ? {}
-                            : {
-                                waitingOnYou: true,
-                              })}
-                          onOpenWindow={(url) => draft.openWindow?.(id, url)}
-                          onOpenSketch={(sketch) =>
-                            read({
-                              kind: "sketch",
-                              id: sketch,
-                            })
-                          }
-                          onOpenFile={(path) =>
-                            // The Mac's own player: the panel reads a file into memory and would call a video binary.
-                            mediaKindOf(path) === "video"
-                              ? draft.openFile?.(session.id, path)
-                              : void openInPanel({
-                                  kind: "file",
-                                  path,
-                                  from: "session",
-                                  sessionId: session.id,
-                                })
-                          }
-                          onReadMedia={(path) => readShownMedia(draft, session.id, path)}
-                          {...(draft.answerWaiting === undefined
-                            ? {}
-                            : {
-                                onDraft: (rowId: string, answer: DraftAnswer) =>
-                                  void draft.answerWaiting?.(session.id, `draft:${rowId}`, answer),
-                              })}
-                          {...(draft.answerWaiting === undefined
-                            ? {}
-                            : {
-                                onWithdrawDraft: (rowId: string, reason?: string) =>
-                                  void dismissWaiting(session.id, `draft:${rowId}`, reason),
-                              })}
-                          {...(draft.answerSketch === undefined
-                            ? {}
-                            : {
-                                onAnswerSketch: (sketch: string, answer: SketchAnswer) =>
-                                  void draft.answerSketch?.(
-                                    sketchAnswerOf(session, sketch, answer),
-                                  ),
-                                onWithdrawSketch: (sketch: string) =>
-                                  void dismissWaiting(session.id, sketch),
-                              })}
-                          onOpenDocument={(page) => openOwedDocument(session, page)}
-                          {...(draft.answerDocument === undefined
-                            ? {}
-                            : {
-                                onAnswerDocument: (page: string, answer: SketchAnswer) =>
-                                  void draft.answerDocument?.(
-                                    documentAnswerOf(session, page, answer),
-                                  ),
-                              })}
-                          noted={noted}
-                          onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
-                          onOpenSubagent={(subagent) =>
-                            read({
-                              kind: "subagent",
-                              id: subagent,
-                            })
-                          }
-                          working={session.turn.state === "working"}
-                          {...(draft.stop === undefined
-                            ? {}
-                            : {
-                                onStop: () => draft.stop!(session.id),
-                              })}
-                          {...(trailing === undefined
-                            ? {}
-                            : {
-                                trailing,
-                              })}
-                          {...(runner === undefined
-                            ? {}
-                            : {
-                                runner,
-                              })}
-                          {...(session.terminal === true && draft.command !== undefined
-                            ? {
-                                onCommand: (text) => draft.command!(session.id, text),
-                                commandNames: (session.commands ?? []).map((one) => one.name),
-                              }
-                            : {})}
+                          sessionId={origin.id}
+                          rows={originRows}
                           onAnswer={() => undefined}
                           onOpenSession={onOpen}
-                          {...(lookHere?.thread ?? {})}
-                          {...(lookHere === undefined || session.dead !== undefined
-                            ? {}
-                            : {
-                                onPickLine: (text: string, response: QuickResponse) => {
-                                  // Asking sends nothing: the quote waits in the box, and the caret is on the blank line under it.
-                                  if (response.kind === "ask") {
-                                    quoteIntoDraft(session.id, askedLine(text));
-                                    setFocusFor({
-                                      key: session.id,
-                                      at: Date.now(),
-                                    });
-                                  } else
-                                    void draft.send(session.id, {
-                                      text: pickedLine(text, response),
-                                      files: [],
-                                      sketches: NO_SKETCHES,
-                                      tags: [],
-                                    });
-                                },
-                              })}
                         />
-                      </SavedOpen.Provider>
-                    </RequestOpen.Provider>
-                    {docked.pane}
-                    <CallChip word={callWord(session)} scope={centre} />
-                    <div
-                      className="sv-dock"
-                      data-needs={
-                        waits || endShown || failedShown || toolsBand || waitingBand
-                          ? ""
-                          : undefined
-                      }
-                      data-open={panelOpen || endOpen}
-                      data-end={endOpen ? "" : undefined}
-                      data-wait-open={waitOpen ? "" : undefined}
-                      data-starting={starting === undefined ? undefined : ""}
-                    >
-                      <div className="sv-bands">
-                        {toolsBand &&
-                        session.toolsMissing !== undefined &&
-                        toolsFixing !== undefined ? (
-                          <ToolsBand
-                            said={toolsMissingSaid(session.toolsMissing)}
-                            {...toolsFixing}
-                            onDismiss={toolsAway.dismiss}
-                          />
-                        ) : null}
-                        <NeedsYouPanel
-                          key={session.id}
-                          rows={needs}
-                          open={panelOpen}
-                          onOpen={(open) =>
-                            setPanel({
-                              id: session.id,
-                              open,
-                            })
-                          }
-                          {...(question === undefined
-                            ? {}
-                            : {
-                                question,
-                              })}
-                          cards={notOurs}
-                          review={reviewWaiting.map((one) => ({
-                            key: one.id,
-                            Glyph: one.mark.Glyph,
-                            said: one.said,
-                          }))}
-                          onReview={() =>
-                            lonePage === undefined
-                              ? setReviewSheetFor(session.id)
-                              : openOwedDocument(session, lonePage)
-                          }
-                        />
-                        {failedShown ? (
-                          <HandoffBand
-                            {...(session.handoffReason === undefined
+                      </ForkedFrom>
+                    )}
+                    {startedBy}
+                    <>
+                      <RequestOpen.Provider value={openRequest}>
+                        <SavedOpen.Provider value={openSaved}>
+                          <ProseCodeColour.Provider value={spacious ? colourCode : null}>
+                            <SessionThread
+                              sessionId={session.id}
+                              rows={withJudged}
+                              {...(!cardLead && !modEmpty
+                                ? {}
+                                : {
+                                    lead: (
+                                      <>
+                                        {cardLead ? <RunsPlaceCard {...where!} /> : null}
+                                        {modEmpty ? <ModEmpty sessionId={session.id} /> : null}
+                                      </>
+                                    ),
+                                  })}
+                              {...(session.transcript === undefined
+                                ? {}
+                                : {
+                                    transcript: session.transcript,
+                                  })}
+                              {...(inlineCards.length === 0
+                                ? {}
+                                : {
+                                    inline: inlineCards,
+                                  })}
+                              onOpenRetro={openRetro}
+                              {...(draft.retry === undefined
+                                ? {}
+                                : {
+                                    onRetry: (rowId: string) => draft.retry!(session.id, rowId),
+                                  })}
+                              {...(draft.startAgain === undefined
+                                ? {}
+                                : {
+                                    onStartAgain: () => draft.startAgain!(session.id),
+                                  })}
+                              onReport={() => askToReportJob(session.id)}
+                              {...(draft.forkAt === undefined
+                                ? {}
+                                : {
+                                    onForkAt: (pick) =>
+                                      opening(
+                                        forkAtPick(draft.forkAt!, session.id, pick, setFocusFor),
+                                        onOpen,
+                                      ),
+                                  })}
+                              {...(teachOpen === undefined
+                                ? {}
+                                : {
+                                    onTeachAt: ({ quote }: { quote: string }) =>
+                                      teachOpen("words", wordsOfQuote(quote)),
+                                    onTeachRow: ({ kind, text, at, ids }: TeachPick) =>
+                                      teachOpen(kind, text, at, ids),
+                                  })}
+                              {...(draft.muteNotice === undefined
+                                ? {}
+                                : {
+                                    onMuteNotice: (notice, choice) =>
+                                      muteNoticeFor(draft.muteNotice!, session, notice, choice),
+                                  })}
+                              {...(session.dead !== undefined
+                                ? {}
+                                : {
+                                    onReplyAt: ({ quote }) => {
+                                      quoteIntoDraft(session.id, quote);
+                                      setFocusFor({
+                                        key: session.id,
+                                        at: Date.now(),
+                                      });
+                                    },
+                                  })}
+                              {...(approval === undefined
+                                ? {}
+                                : {
+                                    approval,
+                                  })}
+                              {...(sketching === undefined
+                                ? {}
+                                : {
+                                    sketching,
+                                  })}
+                              {...(session.asked === undefined
+                                ? {}
+                                : {
+                                    waitingOnYou: true,
+                                  })}
+                              onOpenWindow={(url) => draft.openWindow?.(id, url)}
+                              onOpenSketch={(sketch) =>
+                                read({
+                                  kind: "sketch",
+                                  id: sketch,
+                                })
+                              }
+                              onOpenFile={(path) =>
+                                // The Mac's own player: the panel reads a file into memory and would call a video binary.
+                                mediaKindOf(path) === "video"
+                                  ? draft.openFile?.(session.id, path)
+                                  : void openInPanel({
+                                      kind: "file",
+                                      path,
+                                      from: "session",
+                                      sessionId: session.id,
+                                    })
+                              }
+                              onReadMedia={(path) => readShownMedia(draft, session.id, path)}
+                              {...(draft.answerWaiting === undefined
+                                ? {}
+                                : {
+                                    onDraft: (rowId: string, answer: DraftAnswer) =>
+                                      void draft.answerWaiting?.(
+                                        session.id,
+                                        `draft:${rowId}`,
+                                        answer,
+                                      ),
+                                  })}
+                              {...(draft.answerWaiting === undefined
+                                ? {}
+                                : {
+                                    onWithdrawDraft: (rowId: string, reason?: string) =>
+                                      void dismissWaiting(session.id, `draft:${rowId}`, reason),
+                                  })}
+                              {...(draft.answerSketch === undefined
+                                ? {}
+                                : {
+                                    onAnswerSketch: (sketch: string, answer: SketchAnswer) =>
+                                      void draft.answerSketch?.(
+                                        sketchAnswerOf(session, sketch, answer),
+                                      ),
+                                    onWithdrawSketch: (sketch: string) =>
+                                      void dismissWaiting(session.id, sketch),
+                                  })}
+                              onOpenDocument={(page) => openOwedDocument(session, page)}
+                              {...(draft.answerDocument === undefined
+                                ? {}
+                                : {
+                                    onAnswerDocument: (page: string, answer: SketchAnswer) =>
+                                      void draft.answerDocument?.(
+                                        documentAnswerOf(session, page, answer),
+                                      ),
+                                  })}
+                              noted={noted}
+                              onOpenCheck={(run) => goes.onOpenCheck(session.id, run)}
+                              onOpenSubagent={(subagent) =>
+                                read({
+                                  kind: "subagent",
+                                  id: subagent,
+                                })
+                              }
+                              working={session.turn.state === "working"}
+                              {...(draft.stop === undefined
+                                ? {}
+                                : {
+                                    onStop: () => draft.stop!(session.id),
+                                  })}
+                              {...(trailing === undefined && !endInThread
+                                ? {}
+                                : {
+                                    trailing: (
+                                      <>
+                                        {trailing}
+                                        {endInThread ? (
+                                          <section
+                                            className="armada-session-end"
+                                            aria-label="Nothing left to do"
+                                          >
+                                            <h3 className="armada-session-end__head">
+                                              <Check size={14} strokeWidth={2} aria-hidden />
+                                              Nothing left to do
+                                            </h3>
+                                            <DoneBody done={doneProp!} />
+                                          </section>
+                                        ) : null}
+                                      </>
+                                    ),
+                                  })}
+                              {...(runner === undefined
+                                ? {}
+                                : {
+                                    runner,
+                                  })}
+                              {...(session.terminal === true && draft.command !== undefined
+                                ? {
+                                    onCommand: (text) => draft.command!(session.id, text),
+                                    commandNames: (session.commands ?? []).map((one) => one.name),
+                                  }
+                                : {})}
+                              onAnswer={() => undefined}
+                              onOpenSession={onOpen}
+                              {...(lookHere?.thread ?? {})}
+                              {...(lookHere === undefined || session.dead !== undefined
+                                ? {}
+                                : {
+                                    onPickLine: (text: string, response: QuickResponse) => {
+                                      // Asking sends nothing: the quote waits in the box, and the caret is on the blank line under it.
+                                      if (response.kind === "ask") {
+                                        quoteIntoDraft(session.id, askedLine(text));
+                                        setFocusFor({
+                                          key: session.id,
+                                          at: Date.now(),
+                                        });
+                                      } else
+                                        void draft.send(session.id, {
+                                          text: pickedLine(text, response),
+                                          files: [],
+                                          sketches: NO_SKETCHES,
+                                          tags: [],
+                                        });
+                                    },
+                                  })}
+                            />
+                          </ProseCodeColour.Provider>
+                        </SavedOpen.Provider>
+                      </RequestOpen.Provider>
+                      {docked.pane}
+                      <CallChip word={callWord(session)} scope={centre} />
+                      <div
+                        className="sv-dock"
+                        data-needs={
+                          waits || endShown || failedShown || toolsBand || waitingBand
+                            ? ""
+                            : undefined
+                        }
+                        data-open={panelOpen || endOpen}
+                        data-end={endOpen ? "" : undefined}
+                        data-wait-open={waitOpen ? "" : undefined}
+                        data-starting={starting === undefined ? undefined : ""}
+                      >
+                        <div className="sv-bands">
+                          {toolsBand &&
+                          session.toolsMissing !== undefined &&
+                          toolsFixing !== undefined ? (
+                            <ToolsBand
+                              said={toolsMissingSaid(session.toolsMissing)}
+                              {...toolsFixing}
+                              onDismiss={toolsAway.dismiss}
+                            />
+                          ) : null}
+                          <NeedsYouPanel
+                            key={session.id}
+                            rows={needs}
+                            open={panelOpen}
+                            onOpen={(open) =>
+                              setPanel({
+                                id: session.id,
+                                open,
+                              })
+                            }
+                            {...(question === undefined
                               ? {}
                               : {
-                                  reason: session.handoffReason,
+                                  question,
                                 })}
-                            {...(draft.retryHandoff === undefined
+                            cards={notOurs}
+                            review={reviewWaiting.map((one) => ({
+                              key: one.id,
+                              Glyph: one.mark.Glyph,
+                              said: one.said,
+                            }))}
+                            onReview={() =>
+                              lonePage === undefined
+                                ? setReviewSheetFor(session.id)
+                                : openOwedDocument(session, lonePage)
+                            }
+                          />
+                          {failedShown ? (
+                            <HandoffBand
+                              {...(session.handoffReason === undefined
+                                ? {}
+                                : {
+                                    reason: session.handoffReason,
+                                  })}
+                              {...(draft.retryHandoff === undefined
+                                ? {}
+                                : {
+                                    onRetry: () => {
+                                      setFailedAway(undefined);
+                                      draft.retryHandoff!(session.id);
+                                    },
+                                  })}
+                              {...(dispatchFailure === undefined
+                                ? {}
+                                : {
+                                    onDispatch: () => void dispatchFailure(handoffFailure(session)),
+                                  })}
+                              onDismiss={() => setFailedAway(session.id)}
+                            />
+                          ) : null}
+                          {endShown && doneProp !== undefined ? (
+                            <SessionEndBand
+                              done={doneProp}
+                              open={endOpen}
+                              onOpen={(open) =>
+                                setEndPanel({
+                                  id: session.id,
+                                  open,
+                                })
+                              }
+                            />
+                          ) : null}
+                          {waitingBand ? (
+                            <WaitingBand
+                              waits={waitingOn}
+                              open={waitOpen}
+                              onOpen={(open) =>
+                                setWaitPanel({
+                                  id: session.id,
+                                  open,
+                                })
+                              }
+                              onDismiss={(at) => dismissWait(session, at)}
+                            />
+                          ) : null}
+                        </div>
+                        {session.dead !== undefined || starting === undefined ? null : (
+                          <div className="sv-start-strip">{starting.lead}</div>
+                        )}
+                        {session.dead !== undefined ? null : (
+                          <SessionComposer
+                            modeLocked={session.terminal === true}
+                            modeHidden={session.terminal === true && session.mode === undefined}
+                            working={session.turn.state === "working"}
+                            mode={mode}
+                            onMode={(next) =>
+                              draft.tune(session.id, {
+                                model: session.model ?? null,
+                                effort: session.effort ?? null,
+                                mode: next,
+                              })
+                            }
+                            model={session.model ?? null}
+                            effort={session.effort ?? null}
+                            models={draft.models}
+                            {...(draft.defaultModel === undefined
                               ? {}
                               : {
-                                  onRetry: () => {
-                                    setFailedAway(undefined);
-                                    draft.retryHandoff!(session.id);
+                                  defaultModel: draft.defaultModel,
+                                })}
+                            {...(session.resolvedModel === undefined
+                              ? {}
+                              : {
+                                  resolvedModel: session.resolvedModel,
+                                })}
+                            efforts={draft.efforts}
+                            onTune={(tuning) => {
+                              draft.tune(session.id, {
+                                ...tuning,
+                                mode,
+                              });
+                              // A value the proposer picked loses its mark once he changes it.
+                              if (tuning.model !== (session.model ?? null))
+                                draft.work?.unpick(session.id, "model");
+                              if (tuning.effort !== (session.effort ?? null))
+                                draft.work?.unpick(session.id, "effort");
+                            }}
+                            {...(session.work?.proposal?.picked === undefined
+                              ? {}
+                              : {
+                                  proposed: {
+                                    model: session.work.proposal.picked.includes("model"),
+                                    effort: session.work.proposal.picked.includes("effort"),
                                   },
                                 })}
-                            {...(dispatchFailure === undefined
+                            {...(starting === undefined
                               ? {}
                               : {
-                                  onDispatch: () => void dispatchFailure(handoffFailure(session)),
+                                  sendLabel: "Start",
+                                  sendEmpty: session.start?.message === undefined,
                                 })}
-                            onDismiss={() => setFailedAway(session.id)}
-                          />
-                        ) : null}
-                        {endShown && doneProp !== undefined ? (
-                          <SessionEndBand
-                            done={doneProp}
-                            open={endOpen}
-                            onOpen={(open) =>
-                              setEndPanel({
-                                id: session.id,
-                                open,
-                              })
+                            commands={
+                              session.terminal === true
+                                ? (session.commands ?? [])
+                                : hostedCommands(draft.commands)
                             }
-                          />
-                        ) : null}
-                        {waitingBand ? (
-                          <WaitingBand
-                            waits={waitingOn}
-                            open={waitOpen}
-                            onOpen={(open) =>
-                              setWaitPanel({
-                                id: session.id,
-                                open,
-                              })
+                            compact={narrow}
+                            taggable={sessions
+                              .filter(
+                                (one) =>
+                                  one.id !== session.id &&
+                                  one.dead === undefined &&
+                                  one.title !== undefined,
+                              )
+                              .map(
+                                (one): SessionTag => ({
+                                  kind: "session",
+                                  id: one.id,
+                                  title: one.title!,
+                                }),
+                              )}
+                            searchFiles={(query) => searchFiles(query, session.manifestId)}
+                            {...(numbered === undefined
+                              ? {}
+                              : {
+                                  numbered,
+                                })}
+                            tags={session.pendingTags ?? []}
+                            draftKey={session.id}
+                            focusFor={focusFor}
+                            onTags={(tags) => draft.setTags(session.id, tags)}
+                            drawn={drawn.map(({ id, title }) => ({
+                              id,
+                              title,
+                            }))}
+                            onDraw={() => setPadOpen(true)}
+                            onRemoveDrawn={(id) =>
+                              setDrawn((was) => was.filter((one) => one.id !== id))
                             }
-                            onDismiss={(at) => dismissWait(session, at)}
+                            {...(composerHere ?? {})}
+                            // On the Cockpit only: Compact is in the context figure.
+                            {...(session.context === undefined
+                              ? {}
+                              : {
+                                  beforeSend: (
+                                    <ContextFigure
+                                      fill={{
+                                        ...session.context,
+                                        ...(session.contextBreakdown === undefined
+                                          ? {}
+                                          : {
+                                              breakdown: session.contextBreakdown,
+                                            }),
+                                      }}
+                                      {...(deck?.flight === true
+                                        ? {
+                                            compact: compactAct,
+                                          }
+                                        : {})}
+                                    />
+                                  ),
+                                })}
+                            onSend={(sent) => {
+                              // A held Job's first send begins it: the box is the first message.
+                              if (starting !== undefined) return starting.begin(sent.text);
+                              if (opensMcp(session, sent.text, sent.files.length)) {
+                                goes.onOpenLoadout(session.id, "mcp");
+                                return Promise.resolve(true);
+                              }
+                              // `! command` runs in the Session's directory, in the docked terminal, and is not a message to the agent.
+                              const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
+                              if (bang !== undefined && terminal !== null) {
+                                terminal.dock.start(bang);
+                                return Promise.resolve(true);
+                              }
+                              // A paused Job asks first: Cancel gives the box its words back.
+                              return pausedSend.ask(() => {
+                                const sketches = drawn;
+                                const done = draft.send(session.id, {
+                                  text: sent.text,
+                                  files: sent.files,
+                                  sketches,
+                                  tags: sent.tags as readonly SessionTag[],
+                                });
+                                setDrawn(NO_SKETCHES);
+                                // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
+                                if (draft.retry !== undefined) return Promise.resolve(true);
+                                return done?.then((went) => {
+                                  if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
+                                  return went;
+                                });
+                              });
+                            }}
                           />
-                        ) : null}
+                        )}
+                        <SessionToolbelt />
                       </div>
-                      {session.dead !== undefined || starting === undefined ? null : (
-                        <div className="sv-start-strip">{starting.lead}</div>
-                      )}
-                      {session.dead !== undefined ? null : (
-                        <SessionComposer
-                          modeLocked={session.terminal === true}
-                          modeHidden={session.terminal === true && session.mode === undefined}
-                          working={session.turn.state === "working"}
-                          mode={mode}
-                          onMode={(next) =>
-                            draft.tune(session.id, {
-                              model: session.model ?? null,
-                              effort: session.effort ?? null,
-                              mode: next,
-                            })
-                          }
-                          model={session.model ?? null}
-                          effort={session.effort ?? null}
-                          models={draft.models}
-                          {...(draft.defaultModel === undefined
-                            ? {}
-                            : {
-                                defaultModel: draft.defaultModel,
-                              })}
-                          {...(session.resolvedModel === undefined
-                            ? {}
-                            : {
-                                resolvedModel: session.resolvedModel,
-                              })}
-                          efforts={draft.efforts}
-                          onTune={(tuning) => {
-                            draft.tune(session.id, {
-                              ...tuning,
-                              mode,
-                            });
-                            // A value the proposer picked loses its mark once he changes it.
-                            if (tuning.model !== (session.model ?? null))
-                              draft.work?.unpick(session.id, "model");
-                            if (tuning.effort !== (session.effort ?? null))
-                              draft.work?.unpick(session.id, "effort");
-                          }}
-                          {...(session.work?.proposal?.picked === undefined
-                            ? {}
-                            : {
-                                proposed: {
-                                  model: session.work.proposal.picked.includes("model"),
-                                  effort: session.work.proposal.picked.includes("effort"),
-                                },
-                              })}
-                          {...(starting === undefined
-                            ? {}
-                            : {
-                                sendLabel: "Start",
-                                sendEmpty: session.start?.message === undefined,
-                              })}
-                          commands={
-                            session.terminal === true
-                              ? (session.commands ?? [])
-                              : hostedCommands(draft.commands)
-                          }
-                          compact={narrow}
-                          taggable={sessions
-                            .filter(
-                              (one) =>
-                                one.id !== session.id &&
-                                one.dead === undefined &&
-                                one.title !== undefined,
-                            )
-                            .map(
-                              (one): SessionTag => ({
-                                kind: "session",
-                                id: one.id,
-                                title: one.title!,
-                              }),
-                            )}
-                          searchFiles={(query) => searchFiles(query, session.manifestId)}
-                          {...(numbered === undefined
-                            ? {}
-                            : {
-                                numbered,
-                              })}
-                          tags={session.pendingTags ?? []}
-                          draftKey={session.id}
-                          focusFor={focusFor}
-                          onTags={(tags) => draft.setTags(session.id, tags)}
-                          drawn={drawn.map(({ id, title }) => ({
-                            id,
-                            title,
-                          }))}
-                          onDraw={() => setPadOpen(true)}
-                          onRemoveDrawn={(id) =>
-                            setDrawn((was) => was.filter((one) => one.id !== id))
-                          }
-                          {...(composerHere ?? {})}
-                          // On the Cockpit only: Compact is in the context figure.
-                          {...(session.context === undefined
-                            ? {}
-                            : {
-                                beforeSend: (
-                                  <ContextFigure
-                                    fill={{
-                                      ...session.context,
-                                      ...(session.contextBreakdown === undefined
-                                        ? {}
-                                        : {
-                                            breakdown: session.contextBreakdown,
-                                          }),
-                                    }}
-                                    {...(deck?.flight === true
-                                      ? {
-                                          compact: compactAct,
-                                        }
-                                      : {})}
-                                  />
-                                ),
-                              })}
-                          onSend={(sent) => {
-                            // A held Job's first send begins it: the box is the first message.
-                            if (starting !== undefined) return starting.begin(sent.text);
-                            if (opensMcp(session, sent.text, sent.files.length)) {
-                              goes.onOpenLoadout(session.id, "mcp");
-                              return Promise.resolve(true);
-                            }
-                            // `! command` runs in the Session's directory, in the docked terminal, and is not a message to the agent.
-                            const bang = sent.files.length === 0 ? bangOf(sent.text) : undefined;
-                            if (bang !== undefined && terminal !== null) {
-                              terminal.dock.start(bang);
-                              return Promise.resolve(true);
-                            }
-                            // A paused Job asks first: Cancel gives the box its words back.
-                            return pausedSend.ask(() => {
-                              const sketches = drawn;
-                              const done = draft.send(session.id, {
-                                text: sent.text,
-                                files: sent.files,
-                                sketches,
-                                tags: sent.tags as readonly SessionTag[],
-                              });
-                              setDrawn(NO_SKETCHES);
-                              // The message is in the thread from now, and one that did not go has its own Retry: the box has nothing to take back.
-                              if (draft.retry !== undefined) return Promise.resolve(true);
-                              return done?.then((went) => {
-                                if (!went) setDrawn((now) => (now.length === 0 ? sketches : now));
-                                return went;
-                              });
-                            });
-                          }}
-                        />
-                      )}
-                      <SessionToolbelt />
-                    </div>
-                  </>
-                </ThreadKeys>
-              </div>
-            </SessionFrame>
-          </SessionWorkspace>
-          {pausedSend.layer}
-          {session.work?.plan === undefined || !planDrawn ? null : (
-            <PlanReview
-              open={reviewing}
-              plan={session.work.plan}
-              jobOf={(group) => jobOf(group).job}
-              issueOf={(group) =>
-                cardIssueOf(
-                  issueOfGroup(
-                    session,
-                    session.work?.plan?.groups.find((one) => one.id === group)?.issue,
-                  )?.issue,
-                  session.manifestId,
-                ).issue
-              }
-              {...(opensPrs
-                ? {
-                    pullRequests: {
-                      onOpen: (number: number) =>
-                        read({
-                          kind: "pull_request",
-                          number,
-                        }),
-                    },
-                  }
-                : {})}
-              {...planRevision(session.work.plan)}
-              ed={planEditing!}
-              {...(planJudge !== undefined
-                ? {
-                    findings: planJudge,
-                  }
-                : {})}
-              onApprove={approvePlan}
-              onClose={() => setReviewing(false)}
-            />
-          )}
-          {deck?.ledger == null || workspace
-            ? null
-            : createPortal(
-                <SessionLedger key={session.id} entries={ledger} keepKey={session.id} />,
-                deck.ledger,
-              )}
-          {released.dialog}
-          {narrow ? (
-            <OverTheApp open={ledgerOpen}>
-              <Sheet
-                kind="session-ledger"
-                open={ledgerOpen}
-                floating
-                floor={floor}
-                title="Attachments"
-                closeLabel="Close"
-                closeBinding="Esc"
-                onClose={() => setLedgerOpen(false)}
-              >
-                <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
-              </Sheet>
-            </OverTheApp>
-          ) : null}
-          <ReadingSheet
-            sessionId={session.id}
-            readSubagent={draft.subagent}
-            one={readingOf(session, reading)}
-            steps={stepsReadingOf(session, reading, draft)}
-            draft={draft}
-            onClose={() => setReading(undefined)}
-            onOpenLink={goes.onOpenLink}
-            {...(markedOf(reading) === undefined
-              ? {}
-              : {
-                  marked: markedOf(reading)!,
-                })}
-          />
-          {reading?.kind === "media" ? (
-            <MediaOverlay
-              draft={draft}
+                    </>
+                  </ThreadKeys>
+                </div>
+              </SessionFrame>
+            </SessionWorkspace>
+            {pausedSend.layer}
+            {session.work?.plan === undefined || !planDrawn ? null : (
+              <PlanReview
+                open={reviewing}
+                plan={session.work.plan}
+                jobOf={(group) => jobOf(group).job}
+                issueOf={(group) =>
+                  cardIssueOf(
+                    issueOfGroup(
+                      session,
+                      session.work?.plan?.groups.find((one) => one.id === group)?.issue,
+                    )?.issue,
+                    session.manifestId,
+                  ).issue
+                }
+                {...(opensPrs
+                  ? {
+                      pullRequests: {
+                        onOpen: (number: number) =>
+                          read({
+                            kind: "pull_request",
+                            number,
+                          }),
+                      },
+                    }
+                  : {})}
+                {...planRevision(session.work.plan)}
+                ed={planEditing!}
+                {...(planJudge !== undefined
+                  ? {
+                      findings: planJudge,
+                    }
+                  : {})}
+                onApprove={approvePlan}
+                onClose={() => setReviewing(false)}
+              />
+            )}
+            {deck?.ledger == null || workspace
+              ? null
+              : createPortal(
+                  <SessionLedger key={session.id} entries={ledger} keepKey={session.id} />,
+                  deck.ledger,
+                )}
+            {released.dialog}
+            {narrow ? (
+              <OverTheApp open={ledgerOpen}>
+                <Sheet
+                  kind="session-ledger"
+                  open={ledgerOpen}
+                  floating
+                  floor={floor}
+                  title="Attachments"
+                  closeLabel="Close"
+                  closeBinding="Esc"
+                  onClose={() => setLedgerOpen(false)}
+                >
+                  <SessionLedger key={session.id} entries={ledger} keepKey={session.id} folded />
+                </Sheet>
+              </OverTheApp>
+            ) : null}
+            <ReadingSheet
               sessionId={session.id}
-              path={reading.id}
+              readSubagent={draft.subagent}
+              one={readingOf(session, reading)}
+              steps={stepsReadingOf(session, reading, draft)}
+              draft={draft}
               onClose={() => setReading(undefined)}
+              onOpenLink={goes.onOpenLink}
+              {...(markedOf(reading) === undefined
+                ? {}
+                : {
+                    marked: markedOf(reading)!,
+                  })}
             />
-          ) : null}
-          <JobReviewSheet
-            parts={reviewParts}
-            waiting={reviewAll}
-            open={sheetOpen}
-            onClose={() => setReviewSheetFor(undefined)}
-          />
-          <ClashFileSheet session={session} draft={draft} />
-          <SketchSheet
-            open={padOpen}
-            onClose={() => setPadOpen(false)}
-            onAttach={(sketch) => {
-              setDrawn((was) => [
-                ...was,
-                sketch,
-              ]);
-              setPadOpen(false);
-            }}
-          />
-        </ProseTerminal.Provider>
-      </SessionRefs>
-    </TeachHereContext.Provider>
+            {reading?.kind === "media" ? (
+              <MediaOverlay
+                draft={draft}
+                sessionId={session.id}
+                path={reading.id}
+                onClose={() => setReading(undefined)}
+              />
+            ) : null}
+            <JobReviewSheet
+              parts={reviewParts}
+              waiting={reviewAll}
+              open={sheetOpen}
+              onClose={() => setReviewSheetFor(undefined)}
+            />
+            <ClashFileSheet session={session} draft={draft} />
+            <SketchSheet
+              open={padOpen}
+              onClose={() => setPadOpen(false)}
+              onAttach={(sketch) => {
+                setDrawn((was) => [
+                  ...was,
+                  sketch,
+                ]);
+                setPadOpen(false);
+              }}
+            />
+          </ProseTerminal.Provider>
+        </SessionRefs>
+      </TeachHereContext.Provider>
+    </SpaciousTake.Provider>
   );
 }
 

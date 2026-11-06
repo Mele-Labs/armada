@@ -1,6 +1,6 @@
 // A Session's head on one row: the state mark with the address in its tooltip, a one-line title, the More menu holding Retro and End
 // session, and the context as a tank. The tank at 5%, climbing to 84% where its tone
-// turns, a second Session at 72%, and the composer's Model select reading "Opus 5.5". At 1512 by 949 with a Job
+// turns, a second Session at 72%, and the composer's model reading "Opus 5.5". At 1512 by 949 with a Job
 // open, its Blueprint and Field beside it. Over the `session-head` scenario.
 
 import { button, inside, place, region, role, walk } from "../walk";
@@ -54,9 +54,7 @@ const sessionHead = walk(
       say: "The state mark stands first",
     },
     {
-      look: role("combobox", "Model", {
-        exact: true,
-      }),
+      look: button(/^Model Opus 5\.5/),
       say: "The model is the composer's, read in full",
     },
     {

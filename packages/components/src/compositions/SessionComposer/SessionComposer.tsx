@@ -30,6 +30,9 @@ import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { isPressed } from "../../keymap";
 import { modelSaid } from "../SessionFrame/model-said";
+import { SpaciousTake } from "../SessionThread/spacious-take";
+import { AttachmentTray } from "./AttachmentTray";
+import { TunePicker } from "./TunePicker";
 import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
 import { QuickBar, quickLines } from "./QuickBar";
@@ -566,6 +569,7 @@ export function SessionComposer({
 }: SessionComposerProps) {
   // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
   const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
+  const spacious = useContext(SpaciousTake);
   const resolvedSaidFor = (alias: string | undefined): string | undefined =>
     resolvedSaid !== undefined &&
     alias !== undefined &&
@@ -1266,6 +1270,14 @@ export function SessionComposer({
         />
       )}
       <div className="armada-session-composer__field">
+        {spacious && held && !bare ? (
+          <AttachmentTray
+            files={files}
+            drawn={drawn}
+            onRemoveFile={(id) => setFiles((was) => was.filter((f) => f.id !== id))}
+            onRemoveDrawn={onRemoveDrawn}
+          />
+        ) : null}
         <div
           ref={editor}
           role="textbox"
@@ -1282,7 +1294,9 @@ export function SessionComposer({
           onPaste={onPaste}
         />
       </div>
-      {compact && held ? <div className="armada-session-composer__held">{chips}</div> : null}
+      {compact && held && !spacious ? (
+        <div className="armada-session-composer__held">{chips}</div>
+      ) : null}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick
@@ -1306,7 +1320,27 @@ export function SessionComposer({
         )}
         {textOnly ? null : (
           <>
-            {attachOnly ? null : (
+            {attachOnly ? null : spacious ? (
+              <TunePicker
+                model={model}
+                effort={effort}
+                models={models}
+                efforts={efforts}
+                said={(one) =>
+                  one === null
+                    ? (resolvedSaidFor(model === null ? defaultModel : undefined) ??
+                      defaultModel ??
+                      "Default")
+                    : (resolvedSaidFor(model === one ? one : undefined) ?? one)
+                }
+                onTune={onTune}
+                {...(proposed === undefined
+                  ? {}
+                  : {
+                      proposed,
+                    })}
+              />
+            ) : (
               <>
                 <Pick
                   Glyph={Cpu}
@@ -1406,7 +1440,11 @@ export function SessionComposer({
             )}
           </>
         )}
-        {bare || (compact && held) ? null : chips}
+        {bare || (compact && held) ? null : spacious ? (
+          <span className="armada-session-composer__gap" aria-hidden />
+        ) : (
+          chips
+        )}
         {beforeSend === undefined ? null : (
           <span className="armada-session-composer__figure">{beforeSend}</span>
         )}
