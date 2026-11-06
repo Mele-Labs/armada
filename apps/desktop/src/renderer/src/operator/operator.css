@@ -289,6 +289,16 @@
   padding: var(--space-2) var(--space-3) var(--space-3);
 }
 
+/* Off: one row with the switch, and what it would answer drawn quiet below. */
+.armada-operator__off {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+}
+
+.armada-operator__talk-pane[data-off] .armada-operator__conversation {
+  opacity: 0.5;
+}
+
 .armada-operator__conversation {
   display: flex;
   flex: 1 1 0;

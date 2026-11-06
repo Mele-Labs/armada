@@ -11,6 +11,7 @@ import {
   Input,
   SessionComposer,
   SplitButton,
+  Switch,
   Tooltip,
   YourMessage,
   type ComposerMode,
@@ -1213,8 +1214,26 @@ function Talk({ store }: { store: OperatorStore }) {
   const [padOpen, setPadOpen] = useState(false);
   const item = state.raises?.find((one) => one.id === state.open);
   const messages = state.messages;
+  const off = !state.on;
   return (
-    <div className="armada-operator__talk-pane">
+    <div className="armada-operator__talk-pane" data-off={off || undefined}>
+      {off ? (
+        <div className="armada-operator__off">
+          <Switch
+            size="sm"
+            checked={false}
+            description="On, it answers here. What it may do to your Jobs is set under Permissions"
+            onChange={() =>
+              act({
+                kind: "on",
+                on: true,
+              })
+            }
+          >
+            Operator
+          </Switch>
+        </div>
+      ) : null}
       {item === undefined ? null : <ItemCard store={store} raise={item} />}
       <div className="armada-operator__conversation">
         {messages.length === 0 ? (
@@ -1296,6 +1315,7 @@ function Talk({ store }: { store: OperatorStore }) {
       <SessionComposer
         key={item?.id ?? "general"}
         label="Message to the Operator"
+        disabled={off}
         working={false}
         mode={mode}
         onMode={setMode}

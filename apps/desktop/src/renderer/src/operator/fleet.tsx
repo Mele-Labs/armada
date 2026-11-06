@@ -135,16 +135,15 @@ const positionOf = (value: unknown): OperatorPosition =>
 
 /** A refusal in words, for Discussion. */
 function refusedSaid(outcome: Outcome): string {
-  const code = (
-    outcome as {
-      code?: string;
-    }
-  ).code;
-  if (code === "fleet.operator_off") return "I'm switched off. Switch me on under Settings.";
+  if (outcome.ok) return "";
+  if (outcome.why === "not_connected") return "Fleet is not connected.";
+  if (outcome.why !== "refused") return "Fleet did not answer.";
+  const { code, message } = outcome.error;
+  if (code === "fleet.operator_off")
+    return "I'm switched off, so I can't answer. Switch me on in the Permissions tab.";
   if (code === "fleet.operator_ceiling") return "I've used today's calls.";
   if (code === "fleet.operator_said_nothing") return "I had nothing to say to that.";
-  if (outcome.ok === false && outcome.why === "not_connected") return "Fleet is not connected.";
-  return "That did not reach me.";
+  return message;
 }
 
 type Kept = {
@@ -258,7 +257,8 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       ...kept.said,
     ].sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
     return {
-      on: board?.on ?? switched === true,
+      // The setting, since Fleet publishes no board change when the switch moves.
+      on: typeof switched === "boolean" ? switched : (board?.on ?? false),
       positions: {
         dispatch: positionOf(dispatch),
         delegate: positionOf(delegate),
