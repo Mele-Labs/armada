@@ -1,5 +1,5 @@
 // While subagents run, one card at the thread's foot holds the one live mark: folded to how many run, opened to each one's
-// type, task, last call and time. The rows above keep a still mark, and no Thinking line stands under them. Over the
+// status, task, last call and time. The rows above keep a still mark, and no Thinking line stands under them. Over the
 // `thread-states` scenario.
 
 import { deckRow, inside, region, role, walk } from "../walk";
@@ -22,12 +22,16 @@ const subagentsCard = walk("thread-states", [
     say: "Opened, it lists the three running",
   },
   {
-    look: inside(card, role("button", "Subagent Swap the settings pages' raw colours for tokens")),
-    say: "Each with its type, task, last call and time. A press opens its own thread",
+    look: inside(card, role("list")),
+    say: "Each with its status, task, last call and time. A press opens its own thread",
   },
   {
     press: head,
     say: "Folded again",
+  },
+  {
+    look: inside(thread, role("button", /^Subagent Audit the Cockpit for raw colours/)),
+    say: "Its row in the thread: the status mark, the task, its time and its last call, quieter",
   },
 ]);
 

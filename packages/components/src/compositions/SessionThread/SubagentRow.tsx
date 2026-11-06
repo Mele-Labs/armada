@@ -26,6 +26,12 @@ const MARK: Record<
   },
 };
 
+/** What its status mark says on hover: the state, and the kind of subagent where the call named one. The mark is what says it is a subagent. */
+export function saidOf(subagent: ToolSubagent): string {
+  const said = `Subagent ${MARK[subagent.state].said.toLowerCase()}`;
+  return subagent.agent_type === undefined ? said : `${said} · ${subagent.agent_type}`;
+}
+
 /** How long it ran: to now while it runs, to `ended` once settled, and nothing where either end will not parse. */
 function ranFor(subagent: ToolSubagent, now: number): string | undefined {
   const from = Date.parse(subagent.since);
@@ -57,11 +63,7 @@ export function SubagentRow({
   const body = (
     <>
       <span className="armada-session-subagent__head">
-        <StepActivityMark activity={mark.activity} label={mark.said} says={mark.said} />
-        <span className="armada-session-subagent__eyebrow">Subagent</span>
-        {subagent.agent_type === undefined ? null : (
-          <code className="armada-session-subagent__type">{subagent.agent_type}</code>
-        )}
+        <StepActivityMark activity={mark.activity} label={mark.said} says={saidOf(subagent)} />
         <span className="armada-session-subagent__task">{subagent.task}</span>
         {ran === undefined ? null : <span className="armada-session-subagent__ran">{ran}</span>}
         {onOpen === undefined ? null : (
@@ -74,7 +76,7 @@ export function SubagentRow({
         )}
       </span>
       {subagent.latest === undefined ? null : (
-        <code className="armada-session-subagent__latest">{subagent.latest}</code>
+        <span className="armada-session-subagent__latest">{subagent.latest}</span>
       )}
     </>
   );

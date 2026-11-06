@@ -73,13 +73,16 @@
   border-top: var(--border-width) solid color-mix(in srgb, var(--fg-default) 5%, transparent);
 }
 
+/* Its status mark in the head mark's column, the task and its last call beside it. */
 .armada-subagents__row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+  align-items: center;
   width: 100%;
   min-width: 0;
-  padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 14px + var(--space-2));
+  padding: var(--space-2) var(--space-3);
   border: 0;
   background: transparent;
   color: var(--fg-default);
@@ -102,14 +105,6 @@ button.armada-subagents__row:hover {
   min-width: 0;
 }
 
-.armada-subagents__type {
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-}
-
 .armada-subagents__task {
   flex: 1;
   min-width: 0;
@@ -122,20 +117,19 @@ button.armada-subagents__row:hover {
 
 .armada-subagents__ran {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   font-variant-numeric: tabular-nums;
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
 }
 
 .armada-subagents__latest {
+  grid-column: 2;
   min-width: 0;
   overflow: hidden;
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

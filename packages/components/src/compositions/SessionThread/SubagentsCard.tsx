@@ -5,6 +5,8 @@ import type { ToolSubagent } from "@armada/protocol";
 import { useNowWhile } from "../../clock";
 import { WorkingMark } from "../../primitives/WorkingMark/WorkingMark";
 import { elapsedWords } from "../SessionRetroRow/SessionRetroRow";
+import { StepActivityMark } from "../StepActivityMark/StepActivityMark";
+import { saidOf } from "./SubagentRow";
 import { SessionStop } from "./SessionStop";
 
 /** How long one has run, or nothing where its start will not parse. */
@@ -15,7 +17,7 @@ function ranFor(subagent: ToolSubagent, now: number): string | undefined {
 
 /**
  * The subagents still running, held at the foot of the thread while any is: the one live mark, folded to how many there are,
- * opened to each one's type, task, last call and time. A press on one opens its own thread. Gone once the last returns.
+ * opened to each one's status, task, last call and time. A press on one opens its own thread. Gone once the last returns.
  */
 export function SubagentsCard({
   running,
@@ -56,15 +58,13 @@ export function SubagentsCard({
             const ran = ranFor(one, now);
             const body = (
               <>
+                <StepActivityMark activity="running" label="Running" says={saidOf(one)} />
                 <span className="armada-subagents__line">
-                  {one.agent_type === undefined ? null : (
-                    <code className="armada-subagents__type">{one.agent_type}</code>
-                  )}
                   <span className="armada-subagents__task">{one.task}</span>
                   {ran === undefined ? null : <span className="armada-subagents__ran">{ran}</span>}
                 </span>
                 {one.latest === undefined ? null : (
-                  <code className="armada-subagents__latest">{one.latest}</code>
+                  <span className="armada-subagents__latest">{one.latest}</span>
                 )}
               </>
             );
