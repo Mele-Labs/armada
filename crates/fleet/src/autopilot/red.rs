@@ -95,7 +95,7 @@ where
             return None;
         }
         let facts = self.with_the_log(served, main, brief_of(main)).await;
-        let said = format!("Main went red at {}. {by} has claimed the red for you. Fix it.\n\n{facts}", short(main.red_commit()));
+        let said = format!("Main went red at {}.\n\n{facts}", short(main.red_commit()));
         let voice = SessionVoice::Session { id: by.to_lowercase(), title: by.to_string() };
         if self.first_message_from(&job, voice, &said).await.is_err() {
             self.release_red(main).await;
@@ -130,7 +130,7 @@ where
             return;
         }
         let facts = self.with_the_log(&served, &main, brief_of(&main)).await;
-        let said = format!("Main went red at {}. The Operator has claimed the red for you, as your work is near it. Fix it.\n\n{facts}", short(main.red_commit()));
+        let said = format!("Main went red at {}.\n\n{facts}", short(main.red_commit()));
         if !matches!(self.told_by_fleet(job, &said, Notice::Operator).await, Ok(true)) {
             self.release_red(&main).await;
             return;
