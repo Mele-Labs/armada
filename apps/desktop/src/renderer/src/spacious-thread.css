@@ -24,7 +24,7 @@
   --body-pad: 0 0 var(--space-3);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .sv-bands,
+/* Needs you's bands stand on the dock, its own width (`session-view.css`), so they take the column from it. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .sv-dock {
   width: calc(100% - var(--spacious-gutter) * 2);
   max-width: var(--spacious-outer);
@@ -38,6 +38,11 @@
   /* The thread scrolls one way. A card that reaches past the padding is clipped, never a sideways scrollbar under the words. */
   overflow-x: hidden;
   padding: var(--space-4) calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
+}
+
+/* The thread's cards reach the bleed past the words, as his bubble does, so their edges are the box's and Needs you's. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows :is(.armada-session-sketch, .armada-session-end, .armada-session-thread__ask) {
+  margin-inline: calc(var(--spacious-bleed) * -1);
 }
 
 /* A thin thumb with no track, there only while the pointer is over the thread. */
