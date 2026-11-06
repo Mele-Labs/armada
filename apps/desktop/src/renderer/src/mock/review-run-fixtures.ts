@@ -111,6 +111,29 @@ export function accountResult(account: Account | undefined): ReviewResult {
   }
 }
 
+/** Where a seed's finding sits: its own place, the lines its words name in the change's first hunk, or that hunk's first added line. */
+function placeOfSeed(change: Change | undefined, seed: FindingSeed): ReviewPlace {
+  if (seed.place !== undefined) return seed.place;
+  const hunk = firstHunk(change);
+  if (seed.match === undefined) return placeOfFirst(hunk);
+  const lineOf = (words: string) => {
+    const place = placeOfLine(
+      hunk.lines,
+      hunk.lines.findIndex((one) => one.text.includes(words)),
+    );
+    if (place === undefined) throw new Error(`${seed.change} has no line holding “${words}”`);
+    return place;
+  };
+  const from = lineOf(seed.match);
+  const to = seed.through === undefined ? from : lineOf(seed.through);
+  return {
+    path: hunk.path,
+    side: from.side,
+    start: from.line,
+    end: to.line,
+  };
+}
+
 export function findingsResult(pr: MockPr, seeds: readonly FindingSeed[]): ReviewResult {
   const changes = pr.explanation.themes.flatMap((theme) => theme.changes);
   return {
@@ -119,7 +142,10 @@ export function findingsResult(pr: MockPr, seeds: readonly FindingSeed[]): Revie
       title: one.title,
       body: one.body,
       severity: one.severity ?? "medium",
-      at: placeOfFirst(firstHunk(changes.find((change) => change.id === one.change))),
+      at: placeOfSeed(
+        changes.find((change) => change.id === one.change),
+        one,
+      ),
     })),
   };
 }

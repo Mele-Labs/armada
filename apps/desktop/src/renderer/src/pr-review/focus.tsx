@@ -329,7 +329,14 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
   };
   const onLine = {
     label: "Comment on this line. Shift picks the lines to here",
-    name: (_: DiffFile, index: number) => `Comment on ${lines[index]?.text.trim() ?? "this line"}`,
+    // Named by its number and what it says, without git's marker, so a screen reader and a walk can tell one line from another.
+    name: (_: DiffFile, index: number) => {
+      const at = placeOfLine(lines, index);
+      const words = lines[index]?.text.slice(1).trim() ?? "";
+      const which =
+        at === undefined ? "this line" : `${at.side === "left" ? "old line" : "line"} ${at.line}`;
+      return words === "" ? `Comment on ${which}` : `Comment on ${which}: ${words}`;
+    },
     press: (
       _: DiffFile,
       index: number,
@@ -597,13 +604,13 @@ function FocusCard({
             <p className="pr-focus__away">{`Line ${finding.at.start} is not in the diff.`}</p>
           ) : null}
           <div className="pr-focus__marks" role="group" aria-label={`Mark ${finding.title}`}>
-            {MARKS.map((one) => (
+            {/* A line the diff does not hold takes no comment, so it has no Comment; the other two keep their columns. */}
+            {MARKS.filter((one) => !(one.mark === "commented" && away)).map((one) => (
               <Button
                 key={one.mark}
                 variant="ghost"
                 size="sm"
                 aria-pressed={mark === one.mark}
-                disabled={one.mark === "commented" && away}
                 onClick={() => {
                   if (mark === one.mark) return focus.mark(pr.key, finding.id, undefined);
                   if (one.mark === "commented") return onComment();

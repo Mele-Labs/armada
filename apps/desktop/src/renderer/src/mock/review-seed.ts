@@ -1,7 +1,13 @@
 // What the mock forge for the Reviews tab is seeded with. **These are fixtures, not what the store holds**: `review-forge.ts` serves
 // them as the wire does (a list, a page, runs, tools), and the store meets only the wire.
 
-import type { RememberedPlace, ReviewRequest, ReviewSeverity, WalkStep } from "@armada/protocol";
+import type {
+  RememberedPlace,
+  ReviewPlace,
+  ReviewRequest,
+  ReviewSeverity,
+  WalkStep,
+} from "@armada/protocol";
 
 import type { Account, Explanation, ReviewPr, ThreadComment, ToolDef } from "../pr-review/model";
 import type { MockResponse } from "./review-walk-runner";
@@ -49,12 +55,19 @@ export type AnswerSeed = {
   body: string;
 };
 
-/** What a tool finds, by change. Placed at the change's first hunk when the tool is run. */
+/**
+ * What a tool finds, by change. Placed at the change's first hunk when the tool is run: on its first added line, or on the line
+ * holding `match` through the one holding `through`. `place` puts it on a line the diff does not hold, as a finding about the
+ * code around a change can be.
+ */
 export type FindingSeed = {
   change: string;
   title: string;
   body: string;
   severity?: ReviewSeverity;
+  match?: string;
+  through?: string;
+  place?: ReviewPlace;
 };
 
 /**

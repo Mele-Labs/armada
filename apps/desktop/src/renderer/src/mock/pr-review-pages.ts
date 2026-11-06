@@ -24,11 +24,11 @@ import {
   type SeedThread,
 } from "./review-seed";
 
-const FORGE = "https://forge.example/mele-labs";
-const minutesAgo = (minutes: number): string =>
+export const FORGE = "https://forge.example/mele-labs";
+export const minutesAgo = (minutes: number): string =>
   new Date(Date.now() - minutes * 60_000).toISOString();
 
-const checks = (
+export const checks = (
   repository: string,
   number: number,
   rows: readonly (readonly [
@@ -52,7 +52,7 @@ const checks = (
         }),
   }));
 
-const commits = (
+export const commits = (
   rows: readonly (readonly [
     string,
     string,
@@ -93,7 +93,7 @@ function hunkOf([path, patch]: HunkIn): Hunk {
   };
 }
 
-type Spec = {
+export type Spec = {
   repository: string;
   manifestId: string;
   number: number;
@@ -139,7 +139,7 @@ type Spec = {
   results?: Readonly<Record<string, readonly FindingSeed[]>>;
 };
 
-function build(spec: Spec): {
+export function build(spec: Spec): {
   pr: MockPr;
   results: Readonly<Record<string, readonly FindingSeed[]>>;
 } {
