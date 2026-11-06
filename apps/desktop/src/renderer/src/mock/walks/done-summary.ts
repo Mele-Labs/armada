@@ -1,6 +1,6 @@
-// The Nothing left to do panel opens with a plain summary of what the Job delivered, above the eleven pull requests it made. Over the `session-all-done` scenario.
+// The Nothing left to do card opens with a plain summary of what the Job delivered, above the eleven pull requests it made. Over the `session-all-done` scenario.
 
-import { button, inside, region, walk } from "../walk";
+import { button, inside, region, text, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const panel = region("Nothing left to do");
@@ -17,7 +17,7 @@ const doneSummary = walk("session-all-done", [
     say: "A Job that said it is done, after eleven pull requests",
   },
   {
-    look: inside(panel, button("Nothing left to do")),
+    look: inside(panel, text(/^Tests that read the clock now read one pinned clock/)),
     say: "The summary stands first, then the pull requests, which scroll",
   },
   {

@@ -125,7 +125,7 @@ import { DraftRow } from "./DraftRow";
 import { ThreadKbd, useThreadCard } from "./thread-keys";
 import type { DraftAnswer } from "./DraftRow";
 export type { DraftAnswer } from "./DraftRow";
-import { callsLine } from "./calls-line";
+import { callLine, callsLine } from "./calls-line";
 import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
@@ -1258,12 +1258,7 @@ function Calls({
                   {/* A run says its whole command; the line cuts it where the column ends. */}
                   {one.text.startsWith("Bash ")
                     ? `${now ? "Running" : "Ran"} ${one.text.slice("Bash ".length)}`
-                    : callsLine(
-                        [
-                          one,
-                        ],
-                        now,
-                      )}
+                    : callLine(one, now)}
                 </span>
                 {now && onStop !== undefined ? <SessionStop onStop={onStop} /> : null}
               </li>

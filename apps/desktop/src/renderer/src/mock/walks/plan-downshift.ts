@@ -11,7 +11,25 @@ import { toSessions } from "../sessions/walk-kit";
 const weekly = role("button", /Weekly limit \d+%$/);
 const card = inside(dialog("Plan limits"), region("Weekly limit"));
 const bell = (words: string) => inside(weekly, role("img", words));
-const following = (model: string) => role("option", `${model} · default`);
+/** The picker opened on the row the Job follows while it names no model, read, and put away. */
+const following = (model: string, say: string): Step[] => {
+  const row = role("radio", `Default, ${model}`);
+  return [
+    {
+      press: button(/^Model /),
+      say: "The model picker, which closes the card",
+    },
+    {
+      look: row,
+      say,
+    },
+    {
+      key: "Escape",
+      on: row,
+      say: "Esc puts it away",
+    },
+  ];
+};
 
 /** To the Session whose model list shows the default, and past 80%. */
 const crossing: Step[] = [
@@ -25,10 +43,7 @@ const crossing: Step[] = [
     ),
     say: "A Job with no model chosen",
   },
-  {
-    look: following("opus"),
-    say: "Its model list shows the default",
-  },
+  ...following("opus", "Its model list shows the default"),
   {
     look: weekly,
     say: "The weekly limit at 75%: nothing offered",
@@ -69,15 +84,7 @@ const planDownshift = walk("plan-downshift", [
     look: inside(card, text("sonnet until")),
     say: "The card states it, to the window's reset",
   },
-  {
-    look: following("sonnet"),
-    say: "The Job's model list follows",
-  },
-  {
-    key: "Escape",
-    on: weekly,
-    say: "Esc closes the card",
-  },
+  ...following("sonnet", "The Job's model list follows"),
   {
     later: weekly,
     say: "The window resets",
@@ -102,10 +109,7 @@ const planDownshift = walk("plan-downshift", [
     press: inside(card, button("Back to opus")),
     say: "Back to opus",
   },
-  {
-    look: following("opus"),
-    say: "The default is opus again",
-  },
+  ...following("opus", "The default is opus again"),
 ]);
 
 const planDownshiftChoosing = walk("plan-downshift", [

@@ -140,6 +140,11 @@ function TunePanel({
               aria-checked={picked}
               tabIndex={picked ? 0 : -1}
               className="armada-tune__row"
+              {...(one === null
+                ? {
+                    "aria-label": `Default, ${said(null)}`,
+                  }
+                : {})}
               onClick={() =>
                 onTune({
                   model: one,

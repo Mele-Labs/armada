@@ -202,3 +202,29 @@ export const SlotStaysACard: Story = {
     await expect(leased).not.toHaveTextContent("Leased slot 3");
   },
 };
+
+/** While the agent works, its calls stand one to a line; a tool with no verb of its own says its whole call. */
+export const LiveCallSaysItsWhole: Story = {
+  decorators: take,
+  args: {
+    working: true,
+    rows: [
+      {
+        id: "t1",
+        at: "14:02:09",
+        kind: "tool",
+        text: "git init my-app",
+      },
+      {
+        id: "t2",
+        at: "14:02:11",
+        kind: "tool",
+        text: "Read crates/store/tests/flaky.rs",
+      },
+    ],
+  },
+  play: async ({ canvas }) => {
+    await expect(canvas.getByText("git init my-app")).toBeVisible();
+    await expect(canvas.getByText("Reading flaky.rs")).toBeVisible();
+  },
+};
