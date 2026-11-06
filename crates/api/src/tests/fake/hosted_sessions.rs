@@ -90,6 +90,18 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn move_on_operator_board(self: Arc<Self>, _moved: ipc::operator_board::MoveOnOperatorBoard) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn answer_operator_suggestion(self: Arc<Self>, _answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn confirm_operator_order(self: Arc<Self>, _confirm: ipc::operator_talk::ConfirmOperatorOrder) -> Result<ipc::operator_talk::OperatorOrders, Refusal> {
         Err(nothing_hosted())
     }

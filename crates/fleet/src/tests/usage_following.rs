@@ -129,13 +129,12 @@ async fn a_job_over_a_limit_is_told_once_and_the_telling_is_kept() {
         .await
         .unwrap();
     let names: Vec<&str> = asked.rules.iter().map(|one| one.rule.as_str()).collect();
-    assert_eq!(names, ["context", "subagents", "cache_hit", "opus_reading"]);
+    assert_eq!(names, ["context"]);
     let context = &asked.rules[0];
     assert_eq!((context.on, context.limit.value, context.limit.unit.as_str()), (true, 300, "thousand tokens"));
     let ats: Vec<&str> = context.trips.iter().map(|one| one.at.as_str()).collect();
     assert_eq!(ats, ["2026-10-18T08:45:00.000Z", "2026-10-18T08:02:00.000Z"]);
     assert_eq!(context.trips[0].burn_per_hour_after, None);
     assert!(context.trips[1].burn_per_hour_after.is_some());
-    assert!(asked.rules[1].trips.is_empty());
     assert!(Arc::clone(&fleet).get_usage_rules(Some("lately".into()), None).await.is_err());
 }

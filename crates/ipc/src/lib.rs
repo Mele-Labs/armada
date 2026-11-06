@@ -137,6 +137,8 @@ pub mod time_format;
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
 pub mod operator_positions;
+/// The Operator's board: what it is ruling on, what waits for it and what it settled. `crates/ipc/operations/get_operator_board.toml`.
+pub mod operator_board;
 /// The box at the foot of the Operator panel, and the standing orders it turns words into. `crates/ipc/operations/talk_to_operator.toml`.
 pub mod operator_talk;
 /// The workflows switched off, for the machine and for one repository. `crates/config/settings.toml`, *Workflows switched off*.
@@ -337,11 +339,11 @@ pub use job_copy::{
 };
 pub use workflow_changes::{
     AskWorkflowChange, ArmadaProposed, ChangeOrigin, ChangeState, ChangeStep, ProposeNewWorkflow, ProposeToArmada,
-    SendBackWorkflowChange, SuggestWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
+    SendBackWorkflowChange, WorkflowChange, WorkflowChangeApproved, WorkflowChangeRef, WorkflowChanges,
     WorkflowSupportBuilding,
 };
 pub use workflow_page::{
-    MarkNotADrift, NotADriftMarked, StepNudge, StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
+    StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
 };
 pub use drift::{
     Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed,
@@ -642,7 +644,7 @@ pub use sessions::{
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,

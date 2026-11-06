@@ -29,6 +29,7 @@ pub(super) fn a_record() -> SessionRecord {
         mod_out_of_date: false,
         mod_version: None,
         tools_missing: None,
+        running: Vec::new(),
         waiting_for: Vec::new(),
         done_since: None,
         done_summary: None,

@@ -81,21 +81,13 @@ Bridge draws it with the done check and a faint mark for no edit seen, tooltip `
 `failed` is not set by anything Fleet observes yet.
 An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
-**Fleet marks a task itself where it has proof, and tells the agent once** (owner, 27 Oct 2026; `.claude/decisions/2026-10-27-fleet-keeps-the-task-list-honest.md`).
-An audit of 70 Jobs found the agents' marks could not be trusted: half the finished tasks were never in progress, and a median of 44 calls went by with no task update.
-The proof is a commit whose first line says a task not yet completed (matched as a list item is), or an edit under a group's own paths while nothing is in progress, which puts that group's first open task in progress.
-A mark Fleet set carries its proof as `marked` (`commit 1a2b3c4 names it`, `edits in <path>`), and Bridge draws the same mark with the proof in its tooltip.
+**Fleet marks a task itself on one proof, and says nothing to the agent** (owner, 27 Oct 2026; narrowed 5 Nov 2026).
+The proof is a commit whose first line says a task not yet completed (matched as a list item is): that task is completed.
+The mark carries its proof as `marked` (`commit 1a2b3c4 names it`), and Bridge draws it with the proof in its tooltip.
 **Fleet's mark stands until the agent's list changes that task**: a list that still says what it said before leaves it, and one that moves it takes its place.
 A task in progress or completed carries `changed_at`, when it was put there by either.
-
-**A task in progress can be `stale`**, with `why` and `since`, the last time its mark moved or an edit landed under its own group's paths.
-In order: a newer task in progress leads and the older one is stale, unless a subagent edited the older one's group since it started, as two at work side by side do; edits landed in another group's files that has nothing in progress, where the task's own group names paths; or 40 of the agent's own calls went by without a touch.
-Stale is never done, and the state stays `working`.
-The calls are counted per plan and kept with it: a hosted Job's from its process, a terminal Job's from its mod (the `calls` fact, ten at a time, since mod 0.3.46), and a subagent's not at all.
-
-**Each task is told once**, marked or stale, in one `task_marked` notice listing every task not told yet, asking the agent to bring its list into line or change the task if Fleet has it wrong.
-A hosted Job hears it at its next tool call; a terminal Job's mod is handed it.
-A merge marks no task: which tasks a pull request finished is a guess.
+Fleet marks no task from edits, from calls, or from the order tasks start, and flags none as stale: those were guesses.
+A merge marks no task either: which tasks a pull request finished is a guess.
 
 **A Judge's reading of the plan rides with it.** The owner presses the Judge on a plan waiting for approval, and it comes back as notes pinned to the group or task each is about, with the plan's own task matcher doing the pinning.
 It advises and gates nothing, and recording the plan again marks it out of date rather than dropping it.

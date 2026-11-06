@@ -17,7 +17,6 @@ import {
 } from "@armada/components";
 import type {
   AgentState,
-  DriftedJob,
   ManagedStep,
   ManagedWorkflow,
   StepsChange,
@@ -36,7 +35,6 @@ import {
   buildWorkflowSupport,
   deleteWorkflowCopy,
   dismissWorkflowChange,
-  markNotADrift,
   proposeWorkflowToArmada,
   readWorkflowChanges,
   readWorkflowDefinition,
@@ -45,7 +43,6 @@ import {
   resetWorkflowCopy,
   saveWorkflow,
   sendBackWorkflowChange,
-  suggestWorkflowChange,
 } from "./commands";
 import { useDispatching } from "./dispatch-panel/dispatching";
 import { IssueJobCard } from "./issues-tab/marks";
@@ -63,13 +60,10 @@ import {
   agentOf,
   armadaOf,
   askedChange,
-  changeAt,
-  driftOf,
   listedOf,
   runOrderOf,
   runningIn,
   stepOf,
-  suggestionsOf,
 } from "./workflow-manager-wire";
 import type { Listed } from "./workflow-manager-wire";
 
@@ -91,10 +85,9 @@ const RULING_MS = 1200;
 /** The calls the lanes make for the lifecycles and rules Fleet keeps. */
 const piecesApi = (): PiecesApi => window.armada;
 
-/** What was read of one copy: its steps, the Jobs Fleet nudged at them, and the line it says it is for. */
+/** What was read of one copy: its steps and the line it says it is for. */
 type Read = {
   steps: readonly ManagedStep[];
-  drift: Readonly<Record<string, readonly DriftedJob[]>>;
   forRequests: string;
 };
 
@@ -321,7 +314,6 @@ function Held({
       ...all,
       [keyOf(one)]: {
         steps: steps.steps.steps.map(stepOf),
-        drift: driftOf(steps.steps.steps, Date.now()),
         forRequests,
       },
     }));
@@ -432,8 +424,6 @@ function Held({
 
   const readOfPicked = picked === null ? undefined : reads[keyOf(picked)];
   const known = readOfPicked?.steps ?? [];
-  const { suggestions, suggesting } = suggestionsOf(changes, picked?.id ?? "");
-  const stepChange = (stepId: string) => changeAt(changes, stepId);
 
   /** The action on a change Fleet holds: its answer is the refusal, or nothing, and the changes are read again. */
   const onChange = async (
@@ -544,13 +534,6 @@ function Held({
       }}
       workflows={workflows}
       notice={notice ?? fleet?.notice}
-      drift={
-        picked === null
-          ? {}
-          : {
-              [picked.id]: readOfPicked?.drift ?? {},
-            }
-      }
       picked={picked}
       onPick={(one) => {
         window.clearTimeout(ruling.current);
@@ -569,14 +552,6 @@ function Held({
               ...(seeded === undefined && fleet !== undefined ? kept(fleet) : {}),
             },
           })}
-      suggestions={
-        picked === null
-          ? {}
-          : {
-              [picked.id]: suggestions,
-            }
-      }
-      suggesting={suggesting}
       actsFor={(one) => {
         // The copy's own repository: on All there is no pick to share under.
         const at = served.find((each) => each.manifestId === one.manifestId)?.root ?? root;
@@ -804,48 +779,7 @@ function Held({
           <IssueJobCard session={job} onOpen={askToOpenSessionInCockpit} />
         );
       }}
-      onNotDrift={async (one, stepId, driftId) => {
-        const marked = await markNotADrift(Number(driftId));
-        if (!marked.ok) return refusalWords(marked.outcome);
-        await load(one);
-        // A Job that is not a drift no longer counts toward a suggestion; one with nothing left under it is taken back.
-        const held = stepChange(stepId);
-        if (held?.origin.kind === "drift") {
-          const left = new Set(
-            (
-              await readWorkflowSteps(one.id, wireOf(one), manifestFor(one)).then((answer) =>
-                answer.ok
-                  ? (answer.steps.steps.find((each) => each.id === stepId)?.nudges ?? [])
-                  : [],
-              )
-            ).map((each) => each.id),
-          );
-          if (held.origin.nudges.every((each) => !left.has(each)))
-            await dismissWorkflowChange(held.id);
-        }
-        await loadChanges(one);
-        return undefined;
-      }}
-      onSuggest={async (one, stepId) => {
-        const answer = await suggestWorkflowChange({
-          manifestId: manifestFor(one),
-          body: {
-            workflow_id: one.id,
-            source: wireOf(one),
-            step_id: stepId,
-          },
-        });
-        if (!answer.ok) return refusalWords(answer.outcome);
-        await loadChanges(one);
-        return undefined;
-      }}
       onNew={dispatching === undefined ? undefined : dispatching.openWorkflow}
-      onApproveSuggestion={(one, stepId) =>
-        onChange(one, stepChange(stepId), approveWorkflowChange)
-      }
-      onDismissSuggestion={(one, stepId) =>
-        onChange(one, stepChange(stepId), dismissWorkflowChange)
-      }
     />
   );
 }

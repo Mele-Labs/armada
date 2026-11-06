@@ -4,10 +4,8 @@
 import { WorkflowManager, forgetAllKept } from "@armada/components";
 import type {
   AgentState,
-  Drift,
   ManagedStep,
   ManagedWorkflow,
-  Suggestions,
   WorkflowManagerProps,
   WorkflowRef,
 } from "@armada/components";
@@ -96,20 +94,6 @@ const WORKFLOWS: readonly ManagedWorkflow[] = [
   },
 ];
 
-const DRIFT: Drift = {
-  feature: {
-    walk: [
-      {
-        id: "7",
-        jobId: "job-7",
-        job: "Cockpit timeline rail",
-        what: "a test before the walk was approved",
-        when: "2h ago",
-      },
-    ],
-  },
-};
-
 type Acts = {
   [K in keyof WorkflowManagerProps as WorkflowManagerProps[K] extends (...args: never[]) => unknown
     ? K
@@ -137,10 +121,6 @@ function draw(
     onSendBack: vi.fn(done),
     onBuildSupport: vi.fn(async () => undefined),
     onOpenJob: vi.fn(),
-    onNotDrift: vi.fn(done),
-    onSuggest: vi.fn(done),
-    onApproveSuggestion: vi.fn(done),
-    onDismissSuggestion: vi.fn(done),
     onPick: vi.fn(),
   };
   function Page() {
@@ -149,13 +129,10 @@ function draw(
       <WorkflowManager
         repository="armada"
         workflows={WORKFLOWS}
-        drift={DRIFT}
         picked={picked}
         agent={{
           phase: "idle",
         }}
-        suggestions={{}}
-        suggesting={null}
         {...acts}
         {...over}
         onPick={(one) => {
@@ -545,192 +522,6 @@ test("Delete hands the copy to its caller", async () => {
     id: "docs_only",
     source: "yours",
   });
-});
-
-test("a Job Fleet nudged opens from its row, or by O, and Not a drift takes it by the button or by N", async () => {
-  const acts = draw();
-  await page
-    .getByRole("button", {
-      name: "Open Job",
-    })
-    .click();
-  expect(acts.onOpenJob).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "job-7",
-  );
-
-  const row = page.getByRole("group", {
-    name: "Cockpit timeline rail, a test before the walk was approved",
-  });
-  row.element().focus();
-  await userEvent.keyboard("o");
-  expect(acts.onOpenJob).toHaveBeenCalledTimes(2);
-  await userEvent.keyboard("n");
-  expect(acts.onNotDrift).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "walk",
-    "7",
-  );
-  await page
-    .getByRole("button", {
-      name: "Not a drift",
-    })
-    .click();
-  expect(acts.onNotDrift).toHaveBeenCalledTimes(2);
-});
-
-const SUGGESTED: Suggestions = {
-  feature: {
-    walk: {
-      words: "Build the mock. Write no tests yet. Wait for the walk.",
-      from: [
-        "7",
-      ],
-    },
-  },
-};
-
-test("a suggested change shows before and after; Approve and Dismiss hand it back, and so do ⌘Enter and Esc", async () => {
-  const acts = draw({
-    suggestions: SUGGESTED,
-  });
-  const card = step_("Walk").getByRole("group", {
-    name: "Suggested change",
-  });
-  await expect
-    .element(
-      card.getByRole("group", {
-        name: "Before and after",
-      }),
-    )
-    .toBeVisible();
-  await expect
-    .element(
-      step_("Walk").getByRole("img", {
-        name: "In the suggested change",
-      }),
-    )
-    .toBeVisible();
-
-  await card
-    .getByRole("button", {
-      name: "Approve",
-      exact: true,
-    })
-    .click();
-  expect(acts.onApproveSuggestion).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "walk",
-  );
-  await card
-    .getByRole("button", {
-      name: "Dismiss",
-    })
-    .click();
-  expect(acts.onDismissSuggestion).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "walk",
-  );
-
-  card.element().focus();
-  await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
-  expect(acts.onApproveSuggestion).toHaveBeenCalledTimes(2);
-  // A suggestion taken sends focus back to its step; Esc is the card's own while focus is in it.
-  card.element().focus();
-  await userEvent.keyboard("{Escape}");
-  expect(acts.onDismissSuggestion).toHaveBeenCalledTimes(2);
-});
-
-test("an Approve Fleet refused on a suggestion is said on the card", async () => {
-  draw({
-    suggestions: SUGGESTED,
-    onApproveSuggestion: vi.fn(async () => "The file changed since the draft was made"),
-  });
-  const card = step_("Walk").getByRole("group", {
-    name: "Suggested change",
-  });
-  await card
-    .getByRole("button", {
-      name: "Approve",
-      exact: true,
-    })
-    .click();
-  await expect
-    .element(card.getByRole("alert"))
-    .toHaveTextContent("The file changed since the draft was made");
-});
-
-test("a step with drift and no suggestion offers Suggest a change, and shows the agent working while one is drawn", async () => {
-  const acts = draw();
-  await page
-    .getByRole("button", {
-      name: "Suggest a change",
-    })
-    .click();
-  expect(acts.onSuggest).toHaveBeenCalledWith(
-    {
-      id: "feature",
-      source: "repository",
-    },
-    "walk",
-  );
-
-  draw({
-    suggesting: "feature/walk",
-  });
-  await expect
-    .element(
-      page.getByRole("img", {
-        name: "The agent is working",
-      }),
-    )
-    .toBeVisible();
-});
-
-test("a draft that did not fit is said with Fleet's reason, and can be dismissed", async () => {
-  const acts = draw({
-    suggestions: {
-      feature: {
-        walk: {
-          words: "",
-          from: [],
-          failed: "The drafted workflow is the same as the one it was made from",
-        },
-      },
-    },
-  });
-  const card = step_("Walk").getByRole("group", {
-    name: "Suggested change",
-  });
-  await expect
-    .element(card)
-    .toHaveTextContent("The drafted workflow is the same as the one it was made from");
-  expect(
-    card
-      .getByRole("button", {
-        name: "Approve",
-        exact: true,
-      })
-      .elements(),
-  ).toHaveLength(0);
-  await card
-    .getByRole("button", {
-      name: "Dismiss",
-    })
-    .click();
-  expect(acts.onDismissSuggestion).toHaveBeenCalledOnce();
 });
 
 test("the agent box sends what was typed by the button or ⌘Enter, and keeps it when Fleet refuses", async () => {

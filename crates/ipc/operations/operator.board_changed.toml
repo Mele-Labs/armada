@@ -1,0 +1,8 @@
+[operations."operator.board_changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The Operator's board is not what it was"
+notes = """
+Published when an arrival waits for the Operator, goes into a call, is ruled, is kept as a suggestion or settled by `answer_operator_suggestion` or a press on a Job's row, or is moved by `move_on_operator_board` or by the person's words. **It carries nothing** beyond the stream's cursor: Bridge reads `get_operator_board` again. Not published when the Operator is switched on or off.
+"""

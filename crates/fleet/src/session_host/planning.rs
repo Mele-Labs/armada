@@ -34,8 +34,7 @@ const PLAN_NONE: &str = "fleet.plan_none";
 const PLAN_STALE: &str = "fleet.plan_version_stale";
 const PLAN_MARK_REFUSED: &str = "fleet.plan_mark_refused";
 
-/// The text of the call a recorded plan makes of the person. `plan_asks.rs` reads an agent's item
-/// against it.
+/// The text of the call a recorded plan makes of the person.
 pub(crate) const PLAN_TO_APPROVE: &str = "Plan to approve";
 
 /// What the agent is told when he puts a plan away to keep talking.

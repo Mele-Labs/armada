@@ -278,6 +278,7 @@ where
         if reads.hosting.is_some() && session.state == store::SessionState::Live {
             record.activity = self.activity_of(&session.id);
             record.tools_missing = self.hosts().of(&session.id).state().tools_missing.clone();
+            record.running = self.running_of(&session.id, &reads.held);
         }
         if let Some(hosting) = &reads.hosting {
             record.workflow = hosting.workflow.clone();
@@ -318,7 +319,7 @@ where
         record.plan = reads
             .plan
             .as_ref()
-            .map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire_read(kept, &reads.touches, &reads.pulls) });
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire_read(kept, &reads.pulls) });
         if let (Some(kept), Some(activity)) = (&reads.plan, &mut record.activity) {
             crate::plan_record::mark_listed(kept, &mut activity.todos);
         }
@@ -366,7 +367,9 @@ where
             || reads.holding.iter().any(|one| one.lifecycle != TICKET_LIFECYCLE)
             || record.attachments.iter().any(open_pull_request)
             || (session.origin != "bridge" && !self.hosts().terminals().listening(&session.id))
-            || self.hosts().of(&session.id).state().moving.is_some();
+            || self.hosts().of(&session.id).state().moving.is_some()
+            // A subagent or a task still working is something running: the turn ended on it, not on nothing.
+            || !record.running.is_empty();
         let stop = session.last_turn_at.as_deref().filter(|_| !excused);
         let read = stop.map(|stop| crate::session_host::stopping::read(stop, &reads.stop, spoke.as_deref(), self.now().epoch_millis().unwrap_or(0)));
         if read == Some(crate::session_host::stopping::Read::Stopped) {

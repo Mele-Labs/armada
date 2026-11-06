@@ -39,7 +39,6 @@ fn what_the_rail_kept_by_index_follows_a_step_to_where_an_edit_put_it() {
     let after = ids(&["plan", "dispatch", "implement", "handoff"]);
     let mut kept = store::KeptRail {
         step: Some(1),
-        nudged: vec![1],
         judged: vec![0, 1],
         stalled: vec![2],
         visits: vec![(0, "a".into()), (1, "b".into())],
@@ -48,7 +47,7 @@ fn what_the_rail_kept_by_index_follows_a_step_to_where_an_edit_put_it() {
     rail_remapped(&mut kept, &before, &after);
     assert_eq!(kept.step, Some(2), "the step it stood on is the same step");
     assert_eq!(kept.skipped, [2], "and a skip stays with the step it was for");
-    assert_eq!((kept.nudged, kept.judged, kept.stalled), (vec![2], vec![0, 2], vec![3]));
+    assert_eq!((kept.judged, kept.stalled), (vec![0, 2], vec![3]));
     assert_eq!(kept.visits, [(0, "a".to_string()), (2, "b".to_string())]);
 }
 

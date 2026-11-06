@@ -133,7 +133,9 @@ where
             return;
         }
         let (arrival, ruling) = (arrival.clone(), ruling.clone());
-        self.doing(move |fleet| async move { fleet.operator_sourced(&arrival, &ruling).await });
+        self.doing(move |fleet| async move {
+            let _ = fleet.operator_sourced(&arrival, &ruling).await;
+        });
     }
 }
 
@@ -309,7 +311,7 @@ where
         text
     }
 
-    async fn title_of(&self, id: &str) -> String {
+    pub(super) async fn title_of(&self, id: &str) -> String {
         let session = self.store().lock().await.session(id).ok().flatten();
         session.and_then(|one| one.title).unwrap_or_else(|| id.to_string())
     }

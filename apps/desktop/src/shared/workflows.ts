@@ -5,10 +5,8 @@ import type {
   ArmadaProposed,
   AskWorkflowChange,
   LeftOutWorkflow,
-  NotADriftMarked,
   Outcome,
   SaveWorkflow,
-  SuggestWorkflowChange,
   WorkflowChange,
   WorkflowChangeApproved,
   WorkflowChanges,
@@ -61,7 +59,7 @@ export type SavingWorkflow = {
   body: SaveWorkflow;
 };
 
-/** `GET /workflows/steps`: one definition step by step, with the nudges that still count. */
+/** `GET /workflows/steps`: one definition step by step. */
 export type WorkflowStepsRead =
   | {
       ok: true;
@@ -89,30 +87,13 @@ export type WorkflowCopyDeleteAnswer =
       outcome: Outcome;
     };
 
-/** `POST /workflows/not_a_drift`. */
-export type NotADriftAnswer =
-  | {
-      ok: true;
-      marked: NotADriftMarked;
-    }
-  | {
-      ok: false;
-      outcome: Outcome;
-    };
-
 /** The Manifest a change is begun under, which Kit's leaves to the picked repository's, and what is asked. */
 export type AskingForWorkflowChange = {
   manifestId: string | null;
   body: AskWorkflowChange;
 };
 
-/** The Manifest a suggestion is begun under, and the step. */
-export type SuggestingWorkflowChange = {
-  manifestId: string | null;
-  body: SuggestWorkflowChange;
-};
-
-/** `POST /workflows/changes/ask`, `.../suggest`, `.../send_back` and `.../dismiss`: the change. A refusal carries Fleet's own sentence. */
+/** `POST /workflows/changes/ask`, `.../send_back` and `.../dismiss`: the change. A refusal carries Fleet's own sentence. */
 export type WorkflowChangeAnswer =
   | {
       ok: true;

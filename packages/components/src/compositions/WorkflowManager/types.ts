@@ -126,18 +126,6 @@ export const keyOf = (
   return `${one.source}${repository}:${one.id}${file === undefined ? "" : `:${file}`}`;
 };
 
-/** A Job Fleet nudged at a step. `jobId` is the Job that Open Job opens. */
-export type DriftedJob = {
-  id: string;
-  jobId: string;
-  job: string;
-  what: string;
-  when: string;
-};
-
-/** The recent nudges, by workflow id and then step id. */
-export type Drift = Readonly<Record<string, Readonly<Record<string, readonly DriftedJob[]>>>>;
-
 /**
  * An agent asked to change a workflow's shape: nothing, working, a draft that did not fit, a change waiting
  * on Approve, or a request Armada can't carry out yet. `asked` is what he typed, where a reload has lost it;
@@ -171,18 +159,8 @@ export type AgentState =
       missing: readonly string[];
     };
 
-/** New words for a step, and the nudged Jobs they were drawn from. A draft that did not fit has no words and says why. */
-export type Suggestion = {
-  words: string;
-  from: readonly string[];
-  failed?: string;
-};
-
 /** What an act answers with: nothing where it went through, or Fleet's sentence for why it did not. */
 export type WorkflowActAnswer = string | undefined;
-
-/** The suggested changes waiting on the owner, by workflow id and then step id. */
-export type Suggestions = Readonly<Record<string, Readonly<Record<string, Suggestion>>>>;
 
 /**
  * Which workflows Jobs may take. `forJobs` is the setting that turns the workflow system on or off. `machine` is the ids off on this

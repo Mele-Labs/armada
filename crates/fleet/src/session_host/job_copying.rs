@@ -109,7 +109,6 @@ pub(crate) fn rail_remapped(rail: &mut KeptRail, old: &[RailStep], new: &[RailSt
         list.sort_unstable();
         list.dedup();
     };
-    mapped(&mut rail.nudged);
     mapped(&mut rail.judged);
     mapped(&mut rail.stalled);
     mapped(&mut rail.skipped);

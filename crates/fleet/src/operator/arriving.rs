@@ -29,6 +29,8 @@ pub enum Arrived {
     Review,
     /// A Job handed a Later item over to be settled.
     Later,
+    /// A note the person left on Bridge, for a small thing or an idea.
+    Note,
 }
 
 impl Arrived {
@@ -45,11 +47,12 @@ impl Arrived {
             Arrived::RedMain => "red_main",
             Arrived::Review => "review",
             Arrived::Later => "later",
+            Arrived::Note => "note",
         }
     }
 
     /// Every kind there is.
-    pub(super) const EVERY: [Arrived; 11] = [
+    pub(super) const EVERY: [Arrived; 12] = [
         Arrived::Start,
         Arrived::Question,
         Arrived::Card,
@@ -61,6 +64,7 @@ impl Arrived {
         Arrived::RedMain,
         Arrived::Review,
         Arrived::Later,
+        Arrived::Note,
     ];
 
     /// What a word from the store names.
@@ -82,6 +86,7 @@ impl Arrived {
             Arrived::RedMain => "red mains",
             Arrived::Review => "review requests",
             Arrived::Later => "Later items",
+            Arrived::Note => "notes",
         }
     }
 
@@ -97,7 +102,7 @@ impl Arrived {
 
     /// Work from outside a Job's own run, which [`super::Acting::sourced`] does what is ruled on.
     pub fn is_sourced(self) -> bool {
-        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later)
+        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note)
     }
 
     /// Put to a call for its read even where Fleet's rules leave it one way: the person meets it
@@ -120,6 +125,7 @@ impl Arrived {
             Arrived::RedMain => "Main went red",
             Arrived::Review => "A review was requested of the person",
             Arrived::Later => "A Job handed over a Later item",
+            Arrived::Note => "The person left a note",
         }
     }
 }
@@ -277,6 +283,8 @@ pub struct LiveJob {
     pub paths: Vec<String>,
     /// The issues it holds or its plan's groups work.
     pub issues: Vec<String>,
+    /// The subagents and background tasks it has working past its turn.
+    pub running: Vec<ipc::RunningWork>,
     /// Who started it, as `(id, title)`, nearest first up to the root. Empty for a Job the person
     /// started. An ended starter is named too.
     pub started_by: Vec<(String, String)>,
@@ -304,6 +312,20 @@ impl LiveJob {
         }
         if !self.issues.is_empty() {
             out.push_str(&format!("    Its issues: {}\n", self.issues.join(", ")));
+        }
+        if !self.running.is_empty() {
+            let each: Vec<String> = self
+                .running
+                .iter()
+                .map(|one| {
+                    let kind = match one.kind {
+                        ipc::RunningKind::Subagent => "subagent",
+                        ipc::RunningKind::BackgroundTask => "background task",
+                    };
+                    format!("{kind} \"{}\"", one_line(&one.what))
+                })
+                .collect();
+            out.push_str(&format!("    Still running past its turn: {}\n", each.join(", ")));
         }
         if !self.started_by.is_empty() {
             out.push_str(&format!("    Started by: {}\n", started_by_shown(&self.started_by)));

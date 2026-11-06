@@ -10,11 +10,9 @@ import type {
   ArmadaProposed,
   AskWorkflowChange,
   LeftOutWorkflow,
-  NotADriftMarked,
   ProposeToArmada,
   SaveWorkflow,
   SendBackWorkflowChange,
-  SuggestWorkflowChange,
   WorkflowChange,
   WorkflowChangeApproved,
   WorkflowChanges,
@@ -28,7 +26,6 @@ import type {
 } from "@armada/protocol";
 
 import type {
-  NotADriftAnswer,
   WorkflowChangeAnswer,
   WorkflowChangeApproveAnswer,
   WorkflowChangesRead,
@@ -45,7 +42,7 @@ import { ask, NOT_SET_UP } from "./request";
 
 /**
  * `list_workflows`, `list_left_out_workflows`, `get_workflow` and `save_workflow`; and the Workflows
- * page's `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy` and `mark_not_a_drift`; and the
+ * page's `get_workflow_steps`, `delete_workflow_copy`, and `reset_workflow_copy`; and the
  * changes an agent drafts for him: `ask_workflow_change`, `suggest_workflow_change`, `list_workflow_changes`,
  * `approve_workflow_change`, `dismiss_workflow_change`, `send_back_workflow_change`, and
  * `propose_workflow_to_armada`.
@@ -161,7 +158,7 @@ export class WorkflowCommands {
     };
   }
 
-  /** One definition step by step: the words, what ends each step and the nudges that still count. */
+  /** One definition step by step: the words and what ends each step. */
   async steps(
     workflowId: string,
     source: string,
@@ -256,45 +253,12 @@ export class WorkflowCommands {
     };
   }
 
-  /** Mark one nudge not a drift. A nudge is the store's, so no Manifest is named. */
-  async notADrift(nudge: number): Promise<NotADriftAnswer> {
-    const port = this.port();
-    if (port === null)
-      return {
-        ok: false,
-        outcome: {
-          ok: false,
-          why: "not_connected",
-        },
-      };
-    const answer = await ask(port, "POST", "/workflows/not_a_drift", {
-      nudge,
-    });
-    if (answer.ok !== true)
-      return {
-        ok: false,
-        outcome: answer.outcome,
-      };
-    return {
-      ok: true,
-      marked: answer.body as NotADriftMarked,
-    };
-  }
-
   /** Ask an agent to rewrite a copy as he words it. Answers the change drafting; nothing is saved. */
   async askChange(
     manifestId: string | null,
     body: AskWorkflowChange,
   ): Promise<WorkflowChangeAnswer> {
     return this.beginChange("/workflows/changes/ask", manifestId, body);
-  }
-
-  /** Ask for new words for one step now, from the nudges that count. */
-  async suggestChange(
-    manifestId: string | null,
-    body: SuggestWorkflowChange,
-  ): Promise<WorkflowChangeAnswer> {
-    return this.beginChange("/workflows/changes/suggest", manifestId, body);
   }
 
   /** The open changes to one workflow in one place: drafting, ready or failed. */

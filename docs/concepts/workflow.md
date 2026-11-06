@@ -1,7 +1,7 @@
 # Workflow
 
 **What it is:** The template a Job may follow: an ordered set of steps that sit in the agent's prompt and in the view as a soft rail, each carrying its mechanical checks, Judge checks and evidence scope.
-Fleet reads the current step off what it observed and nudges when one is skipped; nothing blocks.
+Fleet reads the current step off what it observed and tells the agent nothing of it; nothing blocks.
 
 ---
 
@@ -31,10 +31,10 @@ That document owns the call.
 
 A Job may follow one workflow, which the proposer picks at dispatch or a person sets.
 No step gates it.
-A step may carry `instructions`, the words the agent follows there, sent when the Job enters the step.
+A step may carry `instructions`, the words the workflow's page shows for it. Fleet does not send them to the agent (5 Nov 2026).
 A step with `asks_delivery: true` first asks the owner how the work is delivered, unless the first message says or the Job's Delivery, set before Start, settled it; `bug` and `feature` set it on their first step.
-At the delivering step the agent delivers by the answer it was told.
-Fleet reads the Job's current step off what it observed and nudges the agent about a step skipped, and a step with `judge_checks` has step judges, which are advisory and never block.
+At the delivering step the agent delivers by the answer it was given.
+Fleet reads the Job's current step off what it observed, and a step with `judge_checks` has step judges, which are advisory and never block.
 [The rail](session/the-rail.md) owns how a step is placed; [Judge](judge.md), *Step judges*, owns them.
 **An owner can switch the workflow system off** (`features.workflows`), and every Job is then a plain one.
 **One workflow can be switched off** too, for the machine or for one repository (`workflows.off`, Settings, Workflows): it is not offered, a Job cannot be given it, and a Job already on it runs plain until it is switched back on.
@@ -137,9 +137,7 @@ The step after it is entered the moment it is passed, so a Job is never sent bac
 A `walk` names a page shown before the plan, and holds it.
 With none of the three, the walks step is passed over once the work is pushed.
 
-A test edited after the plan is approved and before an expected walk is approved draws one nudge, and nothing blocks.
-Where a workflow has a walks step, a rough mock edited before the plan is approved is no skip, but a push or a test then is.
-[The rail](session/the-rail.md) owns the nudges.
+Fleet tells the agent nothing of a test edited before an expected walk is approved, and nothing blocks.
 
 ### Skipping a step
 
@@ -147,17 +145,16 @@ Where a workflow has a walks step, a rough mock edited before the plan is approv
 Fleet then counts the step as passed, so the Job's current step moves past it.
 The step shows as skipped, and the timeline enters `skipped: <step label>`.
 
-The agent is sent one message saying the step is not wanted, so it neither does the step nor asks about it, and another when the skip is undone.
+The agent is sent one message, since a person pressed it, saying the step is not wanted, so it neither does the step nor asks about it, and another when the skip is undone.
 **The agent can skip a step of its own Job too** (`skip_session_step`); it is not sent a message about a skip it made, and the timeline says `by the Job`.
 **The delivering step cannot be skipped**; Fleet refuses it with `fleet.session_step_not_skippable`.
 
 **A person can jump to a step still to come** with Jump here on its header (`jump_session_step`, `POST /sessions/step-jump`).
 Fleet skips every step from the current one up to the one before it, in one write, and the timeline enters `jumped to: <step label>`.
-The agent is sent one message naming the step and the steps passed, and none of the per-step skip messages; the rail then sends the step's own instructions.
+The agent is sent one message naming the step and the steps passed, and none of the per-step skip messages.
 Fleet refuses a step at or before the current one with `fleet.session_step_not_ahead`, and a jump that would pass the delivering step with `fleet.session_step_not_skippable`.
 
-**This is not the skipped-step nudge.** That nudge is Fleet noticing from what it observed that the agent skipped a step on its own.
-A step the person skipped is the person's call and never draws it.
+Fleet sends nothing when the agent skips a step on its own: it tells the agent only what a person pressed.
 
 ### Changing one Job
 
@@ -272,16 +269,11 @@ The page carries none of the gate boxes, retries or passes the old editor offere
 | Go back to Armada's | Presses Reset to Armada's on a copy, which replaces the file with Armada's definition |
 | Remove a copy | Presses Delete, which removes that one file. A copy that was left out is deleted by its file, since it may declare no id Fleet can read |
 
-**Under each step are the Jobs Fleet nudged there**, each with what it did and Open Job.
-Fleet keeps a nudge against the workflow and step it was sent for ([The rail](session/the-rail.md)).
-Not a drift stops one counting and leaves it listed.
-
-**A step that drifts twice in seven days gets a suggestion without being asked.**
-An agent drafts new words for that step and nothing else.
-The step shows a card with the words before and after, and Approve and Dismiss.
-A step with drift and no suggestion has *Suggest a change*, which asks for one sooner.
+**Under each step is its words and what ends it.**
+Fleet no longer lists the Jobs that drifted at a step, and no longer drafts a suggestion from them (5 Nov 2026).
+A change to a workflow is typed under *Tell an agent what to change*, or proposed by a Job.
 Armada's own rows get none; a change to one is made in the lanes, which makes a copy, or is Make my copy or Propose to Armada.
-Approve saves the drafted definition, as it does for a typed change.
+Approve saves the drafted definition.
 
 ## What is not a workflow
 
@@ -289,6 +281,6 @@ Approve saves the drafted definition, as it does for a typed change.
 Setting up a project is configuration, and it already has a journey — Locate, Scan, Proposal, Write, Verify (see the Set Up a Project (Manifest) user journey).
 
 A workflow gives a Job steps to follow while a person is elsewhere.
-During setup you are sitting there reading the proposal and editing it, so steps and nudges make no sense for a screen you are already looking at.
+During setup you are sitting there reading the proposal and editing it, so steps make no sense for a screen you are already looking at.
 
 The Scan is agent work and could be dispatched, but that does not make the setup a workflow.

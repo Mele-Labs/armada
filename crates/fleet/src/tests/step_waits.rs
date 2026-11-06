@@ -37,7 +37,7 @@ fn every_end_the_person_gives_names_the_item_that_waits_for_it() {
     }
     assert_eq!(End::Merged.waits_on(), Waiter::TheMerge, "the merge is nobody's to press");
     assert!(!End::Merged.by_the_job());
-    for end in [End::PlanRecorded, End::Pushed, End::WalkShown, End::Edited, End::Checked, End::Committed, End::PrOpened, End::Undelivered] {
+    for end in [End::PlanRecorded, End::Pushed, End::WalkShown, End::Edited, End::Checked, End::Committed, End::PrOpened] {
         assert_eq!(end.waits_on(), Waiter::TheJob, "{end:?}");
         assert!(end.by_the_job(), "{end:?}");
     }

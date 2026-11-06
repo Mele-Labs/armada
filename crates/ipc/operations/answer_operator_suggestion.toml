@@ -1,0 +1,12 @@
+[operations.answer_operator_suggestion]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person presses Do it or Skip on what the Operator would do with something no Job holds"
+notes = """
+`POST /operator/suggestions/answer`, body `AnswerOperatorSuggestion`: `id` (a `suggestion:<n>` of the board's `suggestions`) and `choice` (0 Do it, 1 Skip). It takes no words. Answered with the `OperatorBoard`. Publishes `operator.board_changed`.
+
+**Do it** carries out what the Operator would have, as it would on the Job's own Needs you list: the Log keeps it signed by the person, whatever the role stands at, and `done` shows its outcome (`Filed: bd-12`, `Started: Fix the pane`, `Handed over: to Fix the pane`, `Linked`). **Skip** leaves it and the Log keeps a row `Skipped`. Either way the suggestion leaves `suggestions`.
+
+**404** `fleet.operator_suggestion_unknown`, with nothing done, where `id` is no suggestion or is a Job's own: those settle on the Job's list. **409** where it was settled already, so a second press does nothing. A `choice` other than 0 or 1 is refused as an answer to `answer_waiting` is.
+"""

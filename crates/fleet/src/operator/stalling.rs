@@ -33,6 +33,10 @@ pub(crate) enum Seen {
 /// turns with nothing asked, and not parked. A dead process is not one: Fleet starts a
 /// repair Job for it.
 pub(crate) fn seen_of(record: &ipc::SessionRecord, at_rest: bool) -> Option<Seen> {
+    // Work still running is not quiet: a subagent or a task may yet fix what it left.
+    if !record.running.is_empty() {
+        return None;
+    }
     if record.standing == Some(ipc::SessionStanding::Stopped) {
         let stopped = record.stopped.as_ref()?;
         return matches!(stopped.reason, ipc::StopReason::TurnEnded | ipc::StopReason::TasksOpen)

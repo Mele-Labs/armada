@@ -1,0 +1,12 @@
+[operations.move_on_operator_board]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person moves an arrival waiting for the Operator to another place in its order"
+notes = """
+`POST /operator/board/move`, body `MoveOnOperatorBoard`: `id` (an item of `next`) and `before` (another item of `next`; absent puts it last). Answered with the `OperatorBoard`. Publishes `operator.board_changed`.
+
+**Only items not yet in a call move.** The Operator's own words reach the same order: `talk_to_operator` answers `moved` where it was asked to take an item first.
+
+**404** `fleet.operator_board_item_unknown`, with nothing moved, where `id` or `before` is not among those waiting, which includes an item already in a call and one already ruled.
+"""

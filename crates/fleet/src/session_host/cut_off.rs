@@ -36,11 +36,29 @@ where
     /// down. The turn is over, so this is work the agent left running. With no process there is
     /// nothing to take down, whatever its rows still say.
     pub(super) async fn work_beyond_the_turn(&self, id: &str) -> bool {
-        if self.hosts().of(id).state().process.is_none() {
-            return false;
-        }
         let held = self.store().lock().await.attachments_of(&Holder::session(id)).unwrap_or_default();
-        held.iter().filter(|one| one.state == AttachmentState::Standing).any(|one| self.still_working(id, one))
+        !self.running_of(id, &held).is_empty()
+    }
+
+    /// Each subagent and background task of the Job still working, off `held`, its attachments: what
+    /// kind, what it is and since when. **The one read of what is running**, so `work_beyond_the_turn`
+    /// and what the listings and the Operator say of a Job are the same rule. Takes the attachments
+    /// rather than the store, so a caller holding the store's lock reads it too.
+    pub(crate) fn running_of(&self, id: &str, held: &[KeptAttachment]) -> Vec<ipc::RunningWork> {
+        if self.hosts().of(id).state().process.is_none() {
+            return Vec::new();
+        }
+        held.iter()
+            .filter(|one| one.state == AttachmentState::Standing && self.still_working(id, one))
+            .map(|one| {
+                let said = |key: &str| one.detail.get(key).map(String::as_str).filter(|text| !text.trim().is_empty());
+                let (kind, what) = match one.kind.as_str() {
+                    "subagent" => (ipc::RunningKind::Subagent, said("description").or(said("type"))),
+                    _ => (ipc::RunningKind::BackgroundTask, said("task").or(said("command"))),
+                };
+                ipc::RunningWork { kind, what: what.unwrap_or(&one.target).to_string(), since: ipc::Instant::carried(one.since.as_str()) }
+            })
+            .collect()
     }
 
     fn still_working(&self, id: &str, one: &KeptAttachment) -> bool {

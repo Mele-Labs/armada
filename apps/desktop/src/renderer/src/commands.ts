@@ -30,7 +30,6 @@ import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
   SavingWorkflow,
-  SuggestingWorkflowChange,
 } from "../../shared/workflows";
 import type {
   EditManifest,
@@ -262,19 +261,16 @@ export const readWorkflowDefinition = (
   manifestId: string | null,
 ) => window.armada.readWorkflowDefinition(workflowId, source, manifestId);
 export const saveWorkflow = (saving: SavingWorkflow) => window.armada.saveWorkflow(saving);
-/** The Workflows page beside a definition's text: its steps, a copy deleted or reset to Armada's, a nudge marked not a drift. */
+/** The Workflows page beside a definition's text: its steps, a copy deleted or reset to Armada's. */
 export const readWorkflowSteps = (workflowId: string, source: string, manifestId: string | null) =>
   window.armada.readWorkflowSteps(workflowId, source, manifestId);
 export const deleteWorkflowCopy = (acting: ActingOnWorkflowCopy) =>
   window.armada.deleteWorkflowCopy(acting);
 export const resetWorkflowCopy = (acting: ActingOnWorkflowCopy) =>
   window.armada.resetWorkflowCopy(acting);
-export const markNotADrift = (nudge: number) => window.armada.markNotADrift(nudge);
-/** The changes an agent drafts for him to approve: typed, suggested, polled while drafting, then approved, dismissed or sent back. */
+/** The changes an agent drafts for him to approve: typed, polled while drafting, then approved, dismissed or sent back. */
 export const askWorkflowChange = (asking: AskingForWorkflowChange) =>
   window.armada.askWorkflowChange(asking);
-export const suggestWorkflowChange = (suggesting: SuggestingWorkflowChange) =>
-  window.armada.suggestWorkflowChange(suggesting);
 export const readWorkflowChanges = (
   workflowId: string,
   source: string,

@@ -45,6 +45,11 @@ An item reaches the Operator before it starts a Job or pulses in Needs you.
 | A bug report, a Later item, a new issue | A Job, or the repository's tracker |
 | A red main | The repository's own checks |
 | A review request | The forge |
+| A note | The person, left on Bridge. One new since Fleet started, open and sent to no Job |
+
+**A note is only ever proposed.**
+A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Off, so no note is filed, started or sent to a Job unasked.
+Its row has no Job, so it is kept for the panel, and Do it marks the note sent to the Job it went to, or done where it was filed or linked.
 
 **Detection stays Fleet's**, read from state as it always was.
 The Operator is never asked whether something happened.
@@ -69,7 +74,7 @@ Each role that acts has a position, Off, Suggest or On.
 | Delegate | Sends words to a live Job: a start its plan covers, a quiet Job's next step, two Jobs told of each other | `operator-delegate` |
 | Answer | Settles a question or a card as the person's press would | `operator-answer` |
 | Raise | Puts the item in Needs you with the Operator's read and its pick. It has no position | None |
-| File | Files a new issue for a Later item no open issue covers. It only ever creates | `operator-file` |
+| File | Files a new issue for a Later item or a note no open issue covers. It only ever creates | `operator-file` |
 
 **Every role starts Off**, and any role can differ for one repository (`operator-repositories`).
 A word that is not Off, Suggest or On reads Off.

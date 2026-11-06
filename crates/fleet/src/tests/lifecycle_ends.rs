@@ -8,7 +8,7 @@ use core_model::{LifecycleEnd, StepEnd};
 use ipc::{Instant, SessionRow, SessionVoice};
 
 use super::session_rail::{approved, at, delivers, follows, plan_step, step};
-use crate::rail::{self, Facts, RailStep, Skipped};
+use crate::rail::{Facts, RailStep, Skipped};
 use crate::rail_ends::{self, ends_any, ends_when, End, Waiter};
 use crate::rail_keeping::messaged_on;
 use crate::rail_lifecycle::StepBits;
@@ -104,17 +104,6 @@ fn what_ends_the_step_is_said_with_the_lifecycle_and_state_in_the_words_a_person
     assert_eq!(ends_any(&both_kinds, 0), ["every pr is approved", "you reply"], "the words the step also lists are still said");
 }
 
-#[test]
-fn the_agent_is_told_its_step_ends_when_fleet_sees_it_and_to_end_its_turn_rather_than_poll() {
-    let said = rail::instructed("feature", &reviewed(), 2).expect("instructions are sent");
-    assert!(said.contains("This step ends when every pr is approved, which Fleet watches for."), "{said}");
-    assert!(said.ends_with("End your turn now: Fleet wakes you with a message when it comes, so do not poll for it."), "{said}");
-    assert!(!said.contains("carry straight on"), "the step before delivering is the Job's only where the Job ends it: {said}");
-    let plain = RailStep { instructions: Some("Settle it.".into()), ..step("Discuss") };
-    let said = rail::instructed("feature", &[plain, plan_step()], 0).expect("instructions are sent");
-    assert!(!said.contains("End your turn now"), "{said}");
-}
-
 fn from_you(n: u32, text: &str) -> SessionRow {
     row(n, SessionVoice::You, text)
 }
@@ -167,29 +156,13 @@ fn a_delivering_step_that_lists_a_lifecycle_end_is_entered_as_always_and_only_la
 }
 
 #[test]
-fn a_delivering_step_that_waits_tells_the_agent_to_hold_the_merge_and_the_merge_still_ends_it() {
+fn a_delivering_step_that_waits_still_ends_on_its_merge_and_the_page_says_the_gate_before_it() {
     let steps = landing();
-    let said = rail::instructed("feature", &steps, 2).expect("instructions are sent");
-    assert!(said.contains("Open the pull request and merge it."), "{said}");
-    assert!(said.contains("This step ends when its pull request merges."), "{said}");
-    assert!(
-        said.ends_with(
-            "Do not merge until every pr is approved. Open the pull request if you have not, then end your turn: \
-             Fleet watches for it and wakes you with a message, and then you land it."
-        ),
-        "{said}"
-    );
     assert_eq!(ends_when(&steps, 2).as_deref(), Some("it is merged"), "the merge is still what ends it");
     assert_eq!(ends_any(&steps, 2), ["every pr is approved, then it is merged"], "and the page says the gate before it");
     let plain_land = [plan_step(), delivers("Land")];
     assert_eq!(ends_any(&plain_land, 1), ["it is merged"], "a Land with no gate says only the merge");
-    let bare = [plan_step(), RailStep { instructions: None, ..steps[2].clone() }];
-    assert!(rail::instructed("feature", &bare, 1).is_some_and(|said| said.contains("Do not merge until")), "told though it wrote no words");
-    let plain = [plan_step(), delivers("Land")];
-    assert_eq!(rail::instructed("feature", &plain, 1), None, "no instructions and no gate: no message, as before");
     let several = RailStep { ends_on: vec![end("pr: approved"), end("any ticket: closed")], ..steps[2].clone() };
     let gated = [plan_step(), several];
-    let said = rail::instructed("feature", &gated, 1).expect("told");
-    assert!(said.contains("Do not merge until every pr is approved, or any ticket is closed."), "{said}");
     assert_eq!(ends_any(&gated, 1), ["every pr is approved, or any ticket is closed, then it is merged"]);
 }

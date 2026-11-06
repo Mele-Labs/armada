@@ -54,27 +54,23 @@ It counts in the summary as a turn that called nothing, and in both splits as `b
 `get_usage_spent` returns the 24 hours, 7 days and 14 days up to now, each whole and for its thirty largest Jobs.
 `docs/practices/protocol.md`, *What the burn was spent on*.
 
-**A Job is told when its usage crosses a rule.** After each reading of a live Job's transcripts, Fleet checks the Job's recent turns against four rules, each an on-off and a limit in settings.json under `limits`.
-It reads only the rows just ingested for that Job: its last hour and its latest few main-thread turns, never the table.
+**A Job is told when its usage crosses a rule.** After each reading of a live Job's transcripts, Fleet checks the Job's last turn against one rule, an on-off and a limit in settings.json under `limits`.
+It reads only the rows just ingested for that Job: its last hour and its latest main-thread turn, never the table.
 The Job is told once, in the words below, and Fleet does nothing else: it does not end, fork or move the Job, and it does not change its model.
 The one exception is the Context rule with *Large context* set to carry on automatically, which hands the Job on as the owner's yes would.
-A subagent's turn counts toward the hour's burn and its share and toward nothing else.
+A subagent's turn counts toward the hour's burn and toward nothing else.
 
 | Rule | Crossed when | The Job is told |
 |---|---|---|
 | Context | The last turn's context (input, cache-creation and cache-read) is over 300k tokens | `Context is 312k tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don't ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.` |
-| Subagents | Subagents burned over 25 cost units in the last 60 minutes, over 50% of that hour's burn, and at least one subagent turn ran on an opus model. Subagents all on sonnet or haiku are never told | `Subagents burned 35.5 units in your last hour, 71% of it, on opus. Pass model sonnet on reading and searching agents.` |
-| Cache hit rate | Cache-read over input, cache-creation and cache-read is under 70% across the last 10 turns | `Cache hit rate is 54% over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.` |
-| Opus on reading | The last 20 turns all ran on an opus model, each began with a read or a search (`Read`, or a shell command labelled `read_search`), and none edited | `Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.` |
 
 **The Context rule answers to the owner.** His answer on the Job's handoff card, and the setting *Large context* (`plan.contextHandoff`), decide whether the Job is told, handed on with no card, or left alone: [A handed-off Job](a-handed-off-job.md).
 
 **Once, and again only after it cleared.** A Job over a limit is told the first time and nothing more while it stays over.
 It is told again only after a reading found it under the limit and 30 minutes have passed since the last telling.
-Each rule keeps its own place.
 A Fleet that restarts does not tell a Job over a limit again until it has been seen under it, because the last telling is read back from the trip rows.
 
-**Each telling is a row in `usage_rule_trips`:** the Job's id, the rule (`context`, `subagents`, `cache_hit` or `opus_reading`), when (the stamp of the newest turn), the figure that crossed (tokens, a percent or a count, by rule) and `burn_per_hour_before`, the burn in cost units per hour of the Job's active time over the 60 minutes up to that turn.
+**Each telling is a row in `usage_rule_trips`:** the Job's id, the rule (`context`), when (the stamp of the newest turn), the figure that crossed (tokens) and `burn_per_hour_before`, the burn in cost units per hour of the Job's active time over the 60 minutes up to that turn.
 A telling that was not taken, because the Job had ended, writes no row and is tried again at the Job's next turn.
 
 **What followed is kept on the same row.** Once a turn of the Job lands 60 minutes or more after the trip, in the same pass that read it, Fleet reads the Job's turns in that hour and fills `after_turns`, how many there were, and `burn_per_hour_after`.
@@ -83,7 +79,7 @@ Only the after is left empty for want of turns: a Job that made fewer than 5 tur
 A Job that never makes another turn is never measured.
 `burn_per_hour_before` is counted the same way, so the two compare; it is stored whatever the number of turns in that hour, since the trip fired on the newest, and is 0 where there is one.
 
-**`get_usage_rules` lists them.** For each of the four rules it returns whether the rule is on, its limit, and the trips in a window of time, newest first.
+**`get_usage_rules` lists them.** For the rule it returns whether the rule is on, its limit, and the trips in a window of time, newest first.
 `docs/practices/protocol.md`, *The usage rules*.
 
 ## A Job compacted while it waits

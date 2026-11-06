@@ -181,6 +181,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The Operator's board changed: read it again.
+    Route {
+        operation: "operator.board_changed",
+        method: "GET",
+        path: "/events",
+    },
     // A person's run in the main checkout ending. What the run prints is
     // `observe_checkout_run`'s, never this stream's.
     Route {

@@ -410,20 +410,6 @@ export type StepReading = {
   ends_any?: string[];
   /** When the step is passed over instead of walked. Absent on a step that is always done. */
   passed_over_when?: string;
-  /** The newest nudges for this step in this place's definition, newest first, those marked not a drift left out. Absent when there are none. */
-  nudges?: StepNudge[];
-};
-
-/** One time Fleet nudged a Job off a step. */
-export type StepNudge = {
-  /** What `POST /workflows/not_a_drift` takes. */
-  id: number;
-  job_id: string;
-  /** Absent where the Job has no title. */
-  job_title?: string;
-  /** What happened, as a short fact. */
-  fact: string;
-  at: string;
 };
 
 /**
@@ -450,17 +436,6 @@ export type WorkflowCopyDeleted = {
   file: string;
   /** Whose definition of this id runs now: `armada`, `kit` or `repository`. Absent where none does. */
   runs_from?: string;
-};
-
-/** `POST /workflows/not_a_drift`'s body. */
-export type MarkNotADrift = {
-  /** A `StepNudge.id`. */
-  nudge: number;
-};
-
-/** A nudge marked not a drift: kept, and no longer counting. */
-export type NotADriftMarked = {
-  nudge: number;
 };
 
 /**
@@ -539,14 +514,6 @@ export type AskWorkflowChange = {
   source: string;
   /** What he wants changed, in his words. */
   text: string;
-};
-
-/** `POST /workflows/changes/suggest?manifest_id=`'s body. */
-export type SuggestWorkflowChange = {
-  workflow_id: string;
-  /** `repository` or `kit`. */
-  source: string;
-  step_id: string;
 };
 
 /** `GET /workflows/changes?workflow_id=&source=&manifest_id=`: the open changes, oldest first. */

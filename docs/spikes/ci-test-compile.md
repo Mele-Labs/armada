@@ -4,6 +4,7 @@
 The compile of the whole `test` Check is 278 seconds of wall time, and 212 of them are one unit: `fleet`'s own test harness, which starts at 66 seconds and ends the build.
 sccache caches only rlib and staticlib compiles, so at best it takes off the libraries before that unit; a nextest archive saves runner time but puts a second job, and a second wait for a runner, on the queue's path.
 What it did find: a pull request's `test_compile` never restored `main`'s cache, and compiled every third-party crate on 5 of 6 pull requests; restoring it saved crates compiled, not time.
+What did pay, on 6 Nov: type-checking Armada's own crates on four threads with no debug info takes 31% off `fleet`'s test harness (*Four threads and no debug info*).
 
 Measured on 5 Nov 2026 on a 4-core, 16 GB `ubuntu-latest` runner, run 42111453908, from a branch that was never merged.
 The job was named `test` so rust-cache restored `main`'s own entry, `ci1-test-test-Linux-x64-0fb4cc59-4b1d9d8e`, as a queue shard does.
@@ -75,6 +76,31 @@ Read on 5 Nov 2026 from the real runs either side of #3308 and #3310, every one 
 
 The test compile inside those two `test_compile` runs took 229 s cold and 284 s warm, and the timing trial's 278 s warm: the same work varies by a minute from runner to runner, and the third-party crates compile beside `fleet`'s harness rather than before it.
 A narrowed `test_compile` with the cache has not run yet.
+
+## Four threads and no debug info
+
+Measured on 6 Nov 2026 on the same runner, runs 42136994178 and 42138933640, from a branch never merged.
+Each variant touched `crates/fleet/src/lib.rs` and ran `cargo rustc -p fleet --lib --profile test` with every dependency warm, three times each, interleaved.
+
+| `fleet`'s test harness alone | Mean s | Runs s |
+|---|---|---|
+| As `main` builds it | 134.6 | 135.3, 133.3, 135.2 |
+| `-Cdebuginfo=0` | 119.8 | 127.2, 114.3, 117.8 |
+| `-Zthreads=4` | 105.0 | 115.6, 97.5, 102.0 |
+| Both | 92.9 | 89.9, 90.7, 98.2 |
+| `-Ccodegen-units=16`, one run | 111.1 against 104.0 | Slower; not taken |
+
+`-Ztime-passes` on one run of 112 s: type checking 28, borrow checking 18, coherence 15, the monomorphization walk 25, codegen 56 of which LLVM 28, linking 2.
+The front end runs on one thread unless told otherwise, which is why four threads pay on a four-core runner.
+
+So `test` and `test_compile` set `CARGO_PROFILE_DEV_DEBUG=0` and `CARGO_PROFILE_TEST_DEBUG=0`, and `RUSTC_WORKSPACE_WRAPPER` to `.github/ci/rustc-threads.sh`, which adds `-Zthreads=4` and `RUSTC_BOOTSTRAP=1` for Armada's own crates only.
+A third-party build script never sees `RUSTC_BOOTSTRAP`, so none switches to nightly-only code.
+A failing test's panic still names its file and line; a backtrace in CI loses its line numbers.
+A person's machine and the shipped build are unchanged.
+
+Two other levers were measured and not taken.
+`TMPDIR` on `/dev/shm`: the store and `fleet` suites went from 255 to 212 s, and 8 tests failed; the runner's disk is ext4 with `nobarrier` and `data=writeback`, so a sync is already cheap.
+The slowest test, `a_numbered_file_converts_at_every_count_the_old_list_had` at 55 to 101 s, was cut instead by #3323.
 
 ## What was not measured
 

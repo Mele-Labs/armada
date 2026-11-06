@@ -317,9 +317,7 @@ import type { ProposeToArmada, SendBackWorkflowChange, WorkflowChangeRef } from 
 import type {
   ActingOnWorkflowCopy,
   AskingForWorkflowChange,
-  NotADriftAnswer,
   SavingWorkflow,
-  SuggestingWorkflowChange,
   WorkflowChangeAnswer,
   WorkflowChangeApproveAnswer,
   WorkflowChangesRead,
@@ -545,12 +543,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.deleteWorkflowCopy, acting),
   resetWorkflowCopy: (acting: ActingOnWorkflowCopy): Promise<WorkflowSaveAnswer> =>
     ipcRenderer.invoke(CHANNELS.resetWorkflowCopy, acting),
-  markNotADrift: (nudge: number): Promise<NotADriftAnswer> =>
-    ipcRenderer.invoke(CHANNELS.markNotADrift, nudge),
   askWorkflowChange: (asking: AskingForWorkflowChange): Promise<WorkflowChangeAnswer> =>
     ipcRenderer.invoke(CHANNELS.askWorkflowChange, asking),
-  suggestWorkflowChange: (suggesting: SuggestingWorkflowChange): Promise<WorkflowChangeAnswer> =>
-    ipcRenderer.invoke(CHANNELS.suggestWorkflowChange, suggesting),
   readWorkflowChanges: (
     workflowId: string,
     source: string,

@@ -82,6 +82,8 @@ where
                     continue;
                 }
                 let (paths, issues, words) = held_of(&store, &session.id);
+                let held = store.attachments_of(&Holder::session(&session.id)).unwrap_or_default();
+                let running = fleet.running_of(&session.id, &held);
                 let started_by = started_by_chain(&store, &session.id);
                 live.push(LiveJob {
                     title: session.title.unwrap_or_else(|| session.id.clone()),
@@ -90,6 +92,7 @@ where
                     words,
                     paths,
                     issues,
+                    running,
                     started_by,
                 });
             }
@@ -141,6 +144,12 @@ where
                 None => super::Board::default(),
             }
         })
+    }
+
+    fn board_changed(&self) {
+        if let Some(fleet) = self.fleet.upgrade() {
+            fleet.events().publish(ipc::Event::OperatorBoardChanged(ipc::operator_board::OperatorBoardChanged {}));
+        }
     }
 
     fn keep(&self, row: Logged) -> Done<'_, ()> {
