@@ -7,8 +7,8 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 use crate::kept_builds::{
-    kept_at, revert, revert_begun, revert_ended, revert_status_in, revertible, undoing, RevertStatus, Reverted, Services,
-    BUILDS, CURRENT, PREVIOUS, STATUS,
+    answers_health, kept_at, rehearse, revert, revert_begun, revert_ended, revert_status_in, revertible, settle, undoing, RevertStatus,
+    Reverted, Services, Settled, BUILDS, CURRENT, PREVIOUS, STATUS,
 };
 use crate::tests::tmp::TempDir;
 
@@ -18,6 +18,8 @@ const LABEL: &str = "com.test.fleet";
 #[derive(Default)]
 struct Recorded {
     did: Mutex<Vec<String>>,
+    /// Why the next Fleet asked after does not answer, once.
+    down_once: Mutex<Option<String>>,
 }
 
 impl Services for Recorded {
@@ -25,12 +27,16 @@ impl Services for Recorded {
         self.did.lock().unwrap().push(format!("reboot {label}"));
         Ok(())
     }
-    fn store_copied(&self, _db: &Path, to: &Path) -> Result<(), String> {
-        std::fs::write(to, "copy").map_err(|why| why.to_string())?;
+    fn store_copied(&self, db: &Path, to: &Path) -> Result<(), String> {
+        std::fs::copy(db, to).map_err(|why| why.to_string())?;
         self.did.lock().unwrap().push(String::from("copy"));
         Ok(())
     }
     fn fleet_came_up(&self, _support: &Path, _old: Option<u32>) -> Result<(), String> {
+        if let Some(why) = self.down_once.lock().unwrap().take() {
+            self.did.lock().unwrap().push(String::from("down"));
+            return Err(why);
+        }
         self.did.lock().unwrap().push(String::from("up"));
         Ok(())
     }
@@ -231,4 +237,98 @@ fn a_revert_that_took_removes_its_status_and_one_that_failed_keeps_one_line_unti
     std::fs::remove_file(builds.join(CURRENT)).unwrap();
     std::os::unix::fs::symlink("old", builds.join(CURRENT)).unwrap();
     assert_eq!(revert_status_in(&support, SystemTime::now()), None);
+}
+
+#[test]
+fn a_rehearsal_opens_a_copy_of_the_store_and_leaves_none_behind() {
+    let (_home, support) = kept("b2", "b1");
+    std::fs::remove_file(support.join("armada.db")).unwrap();
+    drop(store::Store::open(&support.join("armada.db")).expect("a store"));
+    let before = std::fs::read(support.join("armada.db")).unwrap();
+
+    rehearse(&support, &Recorded::default()).expect("rehearsed");
+
+    assert_eq!(std::fs::read(support.join("armada.db")).unwrap(), before);
+    let left: Vec<_> = std::fs::read_dir(support.join("backups")).unwrap().map(|one| one.unwrap().file_name()).collect();
+    assert!(left.is_empty(), "{left:?}");
+}
+
+#[test]
+fn a_rehearsal_on_a_store_this_build_cannot_open_is_refused_and_the_store_is_untouched() {
+    let (_home, support) = kept("b2", "b1");
+
+    let refused = rehearse(&support, &Recorded::default()).expect_err("refused");
+
+    assert!(refused.contains("could not open a copy of the store"), "{refused}");
+    assert_eq!(std::fs::read_to_string(support.join("armada.db")).unwrap(), "store");
+}
+
+#[test]
+fn a_rehearsal_with_no_store_has_nothing_to_open() {
+    let (_home, support) = kept("b2", "b1");
+    std::fs::remove_file(support.join("armada.db")).unwrap();
+    let services = Recorded::default();
+
+    rehearse(&support, &services).expect("nothing to open");
+
+    assert!(services.did.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_fleet_that_answers_settles_and_nothing_moves() {
+    let (_home, support) = kept("b2", "b1");
+    let services = Recorded::default();
+
+    let settled = settle(&support, LABEL, Some(1), "1", &services).expect("settled");
+
+    assert_eq!(settled, Settled::Healthy);
+    assert_eq!((on(&support, CURRENT), on(&support, PREVIOUS)), ("new".to_string(), "old".to_string()));
+    assert_eq!(*services.did.lock().unwrap(), ["up"]);
+}
+
+#[test]
+fn a_fleet_that_does_not_answer_is_marked_and_swapped_back_leaving_bridge_alone() {
+    let (_home, support) = kept("b2", "b1");
+    let services = Recorded { down_once: Mutex::new(Some(String::from("No new Fleet answered"))), ..Recorded::default() };
+
+    let settled = settle(&support, LABEL, Some(1), "1", &services).expect("swapped back");
+
+    let Settled::SwappedBack { why, reverted } = settled else { panic!("not swapped back: {settled:?}") };
+    assert_eq!(why, "No new Fleet answered");
+    assert!(!reverted.bridge_reopened);
+    assert_eq!((on(&support, CURRENT), on(&support, PREVIOUS)), ("old".to_string(), "new".to_string()));
+    let builds = support.join(BUILDS);
+    assert_eq!(kept_at(&builds, PREVIOUS).unwrap().unhealthy.as_deref(), Some("No new Fleet answered"));
+    assert_eq!(*services.did.lock().unwrap(), ["down".to_string(), "copy".to_string(), format!("reboot {LABEL}"), "up".to_string()]);
+}
+
+#[test]
+fn a_build_swapped_back_from_is_not_offered_to_revert_onto() {
+    let (_home, support) = kept("b2", "b1");
+    let services = Recorded { down_once: Mutex::new(Some(String::from("No new Fleet answered"))), ..Recorded::default() };
+    settle(&support, LABEL, Some(1), "1", &services).expect("swapped back");
+
+    let refused = revertible(&support, LABEL).expect_err("refused");
+
+    assert!(refused.contains("did not come up: No new Fleet answered"), "{refused}");
+}
+
+#[test]
+fn a_fleet_answers_health_only_with_200() {
+    let answering = |status: &'static str| {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut asked = [0u8; 256];
+            let _ = stream.read(&mut asked);
+            let _ = stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\n\r\n").as_bytes());
+        });
+        port
+    };
+    assert!(answers_health(answering("200 OK")));
+    assert!(!answers_health(answering("503 Service Unavailable")));
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    assert!(!answers_health(closed));
 }

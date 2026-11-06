@@ -276,8 +276,12 @@ fn watch_line_takes_a_reader_and_every_word_after_it_whole() {
 }
 
 #[test]
-fn build_takes_revert_alone_and_says_so_for_anything_else() {
+fn build_takes_revert_rehearse_and_settle_and_says_so_for_anything_else() {
     assert_eq!(asked("build revert"), Ok(Verb::BuildRevert));
+    assert_eq!(asked("build rehearse"), Ok(Verb::BuildRehearse));
+    assert_eq!(asked("build settle"), Ok(Verb::BuildSettle { was: None }));
+    assert_eq!(asked("build settle 4242"), Ok(Verb::BuildSettle { was: Some(4242) }));
+    assert!(said("build settle soon").contains("`armada build settle soon`"));
     assert!(said("build").contains("it takes `build revert`"));
     assert!(said("build revert now").contains("`armada build revert now`"));
     assert!(Usage.to_string().contains("armada build revert"));
