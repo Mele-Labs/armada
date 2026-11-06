@@ -1,7 +1,8 @@
 // The open pull request's area: its tabs in the panes a Job's are drawn in, of the pull requests' own family (`job-panes/store.ts`),
 // so a layout made here never moves a Job's. Overview, Files, Checks, Commits and Review are tabs; each tool and each explanation
 // is a tab of its own, opened from + or by its number, and **runs when it is opened and has not run**, asking first as every act that
-// spends does. Comments lists the threads, and a press on one brings Files forward at its line.
+// spends does. Comments lists the threads, and a press on one brings Files forward at its line. Focus reads one file at a time with
+// the findings beside their lines (`focus.tsx`).
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LoaderCircle, SquarePlus } from "lucide-react";
@@ -39,6 +40,7 @@ import { CommentsView } from "./comments";
 import { CommentsPane, ThreadHere } from "./comments-pane";
 import { Chosen } from "./explain";
 import { AddTool } from "./flight";
+import { FocusView, GoToFile } from "./focus";
 import { HidesMark, SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, Thread, ToolDef } from "./model";
 import { indexOfPlace } from "./patch";
@@ -52,6 +54,7 @@ import { WalkView } from "./walk";
 const OFFERED: readonly TabKind[] = [
   "pr-overview",
   "pr-files",
+  "pr-focus",
   "pr-checks",
   "pr-commits",
   "pr-review",
@@ -524,6 +527,8 @@ export function PrPanes({
         );
       case "pr-tool":
         return <ToolBody pr={pr} id={tab.page} send={send} onOpenLink={onOpenLink} />;
+      case "pr-focus":
+        return <FocusView pr={pr} send={send} />;
       default:
         return null;
     }
@@ -555,6 +560,16 @@ export function PrPanes({
         }}
       />
       <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
+      <GoToFile
+        pr={pr}
+        onFiles={(path) => {
+          setJump({
+            path,
+            thread: "",
+          });
+          openKind(pr.key, "pr-files");
+        }}
+      />
     </>
   );
 }

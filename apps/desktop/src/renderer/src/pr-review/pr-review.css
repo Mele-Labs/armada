@@ -1409,3 +1409,274 @@
   display: inline-flex;
   justify-content: flex-end;
 }
+
+/* ---- Focus: one file, with each finding pinned beside its lines -------------------------------------------- */
+
+.pr-focus {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  outline: none;
+}
+/* Previous and Next, the path, where it is in the order and what is handled: fixed columns, so nothing moves as the file changes. */
+.pr-focus__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto var(--h-control);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-focus__steps {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.pr-focus__path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-focus__of,
+.pr-focus__handled {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pr-focus__keys {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-focus__key {
+  display: contents;
+}
+.pr-focus__key > dt {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.pr-focus__key > dd {
+  margin: 0;
+  color: var(--fg-muted);
+}
+.pr-focus__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+/* The diff and the margin share one scroll, so a card stays beside its line. */
+.pr-focus__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  column-gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-3);
+}
+.pr-focus__diff {
+  --diff-mark-hue: var(--tool-hue, var(--accent));
+  min-width: 0;
+}
+.pr-focus__diff .armada-diff__line[data-mark="picked"] {
+  --diff-mark-hue: var(--you);
+}
+.pr-focus__margin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--space-2);
+  min-width: 0;
+}
+.pr-focus__card {
+  position: absolute;
+  right: 0;
+  left: 0;
+  transition: top var(--duration-fast) var(--ease);
+}
+.pr-focus__card:not([data-placed]) {
+  visibility: hidden;
+}
+.pr-focus__card .pr-finding {
+  border-left: var(--space-1) solid var(--border-strong);
+}
+.pr-focus__card[data-focused] .pr-finding {
+  border-color: var(--tool-hue);
+  border-left-color: var(--tool-hue);
+  box-shadow: var(--shadow-card);
+}
+/* Marked: put away. It dims and its tie goes grey, and it still reads. */
+.pr-focus__card[data-handled] {
+  opacity: 0.55;
+}
+.pr-focus__card[data-handled] .pr-finding {
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+/* The tie: from the middle of the finding's first line, across the gap and down to its card. */
+.pr-focus__leader {
+  position: absolute;
+  right: 100%;
+  box-sizing: content-box;
+  width: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-top: var(--border-width) dashed var(--border-strong);
+  border-right: var(--border-width) dashed var(--border-strong);
+  pointer-events: none;
+}
+.pr-focus__card[data-focused]:not([data-handled]) .pr-focus__leader {
+  border-style: solid;
+  border-color: var(--tool-hue);
+}
+.pr-focus__anchor {
+  position: absolute;
+  left: 0;
+  width: 0;
+  height: var(--leading-2xs);
+}
+.pr-focus__away {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-focus__marks {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.pr-focus__marks [aria-pressed="true"] {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.pr-focus__said {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-focus__review {
+  max-height: 50%;
+  overflow: auto;
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.pr-focus__foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-1) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.pr-yours__caution {
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* ---- A changed file's lines, peeked open under the words that name them ----------------------------------- */
+
+.pr-peek {
+  margin: var(--space-2) 0 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+.pr-peek__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.pr-peek__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-peek__said {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+/* ---- Go to file -------------------------------------------------------------------------------------------- */
+
+/* Top anchored, as the palette is, so the rows do not move under the cursor while he types. */
+.pr-goto {
+  position: fixed;
+  top: var(--space-12);
+  left: 50%;
+  z-index: var(--z-palette);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(var(--palette-width), calc(100vw - var(--space-12)));
+  max-height: var(--palette-max-height);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-overlay);
+  transform: translateX(-50%);
+}
+.pr-goto__rows {
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.pr-goto__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--h-row);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-goto__row[aria-selected="true"] {
+  background: var(--surface-row-selected);
+}
+.pr-goto__name {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.pr-goto__dir {
+  overflow: hidden;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-goto__none {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}

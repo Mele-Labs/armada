@@ -132,6 +132,8 @@ export type ProseReferences = {
     ref: ProseReference;
   }[];
   open: (ref: ProseReference) => void;
+  /** Whether what a reference opens is open now, for one that opens in place and closes on a second press. Absent: it goes somewhere. */
+  opened?: (ref: ProseReference) => boolean;
 };
 export const ProseRefs = createContext<ProseReferences | null>(null);
 
@@ -250,6 +252,7 @@ export function ReferenceLink({
       <a
         className="armada-prose__link"
         href={`#${reference.kind}`}
+        aria-expanded={refs.opened?.(reference)}
         onClick={(event) => {
           event.preventDefault();
           refs.open(reference);

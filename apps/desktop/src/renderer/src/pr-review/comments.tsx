@@ -130,18 +130,25 @@ function PendingComment({ pr, draft }: { pr: ReviewPr; draft: Draft }) {
   );
 }
 
-function YourReview({ pr }: { pr: ReviewPr }) {
+/**
+ * His pending review and Submit. `caution` is a line said on the first Submit, which then sends nothing: the second sends. Focus
+ * passes one while findings are unmarked.
+ */
+export function YourReview({ pr, caution }: { pr: ReviewPr; caution?: string }) {
   const store = useReviewStore()!;
   const { work: all } = useReviews();
   const work = all[pr.key] ?? NO_WORK;
   const [kind, setKind] = useState<Verdict>("comment");
   const [text, setText] = useState("");
+  const [warned, setWarned] = useState(false);
   const ready = work.drafts.length > 0 || mayWrite(kind, text);
   const keep = `pr-review:${pr.key}:summary`;
   const draft = useSessionsDraft();
   const holder = pr.holder;
   const submit = () => {
     if (!ready || work.submitting) return;
+    if (caution !== undefined && !warned) return setWarned(true);
+    setWarned(false);
     // **Request changes on a pull request one of his Sessions holds goes to that Session too**, with the review, so the Drone has it.
     const told = kind === "request_changes" && holder !== undefined && draft !== undefined;
     const sent = work.drafts.map((one) => `${one.path}: ${one.body}`);
@@ -206,9 +213,14 @@ function YourReview({ pr }: { pr: ReviewPr }) {
         <div className="pr-yours__bar">
           <Tabs items={KINDS} value={kind} onChange={(id) => setKind(id as Verdict)} />
           <Button variant="primary" type="submit" disabled={!ready || work.submitting}>
-            Submit review
+            {caution !== undefined && warned ? "Submit anyway" : "Submit review"}
           </Button>
         </div>
+        {caution !== undefined && warned ? (
+          <p className="pr-yours__caution" role="alert">
+            {caution}
+          </p>
+        ) : null}
       </form>
       {work.refused === undefined ? null : (
         <p className="pr-yours__refused" role="alert">

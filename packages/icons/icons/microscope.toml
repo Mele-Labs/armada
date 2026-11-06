@@ -4,3 +4,10 @@
   size = "12px"
   status = "Specified"
   notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Marks the Find the cause step on a workflow step card. That step looks closely at something that already exists, which is what a microscope is for. Drawn at 14px, stroke 2."
+
+[[icons.microscope.usage]]
+  means = "Focus, a pull request's tab that reads one file at a time with each finding beside its lines"
+  group = "Pull request review"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 6 Nov 2026 for the walk `pr-focus-review`. The tab's glyph in its tab strip and in +. Focus looks closely at one file and what was found in it, which is the reading the Find the cause step's microscope already means; drawn at the tab strip's 16px."
