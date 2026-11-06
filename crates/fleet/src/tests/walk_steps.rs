@@ -243,6 +243,30 @@ async fn a_step_bridge_cannot_play_is_told_to_the_session_as_a_step_and_not_as_a
     assert!(!said.contains("could not show"), "it is not a page that failed to load: {said}");
 }
 
+/// **A walk the job withdrew is not told a step held it**: a late report for it is nothing to say.
+#[tokio::test]
+async fn a_walk_the_job_withdrew_is_not_told_that_a_step_held_it() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.fleet.show_window(None, show_with(&id, depot())).await.expect("shown");
+    rig.fleet
+        .withdraw_window(None, ipc::WithdrawWindow { session_id: Some(id.clone()), url: PAGE.into() })
+        .await
+        .expect("withdrawn");
+
+    let held = WindowFailed {
+        session_id: id.clone(),
+        url: PAGE.into(),
+        why: "step 3, a textbox named Item, is not on the page".into(),
+    };
+    let told = Arc::clone(&rig.fleet).window_failed(held).await.expect("answered");
+    assert!(!told.told);
+    let said = rig.rows(&id).await.into_iter().any(|row| {
+        matches!(row, SessionRow::Message { from: SessionVoice::Session { title, .. }, .. } if title == "Fleet")
+    });
+    assert!(!said, "Fleet said nothing");
+}
+
 #[tokio::test]
 async fn steps_set_aside_for_the_pages_own_walk_are_told_to_the_session_as_that_and_not_as_a_failure() {
     let rig = rig_placing(None);

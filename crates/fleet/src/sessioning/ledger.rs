@@ -313,6 +313,7 @@ where
         let spoke = waited.spoke;
         let died_saying = waited.died_saying;
         let plan_held = waited.plan_held;
+        let lapsed = waited.lapsed;
         let resting = waited.resting;
         record.standing = (session.state == store::SessionState::Live).then_some(waited.standing);
         record.build = reads.build.record(record.standing == Some(ipc::SessionStanding::Stuck), workers_of(&record.attachments));
@@ -358,6 +359,8 @@ where
         let between = live && at_rest(record.standing) && record.waiting_for.is_empty();
         let excused = !between
             || parked
+            // A question that lapsed waits on him though no item lists it: that is not silence.
+            || lapsed
             || !record.held_open_by.is_empty()
             // Its process died in the turn: Fleet is starting it again, or it reads as dead below.
             || reads.open_turn.as_ref().is_some_and(|turn| turn.ended_at.is_some())

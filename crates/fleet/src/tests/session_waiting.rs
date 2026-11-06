@@ -25,7 +25,7 @@ fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
     }
 }
 
-fn card(call: &str, question: Option<&str>) -> CallInFlight {
+pub(super) fn card(call: &str, question: Option<&str>) -> CallInFlight {
     let questions = match question {
         Some(question) => ipc::decode(
             "questions",
@@ -407,7 +407,7 @@ async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clea
     assert!(record.waiting_for.is_empty(), "a walk he approved leaves nothing behind: {:?}", ids(&record));
 }
 
-async fn show(rig: &Rig, id: &ipc::SessionId, url: &str) -> ipc::SessionRecord {
+pub(super) async fn show(rig: &Rig, id: &ipc::SessionId, url: &str) -> ipc::SessionRecord {
     rig.fleet
         .show_window(None, ShowWindow { url: url.into(), title: Some(url.into()), session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() })
         .await
@@ -664,7 +664,7 @@ async fn removing_a_done_fleet_derived_tells_the_agent_nothing() {
 
 /// The question "Which clock?" with options Fake and Frozen, asked and let lapse: nobody answered
 /// inside the hold, and the thread holds nothing of his after it.
-async fn lapsed_clock_question(rig: &Rig, id: &ipc::SessionId) {
+pub(super) async fn lapsed_clock_question(rig: &Rig, id: &ipc::SessionId) {
     let row = SessionRow::Ask {
         id: format!("ask-lapsed-{}", id.as_str()),
         at: rig.fleet.instant(),

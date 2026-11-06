@@ -49,8 +49,8 @@ A watch that gave up before any reading says `QA deploy gave up after 2h without
 Each is told once for each change in what failed, so the same failure read again is not news, and a restart repeats nothing.
 A Job that cannot take one now is offered it again a minute later.
 
-**A Job is told when what it wrote would conflict.** When Fleet finds that the files a Job wrote conflict with another Job's, or with the base after it moved, it sends that Job one message: the files, who the other is and how to reach it.
-Where the other Job is paused, it names that Job's branch and says to resolve the conflict on merge.
+**A Job is told when what it wrote would conflict.** When Fleet finds that the files a Job wrote conflict with another Job's, or with the base after it moved, it sends that Job one message: the files git says both write and the branch that holds the other's writes, with no instruction.
+Where the other Job is paused, it says so.
 The Job is not paused and the message is sent once per set of files, a restart included.
 `docs/concepts/fleet.md`, *Write clashes*.
 Bridge marks the Job's row and puts a lamp in the corner of its Bays key, and the Bays panel names the other holder and the files, from the standing clashes Fleet lists.
@@ -68,14 +68,16 @@ A terminal Job reports the files it wrote through the mod's `touched` fact, as p
 It names the slot and its branch, what the slot holds, and asks the Job to commit, push and release it.
 `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
-**A Job whose slot is far behind its base is told to merge it.** When the checkout a Job holds is 20 or more commits behind the base, Fleet sends that Job one message: `slot-4 (branch armada/x) is 684 commits behind main. Merge main into your branch before your next push.` The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from.
+**A Job whose slot is far behind its base is told how far.** When the checkout a Job holds is 20 or more commits behind the base, Fleet sends that Job one message: `slot-4 (branch armada/x) is 684 commits behind main.` A branch whose pull request has merged, is in the merge queue or has auto-merge on is not told.
+The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from.
 Only a checkout with commits the base does not have is told, the pool's own `ahead`: a branch level with an old base has nothing stale to push, as for a Job that only starts other Jobs.
 It is sent once.
 The Job is told again only after the slot has fallen below 20, or had no commits of its own, and then behind again, and a Fleet that restarts may say it once more.
 A Job's slot, a free slot, a stranded slot and a subagent's bay are not told, and the owner is not called: merging the base in is the agent's work.
 
 **A Job whose usage crosses a token rule is told once.** Context over 300k sends the Job one message with the figure and one action.
-The Job is told again only after it fell back under the limit and 30 minutes passed.
+It is one nudge for the Job, sent only at a quiet moment: a turn has ended and nothing waits on the person.
+Due while he has something to decide, it is held to the next quiet moment, and once sent it is not sent again by size.
 Fleet never ends, forks or moves the Job for this, and a model change is only ever offered in the words.
 `where-the-tokens-went.md` has the rules and the words.
 

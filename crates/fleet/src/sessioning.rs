@@ -853,6 +853,17 @@ where
                 .await?;
             }
         }
+        // **A walk the job withdrew** (or the person dismissed) is not one it is waiting on: a
+        // failure Bridge reports for it afterwards is nothing to tell.
+        {
+            let rows = self.rows_of(&id).await?;
+            let url = crate::session_host::walking::window_of(&rows, failed.url.trim()).unwrap_or(failed.url.trim());
+            let store = self.store().lock().await;
+            let dismissed = store.dismissed_waiting(&id).map_err(|why| self.ledger_fault(why))?;
+            if dismissed.contains(&format!("walk:{url}")) {
+                return Ok(ipc::WalkTold { told: false });
+            }
+        }
         // Bridge names a step it cannot play by its place, which is not a page that failed to load,
         // and says `steps set aside` where the page plays its own walk, which wins over the steps.
         let text = if failed.why.trim().starts_with("steps set aside") {
