@@ -34,45 +34,23 @@ enum About {
 /// A Session's message: the words are Fleet's, the reach is the other side's.
 fn session_says(about: &About, paths: &[String]) -> String {
     match about {
-        // **A paused Job cannot answer**, so the clash is the branch's, settled when one merges.
         About::Peer(Peer::Session {
-            address,
-            branch,
-            paused: true,
-            ..
+            address, branch, paused, ..
         }) => {
-            let with = match branch {
-                Some(branch) => format!("branch {branch}. Its Job {address} is paused"),
-                None => format!("Job {address}, which is paused"),
+            let with = match (branch, paused) {
+                (Some(branch), true) => format!("branch {branch} (Job {address}, paused)"),
+                (Some(branch), false) => format!("branch {branch} (Job {address})"),
+                (None, true) => format!("Job {address} (paused)"),
+                (None, false) => format!("Job {address}"),
             };
-            format!(
-                "Your changes to {} conflict with {with}, so resolve the conflict on merge.",
-                listed(paths)
-            )
-        }
-        About::Peer(Peer::Session {
-            address, branch, ..
-        }) => {
-            let on = branch
-                .as_ref()
-                .map(|branch| format!(" (branch {branch})"))
-                .unwrap_or_default();
-            format!(
-                "Your changes to {} conflict with Job {address}{on}. Message it with \
-                 SendMessage to {address} to agree who changes what.",
-                listed(paths)
-            )
+            format!("Git says your changes and {with} write the same lines of {}.", listed(paths))
         }
         About::Main { base, landed } => {
             let landed = landed
                 .as_ref()
                 .map(|landed| format!(", landed in {landed}"))
                 .unwrap_or_default();
-            format!(
-                "{base} now conflicts with your changes to {}{landed}. Merge it into your \
-                 branch and resolve the conflict.",
-                listed(paths)
-            )
+            format!("Git says {base} and your changes write the same lines of {}{landed}.", listed(paths))
         }
     }
 }
@@ -143,19 +121,14 @@ where
             Who::Session(id) => {
                 // **A file is told once per peer**: a later commit that adds another file to the
                 // overlap names that one, never the files the Jobs were told of and have settled.
-                // A paused peer, and main, are told by their words, since neither is a settling.
-                let live_peer = match &about {
-                    About::Peer(Peer::Session { id: peer, paused: false, .. }) => Some(peer.clone()),
-                    _ => None,
+                // Main is a peer of its own, named by its base.
+                let peer = match &about {
+                    About::Peer(Peer::Session { id: peer, .. }) => peer.clone(),
+                    About::Main { base, .. } => format!("main:{base}"),
                 };
-                let paths = match &live_peer {
-                    Some(peer) => {
-                        let before = self.store().lock().await.clash_paths_told(id, peer).unwrap_or_default();
-                        paths.into_iter().filter(|path| !before.contains(path)).collect()
-                    }
-                    None => paths,
-                };
-                if live_peer.is_some() && paths.is_empty() {
+                let before = self.store().lock().await.clash_paths_told(id, &peer).unwrap_or_default();
+                let paths: Vec<String> = paths.into_iter().filter(|path| !before.contains(path)).collect();
+                if paths.is_empty() {
                     self.writes().told(opposed, to);
                     return;
                 }
@@ -167,9 +140,7 @@ where
                     if sent {
                         let mut store = self.store().lock().await;
                         let _ = store.keep_clash_told(id, &said, &self.now());
-                        if let Some(peer) = &live_peer {
-                            let _ = store.keep_clash_paths_told(id, peer, &paths, &self.now());
-                        }
+                        let _ = store.keep_clash_paths_told(id, &peer, &paths, &self.now());
                     }
                     sent
                 }

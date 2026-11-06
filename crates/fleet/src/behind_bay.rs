@@ -1,4 +1,4 @@
-//! A Session whose slot has fallen far behind its base, told once to merge the base in.
+//! A Session whose slot has fallen far behind its base, told once how far behind it is.
 //! `docs/concepts/session.md`, *What Fleet tells a Session*.
 //!
 //! Read off the list `GET /worktrees` serves, so the keeper that keeps it warm is what notices a
@@ -64,25 +64,22 @@ fn behind_to_tell(slot: &WorktreeSlot) -> Option<u32> {
     slot.ahead.is_some_and(|ahead| ahead > 0).then_some(behind)
 }
 
-/// What the Session is told: each slot it holds that is behind, then what to do. One message
-/// covers every slot, so a pass over several slots reaches the Session once. A slot names the branch
-/// checked out in it, where `behind` was counted, before the one its lease was cut on.
+/// The branch checked out in the slot, where `behind` was counted, before the one its lease was cut on.
+fn branch_of(slot: &WorktreeSlot) -> Option<String> {
+    adapters::leasing::checked_out(Path::new(&slot.path)).or_else(|| slot.branch.clone())
+}
+
+/// What the Session is told: each slot it holds that is behind, and nothing more. One message
+/// covers every slot, so a pass over several slots reaches the Session once.
 fn said_of(slots: &[(&WorktreeSlot, u32)]) -> String {
     let lines: Vec<String> = slots
         .iter()
         .map(|(slot, behind)| {
-            let on = adapters::leasing::checked_out(Path::new(&slot.path))
-                .or_else(|| slot.branch.clone())
-                .map(|branch| format!(" (branch {branch})"))
-                .unwrap_or_default();
+            let on = branch_of(slot).map(|branch| format!(" (branch {branch})")).unwrap_or_default();
             format!("slot-{n}{on} is {behind} commits behind {base}.", n = slot.slot, base = slot.base)
         })
         .collect();
-    format!(
-        "{} Merge {base} into your branch before your next push.",
-        lines.join(" "),
-        base = slots[0].0.base,
-    )
+    lines.join(" ")
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -100,10 +97,13 @@ where
     /// Session that was not listening is asked again at the next reading. **A mute is not a told
     /// mark**: `told_by_fleet` answers a muted notice as untold, so lifting the mute resumes it.
     pub(crate) async fn behind_bays_told(self: &Arc<Self>, held: &WorktreesHeld) {
+        let leaving = self.branches_leaving().await;
         let mut by_session: BTreeMap<&str, Vec<(&WorktreeSlot, u32)>> = BTreeMap::new();
         for slot in &held.slots {
             let key = (slot.manifest_id.as_str().to_string(), slot.slot);
-            let (Some(session), Some(behind)) = (holder_of(slot), behind_to_tell(slot)) else {
+            let leaving_now = branch_of(slot).is_some_and(|branch| leaving.contains(&branch));
+            let (Some(session), Some(behind)) = (holder_of(slot), behind_to_tell(slot).filter(|_| !leaving_now))
+            else {
                 if !unread(slot) {
                     self.behind_told().forget(&key);
                 }
@@ -125,5 +125,24 @@ where
                 }
             }
         }
+    }
+
+    /// The branches of pull requests already merged, in the merge queue or with auto-merge on, as
+    /// last read. Merging the base into one tells nothing a person wants.
+    async fn branches_leaving(&self) -> std::collections::BTreeSet<String> {
+        let sweep = self.sweeping().lock().await;
+        let mut leaving = std::collections::BTreeSet::new();
+        for merged in sweep.merged.values().flatten() {
+            leaving.insert(merged.pull.branch.as_written().to_string());
+        }
+        for (root, pulls) in &sweep.pulls {
+            let queue = sweep.queues.get(root).map_or(&[][..], Vec::as_slice);
+            for open in pulls {
+                if open.pull.auto_merge || queue.iter().any(|entry| entry.number == open.pull.number) {
+                    leaving.insert(open.pull.branch.as_written().to_string());
+                }
+            }
+        }
+        leaving
     }
 }

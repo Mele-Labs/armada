@@ -20,7 +20,7 @@ pub(crate) fn waits_on(item: &WaitingItem, number: u64) -> bool {
 }
 
 /// `#2589`, `2589` or a pull request's address, as an `approve_pr` act's target is written.
-fn number_of(target: &str) -> Option<u64> {
+pub(crate) fn number_of(target: &str) -> Option<u64> {
     let tail = target.trim().trim_end_matches('/').rsplit(['/', '#']).next()?;
     tail.parse().ok()
 }
