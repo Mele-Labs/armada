@@ -644,9 +644,9 @@ fn assemble(
     let trackers = forge.trackers().taught_by(Arc::new(fleet::mods::TrackerMods::in_dir(mods_dir.clone(), mod_switches.clone())));
     let fleet = Fleet::assembled(Fittings {
         store,
-        harness: agent,
-        vcs: GitVcs::with_forge(forge.clone()),
-        work: GitVcs::with_forge(forge),
+        harness: Arc::new(agent),
+        vcs: Arc::new(GitVcs::with_forge(forge.clone())),
+        work: Arc::new(GitVcs::with_forge(forge)),
         clock: Arc::new(SystemClock::new()),
         mint: Arc::new(UlidMint::new()),
         starting_in: None,
