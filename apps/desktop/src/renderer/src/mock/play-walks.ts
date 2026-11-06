@@ -89,6 +89,8 @@ export function playWalks(part: number, of: number): void {
   beforeEach(async () => {
     // A walk is played faster than a person walks it, so the beat the first reading is given before a call can toast is spent.
     settle.ms = 0;
+    // A Job's thread as the app draws it (`main.tsx`).
+    document.body.dataset.threadTake = "spacious";
     await parkThePointer();
   });
   afterEach(() => {

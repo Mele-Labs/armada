@@ -1,5 +1,5 @@
-/* A take on a Job's thread with more room, under `?thread=spacious` (`main.tsx`) and nowhere else. Fonts, spacing and
-   weight only: every colour is the theme's. */
+/* A Job's thread with room to read: one centred column, a sans body, turns parted by space. The app draws every Job this way
+   (`main.tsx`); the mock's sheets set it beside today's look to compare. Fonts, spacing and weight only: every colour is the theme's. */
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
   --spacious-column: 680px;
@@ -67,8 +67,32 @@
 
 /* ---- Turns parted by space. ---- */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows {
-  gap: calc(var(--space-6) + var(--space-1));
+  gap: var(--spacious-turns, calc(var(--space-6) + var(--space-1)));
   padding-bottom: var(--space-6);
+}
+
+/* The Aa panel's Text size and Spacing hold here as in today's thread: 15 px is its own base. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-text="xs"] {
+  --spacious-body: var(--text-xs);
+  --spacious-leading: 20px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-text="sm"] {
+  --spacious-body: var(--text-sm);
+  --spacious-leading: 22px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-text="lg"] {
+  --spacious-body: var(--text-lg);
+  --spacious-leading: 28px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-spacing="compact"] {
+  --spacious-turns: var(--space-4);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-spacing="roomy"] {
+  --spacious-turns: calc(var(--space-8) + var(--space-2));
 }
 
 /* ---- The body: a larger sans with looser lines. ---- */
@@ -1037,4 +1061,9 @@
 /* The chips' room in the bar, kept with them gone, so Send stays at the right. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__gap {
   flex: 1;
+}
+
+/* The Aa panel's Show times off: the message bar keeps its acts and drops the time. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-times="hidden"] .armada-message-bar__at {
+  display: none;
 }

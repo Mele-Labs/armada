@@ -1,7 +1,7 @@
 // A Job's thread long enough to judge its spacing by, for the walk `spacious-thread`: his words, folded calls, the agent's
 // prose, a run with its last lines, the document waiting on his Approve and Needs you on the composer. The Job is the video
 // script's (`video-script-job.ts`) with more turns; beside it, a Job working, one whose agent reasoned (a row only the mock
-// draws) and one done. `?thread=spacious` draws them in the spacious take; without it, as today.
+// draws) and one done. `?thread=today` draws them in the look before the spacious one.
 
 import type { Session, SessionRow } from "@armada/screens/src/draft/sessions";
 

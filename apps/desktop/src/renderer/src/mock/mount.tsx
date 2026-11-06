@@ -17,6 +17,8 @@ import {
 } from "@armada/components";
 
 import "../styles/index.css";
+// After the app's own, as `main.tsx` has it, so the thread's rules win where they weigh the same.
+import "../spacious-thread.css";
 import "@armada/components/src/look";
 import type { BridgeApi } from "../../../shared/api";
 import { App } from "../App";

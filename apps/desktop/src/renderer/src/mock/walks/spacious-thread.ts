@@ -1,6 +1,6 @@
 // A Job's thread drawn with more room, to set beside today's: one centred column, the body in a larger sans with looser
-// lines, labels in sentence case, messages parted by space and not boxes. `?thread=spacious` draws the take; without it,
-// the same steps show today's thread. Then a Job thinking, one making calls, one whose agent reasoned and one with nothing
+// lines, labels in sentence case, messages parted by space and not boxes. It is the app's look; `?thread=today` plays
+// the same steps over the look before it. Then a Job thinking, one making calls, one whose agent reasoned and one with nothing
 // left to do. Over
 // the `spacious-thread` scenario.
 

@@ -1702,7 +1702,7 @@ export function SessionView({
   trailing?: ReactNode;
 }) {
   const draft = useSessionsDraft();
-  // The spacious take (`?thread=spacious` in the mock), or a sheet's column that draws it; only this view hands it to its thread.
+  // The spacious thread, which the app always draws (`main.tsx`) and a mock sheet's column sets; only this view hands it to its thread.
   const spacious = useContext(SpaciousTake) || document.body.dataset.threadTake === "spacious";
   const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const runBook = useRunBook();
@@ -2661,7 +2661,7 @@ export function SessionView({
             ?.focus();
         },
       };
-  // The spacious take (`?thread=spacious` in the mock) draws the ending as the thread's last entry, and the composer carries no band for it.
+  // The spacious thread draws the ending as the thread's last entry, and the composer carries no band for it.
   const endInThread = doneProp !== undefined && !waits && spacious;
   const endShown = doneProp !== undefined && !waits && !endInThread;
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
