@@ -42,7 +42,7 @@ Doctor stays readable when Fleet dies through `armada doctor --json`, a short-li
   This is what the "Restart Fleet" button does, and it means **skip the throttle wait**, not *recover*.
 - **Fleet exits 0 deliberately.** launchd leaves it down by design. Kickstarting just makes it exit 0 again. Doctor must show the **reason**, not a restart button.
 - **On any restart.** Reconciles against what is live, for every repository it serves.
-  The servers a crashed Fleet left running are ended first, so the ports they held are free.
+  The servers a Fleet left running are taken first: each whose checkout is still there is held again as it was, with its ports, and any other is ended so the ports it held are free.
   A hosted Job's agent survived in its keeper and is reattached ([Job](session.md), *What a restart does to a job*).
   A Job with a turn open and no keeper starts again, once, after reconciliation.
   A slot still held by a Job that ended is parked.
@@ -802,16 +802,24 @@ Fleet holds a Manifest's server Commands — the ones with `serve`, which [Manif
 
 A server runs in a checkout of the repository `?manifest_id=` names — its main checkout, a worktree of it that `start_server`'s `checkout` names, or a Job's slot — and uses **that checkout's own span**.
 A Job's agent that names no `checkout` is served on the slot its Job holds, read from Fleet's record of the lease; with no slot yet it gets the main checkout. A Job's slot is never named by path.
-It stops on Stop, when it exits, when its slot is given back, or when Fleet stops; the span itself is released only when Fleet stops, after teardown.
+It stops on Stop, when it exits, or when its slot is given back; Fleet stopping does not stop it.
+When Fleet stops, the span of a checkout with a server up is kept, so the next Fleet holds the server's ports; every other span is released.
 
 > **Rule.** A port span is claimed per checkout, never per repository.
 > Why: a repository has more than one checkout and each declares the same `ports:`, so one span between them is the number two servers bind.
 > On 22 September 2026 a worktree took the main checkout's port and the address kept answering, with another branch's app behind it.
-**Fleet holds its servers in memory, so they stop when Fleet stops too.** A restarted Fleet holds none, and a server that outlived the process holding it would keep its port with nothing left to hand it to the next Job or stop it.
-Beside each running server's log Fleet keeps a record of its process group, removed when the server stops.
+**A server outlives Fleet.** It leads a session of its own, so a restart — launchd booting Fleet out and in again — leaves it serving on the same port, writing the same log.
+Fleet holds its servers in memory, so beside each running server's log it keeps a record of its process group and of the row it showed, removed when the server stops.
 
-> **Rule.** After a crash, Fleet kills the servers it left running when it next starts, confirming each is still the process it recorded.
-> Why: a leftover server holds its port with nothing to stop it, and a pid the system has since given another process must never be killed.
+> **Rule.** When Fleet next starts, it holds again each server a Fleet left running whose checkout is still there, with the same id, ports, links and log, serving, and ends the rest.
+> Why: the Job sees the server it started, and a server nobody holds keeps its port with nothing to stop it.
+
+> **Rule.** Fleet never ends or adopts a process without confirming it is still the one it recorded.
+> Why: a pid the system has since given another process must never be killed.
+
+Fleet is not the parent of a server it took back, so it cannot wait on it.
+It asks after the process every two seconds, and a group that is gone is a server that ended, as an exit is.
+Stop ends the group as it does for any server.
 
 #### Which checkout answers, and how far behind it is
 

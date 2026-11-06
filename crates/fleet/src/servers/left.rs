@@ -1,19 +1,30 @@
-//! The servers a crashed Fleet left running, and the record that finds them.
+//! The servers a Fleet left running, and the record that finds them.
 //!
 //! **A file per running server, beside its log**: `held` in the instance's
 //! own directory under `.armada/servers`, naming its id, whose it is, its
-//! process group and when that process started. Written once `serve` is up
-//! and removed however it ends, so a record still there at startup is a
-//! server whose Fleet never saw it end. **No table**: a run's record is a file
-//! the same way, and the store's next migrations are another session's.
+//! process group, when that process started and the row Fleet showed for it.
+//! Written once `serve` is up, again when it is serving, and removed however it
+//! ends, so a record still there at startup is a server whose Fleet never saw it
+//! end. **No table**: a run's record is a file the same way, and the store's
+//! next migrations are another session's. It is Fleet's own file, written
+//! whole by rename.
 //!
-//! **A reused pid is never killed.** A group is ended only where the process
-//! at its pid started when the record says it did — `crate::process`, the
-//! identity check the runtime file already relies on.
+//! **A server outlives the Fleet that started it**, and the next one adopts it:
+//! where the group's leader is still the process recorded and the checkout it
+//! serves is still there, startup hands the record back as a [`Kept`] and the
+//! server goes back in the running set as it was. Anything else a record names
+//! that is still running is ended — a server nobody holds would hold its port
+//! with nothing left to stop it.
+//!
+//! **A reused pid is never killed or adopted.** A group is touched only where
+//! the process at its pid started when the record says it did —
+//! `crate::process`, the identity check the runtime file already relies on.
 
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+use ipc::ServerState;
 
 use crate::process::{holder_of, Holder, StartedAt};
 
@@ -25,15 +36,21 @@ const RECORD: &str = "held";
 /// rather than run out by it.
 const GOING: u32 = 100;
 
-/// Write one server's record, whole or not at all.
+/// Write one server's record, whole or not at all. **`state` is the row as it
+/// stands**, which is all the next Fleet needs to put the server back.
 pub(crate) fn recorded(
     dir: &Path,
-    id: &str,
+    state: &ServerState,
     whose: &str,
     group: u32,
     started: &StartedAt,
 ) -> std::io::Result<()> {
-    let text = format!("server {id}\nholder {whose}\ngroup {group}\nstarted {started}\n");
+    let id = &state.id;
+    let row = ipc::encode(state)
+        .map_err(|why| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string()))?;
+    let text = format!(
+        "server {id}\nholder {whose}\ngroup {group}\nstarted {started}\nstate {row}\n"
+    );
     let next = dir.join(format!("{RECORD}.next"));
     std::fs::write(&next, text)?;
     std::fs::rename(next, dir.join(RECORD))
@@ -44,9 +61,22 @@ pub(super) fn forgotten(dir: &Path) {
     let _ = std::fs::remove_file(dir.join(RECORD));
 }
 
+/// A server still running, found again: what it takes to put it back in the
+/// running set. Its record is left where it is, for the end to remove.
+pub(crate) struct Kept {
+    pub(crate) state: ServerState,
+    pub(crate) group: NonZeroU32,
+    pub(crate) started: StartedAt,
+    /// Its own directory, which holds the log and the record.
+    pub(crate) dir: PathBuf,
+}
+
 /// What startup did with the records it found.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct Reaped {
+    /// Still the process recorded, with its checkout there: kept running, and
+    /// handed back to be held.
+    pub(crate) adopted: usize,
     /// Still the process recorded, and ended.
     pub(crate) ended: usize,
     /// Gone, or a different process now at the pid: left alone.
@@ -56,9 +86,12 @@ pub(crate) struct Reaped {
 }
 
 /// End every group a record under `records_root` names that is still the
-/// process it recorded, and drop each record that was answered.
-pub(crate) fn reaped(records_root: &str) -> Reaped {
+/// process it recorded, and drop each record that was answered. **With
+/// `adopting`, a group whose checkout is still there is kept running** and
+/// handed back instead.
+pub(crate) fn reaped(records_root: &str, adopting: bool) -> (Reaped, Vec<Kept>) {
     let mut reaped = Reaped::default();
+    let mut kept = Vec::new();
     let mut found = Vec::new();
     walked(
         &Path::new(records_root).join(".armada").join("servers"),
@@ -66,7 +99,7 @@ pub(crate) fn reaped(records_root: &str) -> Reaped {
         &mut found,
     );
     for record in found {
-        let Some((group, started)) = read(&record) else {
+        let Some((group, started, state)) = read(&record) else {
             // Nothing to confirm a process against, so nothing is killed.
             let _ = std::fs::remove_file(&record);
             reaped.left_alone += 1;
@@ -74,6 +107,19 @@ pub(crate) fn reaped(records_root: &str) -> Reaped {
         };
         match holder_of(group.get()) {
             Ok(Holder::Held(now)) if now == started => {
+                // A row whose checkout is gone has no holder to hand the server to.
+                let holder = state
+                    .filter(|state| adopting && Path::new(&state.checkout.path).is_dir());
+                if let (Some(state), Some(dir)) = (holder, record.parent()) {
+                    reaped.adopted += 1;
+                    kept.push(Kept {
+                        state,
+                        group,
+                        started,
+                        dir: dir.to_path_buf(),
+                    });
+                    continue;
+                }
                 crate::group::end_the_group(group);
                 gone(group, &started);
                 reaped.ended += 1;
@@ -86,7 +132,7 @@ pub(crate) fn reaped(records_root: &str) -> Reaped {
         }
         let _ = std::fs::remove_file(&record);
     }
-    reaped
+    (reaped, kept)
 }
 
 /// Wait, bounded, for the ended leader to stop being the process recorded.
@@ -119,7 +165,9 @@ fn walked(dir: &Path, depth: u8, found: &mut Vec<PathBuf>) {
     }
 }
 
-fn read(record: &Path) -> Option<(NonZeroU32, StartedAt)> {
+/// The group and start time that identify the process, and the row where it
+/// can be read: a record without one is still ended, but never adopted.
+fn read(record: &Path) -> Option<(NonZeroU32, StartedAt, Option<ServerState>)> {
     let text = std::fs::read_to_string(record).ok()?;
     let field = |key: &str| {
         text.lines().find_map(|line| {
@@ -129,5 +177,6 @@ fn read(record: &Path) -> Option<(NonZeroU32, StartedAt)> {
         })
     };
     let group = NonZeroU32::new(field("group")?.parse().ok()?)?;
-    Some((group, StartedAt::carried(field("started")?)))
+    let state = field("state").and_then(|row| ipc::decode("a kept server row", row.as_bytes()).ok());
+    Some((group, StartedAt::carried(field("started")?), state))
 }

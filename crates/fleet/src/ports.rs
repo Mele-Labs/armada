@@ -524,16 +524,30 @@ where
     }
 
     /// Release every checkout's span, the main one's and any worktree's a
-    /// server was held on. **Called once, at Fleet shutdown, after teardown**
-    /// — `docs/concepts/fleet.md`, *Servers*: a checkout's span is held for as
+    /// server was held on. **Called once, at Fleet shutdown** —
+    /// `docs/concepts/fleet.md`, *Servers*: a checkout's span is held for as
     /// long as Fleet runs rather than per run, so nothing releases it between
-    /// one proof run and the next.
+    /// one proof run and the next. **A checkout with a server up keeps its
+    /// span**: the server outlives Fleet, and the next one holds its ports.
     ///
     /// **`pub`, and not `pub(crate)`**: the composition root calls this
     /// directly once the turn loop has drained. See `armada::serve`.
     pub async fn released_checkout_ports(&self) {
         for claim in self.checkout_claims().await {
+            if self.checkout_has_a_server_up(&claim) {
+                continue;
+            }
             let _ = self.store().lock().await.release_port_span(&claim.claimant);
+        }
+    }
+
+    /// Whether the checkout `claim` is for has a server up, which is what keeps its span.
+    fn checkout_has_a_server_up(&self, claim: &PortClaim) -> bool {
+        match &claim.claimant {
+            PortClaimant::Checkout(path) => {
+                self.servers().any_live(&crate::servers::Holder::Checkout(path.clone()))
+            }
+            _ => false,
         }
     }
 
@@ -555,6 +569,11 @@ where
     /// [`checkout_ports`](Fleet::checkout_ports) claims a fresh one.
     pub(crate) async fn reconciled_checkout_ports(&self) {
         for claim in self.checkout_claims().await {
+            // The ports are bound by the server a Fleet before this one left up, which is
+            // adopted by now: the claim is the one it is on.
+            if self.checkout_has_a_server_up(&claim) {
+                continue;
+            }
             let top = claim.base.saturating_add(claim.width.saturating_sub(1));
             if !(claim.base..=top).all(|port| BindConnectProbe.free(port)) {
                 let _ = self.store().lock().await.release_port_span(&claim.claimant);

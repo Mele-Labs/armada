@@ -479,12 +479,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     };
     crate::booting::serve_while_booting(listener, app, stop, boot).await?;
 
-    // After teardown, never before it: the turn in flight has finished, and
-    // every server Fleet holds — a Job's or the main checkout's — is stopped
-    // here, since nothing after this process could hand one on or stop it.
-    // `docs/concepts/fleet.md`, *Servers* — the main checkout's span is held
-    // for as long as Fleet runs, and released once, here.
-    fleet_for_shutdown.stopped_every_server().await;
+    // After teardown, never before it: the turn in flight has finished. **No server is stopped
+    // here**: a Job's or the main checkout's leads a session of its own and the next Fleet
+    // adopts it, so a checkout with one up keeps its span. `docs/concepts/fleet.md`, *Servers*
+    // — the main checkout's span is held for as long as Fleet runs, and released once, here.
     fleet_for_shutdown.released_checkout_ports().await;
     // Fleet's own listener port, given back beside the main checkout's span
     // and at the same moment. A release that does not happen — a crash — is

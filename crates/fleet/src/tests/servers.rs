@@ -333,3 +333,215 @@ fn a_span_handed_out_is_not_handed_out_again() {
         "{base} is free to bind, and still not free to take"
     );
 }
+
+// A server outlives the Fleet that started it, and the next Fleet takes it back.
+//
+// **A real `sleep`, left by a Fleet that is not there**: the server is spawned as Fleet spawns it,
+// its record written as Fleet writes it, and the `Served` dropped, which is all that is left of a
+// Fleet that stopped. Every one is ended by the test, through the stop path under test or, where
+// nothing adopted it, by the group call that `TempDir` makes too.
+
+use crate::process::{holder_of, Holder as Process, StartedAt};
+use crate::servers::{left, Holder};
+
+/// One `sleep` Fleet left running, and the record that finds it.
+struct Left {
+    state: ServerState,
+    group: std::num::NonZeroU32,
+    started: StartedAt,
+    dir: std::path::PathBuf,
+}
+
+/// Start `sleep` as a server is started and let go of it, with `port` as its one port and a record
+/// in the directory a server under the main checkout has. `checkout` is the folder it serves.
+fn a_server_left_running(fleet: &Fixture, home: &TempDir, checkout: &str, port: u16) -> Left {
+    let id = format!("01LEFT{port}");
+    let dir = home.path().join(".armada/servers/main").join(&id);
+    std::fs::create_dir_all(&dir).expect("its directory");
+    let log = dir.join(crate::rehearsing::records::LOG);
+    let served = checks_runner::Served::spawn_logging("sleep 300", home.path(), &[], &log)
+        .expect("it starts");
+    let group = served.group().and_then(std::num::NonZeroU32::new).expect("a group");
+    crate::tests::tmp::spawned_in(group, home.path());
+    let Ok(Process::Held(started)) = holder_of(group.get()) else {
+        panic!("a process was just started")
+    };
+    let state = ServerState {
+        id: id.clone(),
+        name: "storybook".to_string(),
+        manifest_id: Some(ipc::ManifestId::from(fleet.first().manifest().id())),
+        checkout: ipc::ServerCheckout {
+            path: checkout.to_string(),
+            branch: None,
+            commit: None,
+            behind: Some(0),
+        },
+        phase: ServerPhase::Serving,
+        serve: "sleep 300".to_string(),
+        ports: vec![ipc::ServerPort { name: "storybook".to_string(), port }],
+        links: Vec::new(),
+        started_by: StartedBy::Person,
+        session_id: None,
+        started_at: ipc::Instant::from(&fleet.now()),
+        serving_since: Some(ipc::Instant::from(&fleet.now())),
+        ended_at: None,
+        exit_code: None,
+        ended: None,
+        stopped: false,
+        log: format!(".armada/servers/main/{id}/{}", crate::rehearsing::records::LOG),
+    };
+    left::recorded(&dir, &state, "main-checkout", group.get(), &started).expect("its record");
+    drop(served);
+    Left { state, group, started, dir }
+}
+
+fn is_running(left: &Left) -> bool {
+    matches!(holder_of(left.group.get()), Ok(Process::Held(now)) if now == left.started)
+}
+
+/// Ask until the group's leader is gone, which is a kill landing and the zombie being reaped.
+async fn gone(left: &Left) {
+    for _ in 0..250 {
+        if !is_running(left) {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    panic!("the server is still there");
+}
+
+/// **Dropping a server's handle leaves it running**, which is what a Fleet stopping does to
+/// every one it holds. Fleet's own stop path is what ends it afterwards.
+#[tokio::test]
+async fn a_server_is_left_running_when_its_handle_is_dropped() {
+    let home = TempDir::new();
+    let fleet = a_fleet_serving(&home, &api::Broadcaster::new());
+    let left = a_server_left_running(&fleet, &home, fleet.first().root(), 40_001);
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(is_running(&left), "the handle going did not end it");
+    crate::group::end_the_group(left.group);
+    gone(&left).await;
+}
+
+/// **A live record whose checkout is there is taken back as it was**: the same id, name and
+/// port, serving, with its port still the checkout's own. Stop then ends its group.
+#[tokio::test]
+async fn a_server_a_fleet_left_is_adopted_serving_with_its_port_claimed_and_stops_on_stop() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_serving(&home, &events);
+    let root = fleet.first().root().to_string();
+    let port = *fleet
+        .main_checkout_ports(&fleet.first())
+        .await
+        .get("storybook")
+        .expect("the main checkout's span");
+    // Bound as the server would have it, so the boot probe finds the span taken.
+    let _bound = std::net::TcpListener::bind(("127.0.0.1", port)).expect("the port is free");
+    let left = a_server_left_running(&fleet, &home, &root, port);
+
+    let reaped = fleet.adopted_left_servers(fleet.first().records_root()).await;
+    assert_eq!((reaped.adopted, reaped.ended), (1, 0));
+    let listed = fleet.server_list().servers;
+    let adopted = listed.iter().find(|one| one.id == left.state.id).expect("it is held again");
+    assert_eq!(adopted.phase, ServerPhase::Serving);
+    assert_eq!(adopted.name, left.state.name);
+    assert_eq!(adopted.log, left.state.log);
+    assert_eq!(adopted.ports, left.state.ports);
+    assert_eq!(
+        fleet.servers().ports_live(&Holder::Checkout(root.clone())),
+        left.state.ports,
+        "its port is one its checkout has up"
+    );
+    assert!(left.dir.join("held").exists(), "its record stays until it ends");
+
+    fleet.reconciled_checkout_ports().await;
+    assert!(
+        fleet.store().lock().await.port_span_for_checkout(&root).expect("read").is_some(),
+        "the span it is on is still claimed after the boot probe found it taken"
+    );
+
+    let stopped = fleet.stopped_server(&left.state.id).await.expect("it stops");
+    assert!(stopped.stopped);
+    assert_eq!(stopped.phase, ServerPhase::Exited);
+    gone(&left).await;
+    assert!(!left.dir.join("held").exists(), "an ended server leaves no record");
+}
+
+/// **An adopted server that dies is an ended one**, told as an exit is, and not a stop.
+#[tokio::test]
+async fn an_adopted_server_that_dies_is_seen_as_ended() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_serving(&home, &events);
+    let left = a_server_left_running(&fleet, &home, fleet.first().root(), 40_002);
+    let mut watching = events.subscribe();
+    fleet.adopted_left_servers(fleet.first().records_root()).await;
+
+    crate::group::end_the_group(left.group);
+    let ended = exited(&mut watching, &left.state.id).await;
+    assert_eq!(ended.phase, ServerPhase::Exited);
+    assert!(!ended.stopped, "nobody pressed Stop");
+    assert!(ended.ended.is_some());
+    assert!(fleet.servers().ports_live(&Holder::Checkout(fleet.first().root().to_string())).is_empty());
+    assert!(!left.dir.join("held").exists());
+}
+
+/// **A process that is not the one recorded is never adopted or ended**: the pid was reused, so
+/// the record is dropped and the stranger left running.
+#[tokio::test]
+async fn a_reused_pid_is_neither_adopted_nor_ended() {
+    let home = TempDir::new();
+    let fleet = a_fleet_serving(&home, &api::Broadcaster::new());
+    let left = a_server_left_running(&fleet, &home, fleet.first().root(), 40_003);
+    let other = StartedAt::carried("Thu Jan  1 00:00:00 1970");
+    left::recorded(&left.dir, &left.state, "main-checkout", left.group.get(), &other).expect("rewritten");
+
+    let reaped = fleet.adopted_left_servers(fleet.first().records_root()).await;
+    assert_eq!((reaped.adopted, reaped.ended, reaped.left_alone), (0, 0, 1));
+    assert!(fleet.server_list().servers.is_empty());
+    assert!(is_running(&left), "the stranger was not touched");
+    assert!(!left.dir.join("held").exists());
+    crate::group::end_the_group(left.group);
+    gone(&left).await;
+}
+
+/// **A server already gone is dropped**, and a record that cannot be read ends nothing.
+#[tokio::test]
+async fn a_dead_server_and_an_unreadable_record_are_dropped() {
+    let home = TempDir::new();
+    let fleet = a_fleet_serving(&home, &api::Broadcaster::new());
+    let dead = a_server_left_running(&fleet, &home, fleet.first().root(), 40_004);
+    crate::group::end_the_group(dead.group);
+    gone(&dead).await;
+    let unreadable = home.path().join(".armada/servers/main/01UNREADABLE");
+    std::fs::create_dir_all(&unreadable).expect("a directory");
+    std::fs::write(unreadable.join("held"), "server 01UNREADABLE\n").expect("a record");
+
+    let reaped = fleet.adopted_left_servers(fleet.first().records_root()).await;
+    assert_eq!((reaped.adopted, reaped.ended, reaped.left_alone), (0, 0, 2));
+    assert!(fleet.server_list().servers.is_empty());
+    assert!(!dead.dir.join("held").exists());
+    assert!(!unreadable.join("held").exists());
+}
+
+/// **A server whose checkout is gone has no one to be held for**, and is ended as a crashed
+/// Fleet's always were. So is every one a repository added while Fleet runs left.
+#[tokio::test]
+async fn a_server_whose_checkout_is_gone_is_ended() {
+    let home = TempDir::new();
+    let fleet = a_fleet_serving(&home, &api::Broadcaster::new());
+    let gone_from = home.path().join("a-checkout-that-was-removed");
+    let orphan = a_server_left_running(&fleet, &home, &gone_from.to_string_lossy(), 40_005);
+    let reaped = fleet.adopted_left_servers(fleet.first().records_root()).await;
+    assert_eq!((reaped.adopted, reaped.ended), (0, 1));
+    gone(&orphan).await;
+    assert!(fleet.server_list().servers.is_empty());
+    assert!(!orphan.dir.join("held").exists());
+
+    let added = a_server_left_running(&fleet, &home, fleet.first().root(), 40_006);
+    let reaped = fleet.reaped_left_servers(fleet.first().records_root()).await;
+    assert_eq!((reaped.adopted, reaped.ended), (0, 1));
+    gone(&added).await;
+    assert!(fleet.server_list().servers.is_empty());
+}
