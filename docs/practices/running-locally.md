@@ -251,6 +251,7 @@ owner's own `com.armada.fleet`.
 **Every restart keeps the build it installs**, so going back to the build before is two links and two launchd reboots, with nothing compiled.
 `scripts/keep-build make` copies the `armada` binary, Bridge's `out/`, `sounds/` and launchers into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, a hash of Bridge's `out/`, and on a preview each branch merged in as a `[[job]]` row.
 `keep-build point` then moves `previous` to the old `current` and `current` to the new build, and deletes all but the newest five and the two the links name.
+Its `tree` line is that tree's path, where Bridge's annotation layer writes notes, since a kept Bridge has no repository above it.
 `node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
 
 **Launchd runs both jobs through `builds/current`.**
