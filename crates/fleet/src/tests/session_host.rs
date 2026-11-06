@@ -728,6 +728,41 @@ async fn a_message_is_taken_while_the_process_it_needs_is_still_starting() {
     assert!(line.contains("again"), "the message reaches the new process: {line}");
 }
 
+/// Two notices reaching an idle Job at once each started a process, the second keeper took the first's
+/// socket, and the first agent's end was read as the Job dying (5 Nov 2026, "Finish the operator").
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn two_senders_at_once_start_one_process() {
+    let rig = rig();
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "ready");
+    eventually(|| async { rig.turn(&id).await == SessionTurn::Idle }).await;
+    rig.fleet
+        .tune_session(TuneSession { session_id: id.clone(), model: None, effort: None, mode: SessionMode::Auto })
+        .await
+        .unwrap();
+    assert!(rig.stand_in.process(0).ended.load(Ordering::SeqCst));
+
+    let held = rig.stand_in.gate.lock().unwrap();
+    let starting = (0..2)
+        .map(|_| {
+            let (fleet, id) = (Arc::clone(&rig.fleet), id.as_str().to_string());
+            tokio::spawn(async move {
+                let (_, hosting) = fleet.session_and_hosting(&id).await.expect("hosted");
+                fleet.ensure_process(&id, &hosting).await
+            })
+        })
+        .collect::<Vec<_>>();
+    // Both are past the store and at the start, or waiting their turn for it.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    drop(held);
+    for one in starting {
+        one.await.unwrap().expect("a process");
+    }
+    assert_eq!(rig.stand_in.starts().len(), 2, "one process before the tune, and one after");
+}
+
 #[tokio::test]
 async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     let rig = rig();

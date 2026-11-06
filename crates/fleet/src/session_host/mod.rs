@@ -377,6 +377,7 @@ impl Hosts {
             Arc::new(Runtime {
                 lease: tokio::sync::Mutex::new(()),
                 delivery: tokio::sync::Mutex::new(()),
+                starting: tokio::sync::Mutex::new(()),
                 writing_retro: AtomicBool::new(false),
                 state: Mutex::new(State::new()),
             })
@@ -428,6 +429,8 @@ pub(crate) struct Runtime {
     pub(crate) lease: tokio::sync::Mutex<()>,
     /// Held while a turn is delivered, so turns sent one after another reach the process in order.
     pub(crate) delivery: tokio::sync::Mutex<()>,
+    /// Held while the process is found or started, so two senders at once start one process.
+    pub(crate) starting: tokio::sync::Mutex<()>,
     /// Whether this session's retro is being written, so a second press waits.
     pub(crate) writing_retro: AtomicBool,
     state: Mutex<State>,

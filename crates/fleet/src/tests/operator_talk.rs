@@ -58,9 +58,9 @@ async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_co
     let second = reply("none", "Because nothing arrived.");
     let call = seated(&rig, &[&first, &second]).await;
 
-    let said = rig.fleet.operator_talked("what is going on?").await.expect("answered");
+    let said = rig.fleet.operator_talked("what is going on?", None).await.expect("answered");
     assert_eq!(said.said, "Nothing has been raised today.");
-    rig.fleet.operator_talked("why?").await.expect("answered");
+    rig.fleet.operator_talked("why?", None).await.expect("answered");
 
     let asked = call.asked();
     assert!(!asked[0].contains("You: Nothing has been raised"));
@@ -80,11 +80,11 @@ async fn it_cannot_be_talked_to_while_off_nor_past_a_failed_call_and_keeps_nothi
     let rig = rig_placing(None);
     let call = Replies::saying(&[]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
-    assert!(code(rig.fleet.operator_talked("hello").await.expect_err("off")).contains("fleet.operator_off"));
+    assert!(code(rig.fleet.operator_talked("hello", None).await.expect_err("off")).contains("fleet.operator_off"));
     assert!(call.asked().is_empty(), "no call");
 
     dispatch(&rig, false).await;
-    assert!(code(rig.fleet.operator_talked("hello").await.expect_err("said nothing")).contains("fleet.operator_said_nothing"));
+    assert!(code(rig.fleet.operator_talked("hello", None).await.expect_err("said nothing")).contains("fleet.operator_said_nothing"));
     assert!(rig.fleet.operator_talk_wire().await.expect("read").lines.is_empty());
 }
 
@@ -96,7 +96,7 @@ async fn words_that_fit_no_form_list_the_forms_and_a_form_naming_what_is_not_the
     seated(&rig, &[&unfit, &unknown]).await;
 
     for words in ["be more careful", "turn Answer off somewhere else"] {
-        let said = rig.fleet.operator_talked(words).await.expect("answered");
+        let said = rig.fleet.operator_talked(words, None).await.expect("answered");
         assert!(said.order.is_none(), "{words}");
         assert_eq!(said.forms.len(), 3, "{words}");
     }
@@ -169,7 +169,7 @@ async fn always_raise_note_reads_as_a_standing_order_in_fleets_words_and_stands_
     let asked_for = reply("always_raise note", "Notes will always come to you.");
     let call = seated(&rig, &[&asked_for]).await;
 
-    let said = rig.fleet.operator_talked("always bring my notes to me").await.expect("answered");
+    let said = rig.fleet.operator_talked("always bring my notes to me", None).await.expect("answered");
 
     assert!(call.asked()[0].contains("review, later or note>"), "the form is one the call is told of");
     let proposed = said.order.expect("a form");
@@ -212,7 +212,7 @@ async fn a_job_that_ended_today_is_shown_to_the_box_with_what_it_said_and_who_st
     }
     close(&rig, &ended).await;
 
-    rig.fleet.operator_talked("what ended today?").await.expect("answered");
+    rig.fleet.operator_talked("what ended today?", None).await.expect("answered");
 
     let asked = call.asked();
     let section = asked[0].split("\nEnded today:\n").nth(1).expect("a section of its own").split("\n\n").next().expect("a section");

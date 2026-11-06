@@ -14,10 +14,10 @@ use super::backlog::{machine, manifest};
 use super::operator_sources::{on, rulings, switched, Answers};
 use super::session_host::{eventually, Rig};
 
-const TEXT: &str = "The terminal scrollback is lost on redraw";
+pub(super) const TEXT: &str = "The terminal scrollback is lost on redraw";
 
 /// A rig over beads, so a note may be filed, with the Operator on and File on.
-async fn filing() -> Rig {
+pub(super) async fn filing() -> Rig {
     let copy = Arc::new(FakeBeads::on(&FakeBeadsRemote::new()));
     let rig = machine("north", &copy).await;
     on(&rig).await;
@@ -30,7 +30,7 @@ fn notes_dir(rig: &Rig) -> PathBuf {
 }
 
 /// A note as Bridge writes it, with `sent` where it went to a Job.
-fn leave(rig: &Rig, id: &str, status: &str, sent: Option<&str>, text: &str) {
+pub(super) fn leave(rig: &Rig, id: &str, status: &str, sent: Option<&str>, text: &str) {
     std::fs::create_dir_all(notes_dir(rig)).expect("made");
     let sent = sent
         .map(|job| format!(r#""sent": {{"at": "2026-11-05T09:00:00.000Z", "sessionId": "{job}", "title": "Elsewhere"}}, "#))
@@ -41,7 +41,7 @@ fn leave(rig: &Rig, id: &str, status: &str, sent: Option<&str>, text: &str) {
     std::fs::write(notes_dir(rig).join(format!("{id}.json")), note).expect("written");
 }
 
-fn read(rig: &Rig, id: &str) -> NoteRead {
+pub(super) fn read(rig: &Rig, id: &str) -> NoteRead {
     note_read(&std::fs::read(notes_dir(rig).join(format!("{id}.json"))).expect("there")).expect("a note")
 }
 

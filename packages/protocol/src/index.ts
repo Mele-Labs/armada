@@ -31,6 +31,7 @@ export * from "./debug-report";
 export * from "./health";
 export * from "./calls";
 export * from "./thought";
+export * from "./operator-board";
 export * from "./retro";
 export * from "./retro-review";
 export * from "./retro-session";

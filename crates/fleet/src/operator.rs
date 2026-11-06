@@ -23,6 +23,7 @@ mod acting;
 mod answering;
 mod arriving;
 mod asking;
+mod boarding;
 mod calling;
 mod candidates;
 mod desk;
@@ -52,6 +53,7 @@ use ipc::operator_positions::{OperatorPosition, OperatorRole};
 use tokio::sync::oneshot;
 
 pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
+pub use boarding::{OnBoard, Unknown};
 use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use acting::FleetActing;
@@ -107,6 +109,8 @@ pub trait Desk: Send + Sync {
     fn board(&self) -> Done<'_, Board> {
         Box::pin(async { Board::default() })
     }
+    /// The board changed: an arrival came, went into a call, was ruled, or was reordered.
+    fn board_changed(&self) {}
 }
 
 /// What Fleet does to Jobs on a ruling, called once it is logged and never for one that came late.
@@ -293,6 +297,7 @@ impl Operator {
             queue.running = true;
             (token, start)
         };
+        self.desk.board_changed();
         if start {
             tokio::spawn(Arc::clone(self).pass());
         }
@@ -311,6 +316,7 @@ impl Operator {
             Some((held, call)) => {
                 let ruled = Ruled::PassedOn(PassedOn::Late(within));
                 self.desk.keep(Logged::of(&held.arrival, &ruled, call, held.handed.clone(), self.desk.now())).await;
+                self.desk.board_changed();
                 ruled
             }
             // Ruled as the wait ran out: the ruling is already on its way.
@@ -333,6 +339,7 @@ impl Operator {
                 queue.out = all;
                 items
             };
+            self.desk.board_changed();
             let live = self.desk.live().await;
             let waiting = self.desk.waiting().await;
             let orders = self.desk.orders().await;
@@ -399,6 +406,7 @@ impl Operator {
             queue.call = Some(call.clone());
             call
         };
+        self.desk.board_changed();
         let at: BTreeMap<u64, usize> = asked.iter().enumerate().map(|(at, (token, _, _))| (*token, at)).collect();
         let mut items = Vec::new();
         let (mut near, mut line): (Vec<Vec<Near>>, Vec<Vec<InLine>>) = (Vec::new(), Vec::new());
@@ -416,6 +424,7 @@ impl Operator {
             queue.call = None;
             std::mem::take(&mut queue.out)
         };
+        self.desk.board_changed();
         for one in still {
             // An item settled without a call left `out` before it.
             let Some(ruled) = at.get(&one.token).map(|at| rulings[*at].clone()) else { continue };
@@ -430,6 +439,7 @@ impl Operator {
             }
         }
         self.desk.keep(Logged::of(&one.arrival, &ruled, call, one.handed.clone(), self.desk.now())).await;
+        self.desk.board_changed();
         if let Ruled::Ruled(ruling) = &ruled {
             self.act(&one.arrival, ruling);
         }
