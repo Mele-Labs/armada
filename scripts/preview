@@ -9,6 +9,8 @@
 #   scripts/preview --only a --skip b    a branch list is repeatable or comma-separated
 #   scripts/preview --watch [seconds]    merge again when a branch or main moves (60)
 #   scripts/preview --restart [--dry-run] [--adopt]  then `scripts/restart --from .armada/preview`
+#   scripts/preview --restart --keep-only --picked <file>  build and keep main plus the branches
+#       the file names, one a line, and swap nothing; an empty file is main alone
 #
 # **What a restart cannot take is left out, and it goes again until it builds.**
 # A failed `--restart` drops the branches its output names: the migration
@@ -189,12 +191,12 @@ def in_flight(root, base, only, skip):
             notes.append(f"{branch}: skipped by --skip")
         elif branch in stranded:
             notes.append(f"{branch}: {stranded[branch]}")
-        elif only and branch not in only:
+        elif only is not None and branch not in only:
             continue
         else:
             oldest = out(root, "log", "--reverse", "--format=%ct", f"{base}..{branch}").split()[0]
             chosen.append((int(oldest), branch))
-    for name in sorted(only - {b for _, b in chosen}):
+    for name in sorted((only or set()) - {b for _, b in chosen}):
         if name not in skip:
             notes.append(f"{name}: named by --only, but it is not ahead of main in a slot")
     return [b for _, b in sorted(chosen)], notes, held
@@ -367,7 +369,7 @@ def does_not_build(root, base, rows, output, wt):
 LEAVE_OUT = re.compile(r"^restart: leave out (\S+): (.+)$")
 
 
-def write_left_out(wt, rows):
+def write_left_out(wt, rows, name="preview-left-out"):
     """`Armada/preview-left-out`: the preview commit, then a `branch<TAB>tip<TAB>why` line for
     each branch it skipped. Once that commit is the build it runs, Fleet tells each branch's
     Job why, and refreshes the preview when a branch moves past its tip."""
@@ -376,13 +378,13 @@ def write_left_out(wt, rows):
     lines = [out(wt, "rev-parse", "HEAD")]
     lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}\t{what[len('skipped ('):-1]}"
               for branch, what, _ in rows if what.startswith("skipped (")]
-    path = os.path.join(support, "preview-left-out")
+    path = os.path.join(support, name)
     with open(path + ".tmp", "w") as f:
         f.write("\n".join(lines) + "\n")
     os.replace(path + ".tmp", path)
 
 
-def write_held(root, wt, base, rows):
+def write_held(root, wt, base, rows, name="preview-held"):
     """`Armada/preview-held`: the preview commit, then the main commit it stands on, then a
     `branch<TAB>tip` line for each branch merged into it. Fleet keeps these with the build, so a
     figure can be read against what the build held, and reads them only while that commit is the build."""
@@ -391,7 +393,7 @@ def write_held(root, wt, base, rows):
     lines = [out(wt, "rev-parse", "HEAD"), out(root, "rev-parse", base)]
     lines += [f"{branch}\t{out(wt, 'rev-parse', f'refs/heads/{branch}')}"
               for branch, what, _ in rows if what == "merged"]
-    path = os.path.join(support, "preview-held")
+    path = os.path.join(support, name)
     with open(path + ".tmp", "w") as f:
         f.write("\n".join(lines) + "\n")
     os.replace(path + ".tmp", path)
@@ -409,13 +411,19 @@ def cannot_take(root, base, rows, output, wt):
             for branch, files in does_not_build(root, base, rows, output, wt).items()}
 
 
-def restart(root, wt, dry_run, adopt):
+def restart(root, wt, dry_run, adopt, keep_only=False):
     """Run the restart script with its output flowing on as it always did, and
-    return its exit code with all it said, for the errors to be read from."""
+    return its exit code with all it said, for the errors to be read from. A
+    kept-only build reads what it held from `snapshot-held`, so the running
+    build's own record is left as it is."""
     script = os.environ.get("ARMADA_PREVIEW_RESTART") or os.path.join(root, "scripts", "restart")
-    command = [script, "--from", wt] + (["--dry-run"] if dry_run else []) + (["--adopt"] if adopt else [])
+    command = ([script, "--from", wt] + (["--dry-run"] if dry_run else []) + (["--adopt"] if adopt else [])
+               + (["--keep-only"] if keep_only else []))
     print("running " + " ".join(command), flush=True)
-    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    env = dict(os.environ)
+    if keep_only:
+        env["ARMADA_PREVIEW_HELD"] = "snapshot-held"
+    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     said = []
 
     def copy(pipe, stream):
@@ -445,6 +453,8 @@ def main():
     ap.add_argument("--restart", action="store_true", help="then run scripts/restart --from the preview")
     ap.add_argument("--dry-run", action="store_true", help="with --restart: print, change nothing")
     ap.add_argument("--adopt", action="store_true", help="with --restart: restart Fleet with a Drone working, adopting it")
+    ap.add_argument("--keep-only", action="store_true", help="with --restart: build and keep it, and swap nothing")
+    ap.add_argument("--picked", metavar="FILE", help="include only the branches this file names, one a line")
     args = ap.parse_args()
     if args.watch is not None and args.restart:
         sys.exit("preview: --watch never restarts Fleet. Run --restart on its own.")
@@ -454,7 +464,17 @@ def main():
         sys.exit("preview: --adopt is for --restart")
     if args.dry_run and not args.restart:
         sys.exit("preview: --dry-run is for --restart")
-    only, skip = names(args.only), names(args.skip)
+    if args.keep_only and not args.restart:
+        sys.exit("preview: --keep-only is for --restart")
+    if args.picked and args.only:
+        sys.exit("preview: --picked and --only both name the branches; give one")
+    only, skip = (names(args.only) if args.only else None), names(args.skip)
+    if args.picked:
+        try:
+            with open(args.picked) as f:
+                only = names(f.read().splitlines())
+        except FileNotFoundError:
+            only = set()
     root = repo_root()
 
     wt, base, rows = merge_pass(root, only, skip)
@@ -473,9 +493,11 @@ def main():
     if args.restart:
         dropped = {}
         while True:
-            write_left_out(wt, rows)
-            write_held(root, wt, base, rows)
-            code, output = restart(root, wt, args.dry_run, args.adopt)
+            # What a kept-only build held goes beside the running build's record, not over it.
+            kept_only = "snapshot" if args.keep_only else "preview"
+            write_left_out(wt, rows, f"{kept_only}-left-out")
+            write_held(root, wt, base, rows, f"{kept_only}-held")
+            code, output = restart(root, wt, args.dry_run, args.adopt, args.keep_only)
             more = cannot_take(root, base, rows, output, wt) if code != 0 else {}
             if not more:
                 return code

@@ -161,7 +161,8 @@ main, jobs = commit, []
 if source == "preview":
     main = None
     try:
-        with open(os.path.join(support, "preview-held")) as f:
+        # `scripts/preview --keep-only` writes `snapshot-held`, leaving the running build's own.
+        with open(os.path.join(support, os.environ.get("ARMADA_PREVIEW_HELD") or "preview-held")) as f:
             held = f.read().splitlines()
     except OSError:
         held = []

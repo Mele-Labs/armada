@@ -15,6 +15,10 @@
 //! **A restart onto a new build is checked twice.** Before anything stops, `armada build rehearse`
 //! has the new build open a copy of the store. After the swap, `armada build settle` gives the new
 //! Fleet a minute to answer `/health`, and otherwise marks the build `unhealthy` and swaps back.
+//!
+//! **A snapshot is a build kept and not swapped onto**: `scripts/restart --keep-only` names it in
+//! `Armada/snapshot`, and `armada build swap` moves onto it as a revert moves back, settling as a
+//! restart does. `Armada/preview-picked` is the branches the person picked for the next one.
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -40,6 +44,14 @@ pub const HEALTHY_WITHIN: Duration = Duration::from_secs(60);
 const REHEARSAL: &str = "rehearsal.db";
 /// What a revert is doing, or why it stopped. Under the support folder.
 pub const STATUS: &str = "revert.status";
+/// What a swap onto the snapshot is doing, or why it stopped, as `revert.status` is a revert's.
+pub const SWAP_STATUS: &str = "swap.status";
+/// The kept build `scripts/restart --keep-only` made last, which Swap moves onto.
+pub const SNAPSHOT: &str = "snapshot";
+/// The branches the person picked for the next snapshot, one a line.
+pub const PICKED: &str = "preview-picked";
+/// The build the person pressed Keep on, so its Jobs are no longer being tried.
+pub const KEPT_TRIED: &str = "kept-tried";
 /// A `running` status older than this is a revert that died, not one working.
 const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(2 * 60);
 /// Fleet's launchd job: `ARMADA_FLEET_LABEL`, the override `scripts/restart` reads, or the shipped name.
@@ -62,6 +74,8 @@ pub struct KeptBuild {
     pub jobs: Vec<String>,
     /// Why a swap onto it was undone: its Fleet did not answer in time.
     pub unhealthy: Option<String>,
+    /// The tree it was built from.
+    pub tree: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -71,6 +85,7 @@ struct Record {
     source: String,
     bridge: Option<String>,
     unhealthy: Option<String>,
+    tree: Option<String>,
     #[serde(default, rename = "job")]
     jobs: Vec<JobRow>,
 }
@@ -84,7 +99,12 @@ struct JobRow {
 /// The build `link` names under `builds`, or none where the link or its record is missing.
 pub fn kept_at(builds: &Path, link: &str) -> Option<KeptBuild> {
     let name = std::fs::read_link(builds.join(link)).ok()?;
-    let name = name.file_name()?.to_string_lossy().into_owned();
+    kept_named(builds, &name.file_name()?.to_string_lossy())
+}
+
+/// The build in the folder `name` under `builds`, or none where its record is missing.
+pub fn kept_named(builds: &Path, name: &str) -> Option<KeptBuild> {
+    let name = name.to_string();
     let text = std::fs::read_to_string(builds.join(&name).join(RECORD)).ok()?;
     let record: Record = toml::from_str(&text).ok()?;
     Some(KeptBuild {
@@ -95,6 +115,7 @@ pub fn kept_at(builds: &Path, link: &str) -> Option<KeptBuild> {
         bridge: record.bridge,
         jobs: record.jobs.into_iter().map(|row| row.branch).collect(),
         unhealthy: record.unhealthy,
+        tree: record.tree,
     })
 }
 
@@ -113,15 +134,80 @@ pub fn revertible(support: &Path, label: &str) -> Result<(KeptBuild, KeptBuild),
     if let Some(why) = &to.unhealthy {
         return Err(format!("The build before this one was swapped back from, since it did not come up: {why}"));
     }
-    let runs_from = builds.join(CURRENT).join("armada");
-    let named = std::fs::read_to_string(support.join(format!("{label}.plist"))).unwrap_or_default();
-    if !named.contains(&format!("<string>{}</string>", runs_from.display())) {
-        return Err(format!(
-            "Fleet's launchd job does not run {}, so a revert would change nothing it runs. Restart once with scripts/restart",
-            runs_from.display()
-        ));
-    }
+    runs_from_current(support, label)?;
     Ok((from, to))
+}
+
+/// launchd's Fleet runs `builds/current/armada`, so moving the links moves what it runs.
+fn runs_from_current(support: &Path, label: &str) -> Result<(), String> {
+    let runs_from = support.join(BUILDS).join(CURRENT).join("armada");
+    let named = std::fs::read_to_string(support.join(format!("{label}.plist"))).unwrap_or_default();
+    match named.contains(&format!("<string>{}</string>", runs_from.display())) {
+        true => Ok(()),
+        false => Err(format!(
+            "Fleet's launchd job does not run {}, so a swap would change nothing it runs. Restart once with scripts/restart",
+            runs_from.display()
+        )),
+    }
+}
+
+/// The build running and the snapshot Swap would move onto, or why there is none to move onto.
+pub fn swappable(support: &Path, label: &str) -> Result<(KeptBuild, KeptBuild), String> {
+    let builds = support.join(BUILDS);
+    let from = kept_at(&builds, CURRENT).ok_or("No kept build is running, so there is nothing to swap from")?;
+    let named = std::fs::read_to_string(support.join(SNAPSHOT)).unwrap_or_default();
+    let to = kept_named(&builds, named.trim()).ok_or("No build is kept to swap onto")?;
+    if to.name == from.name {
+        return Err(String::from("The kept build is the one running"));
+    }
+    if let Some(why) = &to.unhealthy {
+        return Err(format!("The kept build was swapped back from, since it did not come up: {why}"));
+    }
+    runs_from_current(support, label)?;
+    Ok((from, to))
+}
+
+/// The branches picked for the next snapshot: the file's lines, or the running build's own where
+/// the person has picked nothing yet.
+pub fn picked_in(support: &Path) -> Vec<String> {
+    match std::fs::read_to_string(support.join(PICKED)) {
+        Ok(text) => text.lines().map(str::trim).filter(|one| !one.is_empty()).map(String::from).collect(),
+        Err(_) => kept_at(&support.join(BUILDS), CURRENT).map(|kept| kept.jobs).unwrap_or_default(),
+    }
+}
+
+/// `branch` added to the picked branches, or taken out, and the file written.
+pub fn picked_changed(support: &Path, branch: &str, picked: bool) -> std::io::Result<Vec<String>> {
+    let mut branches = picked_in(support);
+    branches.retain(|one| one != branch);
+    if picked {
+        branches.push(branch.to_string());
+    }
+    std::fs::create_dir_all(support)?;
+    let text: String = branches.iter().map(|one| format!("{one}\n")).collect();
+    std::fs::write(support.join(PICKED), text)?;
+    Ok(branches)
+}
+
+/// The branches of the running build the person is trying: none once Keep was pressed on it.
+pub fn trying_in(support: &Path) -> Vec<String> {
+    let Some(running) = kept_at(&support.join(BUILDS), CURRENT) else {
+        return Vec::new();
+    };
+    let kept = std::fs::read_to_string(support.join(KEPT_TRIED)).unwrap_or_default();
+    match kept.trim() == running.name {
+        true => Vec::new(),
+        false => running.jobs,
+    }
+}
+
+/// Keep pressed on the running build: its branches are no longer being tried.
+pub fn kept_tried(support: &Path) -> std::io::Result<Vec<String>> {
+    let branches = trying_in(support);
+    if let Some(running) = kept_at(&support.join(BUILDS), CURRENT) {
+        std::fs::write(support.join(KEPT_TRIED), format!("{}\n", running.name))?;
+    }
+    Ok(branches)
 }
 
 /// What a revert would change, as the Fleet panel asks it before the press.
@@ -158,7 +244,16 @@ pub enum RevertStatus {
 
 /// The revert's status: `running` for as long as it is young enough to be working, or the line it failed with.
 pub fn revert_status_in(support: &Path, now: SystemTime) -> Option<RevertStatus> {
-    let path = support.join(STATUS);
+    status_in(support, STATUS, now)
+}
+
+/// The swap's status, as [`revert_status_in`] reads the revert's.
+pub fn swap_status_in(support: &Path, now: SystemTime) -> Option<RevertStatus> {
+    status_in(support, SWAP_STATUS, now)
+}
+
+fn status_in(support: &Path, file: &str, now: SystemTime) -> Option<RevertStatus> {
+    let path = support.join(file);
     let text = std::fs::read_to_string(&path).ok()?;
     let mut lines = text.lines();
     match lines.next()?.trim() {
@@ -181,15 +276,42 @@ pub fn revert_status_in(support: &Path, now: SystemTime) -> Option<RevertStatus>
 
 /// Say a revert is under way, before the undo has done anything.
 pub fn revert_begun(support: &Path) -> std::io::Result<()> {
+    status_begun(support, STATUS)
+}
+
+/// Say a swap onto the snapshot is under way.
+pub fn swap_begun(support: &Path) -> std::io::Result<()> {
+    status_begun(support, SWAP_STATUS)
+}
+
+fn status_begun(support: &Path, file: &str) -> std::io::Result<()> {
     std::fs::create_dir_all(support)?;
-    std::fs::write(support.join(STATUS), "running\n")
+    std::fs::write(support.join(file), "running\n")
 }
 
 /// Keep what a revert came to: the file goes on success, and otherwise holds `failed`, the build `current` names, and the error's one line.
 pub fn revert_ended(support: &Path, outcome: &Result<Reverted, String>) {
-    let path = support.join(STATUS);
+    status_ended(support, STATUS, outcome.as_ref().map(drop).map_err(String::as_str));
+}
+
+/// Keep what a swap came to, as [`revert_ended`] does. A swap undone by itself failed.
+pub fn swap_ended(support: &Path, outcome: &Result<Settled, String>) {
+    let undone = match outcome {
+        Ok(Settled::SwappedBack { why, .. }) => Some(format!("Swapped back, since the new Fleet did not answer: {why}")),
+        _ => None,
+    };
+    let said = match (outcome, &undone) {
+        (_, Some(undone)) => Err(undone.as_str()),
+        (Ok(_), None) => Ok(()),
+        (Err(why), None) => Err(why.as_str()),
+    };
+    status_ended(support, SWAP_STATUS, said);
+}
+
+fn status_ended(support: &Path, file: &str, outcome: Result<(), &str>) {
+    let path = support.join(file);
     match outcome {
-        Ok(_) => {
+        Ok(()) => {
             let _ = std::fs::remove_file(&path);
         }
         Err(why) => {
@@ -354,10 +476,19 @@ pub fn settle(support: &Path, label: &str, old: Option<u32>, stamp: &str, servic
     }
 }
 
-/// `unhealthy = "<why>"` added to a build's record.
+/// `unhealthy = "<why>"` added to a build's record, **above its first table**: appended after a
+/// preview's `[[job]]` rows it would be a key of the last one.
 fn marked_unhealthy(record: &Path, why: &str) -> std::io::Result<()> {
-    let mut file = std::fs::OpenOptions::new().append(true).open(record)?;
-    writeln!(file, "\nunhealthy = {}", toml::Value::String(why.to_string()))
+    let text = std::fs::read_to_string(record)?;
+    let line = format!("unhealthy = {}\n", toml::Value::String(why.to_string()));
+    let at = text.find("\n[").map_or(text.len(), |at| at + 1);
+    let mut marked = text[..at].to_string();
+    if !marked.is_empty() && !marked.ends_with('\n') {
+        marked.push('\n');
+    }
+    marked.push_str(&line);
+    marked.push_str(&text[at..]);
+    std::fs::write(record, marked)
 }
 
 /// Now, as a store copy is named: `20261105T162000Z`.
@@ -390,10 +521,77 @@ pub fn revert(support: &Path, label: &str, stamp: &str, services: &dyn Services)
 
 /// [`revert`], with Bridge booted where `bridge` and the builds' `out/` differ.
 fn swap(support: &Path, label: &str, stamp: &str, services: &dyn Services, bridge: bool) -> Result<Reverted, String> {
-    let builds = support.join(BUILDS);
     let (from, to) = revertible(support, label)?;
-    let plist = support.join(format!("{label}.plist"));
+    let (store_copy, old_pid) = flipped(support, label, stamp, services, &from, &to)?;
+    services.fleet_came_up(support, old_pid)?;
+    let bridge_reopened = bridge && bridged(support, label, services, &from, &to)?;
+    recorded(support, &to);
+    Ok(Reverted { from, to, bridge_reopened, store_copy })
+}
+
+/// Swap onto the snapshot `scripts/restart --keep-only` kept, settling as a restart does: a Fleet
+/// that does not answer within [`HEALTHY_WITHIN`] has its build marked `unhealthy` and is swapped
+/// back from, with Bridge left where it is. Bridge moves only once the new Fleet answers, and only
+/// where the builds' `out/` differ. **Refused before anything changes** where there is no snapshot.
+pub fn swap_onto(support: &Path, label: &str, stamp: &str, services: &dyn Services) -> Result<Settled, String> {
+    let builds = support.join(BUILDS);
+    let (from, to) = swappable(support, label)?;
+    let (_, old_pid) = flipped(support, label, stamp, services, &from, &to)?;
+    let _ = std::fs::remove_file(support.join(SNAPSHOT));
+    if let Err(why) = services.fleet_came_up(support, old_pid) {
+        marked_unhealthy(&builds.join(&to.name).join(RECORD), &why).map_err(|mark| format!("{why}. {} could not be marked: {mark}", to.name))?;
+        return match swap(support, label, stamp, services, false) {
+            Ok(reverted) => Ok(Settled::SwappedBack { why, reverted }),
+            Err(back) => Err(format!("{why}. The swap back failed too: {back}")),
+        };
+    }
+    bridged(support, label, services, &from, &to)?;
+    recorded(support, &to);
+    Ok(Settled::Healthy)
+}
+
+/// Bridge booted onto `to` where its `out/` differs from `from`'s and its job is there to boot.
+fn bridged(support: &Path, label: &str, services: &dyn Services, from: &KeptBuild, to: &KeptBuild) -> Result<bool, String> {
     let bridge_plist = support.join(format!("{label}.bridge.plist"));
+    let reopens = bridge_reopens(from, to) && bridge_plist.is_file();
+    if reopens {
+        services.rebooted(&format!("{label}.bridge"), &bridge_plist)?;
+    }
+    Ok(reopens)
+}
+
+/// The records a restart writes, written for the build now running, so the Fleet panel reads it
+/// as the one it runs: its commit, the tree a preview came from, and what a snapshot held.
+fn recorded(support: &Path, to: &KeptBuild) {
+    let _ = std::fs::write(support.join("restart-commit"), format!("{}\n", to.commit));
+    match (to.source.as_str(), &to.tree) {
+        ("preview", Some(tree)) => {
+            let _ = std::fs::write(support.join("restart-source"), format!("{tree}\n"));
+        }
+        _ => {
+            let _ = std::fs::remove_file(support.join("restart-source"));
+        }
+    }
+    for (snapshot, preview) in [("snapshot-held", "preview-held"), ("snapshot-left-out", "preview-left-out")] {
+        let held = std::fs::read_to_string(support.join(snapshot)).unwrap_or_default();
+        if held.lines().next() == Some(to.commit.as_str()) {
+            let _ = std::fs::write(support.join(preview), held);
+        }
+    }
+}
+
+/// Copy the store, point `current` at `to` and `previous` at `from`, and boot Fleet out and in:
+/// the store copy, and the pid of the Fleet that was running.
+fn flipped(
+    support: &Path,
+    label: &str,
+    stamp: &str,
+    services: &dyn Services,
+    from: &KeptBuild,
+    to: &KeptBuild,
+) -> Result<(Option<PathBuf>, Option<u32>), String> {
+    let builds = support.join(BUILDS);
+    let plist = support.join(format!("{label}.plist"));
     let db = support.join("armada.db");
     let store_copy = match db.is_file() {
         true => {
@@ -412,10 +610,5 @@ fn swap(support: &Path, label: &str, stamp: &str, services: &dyn Services, bridg
     pointed(&builds, CURRENT, &to.name).map_err(|why| format!("current could not be pointed at {}: {why}", to.name))?;
     pointed(&builds, PREVIOUS, &from.name).map_err(|why| format!("previous could not be pointed at {}: {why}", from.name))?;
     services.rebooted(label, &plist)?;
-    services.fleet_came_up(support, old_pid)?;
-    let bridge_reopened = bridge && bridge_reopens(&from, &to) && bridge_plist.is_file();
-    if bridge_reopened {
-        services.rebooted(&format!("{label}.bridge"), &bridge_plist)?;
-    }
-    Ok(Reverted { from, to, bridge_reopened, store_copy })
+    Ok((store_copy, old_pid))
 }

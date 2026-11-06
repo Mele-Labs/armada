@@ -65,6 +65,7 @@ fail() {
 from=""
 dry_run=false
 adopt=false
+keep_only=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --from)
@@ -84,8 +85,12 @@ while [[ $# -gt 0 ]]; do
       leave_preview=true
       shift
       ;;
+    --keep-only)
+      keep_only=true
+      shift
+      ;;
     *)
-      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--main] [--dry-run] [--adopt]"
+      fail "unknown argument $1 — usage: scripts/restart [--from <worktree>] [--main] [--dry-run] [--adopt] [--keep-only]"
       ;;
   esac
 done
@@ -98,7 +103,7 @@ recorded_source=$(cat "$support/restart-source" 2>/dev/null || true)
 if [[ -z "$from" && "${leave_preview:-false}" == false && "$recorded_source" == */.armada/preview ]]; then
   preview="${ARMADA_RESTART_PREVIEW:-$root/scripts/preview}"
   say "The preview is running — refreshing it onto the latest main (scripts/restart --main leaves it)"
-  exec "$preview" --restart $($dry_run && echo --dry-run) $($adopt && echo --adopt)
+  exec "$preview" --restart $($dry_run && echo --dry-run) $($adopt && echo --adopt) $($keep_only && echo --keep-only)
 fi
 
 # **Plain restart builds the latest `main`, not whatever this checkout last
@@ -655,7 +660,10 @@ if $dry_run; then
   exit 0
 fi
 
-refuse_if_drone_working
+# **`--keep-only` builds and keeps, and touches nothing that runs**: no Drone
+# is stopped, so none is waited for, and the CLI, the mod and the phone app are
+# left for the swap. `docs/practices/running-locally.md`, *Kept builds*.
+$keep_only || refuse_if_drone_working
 
 # Rebuild.
 built_protocol=$(ipc_built_protocol)
@@ -663,6 +671,11 @@ if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
   say "ipc was last built at protocol $built_protocol and the wire files in $src hash to $(tree_protocol) — touching its build script so cargo rebuilds ipc"
   touch "$src/crates/ipc/build.rs"
 fi
+if $keep_only; then
+  say "Building armada from $src"
+  (cd "$src" && cargo build --profile installed --locked -p armada --bin armada)
+  armada_bin="$src/target/installed/armada"
+else
 say "Installing armada from $src"
 (cd "$src" && cargo install --path crates/armada --profile installed --locked)
 
@@ -682,6 +695,7 @@ if ! command -v claude >/dev/null 2>&1; then
   echo "restart: warning: claude is not on PATH, so the installed armada plugin was not updated" >&2
 elif ! { claude plugin marketplace update armada-local && claude plugin update armada@armada-local; } >&2; then
   echo "restart: warning: claude could not update the installed armada plugin, so terminal jobs keep the mod they have" >&2
+fi
 fi
 
 # **A stamp this script writes, not a build output's own mtime.** A first
@@ -748,7 +762,9 @@ fi
 # The phone app, so the Gateway serves the tree it is restarted onto. Built on
 # every Mac, opted in or not: Bridge's Phone access switch starts the Gateway
 # without a restart, and it must find an app to serve when it does.
-if pocket_stale; then
+if $keep_only; then
+  :
+elif pocket_stale; then
   say "Building the phone app — apps/pocket or packages/ moved since its last build"
   (cd "$src" && $(pocket_build_cmd))
   mkdir -p "$src/apps/pocket/dist" && touch "$pocket_stamp"
@@ -766,7 +782,7 @@ fi
 # `refuse_if_drone_working` above. This is also the read `old_pid`/`old_port`
 # below are taken from; the one before the rebuild is not reused; a build can
 # run for minutes and Fleet's own state is not this script's to assume.
-refuse_if_drone_working
+$keep_only || refuse_if_drone_working
 
 # **Keep the build, then run it from where it is kept.** Launchd runs Fleet and
 # Bridge through `$support/builds/current`, so `scripts/keep-build` has the
@@ -785,6 +801,12 @@ say "Keeping the build in $kept_build"
 # **Rehearse before anything stops**: the new build opens a copy of the store,
 # so one that cannot is turned away while the running Fleet is still up.
 "$kept_build/armada" build rehearse || fail "the new build could not open a copy of the store, so nothing was swapped"
+if $keep_only; then
+  # What `armada build swap` moves onto when the person presses Swap.
+  printf '%s\n' "$(basename "$kept_build")" >"$support/snapshot.tmp" && mv "$support/snapshot.tmp" "$support/snapshot"
+  say "Kept $kept_build and swapped nothing"
+  exit 0
+fi
 "$root/scripts/keep-build" point "$kept_build" || fail "could not point $kept_current at $kept_build"
 new_bridge_key=$(sed -n 's/^bridge = "\(.*\)"$/\1/p' "$kept_build/build.toml" 2>/dev/null || true)
 
