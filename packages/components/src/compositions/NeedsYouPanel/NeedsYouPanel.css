@@ -296,6 +296,17 @@
   margin-inline-end: var(--space-2);
 }
 
+/* The Operator's presses at a row's end, the pick first: each takes a fixed column, so they line up down the list. */
+.armada-needs-panel__list .armada-session-ledger__row > .armada-needs-panel__ways {
+  display: grid;
+  flex: none;
+  grid-template-columns: calc(var(--space-12) * 2) calc(var(--space-12) + var(--space-2));
+  align-items: center;
+  align-self: center;
+  gap: var(--space-1);
+  margin-inline-end: var(--space-2);
+}
+
 /* Start at a held Job's row end: one width for Start and Starting, so the row does not reflow as one becomes the other.
    Its weight carries it, not a fill: a row never takes a primary. */
 .armada-needs-panel__start {

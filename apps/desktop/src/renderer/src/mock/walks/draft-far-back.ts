@@ -56,9 +56,7 @@ const draftFarBack = walk("draft-far-back", [
     say: "The card is settled as approved in its tab, and the draft leaves Needs you",
   },
   {
-    press: tab("Thread", {
-      exact: true,
-    }),
+    press: tab(/^Thread(: |$)/),
     say: "Back to Thread; the draft's tab stays until it is closed",
   },
   {

@@ -1,0 +1,7 @@
+[icons.messages-square]
+  means = "Two speech bubbles: a conversation going on about one thing"
+  group = "Operator"
+  size = "12px"
+  status = "Proposed"
+  reserved = "An item the person and the Operator are discussing now, on its card and its marker in Discussion. Never a single message sent, which is `message-square`, and never a Job's question, which is `message-circle-question`."
+  notes = "Proposed 5 Nov 2026 with the Operator's Discussion. The card's line reads `In Discussion now` beside it, and the marker in Discussion wears it until the item settles, when it becomes `check`."

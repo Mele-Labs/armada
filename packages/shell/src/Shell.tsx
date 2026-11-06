@@ -288,7 +288,35 @@ const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
 const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
 
+const OPEN_OPERATOR = "armada:open-operator";
 const CLOSE_OPERATOR = "armada:close-operator";
+
+/** What asks for the Operator, heard by the app, which draws it as a page: `open` to go to it, `close` to leave it for a Job. */
+export function useOperatorAsks(open: () => void, close: () => void): void {
+  const latest = useRef({
+    open,
+    close,
+  });
+  latest.current = {
+    open,
+    close,
+  };
+  useEffect(() => {
+    const opened = (): void => latest.current.open();
+    const closed = (): void => latest.current.close();
+    window.addEventListener(OPEN_OPERATOR, opened);
+    window.addEventListener(CLOSE_OPERATOR, closed);
+    return () => {
+      window.removeEventListener(OPEN_OPERATOR, opened);
+      window.removeEventListener(CLOSE_OPERATOR, closed);
+    };
+  }, []);
+}
+
+/** Opens the Operator from anywhere in the window, as the Cockpit's Operator row does. */
+export function askToOpenOperator(): void {
+  window.dispatchEvent(new Event(OPEN_OPERATOR));
+}
 
 /** Shuts the dock from inside it, as a Job opened from the Operator's panel does so the Job is not under it. */
 export function askToCloseOperator(): void {
@@ -330,8 +358,13 @@ function useDock(
   opens.current = onOpen;
   useEffect(() => {
     const shut = (): void => opens.current(false);
+    const show = (): void => opens.current(true);
     window.addEventListener(CLOSE_OPERATOR, shut);
-    return () => window.removeEventListener(CLOSE_OPERATOR, shut);
+    window.addEventListener(OPEN_OPERATOR, show);
+    return () => {
+      window.removeEventListener(CLOSE_OPERATOR, shut);
+      window.removeEventListener(OPEN_OPERATOR, show);
+    };
   }, []);
 
   useEffect(() => {

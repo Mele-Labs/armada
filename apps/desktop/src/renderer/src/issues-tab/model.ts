@@ -166,6 +166,7 @@ export type IssuesSource = {
 export const OPEN = "open";
 export const ASSIGNED = "assigned";
 export const CLOSED = "closed";
+export const REPORTED = "reported";
 export const DESCRIBE = "describe";
 /** A saved query is chosen by its name, so on All one name reaches each repository that keeps it. */
 export const savedChoice = (name: string): string => `saved:${name}`;

@@ -13,12 +13,7 @@ const empty = region("Empty pane", {
   exact: true,
 });
 const item = (name: string | RegExp) => role("menuitem", name);
-const thread = inside(
-  pane("Thread"),
-  tab("Thread", {
-    exact: true,
-  }),
-);
+const thread = inside(pane("Thread"), tab(/^Thread(: |$)/));
 const card = role("textbox", "Message the Mod Job");
 
 const tabModFaults = walk("job-layouts", [

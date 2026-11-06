@@ -114,9 +114,7 @@ const steps: Step[] = [
   },
   {
     key: "Alt+Shift+0",
-    on: tab("Thread", {
-      exact: true,
-    }),
+    on: tab(/^Thread(: |$)/),
     say: "⌥⇧0 opens a Terminal tab where the Job has none",
   },
   {

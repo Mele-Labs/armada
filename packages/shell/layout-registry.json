@@ -16,6 +16,7 @@
       { "id": "next", "hideable": true }
     ] },
     "rail": { "ordered": false, "firstable": false, "entries": [
+      { "id": "operator", "hideable": true },
       { "id": "overview", "hideable": false },
       { "id": "sessions", "hideable": true },
       { "id": "kit", "hideable": true },

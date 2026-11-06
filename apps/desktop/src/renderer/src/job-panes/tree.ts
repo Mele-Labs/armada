@@ -40,9 +40,10 @@ export const PR_TAB_KINDS = [
   "pr-tool",
   "pr-comments",
 ] as const;
-/** The Operator's tabs, in its dock: its Log, what waits to start, its Permissions, and Talk, its conversation over the Job composer. */
+/** The Operator's tabs, in its dock: Talk, its conversation over the Job composer, its Queue, its Log, what waits to start and its Permissions. */
 export const OPERATOR_TAB_KINDS = [
   "op-talk",
+  "op-queue",
   "op-log",
   "op-waiting",
   "op-permissions",

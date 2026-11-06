@@ -31,6 +31,10 @@ pub enum Arrived {
     Later,
     /// A note the person left on Bridge, for a small thing or an idea.
     Note,
+    /// A hosted Job ended, whoever started it.
+    Ended,
+    /// A pull request a hosted Job held merged.
+    Merged,
     /// An error Bridge showed the person, which goes first in the order.
     Error,
 }
@@ -50,12 +54,14 @@ impl Arrived {
             Arrived::Review => "review",
             Arrived::Later => "later",
             Arrived::Note => "note",
+            Arrived::Ended => "ended",
+            Arrived::Merged => "merged",
             Arrived::Error => "error",
         }
     }
 
     /// Every kind there is.
-    pub(super) const EVERY: [Arrived; 13] = [
+    pub(super) const EVERY: [Arrived; 15] = [
         Arrived::Start,
         Arrived::Question,
         Arrived::Card,
@@ -68,6 +74,8 @@ impl Arrived {
         Arrived::Review,
         Arrived::Later,
         Arrived::Note,
+        Arrived::Ended,
+        Arrived::Merged,
         Arrived::Error,
     ];
 
@@ -91,6 +99,8 @@ impl Arrived {
             Arrived::Review => "review requests",
             Arrived::Later => "Later items",
             Arrived::Note => "notes",
+            Arrived::Ended => "Job ends",
+            Arrived::Merged => "merges",
             Arrived::Error => "errors",
         }
     }
@@ -107,7 +117,18 @@ impl Arrived {
 
     /// Work from outside a Job's own run, which [`super::Acting::sourced`] does what is ruled on.
     pub fn is_sourced(self) -> bool {
-        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Error)
+        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error)
+    }
+
+    /// An end or a merge: what happened to a Job, not work it asks for.
+    pub fn is_ending(self) -> bool {
+        matches!(self, Arrived::Ended | Arrived::Merged)
+    }
+
+    /// What waits on a Job's own run, which its end settles as Done: its start, its plan, a stall, a
+    /// question or a card. Work it handed over, such as a report, stands on its own.
+    pub fn ends_with_job(self) -> bool {
+        matches!(self, Arrived::Start | Arrived::Plan | Arrived::Question | Arrived::Card | Arrived::Stopped | Arrived::Red)
     }
 
     /// Put to a call for its read even where Fleet's rules leave it one way: the person meets it
@@ -131,6 +152,8 @@ impl Arrived {
             Arrived::Review => "A review was requested of the person",
             Arrived::Later => "A Job handed over a Later item",
             Arrived::Note => "The person left a note",
+            Arrived::Ended => "A Job ended",
+            Arrived::Merged => "A pull request merged",
             Arrived::Error => "Bridge showed the person an error",
         }
     }
@@ -229,6 +252,9 @@ pub struct Arrival {
     pub rule: Option<String>,
     /// The open issues it may be, for a report or a Later item: a link may name only these.
     pub open: Vec<Filed>,
+    /// The Jobs an end or a merge is tied to, as `(id, how)`: one waiting to start on it, one it
+    /// started, the one that started it. A live one is shown with the item and may be named.
+    pub ties: Vec<(String, String)>,
 }
 
 impl Arrival {

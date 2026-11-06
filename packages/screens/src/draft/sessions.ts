@@ -869,6 +869,13 @@ type SessionRowKinds =
       };
       event: LinkedEvent;
     }
+  /** The Operator started this Job, sent it words or answered for the person, in those exact words. */
+  | {
+      id: string;
+      at: string;
+      kind: "operator";
+      text: string;
+    }
   /** A retro being written for the Session, then the one that was: the latest frame of one press's row. */
   | RetroRowDrawn;
 

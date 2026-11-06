@@ -72,6 +72,7 @@ fn question(job: &str, manifest: &str, id: &str, title: &str, words: &str) -> Ar
         answers: Vec::new(),
         rule: None,
         open: Vec::new(),
+        ties: Vec::new(),
     }
 }
 

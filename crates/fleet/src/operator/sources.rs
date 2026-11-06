@@ -55,6 +55,7 @@ impl Report {
             answers: Vec::new(),
             rule: None,
             open,
+            ties: Vec::new(),
         }
     }
 }
@@ -89,6 +90,7 @@ impl NewIssue {
             answers: Vec::new(),
             rule: None,
             open: Vec::new(),
+            ties: Vec::new(),
         }
     }
 }
@@ -127,6 +129,7 @@ impl RedMain {
             answers: Vec::new(),
             rule: None,
             open: Vec::new(),
+            ties: Vec::new(),
         })
     }
 }
@@ -159,6 +162,7 @@ impl ReviewRequest {
             answers: Vec::new(),
             rule: None,
             open: Vec::new(),
+            ties: Vec::new(),
         }
     }
 }
@@ -210,6 +214,7 @@ impl Handed {
             answers: Vec::new(),
             rule,
             open,
+            ties: Vec::new(),
         }
     }
 }
@@ -270,6 +275,7 @@ impl Note {
             answers: Vec::new(),
             rule: None,
             open,
+            ties: Vec::new(),
         }
     }
 
@@ -337,6 +343,7 @@ impl BridgeError {
             answers: Vec::new(),
             rule: None,
             open,
+            ties: Vec::new(),
         }
     }
 

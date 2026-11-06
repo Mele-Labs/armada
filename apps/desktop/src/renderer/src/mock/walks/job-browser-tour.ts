@@ -15,12 +15,7 @@ const empty = region("Empty pane", {
   exact: true,
 });
 const item = (name: string | RegExp) => role("menuitem", name);
-const thread = inside(
-  pane("Thread"),
-  tab("Thread", {
-    exact: true,
-  }),
-);
+const thread = inside(pane("Thread"), tab(/^Thread(: |$)/));
 const host = "localhost:5173";
 const browser = inside(
   pane(host),

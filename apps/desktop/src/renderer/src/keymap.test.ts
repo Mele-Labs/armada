@@ -205,7 +205,7 @@ describe("a press, as the shipped keys answer it", () => {
           meta: true,
         }),
       ),
-    ).toBeNull();
+    ).toBe(9);
   });
 
   it("queues a Session on ⇧⌘Enter, and leaves ⌘Enter to send and plain Enter to start", () => {

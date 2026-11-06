@@ -93,9 +93,7 @@ const walkInJob = walk("walk-in-job", [
     say: "Capture holds the note on the Job",
   },
   {
-    press: tab("Thread", {
-      exact: true,
-    }),
+    press: tab(/^Thread(: |$)/),
     say: "The Thread tab",
   },
   {
@@ -157,9 +155,7 @@ const walkInJob = walk("walk-in-job", [
     say: "Send notes sends what is held as one turn",
   },
   {
-    press: tab("Thread", {
-      exact: true,
-    }),
+    press: tab(/^Thread(: |$)/),
     say: "The Thread tab",
   },
   {
