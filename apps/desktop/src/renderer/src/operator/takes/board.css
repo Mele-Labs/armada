@@ -359,10 +359,12 @@
   padding: var(--space-4);
 }
 
+/* A lane is a faint ground under its label, so the board reads as lanes when they are empty. */
 [data-thread-take="spacious"] .armada-board__lane {
+  padding: var(--space-3) var(--space-2) var(--space-2);
   border: none;
-  border-radius: 0;
-  background: transparent;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--fg-default) 2%, transparent);
 }
 
 [data-thread-take="spacious"] .armada-board__band {
