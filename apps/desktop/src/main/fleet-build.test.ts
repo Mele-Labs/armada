@@ -403,3 +403,325 @@ describe("reverting to the build before", () => {
     expect(asked).toHaveLength(reads);
   });
 });
+
+describe("picking Jobs for the snapshot", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const BUILDING: FleetBuildReport = {
+    ...AT_MAIN,
+    picked: [
+      {
+        branch: "armada/one",
+        title: "One",
+      },
+    ],
+    snapshot: {
+      state: "building",
+      stage: "building_fleet",
+    },
+  };
+
+  it("posts the pick as it was made, then reads the report so the chips are drawn at once", async () => {
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            picked: [
+              "armada/one",
+            ],
+          },
+        },
+        {
+          ok: true,
+          body: BUILDING,
+        },
+      ],
+      AT_MAIN,
+    );
+    const done = await builds.pick({
+      session_id: "s-1",
+      picked: true,
+    });
+    expect(done).toEqual({
+      ok: true,
+    });
+    expect(asked[0]).toEqual({
+      method: "POST",
+      path: "/fleet/build/pick",
+      body: {
+        session_id: "s-1",
+        picked: true,
+      },
+    });
+    expect(asked[1]?.path).toBe("/fleet/build");
+    expect(state().fleetBuild).toEqual(BUILDING);
+    builds.close();
+  });
+
+  it("reads again while the snapshot builds, and stops once it is ready", async () => {
+    const ready: FleetBuildReport = {
+      ...BUILDING,
+      snapshot: {
+        state: "ready",
+        jobs: [
+          "One",
+        ],
+      },
+    };
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            picked: [
+              "armada/one",
+            ],
+          },
+        },
+        {
+          ok: true,
+          body: BUILDING,
+        },
+        {
+          ok: true,
+          body: BUILDING,
+        },
+        {
+          ok: true,
+          body: ready,
+        },
+      ],
+      AT_MAIN,
+    );
+    await builds.pick({
+      branch: "armada/one",
+      picked: true,
+    });
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild?.snapshot?.state).toBe("building");
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild).toEqual(ready);
+    const reads = asked.length;
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS * 5);
+    expect(asked).toHaveLength(reads);
+  });
+
+  it("hands a refusal back unchanged and leaves the report without a failed line", async () => {
+    const { builds, state } = rig(
+      [
+        {
+          ok: false,
+          outcome: {
+            ok: false,
+            why: "refused",
+            error: {
+              code: "fleet.build_no_branch",
+              message: "no branch",
+              run_id: "r",
+              fields: {},
+              chain: [],
+            },
+          },
+        },
+      ],
+      AT_MAIN,
+    );
+    const done = await builds.pick({
+      session_id: "s-1",
+      picked: true,
+    });
+    expect(done).toMatchObject({
+      ok: false,
+      why: "refused",
+      error: {
+        code: "fleet.build_no_branch",
+      },
+    });
+    expect(state().fleetBuild).toEqual(AT_MAIN);
+  });
+
+  it("is refused before it is sent when Fleet is not connected", async () => {
+    const { builds, asked } = rig([], AT_MAIN, null);
+    await expect(
+      builds.pick({
+        branch: "armada/one",
+        picked: false,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      why: "not_connected",
+    });
+    expect(asked).toEqual([]);
+  });
+});
+
+describe("swapping onto the snapshot", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const READY: FleetBuildReport = {
+    ...AT_MAIN,
+    snapshot: {
+      state: "ready",
+      jobs: [
+        "One",
+      ],
+    },
+  };
+
+  it("posts no body, and marks the report swapping with the old failure gone", async () => {
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            commit: "c".repeat(40),
+          },
+        },
+      ],
+      {
+        ...READY,
+        failed: "Swapped back: the new Fleet did not answer",
+      },
+    );
+    expect(await builds.swap()).toEqual({
+      ok: true,
+    });
+    expect(asked[0]).toEqual({
+      method: "POST",
+      path: "/fleet/build/swap",
+      body: undefined,
+    });
+    expect(state().fleetBuild?.swapping).toBe(true);
+    expect(state().fleetBuild).not.toHaveProperty("failed");
+    builds.close();
+  });
+
+  it("says why a refusal came where a failed restart is said, and does not mark it swapping", async () => {
+    const { builds, state } = rig(
+      [
+        {
+          ok: false,
+          outcome: {
+            ok: false,
+            why: "refused",
+            error: {
+              code: "fleet.build_not_swappable",
+              message: "No snapshot is kept",
+              run_id: "r",
+              fields: {},
+              chain: [],
+            },
+          },
+        },
+      ],
+      READY,
+    );
+    await builds.swap();
+    expect(state().fleetBuild?.failed).toBe("No snapshot is kept");
+    expect(state().fleetBuild?.swapping).toBeUndefined();
+  });
+
+  it("stays swapping while Fleet does not answer, and reads on until a Fleet answers without it", async () => {
+    const back: FleetBuildReport = {
+      ...AT_MAIN,
+      failed: "Swapped back: the new Fleet did not answer in a minute",
+    };
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            commit: "c".repeat(40),
+          },
+        },
+        UNREACHABLE,
+        UNREACHABLE,
+        {
+          ok: true,
+          body: back,
+        },
+      ],
+      READY,
+    );
+    await builds.swap();
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild?.swapping).toBe(true);
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild?.swapping).toBe(true);
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild).toEqual(back);
+    const reads = asked.length;
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS * 5);
+    expect(asked).toHaveLength(reads);
+  });
+});
+
+describe("keeping the Jobs tried", () => {
+  it("posts no body and reads the report, so trying is empty", async () => {
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            told: [
+              "One",
+            ],
+          },
+        },
+        {
+          ok: true,
+          body: AT_MAIN,
+        },
+      ],
+      {
+        ...AT_MAIN,
+        trying: [
+          "One",
+        ],
+      },
+    );
+    expect(await builds.keep()).toEqual({
+      ok: true,
+    });
+    expect(asked[0]).toEqual({
+      method: "POST",
+      path: "/fleet/build/keep",
+      body: undefined,
+    });
+    expect(state().fleetBuild).toEqual(AT_MAIN);
+  });
+
+  it("hands a refusal back and leaves what trying says", async () => {
+    const { builds, state } = rig(
+      [
+        UNREACHABLE,
+      ],
+      {
+        ...AT_MAIN,
+        trying: [
+          "One",
+        ],
+      },
+    );
+    const done = await builds.keep();
+    expect(done).toMatchObject({
+      ok: false,
+      why: "transport",
+    });
+    expect(state().fleetBuild?.trying).toEqual([
+      "One",
+    ]);
+  });
+
+  it("is refused before it is sent when Fleet is not connected", async () => {
+    const { builds, asked } = rig([], AT_MAIN, null);
+    await expect(builds.keep()).resolves.toEqual({
+      ok: false,
+      why: "not_connected",
+    });
+    expect(asked).toEqual([]);
+  });
+});

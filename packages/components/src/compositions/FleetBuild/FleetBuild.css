@@ -173,3 +173,86 @@
   line-height: var(--leading-xs);
   color: var(--fg-muted);
 }
+
+/* The Jobs picked for the snapshot, one chip per branch: the name, ellipsed with the panel's width, and the control that takes it out. */
+.armada-fleet-build__picked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.armada-fleet-build__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+}
+
+.armada-fleet-build__chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The take-out control keeps its own size beside the name, not the panel's full-width buttons. */
+.armada-fleet-build .armada-fleet-build__chip .armada-button {
+  width: auto;
+  flex: none;
+}
+
+/* A snapshot building: the ring, the word and the stage, which wraps under at the narrowest panel. */
+.armada-fleet-build__snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
+.armada-fleet-build__stage {
+  color: var(--text-label);
+}
+
+/* A snapshot ready: the word, the Jobs it holds, whether Bridge reopens, and Swap. */
+.armada-fleet-build__ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.armada-fleet-build__ready .armada-fleet-build__mark {
+  font-family: var(--font-sans);
+}
+
+.armada-fleet-build__ready-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-default);
+  overflow-wrap: anywhere;
+}
+
+.armada-fleet-build__reopens {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}

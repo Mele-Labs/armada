@@ -47,6 +47,8 @@ export type StandingProps = {
   onAcknowledged: (missed: number) => void;
   /** A clone that finished after its dialog closed — `LocatedNotice`, held by Locate. */
   located?: ReactNode;
+  /** The bar over the surface while the running build holds Jobs not yet kept — `TryingBar`. */
+  trying?: ReactNode;
 };
 
 /** Everything true above the surface, in the order it is met. */
@@ -63,9 +65,12 @@ export function Standing({
   acknowledged,
   onAcknowledged,
   located,
+  trying,
 }: StandingProps) {
   return (
     <>
+      {trying}
+
       {/* Fleet, when the one connection is not one. The status bar keeps the
           single line; this is the same reading with the four runtime-file
           answers and the log under it. */}

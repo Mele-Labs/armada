@@ -316,8 +316,9 @@ pub use amending::{
     PolicyWords, PortDraft,
 };
 pub use building::{
-    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging,
-    FleetBuildReport, FleetBuildReverting, KeptBuildPrevious, KeptBuildRunning, LeftOutBranch,
+    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
+    FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState,
 };
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,

@@ -97,6 +97,9 @@ import {
   restartFleet,
   changeFleetBuild,
   revertFleetBuild,
+  pickFleetBuildJob,
+  swapFleetBuild,
+  keepFleetBuild,
   observeCheckoutRun,
   pickRepository,
   chooseFolder,
@@ -178,7 +181,9 @@ import type { WorkspacesApi } from "./workspaces-fleet";
 import { usePanelOpen } from "./panel-open";
 import { useGuideListWidth } from "./guide-list-width";
 import { firstContactOf, machineOf } from "./settings-surface";
-import { fleetBuildOf, useFleetBuild } from "./fleet-build";
+import { fleetBuildOf, settleFleetBuild, useFleetBuild, useSnapshotChime } from "./fleet-build";
+import { SwapHold } from "./swap-hold";
+import { TryingBar } from "./trying-bar";
 import { useBuildFailed } from "./build-failed";
 import { stateOf } from "./state-feed";
 import { onCopiedAnnounced } from "./copied";
@@ -313,7 +318,18 @@ export function App() {
       state.fleetBuild,
       (build, adopt) => void changeFleetBuild(build, adopt),
       () => void revertFleetBuild(),
+      {
+        unpick: (branch) =>
+          void pickFleetBuildJob({
+            branch,
+            picked: false,
+          }).then(settleFleetBuild),
+        swap: () => void swapFleetBuild(),
+      },
     );
+  useSnapshotChime(state.fleetBuild); // The snapshot turning ready.
+  // Fleet stops during a swap, so its silence is not a disconnect to draw: `swap-hold.tsx`.
+  const swapping = state.fleetBuild?.swapping === true;
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 
@@ -783,6 +799,7 @@ export function App() {
                 <SketchSharing onCopied={setCopied} onSaid={setTelling}>
                   <DispatchingProvider value={dispatching}>
                     <DispatchFailure.Provider value={dispatchFailure}>
+                      <SwapHold report={state.fleetBuild} />
                       <AutopilotBack repositories={repositories} />
                       <Shell
                         connection={state.connection}
@@ -856,7 +873,16 @@ export function App() {
               story can check it. `.armada-screen__mounted` says why. */}
                         <div className="armada-screen__mounted">
                           <Standing
-                            fleet={power === "standby" || power === "kept" ? null : fleet}
+                            fleet={
+                              power === "standby" || power === "kept" || swapping ? null : fleet
+                            }
+                            trying={
+                              <TryingBar
+                                trying={state.fleetBuild?.trying ?? []}
+                                onKeep={() => void keepFleetBuild().then(settleFleetBuild)}
+                                onRevert={() => void revertFleetBuild()}
+                              />
+                            }
                             connection={state.connection}
                             bridge={state.bridge}
                             onRestartFleet={restartFleet}

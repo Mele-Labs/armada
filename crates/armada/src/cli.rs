@@ -65,6 +65,12 @@ pub enum Verb {
     Job(JobAct),
     /// Swap back onto the build before this one: `docs/concepts/fleet.md`, *Kept builds*.
     BuildRevert,
+    /// Open a copy of the store with this build, before `scripts/restart` swaps onto it.
+    BuildRehearse,
+    /// Swap onto the build `scripts/restart --keep-only` kept, and settle, or swap back.
+    BuildSwap,
+    /// Wait for the Fleet `scripts/restart` booted to answer, or swap back. `was` is the Fleet it replaced.
+    BuildSettle { was: Option<u32> },
     /// What the verbs are.
     Help,
 }
@@ -122,7 +128,7 @@ const VERBS: &[(&str, &str)] = &[
     ),
     (
         BUILD,
-        "swap Fleet and Bridge back onto the build before this one, which restarts them",
+        "swap Fleet and Bridge back onto the build before this one, or onto the kept snapshot, which restarts them; rehearse and settle are scripts/restart's",
     ),
     (
         WATCH_LINE,
@@ -254,6 +260,10 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
         }
         BUILD => match rest {
             [form] if form == "revert" => Some(Verb::BuildRevert),
+            [form] if form == "rehearse" => Some(Verb::BuildRehearse),
+            [form] if form == "swap" => Some(Verb::BuildSwap),
+            [form] if form == "settle" => Some(Verb::BuildSettle { was: None }),
+            [form, pid] if form == "settle" && pid.parse::<u32>().is_ok() => Some(Verb::BuildSettle { was: pid.parse().ok() }),
             _ => {
                 faults.push(Fault::BuildFormUnknown { given: rest.join(" ") });
                 None
@@ -480,7 +490,7 @@ impl fmt::Display for Fault {
             ),
             Fault::BuildFormUnknown { given } => write!(
                 out,
-                "`armada {BUILD} {given}` is not a form this verb takes — it takes `{BUILD} revert`"
+                "`armada {BUILD} {given}` is not a form this verb takes — it takes `{BUILD} revert`, `{BUILD} swap`, `{BUILD} rehearse` or `{BUILD} settle [<pid>]`"
             ),
             Fault::NoSlot { form } => write!(
                 out,
@@ -513,7 +523,7 @@ impl fmt::Display for Usage {
                 COVERS => format!("{COVERS} < <paths>"),
                 WATCH_LINE => format!("{WATCH_LINE} <reader> <values>"),
                 JOB => format!("{JOB} [<act> ...]"),
-                BUILD => format!("{BUILD} revert"),
+                BUILD => format!("{BUILD} revert|swap|rehearse|settle"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;

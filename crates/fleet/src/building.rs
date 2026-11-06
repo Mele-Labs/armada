@@ -24,8 +24,9 @@ use std::time::{Duration, Instant, SystemTime};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, FleetBuildReverting,
-    Instant as WireInstant, KeptBuildPrevious, KeptBuildRunning, LeftOutBranch, WireError,
+    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept, FleetBuildReport,
+    FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, Instant as WireInstant, KeptBuildPrevious,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState, WireError,
 };
 
 use crate::daemon::Fleet;
@@ -45,6 +46,19 @@ const REVERTING: &str = "fleet.build_reverting";
 /// `builds/previous/armada build revert` would not start. A 500.
 const REVERT_NOT_STARTED: &str = "fleet.build_revert_not_started";
 
+/// A snapshot is already being built. A 409.
+const SNAPSHOTTING: &str = "fleet.build_snapshotting";
+/// A pick named a Job that holds no branch, or named neither. A 409.
+const NO_BRANCH: &str = "fleet.build_no_branch";
+/// A swap onto the snapshot is already under way. A 409.
+const SWAPPING: &str = "fleet.build_swapping";
+/// No snapshot is kept to swap onto, or Fleet does not run from the kept builds. A 409.
+const NOT_SWAPPABLE: &str = "fleet.build_not_swappable";
+/// `builds/current/armada build swap` would not start. A 500.
+const SWAP_NOT_STARTED: &str = "fleet.build_swap_not_started";
+/// Keep could not be recorded. A 500.
+const NOT_KEPT: &str = "fleet.build_not_kept";
+
 /// The script that wraps `scripts/restart` and `scripts/preview --restart`.
 const WRAPPER: &str = "scripts/restart-build";
 /// Which tree the running build came from. Written by `scripts/restart --from`
@@ -58,6 +72,8 @@ const LEFT_OUT: &str = "preview-left-out";
 const HELD: &str = "preview-held";
 /// What the wrapper is doing, or why it stopped.
 const STATUS: &str = "restart-build.status";
+/// What `scripts/restart-build snapshot` is doing, or why it stopped.
+const SNAPSHOT_STATUS: &str = "snapshot.status";
 /// The preview tree's tail, as `scripts/restart` records it.
 const PREVIEW_TREE: &str = ".armada/preview";
 
@@ -99,6 +115,33 @@ pub(crate) enum NotReverted {
     /// A revert is under way.
     Reverting,
     /// The undo would not start.
+    NotStarted(String),
+}
+
+/// Why a snapshot was not started.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum NotSnapshotted {
+    NotOffered(NotOffered),
+    /// A restart is under way.
+    Restarting(BuildSource),
+    /// A snapshot is being built.
+    Snapshotting,
+    /// The wrapper would not start.
+    NotStarted(String),
+}
+
+/// Why a swap was not started.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum NotSwapped {
+    /// A restart is under way.
+    Restarting(BuildSource),
+    /// A revert is under way.
+    Reverting,
+    /// A swap is under way.
+    Swapping,
+    /// No snapshot is kept to swap onto, or launchd's Fleet is not on `builds/current`: the reason in a line.
+    NotSwappable(String),
+    /// The swap would not start.
     NotStarted(String),
 }
 
@@ -245,6 +288,38 @@ fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
     }
 }
 
+/// What the snapshot's status file says.
+#[derive(Debug, PartialEq, Eq)]
+enum SnapshotStatus {
+    Running(Option<BuildStage>),
+    /// Stopped, in one line of plain facts.
+    Failed(String),
+}
+
+/// `snapshot.status`: `running`, the build word and the stage, for as long as it is young enough to
+/// be working, or `failed`, the build, the commit and the message.
+fn snapshot_status_in(support: &Path, now: SystemTime) -> Option<SnapshotStatus> {
+    let path = support.join(SNAPSHOT_STATUS);
+    let text = std::fs::read_to_string(&path).ok()?;
+    let mut lines = text.lines();
+    match lines.next()?.trim() {
+        "running" => {
+            let _build = lines.next();
+            let stage = lines.next().and_then(stage_named);
+            let written = std::fs::metadata(&path).ok()?.modified().ok()?;
+            let age = now.duration_since(written).unwrap_or_default();
+            (age <= RUNNING_FOR_AT_MOST).then_some(SnapshotStatus::Running(stage))
+        }
+        "failed" => {
+            let _build = lines.next()?;
+            let _commit = lines.next()?;
+            let message = lines.next()?.trim().to_string();
+            (!message.is_empty()).then_some(SnapshotStatus::Failed(message))
+        }
+        _ => None,
+    }
+}
+
 /// Whether `scripts/restart-build` is working now, so the commit on file is not yet the build.
 pub(crate) fn restarting_in(support: &Path, now: SystemTime) -> bool {
     matches!(status_in(support, now), Some(Status::Running(..)))
@@ -370,7 +445,47 @@ impl Building {
                 failed = Some(line.clone());
             }
         }
+        let swap = kept_builds::swap_status_in(support, now);
+        if failed.is_none() {
+            if let Some(RevertStatus::Failed(line)) = &swap {
+                failed = Some(line.clone());
+            }
+        }
         let label = kept_builds::fleet_label();
+        let snapshot = match snapshot_status_in(support, now) {
+            Some(SnapshotStatus::Running(stage)) => Some(KeptSnapshot {
+                state: SnapshotState::Building,
+                stage,
+                built_at: None,
+                commit: None,
+                jobs: Vec::new(),
+                bridge_reopens: false,
+                failed: None,
+            }),
+            Some(SnapshotStatus::Failed(message)) => Some(KeptSnapshot {
+                state: SnapshotState::Failed,
+                stage: None,
+                built_at: None,
+                commit: None,
+                jobs: Vec::new(),
+                bridge_reopens: false,
+                failed: Some(message),
+            }),
+            None => kept_builds::swappable(support, &label).ok().map(|(from, to)| {
+                let undo = kept_builds::undoing(&from, &to);
+                KeptSnapshot {
+                    state: SnapshotState::Ready,
+                    stage: None,
+                    built_at: Some(WireInstant::carried(to.built_at)),
+                    commit: Some(to.commit),
+                    // **Branches here**, as `previous`'s are; `Fleet::fleet_build` names them.
+                    jobs: to.jobs,
+                    bridge_reopens: undo.bridge_reopens,
+                    failed: None,
+                }
+            }),
+        };
+        let picked = kept_builds::picked_in(support).into_iter().map(|branch| PickedJob { branch, title: None }).collect();
         let running = kept_builds::kept_at(&support.join(kept_builds::BUILDS), kept_builds::CURRENT).map(|kept| KeptBuildRunning {
             built_at: WireInstant::carried(kept.built_at),
             commit: kept.commit,
@@ -398,6 +513,10 @@ impl Building {
             previous,
             carried: Vec::new(),
             reverting: matches!(revert, Some(RevertStatus::Running)),
+            picked,
+            snapshot,
+            trying: kept_builds::trying_in(support),
+            swapping: matches!(swap, Some(RevertStatus::Running)),
         })
     }
 
@@ -425,6 +544,72 @@ impl Building {
             return Err(NotReverted::NotStarted(why.to_string()));
         }
         Ok(FleetBuildReverting { commit: to.commit })
+    }
+
+    /// Pick `branch` for the next snapshot, or take it out, and start `scripts/restart-build snapshot`
+    /// detached. **Offered on `main` too**, so the tree the running build came from is not asked; the
+    /// status is written first and the old `snapshot` is removed, so a read between the answer and
+    /// the wrapper's first line says one is being built and offers no stale one.
+    pub(crate) fn snapshot(
+        &self,
+        checkout: Option<&Path>,
+        support: &Path,
+        branch: &str,
+        picked: bool,
+        now: SystemTime,
+    ) -> Result<FleetBuildSnapshotting, NotSnapshotted> {
+        let Some(checkout) = checkout else {
+            return Err(NotSnapshotted::NotOffered(NotOffered::NoWrapper));
+        };
+        if let Some(Status::Running(build, _)) = status_in(support, now) {
+            return Err(NotSnapshotted::Restarting(build));
+        }
+        if matches!(snapshot_status_in(support, now), Some(SnapshotStatus::Running(_))) {
+            return Err(NotSnapshotted::Snapshotting);
+        }
+        let branches = kept_builds::picked_changed(support, branch, picked).map_err(|why| NotSnapshotted::NotStarted(why.to_string()))?;
+        let status = support.join(SNAPSHOT_STATUS);
+        std::fs::write(&status, "running\nsnapshot\n").map_err(|why| NotSnapshotted::NotStarted(why.to_string()))?;
+        let _ = std::fs::remove_file(support.join(kept_builds::SNAPSHOT));
+        let started = Detached::program(checkout.join(WRAPPER))
+            .arg("snapshot")
+            .in_directory(checkout)
+            .outliving_fleet()
+            .ignoring_output();
+        if let Err(why) = started.spawn() {
+            let _ = std::fs::remove_file(&status);
+            return Err(NotSnapshotted::NotStarted(why.to_string()));
+        }
+        Ok(FleetBuildSnapshotting { picked: branches })
+    }
+
+    /// Start the swap onto the snapshot, `builds/current/armada build swap`, detached and answer.
+    /// **Run by the build running now**, since it settles the swap and swaps back from a Fleet that
+    /// does not answer; the status is written first, as `revert` writes its own.
+    pub(crate) fn swap(&self, support: &Path, label: &str, now: SystemTime) -> Result<FleetBuildSwapping, NotSwapped> {
+        if let Some(Status::Running(build, _)) = status_in(support, now) {
+            return Err(NotSwapped::Restarting(build));
+        }
+        if kept_builds::revert_status_in(support, now) == Some(RevertStatus::Running) {
+            return Err(NotSwapped::Reverting);
+        }
+        if kept_builds::swap_status_in(support, now) == Some(RevertStatus::Running) {
+            return Err(NotSwapped::Swapping);
+        }
+        let (_, to) = kept_builds::swappable(support, label).map_err(NotSwapped::NotSwappable)?;
+        kept_builds::swap_begun(support).map_err(|why| NotSwapped::NotStarted(why.to_string()))?;
+        let swap = support.join(kept_builds::BUILDS).join(kept_builds::CURRENT).join("armada");
+        let started = Detached::program(swap)
+            .arg("build")
+            .arg("swap")
+            .in_directory(support)
+            .outliving_fleet()
+            .ignoring_output();
+        if let Err(why) = started.spawn() {
+            let _ = std::fs::remove_file(support.join(kept_builds::SWAP_STATUS));
+            return Err(NotSwapped::NotStarted(why.to_string()));
+        }
+        Ok(FleetBuildSwapping { commit: to.commit })
     }
 
     /// Start the wrapper detached and answer. **The status is written first**,
@@ -490,14 +675,21 @@ where
             .await
             .map_err(|why| self.build_refusal(why))?;
         let titles = self.titles_of_held(checkout.as_deref()).await;
-        if let Some(previous) = report.previous.as_mut() {
-            let named = |branches: &mut Vec<String>| {
-                for one in branches.iter_mut() {
-                    if let Some(title) = titles.get(one.as_str()) {
-                        *one = title.clone();
-                    }
+        let named = |branches: &mut Vec<String>| {
+            for one in branches.iter_mut() {
+                if let Some(title) = titles.get(one.as_str()) {
+                    *one = title.clone();
                 }
-            };
+            }
+        };
+        for one in report.picked.iter_mut() {
+            one.title = titles.get(one.branch.as_str()).cloned();
+        }
+        if let Some(snapshot) = report.snapshot.as_mut() {
+            named(&mut snapshot.jobs);
+        }
+        named(&mut report.trying);
+        if let Some(previous) = report.previous.as_mut() {
             named(&mut previous.takes_out);
             named(&mut previous.brings_back);
         }
@@ -508,6 +700,12 @@ where
     /// The title of the live Job that holds each branch of the repository `checkout` is in. **A Job
     /// without a title is its id**, as the Operator names one; a branch no Job holds is not here.
     async fn titles_of_held(&self, checkout: Option<&Path>) -> BTreeMap<String, String> {
+        self.holders_of_held(checkout).await.into_iter().map(|(branch, (_, title))| (branch, title)).collect()
+    }
+
+    /// The live Job that holds each branch of the repository `checkout` is in, as its id and title.
+    /// **The first to hold a branch is the one named.**
+    async fn holders_of_held(&self, checkout: Option<&Path>) -> BTreeMap<String, (String, String)> {
         let Some(root) = checkout.map(|one| one.to_string_lossy().into_owned()) else {
             return BTreeMap::new();
         };
@@ -515,14 +713,14 @@ where
             return BTreeMap::new();
         };
         let store = self.store().lock().await;
-        let mut titles = BTreeMap::new();
+        let mut holders = BTreeMap::new();
         for (session, branches) in crate::build_notices::branches_held(&store, &served) {
             let title = store.session(&session).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| session.clone());
             for branch in branches {
-                titles.entry(branch).or_insert_with(|| title.clone());
+                holders.entry(branch).or_insert_with(|| (session.clone(), title.clone()));
             }
         }
-        titles
+        holders
     }
 
     /// The titles of the hosted Jobs with a turn under way, sorted. **The narrowest reading of "at
@@ -562,6 +760,77 @@ where
                 }
                 NotReverted::NotStarted(said) => Refusal::Fault(WireError::raised(REVERT_NOT_STARTED, said, self.run_id())),
             })
+    }
+
+    /// `pick_fleet_build_job`.
+    pub(crate) async fn pick_fleet_build_job_now(&self, asked: &PickFleetBuildJob) -> Result<FleetBuildSnapshotting, Refusal> {
+        let support = crate::runtime::support_dir(&self.host().home);
+        let checkout = self.build_checkout();
+        let branch = match (&asked.branch, &asked.session_id) {
+            (Some(branch), _) => branch.clone(),
+            (None, Some(session)) => self
+                .holders_of_held(checkout.as_deref())
+                .await
+                .into_iter()
+                .find_map(|(branch, (holder, _))| (holder == *session).then_some(branch))
+                .ok_or_else(|| Refusal::IllegalMove(WireError::raised(NO_BRANCH, "that Job holds no branch", self.run_id())))?,
+            (None, None) => {
+                return Err(Refusal::IllegalMove(WireError::raised(NO_BRANCH, "name a branch or the Job holding one", self.run_id())))
+            }
+        };
+        self.building()
+            .snapshot(checkout.as_deref(), &support, &branch, asked.picked, SystemTime::now())
+            .map_err(|why| match why {
+                NotSnapshotted::NotOffered(why) => self.build_refusal(why),
+                NotSnapshotted::Restarting(build) => Refusal::IllegalMove(WireError::raised(
+                    RESTARTING,
+                    format!("restarting onto {}", build_word(build)),
+                    self.run_id(),
+                )),
+                NotSnapshotted::Snapshotting => {
+                    Refusal::IllegalMove(WireError::raised(SNAPSHOTTING, "a snapshot is being built", self.run_id()))
+                }
+                NotSnapshotted::NotStarted(said) => Refusal::Fault(WireError::raised(NOT_STARTED, said, self.run_id())),
+            })
+    }
+
+    /// `swap_fleet_build`.
+    pub(crate) fn swap_fleet_build_now(&self) -> Result<FleetBuildSwapping, Refusal> {
+        let support = crate::runtime::support_dir(&self.host().home);
+        self.building()
+            .swap(&support, &kept_builds::fleet_label(), SystemTime::now())
+            .map_err(|why| match why {
+                NotSwapped::NotSwappable(said) => Refusal::IllegalMove(WireError::raised(NOT_SWAPPABLE, said, self.run_id())),
+                NotSwapped::Restarting(build) => Refusal::IllegalMove(WireError::raised(
+                    RESTARTING,
+                    format!("restarting onto {}", build_word(build)),
+                    self.run_id(),
+                )),
+                NotSwapped::Reverting => Refusal::IllegalMove(WireError::raised(REVERTING, "a revert is under way", self.run_id())),
+                NotSwapped::Swapping => Refusal::IllegalMove(WireError::raised(SWAPPING, "a swap is under way", self.run_id())),
+                NotSwapped::NotStarted(said) => Refusal::Fault(WireError::raised(SWAP_NOT_STARTED, said, self.run_id())),
+            })
+    }
+
+    /// `keep_fleet_build`. **Marks Keep first**, so `trying` empties even where no Job can be told,
+    /// then tells the live Job holding each branch that was being tried. A branch no live Job holds,
+    /// and a Job that could not be told, are skipped; each Job named once.
+    pub(crate) async fn keep_fleet_build_now(self: &Arc<Self>) -> Result<FleetBuildKept, Refusal> {
+        let support = crate::runtime::support_dir(&self.host().home);
+        let branches = kept_builds::kept_tried(&support)
+            .map_err(|why| Refusal::Fault(WireError::raised(NOT_KEPT, why.to_string(), self.run_id())))?;
+        let holders = self.holders_of_held(self.build_checkout().as_deref()).await;
+        let mut told = Vec::new();
+        for branch in branches {
+            let Some((session, title)) = holders.get(&branch) else {
+                continue;
+            };
+            let text = format!("The person kept {branch} in the app they use. Land it: finish its pull request and let it merge.");
+            if matches!(self.told_news_by_fleet(session, &text, ipc::Notice::BuildMoved).await, Ok(true)) && !told.contains(title) {
+                told.push(title.clone());
+            }
+        }
+        Ok(FleetBuildKept { told })
     }
 
     /// `change_fleet_build`.

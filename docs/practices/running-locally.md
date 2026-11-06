@@ -251,6 +251,7 @@ owner's own `com.armada.fleet`.
 **Every restart keeps the build it installs**, so going back to the build before is two links and two launchd reboots, with nothing compiled.
 `scripts/keep-build make` copies the `armada` binary, Bridge's `out/`, `sounds/` and launchers into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, a hash of Bridge's `out/`, and on a preview each branch merged in as a `[[job]]` row.
 `keep-build point` then moves `previous` to the old `current` and `current` to the new build, and deletes all but the newest five and the two the links name.
+Its `tree` line is that tree's path, where Bridge's annotation layer writes notes, since a kept Bridge has no repository above it.
 `node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
 
 **Launchd runs both jobs through `builds/current`.**
@@ -259,14 +260,30 @@ The first restart onto kept builds reopens Bridge, because its job still names a
 
 **`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
 It refuses before changing anything when no previous build is kept, or when Fleet's plist does not name `builds/current/armada`.
-Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to 20 seconds for a new Fleet to write its runtime file, and reboots Bridge only where the two builds' Bridge hashes differ.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' Bridge hashes differ.
 A second revert swaps back.
 **The Fleet panel's Revert press starts it**: `revert_fleet_build` writes `Armada/revert.status` as `running`, then runs `builds/previous/armada build revert` detached from Fleet.
 The command removes the file when the swap took, and when it did not writes `failed`, the build `current` names, and one line, which the panel shows until a restart moves `current`.
 A `running` file older than two minutes reads as no revert.
 The panel's `previous` is what the swap would change: the Jobs whose branch is a `[[job]]` row of one build and not of the other, and whether Bridge reopens.
 Hosted Jobs run under keepers, so their agents carry on across it as across any restart.
+
+**A restart rehearses the new build before anything stops, and swaps back from a Fleet that does not answer.**
+Once the build is kept, `scripts/restart` runs its `armada build rehearse`, which opens a copy of the store at `Armada/backups/rehearsal.db` with that build's migrations and removes it; a build that cannot open it is refused with nothing swapped.
+The rehearsal opens the store and starts no Fleet, since a Fleet on the copy would resume its Jobs and sweep processes as its own.
+After launchd boots Fleet, `armada build settle <old pid>` waits up to a minute for a Fleet other than the old one to answer `/health`.
+One that does not is marked with an `unhealthy` line in its `build.toml`, and Fleet is swapped back onto the build before, as a revert but leaving Bridge, which the restart moves only once Fleet answers.
+Revert refuses to go back onto a build marked `unhealthy`, and says why.
 `crates/fleet/src/kept_builds.rs`.
+
+**A snapshot is a build of the Jobs the person picked, kept and not swapped onto.**
+`Armada/preview-picked` lists the picked branches, one a line; until the person picks one it reads as the running build's own `[[job]]` branches, and an empty file is main alone.
+Try it, or × on a chip, changes the list and has Fleet run `scripts/restart-build snapshot`, which runs `scripts/preview --restart --keep-only --picked Armada/preview-picked` under its own `snapshot.status` and `snapshot.log`.
+`scripts/restart --keep-only` builds, keeps and rehearses, names the kept build in `Armada/snapshot`, and stops before anything that runs is touched: no Drone is waited for, and the CLI, the mod and the phone app are left as they are.
+What the preview held goes in `snapshot-held` and `snapshot-left-out`, beside the running build's own record.
+**Swap is `armada build swap`, run detached by the build running now**: it moves onto the snapshot as a revert moves back, and settles as a restart does, swapping back from a Fleet that does not answer within the minute.
+Every swap and revert writes `restart-commit` and `restart-source` for the build it moved onto, and a swap moves the snapshot's held record into place.
+While the running build holds branches, they are being tried; Keep writes `Armada/kept-tried` and tells each branch's Job to land.
 
 ### Restarting onto another tree
 

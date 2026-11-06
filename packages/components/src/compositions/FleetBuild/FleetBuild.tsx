@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   RotateCw,
   Undo2,
+  X,
   Unplug,
 } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
@@ -76,6 +77,25 @@ export type FleetBuildPrevious = FleetBuildKept & {
   bringsBack: readonly string[];
 };
 
+/** A Job's branch picked for the snapshot: named by its Job's title, or by the branch where no Job holds it. */
+export type FleetBuildPicked = {
+  branch: string;
+  title?: string;
+};
+
+/** The snapshot of picked Jobs, built beside the running build and kept without swapping. */
+export type FleetBuildSnapshot = {
+  state: "building" | "ready" | "failed";
+  /** Where a build under way has got to. Absent until it says. */
+  stage?: FleetBuildStage;
+  /** The Jobs it holds, by title. Drawn when ready. */
+  jobs: readonly string[];
+  /** Swapping onto it closes this window and opens it on the snapshot's. */
+  bridgeReopens: boolean;
+  /** Why it did not build, in one line. */
+  failed?: string;
+};
+
 export type FleetBuild = {
   on: FleetBuildChoice;
   /** Absent where it cannot be counted, which draws no mark: that is not aligned. */
@@ -104,6 +124,16 @@ export type FleetBuild = {
   carried?: readonly string[];
   /** Swap Fleet and Bridge back onto `previous`. */
   onRevert?: () => void;
+  /** The branches picked for the next snapshot. None draws no chips. */
+  picked?: readonly FleetBuildPicked[];
+  /** The snapshot of picked Jobs. Absent draws no row. */
+  snapshot?: FleetBuildSnapshot;
+  /** A swap onto the snapshot is under way. */
+  swapping?: boolean;
+  /** Take a branch out of the picked Jobs. */
+  onUnpick?: (branch: string) => void;
+  /** Swap Fleet and Bridge onto the snapshot. */
+  onSwap?: () => void;
 };
 
 const keptSaid = (kept: FleetBuildKept) => `${kept.built} · ${kept.commit}`;
@@ -177,6 +207,8 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
   const [revertAsked, setRevertAsked] = useState(false);
   const { previous } = build;
   const reverting = build.reverting === true;
+  const swapping = build.swapping === true;
+  const { picked, snapshot } = build;
   const carried = build.carried ?? [];
   const aligned = position !== undefined && position.ahead === 0 && position.behind === 0;
   // The button names what is being restarted onto while that is under way, and the build in use otherwise.
@@ -228,7 +260,7 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           variant="secondary"
           size="sm"
           pending={working !== null}
-          disabled={idleOnMain || working !== null || reverting}
+          disabled={idleOnMain || working !== null || reverting || swapping}
           onClick={() =>
             press({
               kind: "restart",
@@ -249,7 +281,7 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
             variant="secondary"
             size="sm"
             pending={reverting}
-            disabled={working !== null || reverting}
+            disabled={working !== null || reverting || swapping}
             onClick={() => setRevertAsked(true)}
           >
             {reverting ? (
@@ -260,6 +292,73 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
             {reverting ? "Reverting" : "Revert"}
           </Button>
         </Tooltip>
+      )}
+      {picked === undefined || picked.length === 0 ? null : (
+        <ul className="armada-fleet-build__picked" aria-label="In your app">
+          {picked.map((one) => {
+            const name = one.title ?? one.branch;
+            return (
+              <li key={one.branch} className="armada-fleet-build__chip">
+                <span className="armada-fleet-build__chip-name">{name}</span>
+                <Tooltip label="Take it out">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    aria-label={`Take ${name} out`}
+                    onClick={() => build.onUnpick?.(one.branch)}
+                  >
+                    <X size={12} strokeWidth={2} aria-hidden="true" />
+                  </Button>
+                </Tooltip>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {snapshot === undefined ? null : snapshot.state === "building" ? (
+        <p className="armada-fleet-build__snapshot" role="status">
+          <LoaderCircle
+            className="armada-fleet-build__spin"
+            size={12}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+          Building
+          {snapshot.stage === undefined ? null : (
+            <span className="armada-fleet-build__stage">{STAGE_SAID[snapshot.stage]}</span>
+          )}
+        </p>
+      ) : snapshot.state === "failed" ? (
+        <p className="armada-fleet-build__failed" role="alert">
+          {snapshot.failed}
+        </p>
+      ) : (
+        <div className="armada-fleet-build__ready">
+          <span className="armada-fleet-build__mark" data-tone="success">
+            <Check size={12} strokeWidth={2} aria-hidden="true" />
+            Ready
+          </span>
+          {snapshot.jobs.length === 0 ? null : (
+            <ul className="armada-fleet-build__ready-jobs" aria-label="Held by the snapshot">
+              {snapshot.jobs.map((one) => (
+                <li key={one}>{one}</li>
+              ))}
+            </ul>
+          )}
+          {snapshot.bridgeReopens ? (
+            <p className="armada-fleet-build__reopens">Bridge reopens</p>
+          ) : null}
+          <Button
+            variant="secondary"
+            size="sm"
+            pending={swapping}
+            disabled={swapping || reverting || working !== null}
+            onClick={() => build.onSwap?.()}
+          >
+            {swapping ? "Swapping" : "Swap"}
+          </Button>
+        </div>
       )}
       {build.failed === undefined || working !== null ? null : (
         <p className="armada-fleet-build__failed" role="alert">

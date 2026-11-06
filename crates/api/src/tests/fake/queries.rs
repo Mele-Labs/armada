@@ -89,6 +89,20 @@ impl Queries for FakeDaemon {
         // A restart under way has reached some stage; the fake says the first build one.
         report.stage = report.restarting.map(|_| ipc::BuildStage::BuildingFleet);
         report.reverting = *self.reverts.lock().expect("not poisoned") > 0;
+        for pick in self.picks.lock().expect("not poisoned").iter() {
+            // The fake reads a Job's branch as its id: it holds no slots.
+            let Some(branch) = pick.branch.clone().or_else(|| pick.session_id.clone()) else {
+                continue;
+            };
+            report.picked.retain(|one| one.branch != branch);
+            if pick.picked {
+                report.picked.push(ipc::PickedJob { branch, title: None });
+            }
+        }
+        report.swapping = *self.swaps.lock().expect("not poisoned") > 0;
+        if *self.keeps.lock().expect("not poisoned") > 0 {
+            report.trying = Vec::new();
+        }
         Ok(report)
     }
 

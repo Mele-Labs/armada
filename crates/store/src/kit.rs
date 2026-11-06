@@ -17,7 +17,7 @@ use core_model::{
 
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
-use crate::row::{column, enum_value};
+use crate::row::{column, enum_value, known};
 
 /// Version 81 — the servers a person put in their Kit, and each Manifest's
 /// word over one.
@@ -74,7 +74,7 @@ impl Store {
             .map_err(unreadable)?;
         let mut servers = Vec::new();
         for row in rows {
-            servers.push(row.map_err(unreadable)??);
+            servers.extend(known(row.map_err(unreadable)?)?);
         }
         Ok(servers)
     }
@@ -234,7 +234,14 @@ fn read_server(row: &rusqlite::Row<'_>) -> Result<KitServer, RowError> {
             ServerAddress::program(&text("command")?, &args)
         }
         "http" => ServerAddress::address(&text("url")?),
-        _ => None,
+        // A transport a newer build added: the row is left out of the list, `row::known`.
+        _ => {
+            return Err(RowError::UnknownEnumValue {
+                table: SERVERS,
+                column: "transport",
+                value: transport,
+            })
+        }
     }
     .ok_or_else(|| RowError::MalformedColumn {
         table: SERVERS,
@@ -261,7 +268,8 @@ fn read_reach(row: &rusqlite::Row<'_>) -> Result<(ServerName, ManifestReach), Ro
     };
     Ok((
         named(&text("name")?)?,
-        enum_value(ManifestReach::from_wire, REACHES, "reach", &text("reach")?)?,
+        // A reach a newer build wrote reads as the narrower one, never as Kit's default, which may be wider.
+        ManifestReach::from_wire(&text("reach")?).unwrap_or(ManifestReach::Restricted),
     ))
 }
 

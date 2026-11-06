@@ -79,3 +79,11 @@
     status = "Proposed"
     reserved = "On the tools band's header, at its trailing edge. Chrome, like the dialog close: it puts the band away and nothing else; the Job's tools mark pulses in its place."
     notes = "Proposed 29 Oct 2026 for the walk `job-tools-missing-band`. Tooltip and aria-label `Dismiss`. The failed hand-off band is put away by a press on the band itself."
+
+  [[icons.x.usage]]
+    means = "Take a picked Job out of the snapshot, on its chip in the Fleet panel's build section"
+    group = "Chrome"
+    size = "12px"
+    status = "Proposed"
+    reserved = "On the chip's trailing edge. Chrome, like the dialog close: it removes the chip and nothing else, and the Job carries on."
+    notes = "Proposed 6 Nov 2026 for Try it in your app, as the owner's brief drew it. Tooltip `Take it out`. The registry bans this glyph for a human decision, and `trash-2` is the glyph an attachment chip wears for taking something back off; the owner is to rule on which."
