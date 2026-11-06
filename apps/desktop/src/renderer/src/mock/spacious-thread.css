@@ -939,3 +939,15 @@
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__follows {
   color: var(--fg-subtle);
 }
+
+/* A quote in the box: a hairline rule and quieter words, no fill, so his own words beneath it lead. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__editor blockquote {
+  margin: var(--space-1) 0 var(--space-3);
+  padding: 0 0 0 var(--space-3);
+  background: none;
+  border-left: 2px solid var(--border-subtle);
+  border-radius: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
