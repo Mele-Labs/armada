@@ -27,8 +27,6 @@ export type ProsePicker = {
   marked: (text: string) => string | undefined;
   /** A right press on a response offers Edit, Remove and Add response. Absent, a response has no menu. */
   onAct?: (act: ResponseAct) => void;
-  /** When the words were said, drawn at the end of the line and shown while it is hovered. */
-  at?: ReactNode;
 };
 export const ProsePick = createContext<ProsePicker | null>(null);
 
@@ -288,7 +286,6 @@ export function PickLine({
       onKeyDown={onKeyDown}
     >
       <InPickLine.Provider value>{children}</InPickLine.Provider>
-      {picker.at}
       {marked === undefined ? null : (
         <Tooltip label={markName!}>
           <span className="armada-prose__pick-mark" role="img" aria-label={markName!}>

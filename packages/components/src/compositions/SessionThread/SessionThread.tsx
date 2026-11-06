@@ -89,7 +89,7 @@ import {
 } from "../SessionLedger/SessionLedger";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { InlineTag, titleWithoutReference } from "../SessionComposer/InlineTag";
-import { FORK_ROW, ForkFromSelection } from "../ForkFromSelection/ForkFromSelection";
+import { FORK_ROW, ForkFromSelection, quoteOf } from "../ForkFromSelection/ForkFromSelection";
 import type { ForkPick } from "../ForkFromSelection/ForkFromSelection";
 import { SessionRetroRow, type SessionRetroRowData } from "../SessionRetroRow/SessionRetroRow";
 import { QuestionDeck } from "./QuestionDeck";
@@ -131,6 +131,7 @@ import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
 export { PlanRevisionView, useUnchanged } from "./PlanRevision";
 export { colourCode } from "./colourCode";
+import { MessageBar } from "./MessageBar";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -890,6 +891,9 @@ type LinePicks = {
   marks: ReadonlyMap<string, string>;
 };
 const ThreadPicks = createContext<LinePicks | null>(null);
+
+/** Under the spacious take, what Reply on a message's bar does: the thread's reply to a selection, with the whole message quoted. */
+const MessageReply = createContext<((pick: ForkPick) => void) | null>(null);
 
 /** A message's words with markdown's marks dropped, near enough to find a line's plain text in. */
 const plainOf = (text: string): string => text.replace(/[`*_~]/g, "").replace(/\s+/g, " ");
@@ -1997,6 +2001,7 @@ function Row({
               });
   const picks = useContext(ThreadPicks);
   const spacious = useContext(SpaciousTake);
+  const reply = useContext(MessageReply);
   if (row.kind === "retro")
     return (
       <SessionRetroRow
@@ -2383,9 +2388,9 @@ function Row({
   const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (
     <li className="armada-thread-row" data-from={row.from}>
-      {spacious && picks !== null ? null : (
+      {spacious ? null : (
         <div className="armada-thread-row__head">
-          {spacious ? null : <span className="armada-thread-row__who">{agentName}</span>}
+          <span className="armada-thread-row__who">{agentName}</span>
           <RowStamp row={row} className="armada-thread-row__at" />
         </div>
       )}
@@ -2402,7 +2407,7 @@ function Row({
         ) : (
           <ProsePick.Provider
             value={
-              picks === null
+              picks === null || spacious
                 ? null
                 : {
                     responses: picks.responses,
@@ -2413,11 +2418,6 @@ function Row({
                           onAct: picks.onAct,
                         }),
                     marked: (text) => picks.marks.get(`${row.id}\u0000${text}`),
-                    ...(spacious
-                      ? {
-                          at: <RowStamp row={row} className="armada-prose__pick-at" />,
-                        }
-                      : {}),
                   }
             }
           >
@@ -2425,6 +2425,33 @@ function Row({
           </ProsePick.Provider>
         )}
       </div>
+      {spacious ? (
+        <MessageBar
+          text={row.text}
+          {...(reply === null
+            ? {}
+            : {
+                onReply: () =>
+                  reply({
+                    rowId: row.id,
+                    quote: quoteOf(row.text),
+                  }),
+              })}
+          responses={picks?.responses ?? []}
+          {...(picks === null
+            ? {}
+            : {
+                onPick: (response: QuickResponse) => picks.pick(plainOf(row.text).trim(), response),
+              })}
+          {...(picks === null
+            ? {}
+            : (() => {
+                const one = picks.marks.get(`${row.id}\u0000${plainOf(row.text).trim()}`);
+                return one === undefined ? {} : { marked: one };
+              })())}
+          at={<RowStamp row={row} className="armada-message-bar__at" />}
+        />
+      ) : null}
       <Sent row={row} tags={placed.loose} />
     </li>
   );
@@ -3810,6 +3837,7 @@ export function SessionThread({
         >
           <StampSurface>
             <NotedOpens.Provider value={noted ?? null}>
+              <MessageReply.Provider value={spacious ? (onReplyAt ?? null) : null}>
               <ThreadPicks.Provider value={picks}>
                 <ProseWalk.Provider value={onOpenWindow ?? null}>
                   <ProseRunner.Provider value={runner ?? null}>
@@ -4046,6 +4074,7 @@ export function SessionThread({
                   </ProseRunner.Provider>
                 </ProseWalk.Provider>
               </ThreadPicks.Provider>
+              </MessageReply.Provider>
             </NotedOpens.Provider>
           </StampSurface>
         </div>
