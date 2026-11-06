@@ -864,9 +864,10 @@
   position: sticky;
   top: var(--spacious-fade-top, var(--space-8));
   z-index: 1;
+  right: auto;
   align-self: start;
   justify-self: end;
-  margin: var(--space-2);
+  margin: var(--space-2) var(--space-2) 0 0;
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-acts .armada-button {
