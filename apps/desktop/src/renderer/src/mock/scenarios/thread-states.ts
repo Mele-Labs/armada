@@ -286,6 +286,27 @@ const chain = job("st11", "Show the sheets", [
   agent("st11g", "22:08:43", "Both pages are open in the Job's tabs."),
 ]);
 
+/** A Job that leased a slot for its branch, worked in it, and gave it back. */
+const slotted = job("st12", "Kept builds", [
+  you("st12a", "10:30:00", "Keep the last two builds so a bad one can be undone."),
+  {
+    id: "st12b",
+    at: "10:30:20",
+    kind: "lease",
+    slot: 3,
+    branch: "armada/kept-builds",
+  },
+  tool("st12c", "10:31:02", "Edit crates/fleet/src/builds.rs"),
+  agent("st12d", "10:39:18", "Step 1 landed. The last two builds are kept under Armada/builds, and Revert puts the previous one back."),
+  {
+    id: "st12e",
+    at: "10:39:25",
+    kind: "release",
+    slot: 3,
+    branch: "armada/kept-builds",
+  },
+]);
+
 /** A Job with nothing in its thread yet. */
 const empty = job("st7", "New Job", []);
 
@@ -303,6 +324,7 @@ const base = videoScriptScenario(
     asks,
     ours,
     chain,
+    slotted,
     operator,
     media,
     empty,

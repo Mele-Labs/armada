@@ -805,3 +805,47 @@
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts {
   bottom: calc(100% - var(--space-1));
 }
+
+/* ---- A slot leased or released: one quiet line, as a call reads, the branch after it and the time there under the pointer. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+  color: var(--fg-muted);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] > svg {
+  flex: none;
+  color: var(--fg-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease__branch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] .armada-session-lease__at {
+  margin-inline-start: auto;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line]:hover .armada-session-lease__at {
+  opacity: 1;
+}

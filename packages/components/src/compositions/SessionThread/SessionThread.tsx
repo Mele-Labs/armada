@@ -2223,6 +2223,21 @@ function Row({
   }
   if (row.kind === "lease" || row.kind === "release") {
     const said = row.kind === "lease" ? "Slot leased" : "Slot released";
+    // The take: one quiet line, as a call reads, its time there under the pointer.
+    if (spacious)
+      return (
+        <li className="armada-session-lease" data-line="" role="region" aria-label={said}>
+          <KeyRound size={14} strokeWidth={2} aria-hidden />
+          <span className="armada-session-lease__said">
+            {row.kind === "lease" ? "Leased" : "Released"} slot {row.slot}
+          </span>
+          <span className="armada-session-lease__branch">
+            <GitBranch size={12} strokeWidth={2} aria-hidden />
+            {row.branch}
+          </span>
+          <RowStamp row={row} className="armada-session-lease__at" />
+        </li>
+      );
     return (
       <li className="armada-session-lease" role="region" aria-label={said}>
         <span className="armada-session-lease__eyebrow">{said}</span>
