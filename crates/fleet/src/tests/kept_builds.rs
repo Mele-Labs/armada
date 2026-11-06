@@ -187,6 +187,35 @@ fn bridge_reopens_where_the_hashes_differ_or_either_is_missing() {
 }
 
 #[test]
+fn only_a_change_to_main_preload_or_electron_reopens_a_bridge_that_reloads_its_page() {
+    // Each build's record gains `bridge_shell`, `electron` and `page_reload` rows as `scripts/keep-build` writes them.
+    let reopens = |new: (&str, &str, &str, bool), old: (&str, &str, &str, bool)| {
+        let (_home, support) = kept(new.0, old.0);
+        let builds = support.join(BUILDS);
+        for (name, (_, shell, electron, reloads)) in [("new", new), ("old", old)] {
+            let record = builds.join(name).join("build.toml");
+            let mut text = std::fs::read_to_string(&record).unwrap();
+            text.push_str(&format!("bridge_shell = \"{shell}\"\n"));
+            if !electron.is_empty() {
+                text.push_str(&format!("electron = \"{electron}\"\n"));
+            }
+            if reloads {
+                text.push_str("page_reload = true\n");
+            }
+            std::fs::write(&record, text).unwrap();
+        }
+        let (from, to) = revertible(&support, LABEL).expect("revertible");
+        undoing(&from, &to).bridge_reopens
+    };
+    assert!(!reopens(("b2", "s", "40", true), ("b1", "s", "40", true)), "only the page differs");
+    assert!(reopens(("b2", "s2", "40", true), ("b1", "s1", "40", true)), "main or preload differs");
+    assert!(reopens(("b2", "s", "41", true), ("b1", "s", "40", true)), "Electron differs");
+    assert!(reopens(("b2", "s", "", true), ("b1", "s", "40", true)), "one record lacks Electron");
+    assert!(reopens(("b2", "s", "40", false), ("b1", "s", "40", true)), "the running build cannot reload its page");
+    assert!(!reopens(("b", "s", "40", false), ("b", "s2", "41", false)), "the same Bridge");
+}
+
+#[test]
 fn revertible_is_the_check_revert_makes_and_names_why_not() {
     let (_home, support) = kept("b2", "b1");
     assert!(revertible(&support, LABEL).is_ok());
