@@ -951,3 +951,90 @@
   font-size: var(--text-sm);
   line-height: 1.55;
 }
+
+/* What waits to go with the message, over the words: a picture as itself, a file as a tile with its name. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) 0;
+  overflow-x: auto;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__tile {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 160px;
+  height: 64px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--spacious-card);
+  box-shadow: var(--spacious-card-edge);
+  border-radius: var(--radius-md);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__tile[data-picture] {
+  width: auto;
+  padding: 0;
+  overflow: hidden;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__picture {
+  display: block;
+  height: 100%;
+  max-width: 128px;
+  min-width: 48px;
+  object-fit: cover;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__kind {
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__remove {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--fg-default);
+  background: var(--bg-overlay);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: var(--spacious-card-edge);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__tile:is(:hover, :focus-within) .armada-tray__remove {
+  opacity: 1;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__remove:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The chips' room in the bar, kept with them gone, so Send stays at the right. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__gap {
+  flex: 1;
+}

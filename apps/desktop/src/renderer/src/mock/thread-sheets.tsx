@@ -94,6 +94,7 @@ const STATES: readonly {
   { name: "Mixed calls between two messages", id: "st11" },
   { name: "A slot leased and released", id: "st12" },
   { name: "A long code block, scrolled into", id: "st13" },
+  { name: "Pictures and a file waiting to send", id: "st14" },
   { name: "Pictures, a video and a doc", id: "st10" },
   { name: "An empty thread", id: "st7" },
   { name: "A narrow pane, 360 wide", id: "st1", width: 360 },

@@ -14,6 +14,8 @@ import landscape from "../media/landscape.jpg";
 import portrait from "../media/portrait.jpg";
 import recording from "../media/recording.mp4";
 
+import { writeKept } from "@armada/components";
+
 import type { Scenario } from "../moment";
 import { videoScriptScenario } from "../video-script-job";
 import {
@@ -317,6 +319,25 @@ const longCode = job("st13", "Revert to the last build", [
   ),
 ]);
 
+/** A Job with two pictures, a file and a sketch in its box, waiting to go with the next message. */
+const attaching = job("st14", "Phone layout", [
+  you("st14a", "15:20:00", "The Job page on the phone cuts the composer off."),
+  agent("st14b", "15:24:10", "Send me a screenshot of where it cuts off and I will match the breakpoint to it."),
+]);
+writeKept(
+  "session:st14",
+  {
+    text: "",
+    tags: [],
+    files: [
+      { id: "st14-wide", name: "cockpit-wide.jpg", src: landscape },
+      { id: "st14-phone", name: "job-on-the-phone.jpg", src: portrait },
+      { id: "st14-log", name: "renderer-console.log" },
+    ],
+  },
+  { text: "", tags: [] },
+);
+
 /** A Job with nothing in its thread yet. */
 const empty = job("st7", "New Job", []);
 
@@ -336,6 +357,7 @@ const base = videoScriptScenario(
     chain,
     slotted,
     longCode,
+    attaching,
     operator,
     media,
     empty,
