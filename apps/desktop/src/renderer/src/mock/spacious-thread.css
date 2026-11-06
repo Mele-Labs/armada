@@ -635,24 +635,23 @@
   height: 15px;
 }
 
-/* ---- No name over the agent's words: a line's time is the first thing in the bar its hover shows, apart from the responses. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts {
-  align-items: center;
-}
-
+/* ---- No name over the agent's words: a line's time sits at the right end of its last line, inside the hovered card. Its room is
+   kept while it is hidden, so nothing moves when it shows. ---- */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-at {
-  display: inline-flex;
-  align-items: center;
-  height: var(--h-control);
-  padding: 0 var(--space-2);
-  margin-right: var(--space-1);
-  border-right: var(--border-width) solid var(--border-subtle);
+  float: right;
+  margin-inline-start: var(--space-4);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   color: var(--fg-subtle);
   white-space: nowrap;
   user-select: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame [data-pick]:is([data-hot], :focus-visible) > .armada-prose__pick-at {
+  opacity: 1;
 }
 
 /* ---- The model and effort in one control: the model's name and a meter of bars, its panel opening up over the box. ---- */
