@@ -2,7 +2,9 @@
    (`main.tsx`); the mock's sheets set it beside today's look to compare. Fonts, spacing and weight only: every colour is the theme's. */
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
-  --spacious-column: 680px;
+  /* The column grows with the pane, so a wide one is not mostly margin, and stops where a line gets too long to read. */
+  container-type: inline-size;
+  --spacious-column: clamp(680px, 70cqi, 960px);
   /* How far code, tables and his bubbles reach past the words, so their own words line up with the prose. */
   --spacious-bleed: calc(var(--space-4) + var(--space-1));
   /* The column the box, Needs you, his bubbles and the cards share: the words' column and the bleed either side. */

@@ -1,6 +1,7 @@
 // A Job in panes has no head bar: its Thread tab carries the state mark, the name, Rename and More, which holds the Job's acts
 // and End job last. In an opened Needs you item Back sits on the title line, Remove is centred on it, and the reply box has
-// no fill. A table in the thread fills the column on both sides. Over the `thread-states` scenario.
+// no fill. A table in the thread fills the column on both sides, and the
+// column grows with the pane. Over the `thread-states` scenario.
 
 import { button, deckRow, inside, region, role, tab, walk } from "../walk";
 
@@ -58,6 +59,10 @@ const jobHeadInTab = walk("thread-states", [
   {
     look: inside(thread, role("table")),
     say: "The table fills the column: both edges meet his bubble's and the box's, its words on the prose's edge",
+  },
+  {
+    look: inside(thread, role("textbox", "Message")),
+    say: "The column grows with the pane up to 960px. Widen the window to see it",
   },
 ]);
 
