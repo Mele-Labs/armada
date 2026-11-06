@@ -19,15 +19,7 @@ use crate::daemon::Fleet;
 use crate::repositories::Served;
 use crate::run_memory::JobTree;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A Job titled `title` in `served`, holding a slot and its own branch. The inner `Err` says
     /// why no slot was leased, and the Job is closed again.

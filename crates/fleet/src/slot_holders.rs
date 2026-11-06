@@ -336,15 +336,7 @@ pub(crate) fn stand_in_slot(
     Ok(changed)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Give back the slot, and the branch credited through it, of every live Session the pool no
     /// longer shows as holding it. **Run on the pull sweep**, so a release by any road (the agent's

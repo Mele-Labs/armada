@@ -36,15 +36,7 @@ fn cut(text: &str) -> String {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The title and the brief of handing `group` of `parent`'s plan to a Session: the group's tasks
     /// word for word, its paths, then the parent's handoff. Refused 422 where the plan holds no such

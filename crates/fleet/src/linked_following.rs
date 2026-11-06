@@ -39,15 +39,7 @@ fn linked_said(title: &str, child: &str, group: Option<&str>, what: &str) -> Str
 
 /// Start telling parents about the Sessions they follow. Production starts it beside the rail's, and a
 /// test starts it itself.
-pub fn keep_the_linked<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_the_linked(fleet: Arc<Fleet>) -> JoinHandle<()>
 {
     let (tell, mut heard) = mpsc::unbounded_channel::<SessionRecord>();
     fleet.events().tap(move |event| {
@@ -65,15 +57,7 @@ where
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     async fn linked_moved(self: &Arc<Self>, record: SessionRecord) {
         let Some((parent, group)) = followed_by(&record) else { return };

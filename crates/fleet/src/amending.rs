@@ -49,15 +49,7 @@ const MANIFEST_EDIT_UNPLACEABLE: &str = "fleet.manifest_edit_unplaceable";
 /// as `[key, fault]` pairs, and nothing is written.
 const MANIFEST_EDIT_REFUSED: &str = "fleet.manifest_edit_refused";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `edit_manifest` — the edits spliced into the file they were drawn from,
     /// parsed, and either sent as a pull request or written through [`save`].
@@ -106,7 +98,7 @@ where
                 Some(_) => true,
                 None => {
                     let named = path.clone();
-                    self.forge_asked(served.root(), move |vcs: &V, root: &str| {
+                    self.forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                         vcs.manifest_by_pull_request(root, &named)
                     })
                     .await

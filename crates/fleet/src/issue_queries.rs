@@ -101,15 +101,7 @@ fn saved_of(kept: KeptIssueQuery) -> SavedIssueQuery {
     SavedIssueQuery { id: kept.id, name: kept.name, words: kept.words, query: kept.query, row_fields: kept.row_fields }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn query_refusal(&self, code: &'static str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said, self.run_id())

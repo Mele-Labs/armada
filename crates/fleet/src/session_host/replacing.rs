@@ -131,15 +131,7 @@ fn brief_of(brief: &Option<String>) -> BTreeMap<String, String> {
     brief.iter().map(|brief| (String::from(BRIEF), brief.clone())).collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The brief the Job wrote on its card: the description of the option that carries on. Read off the
     /// question Fleet holds, so nothing the agent calls says it.

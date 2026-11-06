@@ -21,7 +21,7 @@ use super::session_host::{Shared, StandIn};
 use crate::daemon::Fleet;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 pub(super) fn git(root: &Path, args: &[&str]) -> String {
     let done = Command::new("git")

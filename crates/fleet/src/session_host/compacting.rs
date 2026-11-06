@@ -36,15 +36,7 @@ pub(crate) fn compacts(on: bool, job: Waiting) -> bool {
     on && job.on_the_owner && job.quiet >= COMPACT_AFTER && job.context >= COMPACT_FROM && !job.compacted
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every hosted Job with no turn running that [`compacts`], sent [`COMPACT`] and kept. **Awaited
     /// in the sweep, never spawned**, so the next sweep reads the compaction this one kept. **Boxed**,

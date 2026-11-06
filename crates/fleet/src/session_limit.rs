@@ -22,15 +22,7 @@ const MARGIN: Duration = Duration::from_secs(60);
 /// process that will not start is left to the person after this.
 const GIVE_UP: Duration = Duration::from_secs(30 * 60);
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The session took a turn, or was spoken to, so the wake is not owed. Whether it was held.
     pub(crate) async fn limit_cleared(&self, id: &str) -> bool {

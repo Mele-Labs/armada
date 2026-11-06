@@ -22,15 +22,7 @@ fn at(millis: i64) -> Instant {
     Instant::carried(rfc3339_utc(millis))
 }
 
-impl<H, V, W> crate::Fleet<H, V, W>
-where
-    H: adapter_traits::AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: adapter_traits::WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl crate::Fleet
 {
     /// `get_slot_history`: the slot's leases, releases and checkouts of the last [`KEPT_DAYS`] days,
     /// newest first, cut to [`ipc::MOST_BAY_HISTORY`]. **A slot with no history answers none**, and a

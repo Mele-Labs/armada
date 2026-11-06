@@ -14,7 +14,7 @@ use crate::daemon::Fleet;
 use crate::test_map::Collectors;
 use crate::tests::tmp::TempDir;
 
-fn served_by(fleet: &Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>) -> ManifestId {
+fn served_by(fleet: &Fleet) -> ManifestId {
     fleet.repositories().first().expect("served").manifest().id().clone()
 }
 

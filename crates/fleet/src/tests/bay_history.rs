@@ -7,7 +7,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 use testkit::FakeWorkProduct;
 
-type Fixture = crate::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+type Fixture = crate::Fleet;
 
 fn served(fleet: &Fixture) -> (String, String) {
     let served = fleet.repositories().served().remove(0);

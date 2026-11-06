@@ -23,15 +23,7 @@ pub(crate) struct Acted {
     written: bool,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Take a draft out of draft: the pre-read, the refusals it decides, and the write.
     pub(crate) async fn ready_acted(&self, manifest_id: &ManifestId, number: u64) -> Result<Acted, Refusal> {
@@ -47,7 +39,7 @@ where
             }
             _ => return Err(self.not_open_refusal(&before).expect("not open")),
         }
-        self.forge_asked(root, move |vcs: &V, root: &str| vcs.mark_ready(root, &number.to_string()))
+        self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.mark_ready(root, &number.to_string()))
             .await
             .map_err(|said| Refusal::IllegalMove(self.pr_refusal(READY_REFUSED, said)))?;
         let reply = PullRequestState { state: PullRequestStanding::Open, ..before };
@@ -71,7 +63,7 @@ where
         if before.checks != ForgeChecks::Passed {
             return Err(self.checks_not_passed(&before));
         }
-        self.forge_asked(root, move |vcs: &V, root: &str| vcs.merge(root, &number.to_string()))
+        self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.merge(root, &number.to_string()))
             .await
             .map_err(|why| self.not_merged_refusal(number, why))?;
         let reply = PullRequestState { state: PullRequestStanding::Merged, ..before };
@@ -96,7 +88,7 @@ where
         if let ForgeChecks::Failed { .. } = &before.checks {
             return Err(self.checks_not_passed(&before));
         }
-        self.forge_asked(root, move |vcs: &V, root: &str| vcs.enable_auto_merge(root, &number.to_string()))
+        self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.enable_auto_merge(root, &number.to_string()))
             .await
             .map_err(|said| Refusal::IllegalMove(self.pr_refusal(AUTO_MERGE_REFUSED, said)))?;
         let reply = PullRequestState { auto_merge: true, ..before };

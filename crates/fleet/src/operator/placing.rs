@@ -17,15 +17,7 @@ const LINE_UNORDERED: &str = "fleet.line_unordered";
 const LINE_NOT_WAITING: &str = "fleet.line_not_waiting";
 const LINE_PLACE_UNKNOWN: &str = "fleet.line_place_unknown";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Operator ruled `id` a place: kept for when it joins the line, or taken now where it waits.
     pub(super) async fn operator_placed(&self, id: &str, place: Place) {

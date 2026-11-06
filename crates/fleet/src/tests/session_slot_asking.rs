@@ -53,7 +53,7 @@ async fn idle_without_a_slot(rig: &Rig) -> SessionId {
 async fn a_lease_that_finds_every_slot_held_raises_one_call_and_done_takes_it_off() {
     let rig = rig_placing(None);
     for n in 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, "an agent's session");
     }
     let id = idle_without_a_slot(&rig).await;
     assert!(calls(&rig, &id).await.is_empty());
@@ -84,7 +84,7 @@ async fn a_session_fleet_does_not_host_or_that_has_ended_is_not_asked_about() {
 async fn wait_leaves_the_command_looking_and_takes_the_call_off() {
     let rig = rig_placing(None);
     for n in 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, "an agent's session");
     }
     let id = idle_without_a_slot(&rig).await;
     asking(&rig, &id, AskForSlotAct::Ask).await;
@@ -94,7 +94,7 @@ async fn wait_leaves_the_command_looking_and_takes_the_call_off() {
     assert!(calls(&rig, &id).await.is_empty());
     assert_eq!(asking(&rig, &id, AskForSlotAct::Ask).await, SlotAskStanding::Waiting);
     assert!(calls(&rig, &id).await.is_empty(), "one answer, not asked again");
-    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root).len(), 8, "no slot was made");
+    assert_eq!(rig.fleet.fake_vcs().slot_holders(&rig.root).len(), 8, "no slot was made");
 }
 
 #[tokio::test]
@@ -109,7 +109,7 @@ async fn add_holds_the_new_slot_for_the_command_ahead_of_the_line_until_it_is_do
     choose(&rig, &id, 1).await;
 
     assert_eq!(asking(&rig, &id, AskForSlotAct::Ask).await, SlotAskStanding::Added);
-    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root).len(), 9, "a ninth slot was made");
+    assert_eq!(rig.fleet.fake_vcs().slot_holders(&rig.root).len(), 9, "a ninth slot was made");
     tokio::time::sleep(Duration::from_millis(400)).await;
     assert!(resumes(&rig, &head).is_empty(), "the line does not take the slot held for the command");
     // Every look the line got was under the reservation, so only the command's `done` can free it.
@@ -140,7 +140,7 @@ async fn a_session_already_in_the_line_has_the_one_call_and_its_slot_comes_throu
 async fn a_command_that_goes_quiet_loses_its_call_and_its_slot_after_the_expiry() {
     let rig = rig_placing(None);
     for n in 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, "an agent's session");
     }
     let id = idle_without_a_slot(&rig).await;
     asking(&rig, &id, AskForSlotAct::Ask).await;
@@ -163,7 +163,7 @@ async fn a_command_that_goes_quiet_loses_its_call_and_its_slot_after_the_expiry(
 async fn a_write_does_not_lease_the_slot_added_for_a_command() {
     let rig = rig_placing(None);
     for n in 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, "an agent's session");
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, "an agent's session");
     }
     let id = idle_without_a_slot(&rig).await;
     asking(&rig, &id, AskForSlotAct::Ask).await;

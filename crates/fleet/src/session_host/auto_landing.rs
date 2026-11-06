@@ -28,15 +28,7 @@ const AUTO_LAND: &str = "auto_land";
 const AUTO_LAND_AGAIN: &str = "auto_land_again";
 const AUTO_LAND_STUCK: &str = "auto_land_stuck";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `set_session_auto_land`. **Refused, nothing changed**, for a terminal Job (whose pull requests
     /// are not Fleet's to land) and an ended one. Otherwise the flag is kept and published and the
@@ -136,7 +128,7 @@ where
             Some(head) => Some(head.to_string()),
             None => {
                 let gate = served.manifest().ci_gate().to_string();
-                let read = self.forge_asked(served.root(), move |vcs: &V, root: &str| vcs.followed_pull(root, &gate, number)).await;
+                let read = self.forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.followed_pull(root, &gate, number)).await;
                 read.and_then(|pull| pull.head)
             }
         };
@@ -159,7 +151,7 @@ where
             self.ledger_follows(&before).await;
             return Ok(());
         }
-        self.forge_asked(root, move |vcs: &V, root: &str| vcs.disable_auto_merge(root, &number.to_string()))
+        self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.disable_auto_merge(root, &number.to_string()))
             .await
             .map_err(|said| Refusal::IllegalMove(self.pr_refusal(AUTO_MERGE_REFUSED, said)))?;
         let after = ipc::PullRequestState { auto_merge: false, ..before };

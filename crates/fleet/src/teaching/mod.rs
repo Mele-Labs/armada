@@ -198,15 +198,7 @@ fn may_propose(kind: TeachingSourceKind, reach: TeachingReach, notice: Option<&s
     format!("These may be proposed, and only these:\n{}", blocks.join("\n"))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Manifest id of the served repository at `root`.
     pub(crate) fn manifest_id_at(&self, root: &str) -> Option<String> {

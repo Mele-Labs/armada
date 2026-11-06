@@ -70,15 +70,7 @@ pub(crate) fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every served repository the forge knows by name. One with no remote has none, and is not
     /// searched.
@@ -129,7 +121,7 @@ where
         }
         let read = |list: ReviewList| {
             let (login, repositories) = (me.clone(), repositories.clone());
-            self.forge_asked(from.root(), move |vcs: &V, root: &str| {
+            self.forge_asked(from.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.pull_review_list(
                     root,
                     &ReviewListAsk {

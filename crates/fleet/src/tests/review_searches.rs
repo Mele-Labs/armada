@@ -49,10 +49,10 @@ fn page_changing(path: &str) -> PullRequestPageFacts {
 }
 
 fn a_forge_with_two_open(fleet: &super::pull_requesting::Fixture) {
-    fleet.vcs().now_review_list(ReviewList::Open, vec![open_pull(8, "Speed up the ledger"), open_pull(9, "Reword the docs")]);
-    fleet.vcs().now_page_of_pull_request(8, Some(page_changing("crates/fleet/ledger.rs")));
-    fleet.vcs().now_page_of_pull_request(9, Some(page_changing("docs/intro.md")));
-    fleet.vcs().now_paths_touched(&["crates/fleet/ledger.rs", "crates/fleet/lib.rs"]);
+    fleet.fake_vcs().now_review_list(ReviewList::Open, vec![open_pull(8, "Speed up the ledger"), open_pull(9, "Reword the docs")]);
+    fleet.fake_vcs().now_page_of_pull_request(8, Some(page_changing("crates/fleet/ledger.rs")));
+    fleet.fake_vcs().now_page_of_pull_request(9, Some(page_changing("docs/intro.md")));
+    fleet.fake_vcs().now_paths_touched(&["crates/fleet/ledger.rs", "crates/fleet/lib.rs"]);
 }
 
 fn start(words: &str, again: bool) -> StartReviewSearch {
@@ -155,7 +155,7 @@ async fn nothing_open_is_an_answer_and_not_a_call() {
     let home = TempDir::new();
     let judge = Arc::new(FakeJudge::saying(ONE_MATCH));
     let fleet = a_fleet_judged_by(&home, Arc::clone(&judge));
-    fleet.vcs().now_review_list(ReviewList::Open, Vec::new());
+    fleet.fake_vcs().now_review_list(ReviewList::Open, Vec::new());
 
     Arc::clone(&fleet).start_review_search(start("anything", false)).await.expect("started");
     let runs = settled(&fleet).await;

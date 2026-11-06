@@ -31,15 +31,7 @@ const PLACE: &str = "packages/mods";
 /// The ledger row a promote's Job keeps: its target is the mod's name, its `title` what the promote titled.
 const MOD: &str = "mod";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(super) async fn mod_promoted(self: &Arc<Self>, promote: PromoteMod) -> Result<ModPromoted, Refusal> {
         let name = promote.name;

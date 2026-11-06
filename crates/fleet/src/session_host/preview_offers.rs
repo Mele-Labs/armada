@@ -44,15 +44,7 @@ fn offer_item(offer: &KeptPreviewOffer) -> WaitingItem {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Offer a refresh to each live Job holding a branch the preview left out that has moved, and drop
     /// the offers of a build no longer running. On the sweep; **nothing here fails the turn**.

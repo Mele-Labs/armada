@@ -37,15 +37,7 @@ const CHECKOUT_UNREADABLE: &str = "fleet.scout_checkout_unreadable";
 /// Why a Finding left Gathering across a restart, in its own words.
 const LOST: &str = "Fleet stopped while the scout was reading, so nothing read it to its end";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) async fn scout_asked(
         self: Arc<Self>,

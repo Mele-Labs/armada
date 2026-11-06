@@ -42,15 +42,7 @@ pub(crate) async fn writing<T: Send + 'static>(
         .unwrap_or_else(|why| Err(NotTracked::of("writing to the backlog", why.to_string())))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Make the beads issue of each Job in `served` say what its plan says. What went wrong, one
     /// line each. **A Job with no beads issue mirrors nothing.** Only the first issue a Job holds

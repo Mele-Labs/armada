@@ -8,7 +8,7 @@
 
 use super::Fleet;
 
-impl<H, V, W> Fleet<H, V, W> {
+impl Fleet {
     /// Take what a re-read of `armada.yml` came to: hold it, and say so.
     ///
     /// **Held as well as published, because a refusal is a standing condition

@@ -130,15 +130,7 @@ fn failing_lines(checks: &[&FollowedCheck]) -> String {
         .join("\n")
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every served repository's pull requests, once an interval. Its own gate, beside main's.
     pub(crate) async fn pulls_told_when_due(self: &Arc<Self>) {
@@ -167,7 +159,7 @@ where
         let gate = served.manifest().ci_gate().to_string();
         let list_gate = gate.clone();
         let Some(mut followed) = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.pull_reading(root, &list_gate)
             })
             .await
@@ -179,7 +171,7 @@ where
         for number in self.held_beyond(served, &listed).await {
             let gate = gate.clone();
             let one = self
-                .forge_asked(&root, move |vcs: &V, root: &str| {
+                .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                     vcs.followed_pull(root, &gate, number)
                 })
                 .await;
@@ -341,7 +333,7 @@ where
         }
         let number = pull.number.to_string();
         let started = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.rerun_failed(root, &number)
             })
             .await
@@ -379,7 +371,7 @@ where
                     .collect();
                 let (root, commit) = (served.root().to_string(), head.to_string());
                 let runs = self
-                    .forge_asked(&root, move |vcs: &V, root: &str| {
+                    .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                         vcs.ci_runs_on(root, &commit)
                     })
                     .await
@@ -399,14 +391,14 @@ where
         };
         let root = served.root().to_string();
         let Some(tested) = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.queue_commit_of(root, &base, number))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.queue_commit_of(root, &base, number))
             .await
         else {
             return String::new();
         };
         let asked = tested.clone();
         let runs = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_runs_on(root, &asked))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.ci_runs_on(root, &asked))
             .await
             .unwrap_or_default();
         let failing: Vec<FollowedCheck> = runs
@@ -445,7 +437,7 @@ where
             };
             let run = run.clone();
             let Some(log) = self
-                .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_log(root, &run))
+                .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.ci_log(root, &run))
                 .await
             else {
                 continue;

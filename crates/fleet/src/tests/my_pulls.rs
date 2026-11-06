@@ -42,7 +42,7 @@ async fn on_the_wire(rig: &Rig) -> Vec<(u64, bool)> {
 #[tokio::test]
 async fn the_persons_own_pull_request_the_listing_left_out_is_on_the_merge_line_as_theirs() {
     let rig = a_rig();
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.login_is(Some("octocat"));
     forge.pulls_are(Some(vec![opened(30, "teammate"), opened(29, "teammate")]));
     forge.open_by_author_are(Some(vec![opened(30, "teammate"), opened(12, "OctoCat")]));
@@ -55,7 +55,7 @@ async fn the_persons_own_pull_request_the_listing_left_out_is_on_the_merge_line_
 #[tokio::test]
 async fn a_forge_silent_on_the_persons_own_keeps_what_the_listing_gave() {
     let rig = a_rig();
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.login_is(Some("octocat"));
     forge.pulls_are(Some(vec![opened(30, "teammate")]));
 
@@ -67,7 +67,7 @@ async fn a_forge_silent_on_the_persons_own_keeps_what_the_listing_gave() {
 #[tokio::test]
 async fn a_pull_request_the_queue_dropped_leaves_the_merge_line_with_the_pull_reading() {
     let rig = a_rig();
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.pulls_are(Some(vec![opened(3237, "octocat")]));
     forge.followed_are(Some(Vec::new()));
     let queued = QueueEntry { number: 3237, position: 1, state: QueueState::Queued, head: None, enqueued_at: None };

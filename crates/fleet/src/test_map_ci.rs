@@ -50,15 +50,7 @@ pub(crate) enum Pulled {
     NotKept(String),
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Main in `repository`, at `root`, moved to `tip`: ask the forge for that commit's laps until
     /// they come, are never coming, or main moves again. Returns at once; the asking is its own task.
@@ -97,7 +89,7 @@ where
             return Pulled::Superseded;
         }
         let commit = tip.to_string();
-        let asked = self.forge_asked(root, move |vcs: &V, root: &str| vcs.recorded_laps(root, &commit)).await;
+        let asked = self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.recorded_laps(root, &commit)).await;
         match asked {
             Err(adapter_traits::NotAsked(said)) => Pulled::NotAsked(said),
             Ok(LapsOnForge::NotYet) => Pulled::NotYet,

@@ -13,7 +13,7 @@ use crate::daemon::Fleet;
 use crate::test_map_ci::{Pulled, ASKS};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 const TIP: &str = "4f2a9c1e07b35d68a1c4e9f02b7d5a3c8e6f1b24";
 
@@ -59,12 +59,12 @@ async fn edges_held(fleet: &Hosted, repository: &ManifestId) -> bool {
 #[tokio::test]
 async fn an_uploaded_file_is_kept_as_edges_at_the_commit_it_was_read_at() {
     let (fleet, _home, repository, root) = a_fleet();
-    fleet.vcs().laps_on_the_forge(uploaded(TIP));
+    fleet.fake_vcs().laps_on_the_forge(uploaded(TIP));
 
     let pulled = fleet.test_map_laps_pulled(&repository, &root, TIP).await;
 
     assert_eq!(pulled, Pulled::Kept { edges: 3 });
-    assert_eq!(fleet.vcs().asked_for_laps_of(), vec![TIP.to_string()]);
+    assert_eq!(fleet.fake_vcs().asked_for_laps_of(), vec![TIP.to_string()]);
     let store = fleet.store().lock().await;
     let files = store.files_a_test_reaches(&repository, "test", "store", "reads_a_row").expect("reads");
     assert_eq!(files.len(), 2);
@@ -82,7 +82,7 @@ async fn an_uploaded_file_is_kept_as_edges_at_the_commit_it_was_read_at() {
 #[tokio::test]
 async fn a_file_already_kept_is_not_written_again() {
     let (fleet, _home, repository, root) = a_fleet();
-    fleet.vcs().laps_on_the_forge(uploaded(TIP));
+    fleet.fake_vcs().laps_on_the_forge(uploaded(TIP));
     assert_eq!(fleet.test_map_laps_pulled(&repository, &root, TIP).await, Pulled::Kept { edges: 3 });
     // A write would make every edge fresh again.
     let marked = fleet
@@ -104,7 +104,7 @@ async fn a_file_already_kept_is_not_written_again() {
 async fn nothing_uploaded_yet_or_ever_says_nothing_and_keeps_nothing() {
     let (fleet, _home, repository, root) = a_fleet();
     for (held, said) in [(Ok(LapsOnForge::NotYet), Pulled::NotYet), (Ok(LapsOnForge::Never), Pulled::Never)] {
-        fleet.vcs().laps_on_the_forge(held);
+        fleet.fake_vcs().laps_on_the_forge(held);
         assert_eq!(fleet.test_map_laps_pulled(&repository, &root, TIP).await, said);
     }
     assert!(!edges_held(&fleet, &repository).await, "no edge, and so a map nothing has fed");
@@ -113,45 +113,45 @@ async fn nothing_uploaded_yet_or_ever_says_nothing_and_keeps_nothing() {
 #[tokio::test]
 async fn a_run_still_going_is_asked_again_and_a_settled_answer_is_not() {
     let (fleet, _home, repository, root) = a_fleet();
-    fleet.vcs().laps_on_the_forge(Ok(LapsOnForge::NotYet));
+    fleet.fake_vcs().laps_on_the_forge(Ok(LapsOnForge::NotYet));
 
     let pulled = fleet.test_map_laps_asked_until_settled(&repository, &root, TIP, Duration::ZERO).await;
     assert_eq!(pulled, Pulled::NotYet);
-    assert_eq!(fleet.vcs().asked_for_laps_of().len(), ASKS as usize, "every ask there is, then it stops");
+    assert_eq!(fleet.fake_vcs().asked_for_laps_of().len(), ASKS as usize, "every ask there is, then it stops");
 
-    fleet.vcs().laps_on_the_forge(uploaded(TIP));
+    fleet.fake_vcs().laps_on_the_forge(uploaded(TIP));
     let pulled = fleet.test_map_laps_asked_until_settled(&repository, &root, TIP, Duration::ZERO).await;
     assert_eq!(pulled, Pulled::Kept { edges: 3 });
-    assert_eq!(fleet.vcs().asked_for_laps_of().len(), ASKS as usize + 1, "one more, and it came");
+    assert_eq!(fleet.fake_vcs().asked_for_laps_of().len(), ASKS as usize + 1, "one more, and it came");
 
     let (other, _other_home, other_repository, other_root) = a_fleet();
-    other.vcs().laps_on_the_forge(Err(NotAsked("could not find any workflows named checks.yml".into())));
+    other.fake_vcs().laps_on_the_forge(Err(NotAsked("could not find any workflows named checks.yml".into())));
     let pulled = other.test_map_laps_asked_until_settled(&other_repository, &other_root, TIP, Duration::ZERO).await;
     assert_eq!(pulled, Pulled::NotAsked("could not find any workflows named checks.yml".into()));
-    assert_eq!(other.vcs().asked_for_laps_of().len(), 1, "a forge that cannot be asked costs one ask");
+    assert_eq!(other.fake_vcs().asked_for_laps_of().len(), 1, "a forge that cannot be asked costs one ask");
 }
 
 #[tokio::test]
 async fn laps_for_a_tip_main_has_left_are_not_even_asked_for() {
     let (fleet, _home, repository, root) = a_fleet();
-    fleet.vcs().laps_on_the_forge(uploaded(TIP));
+    fleet.fake_vcs().laps_on_the_forge(uploaded(TIP));
     fleet.writes().main_seen(repository.as_str(), TIP);
     fleet.writes().main_seen(repository.as_str(), "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0");
 
     assert_eq!(fleet.test_map_laps_pulled(&repository, &root, TIP).await, Pulled::Superseded);
-    assert!(fleet.vcs().asked_for_laps_of().is_empty());
+    assert!(fleet.fake_vcs().asked_for_laps_of().is_empty());
     assert!(!edges_held(&fleet, &repository).await);
 }
 
 #[tokio::test]
 async fn a_file_that_is_not_this_commits_laps_is_refused_and_keeps_nothing() {
     let (fleet, _home, repository, root) = a_fleet();
-    fleet.vcs().laps_on_the_forge(uploaded("0123456789abcdef0123456789abcdef01234567"));
+    fleet.fake_vcs().laps_on_the_forge(uploaded("0123456789abcdef0123456789abcdef01234567"));
     let pulled = fleet.test_map_laps_pulled(&repository, &root, TIP).await;
     let Pulled::Unreadable(said) = pulled else { panic!("{pulled:?}") };
     assert!(said.contains("0123456789abcdef"), "{said}");
 
-    fleet.vcs().laps_on_the_forge(Ok(LapsOnForge::Found(b"not json".to_vec())));
+    fleet.fake_vcs().laps_on_the_forge(Ok(LapsOnForge::Found(b"not json".to_vec())));
     assert!(matches!(fleet.test_map_laps_pulled(&repository, &root, TIP).await, Pulled::Unreadable(_)));
     assert!(!edges_held(&fleet, &repository).await);
 }
@@ -161,7 +161,7 @@ async fn a_file_that_is_not_this_commits_laps_is_refused_and_keeps_nothing() {
 #[tokio::test]
 async fn main_moving_on_fetches_the_laps_of_its_new_tip() {
     let (fleet, _home, repository, _root) = a_fleet();
-    fleet.vcs().laps_on_the_forge(uploaded(TIP));
+    fleet.fake_vcs().laps_on_the_forge(uploaded(TIP));
     fleet.writes().main_seen(repository.as_str(), "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0");
     assert!(fleet.writes().main_seen(repository.as_str(), TIP), "main moved");
 
@@ -174,5 +174,5 @@ async fn main_moving_on_fetches_the_laps_of_its_new_tip() {
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     assert!(edges_held(&fleet, &repository).await, "kept by a task of its own");
-    assert_eq!(fleet.vcs().asked_for_laps_of(), vec![TIP.to_string()]);
+    assert_eq!(fleet.fake_vcs().asked_for_laps_of(), vec![TIP.to_string()]);
 }

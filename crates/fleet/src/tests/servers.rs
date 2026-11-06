@@ -25,7 +25,7 @@ use crate::slots::Concurrency;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet;
 
 /// `storybook` serves and answers; `falls_over` exits on its first line while
 /// its `ready` never passes; `never_built`'s `run` fails, so its `serve` never
@@ -75,7 +75,7 @@ pub(super) fn fittings_holding(
     events: &api::Broadcaster,
     on_disk: &str,
     held: &str,
-) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
+) -> Fittings {
     let path = home.path().join("armada.yml");
     std::fs::write(&path, on_disk).expect("the file a Job snapshots");
     let mut fittings = fittings(home, FakeWorkProduct::changed(&["src/log.rs"]));

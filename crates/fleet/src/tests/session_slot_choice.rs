@@ -157,7 +157,7 @@ async fn an_answer_that_is_not_one_of_the_two_choices_is_refused() {
 async fn a_resume_onto_a_full_pool_raises_the_same_call() {
     let rig = rig_placing(None);
     for n in 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, OTHERS);
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, OTHERS);
     }
     let id = rig.start().await;
     rig.send(&id, "hello").await;
@@ -190,7 +190,7 @@ const ITEM: &str = "slot-choice";
 fn pool_for_holders(jobs: u32) -> super::session_host::Rig {
     let rig = rig_placing(None);
     for n in jobs + 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, OTHERS);
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, OTHERS);
     }
     rig
 }
@@ -238,7 +238,7 @@ async fn waiting_with_rows(rig: &super::session_host::Rig) -> (SessionId, ipc::W
 }
 
 fn slot_of(rig: &super::session_host::Rig, slot: u32) -> Option<String> {
-    rig.fleet.vcs().slot_holders(&rig.root)[slot as usize - 1].clone()
+    rig.fleet.fake_vcs().slot_holders(&rig.root)[slot as usize - 1].clone()
 }
 
 async fn holds_a_slot(rig: &super::session_host::Rig, id: &SessionId) -> bool {
@@ -254,7 +254,7 @@ async fn the_call_lists_the_hosted_holders_longest_quiet_first_and_says_why_one_
     let dirty = holder(&rig, "third", true).await;
     quiet_since(&rig, &idle, "2026-01-01T00:00:00Z").await;
     quiet_since(&rig, &dirty, "2026-03-01T00:00:00Z").await;
-    rig.fleet.vcs().dirty_slot(3, true);
+    rig.fleet.fake_vcs().dirty_slot(3, true);
 
     let (_, call) = waiting_with_rows(&rig).await;
 
@@ -288,7 +288,7 @@ async fn freeing_a_slot_moves_the_waiting_job_in_and_leaves_the_holder_live_with
     eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
     assert_eq!(resumes(&rig, &waiting)[0].directory, adapter_traits::slot_path(&rig.root, 1));
     assert_eq!(slot_of(&rig, 1).as_deref(), Some(waiting.as_str()));
-    assert_eq!(rig.fleet.vcs().parked_slots(), [(1, idle.as_str().to_string())]);
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), [(1, idle.as_str().to_string())]);
     let kept = record(&rig, &idle).await;
     assert_ne!(kept.state, ipc::SessionState::Ended, "the holder is not ended");
     assert!(!holds_a_slot(&rig, &idle).await, "it has no slot now; its next write leases one");
@@ -300,19 +300,19 @@ async fn a_free_is_refused_while_the_holder_runs_holds_uncommitted_work_or_lost_
     let idle = holder(&rig, "first", true).await;
     let running = holder(&rig, "second", false).await;
     let dirty = holder(&rig, "third", true).await;
-    rig.fleet.vcs().dirty_slot(3, true);
+    rig.fleet.fake_vcs().dirty_slot(3, true);
     let (waiting, _) = waiting_with_rows(&rig).await;
 
     let code = |refused: Result<SessionRecord, api::Refusal>| refused.expect_err("refused").error().code.clone();
     assert_eq!(code(free(&rig, &waiting, 2).await), "fleet.slot_session_working");
     assert_eq!(code(free(&rig, &waiting, 3).await), "fleet.slot_uncommitted");
     // Slot 1 is leased by somebody else after the rows were read.
-    rig.fleet.vcs().free_slot(&rig.root, 1);
-    rig.fleet.vcs().hold_slot(&rig.root, 1, OTHERS);
+    rig.fleet.fake_vcs().free_slot(&rig.root, 1);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, OTHERS);
     assert_eq!(code(free(&rig, &waiting, 1).await), "fleet.slot_holder_changed");
     assert_eq!(code(free(&rig, &waiting, 8).await), "fleet.slot_holder_changed", "no row for a slot nobody hosted holds");
 
-    assert!(rig.fleet.vcs().parked_slots().is_empty(), "nothing was parked");
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty(), "nothing was parked");
     assert_eq!(slot_of(&rig, 2).as_deref(), Some(running.as_str()));
     assert_eq!(slot_of(&rig, 3).as_deref(), Some(dirty.as_str()));
     assert!(holds_a_slot(&rig, &running).await && holds_a_slot(&rig, &dirty).await);
@@ -331,7 +331,7 @@ async fn a_free_for_a_call_that_is_gone_is_the_settled_refusal() {
     let refused = free(&rig, &waiting, 1).await.expect_err("refused");
 
     assert_eq!(refused.error().code, "fleet.session_waiting_unheld");
-    assert!(rig.fleet.vcs().parked_slots().is_empty());
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty());
 }
 
 /// A Create answers before the slot exists: the checkout is held at a gate, and the answer comes back.
@@ -339,7 +339,7 @@ async fn a_free_for_a_call_that_is_gone_is_the_settled_refusal() {
 async fn create_answers_before_the_slot_is_made_and_the_job_is_moved_in_when_it_is() {
     let (rig, _holder) = with_slot_one_held().await;
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
-    let hold = rig.fleet.vcs().hold_makes();
+    let hold = rig.fleet.fake_vcs().hold_makes();
 
     let answered = tokio::time::timeout(Duration::from_secs(3), choose(&rig, &waiting, 1))
         .await
@@ -350,7 +350,7 @@ async fn create_answers_before_the_slot_is_made_and_the_job_is_moved_in_when_it_
     assert!(call.creating_since.is_some());
     assert!(call.create_refused.is_none());
     eventually(|| async { hold.arrived() == 1 }).await;
-    assert!(rig.fleet.vcs().made_slots().is_empty(), "the slot is not there yet");
+    assert!(rig.fleet.fake_vcs().made_slots().is_empty(), "the slot is not there yet");
     assert!(resumes(&rig, &waiting).is_empty());
     // A second press while one is out changes nothing.
     choose(&rig, &waiting, 1).await.expect("answered");
@@ -360,14 +360,14 @@ async fn create_answers_before_the_slot_is_made_and_the_job_is_moved_in_when_it_
 
     eventually(|| async { resumes(&rig, &waiting).len() == 1 && calls(&rig, &waiting).await.is_empty() }).await;
     assert_eq!(resumes(&rig, &waiting)[0].directory, adapter_traits::slot_path(&rig.root, 9));
-    assert_eq!(rig.fleet.vcs().made_slots(), [9], "one slot was made, however often it was asked");
+    assert_eq!(rig.fleet.fake_vcs().made_slots(), [9], "one slot was made, however often it was asked");
 }
 
 #[tokio::test]
 async fn a_slot_that_cannot_be_made_puts_the_call_back_with_the_reason_and_create_works_again() {
     let (rig, _holder) = with_slot_one_held().await;
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
-    rig.fleet.vcs().refuse_next_make("no space left on the disk");
+    rig.fleet.fake_vcs().refuse_next_make("no space left on the disk");
 
     choose(&rig, &waiting, 1).await.expect("answered");
 
@@ -390,7 +390,7 @@ async fn a_slot_that_cannot_be_made_puts_the_call_back_with_the_reason_and_creat
 async fn a_wait_while_a_slot_is_made_takes_the_call_off_and_the_slot_still_goes_to_that_job() {
     let (rig, _holder) = with_slot_one_held().await;
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
-    let hold = rig.fleet.vcs().hold_makes();
+    let hold = rig.fleet.fake_vcs().hold_makes();
     choose(&rig, &waiting, 1).await.expect("answered");
     eventually(|| async { hold.arrived() == 1 }).await;
 
@@ -409,7 +409,7 @@ async fn a_free_while_a_slot_is_made_serves_the_job_and_the_new_slot_stays_free_
     let keeper = the_keeper(&rig);
     let (waiting, _) = waiting_with_rows(&rig).await;
     let (next, _) = queued_and_idle(&rig, "next in line").await;
-    let hold = rig.fleet.vcs().hold_makes();
+    let hold = rig.fleet.fake_vcs().hold_makes();
     choose(&rig, &waiting, 1).await.expect("answered");
     eventually(|| async { hold.arrived() == 1 }).await;
 
@@ -449,8 +449,8 @@ async fn fleet_never_frees_a_slot_alone() {
     eventually(|| async { resumes(&rig, &other).len() == 1 }).await;
 
     assert_eq!(slot_of(&rig, 1).as_deref(), Some(idle.as_str()), "a Job quiet for years keeps its slot");
-    assert!(rig.fleet.vcs().parked_slots().is_empty());
-    assert!(rig.fleet.vcs().released_slots().is_empty());
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty());
+    assert!(rig.fleet.fake_vcs().released_slots().is_empty());
     assert!(resumes(&rig, &waiting).is_empty());
     keeper.abort();
 }

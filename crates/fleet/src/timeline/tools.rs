@@ -182,7 +182,7 @@ pub(crate) enum Seen {
 /// What a Drone's call did that the timeline enters, and what it named: a file it changed, a file it
 /// read, a command it ran, a service it called. **The harness says which tools these are**, so no
 /// tool is named here.
-pub(crate) fn tool_of<H: AgentHarness>(harness: &H, event: &DroneEvent) -> Option<Seen> {
+pub(crate) fn tool_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEvent) -> Option<Seen> {
     if let Some(path) = harness.edited(event) {
         return Some(Seen::File(FileAct::Edit, path));
     }

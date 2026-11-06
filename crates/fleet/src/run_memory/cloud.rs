@@ -142,15 +142,7 @@ fn row_of(run: &KeptRun) -> RunRow {
 const NO_STORE: &str = "Armada's store is not available for this repository: it needs a remote, a store address in Settings, \
                         and a profile this machine is signed in to";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: adapter_traits::AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: adapter_traits::WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What the cloud holds for the repository at `root`. Empty where it holds none.
     pub(super) async fn cloud_read(&self, root: &str, target: &Target) -> Result<Vec<KeptRun>, Fault> {

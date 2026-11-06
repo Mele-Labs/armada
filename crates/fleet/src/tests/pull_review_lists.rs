@@ -30,7 +30,7 @@ fn pull(number: u64, repository: &str) -> ListedPull {
 }
 
 fn signed_in_as(fleet: &Fixture, login: &str) {
-    fleet.vcs().main_ci.login_is(Some(login));
+    fleet.fake_vcs().main_ci.login_is(Some(login));
 }
 
 #[tokio::test]
@@ -43,10 +43,10 @@ async fn each_list_is_the_forges_rows_in_the_wires_words() {
     failing.checks = ListedChecks::Failed;
     failing.review = ReviewStanding::ChangesRequested;
     failing.draft = true;
-    fleet.vcs().now_review_list(ReviewList::Requested, vec![failing, pull(8, SLUG)]);
-    fleet.vcs().now_review_list(ReviewList::Team, Vec::new());
-    fleet.vcs().now_review_list(ReviewList::Assigned, vec![pull(9, SLUG)]);
-    fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(7, SLUG)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Requested, vec![failing, pull(8, SLUG)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Team, Vec::new());
+    fleet.fake_vcs().now_review_list(ReviewList::Assigned, vec![pull(9, SLUG)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Mine, vec![pull(7, SLUG)]);
     let lists = fleet.get_review_lists().await.expect("read");
     assert_eq!(lists.me, "NickMele", "the login as the forge wrote it");
     assert!(lists.silent.is_empty() && !lists.fetched_at.is_empty());
@@ -68,10 +68,10 @@ async fn the_four_lists_are_read_at_once() {
     let fleet = a_fleet(&home);
     signed_in_as(&fleet, "NickMele");
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
-        fleet.vcs().now_review_list(list, vec![pull(7, SLUG)]);
+        fleet.fake_vcs().now_review_list(list, vec![pull(7, SLUG)]);
     }
     // Each read answers only while the other three are being read.
-    fleet.vcs().review_lists_answer_together(4);
+    fleet.fake_vcs().review_lists_answer_together(4);
     let lists = fleet.get_review_lists().await.expect("read");
     assert!(lists.silent.is_empty(), "lists read one after another: {:?}", lists.silent);
     assert_eq!([&lists.requested, &lists.team, &lists.assigned, &lists.mine].map(Vec::len), [1; 4]);
@@ -82,9 +82,9 @@ async fn one_call_a_list_names_the_login_and_every_served_repository() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     signed_in_as(&fleet, "nick");
-    fleet.vcs().now_review_list(ReviewList::Mine, Vec::new());
+    fleet.fake_vcs().now_review_list(ReviewList::Mine, Vec::new());
     fleet.get_review_lists().await.expect("read");
-    let asked = fleet.vcs().review_lists_asked();
+    let asked = fleet.fake_vcs().review_lists_asked();
     let lists: Vec<ReviewList> = asked.iter().map(|(list, ..)| *list).collect();
     assert_eq!(lists.len(), 4, "{lists:?}");
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
@@ -98,8 +98,8 @@ async fn a_list_the_forge_would_not_answer_is_empty_and_named_while_the_others_s
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     signed_in_as(&fleet, "nick");
-    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(1, SLUG)]);
-    fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(2, SLUG)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Requested, vec![pull(1, SLUG)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Mine, vec![pull(2, SLUG)]);
     let lists = fleet.get_review_lists().await.expect("read");
     assert_eq!(lists.silent, [PullReviewList::Team, PullReviewList::Assigned]);
     assert_eq!((lists.requested.len(), lists.mine.len()), (1, 1));
@@ -120,11 +120,11 @@ async fn four_silent_lists_are_a_fault() {
 async fn nobody_known_to_ask_as_is_a_fault_and_the_forge_is_not_asked() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
-    fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(2, SLUG)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Mine, vec![pull(2, SLUG)]);
     let refused = fleet.get_review_lists().await.unwrap_err();
     assert_eq!(refused.status(), 500);
     assert_eq!(code(&refused), "fleet.review_lists_unreadable");
-    assert!(fleet.vcs().review_lists_asked().is_empty());
+    assert!(fleet.fake_vcs().review_lists_asked().is_empty());
 }
 
 #[tokio::test]
@@ -132,12 +132,12 @@ async fn a_row_of_a_repository_fleet_does_not_serve_is_dropped() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
     signed_in_as(&fleet, "nick");
-    fleet.vcs().now_review_list(
+    fleet.fake_vcs().now_review_list(
         ReviewList::Requested,
         vec![pull(1, "stranger/thing"), pull(2, "Mele-Labs/Armada")],
     );
     for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
-        fleet.vcs().now_review_list(list, Vec::new());
+        fleet.fake_vcs().now_review_list(list, Vec::new());
     }
     let lists = fleet.get_review_lists().await.expect("read");
     assert_eq!(lists.requested.len(), 1);
@@ -151,9 +151,9 @@ async fn the_team_list_carries_the_team_a_row_was_asked_of() {
     signed_in_as(&fleet, "nick");
     let mut asked = pull(5, SLUG);
     asked.team = Some("Platform".into());
-    fleet.vcs().now_review_list(ReviewList::Team, vec![asked]);
+    fleet.fake_vcs().now_review_list(ReviewList::Team, vec![asked]);
     for list in [ReviewList::Requested, ReviewList::Assigned, ReviewList::Mine] {
-        fleet.vcs().now_review_list(list, Vec::new());
+        fleet.fake_vcs().now_review_list(list, Vec::new());
     }
     let lists = fleet.get_review_lists().await.expect("read");
     assert_eq!(lists.team[0].team.as_deref(), Some("Platform"));
@@ -165,9 +165,9 @@ async fn a_list_keeps_the_most_the_wire_allows() {
     let fleet = a_fleet(&home);
     signed_in_as(&fleet, "nick");
     let many: Vec<ListedPull> = (1..=MOST_PER_LIST as u64 + 10).map(|n| pull(n, SLUG)).collect();
-    fleet.vcs().now_review_list(ReviewList::Mine, many);
+    fleet.fake_vcs().now_review_list(ReviewList::Mine, many);
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned] {
-        fleet.vcs().now_review_list(list, Vec::new());
+        fleet.fake_vcs().now_review_list(list, Vec::new());
     }
     let lists = fleet.get_review_lists().await.expect("read");
     assert_eq!(lists.mine.len(), MOST_PER_LIST);

@@ -15,15 +15,7 @@ use crate::daemon::Fleet;
 /// A row that would not encode or a thread that would not read.
 pub(super) const SESSION_THREAD_UNREADABLE: &str = "fleet.session_thread_unreadable";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) fn instant(&self) -> Instant {
         Instant::from(&self.now())

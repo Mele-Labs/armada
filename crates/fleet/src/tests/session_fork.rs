@@ -20,7 +20,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::session_host::{Shared, StandIn};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 const OLD: &str = "aaaa-1111";
 
@@ -651,7 +651,7 @@ async fn a_move_starts_the_new_job_while_the_old_ones_park_is_held() {
     std::fs::create_dir_all(&at).expect("a slot");
     std::fs::write(format!("{at}.lease"), format!("branch sessions/own\nholder job {}\nsince 1\n", hosted.as_str()))
         .expect("a lease record");
-    let gate = rig.fleet.vcs().hold_parks();
+    let gate = rig.fleet.fake_vcs().hold_parks();
 
     let moved = tokio::time::timeout(Duration::from_secs(2), rig.moves(hosted.as_str(), &second))
         .await
@@ -660,7 +660,7 @@ async fn a_move_starts_the_new_job_while_the_old_ones_park_is_held() {
 
     assert_ne!(moved.id, hosted);
     assert_eq!(rig.record(hosted.as_str()).await.state, SessionState::Ended);
-    assert!(rig.fleet.vcs().parked_slots().is_empty(), "the old one's park is still held");
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty(), "the old one's park is still held");
     gate.open();
-    crate::tests::session_host::eventually(|| async { !rig.fleet.vcs().parked_slots().is_empty() }).await;
+    crate::tests::session_host::eventually(|| async { !rig.fleet.fake_vcs().parked_slots().is_empty() }).await;
 }

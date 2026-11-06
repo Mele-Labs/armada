@@ -36,15 +36,7 @@ struct Leased {
     branch: Option<String>,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Give back or hand over the standing rows of [`HELD_KINDS`] the person chose, every one where he
     /// named none. **The target and the choice are checked before anything moves**, so a refusal

@@ -101,7 +101,7 @@ pub fn effort_of(word: &str) -> Option<Effort> {
     }
 }
 
-impl<H, V, W> crate::daemon::Fittings<H, V, W> {
+impl crate::daemon::Fittings {
     /// The live dials as handed in, and the ones no fitting carries at what
     /// ships — `Fleet::assembled`'s, before the file is put over them.
     pub(crate) fn shipped_tuning(&self) -> Tuning {

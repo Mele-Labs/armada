@@ -17,7 +17,7 @@ use crate::daemon::Fleet;
 use crate::slots::Concurrency;
 use crate::territory::capped;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 struct Rig {
     fleet: Arc<Hosted>,
@@ -62,7 +62,7 @@ impl Rig {
             self.home.path(),
             &["worktree", "add", "--quiet", "-b", &format!("branch-{n}"), &at.to_string_lossy()],
         );
-        self.fleet.vcs().hold_slot(&self.root(), n, by);
+        self.fleet.fake_vcs().hold_slot(&self.root(), n, by);
         at
     }
 }

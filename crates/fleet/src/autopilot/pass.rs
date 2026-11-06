@@ -32,19 +32,11 @@ const CALLS_PER_PASS: usize = 4;
 
 /// Pick for every running Autopilot, every `tick`. `adrift` hears only a store that would not list
 /// them; what stopped one repository's picks is on its record, for the person who reads it.
-pub fn keep_autopiloting<H, V, W>(
-    fleet: Arc<Fleet<H, V, W>>,
+pub fn keep_autopiloting(
+    fleet: Arc<Fleet>,
     tick: Duration,
     adrift: Arc<impl Fn(Adrift) + Send + Sync + 'static>,
 ) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
 {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
@@ -58,15 +50,7 @@ where
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// One pass over every Autopilot. Answers how many Sessions it started.
     ///

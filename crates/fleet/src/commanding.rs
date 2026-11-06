@@ -15,15 +15,7 @@ use api::{Commands, Refusal};
 
 use crate::daemon::Fleet;
 
-impl<H, V, W> Commands for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Commands for Fleet
 {
     /// A corrected Manifest, written and nothing more —
     /// [`editing`](mod@crate::editing). Where a form's edit is pending, the

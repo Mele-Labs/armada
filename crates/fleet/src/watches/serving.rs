@@ -42,15 +42,7 @@ pub(super) struct Filled {
 /// `PATH` may be another build, or none.
 const ARMADA: &str = "armada";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(super) fn watch_unacceptable(&self, code: &str, why: impl Into<String>) -> Refusal {
         Refusal::Unacceptable(WireError::raised(code, why.into(), self.run_id()))
@@ -224,15 +216,7 @@ fn unfilled(recipe: &str, why: &NotFilled) -> String {
     }
 }
 
-impl<H, V, W> Watches for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Watches for Fleet
 {
     async fn start_watch(&self, caller: Option<api::Caller>, start: StartWatch) -> Result<WatchSummary, Refusal> {
         let job = self.placed_job(caller, start.session_id.as_ref()).await?;

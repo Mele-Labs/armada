@@ -207,15 +207,7 @@ pub(crate) fn plan_part_done(plan: &ipc::SessionPlan, wait: &KeptWait) -> bool {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The groups and tasks of a Session's plan, each group followed by its tasks.
     async fn plan_parts(&self, session: &str) -> Vec<PlanPart> {

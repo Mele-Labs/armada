@@ -310,8 +310,8 @@ async fn a_review_request_is_read_at_most_every_ten_minutes_and_handed_once_to_b
     let call = Answers::with(&["item: 1\nway: 1\nbecause: it is for him to review"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let slug = rig.fleet.named_repositories().await.first().expect("served").slug.clone();
-    rig.fleet.vcs().main_ci.login_is(Some("NickMele"));
-    rig.fleet.vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug)]);
+    rig.fleet.fake_vcs().main_ci.login_is(Some("NickMele"));
+    rig.fleet.fake_vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug)]);
 
     // Off, it reads nothing and does not use up the interval.
     rig.fleet.review_requests_handed().await;
@@ -329,7 +329,7 @@ async fn a_review_request_is_read_at_most_every_ten_minutes_and_handed_once_to_b
     assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (format!("review:{}:8", rig.manifest.as_str()).as_str(), "review", "raise"));
 
     // Inside the ten minutes nothing is read: a request listed since is not handed.
-    rig.fleet.vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug), requested(9, &slug)]);
+    rig.fleet.fake_vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug), requested(9, &slug)]);
     rig.fleet.review_requests_handed().await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert_eq!(call.asked().len(), 1);

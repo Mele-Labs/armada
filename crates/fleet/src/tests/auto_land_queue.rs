@@ -161,7 +161,7 @@ async fn landing_pull_request_12() -> (Rig, Remote) {
         .report_session(SessionReport { harness: adapters::HOSTED_HARNESS.into(), session_id: id, fact: SessionFact::Attached { attachment } })
         .await
         .expect("attached");
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&rig.fleet, passed());
     (rig, remote)
 }
@@ -183,7 +183,7 @@ fn times_told(rig: &Rig, words: &str) -> usize {
 }
 
 fn queue_is(rig: &Rig, queue: Vec<QueueEntry>) {
-    rig.fleet.vcs().main_ci.queue_is(Some(queue));
+    rig.fleet.fake_vcs().main_ci.queue_is(Some(queue));
 }
 
 const WAITS: &str = "#12 waits: it conflicts with #11";
@@ -195,20 +195,20 @@ async fn a_pull_request_that_clashes_with_one_in_the_queue_is_held_told_once_and
     let (rig, remote) = landing_pull_request_12().await;
     let ahead = remote.head(BLOCKER, "the blocker's line");
     let mine = remote.head(NUMBER, "my line");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
     queue_is(&rig, vec![entry(BLOCKER, 1, Some(&ahead))]);
 
     read_the_pull_reading(&rig).await;
     read_the_pull_reading(&rig).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "not while the blocker is queued");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0, "not while the blocker is queued");
     assert_eq!(times_told(&rig, WAITS), 1, "told once: {}", said_to_the_job(&rig));
     assert!(said_to_the_job(&rig).contains("f.txt"), "the files are named");
 
     queue_is(&rig, Vec::new());
     read_the_pull_reading(&rig).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "asked once the blocker left, at the same commit");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "asked once the blocker left, at the same commit");
     assert_eq!(times_told(&rig, WAITS), 1);
 }
 
@@ -217,34 +217,34 @@ async fn a_held_pull_request_is_asked_once_the_job_resolves_the_clash_with_the_b
     let (rig, remote) = landing_pull_request_12().await;
     let ahead = remote.head(BLOCKER, "the blocker's line");
     let mine = remote.head(NUMBER, "my line");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
     queue_is(&rig, vec![entry(BLOCKER, 1, Some(&ahead))]);
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0);
 
     let resolved = remote.head(NUMBER, "the blocker's line");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &resolved, PullQueue::Outside)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &resolved, PullQueue::Outside)]));
     read_the_pull_reading(&rig).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1);
 }
 
 #[tokio::test]
 async fn a_pull_request_that_clashes_with_nothing_in_the_queue_is_asked() {
     let (rig, remote) = landing_pull_request_12().await;
     let mine = remote.head(NUMBER, "my line");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
     // The blocker's head is one the remote does not hold, so nothing can be tested: fail open.
     queue_is(&rig, vec![entry(BLOCKER, 1, Some(&sha('e')))]);
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "a head that cannot be tested is not a clash");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "a head that cannot be tested is not a clash");
 
     let (rig, remote) = landing_pull_request_12().await;
     let mine = remote.head(NUMBER, "my line");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
-    rig.fleet.vcs().main_ci.queue_is(None);
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
+    rig.fleet.fake_vcs().main_ci.queue_is(None);
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "a queue the forge would not list is no reason to wait");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "a queue the forge would not list is no reason to wait");
 }
 
 #[tokio::test]
@@ -252,28 +252,28 @@ async fn a_queued_pull_request_that_now_clashes_with_one_ahead_is_taken_out_held
     let (rig, remote) = landing_pull_request_12().await;
     let ahead = remote.head(BLOCKER, "the blocker's line");
     let mine = remote.head(NUMBER, "my line");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Waiting)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Waiting)]));
 
     queue_is(&rig, vec![entry(NUMBER, 1, Some(&mine)), entry(BLOCKER, 2, Some(&ahead))]);
     read_the_pull_reading(&rig).await;
     let dequeued = |delivered: &[Delivered]| delivered.iter().any(|one| matches!(one, Delivered::Dequeued { .. }));
-    assert!(!dequeued(&rig.fleet.vcs().delivered()), "behind it, the other is no blocker");
+    assert!(!dequeued(&rig.fleet.fake_vcs().delivered()), "behind it, the other is no blocker");
 
     queue_is(&rig, vec![entry(BLOCKER, 1, Some(&ahead)), entry(NUMBER, 2, Some(&mine))]);
     read_the_pull_reading(&rig).await;
 
-    let delivered = rig.fleet.vcs().delivered();
+    let delivered = rig.fleet.fake_vcs().delivered();
     assert!(dequeued(&delivered) && delivered.contains(&Delivered::Dequeued { pull_request: NUMBER.to_string() }), "{delivered:?}");
     assert_eq!(times_told(&rig, "#12 was taken out of the merge queue: it now conflicts with #11"), 1);
 
     // Out of the queue now, and held: not asked, not told again.
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(NUMBER, &mine, PullQueue::Outside)]));
     queue_is(&rig, vec![entry(BLOCKER, 1, Some(&ahead))]);
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0);
     assert_eq!(said_to_the_job(&rig).matches("conflicts with #11").count(), 1);
 
     queue_is(&rig, Vec::new());
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "asked again once the blocker has gone");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "asked again once the blocker has gone");
 }

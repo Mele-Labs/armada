@@ -30,15 +30,7 @@ const AROUND: usize = 10;
 /// The most of one row's words the brief carries.
 const ROW_CHARS: usize = 1_500;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Join the open review of the same notice, or start one. **Never an error**: the dispute is
     /// kept whatever happens here, and what stopped a review is said on Fleet's stderr.

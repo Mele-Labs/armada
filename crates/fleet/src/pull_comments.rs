@@ -104,15 +104,7 @@ fn taken_on_line(number: u64, count: usize, file: &Path) -> String {
     format!("#{number} already has {what}, in {}", file.display())
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// One pull request of the person's own, its comments filed for each Job that holds it.
     /// **Asked of the forge only where a Job holds it**, one call; a forge that will not answer
@@ -124,7 +116,7 @@ where
         }
         let (root, number) = (served.root().to_string(), pull.number);
         let Some(comments) = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_comments(root, number))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_comments(root, number))
             .await
         else {
             return;

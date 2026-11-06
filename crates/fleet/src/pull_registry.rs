@@ -49,15 +49,7 @@ fn as_written(machine: &str) -> String {
     Holder::new(HolderKind::Session, "x", machine, 0).map_or_else(|| machine.to_string(), |fitted| fitted.machine)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Register `by` as the owner of pull request `number` in the repository at `root`.
     /// `Ok(false)` is no store applying: the switch is off, this machine is signed out or no

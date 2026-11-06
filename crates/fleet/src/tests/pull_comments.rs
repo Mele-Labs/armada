@@ -32,12 +32,12 @@ async fn a_rig_on_seven() -> (Rig, String) {
     let id = rig.a_hosted_session_on(7).await;
     let mut seven = pull(7, vec![]);
     seven.author = Some(FromOutside::verbatim(OWNER));
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![seven]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![seven]));
     (rig, id)
 }
 
 fn comments_are(rig: &Rig, comments: Vec<PullComment>) {
-    rig.fleet.vcs().main_ci.comments_on(7, comments);
+    rig.fleet.fake_vcs().main_ci.comments_on(7, comments);
 }
 
 fn the_file(rig: &Rig, id: &str) -> String {

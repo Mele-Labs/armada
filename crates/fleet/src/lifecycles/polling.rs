@@ -11,15 +11,7 @@ use super::keeping::{PULL_REQUEST, TICKET};
 use super::reading::{forge_fact, tracker_word};
 use crate::daemon::Fleet;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The live Jobs in `manifest_id` that hold `lifecycle` `key`.
     async fn lifecycle_holders_of(&self, lifecycle: &str, manifest_id: &str, key: &str) -> Vec<String> {
@@ -70,7 +62,7 @@ where
         let page = match standing {
             PullRequestStanding::Open => {
                 let asked = number.clone();
-                self.forge_asked(root, move |vcs: &V, root: &str| vcs.pull_request_page(root, &asked)).await
+                self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_page(root, &asked)).await
             }
             _ => None,
         };

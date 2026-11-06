@@ -263,15 +263,7 @@ impl Inner {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The whole list, unscoped: from memory where a keeper holds a true one,
     /// otherwise read now.
@@ -344,15 +336,7 @@ where
 
 /// Keep `GET /worktrees` true: read once now, so the first request is not the
 /// slow one, then whenever the snapshot is behind and someone is asking.
-pub fn keep_worktrees_warm<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_worktrees_warm(fleet: Arc<Fleet>) -> JoinHandle<()>
 {
     fleet.worktrees_memory().keeper_started();
     tokio::spawn(async move {

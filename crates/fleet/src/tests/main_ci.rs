@@ -9,7 +9,7 @@ use testkit::{FakeVcs, FakeWorkProduct};
 
 use crate::daemon::Fleet;
 
-pub(super) type Fixture = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet;
 
 pub(super) const ONE: &str = "1111111111111111111111111111111111111111";
 

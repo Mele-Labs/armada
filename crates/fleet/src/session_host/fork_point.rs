@@ -93,15 +93,7 @@ pub(super) fn cut_in(hosted: bool, thread: &[SessionRow], transcript: &[SessionR
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Session `old` as a fork reads it: whether Fleet hosts it, its thread, and the transcript.
     async fn fork_reads(&self, old: &str) -> Result<(bool, Vec<SessionRow>, Vec<SessionRow>), Refusal> {

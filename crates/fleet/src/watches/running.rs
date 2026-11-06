@@ -83,15 +83,7 @@ pub(crate) enum Folder {
 }
 
 /// Sweep due watches each `every`, and offer every notice still owed.
-pub fn keep_running_watches<H, V, W>(fleet: Arc<Fleet<H, V, W>>, every: Duration) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_running_watches(fleet: Arc<Fleet>, every: Duration) -> JoinHandle<()>
 {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(every);
@@ -177,15 +169,7 @@ fn hidden(taken: KeptWatchTaken, secrets: &[(String, String)]) -> KeptWatchTaken
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// End each live watch past its give-up time, and start each due one while fewer than
     /// `limits.watchesAtOnce` commands run, the oldest watch first.

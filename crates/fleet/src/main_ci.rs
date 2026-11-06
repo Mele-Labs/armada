@@ -54,15 +54,7 @@ pub struct MainChanged {
     pub now: MainCi,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Read one repository's main, if it is time to. **Empty nearly every
     /// turn**: too soon, nothing served names a base, the head has not moved
@@ -87,7 +79,7 @@ where
         let Some(head) = self
             .forge_asked(&root, {
                 let base = base.clone();
-                move |vcs: &V, root: &str| vcs.base_head_on_the_forge(root, &base)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.base_head_on_the_forge(root, &base)
             })
             .await
         else {
@@ -335,10 +327,10 @@ where
     pub(crate) async fn forge_asked<T: Send + 'static>(
         &self,
         root: &str,
-        ask: impl FnOnce(&V, &str) -> T + Send + 'static,
+        ask: impl FnOnce(&dyn adapter_traits::DynVcs, &str) -> T + Send + 'static,
     ) -> T {
         let (vcs, root) = (Arc::clone(self.vcs()), root.to_string());
-        tokio::task::spawn_blocking(move || ask(&vcs, &root))
+        tokio::task::spawn_blocking(move || ask(&*vcs, &root))
             .await
             .expect("the forge process panicked")
     }
@@ -421,19 +413,11 @@ where
 /// gates it. **A turn waits behind each Job's Checks**, so a reading that rode
 /// only on the turn could be minutes late. Whoever reaches the interval first
 /// reads, and acts on what it read.
-pub fn keep_reading_main<H, V, W>(
-    fleet: Arc<Fleet<H, V, W>>,
+pub fn keep_reading_main(
+    fleet: Arc<Fleet>,
     tick: Duration,
     adrift: impl Fn(Adrift) + Send + 'static,
 ) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
 {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);

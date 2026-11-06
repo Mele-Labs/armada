@@ -34,15 +34,7 @@ enum Verdict {
     Tell,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) fn hosted_refusal(&self, code: &'static str, why: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(code, why, self.run_id()))

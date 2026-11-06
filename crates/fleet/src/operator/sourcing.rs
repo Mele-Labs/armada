@@ -114,15 +114,7 @@ impl Seat {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Hand `arrival` to the Operator, unless the Log already holds it.
     pub(crate) async fn hand_once(&self, arrival: Arrival) {
@@ -235,7 +227,7 @@ where
             return;
         }
         let listed = self
-            .forge_asked(from.root(), move |vcs: &V, root: &str| {
+            .forge_asked(from.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.pull_review_list(root, &ReviewListAsk { list: ReviewList::Requested, login: &me, repositories: &repositories, most: MOST_PER_LIST })
             })
             .await;

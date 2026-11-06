@@ -56,15 +56,7 @@ fn row_of(item: &str) -> Option<i64> {
     item.strip_prefix(RULE_ACT)?.parse().ok()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `answer_waiting` on a `rule_act` item. **The act is settled in the store first**, and a second
     /// answer finds it settled: the first one wins and the other is a 409.

@@ -28,15 +28,7 @@ pub(crate) fn call_item(call: &store::KeptCall) -> WaitingItem {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Raise `notice`, as the Session was told it in `text`, on the Session's Needs you list.
     pub(crate) async fn call_raised(&self, session: &str, notice: ipc::Notice, text: &str) {

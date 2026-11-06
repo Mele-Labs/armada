@@ -110,15 +110,7 @@ impl MergedRun {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Read one repository's open pull requests. **A forge that will not answer
     /// keeps the last reading**, rather than drawing every pull request as gone.
@@ -126,7 +118,7 @@ where
     pub(crate) async fn notice_pulls(&self, served: &Served) -> bool {
         let gate = served.manifest().ci_gate().to_string();
         let listed = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.open_pull_requests(root, &gate)
             })
             .await;
@@ -141,7 +133,7 @@ where
             }
             let (gate, author) = (served.manifest().ci_gate().to_string(), login.clone());
             let theirs = self
-                .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                     vcs.open_pull_requests_by(root, &gate, &author)
                 })
                 .await;
@@ -153,7 +145,7 @@ where
         for number in self.held_beyond(served, &shown).await {
             let gate = served.manifest().ci_gate().to_string();
             let one = self
-                .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                     vcs.open_pull_request(root, &gate, number)
                 })
                 .await;
@@ -189,7 +181,7 @@ where
             return true;
         };
         let listed = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.merge_queue(root, &base)
             })
             .await;
@@ -209,7 +201,7 @@ where
             return true;
         };
         let listed = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.recently_merged_pull_requests(root, &base, DECIDING_WINDOW)
             })
             .await;
@@ -297,7 +289,7 @@ where
             }
             let asking = commit.clone();
             let answer = self
-                .forge_asked(&root, move |vcs: &V, root: &str| {
+                .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                     vcs.ci_runs_on(root, &asking)
                 })
                 .await;
@@ -368,7 +360,7 @@ where
         shown.then_some(())?;
         let asked = commit.clone();
         let runs = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.ci_runs_on(root, &asked)
             })
             .await?;
@@ -377,7 +369,7 @@ where
             .into_iter()
             .find(|run| run.state == CiState::Failed && run.name.as_written() == wanted)?;
         let text = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_log(root, &run))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.ci_log(root, &run))
             .await?;
         Some(api::LandOutput {
             root,
@@ -404,7 +396,7 @@ where
             .find(|job| job.name == check || job.check.as_deref() == Some(check.as_str()))?;
         let (name, commit) = (job.name.clone(), reading.red_commit().to_string());
         let runs = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.ci_runs_on(root, &commit)
             })
             .await?;
@@ -412,7 +404,7 @@ where
             .into_iter()
             .find(|run| run.state == CiState::Failed && run.name.as_written() == name)?;
         let text = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.ci_log(root, &run))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.ci_log(root, &run))
             .await?;
         Some(api::LandOutput {
             root,

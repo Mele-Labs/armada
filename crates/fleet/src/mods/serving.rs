@@ -38,15 +38,7 @@ pub(super) enum Named {
     BuiltIn(BuiltIn),
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) fn mods_dir(&self) -> PathBuf {
         PathBuf::from(&self.host().mods_dir)
@@ -113,15 +105,7 @@ where
     }
 }
 
-impl<H, V, W> Mods for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Mods for Fleet
 {
     async fn list_mods(&self) -> Result<ModList, Refusal> {
         self.mods_listed().await
@@ -262,15 +246,7 @@ where
 /// Rescan the folder every `every` and publish `mods.changed` when the list
 /// moved. **At most one event a scan and only on a change**, so a quiet folder
 /// publishes nothing and the shared drop-oldest backlog is still the only queue.
-pub fn keep_reading<H, V, W>(fleet: Arc<Fleet<H, V, W>>, every: Duration) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_reading(fleet: Arc<Fleet>, every: Duration) -> JoinHandle<()>
 {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(every);

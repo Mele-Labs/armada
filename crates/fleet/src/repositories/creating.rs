@@ -16,15 +16,7 @@ const NOT_A_PROJECT_NAME: &str = "fleet.project_name_refused";
 /// A folder that could not be made or started as a repository. A 500.
 const PROJECT_NOT_STARTED: &str = "fleet.project_not_started";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Spawned, so a caller that stops waiting does not strand a folder that was
     /// made and never served.

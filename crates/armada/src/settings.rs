@@ -152,15 +152,7 @@ where
 
 /// Watch Fleet's own file and hand each change to it, saying on the console
 /// what each came to.
-pub fn watched_by<H, V, W>(fleet: Arc<fleet::Fleet<H, V, W>>, path: PathBuf) -> Watching
-where
-    H: adapter_traits::AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: adapter_traits::WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn watched_by(fleet: Arc<fleet::Fleet>, path: PathBuf) -> Watching
 {
     let shown = path.clone();
     watch(path, move || {

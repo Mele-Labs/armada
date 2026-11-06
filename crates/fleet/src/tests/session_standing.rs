@@ -17,7 +17,7 @@ use super::tmp::TempDir;
 use crate::daemon::Fleet;
 use crate::session_host::standing::{derived, first_line, standing, tail, Seen, STUCK_AFTER};
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 const ENDED: &str = "2026-10-14T10:00:00.000Z";
 const LATER: &str = "2026-10-14T10:00:05.000Z";

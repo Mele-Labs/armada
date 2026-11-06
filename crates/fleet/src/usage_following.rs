@@ -23,15 +23,7 @@ use crate::session_host::handoff_answers::ContextAct;
 use crate::session_host::tell_refusal;
 use crate::usage_rules::{covered, hour_burn, measured_after, tripped, Limits, Rule};
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Read the rules against each of `sessions`, whose turns just changed, and tell those that
     /// crossed one they have not been told.

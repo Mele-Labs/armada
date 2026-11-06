@@ -324,7 +324,7 @@ const ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_1","inp
 fn judged_by(
     judge: Arc<FakeJudge>,
     file: std::path::PathBuf,
-) -> impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>) {
+) -> impl FnOnce(&mut crate::daemon::Fittings) {
     move |fittings| {
         fittings.judge = judge;
         let supplied = super::settings_json::supplied().words(config::settings::MODELS_ACCOUNT, "another-model");

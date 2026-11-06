@@ -51,15 +51,7 @@ const NOT_A_CHECKOUT: &str = "fleet.not_a_checkout";
 /// is ended with `SIGKILL`, so what is left is a reap and a publish.
 const STOPPING: Duration = Duration::from_secs(30);
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Start `name` in `checkout` — its main checkout, or a worktree somebody
     /// cut by hand, on the span that checkout holds while Fleet runs —

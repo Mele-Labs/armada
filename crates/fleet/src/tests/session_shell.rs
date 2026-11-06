@@ -13,7 +13,7 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
-type Running = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Running = Fleet;
 
 const SLOT: u32 = 3;
 

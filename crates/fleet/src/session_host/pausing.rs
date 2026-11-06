@@ -39,15 +39,7 @@ const SESSION_PAUSE_REFUSED: &str = "fleet.session_pause_refused";
 /// What a Job with no turn kept is told when it is resumed, so it carries on.
 const RESUMED: &str = "You were paused and have been resumed. Carry on with what you were doing.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn conflict(&self, code: &'static str, said: String) -> Refusal {
         Refusal::IllegalMove(WireError::raised(code, said, self.run_id()))

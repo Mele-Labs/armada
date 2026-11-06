@@ -41,7 +41,7 @@ pub(super) async fn reviews_switched(rig: &Rig, on: bool) {
 /// [`serving`] over fittings the test changes first.
 pub(super) async fn serving_fitted(
     manifest: &str,
-    fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>),
+    fit: impl FnOnce(&mut crate::daemon::Fittings),
 ) -> Rig {
     let manifest = Manifest::parse(
         std::path::Path::new("armada.yml"),

@@ -50,15 +50,7 @@ fn pinned_text(file: &Path, label: &Path, text: &str, first: &[Edit], port: &str
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Pin `process` to `to`, or give it back where `to` is `None`, and answer the run that lists
     /// it as it now stands on `target`. **Where it is already as asked nothing is written.**

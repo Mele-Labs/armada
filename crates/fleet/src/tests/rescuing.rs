@@ -21,7 +21,7 @@ use crate::scout::ScoutHost;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-pub(super) type Rescued = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Rescued = Fleet;
 
 /// The agent CLI as a scout meets it. A brief naming `slowly` (the branch
 /// does) reads one file and waits, bounded, to be interrupted; one naming
@@ -81,7 +81,7 @@ fn rescued(home: &TempDir) -> Arc<Rescued> {
 /// `rescued`, over fittings a case has set its own way.
 pub(super) fn rescuing_on(
     home: &TempDir,
-    fittings: crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>,
+    fittings: crate::daemon::Fittings,
 ) -> Rescued {
     let dir = home.path();
     let state = dir.join("stand-in");
@@ -136,7 +136,7 @@ pub(super) fn work(branch: Option<&str>) -> StrandedWork {
 /// Slot 2 stranded on `branch`, with a file to read in it.
 pub(super) fn stranded(home: &TempDir, fleet: &Rescued, branch: Option<&str>) {
     fleet
-        .vcs()
+        .fake_vcs()
         .strand_slot(&root(home), 2, work(branch), "+fn parse() {}\n");
     let src = std::path::PathBuf::from(slot_path(&root(home), 2)).join("src");
     std::fs::create_dir_all(&src).expect("a source directory");
@@ -330,7 +330,7 @@ async fn a_finding_of_another_commit_is_not_shown() {
 
     let mut moved = work(Some("fleet/half-done"));
     moved.commit = String::from("fffffff000");
-    fleet.vcs().strand_slot(&root(&home), 2, moved, "");
+    fleet.fake_vcs().strand_slot(&root(&home), 2, moved, "");
     assert_eq!(on_the_wire(&fleet).await.rescue, None);
 }
 
@@ -369,7 +369,7 @@ async fn a_stop_ends_the_scout_and_nothing_acts_while_it_reads() {
             .expect_err("a Scout is reading it");
         assert_eq!(code(&refused), "fleet.rescue_reading", "{act:?}");
     }
-    assert!(fleet.vcs().rescued_slots().is_empty());
+    assert!(fleet.fake_vcs().rescued_slots().is_empty());
 
     Arc::clone(&fleet)
         .rescue_slot(press(RescueAct::Stop), None)
@@ -393,7 +393,7 @@ async fn a_stop_ends_the_scout_and_nothing_acts_while_it_reads() {
 async fn only_a_stranded_slot_is_rescued() {
     let home = TempDir::new();
     let fleet = rescued(&home);
-    fleet.vcs().hold_slot(&root(&home), 2, "an agent's session");
+    fleet.fake_vcs().hold_slot(&root(&home), 2, "an agent's session");
 
     let refused = Arc::clone(&fleet)
         .rescue_slot(press(RescueAct::Start), None)
@@ -435,7 +435,7 @@ async fn a_scrap_frees_the_slot_and_the_finding_goes() {
         .expect("scrapped");
     assert_eq!(scrapped.branch.as_deref(), Some("fleet/half-done"));
     assert!(scrapped.branch_kept, "an unpushed commit is on it");
-    assert_eq!(fleet.vcs().rescued_slots(), [(2, SlotRescue::Scrap)]);
+    assert_eq!(fleet.fake_vcs().rescued_slots(), [(2, SlotRescue::Scrap)]);
     let slot = on_the_wire(&fleet).await;
     assert_eq!(slot.rescue, None);
     assert!(
@@ -470,7 +470,7 @@ async fn a_stash_keeps_the_work_on_its_branch_and_frees_the_slot() {
         "the uncommitted file was committed"
     );
     assert!(matches!(
-        fleet.vcs().rescued_slots().as_slice(),
+        fleet.fake_vcs().rescued_slots().as_slice(),
         [(2, SlotRescue::Stash { .. })]
     ));
     assert!(matches!(

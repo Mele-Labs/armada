@@ -13,15 +13,7 @@ use store::Holder;
 use crate::daemon::Fleet;
 use crate::leasing::pool_of;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Release every slot the pool holds for the session, as `armada worktree release` does, and
     /// stop the servers running in each one it released. Then delete the branches those slots were

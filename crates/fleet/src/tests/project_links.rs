@@ -179,7 +179,7 @@ fn pulls_of(row: &ProjectRow) -> Vec<TaskPull> {
 async fn a_linked_pull_request_reads_its_title_and_state_from_the_forge_and_keeps_neither() {
     let rig = a_rig();
     let (_project, rows) = a_project(&rig, &["Sign the build"]).await;
-    let forge = rig.fleet.vcs();
+    let forge = rig.fleet.fake_vcs();
     forge.now_pull_request(Some(facts(PullRequestStanding::Draft, "Sign it")));
 
     rig.fleet.link_task_pull(rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
@@ -215,7 +215,7 @@ async fn a_linked_pull_request_reads_its_title_and_state_from_the_forge_and_keep
 async fn a_pull_request_the_forge_cannot_read_is_listed_without_a_title_or_state() {
     let rig = a_rig();
     let (_project, rows) = a_project(&rig, &["Sign the build"]).await;
-    rig.fleet.vcs().now_pull_request(None);
+    rig.fleet.fake_vcs().now_pull_request(None);
 
     let listed = rig.fleet.link_task_pull(rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
 
@@ -223,7 +223,7 @@ async fn a_pull_request_the_forge_cannot_read_is_listed_without_a_title_or_state
 }
 
 async fn merged(rig: &Rig, number: u64, author: Option<&str>) {
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.followed_are(Some(Vec::new()));
     forge.recently_merged_are(Some(vec![RecentlyMerged {
         number,
@@ -244,7 +244,7 @@ async fn a_linked_pull_request_merging_asks_about_an_open_task_on_the_rows_and_a
     let rig = a_rig();
     let (_project, rows) = a_project(&rig, &["Sign the build", "Ship it"]).await;
     let (sign, ship) = (rows[0].clone(), rows[1].clone());
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open, "Sign it")));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open, "Sign it")));
     rig.fleet.link_task_pull(sign.clone(), LinkTaskPull { number: 5 }).await.expect("linked");
     rig.fleet.tick_project_task(ship.clone(), TickProjectTask { done: true }).await.expect("ticked");
     rig.fleet.link_task_pull(ship.clone(), LinkTaskPull { number: 5 }).await.expect("linked");
@@ -300,11 +300,11 @@ async fn linking_a_pull_request_that_already_merged_asks_about_an_open_or_held_t
     let (_project, rows) = a_project(&rig, &["Sign the build", "Ship it"]).await;
     let job = a_job(&rig, "Launch").await;
     rig.fleet.link_task_job(rows[1].clone(), job_link(&job)).await.expect("linked");
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open, "Sign it")));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open, "Sign it")));
     let still_open = rig.fleet.link_task_pull(rows[0].clone(), LinkTaskPull { number: 4 }).await.expect("linked");
     assert_eq!(held(&rows_of(&still_open, 0)[0]).0, ProjectTaskState::Open, "an open pull request asks nothing");
 
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Merged, "Sign it")));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Merged, "Sign it")));
     let linked = rig.fleet.link_task_pull(rows[0].clone(), LinkTaskPull { number: 5 }).await.expect("linked");
     assert_eq!(held(&rows_of(&linked, 0)[0]), (ProjectTaskState::Asked, None), "asked in the answer itself, with no Job to name");
     assert_eq!(

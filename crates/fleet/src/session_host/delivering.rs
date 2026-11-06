@@ -123,15 +123,7 @@ pub(crate) const ASKED: &str = "Fleet: the owner is choosing how this work is de
 Fleet has asked him already, so do not ask it again, in waiting_for or with AskUserQuestion. \
 Stop now and end your turn. Do not edit, commit or push. Fleet sends the choice when it is made.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Job has entered a step that asks. Keep a `delivery` row, answered where the first message
     /// named one and asking where it did not, and tell the agent to stop in the second case.

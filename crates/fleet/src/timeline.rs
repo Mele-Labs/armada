@@ -264,15 +264,7 @@ impl Timeline {
 ///
 /// **Started before commands are let through**, so the first Job to start is
 /// in it. Answers `None` where it was started already.
-pub fn keep_timeline<H, V, W>(fleet: Arc<crate::Fleet<H, V, W>>) -> Option<JoinHandle<()>>
-where
-    H: adapter_traits::AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: adapter_traits::WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_timeline(fleet: Arc<crate::Fleet>) -> Option<JoinHandle<()>>
 {
     let timeline = fleet.timeline().clone();
     let mut unwritten = timeline.unwritten.lock().ok()?.take()?;
@@ -296,15 +288,7 @@ where
     }))
 }
 
-impl<H, V, W> crate::Fleet<H, V, W>
-where
-    H: adapter_traits::AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: adapter_traits::Vcs + adapter_traits::Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: adapter_traits::WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl crate::Fleet
 {
     /// Keep one entry, then tell the clients it exists. **A store that will not
     /// take it loses the entry**, which is the whole of what a failed write to

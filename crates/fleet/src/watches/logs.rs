@@ -46,15 +46,7 @@ fn file_name(at: &str) -> String {
     format!("{}.log", at.replace(':', "-"))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn watch_logs_of(&self, job: &str) -> PathBuf {
         Path::new(&self.host().attachments_dir).join(LOGS_DIR).join(job)

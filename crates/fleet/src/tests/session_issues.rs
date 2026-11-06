@@ -206,7 +206,7 @@ async fn a_pull_requests_row_says_which_issues_it_closes_and_says_nothing_where_
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     forge_ran(&fleet, passed());
-    fleet.vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
+    fleet.fake_vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
         closes: vec![7, 31],
         ..facts(PullRequestStanding::Open)
     }));
@@ -217,7 +217,7 @@ async fn a_pull_requests_row_says_which_issues_it_closes_and_says_nothing_where_
     let row = the_row(&fleet, "s1", "pr").await;
     assert_eq!(row.detail.get("closes").map(String::as_str), Some("7,31"));
 
-    fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
     fleet.get_pull_request(id, 12).await.expect("read");
 
     assert_eq!(the_row(&fleet, "s1", "pr").await.detail.get("closes"), None);
@@ -232,7 +232,7 @@ async fn the_issues_a_sessions_pull_request_closes_are_held_by_the_session() {
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     forge_ran(&fleet, passed());
-    fleet.vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
+    fleet.fake_vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
         closes: vec![7, 31],
         ..facts(PullRequestStanding::Merged)
     }));
@@ -253,7 +253,7 @@ async fn a_jira_fleet_holding_pull_request_12(home: &TempDir) -> crate::tests::p
     let fleet = Fleet::assembled(fitted);
     a_session_holding_pull_request_12(&fleet, "s1").await;
     forge_ran(&fleet, passed());
-    fleet.vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
+    fleet.fake_vcs().now_pull_request(Some(adapter_traits::PullRequestFacts {
         title: "[ABC-12] Wire it".into(),
         ..facts(PullRequestStanding::Open)
     }));

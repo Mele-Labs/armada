@@ -45,15 +45,7 @@ fn labelled(mut tasks: Vec<ReportedTask>, held: &[KeptAttachment]) -> Vec<Report
     tasks
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A Session's plan or road fact, heard. Answers whether the row shows it. A commit or a push is
     /// entered on the timeline first, so the road is there when the row is next built.

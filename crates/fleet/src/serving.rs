@@ -29,15 +29,7 @@ use crate::adrift::Adrift;
 use crate::daemon::Fleet;
 use crate::wire::{manifest_summary, workflow_summary};
 
-impl<H, V, W> Queries for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Queries for Fleet
 {
 
     /// The Manifest a door session is answered inside: the one its relay

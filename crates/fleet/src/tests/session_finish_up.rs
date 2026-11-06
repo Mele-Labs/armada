@@ -19,15 +19,15 @@ fn finish(id: &SessionId) -> FinishUp {
 async fn every_slot_held_for_the_session_is_released_and_nobody_elses() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
-    rig.fleet.vcs().hold_slot(&rig.root, 3, OTHERS);
-    rig.fleet.vcs().hold_slot(&rig.root, 4, id.as_str());
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 2, id.as_str());
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 3, OTHERS);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 4, id.as_str());
 
     let done = rig.fleet.finish_up(None, finish(&id)).await.unwrap();
 
     assert_eq!(done.released, vec![2, 4]);
     assert!(done.kept.is_empty(), "{:?}", done.kept);
-    let held = rig.fleet.vcs().slot_holders(&rig.root);
+    let held = rig.fleet.fake_vcs().slot_holders(&rig.root);
     assert_eq!(held[1], None);
     assert_eq!(held[2].as_deref(), Some(OTHERS));
     assert_eq!(held[3], None);
@@ -37,14 +37,14 @@ async fn every_slot_held_for_the_session_is_released_and_nobody_elses() {
 async fn a_slot_the_pool_refuses_stays_held_and_is_named() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
-    rig.fleet.vcs().keep_next_release("2 files are uncommitted");
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 2, id.as_str());
+    rig.fleet.fake_vcs().keep_next_release("2 files are uncommitted");
 
     let done = rig.fleet.finish_up(None, finish(&id)).await.unwrap();
 
     assert!(done.released.is_empty());
     assert_eq!(done.kept, vec!["slot 2: 2 files are uncommitted".to_string()]);
-    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[1].as_deref(), Some(id.as_str()));
+    assert_eq!(rig.fleet.fake_vcs().slot_holders(&rig.root)[1].as_deref(), Some(id.as_str()));
 }
 
 #[tokio::test]
@@ -90,7 +90,7 @@ async fn the_branch_of_a_pull_request_the_session_held_is_deleted_though_no_slot
     let done = rig.fleet.finish_up(None, finish(&id)).await.unwrap();
 
     assert_eq!(done.deleted_branches, vec![String::from("bridge/session-id-links")]);
-    assert!(rig.fleet.vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
+    assert!(rig.fleet.fake_vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
 }
 
 #[tokio::test]
@@ -112,7 +112,7 @@ async fn a_released_slot_with_a_branch_leaves_a_release_row_in_the_thread() {
 async fn all_done_gives_back_a_merged_slot_and_its_branch_and_ends_in_one_call() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 2, id.as_str());
     let at = rig.fleet.now().as_str().to_string();
     let manifest = rig.fleet.repositories().first().unwrap().manifest().id().as_str().to_string();
     let row = KeptAttachment {
@@ -130,6 +130,6 @@ async fn all_done_gives_back_a_merged_slot_and_its_branch_and_ends_in_one_call()
     let record = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: None }).await.unwrap();
 
     assert!(record.done_since.is_some(), "done is stamped");
-    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[1], None, "the slot is given back");
-    assert!(rig.fleet.vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
+    assert_eq!(rig.fleet.fake_vcs().slot_holders(&rig.root)[1], None, "the slot is given back");
+    assert!(rig.fleet.fake_vcs().deleted_branches().contains(&String::from("bridge/session-id-links")));
 }

@@ -133,7 +133,7 @@ async fn committing_with_no_job_open_makes_a_job_of_its_own_with_one_commit_and_
     let (mine, before) = yours(&rig, vec![own("specs", Some("s")), own("deploy", None)]).await;
     let on_main = "version = 1\n[[job]]\nid = \"lint\"\nkind = \"shell\"\ntext = \"make lint\"\n";
     plant(&Path::new(&rig.root).join(IN_REPOSITORY), on_main);
-    let made = rig.fleet.vcs().committed().len();
+    let made = rig.fleet.fake_vcs().committed().len();
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)).await.expect("committed");
     finished(&rig, &committed).await;
@@ -143,14 +143,14 @@ async fn committing_with_no_job_open_makes_a_job_of_its_own_with_one_commit_and_
     let session = rig.fleet.store().lock().await.session(committed.session_id.as_str()).expect("read").expect("kept");
     assert_eq!(session.title.as_deref(), Some("Commit the tile specs"));
     assert_eq!(committed.paths, [IN_REPOSITORY.to_string()]);
-    let commits = rig.fleet.vcs().committed();
+    let commits = rig.fleet.fake_vcs().committed();
     assert_eq!(commits.len(), made + 1, "one commit");
     assert_eq!((commits[made].branch.as_str(), commits[made].message.as_str()), (committed.branch.as_str(), "Add the tile specs"));
     assert_eq!(commits[made].scope, CommitScope::Paths(vec![IN_REPOSITORY.to_string()]));
     let on_branch = crate::flight_controls::repository::parse_repository(&std::fs::read_to_string(tree.join(IN_REPOSITORY)).expect("in the tree")).expect("reads");
     assert_eq!(on_branch.job.iter().map(|tile| tile.id.as_str()).collect::<Vec<_>>(), ["lint", "specs"]);
 
-    let delivered = rig.fleet.vcs().delivered();
+    let delivered = rig.fleet.fake_vcs().delivered();
     assert!(delivered.contains(&Delivered::Pushed { branch: committed.branch.clone() }), "{delivered:?}");
     let opened = delivered.iter().find_map(|one| match one {
         Delivered::OpenedForReview { review, .. } => Some(review.title().to_string()),
@@ -186,8 +186,8 @@ async fn a_pull_request_that_does_not_open_leaves_the_jobs_branch_pushed_and_say
     assert_eq!(told.manifest_id.as_ref().map(|id| id.as_str()), Some(rig.fleet.repositories().first().expect("served").manifest().id().as_str()));
     assert_eq!(told.error.code, crate::committing::PULL_REQUEST_NOT_OPENED);
     assert_eq!(told.error.message, format!("{} is pushed. No pull request was opened: gh is not installed", committed.branch));
-    assert!(rig.fleet.vcs().delivered().contains(&Delivered::Pushed { branch: committed.branch.clone() }));
-    assert_eq!(rig.fleet.vcs().committed().last().expect("a commit").branch, committed.branch);
+    assert!(rig.fleet.fake_vcs().delivered().contains(&Delivered::Pushed { branch: committed.branch.clone() }));
+    assert_eq!(rig.fleet.fake_vcs().committed().last().expect("a commit").branch, committed.branch);
     let tree = tree_of(&rig, &committed).await;
     assert!(tree.join(IN_REPOSITORY).exists(), "the commit's file stays in the Job's tree");
     let session = rig.fleet.store().lock().await.session(committed.session_id.as_str()).expect("read").expect("kept");
@@ -200,7 +200,7 @@ async fn a_pull_request_that_does_not_open_leaves_the_jobs_branch_pushed_and_say
 async fn the_reply_comes_back_while_the_push_is_held_and_the_pull_request_follows() {
     let rig = rig_placing(None);
     yours(&rig, vec![own("specs", None)]).await;
-    let hold = rig.fleet.vcs().hold_pushes();
+    let hold = rig.fleet.fake_vcs().hold_pushes();
 
     let committed = tokio::time::timeout(Duration::from_secs(3), rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)))
         .await
@@ -212,7 +212,7 @@ async fn the_reply_comes_back_while_the_push_is_held_and_the_pull_request_follow
     assert!(!held.iter().any(|row| row.kind == "pr"), "no pull request while the push is held");
     hold.open();
     finished(&rig, &committed).await;
-    assert!(rig.fleet.vcs().delivered().contains(&Delivered::Pushed { branch: committed.branch.clone() }));
+    assert!(rig.fleet.fake_vcs().delivered().contains(&Delivered::Pushed { branch: committed.branch.clone() }));
 }
 
 /// A commit git refuses, once the Job exists, is told as `act.failed` with the Job it was for.
@@ -232,7 +232,7 @@ async fn a_commit_git_refuses_after_the_reply_is_told_as_act_failed() {
     assert_eq!(told.session_id, Some(committed.session_id));
     assert_eq!(told.error.code, crate::committing::UNWRITABLE);
     assert!(told.error.message.contains("hooks refused it"), "{}", told.error.message);
-    assert!(!rig.fleet.vcs().delivered().iter().any(|one| matches!(one, Delivered::Pushed { .. })), "nothing was pushed");
+    assert!(!rig.fleet.fake_vcs().delivered().iter().any(|one| matches!(one, Delivered::Pushed { .. })), "nothing was pushed");
 }
 
 /// **Against main's tree, before any Job is made**: a tile main already holds is refused without
@@ -243,14 +243,14 @@ async fn a_tile_main_already_holds_is_refused_without_overwrite_and_makes_no_job
     yours(&rig, vec![own("specs", None)]).await;
     let on_main = "version = 1\n[[job]]\nid = \"specs\"\nkind = \"shell\"\ntext = \"old\"\n";
     plant(&Path::new(&rig.root).join(IN_REPOSITORY), on_main);
-    let (cut, made) = (rig.fleet.vcs().created().len(), rig.fleet.vcs().committed().len());
+    let (cut, made) = (rig.fleet.fake_vcs().created().len(), rig.fleet.fake_vcs().committed().len());
 
     let refusal = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), false)).await.expect_err("refused");
     let (code, said) = refused_with(refusal);
     assert_eq!(code, EXISTS);
     assert_eq!(said, format!("{IN_REPOSITORY} on main already holds `specs` in job. Commit with overwrite to replace it."));
-    assert_eq!(rig.fleet.vcs().created().len(), cut, "no Job's branch is cut");
-    assert_eq!(rig.fleet.vcs().committed().len(), made, "nothing committed");
+    assert_eq!(rig.fleet.fake_vcs().created().len(), cut, "no Job's branch is cut");
+    assert_eq!(rig.fleet.fake_vcs().committed().len(), made, "nothing committed");
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, tiles(&["specs"]), true)).await.expect("replaced");
     finished(&rig, &committed).await;
@@ -270,7 +270,7 @@ async fn a_tile_that_is_not_yours_is_refused() {
         assert_eq!(code, NOT_YOURS);
         assert!(said.contains(says), "{said}");
     }
-    assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
+    assert!(rig.fleet.fake_vcs().created().is_empty(), "no Job's branch is cut");
 }
 
 /// Kit's workflow file, as the person wrote it, into `.armada/workflows/` on the branch.
@@ -295,7 +295,7 @@ async fn committing_a_workflow_copies_kits_file_onto_its_jobs_branch() {
     assert_eq!(committed.paths, [".armada/workflows/quick.yml"]);
     let tree = tree_of(&rig, &committed).await;
     assert_eq!(std::fs::read_to_string(tree.join(".armada/workflows/quick.yml")).expect("on the branch"), text);
-    assert_eq!(rig.fleet.vcs().committed().last().expect("a commit").message, "Add the workflow quick");
+    assert_eq!(rig.fleet.fake_vcs().committed().last().expect("a commit").message, "Add the workflow quick");
     assert_eq!(std::fs::read_to_string(&file).expect("still in Kit"), text, "the person's copy is untouched");
 
     let missing = PieceToCommit::Workflow { workflow_id: WorkflowId::carried("absent") };
@@ -317,7 +317,7 @@ async fn committing_a_review_tool_copies_kits_file_and_refuses_one_main_holds() 
     assert_eq!(committed.paths, [".armada/review-tools/security.md"]);
     let tree = tree_of(&rig, &committed).await;
     assert_eq!(std::fs::read_to_string(tree.join(".armada/review-tools/security.md")).expect("on the branch"), text);
-    assert_eq!(rig.fleet.vcs().committed().last().expect("a commit").message, "Add the review tool security");
+    assert_eq!(rig.fleet.fake_vcs().committed().last().expect("a commit").message, "Add the review tool security");
     assert_eq!(std::fs::read_to_string(&file).expect("still in Kit"), text);
 
     plant(&Path::new(&rig.root).join(".armada/review-tools/security.md"), "---\nkind: tool\nname: Security\n---\nOlder.\n");
@@ -357,14 +357,14 @@ fn kit_manifest(rig: &Rig) -> PathBuf {
 async fn committing_the_manifest_copies_kits_file_to_the_workspace_root_and_leaves_kits() {
     let rig = rig_placing(None);
     plant(&kit_manifest(&rig), WHOLE);
-    let made = rig.fleet.vcs().committed().len();
+    let made = rig.fleet.fake_vcs().committed().len();
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, PieceToCommit::Manifest, false)).await.expect("committed");
     finished(&rig, &committed).await;
 
     assert_eq!(committed.paths, ["armada.yml".to_string()]);
     let tree = tree_of(&rig, &committed).await;
-    let commits = rig.fleet.vcs().committed();
+    let commits = rig.fleet.fake_vcs().committed();
     assert_eq!((commits.len(), commits[made].message.as_str()), (made + 1, "Add armada.yml"));
     assert_eq!(commits[made].scope, CommitScope::Paths(vec!["armada.yml".to_string()]));
     assert_eq!(std::fs::read_to_string(tree.join("armada.yml")).expect("on the branch"), WHOLE);
@@ -401,7 +401,7 @@ async fn the_manifest_is_refused_with_no_copy_in_kit_or_a_copy_that_is_not_whole
     let (code, said) = refused_with(refusal);
     assert_eq!(code, crate::committing::REFUSED);
     assert!(said.contains("is not a whole Manifest"), "{said}");
-    assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
+    assert!(rig.fleet.fake_vcs().created().is_empty(), "no Job's branch is cut");
 }
 
 /// Requests' collections and environments into `.armada/requests.toml` beside what main holds,

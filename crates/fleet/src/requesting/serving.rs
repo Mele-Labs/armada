@@ -29,15 +29,7 @@ const REQUEST_UNSENT: &str = "fleet.request_unsent";
 /// Nothing names a repository, or a Job for an agent's save. A 422.
 const UNPLACED: &str = "fleet.requests_unplaced";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Job a call is about: the hosted one holding the connection, else the one named.
     fn requesting_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Option<String> {
@@ -141,15 +133,7 @@ where
     }
 }
 
-impl<H, V, W> Requests for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Requests for Fleet
 {
     async fn send_request(
         self: Arc<Self>,

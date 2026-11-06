@@ -67,15 +67,7 @@ pub(crate) fn told(ended: &Ended, taken_off: bool) -> String {
     text
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A clean exit takes the matching `run` item off the Session's list first, so Bridge has
     /// nothing to settle. **A Session that has ended is not told**, which `told_by_fleet` answers.

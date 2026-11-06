@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{CiConfiguration, ModelClient, Trackers};
+use adapter_traits::{AgentHarness, CiConfiguration, DynVcs, DynWork, ModelClient, Trackers};
 use core_model::Ulid;
 use tokio::sync::Mutex;
 
@@ -32,12 +32,15 @@ mod seams;
 pub(crate) use fittings::Local;
 pub use fittings::{Fittings, Host, StartingIn};
 
+/// The harness Fleet holds: its error is never raised, so one type names it.
+pub type Harness = dyn AgentHarness<Error = std::convert::Infallible> + Send + Sync;
+
 /// The daemon core: **the only writer of Job state.**
-pub struct Fleet<H, V, W> {
+pub struct Fleet {
     store: crate::store_lock::StoreLock,
-    harness: Arc<H>,
-    vcs: Arc<V>,
-    work: W,
+    harness: Arc<Harness>,
+    vcs: Arc<dyn DynVcs>,
+    work: Arc<dyn DynWork>,
     clock: Arc<dyn Clock>,
     mint: Arc<dyn Mint>,
     /// Every repository this Fleet serves. See [`crate::repositories`].

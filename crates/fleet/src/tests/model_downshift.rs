@@ -19,7 +19,7 @@ use crate::tests::session_host::{eventually, rig_placing};
 use crate::tests::settings_json::settings_file_in;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 const WEEK: &str = "2026-10-17T09:00:00.000Z";
 const NEXT_WEEK: &str = "2026-10-24T09:00:00.000Z";

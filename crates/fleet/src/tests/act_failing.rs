@@ -13,7 +13,7 @@ use crate::tests::tmp::TempDir;
 #[tokio::test]
 async fn a_failed_background_act_is_published_with_its_refusal() {
     let home = TempDir::new();
-    let fleet: Fleet<FakeHarness, FakeVcs, FakeWorkProduct> = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
+    let fleet: Fleet = Fleet::assembled(fittings(&home, FakeWorkProduct::changed(&[])));
     let mut watching = fleet.events().subscribe();
     let error = WireError::raised("fleet.push_refused", "The push was refused", fleet.run_id());
 

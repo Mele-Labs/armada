@@ -14,7 +14,7 @@ use crate::CheckBudget;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 /// `bootstrap` is setup; `broken` exits 3 between two Checks that pass; and
 /// `generate` is a Command, which no Verify runs.

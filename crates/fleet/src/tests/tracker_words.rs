@@ -23,7 +23,7 @@ const SECOND: &str = "01SECONDMANIFEST";
 const FIXED: &[(TicketState, &str)] =
     &[(TicketState::ToDo, "open"), (TicketState::InProgress, "in_progress"), (TicketState::Closed, "closed")];
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 /// The fixture's repository, which names no tracker, and a second that names `fixed`, a provider
 /// the fake declares `FIXED` for.

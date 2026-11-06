@@ -46,13 +46,13 @@ async fn promoting_an_instrument_commits_its_two_files_and_titles_it_by_its_kind
     std::fs::create_dir_all(&at).expect("a folder");
     std::fs::write(at.join("mod.toml"), toml).expect("mod.toml");
     std::fs::write(at.join("instrument.js"), code).expect("instrument.js");
-    let made = rig.fleet.vcs().committed().len();
+    let made = rig.fleet.fake_vcs().committed().len();
 
     let promoted = Arc::clone(&rig.fleet).promote_mod(PromoteMod { name: "reviews".into(), manifest_id: None }).await.expect("promoted");
 
     assert_eq!(promoted.title, "Add the reviews instrument mod");
     let paths = ["packages/mods/reviews/mod.toml", "packages/mods/reviews/instrument.js"];
-    assert_eq!(rig.fleet.vcs().committed()[made].scope, CommitScope::Paths(paths.map(String::from).to_vec()));
+    assert_eq!(rig.fleet.fake_vcs().committed()[made].scope, CommitScope::Paths(paths.map(String::from).to_vec()));
     let tree = tree_of(&rig, &promoted).await;
     assert_eq!(std::fs::read_to_string(tree.join(paths[1])).expect("in the tree"), code);
 }
@@ -64,21 +64,21 @@ async fn promoting_an_instrument_commits_its_two_files_and_titles_it_by_its_kind
 async fn promoting_a_mod_opens_its_pull_request_in_a_job_of_its_own_and_briefs_that_job() {
     let rig = rig_placing(None);
     a_mod_to_promote(&rig);
-    let made = rig.fleet.vcs().committed().len();
+    let made = rig.fleet.fake_vcs().committed().len();
 
     let promoted = promoted(&rig).await;
 
     let tree = tree_of(&rig, &promoted).await;
     let session = rig.fleet.store().lock().await.session(promoted.session_id.as_str()).expect("read").expect("kept");
     assert_eq!(session.title.as_deref(), Some("Add the calm theme mod"));
-    let commits = rig.fleet.vcs().committed();
+    let commits = rig.fleet.fake_vcs().committed();
     assert_eq!(commits.len(), made + 1, "one commit");
     assert_eq!((commits[made].branch.as_str(), commits[made].message.as_str()), (promoted.branch.as_str(), "Add the calm theme mod"));
     assert_eq!(commits[made].scope, CommitScope::Paths(PATHS.map(String::from).to_vec()));
     assert_eq!(std::fs::read_to_string(tree.join(PATHS[0])).expect("in the tree"), TOML);
     assert_eq!(std::fs::read_to_string(tree.join(PATHS[1])).expect("in the tree"), CSS);
 
-    let delivered = rig.fleet.vcs().delivered();
+    let delivered = rig.fleet.fake_vcs().delivered();
     assert!(delivered.contains(&Delivered::Pushed { branch: promoted.branch.clone() }), "{delivered:?}");
     let opened = delivered.iter().find_map(|one| match one {
         Delivered::OpenedForReview { review, .. } => Some(review.title().to_string()),
@@ -120,7 +120,7 @@ async fn a_pull_request_that_does_not_open_answers_why_and_still_names_the_job()
     assert_eq!(promoted.pull_request, None);
     let said = promoted.pull_request_not_opened.clone().expect("says why");
     assert_eq!(said, format!("{} is pushed. No pull request was opened: gh is not installed", promoted.branch));
-    assert!(rig.fleet.vcs().delivered().contains(&Delivered::Pushed { branch: promoted.branch.clone() }));
+    assert!(rig.fleet.fake_vcs().delivered().contains(&Delivered::Pushed { branch: promoted.branch.clone() }));
     assert!(tree_of(&rig, &promoted).await.join(PATHS[1]).exists(), "the commit's files stay in the Job's tree");
     let session = rig.fleet.store().lock().await.session(promoted.session_id.as_str()).expect("read").expect("kept");
     assert_eq!(session.state, store::SessionState::Live, "the Job stays");

@@ -119,15 +119,7 @@ fn template_of(url: &str, pattern: &Regex) -> Option<String> {
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Where `pattern` opens in `served`, and how it was found: the tracker the Manifest names, else
     /// a recently merged pull request's text. `None` where neither says.
@@ -148,12 +140,12 @@ where
     async fn address_in_pulls(&self, served: &Served, pattern: &str) -> Option<(String, AddressFound)> {
         let base = served.manifest().base()?.to_string();
         let listed = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| vcs.recently_merged_pull_requests(root, &base, MOST_PULLS))
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.recently_merged_pull_requests(root, &base, MOST_PULLS))
             .await?;
         for pull in listed.into_iter().take(MOST_PULLS) {
             let number = pull.number;
             let page = self
-                .forge_asked(served.root(), move |vcs: &V, root: &str| vcs.pull_request_page(root, &number.to_string()))
+                .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_page(root, &number.to_string()))
                 .await;
             let Some(page) = page else { continue };
             let said = page.conversation.iter().map(|one| match one {

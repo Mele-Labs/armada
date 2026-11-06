@@ -47,15 +47,7 @@ fn going_key(session: &str, kind: &str, artifact: &str) -> String {
 /// What the call answered, or why it did not, and what it cost either way.
 type Read = Result<(Vec<KeptJudgeNote>, Option<u64>), (String, Option<u64>)>;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `ask_judge`. A reading going for the artifact is answered whatever the press said; a finished one
     /// is replaced by a fresh reading with a fresh `id`.
@@ -283,15 +275,7 @@ where
     }
 }
 
-impl<H, V, W> JudgeReadings for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl JudgeReadings for Fleet
 {
     async fn ask_judge(self: Arc<Self>, ask: AskJudge) -> Result<JudgeReading, Refusal> {
         self.judge_asked(ask).await

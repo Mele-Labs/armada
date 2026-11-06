@@ -66,19 +66,11 @@ impl Keepings {
 
 /// Look at every backlog every `every`. [`crate::backlog::LOOK_EVERY`] is what it is run at.
 /// `said` hears a repository's sync start failing and stop.
-pub fn keep_syncing<H, V, W>(
-    fleet: Arc<Fleet<H, V, W>>,
+pub fn keep_syncing(
+    fleet: Arc<Fleet>,
     every: Duration,
     said: impl Fn(&str) + Send + Sync + 'static,
 ) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
 {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(every);
@@ -92,15 +84,7 @@ where
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// One look at each served repository whose tracker Fleet writes to, one after another, and
     /// what is worth saying of them: a sync or a write that starts failing or stops, once each, not

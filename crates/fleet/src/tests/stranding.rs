@@ -84,10 +84,10 @@ fn strand(home: &TempDir, fleet: &Rescued, slot: u32, branch: &str, after: Optio
     match after {
         Some(session) => {
             fleet
-                .vcs()
+                .fake_vcs()
                 .strand_slot_after(&root, slot, session, work(Some(branch)), diff)
         }
-        None => fleet.vcs().strand_slot(&root, slot, work(Some(branch)), diff),
+        None => fleet.fake_vcs().strand_slot(&root, slot, work(Some(branch)), diff),
     }
     let src = std::path::PathBuf::from(adapter_traits::slot_path(&root, slot)).join("src");
     std::fs::create_dir_all(&src).unwrap();

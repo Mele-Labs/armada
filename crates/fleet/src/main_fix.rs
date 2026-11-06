@@ -96,15 +96,7 @@ pub(crate) fn brief_of(main: &MainCi) -> String {
     lines.join("\n")
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
 
     /// The reading, if main is red there and Fleet serves the repository.
@@ -145,14 +137,14 @@ where
         let (commit, name) = (main.red_commit().to_string(), job.name.clone());
         let text = async {
             let runs = self
-                .forge_asked(served.root(), move |vcs: &V, root: &str| {
+                .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                     vcs.ci_runs_on(root, &commit)
                 })
                 .await?;
             let run = runs.into_iter().find(|run| {
                 run.state == adapter_traits::CiState::Failed && run.name.as_written() == name
             })?;
-            self.forge_asked(served.root(), move |vcs: &V, root: &str| {
+            self.forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.ci_log(root, &run)
             })
             .await
@@ -213,7 +205,7 @@ where
         self.cleared_elsewhere(main).await;
         let commit = main.decided().to_string();
         let merged = self
-            .forge_asked(&main.repository, move |vcs: &V, root: &str| {
+            .forge_asked(&main.repository, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.merged_by(root, &commit)
             })
             .await;

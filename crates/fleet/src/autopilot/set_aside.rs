@@ -14,15 +14,7 @@ use super::decisions::Helping;
 use super::destructive::destructive_text;
 use crate::daemon::Fleet;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Start each set-aside pick of this run the helper is sure of. Answers how many it started.
     pub(super) async fn set_asides_started(self: &Arc<Self>, helping: &mut Helping) -> usize {

@@ -102,15 +102,7 @@ fn settled_on_main(held: &HeldBack) -> bool {
     held.on.is_none() && held.ahead == 0 && held.behind > 0 && held.clashing.is_empty() && !held.already_on_base.is_empty()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Bring `served`'s checkout up to `head`, main's tip on the forge, or keep
     /// why it could not be. Nothing is asked of git past one in-process read
@@ -121,7 +113,7 @@ where
             .forge_asked(&root, {
                 let head = head.to_string();
                 let base = base.to_string();
-                move |vcs: &V, root: &str| vcs.checkout_has(root, &base, &head)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.checkout_has(root, &base, &head)
             })
             .await;
         if has_it {
@@ -143,7 +135,7 @@ where
             RepositoryStanding::LeftAlone { .. } => {
                 self.forge_asked(&root, {
                     let base = base.to_string();
-                    move |vcs: &V, root: &str| vcs.held_back(root, &base)
+                    move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.held_back(root, &base)
                 })
                 .await
             }
@@ -193,18 +185,18 @@ where
         let again = self
             .forge_asked(root, {
                 let base = base.to_string();
-                move |vcs: &V, root: &str| vcs.held_back(root, &base)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.held_back(root, &base)
             })
             .await;
         let held = again.unwrap_or(read);
         if !settled_on_main(&held) {
             return Some(held);
         }
-        let pulled = self.forge_asked(root, |vcs: &V, root: &str| vcs.pulled_the_checkout(root)).await;
+        let pulled = self.forge_asked(root, |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pulled_the_checkout(root)).await;
         let reached = self
             .forge_asked(root, {
                 let (base, head) = (base.to_string(), head.to_string());
-                move |vcs: &V, root: &str| vcs.checkout_has(root, &base, &head)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.checkout_has(root, &base, &head)
             })
             .await;
         if pulled.code != 0 || !reached {
@@ -248,13 +240,13 @@ where
             let held = self
                 .forge_asked(&root, {
                     let base = base.clone();
-                    move |vcs: &V, root: &str| vcs.held_back(root, &base)
+                    move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.held_back(root, &base)
                 })
                 .await;
             if let Some((code, said)) = why_not_pull(held.as_ref()) {
                 return Err(Refusal::IllegalMove(raised(code, said)));
             }
-            self.forge_asked(&root, |vcs: &V, root: &str| vcs.pulled_the_checkout(root))
+            self.forge_asked(&root, |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pulled_the_checkout(root))
                 .await
         };
         // Read again whether or not the pull took: a stash that would not go back
@@ -262,7 +254,7 @@ where
         let head = self
             .forge_asked(&root, {
                 let base = base.clone();
-                move |vcs: &V, root: &str| vcs.base_head_on_the_forge(root, &base)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.base_head_on_the_forge(root, &base)
             })
             .await;
         if let Some(head) = head {
@@ -303,7 +295,7 @@ where
             )));
         }
         let path = ask.path;
-        self.forge_asked(&root, move |vcs: &V, root: &str| vcs.uncommitted_change_of(root, &path))
+        self.forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.uncommitted_change_of(root, &path))
             .await
             .map(|diff| {
                 let (diff, cut) = cut_for_the_card(diff);

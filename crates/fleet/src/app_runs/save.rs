@@ -184,15 +184,7 @@ fn loaded(file: &Path, label: &Path, written: &str, draft: &RunDraft) -> Result<
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What the repository's files and its Jobs' dev servers suggest **that no saved run already
     /// starts**, and where its processes expect one another. Saves nothing but the links found,

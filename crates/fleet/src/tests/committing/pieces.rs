@@ -63,7 +63,7 @@ async fn committing_a_lifecycle_copies_kits_file_under_its_own_name() {
     let rig = rig_placing(None);
     let file = kit_file(&rig, "lifecycles", "work-tickets.yml");
     plant(&file, TICKET);
-    let made = rig.fleet.vcs().committed().len();
+    let made = rig.fleet.fake_vcs().committed().len();
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, lifecycle("ticket", PieceScope::Everywhere), false)).await.expect("committed");
     finished(&rig, &committed).await;
@@ -71,7 +71,7 @@ async fn committing_a_lifecycle_copies_kits_file_under_its_own_name() {
     assert_eq!(committed.paths, [".armada/lifecycles/work-tickets.yml"]);
     let tree = tree_of(&rig, &committed).await;
     assert_eq!(std::fs::read_to_string(tree.join(".armada/lifecycles/work-tickets.yml")).expect("on the branch"), TICKET);
-    let commits = rig.fleet.vcs().committed();
+    let commits = rig.fleet.fake_vcs().committed();
     assert_eq!((commits.len(), commits[made].message.as_str()), (made + 1, "Add the lifecycle ticket"));
     assert_eq!(commits[made].scope, CommitScope::Paths(vec![".armada/lifecycles/work-tickets.yml".to_string()]));
     let session = rig.fleet.store().lock().await.session(committed.session_id.as_str()).expect("read").expect("kept");
@@ -108,7 +108,7 @@ async fn a_file_main_holds_for_the_piece_is_replaced_in_place_and_only_with_over
 
     let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, piece.clone(), false)).await.expect_err("refused"));
     assert_eq!((code.as_str(), said.as_str()), (EXISTS, ".armada/lifecycles/old-name.yaml on main already holds `ticket`. Commit with overwrite to replace it."));
-    assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
+    assert!(rig.fleet.fake_vcs().created().is_empty(), "no Job's branch is cut");
 
     let committed = rig.fleet.committed_to_repository(asking(&rig, piece, true)).await.expect("replaced");
     finished(&rig, &committed).await;
@@ -128,7 +128,7 @@ async fn a_file_that_declares_something_else_under_the_same_name_is_never_writte
         assert_eq!(code, EXISTS);
         assert!(said.contains("holds something else"), "{said}");
     }
-    assert!(rig.fleet.vcs().created().is_empty());
+    assert!(rig.fleet.fake_vcs().created().is_empty());
 }
 
 #[tokio::test]
@@ -140,7 +140,7 @@ async fn a_piece_kit_does_not_hold_is_not_yours_and_scope_is_part_of_what_is_hel
     plant(&kit_file(&rig, "lifecycles", "tickets.yml"), TICKET);
     let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, lifecycle("ticket", within("my-store")), false)).await.expect_err("refused"));
     assert_eq!((code.as_str(), said.as_str()), (NOT_YOURS, "Your Kit holds no lifecycle `ticket` within `my-store`."));
-    assert!(rig.fleet.vcs().created().is_empty());
+    assert!(rig.fleet.fake_vcs().created().is_empty());
 }
 
 /// **A piece scoped within a Workspace goes to the Workspace's home**, the one repository whose
@@ -156,7 +156,7 @@ async fn a_piece_within_a_workspace_is_committed_to_its_home_and_nowhere_else() 
     let (code, said) = refused_with(rig.fleet.committed_to_repository(on(&rig, &other, piece.clone())).await.expect_err("refused"));
     assert_eq!(code, REFUSED);
     assert!(said.contains("scoped to the Workspace `my-store`") && said.contains(&format!("whose home is {}", rig.root)), "{said}");
-    assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
+    assert!(rig.fleet.fake_vcs().created().is_empty(), "no Job's branch is cut");
 
     let committed = rig.fleet.committed_to_repository(on(&rig, &rig.root, piece)).await.expect("committed at home");
     assert_eq!(committed.paths, [".armada/rules/nudge.my-store.yml"]);
@@ -171,7 +171,7 @@ async fn a_piece_within_a_workspace_that_only_kit_holds_has_no_home_to_go_to() {
     let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, rule("nudge", within("solo")), false)).await.expect_err("refused"));
     assert_eq!(code, REFUSED);
     assert!(said.contains("The Workspace `solo` is only in your Kit") && said.contains("Commit the Workspace"), "{said}");
-    assert!(rig.fleet.vcs().created().is_empty());
+    assert!(rig.fleet.fake_vcs().created().is_empty());
 }
 
 /// A piece scoped within a repository's Manifest id is that repository's.
@@ -205,7 +205,7 @@ async fn a_workspace_a_repository_already_holds_is_not_committed_to_a_second() {
     let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, piece, false)).await.expect_err("refused"));
     assert_eq!(code, REFUSED);
     assert!(said.contains(&format!("already committed in {other}")), "{said}");
-    assert!(rig.fleet.vcs().created().is_empty());
+    assert!(rig.fleet.fake_vcs().created().is_empty());
 }
 
 /// **A removal is a deletion committed by the Job's branch**: the file is gone from its tree, the
@@ -219,7 +219,7 @@ async fn removing_a_piece_deletes_the_file_that_declares_it_on_the_jobs_branch()
     let slot = PathBuf::from(adapter_traits::slot_path(&rig.root, 1));
     plant(&slot.join(held), NUDGE);
     plant(&slot.join(".armada/rules/other.yml"), &NUDGE.replace("rule_id: nudge", "rule_id: other"));
-    let made = rig.fleet.vcs().committed().len();
+    let made = rig.fleet.fake_vcs().committed().len();
 
     let committed = rig.fleet.committed_to_repository(removing(&rig.root, rule("nudge", PieceScope::Everywhere))).await.expect("committed");
     finished(&rig, &committed).await;
@@ -229,7 +229,7 @@ async fn removing_a_piece_deletes_the_file_that_declares_it_on_the_jobs_branch()
     assert_eq!(tree, slot, "the Job holds the slot the file was planted in");
     assert!(!tree.join(held).exists(), "deleted in the Job's tree");
     assert!(tree.join(".armada/rules/other.yml").exists(), "and nothing else");
-    let commits = rig.fleet.vcs().committed();
+    let commits = rig.fleet.fake_vcs().committed();
     assert_eq!((commits.len(), commits[made].message.as_str()), (made + 1, "Remove the rule nudge"));
     assert_eq!(commits[made].scope, CommitScope::Paths(vec![held.to_string()]));
     let session = rig.fleet.store().lock().await.session(committed.session_id.as_str()).expect("read").expect("kept");
@@ -258,5 +258,5 @@ async fn removing_what_is_not_held_or_an_older_kind_is_refused_and_makes_no_job(
         let (code, refused) = refused_with(rig.fleet.committed_to_repository(removing(&rig.root, piece)).await.expect_err("refused"));
         assert_eq!((code.as_str(), refused.as_str()), (REFUSED, said));
     }
-    assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
+    assert!(rig.fleet.fake_vcs().created().is_empty(), "no Job's branch is cut");
 }

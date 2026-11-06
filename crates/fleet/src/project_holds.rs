@@ -60,15 +60,7 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The written tasks among `named`, by row id, once every row is known. **All or nothing**: one
     /// row that is missing refuses the start. A row of any repository is held, whatever the Job's

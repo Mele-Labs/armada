@@ -141,15 +141,7 @@ fn says(ran: &[PrePrCheckRan]) -> String {
     out
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `check_before_pr`: the pre-PR Checks the Job's changes reach, run in its slot. **The Job is
     /// placed by the connection** where Fleet hosts it, else by the body, as `show_window`'s is.

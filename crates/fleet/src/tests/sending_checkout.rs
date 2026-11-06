@@ -29,7 +29,7 @@ fn held() -> HeldBack {
 async fn holding_a_checkout(home: &TempDir) -> (Arc<Fixture>, ipc::ManifestId, String) {
     let fleet = Arc::new(a_fleet(home));
     let (id, root) = manifest(&fleet);
-    fleet.vcs().held_back_by(Some(held()));
+    fleet.fake_vcs().held_back_by(Some(held()));
     fleet.sweeping().lock().await.held_back.insert(root.clone(), held());
     (fleet, id, root)
 }
@@ -43,7 +43,7 @@ async fn pull_request_on_the_hub(fleet: &Fixture, root: &str) -> Option<Checkout
 async fn the_reply_comes_back_while_the_push_is_held_and_the_hub_then_shows_the_pull_request() {
     let home = TempDir::new();
     let (fleet, id, root) = holding_a_checkout(&home).await;
-    let hold: Arc<Hold> = fleet.vcs().hold_checkout_sends();
+    let hold: Arc<Hold> = fleet.fake_vcs().hold_checkout_sends();
 
     let asked = CheckoutToPullRequest { manifest_id: id };
     tokio::time::timeout(Duration::from_secs(3), Arc::clone(&fleet).checkout_to_pull_request(asked))
@@ -56,14 +56,14 @@ async fn the_reply_comes_back_while_the_push_is_held_and_the_hub_then_shows_the_
     super::session_host::eventually(|| async { pull_request_on_the_hub(&fleet, &root).await.is_some() }).await;
     let shown = pull_request_on_the_hub(&fleet, &root).await.expect("shown");
     assert_eq!(shown.number, 2402);
-    assert_eq!(fleet.vcs().checkouts_sent().len(), 1);
+    assert_eq!(fleet.fake_vcs().checkouts_sent().len(), 1);
 }
 
 #[tokio::test]
 async fn a_refused_push_is_told_as_act_failed_and_the_hub_shows_no_pull_request() {
     let home = TempDir::new();
     let (fleet, id, root) = holding_a_checkout(&home).await;
-    fleet.vcs().now_sending_the_checkout_is_refused("remote: permission denied");
+    fleet.fake_vcs().now_sending_the_checkout_is_refused("remote: permission denied");
     let mut watching = fleet.events().subscribe();
 
     let asked = CheckoutToPullRequest { manifest_id: id.clone() };
@@ -103,5 +103,5 @@ async fn nothing_to_send_is_refused_in_the_reply() {
         .unwrap_err();
 
     assert_eq!(refused.error().code, "fleet.checkout_not_held");
-    assert!(fleet.vcs().checkouts_sent().is_empty());
+    assert!(fleet.fake_vcs().checkouts_sent().is_empty());
 }

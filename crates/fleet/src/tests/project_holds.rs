@@ -213,8 +213,8 @@ async fn a_held_tasks_pull_request_merging_asks_about_them_by_the_merge_alone() 
     let rig = a_rig();
     let (_, _, job) = a_job_holding_two(&rig).await;
     rig.holds(Holder::session(job.as_str()), "pr", "5", AttachmentState::Standing).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
         number: 5,
         title: FromOutside::verbatim("Sign the build"),
         branch: FromOutside::verbatim("armada/5"),

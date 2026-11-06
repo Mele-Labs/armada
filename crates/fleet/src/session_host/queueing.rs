@@ -285,15 +285,7 @@ impl SlotQueue {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Lease a slot for the head of each repository's line while one is free,
     /// and move that session into it. **Strictly in order**: a head that finds
@@ -513,15 +505,7 @@ where
 
 /// Look at the lines when a slot is given back and every [`EVERY`] besides, and read who holds the
 /// slots wherever a call is open.
-pub fn keep_granting_slots<H, V, W>(fleet: Arc<Fleet<H, V, W>>, every: Duration) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_granting_slots(fleet: Arc<Fleet>, every: Duration) -> JoinHandle<()>
 {
     let queue = Arc::clone(fleet.hosts().slot_queue());
     tokio::spawn(async move {

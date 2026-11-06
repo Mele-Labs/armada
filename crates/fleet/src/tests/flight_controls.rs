@@ -220,7 +220,7 @@ async fn a_save_that_breaks_a_rule_is_refused_with_the_field_named() {
 
 // A repository's own tiles, kept where its runs are: `crate::flight_controls::repository`.
 
-fn served_root(fleet: &crate::daemon::Fleet<FakeHarness, FakeVcs, FakeWorkProduct>) -> String {
+fn served_root(fleet: &crate::daemon::Fleet) -> String {
     fleet.repositories().first().expect("a served repository").root().to_string()
 }
 

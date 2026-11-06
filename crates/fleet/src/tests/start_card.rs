@@ -21,7 +21,7 @@ use crate::session_host::delivering::delivery_of;
 
 const FIRST: &str = "the log reader drops the last line of every file";
 
-fn fitted(fittings: &mut Fittings<FakeHarness, FakeVcs, FakeWorkProduct>) {
+fn fitted(fittings: &mut Fittings) {
     fittings.judge = Arc::new(FakeJudge::with_no_objection());
     fittings.starting().workflows = super::daemon::one(workflow());
 }
@@ -263,7 +263,7 @@ async fn a_held_job_takes_the_feature_workflow_where_the_repository_holds_one() 
 }
 
 /// The repository's workflows `bug`, `chore` and `feature`, which `held_defaulted` chooses among.
-fn three(fittings: &mut Fittings<FakeHarness, FakeVcs, FakeWorkProduct>) {
+fn three(fittings: &mut Fittings) {
     fitted(fittings);
     fittings.starting().workflows =
         ["bug", "chore", "feature"].into_iter().map(super::daemon::workflow_named).map(|one| (one.id().clone(), one)).collect();

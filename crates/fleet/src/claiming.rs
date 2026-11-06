@@ -14,15 +14,7 @@ use crate::red_claim::Taker;
 
 const NOT_CLAIMABLE: &str = "fleet.pull_request_not_claimable";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) async fn pull_request_claimed(
         &self,
@@ -57,7 +49,7 @@ where
         // **Asked for by its number**, not found in the pull reading: the pull reading reads the hundred updated
         // last, and four of the owner's older drafts were refused as not open (16 Oct 2026).
         let (branch, url) = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_facts(root, &number.to_string()))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_facts(root, &number.to_string()))
             .await
             .filter(|facts| matches!(facts.standing, PullRequestStanding::Open | PullRequestStanding::Draft))
             .map(|facts| (facts.branch, facts.url))

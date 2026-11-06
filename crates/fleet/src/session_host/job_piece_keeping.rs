@@ -65,15 +65,7 @@ fn word_of(kind: CopyPieceKind) -> &'static str {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `keep_job_piece`: one rule or lifecycle the Job's copy holds and changed, proposed for every Job. **Nothing
     /// is written**: the proposal is a change that is ready, and a draft on the Job asks the owner.

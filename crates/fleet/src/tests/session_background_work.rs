@@ -11,7 +11,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use crate::daemon::Fleet;
 use crate::session_host::Heard;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 fn called(tool: &str, call: &str, command: &str) -> DroneEvent {
     DroneEvent::Called { tool: tool.into(), call: call.into(), detail: CallDetail::of(command) }

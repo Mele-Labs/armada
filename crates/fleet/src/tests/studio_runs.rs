@@ -19,7 +19,7 @@ use crate::CheckBudget;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 /// `lint` prints one line and exits zero; `fail` prints two and exits one, so
 /// a node that kept a tail has something to have kept and a result to show.

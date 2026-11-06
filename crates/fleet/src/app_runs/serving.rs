@@ -31,15 +31,7 @@ const PORT: &str = "${port}";
 
 /// Start telling Bridge how each run stands. Production starts it beside the timeline's, and a test
 /// starts it itself.
-pub fn keep_the_runs<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_the_runs(fleet: Arc<Fleet>) -> JoinHandle<()>
 {
     let (tell, mut heard) = mpsc::unbounded_channel::<ServerState>();
     fleet.events().tap(move |event| {
@@ -157,15 +149,7 @@ fn draft_process_read(process: AppRunDraftProcess) -> DraftProcess {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The checkout a run's path is: the repository's main, or the worktree a Job holds. **`job` is
     /// the Job a request named**, so its answer needs no search; an event names only the path, and
@@ -239,15 +223,7 @@ where
     }
 }
 
-impl<H, V, W> AppRuns for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl AppRuns for Fleet
 {
     async fn list_app_runs(
         &self,

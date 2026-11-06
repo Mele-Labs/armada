@@ -63,15 +63,7 @@ fn known_sites(mods_dir: &Path, first: &str) -> Vec<(String, Vec<String>)> {
     ordered.into_iter().map(|(_, template, used)| (template, used)).collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Put the question `wanted` names to its Session's person, if it has one and the question was
     /// not put before.

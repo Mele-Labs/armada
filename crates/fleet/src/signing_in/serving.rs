@@ -55,15 +55,7 @@ fn host_name() -> String {
         .unwrap_or_default()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Run `work` where blocking is allowed, with the repositories Fleet serves
     /// and the forge address of each. The forge and the store are blocking
@@ -127,15 +119,7 @@ where
     }
 }
 
-impl<H, V, W> Accounts for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Accounts for Fleet
 {
     async fn get_accounts(&self) -> Result<AccountsList, Refusal> {
         let accounts = self.signing(|signing, repositories| signing.accounts(&repositories)).await?;

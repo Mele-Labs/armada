@@ -51,15 +51,7 @@ fn asked_of(slot: &WorktreeSlot, work: &SlotStranded) -> String {
     )
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A Session as a slot's last holder: open while the ledger holds it live. **One the ledger does
     /// not know is not open**, which is how a Session Fleet forgot reads as gone.

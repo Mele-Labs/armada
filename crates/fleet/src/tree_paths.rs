@@ -116,15 +116,7 @@ pub(crate) fn file_name(roots: &[(String, String)], cwd: Option<&str>, home: &st
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A file an agent standing in `cwd` named, as the timeline names it.
     pub(crate) fn file_named(&self, cwd: Option<&str>, path: &str) -> FileName {

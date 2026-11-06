@@ -48,15 +48,7 @@ pub(crate) fn refusal(read: &ModelRead, reply: &str) -> Option<String> {
     (read.score >= REFUSED_AT).then(|| read.line.clone().unwrap_or_else(|| reply.to_string()))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Keep that `session` was just sent a tell of `kind` (one of the constants above), after it took the words.
     pub(crate) async fn tell_kept(&self, session: &str, kind: &str) {

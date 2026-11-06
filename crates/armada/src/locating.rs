@@ -21,7 +21,7 @@ use fleet::{Clock, Fleet, SystemClock};
 use crate::setup::{Setup, SetupRefused};
 use crate::watching::{self, Watching};
 
-type Served = Fleet<HeadlessAgent, GitVcs<ApiForge>, GitVcs<ApiForge>>;
+type Served = Fleet;
 
 /// The reader Fleet is fitted with.
 pub struct Locator {

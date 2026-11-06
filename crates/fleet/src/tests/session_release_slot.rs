@@ -44,7 +44,7 @@ async fn an_idle_sessions_slot_is_parked_and_its_rows_given_back() {
 
     assert_eq!(released.slot, 1);
     assert!(released.released.is_some());
-    assert_eq!(rig.fleet.vcs().parked_slots(), vec![(1, id.as_str().to_string())]);
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), vec![(1, id.as_str().to_string())]);
     assert!(standing(&rig, &id, "slot").await.is_empty());
     assert!(standing(&rig, &id, "branch").await.is_empty());
     let hosting = rig.fleet.store().lock().await.hosting(id.as_str()).unwrap().unwrap();
@@ -60,7 +60,7 @@ async fn a_working_sessions_slot_is_refused_and_its_rows_stand() {
 
     let error = refused_with(refused, "fleet.slot_session_working");
     assert!(error.message.ends_with(" is working"), "{}", error.message);
-    assert!(rig.fleet.vcs().parked_slots().is_empty());
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty());
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
 }
 
@@ -85,7 +85,7 @@ async fn an_idle_sessions_slot_is_refused_while_a_subagent_works_past_its_turn()
     let refused = release(&rig, &id).await.expect_err("its subagent is working");
 
     refused_with(refused, "fleet.slot_session_working");
-    assert!(rig.fleet.vcs().parked_slots().is_empty());
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty());
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
 }
 
@@ -93,12 +93,12 @@ async fn an_idle_sessions_slot_is_refused_while_a_subagent_works_past_its_turn()
 async fn a_slot_another_holds_since_is_refused_and_the_rows_stand() {
     let (rig, id) = in_its_slot(&Placing::nothing()).await;
     idle(&rig, &id).await;
-    rig.fleet.vcs().hold_slot(&rig.root, 1, "01ANOTHERSESSION");
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, "01ANOTHERSESSION");
 
     let refused = release(&rig, &id).await.expect_err("re-leased");
 
     refused_with(refused, "fleet.slot_holder_changed");
-    assert!(rig.fleet.vcs().parked_slots().is_empty());
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty());
     assert_eq!(standing(&rig, &id, "slot").await, vec!["1"]);
 }
 

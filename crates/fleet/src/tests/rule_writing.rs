@@ -121,7 +121,7 @@ async fn under_acts_every_write_is_made_at_once_in_the_tracker_and_forge_and_ask
             IssueWritten::Assigned { reference: "ARM-41".into(), to: "ana".into() },
         ]
     );
-    let forge = rig.fleet.vcs().delivered();
+    let forge = rig.fleet.fake_vcs().delivered();
     assert!(forge.contains(&Delivered::RequestedReviewers { pull_request: "812".into(), reviewers: vec!["ana".into(), "bob".into()] }), "{forge:?}");
     assert!(forge.contains(&Delivered::MarkedReady { pull_request: "812".into() }));
     assert!(forge.contains(&Delivered::AutoMerge { pull_request: "812".into() }));
@@ -145,14 +145,14 @@ async fn under_asks_each_write_waits_as_do_it_or_skip_in_the_owners_words_and_is
     assert_eq!(asked.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), ["Move ARM-41 to In progress", "Request review on PR #812 from ana"]);
     assert!(asked.iter().all(|one| one.options.iter().map(|option| option.label.as_str()).eq(["Do it", "Skip"])));
     assert!(tracker.writes().is_empty(), "nothing is written before he says");
-    assert!(rig.fleet.vcs().delivered().iter().all(|one| !matches!(one, Delivered::RequestedReviewers { .. })));
+    assert!(rig.fleet.fake_vcs().delivered().iter().all(|one| !matches!(one, Delivered::RequestedReviewers { .. })));
 
     pressed(&rig, &job, &asked[0].id, 0).await.expect("answered");
     pressed(&rig, &job, &asked[1].id, 1).await.expect("skipped");
     Arc::clone(&rig.fleet).rule_acts_carried_out().await;
     assert_eq!(states(&kept(&rig, &job).await), [standing::DONE, standing::SKIPPED]);
     assert_eq!(tracker.writes(), [IssueWritten::Moved { reference: "ARM-41".into(), status: "In Progress".into() }]);
-    assert!(rig.fleet.vcs().delivered().iter().all(|one| !matches!(one, Delivered::RequestedReviewers { .. })), "a skipped write is not made");
+    assert!(rig.fleet.fake_vcs().delivered().iter().all(|one| !matches!(one, Delivered::RequestedReviewers { .. })), "a skipped write is not made");
     assert!(items(&rig, &job).await.is_empty());
 }
 
@@ -249,7 +249,7 @@ async fn a_forge_write_the_forge_refuses_fails_in_the_forges_words() {
     let tracker = Arc::new(FakeTracker::empty());
     let rule = "version: 1\nrule_id: ready_it\nname: Ready it\nwhen: { enters: { lifecycle: pr, state: approved } }\nautonomy: acts\ndo:\n  - forge_write: { mark_ready: true, on: { entered: true } }\non_failure: { retries: 0, then: ask_owner }\n";
     let rig = rig_with(&tracker, rule, true);
-    rig.fleet.vcs().ready_refuses("the pull request is closed");
+    rig.fleet.fake_vcs().ready_refuses("the pull request is closed");
     let job = rig.start().await;
     approved(&rig, &job).await;
 

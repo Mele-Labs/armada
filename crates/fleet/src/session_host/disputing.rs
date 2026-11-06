@@ -28,15 +28,7 @@ pub(crate) struct Disputing<'a> {
     pub spotted: DisputeSpotted,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The job's latest Fleet notice, disputed. Refused for a job Fleet does not host, an ended
     /// one, an empty reason, and a job Fleet has told nothing.

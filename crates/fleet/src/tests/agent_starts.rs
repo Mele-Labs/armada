@@ -21,7 +21,7 @@ use crate::tests::peer::Placing;
 use crate::tests::session_host::{eventually, Shared, StandIn};
 use crate::tests::tmp::TempDir;
 
-pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet;
 
 const FIRST: &str = "Read crates/reader and say why it drops lines.";
 
@@ -67,7 +67,7 @@ pub(super) fn rigged_fitted(
     peers: Option<Arc<Placing>>,
     judge: Option<Arc<FakeJudge>>,
     workflow: Option<config::ResolvedWorkflow>,
-    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+    fit: impl FnOnce(&mut crate::daemon::Fittings),
 ) -> Rig {
     let home = TempDir::new();
     let stand_in = Arc::new(StandIn::default());

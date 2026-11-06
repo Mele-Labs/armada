@@ -21,7 +21,7 @@ use adapter_traits::{PullQueue, FollowedPull};
 
 /// What the forge lists open: `numbers`, and the same as a pull reading reads them.
 fn open(machine: &Machine, numbers: &[u64]) {
-    let forge = &machine.fleet.vcs().main_ci;
+    let forge = &machine.fleet.fake_vcs().main_ci;
     forge.head_is(Some(ONE));
     forge.runs_on(ONE, vec![run("ci", "11", CiState::Passed)]);
     forge.pulls_are(Some(numbers.iter().map(|number| pull(*number, Some(CiState::Passed), &[])).collect::<Vec<OpenPull>>()));
@@ -100,11 +100,11 @@ async fn an_open_pull_request_the_pull_reading_did_not_list_is_claimed_by_its_nu
         closes: Vec::new(),
     };
 
-    a.fleet.vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Draft)));
+    a.fleet.fake_vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Draft)));
     claims(&a, "s-a", 77).await.expect("an open draft is claimed by its number");
     assert_eq!(row_of(&shared, 77).map(|held| held.id), Some("s-a".to_string()));
 
-    a.fleet.vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Closed)));
+    a.fleet.fake_vcs().now_pull_request(Some(facts(adapter_traits::PullRequestStanding::Closed)));
     let refused = claims(&a, "s-a", 78).await.expect_err("a closed one is not");
     assert!(format!("{refused:?}").contains("not an open pull request"), "{refused:?}");
 }

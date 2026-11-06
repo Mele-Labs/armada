@@ -28,7 +28,7 @@ use crate::tests::daemon::fittings;
 use crate::tests::peer::Placing;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 /// The pid the stand-in's session runs as, and the port its relay calls from.
 const SESSION: u32 = 4343;

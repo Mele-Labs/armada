@@ -29,7 +29,7 @@ use crate::scout::ScoutHost;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Scouted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Scouted = Fleet;
 
 /// How long the slow scout has to read its one file: the ten seconds the poll
 /// it replaced allowed, against 0.21s alone.

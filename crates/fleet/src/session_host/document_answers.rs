@@ -80,15 +80,7 @@ pub(crate) fn document_items<'a>(attachments: &'a [ipc::Attachment], session: &'
         })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `answer_document`: the Job is told as his message first, so a failed send leaves the revision
     /// open, then `detail` keeps how it ended.

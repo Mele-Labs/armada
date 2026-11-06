@@ -36,7 +36,7 @@ impl Processes for Flaky {
 }
 
 struct Rig {
-    fleet: Arc<Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>>,
+    fleet: Arc<Fleet>,
     host: Arc<Flaky>,
     stand_in: Arc<StandIn>,
     manifest: ManifestId,

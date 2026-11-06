@@ -42,15 +42,7 @@ use crate::tracking::choice_of;
 pub use following::keep_the_rules;
 pub use keeping::keep_the_lifecycles;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The lifecycles that apply to a Job in the repository `manifest_id`: the four Armada carries and
     /// the pieces scoped to it (`lifecycles_applying_to`).

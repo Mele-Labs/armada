@@ -32,7 +32,7 @@ use crate::tests::tmp::TempDir;
 pub fn fittings(
     home: &TempDir,
     work: FakeWorkProduct,
-) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
+) -> Fittings {
     fitted_with(home, work, FakeHarness::that_listens())
 }
 
@@ -40,7 +40,7 @@ pub fn fitted_with(
     home: &TempDir,
     work: FakeWorkProduct,
     harness: FakeHarness,
-) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
+) -> Fittings {
     fitted_over(home, work, harness, FakeVcs::new())
 }
 
@@ -51,7 +51,7 @@ pub fn fitted_over<V>(
     work: FakeWorkProduct,
     harness: FakeHarness,
     vcs: V,
-) -> Fittings<FakeHarness, V, FakeWorkProduct> {
+) -> Fittings {
     let root = home.path().to_string_lossy().to_string();
     Fittings {
         store: Store::open_migrated_copy(&home.path().join("armada.db")).expect("a store"),
@@ -224,11 +224,11 @@ pub fn fitted_over<V>(
 pub fn a_fleet(
     home: &TempDir,
     work: FakeWorkProduct,
-) -> Fleet<FakeHarness, FakeVcs, FakeWorkProduct> {
+) -> Fleet {
     Fleet::assembled(fittings(home, work))
 }
 
-impl<H, V, W> Fittings<H, V, W> {
+impl Fittings {
     /// The repository a fixture starts in, for a case that varies it.
     pub fn starting(&mut self) -> &mut StartingIn {
         self.starting_in

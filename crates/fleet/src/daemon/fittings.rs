@@ -140,11 +140,11 @@ pub struct StartingIn {
 /// `NewJob` gives: there is no `Default`, so a caller writes every field out
 /// and cannot forget one, and adding a field is a compile error at the one call
 /// site that matters.
-pub struct Fittings<H, V, W> {
+pub struct Fittings {
     pub store: Store,
-    pub harness: H,
-    pub vcs: V,
-    pub work: W,
+    pub harness: Arc<crate::daemon::Harness>,
+    pub vcs: Arc<dyn adapter_traits::DynVcs>,
+    pub work: Arc<dyn adapter_traits::DynWork>,
     pub clock: Arc<dyn Clock>,
     pub mint: Arc<dyn Mint>,
     /// The repository Fleet is assembled serving, if any. **None at the
@@ -270,17 +270,9 @@ pub struct Fittings<H, V, W> {
     pub requests: crate::requesting::Requesting,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
-    pub fn assembled(fittings: Fittings<H, V, W>) -> Fleet<H, V, W> {
+    pub fn assembled(fittings: Fittings) -> Fleet {
         let shipped = Limits {
             concurrency: fittings.concurrency,
             headroom: fittings.headroom,
@@ -313,8 +305,8 @@ where
         let timeline = crate::timeline::Timeline::new(Arc::clone(&fittings.clock));
         Fleet {
             store: crate::store_lock::StoreLock::new(fittings.store),
-            harness: Arc::new(fittings.harness),
-            vcs: Arc::new(fittings.vcs),
+            harness: fittings.harness,
+            vcs: fittings.vcs,
             work: fittings.work,
             clock: fittings.clock,
             mint: fittings.mint,
@@ -411,7 +403,7 @@ where
 
     /// The same Fleet with its scouts started by `host` — a stand-in agent in
     /// a test.
-    pub fn scouting_on(mut self, host: crate::scout::ScoutHost) -> Fleet<H, V, W> {
+    pub fn scouting_on(mut self, host: crate::scout::ScoutHost) -> Fleet {
         self.scouts = crate::scout::Scouts::hosted_by(Arc::new(host));
         self
     }
@@ -422,7 +414,7 @@ where
         mut self,
         processes: Arc<dyn crate::session_host::Processes>,
         quiet: std::time::Duration,
-    ) -> Fleet<H, V, W> {
+    ) -> Fleet {
         self.sessions = crate::session_host::Hosts::hosted_by(processes, quiet, self.sessions.asks().held_for());
         self
     }

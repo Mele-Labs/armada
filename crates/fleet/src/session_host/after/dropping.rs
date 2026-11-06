@@ -11,15 +11,7 @@ use crate::daemon::Fleet;
 
 use super::row_label;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `starter` drops the wait of `waiting`. **Held whatever the person approved**, since what he
     /// approved was a start when the wait ended: the brief alone is the first message, with no handoff

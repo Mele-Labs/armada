@@ -132,7 +132,7 @@ async fn the_page_is_the_forges_in_the_wires_words() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
     assert_eq!(page.mergeable, PullRequestMergeable::Conflicting);
     assert_eq!(page.review, PullRequestReviewState::ChangesRequested);
@@ -151,7 +151,7 @@ async fn each_thing_said_carries_its_id_its_edit_and_whether_an_app_said_it() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
     assert!(matches!(
         &page.conversation[0],
@@ -174,7 +174,7 @@ async fn an_opened_file_is_the_forges_patch_for_it() {
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
     fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request_file_patch(Some(FilePatch::Patch("@@ -1 +1 @@\n-a\n+b".into())));
     let file = fleet
         .get_pull_request_file(id, 12, "a.rs".into())
@@ -191,7 +191,7 @@ async fn a_file_with_no_patch_says_so() {
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
     fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request_file_patch(Some(FilePatch::NoPatch));
     let file = fleet
         .get_pull_request_file(id, 12, "logo.png".into())
@@ -207,7 +207,7 @@ async fn a_path_the_pull_request_does_not_list_is_refused() {
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
     fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request_file_patch(Some(FilePatch::NoSuchFile));
     let refused = fleet
         .get_pull_request_file(id, 12, "z.rs".into())
@@ -235,7 +235,7 @@ async fn every_file_is_its_patch_or_the_sentence_in_the_forges_order() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_patches(Some(vec![
+    fleet.fake_vcs().now_pull_request_patches(Some(vec![
         PatchedFile { path: "z.rs".into(), patch: Some("@@ -1 +1 @@\n-a\n+b".into()) },
         PatchedFile { path: "logo.png".into(), patch: None },
     ]));
@@ -250,7 +250,7 @@ async fn every_file_is_its_patch_or_the_sentence_in_the_forges_order() {
     assert_eq!((&read.files[0].manifest_id, read.files[0].number), (&id, 12));
     assert_eq!(read.files[1].patch, None);
     fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request_file_patch(Some(FilePatch::NoPatch));
     let one = fleet
         .get_pull_request_file(id, 12, "logo.png".into())
@@ -274,7 +274,7 @@ async fn a_forge_that_says_why_it_would_not_show_the_page_has_its_sentence_in_th
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page_said(Some("Access refused. Run `gh auth refresh`.".into()));
+    fleet.fake_vcs().now_pull_request_page_said(Some("Access refused. Run `gh auth refresh`.".into()));
     let refused = fleet.get_pull_request_detail(id, 12).await.unwrap_err();
     assert_eq!(refused.status(), 500);
     assert_eq!(code(&refused), "fleet.pull_request_unreadable");
@@ -296,7 +296,7 @@ async fn a_blank_comment_or_request_is_refused_before_the_forge() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     for write in [
         writing(PullRequestWriteKind::Comment, None),
         writing(PullRequestWriteKind::Comment, Some("  \n")),
@@ -306,7 +306,7 @@ async fn a_blank_comment_or_request_is_refused_before_the_forge() {
         assert_eq!(refused.status(), 422);
         assert_eq!(code(&refused), "fleet.pull_request_write_blank");
     }
-    assert!(fleet.vcs().pull_request_writes().is_empty());
+    assert!(fleet.fake_vcs().pull_request_writes().is_empty());
 }
 
 #[tokio::test]
@@ -314,13 +314,13 @@ async fn a_session_the_ledger_does_not_know_is_refused_with_nothing_written() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let mut write = writing(PullRequestWriteKind::Approve, None);
     write.session_id = Some(SessionId::carried("nobody"));
     let refused = fleet.write_pull_request(id, write).await.unwrap_err();
     assert_eq!(refused.status(), 422);
     assert_eq!(code(&refused), "fleet.session_unknown");
-    assert!(fleet.vcs().pull_request_writes().is_empty());
+    assert!(fleet.fake_vcs().pull_request_writes().is_empty());
 }
 
 #[tokio::test]
@@ -328,14 +328,14 @@ async fn a_write_reaches_the_forge_and_answers_the_page_read_again() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let page = fleet
         .write_pull_request(id, writing(PullRequestWriteKind::Comment, Some("looks right")))
         .await
         .expect("written");
     assert_eq!(page.number, 12);
     assert_eq!(
-        fleet.vcs().pull_request_writes(),
+        fleet.fake_vcs().pull_request_writes(),
         [("12".to_string(), PullRequestWrite::Comment { body: "looks right".into() })]
     );
 }
@@ -345,9 +345,9 @@ async fn the_forges_refusal_is_a_conflict_in_its_own_words() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     fleet
-        .vcs()
+        .fake_vcs()
         .write_on_pull_request_refuses("cannot approve your own pull request");
     let refused = fleet
         .write_pull_request(id, writing(PullRequestWriteKind::Approve, None))
@@ -364,9 +364,9 @@ async fn a_write_lets_the_ledger_follow_the_forge() {
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
     a_session_holding_pull_request_12(&fleet, "s1").await;
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&fleet, passed());
     let mut write = writing(PullRequestWriteKind::Approve, Some("ship it"));
@@ -391,7 +391,7 @@ async fn the_page_carries_the_head_the_description_and_the_threads() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let page = fleet.get_pull_request_detail(id, 12).await.expect("read");
     assert_eq!(page.head.as_deref(), Some("3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e"));
     assert_eq!(page.body.as_deref(), Some("Takes a draft out."));
@@ -407,7 +407,7 @@ async fn a_review_with_comments_reaches_the_forge_as_one_review_at_the_commit_re
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let reply = PullReviewComment::Reply {
         thread: "PRRT_1".into(),
         body: "because".into(),
@@ -417,7 +417,7 @@ async fn a_review_with_comments_reaches_the_forge_as_one_review_at_the_commit_re
     write.commit = Some("c0ffee".into());
     fleet.write_pull_request(id, write).await.expect("written");
     assert_eq!(
-        fleet.vcs().pull_request_writes(),
+        fleet.fake_vcs().pull_request_writes(),
         [(
             "12".to_string(),
             PullRequestWrite::Review {
@@ -447,7 +447,7 @@ async fn a_blank_body_is_taken_only_where_comments_come_with_it() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     for kind in [PullRequestWriteKind::Comment, PullRequestWriteKind::RequestChanges] {
         let refused = fleet
             .write_pull_request(id.clone(), writing(kind, Some(" ")))
@@ -455,7 +455,7 @@ async fn a_blank_body_is_taken_only_where_comments_come_with_it() {
             .unwrap_err();
         assert_eq!(code(&refused), "fleet.pull_request_write_blank");
     }
-    assert!(fleet.vcs().pull_request_writes().is_empty());
+    assert!(fleet.fake_vcs().pull_request_writes().is_empty());
     for kind in [
         PullRequestWriteKind::Comment,
         PullRequestWriteKind::Approve,
@@ -465,7 +465,7 @@ async fn a_blank_body_is_taken_only_where_comments_come_with_it() {
         write.comments = vec![a_line_comment()];
         fleet.write_pull_request(id.clone(), write).await.expect("written");
     }
-    let writes = fleet.vcs().pull_request_writes();
+    let writes = fleet.fake_vcs().pull_request_writes();
     assert_eq!(writes.len(), 3);
     assert!(writes.iter().all(|(_, write)| matches!(write, PullRequestWrite::Review { body: None, .. })));
 }
@@ -475,9 +475,9 @@ async fn a_review_the_forge_refuses_is_a_conflict_in_its_own_words() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     fleet
-        .vcs()
+        .fake_vcs()
         .write_on_pull_request_refuses("Line must be part of the diff");
     let mut write = writing(PullRequestWriteKind::Comment, None);
     write.comments = vec![a_line_comment()];
@@ -500,7 +500,7 @@ async fn a_thread_is_resolved_and_opened_again_as_the_forge_holds_it() {
         assert_eq!((answered.thread.as_str(), answered.resolved), ("PRRT_1", resolved));
     }
     assert_eq!(
-        fleet.vcs().review_thread_resolutions(),
+        fleet.fake_vcs().review_thread_resolutions(),
         [("PRRT_1".to_string(), true), ("PRRT_1".to_string(), false)]
     );
 }
@@ -511,7 +511,7 @@ async fn a_thread_the_forge_will_not_resolve_is_a_conflict_in_its_own_words() {
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
     fleet
-        .vcs()
+        .fake_vcs()
         .resolving_a_thread_refuses("Resource not accessible by personal access token");
     let refused = fleet
         .resolve_review_thread(id, ResolvePullThread { thread: "PRRT_1".into(), resolved: true })
@@ -534,7 +534,7 @@ async fn a_thread_of_a_repository_fleet_does_not_serve_is_refused_before_the_for
         .await
         .unwrap_err();
     assert_eq!(refused.status(), 422);
-    assert!(fleet.vcs().review_thread_resolutions().is_empty());
+    assert!(fleet.fake_vcs().review_thread_resolutions().is_empty());
 }
 
 #[tokio::test]
@@ -542,7 +542,7 @@ async fn a_blank_line_file_or_reply_comment_is_refused_before_the_forge() {
     let home = crate::tests::tmp::TempDir::new();
     let fleet = a_fleet(&home);
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
     let blanks = [
         PullReviewComment::Line { path: "a.rs".into(), line: 4, side: DiffSide::Left, body: " ".into() },
         PullReviewComment::File { path: "a.rs".into(), body: String::new() },
@@ -555,5 +555,5 @@ async fn a_blank_line_file_or_reply_comment_is_refused_before_the_forge() {
         let refused = fleet.write_pull_request(id.clone(), write).await.unwrap_err();
         assert_eq!(code(&refused), "fleet.pull_request_write_blank");
     }
-    assert!(fleet.vcs().pull_request_writes().is_empty());
+    assert!(fleet.fake_vcs().pull_request_writes().is_empty());
 }

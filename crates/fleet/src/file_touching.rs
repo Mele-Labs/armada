@@ -44,7 +44,7 @@ pub(crate) type Act = &'static str;
 /// The files an event changed, as the call named them, and how. A file changed by an edit tool is the
 /// harness's to name; one taken away is read from a plain `rm` or `git rm`, and a command that
 /// removes by a pattern or a variable names nothing.
-pub(crate) fn touches_of<H: AgentHarness>(harness: &H, event: &DroneEvent) -> Vec<(String, Act)> {
+pub(crate) fn touches_of<H: AgentHarness + ?Sized>(harness: &H, event: &DroneEvent) -> Vec<(String, Act)> {
     if let Some(path) = harness.edited(event) {
         let act = match harness.edit_act(event) {
             FileAct::Write => "write",

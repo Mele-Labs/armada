@@ -15,7 +15,7 @@ use crate::ports::PortRange;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 /// A root declaring no ports.
 const BARE_ROOT: &str = "version: 1\nid: 01FIXTUREMANIFEST\n";

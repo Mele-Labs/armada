@@ -92,15 +92,7 @@ pub(crate) fn rule_as_read(rule: &LifecycleRule, lifecycles: &[Lifecycle]) -> Re
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn piece_refusal(&self, code: &str, said: String, file: Option<&Path>) -> Refusal {
         let mut raised = WireError::raised(code, said, self.run_id());

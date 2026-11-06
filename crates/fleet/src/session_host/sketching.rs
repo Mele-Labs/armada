@@ -40,15 +40,7 @@ const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
 pub(crate) const TARGET_PREFIX: &str = "sketch:";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) async fn sketch_shown(
         &self,
@@ -228,15 +220,7 @@ pub(crate) fn sketch_approved(rows: &[SessionRow]) -> Option<&str> {
         .map(ipc::Instant::as_str)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `answer_sketch`: the person approves a sketch, or sends it back with a note. The job is told as
     /// his message first, so a failed send leaves the sketch open, then `detail` keeps how it ended.

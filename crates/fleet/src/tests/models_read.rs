@@ -43,7 +43,7 @@ fn offered(name: &str, display: &str) -> OfferedModel {
     }
 }
 
-fn fleet_in(home: &TempDir) -> Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct> {
+fn fleet_in(home: &TempDir) -> Fleet {
     Fleet::assembled(fittings(home, FakeWorkProduct::changed(&[])))
 }
 

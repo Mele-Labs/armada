@@ -58,15 +58,7 @@ fn in_repository(root: &str, kind: &str) -> PathBuf {
     Path::new(root).join(".armada").join(kind)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Where Kit keeps a kind of piece on this Mac.
     pub(crate) fn kit_pieces(&self, kind: &str) -> PathBuf {

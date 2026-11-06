@@ -44,15 +44,7 @@ fn lines(sent: Vec<String>) -> Vec<String> {
     sent.into_iter().map(|line| line.trim().to_string()).filter(|line| !line.is_empty()).collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Keep a fault in Armada a job reported. Refused for a call that places no job, and for an
     /// empty `title` or `what`. A job that has ended is served, and no notice is sent to it.

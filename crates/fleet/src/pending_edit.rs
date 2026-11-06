@@ -102,15 +102,7 @@ impl Held {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The pending edit, after dropping one the forge says was closed unmerged.
     /// **Called with the turn held.**
@@ -122,7 +114,7 @@ where
         let pending = held.standing()?;
         let url = pending.pull_request.clone();
         let landed = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.landed(root, &url)
             })
             .await;
@@ -234,7 +226,7 @@ where
             None => {
                 let (asked_base, asked_file) = (base.clone(), path.to_string());
                 let on_the_base = self
-                    .forge_asked(root, move |vcs: &V, root: &str| {
+                    .forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                         vcs.manifest_on_the_base(root, &asked_base, &asked_file)
                     })
                     .await
@@ -273,7 +265,7 @@ where
             to,
         };
         let sent = self
-            .forge_asked(&root, move |vcs: &V, root: &str| {
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.send_manifest_edit(root, &sending)
             })
             .await
@@ -311,7 +303,7 @@ where
         let landed_here = self
             .forge_asked(served.root(), {
                 let base = base.clone();
-                move |vcs: &V, root: &str| vcs.checkout_has(root, &base, &commit)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.checkout_has(root, &base, &commit)
             })
             .await;
         if landed_here {
@@ -326,14 +318,14 @@ where
         let Some(tip) = self
             .forge_asked(served.root(), {
                 let base = base.clone();
-                move |vcs: &V, root: &str| vcs.base_head_on_the_forge(root, &base)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.base_head_on_the_forge(root, &base)
             })
             .await
         else {
             return;
         };
         let caught_up = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.checkout_has(root, &base, &tip)
             })
             .await;

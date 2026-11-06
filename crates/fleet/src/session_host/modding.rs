@@ -46,15 +46,7 @@ When he asks for a panel, a view or anything drawn, build a tab mod: it opens in
 so draw its frame first and add to it in small checked steps. Talk to him about the panel, \
 never about mods, branches, pull requests or landing.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Start a Mod Job and send it the brief and the note.
     pub(crate) async fn mod_job_started(self: Arc<Self>, start: StartModSession) -> Result<ModSessionStarted, Refusal> {
@@ -180,15 +172,7 @@ Contract. Bridge keeps the component mounted while its panel is closed. `host.fa
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `send_session_message`: a message to a Job. **A Mod Job that has none of his yet is sent the
     /// brief ahead of it**, as a start with words is, and an untitled one is retitled `Mod` and the

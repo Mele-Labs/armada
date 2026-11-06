@@ -32,15 +32,7 @@ fn titled(paths: &[String]) -> String {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `checkout_to_pull_request`: the hold's uncommitted files as a pull request
     /// into the base, auto-merge on, recorded on the hold.
@@ -92,7 +84,7 @@ where
         let held = self
             .forge_asked(root, {
                 let base = base.to_string();
-                move |vcs: &V, root: &str| vcs.held_back(root, &base)
+                move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.held_back(root, &base)
             })
             .await;
         if let Some((code, said)) = why_not_pull(held.as_ref()) {
@@ -114,7 +106,7 @@ where
         let _at_the_merge_end = self.merge_end().lock().await;
         let sending = self.checkout_to_send(root, &base).await?;
         let sent = self
-            .forge_asked(root, move |vcs: &V, root: &str| vcs.send_checkout_as_pull_request(root, &sending))
+            .forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.send_checkout_as_pull_request(root, &sending))
             .await
             .map_err(|why| Refusal::Fault(self.send_refusal(CHECKOUT_NOT_SENT, why.said())))?;
         let number = number_of(&sent.pull_request).and_then(|number| u32::try_from(number).ok()).ok_or_else(|| {

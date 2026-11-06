@@ -22,7 +22,7 @@ async fn on_the_wire(rig: &Rig, slot: u32) -> ipc::SlotHolding {
 async fn a_lease_in_a_hosted_sessions_id_is_served_as_that_session_with_its_title() {
     let rig = rig_placing(None);
     let id = rig.start_titled(Some("Debug Bridge on Merge line")).await;
-    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 2, id.as_str());
 
     assert_eq!(
         on_the_wire(&rig, 2).await,
@@ -36,7 +36,7 @@ async fn a_lease_in_a_hosted_sessions_id_is_served_as_that_session_with_its_titl
 #[tokio::test]
 async fn a_lease_in_an_id_nothing_knows_is_served_as_a_session_with_no_title() {
     let rig = rig_placing(None);
-    rig.fleet.vcs().hold_slot(&rig.root, 2, "01UNKNOWN");
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 2, "01UNKNOWN");
 
     assert_eq!(
         on_the_wire(&rig, 2).await,

@@ -5,15 +5,7 @@ use api::{Refusal, Rehearsing};
 
 use crate::daemon::Fleet;
 
-impl<H, V, W> Rehearsing for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Rehearsing for Fleet
 {
 
     /// A person's run in the main checkout. **The `Arc` is handed on**, for

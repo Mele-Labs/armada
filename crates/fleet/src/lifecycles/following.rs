@@ -22,15 +22,7 @@ fn look_of(record: &SessionRecord) -> Look {
 
 /// Start finding what happens to Jobs that have rules. Production starts it beside the rail's and the
 /// lifecycles', and a test calls [`Fleet::rules_looked_at`] itself.
-pub fn keep_the_rules<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_the_rules(fleet: Arc<Fleet>) -> JoinHandle<()>
 {
     let (tell, mut heard) = mpsc::unbounded_channel::<SessionRecord>();
     let last: Mutex<HashMap<String, Look>> = Mutex::new(HashMap::new());

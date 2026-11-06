@@ -50,15 +50,7 @@ fn seconds(at: &Timestamp) -> i64 {
     at.epoch_millis().unwrap_or_default().div_euclid(1_000)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The run, start to record. Every failure is a fact on the record.
     pub(crate) async fn rehearsed(

@@ -18,7 +18,7 @@ use crate::tests::tmp::TempDir;
 const LOGIN: &str = "nick";
 
 struct Rig {
-    fleet: Fleet<FakeHarness, FakeVcs, FakeWorkProduct>,
+    fleet: Fleet,
     remote: FakeRemote,
     _home: TempDir,
 }

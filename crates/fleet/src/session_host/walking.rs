@@ -139,15 +139,7 @@ pub(crate) fn open_walk(rows: &[SessionRow]) -> Option<&str> {
     })?
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The address of the session's open walk. **A thread that will not read is no walk.**
     pub(crate) async fn walk_open(&self, session: &str) -> Option<String> {

@@ -19,15 +19,7 @@ use crate::rail::RailStep;
 use crate::rail_keeping::rail_read;
 use crate::rail_lifecycle::{self, Held};
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A move was just kept for `session`. If its step waits on a lifecycle, draw the row again so the
     /// rail sees it; a Job on any other step is left alone.

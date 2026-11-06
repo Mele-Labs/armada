@@ -13,7 +13,7 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 const WORDS: &str = "what I should look at this week";
 const WRITTEN: &str = r#"{"query":"state = open assignee = me","row_fields":["Labels"]}"#;

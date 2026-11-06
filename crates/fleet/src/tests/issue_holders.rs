@@ -15,7 +15,7 @@ use crate::session_issues::issue_held;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 const AT: &str = "2026-10-23T10:00:00.000Z";
 

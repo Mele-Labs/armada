@@ -66,20 +66,12 @@ pub(crate) fn wanted_by(readers: &[bool]) -> bool {
 /// Fetch and load the model under `models` on a blocking thread, until it loads. `say` is handed the
 /// load, and the first failure only. Nothing is started, and `None` comes back, while no reader in
 /// force reads with the model.
-pub fn keep_loading<H, V, W>(
-    fleet: Arc<Fleet<H, V, W>>,
+pub fn keep_loading(
+    fleet: Arc<Fleet>,
     models: PathBuf,
     load: fn(&Path) -> Result<Arc<dyn TextModel>, String>,
     say: impl Fn(String) + Send + 'static,
 ) -> Option<JoinHandle<()>>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
 {
     if !wanted() {
         return None;

@@ -97,15 +97,7 @@ use wire::{
     wire_instant,
 };
 
-impl<H, V, W> Sessions for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Sessions for Fleet
 {
     async fn report_session(&self, report: SessionReport) -> Result<SessionRecord, Refusal> {
         let id = report.session_id.as_str().trim().to_string();

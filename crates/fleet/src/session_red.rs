@@ -46,15 +46,7 @@ fn forked_words(main: &MainCi, number: u64, parent: &str, facts: &str) -> String
     )
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What main's change asks of Fleet where a Session merged the pull request: each red is
     /// handed to it. **Nothing here fails the turn**; a refusal is the band's two buttons.

@@ -38,15 +38,7 @@ pub(crate) fn parks_on_end(reason: &str) -> bool {
     !GOES_ON.contains(&reason)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// End session on a terminal session: the end is held for its mod, which
     /// runs `/exit` after any message held ahead of it. **Nothing ends here**:

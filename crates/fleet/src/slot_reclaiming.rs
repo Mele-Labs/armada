@@ -76,15 +76,7 @@ fn slots_on_disk(served: &Served) -> Vec<u32> {
     found
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Tell the Session holding each slot leased on `branch` that pull request `number` merged, once
     /// a slot. **The lease names the branch**, and the pool the holder: a Session that moved off the

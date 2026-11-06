@@ -575,7 +575,7 @@ fn machine_facts(settings: &Resolved) -> Result<MachineFacts, Box<dyn Error>> {
 }
 
 /// The Fleet `serve` assembles.
-type Served = Fleet<HeadlessAgent, GitVcs<ApiForge>, GitVcs<ApiForge>>;
+type Served = Fleet;
 
 /// Everything Fleet is made of, resolved once, here.
 ///

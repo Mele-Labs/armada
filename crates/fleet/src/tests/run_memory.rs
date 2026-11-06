@@ -237,7 +237,7 @@ async fn the_repository_place_writes_armada_yml_on_the_jobs_branch_and_commits_t
     assert!(!written.contains("checks:"), "nothing remembered gates a pull request: {written}");
     assert!(written.contains("commands:") && written.contains("serve: pnpm dev"), "{written}");
     assert!(written.contains("http://localhost:5173"), "{written}");
-    let commits = rig.fleet.vcs().committed();
+    let commits = rig.fleet.fake_vcs().committed();
     assert_eq!(commits.len(), 1);
     assert_eq!(commits[0].scope, testkit::CommitScope::Paths(vec!["armada.yml".to_string()]));
     assert!(read(&rig).await.workspaces[0].runs.iter().all(|run| run.kept_in == Some(RunPlace::Repository)));

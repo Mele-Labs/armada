@@ -22,7 +22,7 @@ use crate::daemon::Fleet;
 use crate::tests::slot_leases::{leased, released, By};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 const LOG_URL: &str = "https://forge.invalid/armada/actions/runs/9/job/31";
 
@@ -241,7 +241,7 @@ pub(super) fn a_rig() -> Rig {
 async fn a_failed_required_check_wakes_the_hosted_session_that_holds_the_pull_request() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
     forge.log_of("31", "one\nFAIL tests::one\nerror: test run failed\n");
     forge.followed_are(Some(vec![failing(7)]));
@@ -288,7 +288,7 @@ async fn a_failed_required_check_wakes_the_hosted_session_that_holds_the_pull_re
 async fn a_rerun_that_fails_at_the_same_commit_is_told_again() {
     let rig = a_rig();
     rig.a_hosted_session_on(7).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.followed_are(Some(vec![failing(7)]));
     rig.reads().await;
     forge.followed_are(Some(vec![pull(7, vec![check("ci", CiState::Pending, true)])]));
@@ -305,7 +305,7 @@ async fn a_rerun_that_fails_at_the_same_commit_is_told_again() {
 async fn a_check_that_is_not_required_does_not_fail_the_pull_request() {
     let rig = a_rig();
     rig.a_hosted_session_on(7).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(
         7,
         vec![
             check("lint", CiState::Failed, false),
@@ -326,7 +326,7 @@ async fn a_conflict_is_held_for_the_terminal_session_and_not_repeated_after_a_re
     );
     let mut conflicting = pull(8, vec![check("ci", CiState::Passed, true)]);
     conflicting.conflicting = true;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![conflicting]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![conflicting]));
 
     rig.reads().await;
     let held = rig.the_mod_asks("term-1").await;
@@ -349,7 +349,7 @@ async fn a_terminal_session_that_is_not_listening_is_told_when_its_mod_next_asks
     rig.a_terminal_session_on("term-2", 9).await;
     let mut conflicting = pull(9, vec![]);
     conflicting.conflicting = true;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![conflicting]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![conflicting]));
 
     rig.reads().await;
     assert!(
@@ -369,7 +369,7 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
     let session = rig.a_hosted_session_on(10).await;
     let mut queued = pull(10, vec![]);
     queued.queue = PullQueue::Waiting;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![queued]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![queued]));
     rig.reads().await;
     assert!(
         rig.runs_sent_to_the_session().is_empty(),
@@ -377,7 +377,7 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
     );
 
     rig.fleet
-        .vcs()
+        .fake_vcs()
         .main_ci
         .followed_are(Some(vec![pull(10, vec![])]));
     rig.reads().await;
@@ -398,7 +398,7 @@ async fn leaving_the_merge_queue_is_told_once_and_an_unmergeable_entry_is_told_a
         AttachmentState::Standing,
     )
     .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![stuck]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![stuck]));
     rig.reads().await;
     assert!(rig
         .runs_sent_to_the_session()
@@ -414,9 +414,9 @@ async fn a_second_drop_out_of_the_queue_at_one_commit_is_told_again() {
     let mut queued = pull(12, vec![]);
     queued.queue = PullQueue::Waiting;
     for _ in 0..2 {
-        rig.fleet.vcs().main_ci.followed_are(Some(vec![queued.clone()]));
+        rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![queued.clone()]));
         rig.reads().await;
-        rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
+        rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
         rig.reads().await;
     }
     let sent = rig.runs_sent_to_the_session();
@@ -431,7 +431,7 @@ async fn a_drop_names_the_checks_the_queue_failed_with_the_end_of_a_log() {
     let rig = a_rig();
     rig.a_hosted_session_on(13).await;
     let tested = "2222222222222222222222222222222222222222";
-    let ci = &rig.fleet.vcs().main_ci;
+    let ci = &rig.fleet.fake_vcs().main_ci;
     ci.queue_commit_is(13, tested);
     ci.runs_on(
         tested,
@@ -476,9 +476,9 @@ async fn a_merge_reaches_the_session_that_opened_it_after_its_slot_was_released(
         AttachmentState::GivenBack,
     )
     .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
     rig.fleet
-        .vcs()
+        .fake_vcs()
         .main_ci
         .recently_merged_are(Some(vec![RecentlyMerged {
             number: 1,
@@ -507,9 +507,9 @@ async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_h
     rig.a_terminal_session_on("t1", 1).await;
     rig.holds(Holder::session("t1"), "pr", "1", AttachmentState::Standing)
         .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
     rig.fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request(Some(adapter_traits::PullRequestFacts {
             standing: adapter_traits::PullRequestStanding::Merged,
             branch: "armada/1".into(),
@@ -520,7 +520,7 @@ async fn the_watch_settles_the_row_of_a_merged_pull_request_a_terminal_session_h
             body: None,
             closes: Vec::new(),
         }));
-    rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
+    rig.fleet.fake_vcs().now_under_review(adapter_traits::UnderReview {
         checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
         ..adapter_traits::UnderReview::unreadable()
     });
@@ -563,7 +563,7 @@ async fn a_job_that_hung_is_started_again_once_without_a_word() {
     let mut hung = check("ci", CiState::Failed, true);
     hung.hung = true;
     rig.fleet
-        .vcs()
+        .fake_vcs()
         .main_ci
         .followed_are(Some(vec![pull(13, vec![hung])]));
 
@@ -574,7 +574,7 @@ async fn a_job_that_hung_is_started_again_once_without_a_word() {
     );
     let reruns = || {
         rig.fleet
-            .vcs()
+            .fake_vcs()
             .delivered()
             .iter()
             .filter(|one| matches!(one, Delivered::RerunFailed { pull_request } if pull_request == "13"))
@@ -596,7 +596,7 @@ async fn a_job_that_hung_is_started_again_once_without_a_word() {
 async fn a_forge_that_will_not_answer_changes_nothing() {
     let rig = a_rig();
     rig.a_hosted_session_on(14).await;
-    rig.fleet.vcs().main_ci.followed_are(None);
+    rig.fleet.fake_vcs().main_ci.followed_are(None);
     rig.reads().await;
     assert!(rig.runs_sent_to_the_session().is_empty());
 }
@@ -641,7 +641,7 @@ async fn an_open_pull_request_nobody_reported_is_attached_to_the_session_that_wo
         .await;
     rig.a_session_that_worked("s-elsewhere", "armada/99", AttachmentState::Standing)
         .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
 
     rig.reads().await;
     rig.reads().await;
@@ -655,7 +655,7 @@ async fn a_pull_request_a_session_already_holds_is_not_attached_to_a_second() {
     rig.a_terminal_session_on("s-reported", 12).await;
     rig.a_session_that_worked("s-branch", "armada/12", AttachmentState::Standing)
         .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
 
     rig.reads().await;
 
@@ -669,7 +669,7 @@ async fn a_branch_two_sessions_worked_gives_its_pull_request_to_the_one_still_on
         .await;
     rig.a_session_that_worked("s-here", "armada/12", AttachmentState::Standing)
         .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
 
     rig.reads().await;
 
@@ -701,9 +701,9 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
             false,
         )
         .unwrap();
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
     rig.fleet
-        .vcs()
+        .fake_vcs()
         .now_pull_request(Some(adapter_traits::PullRequestFacts {
             standing: adapter_traits::PullRequestStanding::Open,
             branch: "armada/1".into(),
@@ -714,7 +714,7 @@ async fn a_pull_request_settled_too_soon_is_stood_back_up_while_it_is_open() {
             body: None,
             closes: Vec::new(),
         }));
-    rig.fleet.vcs().now_under_review(adapter_traits::UnderReview {
+    rig.fleet.fake_vcs().now_under_review(adapter_traits::UnderReview {
         checks: adapter_traits::WhatTheForgeRan::AllPassed { checks: 1 },
         ..adapter_traits::UnderReview::unreadable()
     });
@@ -748,7 +748,7 @@ async fn a_pull_request_from_the_branch_a_sessions_slot_is_leased_on_is_attached
         .unwrap();
     let mut mine = pull(21, vec![]);
     mine.branch = FromOutside::verbatim("docs/approve");
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![mine]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![mine]));
 
     rig.reads().await;
 
@@ -787,7 +787,7 @@ impl Rig {
 async fn a_session_claims_an_open_pull_request_nobody_holds() {
     let rig = a_rig_holding(None);
     rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(30, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(30, vec![])]));
 
     let claimed = rig.claims("s-claims", 30).await.expect("claimed");
 
@@ -800,7 +800,7 @@ async fn a_pull_request_a_live_session_holds_is_refused_with_the_reason() {
     let rig = a_rig_holding(None);
     rig.a_session_that_worked("s-live", "armada/31", AttachmentState::Standing).await;
     rig.a_session_that_worked("s-other", "armada/0", AttachmentState::GivenBack).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(31, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(31, vec![])]));
 
     let refused = rig.claims("s-other", 31).await.expect_err("held live");
 
@@ -821,7 +821,7 @@ async fn a_pull_request_whose_holder_has_ended_is_claimed_and_the_holder_gives_i
         .await
         .unwrap();
     rig.a_session_that_worked("s-new", "armada/0", AttachmentState::GivenBack).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(32, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(32, vec![])]));
 
     rig.claims("s-new", 32).await.expect("claimed");
 
@@ -832,7 +832,7 @@ async fn a_pull_request_whose_holder_has_ended_is_claimed_and_the_holder_gives_i
 async fn a_pull_request_that_is_not_open_is_not_claimed() {
     let rig = a_rig_holding(None);
     rig.a_session_that_worked("s-claims", "armada/0", AttachmentState::GivenBack).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![]));
     assert!(rig.claims("s-claims", 33).await.is_err());
 }
 
@@ -906,7 +906,7 @@ async fn a_notice_goes_to_the_session_the_pool_says_works_the_branch_and_not_to_
 
     let mut conflicting = pull(9, vec![]);
     conflicting.conflicting = true;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![conflicting]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![conflicting]));
     rig.the_mod_asks("sess-a").await;
     rig.the_mod_asks("sess-b").await;
     rig.reads().await;
@@ -961,7 +961,7 @@ async fn a_pull_request_nobody_works_is_told_to_the_session_whose_row_is_oldest(
 
     let mut conflicting = pull(9, vec![]);
     conflicting.conflicting = true;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![conflicting]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![conflicting]));
     rig.the_mod_asks("sess-a").await;
     rig.the_mod_asks("sess-later").await;
     rig.reads().await;
@@ -975,7 +975,7 @@ async fn a_branch_that_was_only_given_back_is_nobodys_to_attach_a_pull_request_t
     let rig = a_rig_holding(None);
     rig.a_session_that_worked("s-gone", "armada/12", AttachmentState::GivenBack)
         .await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(12, vec![])]));
 
     rig.reads().await;
 
@@ -992,7 +992,7 @@ async fn only_the_pull_requests_the_forge_login_opened_wake_their_owners() {
     let rig = a_rig();
     rig.a_hosted_session_on(7).await;
     let theirs = rig.a_hosted_session_on(8).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.login_is(Some("Octocat"));
     forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
     forge.log_of("31", "FAIL tests::one\n");
@@ -1016,7 +1016,7 @@ async fn where_no_login_is_known_every_pull_request_is_told_as_before() {
     let rig = a_rig();
     rig.a_hosted_session_on(7).await;
     rig.a_hosted_session_on(8).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.login_is(None);
     forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
     forge.log_of("31", "FAIL tests::one\n");
@@ -1036,7 +1036,7 @@ async fn a_pull_request_with_no_author_is_mine_and_one_by_another_leaves_the_que
     let rig = a_rig();
     rig.a_hosted_session_on(7).await;
     rig.a_hosted_session_on(8).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.login_is(Some("octocat"));
     let queued = |number, login: Option<&str>| {
         let mut one = pull(number, Vec::new());
@@ -1063,7 +1063,7 @@ async fn a_merge_of_another_authors_pull_request_is_not_told() {
     for (session, number) in [(&mine, "1"), (&theirs, "2")] {
         rig.holds(Holder::session(session), "pr", number, AttachmentState::Spent).await;
     }
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.login_is(Some("octocat"));
     forge.followed_are(Some(Vec::new()));
     let merged = |number: u64, login: &str| RecentlyMerged {
@@ -1097,7 +1097,7 @@ async fn auto_merge_takes_nothing_off_the_sessions_kept_wait_and_tells_it_once()
         .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green"), other("restart", "Restart Fleet onto #7")], session_id: Some(SessionId::carried(&session)) })
         .await
         .unwrap();
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
 
     rig.reads().await;
 
@@ -1122,7 +1122,7 @@ async fn a_pull_request_the_queue_holds_takes_nothing_off_and_says_nothing() {
         .set_waiting(None, SetWaitingFor { items: vec![item("queue", "Merge #7 once ci is green")], session_id: Some(SessionId::carried(&session)) })
         .await
         .unwrap();
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { queue: PullQueue::Waiting, auto_merge: false, ..pull(7, Vec::new()) }]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![FollowedPull { queue: PullQueue::Waiting, auto_merge: false, ..pull(7, Vec::new()) }]));
 
     rig.reads().await;
 
@@ -1149,7 +1149,7 @@ async fn a_merge_wait_written_while_the_pull_request_auto_merges_is_refused() {
     let kept = input("merge", "Merge #7 when ci is green", Some((ipc::WaitingActKind::ApprovePr, "#7")));
     let again = input("merge", "Merge #7 when ci is green", Some((ipc::WaitingActKind::ApprovePr, "#7")));
     rig.fleet.set_waiting(None, set(vec![kept])).await.unwrap();
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
     rig.reads().await;
     // The row says what the forge said of the pull request, as the pull reading leaves it.
     let at = rig.fleet.now().as_str().to_string();
@@ -1194,7 +1194,7 @@ async fn an_ask_read_off_a_reply_naming_the_pull_request_stands_at_auto_merge() 
     let asked = || async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.waiting_for.iter().any(|one| one.source == WaitingSource::Replied) };
     eventually(asked).await;
 
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
     rig.reads().await;
 
     let sent = rig.runs_sent_to_the_session();
@@ -1230,8 +1230,8 @@ fn merged_by(number: u64, author: Option<&str>, at: &str) -> RecentlyMerged {
 }
 
 async fn merges_seen(rig: &Rig, merged: Vec<RecentlyMerged>) {
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(merged));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(merged));
     let served = rig.fleet.repositories().served().remove(0);
     rig.fleet.notice_merged(&served).await;
     rig.reads().await;
@@ -1310,7 +1310,7 @@ async fn a_merge_of_another_authors_pull_request_fixes_no_report() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(1).await;
     a_report_held_by(&rig, &session).await;
-    rig.fleet.vcs().main_ci.login_is(Some("octocat"));
+    rig.fleet.fake_vcs().main_ci.login_is(Some("octocat"));
 
     merges_seen(&rig, vec![merged_by(1, Some("teammate"), "2026-10-31T09:00:00.000Z")]).await;
 

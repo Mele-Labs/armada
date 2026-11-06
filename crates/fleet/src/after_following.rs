@@ -97,15 +97,7 @@ pub(crate) fn judged(wait: &KeptWait, on: &SessionRecord) -> Verdict {
 
 /// Start reading the Sessions that others wait on. Production starts it beside the rail's, and a test
 /// starts it itself.
-pub fn keep_the_waiting<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_the_waiting(fleet: Arc<Fleet>) -> JoinHandle<()>
 {
     // Which Session moved, and the Session it waits on where it is itself a waiting one.
     let (tell, mut heard) = mpsc::unbounded_channel::<(String, Option<String>)>();
@@ -136,15 +128,7 @@ where
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Read every wait on `on` against it, and start the Sessions whose condition holds. Answers how many
     /// still wait.

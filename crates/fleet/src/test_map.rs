@@ -85,15 +85,7 @@ fn grain_of(grain: LapGrain) -> EdgeGrain {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Record `tests` of the Check `check` with `collector`, run in `dir`, and
     /// keep each lap as edges of `repository`'s map at the commit `dir` is at.

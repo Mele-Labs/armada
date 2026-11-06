@@ -17,7 +17,7 @@ use crate::tests::daemon::fittings;
 use crate::tests::http::call;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 const FIRST: &str = "01FIXTUREMANIFEST";
 const SECOND: &str = "01SECONDMANIFEST";

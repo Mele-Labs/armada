@@ -51,15 +51,7 @@ fn fingerprint(record: &SessionRecord) -> Fingerprint {
 
 /// Start taking instances on and reading Fleet's own events. Production starts it beside the
 /// rail's, and a test starts it itself.
-pub fn keep_the_lifecycles<H, V, W>(fleet: Arc<Fleet<H, V, W>>) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+pub fn keep_the_lifecycles(fleet: Arc<Fleet>) -> JoinHandle<()>
 {
     let (tell, mut heard) = mpsc::unbounded_channel::<SessionRecord>();
     let (clear, mut cleared) = mpsc::unbounded_channel::<String>();
@@ -99,15 +91,7 @@ where
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What a Job's row says it holds now: instances taken on, and a Job it started read.
     pub(crate) async fn lifecycles_moved(self: &Arc<Self>, record: SessionRecord) {

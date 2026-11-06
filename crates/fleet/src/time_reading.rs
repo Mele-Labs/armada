@@ -9,15 +9,7 @@ use store::{BuildFigures, HoursRead, KeptJobTime, TimeRead, Usual, DEFAULT_HOURS
 
 use crate::daemon::Fleet;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `hours` hours (48 where not named) from `since`, which is an hour's start, or ending with this hour.
     pub async fn usage_hours_read(&self, since: Option<String>, hours: Option<u32>) -> Result<HoursRead, Refusal> {

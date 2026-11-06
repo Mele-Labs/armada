@@ -62,9 +62,9 @@ async fn holding(read: FollowedPull) -> (Rig, Arc<FakeJudge>, ipc::SessionId) {
     let (rig, judge) = rig_calling("choice: 1\nsure: yes\nbecause: its checks passed");
     let id = rig.start().await;
     holds_pull_request(&rig, &id).await;
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&rig.fleet, passed());
-    rig.fleet.vcs().main_ci.followed_by_number_are(vec![read]);
+    rig.fleet.fake_vcs().main_ci.followed_by_number_are(vec![read]);
     (rig, judge, id)
 }
 
@@ -76,7 +76,7 @@ async fn a_green_pull_request_is_landed_the_way_auto_land_lands_it() {
     assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 1);
     assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "a commit is decided once");
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1);
     assert!(judge.asked().last().unwrap().contains("Take a draft out"), "the helper reads the pull request's title");
     let rows = rig.fleet.store().lock().await.autopilot_decisions_to_review().unwrap();
     assert_eq!((rows[0].kind.as_str(), rows[0].session_id.as_deref()), ("land", Some(id.as_str())));
@@ -91,7 +91,7 @@ async fn a_pull_request_whose_checks_are_not_green_is_never_landed() {
 
         assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);
 
-        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
+        assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0);
         assert_eq!(judge.asked().len(), before, "a pull request not green is not asked about");
     }
 }
@@ -107,7 +107,7 @@ async fn a_conflicting_one_a_merging_one_and_an_unchecked_land_are_left() {
         let (rig, _, _) = holding(read).await;
         started(&rig, &boxes).await;
         assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);
-        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
+        assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0);
     }
 }
 
@@ -116,11 +116,11 @@ async fn a_job_with_auto_land_on_is_left_to_auto_land() {
     let (rig, _, id) = holding(pull(CiState::Passed)).await;
     started(&rig, &[AutopilotDecision::Land]).await;
     super::auto_land::auto_land(&rig, &id, true).await;
-    let asked = rig.fleet.vcs().times_asked_for_auto_merge();
+    let asked = rig.fleet.fake_vcs().times_asked_for_auto_merge();
 
     assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0);
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), asked);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), asked);
 }
 
 // ---- An issue the picker was unsure of ----

@@ -10,15 +10,7 @@ use crate::pull_request_notes::note_read;
 
 const NOTE_REFUSED: &str = "fleet.pull_request_note_refused";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Mark the note done. Refused unless it was sent to this session and is still open.
     pub(crate) async fn pull_request_note_resolved(

@@ -20,7 +20,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::slot_leases::{leased, By};
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 const ID: &str = "aaaa-1111";
 
@@ -1063,7 +1063,7 @@ async fn ending_a_terminal_that_is_not_listening_is_refused_and_ends_nothing() {
 async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
     let rig = rig();
     let holder = "agent (pid 7)";
-    rig.fleet.vcs().hold_slot(&rig.root, 1, holder);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, holder);
     // The stand-in pool writes its holder as a Job's; the lease on disk is a process's.
     let slot = leased(&rig.root, 1, "fleet/topic", By::Nobody);
     rig.reports(SessionFact::Started {
@@ -1076,7 +1076,7 @@ async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
     rig.mod_asks().await;
 
     rig.ends().await.expect("held");
-    assert!(rig.fleet.vcs().parked_slots().is_empty(), "not at the press");
+    assert!(rig.fleet.fake_vcs().parked_slots().is_empty(), "not at the press");
     assert!(rig.mod_takes().await.end);
 
     rig.reports(SessionFact::Ended {
@@ -1085,19 +1085,19 @@ async fn a_terminals_slot_is_parked_only_after_its_process_has_ended() {
     .await;
     tokio::time::sleep(Duration::from_millis(600)).await;
     assert!(
-        rig.fleet.vcs().parked_slots().is_empty(),
+        rig.fleet.fake_vcs().parked_slots().is_empty(),
         "its process is still there, and may still be writing"
     );
 
-    rig.fleet.vcs().holder_gone(holder);
-    eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
-    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0], None);
+    rig.fleet.fake_vcs().holder_gone(holder);
+    eventually(|| async { rig.fleet.fake_vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
+    assert_eq!(rig.fleet.fake_vcs().slot_holders(&rig.root)[0], None);
 }
 
 impl Rig {
     /// A terminal session standing in slot 1, held by its agent's process.
     async fn in_slot(&self, holder: &str) {
-        self.fleet.vcs().hold_slot(&self.root, 1, holder);
+        self.fleet.fake_vcs().hold_slot(&self.root, 1, holder);
         let slot = leased(&self.root, 1, "fleet/topic", By::Nobody);
         self.reports(SessionFact::Started {
             cwd: slot,
@@ -1119,10 +1119,10 @@ async fn a_terminal_ending_on_its_own_parks_its_slot_once_its_process_has_gone()
         rig.in_slot("agent (pid 7)").await;
         rig.reports(SessionFact::Ended { reason: reason.into() }).await;
         tokio::time::sleep(Duration::from_millis(400)).await;
-        assert!(rig.fleet.vcs().parked_slots().is_empty(), "{reason}: its process is still there");
+        assert!(rig.fleet.fake_vcs().parked_slots().is_empty(), "{reason}: its process is still there");
 
-        rig.fleet.vcs().holder_gone("agent (pid 7)");
-        eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
+        rig.fleet.fake_vcs().holder_gone("agent (pid 7)");
+        eventually(|| async { rig.fleet.fake_vcs().parked_slots() == vec![(1, ID.to_string())] }).await;
         assert_eq!(rig.row().await.end_reason.as_deref(), Some(reason));
     }
 }
@@ -1134,11 +1134,11 @@ async fn a_clear_or_a_resume_keeps_the_slot() {
     for reason in ["clear", "resume"] {
         let rig = rig();
         rig.in_slot("agent (pid 7)").await;
-        rig.fleet.vcs().holder_gone("agent (pid 7)");
+        rig.fleet.fake_vcs().holder_gone("agent (pid 7)");
         rig.reports(SessionFact::Ended { reason: reason.into() }).await;
         tokio::time::sleep(Duration::from_millis(600)).await;
-        assert!(rig.fleet.vcs().parked_slots().is_empty(), "{reason}");
-        assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0].as_deref(), Some("agent (pid 7)"));
+        assert!(rig.fleet.fake_vcs().parked_slots().is_empty(), "{reason}");
+        assert_eq!(rig.fleet.fake_vcs().slot_holders(&rig.root)[0].as_deref(), Some("agent (pid 7)"));
     }
 }
 

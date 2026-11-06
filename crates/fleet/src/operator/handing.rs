@@ -19,15 +19,7 @@ use super::desk::held_of;
 use super::{Arrival, Arrived, Calling, FleetActing, FleetDesk, KeptStarted, Moved, Operator, Ruled, Source, Way, FIRST_WRITE_WAIT, NEEDS_YOU_WAIT};
 use crate::daemon::Fleet;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Seat the Operator, its call kept started on the Operator model as settings.json names it
     /// at each call. A Fleet whose call cannot be assembled seats none, and every arrival goes on

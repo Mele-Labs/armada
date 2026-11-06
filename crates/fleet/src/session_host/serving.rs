@@ -136,15 +136,7 @@ fn subagent_read(thread: adapters::terminal_thread::Subagent, parent: Option<(St
     }
 }
 
-impl<H, V, W> HostedSessions for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl HostedSessions for Fleet
 {
     async fn start_session(&self, mut start: StartSession) -> Result<SessionRecord, Refusal> {
         // Read only through `start_session_reading`, which holds the Fleet a task needs.

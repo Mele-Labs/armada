@@ -178,15 +178,7 @@ pub fn forge_written<F: Forge + ?Sized>(forge: &F, in_repo: &str, write: &ForgeW
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What the repository `manifest` names can write: its tracker's and the forge's. Pure, and the
     /// same for every Job in it.
@@ -239,7 +231,7 @@ where
     pub(super) async fn rule_forge_written(self: &Arc<Self>, row: &KeptRuleAct, write: &ForgeWrite) -> Result<String, String> {
         let root = self.rule_repository(row).await?.root().to_string();
         let (write, on) = (write.clone(), row.on.clone());
-        self.forge_asked(&root, move |vcs: &V, root: &str| {
+        self.forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
             let on = on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
             forge_written(vcs, root, &write, on)
         })

@@ -24,15 +24,7 @@ const STYLE_SOURCES_OUTSIDE: &str = "fleet.style_sources_outside";
 const STYLE_SOURCES_UNFINISHED: &str = "fleet.style_sources_unfinished";
 const NO_SUCH_KEPT_STYLES: &str = "fleet.no_such_kept_styles";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The stylesheets nearest `path`, or the Job's own work where it is none.
     pub(crate) async fn style_sources_read(

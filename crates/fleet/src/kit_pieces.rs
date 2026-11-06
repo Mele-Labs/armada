@@ -153,15 +153,7 @@ pub(crate) fn own_skill(inventory: &KitInventory, home: &Path, name: &str) -> Re
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `look_at_kit_source`: off this thread, because it waits on the network.
     pub(crate) async fn kit_source_looked_at(&self, asked: LookAtKitSource) -> Result<KitSourceFound, Refusal> {

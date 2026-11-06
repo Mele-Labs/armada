@@ -102,15 +102,7 @@ fn walk_of(
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Hold up the place for a walk. **Answers at once**: a deployed place `ready`, a pulled-down one
     /// `checking_out`, whose work goes on a task of its own and arrives as `review_walk.changed`.
@@ -132,7 +124,7 @@ where
         // not a walk that fails a moment later.
         let number = open.number;
         let page = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| vcs.pull_request_page(root, &number.to_string()))
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_page(root, &number.to_string()))
             .await;
         if !page.and_then(|page| page.head).is_some_and(|head| !head.trim().is_empty()) {
             return Err(Refusal::Fault(self.pr_refusal(

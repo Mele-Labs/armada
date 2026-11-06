@@ -112,15 +112,7 @@ pub(crate) fn plan_and_keep(
     store.keep_rule_plan(session, &written, &newly, &acts, at)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Freeze the lifecycles and rules that apply to the Job's repository, and tell its rules the
     /// Job started. **Nothing here fails the start**: a Job whose copy could not be kept has none,

@@ -20,7 +20,7 @@ use crate::clashing::{Opposed, Side, Who, Writes};
 use crate::daemon::Fleet;
 use crate::slots::Concurrency;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 fn twenty_lines() -> String {
     (1..=20).map(|n| format!("line {n}\n")).collect()

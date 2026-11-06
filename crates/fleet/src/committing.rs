@@ -58,15 +58,7 @@ struct Copy {
     title: String,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
 /// The tree and branch of the Job `id` names, where it is in `root` and holds a slot.
     pub(crate) async fn job_tree_in(&self, root: &str, id: Option<&SessionId>) -> Option<JobTree> {

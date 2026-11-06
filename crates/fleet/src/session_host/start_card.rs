@@ -186,15 +186,7 @@ pub(crate) fn job_turn(text: &str, said: String) -> Held {
     Held { text: text.to_string(), kept, addressed: Vec::new(), ahead: None, instead: Some(said) }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Whether the Job's workflow has a step that asks how the work lands.
     fn asks_delivery_of(&self, hosting: &KeptHosting, own: Option<&store::KeptWorkflowCopy>) -> bool {

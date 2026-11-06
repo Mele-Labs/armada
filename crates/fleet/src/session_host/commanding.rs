@@ -19,15 +19,7 @@ use crate::daemon::Fleet;
 use crate::session_issues::CLAIMED_AS;
 use crate::started_jobs::{self, Child, Do, Refused};
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The hosted Job whose process holds this connection, or the 422 that says the call places none.
     fn started_placed(&self, caller: Option<&Caller>) -> Result<String, Refusal> {

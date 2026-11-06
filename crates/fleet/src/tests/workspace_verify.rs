@@ -16,7 +16,7 @@ use crate::tests::daemon::fittings;
 use crate::tests::http::call;
 use crate::tests::tmp::TempDir;
 
-pub(super) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = Fleet;
 
 /// The root's: `slow` outlives the assertions around it.
 const ROOT: &str = r#"version: 1

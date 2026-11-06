@@ -51,15 +51,7 @@ fn spans(pairs: impl IntoIterator<Item = (Option<i64>, Option<i64>)>) -> Vec<Spa
     pairs.into_iter().filter_map(|(from, to)| Some(Span { from: from?, to: to? })).collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Split every Job that has ended and has no split, one after another with a pause, and then
     /// return. How many.

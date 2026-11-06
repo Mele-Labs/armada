@@ -21,30 +21,22 @@ use crate::daemon::Fleet;
 const MOST_WORDS: usize = 4_000;
 
 /// Fleet as the Operator's rulings reach it.
-pub struct FleetActing<H, V, W> {
-    fleet: Weak<Fleet<H, V, W>>,
+pub struct FleetActing {
+    fleet: Weak<Fleet>,
 }
 
-impl<H, V, W> FleetActing<H, V, W> {
-    pub fn on(fleet: &Arc<Fleet<H, V, W>>) -> FleetActing<H, V, W> {
+impl FleetActing {
+    pub fn on(fleet: &Arc<Fleet>) -> FleetActing {
         FleetActing { fleet: Arc::downgrade(fleet) }
     }
 }
 
-impl<H, V, W> FleetActing<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl FleetActing
 {
     /// Run `act` on Fleet in the background, where Fleet is up.
     fn doing<F, Fut>(&self, act: F)
     where
-        F: FnOnce(Arc<Fleet<H, V, W>>) -> Fut,
+        F: FnOnce(Arc<Fleet>) -> Fut,
         Fut: std::future::Future<Output = ()> + Send + 'static,
     {
         let Some(fleet) = self.fleet.upgrade() else { return };
@@ -52,15 +44,7 @@ where
     }
 }
 
-impl<H, V, W> Acting for FleetActing<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Acting for FleetActing
 {
     fn position(&self, role: Option<OperatorRole>, manifest: &str) -> OperatorPosition {
         let Some(fleet) = self.fleet.upgrade() else { return OperatorPosition::Off };
@@ -141,15 +125,7 @@ struct Done {
     written: usize,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Operator's own switch, as settings.json reads now. Off is Fleet as it was before it.
     pub(crate) fn operator_on(&self) -> bool {

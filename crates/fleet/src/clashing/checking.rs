@@ -31,15 +31,7 @@ enum Against {
     Unknown(NotChecked),
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// One pass: main's moves, the pairs whose wait is over, and anyone not yet told what was found.
     pub(crate) async fn clashes_checked(self: &Arc<Self>) {

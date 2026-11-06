@@ -30,15 +30,7 @@ use crate::studios::{author, NODE_BLANK};
 /// picture under. A 422.
 const PICTURE_NOT_KEPT: &str = "fleet.studio_sketch_picture_not_kept";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A Sketch placed by hand, with what was drawn on its pad.
     ///

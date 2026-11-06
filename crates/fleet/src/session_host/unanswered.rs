@@ -26,15 +26,7 @@ pub(crate) fn owed(state: &mut State) {
     state.owes_reply = true;
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Whether the question `call` is to be sent back for the answer, read once the stream has
     /// reached it. Taking the debt, so the same question asked again is put to him.

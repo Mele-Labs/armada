@@ -82,15 +82,7 @@ fn said_of(slots: &[(&WorktreeSlot, u32)]) -> String {
     lines.join(" ")
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every Session in `held` whose slot is `BEHIND_FROM` or more commits behind, with commits of
     /// its own, and has not been told since it last caught up. Marked told once the message was queued or taken, so a

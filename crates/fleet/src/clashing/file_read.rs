@@ -69,15 +69,7 @@ fn file_against_main(worktrees: &[PathBuf], tip: &str, path: &str) -> Result<Opt
     unknown.map_or(Ok(None), Err)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn clash_refusal(&self, code: &'static str, message: String) -> WireError {
         WireError::raised(code, message, self.run_id())

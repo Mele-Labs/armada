@@ -17,7 +17,7 @@ use crate::tests::tmp::TempDir;
 
 const RUN: &str = "01RUN";
 
-type Rig = Fleet<testkit::FakeHarness, FakeVcs, FakeWorkProduct>;
+type Rig = Fleet;
 
 fn git(root: &Path, args: &[&str]) -> String {
     let done = std::process::Command::new("git")
@@ -138,7 +138,7 @@ impl Repo {
     }
 
     fn held_bays(&self) -> usize {
-        self.fleet.vcs().slot_holders(&self.root()).iter().flatten().count()
+        self.fleet.fake_vcs().slot_holders(&self.root()).iter().flatten().count()
     }
 }
 
@@ -274,7 +274,7 @@ async fn a_main_this_checkout_has_not_caught_up_to_is_read_in_a_free_bay_given_b
     assert_eq!(asked.len(), 1);
     assert!(asked[0].1.contains(".armada/slots/slot-"), "read in a bay, not in {}", asked[0].1);
     assert_eq!(repo.held_bays(), 0, "the bay is back in the pool");
-    assert_eq!(repo.fleet.vcs().parked_slots().len(), 1);
+    assert_eq!(repo.fleet.fake_vcs().parked_slots().len(), 1);
 }
 
 #[tokio::test]
@@ -367,7 +367,7 @@ async fn an_autopilot_bay_measures_the_stale_tests_one_at_a_time_holding_a_place
         then: {
             let (fleet, seen, root) = (repo.fleet.clone(), seen.clone(), repo.root());
             Box::new(move || {
-                let held = fleet.vcs().slot_holders(&root).iter().flatten().count();
+                let held = fleet.fake_vcs().slot_holders(&root).iter().flatten().count();
                 seen.lock().unwrap().push((fleet.places_held(), held));
             })
         },
@@ -387,7 +387,7 @@ async fn an_autopilot_bay_measures_the_stale_tests_one_at_a_time_holding_a_place
     assert_eq!(*seen.lock().unwrap(), [(1, 1), (1, 1)], "a place and a bay were held for each");
     assert_eq!((repo.fleet.places_held(), repo.held_bays()), (0, 0), "both given back");
     assert!(repo.stale().await.is_empty());
-    assert_eq!(repo.fleet.vcs().parked_slots().len(), 1);
+    assert_eq!(repo.fleet.fake_vcs().parked_slots().len(), 1);
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -421,7 +421,7 @@ async fn with_no_free_bay_an_autopilot_pass_records_nothing_and_waits_for_none()
     let root = repo.root();
     let pool = repo.fleet.repositories().first().expect("served").manifest().worktrees().get();
     for slot in 1..=pool {
-        repo.fleet.vcs().hold_slot(&root, slot, "a-session");
+        repo.fleet.fake_vcs().hold_slot(&root, slot, "a-session");
     }
     repo.autopilot_running().await;
 
@@ -442,7 +442,7 @@ async fn with_no_autopilot_running_nothing_is_leased_or_measured() {
 
     assert_eq!(coverage.asked().len(), 1);
     assert_eq!(repo.held_bays(), 0);
-    assert!(repo.fleet.vcs().parked_slots().is_empty(), "no bay was leased to be given back");
+    assert!(repo.fleet.fake_vcs().parked_slots().is_empty(), "no bay was leased to be given back");
     assert_eq!(repo.stale().await.len(), 2);
 }
 
@@ -456,7 +456,7 @@ async fn a_map_with_no_stale_edge_takes_no_bay_so_a_new_repository_is_not_seeded
     repo.fleet.autopilot_bay_recorded().await;
 
     assert!(coverage.asked().is_empty(), "a map holding no edges is the forge's to seed");
-    assert!(repo.fleet.vcs().parked_slots().is_empty());
+    assert!(repo.fleet.fake_vcs().parked_slots().is_empty());
 }
 
 #[tokio::test]
@@ -477,7 +477,7 @@ async fn an_autopilot_pass_leaves_a_cheap_collectors_stale_tests_to_main_moving(
     repo.fleet.autopilot_bay_recorded().await;
 
     assert_eq!(imports.asked().len(), 1, "only the recording that made the edges");
-    assert_eq!(repo.fleet.vcs().parked_slots().len(), 0, "no bay for a collector that costs nothing");
+    assert_eq!(repo.fleet.fake_vcs().parked_slots().len(), 0, "no bay for a collector that costs nothing");
 }
 
 #[tokio::test]

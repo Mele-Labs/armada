@@ -102,15 +102,7 @@ const CANNOT_HOLD: &str = "fleet.studio_frame_cannot_hold";
 /// A Note moved out of the Cluster it is in. A 409.
 const STAYS_IN_ITS_CLUSTER: &str = "fleet.studio_note_stays_in_its_cluster";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A store refusal, as the wire says it.
     pub(crate) fn studio_refusal(&self, why: StudioError) -> Refusal {
@@ -313,15 +305,7 @@ where
     }
 }
 
-impl<H, V, W> Studios for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Studios for Fleet
 {
     async fn list_studios(&self, manifest_id: Option<ManifestId>) -> Result<StudioList, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;

@@ -14,7 +14,7 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 fn a_fleet(home: &TempDir) -> Fixture {
     Fleet::assembled(fittings(home, FakeWorkProduct::changed(&[])))

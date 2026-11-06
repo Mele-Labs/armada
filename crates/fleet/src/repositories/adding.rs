@@ -26,15 +26,7 @@ pub(crate) const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
 /// A request that needs a repository, when Fleet serves none yet. A 422.
 const NO_REPOSITORY: &str = "fleet.no_repository";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The repository a Manifest-scoped request names. Absent is the first
     /// added that has a Manifest, and refused where there is none.

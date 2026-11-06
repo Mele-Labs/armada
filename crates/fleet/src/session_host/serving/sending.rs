@@ -15,15 +15,7 @@ const START_AGAIN_AFTER: std::time::Duration = std::time::Duration::from_secs(1)
 /// Only the agent reads it: the person's row keeps their words.
 pub(crate) const TAKES_DONE_BACK: &str = "You had called all_done, and this message takes that back. If nothing is left once you have dealt with it, call all_done again.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// **A paused Job is told nothing**: `Ok(false)`, so the caller asks again, and a notice reaches
     /// it after the person resumes it. Only a person's Resume lifts a pause, and a word is a wake.

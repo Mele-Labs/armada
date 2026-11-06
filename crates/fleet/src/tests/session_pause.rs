@@ -61,7 +61,7 @@ async fn a_pause_ends_the_turn_parks_the_work_and_gives_the_slot_back() {
     assert!(!holds(&paused, "slot"), "the slot is given back");
     assert!(holds(&paused, "branch"), "the branch stays the session's");
     let pool = crate::leasing::pool_of(&rig.fleet.repositories().first().unwrap());
-    assert!(rig.fleet.vcs().slot_standing(&pool, 1, id.as_str()) != adapter_traits::SlotStanding::Held);
+    assert!(rig.fleet.fake_vcs().slot_standing(&pool, 1, id.as_str()) != adapter_traits::SlotStanding::Held);
 }
 
 /// A session with a turn running that has not written, so it holds no slot.
@@ -156,7 +156,7 @@ async fn a_message_while_the_resume_waits_for_a_slot_is_kept_and_goes_when_the_l
     let (rig, holder) = with_slot_one_held().await;
     let keeper = the_keeper(&rig);
     rig.fleet.pause_session(pause(&holder)).await.expect("paused");
-    rig.fleet.vcs().hold_slot(&rig.root, 1, OTHERS);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, OTHERS);
     Arc::clone(&rig.fleet).resume_session(resume(&holder)).await.expect("waits");
     let starts = rig.stand_in.starts().len();
 
@@ -164,7 +164,7 @@ async fn a_message_while_the_resume_waits_for_a_slot_is_kept_and_goes_when_the_l
 
     stays_paused(&rig, &holder, starts).await;
     assert_eq!(kept_turns(&rig, &holder).await, 1);
-    rig.fleet.vcs().free_slot(&rig.root, 1);
+    rig.fleet.fake_vcs().free_slot(&rig.root, 1);
     rig.fleet.hosts().slot_freed();
     eventually(|| async { rig.stand_in.starts().len() == starts + 1 }).await;
     eventually(|| async { sent_to(&rig, starts).contains("while you wait") }).await;
@@ -275,13 +275,13 @@ async fn a_resume_with_every_slot_held_waits_and_the_first_free_slot_is_its() {
     let (rig, holder) = with_slot_one_held().await;
     let keeper = the_keeper(&rig);
     rig.fleet.pause_session(pause(&holder)).await.expect("paused");
-    rig.fleet.vcs().hold_slot(&rig.root, 1, OTHERS);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, OTHERS);
 
     let waiting = Arc::clone(&rig.fleet).resume_session(resume(&holder)).await.expect("waits");
     assert!(waiting.hosted.as_ref().unwrap().paused.as_ref().unwrap().resuming);
     assert!(!holds(&waiting, "slot"), "nobody was moved out for it");
 
-    rig.fleet.vcs().free_slot(&rig.root, 1);
+    rig.fleet.fake_vcs().free_slot(&rig.root, 1);
     rig.fleet.hosts().slot_freed();
     eventually(|| async {
         let row = row_of(&rig, &holder).await;
@@ -295,7 +295,7 @@ async fn a_resume_with_every_slot_held_waits_and_the_first_free_slot_is_its() {
 async fn a_pause_of_a_session_waiting_to_resume_calls_the_wait_off() {
     let (rig, holder) = with_slot_one_held().await;
     rig.fleet.pause_session(pause(&holder)).await.expect("paused");
-    rig.fleet.vcs().hold_slot(&rig.root, 1, OTHERS);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, OTHERS);
     Arc::clone(&rig.fleet).resume_session(resume(&holder)).await.expect("waits");
 
     let again = rig.fleet.pause_session(pause(&holder)).await.expect("wait called off");
@@ -322,7 +322,7 @@ async fn pause_and_resume_refuse_what_they_cannot_do() {
     rig.stand_in.init(at);
     let path = format!("{}/src/lib.rs", rig.root);
     rig.gate(&other, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await;
-    rig.fleet.vcs().hold_slot(&rig.root, 1, OTHERS);
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, OTHERS);
     let refused = rig.fleet.pause_session(pause(&other)).await.expect_err("slot is another's");
     assert_eq!(code(refused), "fleet.session_pause_refused");
 

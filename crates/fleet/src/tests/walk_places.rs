@@ -60,7 +60,7 @@ async fn a_preview_the_pull_request_names_is_the_place_and_memory_is_not_asked()
     fleet.save_walk_place(id.clone(), save("crates", deployed("https://staging.invalid"))).await.expect("saved");
     let mut page = page_changing(&["crates/fleet/a.rs"]);
     page.conversation = vec![a_bot_saying("Preview deployed: https://pr-12.preview.invalid/app (expires in 7 days)")];
-    fleet.vcs().now_pull_request_page(Some(page));
+    fleet.fake_vcs().now_pull_request_page(Some(page));
 
     let found = fleet.find_walk_place(id, 12).await.expect("found");
 
@@ -80,7 +80,7 @@ async fn a_passed_check_that_deploys_is_a_place_too() {
         CheckRow { name: "lint".into(), standing: CheckStanding::Passed, seconds: None, address: Some("https://forge.invalid/run/1".into()) },
         CheckRow { name: "Deploy preview".into(), standing: CheckStanding::Passed, seconds: None, address: Some("https://deploy.invalid/p/12".into()) },
     ];
-    fleet.vcs().now_pull_request_page(Some(page));
+    fleet.fake_vcs().now_pull_request_page(Some(page));
 
     let found = fleet.find_walk_place(id, 12).await.expect("found");
 
@@ -94,7 +94,7 @@ async fn with_nothing_on_the_pull_request_the_place_fleet_remembers_for_the_area
     let place = pulled("just serve", "http://localhost:3000");
     // Kept for a directory above the change, which covers it.
     fleet.save_walk_place(id.clone(), save("crates", place.clone())).await.expect("saved");
-    fleet.vcs().now_pull_request_page(Some(page_changing(&["crates/fleet/a.rs", "crates/fleet/b.rs", "docs/c.md"])));
+    fleet.fake_vcs().now_pull_request_page(Some(page_changing(&["crates/fleet/a.rs", "crates/fleet/b.rs", "docs/c.md"])));
 
     let found = fleet.find_walk_place(id, 12).await.expect("found");
 
@@ -111,12 +111,12 @@ async fn the_most_specific_remembered_area_wins_and_a_sibling_does_not_cover() {
     fleet.save_walk_place(id.clone(), save("", deployed("https://root.invalid"))).await.expect("saved");
     fleet.save_walk_place(id.clone(), save("crates/fleet", deployed("https://fleet.invalid"))).await.expect("saved");
     fleet.save_walk_place(id.clone(), save("crates/ipc", deployed("https://ipc.invalid"))).await.expect("saved");
-    fleet.vcs().now_pull_request_page(Some(page_changing(&["crates/fleet/a.rs"])));
+    fleet.fake_vcs().now_pull_request_page(Some(page_changing(&["crates/fleet/a.rs"])));
 
     let found = fleet.find_walk_place(id.clone(), 12).await.expect("found");
     assert_eq!(found.place, Some(deployed("https://fleet.invalid")));
 
-    fleet.vcs().now_pull_request_page(Some(page_changing(&["apps/desktop/a.ts"])));
+    fleet.fake_vcs().now_pull_request_page(Some(page_changing(&["apps/desktop/a.ts"])));
     let found = fleet.find_walk_place(id, 12).await.expect("found");
     assert_eq!(found.place, Some(deployed("https://root.invalid")), "the repository's root covers every area");
 }
@@ -125,7 +125,7 @@ async fn the_most_specific_remembered_area_wins_and_a_sibling_does_not_cover() {
 async fn with_nothing_anywhere_no_place_is_found_and_both_sources_say_so() {
     let home = TempDir::new();
     let (fleet, id) = fleet_and_repository(&home);
-    fleet.vcs().now_pull_request_page(Some(page_changing(&["crates/fleet/a.rs"])));
+    fleet.fake_vcs().now_pull_request_page(Some(page_changing(&["crates/fleet/a.rs"])));
 
     let found = fleet.find_walk_place(id, 12).await.expect("found");
 
@@ -139,7 +139,7 @@ async fn with_nothing_anywhere_no_place_is_found_and_both_sources_say_so() {
 async fn a_forge_that_will_not_give_the_page_is_a_fault_and_not_an_empty_find() {
     let home = TempDir::new();
     let (fleet, id) = fleet_and_repository(&home);
-    fleet.vcs().now_pull_request_page(None);
+    fleet.fake_vcs().now_pull_request_page(None);
 
     let refused = fleet.find_walk_place(id, 12).await.unwrap_err();
 

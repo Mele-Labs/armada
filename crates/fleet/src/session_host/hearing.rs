@@ -28,15 +28,7 @@ const NEXT_TURN_WITHIN: std::time::Duration = if cfg!(test) {
     std::time::Duration::from_secs(10)
 };
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// One thing a process said. `generation` is the process's own: what a
     /// process let go says afterwards is not the session's.

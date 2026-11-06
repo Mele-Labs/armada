@@ -17,7 +17,7 @@ const OTHERS: &str = "an agent's session";
 pub(super) async fn with_slot_one_held() -> (Rig, SessionId) {
     let rig = rig_placing(None);
     for n in 2..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, OTHERS);
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, OTHERS);
     }
     let holder = rig.start().await;
     rig.send(&holder, "hold a slot").await;
@@ -165,13 +165,13 @@ async fn a_session_still_finishing_its_turn_is_moved_when_it_ends() {
 async fn a_slot_freed_where_fleet_did_not_see_it_is_found_on_the_timer() {
     let rig = rig_placing(None);
     for n in 1..=8 {
-        rig.fleet.vcs().hold_slot(&rig.root, n, OTHERS);
+        rig.fleet.fake_vcs().hold_slot(&rig.root, n, OTHERS);
     }
     let keeper = keep_granting_slots(Arc::clone(&rig.fleet), Duration::from_millis(50));
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
     assert!(resumes(&rig, &waiting).is_empty());
 
-    rig.fleet.vcs().free_slot(&rig.root, 3);
+    rig.fleet.fake_vcs().free_slot(&rig.root, 3);
 
     eventually(|| async { resumes(&rig, &waiting).len() == 1 }).await;
     assert_eq!(
@@ -186,7 +186,7 @@ async fn a_waiting_session_is_not_moved_into_a_slot_until_the_closing_ones_park_
     let (rig, holder) = with_slot_one_held().await;
     let keeper = the_keeper(&rig);
     let (waiting, _) = queued_and_idle(&rig, "change a file").await;
-    let gate = rig.fleet.vcs().hold_parks();
+    let gate = rig.fleet.fake_vcs().hold_parks();
 
     tokio::time::timeout(Duration::from_secs(2), close(&rig, &holder))
         .await

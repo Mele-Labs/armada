@@ -25,7 +25,7 @@ use crate::session_host::{address_of, Heard, Process, Processes, Sink, Start};
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 pub(super) struct Standing {
     pub(super) sent: Mutex<Vec<String>>,
@@ -166,14 +166,14 @@ pub(super) fn rig_placing(peers: Option<Arc<crate::tests::peer::Placing>>) -> Ri
 
 /// A rig over fittings the test changes first.
 pub(super) fn rig_fitted(
-    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+    fit: impl FnOnce(&mut crate::daemon::Fittings),
 ) -> Rig {
     rig_over(TempDir::new(), fit)
 }
 
 fn rig_over(
     home: TempDir,
-    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+    fit: impl FnOnce(&mut crate::daemon::Fittings),
 ) -> Rig {
     rig_quiet_after(home, Duration::from_secs(600), fit)
 }
@@ -182,7 +182,7 @@ fn rig_over(
 pub(super) fn rig_quiet_after(
     home: TempDir,
     quiet: Duration,
-    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+    fit: impl FnOnce(&mut crate::daemon::Fittings),
 ) -> Rig {
     rig_standing_in(home, quiet, Arc::new(StandIn::default()), fit)
 }
@@ -191,7 +191,7 @@ fn rig_standing_in(
     home: TempDir,
     quiet: Duration,
     stand_in: Arc<StandIn>,
-    fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>),
+    fit: impl FnOnce(&mut crate::daemon::Fittings),
 ) -> Rig {
     let mut fittings = crate::tests::daemon::fittings(&home, FakeWorkProduct::changed(&[]));
     fit(&mut fittings);
@@ -214,7 +214,7 @@ fn rig_standing_in(
 impl Rig {
     /// Fleet restarted over the same home: what it kept in memory is gone and the store stays. The clock
     /// is moved on, as real time is, so a row written now never takes the id of one written before.
-    pub(super) fn restarted(self, fit: impl FnOnce(&mut crate::daemon::Fittings<FakeHarness, FakeVcs, FakeWorkProduct>)) -> Rig {
+    pub(super) fn restarted(self, fit: impl FnOnce(&mut crate::daemon::Fittings)) -> Rig {
         let Rig { fleet, _home: home, .. } = self;
         drop(fleet);
         rig_over(home, |fittings| {

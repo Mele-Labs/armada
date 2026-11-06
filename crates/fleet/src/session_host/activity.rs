@@ -397,15 +397,7 @@ fn simple(word: &str) -> bool {
         && word.chars().all(|c| c.is_ascii_alphanumeric() || "._+-:".contains(c))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A hosted session's tool call, before it runs. **Takes a std lock for a moment and awaits
     /// nothing**: the gate answers the call, and the publish, when there is one, is a task of its own.

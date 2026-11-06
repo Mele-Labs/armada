@@ -109,7 +109,7 @@ async fn next_session(watching: &mut Subscription) -> SessionRecord {
 }
 
 /// The one repository the test Fleet serves, and the path of its slot 2.
-fn served(fleet: &Fleet<FakeHarness, FakeVcs, FakeWorkProduct>) -> (String, String) {
+fn served(fleet: &Fleet) -> (String, String) {
     let one = fleet.repositories().first().expect("a served repository");
     (
         one.manifest().id().as_str().to_string(),

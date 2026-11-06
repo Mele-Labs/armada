@@ -80,15 +80,7 @@ struct Reached {
     before: Vec<Lifecycle>,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Teach `word` as `state` in Kit's Ticket for the repository, then in each live Job's copy the
     /// scope reaches, then read again each ticket those Jobs hold that last said `word`.

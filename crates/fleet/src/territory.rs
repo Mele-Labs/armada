@@ -94,15 +94,7 @@ pub(crate) fn capped(mut directories: Vec<Directory>) -> (Vec<RepositoryArea>, u
     (tops, omitted)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every served repository's directories, read at its base's head. One git cannot name a head
     /// for is left out.

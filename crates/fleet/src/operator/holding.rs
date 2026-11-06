@@ -17,15 +17,7 @@ use crate::daemon::Fleet;
 use crate::session_host::after::BY_OPERATOR;
 use crate::session_host::start_card::start_read;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `held` waits until `first` pushes its pull request, where it has not begun.
     pub(super) async fn operator_held(&self, held: &str, first: &str, shared: &[String]) {

@@ -24,15 +24,7 @@ const NOTES_EMPTY: &str = "fleet.session_notes_empty";
 /// A file larger than this is not a page's source.
 const LARGEST_READ: u64 = 1024 * 1024;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) async fn note_sent(self: Arc<Self>, sent: SendSessionNote) -> Result<NoteSent, Refusal> {
         self.note_sent_after(sent, None).await

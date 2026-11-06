@@ -59,15 +59,7 @@ fn read(state: ReadingState, says: String) -> KeptWatchTaken {
     KeptWatchTaken::Read { state: state.as_wire().to_string(), finished: true, says, link: None, parts: Vec::new() }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Hear `kept`'s Job's terminal until it prints what the watch waits for, it ends, or `stopped`.
     pub(crate) async fn watch_listened(self: &Arc<Self>, kept: KeptWatchWhole, mut stopped: tokio::sync::oneshot::Receiver<()>) {

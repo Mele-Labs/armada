@@ -126,15 +126,7 @@ const CANT: &str = "CAN'T";
 /// Why an answer did not fit, laid after the request when it is asked for again.
 const DID_NOT_FIT: &str = "\n\nYOUR LAST ANSWER\n\n{answer}\n\nWHY IT DID NOT FIT\n\n{reason}\n\nAnswer again with a definition that fits.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A line on the transcript for a change that could not be kept; nobody is waiting on it to answer.
     fn change_warned(&self, msg: &str, subject: &str, why: String) {
@@ -662,15 +654,7 @@ where
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The change as the wire carries it, with a ready change's sides and a `cannot` change's before read
     /// step by step through the rail, so a step the draft adds says what ends it.

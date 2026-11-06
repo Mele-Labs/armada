@@ -95,15 +95,7 @@ fn sketch_of(ahead: &[QueueEntry]) -> String {
     format!("{TESTED}:{}", each.join(","))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Pull request `number` at `head`, tested against the queue ahead of it. **A clean test is kept
     /// for the queue it was made against**, so a queued pull request costs git nothing on the
@@ -113,7 +105,7 @@ where
             return Guard::Go;
         };
         let root = served.root();
-        let listed = self.forge_asked(root, move |vcs: &V, root: &str| vcs.merge_queue(root, &base)).await;
+        let listed = self.forge_asked(root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.merge_queue(root, &base)).await;
         let Some(queue) = listed else {
             return Guard::Go;
         };
@@ -157,15 +149,7 @@ fn held_words(number: u64, blocker: &Blocker, taken_out: bool) -> String {
     )
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Tell the Job what its pull request waits on, **once a commit and a blocker**: a blocker that
     /// merges and is followed by another is told again, the same one on the next reading is not.

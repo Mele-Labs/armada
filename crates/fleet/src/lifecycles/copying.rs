@@ -74,15 +74,7 @@ pub fn frozen_lifecycles(store: &Store, session: &str, built_in: Vec<Lifecycle>)
     Some(lifecycles)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The lifecycles `session` reads its instances against: the copy it froze, else the ones that
     /// apply to its repository now. **Every reader of a Job's instances asks here**, so a lifecycle

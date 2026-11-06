@@ -13,7 +13,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 use crate::timeline::{keep_timeline, Between};
 
-pub(super) type Fixture = crate::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+pub(super) type Fixture = crate::Fleet;
 
 /// A Fleet whose timeline is being kept, and the router that serves it.
 pub(super) fn kept(home: &TempDir) -> (Arc<Fixture>, axum::Router) {

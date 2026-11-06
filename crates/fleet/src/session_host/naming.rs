@@ -22,15 +22,7 @@ const SESSION_NO_REQUEST: &str = "fleet.session_no_request";
 /// No proposer to ask, a call that failed, or an answer with no title. A 422, and nothing written.
 const SESSION_NOT_NAMED: &str = "fleet.session_not_named";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) async fn named_by_armada(&self, name: NameSession) -> Result<SessionRecord, Refusal> {
         let id = name.session_id.as_str().to_string();

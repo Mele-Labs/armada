@@ -21,15 +21,7 @@ fn group_of(record: &SessionRecord) -> Option<&str> {
     link.detail.get(GROUP).map(String::as_str)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Hand the ticket of the group `child` was started for from `parent` to it, where `parent` holds
     /// it and has not handed it already, so a second look at the same Job changes nothing.

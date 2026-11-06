@@ -39,15 +39,7 @@ fn change_in(worktrees: &[PathBuf], base: &str, path: &str, seen: Option<&str>) 
     first.ok_or_else(|| NotChecked(String::from("no worktree to read")))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `path` as the Job `session_id` changed it. `seen` is the stamp of the change Bridge holds.
     pub(crate) async fn session_file_change(

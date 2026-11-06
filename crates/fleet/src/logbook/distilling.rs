@@ -154,15 +154,7 @@ fn millis(at: &str) -> u64 {
     Timestamp::from_rfc3339(at).epoch_millis().unwrap_or(0).max(0) as u64
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Distil one Session and curate what it says. `Err` is why nothing was kept.
     pub(crate) async fn logbook_distilled(self: &Arc<Self>, id: &str) -> Result<(), String> {

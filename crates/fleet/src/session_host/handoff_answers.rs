@@ -128,15 +128,7 @@ pub(crate) fn context_act(quiet: bool, remind_at: Option<u64>, setting: &str, to
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Context rule's act for Job `session` at `tokens`.
     pub(crate) async fn context_act_of(&self, session: &str, tokens: f64, due: bool) -> ContextAct {

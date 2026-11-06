@@ -106,15 +106,7 @@ pub fn clear_text(last: Option<&Flying>, waiting: &[String]) -> String {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What `session` holds that no end state has taken, read against the lifecycles it was read
     /// with. **Nothing for a Job that holds nothing**, and for an instance ending the Job ended. **A

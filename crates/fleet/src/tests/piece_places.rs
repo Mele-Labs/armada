@@ -14,7 +14,7 @@ use crate::repositories::{Located, Served};
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 fn write(path: PathBuf, text: &str) {
     std::fs::create_dir_all(path.parent().expect("a folder")).expect("its folder");

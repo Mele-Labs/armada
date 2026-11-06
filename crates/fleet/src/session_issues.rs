@@ -103,15 +103,7 @@ pub(crate) fn pull_requests_joined<'a>(numbers: impl IntoIterator<Item = &'a u64
     numbers.into_iter().map(u64::to_string).collect::<Vec<_>>().join(",")
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The issues the person named to `session` in `text` and its `tags`, held by it.
     ///

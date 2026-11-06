@@ -68,15 +68,7 @@ pub fn may(authority: Authority, offered: &Reachable) -> bool {
     }
 }
 
-impl<H, V, W> Admitting for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Admitting for Fleet
 {
     fn words_reach_at(&self, caller: Caller) -> Option<WordsReach> {
         let (_, on_your_words) = self.session_placed(&caller)?;

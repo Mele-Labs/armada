@@ -210,15 +210,7 @@ fn settled_row(row: SessionRow, pick: impl Fn(&str) -> bool, state: ToolSubagent
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The mod told of subagent `target`, started by the agent's call `call`: that call's row carries it.
     pub(crate) async fn subagent_started(&self, id: &str, target: &str, call: &str, detail: &BTreeMap<String, String>) {

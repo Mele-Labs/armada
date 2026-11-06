@@ -36,15 +36,7 @@ pub(crate) const BACKFILL_AFTER: Duration = Duration::from_secs(30);
 /// How long the reader rests between reads.
 const PAUSE: Duration = Duration::from_millis(40);
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Read every transcript written to in the last week that has more in it than was read. How
     /// many turns changed the store. `from_start` ignores the offsets kept, which a test uses to

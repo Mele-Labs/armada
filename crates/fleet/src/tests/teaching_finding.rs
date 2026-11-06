@@ -154,13 +154,13 @@ async fn a_merged_pull_requests_text_is_the_second_place_and_the_address_names_t
         fittings.starting().manifest = config::Manifest::parse(file, "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\n").expect("parses");
     });
     let session = rig.start().await;
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![merged(40), merged(41)]));
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(vec![merged(40), merged(41)]));
     let mut quiet = a_page();
     quiet.body = Some("Takes a draft out.".into());
     let mut linking = a_page();
     linking.body = Some("Closes https://tracker.example.org/issues/ARM-77.".into());
-    rig.fleet.vcs().now_page_of_pull_request(40, Some(quiet));
-    rig.fleet.vcs().now_page_of_pull_request(41, Some(linking));
+    rig.fleet.fake_vcs().now_page_of_pull_request(40, Some(quiet));
+    rig.fleet.fake_vcs().now_page_of_pull_request(41, Some(linking));
     Arc::clone(&rig.fleet).save_teaching(teaching(&rig, Some(&session), TeachingReach::Repository, None)).await.expect("saved");
 
     eventually(|| async { rules(&rig, None).await == ["https://tracker.example.org/issues/{match}"] }).await;
@@ -259,7 +259,7 @@ fn proposed(template: &str, found: AddressFound) -> Option<ProposedAddress> {
 
 /// A rig whose reader proposes the Jira key as words with no address, and a Manifest with a base to
 /// search merged pull requests on.
-fn rig_reading(fit: impl FnOnce(&mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>)) -> Rig {
+fn rig_reading(fit: impl FnOnce(&mut crate::daemon::Fittings)) -> Rig {
     rig_fitted(|fittings| {
         fittings.judge = Arc::new(FakeJudge::saying(JIRA_ANSWER));
         let file = std::path::Path::new("armada.yml");
@@ -288,10 +288,10 @@ fn tracker_opening(template: &str) -> Arc<FakeTracker> {
 }
 
 fn a_merged_pull_request_linking(rig: &Rig, number: u64, body: &str) {
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![merged(number)]));
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(vec![merged(number)]));
     let mut page = a_page();
     page.body = Some(body.into());
-    rig.fleet.vcs().now_page_of_pull_request(number, Some(page));
+    rig.fleet.fake_vcs().now_page_of_pull_request(number, Some(page));
 }
 
 #[tokio::test]

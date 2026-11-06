@@ -30,15 +30,7 @@ pub(super) const UNSETTABLE: &str = "fleet.autopilot_unsettable";
 const NOT_READ: &str = "fleet.autopilot_not_read";
 const NOT_SET_ASIDE: &str = "fleet.pick_not_set_aside";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(super) fn refused_as(&self, code: &str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said.into(), self.run_id())
@@ -161,15 +153,7 @@ where
     }
 }
 
-impl<H, V, W> Autopilots for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Autopilots for Fleet
 {
     async fn propose_autopilot(
         &self,

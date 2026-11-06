@@ -199,15 +199,7 @@ fn kept_place(row: &KeptWalkPlace) -> RememberedPlace {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A repository as the forge names it, else the id it is served under.
     pub(crate) async fn walk_slug(&self, root: &str, manifest_id: &ManifestId) -> String {
@@ -225,7 +217,7 @@ where
     pub(crate) async fn walk_place_found(&self, manifest_id: ManifestId, number: u64) -> Result<WalkPlaceFound, Refusal> {
         let served = self.served_named(Some(&manifest_id))?;
         let page = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| vcs.pull_request_page(root, &number.to_string()))
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_page(root, &number.to_string()))
             .await
             .ok_or_else(|| {
                 Refusal::Fault(self.pr_refusal(

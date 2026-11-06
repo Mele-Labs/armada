@@ -89,15 +89,7 @@ pub(crate) fn branches_held(store: &Store, served: &Served) -> BTreeMap<String, 
     held
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The build on file, once an interval. Its own gate, beside the pull requests'.
     pub(crate) async fn builds_told_when_due(self: &Arc<Self>) {

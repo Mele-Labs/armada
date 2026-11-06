@@ -27,15 +27,7 @@ use crate::daemon::Fleet;
 /// whichever slot the Job wrote it from.
 const DOCUMENTS: &str = "/.armada/documents/";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Where a Job's pages are kept, a folder to each page.
     pub(crate) fn documents_of(&self, id: &str) -> PathBuf {

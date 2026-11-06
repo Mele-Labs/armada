@@ -128,20 +128,20 @@ async fn a_pull_request_is_read_where_the_ledger_reads_it_and_moves_only_when_wh
     let (manifest_id, root) = (manifest(&rig), rig.root.clone());
     let reading = || async { rig.fleet.pull_ledger_kept_current(&manifest_id, &root).await };
 
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
     reading().await;
     reading().await;
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
-    rig.fleet.vcs().now_pull_request_page(None);
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    rig.fleet.fake_vcs().now_pull_request_page(None);
     reading().await;
     assert_eq!(moves(&rig, &id, "pr").await, [move_of("12", "unread", "in:draft")], "a forge that will not show the page says nothing");
 
-    rig.fleet.vcs().now_pull_request_page(Some(page(ReviewStanding::Required, vec![asked("ana")])));
+    rig.fleet.fake_vcs().now_pull_request_page(Some(page(ReviewStanding::Required, vec![asked("ana")])));
     reading().await;
-    rig.fleet.vcs().now_pull_request_page(Some(page(ReviewStanding::Approved, vec![])));
+    rig.fleet.fake_vcs().now_pull_request_page(Some(page(ReviewStanding::Approved, vec![])));
     reading().await;
     reading().await;
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Merged)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Merged)));
     reading().await;
 
     assert_eq!(
@@ -163,14 +163,14 @@ async fn settled_before_the_reading(row: AttachmentState, word: &str, over: Pull
     holds(&rig, &id, "pr", "12", AttachmentState::Standing, &[("state", "open")]).await;
     rig.fleet.lifecycles_moved(record(&rig, &id).await).await;
     forge_ran(&rig.fleet, passed());
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
-    rig.fleet.vcs().now_pull_request_page(Some(page(ReviewStanding::Required, vec![])));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    rig.fleet.fake_vcs().now_pull_request_page(Some(page(ReviewStanding::Required, vec![])));
     rig.fleet.pull_ledger_kept_current(&manifest(&rig), &rig.root).await;
     let holding = rig.fleet.lifecycles_holding(&*rig.fleet.store().lock().await, id.as_str());
     assert_eq!(holding.iter().map(|one| one.held()).collect::<Vec<_>>(), ["PR #12 is Ready"]);
 
     holds(&rig, &id, "pr", "12", row, &[("state", word)]).await;
-    rig.fleet.vcs().now_pull_request(Some(facts(over)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(over)));
     rig.fleet.pull_ledger_kept_current(&manifest(&rig), &rig.root).await;
     (rig, id)
 }
@@ -183,7 +183,7 @@ async fn a_pull_request_whose_row_was_settled_merged_first_is_read_to_its_end_an
     assert!(rig.fleet.lifecycles_hold(&mut *rig.fleet.store().lock().await, id.as_str(), "finish_up").is_ok());
 
     // At an end it is read no more: nothing the forge says of it now moves it.
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Closed)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Closed)));
     rig.fleet.pull_ledger_kept_current(&manifest(&rig), &rig.root).await;
     assert_eq!(moves(&rig, &id, "pr").await.len(), 2);
 }

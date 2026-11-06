@@ -113,15 +113,7 @@ pub(crate) fn text_of(html: &str) -> String {
     out.trim_end().to_string()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Job's work against its base, or why it cannot be read. Empty where the Job holds no branch.
     fn judge_diff(&self, served: &Served, session: &KeptSession, hosting: &KeptHosting) -> Result<String, String> {

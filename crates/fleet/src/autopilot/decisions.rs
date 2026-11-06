@@ -51,19 +51,11 @@ pub(super) struct Job {
 }
 
 /// Decide for every running Autopilot, every `tick`.
-pub fn keep_deciding<H, V, W>(
-    fleet: Arc<Fleet<H, V, W>>,
+pub fn keep_deciding(
+    fleet: Arc<Fleet>,
     tick: Duration,
     adrift: Arc<impl Fn(Adrift) + Send + Sync + 'static>,
 ) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
 {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(tick);
@@ -77,15 +69,7 @@ where
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// One pass over every running Autopilot. Answers how many decisions it answered.
     pub(crate) async fn decision_pass(self: &Arc<Self>) -> Result<usize, Adrift> {

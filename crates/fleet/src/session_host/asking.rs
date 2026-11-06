@@ -92,15 +92,7 @@ fn answers_text(said: &Said) -> Option<String> {
     Some(lines.join("\n\n"))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every hosted session's call held for a person, and every Job browser act
     /// held for Bridge, answered now because Fleet is stopping. **Called the moment a stop is asked

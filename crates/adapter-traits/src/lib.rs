@@ -39,6 +39,7 @@ mod ci;
 mod cloning;
 mod commit;
 mod delivery;
+mod dyn_seams;
 mod event;
 mod forge;
 mod harness;
@@ -85,6 +86,7 @@ pub use test_map::{
     CollectorSource, Lap, LapCost, LapGrain, LapsOnForge, NotAsked, NotRecorded, TestCollector, TestsToRecord,
 };
 pub use text_model::{NotEmbedded, TextModel, TextReading};
+pub use dyn_seams::{BoxedError, DynVcs, DynWork};
 pub use forge::{Compared, Forge, LandingOnTheForge};
 pub use event::{CallDetail, DroneEvent, FileAct, HarnessReading, Reach, Speaker, TaskStatus, ToolUse};
 pub use harness::{

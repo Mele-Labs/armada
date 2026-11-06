@@ -27,7 +27,7 @@ mod manifest;
 mod pieces;
 mod requests;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 const REMOTE: &str = "acme/widgets";
 

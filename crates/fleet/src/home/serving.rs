@@ -103,15 +103,7 @@ impl Read {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Hand Fleet the shared home's adapters. Only the first is kept. **Signing in reads whether
     /// a profile's home is here through them too**, so its set-up row is done once it is.
@@ -282,15 +274,7 @@ where
     }
 }
 
-impl<H, V, W> SharedHome for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl SharedHome for Fleet
 {
     async fn get_shared_home(&self, profile: HomeProfile) -> Result<SharedHomeRead, Refusal> {
         self.finding_home(&profile.login).await?;

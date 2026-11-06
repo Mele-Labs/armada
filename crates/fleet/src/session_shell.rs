@@ -120,15 +120,7 @@ fn refusal(why: impl Into<String>, run_id: ipc::RunId) -> Refusal {
     Refusal::Unacceptable(WireError::raised(REFUSED, why, run_id))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `run_session_shell`. The Session is told how it ended, as it is for a block run from its
     /// thread.

@@ -22,15 +22,7 @@ use crate::daemon::Fleet;
 /// left running gives its process up in the end.
 const HUNG_AFTER: Duration = Duration::from_secs(60 * 60);
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Whether the Job has a subagent or a background task working, which ending its process takes
     /// down. The turn is over, so this is work the agent left running. With no process there is

@@ -16,7 +16,7 @@ use crate::prompts::Prompts;
 use crate::test_map_reading::{named_in, question, readings, FILES_A_MOVE, QUESTION, TESTS_LISTED, TEXT_BYTES};
 use crate::tests::tmp::TempDir;
 
-type Rig = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Rig = Fleet;
 
 /// A Rails-like repository: the `rails` Check has no collector, the `web` Check has one (its
 /// vitest runner), and `docs` is covered by neither.

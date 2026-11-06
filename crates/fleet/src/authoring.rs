@@ -31,15 +31,7 @@ const WORKFLOW_EXISTS: &str = "fleet.workflow_exists";
 /// The folder or the file could not be written. A 500.
 pub(crate) const WORKFLOW_UNWRITABLE: &str = "fleet.workflow_unwritable";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Check, write, and hold.
     pub(crate) fn save_workflow_file(
@@ -142,15 +134,7 @@ where
     }
 }
 
-impl<H, V, W> Authoring for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Authoring for Fleet
 {
     /// **Not `Arc`**, for `Commands::save_manifest_file`'s reason: the file is on
     /// disk, and held, when this answers.

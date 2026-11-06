@@ -25,15 +25,7 @@ pub(crate) fn number_of(target: &str) -> Option<u64> {
     tail.parse().ok()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Take off a Session's own items, and the asks read off its reply, whose `approve_pr` act names pull request `number`, as [`Self::run_item_settled`] does for a
     /// command: the notice Fleet tells next says why, in Fleet's voice, and the turn it starts clears

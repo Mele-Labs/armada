@@ -20,15 +20,7 @@ use crate::leasing::{pool_of, SLOT_SESSION_WORKING, SLOT_UNCOMMITTED};
 use crate::repositories::Served;
 use crate::saving::released_answer;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// [`change_slot_pool`](Fleet::change_slot_pool), with a `release` whose
     /// holder is a session Fleet hosts taken here, where the ledger can be asked.

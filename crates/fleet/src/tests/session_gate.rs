@@ -385,15 +385,15 @@ async fn closing_a_session_parks_every_slot_the_pool_holds_for_it() {
     let peers = Placing::nothing();
     let (rig, id) = in_its_slot(&peers).await;
     // A subagent's slot, which `armada worktree lease` took under the session's id.
-    rig.fleet.vcs().hold_slot(&rig.root, 2, id.as_str());
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 2, id.as_str());
 
     Arc::clone(&rig.fleet)
         .close_session(ipc::CloseSession { session_id: id.clone() })
         .await
         .expect("closed");
 
-    super::session_host::eventually(|| async { rig.fleet.vcs().parked_slots().len() == 2 }).await;
-    let mut parked = rig.fleet.vcs().parked_slots();
+    super::session_host::eventually(|| async { rig.fleet.fake_vcs().parked_slots().len() == 2 }).await;
+    let mut parked = rig.fleet.fake_vcs().parked_slots();
     parked.sort();
     assert_eq!(
         parked,
@@ -448,7 +448,7 @@ async fn a_write_in_the_slot_the_session_gave_back_is_not_its_own_though_its_dir
         "branch settings/links\nholder job 0b0b0b0b-0000-0000-0000-000000000000\nsince 1\n",
     )
     .expect("another session's lease");
-    rig.fleet.vcs().hold_slot(&rig.root, 1, "0b0b0b0b-0000-0000-0000-000000000000");
+    rig.fleet.fake_vcs().hold_slot(&rig.root, 1, "0b0b0b0b-0000-0000-0000-000000000000");
     let theirs = rig.gate(&id, "Edit", &file).await;
     assert!(denied(&theirs));
     assert!(reason(&theirs).contains("not leased by this job"));

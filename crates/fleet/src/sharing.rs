@@ -91,15 +91,7 @@ fn added_of(shown: Shown, repository: Option<String>, landed: Landed, unbound_id
     PieceAdded { kind: shown.kind, id: shown.id, name: shown.name, list: shown.list, remote: shown.remote, repository, landed, unbound_id }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn share_refusal(&self, code: &str, said: String) -> Refusal {
         let raised = WireError::raised(code, said, self.run_id());

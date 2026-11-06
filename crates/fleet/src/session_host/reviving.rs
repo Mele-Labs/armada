@@ -18,15 +18,7 @@ const BOOT_START_GAP: std::time::Duration = if cfg!(test) {
 const STARTED_AGAIN: &str =
     "Your process ended during a turn and Fleet started it again. Check what your last calls did, then carry on.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// A turn began: keep it open until it ends or its process is found dead. A store that will
     /// not keep it fails nothing, as with [`Self::kept_restart`].

@@ -14,7 +14,7 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::fitted_with;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 /// 05:00 on the clock's day.
 const RESETS: &str = "2026-09-02T05:00:00.000Z";

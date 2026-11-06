@@ -18,15 +18,7 @@ use crate::daemon::Fleet;
 /// A `manifest` fix, and the Session was started in no repository Fleet knows.
 pub(super) const SESSION_NAMES_NO_REPOSITORY: &str = "fleet.lesson_session_names_no_repository";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
 
     pub(super) async fn disagreed_with_session(

@@ -63,7 +63,7 @@ async fn holding_pull_request(standing: PullRequestStanding, on: bool) -> (Rig, 
     holds(&rig, &id, "pr", &NUMBER.to_string()).await;
     let mut shown = facts(standing);
     shown.auto_merge = on;
-    rig.fleet.vcs().now_pull_request(Some(shown));
+    rig.fleet.fake_vcs().now_pull_request(Some(shown));
     forge_ran(&rig.fleet, passed());
     (rig, id)
 }
@@ -95,9 +95,9 @@ async fn working_a_branch_with_an_open_pull_request() -> (Rig, SessionId) {
     holds(&rig, &id, "branch", "armada/12").await;
     let mut shown = facts(PullRequestStanding::Open);
     shown.branch = "armada/12".into();
-    rig.fleet.vcs().now_pull_request(Some(shown));
+    rig.fleet.fake_vcs().now_pull_request(Some(shown));
     forge_ran(&rig.fleet, passed());
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![followed(NUMBER)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![followed(NUMBER)]));
     (rig, id)
 }
 
@@ -110,11 +110,11 @@ async fn read_the_pull_reading(rig: &Rig) {
 async fn a_pull_request_that_attaches_to_a_session_with_auto_land_on_gets_auto_merge() {
     let (rig, id) = working_a_branch_with_an_open_pull_request().await;
     auto_land(&rig, &id, true).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "it holds no pull request yet");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0, "it holds no pull request yet");
 
     read_the_pull_reading(&rig).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1);
 }
 
 #[tokio::test]
@@ -123,7 +123,7 @@ async fn a_pull_request_that_attaches_with_auto_land_off_is_not_asked() {
 
     read_the_pull_reading(&rig).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0);
 }
 
 #[tokio::test]
@@ -134,7 +134,7 @@ async fn turning_auto_land_on_asks_for_auto_merge_on_the_open_pull_requests() {
 
     assert!(record.auto_land, "the record reads the flag");
     assert!(row_of(&rig, &id).await.auto_land, "and so does a later read");
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1);
 }
 
 /// 4 Nov 2026: a Job holding five pull requests asked the forge some twenty-five times inside the
@@ -146,8 +146,8 @@ async fn turning_auto_land_on_answers_before_the_forge_is_asked() {
     let record = std::sync::Arc::clone(&rig.fleet).set_session_auto_land(flag(&id, true)).await.expect("answered");
 
     assert!(record.auto_land, "the record reads the flag");
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "the answer did not wait on the forge");
-    super::session_host::eventually(|| async { rig.fleet.vcs().times_asked_for_auto_merge() == 1 }).await;
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0, "the answer did not wait on the forge");
+    super::session_host::eventually(|| async { rig.fleet.fake_vcs().times_asked_for_auto_merge() == 1 }).await;
 }
 
 #[tokio::test]
@@ -157,7 +157,7 @@ async fn an_off_pressed_after_an_on_is_not_undone_by_the_on() {
     // The on's half of the forge, running once the off has kept the flag.
     rig.fleet.auto_land_asked_of_forge(id.as_str(), &manifest(&rig), true).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "the on's ask saw the flag off");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0, "the on's ask saw the flag off");
 }
 
 #[tokio::test]
@@ -168,7 +168,7 @@ async fn turning_auto_land_off_takes_auto_merge_off_the_open_pull_requests() {
     let record = auto_land(&rig, &id, false).await;
 
     assert!(!record.auto_land);
-    assert_eq!(rig.fleet.vcs().times_asked_to_stop_auto_merge(), 1);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_to_stop_auto_merge(), 1);
     let held = rig.fleet.store().lock().await.attachments_of(&Holder::session(id.as_str())).unwrap();
     let row = held.iter().find(|one| one.kind == "pr").expect("the row");
     assert_eq!(row.detail.get("auto_merge").map(String::as_str), Some("false"));
@@ -180,7 +180,7 @@ async fn turning_auto_land_off_leaves_a_merged_pull_request_alone() {
 
     auto_land(&rig, &id, false).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_to_stop_auto_merge(), 0);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_to_stop_auto_merge(), 0);
 }
 
 /// The forge's refusal is told to the Job in its words, never the answer to the press: the flag is
@@ -188,7 +188,7 @@ async fn turning_auto_land_off_leaves_a_merged_pull_request_alone() {
 #[tokio::test]
 async fn a_forge_that_refuses_is_told_to_the_job_in_its_words_and_the_flag_still_changes() {
     let (rig, id) = holding_pull_request(PullRequestStanding::Open, false).await;
-    rig.fleet.vcs().now_auto_merge(Err("auto merge is not allowed for this repository".into()));
+    rig.fleet.fake_vcs().now_auto_merge(Err("auto merge is not allowed for this repository".into()));
 
     let record = std::sync::Arc::clone(&rig.fleet).set_session_auto_land(flag(&id, true)).await.expect("answered, not refused");
 
@@ -196,12 +196,12 @@ async fn a_forge_that_refuses_is_told_to_the_job_in_its_words_and_the_flag_still
     super::session_host::eventually(|| async { told(&rig).contains("not allowed for this repository") }).await;
     assert!(told(&rig).contains("Auto land is on, and the forge would not turn on auto-merge for #12"), "{}", told(&rig));
 
-    rig.fleet.vcs().now_pull_request(Some({
+    rig.fleet.fake_vcs().now_pull_request(Some({
         let mut shown = facts(PullRequestStanding::Open);
         shown.auto_merge = true;
         shown
     }));
-    rig.fleet.vcs().auto_merge_off_refuses("the forge is down");
+    rig.fleet.fake_vcs().auto_merge_off_refuses("the forge is down");
     let record = auto_land(&rig, &id, false).await;
     assert!(!record.auto_land);
     assert!(told(&rig).contains("Auto land is off, and the forge would not turn off auto-merge for #12"), "{}", told(&rig));
@@ -232,7 +232,7 @@ async fn opened_by_the_job(on: bool) -> (Rig, SessionId) {
         })
         .await
         .expect("attached");
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
     forge_ran(&rig.fleet, passed());
     (rig, id)
 }
@@ -242,26 +242,26 @@ async fn opened_by_the_job(on: bool) -> (Rig, SessionId) {
 #[tokio::test]
 async fn a_pull_request_the_job_opened_is_landed_once_its_checks_pass() {
     let (rig, _id) = opened_by_the_job(true).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Pending)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![checked(CiState::Pending)]));
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "not before its checks pass");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0, "not before its checks pass");
 
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1);
 
     read_the_pull_reading(&rig).await;
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "once a commit");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "once a commit");
 }
 
 #[tokio::test]
 async fn a_passed_pull_request_is_not_landed_with_auto_land_off() {
     let (rig, _id) = opened_by_the_job(false).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
 
     read_the_pull_reading(&rig).await;
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0);
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0);
 }
 
 #[tokio::test]
@@ -274,11 +274,11 @@ async fn a_pull_request_that_failed_conflicts_or_is_already_merging_is_not_asked
     queued.queue = PullQueue::Waiting;
     for (named, pull) in [("failed", checked(CiState::Failed)), ("conflicting", conflicting), ("on auto-merge", on_auto_merge), ("queued", queued)] {
         let (rig, _id) = opened_by_the_job(true).await;
-        rig.fleet.vcs().main_ci.followed_are(Some(vec![pull]));
+        rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull]));
 
         read_the_pull_reading(&rig).await;
 
-        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 0, "{named}");
+        assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 0, "{named}");
     }
 }
 
@@ -292,13 +292,13 @@ async fn a_commit_that_left_the_queue_or_auto_merge_is_asked_once_more() {
     on_auto_merge.auto_merge = true;
     for (named, merging) in [("dropped", queued), ("taken off auto-merge", on_auto_merge)] {
         let (rig, _id) = opened_by_the_job(true).await;
-        rig.fleet.vcs().main_ci.followed_are(Some(vec![merging]));
+        rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![merging]));
         read_the_pull_reading(&rig).await;
 
-        rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+        rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
         read_the_pull_reading(&rig).await;
 
-        assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "{named}");
+        assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "{named}");
     }
 }
 
@@ -309,15 +309,15 @@ async fn a_green_pull_request_that_nothing_merges_is_asked_once_more_then_told_t
     let mut queued = checked(CiState::Passed);
     queued.queue = PullQueue::Waiting;
     let (rig, _id) = opened_by_the_job(true).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![queued]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![queued]));
     read_the_pull_reading(&rig).await;
 
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
     for _ in 0..3 {
         read_the_pull_reading(&rig).await;
     }
 
-    assert_eq!(rig.fleet.vcs().times_asked_for_auto_merge(), 1, "once more, not every reading");
+    assert_eq!(rig.fleet.fake_vcs().times_asked_for_auto_merge(), 1, "once more, not every reading");
     let sent: Vec<String> = (0..rig.stand_in.starts().len())
         .flat_map(|at| rig.stand_in.process(at).sent.lock().unwrap().clone())
         .collect();
@@ -329,8 +329,8 @@ async fn a_green_pull_request_that_nothing_merges_is_asked_once_more_then_told_t
 #[tokio::test]
 async fn a_forge_that_will_not_land_a_passed_pull_request_is_told_to_the_job() {
     let (rig, _id) = opened_by_the_job(true).await;
-    rig.fleet.vcs().now_auto_merge(Err("auto merge is not allowed for this repository".into()));
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
+    rig.fleet.fake_vcs().now_auto_merge(Err("auto merge is not allowed for this repository".into()));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![checked(CiState::Passed)]));
 
     read_the_pull_reading(&rig).await;
 

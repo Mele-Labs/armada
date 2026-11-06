@@ -188,15 +188,7 @@ fn pull_numbers(kept: &KeptProjects) -> BTreeMap<String, Vec<u64>> {
     by
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) fn project_refusal(&self, code: &'static str, said: impl Into<String>) -> WireError {
         WireError::raised(code, said, self.run_id())
@@ -415,15 +407,7 @@ where
     }
 }
 
-impl<H, V, W> Projects for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Projects for Fleet
 {
     async fn list_projects(&self) -> Result<ipc::Projects, Refusal> {
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;

@@ -22,7 +22,7 @@ use crate::scout::ScoutHost;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Reading = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Reading = Fleet;
 
 /// The agent CLI as a read-in's scout meets it: it writes the turn it was told
 /// to a file, then answers with the block the brief asks for.

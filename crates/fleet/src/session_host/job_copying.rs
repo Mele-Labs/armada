@@ -162,15 +162,7 @@ fn steps_wire(steps: &[RailStep], skipped: &[u32]) -> Vec<JobCopyStep> {
         .collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The Job a call is about and who is making the change. **Through the door the Job is the one whose
     /// process holds the connection**, whatever the body names; every other door is the person's, and names

@@ -40,15 +40,7 @@ pub(super) struct SavedTo {
     pub(super) collection: String,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn requests_refused(&self, code: &str, why: String) -> Refusal {
         Refusal::Unacceptable(WireError::raised(code, why, self.run_id()))

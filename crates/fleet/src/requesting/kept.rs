@@ -87,15 +87,7 @@ fn environment_read(environment: &RequestEnvironment, kept: impl Fn(&str) -> boo
     RequestEnvironmentRead { name: environment.name.clone(), variables }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     async fn requests_kept(&self, root: &str) -> Result<(RunPlace, Kept), Refusal> {
         let held = self.kept_place(root).await?;

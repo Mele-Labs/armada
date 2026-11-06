@@ -49,7 +49,7 @@ pub(crate) fn settings_file_in(home: &TempDir) -> std::path::PathBuf {
 }
 
 /// Fittings whose Drones keep working, shipping the bound settings.json ships.
-fn fitted(home: &TempDir) -> Fittings<FakeHarness, FakeVcs, FakeWorkProduct> {
+fn fitted(home: &TempDir) -> Fittings {
     let mut fittings = fitted_with(
         home,
         FakeWorkProduct::changed(&["src/parse.rs"]),

@@ -48,15 +48,7 @@ pub(crate) fn command_hash(command: &str) -> String {
     Sha256::digest(command.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn approvals_file(&self, root: &str) -> PathBuf {
         places::file_for(std::path::Path::new(&self.host().kit_home), FOLDER, root)

@@ -15,15 +15,7 @@ use crate::daemon::Fleet;
 use crate::main_hub::OpenPulled;
 use crate::repositories::Served;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Everything the pull reading does for one pull request, after `state` was read and the ledger
     /// followed it: an open one's owners told and its merge line entry read again, a merged one's
@@ -53,7 +45,7 @@ where
     async fn open_pull_told(self: &Arc<Self>, served: &Served, base: &str, number: u64) {
         let gate = served.manifest().ci_gate().to_string();
         let Some(pull) = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.followed_pull(root, &gate, number)
             })
             .await
@@ -80,7 +72,7 @@ where
     async fn open_pull_listed(&self, served: &Served, number: u64) {
         let gate = served.manifest().ci_gate().to_string();
         let Some(pull) = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.open_pull_request(root, &gate, number)
             })
             .await

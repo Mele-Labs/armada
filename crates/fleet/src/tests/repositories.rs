@@ -20,7 +20,7 @@ use crate::tests::daemon::one;
 use crate::tests::http::call;
 use crate::tests::tmp::TempDir;
 
-pub(crate) type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(crate) type Fixture = Fleet;
 
 /// The id the second repository's `armada.yml` declares.
 const SECOND: &str = "01SECONDMANIFEST";

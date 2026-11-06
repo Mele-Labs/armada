@@ -25,7 +25,7 @@ use testkit::FakeWorkProduct;
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-type Fixture = crate::daemon::Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+type Fixture = crate::daemon::Fleet;
 
 const FIRST_NOTE: &str = "The chip keeps its count after the filter is cleared";
 const SECOND_NOTE: &str = "Overview still says three waiting after I answered one";

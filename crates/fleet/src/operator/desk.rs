@@ -20,26 +20,18 @@ const STARTED_BY: &str = "started_by";
 /// Fleet as the Operator reaches it. A store failure is said through `adrift`, and a count of
 /// calls that cannot be read stands for the ceiling reached. **Held weakly**, since Fleet holds the
 /// Operator that holds this: a Fleet that is gone has no Jobs and makes no calls.
-pub struct FleetDesk<H, V, W> {
-    fleet: Weak<Fleet<H, V, W>>,
+pub struct FleetDesk {
+    fleet: Weak<Fleet>,
     adrift: Box<dyn Fn(Adrift) + Send + Sync>,
 }
 
-impl<H, V, W> FleetDesk<H, V, W> {
-    pub fn on(fleet: &Arc<Fleet<H, V, W>>, adrift: impl Fn(Adrift) + Send + Sync + 'static) -> FleetDesk<H, V, W> {
+impl FleetDesk {
+    pub fn on(fleet: &Arc<Fleet>, adrift: impl Fn(Adrift) + Send + Sync + 'static) -> FleetDesk {
         FleetDesk { fleet: Arc::downgrade(fleet), adrift: Box::new(adrift) }
     }
 }
 
-impl<H, V, W> Desk for FleetDesk<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Desk for FleetDesk
 {
     fn now(&self) -> Timestamp {
         match self.fleet.upgrade() {

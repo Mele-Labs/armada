@@ -13,19 +13,11 @@ use crate::daemon::Fleet;
 
 /// Run the passes that wait on time every `tick`; their own intervals still gate them. Starts
 /// Autopilot's passes beside it: the picks, and the decisions it answers.
-pub fn keep_noticing<H, V, W>(
-    fleet: Arc<Fleet<H, V, W>>,
+pub fn keep_noticing(
+    fleet: Arc<Fleet>,
     tick: Duration,
     adrift: impl Fn(Adrift) + Send + Sync + 'static,
 ) -> JoinHandle<()>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
 {
     let adrift = Arc::new(adrift);
     crate::autopilot::keep_autopiloting(Arc::clone(&fleet), tick, Arc::clone(&adrift));

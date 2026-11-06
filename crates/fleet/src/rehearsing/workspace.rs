@@ -172,15 +172,7 @@ pub(crate) fn claimant(root: &str, dir: &str) -> PortClaimant {
 
 const WORKSPACE_KEY: &str = "workspace:";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Claim the ports `workspace`'s own file declares, for one Verify. A row a
     /// crashed Verify left under the same key is given back first, so the span

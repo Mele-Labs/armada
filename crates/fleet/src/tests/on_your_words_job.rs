@@ -58,9 +58,9 @@ fn start_of(manifest: ManifestId, on_your_words: bool) -> StartSession {
 /// `fleet`, hosting Jobs through [`Running`], with a Job on your words started and told something
 /// so that `pid` is its process. **Placing the connections beneath it is the caller's.**
 pub(super) async fn with_a_job_on_your_words_running(
-    fleet: Fleet<FakeHarness, FakeVcs, FakeWorkProduct>,
+    fleet: Fleet,
     pid: u32,
-) -> Arc<Fleet<FakeHarness, FakeVcs, FakeWorkProduct>> {
+) -> Arc<Fleet> {
     let fleet = Arc::new(fleet.hosting_sessions_on(Arc::new(Running(pid)), Duration::from_secs(600)));
     let one = fleet.repositories().first().expect("a served repository");
     let manifest = ManifestId::carried(one.manifest().id().as_str());

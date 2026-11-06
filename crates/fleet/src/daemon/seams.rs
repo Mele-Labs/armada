@@ -22,15 +22,7 @@ use crate::mint::Mint;
 use crate::review_runs::Reviewing;
 use crate::session_proposer::Proposing;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What happened, for the timeline. Public so the composition root hands it to the loops that
     /// see things Fleet does not publish.
@@ -48,13 +40,13 @@ where
     pub(crate) fn store(&self) -> &crate::store_lock::StoreLock {
         &self.store
     }
-    pub(crate) fn harness(&self) -> &Arc<H> {
+    pub(crate) fn harness(&self) -> &Arc<crate::daemon::Harness> {
         &self.harness
     }
-    pub(crate) fn vcs(&self) -> &Arc<V> {
+    pub(crate) fn vcs(&self) -> &Arc<dyn adapter_traits::DynVcs> {
         &self.vcs
     }
-    pub(crate) fn work(&self) -> &W {
+    pub(crate) fn work(&self) -> &Arc<dyn adapter_traits::DynWork> {
         &self.work
     }
     /// Every repository this Fleet serves — `crate::repositories`.
@@ -461,4 +453,14 @@ where
         &self.merge_end
     }
 
+}
+
+#[cfg(test)]
+impl Fleet {
+    pub(crate) fn fake_vcs(&self) -> &testkit::FakeVcs {
+        self.vcs.as_any().downcast_ref().expect("this Fleet holds a FakeVcs")
+    }
+    pub(crate) fn fake_work(&self) -> &testkit::FakeWorkProduct {
+        self.work.as_any().downcast_ref().expect("this Fleet holds a FakeWorkProduct")
+    }
 }

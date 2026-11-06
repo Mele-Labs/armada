@@ -14,15 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use super::tools_missing::Restart;
 use crate::daemon::Fleet;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Let go each hosted process between turns whose mod is older than Fleet's copy. **Called on
     /// the quiet sweep's timer, and by a test**, which would not wait for one. A process with a turn

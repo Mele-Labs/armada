@@ -16,15 +16,7 @@ use crate::daemon::Fleet;
 /// How often the notice loop looks: a resumed subagent reads as running within this.
 pub(crate) const EVERY: Duration = Duration::from_secs(2);
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every settled subagent of a live session whose transcript shows work after it settled is
     /// standing again, and its session published. An unchanged transcript costs a `stat`.

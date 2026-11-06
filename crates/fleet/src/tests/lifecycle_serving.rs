@@ -20,7 +20,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::peer::Placing;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 fn write(path: PathBuf, text: &str) {
     std::fs::create_dir_all(path.parent().expect("a folder")).expect("its folder");
@@ -456,9 +456,9 @@ async fn a_pull_requests_moves_are_listed_oldest_first_with_where_it_stood_befor
     forge_ran(&rig.fleet, passed());
     let (manifest_id, root) = (rig.manifest.clone(), rig.root.clone());
 
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
     rig.fleet.pull_ledger_kept_current(&manifest_id, &root).await;
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Merged)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Merged)));
     rig.fleet.pull_ledger_kept_current(&manifest_id, &root).await;
 
     let held = held_by(&rig, &id).await;
@@ -526,7 +526,7 @@ async fn bridge_is_told_when_a_job_takes_something_on_or_one_of_its_instances_mo
     assert!(lifecycle_events(&mut watching).await.is_empty(), "the same row again changes nothing");
 
     forge_ran(&rig.fleet, passed());
-    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
+    rig.fleet.fake_vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
     rig.fleet.pull_ledger_kept_current(&rig.manifest, &rig.root).await;
     let moved = lifecycle_events(&mut watching).await;
     assert_eq!(moved.len(), 1, "{moved:?}");

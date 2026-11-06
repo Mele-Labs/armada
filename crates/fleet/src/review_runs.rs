@@ -220,15 +220,7 @@ struct Plan {
     place: Option<WalkPlace>,
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every run kept or going for one pull request, newest first.
     pub(crate) async fn review_runs_read(
@@ -319,7 +311,7 @@ where
         // The head the forge says now, and what the model is told about the pull request.
         let number = start.number;
         let (facts, page) = self
-            .forge_asked(served.root(), move |vcs: &V, root: &str| {
+            .forge_asked(served.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 let named = number.to_string();
                 (vcs.pull_request_facts(root, &named), vcs.pull_request_page(root, &named))
             })
@@ -442,7 +434,7 @@ where
         let root = plan.pool.repo_root().to_string();
         let number = run.number;
         let diff = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_diff(root, &number.to_string()))
+            .forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.pull_request_diff(root, &number.to_string()))
             .await
             .ok_or_else(|| spent(format!("the forge would not give the diff of pull request {number}")))?;
 

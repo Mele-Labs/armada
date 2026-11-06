@@ -10,15 +10,7 @@ use ipc::{AskingToRun, ManifestId, ReadThought, RunOrNot, TellSession, ThoughtRe
 use crate::asks::unplaced;
 use crate::daemon::Fleet;
 
-impl<H, V, W> Surface for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Surface for Fleet
 {
     async fn ask_the_person(
         &self,

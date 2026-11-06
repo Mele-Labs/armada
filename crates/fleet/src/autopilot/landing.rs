@@ -15,15 +15,7 @@ use crate::daemon::Fleet;
 /// How much of a description the helper reads.
 const READ: usize = 1_500;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Land each green pull request the Jobs in scope hold. Answers how many it landed.
     pub(super) async fn pulls_landed(self: &Arc<Self>, helping: &mut Helping, jobs: &[Job]) -> usize {
@@ -40,7 +32,7 @@ where
             }
             for number in self.open_pulls_of(&job.id, manifest.as_str()).await {
                 let gate = gate.clone();
-                let read = self.forge_asked(&root, move |vcs: &V, root: &str| vcs.followed_pull(root, &gate, number)).await;
+                let read = self.forge_asked(&root, move |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.followed_pull(root, &gate, number)).await;
                 let Some(pull) = read else { continue };
                 // Green, mergeable and not already merging: a pull request that is none of these is not
                 // waiting on the person to land it.

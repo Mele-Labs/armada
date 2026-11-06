@@ -46,15 +46,7 @@ impl Mine {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Who the repository at `root`'s pull requests are mine by.
     pub(crate) async fn mine_in(&self, root: &str) -> Mine {
@@ -75,7 +67,7 @@ where
         if let Some(kept) = self.sweeping().lock().await.local_login.clone() {
             return Some(kept);
         }
-        let asked = self.forge_asked(root, |vcs: &V, root: &str| vcs.forge_login(root)).await;
+        let asked = self.forge_asked(root, |vcs: &dyn adapter_traits::DynVcs, root: &str| vcs.forge_login(root)).await;
         if let Some(login) = &asked {
             self.sweeping().lock().await.local_login = Some(login.clone());
         }

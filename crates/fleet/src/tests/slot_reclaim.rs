@@ -21,7 +21,7 @@ async fn a_session_told_its_slot_is_free(held: SlotAfterMerge) -> (Rig, SessionI
 
 async fn a_session_whose_slot_branch_merged(held: SlotAfterMerge, branch: &str) -> (Rig, SessionId) {
     let rig = rig_placing(None);
-    rig.fleet.vcs().slot_holds_after_merge(3, held);
+    rig.fleet.fake_vcs().slot_holds_after_merge(3, held);
     let id = rig.start().await;
     rig.send(&id, "do the thing").await;
     rig.stand_in.init(0);
@@ -32,12 +32,12 @@ async fn a_session_whose_slot_branch_merged(held: SlotAfterMerge, branch: &str) 
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     leased(&rig.root, 3, branch, By::Job(id.as_str()));
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
     let merged = merged_pull(branch, &rig);
     rig.fleet.sweeping().lock().await.merged.insert(rig.root.clone(), vec![merged]);
     let served = rig.fleet.repositories().served().remove(0);
     rig.fleet.pulls_told(&served).await;
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new(), "the notice alone gives nothing back");
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new(), "the notice alone gives nothing back");
     (rig, id)
 }
 
@@ -90,7 +90,7 @@ async fn an_idle_turn_after_the_notice_gives_the_slot_back() {
 
     the_turn_ends(&rig);
 
-    eventually(|| async { rig.fleet.vcs().parked_slots() == vec![(3, id.as_str().to_string())] }).await;
+    eventually(|| async { rig.fleet.fake_vcs().parked_slots() == vec![(3, id.as_str().to_string())] }).await;
 }
 
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn a_slot_is_kept_when_the_session_started_new_work_in_it() {
     // The release runs behind the turn's end: give it the time a release would take.
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new());
     assert_eq!(said_to_the_session(&rig).len(), 1, "new work is not told anything");
 }
 
@@ -113,13 +113,13 @@ async fn a_dirty_slot_is_kept_and_its_holder_told_what_keeps_it_once() {
     the_turn_ends(&rig);
     eventually(|| async { said_to_the_session(&rig).len() == 2 }).await;
     assert!(said_to_the_session(&rig)[1].contains("slot-3 is kept: 2 uncommitted, first src/a.rs."));
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new());
 
     // The turn that word started ends too, with the slot as it was: nothing is said again.
     the_turn_ends(&rig);
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     assert_eq!(said_to_the_session(&rig).len(), 2);
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new());
 }
 
 #[tokio::test]
@@ -130,7 +130,7 @@ async fn unpushed_commits_keep_the_slot_and_are_named() {
 
     eventually(|| async { said_to_the_session(&rig).len() == 2 }).await;
     assert!(said_to_the_session(&rig)[1].contains("slot-3 is kept: 1 commit on no remote or base."));
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new());
 }
 
 #[tokio::test]
@@ -146,7 +146,7 @@ async fn a_slot_nobody_told_is_not_given_back_at_a_turn_s_end() {
     eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new());
 }
 
 /// A review bay sits on a private `review/<holder>` branch and is never a session's to be offered or
@@ -159,5 +159,5 @@ async fn a_review_bay_is_neither_told_nor_given_back() {
     the_turn_ends(&rig);
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
-    assert_eq!(rig.fleet.vcs().parked_slots(), Vec::new());
+    assert_eq!(rig.fleet.fake_vcs().parked_slots(), Vec::new());
 }

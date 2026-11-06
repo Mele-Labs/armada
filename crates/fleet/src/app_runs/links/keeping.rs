@@ -19,15 +19,7 @@ pub(crate) fn candidates_of(view: &RunView) -> Vec<Candidate> {
         .collect()
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every fact a repository remembers.
     pub(crate) async fn links_facts(&self, root: &str) -> Vec<KeptRun> {

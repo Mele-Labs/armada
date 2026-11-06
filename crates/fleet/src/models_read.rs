@@ -40,15 +40,7 @@ impl ModelsHeld {
 const NOT_ASKED: &str = "The agent has not been asked for its models yet.";
 const NO_READER: &str = "Nothing here can ask the agent for its models.";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// What asks the harness, handed in by the composition root once Fleet is built.
     pub fn reading_models_with(&self, reader: Arc<dyn ModelReader>) {

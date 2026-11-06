@@ -18,15 +18,7 @@ const PROCESS_UNNAMED: &str = "fleet.process_unnamed";
 const PROCESS_NOT_THE_JOBS: &str = "fleet.process_not_the_jobs";
 const SYSTEM_READ_FAILED: &str = "fleet.system_read_failed";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `get_session_system`: the Job's processes and what they and its slot take, its worktrees and logs.
     /// Refused for a Job Fleet does not host. The readings run on a blocking thread.

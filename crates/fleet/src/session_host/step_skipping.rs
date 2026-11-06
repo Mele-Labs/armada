@@ -44,15 +44,7 @@ pub(crate) fn open_since(rows: &[SessionRow], since: &str) -> OpenOnStep {
     open
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `skip_session_step`: keep the skip, enter it on the timeline, take back what the agent opened on
     /// the step it is on, and tell a Job that has run.

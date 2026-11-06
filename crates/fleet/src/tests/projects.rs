@@ -17,7 +17,7 @@ use crate::repositories::{Located, SetUp};
 use crate::tests::daemon::fittings;
 use crate::tests::tmp::TempDir;
 
-pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet;
 
 pub(super) fn manifest(fleet: &Hosted) -> ManifestId {
     let served = fleet.repositories().first().expect("a served repository");

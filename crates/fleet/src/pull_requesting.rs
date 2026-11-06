@@ -193,8 +193,8 @@ impl PullRequestAsk {
 
 /// The pull request as the forge shows it. **Two asks, and either one silent is silent**: a
 /// state with no checks would let a merge be pressed on a guess.
-fn read_from_forge<V: TheForge>(
-    vcs: &V,
+fn read_from_forge(
+    vcs: &dyn adapter_traits::DynVcs,
     run: &ipc::RunId,
     ask: &PullRequestAsk,
 ) -> Result<PullRequestState, Refusal> {
@@ -238,15 +238,7 @@ fn read_from_forge<V: TheForge>(
     })
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     pub(crate) fn pr_refusal(&self, code: &'static str, message: impl Into<String>) -> WireError {
         WireError::raised(code, message, self.run_id())
@@ -466,15 +458,7 @@ where
     }
 }
 
-impl<H, V, W> PullRequests for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl PullRequests for Fleet
 {
     async fn get_pull_request(
         &self,

@@ -69,15 +69,7 @@ pub(crate) fn parse_repository(text: &str) -> Result<FlightControls, String> {
     Ok(controls)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Where the file is, and the place that holds it: the one Fleet's record has, `this_mac` absent
     /// a choice or where the choice would share it.

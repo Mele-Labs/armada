@@ -116,15 +116,7 @@ fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
     std::fs::write(&staged, text).and_then(|()| std::fs::rename(&staged, path))
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     fn flight_controls_path(&self) -> PathBuf {
         PathBuf::from(&self.host().kit_home).join(FILE)

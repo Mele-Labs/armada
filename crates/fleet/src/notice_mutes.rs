@@ -12,15 +12,7 @@ use crate::daemon::Fleet;
 const MUTE_UNNAMED: &str = "fleet.notice_mute_unnamed";
 const HOUR_MILLIS: i64 = 3_600_000;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// `set_notice_mute`. Answers with the body.
     pub(crate) async fn notice_mute_set(&self, asked: SetNoticeMute) -> Result<SetNoticeMute, Refusal> {

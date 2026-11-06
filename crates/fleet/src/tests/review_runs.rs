@@ -26,7 +26,7 @@ use crate::review_runs::answer_read;
 use crate::tests::daemon::{fittings, one, workflow_named};
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 /// What `a_page` says the head is.
 const HEAD: &str = "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e";
@@ -53,7 +53,7 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
     });
     fittings.judge = judge;
     let fleet = Fleet::assembled(fittings);
-    fleet.vcs().now_pull_request(Some(PullRequestFacts {
+    fleet.fake_vcs().now_pull_request(Some(PullRequestFacts {
         standing: PullRequestStanding::Open,
         branch: "fleet/pr-acts".into(),
         base: "main".into(),
@@ -63,8 +63,8 @@ pub(super) fn a_fleet_judged_by(home: &TempDir, judge: Arc<FakeJudge>) -> Arc<Fi
         body: Some("Run `just try`, then look at the page.".into()),
         closes: Vec::new(),
     }));
-    fleet.vcs().now_pull_request_page(Some(a_page()));
-    fleet.vcs().reading_pull_requests_at(HEAD);
+    fleet.fake_vcs().now_pull_request_page(Some(a_page()));
+    fleet.fake_vcs().reading_pull_requests_at(HEAD);
     Arc::new(fleet)
 }
 
@@ -126,11 +126,11 @@ async fn a_tool_run_keeps_its_findings_for_the_head_it_read_and_gives_the_bay_ba
     assert_eq!(judge.directories(), [Some(slot_path(&root, 1))]);
 
     // The bay was leased for this pull request and given back to the one that took it.
-    let leased = fleet.vcs().review_bays_leased();
+    let leased = fleet.fake_vcs().review_bays_leased();
     assert_eq!(leased.len(), 1);
     assert_eq!(leased[0].0, 12);
-    assert_eq!(fleet.vcs().review_bays_released(), [(1, leased[0].1.clone())]);
-    assert!(fleet.vcs().slot_holders(&root).iter().all(Option::is_none));
+    assert_eq!(fleet.fake_vcs().review_bays_released(), [(1, leased[0].1.clone())]);
+    assert!(fleet.fake_vcs().slot_holders(&root).iter().all(Option::is_none));
 
     // Three small events and nothing between: queued, running, done.
     let mut states = Vec::new();
@@ -165,8 +165,8 @@ async fn a_kept_result_answers_with_no_run_and_a_new_head_leaves_it_served_with_
     // The branch moves. The old answer is served beside the commit it read, and still runs nothing.
     let mut page = a_page();
     page.head = Some(NEXT_HEAD.into());
-    fleet.vcs().now_pull_request_page(Some(page));
-    fleet.vcs().reading_pull_requests_at(NEXT_HEAD);
+    fleet.fake_vcs().now_pull_request_page(Some(page));
+    fleet.fake_vcs().reading_pull_requests_at(NEXT_HEAD);
     let stale = Arc::clone(&fleet).start_review_run(id.clone(), start(ReviewRunKind::Tool, "risks", false)).await.expect("answered");
     assert_eq!((stale.state, stale.head.as_str()), (ReviewRunState::Done, HEAD));
     assert_eq!(judge.asked().len(), 1);
@@ -194,8 +194,8 @@ async fn an_answer_that_is_not_json_is_a_failed_run_with_its_reason_and_not_a_ke
     assert!(runs[0].result.is_none());
     let said = runs[0].failed.clone().expect("a reason");
     assert!(said.contains("JSON"), "{said}");
-    assert_eq!(fleet.vcs().review_bays_released().len(), 1, "a failed run gives its bay back too");
-    assert!(fleet.vcs().slot_holders(&root).iter().all(Option::is_none));
+    assert_eq!(fleet.fake_vcs().review_bays_released().len(), 1, "a failed run gives its bay back too");
+    assert!(fleet.fake_vcs().slot_holders(&root).iter().all(Option::is_none));
 
     // A failure is not a kept result: pressing again runs.
     Arc::clone(&fleet).start_review_run(id.clone(), start(ReviewRunKind::Tool, "risks", false)).await.expect("started");
@@ -220,13 +220,13 @@ async fn a_pull_request_that_moved_while_the_run_waited_is_not_read_at_the_wrong
     let judge = Arc::new(FakeJudge::saying(FINDINGS));
     let fleet = a_fleet_judged_by(&home, Arc::clone(&judge));
     let (id, _) = manifest(&fleet);
-    fleet.vcs().reading_pull_requests_at(NEXT_HEAD);
+    fleet.fake_vcs().reading_pull_requests_at(NEXT_HEAD);
     Arc::clone(&fleet).start_review_run(id.clone(), start(ReviewRunKind::Tool, "risks", false)).await.expect("started");
     let runs = settled(&fleet, &id).await;
     assert_eq!(runs[0].state, ReviewRunState::Failed);
     assert!(runs[0].failed.as_deref().unwrap_or_default().contains("moved"));
     assert!(judge.asked().is_empty(), "nothing was asked at the wrong commit");
-    assert_eq!(fleet.vcs().review_bays_released().len(), 1);
+    assert_eq!(fleet.fake_vcs().review_bays_released().len(), 1);
 }
 
 #[tokio::test]
@@ -234,10 +234,10 @@ async fn a_forge_that_will_not_give_the_head_starts_nothing() {
     let home = TempDir::new();
     let fleet = a_fleet_judged_by(&home, Arc::new(FakeJudge::saying(FINDINGS)));
     let (id, _) = manifest(&fleet);
-    fleet.vcs().now_pull_request_page(None);
+    fleet.fake_vcs().now_pull_request_page(None);
     let refused = Arc::clone(&fleet).start_review_run(id, start(ReviewRunKind::Tool, "risks", false)).await.unwrap_err();
     assert_eq!(code(&refused), "fleet.review_pull_request_unreadable");
-    assert!(fleet.vcs().review_bays_leased().is_empty());
+    assert!(fleet.fake_vcs().review_bays_leased().is_empty());
 }
 
 #[tokio::test]
@@ -253,7 +253,7 @@ async fn a_name_nobody_defined_and_a_blank_question_are_refused_before_anything_
     assert_eq!(code(&wrong), "fleet.review_unknown_tool");
     let blank = Arc::clone(&fleet).start_review_run(id, start(ReviewRunKind::Ask, "   ", false)).await.unwrap_err();
     assert_eq!(code(&blank), "fleet.review_blank");
-    assert!(judge.asked().is_empty() && fleet.vcs().review_bays_leased().is_empty());
+    assert!(judge.asked().is_empty() && fleet.fake_vcs().review_bays_leased().is_empty());
 }
 
 #[tokio::test]
@@ -280,7 +280,7 @@ async fn a_run_waits_queued_while_every_bay_is_held_and_goes_when_one_is_free() 
     let fleet = a_fleet_judged_by(&home, Arc::clone(&judge));
     let (id, root) = manifest(&fleet);
     for slot in 1..=8 {
-        fleet.vcs().hold_slot(&root, slot, "somebody");
+        fleet.fake_vcs().hold_slot(&root, slot, "somebody");
     }
     let started = Arc::clone(&fleet).start_review_run(id.clone(), start(ReviewRunKind::Tool, "risks", false)).await.expect("started");
     assert_eq!(started.state, ReviewRunState::Queued);
@@ -288,10 +288,10 @@ async fn a_run_waits_queued_while_every_bay_is_held_and_goes_when_one_is_free() 
     let waiting = fleet.get_review_runs(id.clone(), 12).await.expect("read").runs;
     assert_eq!(waiting[0].state, ReviewRunState::Queued, "nothing is read while no bay is free");
     assert!(judge.asked().is_empty());
-    fleet.vcs().free_slot(&root, 3);
+    fleet.fake_vcs().free_slot(&root, 3);
     let runs = settled(&fleet, &id).await;
     assert_eq!(runs[0].state, ReviewRunState::Done);
-    assert_eq!(fleet.vcs().review_bays_released()[0].0, 3);
+    assert_eq!(fleet.fake_vcs().review_bays_released()[0].0, 3);
 }
 
 #[tokio::test]
@@ -299,7 +299,7 @@ async fn a_run_the_last_process_left_going_ends_failed_and_its_bay_goes_back() {
     let home = TempDir::new();
     let fleet = a_fleet_judged_by(&home, Arc::new(FakeJudge::saying(FINDINGS)));
     let (id, root) = manifest(&fleet);
-    fleet.vcs().hold_slot(&root, 2, "review-left-behind");
+    fleet.fake_vcs().hold_slot(&root, 2, "review-left-behind");
     let left = store::KeptReviewRun {
         manifest_id: id.as_str().into(),
         number: 12,
@@ -320,7 +320,7 @@ async fn a_run_the_last_process_left_going_ends_failed_and_its_bay_goes_back() {
     let runs = fleet.get_review_runs(id, 12).await.expect("read").runs;
     assert_eq!(runs[0].state, ReviewRunState::Failed);
     assert!(runs[0].failed.as_deref().unwrap_or_default().contains("restarted"));
-    assert_eq!(fleet.vcs().review_bays_released(), [(2, "review-left-behind".to_string())]);
+    assert_eq!(fleet.fake_vcs().review_bays_released(), [(2, "review-left-behind".to_string())]);
 }
 
 // The definitions.
@@ -508,7 +508,7 @@ fn why_and_user_impact_and_text_are_held_to_their_shapes() {
 async fn a_listed_pull_request_names_the_session_that_holds_it() {
     let home = TempDir::new();
     let fleet = a_fleet_judged_by(&home, Arc::new(FakeJudge::saying(FINDINGS)));
-    fleet.vcs().main_ci.login_is(Some("NickMele"));
+    fleet.fake_vcs().main_ci.login_is(Some("NickMele"));
     let pull = |number: u64| ListedPull {
         repository: "mele-labs/armada".into(),
         number,
@@ -524,9 +524,9 @@ async fn a_listed_pull_request_names_the_session_that_holds_it() {
         team: None,
     };
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned] {
-        fleet.vcs().now_review_list(list, Vec::new());
+        fleet.fake_vcs().now_review_list(list, Vec::new());
     }
-    fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(12), pull(13)]);
+    fleet.fake_vcs().now_review_list(ReviewList::Mine, vec![pull(12), pull(13)]);
     a_session_holding_pull_request_12(&fleet, "s-held").await;
     let lists = fleet.get_review_lists().await.expect("read");
     let held = lists.mine.iter().find(|row| row.number == 12).unwrap().holder.clone();

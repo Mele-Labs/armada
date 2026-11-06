@@ -10,7 +10,7 @@ use crate::daemon::Fleet;
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
-type Fixture = Fleet<FakeHarness, testkit::FakeVcs, FakeWorkProduct>;
+type Fixture = Fleet;
 
 fn adding(name: &str) -> ipc::AddKitServer {
     ipc::AddKitServer {

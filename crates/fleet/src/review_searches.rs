@@ -149,15 +149,7 @@ fn brief(words: &str, open: &[Open], touched: &[(String, Vec<String>)]) -> Strin
     )
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Every search kept or going, newest first. A search the last Fleet left going ends failed here.
     pub(crate) async fn review_searches_read(&self) -> Result<ReviewRuns, Refusal> {
@@ -253,7 +245,7 @@ where
         // The open list names no one, so a missing login is not a reason to refuse.
         let login = self.mine_in(from.root()).await.login().unwrap_or_default().to_string();
         let pulls = self
-            .forge_asked(from.root(), move |vcs: &V, root: &str| {
+            .forge_asked(from.root(), move |vcs: &dyn adapter_traits::DynVcs, root: &str| {
                 vcs.pull_review_list(
                     root,
                     &ReviewListAsk { list: ReviewList::Open, login: &login, repositories: &repositories, most: OPEN_AT_MOST },

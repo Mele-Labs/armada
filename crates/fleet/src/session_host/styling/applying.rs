@@ -46,15 +46,7 @@ pub(super) fn sources_for(look: &Look, named: Option<&str>) -> Result<StyleSourc
     Ok(found)
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Where the Job works and what the walk starts from. **Reuses what Fleet already keeps**: the
     /// files it wrote (`session_touches`), the calls on its thread, and the paths of its plan.
@@ -148,15 +140,7 @@ impl PageStyles {
     }
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Keep the style set of each `mock` of each sketch the page embeds. **The page is not
     /// rewritten**, because `keep` compares its bytes with the newest revision, so the hashes are

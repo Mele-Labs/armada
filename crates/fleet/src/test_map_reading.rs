@@ -216,15 +216,7 @@ pub(crate) fn named_in(reply: &str, tests: &[String]) -> Vec<String> {
     named
 }
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// Main moved to `tip` and `changed` is what moved. Read, at most [`FILES_A_MOVE`] of the
     /// files that changed or were left by an earlier move, those no collector can measure.

@@ -294,7 +294,7 @@ async fn a_merge_closes_no_issue_the_job_held() {
             )
             .unwrap();
     }
-    let forge = &boat.rig.fleet.vcs().main_ci;
+    let forge = &boat.rig.fleet.fake_vcs().main_ci;
     forge.followed_are(Some(Vec::new()));
     forge.recently_merged_are(Some(vec![RecentlyMerged {
         number: 1,

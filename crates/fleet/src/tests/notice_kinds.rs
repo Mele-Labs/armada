@@ -27,7 +27,7 @@ async fn notices_of(rig: &Rig, id: &str) -> Vec<Option<String>> {
 async fn a_failed_check_is_told_as_pr_checks_failed() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
     forge.log_of("31", "FAIL tests::one\n");
     forge.followed_are(Some(vec![failing(7)]));
@@ -44,8 +44,8 @@ async fn a_merge_is_told_as_pr_merged() {
     let session = rig.a_hosted_session_on(1).await;
     rig.holds(Holder::session(&session), "pr", "1", AttachmentState::Spent).await;
     rig.holds(Holder::session(&session), "branch", "armada/1", AttachmentState::GivenBack).await;
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
         number: 1,
         title: FromOutside::verbatim("Fix the reader"),
         branch: FromOutside::verbatim("armada/1"),
@@ -73,8 +73,8 @@ async fn a_merge_is_told_to_every_holder() {
         rig.holds(Holder::session(session), "pr", "1", AttachmentState::Spent).await;
         rig.holds(Holder::session(session), "branch", "armada/1", AttachmentState::GivenBack).await;
     }
-    rig.fleet.vcs().main_ci.followed_are(Some(Vec::new()));
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(Vec::new()));
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
         number: 1,
         title: FromOutside::verbatim("Fix the reader"),
         branch: FromOutside::verbatim("armada/1"),

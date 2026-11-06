@@ -16,7 +16,7 @@ use crate::tests::tmp::TempDir;
 const FIRST: &str = "01FIXTUREMANIFEST";
 const SECOND: &str = "01SECONDMANIFEST";
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Hosted = Fleet;
 
 /// The fixture's repository, which names no tracker, and a second that names Jira.
 fn two_repositories(home: &TempDir, trackers: Arc<FakeTrackers>) -> Hosted {

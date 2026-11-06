@@ -28,15 +28,7 @@ pub(crate) const IS_ARMADAS: &str = "fleet.workflow_is_armadas";
 /// Armada carries no definition of the id to reset a copy to. A 422.
 const NOT_CARRIED: &str = "fleet.workflow_not_carried";
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
     /// The refusal for an id with no definition in `source`, or none that runs where `source` is absent.
     pub(crate) fn no_such_definition(&self, workflow_id: &str, source: Option<&str>) -> Refusal {

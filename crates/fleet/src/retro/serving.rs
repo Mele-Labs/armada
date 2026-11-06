@@ -69,15 +69,7 @@ pub(crate) fn session_lesson_of(
     }
 }
 
-impl<H, V, W> Retros for Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Retros for Fleet
 {
     /// Every written retro's items, newest first, narrowed to one repository's
     /// Sessions where one is named, to where each fix lands where that is, and to

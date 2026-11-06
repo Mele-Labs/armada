@@ -16,7 +16,7 @@ use super::pull_notices::{a_rig, failing, pull, written_by, Rig};
 
 /// What the forge answers for `pull` read by number, and its standing.
 fn the_forge_shows(rig: &Rig, standing: PullRequestStanding, followed: Vec<FollowedPull>) {
-    let vcs = rig.fleet.vcs();
+    let vcs = rig.fleet.fake_vcs();
     let failed = followed.iter().any(FollowedPull::failed);
     if let Some(one) = followed.first() {
         vcs.now_pull_request(Some(PullRequestFacts {
@@ -85,7 +85,7 @@ async fn on_the_merge_line(rig: &Rig) -> Vec<(u64, String)> {
 
 /// The merge line as the hub's own listing reads it.
 async fn the_hub_lists(rig: &Rig, pulls: Vec<OpenPull>) {
-    rig.fleet.vcs().main_ci.pulls_are(Some(pulls));
+    rig.fleet.fake_vcs().main_ci.pulls_are(Some(pulls));
     let served = rig.fleet.repositories().served().remove(0);
     assert!(rig.fleet.notice_pulls(&served).await);
 }
@@ -94,7 +94,7 @@ async fn the_hub_lists(rig: &Rig, pulls: Vec<OpenPull>) {
 async fn a_refresh_tells_a_failed_check_to_the_session_that_holds_the_pull_request_once() {
     let rig = a_rig();
     rig.a_hosted_session_on(7).await;
-    let forge = &rig.fleet.vcs().main_ci;
+    let forge = &rig.fleet.fake_vcs().main_ci;
     forge.runs_on(ONE, vec![run("test", "31", CiState::Failed)]);
     forge.log_of("31", "FAIL tests::one\n");
     the_forge_shows(&rig, PullRequestStanding::Open, vec![failing(7)]);
@@ -133,7 +133,7 @@ async fn a_pull_request_the_pull_reading_saw_queued_and_a_refresh_sees_out_is_to
     let rig = a_rig();
     rig.a_hosted_session_on(10).await;
     let queued = FollowedPull { queue: PullQueue::Waiting, ..pull(10, Vec::new()) };
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![queued]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![queued]));
     rig.reads().await;
 
     the_forge_shows(&rig, PullRequestStanding::Open, vec![pull(10, Vec::new())]);
@@ -146,7 +146,7 @@ async fn a_pull_request_the_pull_reading_saw_queued_and_a_refresh_sees_out_is_to
     };
     assert!(line.contains("#10 left the merge queue"), "{line}");
 
-    rig.fleet.vcs().main_ci.followed_are(Some(vec![pull(10, Vec::new())]));
+    rig.fleet.fake_vcs().main_ci.followed_are(Some(vec![pull(10, Vec::new())]));
     rig.reads().await;
     assert_eq!(rig.runs_sent_to_the_session().len(), 1, "the pull reading does not tell it again");
 }
@@ -174,7 +174,7 @@ async fn a_refresh_tells_the_persons_own_pull_request_and_not_another_authors() 
     let rig = a_rig();
     rig.a_hosted_session_on(8).await;
     let theirs = rig.a_hosted_session_on(9).await;
-    rig.fleet.vcs().main_ci.login_is(Some("octocat"));
+    rig.fleet.fake_vcs().main_ci.login_is(Some("octocat"));
     let conflicting = |number| FollowedPull { conflicting: true, ..pull(number, Vec::new()) };
     the_forge_shows(
         &rig,
@@ -199,7 +199,7 @@ async fn a_refresh_of_a_merged_pull_request_tells_the_merge_and_takes_it_off_the
     rig.a_hosted_session_on(1).await;
     the_hub_lists(&rig, vec![listed(1, "Fix the reader"), listed(9, "Another")]).await;
     the_forge_shows(&rig, PullRequestStanding::Merged, vec![pull(1, Vec::new())]);
-    rig.fleet.vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
+    rig.fleet.fake_vcs().main_ci.recently_merged_are(Some(vec![RecentlyMerged {
         number: 1,
         title: FromOutside::verbatim("Fix the reader"),
         branch: FromOutside::verbatim("armada/1"),
@@ -233,7 +233,7 @@ async fn a_refresh_puts_what_the_forge_shows_now_on_the_merge_line() {
     the_hub_lists(&rig, vec![listed(7, "Before"), listed(9, "Another")]).await;
     the_forge_shows(&rig, PullRequestStanding::Open, vec![pull(7, Vec::new())]);
     rig.fleet
-        .vcs()
+        .fake_vcs()
         .main_ci
         .open_by_number_are(vec![listed(7, "After"), listed(12, "Not listed yet")]);
 

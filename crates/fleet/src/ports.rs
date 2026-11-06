@@ -396,15 +396,7 @@ pub fn port_map(manifest: &Manifest, claim: &PortClaim) -> BTreeMap<String, u16>
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use crate::daemon::Fleet;
 
-impl<H, V, W> Fleet<H, V, W>
-where
-    H: AgentHarness + Send + Sync + 'static,
-    H::Error: std::error::Error + Send + Sync + 'static,
-    V: Vcs + Delivery + Send + Sync + 'static,
-    V::Error: std::error::Error + Send + Sync + 'static,
-    V::CommitError: std::error::Error + Send + Sync + 'static,
-    W: WorkProduct + Send + Sync + 'static,
-    W::Error: std::error::Error + Send + Sync + 'static,
+impl Fleet
 {
 
     /// Claim a span for `claimant`, sized from the Manifest's `ports:` and

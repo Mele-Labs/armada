@@ -49,7 +49,7 @@ fn here(rig: &Rig) -> String {
     rig.manifest.as_str().to_string()
 }
 
-fn two_workflows(fittings: &mut crate::daemon::Fittings<testkit::FakeHarness, testkit::FakeVcs, testkit::FakeWorkProduct>) {
+fn two_workflows(fittings: &mut crate::daemon::Fittings) {
     fittings.starting().workflows =
         ["bug", "feature"].into_iter().map(super::daemon::workflow_named).map(|one| (one.id().clone(), one)).collect();
 }

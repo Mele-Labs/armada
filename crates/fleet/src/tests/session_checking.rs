@@ -79,7 +79,7 @@ async fn a_session_check_row_carries_what_the_run_was_narrowed_to() {
     assert_eq!(target_of(plain), None);
 }
 
-async fn a_running_check(fleet: &Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>, root: &str) -> (String, u64) {
+async fn a_running_check(fleet: &Fleet, root: &str) -> (String, u64) {
     let slot = leased(root, 2, "fleet/topic", By::Job("s1"));
     fleet
         .report_session(SessionReport {

@@ -17,7 +17,7 @@ use crate::tests::daemon::a_fleet;
 use crate::tests::session_host::eventually;
 use crate::tests::tmp::TempDir;
 
-type Running = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+type Running = Fleet;
 
 const ID: &str = "s1";
 
