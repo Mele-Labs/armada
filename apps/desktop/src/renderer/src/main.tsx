@@ -7,6 +7,7 @@ import "./spacious-thread.css";
 import "@armada/components/src/look";
 import { startMotionRules } from "./still";
 import { wireJobBrowsers } from "./job-browser/store";
+import { wireFailureReports } from "./report-failure";
 
 startMotionRules();
 // Every Job's thread is drawn with room to read (`spacious-thread.css`).
@@ -15,6 +16,9 @@ watchClippedText();
 
 // Each Job's browser, held in main: the store folds what it shows, and the side panel opens where main asks.
 if (window.armada.jobBrowser !== undefined) wireJobBrowsers(window.armada.jobBrowser);
+
+// Each failure card drawn, sent to the Operator: `report-failure.ts`.
+wireFailureReports((error) => window.armada.reportBridgeError(error));
 
 // Dimmed behind a walk window that has focus — `styles/index.css`, `data-walking`.
 window.armada.onWalkFocus((focused) => {

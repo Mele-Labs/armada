@@ -55,6 +55,7 @@ import { PlanUsageHost } from "./plan-usage";
 import { ModelDownshiftHost } from "./model-downshift";
 import { ProjectsHost } from "./projects";
 import { BugReportsHost } from "./bug-reports";
+import { OperatorErrorsHost } from "./operator-errors";
 import { LifecyclesHost } from "./lifecycles";
 import { AgentSignInHost } from "./agent-sign-in";
 import { ClashesHost } from "./clashes";
@@ -184,6 +185,10 @@ export class FleetConnection {
   readonly projects: ProjectsHost = new ProjectsHost(() => this.connected()?.port ?? null);
   /** Bugs agents reported in Armada — `bug-reports.ts`. */
   readonly bugReports: BugReportsHost = new BugReportsHost(() => this.connected()?.port ?? null);
+  /** The failure cards Bridge showed, sent to the Operator — `operator-errors.ts`. */
+  readonly operatorErrors: OperatorErrorsHost = new OperatorErrorsHost(
+    () => this.connected()?.port ?? null,
+  );
   /** Workspaces, lifecycles and rules, and where a Job's instances stand — `lifecycles.ts`. */
   readonly lifecycles: LifecyclesHost = new LifecyclesHost(() => this.connected()?.port ?? null);
   /** The agents' sign-in — `agent-sign-in.ts`. */

@@ -98,6 +98,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn report_bridge_error(self: Arc<Self>, _error: ipc::operator_errors::ReportBridgeError) -> Result<ipc::operator_errors::BridgeErrorTaken, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn answer_operator_suggestion(self: Arc<Self>, _answer: ipc::operator_board::AnswerOperatorSuggestion) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
         Err(nothing_hosted())
     }

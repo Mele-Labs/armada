@@ -31,6 +31,8 @@ pub enum Arrived {
     Later,
     /// A note the person left on Bridge, for a small thing or an idea.
     Note,
+    /// An error Bridge showed the person, which goes first in the order.
+    Error,
 }
 
 impl Arrived {
@@ -48,11 +50,12 @@ impl Arrived {
             Arrived::Review => "review",
             Arrived::Later => "later",
             Arrived::Note => "note",
+            Arrived::Error => "error",
         }
     }
 
     /// Every kind there is.
-    pub(super) const EVERY: [Arrived; 12] = [
+    pub(super) const EVERY: [Arrived; 13] = [
         Arrived::Start,
         Arrived::Question,
         Arrived::Card,
@@ -65,6 +68,7 @@ impl Arrived {
         Arrived::Review,
         Arrived::Later,
         Arrived::Note,
+        Arrived::Error,
     ];
 
     /// What a word from the store names.
@@ -87,6 +91,7 @@ impl Arrived {
             Arrived::Review => "review requests",
             Arrived::Later => "Later items",
             Arrived::Note => "notes",
+            Arrived::Error => "errors",
         }
     }
 
@@ -102,7 +107,7 @@ impl Arrived {
 
     /// Work from outside a Job's own run, which [`super::Acting::sourced`] does what is ruled on.
     pub fn is_sourced(self) -> bool {
-        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note)
+        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Error)
     }
 
     /// Put to a call for its read even where Fleet's rules leave it one way: the person meets it
@@ -126,6 +131,7 @@ impl Arrived {
             Arrived::Review => "A review was requested of the person",
             Arrived::Later => "A Job handed over a Later item",
             Arrived::Note => "The person left a note",
+            Arrived::Error => "Bridge showed the person an error",
         }
     }
 }
@@ -151,6 +157,8 @@ pub enum Source {
     Tracker,
     /// The forge, for someone else's pull request: words from off this machine.
     Forge,
+    /// Bridge, for an error it showed the person.
+    Bridge,
 }
 
 impl Source {
@@ -165,6 +173,7 @@ impl Source {
             Source::Person => "person",
             Source::Tracker => "tracker",
             Source::Forge => "forge",
+            Source::Bridge => "bridge",
         }
     }
 
@@ -187,6 +196,7 @@ impl Source {
             Source::Person => "by the person's own hand".to_string(),
             Source::Tracker => "from the tracker".to_string(),
             Source::Forge => "from the forge".to_string(),
+            Source::Bridge => "from Bridge".to_string(),
         }
     }
 }

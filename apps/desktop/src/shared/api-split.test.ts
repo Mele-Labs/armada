@@ -268,6 +268,7 @@ import { JOB_WALK_CHANNELS, type JobWalkApi } from "./api/job-walk";
 import { VOICE_CHANNELS, type VoiceApi } from "./api/voice";
 import { PROJECTS_CHANNELS, type ProjectsApi } from "./api/projects";
 import { BUG_REPORTS_CHANNELS, type BugReportsApi } from "./api/bug-reports";
+import { OPERATOR_ERRORS_CHANNELS, type OperatorErrorsApi } from "./api/operator-errors";
 import { LIFECYCLES_CHANNELS, type LifecyclesApi } from "./api/lifecycles";
 import type {
   ActFailed,
@@ -760,6 +761,7 @@ type OldBridgeApi = {
   VoiceApi &
   ProjectsApi &
   BugReportsApi &
+  OperatorErrorsApi &
   LifecyclesApi &
   PullRequestNotesApi;
 
@@ -1148,6 +1150,7 @@ const OLD_CHANNELS = {
   ...VOICE_CHANNELS,
   ...PROJECTS_CHANNELS,
   ...BUG_REPORTS_CHANNELS,
+  ...OPERATOR_ERRORS_CHANNELS,
   ...LIFECYCLES_CHANNELS,
   ...PULL_REQUEST_NOTES_CHANNELS,
 } as const;

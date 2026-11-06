@@ -13,6 +13,7 @@ export * from "./Boundary";
 export * from "./CopiedToast";
 export * from "./failures";
 export * from "./FailureSurface";
+export * from "./failure-shown";
 export * from "./FleetNotice";
 export * from "./fleet";
 export * from "./floor";
