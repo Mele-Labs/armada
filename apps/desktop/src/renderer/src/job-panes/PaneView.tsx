@@ -353,6 +353,24 @@ function TabButton({
       window.setTimeout(() => askComposerFocus(jobId), 60);
     }
   };
+  const mark =
+    job !== undefined ? (
+      <span className="job-pane__state">
+        <SessionMark state={job.state} said={job.said} />
+      </span>
+    ) : asking ? (
+      <span className="job-pane__asks">
+        <SessionMark state="waiting" said="Waiting on you" />
+      </span>
+    ) : working ? (
+      <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
+        <span className="job-pane__working" role="img" aria-label={modJob?.title ?? "Mod Job"}>
+          <LoaderCircle size={16} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+    ) : (
+      <Glyph size={16} strokeWidth={2} aria-hidden />
+    );
   return (
     <div
       className="job-pane__tab"
@@ -392,7 +410,11 @@ function TabButton({
         onSummoned={() => setSummon(false)}
       >
         {renaming ? (
-          <RenameField label={label} onDone={rename} onCancel={() => setRenaming(false)} />
+          // Only the name turns into the field: the mark, More and Close keep their places.
+          <span className="job-pane__label" data-renaming="">
+            {mark}
+            <RenameField label={label} onDone={rename} onCancel={() => setRenaming(false)} />
+          </span>
         ) : (
           <button
             type="button"
@@ -423,27 +445,7 @@ function TabButton({
               });
             }}
           >
-            {job !== undefined ? (
-              <span className="job-pane__state">
-                <SessionMark state={job.state} said={job.said} />
-              </span>
-            ) : asking ? (
-              <span className="job-pane__asks">
-                <SessionMark state="waiting" said="Waiting on you" />
-              </span>
-            ) : working ? (
-              <Tooltip label={modJob?.title ?? "Mod Job"} asChild>
-                <span
-                  className="job-pane__working"
-                  role="img"
-                  aria-label={modJob?.title ?? "Mod Job"}
-                >
-                  <LoaderCircle size={16} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            ) : (
-              <Glyph size={16} strokeWidth={2} aria-hidden />
-            )}
+            {mark}
             {job === undefined ? (
               <span className="job-pane__name">{label}</span>
             ) : (

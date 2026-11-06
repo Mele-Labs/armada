@@ -24,7 +24,11 @@ const jobHeadInTab = walk("thread-states", [
   },
   {
     press: role("menuitem", "Rename"),
-    say: "Rename edits the name in the tab",
+    say: "Rename selects the name where it stands, ready to type over",
+  },
+  {
+    look: role("textbox", "Rename Staging migration"),
+    say: "The mark, More and Close keep their places",
   },
   {
     key: "Escape",
