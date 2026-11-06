@@ -140,7 +140,20 @@ where
 
     async fn lived(&self, plan: &Plan, log: &Path, stopped: watch::Receiver<bool>) -> End {
         if let Some((group, started)) = &plan.adopted {
-            return watched(*group, started, stopped).await;
+            let mut watching = std::pin::pin!(watched(*group, started, stopped));
+            let (Some(ready), ServerPhase::Starting) = (&plan.ready, plan.now.borrow().phase) else {
+                return watching.await;
+            };
+            // **Recorded before `ready` passed**, so it is asked again as it is for a fresh
+            // start, and the server is watched while it is. One that ends first is a failed start.
+            let passed = async { while !ready_asked(plan, ready).await {} };
+            tokio::select! {
+                end = &mut watching => return end,
+                () = passed => {}
+            }
+            self.now_serving(plan);
+            self.recorded_server(plan, Some(group.get())).await;
+            return watching.await;
         }
         let path = plan.worktree.as_path();
         if let Some(run) = &plan.run {
@@ -190,27 +203,11 @@ where
         if let Some(group) = served.group().and_then(NonZeroU32::new) {
             crate::tests::tmp::spawned_in(group, path);
         }
-        self.recorded_server(plan, &served).await;
+        self.recorded_server(plan, served.group()).await;
         if let Some(ready) = &plan.ready {
             marked(log, &format!("--- waiting for `ready`: {ready} ---"));
             loop {
-                let asked = async {
-                    let answered = checks_runner::run_until(
-                        ready,
-                        path,
-                        ONE_ASK,
-                        Writing::Nowhere,
-                        &plan.env,
-                        std::future::pending(),
-                        checks_runner::Priority::Normal,
-                    )
-                    .await;
-                    let up = answered.exit == Exit::Code(0);
-                    if !up {
-                        tokio::time::sleep(ASKING_EVERY).await;
-                    }
-                    up
-                };
+                let asked = ready_asked(plan, ready);
                 // The server is watched while `ready` is asked, not only
                 // between asks: one that dies on its first line is the
                 // ordinary shape of a port conflict, and reads as a failure
@@ -229,7 +226,7 @@ where
             }
         }
         self.now_serving(plan);
-        self.recorded_server(plan, &served).await;
+        self.recorded_server(plan, served.group()).await;
         // The group is ended on both roads out, so a server that fell over
         // leaves no child of its own holding the port.
         tokio::select! {
@@ -247,14 +244,19 @@ where
     /// What finds this server again if Fleet stops or crashes before it ends —
     /// [`super::left`], written when it starts and again when it is serving. A start time that will not read leaves no record,
     /// because a record nothing can confirm is one startup must not act on.
-    async fn recorded_server(&self, plan: &Plan, served: &Served) {
-        let Some(group) = served.group() else {
+    async fn recorded_server(&self, plan: &Plan, group: Option<u32>) {
+        let Some(group) = group else {
             return;
         };
         let state = plan.now.borrow().clone();
         let started = tokio::task::spawn_blocking(move || holder_of(group)).await;
         if let Ok(Ok(crate::process::Holder::Held(started))) = started {
-            let _ = super::left::recorded(&plan.dir, &state, &plan.whose, group, &started);
+            let probe = super::left::Probe {
+                ready: plan.ready.clone(),
+                worktree: plan.worktree.to_string_lossy().into_owned(),
+                env: plan.env.clone(),
+            };
+            let _ = super::left::recorded(&plan.dir, &state, &probe, &plan.whose, group, &started);
         }
     }
 
@@ -270,6 +272,25 @@ where
             self.publish(Event::ServerServing(state.clone()));
         });
     }
+}
+
+/// One ask of `ready`, `true` when it passed. **A command polled, never a duration waited out.**
+async fn ready_asked(plan: &Plan, ready: &str) -> bool {
+    let answered = checks_runner::run_until(
+        ready,
+        plan.worktree.as_path(),
+        ONE_ASK,
+        Writing::Nowhere,
+        &plan.env,
+        std::future::pending(),
+        checks_runner::Priority::Normal,
+    )
+    .await;
+    let up = answered.exit == Exit::Code(0);
+    if !up {
+        tokio::time::sleep(ASKING_EVERY).await;
+    }
+    up
 }
 
 /// An adopted server, until it ends: asked after every [`WATCHING_EVERY`], since a process that

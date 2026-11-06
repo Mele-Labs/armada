@@ -12,7 +12,8 @@
 //! **A server outlives the Fleet that started it**, and the next one adopts it:
 //! where the group's leader is still the process recorded and the checkout it
 //! serves is still there, startup hands the record back as a [`Kept`] and the
-//! server goes back in the running set as it was. Anything else a record names
+//! server goes back in the running set as it was — starting again, with its
+//! `ready` asked afresh, where the record was written before that passed. Anything else a record names
 //! that is still running is ended — a server nobody holds would hold its port
 //! with nothing left to stop it.
 //!
@@ -25,6 +26,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use ipc::ServerState;
+use serde::{Deserialize, Serialize};
 
 use crate::process::{holder_of, Holder, StartedAt};
 
@@ -36,11 +38,24 @@ const RECORD: &str = "held";
 /// rather than run out by it.
 const GOING: u32 = 100;
 
+/// What asks a server that was still starting whether it is up, once another Fleet holds it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Probe {
+    /// The `ready` command, `${port.NAME}` resolved. None where the server declares none.
+    pub(crate) ready: Option<String>,
+    /// Where `ready` runs.
+    pub(crate) worktree: String,
+    /// The port variables it runs with.
+    pub(crate) env: Vec<(String, String)>,
+}
+
 /// Write one server's record, whole or not at all. **`state` is the row as it
-/// stands**, which is all the next Fleet needs to put the server back.
+/// stands, and `probe` how to ask whether it is up**, which is all the next
+/// Fleet needs to put the server back.
 pub(crate) fn recorded(
     dir: &Path,
     state: &ServerState,
+    probe: &Probe,
     whose: &str,
     group: u32,
     started: &StartedAt,
@@ -48,8 +63,10 @@ pub(crate) fn recorded(
     let id = &state.id;
     let row = ipc::encode(state)
         .map_err(|why| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string()))?;
+    let probe = ipc::encode(probe)
+        .map_err(|why| std::io::Error::new(std::io::ErrorKind::InvalidData, why.to_string()))?;
     let text = format!(
-        "server {id}\nholder {whose}\ngroup {group}\nstarted {started}\nstate {row}\n"
+        "server {id}\nholder {whose}\ngroup {group}\nstarted {started}\nstate {row}\nprobe {probe}\n"
     );
     let next = dir.join(format!("{RECORD}.next"));
     std::fs::write(&next, text)?;
@@ -65,6 +82,7 @@ pub(super) fn forgotten(dir: &Path) {
 /// running set. Its record is left where it is, for the end to remove.
 pub(crate) struct Kept {
     pub(crate) state: ServerState,
+    pub(crate) probe: Probe,
     pub(crate) group: NonZeroU32,
     pub(crate) started: StartedAt,
     /// Its own directory, which holds the log and the record.
@@ -99,7 +117,7 @@ pub(crate) fn reaped(records_root: &str, adopting: bool) -> (Reaped, Vec<Kept>) 
         &mut found,
     );
     for record in found {
-        let Some((group, started, state)) = read(&record) else {
+        let Some((group, started, state, probe)) = read(&record) else {
             // Nothing to confirm a process against, so nothing is killed.
             let _ = std::fs::remove_file(&record);
             reaped.left_alone += 1;
@@ -114,6 +132,7 @@ pub(crate) fn reaped(records_root: &str, adopting: bool) -> (Reaped, Vec<Kept>) 
                     reaped.adopted += 1;
                     kept.push(Kept {
                         state,
+                        probe,
                         group,
                         started,
                         dir: dir.to_path_buf(),
@@ -167,7 +186,7 @@ fn walked(dir: &Path, depth: u8, found: &mut Vec<PathBuf>) {
 
 /// The group and start time that identify the process, and the row where it
 /// can be read: a record without one is still ended, but never adopted.
-fn read(record: &Path) -> Option<(NonZeroU32, StartedAt, Option<ServerState>)> {
+fn read(record: &Path) -> Option<(NonZeroU32, StartedAt, Option<ServerState>, Probe)> {
     let text = std::fs::read_to_string(record).ok()?;
     let field = |key: &str| {
         text.lines().find_map(|line| {
@@ -178,5 +197,8 @@ fn read(record: &Path) -> Option<(NonZeroU32, StartedAt, Option<ServerState>)> {
     };
     let group = NonZeroU32::new(field("group")?.parse().ok()?)?;
     let state = field("state").and_then(|row| ipc::decode("a kept server row", row.as_bytes()).ok());
-    Some((group, StartedAt::carried(field("started")?), state))
+    let probe = field("probe")
+        .and_then(|row| ipc::decode("a kept server probe", row.as_bytes()).ok())
+        .unwrap_or_default();
+    Some((group, StartedAt::carried(field("started")?), state, probe))
 }

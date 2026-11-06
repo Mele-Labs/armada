@@ -817,6 +817,7 @@ Fleet holds its servers in memory, so beside each running server's log it keeps 
 > **Rule.** Fleet never ends or adopts a process without confirming it is still the one it recorded.
 > Why: a pid the system has since given another process must never be killed.
 
+A server whose record was written before its `ready` passed is held starting, and `ready` is asked again as for a fresh start.
 Fleet is not the parent of a server it took back, so it cannot wait on it.
 It asks after the process every two seconds, and a group that is gone is a server that ended, as an exit is.
 Stop ends the group as it does for any server.

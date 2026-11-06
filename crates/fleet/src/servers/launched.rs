@@ -162,13 +162,19 @@ where
     pub(super) fn adopted(self: &Arc<Self>, kept: Kept) {
         let Kept {
             mut state,
+            probe,
             group,
             started,
             dir,
         } = kept;
         let holder = Holder::Checkout(state.checkout.path.clone());
-        state.phase = ServerPhase::Serving;
-        state.serving_since.get_or_insert_with(|| ipc::Instant::from(&self.now()));
+        // **Recorded before `ready` passed, and with a `ready` to ask**: still starting, and asked
+        // again. Any other is serving, as its Fleet last said.
+        let starting = state.serving_since.is_none() && probe.ready.is_some();
+        if !starting {
+            state.phase = ServerPhase::Serving;
+            state.serving_since.get_or_insert_with(|| ipc::Instant::from(&self.now()));
+        }
         let (stop, stopped) = watch::channel(false);
         let now = Arc::new(watch::channel(state.clone()).0);
         let feed = api::RunFeed::new();
@@ -184,16 +190,19 @@ where
             return;
         };
         now.send_if_modified(|now| {
-            self.publish(Event::ServerServing(now.clone()));
+            self.publish(match starting {
+                true => Event::ServerStarting(now.clone()),
+                false => Event::ServerServing(now.clone()),
+            });
             false
         });
         let plan = Plan {
             whose: String::new(),
             run: None,
             serve: state.serve,
-            ready: None,
-            worktree: PathBuf::from(&state.checkout.path),
-            env: Vec::new(),
+            ready: probe.ready,
+            worktree: PathBuf::from(probe.worktree),
+            env: probe.env,
             dir,
             feed,
             now,

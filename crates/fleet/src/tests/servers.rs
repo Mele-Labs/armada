@@ -390,7 +390,8 @@ fn a_server_left_running(fleet: &Fixture, home: &TempDir, checkout: &str, port: 
         stopped: false,
         log: format!(".armada/servers/main/{id}/{}", crate::rehearsing::records::LOG),
     };
-    left::recorded(&dir, &state, "main-checkout", group.get(), &started).expect("its record");
+    let probe = left::Probe { worktree: home.path().to_string_lossy().into_owned(), ..left::Probe::default() };
+    left::recorded(&dir, &state, &probe, "main-checkout", group.get(), &started).expect("its record");
     drop(served);
     Left { state, group, started, dir }
 }
@@ -495,7 +496,8 @@ async fn a_reused_pid_is_neither_adopted_nor_ended() {
     let fleet = a_fleet_serving(&home, &api::Broadcaster::new());
     let left = a_server_left_running(&fleet, &home, fleet.first().root(), 40_003);
     let other = StartedAt::carried("Thu Jan  1 00:00:00 1970");
-    left::recorded(&left.dir, &left.state, "main-checkout", left.group.get(), &other).expect("rewritten");
+    left::recorded(&left.dir, &left.state, &left::Probe::default(), "main-checkout", left.group.get(), &other)
+        .expect("rewritten");
 
     let reaped = fleet.adopted_left_servers(fleet.first().records_root()).await;
     assert_eq!((reaped.adopted, reaped.ended, reaped.left_alone), (0, 0, 1));
@@ -544,4 +546,34 @@ async fn a_server_whose_checkout_is_gone_is_ended() {
     assert_eq!((reaped.adopted, reaped.ended), (0, 1));
     gone(&added).await;
     assert!(fleet.server_list().servers.is_empty());
+}
+
+/// **A server recorded before its `ready` passed is held starting, and asked again**: it moves to
+/// serving when the probe passes.
+#[tokio::test]
+async fn an_adopted_server_recorded_before_ready_is_starting_until_ready_passes() {
+    let home = TempDir::new();
+    let events = api::Broadcaster::new();
+    let fleet = a_fleet_serving(&home, &events);
+    let left = a_server_left_running(&fleet, &home, fleet.first().root(), 40_007);
+    let starting = ServerState { phase: ServerPhase::Starting, serving_since: None, ..left.state.clone() };
+    let probe = left::Probe {
+        ready: Some("/usr/bin/true".to_string()),
+        worktree: home.path().to_string_lossy().into_owned(),
+        env: Vec::new(),
+    };
+    left::recorded(&left.dir, &starting, &probe, "main-checkout", left.group.get(), &left.started)
+        .expect("rewritten");
+    let mut watching = events.subscribe();
+
+    fleet.adopted_left_servers(fleet.first().records_root()).await;
+    let held = fleet.server_list().servers;
+    let adopted = held.iter().find(|one| one.id == left.state.id).expect("it is held again");
+    assert_eq!(adopted.phase, ServerPhase::Starting, "not said to be up before `ready` passes");
+
+    let serving = serving(&mut watching, &left.state.id).await;
+    assert!(serving.serving_since.is_some());
+    let stopped = fleet.stopped_server(&left.state.id).await.expect("it stops");
+    assert!(stopped.stopped);
+    gone(&left).await;
 }
