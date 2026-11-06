@@ -122,19 +122,63 @@ async fn main() -> ExitCode {
         }
         Verb::Job(act) => armada::job::run(act),
         Verb::BuildRevert => build_reverted(),
+        Verb::BuildRehearse => build_rehearsed(),
+        Verb::BuildSettle { was } => build_settled(was),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
         Verb::WatchLine { reader, values } => watch_line(reader, values).await,
     }
 }
 
-/// Swap Fleet and Bridge back onto the build before this one, and say where they are now.
-fn build_reverted() -> ExitCode {
+/// Where the kept builds and the store are, or none and why on stderr.
+fn kept_support() -> Option<PathBuf> {
     let Some(home) = std::env::var_os("HOME") else {
         eprintln!("HOME is not set, so there are no kept builds to read");
+        return None;
+    };
+    Some(fleet::runtime::support_dir(&home.to_string_lossy()))
+}
+
+/// Open a copy of the store with this build, and say if it could not.
+fn build_rehearsed() -> ExitCode {
+    let Some(support) = kept_support() else {
         return ExitCode::FAILURE;
     };
-    let support = fleet::runtime::support_dir(&home.to_string_lossy());
+    match fleet::kept_builds::rehearse(&support, &fleet::kept_builds::OnThisMac) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Wait for the Fleet just booted to answer, or swap back and say why. Fails either way it did not answer.
+fn build_settled(was: Option<u32>) -> ExitCode {
+    let Some(support) = kept_support() else {
+        return ExitCode::FAILURE;
+    };
+    let label = fleet::kept_builds::fleet_label();
+    let stamp = fleet::kept_builds::stamp_now();
+    match fleet::kept_builds::settle(&support, &label, was, &stamp, &fleet::kept_builds::OnThisMac) {
+        Ok(fleet::kept_builds::Settled::Healthy) => ExitCode::SUCCESS,
+        Ok(fleet::kept_builds::Settled::SwappedBack { why, reverted }) => {
+            eprintln!("{why}");
+            eprintln!("Swapped back: Fleet runs {}, and {} is marked as one that did not come up", reverted.to.name, reverted.from.name);
+            ExitCode::FAILURE
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Swap Fleet and Bridge back onto the build before this one, and say where they are now.
+fn build_reverted() -> ExitCode {
+    let Some(support) = kept_support() else {
+        return ExitCode::FAILURE;
+    };
     // The same override `scripts/restart` reads, so a scratch Fleet's revert never reaches the owner's.
     let label = fleet::kept_builds::fleet_label();
     let stamp = fleet::kept_builds::stamp_now();
