@@ -354,7 +354,11 @@ test("a free loop the still mark's CSS paused is left to it", () => {
   advance(200);
 
   marks.add("data-still");
-  (spinner as unknown as { playState: string }).playState = "paused";
+  (
+    spinner as unknown as {
+      playState: string;
+    }
+  ).playState = "paused";
   advance(400);
   marks.delete("data-still");
   advance(200);
