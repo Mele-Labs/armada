@@ -376,19 +376,6 @@ impl Store {
         kept.commit().map_err(keeping)
     }
 
-    /// `calls` more tool calls by the Session's own agent. The count after them, or absent where the
-    /// Session has no plan, which counts nothing.
-    pub fn count_session_calls(&mut self, session_id: &str, calls: u32) -> Result<Option<u32>, WriteError> {
-        self.conn
-            .query_row(
-                "UPDATE session_plan SET calls = calls + ?2 WHERE session_id = ?1 RETURNING calls",
-                params![session_id, calls],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(keeping)
-    }
-
     /// Keep one file touch, and let go of the Session's oldest beyond `most`. **The same touch as the
     /// latest one, by the same hand, only moves its instant**: a file edited thirty times in a row is
     /// one touch. Whether a new one was kept.

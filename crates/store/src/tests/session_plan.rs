@@ -166,21 +166,6 @@ fn progress_moves_only_what_it_names_with_fleets_marks_and_touches() {
 }
 
 #[test]
-fn calls_are_counted_only_for_a_job_with_a_plan_and_a_recording_keeps_the_count() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    assert_eq!(store.count_session_calls("s1", 10).unwrap(), None, "no plan counts nothing");
-    store.keep_session_plan("s1", &plan(1, &[("t1", "One")])).unwrap();
-    assert_eq!(store.count_session_calls("s1", 10).unwrap(), Some(10));
-    assert_eq!(store.count_session_calls("s1", 3).unwrap(), Some(13));
-
-    let mut again = store.session_plan("s1").unwrap().unwrap();
-    again.version = 2;
-    store.keep_session_plan("s1", &again).unwrap();
-    assert_eq!(store.session_plan("s1").unwrap().unwrap().calls, 13);
-}
-
-#[test]
 fn touches_are_a_bounded_window_oldest_first_and_a_repeat_by_the_same_hand_is_one() {
     let dir = TempDir::new();
     let mut store = open(&dir);
