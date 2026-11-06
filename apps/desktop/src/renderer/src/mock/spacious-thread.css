@@ -11,7 +11,7 @@
 
 /* ---- One centred column. The rows, Needs you and the composer share its width. ---- */
 :root[data-thread-take="spacious"][data-look] .deck {
-  --body-pad: var(--space-6) var(--space-6) var(--space-4);
+  --body-pad: 0 var(--space-6) var(--space-4);
 }
 
 :root[data-thread-take="spacious"][data-look] .armada-session-thread__rows,
@@ -25,7 +25,21 @@
 /* The rows scroll, which clips what stands past them: room each side for a hovered line's wash and its bar. */
 :root[data-thread-take="spacious"][data-look] .armada-session-thread__rows {
   max-width: calc(var(--spacious-column) + var(--space-6));
-  padding-inline: var(--space-3);
+  padding: var(--space-6) var(--space-3) 0;
+}
+
+/* Messages scrolled past fade out under the Job's head, and into the composer at the foot, rather than stopping at an edge.
+   A mask on the scroll area, so it is transparency and no colour of its own. */
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows {
+  --spacious-fade-top: var(--space-8);
+  --spacious-fade-foot: var(--space-4);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--spacious-fade-top),
+    #000 calc(100% - var(--spacious-fade-foot)),
+    transparent 100%
+  );
 }
 
 /* ---- Turns parted by space. ---- */
