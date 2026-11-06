@@ -7,6 +7,7 @@
 //! whole lines it grew by.
 
 use std::io::Write;
+use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -19,12 +20,20 @@ use verification::{Exit, NeverRan};
 use super::held::Held;
 use crate::daemon::Fleet;
 use crate::ports::PortProbe;
+use crate::process::{holder_of, StartedAt};
 use crate::rehearsing::records;
 
 /// How often `ready` is asked — `crate::showing`'s interval for the evidence
 /// harness's. **A command polled, never a duration waited out**: nothing here
 /// decides a server is up because time passed.
 const ASKING_EVERY: Duration = Duration::from_millis(250);
+
+/// How often an adopted server is asked after. It is a `ps` each, and a server that
+/// fell over is told to a person within this.
+const WATCHING_EVERY: Duration = Duration::from_secs(2);
+
+/// How often a stopped adopted server is asked after, until its leader has gone.
+const GOING_EVERY: Duration = Duration::from_millis(50);
 
 /// The most one ask of `ready` may take. A probe that hangs is ended and asked
 /// again, rather than holding the server at `starting` for good.
@@ -45,11 +54,17 @@ pub(crate) struct Plan {
     /// merge that moved the checkout can write the row too — see
     /// [`super::held::Servers::moved_on`].
     pub(crate) now: std::sync::Arc<watch::Sender<ServerState>>,
+    /// The group and start time of a server a Fleet before this one started, and this one took
+    /// back. **Not this process's child**, so it cannot be waited on: it is watched by asking
+    /// whether the process at the group is still the one that started then.
+    pub(crate) adopted: Option<(NonZeroU32, StartedAt)>,
 }
 
 struct End {
     exit: Exit,
     stopped: bool,
+    /// Ended while held by a Fleet that did not start it, so how it ended was not seen.
+    unseen: bool,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -78,7 +93,13 @@ where
         };
         let servers = self.servers().clone();
         let heard = |lines: &[(u64, String)]| servers.lines_heard(&plan.now.borrow(), lines);
-        let (end, ()) = tokio::join!(lived, pumped(&plan.feed, &log, finishing, heard));
+        // An adopted server's log is read from where it is: what it said before is history, which
+        // a watcher reads from the file.
+        let from = match plan.adopted {
+            Some(_) => std::fs::metadata(&log).map_or(0, |file| file.len()),
+            None => 0,
+        };
+        let (end, ()) = tokio::join!(lived, pumped(&plan.feed, &log, finishing, heard, from));
         // Its group has been ended by now, on every road out of `lived`.
         super::left::forgotten(&plan.dir);
         let ended_at = ipc::Instant::from(&self.now());
@@ -92,6 +113,9 @@ where
                 "{}. Something else is answering on port {port} now, so the address still \
                  opens and what it draws is not this",
                 said(&end.exit, end.stopped)
+            ),
+            None if end.unseen && !end.stopped => String::from(
+                "ended while Fleet was restarting or after it, so how it ended was not seen",
             ),
             None => said(&end.exit, end.stopped),
         };
@@ -107,7 +131,7 @@ where
         self.publish(Event::ServerExited(state.clone()));
         // **Before the final state is sent**, so a Studio holding this server
         // has kept what it said by the time anything waiting on `Exited`
-        // returns — Fleet stopping every server is one such waiter, and a
+        // returns — a slot given back stopping its servers is one such waiter, and a
         // write started after it would race the process going. `#1345`.
         self.kept_what_studios_hold_of_server(&state, &plan.dir)
             .await;
@@ -115,6 +139,22 @@ where
     }
 
     async fn lived(&self, plan: &Plan, log: &Path, stopped: watch::Receiver<bool>) -> End {
+        if let Some((group, started)) = &plan.adopted {
+            let mut watching = std::pin::pin!(watched(*group, started, stopped));
+            let (Some(ready), ServerPhase::Starting) = (&plan.ready, plan.now.borrow().phase) else {
+                return watching.await;
+            };
+            // **Recorded before `ready` passed**, so it is asked again as it is for a fresh
+            // start, and the server is watched while it is. One that ends first is a failed start.
+            let passed = async { while !ready_asked(plan, ready).await {} };
+            tokio::select! {
+                end = &mut watching => return end,
+                () = passed => {}
+            }
+            self.now_serving(plan);
+            self.recorded_server(plan, Some(group.get())).await;
+            return watching.await;
+        }
         let path = plan.worktree.as_path();
         if let Some(run) = &plan.run {
             marked(log, &format!("--- `run` first: {run} ---"));
@@ -132,6 +172,7 @@ where
                 return End {
                     exit: attempt.exit,
                     stopped: true,
+                    unseen: false,
                 };
             }
             if attempt.exit != Exit::Code(0) {
@@ -142,6 +183,7 @@ where
                         exit: Box::new(attempt.exit),
                     }),
                     stopped: false,
+                    unseen: false,
                 };
             }
         }
@@ -152,30 +194,20 @@ where
                 return End {
                     exit: Exit::NeverRan(why),
                     stopped: false,
+                    unseen: false,
                 }
             }
         };
-        self.recorded_server(plan, &served).await;
+        // A server outlives Fleet, and under test that is a leak: the directory it runs in ends it.
+        #[cfg(test)]
+        if let Some(group) = served.group().and_then(NonZeroU32::new) {
+            crate::tests::tmp::spawned_in(group, path);
+        }
+        self.recorded_server(plan, served.group()).await;
         if let Some(ready) = &plan.ready {
             marked(log, &format!("--- waiting for `ready`: {ready} ---"));
             loop {
-                let asked = async {
-                    let answered = checks_runner::run_until(
-                        ready,
-                        path,
-                        ONE_ASK,
-                        Writing::Nowhere,
-                        &plan.env,
-                        std::future::pending(),
-                        checks_runner::Priority::Normal,
-                    )
-                    .await;
-                    let up = answered.exit == Exit::Code(0);
-                    if !up {
-                        tokio::time::sleep(ASKING_EVERY).await;
-                    }
-                    up
-                };
+                let asked = ready_asked(plan, ready);
                 // The server is watched while `ready` is asked, not only
                 // between asks: one that dies on its first line is the
                 // ordinary shape of a port conflict, and reads as a failure
@@ -183,42 +215,48 @@ where
                 tokio::select! {
                     exit = served.exited() => {
                         served.end().await;
-                        return End { exit, stopped: false };
+                        return End { exit, stopped: false, unseen: false };
                     }
                     () = until(stopped.clone()) => {
                         served.end().await;
-                        return End { exit: Exit::Signalled { signal: libc::SIGKILL }, stopped: true };
+                        return End { exit: Exit::Signalled { signal: libc::SIGKILL }, stopped: true, unseen: false };
                     }
                     up = asked => if up { break; }
                 }
             }
         }
         self.now_serving(plan);
+        self.recorded_server(plan, served.group()).await;
         // The group is ended on both roads out, so a server that fell over
         // leaves no child of its own holding the port.
         tokio::select! {
             exit = served.exited() => {
                 served.end().await;
-                End { exit, stopped: false }
+                End { exit, stopped: false, unseen: false }
             }
             () = until(stopped) => {
                 served.end().await;
-                End { exit: Exit::Signalled { signal: libc::SIGKILL }, stopped: true }
+                End { exit: Exit::Signalled { signal: libc::SIGKILL }, stopped: true, unseen: false }
             }
         }
     }
 
-    /// What finds this server again if Fleet crashes before it ends —
-    /// [`super::left`]. A start time that will not read leaves no record,
+    /// What finds this server again if Fleet stops or crashes before it ends —
+    /// [`super::left`], written when it starts and again when it is serving. A start time that will not read leaves no record,
     /// because a record nothing can confirm is one startup must not act on.
-    async fn recorded_server(&self, plan: &Plan, served: &Served) {
-        let Some(group) = served.group() else {
+    async fn recorded_server(&self, plan: &Plan, group: Option<u32>) {
+        let Some(group) = group else {
             return;
         };
-        let id = plan.now.borrow().id.clone();
-        let started = tokio::task::spawn_blocking(move || crate::process::holder_of(group)).await;
+        let state = plan.now.borrow().clone();
+        let started = tokio::task::spawn_blocking(move || holder_of(group)).await;
         if let Ok(Ok(crate::process::Holder::Held(started))) = started {
-            let _ = super::left::recorded(&plan.dir, &id, &plan.whose, group, &started);
+            let probe = super::left::Probe {
+                ready: plan.ready.clone(),
+                worktree: plan.worktree.to_string_lossy().into_owned(),
+                env: plan.env.clone(),
+            };
+            let _ = super::left::recorded(&plan.dir, &state, &probe, &plan.whose, group, &started);
         }
     }
 
@@ -233,6 +271,60 @@ where
             state.serving_since = Some(since);
             self.publish(Event::ServerServing(state.clone()));
         });
+    }
+}
+
+/// One ask of `ready`, `true` when it passed. **A command polled, never a duration waited out.**
+async fn ready_asked(plan: &Plan, ready: &str) -> bool {
+    let answered = checks_runner::run_until(
+        ready,
+        plan.worktree.as_path(),
+        ONE_ASK,
+        Writing::Nowhere,
+        &plan.env,
+        std::future::pending(),
+        checks_runner::Priority::Normal,
+    )
+    .await;
+    let up = answered.exit == Exit::Code(0);
+    if !up {
+        tokio::time::sleep(ASKING_EVERY).await;
+    }
+    up
+}
+
+/// An adopted server, until it ends: asked after every [`WATCHING_EVERY`], since a process that
+/// is not this one's child cannot be waited on. **Gone is the leader no longer being the process
+/// recorded**, a pid reused included, and it is told as an exit is. A probe that fails is not
+/// an end.
+async fn watched(group: NonZeroU32, started: &StartedAt, stopped: watch::Receiver<bool>) -> End {
+    let signalled = Exit::Signalled { signal: libc::SIGKILL };
+    tokio::select! {
+        () = leader_gone(group, started, WATCHING_EVERY) => {
+            End { exit: signalled, stopped: false, unseen: true }
+        }
+        () = until(stopped) => {
+            crate::group::end_the_group(group);
+            leader_gone(group, started, GOING_EVERY).await;
+            End { exit: signalled, stopped: true, unseen: true }
+        }
+    }
+}
+
+/// Resolves once the process at `group` is not the one that started at `started`.
+async fn leader_gone(group: NonZeroU32, started: &StartedAt, every: Duration) {
+    loop {
+        tokio::time::sleep(every).await;
+        let (pid, recorded) = (group.get(), started.clone());
+        let asked = tokio::task::spawn_blocking(move || match holder_of(pid) {
+            Ok(crate::process::Holder::Held(now)) => now == recorded,
+            Ok(_) => false,
+            Err(_) => true,
+        })
+        .await;
+        if matches!(asked, Ok(false)) {
+            return;
+        }
     }
 }
 
@@ -261,8 +353,7 @@ async fn answering_now(state: &ServerState, end: &End) -> Option<u16> {
 
 /// Offer what the log has grown by, a pass every [`api::FOLLOW`], until the
 /// server is over and its last line has gone out.
-async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<bool>, heard: impl Fn(&[(u64, String)])) {
-    let mut from = 0u64;
+async fn pumped(feed: &api::RunFeed, log: &Path, mut finishing: watch::Receiver<bool>, heard: impl Fn(&[(u64, String)]), mut from: u64) {
     loop {
         let last = *finishing.borrow();
         if let Some((lines, next)) = records::lines_from(log, from, last) {

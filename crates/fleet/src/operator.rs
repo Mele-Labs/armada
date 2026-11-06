@@ -134,8 +134,6 @@ pub trait Acting: Send + Sync {
     fn merge(&self, ending: &str, into: &str, shared: &[String]);
     /// Both carry on, each told the other's plan group and the paths they share.
     fn keep_in_touch(&self, one: &str, other: &str, shared: &[String]);
-    /// A Job gone quiet is told `step`, its next step, and carries on.
-    fn nudge(&self, _session: &str, _step: &str) {}
     /// What is left of a Job gone quiet starts as a Job of its own, briefed with `seen`.
     fn start_rest(&self, _session: &str, _seen: &str) {}
     /// A Job gone quiet goes to the person, with the call's `read`.
@@ -475,10 +473,9 @@ impl Operator {
             return;
         }
         if arrival.arrived.is_stall() {
-            match (ruling.way, ruling.step.as_deref()) {
-                (Way::Nudge, Some(step)) => self.acting.nudge(session, step),
-                (Way::NewJob, _) => self.acting.start_rest(session, &arrival.words),
-                (Way::Raise, _) => self.acting.raise(session, &ruling.because),
+            match ruling.way {
+                Way::NewJob => self.acting.start_rest(session, &arrival.words),
+                Way::Raise => self.acting.raise(session, &ruling.because),
                 _ => {}
             }
             return;
@@ -496,7 +493,7 @@ impl Operator {
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.
-            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Nudge | Way::Answer | Way::Link | Way::File, _) => {}
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Answer | Way::Link | Way::File, _) => {}
         }
         if let (Some(first), Some(other)) = (ruling.first.as_deref(), ruling.other.as_deref()) {
             let held = if first == session { other } else { session };
@@ -516,7 +513,7 @@ fn role_of(arrived: Arrived, way: Way) -> Option<OperatorRole> {
         Way::File => Some(OperatorRole::File),
         Way::Link => None,
         _ if arrived == Arrived::RedMain => None,
-        Way::ExistingJob | Way::KeepInTouch | Way::Nudge => Some(OperatorRole::Delegate),
+        Way::ExistingJob | Way::KeepInTouch => Some(OperatorRole::Delegate),
         Way::NewJob | Way::Merge => Some(OperatorRole::Dispatch),
         Way::Raise => arrived.is_stall().then_some(OperatorRole::Dispatch),
     }

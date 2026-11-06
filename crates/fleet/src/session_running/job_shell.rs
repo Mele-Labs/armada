@@ -298,13 +298,19 @@ where
             return Err(self.no_cells());
         }
         let dir = self.run_dir(session_id).await?;
-        let launch = Launch { session: Some(session_id), command: None, dir: &dir, size: size(cols, rows) };
         let fleet = Arc::clone(&self);
         let session = session_id.to_string();
         // Held from choosing the number to starting its shell, so two opens of a Job with none
         // start one.
         let _opening = self.session_runs().opening.lock().await;
         let number = self.terminal_opened(session_id, opening).await?;
+        let launch = Launch {
+            session: Some(session_id),
+            command: None,
+            dir: &dir,
+            size: size(cols, rows),
+            keeping: Some(self.terminal_keeping(session_id, number)),
+        };
         let (run_id, opened) = self
             .session_runs()
             .open_shell(launch, number, move |run_id| {

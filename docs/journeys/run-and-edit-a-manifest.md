@@ -55,7 +55,7 @@ A monorepo's root `armada.yml` appears as its own entry in the switcher, since i
 
 ### A server
 
-A Command with `serve` stays running, in the main checkout and on ports from that checkout's span; it stops on Stop, exit, or Fleet stopping. [Manifest](../concepts/manifest.md) defines its keys and [Fleet](../concepts/fleet.md) holds it, one instance per checkout.
+A Command with `serve` stays running, in the main checkout and on ports from that checkout's span; it stops on Stop or exit, and goes on running when Fleet restarts. [Manifest](../concepts/manifest.md) defines its keys and [Fleet](../concepts/fleet.md) holds it, one instance per checkout.
 A [Studio](../concepts/studio.md) starts one in the same checkout, on the same span and the same one instance, and holds it on a Run node.
 
 | Moment | What the panel shows |

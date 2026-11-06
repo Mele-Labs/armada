@@ -1047,7 +1047,7 @@ read_by = "fleet"
 notes = """
 DECIDED 5 Nov 2026 (owner): every role starts Off, and the panel walked in armada-ehhu.2 gives Delegate its own row, split from Dispatch. The design page's reason holds: a wrong delegate puts words in a running Job's thread. A word that is not one of the three reads Off. Does nothing while `operator` is Off.
 
-**Delegate is what sends words to a live Job**: a start a live Job's plan covers ending with its words sent to that Job, one group of a plan moving to one, a report handed to one, a quiet Job nudged with its next step, and two Jobs on shared ground each told of the other and told again when either changes its plan or pushes.
+**Delegate is what sends words to a live Job**: a start a live Job's plan covers ending with its words sent to that Job, one group of a plan moving to one, a report handed to one, and two Jobs on shared ground each told of the other and told again when either changes its plan or pushes.
 
 Off, Suggest and On do what they do for `operator-dispatch`. A first write waits for its start's ruling while either of the two is On, and stops only on what the role that is On may do.
 

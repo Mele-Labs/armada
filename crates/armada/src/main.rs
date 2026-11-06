@@ -89,6 +89,20 @@ async fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Verb::TerminalKeep { args } => {
+            // Blocking threads and sleeps, so off the runtime's workers.
+            match tokio::task::spawn_blocking(move || fleet::terminal_keeping::run(args)).await {
+                Ok(Ok(())) => ExitCode::SUCCESS,
+                Ok(Err(why)) => {
+                    eprintln!("{why}");
+                    ExitCode::FAILURE
+                }
+                Err(why) => {
+                    eprintln!("{why}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Verb::Report => {
             let Ok(cwd) = std::env::current_dir() else {
                 eprintln!("the working directory could not be read");

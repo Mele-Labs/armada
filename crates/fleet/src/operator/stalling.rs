@@ -14,7 +14,7 @@ use api::HostedSessions;
 use ipc::Notice;
 
 use super::seat::Seat;
-use super::{held, Arrival, Quiet, Stall, Way, NEEDS_YOU_WAIT};
+use super::{held, Arrival, Quiet, Stall, NEEDS_YOU_WAIT};
 use crate::daemon::Fleet;
 
 /// The notice Fleet keeps when it tells a Job its pull request failed: the red signal reused.
@@ -146,7 +146,6 @@ where
                 (done.into_iter().map(|task| task.text.clone()).collect(), left.into_iter().map(|task| task.text.clone()).collect())
             }
         };
-        let nudged = store.operator_rulings_of(id).unwrap_or_default().iter().any(|row| row.outcome == Way::Nudge.word());
         Some(Stall {
             session_id: id.to_string(),
             manifest_id: hosting.manifest_id,
@@ -155,17 +154,7 @@ where
             plan: plan.map(|plan| plan.summary),
             done,
             left,
-            nudged,
         })
-    }
-
-    /// A Job gone quiet is told the next step the Operator named, as Fleet's word, and wakes on it.
-    pub(super) async fn operator_nudged(self: &Arc<Self>, id: &str, step: &str) {
-        let text = format!(
-            "The Operator read your plan against what is left of it. Your next step: {step}\n\
-             Carry on with it now. If you wait on the person, name it with waiting_for. If nothing is left, call all_done."
-        );
-        let _ = self.told_by_fleet(id, &text, Notice::Operator).await;
     }
 
     /// What is left of a Job gone quiet starts as a Job of its own, nested under it and briefed

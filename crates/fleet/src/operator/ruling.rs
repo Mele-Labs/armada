@@ -26,8 +26,6 @@ pub enum Way {
     KeepInTouch,
     /// It goes to the person, with the call's read.
     Raise,
-    /// A Job gone quiet is told its next step, and carries on.
-    Nudge,
     /// A question or a permission card is settled as the person's press would.
     Answer,
     /// A report or a Later item is one of the open issues it was offered, and is linked to it.
@@ -47,7 +45,6 @@ impl Way {
             Way::Merge => "merge",
             Way::KeepInTouch => "keep_in_touch",
             Way::Raise => "raise",
-            Way::Nudge => "nudge",
             Way::Answer => "answer",
             Way::Link => "link",
             Way::File => "file",
@@ -56,7 +53,7 @@ impl Way {
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Nudge, Way::Answer, Way::Link, Way::File].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -66,7 +63,6 @@ impl Way {
             Way::Merge => "merge",
             Way::KeepInTouch => "keep in touch",
             Way::Raise => "raise",
-            Way::Nudge => "nudge",
             Way::Answer => "answer",
             Way::Link => "link to an open issue",
             Way::File => "file a new issue",
@@ -141,8 +137,6 @@ pub struct Ruling {
     /// The paths or plan group the two share, for a way between two.
     pub shared: Vec<String>,
     pub because: String,
-    /// The next step a nudge names, in the call's words.
-    pub step: Option<String>,
     /// Where a start goes in Waiting to start, where Jobs wait there.
     pub place: Option<Place>,
     /// Of two kept in touch, the one that builds first: the other is held until it pushes.
@@ -158,7 +152,7 @@ pub struct Ruling {
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), step: None, answer: None, issue: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), answer: None, issue: None }
     }
 }
 
@@ -269,10 +263,6 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
             return Err(PassedOn::Refused(format!("{issue} is not an open issue it was offered")));
         }
         return Ok(Ruling { issue: Some(issue), ..Ruling::alone(way, because) });
-    }
-    if way == Way::Nudge {
-        let step = said(block, "step").filter(|step| !none(step)).ok_or_else(|| PassedOn::Refused("nudge named no next step".into()))?;
-        return Ok(Ruling { step: Some(step), ..Ruling::alone(way, because) });
     }
     if !way.names_another() {
         return Ok(Ruling::alone(way, because));

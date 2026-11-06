@@ -146,7 +146,7 @@ so a working Drone is survivable. With `--adopt` the
 script still reads the live roster, prints each Job with a working Drone, then
 prints what adopting costs, once: its pipes die so it cannot be redirected,
 poked or handed a verdict; its recorded spend is an undercount; its Job shows as
-`unheard`; a Job's servers stop with Fleet; a Check running mid-gate most likely
+`unheard`; a Job's servers go on running and the next Fleet takes them back; a Check running mid-gate most likely
 dies with Fleet and the gate re-runs from scratch (`[fleet-checks-runner-sweep-timing]`
 is open, so a surviving Check group is not swept at boot); a Drone that cannot
 be adopted is ended. A Job whose Drone is gone, or was ended, resumes by itself:

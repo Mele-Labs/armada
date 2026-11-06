@@ -22,6 +22,11 @@
 //! and no test runner holding the worktree. That is v1's shape of this failure:
 //! the Job ends, the machine does not notice, and the next Job is slower for
 //! reasons nobody connects.
+//!
+//! **Except a server held for a person to read** ([`Served::spawn_logging`]),
+//! which is started in a session of its own and left running when this is
+//! dropped. Fleet restarts under a Job, and the next Fleet adopts the server
+//! by the record it kept; [`end`](Served::end) is what ends it.
 
 use std::path::Path;
 use std::process::Stdio;
@@ -42,6 +47,8 @@ pub struct Served {
     /// reaped before it could be read, in which case there is nothing to
     /// signal.
     group: Option<u32>,
+    /// Started in a session of its own and left running on drop.
+    outliving: bool,
 }
 
 impl Served {
@@ -90,13 +97,21 @@ impl Served {
             .spawn()
             .map_err(|error| not_started(error, program, worktree))?;
         let group = child.id();
-        Ok(Served { child, group })
+        Ok(Served {
+            child,
+            group,
+            outliving: false,
+        })
     }
 
     /// [`spawn`](Served::spawn), for a server a person reads: both streams
     /// appended to `log` rather than discarded, and `env` added over Fleet's
     /// own. **The file is the pipe**, so nothing has to drain it and a server
     /// printing forever cannot block on a full buffer.
+    ///
+    /// **It outlives whoever holds it.** The server leads a session of its own
+    /// and is not killed when the child is dropped, so a Fleet that is stopped
+    /// or restarted leaves it serving. Only [`end`](Served::end) ends it.
     pub fn spawn_logging(
         command: &str,
         worktree: &Path,
@@ -128,14 +143,20 @@ impl Served {
             )
             .stdin(Stdio::null())
             .stdout(Stdio::from(out))
-            .stderr(Stdio::from(err))
-            .kill_on_drop(true);
-        spawning.process_group(0);
+            .stderr(Stdio::from(err));
+        // A session of its own, whose id is the child's pid: the group
+        // `spawn`'s `process_group(0)` makes, and out of Fleet's session too.
+        // The two are exclusive on one spawn.
+        in_a_session_of_its_own(&mut spawning);
         let child = spawning
             .spawn()
             .map_err(|error| not_started(error, program, worktree))?;
         let group = child.id();
-        Ok(Served { child, group })
+        Ok(Served {
+            child,
+            group,
+            outliving: true,
+        })
     }
 
     /// How it ended, once it has. **Cancel-safe**, so a caller can race it
@@ -187,6 +208,28 @@ impl Drop for Served {
     /// leader and says nothing about the group it leads, so a serve command
     /// that forked would survive its own Job without this.
     fn drop(&mut self) {
-        end_the_group(self.group);
+        if !self.outliving {
+            end_the_group(self.group);
+        }
+    }
+}
+
+/// The fork-to-exec step that puts the child in a new session and a new process
+/// group, both led by the child. `fleet::detach` makes the same call for a Drone.
+///
+/// **One of the sites the gate names.** `pre_exec` is unsafe because its closure
+/// runs in the forked child, where only async-signal-safe calls are legal, and
+/// the closure makes exactly one: `setsid`, which allocates nothing.
+#[allow(unsafe_code)]
+fn in_a_session_of_its_own(command: &mut Command) {
+    // SAFETY: the closure runs between fork and exec and makes one
+    // async-signal-safe call, touching nothing else.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
     }
 }

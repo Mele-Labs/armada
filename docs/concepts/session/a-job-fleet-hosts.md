@@ -271,7 +271,7 @@ a multi-select's labels joined with `, `. [Spike 29](../../spikes/029-why-a-sess
 | `begin_session` | Start pressed on a held Job: keeps how the work lands, lifts the hold, and sends the first message as he left it in the box, with the turns that waited |
 | `rename_session` | A person's name for a Job, hosted or in a terminal; stands until the next terminal `/rename` |
 | `name_session` | Armada's name for a hosted Job from its first message, asked of the proposer on request; not kept as his rename |
-| `start_session_run` | A shell block run from a Job's thread, on a terminal of its own, in its slot worktree or directory; output is held in memory only |
+| `start_session_run` | A shell block run from a Job's thread, on a terminal of its own, in its slot worktree or directory; output is held in memory only, and a restart ends it. A Job's own shells are kept across a restart (*What a restart does to a job*) |
 | `stop_session_run` | Ends a run's process group |
 | `write_session_run` | Keys typed into a run's terminal |
 | `resize_session_run` | The run's terminal changed size |
@@ -326,6 +326,18 @@ return to must not run one for ever. The permission door (`armada mcp`) waits up
 to 90 seconds for a Fleet that is restarting before it fails a call. It reads
 Fleet's port once, so a Fleet that comes back on another port is not found; the
 port is claimed from the store and is normally the same.
+
+**A Job's terminals survive a restart the same way.**
+Each shell (`t1`, `t2`, opened through `open_terminal`, `show_terminal` or `type_in_terminal`) runs under a terminal keeper, `armada terminal-keep`, started detached and without Fleet's mark.
+The keeper opens the pseudo-terminal, runs `$SHELL -l` in the Job's directory, spools what the shell prints and serves a unix socket beside the session keepers' sockets.
+Fleet holds a connection, so its screen, scrollback and running programs outlive Fleet.
+A record per terminal beside the socket names the Job, the terminal, the run id, the directory, the socket and the spool.
+At boot Fleet reattaches each terminal whose Job is still open and whose keeper answers, replays the last 256 KiB of the spool and registers the run under its id, before any watch listens, so an `in_terminal` watch keeps reading it.
+A record whose keeper is gone is removed, and so is one whose Job is gone, which also ends a keeper that answers.
+The wire is frames of a kind byte, a length and bytes, not lines: Fleet sends `ATTACH`, `INPUT`, `RESIZE` and `END`, and the keeper sends `READY`, `OUTPUT`, `FOREGROUND` and `EXIT`.
+A stop, the Job ending and the shell exiting end the keeper and remove the record, and a keeper with no Fleet for 30 minutes ends its shell.
+A run with a command is not kept: it is Fleet's child, and a restart ends it.
+See [the shared terminal](shared-terminal.md).
 
 **A hosted Job's door also waits at its start.**
 An agent can start while Fleet restarts, and a door that finds no Fleet serves a handshake with no tools for the life of the process.
