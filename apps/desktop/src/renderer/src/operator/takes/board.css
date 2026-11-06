@@ -279,3 +279,40 @@
   color: var(--fg-default);
   font-size: var(--text-meta);
 }
+
+/* Who settled a card and when, under what came of it. */
+.armada-board__who {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+
+.armada-board__card[data-opens] {
+  cursor: pointer;
+}
+
+.armada-board__detail-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding-block-start: var(--space-1);
+  border-block-start: var(--border-width) solid var(--border-subtle);
+}
+
+.armada-board__detail-row {
+  display: contents;
+}
+
+.armada-board__detail-row dt {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+}
+
+.armada-board__detail-row dd {
+  margin: 0;
+  color: var(--fg);
+  font-size: var(--text-sm);
+}

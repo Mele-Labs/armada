@@ -178,6 +178,8 @@ export type OperatorMessage = {
   ends?: boolean;
   /** ISO time he sent it, for his own message's band. */
   at?: string;
+  /** A Job this started, which the message opens. */
+  opens?: OperatorJob;
 };
 
 /** What the Operator would do about an item once the two of them have talked: the press that names it, what the row then says, and its line until then. */
@@ -226,6 +228,14 @@ export type OperatorTurn = {
   finish?: string;
   /** What came of it. It stays below what is still open, saying so. */
   done?: string;
+  /** Who settled it, as its card says: Operator or You. */
+  by?: string;
+  /** ISO time it was settled. */
+  at?: string;
+  /** Why, in the words kept with the ruling. */
+  because?: string;
+  /** The Job it was about, which its card opens. */
+  job?: OperatorJob;
   /** The tag before its title, where the kind of thing is known outright, as Fleet's board says. */
   tag?: string;
 };
@@ -258,6 +268,10 @@ export type OperatorRaise = {
   /** Why it came to him, in the Operator's words. */
   read: string;
   ways: readonly string[];
+  /** The way the Operator would pick, or the Job marked as its own pick: Go with it presses it. */
+  recommends?: string;
+  /** The branch its Job's work is on, which a review reads. */
+  branch?: string;
   /** What the Log says the pick did. */
   does: OperatorDid;
   /** What kind of thing it is, the tag before its title. */
@@ -270,6 +284,9 @@ export type OperatorRaise = {
   toDiscuss?: boolean;
   /** What came of it. The row stays where it is, saying so. */
   settled?: string;
+  /** Who settled it, as its card says, and the ISO time. */
+  settledBy?: string;
+  settledAt?: string;
   /** The Job it is about, which Open Job opens. */
   job?: OperatorJob;
   /** The mock's script for working it through in Talk. */

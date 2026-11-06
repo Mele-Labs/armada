@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { Bot, Check, Clock, LoaderCircle, MessagesSquare } from "lucide-react";
-import { Button, SplitButton, Tooltip } from "@armada/components";
+import { Button, SplitButton, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 import { askToCloseOperator } from "@armada/shell";
 
 import { select } from "../../cockpit/deck/store";
@@ -136,6 +136,9 @@ function Card({
   place,
   onLift,
   onKey,
+  who,
+  when,
+  detail,
 }: {
   id: string;
   tag: string;
@@ -154,8 +157,21 @@ function Card({
   place?: () => "above" | "below";
   onLift?: () => void;
   onKey?: (event: KeyboardEvent<HTMLLIElement>) => void;
+  /** Who settled it, read beside when. */
+  who?: string;
+  /** ISO time it was settled. */
+  when?: string;
+  /** What a press on the card opens under it. Absent, the card does not open. */
+  detail?: ReactNode;
 }) {
   const [over, setOver] = useState<"above" | "below" | null>(null);
+  const [opened, setOpened] = useState(false);
+  const format = useTimeFormat();
+  // A press on one of the card's own buttons is that button's, not the card's.
+  const toggle = (target: EventTarget) => {
+    if (detail === undefined || (target as HTMLElement).closest("button, a") !== null) return;
+    setOpened((was) => !was);
+  };
   return (
     <li
       className="armada-board__card"
@@ -191,7 +207,25 @@ function Card({
         event.stopPropagation();
         dropOn(event);
       }}
-      onKeyDown={onKey}
+      onKeyDown={(event) => {
+        if (
+          detail !== undefined &&
+          (event.key === "Enter" || event.key === " ") &&
+          event.target === event.currentTarget
+        ) {
+          event.preventDefault();
+          setOpened((was) => !was);
+          return;
+        }
+        onKey?.(event);
+      }}
+      onClick={(event) => toggle(event.target)}
+      {...(detail === undefined
+        ? {}
+        : {
+            "aria-expanded": opened,
+            "data-opens": "",
+          })}
     >
       <span className="armada-board__card-head">
         <Tooltip label={said}>
@@ -207,9 +241,60 @@ function Card({
       <span className="armada-board__title">{title}</span>
       {line === undefined ? null : <span className="armada-board__line">{line}</span>}
       {outcome === undefined ? null : <Outcome text={outcome} />}
+      {who === undefined && when === undefined ? null : (
+        <span className="armada-board__who">
+          {[
+            who,
+            when === undefined ? undefined : timeSaid(when, format),
+          ]
+            .filter((one) => one !== undefined)
+            .join(" · ")}
+        </span>
+      )}
+      {opened && detail !== undefined ? (
+        <span className="armada-board__detail">{detail}</span>
+      ) : null}
       {act === undefined ? null : <span className="armada-board__act">{act}</span>}
     </li>
   );
+}
+
+/** What a settled card opens to: what was asked, why it went the way it did, and the Job it was about. Nothing kept, it does not open. */
+function detailOf({ asked, why, job }: { asked?: string; why?: string; job?: string }) {
+  const rows = [
+    [
+      "Asked",
+      asked,
+    ],
+    [
+      "Why",
+      why,
+    ],
+    [
+      "Job",
+      job,
+    ],
+  ].filter(
+    (
+      row,
+    ): row is [
+      string,
+      string,
+    ] => row[1] !== undefined && row[1] !== "",
+  );
+  if (rows.length === 0) return {};
+  return {
+    detail: (
+      <dl className="armada-board__detail-rows">
+        {rows.map(([name, said]) => (
+          <span key={name} className="armada-board__detail-row">
+            <dt>{name}</dt>
+            <dd>{said}</dd>
+          </span>
+        ))}
+      </dl>
+    ),
+  };
 }
 
 /** What came of a card: its kind in caps, and what, in the hue of how it ended. */
@@ -547,6 +632,19 @@ function Queue({ store }: { store: OperatorStore }) {
               glyph={<Check size={12} strokeWidth={2} aria-hidden />}
               said="Settled"
               state="done"
+              {...(one.settledBy === undefined
+                ? {}
+                : {
+                    who: one.settledBy,
+                  })}
+              {...(one.settledAt === undefined
+                ? {}
+                : {
+                    when: one.settledAt,
+                  })}
+              {...detailOf({
+                asked: one.read,
+              })}
               {...(one.job === undefined
                 ? {}
                 : {
@@ -573,6 +671,42 @@ function Queue({ store }: { store: OperatorStore }) {
               glyph={<Check size={12} strokeWidth={2} aria-hidden />}
               said="Settled"
               state="done"
+              {...(one.by === undefined
+                ? {}
+                : {
+                    who: one.by,
+                  })}
+              {...(one.at === undefined
+                ? {}
+                : {
+                    when: one.at,
+                  })}
+              {...(one.job === undefined
+                ? {}
+                : {
+                    act: (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        aria-label={`Open Job: ${one.job.title}`}
+                        onClick={() => openJob(one.job!.session)}
+                      >
+                        Open Job
+                      </Button>
+                    ),
+                  })}
+              {...detailOf({
+                ...(one.because === undefined
+                  ? {}
+                  : {
+                      why: one.because,
+                    }),
+                ...(one.job === undefined
+                  ? {}
+                  : {
+                      job: one.job.title,
+                    }),
+              })}
             />
           ))}
         </Lane>

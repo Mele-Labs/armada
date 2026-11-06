@@ -291,7 +291,7 @@
 
 /* Off: one row with the switch, and what it would answer drawn quiet below. */
 .armada-operator__off {
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--border-width) solid var(--border-subtle);
   padding-bottom: var(--space-2);
 }
 
@@ -637,6 +637,19 @@
   align-items: center;
   gap: var(--space-2);
   margin-block-start: var(--space-1);
+}
+
+/* Every act on the item being discussed, in reach while the talk runs below. */
+.armada-operator__card-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+
+.armada-operator__card-acts > [data-stop] {
+  margin-inline-start: auto;
 }
 
 .armada-operator__add-repository {

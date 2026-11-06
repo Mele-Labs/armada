@@ -32,7 +32,13 @@ export type OperatorBoardSettled = {
   outcome: string;
   /** RFC 3339. */
   at: string;
+  /** Who settled it: the Operator's ruling, or the person's press on a suggestion. */
+  by: OperatorDecider;
+  /** Why, in the words kept with the ruling. Absent where none were. */
+  because?: string;
 };
+
+export type OperatorDecider = "operator" | "person";
 
 /** One thing a suggestion offers to do: `Do it` (choice 0), then `Skip` (choice 1). */
 export type OperatorBoardOption = {

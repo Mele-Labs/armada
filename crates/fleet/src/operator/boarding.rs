@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Timestamp;
 use ipc::operator_board::{
-    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion,
+    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorDecider,
 };
 use store::KeptRuling;
 
@@ -223,6 +223,8 @@ where
                     repository: self.board_repository(&row.manifest_id),
                     outcome: outcome_of(row, &title_of),
                     at: row.at.clone(),
+                    by: if row.by == "human" { OperatorDecider::Person } else { OperatorDecider::Operator },
+                    because: row.because.trim().to_string(),
                 })
                 .collect();
             (suggestions, done)

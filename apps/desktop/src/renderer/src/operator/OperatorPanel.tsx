@@ -1057,10 +1057,23 @@ function RaiseActs({
   );
 }
 
-/** The item being discussed, pinned above the conversation until it is settled or put back with Not now, so talk never buries it. */
+/** An option's label without the Job's own "(Recommended)", which Go with already says. */
+const unmarked = (way: string) => way.replace(/\s*\(recommended\)\s*$/i, "");
+
+/** The item being discussed, pinned above the conversation until he stops discussing it, with every act on it in reach. */
 function ItemCard({ store, raise }: { store: OperatorStore; raise: OperatorRaise }) {
+  const { act } = store;
+  const open = raise.settled === undefined;
+  const pressed = (way: string) =>
+    act({
+      kind: "raise",
+      raise: raise.id,
+      way,
+    });
+  const others = raise.ways.filter((way) => way !== raise.recommends && way !== "Open Job");
+  const job = raise.job;
   return (
-    <div className="armada-operator__card" role="group" aria-label={`Item: ${raise.item}`}>
+    <div className="armada-operator__card" role="group" aria-label={`Discussing: ${raise.item}`}>
       <span className="armada-operator__card-band">
         <span>Discussing</span>
         {raise.tag === undefined ? null : <span>{raise.tag}</span>}
@@ -1068,22 +1081,70 @@ function ItemCard({ store, raise }: { store: OperatorStore; raise: OperatorRaise
       </span>
       <span className="armada-operator__card-body">
         <span className="armada-operator__row-title">{raise.item}</span>
-        <span className="armada-operator__raise-read">{raise.settled ?? raise.read}</span>
-        <span className="armada-operator__presses">
-          <RaiseActs store={store} raise={raise} />
-          {raise.settled !== undefined ? null : (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                store.act({
-                  kind: "not-now",
-                })
-              }
-            >
-              Not now
+        <span className="armada-operator__raise-read">{raise.read}</span>
+        {open ? null : <span className="armada-operator__does">{raise.settled}</span>}
+        <span className="armada-operator__card-acts">
+          {open && raise.recommends !== undefined ? (
+            <Button size="sm" variant="primary" onClick={() => pressed(raise.recommends!)}>
+              Go with {unmarked(raise.recommends)}
             </Button>
+          ) : null}
+          {open
+            ? others.map((way) => (
+                <Button key={way} size="sm" variant="secondary" onClick={() => pressed(way)}>
+                  {way}
+                </Button>
+              ))
+            : null}
+          {job === undefined ? null : (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => openJob(job.session)}>
+                Open Job
+              </Button>
+              <Tooltip label="Starts a Job that reads the code and answers this. It changes nothing">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    act({
+                      kind: "dispatch",
+                      raise: raise.id,
+                      what: "investigate",
+                    })
+                  }
+                >
+                  Dispatch investigation
+                </Button>
+              </Tooltip>
+              <Tooltip label="Starts a Job that reviews this Job's work. It changes nothing">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    act({
+                      kind: "dispatch",
+                      raise: raise.id,
+                      what: "review",
+                    })
+                  }
+                >
+                  Dispatch review
+                </Button>
+              </Tooltip>
+            </>
           )}
+          <Button
+            size="sm"
+            variant="ghost"
+            data-stop=""
+            onClick={() =>
+              act({
+                kind: "not-now",
+              })
+            }
+          >
+            Stop discussing
+          </Button>
         </span>
       </span>
     </div>
@@ -1292,6 +1353,18 @@ function Talk({ store }: { store: OperatorStore }) {
                     <div className="armada-helm-thread__message">
                       <p className="armada-session-said">{message.text}</p>
                     </div>
+                    {message.opens === undefined ? null : (
+                      <span className="armada-operator__card-acts">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          aria-label={`Open Job: ${message.opens.title}`}
+                          onClick={() => openJob(message.opens!.session)}
+                        >
+                          Open Job
+                        </Button>
+                      </span>
+                    )}
                     {message.order === undefined ? null : (
                       <OrderProposed
                         order={message.order}

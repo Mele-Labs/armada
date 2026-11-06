@@ -8,11 +8,14 @@ import type {
   OperatorBoard,
   OperatorBoardItem,
   OperatorBoardKind,
+  OperatorBoardSettled,
   OperatorBoardSuggestion,
   OperatorTalk,
   Outcome,
+  RepositorySummary,
   WaitingItem,
 } from "@armada/protocol";
+import { jobIdOf } from "@armada/shell";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
 import type { BridgeState } from "../../../shared/bridge";
@@ -20,6 +23,8 @@ import { useSessionsEverywhere } from "../sessions-draft";
 import { stateOf } from "../state-feed";
 import { saveSetting, useSetting } from "../use-setting";
 import type {
+  OperatorDid,
+  OperatorLogRow,
   OperatorMessage,
   OperatorPosition,
   OperatorRaise,
@@ -59,6 +64,12 @@ const SOURCE_TAG: Partial<Readonly<Record<WaitingItem["source"], string>>> = {
 
 const OPEN_JOB = "Open Job";
 
+/** What pressing Discuss asks the Operator about the item. */
+const OPENING_ASK = "What is this, and what do you recommend?";
+
+/** The id Fleet knows an item by: a Job's item is `<job> <item>`, and Fleet reads the item's own id. */
+const aboutOf = (raise: string) => raise.split(" ").slice(1).join(" ") || raise;
+
 const ROLE_KEY: Readonly<Record<OperatorRole, string>> = {
   dispatch: "features.operatorDispatch",
   delegate: "features.operatorDelegate",
@@ -77,6 +88,52 @@ const turnOf = (item: OperatorBoardItem): OperatorTurn => ({
       }),
 });
 
+/** The Log's column for the kind an outcome is written with, `Kind: what`. */
+const DID: Readonly<Record<string, OperatorDid>> = {
+  Answered: "answered",
+  Raised: "raised",
+  Started: "started",
+  "Handed over": "existing",
+  Merged: "merged",
+  "Kept in touch": "in_touch",
+  Filed: "filed",
+  Linked: "filed",
+  "Passed on": "passed_on",
+  Skipped: "passed_on",
+};
+
+/** One of the Log's rows that settled something, as the board's Done serves it. */
+function logOf(one: OperatorBoardSettled, sessions: readonly Session[]): OperatorLogRow {
+  const at = one.outcome.indexOf(": ");
+  const kind = at === -1 ? one.outcome : one.outcome.slice(0, at);
+  const session = sessions.find((each) => each.id === one.session_id);
+  return {
+    id: one.id,
+    at: one.at,
+    from:
+      one.session_id === undefined
+        ? {
+            kind: "report",
+            by: "you",
+          }
+        : {
+            kind: "job",
+            job: {
+              session: one.session_id,
+              title: session?.title ?? one.title,
+            },
+          },
+    item: one.title,
+    did: DID[kind] ?? "answered",
+    why: one.outcome,
+    ...(one.repository === undefined
+      ? {}
+      : {
+          repository: one.repository,
+        }),
+  };
+}
+
 /** One Needs you item of a Job, as a card: the Operator's pick first where it read one. */
 function raiseOf(session: Session, item: WaitingItem): OperatorRaise {
   const labels = (item.options ?? []).map((one) => one.label);
@@ -94,9 +151,24 @@ function raiseOf(session: Session, item: WaitingItem): OperatorRaise {
         : labels;
   const title = session.title ?? session.address ?? "Job";
   const suggests = item.source === "operator_suggestion";
+  const recommends =
+    pick !== undefined && labels.includes(pick)
+      ? pick
+      : labels.find((one) => /\(recommended\)/i.test(one));
+  const branch = session.attachments.find((one) => one.kind === "branch");
   return {
     id: `${session.id} ${item.id}`,
     suggests,
+    ...(recommends === undefined
+      ? {}
+      : {
+          recommends,
+        }),
+    ...(branch?.kind === "branch"
+      ? {
+          branch: branch.name,
+        }
+      : {}),
     repository: session.manifestId ?? "",
     ...(session.manifestId === undefined
       ? {}
@@ -157,9 +229,22 @@ function refusedSaid(outcome: Outcome): string {
   return message;
 }
 
+/** What a Job started from Discussion is told: the item, its Job, and what to bring back. */
+function briefOf(raise: OperatorRaise, what: "investigate" | "review"): string {
+  const job = `the Job "${raise.job?.title}" (${raise.job?.session})`;
+  const asks = `It waits on the person for this: ${raise.read}`;
+  return what === "review"
+    ? `Review the work of ${job}${raise.branch === undefined ? "" : ` on branch ${raise.branch}`}. ${asks}\n\nRead its diff against main and change nothing. Report what is wrong or missing, with file:line, and whether its answer to the person should change.`
+    : `Investigate for ${job}. ${asks}\n\nRead the code and change nothing. Answer the question with the options there are, what each costs, and which you would pick, with file:line.`;
+}
+
 type Kept = {
   /** The Needs you card open in Discussion. */
   open?: string;
+  /** The card as it was when it opened, so it stays pinned when its Job settles it elsewhere. */
+  discussing?: OperatorRaise;
+  /** Talk before this time was cleared from Discussion. Fleet keeps it, for the Operator to read. */
+  cleared?: string;
   /** Where an item came up in Discussion, and where it was settled. */
   marks: readonly OperatorMessage[];
   /** His words not yet in what Fleet's talk read, and anything said back that Fleet keeps nowhere. */
@@ -180,6 +265,7 @@ const fresh = (prefix: string) => {
 export function OperatorFromFleet({ children }: { children: ReactNode }) {
   const sessions = useSessionsEverywhere();
   const [board, setBoard] = useState<OperatorBoard | null>(null);
+  const [repositories, setRepositories] = useState<readonly RepositorySummary[]>([]);
   const [lines, setLines] = useState<OperatorTalk["lines"]>([]);
   const [kept, setKept] = useState<Kept>({
     marks: [],
@@ -198,7 +284,11 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
   useEffect(() => {
     const source = stateOf(window.armada);
     let on = true;
-    const take = (state: BridgeState) => on && setBoard(state.operatorBoard ?? null);
+    const take = (state: BridgeState) => {
+      if (!on) return;
+      setBoard(state.operatorBoard ?? null);
+      setRepositories(state.holds.repositories ?? []);
+    };
     void source.state().then(take);
     const off = source.subscribe(take);
     return () => {
@@ -239,16 +329,32 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     const notes = (board?.suggestions ?? [])
       .filter((one) => !kept.pressing.includes(one.id))
       .map(noteOf);
-    return [
+    const held = [
       ...waiting.filter((one) => !settledIds.has(one.id)),
       ...notes,
       ...kept.settled,
+    ];
+    // The card he is discussing stays, saying it was settled, when its Job takes it off its list.
+    const gone =
+      kept.discussing !== undefined && !held.some((one) => one.id === kept.discussing?.id)
+        ? [
+            {
+              ...kept.discussing,
+              settled: "Settled in its Job",
+              settledBy: "In its Job",
+            },
+          ]
+        : [];
+    return [
+      ...held,
+      ...gone,
     ];
   }, [
     sessions,
     board,
     kept.settled,
     kept.pressing,
+    kept.discussing,
   ]);
 
   const state = useMemo((): OperatorState => {
@@ -262,6 +368,21 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       ...(board?.done ?? []).map((one) => ({
         ...turnOf(one),
         done: one.outcome,
+        by: one.by === "person" ? "You" : "Operator",
+        at: one.at,
+        ...(one.because === undefined || one.because === ""
+          ? {}
+          : {
+              because: one.because,
+            }),
+        ...(one.session_id === undefined
+          ? {}
+          : {
+              job: {
+                session: one.session_id,
+                title: sessions.find((each) => each.id === one.session_id)?.title ?? one.title,
+              },
+            }),
       })),
     ];
     const talked: OperatorMessage[] = lines.map((one, at) => ({
@@ -274,7 +395,9 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       ...talked,
       ...kept.marks,
       ...kept.said,
-    ].sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
+    ]
+      .filter((one) => kept.cleared === undefined || (one.at ?? "") > kept.cleared)
+      .sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
     return {
       // The setting, since Fleet publishes no board change when the switch moves.
       on: typeof switched === "boolean" ? switched : (board?.on ?? false),
@@ -290,7 +413,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
             model,
           }
         : {}),
-      log: [],
+      log: (board?.done ?? []).map((one) => logOf(one, sessions)),
       line: [],
       orders: [],
       reads: [],
@@ -321,6 +444,42 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     model,
   ]);
 
+  /** His words to the Operator, about an item where one is open: drawn at once, and answered or refused in the talk. */
+  const send = useCallback(
+    (words: string, about: string | undefined) => {
+      setKept((was) => ({
+        ...was,
+        said: [
+          ...was.said,
+          {
+            id: fresh("asked"),
+            from: "you",
+            text: words,
+            at: new Date().toISOString(),
+          },
+        ],
+      }));
+      void window.armada.talkToOperator(words, about).then((answered) => {
+        if (answered.ok) return readTalk();
+        setKept((was) => ({
+          ...was,
+          said: [
+            ...was.said,
+            {
+              id: fresh("refused"),
+              from: "operator",
+              text: refusedSaid(answered.outcome),
+              at: new Date().toISOString(),
+            },
+          ],
+        }));
+      });
+    },
+    [
+      readTalk,
+    ],
+  );
+
   const act = useCallback(
     (one: Act) => {
       const now = () => new Date().toISOString();
@@ -340,22 +499,71 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
         case "move-turn":
           void window.armada.moveOnOperatorBoard(one.turn, one.before ?? undefined);
           return;
-        case "discuss":
+        case "discuss": {
+          const raise = raises.find((each) => each.id === one.raise);
+          if (raise === undefined) return;
           setKept((was) => ({
             ...was,
             open: one.raise,
+            discussing: raise,
             marks: [
               ...was.marks,
               mark(one.raise),
             ],
           }));
+          // Pressing Discuss is asking this, so it is his words in the talk and the Operator answers it at once.
+          send(OPENING_ASK, aboutOf(one.raise));
           return;
+        }
         case "not-now":
           setKept((was) => {
-            const { open: _open, ...rest } = was;
+            const { open: _open, discussing: _discussing, ...rest } = was;
             return rest;
           });
           return;
+        case "clear":
+          setKept((was) => ({
+            ...was,
+            cleared: now(),
+            marks: [],
+            said: [],
+          }));
+          return;
+        case "dispatch": {
+          const raise = raises.find((each) => each.id === one.raise);
+          if (raise?.job === undefined) return;
+          const title = `${one.what === "review" ? "Review" : "Investigate"}: ${raise.job.title}`;
+          const root = repositories.find((each) => jobIdOf(each) === raise.manifest)?.root;
+          const said = (text: string, opens?: OperatorMessage["opens"]) =>
+            setKept((was) => ({
+              ...was,
+              said: [
+                ...was.said,
+                {
+                  id: fresh("started"),
+                  from: "operator",
+                  text,
+                  at: now(),
+                  ...(opens === undefined
+                    ? {}
+                    : {
+                        opens,
+                      }),
+                },
+              ],
+            }));
+          if (root === undefined)
+            return said(`${title} did not start: its repository is not served here.`);
+          void window.armada.startSession(title, root, briefOf(raise, one.what)).then((started) =>
+            started.ok
+              ? said(`Started Job ${title}. Its answer is in its own thread.`, {
+                  session: started.value.id,
+                  title,
+                })
+              : said(`${title} did not start: ${refusedSaid(started.outcome)}`),
+          );
+          return;
+        }
         case "raise": {
           const raise = raises.find((each) => each.id === one.raise);
           if (raise !== undefined && raise.job === undefined) {
@@ -401,13 +609,18 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
           if (choice === undefined || choice === -1) return openJob(raise.job.session);
           const outcome = `${raise.suggests ? "Done" : "Answered"}: ${one.way}`;
           setKept((was) => {
-            const { open, ...rest } = was;
+            const { open, discussing, ...rest } = was;
             return {
               ...rest,
               ...(open === undefined || open === one.raise
                 ? {}
                 : {
                     open,
+                  }),
+              ...(discussing === undefined || discussing.id === one.raise
+                ? {}
+                : {
+                    discussing,
                   }),
               marks:
                 open === one.raise
@@ -420,6 +633,8 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
                 {
                   ...raise,
                   settled: outcome,
+                  settledBy: "You",
+                  settledAt: now(),
                 },
                 ...was.settled,
               ],
@@ -435,34 +650,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
         case "say": {
           const words = one.text.trim();
           if (words === "") return;
-          const about = kept.open?.split(" ").slice(1).join(" ");
-          setKept((was) => ({
-            ...was,
-            said: [
-              ...was.said,
-              {
-                id: fresh("asked"),
-                from: "you",
-                text: words,
-                at: now(),
-              },
-            ],
-          }));
-          void window.armada.talkToOperator(words, about).then((answered) => {
-            if (answered.ok) return readTalk();
-            setKept((was) => ({
-              ...was,
-              said: [
-                ...was.said,
-                {
-                  id: fresh("refused"),
-                  from: "operator",
-                  text: refusedSaid(answered.outcome),
-                  at: now(),
-                },
-              ],
-            }));
-          });
+          send(words, kept.open === undefined ? undefined : aboutOf(kept.open));
           return;
         }
         case "on":
@@ -486,7 +674,8 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       raises,
       sessions,
       kept.open,
-      readTalk,
+      repositories,
+      send,
     ],
   );
 

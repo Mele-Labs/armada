@@ -118,6 +118,12 @@ export type Act =
   | {
       /** Stop discussing it. Its row is still waiting. */
       kind: "not-now";
+    }
+  | {
+      /** Starts a Job about the item: one that reads the code and answers it, or one that reviews its Job's work. */
+      kind: "dispatch";
+      raise: string;
+      what: "investigate" | "review";
     };
 
 let made = 0;
@@ -604,6 +610,27 @@ function reduce(state: OperatorState, act: Act): OperatorState {
       const { open: _closed, ...rest } = state;
       return rest;
     }
+    case "dispatch": {
+      const raised = state.raises?.find((one) => one.id === act.raise);
+      if (raised?.job === undefined) return state;
+      const title = `${act.what === "review" ? "Review" : "Investigate"}: ${raised.job.title}`;
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            id: fresh("started"),
+            from: "operator",
+            text: `Started Job ${title}. Its answer is in its own thread.`,
+            at: new Date().toISOString(),
+            opens: {
+              session: fresh("job"),
+              title,
+            },
+          },
+        ],
+      };
+    }
     case "clear":
       // A message still queued stays: it has not been answered.
       return {
@@ -658,6 +685,8 @@ function reduce(state: OperatorState, act: Act): OperatorState {
                     ...one,
                     toDiscuss: false,
                     settled: queues ? "In the Operator's Queue. It does this in its turn" : result,
+                    settledBy: "You",
+                    settledAt: new Date().toISOString(),
                   }
                 : one,
             ) ?? [],
