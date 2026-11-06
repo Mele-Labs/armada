@@ -1790,7 +1790,7 @@ function FlightControl({
               })}
         />
       ) : (
-        <div className="deck-controls__block console-deck">
+        <div className="deck-controls__block console-deck" data-loop-clock>
           <ConsoleBays
             wiring={{
               tiles: deckTiles,
