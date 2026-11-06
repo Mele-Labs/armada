@@ -7,6 +7,7 @@ import {
   GitCommitHorizontal,
   LoaderCircle,
   RotateCw,
+  Undo2,
   Unplug,
 } from "lucide-react";
 import { Button } from "../../primitives/Button/Button";
@@ -57,6 +58,24 @@ export type FleetBuildLeftOut = {
   moved?: boolean;
 };
 
+/** One build kept on disk, as the panel names it. */
+export type FleetBuildKept = {
+  /** When it was built: `5 Nov, 16:20`. */
+  built: string;
+  /** Its short commit. */
+  commit: string;
+};
+
+/** The build before this one, which Revert swaps Fleet and Bridge back onto, and what that changes. */
+export type FleetBuildPrevious = FleetBuildKept & {
+  /** Its Bridge differs from the one open, so this window closes and opens on it. */
+  bridgeReopens: boolean;
+  /** The Jobs whose change the running build holds and this one does not. */
+  takesOut: readonly string[];
+  /** The Jobs whose change this one holds and the running build does not. */
+  bringsBack: readonly string[];
+};
+
 export type FleetBuild = {
   on: FleetBuildChoice;
   /** Absent where it cannot be counted, which draws no mark: that is not aligned. */
@@ -75,7 +94,50 @@ export type FleetBuild = {
   onChoose: (build: FleetBuildChoice, adopt: boolean) => void;
   /** Restart onto the build in use: merge the preview again, or move to the latest main. */
   onRestart: (adopt: boolean) => void;
+  /** The build Fleet runs now, where it is a kept one. */
+  running?: FleetBuildKept;
+  /** The build Revert swaps onto. Absent draws no Revert. */
+  previous?: FleetBuildPrevious;
+  /** A revert is under way. */
+  reverting?: boolean;
+  /** The Jobs with work running, which their keepers carry across the restart. */
+  carried?: readonly string[];
+  /** Swap Fleet and Bridge back onto `previous`. */
+  onRevert?: () => void;
 };
+
+const keptSaid = (kept: FleetBuildKept) => `${kept.built} · ${kept.commit}`;
+
+/** One row of the Revert confirm: what it is about, then a line or the Jobs it names, and why under them. */
+function RevertRow({
+  label,
+  value,
+  jobs,
+  why,
+}: {
+  label: string;
+  value?: string;
+  jobs?: readonly string[];
+  why?: string;
+}) {
+  return (
+    <>
+      <dt className="armada-fleet-build__revert-label">{label}</dt>
+      <dd className="armada-fleet-build__revert-value">
+        {jobs === undefined ? (
+          value
+        ) : (
+          <ul aria-label={label}>
+            {jobs.map((one) => (
+              <li key={one}>{one}</li>
+            ))}
+          </ul>
+        )}
+        {why === undefined ? null : <p className="armada-fleet-build__revert-why">{why}</p>}
+      </dd>
+    </>
+  );
+}
 
 const commits = (count: number) => (count === 1 ? "1 commit" : `${count} commits`);
 
@@ -112,6 +174,10 @@ type Asked =
 export function FleetBuildSection({ build }: { build: FleetBuild }) {
   const { on, position, working, stage, drones } = build;
   const [asked, setAsked] = useState<Asked | null>(null);
+  const [revertAsked, setRevertAsked] = useState(false);
+  const { previous } = build;
+  const reverting = build.reverting === true;
+  const carried = build.carried ?? [];
   const aligned = position !== undefined && position.ahead === 0 && position.behind === 0;
   // The button names what is being restarted onto while that is under way, and the build in use otherwise.
   const target = working ?? on;
@@ -162,7 +228,7 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           variant="secondary"
           size="sm"
           pending={working !== null}
-          disabled={idleOnMain || working !== null}
+          disabled={idleOnMain || working !== null || reverting}
           onClick={() =>
             press({
               kind: "restart",
@@ -177,6 +243,24 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           {label}
         </Button>
       </Tooltip>
+      {previous === undefined ? null : (
+        <Tooltip label={`Back to the build of ${previous.built}, ${previous.commit}`}>
+          <Button
+            variant="secondary"
+            size="sm"
+            pending={reverting}
+            disabled={working !== null || reverting}
+            onClick={() => setRevertAsked(true)}
+          >
+            {reverting ? (
+              <LoaderCircle size={16} strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <Undo2 size={16} strokeWidth={2} aria-hidden="true" />
+            )}
+            {reverting ? "Reverting" : "Revert"}
+          </Button>
+        </Tooltip>
+      )}
       {build.failed === undefined || working !== null ? null : (
         <p className="armada-fleet-build__failed" role="alert">
           {build.failed}
@@ -288,6 +372,53 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
           </span>
         )}
       </div>
+      {!revertAsked || previous === undefined ? null : (
+        <Dialog
+          open
+          tone="neutral"
+          title={`Revert to the build of ${previous.built}`}
+          confirmLabel="Revert"
+          onCancel={() => setRevertAsked(false)}
+          onConfirm={() => {
+            build.onRevert?.();
+            setRevertAsked(false);
+          }}
+        >
+          <dl className="armada-fleet-build__revert">
+            {build.running === undefined ? null : (
+              <RevertRow label="Running now" value={keptSaid(build.running)} />
+            )}
+            <RevertRow label="Goes back to" value={keptSaid(previous)} />
+            {previous.takesOut.length === 0 ? null : (
+              <RevertRow
+                label="Jobs taken out"
+                jobs={previous.takesOut}
+                why={`Their changes are in the ${build.running?.built ?? "running"} build and not in the ${previous.built} one, so your app goes without them. The Jobs themselves carry on.`}
+              />
+            )}
+            {previous.bringsBack.length === 0 ? null : (
+              <RevertRow
+                label="Jobs brought back"
+                jobs={previous.bringsBack}
+                why={`Their changes are in the ${previous.built} build and not in the ${build.running?.built ?? "running"} one, so your app gets them back.`}
+              />
+            )}
+            <RevertRow
+              label="Restarts"
+              value={
+                previous.bridgeReopens ? "Fleet, and this window" : "Fleet. This window stays open"
+              }
+            />
+            {carried.length === 0 ? null : (
+              <RevertRow
+                label="Jobs still working"
+                jobs={carried}
+                why="These Jobs are at work now. Their agents keep running while Fleet restarts."
+              />
+            )}
+          </dl>
+        </Dialog>
+      )}
       {asked === null ? null : (
         <Dialog
           open

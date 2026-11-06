@@ -274,3 +274,11 @@ fn watch_line_takes_a_reader_and_every_word_after_it_whole() {
     assert!(said("watch-line").contains("needs the reader"));
     assert!(Usage.to_string().contains("armada watch-line <reader> <values>"));
 }
+
+#[test]
+fn build_takes_revert_alone_and_says_so_for_anything_else() {
+    assert_eq!(asked("build revert"), Ok(Verb::BuildRevert));
+    assert!(said("build").contains("it takes `build revert`"));
+    assert!(said("build revert now").contains("`armada build revert now`"));
+    assert!(Usage.to_string().contains("armada build revert"));
+}

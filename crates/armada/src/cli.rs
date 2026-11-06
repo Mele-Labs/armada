@@ -60,6 +60,8 @@ pub enum Verb {
     Report,
     /// One of this Job's acts, or the list of them: what an agent does with its own Job from Bash.
     Job(JobAct),
+    /// Swap back onto the build before this one: `docs/concepts/fleet.md`, *Kept builds*.
+    BuildRevert,
     /// What the verbs are.
     Help,
 }
@@ -112,6 +114,10 @@ const VERBS: &[(&str, &str)] = &[
         "call one of this Job's acts, or list them — what an agent does with its own Job from Bash",
     ),
     (
+        BUILD,
+        "swap Fleet and Bridge back onto the build before this one, which restarts them",
+    ),
+    (
         WATCH_LINE,
         "print one reading of a watch recipe Armada ships, as the line Fleet reads; Fleet runs it",
     ),
@@ -138,6 +144,8 @@ pub const WORKTREE: &str = "worktree";
 pub const TEST_MAP: &str = "test-map";
 /// What an agent runs to do anything with its own Job.
 pub const JOB: &str = "job";
+/// The builds a restart keeps.
+pub const BUILD: &str = "build";
 /// The readers behind the watch recipes Armada ships, which name this verb.
 pub const WATCH_LINE: &str = "watch-line";
 
@@ -232,6 +240,13 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             }
             Some(Verb::Report)
         }
+        BUILD => match rest {
+            [form] if form == "revert" => Some(Verb::BuildRevert),
+            _ => {
+                faults.push(Fault::BuildFormUnknown { given: rest.join(" ") });
+                None
+            }
+        },
         JOB => job::read(rest, &mut faults),
         WORKTREE => worktree::read(rest, &mut faults),
         TEST_MAP => test_map::read(rest, &mut faults),
@@ -346,6 +361,8 @@ pub enum Fault {
     NoBranch,
     /// `watch-line` with no reader after it.
     NoReader,
+    /// `build` with no form, or one it does not have.
+    BuildFormUnknown { given: String },
     /// `worktree remove`, `close` or `open` without a slot's number.
     NoSlot {
         form: String,
@@ -449,6 +466,10 @@ impl fmt::Display for Fault {
                 out,
                 "`armada {WATCH_LINE}` needs the reader a watch recipe names, then its values"
             ),
+            Fault::BuildFormUnknown { given } => write!(
+                out,
+                "`armada {BUILD} {given}` is not a form this verb takes — it takes `{BUILD} revert`"
+            ),
             Fault::NoSlot { form } => write!(
                 out,
                 "`armada {WORKTREE} {form}` needs a slot's number, as `--status` prints it"
@@ -480,6 +501,7 @@ impl fmt::Display for Usage {
                 COVERS => format!("{COVERS} < <paths>"),
                 WATCH_LINE => format!("{WATCH_LINE} <reader> <values>"),
                 JOB => format!("{JOB} [<act> ...]"),
+                BUILD => format!("{BUILD} revert"),
                 named => format!("{named} <name>"),
             };
             writeln!(out, "  armada {shape:<16}  {what}")?;

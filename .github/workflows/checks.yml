@@ -310,8 +310,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # fleet's test harness compiles 31% faster with Armada's own crates
-    # type-checked on four threads and no debug info. test_compile sets the
-    # same, as it restores this job's cache. docs/spikes/ci-test-compile.md.
+    # type-checked on four threads and no debug info. test_compile and the
+    # main-caches probe set the same, as rust-cache hashes them into this
+    # job's key. docs/spikes/ci-test-compile.md.
     env:
       RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
       CARGO_PROFILE_DEV_DEBUG: "0"
@@ -575,6 +576,19 @@ jobs:
         with:
           name: sync_mod_test
           cmd: python3 scripts/test_sync_mod.py
+
+  keep_build_test:
+    name: keep_build_test
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.checks), 'keep_build_test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/run-check
+        with:
+          name: keep_build_test
+          cmd: python3 scripts/test_keep_build.py
 
   format_catch_up_test:
     name: format_catch_up_test
@@ -864,6 +878,7 @@ jobs:
       - hooks_test
       - preview_test
       - sync_mod_test
+      - keep_build_test
       - format_catch_up_test
       - xtask_test
       - test_compile

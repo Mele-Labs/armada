@@ -600,6 +600,9 @@ const api: BridgeApi = {
   // the outcome arrives as `fleetBuild` on the published state.
   changeFleetBuild: (build: BuildSource, adopt: boolean): Promise<Outcome> =>
     ipcRenderer.invoke(CHANNELS.changeFleetBuild, build, adopt),
+  // Swap back onto the build kept before this one. Fleet starts the undo and answers at once; the
+  // outcome arrives as `fleetBuild` on the published state.
+  revertFleetBuild: (): Promise<Outcome> => ipcRenderer.invoke(CHANNELS.revertFleetBuild),
 
   readSessionCheckOutput: (run: number): Promise<CheckOutputRead> =>
     ipcRenderer.invoke(CHANNELS.readSessionCheckOutput, run),
