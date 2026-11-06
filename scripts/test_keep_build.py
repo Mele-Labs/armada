@@ -171,11 +171,12 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make(protocol="abc123")
         flat, jobs = self.toml(snapshot)
         self.assertEqual(sorted(flat), ["bridge", "bridge_shell", "built_at", "commit", "electron", "main",
-                                        "node_modules", "protocol_id", "source"])
+                                        "node_modules", "protocol_id", "source", "tree"])
         self.assertEqual(jobs, [])
         self.assertRegex(flat["built_at"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
         self.assertEqual(flat["commit"], commit)
         self.assertEqual(flat["source"], "main")
+        self.assertEqual(flat["tree"], os.path.abspath(self.src))
         self.assertEqual(flat["main"], commit)
         self.assertEqual(flat["protocol_id"], "abc123")
         self.assertEqual(flat["electron"], "40.1.2")
