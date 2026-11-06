@@ -2,7 +2,7 @@
 // closes, moves and resizes, kept as a Job's layout is. Its tabs are Talk, the Log, Waiting to start and Permissions; it opens on
 // Talk and the Log in one pane. Drawn only where the window has an Operator store (`store.tsx`), which today is the mock's alone.
 
-import { createContext, useContext, useState } from "react";
+import { Fragment, createContext, useContext, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { Bot, Check, Clock, GripVertical, LoaderCircle, Lock, MessagesSquare } from "lucide-react";
 import {
@@ -10,13 +10,16 @@ import {
   DropdownMenu,
   Input,
   SessionComposer,
+  SessionThread,
+  SpaciousTake,
   SplitButton,
   Switch,
   Tooltip,
-  YourMessage,
   type ComposerMode,
   type ComposerTag,
   type DropdownMenuEntry,
+  type SessionThreadRow,
+  type ThreadCard,
 } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
@@ -61,6 +64,7 @@ import type {
   OperatorJob,
   OperatorLineRow,
   OperatorLogRow,
+  OperatorMessage,
   OperatorPosition,
   OperatorRaise,
   OperatorSource,
@@ -1240,21 +1244,102 @@ function openingOf(store: OperatorStore): string | null {
   return said.length === 0 ? null : said.join(" ");
 }
 
-function Opening({ store }: { store: OperatorStore }) {
-  const said = openingOf(store);
-  if (said === null) return null;
-  return (
-    <ol className="armada-operator__talk" role="log" aria-label="Conversation">
-      <li className="armada-helm-thread__row" data-actor="helm" data-from="agent">
-        <div className="armada-helm-thread__head">
-          <span className="armada-helm-thread__who">Operator</span>
-        </div>
-        <div className="armada-helm-thread__message">
-          <p className="armada-session-said">{said}</p>
-        </div>
-      </li>
-    </ol>
+/** When a message the mock wrote without a time was said: in the order it came, from when the window opened. */
+const OPENED = Date.now();
+const atOf = (message: OperatorMessage, index: number) =>
+  message.at ?? new Date(OPENED + index * 1000).toISOString();
+
+/** Discussion's words as a Job thread's rows, so they read as a Job's thread does. Nothing said yet, the Operator opens. */
+function threadRows(store: OperatorStore): SessionThreadRow[] {
+  const { messages, turns } = store.state;
+  if (messages.length === 0) {
+    const said = openingOf(store);
+    return said === null
+      ? []
+      : [
+          {
+            id: "opening",
+            at: new Date(OPENED).toISOString(),
+            kind: "message",
+            from: "agent",
+            text: said,
+          },
+        ];
+  }
+  return messages.flatMap((message, index): SessionThreadRow[] =>
+    message.card !== undefined || message.opens !== undefined || message.text === ""
+      ? []
+      : [
+          {
+            id: message.id,
+            at: atOf(message, index),
+            kind: "message",
+            from: message.from === "you" ? "you" : "agent",
+            text: message.text,
+            ...(message.from === "you" && turns?.some((one) => one.message === message.id) === true
+              ? {
+                  queued: true as const,
+                }
+              : {}),
+          },
+        ],
   );
+}
+
+/** What Discussion draws between its words: where an item came up or was settled, a Job it started, an order it proposed. */
+function threadCards(store: OperatorStore): ThreadCard[] {
+  const { act } = store;
+  return store.state.messages.flatMap((message, index): ThreadCard[] => {
+    const at = atOf(message, index);
+    const cards: ThreadCard[] = [];
+    if (message.card !== undefined)
+      cards.push({
+        key: message.id,
+        at,
+        node: <CardMarker store={store} id={message.card} ends={message.ends === true} />,
+      });
+    if (message.opens !== undefined) {
+      const opens = message.opens;
+      cards.push({
+        key: `${message.id}:opens`,
+        at,
+        node: (
+          <span className="armada-operator__marker armada-operator__started">
+            <span className="armada-operator__marker-item">{message.text}</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label={`Open Job: ${opens.title}`}
+              onClick={() => openJob(opens.session)}
+            >
+              Open Job
+            </Button>
+          </span>
+        ),
+      });
+    }
+    if (message.order !== undefined) {
+      const order = message.order;
+      cards.push({
+        key: `${message.id}:order`,
+        at,
+        node: (
+          <OrderProposed
+            order={order}
+            settled={message.settled}
+            onSettle={(keep) =>
+              act({
+                kind: "order",
+                message: message.id,
+                keep,
+              })
+            }
+          />
+        ),
+      });
+    }
+    return cards;
+  });
 }
 
 /** Talk: the conversation over the Job composer, as a Job's thread stands over its box. `@` Jobs and files, `#` issues and pull requests, `/` commands, files and sketches. */
@@ -1276,31 +1361,34 @@ function Talk({ store }: { store: OperatorStore }) {
   const item = state.raises?.find((one) => one.id === state.open);
   const messages = state.messages;
   const off = !state.on;
+  const rows = threadRows(store);
+  const first = rows[0]?.at;
+  const cards = threadCards(store);
+  const leading = cards.filter((one) => first === undefined || (one.at ?? "") < first);
+  const after = cards.filter((one) => !leading.includes(one));
   return (
-    <div className="armada-operator__talk-pane" data-off={off || undefined}>
-      {off ? (
-        <div className="armada-operator__off">
-          <Switch
-            size="sm"
-            checked={false}
-            description="On, it answers here. What it may do to your Jobs is set under Permissions"
-            onChange={() =>
-              act({
-                kind: "on",
-                on: true,
-              })
-            }
-          >
-            Operator
-          </Switch>
-        </div>
-      ) : null}
-      {item === undefined ? null : <ItemCard store={store} raise={item} />}
-      <div className="armada-operator__conversation">
-        {messages.length === 0 ? (
-          <Opening store={store} />
-        ) : (
-          <>
+    <SpaciousTake.Provider value>
+      <div className="armada-operator__talk-pane armada-session-frame" data-off={off || undefined}>
+        {off ? (
+          <div className="armada-operator__off">
+            <Switch
+              size="sm"
+              checked={false}
+              description="On, it answers here. What it may do to your Jobs is set under Permissions"
+              onChange={() =>
+                act({
+                  kind: "on",
+                  on: true,
+                })
+              }
+            >
+              Operator
+            </Switch>
+          </div>
+        ) : null}
+        {item === undefined ? null : <ItemCard store={store} raise={item} />}
+        <div className="armada-operator__conversation">
+          {messages.length === 0 ? null : (
             <span className="armada-operator__clear">
               <Button
                 size="sm"
@@ -1314,147 +1402,93 @@ function Talk({ store }: { store: OperatorStore }) {
                 Clear
               </Button>
             </span>
-            <ol className="armada-operator__talk" role="log" aria-label="Conversation">
-              {messages.map((message) => {
-                if (message.card !== undefined)
-                  return (
-                    <li key={message.id} className="armada-operator__said">
-                      <CardMarker store={store} id={message.card} ends={message.ends === true} />
-                    </li>
-                  );
-                if (message.from === "you") {
-                  const at = state.turns?.findIndex((one) => one.message === message.id) ?? -1;
-                  return (
-                    <YourMessage
-                      key={message.id}
-                      row={{
-                        id: message.id,
-                        at: message.at ?? new Date(0).toISOString(),
-                        text: message.text,
-                        ...(at < 0
-                          ? {}
-                          : {
-                              queued: true,
-                            }),
-                      }}
-                    />
-                  );
-                }
-                return (
-                  <li
-                    key={message.id}
-                    className="armada-helm-thread__row"
-                    data-actor="helm"
-                    data-from="agent"
-                  >
-                    <div className="armada-helm-thread__head">
-                      <span className="armada-helm-thread__who">Operator</span>
-                    </div>
-                    <div className="armada-helm-thread__message">
-                      <p className="armada-session-said">{message.text}</p>
-                    </div>
-                    {message.opens === undefined ? null : (
-                      <span className="armada-operator__card-acts">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          aria-label={`Open Job: ${message.opens.title}`}
-                          onClick={() => openJob(message.opens!.session)}
-                        >
-                          Open Job
-                        </Button>
-                      </span>
-                    )}
-                    {message.order === undefined ? null : (
-                      <OrderProposed
-                        order={message.order}
-                        settled={message.settled}
-                        onSettle={(keep) =>
-                          act({
-                            kind: "order",
-                            message: message.id,
-                            keep,
-                          })
-                        }
-                      />
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </>
-        )}
-      </div>
-      <SessionComposer
-        key={item?.id ?? "general"}
-        label="Message to the Operator"
-        disabled={off}
-        working={false}
-        mode={mode}
-        onMode={setMode}
-        model={tuned.model}
-        effort={tuned.effort}
-        models={draft?.models ?? NONE}
-        {...(draft?.defaultModel === undefined
-          ? {}
-          : {
-              defaultModel: draft.defaultModel,
-            })}
-        efforts={draft?.efforts ?? NONE}
-        onTune={setTuned}
-        commands={hostedCommands(draft?.commands ?? NONE)}
-        taggable={sessions
-          .filter((one) => one.dead === undefined && one.title !== undefined)
-          .map(
-            (one): ComposerTag => ({
-              kind: "session",
-              id: one.id,
-              title: one.title!,
-            }),
           )}
-        searchFiles={(query) => searchFiles(query)}
-        {...(numbered === undefined
-          ? {}
-          : {
-              numbered,
-            })}
-        tags={NONE}
-        onTags={() => undefined}
-        draftKey={item === undefined ? "operator:box" : `operator:box:${item.id}`}
-        drawn={drawn.map(({ id, title }) => ({
-          id,
-          title,
-        }))}
-        onDraw={() => setPadOpen(true)}
-        onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
-        grows="panel"
-        onSend={(sent) => {
-          const words = spelled(sent.text, sent.tags);
-          const attached = [
-            ...sent.files.map((one) => one.name),
-            ...drawn.map((one) => one.title),
-          ];
-          if (words === "" && attached.length === 0) return Promise.resolve(false);
-          act({
-            kind: "say",
-            text: words,
-            attached,
-          });
-          setDrawn(NO_SKETCHES);
-          return Promise.resolve(true);
-        }}
-      />
-      <SketchSheet
-        open={padOpen}
-        onClose={() => setPadOpen(false)}
-        onAttach={(sketch) => {
-          setDrawn((was) => [
-            ...was,
-            sketch,
-          ]);
-          setPadOpen(false);
-        }}
-      />
-    </div>
+          <SessionThread
+            sessionId="operator"
+            agentName="Operator"
+            rows={rows}
+            // A card said before any words leads the thread: the thread places the rest after the words before them.
+            {...(leading.length === 0
+              ? {}
+              : {
+                  lead: leading.map((one) => <Fragment key={one.key}>{one.node}</Fragment>),
+                })}
+            inline={after}
+            onAnswer={() => undefined}
+            onOpenSession={openJob}
+          />
+        </div>
+        <SessionComposer
+          key={item?.id ?? "general"}
+          label="Message to the Operator"
+          disabled={off}
+          working={false}
+          mode={mode}
+          onMode={setMode}
+          model={tuned.model}
+          effort={tuned.effort}
+          models={draft?.models ?? NONE}
+          {...(draft?.defaultModel === undefined
+            ? {}
+            : {
+                defaultModel: draft.defaultModel,
+              })}
+          efforts={draft?.efforts ?? NONE}
+          onTune={setTuned}
+          commands={hostedCommands(draft?.commands ?? NONE)}
+          taggable={sessions
+            .filter((one) => one.dead === undefined && one.title !== undefined)
+            .map(
+              (one): ComposerTag => ({
+                kind: "session",
+                id: one.id,
+                title: one.title!,
+              }),
+            )}
+          searchFiles={(query) => searchFiles(query)}
+          {...(numbered === undefined
+            ? {}
+            : {
+                numbered,
+              })}
+          tags={NONE}
+          onTags={() => undefined}
+          draftKey={item === undefined ? "operator:box" : `operator:box:${item.id}`}
+          drawn={drawn.map(({ id, title }) => ({
+            id,
+            title,
+          }))}
+          onDraw={() => setPadOpen(true)}
+          onRemoveDrawn={(id) => setDrawn((was) => was.filter((one) => one.id !== id))}
+          grows="panel"
+          onSend={(sent) => {
+            const words = spelled(sent.text, sent.tags);
+            const attached = [
+              ...sent.files.map((one) => one.name),
+              ...drawn.map((one) => one.title),
+            ];
+            if (words === "" && attached.length === 0) return Promise.resolve(false);
+            act({
+              kind: "say",
+              text: words,
+              attached,
+            });
+            setDrawn(NO_SKETCHES);
+            return Promise.resolve(true);
+          }}
+        />
+        <SketchSheet
+          open={padOpen}
+          onClose={() => setPadOpen(false)}
+          onAttach={(sketch) => {
+            setDrawn((was) => [
+              ...was,
+              sketch,
+            ]);
+            setPadOpen(false);
+          }}
+        />
+      </div>
+    </SpaciousTake.Provider>
   );
 }
