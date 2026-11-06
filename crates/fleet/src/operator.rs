@@ -30,8 +30,10 @@ mod boarding;
 mod calling;
 mod candidates;
 mod desk;
+mod ending;
 mod erroring;
 mod handing;
+mod hearing;
 mod holding;
 mod orders;
 mod placing;
@@ -65,6 +67,8 @@ pub(crate) use answering::answers;
 #[cfg(test)]
 pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;
+pub use ending::{Ended, Merged, Pulled, Tied, Unblocks};
+pub use hearing::keep_the_ends_told;
 pub use orders::{Order, Orders};
 pub(crate) use seat::{Moved, Seat};
 pub use questions::{Choice, Earlier, Group, Kind, Present, Question, ALLOW_ONCE};
@@ -508,7 +512,7 @@ impl Operator {
             (Way::Merge, Some(other)) => self.acting.merge(session, other, &ruling.shared),
             (Way::KeepInTouch, Some(other)) => self.acting.keep_in_touch(session, other, &ruling.shared),
             // A way between two that names no other was refused as it was read.
-            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Answer | Way::Link | Way::File, _) => {}
+            (Way::ExistingJob | Way::Merge | Way::KeepInTouch, None) | (Way::Raise | Way::Answer | Way::Link | Way::File | Way::Noted, _) => {}
         }
         if let (Some(first), Some(other)) = (ruling.first.as_deref(), ruling.other.as_deref()) {
             let held = if first == session { other } else { session };
@@ -524,6 +528,7 @@ impl Operator {
 /// neither has one, and a raise of anything but a quiet Job is only its Log row.
 fn role_of(arrived: Arrived, way: Way) -> Option<OperatorRole> {
     match way {
+        Way::Noted => None,
         Way::Answer => Some(OperatorRole::Answer),
         Way::File => Some(OperatorRole::File),
         Way::Link => None,

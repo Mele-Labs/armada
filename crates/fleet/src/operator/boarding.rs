@@ -113,7 +113,7 @@ pub fn kind_of(arrived: Arrived) -> OperatorBoardKind {
         Arrived::Question => OperatorBoardKind::Question,
         Arrived::Card => OperatorBoardKind::Card,
         Arrived::Stopped | Arrived::Red => OperatorBoardKind::Stall,
-        Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Error => OperatorBoardKind::Report,
+        Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error => OperatorBoardKind::Report,
     }
 }
 
@@ -140,8 +140,9 @@ fn waited(handed: &Timestamp, now: &Timestamp) -> Option<String> {
     })
 }
 
-/// A ruling in `Kind: what`, or the kind alone. `title_of` names a Job by its id.
-fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String) -> String {
+/// A ruling in `Kind: what`, or the kind alone. `title_of` names a Job by its id, and `summary_of`
+/// gives what its agent said it achieved.
+fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, summary_of: &dyn Fn(&str) -> Option<String>) -> String {
     let said = |kind: &str, what: String| match short(&what) {
         what if what.is_empty() => kind.to_string(),
         what => format!("{kind}: {what}"),
@@ -157,6 +158,13 @@ fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String) -> String {
         "keep_in_touch" => said("Kept in touch", format!("with {}", other())),
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
+        // An end or a merge read and left: what it was is the row.
+        "noted" => match Arrived::from_word(&row.arrived) {
+            Some(Arrived::Ended) => said("Ended", summary_of(&row.session_id).unwrap_or_default()),
+            Some(Arrived::Merged) => said("Merged", format!("#{} {}", row.arrival.rsplit(':').next().unwrap_or_default(), row.subject)),
+            _ => "Noted".to_string(),
+        },
+        "ended" => "Ended".to_string(),
         "passed_on" => "Passed on".to_string(),
         "skipped" => "Skipped".to_string(),
         _ => "Settled".to_string(),
@@ -213,6 +221,7 @@ where
                 .collect();
             let rows = store.operator_rulings_signed(DONE_SHOWN).map_err(|why| self.ledger_fault(why))?;
             let title_of = |id: &str| store.session(id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| id.to_string());
+            let summary_of = |id: &str| store.done_summary(id).ok().flatten();
             let done = rows
                 .iter()
                 .map(|row| OperatorBoardSettled {
@@ -221,7 +230,7 @@ where
                     session_id: Some(row.session_id.clone()).filter(|id| !id.is_empty()),
                     title: first_line(&row.subject),
                     repository: self.board_repository(&row.manifest_id),
-                    outcome: outcome_of(row, &title_of),
+                    outcome: outcome_of(row, &title_of, &summary_of),
                     at: row.at.clone(),
                 })
                 .collect();

@@ -133,6 +133,7 @@ impl Question {
             answers,
             rule,
             open: Vec::new(),
+            ties: Vec::new(),
         })
     }
 
