@@ -122,7 +122,7 @@ fn no_previous_build_is_refused_and_nothing_moves() {
 #[test]
 fn a_fleet_launchd_does_not_run_from_the_kept_builds_is_refused_and_nothing_moves() {
     let (_home, support) = kept("b2", "b1");
-    std::fs::write(support.join(format!("{LABEL}.plist")), "<string>/Users/someone/.cargo/bin/armada</string>").unwrap();
+    std::fs::write(support.join(format!("{LABEL}.plist")), "<string>/Users/user/.cargo/bin/armada</string>").unwrap();
     let services = Recorded::default();
 
     let refused = revert(&support, LABEL, "1", &services).expect_err("refused");
