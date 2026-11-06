@@ -1,7 +1,7 @@
 /* A take on a Job's thread with more room, under `?thread=spacious` (`main.tsx`) and nowhere else. Fonts, spacing and
    weight only: every colour is the theme's. */
 
-:root[data-thread-take="spacious"][data-look] {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame {
   --spacious-column: 680px;
   --spacious-body: 15px;
   --spacious-leading: 24px;
@@ -10,13 +10,13 @@
 }
 
 /* ---- One centred column. The rows, Needs you and the composer share its width. ---- */
-:root[data-thread-take="spacious"][data-look] .deck {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame {
   --body-pad: 0 var(--space-6) var(--space-4);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows,
-:root[data-thread-take="spacious"][data-look] .sv-bands,
-:root[data-thread-take="spacious"][data-look] .sv-dock {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .sv-bands,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .sv-dock {
   width: 100%;
   max-width: var(--spacious-column);
   margin-inline: auto;
@@ -24,36 +24,36 @@
 
 /* The rows scroll across the whole pane, so their scrollbar keeps to its edge, away from the words; the column is padding
    either side, never less than room for a hovered line's wash and its bar, which the scroll would clip. */
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows {
   max-width: none;
   padding: var(--space-6) max(var(--space-6), calc((100% - var(--spacious-column)) / 2)) 0;
 }
 
 /* A thin thumb with no track, there only while the pointer is over the thread. */
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar {
   width: calc(var(--space-1) + var(--space-1) / 2);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar-track {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-track {
   background: transparent;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar-thumb {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-thumb {
   border-radius: var(--radius-md);
   background: transparent;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows:hover::-webkit-scrollbar-thumb {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows:hover::-webkit-scrollbar-thumb {
   background: var(--border-strong);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows::-webkit-scrollbar-thumb:hover {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-thumb:hover {
   background: var(--fg-subtle);
 }
 
 /* Messages scrolled past fade out under the Job's head, and into the composer at the foot, rather than stopping at an edge.
    A mask on the scroll area, so it is transparency and no colour of its own. */
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows {
   --spacious-fade-top: var(--space-8);
   --spacious-fade-foot: var(--space-4);
   mask-image: linear-gradient(
@@ -66,31 +66,31 @@
 }
 
 /* ---- Turns parted by space. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-thread-rows {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows {
   gap: calc(var(--space-6) + var(--space-1));
   padding-bottom: var(--space-6);
 }
 
 /* ---- The body: a larger sans with looser lines. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose,
-:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose__paragraph {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__paragraph {
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose {
   gap: var(--space-4);
 }
 
 /* The agent's words: one quiet line over them, then the prose, far enough below it that a hovered first paragraph's fill
    stops short of the line. */
-:root[data-thread-take="spacious"][data-look] .armada-thread-row {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-row {
   gap: var(--space-4);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-thread-row__who,
-:root[data-thread-take="spacious"][data-look] .armada-thread-row__at,
-:root[data-thread-take="spacious"][data-look] .armada-session-you__at {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-row__who,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-row__at,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-you__at {
   font-family: var(--font-sans);
   font-size: var(--spacious-meta);
   line-height: 18px;
@@ -100,61 +100,61 @@
 }
 
 /* His words: a filled bubble with no edge, its time a quiet line under it. */
-:root[data-thread-take="spacious"][data-look] .armada-session-you {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-you {
   gap: var(--space-2);
   border: none;
   background: transparent;
   max-width: 80%;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-you__body {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-you__body {
   padding: var(--space-3) calc(var(--space-4) + var(--space-1));
   border-radius: var(--spacious-radius);
   background: color-mix(in srgb, var(--fg-default) 7%, transparent);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-you__band {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-you__band {
   padding: 0 var(--space-2);
 }
 
 /* ---- Calls and runs: one quiet line each. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-session-fold__head,
-:root[data-thread-take="spacious"][data-look] .armada-session-fold__names {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__names {
   font-size: var(--spacious-meta);
   line-height: 20px;
   color: var(--fg-muted);
 }
 
 /* A run's command reads in the body's face. Its output keeps the mono face its columns line up in. */
-:root[data-thread-take="spacious"][data-look] .armada-session-fold__head .mono,
-:root[data-thread-take="spacious"][data-look] .armada-session-fold__target,
-:root[data-thread-take="spacious"][data-look] .armada-session-command__text {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head .mono,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__target,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-command__text {
   font-family: var(--font-sans);
   font-size: var(--spacious-meta);
   line-height: 20px;
 }
 
 /* What the agent reasoned, opened: quieter than its answer, set in under a rule as a run's output is. */
-:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-session-fold__body {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-session-fold__body {
   margin: var(--space-2) 0 0 calc(var(--space-1) + var(--space-1) / 2);
   padding-left: var(--space-4);
   border-left: var(--border-width) solid var(--border-subtle);
   color: var(--fg-muted);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-prose,
-:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-prose__paragraph {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-prose,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-prose__paragraph {
   font-size: var(--text-sm);
   line-height: 22px;
 }
 
 /* ---- A paragraph the pointer is over: drawn as his bubble is, its padding and corners, a lighter fill. The fill is a layer
    behind the words that stands out past them, so nothing moves when it comes; its bar sits on the fill's top edge. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-prose p[data-pick] {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick] {
   isolation: isolate;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-prose p[data-pick]::before {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick]::before {
   content: "";
   position: absolute;
   inset: calc(var(--space-3) * -1) calc((var(--space-4) + var(--space-1)) * -1);
@@ -163,39 +163,60 @@
   pointer-events: none;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-prose p[data-pick]:is([data-hot], :focus-visible) {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick]:is([data-hot], :focus-visible) {
   background: none;
   box-shadow: none;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-prose p[data-pick]:is([data-hot], :focus-visible)::before {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick]:is([data-hot], :focus-visible)::before {
   background: color-mix(in srgb, var(--fg-default) 4%, transparent);
 }
 
 /* Paragraphs far enough apart that one's fill stops short of the next one's words. */
-:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose > p + p {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > p + p {
   margin-top: var(--space-6);
 }
 
 /* A list's line keeps a tighter wash: the bubble's side padding would run into its number. */
-:root[data-thread-take="spacious"][data-look] .armada-prose li[data-pick]:is([data-hot], :focus-visible) {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose li[data-pick]:is([data-hot], :focus-visible) {
   border-radius: var(--spacious-radius);
   box-shadow: 0 0 0 var(--space-2) var(--bg-hover);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-prose__pick-acts {
+/* The hover bar: the bubble's corners, a quiet edge, and room around each reaction, each lit on its own under the pointer. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts {
   bottom: calc(100% + var(--space-2));
   right: calc(var(--space-3) * -1);
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-color: var(--border-subtle);
+  border-radius: var(--spacious-radius);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts .armada-button {
+  width: var(--h-control);
+  height: var(--h-control);
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts .armada-button:hover {
+  background: var(--bg-hover);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-emoji {
+  font-size: var(--spacious-body);
 }
 
 /* ---- The document: a quiet edge, its title in sentence case. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__asked {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__asked {
   border-color: var(--border-subtle);
   border-radius: var(--spacious-radius);
   background: transparent;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__band {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__band {
   min-height: 0;
   padding: var(--space-3) var(--space-4) var(--space-1);
   border-bottom: none;
@@ -206,29 +227,29 @@
   letter-spacing: 0;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__title {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__title {
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
   font-weight: var(--weight-medium);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__at,
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__state {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__at,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__state {
   font-family: var(--font-sans);
   font-weight: var(--weight-body);
   font-variant-numeric: tabular-nums;
   color: var(--fg-subtle);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers {
   padding: var(--space-2) var(--space-4) var(--space-4);
   border-top: none;
   background: transparent;
 }
 
 /* Its answers: full height, the body's size, the bubble's corners, Send back a quiet fill with no edge. */
-:root[data-thread-take="spacious"][data-look] .armada-session-done__acts .armada-button,
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-button {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-done__acts .armada-button,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers .armada-button {
   height: var(--h-control-lg);
   padding: 0 var(--space-4);
   border-radius: var(--spacious-radius);
@@ -236,27 +257,27 @@
   font-weight: var(--weight-medium);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-done__acts .armada-button[data-variant="secondary"],
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-button[data-variant="secondary"] {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-done__acts .armada-button[data-variant="secondary"],
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers .armada-button[data-variant="secondary"] {
   border-color: transparent;
   background: color-mix(in srgb, var(--fg-default) 8%, transparent);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-card-footer {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers .armada-card-footer {
   gap: var(--space-2);
 }
 
 /* ---- Needs you: its band in sentence case, the composer under it rounder and roomier. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-needs-panel__band {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-needs-panel__band {
   height: calc(var(--space-6) + var(--space-1));
   border-radius: var(--spacious-radius) var(--spacious-radius) 0 0;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-needs-panel__body {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-needs-panel__body {
   padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-needs-panel__label {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-needs-panel__label {
   font-family: var(--font-sans);
   font-size: var(--spacious-meta);
   font-weight: var(--weight-medium);
@@ -264,35 +285,35 @@
   letter-spacing: 0;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-composer {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer {
   border-color: var(--border-subtle);
   border-radius: var(--spacious-radius);
 }
 
 /* Typing in it lights no edge: the caret says where the words go. The edge Needs you or an ending gives it still holds, and
    a control in its bar still rings when reached by key. */
-:root[data-thread-take="spacious"][data-look] .armada-session-composer:focus-within {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer:focus-within {
   border-color: var(--border-subtle);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-composer__editor {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__editor {
   padding: var(--space-3) var(--space-4);
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-composer__bar {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__bar {
   padding: var(--space-1) var(--space-2) var(--space-2);
 }
 
 /* ---- The Job's tools under the composer: room above, wider apart, lit only under the pointer. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-frame__toolbelt {
   margin-top: var(--space-2);
   padding: var(--space-1) var(--space-2) 0;
   gap: var(--space-3);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt .armada-button {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-frame__toolbelt .armada-button {
   width: var(--h-control);
   height: var(--h-control);
   border-color: transparent;
@@ -300,24 +321,24 @@
   color: var(--fg-subtle);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt .armada-button:hover {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-frame__toolbelt .armada-button:hover {
   color: var(--fg-default);
   background: var(--bg-hover);
 }
 
 /* ---- A working agent: what it is doing, in words beside the mark. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-session-thread__working {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__working {
   gap: var(--space-2);
   font-size: var(--spacious-meta);
   line-height: 20px;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-session-fold__head {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-session-fold__head {
   gap: var(--space-2);
 }
 
 /* Its calls, one to a line in the order made: those done in the past tense, the one running with the mark. */
-:root[data-thread-take="spacious"][data-look] .armada-session-live {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-live {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -326,7 +347,7 @@
   list-style: none;
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-live__call {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-live__call {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -335,11 +356,11 @@
   color: var(--fg-subtle);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-live__call[data-now] {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-live__call[data-now] {
   color: var(--fg-default);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-live__mark {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-live__mark {
   display: inline-flex;
   flex: none;
   justify-content: center;
@@ -347,7 +368,7 @@
 }
 
 /* ---- Nothing left to do: the thread's last entry, edged as the document is. ---- */
-:root[data-thread-take="spacious"][data-look] .armada-session-end {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -356,7 +377,7 @@
   border-radius: var(--spacious-radius);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-end__head {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end__head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -367,22 +388,22 @@
   color: var(--fg-default);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-end__head svg {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end__head svg {
   color: var(--step-advanced);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-end .armada-session-done__summary {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end .armada-session-done__summary {
   padding: 0;
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
   color: var(--fg-muted);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-end .armada-session-done__acts {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end .armada-session-done__acts {
   margin-top: var(--space-1);
 }
 
-:root[data-thread-take="spacious"][data-look] .armada-session-live__line {
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-live__line {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

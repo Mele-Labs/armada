@@ -12,7 +12,7 @@ import {
   useActs,
   useActsPlace,
 } from "./job-panes/acts";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -43,6 +43,7 @@ import {
   type PlanApproval,
   SessionEndBand,
   DoneBody,
+  SpaciousTake,
   NotOursCard,
   ProseTerminal,
   Tooltip,
@@ -1699,6 +1700,8 @@ export function SessionView({
   trailing?: ReactNode;
 }) {
   const draft = useSessionsDraft();
+  // The spacious take (`?thread=spacious` in the mock), or a sheet's column that draws it; only this view hands it to its thread.
+  const spacious = useContext(SpaciousTake) || document.body.dataset.threadTake === "spacious";
   const pausedSend = usePausedSend(draft ?? NO_DRAFT, session);
   const runBook = useRunBook();
   const account = useAccount();
@@ -2657,8 +2660,7 @@ export function SessionView({
         },
       };
   // The spacious take (`?thread=spacious` in the mock) draws the ending as the thread's last entry, and the composer carries no band for it.
-  const endInThread =
-    doneProp !== undefined && !waits && document.documentElement.dataset.threadTake === "spacious";
+  const endInThread = doneProp !== undefined && !waits && spacious;
   const endShown = doneProp !== undefined && !waits && !endInThread;
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
@@ -2991,6 +2993,7 @@ export function SessionView({
                   <>
                     <RequestOpen.Provider value={openRequest}>
                       <SavedOpen.Provider value={openSaved}>
+                        <SpaciousTake.Provider value={spacious}>
                         <SessionThread
                           sessionId={session.id}
                           rows={withJudged}
@@ -3195,6 +3198,7 @@ export function SessionView({
                                 },
                               })}
                         />
+                        </SpaciousTake.Provider>
                       </SavedOpen.Provider>
                     </RequestOpen.Provider>
                     {docked.pane}

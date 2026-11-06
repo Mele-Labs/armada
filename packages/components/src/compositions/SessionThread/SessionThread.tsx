@@ -1192,13 +1192,15 @@ function namesOf(
 }
 
 /**
+ * The spacious take on a Job's thread (`?thread=spacious` in the mock). Only the Job view provides it, so a thread drawn
+ * anywhere else (a call card, a subagent, a pane) stays as it is.
+ */
+export const SpaciousTake = createContext(false);
+
+/**
  * **Calls that ran one after another are one row, closed.** It names the tools it holds and draws no
  * count; pressing it shows each call. A lone call is a group of one.
  */
-/** The spacious take on the thread (`?thread=spacious` in the mock); without it the thread is as it is. */
-const spaciousTake = (): boolean =>
-  typeof document !== "undefined" && document.documentElement.dataset["threadTake"] === "spacious";
-
 function Calls({
   rows,
   working,
@@ -1217,8 +1219,9 @@ function Calls({
 }) {
   const names = namesOf(rows);
   const line = callsLine(rows, working === true);
+  const spacious = useContext(SpaciousTake);
   // The spacious take draws a working agent's calls one to a line, the newest with the mark.
-  if (working === true && spaciousTake())
+  if (working === true && spacious)
     return (
       <li
         className="armada-session-fold armada-session-fold--live"
@@ -3494,6 +3497,7 @@ export function SessionThread({
     ],
   );
   const scroller = useRef<HTMLDivElement>(null);
+  const spacious = useContext(SpaciousTake);
   const pinned = useRef(true);
   const scrollerHeight = useRef(0);
   // **Opens at the newest row, with no animation, and stays there while the person is at the end.**
@@ -3984,7 +3988,7 @@ export function SessionThread({
                         {working === true && (!endsInCalls || asking) ? (
                           <li className="armada-session-thread__working">
                             <SessionMark state="working" said="Working" />
-                            {spaciousTake() ? (
+                            {spacious ? (
                               <span className="armada-session-thread__working-said">Thinking</span>
                             ) : null}
                             {onStop === undefined ? null : <SessionStop onStop={onStop} />}
