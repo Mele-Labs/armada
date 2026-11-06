@@ -76,7 +76,7 @@ The Job is told again only after the slot has fallen below 20, or had no commits
 A Job's slot, a free slot, a stranded slot and a subagent's bay are not told, and the owner is not called: merging the base in is the agent's work.
 
 **A Job whose usage crosses a token rule is told once.** Context over 300k sends the Job one message with the figure and one action.
-The Job is told again only after it fell back under the limit and 30 minutes passed.
+It is one nudge for the Job, sent only at a quiet moment: a turn has ended and nothing waits on the person. Due while he has something to decide, it is held to the next quiet moment, and once sent it is not sent again by size.
 Fleet never ends, forks or moves the Job for this, and a model change is only ever offered in the words.
 `where-the-tokens-went.md` has the rules and the words.
 
