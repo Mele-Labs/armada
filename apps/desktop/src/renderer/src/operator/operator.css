@@ -291,7 +291,7 @@
 
 /* Off: one row with the switch, and what it would answer drawn quiet below. */
 .armada-operator__off {
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: var(--border-width) solid var(--border-subtle);
   padding-bottom: var(--space-2);
 }
 
