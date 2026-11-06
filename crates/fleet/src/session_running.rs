@@ -4,16 +4,20 @@
 //!
 //! **The command is the terminal's session leader**, so Ctrl-C written to it reaches it as SIGINT.
 //! **Nothing is written down**: a run keeps its last [`RING`] bytes while it lives and
-//! [`KEPT_AFTER_EXIT`] after, and a restart forgets every run. Its id is a ULID, so no run after a
-//! restart takes the id of one before it.
+//! [`KEPT_AFTER_EXIT`] after, and a restart forgets every run but a Job's terminals, whose shells
+//! outlive Fleet under a keeper (`crate::terminal_keeping`) and are taken back at boot
+//! ([`kept_terminals`]) under the ids they had. A run's id is a ULID, so no run after a restart
+//! takes the id of one before it.
 //!
 //! **The history and the subscription are taken under one lock**, the one the reader appends
 //! under, so a viewer loses no output and reads none twice. **A character a read ends inside waits
 //! for the read that finishes it**, so no message splits one.
 
+mod driven;
 mod ended;
 mod job_shell;
 mod job_terminals;
+mod kept_terminals;
 pub(crate) mod plain;
 
 use std::collections::BTreeMap;
@@ -30,13 +34,15 @@ use ipc::{
     ResizeSessionRun, SessionRunUnderway, StartSessionRun, StopSessionRun, WireError,
     WriteSessionRun,
 };
-use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
+use portable_pty::PtySize;
 use store::{AttachmentState, Holder};
 use tokio::sync::broadcast;
 
 use crate::daemon::Fleet;
 use crate::mint::{Mint, UlidMint};
+use crate::terminal_keeping::{Files, Starting};
 
+use driven::{kept_driven, local_driven, Driven, Kept, Terminal, Waited};
 pub(crate) use ended::{fenced, Ended};
 pub(crate) use job_terminals::{terminal_id, terminal_number};
 
@@ -77,12 +83,6 @@ impl State {
     }
 }
 
-/// What a run is typed into and resized through. Gone once the run has ended.
-struct Terminal {
-    master: Box<dyn MasterPty + Send>,
-    keys: Box<dyn Write + Send>,
-}
-
 struct Run {
     pgid: i32,
     session: Option<String>,
@@ -92,6 +92,7 @@ struct Run {
     stop_signal: &'static str,
     state: Mutex<State>,
     terminal: Mutex<Option<Terminal>>,
+    kept: Option<Kept>,
     feed: broadcast::Sender<SessionRunEvent>,
 }
 
@@ -140,17 +141,14 @@ impl Run {
 
     fn resize(&self, size: PtySize) -> bool {
         let terminal = self.terminal.lock().expect("not poisoned");
-        terminal.as_ref().is_some_and(|one| one.master.resize(size).is_ok())
+        terminal.as_ref().is_some_and(|one| one.pty.resize(size))
     }
 
     /// Whether a program other than the shell has the terminal's foreground: the group in front is
     /// not the shell's own.
     fn foreground_taken(&self) -> bool {
         let terminal = self.terminal.lock().expect("not poisoned");
-        terminal
-            .as_ref()
-            .and_then(|one| one.master.process_group_leader())
-            .is_some_and(|leader| leader != self.pgid)
+        terminal.as_ref().is_some_and(|one| one.pty.foreground_taken(self.pgid))
     }
 }
 
@@ -173,6 +171,15 @@ struct Launch<'a> {
     command: Option<&'a str>,
     dir: &'a str,
     size: PtySize,
+    /// A Job's shell is held by a keeper, so it outlives Fleet.
+    keeping: Option<Keeping>,
+}
+
+/// A Job's terminal `number`, to be started under a keeper.
+struct Keeping {
+    starting: Starting,
+    files: Files,
+    number: u32,
 }
 
 fn refusal(why: impl Into<String>, run_id: ipc::RunId) -> Refusal {
@@ -225,30 +232,30 @@ impl SessionRuns {
         F: FnOnce(Ended) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
-        let pair = native_pty_system().openpty(launch.size).map_err(other)?;
-        let mut shell = CommandBuilder::new(shell());
-        match launch.command {
-            Some(command) => shell.args(["-lc", command]),
-            None => shell.arg("-l"),
-        }
-        shell.cwd(launch.dir);
-        shell.env("TERM", "xterm-256color");
-        let mut child = pair.slave.spawn_command(shell).map_err(other)?;
-        // With our slave end open the reader would never be told the terminal had closed.
-        drop(pair.slave);
-        let pid = child.process_id().ok_or_else(|| other("the command has no process id"))?;
-        let reader = pair.master.try_clone_reader().map_err(other)?;
-        let keys = pair.master.take_writer().map_err(other)?;
+        let driven = match &launch.keeping {
+            Some(keeping) => kept_driven(&id, &launch, keeping)?,
+            None => local_driven(&launch)?,
+        };
+        self.drive(id, launch.session, launch.command, driven, ended)
+    }
 
+    /// Hold `driven` as run `id`. The reading and the wait are threads of their own, and `ended` runs
+    /// once the run is over and its viewers have been told.
+    fn drive<F, Fut>(&self, id: String, session: Option<&str>, command: Option<&str>, driven: Driven, ended: F) -> std::io::Result<()>
+    where
+        F: FnOnce(Ended) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let Driven { pgid, reader, terminal, waiting, kept } = driven;
         let run = Arc::new(Run {
-            // The command is its own session, so its group is its pid.
-            pgid: pid as i32,
-            session: launch.session.map(str::to_string),
-            command: launch.command.unwrap_or_default().to_string(),
+            pgid,
+            session: session.map(str::to_string),
+            command: command.unwrap_or_default().to_string(),
             stopped: AtomicBool::new(false),
-            stop_signal: if launch.command.is_some() { "TERM" } else { "HUP" },
+            stop_signal: if command.is_some() { "TERM" } else { "HUP" },
             state: Mutex::new(State { held: String::new(), exited: None, printed: 0, typed_at: None }),
-            terminal: Mutex::new(Some(Terminal { master: pair.master, keys })),
+            terminal: Mutex::new(Some(terminal)),
+            kept,
             feed: broadcast::channel(SESSION_RUN_BACKLOG).0,
         });
         self.held
@@ -266,17 +273,21 @@ impl SessionRuns {
         })?;
         let held = self.held.clone();
         let forget = id.clone();
-        let waiting = tokio::task::spawn_blocking(move || child.wait());
+        let waiting = tokio::task::spawn_blocking(waiting);
         tokio::spawn(async move {
             let status = waiting.await;
             let _ = tokio::time::timeout(DRAIN, drain).await;
             let stopped = run.stopped.load(Ordering::Relaxed);
             let code = match status {
-                Ok(Ok(status)) if !stopped && status.signal().is_none() => {
-                    Some(status.exit_code() as i32)
-                }
+                Ok(Waited::Exited(Some(code))) if !stopped => Some(code),
                 _ => None,
             };
+            // **Before the run is over**, so the next shell under this terminal's number does not
+            // find this one's socket. A connection that closed first leaves them: the keeper may be
+            // another Fleet's now, or its shell still running.
+            if let (Some(kept), Ok(Waited::Exited(_))) = (&run.kept, &status) {
+                kept.files.removed();
+            }
             run.terminal.lock().expect("not poisoned").take();
             run.exit(SessionRunEnd { code, stopped });
             let output = run.state.lock().expect("not poisoned").held.clone();
@@ -294,12 +305,18 @@ impl SessionRuns {
         Ok(())
     }
 
-    /// The run's stop signal, then SIGKILL if the group is still there after [`GRACE`].
+    /// The run's stop signal, then SIGKILL if the group is still there after [`GRACE`]. **A kept
+    /// shell is told to end** and its keeper does both, since the keeper holds the child.
     fn stop(&self, run_id: &str) -> bool {
         let Some(run) = self.in_flight(run_id) else {
             return false;
         };
         run.stopped.store(true, Ordering::Relaxed);
+        if let Some(kept) = &run.kept {
+            kept.files.removed();
+            kept.link.end();
+            return true;
+        }
         run.signal(run.stop_signal);
         tokio::spawn(async move {
             tokio::time::sleep(GRACE).await;
@@ -418,6 +435,7 @@ where
             command: Some(&start.command),
             dir: &dir,
             size: size(cols, rows),
+            keeping: None,
         };
         match self
             .session_runs()
@@ -451,6 +469,7 @@ where
             command: Some(&start.command),
             dir: &start.dir,
             size: size(cols, rows),
+            keeping: None,
         };
         match self.session_runs().start(launch, |_| async {}) {
             Ok(run_id) => Ok(SessionRunUnderway { run_id, terminal: None }),

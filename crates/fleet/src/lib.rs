@@ -318,6 +318,8 @@ mod notice_mutes;
 mod session_import;
 mod session_checking;
 mod session_running;
+/// A Job's terminal held by a keeper so it outlives Fleet. `docs/concepts/session/shared-terminal.md`.
+pub mod terminal_keeping;
 /// A shell action run from a flight control, in the slot a Session holds.
 mod session_shell;
 /// Pieces made into a package, read, and added to the person's own Kit.

@@ -10,6 +10,7 @@ use ipc::{Event, ServerLink, ServerPhase, ServerPort, ServerState, StartedBy};
 use tokio::sync::watch;
 
 use super::held::{Holder, Live};
+use super::left::Kept;
 use super::running::Plan;
 use super::{swept, Unservable};
 use crate::daemon::Fleet;
@@ -147,9 +148,67 @@ where
             dir,
             feed,
             now,
+            adopted: None,
         };
         let this = Arc::clone(&self);
         tokio::spawn(async move { this.served(plan, held, stopped).await });
         Ok((state, true))
+    }
+
+    /// Hold again a server a Fleet before this one left running: **the same row it had, the same
+    /// id, ports, links and log, serving.** Its ports are in the row, so they stay the ones its
+    /// checkout has up. Where the holder already has an instance, the server is nobody's and is
+    /// ended.
+    pub(super) fn adopted(self: &Arc<Self>, kept: Kept) {
+        let Kept {
+            mut state,
+            probe,
+            group,
+            started,
+            dir,
+        } = kept;
+        let holder = Holder::Checkout(state.checkout.path.clone());
+        // **Recorded before `ready` passed, and with a `ready` to ask**: still starting, and asked
+        // again. Any other is serving, as its Fleet last said.
+        let starting = state.serving_since.is_none() && probe.ready.is_some();
+        if !starting {
+            state.phase = ServerPhase::Serving;
+            state.serving_since.get_or_insert_with(|| ipc::Instant::from(&self.now()));
+        }
+        let (stop, stopped) = watch::channel(false);
+        let now = Arc::new(watch::channel(state.clone()).0);
+        let feed = api::RunFeed::new();
+        let live = Live {
+            now: Arc::clone(&now),
+            stop: Arc::new(stop),
+            feed: feed.clone(),
+            dir: dir.clone(),
+        };
+        let Ok(held) = self.servers().take(&holder, &state.name, &state.id, live) else {
+            crate::group::end_the_group(group);
+            super::left::forgotten(&dir);
+            return;
+        };
+        now.send_if_modified(|now| {
+            self.publish(match starting {
+                true => Event::ServerStarting(now.clone()),
+                false => Event::ServerServing(now.clone()),
+            });
+            false
+        });
+        let plan = Plan {
+            whose: String::new(),
+            run: None,
+            serve: state.serve,
+            ready: probe.ready,
+            worktree: PathBuf::from(probe.worktree),
+            env: probe.env,
+            dir,
+            feed,
+            now,
+            adopted: Some((group, started)),
+        };
+        let this = Arc::clone(self);
+        tokio::spawn(async move { this.served(plan, held, stopped).await });
     }
 }

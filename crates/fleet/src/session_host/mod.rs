@@ -125,6 +125,7 @@ use ipc::{CallInFlight, SessionTurn};
 use crate::asks::{AskHold, Asks};
 
 pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
+pub(crate) use process::{keepers_made, PRIVATE_ROOT};
 pub use terminal::Terminals;
 pub(crate) use terminal::PromptOpen;
 

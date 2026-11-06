@@ -1,5 +1,7 @@
 //! What Fleet does when it starts: the boot read, and the cleanup a crashed Fleet leaves.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
 use super::Fleet;
@@ -26,11 +28,12 @@ where
     /// **The boot read, and the reconciliation.** No command is answered until it has: `armada
     /// serve` runs it in a task after the router is up, with reads and health answering meanwhile
     /// and commands held by `api::Reconciliation`.
-    pub async fn reconcile(&self) -> Result<Reconciled, Adrift> {
-        // First of all: the servers a crashed Fleet left running are ended, so the ports they
-        // held are free before the probe below. See `crate::servers::left`.
+    pub async fn reconcile(self: &Arc<Self>) -> Result<Reconciled, Adrift> {
+        // First of all: the servers a Fleet left running are taken back where their checkout is
+        // there and ended where it is not, so the ports they held are free before the probe
+        // below, or still held by the ones that go on. See `crate::servers::left`.
         for repository in self.repositories().every() {
-            self.reaped_left_servers(repository.records_root()).await;
+            self.adopted_left_servers(repository.records_root()).await;
         }
         // Before anything else: a main-checkout claim a crashed Fleet left behind is re-probed
         // before this process trusts it. See `crate::ports::Fleet::reconciled_checkout_ports`.

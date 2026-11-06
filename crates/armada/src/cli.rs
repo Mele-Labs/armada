@@ -50,6 +50,9 @@ pub enum Verb {
     /// Hold one hosted session's agent so it outlives a Fleet restart. Started
     /// by Fleet, with `fleet::session_host::keeper::run`'s arguments.
     SessionKeep { args: Vec<String> },
+    /// Hold one Job terminal's shell so it outlives a Fleet restart. Started by Fleet, with
+    /// `fleet::terminal_keeping::run`'s arguments.
+    TerminalKeep { args: Vec<String> },
     /// The pool of warm worktrees — `docs/concepts/fleet.md`, *Worktree slots*.
     Worktree(WorktreeAct),
     /// The test map's laps for one Check, measured here and written to a file.
@@ -98,6 +101,10 @@ const VERBS: &[(&str, &str)] = &[
         "hold a hosted job's agent across a Fleet restart — Fleet runs it",
     ),
     (
+        TERMINAL_KEEP,
+        "hold a job terminal's shell across a Fleet restart — Fleet runs it",
+    ),
+    (
         WORKTREE,
         "lease a warm worktree, give it back, or list who holds each",
     ),
@@ -138,6 +145,8 @@ pub const COVERS: &str = "covers";
 pub const CHANGED: &str = "--changed";
 /// The verb Fleet starts for each hosted session.
 pub const SESSION_KEEP: &str = "session-keep";
+/// The verb Fleet starts for each Job terminal.
+pub const TERMINAL_KEEP: &str = fleet::terminal_keeping::VERB;
 /// The worktree pool.
 pub const WORKTREE: &str = "worktree";
 /// The test map's recorder.
@@ -218,6 +227,9 @@ pub fn read<I: IntoIterator<Item = String>>(args: I) -> Result<Verb, Misread> {
             Some(Verb::Mcp)
         }
         SESSION_KEEP => Some(Verb::SessionKeep {
+            args: rest.to_vec(),
+        }),
+        TERMINAL_KEEP => Some(Verb::TerminalKeep {
             args: rest.to_vec(),
         }),
         "clean" => {
