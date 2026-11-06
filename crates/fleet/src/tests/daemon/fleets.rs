@@ -98,6 +98,8 @@ pub fn fitted_over<V>(
                 .to_string_lossy()
                 .to_string(),
             keepers_dir: home.path().join("sessions").to_string_lossy().to_string(),
+            // A thread of the test, since no `armada` is built for a Fleet's own tests.
+            terminal_keeper: crate::terminal_keeping::Starting::InProcess,
             studio_frames_dir: home.path().join("studios").to_string_lossy().to_string(),
             // Under the fixture's own home, so no case reads or writes a real
             // `~/.armada`.

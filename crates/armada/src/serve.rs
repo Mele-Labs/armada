@@ -352,6 +352,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             if kept > 0 {
                 println!("  {kept} hosted job(s) reattached to a keeper that outlived the last Fleet");
             }
+            // The Jobs' terminals the same way: their shells ran on under keepers, and come back under
+            // the ids they had before any watch listens to one.
+            let terminals = fleet.reattached_terminals().await;
+            if terminals > 0 {
+                println!("  {terminals} job terminal(s) reattached to a keeper that outlived the last Fleet");
+            }
             // A hand off the last Fleet stopped partway is finished or put back, so one Job is live.
             let healed = fleet.handoffs_healed().await;
             if healed > 0 {
@@ -651,6 +657,7 @@ fn assemble(
             mcp_config: mcp_config.to_string_lossy().to_string(),
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
+            terminal_keeper: fleet::terminal_keeping::Starting::this_binary(std::path::Path::new(&home)),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
             mod_bundle: mod_bundle.map(|bundle| bundle.to_string_lossy().to_string()),

@@ -20,7 +20,7 @@ The ID is what the agent is given and what a tab holds, so it names the same ter
 |---|---|
 | Moves to another pane | The same shell, with everything it printed |
 | Is reloaded | The same shell, drawn again by the ID the tab holds |
-| Meets a Fleet that restarted | A new shell under the same ID, since a restart ends every shell |
+| Meets a Fleet that restarted | The same shell, with its screen and scrollback, under the same ID and name |
 
 **The tab's menu** has three acts for a terminal, ahead of the acts every tab has.
 
@@ -56,8 +56,20 @@ Opening a terminal by its ID is handed the shell already open under it, or a new
 Ending the Job stops every one.
 A stop sends SIGHUP, a closing terminal's signal, which a shell leaves on where it ignores SIGTERM, and SIGKILL after 3 seconds.
 
+**Each shell runs under a keeper, so it outlives Fleet.**
+The keeper is `armada terminal-keep`, which Fleet starts detached and without its mark.
+It opens the pseudo-terminal itself, starts the shell on it, appends everything the shell prints to a spool file and serves a unix socket beside it.
+Fleet holds a connection to that socket, and reads output from it and writes keys to it where it would have read and written the pseudo-terminal.
+A record beside the socket, `<id>.term`, names the Job, the terminal and the run id, and is written whole by rename.
+At boot, before any watch listens, Fleet reattaches every terminal whose record names a Job that is still open and whose keeper answers.
+It is replayed the last 256 KiB of the spool, which rebuilds the screen, and goes back under the run id it had, so the agent's last seen shell is still the one it types into and a watch on the terminal keeps hearing it.
+A record whose keeper does not answer is removed.
+A record whose Job is gone or ended is removed, and its keeper is told to end.
+A keeper ends with its shell, on a stop and when the Job ends, and after 30 minutes with no Fleet attached.
+A command run from a Job's thread is Fleet's own child and does not outlive it.
+
 **Each is a run to the code that carries it.** Its keys, size, output and stop are `write_session_run`, `resize_session_run`, `observe_session_run` and `stop_session_run` on its `run_id`.
-Output is held in memory as a run's is, the last 256 KiB, and nothing is written down.
+Output is held in memory as a run's is, the last 256 KiB.
 Its end tells the Job nothing, because no command was run to be told about.
 Fleet keeps a row for each terminal for as long as the Job lives, with its name and the shell its agent last saw, so an ID is never given twice and a name outlives the shell.
 

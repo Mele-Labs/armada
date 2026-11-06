@@ -73,6 +73,8 @@ pub struct Host {
     /// Where each hosted session's keeper socket and spool are: short, because
     /// a unix socket's path may not be long.
     pub keepers_dir: String,
+    /// How a Job's terminal keeper is started, which holds its shell across a Fleet restart.
+    pub terminal_keeper: crate::terminal_keeping::Starting,
     /// Where Fleet keeps a Studio's frames, beside the Studio's own records
     /// rather than in the database — `#1290`. One directory per Studio under
     /// this, and a Note names the file inside it.
@@ -105,6 +107,7 @@ pub(crate) struct Local {
     pub(crate) port: u16,
     pub(crate) attachments_dir: String,
     pub(crate) keepers_dir: String,
+    pub(crate) terminal_keeper: crate::terminal_keeping::Starting,
     pub(crate) studio_frames_dir: String,
     pub(crate) kit_home: String,
     pub(crate) mods_dir: String,
@@ -334,6 +337,7 @@ where
                 port: fittings.host.port,
                 attachments_dir: fittings.host.attachments_dir,
                 keepers_dir: fittings.host.keepers_dir.clone(),
+                terminal_keeper: fittings.host.terminal_keeper,
                 studio_frames_dir: fittings.host.studio_frames_dir,
                 kit_home: fittings.host.kit_home,
                 mods_dir: fittings.host.mods_dir,
