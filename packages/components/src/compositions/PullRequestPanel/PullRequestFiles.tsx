@@ -5,6 +5,7 @@ import type { PullRequestFile } from "@armada/protocol";
 import { SkeletonText } from "../../primitives/Skeleton/Skeleton";
 import { UnifiedDiff, type UnifiedDiffProps } from "../UnifiedDiff/UnifiedDiff";
 import { DiffSize, FileMark, FileRows } from "./PullRequestTabs";
+import { scrollWithin } from "./scroll-within";
 
 /** One changed file's diff, as the host drew it from the forge's patch. A file with no patch has no lines and the forge's sentence as `emptyNote`. */
 export type PullRequestPatch = {
@@ -120,14 +121,8 @@ export function PullRequestFilesView({
       target.line === undefined || !read
         ? null
         : section?.querySelector<HTMLElement>(`[data-diff-line="${target.line}"]`);
-    if (line !== null && line !== undefined)
-      line.scrollIntoView({
-        block: "center",
-      });
-    else
-      section?.scrollIntoView({
-        block: "start",
-      });
+    if (line !== null && line !== undefined) scrollWithin(line, "center");
+    else if (section !== undefined) scrollWithin(section, "start");
   }, [
     target,
     read,
@@ -136,9 +131,8 @@ export function PullRequestFilesView({
     void (element === null ? sections.current.delete(path) : sections.current.set(path, element));
   const onFile = (path: string) => {
     setCurrent(path);
-    sections.current.get(path)?.scrollIntoView({
-      block: "start",
-    });
+    const section = sections.current.get(path);
+    if (section !== undefined) scrollWithin(section, "start");
   };
   return (
     <div className="armada-pr-files">
