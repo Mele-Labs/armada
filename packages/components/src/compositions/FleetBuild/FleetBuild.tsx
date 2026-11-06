@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -205,6 +205,7 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
   const { on, position, working, stage, drones } = build;
   const [asked, setAsked] = useState<Asked | null>(null);
   const [revertAsked, setRevertAsked] = useState(false);
+  const pickedLabel = useId();
   const { previous } = build;
   const reverting = build.reverting === true;
   const swapping = build.swapping === true;
@@ -294,27 +295,32 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
         </Tooltip>
       )}
       {picked === undefined || picked.length === 0 ? null : (
-        <ul className="armada-fleet-build__picked" aria-label="In your app">
-          {picked.map((one) => {
-            const name = one.title ?? one.branch;
-            return (
-              <li key={one.branch} className="armada-fleet-build__chip">
-                <span className="armada-fleet-build__chip-name">{name}</span>
-                <Tooltip label="Take it out">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    iconOnly
-                    aria-label={`Take ${name} out`}
-                    onClick={() => build.onUnpick?.(one.branch)}
-                  >
-                    <X size={12} strokeWidth={2} aria-hidden="true" />
-                  </Button>
-                </Tooltip>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <span className="armada-fleet-build__label" id={pickedLabel}>
+            Next build holds
+          </span>
+          <ul className="armada-fleet-build__picked" aria-labelledby={pickedLabel}>
+            {picked.map((one) => {
+              const name = one.title ?? one.branch;
+              return (
+                <li key={one.branch} className="armada-fleet-build__chip">
+                  <span className="armada-fleet-build__chip-name">{name}</span>
+                  <Tooltip label="Leave out of the build">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label={`Leave ${name} out of the build`}
+                      onClick={() => build.onUnpick?.(one.branch)}
+                    >
+                      <X size={12} strokeWidth={2} aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
       {snapshot === undefined ? null : snapshot.state === "building" ? (
         <p className="armada-fleet-build__snapshot" role="status">
