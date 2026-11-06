@@ -192,6 +192,8 @@ requires for the Checks below. `desktop_test` is to be added.
 **No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
 A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
 `test` and `test_compile` build with no debug info and type-check Armada's own crates on four threads, through `.github/ci/rustc-threads.sh`, which took 31% off that harness; a backtrace in CI has no line numbers.
+rust-cache hashes those settings into the `test` key, so `.github/actions/main-caches` looks the entry up under the same ones.
+Without them it found the old entry, a push skipped writing the new one, and every queue shard after #3326 restored no cache until the probe named them too (6 Nov 2026).
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`.
 `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*).

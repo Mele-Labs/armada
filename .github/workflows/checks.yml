@@ -310,8 +310,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # fleet's test harness compiles 31% faster with Armada's own crates
-    # type-checked on four threads and no debug info. test_compile sets the
-    # same, as it restores this job's cache. docs/spikes/ci-test-compile.md.
+    # type-checked on four threads and no debug info. test_compile and the
+    # main-caches probe set the same, as rust-cache hashes them into this
+    # job's key. docs/spikes/ci-test-compile.md.
     env:
       RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
       CARGO_PROFILE_DEV_DEBUG: "0"
