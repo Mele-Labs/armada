@@ -108,6 +108,23 @@ where
         self.revert_fleet_build_now()
     }
 
+    /// Pick a Job for the next snapshot and start building it — [`crate::building`]. **Not
+    /// `budgeted`**, for the same reason: no Job is touched, and the answer is that the build has started.
+    async fn pick_fleet_build_job(&self, asked: ipc::PickFleetBuildJob) -> Result<ipc::FleetBuildSnapshotting, Refusal> {
+        self.pick_fleet_build_job_now(&asked)
+    }
+
+    /// Start the swap onto the snapshot — [`crate::building`]. **Not `budgeted`**, `revert_fleet_build`'s reason.
+    async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
+        self.swap_fleet_build_now()
+    }
+
+    /// Keep the tried Jobs and tell the Jobs holding them to land — [`crate::building`]. **Not
+    /// `budgeted`**: the tell is Fleet's news and asks the Jobs for no budget.
+    async fn keep_fleet_build(self: Arc<Self>) -> Result<ipc::FleetBuildKept, Refusal> {
+        self.keep_fleet_build_now().await
+    }
+
     /// The one pull a held checkout is offered — `crate::catching_up`. **Not
     /// `budgeted`**, `change_fleet_build`'s reason: no Job is touched.
     async fn catch_up_checkout(

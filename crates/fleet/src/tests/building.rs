@@ -7,12 +7,13 @@ use std::path::Path;
 use std::process::Command;
 use std::time::{Duration, SystemTime};
 
-use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild};
+use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, SnapshotState};
 
 use crate::building::{
-    checkout_of, left_out_in, left_out_moved, Building, LeftOut, Moved, NotChanged, NotOffered, NotReverted,
+    checkout_of, left_out_in, left_out_moved, Building, LeftOut, Moved, NotChanged, NotOffered, NotReverted, NotSnapshotted,
+    NotSwapped,
 };
-use crate::kept_builds::{fleet_label, BUILDS, CURRENT, PREVIOUS, STATUS};
+use crate::kept_builds::{fleet_label, BUILDS, CURRENT, KEPT_TRIED, PICKED, PREVIOUS, SNAPSHOT, STATUS, SWAP_STATUS};
 use crate::tests::tmp::TempDir;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -557,4 +558,246 @@ async fn an_undo_that_will_not_start_leaves_no_status_behind() {
 
     assert!(matches!(refused, Err(NotReverted::NotStarted(_))), "{refused:?}");
     assert!(!support.path().join(STATUS).exists());
+}
+
+/// A third kept build, `snap`, that `snapshot` names, with a stand-in `armada` in `current` too, which
+/// writes down what it was run with. Call after [`kept_in`].
+fn snapshot_in(support: &Path, jobs: &[&str]) {
+    let snap = support.join(BUILDS).join("snap");
+    fs::create_dir_all(&snap).unwrap();
+    let mut text = format!("built_at = \"2026-11-05T18:20:00Z\"\ncommit = \"snap{SHA}\"\nsource = \"preview\"\nbridge = \"b3\"\n");
+    for branch in jobs {
+        text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
+    }
+    fs::write(snap.join("build.toml"), text).unwrap();
+    fs::write(support.join(SNAPSHOT), "snap\n").unwrap();
+    let swap = support.join(BUILDS).join("new").join("armada");
+    fs::write(&swap, "#!/bin/sh\necho \"$@\" > ran\n").unwrap();
+    Command::new("chmod").arg("+x").arg(&swap).status().expect("chmod");
+}
+
+#[tokio::test]
+async fn the_report_reads_each_snapshot_state_from_the_files() {
+    let (checkout, support) = rig();
+    kept_in(support.path(), &fleet_label(), &["armada/a"], &[]);
+    let building = Building::default();
+    let now = SystemTime::now();
+    let read = |at: SystemTime| {
+        let (checkout, support) = (checkout.path().to_path_buf(), support.path().to_path_buf());
+        let building = building.clone();
+        async move { building.report(Some(&checkout), &support, at).await.unwrap() }
+    };
+    assert_eq!(read(now).await.snapshot, None, "nothing kept to swap onto");
+
+    snapshot_in(support.path(), &["armada/a", "armada/s"]);
+    let ready = read(now).await.snapshot.expect("a kept snapshot");
+    assert_eq!(ready.state, SnapshotState::Ready);
+    assert_eq!((ready.built_at.as_ref().map(|at| at.as_str()), ready.commit), (Some("2026-11-05T18:20:00Z"), Some(format!("snap{SHA}"))));
+    assert_eq!(ready.jobs, ["armada/a", "armada/s"], "branches here; Fleet names them by Job");
+    assert!(ready.bridge_reopens, "b3 against b2");
+    assert_eq!((ready.stage, ready.failed), (None, None));
+
+    fs::write(support.path().join("snapshot.status"), "running\nsnapshot\nbuilding_bridge\n").unwrap();
+    let building_one = read(now).await.snapshot.expect("one being built");
+    assert_eq!((building_one.state, building_one.stage), (SnapshotState::Building, Some(BuildStage::BuildingBridge)));
+    assert_eq!((building_one.commit, building_one.jobs.len()), (None, 0), "the old snapshot is not offered while a new one builds");
+
+    let later = now + Duration::from_secs(21 * 60);
+    assert_eq!(read(later).await.snapshot.expect("a build that died is not building").state, SnapshotState::Ready);
+
+    fs::write(support.path().join("snapshot.status"), "running\nsnapshot\n").unwrap();
+    assert_eq!(read(now).await.snapshot.expect("building").stage, None, "a status with no third line has no stage");
+
+    fs::write(support.path().join("snapshot.status"), format!("failed\nsnapshot\n{SHA}\narmada/s conflicts with main\n")).unwrap();
+    let failed = read(now).await.snapshot.expect("a failed one");
+    assert_eq!((failed.state, failed.failed.as_deref()), (SnapshotState::Failed, Some("armada/s conflicts with main")));
+    assert_eq!((failed.commit, failed.built_at), (None, None));
+}
+
+#[tokio::test]
+async fn a_swap_under_way_is_reported_and_a_failed_one_gives_its_line_where_nothing_else_failed() {
+    let (checkout, support) = rig();
+    kept_in(support.path(), &fleet_label(), &[], &[]);
+    let building = Building::default();
+    let now = SystemTime::now();
+    fs::write(support.path().join(SWAP_STATUS), "running\n").unwrap();
+    assert!(building.report(Some(checkout.path()), support.path(), now).await.unwrap().swapping);
+    let later = now + Duration::from_secs(3 * 60);
+    assert!(!building.report(Some(checkout.path()), support.path(), later).await.unwrap().swapping, "a swap that died is not under way");
+
+    fs::write(support.path().join(SWAP_STATUS), "failed\nnew\nSwapped back, since the new Fleet did not answer\n").unwrap();
+    let report = building.report(Some(checkout.path()), support.path(), now).await.unwrap();
+    assert_eq!((report.swapping, report.failed.as_deref()), (false, Some("Swapped back, since the new Fleet did not answer")));
+}
+
+#[tokio::test]
+async fn picked_defaults_to_the_running_builds_jobs_until_the_person_picks() {
+    let (checkout, support) = rig();
+    let building = Building::default();
+    let read = || building.report(Some(checkout.path()), support.path(), SystemTime::now());
+    assert!(read().await.unwrap().picked.is_empty(), "no build and no picks");
+
+    kept_in(support.path(), &fleet_label(), &["armada/a", "armada/b"], &[]);
+    let report = read().await.unwrap();
+    let branches: Vec<_> = report.picked.iter().map(|one| one.branch.as_str()).collect();
+    assert_eq!(branches, ["armada/a", "armada/b"]);
+    assert!(report.picked.iter().all(|one| one.title.is_none()), "Fleet::fleet_build names them");
+
+    fs::write(support.path().join(PICKED), "armada/c\n").unwrap();
+    let branches: Vec<_> = read().await.unwrap().picked.into_iter().map(|one| one.branch).collect();
+    assert_eq!(branches, ["armada/c"]);
+}
+
+#[tokio::test]
+async fn trying_is_the_running_builds_jobs_until_keep_empties_it() {
+    let (checkout, support) = rig();
+    kept_in(support.path(), &fleet_label(), &["armada/a", "armada/b"], &[]);
+    let building = Building::default();
+    let report = building.report(Some(checkout.path()), support.path(), SystemTime::now()).await.unwrap();
+    assert_eq!(report.trying, ["armada/a", "armada/b"]);
+
+    assert_eq!(crate::kept_builds::kept_tried(support.path()).unwrap(), ["armada/a", "armada/b"]);
+    assert_eq!(fs::read_to_string(support.path().join(KEPT_TRIED)).unwrap(), "new\n");
+    let report = building.report(Some(checkout.path()), support.path(), SystemTime::now()).await.unwrap();
+    assert!(report.trying.is_empty());
+    assert!(crate::kept_builds::kept_tried(support.path()).unwrap().is_empty(), "a second Keep tells nobody");
+}
+
+#[tokio::test]
+async fn a_pick_writes_the_picked_file_and_the_status_clears_the_old_snapshot_and_starts_the_wrapper() {
+    let (checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &["armada/a"], &[]);
+    snapshot_in(support.path(), &["armada/a"]);
+
+    let snapshotting = Building::default()
+        .snapshot(Some(checkout.path()), support.path(), "armada/b", true, SystemTime::now())
+        .expect("started");
+
+    assert_eq!(snapshotting.picked, ["armada/a", "armada/b"], "the running build's Jobs, then the pick");
+    assert_eq!(fs::read_to_string(support.path().join(PICKED)).unwrap(), "armada/a\narmada/b\n");
+    assert_eq!(fs::read_to_string(support.path().join("snapshot.status")).unwrap(), "running\nsnapshot\n");
+    assert!(!support.path().join(SNAPSHOT).exists(), "the old snapshot is no longer offered");
+    assert_eq!(wait_for(&checkout.path().join("ran")).await.trim(), "snapshot");
+
+    let taken_back = Building::default()
+        .snapshot(Some(checkout.path()), support.path(), "armada/a", false, SystemTime::now() + Duration::from_secs(21 * 60))
+        .expect("a snapshot that died is not under way");
+    assert_eq!(taken_back.picked, ["armada/b"]);
+}
+
+#[tokio::test]
+async fn a_pick_is_offered_on_main_and_refused_with_no_checkout_while_a_restart_or_a_snapshot_is_under_way() {
+    let (checkout, support) = rig();
+    let building = Building::default();
+    let now = SystemTime::now();
+
+    assert_eq!(building.snapshot(None, support.path(), "armada/a", true, now), Err(NotSnapshotted::NotOffered(NotOffered::NoWrapper)));
+    assert!(!support.path().join(PICKED).exists(), "nothing was written");
+
+    fs::write(support.path().join("restart-source"), "/Users/user/elsewhere\n").unwrap();
+    assert!(building.snapshot(Some(checkout.path()), support.path(), "armada/a", true, now).is_ok(), "the tree the build came from is not asked");
+    fs::remove_file(support.path().join("restart-source")).unwrap();
+    fs::remove_file(support.path().join("snapshot.status")).unwrap();
+    fs::remove_file(support.path().join(PICKED)).unwrap();
+
+    fs::write(support.path().join("restart-build.status"), "running\npreview\n").unwrap();
+    assert_eq!(
+        building.snapshot(Some(checkout.path()), support.path(), "armada/a", true, now),
+        Err(NotSnapshotted::Restarting(BuildSource::Preview))
+    );
+    fs::remove_file(support.path().join("restart-build.status")).unwrap();
+    assert!(!support.path().join(PICKED).exists(), "a refusal picks nothing");
+
+    fs::write(support.path().join("snapshot.status"), "running\nsnapshot\n").unwrap();
+    assert_eq!(building.snapshot(Some(checkout.path()), support.path(), "armada/a", true, now), Err(NotSnapshotted::Snapshotting));
+    assert!(!support.path().join(PICKED).exists(), "a refusal picks nothing");
+
+    // A failed one is over, and a new pick starts another.
+    fs::write(support.path().join("snapshot.status"), format!("failed\nsnapshot\n{SHA}\nconflict\n")).unwrap();
+    assert!(building.snapshot(Some(checkout.path()), support.path(), "armada/a", true, now).is_ok());
+}
+
+#[tokio::test]
+async fn a_wrapper_that_will_not_start_leaves_no_snapshot_status_behind() {
+    let (checkout, support) = rig();
+    Command::new("chmod").arg("-x").arg(checkout.path().join("scripts/restart-build")).status().expect("chmod");
+
+    let refused = Building::default().snapshot(Some(checkout.path()), support.path(), "armada/a", true, SystemTime::now());
+
+    assert!(matches!(refused, Err(NotSnapshotted::NotStarted(_))), "{refused:?}");
+    assert!(!support.path().join("snapshot.status").exists());
+}
+
+#[tokio::test]
+async fn a_swap_marks_it_running_and_starts_the_running_build_with_build_swap() {
+    let (_checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    snapshot_in(support.path(), &[]);
+
+    let swapping = Building::default().swap(support.path(), "com.test.fleet", SystemTime::now()).expect("started");
+
+    assert_eq!(swapping.commit, format!("snap{SHA}"));
+    assert_eq!(fs::read_to_string(support.path().join(SWAP_STATUS)).unwrap(), "running\n");
+    assert_eq!(wait_for(&support.path().join("ran")).await.trim(), "build swap", "run by the build running now, which settles it");
+}
+
+#[tokio::test]
+async fn a_swap_is_refused_with_no_snapshot_or_one_that_is_running_or_that_launchd_does_not_run() {
+    let (_checkout, support) = rig();
+    let building = Building::default();
+    let refused = building.swap(support.path(), "com.test.fleet", SystemTime::now());
+    assert!(matches!(refused, Err(NotSwapped::NotSwappable(_))), "{refused:?}");
+
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    let refused = building.swap(support.path(), "com.test.fleet", SystemTime::now());
+    assert!(matches!(refused, Err(NotSwapped::NotSwappable(_))), "kept builds but no snapshot: {refused:?}");
+
+    snapshot_in(support.path(), &[]);
+    fs::write(support.path().join(SNAPSHOT), "new\n").unwrap();
+    let refused = building.swap(support.path(), "com.test.fleet", SystemTime::now());
+    assert!(matches!(refused, Err(NotSwapped::NotSwappable(_))), "the snapshot is the build running: {refused:?}");
+
+    fs::write(support.path().join(SNAPSHOT), "snap\n").unwrap();
+    fs::write(support.path().join("com.test.fleet.plist"), "<string>/elsewhere/armada</string>").unwrap();
+    let refused = building.swap(support.path(), "com.test.fleet", SystemTime::now());
+    assert!(matches!(refused, Err(NotSwapped::NotSwappable(_))), "{refused:?}");
+    assert!(!support.path().join(SWAP_STATUS).exists());
+    assert!(!support.path().join("ran").exists(), "nothing was started");
+}
+
+#[tokio::test]
+async fn a_swap_is_refused_while_a_restart_a_revert_or_a_swap_is_under_way() {
+    let (_checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    snapshot_in(support.path(), &[]);
+    let building = Building::default();
+    let now = SystemTime::now();
+
+    fs::write(support.path().join("restart-build.status"), "running\npreview\n").unwrap();
+    assert_eq!(building.swap(support.path(), "com.test.fleet", now), Err(NotSwapped::Restarting(BuildSource::Preview)));
+    fs::remove_file(support.path().join("restart-build.status")).unwrap();
+
+    fs::write(support.path().join(STATUS), "running\n").unwrap();
+    assert_eq!(building.swap(support.path(), "com.test.fleet", now), Err(NotSwapped::Reverting));
+    fs::remove_file(support.path().join(STATUS)).unwrap();
+
+    fs::write(support.path().join(SWAP_STATUS), "running\n").unwrap();
+    assert_eq!(building.swap(support.path(), "com.test.fleet", now), Err(NotSwapped::Swapping));
+    assert!(!support.path().join("ran").exists(), "nothing was started");
+
+    // One that died more than two minutes ago is not under way.
+    assert!(building.swap(support.path(), "com.test.fleet", now + Duration::from_secs(3 * 60)).is_ok());
+}
+
+#[tokio::test]
+async fn a_swap_that_will_not_start_leaves_no_status_behind() {
+    let (_checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    snapshot_in(support.path(), &[]);
+    Command::new("chmod").arg("-x").arg(support.path().join(BUILDS).join("new").join("armada")).status().expect("chmod");
+
+    let refused = Building::default().swap(support.path(), "com.test.fleet", SystemTime::now());
+
+    assert!(matches!(refused, Err(NotSwapped::NotStarted(_))), "{refused:?}");
+    assert!(!support.path().join(SWAP_STATUS).exists());
 }

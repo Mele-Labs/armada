@@ -91,6 +91,67 @@ pub struct FleetBuildReport {
     /// Absent where false. A revert whose status is two minutes old is not under way.
     #[serde(default, skip_serializing_if = "is_false")]
     pub reverting: bool,
+    /// The branches picked for the next snapshot, each with the title of the live Job holding it.
+    /// Fleet fills `title`. Defaults to the running build's own Jobs until the person picks.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub picked: Vec<PickedJob>,
+    /// The snapshot of picked Jobs: being built, ready to swap onto, or failed. Absent where none
+    /// is kept or building.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<KeptSnapshot>,
+    /// The titles of the Jobs the running build holds that the person has not yet pressed Keep on,
+    /// or the branch where no Job holds it. Empty once Keep is pressed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trying: Vec<String>,
+    /// A swap onto the snapshot is under way: `swap_fleet_build` started it and it has not said it
+    /// is done. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub swapping: bool,
+}
+
+/// A branch picked for the next snapshot.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PickedJob {
+    pub branch: String,
+    /// The title of the live Job holding the branch. Absent where no Job does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+/// Where the snapshot of picked Jobs stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SnapshotState {
+    /// `scripts/restart-build snapshot` is working.
+    Building,
+    /// A kept build exists that Swap can move onto.
+    Ready,
+    /// The last snapshot did not build.
+    Failed,
+}
+
+/// The snapshot of picked Jobs, built and kept without swapping.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeptSnapshot {
+    pub state: SnapshotState,
+    /// Where a build under way has got to. Absent where it has not said, and when not building.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<BuildStage>,
+    /// When the kept snapshot was built. Present when `state` is `ready`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub built_at: Option<Instant>,
+    /// The full commit the kept snapshot was built from. Present when `state` is `ready`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// The Jobs the kept snapshot holds, by title, or by branch where no Job holds it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub jobs: Vec<String>,
+    /// Swapping onto it closes Bridge and opens it on the snapshot's. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub bridge_reopens: bool,
+    /// Why the snapshot did not build, in one line of plain facts. Present when `state` is `failed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<String>,
 }
 
 /// The build Fleet runs, as `builds/current/build.toml` records it.
@@ -157,4 +218,29 @@ pub struct FleetBuildChanging {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetBuildReverting {
     pub commit: String,
+}
+
+/// `pick_fleet_build_job`'s body: pick a Job's branch for the next snapshot, or take it back out.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PickFleetBuildJob {
+    pub branch: String,
+    pub picked: bool,
+}
+
+/// `pick_fleet_build_job`'s answer: the snapshot has begun, over these branches.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FleetBuildSnapshotting {
+    pub picked: Vec<String>,
+}
+
+/// `swap_fleet_build`'s answer: the swap has begun, onto the snapshot with this commit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FleetBuildSwapping {
+    pub commit: String,
+}
+
+/// `keep_fleet_build`'s answer: the titles of the Jobs told to land.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FleetBuildKept {
+    pub told: Vec<String>,
 }

@@ -89,6 +89,31 @@ impl Commands for FakeDaemon {
         Ok(ipc::FleetBuildReverting { commit: crate::tests::shapes::fleet_build().previous.expect("a previous build").commit })
     }
 
+    /// Recorded and answered with the branches picked now; nothing builds.
+    async fn pick_fleet_build_job(&self, asked: ipc::PickFleetBuildJob) -> Result<ipc::FleetBuildSnapshotting, Refusal> {
+        self.picks.lock().expect("not poisoned").push(asked);
+        let report = crate::Queries::get_fleet_build(self).await?;
+        Ok(ipc::FleetBuildSnapshotting { picked: report.picked.into_iter().map(|one| one.branch).collect() })
+    }
+
+    /// Counted and answered; nothing swaps.
+    async fn swap_fleet_build(&self) -> Result<ipc::FleetBuildSwapping, Refusal> {
+        *self.swaps.lock().expect("not poisoned") += 1;
+        let snapshot = crate::tests::shapes::fleet_build().snapshot.expect("a snapshot");
+        Ok(ipc::FleetBuildSwapping { commit: snapshot.commit.expect("a snapshot commit") })
+    }
+
+    /// The Jobs being tried are told the first time and none after; nothing is told.
+    async fn keep_fleet_build(self: std::sync::Arc<Self>) -> Result<ipc::FleetBuildKept, Refusal> {
+        let mut keeps = self.keeps.lock().expect("not poisoned");
+        let told = match *keeps {
+            0 => crate::tests::shapes::fleet_build().trying,
+            _ => Vec::new(),
+        };
+        *keeps += 1;
+        Ok(ipc::FleetBuildKept { told })
+    }
+
     /// The named row goes, by its exact text; one absent is the 409 every
     /// fake give a name that names nothing.
     async fn add_repository(

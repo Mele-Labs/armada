@@ -86,6 +86,18 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         }),
         carried: vec![String::from("Kept builds")],
         reverting: false,
+        picked: vec![ipc::PickedJob { branch: String::from("armada/kept-builds"), title: Some(String::from("Kept builds")) }],
+        snapshot: Some(ipc::KeptSnapshot {
+            state: ipc::SnapshotState::Ready,
+            stage: None,
+            built_at: Some(ipc::Instant::carried("2026-11-05T18:10:00Z")),
+            commit: Some(String::from("456789abcdef0123456789abcdef0123456789ab")),
+            jobs: vec![String::from("Kept builds")],
+            bridge_reopens: false,
+            failed: None,
+        }),
+        trying: vec![String::from("Kept builds")],
+        swapping: false,
     }
 }
 
