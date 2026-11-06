@@ -1,0 +1,148 @@
+/* A take on a Job's thread with more room, under `?thread=spacious` (`main.tsx`) and nowhere else. Fonts, spacing and
+   weight only: every colour is the theme's. */
+
+:root[data-thread-take="spacious"][data-look] {
+  --spacious-column: 680px;
+  --spacious-body: 15px;
+  --spacious-leading: 24px;
+  --spacious-meta: 13px;
+}
+
+/* ---- One centred column. The rows, Needs you and the composer share its width. ---- */
+:root[data-thread-take="spacious"][data-look] .deck {
+  --body-pad: var(--space-6) var(--space-6) var(--space-4);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows,
+:root[data-thread-take="spacious"][data-look] .sv-bands,
+:root[data-thread-take="spacious"][data-look] .sv-dock {
+  width: 100%;
+  max-width: var(--spacious-column);
+  margin-inline: auto;
+}
+
+/* ---- Turns parted by space. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-thread-rows {
+  gap: calc(var(--space-6) + var(--space-1));
+  padding-bottom: var(--space-6);
+}
+
+/* ---- The body: a larger sans with looser lines. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose,
+:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose__paragraph {
+  font-size: var(--spacious-body);
+  line-height: var(--spacious-leading);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-thread-rows .armada-prose {
+  gap: var(--space-4);
+}
+
+/* The agent's words: one quiet line over them, then the prose. */
+:root[data-thread-take="spacious"][data-look] .armada-thread-row {
+  gap: var(--space-2);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-thread-row__who,
+:root[data-thread-take="spacious"][data-look] .armada-thread-row__at,
+:root[data-thread-take="spacious"][data-look] .armada-session-you__at {
+  font-family: var(--font-sans);
+  font-size: var(--spacious-meta);
+  line-height: 18px;
+  font-weight: var(--weight-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+}
+
+/* His words: a filled bubble with no edge, its time a quiet line under it. */
+:root[data-thread-take="spacious"][data-look] .armada-session-you {
+  gap: var(--space-2);
+  border: none;
+  background: transparent;
+  max-width: 80%;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-you__body {
+  padding: var(--space-3) calc(var(--space-4) + var(--space-1));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--fg-default) 7%, transparent);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-you__band {
+  padding: 0 var(--space-2);
+}
+
+/* ---- Calls and runs: one quiet line each. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-session-fold__head,
+:root[data-thread-take="spacious"][data-look] .armada-session-fold__names {
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+  color: var(--fg-muted);
+}
+
+/* ---- The document: a quiet edge, its title in sentence case. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__asked {
+  border-color: var(--border-subtle);
+  border-radius: 14px;
+  background: transparent;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__band {
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  border-bottom: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: var(--spacious-meta);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__title {
+  font-size: var(--spacious-body);
+  line-height: var(--spacious-leading);
+  font-weight: var(--weight-medium);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__at,
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__state {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers {
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  border-top: none;
+  background: transparent;
+}
+
+/* ---- Needs you: its band in sentence case, the composer under it rounder and roomier. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-needs-panel__band {
+  height: calc(var(--space-6) + var(--space-1));
+  border-radius: var(--space-3) var(--space-3) 0 0;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-needs-panel__label {
+  font-family: var(--font-sans);
+  font-size: var(--spacious-meta);
+  font-weight: var(--weight-medium);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-composer {
+  border-color: var(--border-subtle);
+  border-radius: 16px;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-composer__editor {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--spacious-body);
+  line-height: var(--spacious-leading);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-composer__bar {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}

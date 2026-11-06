@@ -20,6 +20,8 @@ import { SCENARIOS, scenarioNamed } from "./scenario";
 import { storyFile } from "./story-files";
 import { mountNoWalk, mountWalk } from "./WalkPlayer";
 import { EVERY_WALK } from "./walks";
+// Last, so the take's rules follow the app's and win where they weigh the same.
+import "./spacious-thread.css";
 
 startMotionRules({
   focus: false,
@@ -30,6 +32,9 @@ const query = new URLSearchParams(window.location.search);
 // `?take=overflow` draws a Thread head with too little room on one row, the name held at 18 characters (`job-panes/acts.tsx`); without it the head is as in the app.
 const take = query.get("take");
 if (take !== null) document.documentElement.dataset.headTake = take;
+// `?thread=spacious` draws a Job's thread in the take `spacious-thread.css` holds, beside today's; without it the thread is as in the app.
+const threadTake = query.get("thread");
+if (threadTake !== null) document.documentElement.dataset.threadTake = threadTake;
 // A walk names its scenario, so `?walk` wins over `?scenario`.
 // `?steps=` is a walk handed over whole, as `show_window` hands Bridge its steps.
 const inline = inlineWalk(query.get("steps"), query.get("scenario") ?? "every-state");
