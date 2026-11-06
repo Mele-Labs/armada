@@ -121,8 +121,7 @@ export function PullRequestFilesView({
       target.line === undefined || !read
         ? null
         : section?.querySelector<HTMLElement>(`[data-diff-line="${target.line}"]`);
-    if (line !== null && line !== undefined)
-      scrollWithin(line, "center");
+    if (line !== null && line !== undefined) scrollWithin(line, "center");
     else if (section !== undefined) scrollWithin(section, "start");
   }, [
     target,

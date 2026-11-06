@@ -5,7 +5,8 @@
  */
 export function scrollWithin(target: HTMLElement, align: "start" | "center"): void {
   let box: HTMLElement | null = target.parentElement;
-  while (box !== null && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+  while (box !== null && !/auto|scroll/.test(getComputedStyle(box).overflowY))
+    box = box.parentElement;
   const scroller = box ?? document.scrollingElement;
   if (scroller === null) return;
   const edge = box === null ? 0 : box.getBoundingClientRect().top;
