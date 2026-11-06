@@ -201,7 +201,7 @@ import { readShownMedia } from "./session-media";
 import { MediaOverlay } from "./session-media-overlay";
 import { useShownFiles } from "./session-shown-file";
 import { startOf } from "./shared-panel/requests-model";
-import { SURFACE, useAtFloor, useNarrow } from "@armada/shell";
+import { failureShown, SURFACE, useAtFloor, useNarrow } from "@armada/shell";
 
 import { useBackfilled } from "./backfilled";
 import { ARTIFACT_SAID, cardOf, checksSaid, shownOnly, type Known } from "./session-cards";
@@ -2657,6 +2657,26 @@ export function SessionView({
   const endShown = doneProp !== undefined && !waits;
   // A hand off that did not start: a band, put away by a press, and the row carries nothing.
   const failedShown = session.handoff === "failed" && failedAway !== session.id;
+  // The band is a failure card too, so the Operator is told when it is drawn, as for a toast.
+  useEffect(() => {
+    if (failedShown) {
+      const { code = "handoff_failed", message, fields } = handoffFailure(session);
+      failureShown({
+        code,
+        message,
+        bridgeProtocol: spoken(PROTOCOL_ID),
+        ...(fields === undefined
+          ? {}
+          : {
+              fields,
+            }),
+      });
+    }
+  }, [
+    failedShown,
+    session.id,
+    session.handoffReason,
+  ]);
   // Open on coming into the Session, until he folds it there.
   const endOpen = (endPanel?.id === session.id ? endPanel.open : true) && endShown;
   // Where the repository keeps its Armada configuration: the first Job on it says so in words, every Job after in a glyph.

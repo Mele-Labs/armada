@@ -245,6 +245,8 @@ import type { PlanUsageRead } from "../shared/api/plan-usage";
 import type { ModelDownshiftRead } from "../shared/api/model-downshift";
 import type { ProjectsActed } from "../shared/api/projects";
 import type { BugReportActed } from "../shared/api/bug-reports";
+import type { OperatorErrorSent } from "../shared/api/operator-errors";
+import type { ReportBridgeError } from "@armada/protocol";
 import type { LifecyclesActed } from "../shared/api/lifecycles";
 import type { AgentSignInRead } from "../shared/api/agent-sign-in";
 import type { FleetTimelineRead } from "../shared/api/timeline";
@@ -718,6 +720,8 @@ const api: BridgeApi = {
       ipcRenderer.removeListener(CHANNELS.bugReportsChanged, handler);
     };
   },
+  reportBridgeError: (error: ReportBridgeError): Promise<OperatorErrorSent> =>
+    ipcRenderer.invoke(CHANNELS.reportBridgeError, error),
   listRepositoryWorkspaces: (manifestId: string): Promise<LifecyclesActed<RepositoryWorkspaces>> =>
     ipcRenderer.invoke(CHANNELS.listRepositoryWorkspaces, manifestId),
   listWorkspaces: (): Promise<LifecyclesActed<AllWorkspaces>> =>
