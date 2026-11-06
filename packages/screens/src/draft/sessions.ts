@@ -687,6 +687,14 @@ type SessionRowKinds =
       kind: "compaction";
       text: string;
     }
+  /** How long the agent reasoned before a message, and what it reasoned. Drawn from a mock only: Fleet keeps that a turn reasoned, not the words. */
+  | {
+      id: string;
+      at: string;
+      kind: "reasoning";
+      seconds: number;
+      text: string;
+    }
   /** The agent disputed Fleet's notice `notice`: its reason, how it was spotted, and the review Job where one was started. */
   | {
       id: string;

@@ -1,6 +1,7 @@
 // A Job's thread drawn with more room, to set beside today's: one centred column, the body in a larger sans with looser
 // lines, labels in sentence case, messages parted by space and not boxes. `?thread=spacious` draws the take; without it,
-// the same steps show today's thread. Over the `spacious-thread` scenario.
+// the same steps show today's thread. Then a Job working, one whose agent reasoned and one with nothing left to do. Over
+// the `spacious-thread` scenario.
 
 import { deckRow, inside, region, role, text, walk } from "../walk";
 
@@ -43,6 +44,30 @@ const spaciousThread = walk("spacious-thread", [
   {
     look: role("textbox", "Message"),
     say: "The composer",
+  },
+  {
+    press: deckRow("Landing page copy"),
+    say: "A Job whose agent is working",
+  },
+  {
+    look: inside(thread, role("img", "Working")),
+    say: "Working, under your last message",
+  },
+  {
+    press: deckRow("Retry budget"),
+    say: "A Job whose agent reasoned before it answered",
+  },
+  {
+    press: inside(thread, text("Thought for 14s")),
+    say: "How long it reasoned. Pressed, it opens to what it reasoned",
+  },
+  {
+    press: deckRow("Quiet the slot logs"),
+    say: "A Job with nothing left to do",
+  },
+  {
+    look: region("Nothing left to do"),
+    say: "It offers to end, with what it merged",
   },
 ]);
 

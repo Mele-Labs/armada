@@ -306,6 +306,14 @@ type SessionThreadKinds =
       kind: "compaction";
       text: string;
     }
+  /** How long the agent reasoned before a message: a quiet row that opens to what it reasoned. */
+  | {
+      id: string;
+      at: string;
+      kind: "reasoning";
+      seconds: number;
+      text: string;
+    }
   /**
    * The agent disputed Fleet's notice, the message row `notice`: one line in Fleet's voice with the reason, how it was
    * spotted, and a press that opens the review Job `review`. Fleet's card for the notice draws the Disputed mark.
@@ -2196,6 +2204,26 @@ function Row({
             />
             <Layers size={12} strokeWidth={2} aria-hidden />
             Conversation compacted
+          </summary>
+          <div className="armada-session-fold__body">
+            <Prose text={row.text} />
+          </div>
+        </details>
+      </li>
+    );
+  }
+  if (row.kind === "reasoning") {
+    return (
+      <li className="armada-session-fold armada-session-fold--reasoning">
+        <details>
+          <summary className="armada-session-fold__head">
+            <ChevronRight
+              size={12}
+              strokeWidth={2}
+              aria-hidden
+              className="armada-session-fold__chevron"
+            />
+            Thought for {row.seconds}s
           </summary>
           <div className="armada-session-fold__body">
             <Prose text={row.text} />

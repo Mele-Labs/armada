@@ -6,6 +6,7 @@
   --spacious-body: 15px;
   --spacious-leading: 24px;
   --spacious-meta: 13px;
+  --spacious-radius: var(--radius-lg);
 }
 
 /* ---- One centred column. The rows, Needs you and the composer share its width. ---- */
@@ -19,6 +20,12 @@
   width: 100%;
   max-width: var(--spacious-column);
   margin-inline: auto;
+}
+
+/* The rows scroll, which clips what stands past them: room each side for a hovered line's wash and its bar. */
+:root[data-thread-take="spacious"][data-look] .armada-session-thread__rows {
+  max-width: calc(var(--spacious-column) + var(--space-6));
+  padding-inline: var(--space-3);
 }
 
 /* ---- Turns parted by space. ---- */
@@ -64,7 +71,7 @@
 
 :root[data-thread-take="spacious"][data-look] .armada-session-you__body {
   padding: var(--space-3) calc(var(--space-4) + var(--space-1));
-  border-radius: 20px;
+  border-radius: var(--spacious-radius);
   background: color-mix(in srgb, var(--fg-default) 7%, transparent);
 }
 
@@ -80,10 +87,43 @@
   color: var(--fg-muted);
 }
 
+/* A run's command reads in the body's face. Its output keeps the mono face its columns line up in. */
+:root[data-thread-take="spacious"][data-look] .armada-session-fold__head .mono,
+:root[data-thread-take="spacious"][data-look] .armada-session-fold__target,
+:root[data-thread-take="spacious"][data-look] .armada-session-command__text {
+  font-family: var(--font-sans);
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+}
+
+/* What the agent reasoned, opened: quieter than its answer, set in under a rule as a run's output is. */
+:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-session-fold__body {
+  margin: var(--space-2) 0 0 calc(var(--space-1) + var(--space-1) / 2);
+  padding-left: var(--space-4);
+  border-left: var(--border-width) solid var(--border-subtle);
+  color: var(--fg-muted);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-prose,
+:root[data-thread-take="spacious"][data-look] .armada-session-fold--reasoning .armada-prose__paragraph {
+  font-size: var(--text-sm);
+  line-height: 22px;
+}
+
+/* ---- A line the pointer is over: the wash stands off the words, and its bar sits clear above them. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-prose [data-pick]:is([data-hot], :focus-visible) {
+  box-shadow: 0 0 0 var(--space-2) var(--bg-hover);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-prose__pick-acts {
+  bottom: calc(100% + var(--space-3));
+  right: calc(var(--space-2) * -1);
+}
+
 /* ---- The document: a quiet edge, its title in sentence case. ---- */
 :root[data-thread-take="spacious"][data-look] .armada-session-sketch__asked {
   border-color: var(--border-subtle);
-  border-radius: 14px;
+  border-radius: var(--spacious-radius);
   background: transparent;
 }
 
@@ -118,10 +158,34 @@
   background: transparent;
 }
 
+/* Its answers: full height, the body's size, Send back a quiet fill with no edge. */
+:root[data-thread-take="spacious"][data-look] .armada-session-done__acts .armada-button,
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-button {
+  height: var(--h-control-lg);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-done__acts .armada-button[data-variant="secondary"],
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-button[data-variant="secondary"] {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--fg-default) 8%, transparent);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-sketch__answers .armada-card-footer {
+  gap: var(--space-2);
+}
+
 /* ---- Needs you: its band in sentence case, the composer under it rounder and roomier. ---- */
 :root[data-thread-take="spacious"][data-look] .armada-needs-panel__band {
   height: calc(var(--space-6) + var(--space-1));
-  border-radius: var(--space-3) var(--space-3) 0 0;
+  border-radius: var(--spacious-radius) var(--spacious-radius) 0 0;
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-needs-panel__body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
 :root[data-thread-take="spacious"][data-look] .armada-needs-panel__label {
@@ -134,7 +198,7 @@
 
 :root[data-thread-take="spacious"][data-look] .armada-session-composer {
   border-color: var(--border-subtle);
-  border-radius: 16px;
+  border-radius: var(--spacious-radius);
 }
 
 :root[data-thread-take="spacious"][data-look] .armada-session-composer__editor {
@@ -145,4 +209,24 @@
 
 :root[data-thread-take="spacious"][data-look] .armada-session-composer__bar {
   padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+/* ---- The Job's tools under the composer: room above, wider apart, lit only under the pointer. ---- */
+:root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt {
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2) 0;
+  gap: var(--space-3);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt .armada-button {
+  width: var(--h-control);
+  height: var(--h-control);
+  border-color: transparent;
+  background: transparent;
+  color: var(--fg-subtle);
+}
+
+:root[data-thread-take="spacious"][data-look] .armada-session-frame__toolbelt .armada-button:hover {
+  color: var(--fg-default);
+  background: var(--bg-hover);
 }
