@@ -27,6 +27,8 @@ export type ProsePicker = {
   marked: (text: string) => string | undefined;
   /** A right press on a response offers Edit, Remove and Add response. Absent, a response has no menu. */
   onAct?: (act: ResponseAct) => void;
+  /** When the words were said, drawn first in the bar a hovered line shows. Absent, the bar holds the responses alone. */
+  at?: ReactNode;
 };
 export const ProsePick = createContext<ProsePicker | null>(null);
 
@@ -299,6 +301,7 @@ export function PickLine({
         role="group"
         aria-label={`Quick responses: ${text}`}
       >
+        {picker.at}
         {picker.responses.map((response) => (
           <Tooltip key={response.id} label={response.name}>
             <Button

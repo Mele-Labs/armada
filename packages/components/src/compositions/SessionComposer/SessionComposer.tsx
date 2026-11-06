@@ -30,6 +30,8 @@ import { Select } from "../../primitives/Select/Select";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
 import { isPressed } from "../../keymap";
 import { modelSaid } from "../SessionFrame/model-said";
+import { SpaciousTake } from "../SessionThread/spacious-take";
+import { TunePicker } from "./TunePicker";
 import { useThreadYesWaits } from "../SessionThread/thread-keys";
 import { isLargePaste, snippetOf } from "./large-paste";
 import { QuickBar, quickLines } from "./QuickBar";
@@ -566,6 +568,7 @@ export function SessionComposer({
 }: SessionComposerProps) {
   // The selected option's own words, once a turn has resolved its model: "Opus 5.5" where the id is of the alias's family.
   const resolvedSaid = resolvedModel === undefined ? undefined : modelSaid(resolvedModel);
+  const spacious = useContext(SpaciousTake);
   const resolvedSaidFor = (alias: string | undefined): string | undefined =>
     resolvedSaid !== undefined &&
     alias !== undefined &&
@@ -1306,7 +1309,22 @@ export function SessionComposer({
         )}
         {textOnly ? null : (
           <>
-            {attachOnly ? null : (
+            {attachOnly ? null : spacious ? (
+              <TunePicker
+                model={model}
+                effort={effort}
+                models={models}
+                efforts={efforts}
+                said={(one) =>
+                  one === null
+                    ? defaultModel === undefined
+                      ? "Default"
+                      : `${resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel} · default`
+                    : (resolvedSaidFor(model === one ? one : undefined) ?? one)
+                }
+                onTune={onTune}
+              />
+            ) : (
               <>
                 <Pick
                   Glyph={Cpu}

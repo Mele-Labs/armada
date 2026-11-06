@@ -1192,11 +1192,8 @@ function namesOf(
   ].filter((name) => name !== "");
 }
 
-/**
- * The spacious take on a Job's thread (`?thread=spacious` in the mock). Only the Job view provides it, so a thread drawn
- * anywhere else (a call card, a subagent, a pane) stays as it is.
- */
-export const SpaciousTake = createContext(false);
+import { SpaciousTake } from "./spacious-take";
+export { SpaciousTake };
 
 /** Calls the take leaves out of the thread: the agent's own task list and tool loading, and a shown window, whose own row stands for it. */
 const UNDRAWN = new Set([
@@ -1999,6 +1996,7 @@ function Row({
                 title: titleWithoutReference(tag),
               });
   const picks = useContext(ThreadPicks);
+  const spacious = useContext(SpaciousTake);
   if (row.kind === "retro")
     return (
       <SessionRetroRow
@@ -2370,10 +2368,12 @@ function Row({
   const placed = placeTags(row.text, row.tags ?? [], openTag);
   return (
     <li className="armada-thread-row" data-from={row.from}>
-      <div className="armada-thread-row__head">
-        <span className="armada-thread-row__who">{agentName}</span>
-        <RowStamp row={row} className="armada-thread-row__at" />
-      </div>
+      {spacious && picks !== null ? null : (
+        <div className="armada-thread-row__head">
+          {spacious ? null : <span className="armada-thread-row__who">{agentName}</span>}
+          <RowStamp row={row} className="armada-thread-row__at" />
+        </div>
+      )}
       <div
         className="armada-thread-row__message"
         {...(forkable
@@ -2398,6 +2398,11 @@ function Row({
                           onAct: picks.onAct,
                         }),
                     marked: (text) => picks.marks.get(`${row.id}\u0000${text}`),
+                    ...(spacious
+                      ? {
+                          at: <RowStamp row={row} className="armada-prose__pick-at" />,
+                        }
+                      : {}),
                   }
             }
           >

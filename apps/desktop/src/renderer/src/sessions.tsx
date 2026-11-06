@@ -2738,6 +2738,7 @@ export function SessionView({
     if (watch !== undefined) draft.stopWatch?.(of.id, watch.id);
   };
   return (
+    <SpaciousTake.Provider value={spacious}>
     <TeachHereContext.Provider value={teachHere}>
       <SessionRefs session={session}>
         <ProseTerminal.Provider value={terminal}>
@@ -2995,7 +2996,6 @@ export function SessionView({
                   <>
                     <RequestOpen.Provider value={openRequest}>
                       <SavedOpen.Provider value={openSaved}>
-                        <SpaciousTake.Provider value={spacious}>
                         <ProseCodeColour.Provider value={spacious ? colourCode : null}>
                         <SessionThread
                           sessionId={session.id}
@@ -3202,7 +3202,6 @@ export function SessionView({
                               })}
                         />
                         </ProseCodeColour.Provider>
-                        </SpaciousTake.Provider>
                       </SavedOpen.Provider>
                     </RequestOpen.Provider>
                     {docked.pane}
@@ -3564,6 +3563,7 @@ export function SessionView({
         </ProseTerminal.Provider>
       </SessionRefs>
     </TeachHereContext.Provider>
+    </SpaciousTake.Provider>
   );
 }
 

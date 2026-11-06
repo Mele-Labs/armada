@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import {
   ArrowUpToLine,
@@ -16,6 +16,7 @@ import type { DropdownMenuEntry } from "../../primitives/DropdownMenu/DropdownMe
 import { Input } from "../../primitives/Input/Input";
 import { Kbd } from "../../primitives/Kbd/Kbd";
 import { Tooltip } from "../../primitives/Tooltip/Tooltip";
+import { SpaciousTake } from "../SessionThread/spacious-take";
 import { pinnedFirst } from "../ThreadSettings/thread-look";
 import type { QuickAct, QuickPhrase } from "../ThreadSettings/thread-look";
 
@@ -181,6 +182,7 @@ export function QuickBar({
     })),
   ];
   const kept = new Set(phrases.map((one) => one.text));
+  const spacious = useContext(SpaciousTake);
   return (
     <div
       className="armada-quick"
@@ -224,7 +226,11 @@ export function QuickBar({
           disabled={!canSave}
           onClick={onSave}
         >
-          <ListPlus size={16} strokeWidth={2} aria-hidden />
+          {spacious ? (
+            <MessageSquareQuote size={16} strokeWidth={2} aria-hidden />
+          ) : (
+            <ListPlus size={16} strokeWidth={2} aria-hidden />
+          )}
         </Button>
       </Tooltip>
       {onHide === undefined ? null : (
