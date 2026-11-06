@@ -16,7 +16,7 @@ use rusqlite::params;
 
 use crate::error::{fault, ReadError, WriteError};
 use crate::open::Store;
-use crate::row::enum_value;
+use crate::row::{enum_value, known};
 
 const TABLE: &str = "test_map_edges";
 
@@ -137,7 +137,7 @@ impl Store {
                 .map_err(unreadable)?;
             let mut found = Vec::new();
             for row in rows {
-                found.push(row.map_err(unreadable)??);
+                found.extend(known_edge(row.map_err(unreadable)?)?);
             }
             if found.is_empty() {
                 reaching.unreached.push(path.clone());
@@ -170,7 +170,7 @@ impl Store {
             .map_err(unreadable)?;
         let mut found = Vec::new();
         for row in rows {
-            found.push(row.map_err(unreadable)??);
+            found.extend(known_edge(row.map_err(unreadable)?)?);
         }
         Ok(sharpest(found))
     }
@@ -323,6 +323,14 @@ fn read_edge(row: &rusqlite::Row<'_>) -> rusqlite::Result<Result<TestMapEdge, Re
             .map_err(ReadError::Unreadable)
             .map(|grain| TestMapEdge { source, grain, ..edge })
     }))
+}
+
+/// An edge, or none where a newer build wrote a source or grain this build does not have: `row::known`.
+fn known_edge(read: Result<TestMapEdge, ReadError>) -> Result<Option<TestMapEdge>, ReadError> {
+    match read {
+        Err(ReadError::Unreadable(unknown)) => known(Err(unknown)).map_err(ReadError::Unreadable),
+        other => other.map(Some),
+    }
 }
 
 fn source_column(value: &str) -> Result<EdgeSource, ReadError> {

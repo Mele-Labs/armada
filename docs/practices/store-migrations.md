@@ -52,6 +52,18 @@ A breaking migration is a deliberate act: declare it `breaking`, and it lands
 only after the migration it follows is on every build that must still open the
 file.
 
+### Rows from a newer build
+
+**An older build leaves out a row it cannot read, and reads the rest.** A newer
+build may write a value an older one does not have into a column both share, such
+as a new enum spelling. A list read that meets one skips that row (`row::known`)
+rather than failing the whole list, so after a revert nothing disappears that the
+build before could read, and the row is there again for the build that wrote it.
+Any other damage still fails. A Manifest's word over a Kit server that this build
+cannot read is taken as `restricted`, never as Kit's default, which may be wider.
+A value read straight into a string, such as a timeline kind, is the reader's to
+skip, as `fleet` does with `from_wire(..)?`.
+
 ## Where it is checked
 
 `scripts/restart --from` (the preview) refuses to switch Fleet onto a build whose
