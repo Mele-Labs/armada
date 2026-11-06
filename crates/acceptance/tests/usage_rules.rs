@@ -1,7 +1,6 @@
 //! Token watching's claim: **Fleet tells a Job once, with the number and one action, when its
-//! usage crosses a rule's limit; staying over tells it nothing more; it is told again only after the
-//! figure has fallen back under the limit and a cooldown has passed; and a Job under every limit
-//! hears nothing.**
+//! usage crosses a rule's limit; staying over, or falling under and crossing again, tells it nothing
+//! more; and a Job under every limit hears nothing.**
 //!
 //! The turns are held values, the clock is the turns' own stamps, and nothing is read from a file or
 //! the store.
@@ -9,14 +8,14 @@
 //! | Proved | Not proved |
 //! |---|---|
 //! | Each of the four rules trips on its figure, with the words the Job is sent | That Fleet reads the turns from a transcript, delivers the words to a Job's thread and keeps the trip row. `fleet::tests::usage_following` |
-//! | A Job over a limit is due once, stays not due while over, and is due again only after it fell under and the cooldown passed | That the limits are settings.json keys. `config`'s settings tests |
+//! | A Job over a limit is due once, and not due again however its figure moves after | That the limits are settings.json keys. `config`'s settings tests |
 //! | A rule switched off, and a Job under every limit, trip nothing | |
 //! | A trip is measured over the hour after it by the Job's active time, so an idle Job does not read as a win; under 5 turns is no reading | That Fleet fills it when the hour is covered, from the store. `fleet::tests::usage_following` |
 //! | `get_usage_rules` names the four rules with their on-off and limit, and each one's trips newest first, empty where it never tripped | That the route is served and the JSON is these names. `fleet::tests::usage_following`, `api`'s route tests |
 
 use core_model::Timestamp;
 use fleet::usage_rules::KeptTurnUsage;
-use fleet::usage_rules::{covered, hour_burn, measured_after, report, tripped, Following, KeptTrip, Limits, Rule, RuleDial, Trip, COOLDOWN_MINUTES};
+use fleet::usage_rules::{covered, hour_burn, measured_after, report, tripped, Following, KeptTrip, Limits, Rule, RuleDial, Trip};
 
 /// The stamp `minute` minutes after 08:00 on the day of the case.
 fn at(minute: i64) -> String {
@@ -110,29 +109,22 @@ fn a_rule_switched_off_trips_nothing() {
 }
 
 #[test]
-fn a_job_over_a_limit_is_told_once_and_again_only_after_falling_under_and_the_cooldown() {
+fn a_job_over_a_limit_is_told_once_and_never_again_by_size() {
     let following = Following::default();
     let job = "job-1";
-    let stamp = |minute: i64| Timestamp::from_rfc3339(at(minute));
-    let over = |minute: i64| following.due(job, &trips(&[with_context(turn(minute), 312_000)]), &stamp(minute)).len();
-    let under = |minute: i64| following.due(job, &trips(&[turn(minute)]), &stamp(minute)).len();
+    let over = |minute: i64| following.due(job, &trips(&[with_context(turn(minute), 312_000)])).len();
+    let under = |minute: i64| following.due(job, &trips(&[turn(minute)])).len();
 
     assert_eq!(over(0), 1, "crossing the limit");
-    following.told(job, Rule::Context, &stamp(0));
-    for minute in [1, 2, 10, COOLDOWN_MINUTES + 5, 200] {
+    following.told(job, Rule::Context);
+    for minute in [1, 2, 10, 35, 200] {
         assert_eq!(over(minute), 0, "still over at minute {minute}");
     }
-
     assert_eq!(under(210), 0);
-    assert_eq!(over(211), 1, "fell under, and the cooldown passed long ago");
-    following.told(job, Rule::Context, &stamp(211));
-    assert_eq!(under(212), 0);
-    assert_eq!(over(213), 0, "fell under, but two minutes after the last telling");
-    assert_eq!(under(214), 0);
-    assert_eq!(over(211 + COOLDOWN_MINUTES), 1, "under since, and the cooldown has now passed");
+    assert_eq!(over(211), 0, "fell under and over again: it was told once");
 
     // Another Job is its own.
-    assert_eq!(following.due("job-2", &trips(&[with_context(turn(0), 312_000)]), &stamp(0)).len(), 1);
+    assert_eq!(following.due("job-2", &trips(&[with_context(turn(0), 312_000)])).len(), 1);
 }
 
 /// Turns at the given minutes after the trip, each burning `output` tokens on a model that weighs 1, so a unit is

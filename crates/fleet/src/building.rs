@@ -24,10 +24,12 @@ use std::time::{Duration, Instant, SystemTime};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, LeftOutBranch, WireError,
+    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildReport, FleetBuildReverting,
+    Instant as WireInstant, KeptBuildPrevious, KeptBuildRunning, LeftOutBranch, WireError,
 };
 
 use crate::daemon::Fleet;
+use crate::kept_builds::{self, RevertStatus};
 use crate::Detached;
 
 /// No served repository can be restarted from, or the running build came from a tree this does not offer. A 409.
@@ -36,6 +38,12 @@ const NOT_OFFERED: &str = "fleet.build_not_offered";
 const RESTARTING: &str = "fleet.build_restarting";
 /// `scripts/restart-build` would not start. A 500.
 const NOT_STARTED: &str = "fleet.build_not_started";
+/// There is no kept build to revert onto, or Fleet does not run from the kept builds. A 409.
+const NOT_REVERTIBLE: &str = "fleet.build_not_revertible";
+/// A revert is already under way. A 409.
+const REVERTING: &str = "fleet.build_reverting";
+/// `builds/previous/armada build revert` would not start. A 500.
+const REVERT_NOT_STARTED: &str = "fleet.build_revert_not_started";
 
 /// The script that wraps `scripts/restart` and `scripts/preview --restart`.
 const WRAPPER: &str = "scripts/restart-build";
@@ -78,6 +86,19 @@ pub(crate) enum NotChanged {
     /// One is under way.
     Restarting(BuildSource),
     /// The wrapper would not start.
+    NotStarted(String),
+}
+
+/// Why a revert was not started.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum NotReverted {
+    /// No previous build is kept, or launchd's Fleet is not on `builds/current`: the reason in a line.
+    NotRevertible(String),
+    /// A restart is under way.
+    Restarting(BuildSource),
+    /// A revert is under way.
+    Reverting,
+    /// The undo would not start.
     NotStarted(String),
 }
 
@@ -312,7 +333,7 @@ impl Building {
                     .map(|(ahead, behind)| BuildPosition { ahead, behind })
             }
         };
-        let (restarting, stage, failed) = match status_in(support, now) {
+        let (restarting, stage, mut failed) = match status_in(support, now) {
             Some(Status::Running(build, stage)) => (Some(build), stage, None),
             // A failure belongs to the build it failed on; once that has moved, it is history.
             Some(Status::Failed { commit: at, message })
@@ -342,6 +363,29 @@ impl Building {
             }
             _ => Vec::new(),
         };
+        let revert = kept_builds::revert_status_in(support, now);
+        // A restart's failure is the one the panel already follows; a revert's shows where it has none.
+        if failed.is_none() {
+            if let Some(RevertStatus::Failed(line)) = &revert {
+                failed = Some(line.clone());
+            }
+        }
+        let label = kept_builds::fleet_label();
+        let running = kept_builds::kept_at(&support.join(kept_builds::BUILDS), kept_builds::CURRENT).map(|kept| KeptBuildRunning {
+            built_at: WireInstant::carried(kept.built_at),
+            commit: kept.commit,
+        });
+        // **Branches here**; `Fleet::fleet_build` names them by the Job that holds each.
+        let previous = kept_builds::revertible(support, &label).ok().map(|(from, to)| {
+            let undo = kept_builds::undoing(&from, &to);
+            KeptBuildPrevious {
+                built_at: WireInstant::carried(undo.built_at),
+                commit: undo.commit,
+                bridge_reopens: undo.bridge_reopens,
+                takes_out: undo.takes_out,
+                brings_back: undo.brings_back,
+            }
+        });
         Ok(FleetBuildReport {
             on,
             commit,
@@ -350,7 +394,37 @@ impl Building {
             stage,
             failed,
             left_out,
+            running,
+            previous,
+            carried: Vec::new(),
+            reverting: matches!(revert, Some(RevertStatus::Running)),
         })
+    }
+
+    /// Start the undo, `builds/previous/armada build revert`, detached and answer. **Run by the build
+    /// reverted to**, so a broken build never has to run its own undo; **the status is written first**,
+    /// as `change` writes its own.
+    pub(crate) fn revert(&self, support: &Path, label: &str, now: SystemTime) -> Result<FleetBuildReverting, NotReverted> {
+        if let Some(Status::Running(build, _)) = status_in(support, now) {
+            return Err(NotReverted::Restarting(build));
+        }
+        if kept_builds::revert_status_in(support, now) == Some(RevertStatus::Running) {
+            return Err(NotReverted::Reverting);
+        }
+        let (_, to) = kept_builds::revertible(support, label).map_err(NotReverted::NotRevertible)?;
+        kept_builds::revert_begun(support).map_err(|why| NotReverted::NotStarted(why.to_string()))?;
+        let undo = support.join(kept_builds::BUILDS).join(kept_builds::PREVIOUS).join("armada");
+        let started = Detached::program(undo)
+            .arg("build")
+            .arg("revert")
+            .in_directory(support)
+            .outliving_fleet()
+            .ignoring_output();
+        if let Err(why) = started.spawn() {
+            let _ = std::fs::remove_file(support.join(kept_builds::STATUS));
+            return Err(NotReverted::NotStarted(why.to_string()));
+        }
+        Ok(FleetBuildReverting { commit: to.commit })
     }
 
     /// Start the wrapper detached and answer. **The status is written first**,
@@ -405,13 +479,89 @@ where
         checkout_of(roots.iter().map(|(_, root)| root.as_str()))
     }
 
-    /// `get_fleet_build`.
+    /// `get_fleet_build`. **Names the Jobs a revert moves** and lists the Jobs a restart would carry,
+    /// which the files cannot: both are read off the store and the host.
     pub(crate) async fn fleet_build(&self) -> Result<FleetBuildReport, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
-        self.building()
-            .report(self.build_checkout().as_deref(), &support, SystemTime::now())
+        let checkout = self.build_checkout();
+        let mut report = self
+            .building()
+            .report(checkout.as_deref(), &support, SystemTime::now())
             .await
-            .map_err(|why| self.build_refusal(why))
+            .map_err(|why| self.build_refusal(why))?;
+        let titles = self.titles_of_held(checkout.as_deref()).await;
+        if let Some(previous) = report.previous.as_mut() {
+            let named = |branches: &mut Vec<String>| {
+                for one in branches.iter_mut() {
+                    if let Some(title) = titles.get(one.as_str()) {
+                        *one = title.clone();
+                    }
+                }
+            };
+            named(&mut previous.takes_out);
+            named(&mut previous.brings_back);
+        }
+        report.carried = self.carried_titles().await;
+        Ok(report)
+    }
+
+    /// The title of the live Job that holds each branch of the repository `checkout` is in. **A Job
+    /// without a title is its id**, as the Operator names one; a branch no Job holds is not here.
+    async fn titles_of_held(&self, checkout: Option<&Path>) -> BTreeMap<String, String> {
+        let Some(root) = checkout.map(|one| one.to_string_lossy().into_owned()) else {
+            return BTreeMap::new();
+        };
+        let Some(served) = self.repositories().served().into_iter().find(|one| one.root() == root) else {
+            return BTreeMap::new();
+        };
+        let store = self.store().lock().await;
+        let mut titles = BTreeMap::new();
+        for (session, branches) in crate::build_notices::branches_held(&store, &served) {
+            let title = store.session(&session).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| session.clone());
+            for branch in branches {
+                titles.entry(branch).or_insert_with(|| title.clone());
+            }
+        }
+        titles
+    }
+
+    /// The titles of the hosted Jobs with a turn under way, sorted. **The narrowest reading of "at
+    /// work"**: `SessionTurn::Working`, which is a turn the agent is taking. A live process between
+    /// turns, a subagent or a background task after the turn has ended is not counted.
+    async fn carried_titles(&self) -> Vec<String> {
+        let working: Vec<String> = self
+            .hosts()
+            .all()
+            .into_iter()
+            .filter(|(_, runtime)| matches!(runtime.state().turn, ipc::SessionTurn::Working { .. }))
+            .map(|(id, _)| id)
+            .collect();
+        let store = self.store().lock().await;
+        let mut titles: Vec<String> = working
+            .into_iter()
+            .map(|id| store.session(&id).ok().flatten().and_then(|one| one.title).unwrap_or(id))
+            .collect();
+        titles.sort();
+        titles
+    }
+
+    /// `revert_fleet_build`.
+    pub(crate) fn revert_fleet_build_now(&self) -> Result<FleetBuildReverting, Refusal> {
+        let support = crate::runtime::support_dir(&self.host().home);
+        self.building()
+            .revert(&support, &kept_builds::fleet_label(), SystemTime::now())
+            .map_err(|why| match why {
+                NotReverted::NotRevertible(said) => Refusal::IllegalMove(WireError::raised(NOT_REVERTIBLE, said, self.run_id())),
+                NotReverted::Restarting(build) => Refusal::IllegalMove(WireError::raised(
+                    RESTARTING,
+                    format!("restarting onto {}", build_word(build)),
+                    self.run_id(),
+                )),
+                NotReverted::Reverting => {
+                    Refusal::IllegalMove(WireError::raised(REVERTING, "a revert is under way", self.run_id()))
+                }
+                NotReverted::NotStarted(said) => Refusal::Fault(WireError::raised(REVERT_NOT_STARTED, said, self.run_id())),
+            })
     }
 
     /// `change_fleet_build`.

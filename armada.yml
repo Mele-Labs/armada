@@ -339,6 +339,17 @@ checks:
       - "plugins/**"
       - "armada.yml"
 
+  keep_build_test:
+    # `scripts/keep-build` against a scratch `HOME` and a fake tree: a restart's
+    # build is kept whole, `current` and `previous` flip, and what is past the
+    # newest five goes. A failure means a revert would find a build missing a file.
+    run: python3 scripts/test_keep_build.py
+    when:
+      - "scripts/keep-build"
+      - "scripts/test_keep_build.py"
+      - "scripts/armada-electron"
+      - "armada.yml"
+
   format_catch_up_test:
     # `scripts/format-catch-up` against a throwaway repository and a stub
     # `pnpm`. A failure means an open branch that runs it after a reformat is

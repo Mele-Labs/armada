@@ -4,7 +4,8 @@
 
 use crate::{
     decode, encode, BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildReport,
-    LeftOutBranch, WaitingActKind, WaitingItem, WaitingSource,
+    FleetBuildReverting, Instant, KeptBuildPrevious, KeptBuildRunning, LeftOutBranch, WaitingActKind,
+    WaitingItem, WaitingSource,
 };
 
 #[test]
@@ -17,6 +18,10 @@ fn a_build_with_nothing_to_say_carries_only_where_it_runs() {
         stage: None,
         failed: None,
         left_out: Vec::new(),
+        running: None,
+        previous: None,
+        carried: Vec::new(),
+        reverting: false,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(json, r#"{"on":"main"}"#);
@@ -39,6 +44,10 @@ fn a_full_report_round_trips() {
             LeftOutBranch { branch: "armada/a".into(), why: "conflict: apps/a.ts".into(), moved: false },
             LeftOutBranch { branch: "armada/b".into(), why: "conflict: apps/b.ts".into(), moved: true },
         ],
+        running: None,
+        previous: None,
+        carried: Vec::new(),
+        reverting: false,
     };
     let json = encode(&report).expect("a report is plain data");
     assert!(json.contains(r#""on":"preview""#), "{json}");
@@ -55,6 +64,62 @@ fn a_full_report_round_trips() {
         decode::<FleetBuildReport>("build", json.as_bytes()).expect("it round-trips"),
         report
     );
+}
+
+#[test]
+fn the_kept_builds_cross_as_they_are_named_and_what_is_empty_leaves_no_key() {
+    let report = FleetBuildReport {
+        on: BuildSource::Main,
+        commit: None,
+        position: None,
+        restarting: None,
+        stage: None,
+        failed: None,
+        left_out: Vec::new(),
+        running: Some(KeptBuildRunning { built_at: Instant::carried("2026-11-05T17:05:00Z"), commit: "e4f5a6b".into() }),
+        previous: Some(KeptBuildPrevious {
+            built_at: Instant::carried("2026-11-05T16:20:00Z"),
+            commit: "a1b2c3d".into(),
+            bridge_reopens: true,
+            takes_out: vec!["Fleet core and mods".into()],
+            brings_back: Vec::new(),
+        }),
+        carried: vec!["Kept builds".into()],
+        reverting: true,
+    };
+    let json = encode(&report).expect("a report is plain data");
+    assert_eq!(
+        json,
+        concat!(
+            r#"{"on":"main","running":{"built_at":"2026-11-05T17:05:00Z","commit":"e4f5a6b"},"#,
+            r#""previous":{"built_at":"2026-11-05T16:20:00Z","commit":"a1b2c3d","bridge_reopens":true,"takes_out":["Fleet core and mods"]},"#,
+            r#""carried":["Kept builds"],"reverting":true}"#
+        )
+    );
+    assert_eq!(decode::<FleetBuildReport>("build", json.as_bytes()).expect("it round-trips"), report);
+}
+
+#[test]
+fn a_previous_build_that_changes_nothing_carries_only_what_it_is() {
+    let previous = KeptBuildPrevious {
+        built_at: Instant::carried("2026-11-05T16:20:00Z"),
+        commit: "a1b2c3d".into(),
+        bridge_reopens: false,
+        takes_out: Vec::new(),
+        brings_back: Vec::new(),
+    };
+    assert_eq!(encode(&previous).unwrap(), r#"{"built_at":"2026-11-05T16:20:00Z","commit":"a1b2c3d"}"#);
+}
+
+#[test]
+fn a_report_from_before_kept_builds_reads_with_none() {
+    let report = decode::<FleetBuildReport>("build", br#"{"on":"main"}"#).expect("the new fields are optional");
+    assert_eq!((report.running, report.previous, report.carried, report.reverting), (None, None, Vec::new(), false));
+}
+
+#[test]
+fn the_answer_to_a_revert_names_the_commit_reverted_to() {
+    assert_eq!(encode(&FleetBuildReverting { commit: "a1b2c3d".into() }).unwrap(), r#"{"commit":"a1b2c3d"}"#);
 }
 
 #[test]
@@ -76,6 +141,10 @@ fn a_stage_crosses_as_a_snake_case_word_and_round_trips() {
             stage: Some(stage),
             failed: None,
             left_out: Vec::new(),
+            running: None,
+            previous: None,
+            carried: Vec::new(),
+            reverting: false,
         };
         let json = encode(&report).expect("a report is plain data");
         assert!(json.contains(&format!(r#""stage":"{word}""#)), "{json}");

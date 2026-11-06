@@ -1,4 +1,4 @@
-//! A Session whose slot is far behind its base is told once to merge it, and again only after the
+//! A Session whose slot is far behind its base is told once how far behind it is, and again only after the
 //! slot has caught up and fallen behind again. The readings are the pool's own list with `behind`
 //! set by hand, since the fake pool counts nothing; the Session is a hosted one.
 
@@ -95,8 +95,7 @@ async fn a_session_far_behind_is_told_once_until_it_catches_up() {
     assert_eq!(
         said,
         vec![format!(
-            "slot-{} (branch armada/x) is 684 commits behind {base}. Merge {base} into your \
-             branch before your next push.",
+            "slot-{} (branch armada/x) is 684 commits behind {base}.",
             slot.slot,
             base = slot.base
         )]
@@ -166,7 +165,7 @@ async fn slots_behind_in_one_pass_are_told_in_one_message() {
         said,
         vec![format!(
             "slot-{} (branch armada/x) is 20 commits behind {base}. slot-{} (branch armada/y) is \
-             21 commits behind {base}. Merge {base} into your branch before your next push.",
+             21 commits behind {base}.",
             first.slot,
             second.slot,
             base = first.base
@@ -310,4 +309,29 @@ async fn an_hour_mute_holds_the_notice_until_it_ends() {
     fleet.store().lock().await.keep_mute("behind_base", "job", &session, Some("2000-01-01T00:00:00.000Z")).unwrap();
     fleet.behind_bays_told(&pool).await;
     assert_eq!(thread_of(&fleet, &session).await.len(), 1, "an hour that is up");
+}
+
+/// **A branch whose pull request has auto-merge on is not told**: merging the base in would only
+/// restart what is about to land.
+#[tokio::test]
+async fn a_branch_with_auto_merge_on_is_not_told() {
+    let (_home, fleet, session, pool, _) = behind_with_a_holder().await;
+    let pull = adapter_traits::OpenPull {
+        number: 7,
+        title: adapter_traits::FromOutside::verbatim("x"),
+        branch: adapter_traits::FromOutside::verbatim("armada/x"),
+        url: adapter_traits::FromOutside::verbatim("https://forge.invalid/pull/7"),
+        author: None,
+        ci: None,
+        head: None,
+        failing: Vec::new(),
+        auto_merge: true,
+        facts: Default::default(),
+    };
+    fleet.sweeping().lock().await.pulls.insert(
+        "root".to_string(),
+        vec![crate::main_hub::OpenPulled { pull, owner: None, mine: false }],
+    );
+    fleet.behind_bays_told(&pool).await;
+    assert_eq!(thread_of(&fleet, &session).await.len(), 0, "about to land");
 }

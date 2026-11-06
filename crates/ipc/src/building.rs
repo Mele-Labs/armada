@@ -9,6 +9,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::Instant;
+
 /// Which tree Fleet and Bridge were built from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -73,6 +75,49 @@ pub struct FleetBuildReport {
     /// record was written for another build.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub left_out: Vec<LeftOutBranch>,
+    /// The kept build `builds/current` names, which Fleet runs. Absent where none is kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub running: Option<KeptBuildRunning>,
+    /// The kept build `builds/previous` names, which a revert swaps onto, and what that changes.
+    /// **Absent where no previous build is kept, and where launchd does not run Fleet from
+    /// `builds/current`**: a revert would then change nothing Fleet runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous: Option<KeptBuildPrevious>,
+    /// The titles of the hosted Jobs with a turn under way now, which their keepers carry across a
+    /// restart. Empty where none is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub carried: Vec<String>,
+    /// A revert is under way: `revert_fleet_build` started it and it has not said it is done.
+    /// Absent where false. A revert whose status is two minutes old is not under way.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reverting: bool,
+}
+
+/// The build Fleet runs, as `builds/current/build.toml` records it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeptBuildRunning {
+    /// When it was built, as `scripts/keep-build` stamped it.
+    pub built_at: Instant,
+    /// The full commit it was built from.
+    pub commit: String,
+}
+
+/// The build before the running one, and what swapping onto it changes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeptBuildPrevious {
+    pub built_at: Instant,
+    pub commit: String,
+    /// Its Bridge differs from the running one's, or either build lacks the hash, so Bridge
+    /// closes and opens on it. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub bridge_reopens: bool,
+    /// The Jobs whose change the running build holds and this one does not: each Job holding the
+    /// branch, by title, or the branch where no Job does. Empty where there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub takes_out: Vec<String>,
+    /// The Jobs whose change this one holds and the running build does not, named as `takes_out` is.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub brings_back: Vec<String>,
 }
 
 /// A branch the preview left out, and why, in one line of plain facts.
@@ -106,4 +151,10 @@ pub struct ChangeFleetBuild {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetBuildChanging {
     pub build: BuildSource,
+}
+
+/// `revert_fleet_build`'s answer: the undo has begun, onto the build with this commit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FleetBuildReverting {
+    pub commit: String,
 }

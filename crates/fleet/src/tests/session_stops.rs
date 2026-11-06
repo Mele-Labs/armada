@@ -183,6 +183,30 @@ async fn an_item_for_him_or_a_live_watch_excuses_a_stop() {
     assert!(record(&rig, &id).await.stop_told_by.is_none(), "a live watch is a wait");
 }
 
+/// His words: "if there is a needs me item, thats not silence. Thats waiting on me to act."
+#[tokio::test]
+async fn a_question_that_lapsed_is_him_to_act_and_no_stop() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    assert!(record(&rig, &id).await.stop_told_by.is_some(), "owed before either");
+
+    super::session_waiting::lapsed_clock_question(&rig, &id).await;
+    let row = record(&rig, &id).await;
+    assert!(row.waiting_for.is_empty(), "the lapsed question is no listed item");
+    assert!(row.stop_told_by.is_none(), "yet it waits on him");
+    tell_ripe(&rig, &id).await;
+    assert_eq!(nudges(&rig.rows(&id).await), 0, "never nudged while it stands");
+}
+
+#[tokio::test]
+async fn a_shown_walk_is_him_to_act_and_no_stop() {
+    let rig = rig_placing(None);
+    let id = stopped_a_while_ago(&rig).await;
+    assert!(record(&rig, &id).await.stop_told_by.is_some(), "owed before it");
+    super::session_waiting::show(&rig, &id, "http://localhost:5187/?walk=anything").await;
+    assert!(record(&rig, &id).await.stop_told_by.is_none(), "a shown walk waits on him");
+}
+
 #[tokio::test]
 async fn a_job_that_has_not_ended_a_turn_has_no_stop() {
     let rig = rig_placing(None);

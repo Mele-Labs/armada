@@ -208,8 +208,9 @@ never loaded at login, `KeepAlive={SuccessfulExit:false}` and
 `ThrottleInterval` 2 so a crash is a restart and not a page. An
 already-running Fleet is booted out and bootstrapped again from the plist just
 written, because `launchctl kickstart -k` keeps the definition launchd already
-holds and would ignore a changed program path or argument. The script reads the
-loaded program back and refuses if it is not the binary it installed. It is
+holds and would ignore a changed program path or argument. The plist names
+`builds/current/armada`, never a tree's `target/`, and the script reads the
+loaded program back and refuses if it is not that path. It is
 never a second `armada serve`, which is the "two Fleets" failure `armada-local`
 already warns about, this time from a script rather than a name.
 
@@ -245,6 +246,28 @@ per machine account, not per home directory — two scratch Fleets left on the
 default label would still collide with each other and, unset, with the
 owner's own `com.armada.fleet`.
 
+### Kept builds
+
+**Every restart keeps the build it installs**, so going back to the build before is two links and two launchd reboots, with nothing compiled.
+`scripts/keep-build make` copies the `armada` binary, Bridge's `out/`, `sounds/` and launchers into `~/Library/Application Support/Armada/builds/<UTC stamp>-<short commit>/`, with a `build.toml` of when, which commit, which tree, a hash of Bridge's `out/`, and on a preview each branch merged in as a `[[job]]` row.
+`keep-build point` then moves `previous` to the old `current` and `current` to the new build, and deletes all but the newest five and the two the links name.
+`node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
+
+**Launchd runs both jobs through `builds/current`.**
+A tree's `target/` and `out/` are rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
+The first restart onto kept builds reopens Bridge, because its job still names a tree.
+
+**`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
+It refuses before changing anything when no previous build is kept, or when Fleet's plist does not name `builds/current/armada`.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to 20 seconds for a new Fleet to write its runtime file, and reboots Bridge only where the two builds' Bridge hashes differ.
+A second revert swaps back.
+**The Fleet panel's Revert press starts it**: `revert_fleet_build` writes `Armada/revert.status` as `running`, then runs `builds/previous/armada build revert` detached from Fleet.
+The command removes the file when the swap took, and when it did not writes `failed`, the build `current` names, and one line, which the panel shows until a restart moves `current`.
+A `running` file older than two minutes reads as no revert.
+The panel's `previous` is what the swap would change: the Jobs whose branch is a `[[job]]` row of one build and not of the other, and whether Bridge reopens.
+Hosted Jobs run under keepers, so their agents carry on across it as across any restart.
+`crates/fleet/src/kept_builds.rs`.
+
 ### Restarting onto another tree
 
 ```sh
@@ -257,13 +280,11 @@ this one.** Fleet's plist keeps `serve <this repository>`; only the
 Without `--from`, nothing in this section applies and the script behaves as
 above. It exists for the preview below.
 
-**Bridge runs that tree's own binary.** Its job launches
-`<tree>/apps/desktop/node_modules/.bin/electron-vite preview` from
-`<tree>/apps/desktop`, not `pnpm --filter`, and is booted out and back in
-because `launchctl kickstart -k` keeps the definition launchd already holds and
-ignores the new plist. The script reads the loaded working directory back,
-refuses if it is not that tree, and prints which `out/` Bridge runs; `--dry-run`
-prints it too.
+**Bridge runs the kept copy of that tree's build.** Its job launches
+`builds/current/bridge-launch` from `builds/current/bridge` (*Kept builds*,
+below), and is booted out and back in because `launchctl kickstart -k` keeps
+the definition launchd already holds and ignores the new plist. The script
+prints which tree's `out/` was kept; `--dry-run` prints it too.
 
 **It checks the protocol it built.** `cargo` can skip `ipc`'s build script when
 the wire files changed (a `target/` carried from another tree), and Fleet then

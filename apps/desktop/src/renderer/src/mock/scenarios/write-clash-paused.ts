@@ -1,5 +1,5 @@
-// A Job whose changes conflict with a paused Job's: Fleet's write-clash notice names the paused Job's branch and says to
-// resolve the conflict on merge, since a message to a paused Job waits for Resume. The walk `write-clash-paused` plays it.
+// A Job whose changes conflict with a paused Job's: Fleet's write-clash notice names the paused Job's branch and says the
+// Job is paused, with no instruction. The walk `write-clash-paused` plays it.
 
 import type { RepositorySummary, SessionRow } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -24,7 +24,7 @@ const FLEET = {
   title: "Fleet",
 } as const;
 const NOTICE =
-  "Your changes to `apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx` conflict with branch mock/video-multitasking-boards. Its Job s-4eb87a78 is paused, so resolve the conflict on merge.";
+  "Git says your changes and branch mock/video-multitasking-boards (Job s-4eb87a78, paused) write the same lines of `apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx`.";
 
 const records = () => [
   hosted(JOB, {

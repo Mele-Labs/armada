@@ -60,6 +60,7 @@ use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::handoff_answers::lapsed_question;
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
+use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, merging_of};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
@@ -69,6 +70,7 @@ const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
+const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
 const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -151,6 +153,8 @@ pub(crate) struct Waited {
     pub paused: bool,
     /// The windows holding back the plan he has not approved.
     pub plan_held: Vec<ipc::PlanHold>,
+    /// A question that lapsed still stands for him: it is no item, but it waits on him all the same.
+    pub lapsed: bool,
 }
 
 pub(crate) fn waiting_reads(
@@ -522,6 +526,7 @@ where
         let holds = plan.as_ref().map(|(_, recorded, walk)| {
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
+        let lapsed_open = !ended && lapsed_question(&rows).is_some();
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         if let Some(lapsed) = lapsed_question(&rows) {
@@ -768,7 +773,7 @@ where
         crate::operator::reads_shown(&mut items, &suggestions);
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
-        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default() }
+        Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open }
     }
 
     /// `waiting_for`: replace the agent's list. An item keeps the `since` its id first had.
@@ -797,6 +802,17 @@ where
                 if repeats_lapsed(&item.text, &labels, &lapsed) {
                     return Err(self.hosted_refusal(SESSION_WAITING_ASKED, &lapsed_item_refusal(item.id.trim())));
                 }
+            }
+        }
+        // A merge wait is Fleet's to follow. An item already kept, written again unchanged, is not a new one.
+        let (kept, pulls) = {
+            let store = self.store().lock().await;
+            (store.waiting_for(&id).unwrap_or_default(), store.attachments_of(&store::Holder::session(&id)).map(|rows| merging_of(&rows)).unwrap_or_default())
+        };
+        for item in &set.items {
+            let again = kept.iter().any(|old| old.item_id == item.id.trim() && old.text == item.text.trim());
+            if let Some(number) = merge_wait_of(item.act.as_ref(), &item.text, &pulls).filter(|_| !again) {
+                return Err(self.hosted_refusal(SESSION_WAITING_MERGING, &merge_item_refusal(item.id.trim(), number)));
             }
         }
         let now = self.clock().now().as_str().to_string();

@@ -13,7 +13,7 @@
 //! **The main thread is the Job's.** A subagent's turn counts toward the hour's burn and toward
 //! nothing else: its context is not the Job's.
 
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::sync::Mutex;
 
 use config::settings::{self as keys, Key, Resolved};
@@ -21,8 +21,6 @@ use core_model::Timestamp;
 pub use store::{KeptTrip, KeptTurnUsage};
 use store::turn_units;
 
-/// How long after a telling the same rule may speak again, once the figure has fallen under.
-pub const COOLDOWN_MINUTES: i64 = 30;
 const HOUR_MILLIS: i64 = 3_600_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -145,64 +143,50 @@ pub fn tripped(limits: &Limits, turns: &[KeptTurnUsage]) -> Vec<Trip> {
     found
 }
 
-/// Where a rule stands for one Job.
-#[derive(Clone, Copy)]
-enum Held {
-    /// Told at this instant, and not seen under the limit since.
-    Told(i64),
-    /// Seen under the limit since being told at this instant.
-    Cleared(i64),
+/// Which Jobs have been told which rules. **A Job is told a rule once**, however its figure moves
+/// after. Never lost by a restart: the trip rows say a Job was told ([`Following::remembered`]).
+/// A telling due while the person has something to decide waits in `held_for_quiet` until a quiet
+/// moment.
+#[derive(Default)]
+pub struct Following {
+    told: Mutex<BTreeSet<(String, Rule)>>,
+    held_for_quiet: Mutex<BTreeSet<String>>,
 }
 
-/// Which Jobs have been told which rules. **Never lost by a restart in the way that matters**: the
-/// trip rows say when a Job was last told ([`Following::remembered`]), and a Job remembered is treated
-/// as still over until it is seen under.
-#[derive(Default)]
-pub struct Following(Mutex<BTreeMap<(String, Rule), Held>>);
-
 impl Following {
-    fn held(&self) -> std::sync::MutexGuard<'_, BTreeMap<(String, Rule), Held>> {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    fn told_set(&self) -> std::sync::MutexGuard<'_, BTreeSet<(String, Rule)>> {
+        self.told.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Whether this Job's standing for `rule` is known, in this process or from a row.
     pub fn knows(&self, session: &str, rule: Rule) -> bool {
-        self.held().contains_key(&(session.to_string(), rule))
+        self.told_set().contains(&(session.to_string(), rule))
     }
 
-    /// The Job was told of `rule` at `at`, which a trip row says. Nothing changes where it is known.
-    pub fn remembered(&self, session: &str, rule: Rule, at: &Timestamp) {
-        self.held().entry((session.to_string(), rule)).or_insert(Held::Told(at.epoch_millis().unwrap_or(0)));
+    /// The Job was told of `rule`, which a trip row says.
+    pub fn remembered(&self, session: &str, rule: Rule) {
+        self.told_set().insert((session.to_string(), rule));
     }
 
-    /// The Job was sent the words for `rule` at `at`.
-    pub fn told(&self, session: &str, rule: Rule, at: &Timestamp) {
-        self.held().insert((session.to_string(), rule), Held::Told(at.epoch_millis().unwrap_or(0)));
+    /// The Job was sent the words for `rule`.
+    pub fn told(&self, session: &str, rule: Rule) {
+        self.told_set().insert((session.to_string(), rule));
+        self.held_for_quiet.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(session);
     }
 
-    /// Of the rules `over` the Job is over at `now`, those it has not been told: not yet, or fell under
-    /// since and the cooldown has passed. A rule the Job is not over is seen under here.
-    pub fn due(&self, session: &str, over: &[Trip], now: &Timestamp) -> Vec<Trip> {
-        let now = now.epoch_millis().unwrap_or(0);
-        let mut held = self.held();
-        let mut due = Vec::new();
-        for rule in Rule::ALL {
-            let key = (session.to_string(), rule);
-            match (over.iter().find(|trip| trip.rule == rule), held.get(&key).copied()) {
-                (None, Some(Held::Told(at))) => {
-                    held.insert(key, Held::Cleared(at));
-                }
-                (None, _) => {}
-                (Some(trip), None) => due.push(trip.clone()),
-                (Some(_), Some(Held::Told(_))) => {}
-                (Some(trip), Some(Held::Cleared(at))) => {
-                    if now - at >= COOLDOWN_MINUTES * 60_000 {
-                        due.push(trip.clone());
-                    }
-                }
-            }
-        }
-        due
+    /// The Job has a telling due that the person's own decision holds back; it is read again.
+    pub fn held(&self, session: &str) {
+        self.held_for_quiet.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(session.to_string());
+    }
+
+    /// The Jobs whose telling waits for a quiet moment.
+    pub fn waiting_for_quiet(&self) -> Vec<String> {
+        self.held_for_quiet.lock().unwrap_or_else(std::sync::PoisonError::into_inner).iter().cloned().collect()
+    }
+
+    /// Of the rules `over` the Job is over, those it has not been told.
+    pub fn due(&self, session: &str, over: &[Trip]) -> Vec<Trip> {
+        over.iter().filter(|trip| !self.knows(session, trip.rule)).cloned().collect()
     }
 }
 

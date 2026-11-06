@@ -1086,10 +1086,9 @@ async fn a_merge_of_another_authors_pull_request_is_not_told() {
     assert!(!sent.iter().any(|line| line.contains("#2 merged into")), "{sent:?}");
 }
 
-/// The person turns auto-merge on: the Session's item whose act approves that pull request is taken off, the notice
-/// says so in Fleet's voice, once, and an item that only names it in words stands.
+/// Auto-merge goes on: an item the Session kept stays in his Needs you, and the Job is told once.
 #[tokio::test]
-async fn auto_merge_settles_the_sessions_approve_pr_wait_on_that_pull_request_and_tells_it_once() {
+async fn auto_merge_takes_nothing_off_the_sessions_kept_wait_and_tells_it_once() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
     let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
@@ -1105,18 +1104,17 @@ async fn auto_merge_settles_the_sessions_approve_pr_wait_on_that_pull_request_an
     let sent = rig.runs_sent_to_the_session();
     let [line] = sent.as_slice() else { panic!("one turn started: {sent:?}") };
     assert!(line.contains("Auto-merge is on for #7"), "{line}");
-    assert!(line.contains("Taken off Needs you: Merge #7 when ci is green"), "{line}");
+    assert!(!line.contains("Taken off Needs you"), "{line}");
     let left: Vec<String> = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for.into_iter().map(|one| one.id).collect();
-    assert_eq!(left, ["restart"]);
+    assert_eq!(left, ["merge", "restart"]);
 
     rig.reads().await;
     assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
 }
 
-/// The forge reports a pull request in the merge queue with auto-merge off: the queue is what lands
-/// it, so the Session's item asking for the merge is taken off all the same.
+/// The merge queue holds a pull request with auto-merge off: nothing is said and nothing is taken off.
 #[tokio::test]
-async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_merge() {
+async fn a_pull_request_the_queue_holds_takes_nothing_off_and_says_nothing() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
     let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
@@ -1128,42 +1126,56 @@ async fn a_pull_request_the_queue_holds_settles_the_sessions_wait_without_auto_m
 
     rig.reads().await;
 
-    let sent = rig.runs_sent_to_the_session();
-    let [line] = sent.as_slice() else { panic!("one turn started: {sent:?}") };
-    assert!(line.contains("#7 is in the merge queue"), "{line}");
-    assert!(line.contains("Taken off Needs you: Merge #7 once ci is green"), "{line}");
+    assert!(rig.runs_sent_to_the_session().is_empty());
     let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
-    assert!(left.is_empty(), "{left:?}");
-
-    rig.reads().await;
-    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "nothing more to take off, nothing said");
+    assert_eq!(left.len(), 1, "{left:?}");
 }
 
-/// The notice is kept once a pull request, so a wait stated after it was told would stand for good
-/// unless every reading looks again.
+/// A merge wait the agent writes while its pull request is queued or auto-merging is refused, by the act
+/// or by the number in the text; one already kept, written again as it was, is not a new write.
 #[tokio::test]
-async fn a_wait_stated_after_the_queue_notice_is_taken_off_at_the_next_reading() {
+async fn a_merge_wait_written_while_the_pull_request_auto_merges_is_refused() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
+    let id = SessionId::carried(&session);
+    let input = |item: &str, text: &str, act: Option<(ipc::WaitingActKind, &str)>| WaitingInput {
+        id: item.into(),
+        text: text.into(),
+        act: act.map(|(kind, target)| ipc::WaitingAct { kind, target: target.into() }),
+        options: Vec::new(),
+        steps: Vec::new(),
+    };
+    let set = |items: Vec<WaitingInput>| SetWaitingFor { items, session_id: Some(id.clone()) };
+    let kept = input("merge", "Merge #7 when ci is green", Some((ipc::WaitingActKind::ApprovePr, "#7")));
+    let again = input("merge", "Merge #7 when ci is green", Some((ipc::WaitingActKind::ApprovePr, "#7")));
+    rig.fleet.set_waiting(None, set(vec![kept])).await.unwrap();
     rig.fleet.vcs().main_ci.followed_are(Some(vec![FollowedPull { auto_merge: true, ..pull(7, Vec::new()) }]));
     rig.reads().await;
-    assert_eq!(rig.runs_sent_to_the_session().len(), 1, "told once");
+    // The row says what the forge said of the pull request, as the pull reading leaves it.
+    let at = rig.fleet.now().as_str().to_string();
+    let row = KeptAttachment {
+        holder: Holder::session(&session),
+        kind: "pr".into(),
+        manifest_id: rig.manifest(),
+        target: "7".into(),
+        state: AttachmentState::Standing,
+        detail: [("state".to_string(), "open".to_string()), ("auto_merge".to_string(), "true".to_string())].into(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    rig.fleet.store().lock().await.attach(&row, true).unwrap();
 
-    rig.fleet
-        .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green")], session_id: Some(SessionId::carried(&session)) })
-        .await
-        .unwrap();
-    rig.reads().await;
-
-    let sent = rig.runs_sent_to_the_session();
-    let [_, line] = sent.as_slice() else { panic!("a second turn started: {sent:?}") };
-    assert!(line.contains("Taken off Needs you: Merge #7 when ci is green"), "{line}");
-    let left = Arc::clone(&rig.fleet).get_session(SessionId::carried(&session)).await.unwrap().session.waiting_for;
-    assert!(left.is_empty(), "{left:?}");
-
-    rig.reads().await;
-    assert_eq!(rig.runs_sent_to_the_session().len(), 2, "nothing more to take off, nothing said");
+    rig.fleet.set_waiting(None, set(vec![again])).await.expect("already kept, unchanged: not a new write");
+    for new in [
+        input("by-act", "Look at it", Some((ipc::WaitingActKind::ApprovePr, "https://forge.invalid/armada/pull/7"))),
+        input("by-text", "Waiting for PR 7 to land", None),
+        input("by-hash", "Merge #7", Some((ipc::WaitingActKind::Message, "x"))),
+    ] {
+        let refused = format!("{:?}", rig.fleet.set_waiting(None, set(vec![new])).await.expect_err("refused"));
+        assert!(refused.contains("fleet.session_waiting_merging"), "{refused}");
+    }
+    let fine = input("other", "Pick the name of #70", None);
+    rig.fleet.set_waiting(None, set(vec![fine])).await.expect("another pull request's number is not this one");
 }
 
 /// A line Fleet read off the reply's close names the pull request in words only: the notice takes nothing off.

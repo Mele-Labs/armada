@@ -16,5 +16,9 @@ notes = """
 
 **`left_out` is the branches `scripts/preview` left out of the running build, and why**, read off `Armada/preview-left-out` when its first line names `commit`. Sorted by branch; omitted on `main`, with no file, and where the file was written for another build.
 
+**`running` and `previous` are read off the kept builds**, `Armada/builds/current` and `Armada/builds/previous` and the `build.toml` each holds. `running` is `{built_at, commit}`, absent where no build is kept. `previous` adds `bridge_reopens` (the two `bridge` hashes differ, or either is missing), `takes_out` (the Jobs whose branch is a `[[job]]` row of current and not of previous) and `brings_back` (the reverse). Each Job is named by the title of the live Job that holds the branch, or by the branch where none does. `previous` is absent where no previous build is kept and where launchd does not run Fleet from `builds/current`, the check `revert_fleet_build` makes.
+
+**`carried` is the titles of the hosted Jobs with a turn under way**, sorted: the Jobs a restart's keepers carry. A live process between turns, or an agent still working after the turn ended, is not counted. **`reverting` is `Armada/revert.status` reading `running`** for less than two minutes. A `failed` status puts its line in `failed` where the restart has none of its own. Each of the four is left out when empty or false.
+
 No event. A build changes when a Fleet restarts, and Bridge reads this again on every connection and on a minute's interval.
 """

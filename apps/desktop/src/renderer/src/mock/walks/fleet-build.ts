@@ -3,11 +3,14 @@
 //
 // **The panel is opened from the Fleet dot on the title row**, which is where the build section is drawn now.
 
-import { button, role, text, walk } from "../walk";
+import { button, inside, role, text, walk } from "../walk";
 
 const BUILD = role("combobox", "Build");
 const REFRESH = button("Refresh preview");
 const UPDATE = button("Update to main");
+const REVERT = button("Revert", {
+  exact: true,
+});
 
 export const fleetBuildAligned = walk("fleet/build-aligned", [
   {
@@ -127,5 +130,48 @@ export const fleetBuildFailed = walk("fleet/build-failed", [
   {
     look: UPDATE,
     say: "Update to main can be pressed again",
+  },
+]);
+
+export const fleetBuildRevert = walk("fleet/build-revert", [
+  {
+    press: button(/^Fleet — /),
+    say: "The Fleet dot on the title row opens its panel",
+  },
+  {
+    hover: REVERT,
+    say: "Revert sits under Refresh preview. Its tooltip names the build it goes back to",
+  },
+  {
+    press: REVERT,
+    say: "Revert",
+  },
+  {
+    look: text("Running now"),
+    say: "It asks first, and says the build you are on and the one you go back to",
+  },
+  {
+    look: role("list", "Jobs taken out"),
+    say: "The Jobs whose change leaves your app: in this build and not the older one",
+  },
+  {
+    look: text("Restarts"),
+    say: "What restarts: Fleet, and this window, since the older build has another Bridge",
+  },
+  {
+    look: role("list", "Jobs still working"),
+    say: "The Jobs at work. Their agents keep running while Fleet restarts",
+  },
+  {
+    press: inside(role("dialog"), REVERT),
+    say: "Revert",
+  },
+  {
+    look: button("Reverting"),
+    say: "The button says what it is doing until the build is swapped",
+  },
+  {
+    later: REVERT,
+    say: "Then Revert is back, and goes forward again onto the build just left",
   },
 ]);
