@@ -75,11 +75,27 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
         (Arrived::Note, Way::NewJob) => format!("The Operator would start a Job on your note \"{subject}\": {because}"),
         (Arrived::Note, Way::Link) => format!("The Operator would link your note \"{subject}\" to {}: {because}", ruling.issue.as_deref().unwrap_or("an open issue")),
         (Arrived::Note, _) => format!("The Operator would send your note \"{subject}\" to \"{other}\": {because}"),
+        (Arrived::Ended | Arrived::Merged, Way::NewJob) => format!("The Operator would start \"{}\" now that {}: {because}", what_of(ruling), happened(arrival)),
+        (Arrived::Ended | Arrived::Merged, Way::File) => format!("The Operator would file \"{}\" as a new issue now that {}: {because}", what_of(ruling), happened(arrival)),
+        (Arrived::Ended | Arrived::Merged, _) => format!("The Operator would tell \"{other}\" that {}: {because}", happened(arrival)),
         (Arrived::Later, _) => format!("The Operator would file \"{subject}\" as a new issue: {because}"),
         (_, Way::NewJob) => format!("The Operator would start what is left of this Job as a Job of its own: {because}"),
         (_, Way::Merge) => format!("The Operator would end this Job into \"{other}\": {because}"),
         (_, Way::KeepInTouch) => format!("The Operator would tell this Job and \"{other}\" of each other: {because}"),
         _ => format!("The Operator would hand this work to \"{other}\": {because}"),
+    }
+}
+
+/// What a ruling on an end or a merge would start or file.
+fn what_of(ruling: &Ruling) -> &str {
+    ruling.what.as_deref().unwrap_or_default()
+}
+
+/// What an end or a merge is, as a row says it: `"<Job>" ended`, or `#<n> merged`.
+fn happened(arrival: &Arrival) -> String {
+    match arrival.arrived {
+        Arrived::Merged => format!("#{} merged", arrival.id.rsplit(':').next().unwrap_or_default()),
+        _ => format!("\"{}\" ended", arrival.subject),
     }
 }
 
@@ -100,6 +116,7 @@ fn arrival_of(one: &KeptSuggestion) -> Option<Arrival> {
         answers: Vec::new(),
         rule: None,
         open: Vec::new(),
+        ties: Vec::new(),
     })
 }
 
@@ -109,6 +126,7 @@ fn ruling_of(one: &KeptSuggestion) -> Option<Ruling> {
         other: one.other_session.clone(),
         shared: one.shared.clone(),
         first: one.first_session.clone(),
+        what: one.what.clone(),
         ..Ruling::alone(Way::from_word(&one.way)?, one.because.clone())
     })
 }
@@ -136,7 +154,8 @@ where
                 arrival: arrival.id.clone(),
                 arrived: arrival.arrived.word().to_string(),
                 way: ruling.way.word().to_string(),
-                session_id: arrival.session_id.clone(),
+                // An end's suggestion is kept for the panel: the Job it is about has ended.
+                session_id: if arrival.arrived.is_ending() { String::new() } else { arrival.session_id.clone() },
                 manifest_id: arrival.manifest_id.clone(),
                 subject: arrival.subject.clone(),
                 words: arrival.words.clone(),
@@ -148,6 +167,7 @@ where
                 item: asked_item(arrival).map(str::to_string),
                 pick: ruling.answer.as_ref().map(|choice| choice.label.clone()),
                 because: ruling.because.clone(),
+                what: ruling.what.clone(),
                 text: said(arrival, ruling, &title),
                 raised_at,
             };

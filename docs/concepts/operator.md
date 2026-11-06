@@ -46,10 +46,18 @@ An item reaches the Operator before it starts a Job or pulses in Needs you.
 | A red main | The repository's own checks |
 | A review request | The forge |
 | A note | The person, left on Bridge. One new since Fleet started, open and sent to no Job |
+| A Job ending, or a pull request merging | Fleet's own detection, for every hosted Job whoever started it. Only those after Fleet started, and none while the Operator is off |
 
 **A note is only ever proposed.**
 A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Off, so no note is filed, started or sent to a Job unasked.
 Its row has no Job, so it is kept for the panel, and Do it marks the note sent to the Job it went to, or done where it was filed or linked.
+
+**An end or a merge is told once, and never replayed.**
+Its words carry the Job's title, summary and end reason, its pull requests, who started it and the Jobs it started that are live, and what it may unblock: Jobs waiting to start on it, its Later items not yet settled, open issues near it, and Needs you items that name it or wait on a restart.
+It may be told to a live Job, started as the next piece, filed, linked, raised or `noted`, which leaves it in Done and does nothing else.
+The role positions decide as they do for a report: at Suggest a start, a tell or a filing waits on one press, and `noted` needs no role.
+A Job ending also settles its own arrivals still waiting or out on a call, such as its start, plan, stall or questions, as Done with `Ended`.
+A Job handed on for context is no end.
 
 **Detection stays Fleet's**, read from state as it always was.
 The Operator is never asked whether something happened.

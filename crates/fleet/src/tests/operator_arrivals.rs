@@ -90,6 +90,7 @@ fn arriving(words: &str, paths: &[&str], issues: &[&str]) -> Arrival {
         answers: Vec::new(),
         rule: None,
         open: Vec::new(),
+        ties: Vec::new(),
     }
 }
 

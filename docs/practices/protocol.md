@@ -1557,7 +1557,12 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   It answers the board.
   An unknown id, or a Job's own suggestion, is a 404 `fleet.operator_suggestion_unknown`; one settled already is the 409 `settled_already`; any other choice is refused.
   A settled suggestion leaves `suggestions` and is in `done` as `Filed: <issue>`, `Started: <Job title>`, `Handed over: to <Job title>`, `Linked` or `Skipped`.
+- **An end or a merge is a `done` row of its own.** A Job that ends after Fleet started arrives once as `ended`, and a pull request one of its Jobs held that merges as `merged`; neither is replayed, and none arrives while the Operator is off.
+  The row reads `Ended: <first line of the Job's summary>` or `Ended`, and `Merged: #<number> <title>`, unless the Operator did more (`Started`, `Handed over`, `Filed`, `Linked` or `Raised`).
+  An arrival of the Job's own that was waiting or out on a call when it ended is in `done` as `Ended`, and leaves `now` and `next`.
+  A suggestion on an end is kept with no Job, so it is in `suggestions`.
 - **`operator.board_changed` carries nothing.** Bridge reads the board again.
-- **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main and a Later item are each a `report`. Bridge renders `outcome` and never branches on it.
+- **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main, a Later item, a note, a Job's end and a pull request's merge are each a `report`.
+  Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
 - **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.

@@ -39,7 +39,7 @@ pub(crate) struct Sources {
     /// Issues new since the read before, not yet handed.
     fresh: Mutex<Vec<NewIssue>>,
     /// The issues the Operator filed itself, which are not new to it.
-    filed: Mutex<BTreeSet<String>>,
+    pub(super) filed: Mutex<BTreeSet<String>>,
     reviews_read: Mutex<Option<tokio::time::Instant>>,
     /// The note files each repository's last listing held. A repository with no entry has not been
     /// listed since Fleet started, so its first listing only marks what is there.
@@ -189,7 +189,7 @@ where
     }
 
     /// The issues open in `manifest`'s tracker, as Fleet holds them.
-    async fn open_of(&self, manifest: &str) -> Vec<Filed> {
+    pub(super) async fn open_of(&self, manifest: &str) -> Vec<Filed> {
         let open = self.open_issues(&ManifestId::carried(manifest)).await.unwrap_or_default();
         open.into_iter()
             .filter(|one| !one.closed)
@@ -270,6 +270,9 @@ where
             (Arrived::Note, Way::File, _, _) => made.issue = self.operator_filed_note(manifest, last, arrival).await,
             (Arrived::Note, Way::NewJob, _, _) => made.job = self.operator_started_note(manifest, last, arrival).await,
             (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await,
+            (Arrived::Ended | Arrived::Merged, Way::ExistingJob, Some(into), _) => self.operator_told_ending(arrival, ruling, into).await,
+            (Arrived::Ended | Arrived::Merged, Way::NewJob, _, _) => made.job = self.operator_started_next(arrival, ruling).await,
+            (Arrived::Ended | Arrived::Merged, Way::File, _, _) => made.issue = self.operator_filed_next(arrival, ruling).await,
             _ => {}
         }
         made

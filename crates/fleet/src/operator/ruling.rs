@@ -32,6 +32,8 @@ pub enum Way {
     Link,
     /// A Later item is filed as a new issue in the repository's beads.
     File,
+    /// An end or a merge is read and nothing follows: it goes to Done.
+    Noted,
 }
 
 impl Way {
@@ -48,12 +50,13 @@ impl Way {
             Way::Answer => "answer",
             Way::Link => "link",
             Way::File => "file",
+            Way::Noted => "noted",
         }
     }
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File, Way::Noted].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -66,6 +69,7 @@ impl Way {
             Way::Answer => "answer",
             Way::Link => "link to an open issue",
             Way::File => "file a new issue",
+            Way::Noted => "noted, nothing follows",
         }
     }
 
@@ -147,12 +151,14 @@ pub struct Ruling {
     pub answer: Option<Choice>,
     /// The open issue a link names, one of those the item was offered.
     pub issue: Option<String>,
+    /// The next piece of work in a line, for a new job or a new issue ruled on an end or a merge.
+    pub what: Option<String>,
 }
 
 impl Ruling {
     /// A ruling of `way` alone, naming no other Job.
     pub fn alone(way: Way, because: impl Into<String>) -> Ruling {
-        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), answer: None, issue: None }
+        Ruling { way, other: None, shared: Vec::new(), because: because.into(), place: None, first: None, refused: Vec::new(), answer: None, issue: None, what: None }
     }
 }
 
@@ -208,6 +214,8 @@ pub enum Outcome {
     Answered,
     /// The person pressed Skip on what the Operator would have done.
     Skipped,
+    /// The Job an item waited on ended, so the item is Done unruled.
+    Ended,
 }
 
 impl Outcome {
@@ -220,6 +228,7 @@ impl Outcome {
             Outcome::NotHeld => "not_held",
             Outcome::Answered => "answered",
             Outcome::Skipped => "skipped",
+            Outcome::Ended => "ended",
         }
     }
 }
@@ -264,6 +273,10 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         }
         return Ok(Ruling { issue: Some(issue), ..Ruling::alone(way, because) });
     }
+    if item.arrived.is_ending() && matches!(way, Way::NewJob | Way::File) {
+        let what = said(block, "what").filter(|what| !none(what)).ok_or_else(|| PassedOn::Refused(format!("{} named no what", way.word_shown())))?;
+        return Ok(Ruling { what: Some(what), ..Ruling::alone(way, because) });
+    }
     if !way.names_another() {
         return Ok(Ruling::alone(way, because));
     }
@@ -275,7 +288,9 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         .filter(|paths| !none(paths))
         .map(|paths| paths.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect())
         .unwrap_or_default();
-    if shared.is_empty() {
+    // A Job tied to an end, such as one waiting on it, needs no shared ground to be told.
+    let tied = near.iter().any(|one| one.job.session_id == other && one.tie.is_some());
+    if shared.is_empty() && !tied {
         return Err(PassedOn::Refused(format!("{} named nothing the two Jobs share", way.word_shown())));
     }
     let mut ruling = Ruling { other: Some(other.clone()), shared, ..Ruling::alone(way, because) };
