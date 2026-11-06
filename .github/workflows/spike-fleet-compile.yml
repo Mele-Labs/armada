@@ -1,0 +1,56 @@
+# Throwaway: times fleet's test harness compile on the runner the Rust shards use.
+# Lives only on armada/spike-fleet-test-compile and is never merged.
+name: spike-fleet-compile
+on:
+  push:
+    branches: [armada/spike-fleet-test-compile]
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: never
+jobs:
+  time:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: test
+          shared: test-test
+      - name: Warm every dependency of fleet's harness
+        run: |
+          nproc; rustc -Vv
+          cargo test -p fleet --lib --no-run 2>&1 | tail -3
+      - name: Variants of fleet's harness alone
+        run: |
+          set +e
+          out="$RUNNER_TEMP/out"; mkdir -p "$out"
+          one() {
+            label="$1"; shift
+            touch crates/fleet/src/lib.rs
+            start=$(date +%s.%N)
+            RUSTC_BOOTSTRAP=1 cargo rustc -p fleet --lib --profile test -- "$@" > "$out/$label.log" 2>&1
+            code=$?
+            end=$(date +%s.%N)
+            printf '%s\t%.1f\texit %s\n' "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/summary.tsv"
+          }
+          one baseline
+          one baseline_again
+          one debuginfo0 -Cdebuginfo=0
+          one threads4 -Zthreads=4
+          one threads4_debuginfo0 -Zthreads=4 -Cdebuginfo=0
+          one cgu16 -Ccodegen-units=16
+          one time_passes -Ztime-passes
+          {
+            echo '## fleet harness, seconds'; echo '```'; cat "$out/summary.tsv"; echo '```'
+            echo '## time-passes, passes over 2 s'; echo '```'
+            grep -E '^time:' "$out/time_passes.log" | awk '{t=$2; gsub(/;/,"",t); if (t+0 >= 2) print}' | head -60
+            echo '```'
+            echo '## threads4 log tail'; echo '```'; tail -5 "$out/threads4.log"; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: spike-fleet-compile
+          path: ${{ runner.temp }}/out
