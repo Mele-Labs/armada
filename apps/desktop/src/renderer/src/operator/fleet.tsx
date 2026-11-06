@@ -38,16 +38,23 @@ const KIND_TAG: Readonly<Record<OperatorBoardKind, string>> = {
   report: "Report",
 };
 
+/** What kind of ask a Needs you card is, the tag above the Job's name. */
 const SOURCE_TAG: Partial<Readonly<Record<WaitingItem["source"], string>>> = {
   operator_suggestion: "Suggestion",
   agent: "Question",
   ask_card: "Question",
+  window_ask: "Question",
   walk: "Walk",
   draft: "Draft",
   plan: "Plan",
   sketch: "Sketch",
-  document: "Document",
+  document: "Page",
   permission: "Permission",
+  done: "Finished",
+  replied: "Reply",
+  first_message: "First message",
+  delivery: "Landing",
+  slot_choice: "Slot",
 };
 
 const OPEN_JOB = "Open Job";
@@ -96,11 +103,15 @@ function raiseOf(session: Session, item: WaitingItem): OperatorRaise {
       : {
           manifest: session.manifestId,
         }),
-    item: suggests ? title : item.text,
-    read: suggests ? item.text : (item.operator_read?.read ?? title),
+    // The Job's name is the title; the line under it is what it needs from him.
+    item: title,
+    read:
+      item.source === "done"
+        ? (session.done?.summary ?? "Says it's finished. Look it over and end it")
+        : item.text,
     ways,
     does: "raised",
-    tag: SOURCE_TAG[item.source] ?? "Needs you",
+    tag: SOURCE_TAG[item.source] ?? "Ask",
     job: {
       session: session.id,
       title,
@@ -215,7 +226,15 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
   const raises = useMemo(() => {
     const waiting = sessions
       .filter(live)
-      .flatMap((session) => (session.waitingFor ?? []).map((item) => raiseOf(session, item)));
+      .flatMap((session) =>
+        (session.waitingFor ?? []).map((item) => ({
+          session,
+          item,
+        })),
+      )
+      // Oldest first, so a card keeps its place while its Job's record changes around it.
+      .sort((a, b) => a.item.since.localeCompare(b.item.since))
+      .map(({ session, item }) => raiseOf(session, item));
     const settledIds = new Set(kept.settled.map((one) => one.id));
     const notes = (board?.suggestions ?? [])
       .filter((one) => !kept.pressing.includes(one.id))

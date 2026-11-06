@@ -85,6 +85,11 @@
   color: var(--fg-muted);
 }
 
+/* Now keeps a card's height while empty, so the lanes below stay put when the Operator takes one. */
+.armada-board__lane[data-lane="now"] .armada-board__cards {
+  min-height: 6rem;
+}
+
 .armada-board__cards {
   display: flex;
   flex: 1;

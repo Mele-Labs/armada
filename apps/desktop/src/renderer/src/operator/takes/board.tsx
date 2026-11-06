@@ -36,23 +36,52 @@ function showTalk() {
   });
 }
 
-/** Each card slides from where it was drawn last to where it is now, across lanes too, since it is found by its id. */
+/**
+ * Each card slides from where it was drawn last to where it is now, across lanes too, since it is found by its id. Only a
+ * card that changed lane or place in its lane slides: a scroll, a resize or a refresh that moved nothing redraws still.
+ * Places are read against the board, so a scrolled pane does not read as a move.
+ */
 function useSlide(): (node: HTMLElement | null) => void {
   const root = useRef<HTMLElement | null>(null);
-  const was = useRef(new Map<string, DOMRect>());
+  const was = useRef(
+    new Map<
+      string,
+      {
+        x: number;
+        y: number;
+        place: string;
+      }
+    >(),
+  );
   useLayoutEffect(() => {
     const board = root.current;
     if (board === null) return;
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const now = new Map<string, DOMRect>();
+    const origin = board.getBoundingClientRect();
+    const now = new Map<
+      string,
+      {
+        x: number;
+        y: number;
+        place: string;
+      }
+    >();
     for (const card of board.querySelectorAll<HTMLElement>("[data-card]")) {
       const id = card.dataset.card!;
-      const at = card.getBoundingClientRect();
+      const rect = card.getBoundingClientRect();
+      const lane = card.closest<HTMLElement>("[data-lane]")?.dataset.lane ?? "";
+      const at = {
+        x: rect.left - origin.left,
+        y: rect.top - origin.top,
+        place: `${lane}:${[
+          ...(card.parentElement?.children ?? []),
+        ].indexOf(card)}`,
+      };
       now.set(id, at);
       const from = was.current.get(id);
-      if (from === undefined || still) continue;
-      const dx = from.left - at.left;
-      const dy = from.top - at.top;
+      if (from === undefined || still || from.place === at.place) continue;
+      const dx = from.x - at.x;
+      const dy = from.y - at.y;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
       card.animate(
         [
