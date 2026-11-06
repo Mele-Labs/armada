@@ -816,9 +816,28 @@
   color: var(--fg-muted);
 }
 
+/* Today's slot hue, a little of it: the key and the words in it, on a pill of its tint, so the line stands apart from the calls. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] > svg,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease__said {
+  color: var(--slot-held);
+}
+
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] > svg {
   flex: none;
-  color: var(--fg-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] {
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3) var(--space-1) calc(var(--space-2) + var(--space-1) / 2);
+  margin-inline-start: calc((var(--space-2) + var(--space-1) / 2) * -1);
+  position: relative;
+  border-radius: var(--spacious-radius);
+  background: color-mix(in srgb, var(--slot-held) 10%, transparent);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease__said {
+  font-weight: var(--weight-medium);
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease__branch {
@@ -832,8 +851,10 @@
   color: var(--fg-subtle);
 }
 
+/* The time sits just past the pill, so the pill is only as wide as its words. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] .armada-session-lease__at {
-  margin-inline-start: auto;
+  position: absolute;
+  left: calc(100% + var(--space-3));
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
