@@ -68,7 +68,7 @@ A terminal Job reports the files it wrote through the mod's `touched` fact, as p
 It names the slot and its branch, what the slot holds, and asks the Job to commit, push and release it.
 `docs/concepts/fleet.md`, *Rescuing a stranded slot*.
 
-**A Job whose slot is far behind its base is told to merge it.** When the checkout a Job holds is 20 or more commits behind the base, Fleet sends that Job one message: `slot-4 (branch armada/x) is 684 commits behind main. Merge main into your branch before your next push.` The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from.
+**A Job whose slot is far behind its base is told how far.** When the checkout a Job holds is 20 or more commits behind the base, Fleet sends that Job one message: `slot-4 (branch armada/x) is 684 commits behind main.` A branch whose pull request has merged, is in the merge queue or has auto-merge on is not told. The count is the pool's own `behind`, and 20 is the figure Bridge's slot row starts from.
 Only a checkout with commits the base does not have is told, the pool's own `ahead`: a branch level with an old base has nothing stale to push, as for a Job that only starts other Jobs.
 It is sent once.
 The Job is told again only after the slot has fallen below 20, or had no commits of its own, and then behind again, and a Fleet that restarts may say it once more.
