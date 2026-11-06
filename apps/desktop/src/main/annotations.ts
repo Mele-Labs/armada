@@ -60,10 +60,10 @@ export function annotationRoot(appPath: string): string | null {
   } catch {
     return null;
   }
-  const line = /^tree = (".*")$/m.exec(record);
-  if (line === null) return null;
+  const quoted = /^tree = (".*")$/m.exec(record)?.[1];
+  if (quoted === undefined) return null;
   try {
-    return repositoryRoot(JSON.parse(line[1]) as string);
+    return repositoryRoot(JSON.parse(quoted) as string);
   } catch {
     return null;
   }
