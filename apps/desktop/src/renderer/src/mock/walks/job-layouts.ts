@@ -18,12 +18,7 @@ const layout = (name: string | RegExp) =>
   role("button", typeof name === "string" ? `Layout: ${name}` : name);
 const item = (name: string | RegExp) => role("menuitem", name);
 const choice = (name: string) => role("menuitemradio", name);
-const thread = inside(
-  pane("Thread"),
-  tab("Thread", {
-    exact: true,
-  }),
-);
+const thread = inside(pane("Thread"), tab(/^Thread(: |$)/));
 const places = role("navigation", "Places");
 const host = "localhost:5173";
 

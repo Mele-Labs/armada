@@ -1,12 +1,14 @@
 // End job in the More menu of a Session in the done state: the act wears `power-off` and the Done mark stays `power`, so
 // the two no longer stand identical. At 1512 by 949 with the Job open, where the breakdown opens
-// leftward inside the panel. The done card's own End job is put away first, so the head's is the one pointed at.
+// leftward inside the panel. The done card's own End job is put away first, so the tab's is the one pointed at.
 // Over the `session-head` scenario.
 
-import { button, inside, region, role, walk } from "../walk";
+import { button, inside, region, role, tab, walk } from "../walk";
 import { toSessions } from "../sessions/walk-kit";
 
 const head = region("Job s-c9e3a5f1");
+// The Job's head is its Thread tab: the state mark, the name and More.
+const job = tab(/^Thread: /);
 const sessions = region("Jobs", {
   exact: true,
 });
@@ -28,7 +30,7 @@ const sessionEndIcon = walk(
       say: "Keep going puts the card away, and the state stays Done",
     },
     {
-      look: inside(head, role("img", /^Done/)),
+      look: inside(job, role("img", /^Done/)),
       say: "The Done mark stands first",
     },
     {
@@ -36,8 +38,8 @@ const sessionEndIcon = walk(
       say: "The breakdown opens leftward, inside the panel",
     },
     {
-      press: inside(head, button("More")),
-      say: "The head's More menu",
+      press: inside(region(/^Pane: Thread/), button("More")),
+      say: "More on the Job's tab",
     },
     {
       hover: role("menuitem", /^End job/),

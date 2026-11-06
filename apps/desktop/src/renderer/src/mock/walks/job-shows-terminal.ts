@@ -48,12 +48,7 @@ const steps: Step[] = [
     say: "Terminal 1 is in front. Terminal 2 is behind it",
   },
   {
-    press: inside(
-      thread,
-      tab("Thread", {
-        exact: true,
-      }),
-    ),
+    press: inside(thread, tab(/^Thread(: |$)/)),
     say: "Thread",
   },
   {

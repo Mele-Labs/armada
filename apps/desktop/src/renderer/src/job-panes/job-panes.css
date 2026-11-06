@@ -213,6 +213,11 @@
   text-overflow: ellipsis;
   cursor: pointer;
 }
+.job-pane__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .job-pane__label:hover {
   color: var(--fg-default);
   background: var(--bg-hover);

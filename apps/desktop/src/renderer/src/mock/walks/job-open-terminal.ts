@@ -14,12 +14,7 @@ const steps: Step[] = [
     say: "Opened",
   },
   {
-    later: inside(
-      here,
-      tab("Thread", {
-        exact: true,
-      }),
-    ),
+    later: inside(here, tab(/^Thread(: |$)/)),
     say: "Time passes: the agent opens a terminal. The Job has no tab for it",
   },
   {

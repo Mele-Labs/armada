@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { LoaderCircle, Minimize2, Plus, X, type LucideIcon } from "lucide-react";
+import { Ellipsis, LoaderCircle, Minimize2, Plus, X, type LucideIcon } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -34,6 +34,7 @@ import { customLabel, peekCustom, seedBuilt, tabTitle, useCustom, useCustomTick 
 import { tabGlyph } from "./tab-glyph";
 import { splitFocused, focusIn } from "./keys";
 import { KINDS } from "./kinds";
+import { useJobHead, type JobHead } from "./job-head";
 import { usePaneFamily, type PaneFamily } from "./store";
 import { moveToWindow, whyNotWindow } from "./windows";
 import { toggleZoom } from "./zoom";
@@ -165,6 +166,60 @@ function tabEntries(kind: TabKind, zoomed: boolean, editable: boolean): Dropdown
   ];
 }
 
+/** A Job's own acts are told from the tab's by this prefix on their ids. */
+const HEAD = "head:";
+
+/**
+ * The Thread tab's menu while the tab is the Job's head: Rename, the Job's acts, the tab's own, and End job last.
+ */
+function headEntries(head: JobHead, tab: DropdownMenuEntry[]): DropdownMenuEntry[] {
+  const own = head.menu.entries.map((one) => ({
+    ...one,
+    id: HEAD + one.id,
+  }));
+  const ending = own.findIndex((one) => one.id === `${HEAD}end-rule`);
+  const acts = ending === -1 ? own : own.slice(0, ending);
+  const end = ending === -1 ? [] : own.slice(ending + 1);
+  const naming: DropdownMenuEntry[] = [
+    ...(head.onRename === undefined
+      ? []
+      : [
+          {
+            kind: "item",
+            id: "job-rename",
+            label: "Rename",
+          } as const,
+        ]),
+    ...(head.onNameForMe === undefined
+      ? []
+      : [
+          {
+            kind: "item",
+            id: "job-name",
+            label: "Name it for me",
+          } as const,
+        ]),
+  ];
+  return [
+    ...naming,
+    ...(naming.length > 0 && acts.length > 0
+      ? [
+          {
+            kind: "separator",
+            id: "job-naming-rule",
+          } as const,
+        ]
+      : []),
+    ...acts,
+    {
+      kind: "separator",
+      id: "job-tab-rule",
+    },
+    ...tab,
+    ...end,
+  ];
+}
+
 function TabButton({
   jobId,
   pane,
@@ -184,7 +239,10 @@ function TabButton({
 }) {
   const family = usePaneFamily();
   const { look, rearrange, peek, jobOpens } = family;
-  const label = labelOf(tab);
+  const head = useJobHead(jobId);
+  // The Thread tab is the Job's head while the Job stands in panes: its state, its name and its menu.
+  const job = tab.kind === "thread" ? head : undefined;
+  const label = job?.title ?? labelOf(tab);
   const active = pane.active === tab.id;
   const custom = useCustom(tab.id, tab.kind === "custom");
   // The tab keeps its mod's name, so after a restart it is drawn as the mod it was, not a fresh composer.
@@ -246,6 +304,11 @@ function TabButton({
   };
   const rename = (value: string) => {
     setRenaming(false);
+    if (job !== undefined) {
+      const next = value.trim();
+      if (next !== "" && next !== job.title) job.onRename?.(next);
+      return;
+    }
     look(jobId, (arrangement) => renameTab(arrangement, tab.id, value));
     // Fleet keeps the name too, so the agent's list of the Job's terminals shows it. The tab reads as it was named whatever Fleet says.
     if (tab.kind === "terminal" && value.trim() !== label) {
@@ -257,6 +320,10 @@ function TabButton({
   const grabbed = useRef(false);
   const choose = (id: string) => {
     look(jobId, (arrangement) => focusPane(activate(arrangement, tab.id), pane.id));
+    if (job !== undefined && id.startsWith(HEAD)) return job.menu.onSelect(id.slice(HEAD.length));
+    if (id === "job-name") return void job?.onNameForMe?.();
+    // A beat after the menu has shut, which gives focus back to the tab: the field takes it after.
+    if (id === "job-rename") return void window.setTimeout(() => setRenaming(true), 60);
     if (id === "window") moveToWindow(jobId, tab);
     else if (id === "zoom") toggleZoom(jobId, pane.id);
     // A beat after the menu has shut, which gives focus back to the tab and would take it from the card.
@@ -332,8 +399,19 @@ function TabButton({
             role="tab"
             className="job-pane__label"
             aria-selected={active}
+            {...(job === undefined
+              ? {}
+              : {
+                  "aria-label": job.title === undefined ? "Thread" : `Thread: ${job.title}`,
+                  "data-job": "",
+                })}
             tabIndex={active ? 0 : -1}
             onClick={() => look(jobId, (arrangement) => activate(arrangement, tab.id))}
+            {...(job?.onRename === undefined
+              ? {}
+              : {
+                  onDoubleClick: () => setRenaming(true),
+                })}
             onKeyDown={(event) => {
               // Shift+F10 and the Menu key open the tab's menu, anchored to the tab.
               if (event.key !== "ContextMenu" && !(event.key === "F10" && event.shiftKey)) return;
@@ -345,7 +423,11 @@ function TabButton({
               });
             }}
           >
-            {asking ? (
+            {job !== undefined ? (
+              <span className="job-pane__state">
+                <SessionMark state={job.state} said={job.said} />
+              </span>
+            ) : asking ? (
               <span className="job-pane__asks">
                 <SessionMark state="waiting" said="Waiting on you" />
               </span>
@@ -362,10 +444,40 @@ function TabButton({
             ) : (
               <Glyph size={16} strokeWidth={2} aria-hidden />
             )}
-            <span>{label}</span>
+            {job === undefined ? (
+              <span className="job-pane__name">{label}</span>
+            ) : (
+              // A Job's name is cut to the tab; the whole of it is on hover, as it was in the head.
+              <Tooltip label={label} asChild>
+                <span className="job-pane__name">{label}</span>
+              </Tooltip>
+            )}
           </button>
         )}
       </ModJobCard>
+      {job === undefined ? null : (
+        <span className="job-pane__close">
+          <Tooltip label="More">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="More"
+              aria-haspopup="menu"
+              draggable={false}
+              onClick={(event) => {
+                const box = event.currentTarget.getBoundingClientRect();
+                setPoint({
+                  x: box.left,
+                  y: box.bottom,
+                });
+              }}
+            >
+              <Ellipsis size={16} strokeWidth={2} aria-hidden />
+            </Button>
+          </Tooltip>
+        </span>
+      )}
       <span className="job-pane__close">
         <Tooltip label="Close">
           <Button
@@ -391,7 +503,11 @@ function TabButton({
         open={point !== null}
         onOpenChange={(open) => !open && setPoint(null)}
         portal
-        entries={tabEntries(tab.kind, zoomed, tab.kind === "custom" && custom.stage === "built")}
+        entries={
+          job === undefined
+            ? tabEntries(tab.kind, zoomed, tab.kind === "custom" && custom.stage === "built")
+            : headEntries(job, tabEntries(tab.kind, zoomed, false))
+        }
         onSelect={choose}
       />
       <Dialog
