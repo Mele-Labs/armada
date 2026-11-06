@@ -3,6 +3,12 @@
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
   --spacious-column: 680px;
+  /* How far code, tables and his bubbles reach past the words, so their own words line up with the prose. */
+  --spacious-bleed: calc(var(--space-4) + var(--space-1));
+  /* The column the box, Needs you, his bubbles and the cards share: the words' column and the bleed either side. */
+  --spacious-outer: calc(var(--spacious-column) + var(--spacious-bleed) * 2);
+  /* The least room between that column and the pane's edge. */
+  --spacious-gutter: var(--space-4);
   --spacious-body: 15px;
   --spacious-leading: 24px;
   --spacious-meta: 13px;
@@ -13,24 +19,23 @@
   --radius-lg: 8px;
 }
 
-/* ---- One centred column. The rows, Needs you and the composer share its width. ---- */
+/* ---- One centred column. Needs you, the composer and the cards share its outer edge; the words sit the bleed inside it. ---- */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
-  --body-pad: 0 var(--space-3) var(--space-3);
+  --body-pad: 0 0 var(--space-3);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows,
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .sv-bands,
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .sv-dock {
-  width: 100%;
-  max-width: var(--spacious-column);
+  width: calc(100% - var(--spacious-gutter) * 2);
+  max-width: var(--spacious-outer);
   margin-inline: auto;
 }
 
 /* The rows scroll across the whole pane, so their scrollbar keeps to its edge, away from the words; the column is padding
-   either side, never less than room for a hovered line's wash and its bar, which the scroll would clip. */
+   either side, the gutter and the bleed at least, which leaves room for a hovered line's wash and its bar. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows {
-  max-width: none;
-  padding: var(--space-4) max(var(--space-3), calc((100% - var(--spacious-column)) / 2)) 0;
+  width: 100%;
+  padding: var(--space-4) calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
 }
 
 /* A thin thumb with no track, there only while the pointer is over the thread. */
@@ -48,11 +53,11 @@
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows:hover::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  background: color-mix(in srgb, var(--fg-default) 14%, transparent);
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-thumb:hover {
-  background: var(--fg-subtle);
+  background: color-mix(in srgb, var(--fg-default) 28%, transparent);
 }
 
 /* Messages scrolled past fade out under the Job's head, and into the composer at the foot, rather than stopping at an edge.
@@ -127,9 +132,11 @@
   color: var(--fg-subtle);
 }
 
-/* His words: a filled bubble with no edge, its time a quiet line under it. */
+/* His words: a filled bubble with no edge, its time a quiet line under it. It reaches the bleed past the words, as code does,
+   so its edge is the box's and its words are the prose's. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-you {
   gap: var(--space-2);
+  margin-inline-end: calc(var(--spacious-bleed) * -1);
   border: none;
   background: transparent;
   max-width: 80%;
@@ -837,10 +844,6 @@
 }
 
 /* ---- Code and tables reach the edge a hovered line's card and his bubble reach, their words still in line with the prose's. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame {
-  --spacious-bleed: calc(var(--space-4) + var(--space-1));
-}
-
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) {
   margin-inline: calc(var(--spacious-bleed) * -1);
 }
@@ -1185,7 +1188,7 @@
 /* Started by: one quiet line on the column's edge over the thread, the name pressable, not a filled box at the pane's edge. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-started-by {
   align-self: stretch;
-  margin: var(--space-4) max(var(--space-3), calc((100% - var(--spacious-column)) / 2)) 0;
+  margin: var(--space-4) calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
   padding: 0;
   background: none;
   border-radius: 0;
