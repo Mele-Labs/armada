@@ -35,6 +35,8 @@
    either side, the gutter and the bleed at least, which leaves room for a hovered line's wash and its bar. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows {
   width: 100%;
+  /* The thread scrolls one way. A card that reaches past the padding is clipped, never a sideways scrollbar under the words. */
+  overflow-x: hidden;
   padding: var(--space-4) calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
 }
 
