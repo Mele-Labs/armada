@@ -66,9 +66,11 @@ A subagent's turn counts toward the hour's burn and toward nothing else.
 
 **The Context rule answers to the owner.** His answer on the Job's handoff card, and the setting *Large context* (`plan.contextHandoff`), decide whether the Job is told, handed on with no card, or left alone: [A handed-off Job](a-handed-off-job.md).
 
-**Once, and again only after it cleared.** A Job over a limit is told the first time and nothing more while it stays over.
-It is told again only after a reading found it under the limit and 30 minutes have passed since the last telling.
-A Fleet that restarts does not tell a Job over a limit again until it has been seen under it, because the last telling is read back from the trip rows.
+**Once for the Job, at a quiet moment.** A Job over a limit is told the first time and never again by size, however its figure moves after.
+A quiet moment is a turn that has ended with nothing waiting on the person: no question open or lapsed, no Needs you item, walk, plan or draft awaiting him (the same quiet the stop nudge needs, [What a Job is doing](what-a-job-is-doing.md)).
+Over the limit while he has something to decide, the telling is held and sent at the next quiet moment, never mid-turn and never over a decision.
+A Fleet that restarts does not tell a Job again, because the last telling is read back from the trip rows.
+The owner's own *Remind me at a higher limit* is his answer and still asks again at the figure he set.
 
 **Each telling is a row in `usage_rule_trips`:** the Job's id, the rule (`context`), when (the stamp of the newest turn), the figure that crossed (tokens) and `burn_per_hour_before`, the burn in cost units per hour of the Job's active time over the 60 minutes up to that turn.
 A telling that was not taken, because the Job had ended, writes no row and is tried again at the Job's next turn.

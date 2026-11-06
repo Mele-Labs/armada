@@ -31,6 +31,7 @@ pub(crate) mod ending;
 pub(crate) mod asking_in_window;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
+pub(crate) mod merge_waits;
 pub(crate) mod showing_file;
 pub(crate) mod styling;
 pub(crate) mod sketching;
@@ -124,6 +125,7 @@ use ipc::{CallInFlight, SessionTurn};
 use crate::asks::{AskHold, Asks};
 
 pub use process::{keepers_dir, Heard, Process, ProcessHost, Processes, Sink, Start};
+pub(crate) use process::{keepers_made, PRIVATE_ROOT};
 pub use terminal::Terminals;
 pub(crate) use terminal::PromptOpen;
 

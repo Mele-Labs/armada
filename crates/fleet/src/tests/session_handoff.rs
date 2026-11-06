@@ -444,6 +444,13 @@ fn asking_now(rig: &Rig, id: &SessionId) -> tokio::task::JoinHandle<Result<RunOr
 
 /// One main-thread turn of the Job holding `context` tokens, at `minute` past eight, read by the rules.
 async fn turn_heard(rig: &Rig, id: &SessionId, minute: u32, context: u64) {
+    // The telling waits for a quiet moment: the Job's turn has ended. A turn an answered card holds open does not end here.
+    for _ in 0..20 {
+        if !matches!(rig.fleet.hosts().of(id.as_str()).state().turn, ipc::SessionTurn::Working { .. }) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
     let turn = store::KeptTurnUsage {
         message_id: format!("m{minute}"),
         at: format!("2026-10-18T{:02}:{:02}:00.000Z", 8 + minute / 60, minute % 60),
@@ -514,7 +521,7 @@ async fn stay_and_do_not_ask_again_is_kept_on_the_ledger_and_the_job_is_never_to
     let record = rig.record(&old).await;
     assert!(kind(&record, "handoff_quiet").is_some(), "the owner's answer is a fact on the Job's ledger");
     assert!(others(&rig, &old).await.is_empty(), "nothing started");
-    // Under the line, then over it again past the cooldown: the rule would re-arm, and stays quiet.
+    // Under the line, then over it again: his answer keeps it quiet.
     turn_heard(&rig, &old, 1, 80_000).await;
     turn_heard(&rig, &old, 45, 340_000).await;
     turn_heard(&rig, &old, 46, 700_000).await;
@@ -568,6 +575,8 @@ async fn remind_me_asks_again_at_on_the_same_card_and_the_job_is_told_only_past_
     assert_eq!(standing(&record, "handoff_remind_at"), vec!["500000"], "the figure is kept on the ledger");
     assert!(record.hosted.as_ref().unwrap().asked.is_none(), "the card is gone");
 
+    // The answered card's turn ends: the reminder goes at a quiet moment.
+    rig.stand_in.finishes(0, "Carrying on.");
     turn_heard(&rig, &old, 1, 480_000).await;
     assert_eq!(fleet_said(&rig, &old, "Context is").await.len(), 1, "under the figure: not told");
     turn_heard(&rig, &old, 2, 512_000).await;

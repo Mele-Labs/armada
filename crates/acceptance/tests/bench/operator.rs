@@ -116,7 +116,7 @@ pub fn asked(session: &str, group: Group, present: Present, earlier: Option<Earl
 }
 
 /// One of [`live`]'s Jobs gone quiet as `quiet` says, with its plan's tasks `left`.
-pub fn stall(session: &str, quiet: Quiet, left: &[&str], nudged: bool) -> Stall {
+pub fn stall(session: &str, quiet: Quiet, left: &[&str]) -> Stall {
     let job = live().into_iter().find(|one| one.session_id == session).expect("one of the three");
     Stall {
         session_id: job.session_id,
@@ -126,7 +126,6 @@ pub fn stall(session: &str, quiet: Quiet, left: &[&str], nudged: bool) -> Stall 
         plan: Some(job.words),
         done: vec!["Find where the scrollback is dropped".into()],
         left: left.iter().map(|one| one.to_string()).collect(),
-        nudged,
     }
 }
 
@@ -180,7 +179,6 @@ pub struct FakeFleet {
     ceiling: u32,
     ended: Mutex<Vec<(String, String)>>,
     in_touch: Mutex<Vec<(String, String)>>,
-    nudged: Mutex<Vec<(String, String)>>,
     raised: Mutex<Vec<(String, String)>>,
     started_anew: Mutex<Vec<String>>,
     answered: Mutex<Vec<(String, String, u32, String)>>,
@@ -210,7 +208,6 @@ impl FakeFleet {
             ceiling,
             ended: Mutex::new(Vec::new()),
             in_touch: Mutex::new(Vec::new()),
-            nudged: Mutex::new(Vec::new()),
             raised: Mutex::new(Vec::new()),
             started_anew: Mutex::new(Vec::new()),
             answered: Mutex::new(Vec::new()),
@@ -222,11 +219,6 @@ impl FakeFleet {
             orders: Mutex::new(Orders::default()),
             log_read: Mutex::new(Vec::new()),
         })
-    }
-
-    /// Each Job told to carry on, and the next step it was told.
-    pub fn nudged(&self) -> Vec<(String, String)> {
-        self.nudged.lock().expect("not poisoned").clone()
     }
 
     /// Each Job raised to the person, and the Operator's read.
@@ -389,10 +381,6 @@ impl Acting for FakeFleet {
 
     fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) {
         self.in_touch.lock().expect("not poisoned").push((one.into(), other.into()));
-    }
-
-    fn nudge(&self, session: &str, step: &str) {
-        self.nudged.lock().expect("not poisoned").push((session.into(), step.into()));
     }
 
     fn start_rest(&self, session: &str, _seen: &str) {

@@ -37,7 +37,13 @@ where
     /// crossed one they have not been told.
     pub(crate) async fn usage_rules_read(self: &Arc<Self>, sessions: &[String]) {
         let limits = Limits::of(&self.machine_settings().now());
-        for session in sessions {
+        let mut sessions = sessions.to_vec();
+        for held in self.usage_following().waiting_for_quiet() {
+            if !sessions.contains(&held) {
+                sessions.push(held);
+            }
+        }
+        for session in &sessions {
             let Ok(turns) = self.store().lock().await.turns_for_rules(session, limits.main_turns_needed()) else {
                 continue;
             };
@@ -48,12 +54,12 @@ where
             for trip in &over {
                 if !self.usage_following().knows(session, trip.rule) {
                     let last = self.store().lock().await.last_usage_rule_trip(session, trip.rule.name());
-                    if let Ok(Some(at)) = last {
-                        self.usage_following().remembered(session, trip.rule, &Timestamp::from_rfc3339(at));
+                    if let Ok(Some(_)) = last {
+                        self.usage_following().remembered(session, trip.rule);
                     }
                 }
             }
-            let mut due = self.usage_following().due(session, &over, &now);
+            let mut due = self.usage_following().due(session, &over);
             let mut handing = false;
             let mut reminded = false;
             if let Some(context) = over.iter().find(|trip| trip.rule == Rule::Context) {
@@ -79,6 +85,12 @@ where
                 if context && handing {
                     self.handed_on_by_setting(session).await;
                 } else {
+                    // **One nudge, at a quiet moment**: with anything waiting on him, or a turn running, it
+                    // is held and read again, never sent over a decision.
+                    if !self.quiet_moment(session).await {
+                        self.usage_following().held(session);
+                        continue;
+                    }
                     match self.noticed_by_fleet(session, &trip.text, ipc::Notice::UsageTrip).await {
                         Ok(told) if told.settled() => sent = told.sent(),
                         _ => continue,
@@ -94,7 +106,7 @@ where
                 if context && reminded && sent {
                     self.handoff_reminded(session).await;
                 }
-                self.usage_following().told(session, trip.rule, &now);
+                self.usage_following().told(session, trip.rule);
                 let kept = KeptTrip {
                     session_id: session.clone(),
                     rule: trip.rule.name().to_string(),
@@ -107,6 +119,30 @@ where
                 let _ = self.store().lock().await.keep_usage_rule_trip(&kept);
             }
         }
+    }
+
+    /// Whether a turn has ended and nothing waits on the person: no turn running, no question open or
+    /// lapsed, no item, walk, plan or draft awaiting him. The same quiet the stop nudge needs
+    /// (`session_host/stopping.rs`).
+    async fn quiet_moment(&self, session: &str) -> bool {
+        let record = {
+            let store = self.store().lock().await;
+            let Some(row) = store.session(session).ok().flatten() else { return false };
+            let Ok(record) = self.ledger_row(&store, &row) else { return false };
+            record
+        };
+        let held_back = {
+            let runtime = self.hosts().of(session);
+            let state = runtime.state();
+            state.asked.is_some() || matches!(state.turn, ipc::SessionTurn::Working { .. })
+        };
+        let resting = matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
+        let rows = self.rows_of(session).await.unwrap_or_default();
+        resting
+            && !held_back
+            && record.waiting_for.is_empty()
+            && record.running.is_empty()
+            && crate::session_host::handoff_answers::lapsed_question(&rows).is_none()
     }
 
     /// Fill in the trips of `session` whose hour after is now covered by its turns, `newest` being

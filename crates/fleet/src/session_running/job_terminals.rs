@@ -1,5 +1,6 @@
 //! Which of a Job's terminals a call means, and what Fleet keeps about each: its number, its name
-//! and the shell its agent last saw. The shells themselves are `super::job_shell`'s, in memory.
+//! and the shell its agent last saw. The shells themselves are `super::job_shell`'s, held by a keeper
+//! that outlives Fleet (`crate::terminal_keeping`) and taken back at boot (`super::kept_terminals`).
 //!
 //! A terminal is `t1`, `t2` and so on, numbered by the store and never given twice in a Job, so an
 //! ID names the same terminal after its shell has ended or Fleet has restarted.
@@ -155,7 +156,7 @@ where
     }
 
     /// The run id of the shell `session`'s agent last typed into or read in terminal `number`.
-    /// **Kept in the store**, since the restart that ends a shell is the one that forgets it.
+    /// **Kept in the store**, since a shell whose keeper is gone is a new one under the same ID.
     pub(super) async fn terminal_seen(&self, session: &str, number: u32) -> Option<String> {
         let kept = self.terminals_kept(session).await.ok()?;
         kept.into_iter().find(|one| one.number == number).and_then(|one| one.seen_run)

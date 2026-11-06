@@ -352,6 +352,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             if kept > 0 {
                 println!("  {kept} hosted job(s) reattached to a keeper that outlived the last Fleet");
             }
+            // The Jobs' terminals the same way: their shells ran on under keepers, and come back under
+            // the ids they had before any watch listens to one.
+            let terminals = fleet.reattached_terminals().await;
+            if terminals > 0 {
+                println!("  {terminals} job terminal(s) reattached to a keeper that outlived the last Fleet");
+            }
             // A hand off the last Fleet stopped partway is finished or put back, so one Job is live.
             let healed = fleet.handoffs_healed().await;
             if healed > 0 {
@@ -479,12 +485,10 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     };
     crate::booting::serve_while_booting(listener, app, stop, boot).await?;
 
-    // After teardown, never before it: the turn in flight has finished, and
-    // every server Fleet holds — a Job's or the main checkout's — is stopped
-    // here, since nothing after this process could hand one on or stop it.
-    // `docs/concepts/fleet.md`, *Servers* — the main checkout's span is held
-    // for as long as Fleet runs, and released once, here.
-    fleet_for_shutdown.stopped_every_server().await;
+    // After teardown, never before it: the turn in flight has finished. **No server is stopped
+    // here**: a Job's or the main checkout's leads a session of its own and the next Fleet
+    // adopts it, so a checkout with one up keeps its span. `docs/concepts/fleet.md`, *Servers*
+    // — the main checkout's span is held for as long as Fleet runs, and released once, here.
     fleet_for_shutdown.released_checkout_ports().await;
     // Fleet's own listener port, given back beside the main checkout's span
     // and at the same moment. A release that does not happen — a crash — is
@@ -653,6 +657,7 @@ fn assemble(
             mcp_config: mcp_config.to_string_lossy().to_string(),
             attachments_dir: attachments_dir.to_string_lossy().to_string(),
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
+            terminal_keeper: fleet::terminal_keeping::Starting::this_binary(std::path::Path::new(&home)),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
             mod_bundle: mod_bundle.map(|bundle| bundle.to_string_lossy().to_string()),

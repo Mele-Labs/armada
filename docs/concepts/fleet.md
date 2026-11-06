@@ -42,7 +42,7 @@ Doctor stays readable when Fleet dies through `armada doctor --json`, a short-li
   This is what the "Restart Fleet" button does, and it means **skip the throttle wait**, not *recover*.
 - **Fleet exits 0 deliberately.** launchd leaves it down by design. Kickstarting just makes it exit 0 again. Doctor must show the **reason**, not a restart button.
 - **On any restart.** Reconciles against what is live, for every repository it serves.
-  The servers a crashed Fleet left running are ended first, so the ports they held are free.
+  The servers a Fleet left running are taken first: each whose checkout is still there is held again as it was, with its ports, and any other is ended so the ports it held are free.
   A hosted Job's agent survived in its keeper and is reattached ([Job](session.md), *What a restart does to a job*).
   A Job with a turn open and no keeper starts again, once, after reconciliation.
   A slot still held by a Job that ended is parked.
@@ -200,12 +200,12 @@ Confirmed 15 Oct 2026: a Job holding a 31-hour-old branch in a second slot was t
 A file both edited in places that merge clean says nothing.
 Where git will not answer, the last reading stands.
 
-**What each side is told.** The files that conflict, who the other is, and how to reach it.
-A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*) and reaches the other with `SendMessage`.
-**A paused Job is not one to reach**, since a message waits for the person's Resume: the notice names its branch and says to resolve the conflict on merge.
-**Told once per file per peer**: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
+**What each side is told.** The fact git gave: the files whose lines both write, and the branch that holds the other's writes, the one checked out where it wrote.
+A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*), with no instruction and no one blamed.
+Where the other Job is paused, the notice says so.
+**Told once per file per peer**, main a peer of its own: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
 Fleet keeps no record that two Jobs agreed, so a settled file stays quiet because it was told, not because it was settled.
-Each file told is kept in the store (`clash_told_paths`), and a notice of main or of a paused peer by its words (`clash_told`), so a restart that refills the table repeats nothing.
+Each file told is kept in the store (`clash_told_paths`), and a notice by its words (`clash_told`), so a restart that refills the table repeats nothing.
 Confirmed 31 Oct 2026: three restarts told one Job the same clash with a paused Job three times, each time to message it.
 
 **Main moving.** Where Fleet reads the base's head and it has moved, every standing pair is asked again, since a holder may have merged main in or the other may have landed.
@@ -444,9 +444,11 @@ One Job, not every row: a Job that read the pull request from a directory in a s
 **News is the exception (decided 28 Oct 2026).** A merge, and auto-merge turned on, are told to every Job whose standing `pr` row holds the number, the owner first: a Job asked to see a pull request merge holds it from another branch than the one it was opened on, and was told nothing.
 A failure or a conflict still goes to one.
 
-**A Job's wait on a merge the forge will do is not the owner's, and Fleet takes it off Needs you.**
-While the queue or auto-merge holds the pull request, every reading takes off each owner Job's `waiting_for` item whose `approve_pr` act names it, and tells the Job only where something came off.
-Fleet reads the act and never the item's words: a line that only says the number, its link, its branch or its title stays.
+**A Job's wait on a merge is not the owner's, and `waiting_for` refuses it.**
+An item is a merge wait when its `approve_pr` act names a pull request of the Job that is queued, has auto-merge on or has merged, or when its words name that pull request's number (`#12`, `PR 12`, `pull request 12`) or its link.
+Fleet refuses it as the agent writes it (`fleet.session_waiting_merging`, `session_host/merge_waits.rs`): a merge wait is not a Needs you item, and Fleet tells the Job when the pull request merges.
+**Fleet never takes a kept item off for a queue or auto-merge**, and an item kept before the rule, or written again unchanged, stands.
+Only a merge, a fact, takes off an `approve_pr` item that names the merged number.
 The job note tells agents not to state it.
 
 ### Watches
@@ -802,16 +804,25 @@ Fleet holds a Manifest's server Commands — the ones with `serve`, which [Manif
 
 A server runs in a checkout of the repository `?manifest_id=` names — its main checkout, a worktree of it that `start_server`'s `checkout` names, or a Job's slot — and uses **that checkout's own span**.
 A Job's agent that names no `checkout` is served on the slot its Job holds, read from Fleet's record of the lease; with no slot yet it gets the main checkout. A Job's slot is never named by path.
-It stops on Stop, when it exits, when its slot is given back, or when Fleet stops; the span itself is released only when Fleet stops, after teardown.
+It stops on Stop, when it exits, or when its slot is given back; Fleet stopping does not stop it.
+When Fleet stops, the span of a checkout with a server up is kept, so the next Fleet holds the server's ports; every other span is released.
 
 > **Rule.** A port span is claimed per checkout, never per repository.
 > Why: a repository has more than one checkout and each declares the same `ports:`, so one span between them is the number two servers bind.
 > On 22 September 2026 a worktree took the main checkout's port and the address kept answering, with another branch's app behind it.
-**Fleet holds its servers in memory, so they stop when Fleet stops too.** A restarted Fleet holds none, and a server that outlived the process holding it would keep its port with nothing left to hand it to the next Job or stop it.
-Beside each running server's log Fleet keeps a record of its process group, removed when the server stops.
+**A server outlives Fleet.** It leads a session of its own, so a restart — launchd booting Fleet out and in again — leaves it serving on the same port, writing the same log.
+Fleet holds its servers in memory, so beside each running server's log it keeps a record of its process group and of the row it showed, removed when the server stops.
 
-> **Rule.** After a crash, Fleet kills the servers it left running when it next starts, confirming each is still the process it recorded.
-> Why: a leftover server holds its port with nothing to stop it, and a pid the system has since given another process must never be killed.
+> **Rule.** When Fleet next starts, it holds again each server a Fleet left running whose checkout is still there, with the same id, ports, links and log, serving, and ends the rest.
+> Why: the Job sees the server it started, and a server nobody holds keeps its port with nothing to stop it.
+
+> **Rule.** Fleet never ends or adopts a process without confirming it is still the one it recorded.
+> Why: a pid the system has since given another process must never be killed.
+
+A server whose record was written before its `ready` passed is held starting, and `ready` is asked again as for a fresh start.
+Fleet is not the parent of a server it took back, so it cannot wait on it.
+It asks after the process every two seconds, and a group that is gone is a server that ended, as an exit is.
+Stop ends the group as it does for any server.
 
 #### Which checkout answers, and how far behind it is
 

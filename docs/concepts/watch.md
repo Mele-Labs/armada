@@ -176,7 +176,7 @@ A terminal watch runs nothing: it waits for text, or a regular expression, in th
 | Behaviour | Holds |
 |---|---|
 | Passes | On the first line printed after it started that matches, finished, and `says` quotes the line |
-| Fails, and ends | When the terminal ends first, or is not open when it listens after a restart. Nothing is left to hear, so nobody weighs it |
+| Fails, and ends | When the terminal ends first, or is not open when it starts to listen. A Fleet restart does not close one: its shell is taken back before any watch listens. Nothing is left to hear, so nobody weighs it |
 | Read as | Each line as the person's pane draws it, so colours and a redrawn progress bar do not hide the words |
 | Bounds | Its own give-up time; it is not one of the commands `limits.watchesAtOnce` bounds |
 

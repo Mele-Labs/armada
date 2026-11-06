@@ -5,7 +5,7 @@
 //! |---|---|
 //! | [`held`] | Which servers are up, by holder and name, and the last that ended |
 //! | [`launched`] | Starting one: its row, its log directory and its task |
-//! | [`left`] | The record on disk that finds a server a crashed Fleet left running |
+//! | [`left`] | The record on disk that finds a server a Fleet left running |
 //! | [`moved`] | What a held server serves, once the checkout moved past it |
 //! | [`running`] | One server: `run`, `serve`, `ready`, the end |
 //! | [`unservable`] | Every refusal, and its code on the wire |
@@ -15,10 +15,9 @@
 //! each is a task of its own on the `Arc` the listener holds.
 //!
 //! **Teardown, then release.** A slot's servers are stopped before it is given
-//! back, and every server is stopped when Fleet stops, before the main
-//! checkout's span goes. A
-//! server outliving the memory that held it would hold its port with nothing
-//! left to hand it on or stop it.
+//! back. **A server outlives Fleet**: it leads a session of its own, Fleet
+//! stopping ends none of them, and the next Fleet adopts each one from its
+//! record ([`left`]) with its ports still claimed.
 
 mod held;
 mod launched;
@@ -263,20 +262,33 @@ where
         stopped_and_waited(held).await;
     }
 
-    /// Stop every server Fleet holds. **Called
-    /// once, as Fleet stops, before the main checkout's span is released** —
-    /// `pub` for `released_checkout_ports`' reason: the composition root
-    /// is what calls it. See `armada::serve`.
+    /// Stop every server Fleet holds. **Not called as Fleet stops**: a server
+    /// outlives Fleet, and the next one adopts it.
     pub async fn stopped_every_server(&self) {
         stopped_and_waited(self.servers().held_by(None)).await;
     }
 
-    /// End what a crashed Fleet left running — **first thing at startup,
-    /// before the main checkout's span is re-probed**, so the ports those
-    /// servers held are free when it is. See [`left`].
+    /// End what a Fleet left running that has no checkout to be held for —
+    /// **first thing at startup, before the main checkout's span is
+    /// re-probed**, so the ports those servers held are free when it is. What
+    /// is still held for a checkout that is there is taken back, and keeps its
+    /// ports. See [`left`].
+    pub(crate) async fn adopted_left_servers(self: &Arc<Self>, records_root: &str) -> left::Reaped {
+        let root = records_root.to_string();
+        let (reaped, kept) = tokio::task::spawn_blocking(move || left::reaped(&root, true))
+            .await
+            .unwrap_or_default();
+        for server in kept {
+            self.adopted(server);
+        }
+        reaped
+    }
+
+    /// [`adopted_left_servers`](Fleet::adopted_left_servers) for a repository added while Fleet
+    /// runs: every server it left is ended.
     pub(crate) async fn reaped_left_servers(&self, records_root: &str) -> left::Reaped {
         let root = records_root.to_string();
-        tokio::task::spawn_blocking(move || left::reaped(&root))
+        tokio::task::spawn_blocking(move || left::reaped(&root, false).0)
             .await
             .unwrap_or_default()
     }

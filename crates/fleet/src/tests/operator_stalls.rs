@@ -1,7 +1,7 @@
 //! A Job gone quiet with work left, as Fleet reads it from state and hands it to the Operator: one
 //! it marked Stopped, and one that ended a turn after it was told its pull request failed and
 //! pushed nothing since. Each arrives once however often its row is read, nothing is ruled while
-//! the Operator is off, and a nudge, a new Job for the rest and a raise each say what they did.
+//! the Operator is off, and a new Job for the rest and a raise each say what they did.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -162,16 +162,16 @@ async fn read_and_handed(rig: &Rig, id: &SessionId) {
 }
 
 #[tokio::test]
-async fn a_job_stopped_twice_with_tasks_left_is_shown_with_its_plan_and_told_the_next_step_the_call_names() {
+async fn a_job_stopped_twice_with_tasks_left_is_shown_with_its_plan_and_has_the_rest_started_as_a_job_when_the_call_names_new_job() {
     let rig = rig_placing(None);
     let id = stopped_twice(&rig).await;
     on(&rig).await;
-    let call = Answers::with(&["item: 1\nway: 1\nstep: Keep the scrollback on redraw, in terminal.tsx\nbecause: its next task waits on nobody"]);
+    let call = Answers::with(&["item: 1\nway: 1\nbecause: its next task waits on nobody"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
 
     read_and_handed(&rig, &id).await;
 
-    eventually(|| async { !told(&rig, &id).await.is_empty() }).await;
+    eventually(|| async { said(&rig, &id).await.iter().any(|one| one.contains("The Operator started what is left of this Job")) }).await;
     let asked = call.asked();
     assert_eq!(asked.len(), 1);
     for part in [
@@ -179,17 +179,14 @@ async fn a_job_stopped_twice_with_tasks_left_is_shown_with_its_plan_and_told_the
         "Its plan: You get the terminal pane back.",
         "Done: Find where the scrollback is dropped.",
         "Left: Keep the scrollback on redraw.",
-        "The ways it is offered: 1. nudge; 2. new job; 3. raise",
+        "The ways it is offered: 1. new job; 2. raise",
     ] {
         assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
     }
-    let nudge = told(&rig, &id).await.join("\n");
-    for part in ["Your next step: Keep the scrollback on redraw, in terminal.tsx", "waiting_for", "all_done"] {
-        assert!(nudge.contains(part), "{part}:\n{nudge}");
-    }
+    assert!(told(&rig, &id).await.is_empty(), "no word goes to the quiet Job");
     let log = rig.fleet.store().lock().await.operator_rulings(10).expect("read");
     assert_eq!(log.len(), 1, "{log:#?}");
-    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str(), log[0].by.as_str()), ("stopped", "nudge", "operator"));
+    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str(), log[0].by.as_str()), ("stopped", "new_job", "operator"));
     assert_eq!(log[0].session_id, id.as_str());
 }
 
@@ -280,16 +277,13 @@ async fn with_the_operator_off_a_stopped_job_is_ruled_on_by_nobody_and_no_call_i
 }
 
 #[tokio::test]
-async fn a_nudge_names_the_step_a_new_job_takes_the_rest_and_a_raise_reaches_his_needs_you_list() {
+async fn a_new_job_takes_the_rest_and_a_raise_reaches_his_needs_you_list() {
     let rig = rig_placing(None);
     on(&rig).await;
     let id = rig.start().await;
     rig.send(&id, "Fix the terminal pane").await;
     aged(&rig, &id).await;
     let acting = FleetActing::on(&rig.fleet);
-
-    acting.nudge(id.as_str(), "Keep the scrollback on redraw");
-    eventually(|| async { told(&rig, &id).await.iter().any(|one| one.contains("Your next step: Keep the scrollback on redraw")) }).await;
 
     let before = rig.fleet.store().lock().await.live_session_ids().expect("read");
     acting.start_rest(id.as_str(), "It stopped again after Fleet told it to carry on. Left: Open terminals in a tab.");
@@ -316,18 +310,18 @@ async fn a_nudge_names_the_step_a_new_job_takes_the_rest_and_a_raise_reaches_his
     .await;
 }
 
-/// A Job stopped twice, with Delegate at Suggest and a nudge ruled, and its suggestion on his list.
-async fn nudge_suggested(rig: &Rig) -> (SessionId, ipc::WaitingItem) {
-    nudge_suggested_then(rig, &[]).await
+/// A Job stopped twice, with Dispatch at Suggest and a new Job ruled, and its suggestion on his list.
+async fn stall_suggested(rig: &Rig) -> (SessionId, ipc::WaitingItem) {
+    stall_suggested_then(rig, &[]).await
 }
 
 /// The same, with `later` the call's answers after the ruling: to what he says about it.
-async fn nudge_suggested_then(rig: &Rig, later: &[&str]) -> (SessionId, ipc::WaitingItem) {
+async fn stall_suggested_then(rig: &Rig, later: &[&str]) -> (SessionId, ipc::WaitingItem) {
     let id = stopped_twice(rig).await;
     switched(rig, "features.operator", true).await;
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorDelegate".to_string(), Some(ipc::SettingValue::Text("suggest".into())))]) };
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorDispatch".to_string(), Some(ipc::SettingValue::Text("suggest".into())))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
-    let ruling = "item: 1\nway: 1\nstep: Keep the scrollback on redraw, in terminal.tsx\nbecause: its next task waits on nobody";
+    let ruling = "item: 1\nway: 1\nbecause: its next task waits on nobody";
     let call = Answers::with(&[&[ruling][..], later].concat());
     assert!(rig.fleet.operator_seated_with(call.clone()));
     read_and_handed(rig, &id).await;
@@ -346,38 +340,38 @@ fn pressed(id: &SessionId, item: &ipc::WaitingItem, choice: u32) -> ipc::AnswerW
 }
 
 #[tokio::test]
-async fn with_delegate_at_suggest_a_nudge_waits_on_one_press_which_tells_the_job_and_a_second_finds_it_settled() {
+async fn with_dispatch_at_suggest_a_new_job_waits_on_one_press_which_starts_the_rest_and_a_second_finds_it_settled() {
     let rig = rig_placing(None);
-    let (id, item) = nudge_suggested(&rig).await;
-    assert!(item.text.contains("Keep the scrollback on redraw"), "{}", item.text);
+    let (id, item) = stall_suggested(&rig).await;
+    assert!(item.text.contains("its next task waits on nobody"), "{}", item.text);
     assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Do it", "Skip"]);
-    assert!(told(&rig, &id).await.is_empty(), "nothing is said until he presses");
+    assert!(said(&rig, &id).await.iter().all(|one| !one.contains("started what is left")), "nothing is started until he presses");
 
     Arc::clone(&rig.fleet).settle_waiting(pressed(&id, &item, 0)).await.expect("his press");
 
-    eventually(|| async { told(&rig, &id).await.iter().any(|one| one.contains("Keep the scrollback on redraw")) }).await;
+    eventually(|| async { said(&rig, &id).await.iter().any(|one| one.contains("The Operator started what is left of this Job")) }).await;
     assert!(suggestions(&rig, &id).await.is_empty(), "the row is gone");
     let log = rig.fleet.store().lock().await.operator_rulings_of(id.as_str()).expect("read");
-    assert_eq!(log.last().map(|row| (row.outcome.as_str(), row.by.as_str())), Some(("nudge", "human")), "the Log says who pressed");
+    assert_eq!(log.last().map(|row| (row.outcome.as_str(), row.by.as_str())), Some(("new_job", "human")), "the Log says who pressed");
     assert!(Arc::clone(&rig.fleet).settle_waiting(pressed(&id, &item, 0)).await.is_err(), "the first press won");
 }
 
 #[tokio::test]
-async fn skipping_what_delegate_would_do_tells_the_job_nothing_and_dismissing_it_is_the_same() {
+async fn skipping_what_dispatch_would_do_starts_nothing_and_dismissing_it_is_the_same() {
     let rig = rig_placing(None);
-    let (id, item) = nudge_suggested(&rig).await;
+    let (id, item) = stall_suggested(&rig).await;
 
     Arc::clone(&rig.fleet).settle_waiting(pressed(&id, &item, 1)).await.expect("his press");
 
     assert!(suggestions(&rig, &id).await.is_empty(), "the row is gone");
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    assert!(told(&rig, &id).await.is_empty(), "the Job heard nothing");
+    assert!(said(&rig, &id).await.iter().all(|one| !one.contains("started what is left")), "nothing was started");
 }
 
 #[tokio::test]
 async fn words_on_a_suggestions_row_are_talk_to_the_operator_about_it_and_the_row_stays() {
     let rig = rig_placing(None);
-    let (id, item) = nudge_suggested_then(&rig, &["cites: none\njob: none\nstart: none\norder: none\nfirst: none\nsaid: It would tell the Job to keep the scrollback."]).await;
+    let (id, item) = stall_suggested_then(&rig, &["cites: none\njob: none\nstart: none\norder: none\nfirst: none\nsaid: It would start the rest as a Job."]).await;
     let arrival = rig.fleet.store().lock().await.operator_suggestions_of(id.as_str()).expect("read").remove(0).arrival;
 
     let words = ipc::AnswerWaiting { session_id: id.clone(), item_id: item.id.clone(), choice: None, text: Some("why this one?".into()), mode: None, fixed: None };
@@ -386,8 +380,8 @@ async fn words_on_a_suggestions_row_are_talk_to_the_operator_about_it_and_the_ro
     let talk = rig.fleet.operator_talk_wire().await.expect("read");
     assert_eq!(
         talk.lines.iter().map(|one| (one.from_person, one.text.as_str(), one.about.as_deref())).collect::<Vec<_>>(),
-        [(true, "why this one?", Some(arrival.as_str())), (false, "It would tell the Job to keep the scrollback.", Some(arrival.as_str()))]
+        [(true, "why this one?", Some(arrival.as_str())), (false, "It would start the rest as a Job.", Some(arrival.as_str()))]
     );
     assert_eq!(suggestions(&rig, &id).await.len(), 1, "the row stays open");
-    assert!(told(&rig, &id).await.is_empty(), "nothing is done by words");
+    assert!(said(&rig, &id).await.iter().all(|one| !one.contains("started what is left")), "nothing is done by words");
 }

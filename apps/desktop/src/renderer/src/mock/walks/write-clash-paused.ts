@@ -1,5 +1,5 @@
-// Fleet's write-clash notice where the other Job is paused: it names that Job's branch and says to resolve the conflict
-// on merge, with no message to send. Over the `write-clash-paused` scenario.
+// Fleet's write-clash notice where the other Job is paused: it names that Job's branch and says it is paused,
+// with no instruction. Over the `write-clash-paused` scenario.
 
 import { kit, toSessions } from "../sessions/walk-kit";
 import { button, inside, region, role, text, walk } from "../walk";
@@ -20,12 +20,12 @@ const writeClashPaused = walk("write-clash-paused", [
     say: "The Job whose changes clash with it",
   },
   {
-    press: inside(thread, button(/conflict with branch mock\/video-multitasking-boards/)),
+    press: inside(thread, button(/branch mock\/video-multitasking-boards/)),
     say: "Fleet's notice names the paused Job's branch",
   },
   {
-    look: inside(thread, text(/resolve the conflict on merge/)),
-    say: "And says to resolve the conflict on merge, not to message a Job that cannot answer",
+    look: inside(thread, text(/paused\) write the same lines/)),
+    say: "And says the Job is paused, with no instruction",
   },
 ]);
 

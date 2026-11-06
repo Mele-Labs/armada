@@ -25,9 +25,6 @@ pub struct Stall {
     /// Its tasks done, and its tasks left, in its plan's order.
     pub done: Vec<String>,
     pub left: Vec<String>,
-    /// Whether the Operator has nudged it before. **A Job is nudged once**: one that goes quiet
-    /// again is started anew or raised.
-    pub nudged: bool,
 }
 
 impl Stall {
@@ -75,17 +72,14 @@ impl Stall {
         }
     }
 
-    /// A stop with nothing left has nothing to nudge or start; a red pull request always has its
+    /// A stop with nothing left has nothing to start; a red pull request always has its
     /// checks left.
     fn ways(&self) -> Vec<Way> {
         let stopped = matches!(self.quiet, Quiet::Stopped { .. });
         if stopped && self.left.is_empty() {
             return vec![Way::Raise];
         }
-        match self.nudged {
-            true => vec![Way::NewJob, Way::Raise],
-            false => vec![Way::Nudge, Way::NewJob, Way::Raise],
-        }
+        vec![Way::NewJob, Way::Raise]
     }
 }
 

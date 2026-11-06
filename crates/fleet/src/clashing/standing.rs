@@ -128,12 +128,20 @@ where
             Who::Session(id) => {
                 let store = self.store().lock().await;
                 let session = store.session(id).ok()??;
-                let branch = store
+                let attached = store
                     .attachments_of(&Holder::session(id))
                     .ok()?
                     .into_iter()
                     .find(|one| one.kind == "branch" && one.state == AttachmentState::Standing)
                     .map(|one| one.target);
+                // **The branch checked out where it wrote** holds the writes git compared; the
+                // attached one is only what the Job was cut on.
+                let branch = self
+                    .writes()
+                    .worktrees_of(&Who::Session(id.clone()))
+                    .iter()
+                    .find_map(|at| adapters::leasing::checked_out(Path::new(at)))
+                    .or(attached);
                 let paused = store.hosting(id).ok().flatten().is_some_and(|one| one.paused_at.is_some());
                 Some(Peer::Session {
                     id: id.clone(),

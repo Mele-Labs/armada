@@ -33,7 +33,8 @@ const RELAXED: &[(&str, &str)] = &[
     (
         "checks-runner",
         "libc::killpg on a timed-out Check — killing only the process Fleet started leaves \
-         whatever it spawned holding the worktree",
+         whatever it spawned holding the worktree — and libc::setsid() in pre_exec for a server \
+         that outlives Fleet",
     ),
 ];
 
@@ -53,6 +54,11 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
     (
         "crates/checks-runner/src/run.rs",
         "the group signal that ends a Check whose budget expired, and everything it spawned",
+    ),
+    (
+        "crates/checks-runner/src/serving.rs",
+        "libc::setsid() in pre_exec — a server a Job started leads a session of its own, so it \
+         outlives the Fleet that started it and the next Fleet adopts it",
     ),
     (
         "crates/fleet/src/peer/kernel.rs",
