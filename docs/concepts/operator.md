@@ -62,7 +62,7 @@ What arrives while a call is out is ruled together in the next one, so three Job
 
 ## The ways, and the roles
 
-A ruling is one way: start a new Job, send the words to an existing Job, merge two Jobs, keep two in touch, raise it to the person, nudge a quiet Job, answer a question, link a report to an open issue, or file a new one.
+A ruling is one way: start a new Job, send the words to an existing Job, merge two Jobs, keep two in touch, raise it to the person, answer a question, link a report to an open issue, or file a new one.
 A way between two Jobs names the other Job and the paths or plan group they share, or Fleet refuses it.
 
 Each role that acts has a position, Off, Suggest or On.
@@ -71,7 +71,7 @@ Each role that acts has a position, Off, Suggest or On.
 |---|---|---|
 | Evaluate | Reads the arrival and picks a way. It is the Operator's own switch, and ships Off | `operator` |
 | Dispatch | Starts, holds and merges Jobs, and places a start in Waiting to start | `operator-dispatch` |
-| Delegate | Sends words to a live Job: a start its plan covers, a quiet Job's next step, two Jobs told of each other | `operator-delegate` |
+| Delegate | Sends words to a live Job: a start its plan covers, two Jobs told of each other | `operator-delegate` |
 | Answer | Settles a question or a card as the person's press would | `operator-answer` |
 | Raise | Puts the item in Needs you with the Operator's read and its pick. It has no position | None |
 | File | Files a new issue for a Later item or a note no open issue covers. It only ever creates | `operator-file` |

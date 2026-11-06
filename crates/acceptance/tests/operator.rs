@@ -13,8 +13,8 @@
 //! | Each ruling is in the Log, signed by the Operator: what arrived, from where, the outcome, the other Job and the shared paths, why, which call and when | That a stall arrives once however often its row is read, and that with the Operator Off no stall is ruled. `fleet`'s `tests::operator_stalls` |
 //! | A failed call and a late one pass the start on untouched, the late one at the 20 seconds a first write waits, each with a Passed on row naming why | What a merge and a keep in touch say to each Job, and that a Job that has pushed is raised rather than merged. `fleet`'s `tests::operator_acting` |
 //! | A ruling that comes back after its item passed on is not acted on and not logged twice | That Fleet finds the candidates from plan paths, files written and claims, and hands over dispatch, Jobs starting Jobs and plans. `fleet`'s `tests::operator_arrivals` |
-//! | A Job stopped twice with tasks left is shown to the call with its plan, what is done and what is left, and is nudged with the next step the call names; one that left its pull request red is raised with the call's read | That the call is the Operator model's, kept started and holding no tools. `fleet`'s `tests::operator` |
-//! | A Job nudged once is not offered a nudge again, and one with nothing left is raised with no call | What a nudge, a new Job for the rest and a raise say. `fleet`'s `tests::operator_stalls` |
+//! | A Job stopped twice with tasks left is shown to the call with its plan, what is done and what is left, and has the rest started as a Job of its own when the call names new job; one that left its pull request red is raised with the call's read | That the call is the Operator model's, kept started and holding no tools. `fleet`'s `tests::operator` |
+//! | A Job with nothing left is raised with no call | What a new Job for the rest and a raise say. `fleet`'s `tests::operator_stalls` |
 //! | A question with a recommended option, from a Job on a plan group not seen, is answered as his press would, in a Log row naming the answer | That Fleet reads the seen mark per plan group, finds the person's earlier answer and settles the item as his press does, with a row in the Job's thread. `fleet`'s `tests::operator_answers` |
 //! | The same question from a Job on a seen group, or with no plan, is raised with no call | That a question arrives once however often its row is read, and that with the Operator Off no question is handed. `fleet`'s `tests::operator_answers` |
 //! | A second Job asking what a first already asked gets his earlier answer, naming the first Job | That Autopilot's switch widens what Answer may do, and that its pass leaves questions and cards to the Operator. `fleet`'s `tests::operator_answers` |
@@ -146,24 +146,22 @@ async fn the_three_jobs_of_the_3_nov_report_end_as_one_job_or_as_jobs_kept_in_to
 // Stalls
 // ---------------------------------------------------------------------------
 
-const NEXT_STEP: &str = "Keep the scrollback when the pane redraws, in terminal-pane.tsx";
-
-/// One call, holding both stalls: Terminal Bugs has a plain next step left, and the review tabs'
+/// One call, holding both stalls: Terminal Bugs has work left, and the review tabs'
 /// pull request fails on something only the person can settle.
 fn stalls_ruled() -> String {
     format!(
-        "item: 1\nway: 1\nstep: {NEXT_STEP}\nbecause: its plan is approved and the next task waits on nobody\n\n\
-         item: 2\nway: 3\nstep: none\nbecause: the failing check needs a signing key only the person holds"
+        "item: 1\nway: 1\nbecause: its plan is approved and the next task waits on nobody\n\n\
+         item: 2\nway: 2\nbecause: the failing check needs a signing key only the person holds"
     )
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_job_stopped_twice_with_tasks_left_is_nudged_with_its_next_step_and_one_left_red_is_raised_with_its_read() {
+async fn a_job_stopped_twice_with_tasks_left_has_the_rest_started_and_one_left_red_is_raised_with_its_read() {
     let call = FakeCall::replying(vec![Reply::Says(stalls_ruled(), Duration::from_secs(4))]);
     let fleet = FakeFleet::with(live(), 100);
     let operator = operator(&call, &fleet);
-    let stopped = stall(TERMINAL, Quiet::Stopped { at: "2026-11-03T15:20:00.000Z".into() }, &[NEXT_STEP, "Open terminals in a tab"], false);
-    let red = stall(TABS, Quiet::Red { number: 3211, head: "4e5ff41acc".into(), failing: "notarize".into() }, &[], false);
+    let stopped = stall(TERMINAL, Quiet::Stopped { at: "2026-11-03T15:20:00.000Z".into() }, &["Keep the scrollback when the pane redraws, in terminal-pane.tsx", "Open terminals in a tab"]);
+    let red = stall(TABS, Quiet::Red { number: 3211, head: "4e5ff41acc".into(), failing: "notarize".into() }, &[]);
 
     let (stopped, red) = tokio::join!(operator.ruled(stopped.arrival(), NEEDS_YOU_WAIT), operator.ruled(red.arrival(), NEEDS_YOU_WAIT));
 
@@ -177,47 +175,40 @@ async fn a_job_stopped_twice_with_tasks_left_is_nudged_with_its_next_step_and_on
         "Left: Keep the scrollback when the pane redraws, in terminal-pane.tsx; Open terminals in a tab",
         "Done: Find where the scrollback is dropped",
         "#3211 failed its checks at 4e5ff41",
-        "The ways it is offered: 1. nudge; 2. new job; 3. raise",
+        "The ways it is offered: 1. new job; 2. raise",
     ] {
         assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
     }
 
-    assert!(matches!(&stopped, Ruled::Ruled(ruling) if ruling.way == Way::Nudge && ruling.step.as_deref() == Some(NEXT_STEP)), "{stopped:?}");
+    assert!(matches!(&stopped, Ruled::Ruled(ruling) if ruling.way == Way::NewJob), "{stopped:?}");
     assert!(matches!(&red, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{red:?}");
-    assert_eq!(fleet.nudged(), vec![(TERMINAL.to_string(), NEXT_STEP.to_string())], "told the next step the call named");
-    assert_eq!(fleet.raised(), vec![(TABS.to_string(), "the failing check needs a signing key only the person holds".to_string())]);
-    assert!(fleet.started_anew().is_empty() && fleet.ended_into().is_empty());
+        assert_eq!(fleet.raised(), vec![(TABS.to_string(), "the failing check needs a signing key only the person holds".to_string())]);
+    assert_eq!(fleet.started_anew(), vec![TERMINAL.to_string()], "the rest starts as a Job of its own");
+    assert!(fleet.ended_into().is_empty());
 
     // Each act is a row of the Log, signed by the Operator, as Fleet's.
     let log = fleet.log();
     assert_eq!(log.len(), 2, "{log:#?}");
-    let (nudged, raised) = (row(&log, TERMINAL), row(&log, TABS));
-    assert_eq!((nudged.arrived, nudged.outcome, nudged.by), (Arrived::Stopped, Outcome::Ruled(Way::Nudge), Actor::Operator));
+    let (started, raised) = (row(&log, TERMINAL), row(&log, TABS));
+    assert_eq!((started.arrived, started.outcome, started.by), (Arrived::Stopped, Outcome::Ruled(Way::NewJob), Actor::Operator));
     assert_eq!((raised.arrived, raised.outcome, raised.by), (Arrived::Red, Outcome::Ruled(Way::Raise), Actor::Operator));
-    assert_eq!((nudged.source.clone(), nudged.subject.as_str()), (Source::Fleet, "Terminal Bugs"));
-    assert_eq!(nudged.call, raised.call, "ruled together");
+    assert_eq!((started.source.clone(), started.subject.as_str()), (Source::Fleet, "Terminal Bugs"));
+    assert_eq!(started.call, raised.call, "ruled together");
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_job_nudged_once_is_not_offered_a_nudge_again_and_one_with_nothing_left_is_raised_with_no_call() {
-    let anew = "item: 1\nway: 1\nstep: none\nbecause: it stopped again after the Operator's nudge, on the same task";
-    let call = FakeCall::replying(vec![Reply::Says(anew.into(), Duration::from_secs(2))]);
+async fn a_job_with_nothing_left_is_raised_with_no_call() {
+    let call = FakeCall::replying(vec![]);
     let fleet = FakeFleet::with(live(), 100);
     let operator = operator(&call, &fleet);
 
-    let again = stall(TERMINAL, Quiet::Stopped { at: "2026-11-03T15:25:00.000Z".into() }, &[NEXT_STEP], true).arrival();
-    assert_eq!(again.ways, vec![Way::NewJob, Way::Raise], "nudged once, never again");
-    let ruled = operator.ruled(again, NEEDS_YOU_WAIT).await;
-    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::NewJob), "{ruled:?}");
-    assert_eq!(fleet.started_anew(), vec![TERMINAL.to_string()], "the rest starts as a Job of its own");
-
-    let empty = stall(TABS, Quiet::Stopped { at: "2026-11-03T15:26:00.000Z".into() }, &[], false).arrival();
-    assert_eq!(empty.ways, vec![Way::Raise], "with nothing left, nothing to nudge or start");
+    let empty = stall(TABS, Quiet::Stopped { at: "2026-11-03T15:26:00.000Z".into() }, &[]).arrival();
+    assert_eq!(empty.ways, vec![Way::Raise], "with nothing left, nothing to start");
     let ruled = operator.ruled(empty, NEEDS_YOU_WAIT).await;
     assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{ruled:?}");
-    assert_eq!(call.asked().len(), 1, "a stall Fleet's rules leave one way is ruled with no call");
+    assert!(call.asked().is_empty(), "a stall Fleet's rules leave one way is ruled with no call");
     assert_eq!(fleet.raised().len(), 1);
-    assert_eq!(fleet.log().len(), 2);
+    assert_eq!(fleet.log().len(), 1);
 }
 
 // ---------------------------------------------------------------------------
