@@ -15,9 +15,9 @@ The rules and their words are `docs/concepts/session.md`, *Where the tokens went
 | Field | Is |
 | --- | --- |
 | `since`, `until` | The window as resolved |
-| `rules` | Always four, in the order `context`, `subagents`, `cache_hit`, `opus_reading`, each `{ rule, on, limit, trips }` |
-| `on`, `limit` | The rule's on-off and its limit as settings.json holds them: `limit` is `{ value, unit }`, the unit `thousand tokens`, `percent`, `percent` and `turns` in that order |
-| `trips` | The Jobs told in the window, newest first, and empty for a rule that never tripped. A trip is `session_id`, `at`, `figure` (tokens, a percent or a count, by rule), `burn_per_hour_before` and `burn_per_hour_after` |
+| `rules` | Always one, `context`, as `{ rule, on, limit, trips }` |
+| `on`, `limit` | The rule's on-off and its limit as settings.json holds them: `limit` is `{ value, unit }`, the unit `thousand tokens` |
+| `trips` | The Jobs told in the window, newest first, and empty for a rule that never tripped. A trip is `session_id`, `at`, `figure` (tokens), `burn_per_hour_before` and `burn_per_hour_after` |
 
 **`burn_per_hour_before`** is the Job's burn in cost units per hour of active time over the 60 minutes up to `at`, counted as the after is below, so the two compare.
 It is there whatever the number of turns in that hour, and 0 where there is one.

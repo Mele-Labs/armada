@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UsageRuleLimit {
     pub value: i64,
-    /// What `value` counts: `thousand tokens`, `percent` or `turns`.
+    /// What `value` counts: `thousand tokens`.
     pub unit: String,
 }
 
@@ -18,8 +18,7 @@ pub struct UsageRuleTrip {
     pub session_id: String,
     /// RFC3339: the newest turn when the Job was told.
     pub at: String,
-    /// What crossed: tokens for `context`, a percent for `subagents` and `cache_hit`, turns for
-    /// `opus_reading`.
+    /// What crossed: tokens for `context`.
     pub figure: f64,
     /// Cost units per hour of the Job's active time over the 60 minutes up to `at`, counted as
     /// `burn_per_hour_after` is, so the two compare.
@@ -33,7 +32,7 @@ pub struct UsageRuleTrip {
 /// One rule.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UsageRule {
-    /// `context`, `subagents`, `cache_hit` or `opus_reading`.
+    /// `context`.
     pub rule: String,
     pub on: bool,
     pub limit: UsageRuleLimit,
@@ -41,7 +40,7 @@ pub struct UsageRule {
     pub trips: Vec<UsageRuleTrip>,
 }
 
-/// The four rules, in that order, over `[since, until)`.
+/// The rules over `[since, until)`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UsageRules {
     pub since: String,
