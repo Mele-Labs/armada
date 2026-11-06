@@ -116,7 +116,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the grouped jobs)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `format_catch_up_test`).
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `keep_build_test`, `format_catch_up_test`).
 A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job pipes the changed paths into `armada covers`**, with `main`'s last built `armada` or one it builds (*Only `plan` builds `armada`*).
@@ -183,6 +183,7 @@ requires for the Checks below. `desktop_test` is to be added.
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
+| `keep_build_test` | `ubuntu-latest` | `python3 scripts/test_keep_build.py` | none |
 | `format_catch_up_test` | `ubuntu-latest` | `python3 scripts/test_format_catch_up.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |

@@ -1,4 +1,4 @@
-//! The build Fleet runs on: the read, and the restart onto another.
+//! The build Fleet runs on: the read, the restart onto another, and the revert to the one before.
 //!
 //! **No `Resolved` extractor and no path parameter**, `limiting`'s reason:
 //! the build is Fleet's own, and no Job's. The change answers 202, because it
@@ -33,6 +33,15 @@ pub(crate) async fn change_fleet_build<D: Commands>(
     };
     match served.daemon().change_fleet_build(asked).await {
         Ok(changing) => answer(StatusCode::ACCEPTED, &changing, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Start the undo of the last restart, and answer that it has begun. No body: the build reverted
+/// to is the one `builds/previous` names.
+pub(crate) async fn revert_fleet_build<D: Commands>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().revert_fleet_build().await {
+        Ok(reverting) => answer(StatusCode::ACCEPTED, &reverting, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

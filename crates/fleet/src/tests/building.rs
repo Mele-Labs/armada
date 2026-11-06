@@ -9,7 +9,10 @@ use std::time::{Duration, SystemTime};
 
 use ipc::{BuildPosition, BuildSource, BuildStage, ChangeFleetBuild};
 
-use crate::building::{checkout_of, left_out_in, left_out_moved, Building, LeftOut, Moved, NotChanged, NotOffered};
+use crate::building::{
+    checkout_of, left_out_in, left_out_moved, Building, LeftOut, Moved, NotChanged, NotOffered, NotReverted,
+};
+use crate::kept_builds::{fleet_label, BUILDS, CURRENT, PREVIOUS, STATUS};
 use crate::tests::tmp::TempDir;
 
 const SHA: &str = "0123456789abcdef0123456789abcdef01234567";
@@ -412,4 +415,146 @@ fn nothing_is_read_as_moved_while_a_restart_is_under_way_or_when_main_is_the_bui
     fs::remove_file(support.path().join("restart-build.status")).unwrap();
     fs::remove_file(support.path().join("restart-source")).unwrap();
     assert!(left_out_moved(support.path(), SystemTime::now(), &moved).is_empty(), "main leaves nothing out");
+}
+
+/// Two kept builds in `support`, Fleet running from `builds/current` on `new`, with `old` before it. The
+/// build `old` holds a stand-in `armada` that writes down what it was run with, in its working directory.
+fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
+    let builds = support.join(BUILDS);
+    for (name, bridge, jobs) in [("new", "b2", new_jobs), ("old", "b1", old_jobs)] {
+        fs::create_dir_all(builds.join(name)).unwrap();
+        let mut text = format!("built_at = \"2026-11-05T1{}:20:00Z\"\ncommit = \"{name}{SHA}\"\nsource = \"preview\"\nbridge = \"{bridge}\"\n", if name == "new" { 7 } else { 6 });
+        for branch in jobs {
+            text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
+        }
+        fs::write(builds.join(name).join("build.toml"), text).unwrap();
+    }
+    let undo = builds.join("old").join("armada");
+    fs::write(&undo, "#!/bin/sh\necho \"$@\" > ran\n").unwrap();
+    Command::new("chmod").arg("+x").arg(&undo).status().expect("chmod");
+    std::os::unix::fs::symlink("new", builds.join(CURRENT)).unwrap();
+    std::os::unix::fs::symlink("old", builds.join(PREVIOUS)).unwrap();
+    let runs = builds.join(CURRENT).join("armada");
+    fs::write(support.join(format!("{label}.plist")), format!("<string>{}</string>", runs.display())).unwrap();
+}
+
+#[tokio::test]
+async fn the_report_carries_the_running_build_and_the_one_before_with_what_a_revert_changes() {
+    let (checkout, support) = rig();
+    kept_in(support.path(), &fleet_label(), &["armada/a", "armada/both"], &["armada/both", "armada/c"]);
+
+    let report = Building::default()
+        .report(Some(checkout.path()), support.path(), SystemTime::now())
+        .await
+        .expect("a build");
+
+    let running = report.running.expect("the running build");
+    assert_eq!((running.built_at.as_str(), running.commit), ("2026-11-05T17:20:00Z", format!("new{SHA}")));
+    let previous = report.previous.expect("a previous build");
+    assert_eq!((previous.built_at.as_str(), previous.commit.clone()), ("2026-11-05T16:20:00Z", format!("old{SHA}")));
+    assert!(previous.bridge_reopens);
+    assert_eq!(previous.takes_out, ["armada/a"]);
+    assert_eq!(previous.brings_back, ["armada/c"]);
+    assert!(!report.reverting);
+}
+
+#[tokio::test]
+async fn no_previous_build_is_offered_where_none_is_kept_or_launchd_runs_another_fleet() {
+    let (checkout, support) = rig();
+    let report = Building::default().report(Some(checkout.path()), support.path(), SystemTime::now()).await.unwrap();
+    assert_eq!((report.running, report.previous), (None, None), "nothing kept");
+
+    kept_in(support.path(), &fleet_label(), &[], &[]);
+    fs::write(support.path().join(format!("{}.plist", fleet_label())), "<string>/Users/user/.cargo/bin/armada</string>").unwrap();
+    let report = Building::default().report(Some(checkout.path()), support.path(), SystemTime::now()).await.unwrap();
+    assert!(report.running.is_some(), "the build current names is still the one running");
+    assert_eq!(report.previous, None, "a revert would change nothing Fleet runs");
+
+    fs::remove_file(support.path().join(BUILDS).join(PREVIOUS)).unwrap();
+    fs::write(support.path().join(format!("{}.plist", fleet_label())), "").unwrap();
+    let report = Building::default().report(Some(checkout.path()), support.path(), SystemTime::now()).await.unwrap();
+    assert_eq!(report.previous, None, "no previous build");
+}
+
+#[tokio::test]
+async fn a_revert_under_way_is_reported_until_it_is_two_minutes_old_and_a_failed_one_gives_its_line() {
+    let (checkout, support) = rig();
+    let building = Building::default();
+    let now = SystemTime::now();
+    fs::write(support.path().join(STATUS), "running\n").unwrap();
+    assert!(building.report(Some(checkout.path()), support.path(), now).await.unwrap().reverting);
+    let later = now + Duration::from_secs(3 * 60);
+    assert!(!building.report(Some(checkout.path()), support.path(), later).await.unwrap().reverting);
+
+    kept_in(support.path(), &fleet_label(), &[], &[]);
+    fs::write(support.path().join(STATUS), "failed\nnew\nlaunchd would not load /x/y.plist\n").unwrap();
+    let report = building.report(Some(checkout.path()), support.path(), now).await.unwrap();
+    assert_eq!((report.reverting, report.failed.as_deref()), (false, Some("launchd would not load /x/y.plist")));
+
+    // A restart that failed on this build has its own line, which the panel already follows.
+    fs::write(support.path().join("restart-commit"), format!("{SHA}\n")).unwrap();
+    fs::write(support.path().join("restart-build.status"), format!("failed\nmain\n{SHA}\nmain cannot fast-forward\n")).unwrap();
+    let report = building.report(Some(checkout.path()), support.path(), now).await.unwrap();
+    assert_eq!(report.failed.as_deref(), Some("main cannot fast-forward"));
+}
+
+#[tokio::test]
+async fn a_revert_marks_it_running_and_starts_the_previous_build_with_build_revert() {
+    let (_checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+
+    let reverting = Building::default().revert(support.path(), "com.test.fleet", SystemTime::now()).expect("started");
+
+    assert_eq!(reverting.commit, format!("old{SHA}"));
+    assert_eq!(fs::read_to_string(support.path().join(STATUS)).unwrap(), "running\n");
+    assert_eq!(wait_for(&support.path().join("ran")).await.trim(), "build revert");
+}
+
+#[tokio::test]
+async fn a_revert_is_refused_where_none_is_kept_or_fleet_is_not_on_the_kept_builds() {
+    let (_checkout, support) = rig();
+    let building = Building::default();
+    let refused = building.revert(support.path(), "com.test.fleet", SystemTime::now());
+    assert!(matches!(refused, Err(NotReverted::NotRevertible(_))), "{refused:?}");
+
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    fs::write(support.path().join("com.test.fleet.plist"), "<string>/elsewhere/armada</string>").unwrap();
+    let refused = building.revert(support.path(), "com.test.fleet", SystemTime::now());
+    assert!(matches!(refused, Err(NotReverted::NotRevertible(_))), "{refused:?}");
+    assert!(!support.path().join(STATUS).exists());
+    assert!(!support.path().join("ran").exists(), "nothing was started");
+}
+
+#[tokio::test]
+async fn a_revert_is_refused_while_a_restart_or_a_revert_is_under_way() {
+    let (_checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    let building = Building::default();
+
+    fs::write(support.path().join("restart-build.status"), "running\npreview\n").unwrap();
+    assert_eq!(
+        building.revert(support.path(), "com.test.fleet", SystemTime::now()),
+        Err(NotReverted::Restarting(BuildSource::Preview))
+    );
+    fs::remove_file(support.path().join("restart-build.status")).unwrap();
+
+    fs::write(support.path().join(STATUS), "running\n").unwrap();
+    assert_eq!(building.revert(support.path(), "com.test.fleet", SystemTime::now()), Err(NotReverted::Reverting));
+    assert!(!support.path().join("ran").exists(), "nothing was started");
+
+    // One that died more than two minutes ago is not under way.
+    let later = SystemTime::now() + Duration::from_secs(3 * 60);
+    assert!(building.revert(support.path(), "com.test.fleet", later).is_ok());
+}
+
+#[tokio::test]
+async fn an_undo_that_will_not_start_leaves_no_status_behind() {
+    let (_checkout, support) = rig();
+    kept_in(support.path(), "com.test.fleet", &[], &[]);
+    Command::new("chmod").arg("-x").arg(support.path().join(BUILDS).join("old").join("armada")).status().expect("chmod");
+
+    let refused = Building::default().revert(support.path(), "com.test.fleet", SystemTime::now());
+
+    assert!(matches!(refused, Err(NotReverted::NotStarted(_))), "{refused:?}");
+    assert!(!support.path().join(STATUS).exists());
 }

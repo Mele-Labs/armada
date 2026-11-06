@@ -4,6 +4,9 @@
 // **No event says the build moved**, so it is read. A background fetch in Fleet moves the position
 // without a Job moving, and a restart moves the build with the socket down.
 //
+// **A revert is followed the same way**: `POST /fleet/build/revert` answers 202 as the undo starts, and
+// the report says `reverting` until the file Fleet wrote is gone, or `failed` with the one line it left.
+//
 // **A restart is followed, not awaited.** `POST /fleet/build/change` answers 202 as the detached
 // script starts. What it came to is the next read: the report says `restarting` while the script
 // works and `failed` with one line if it did not take. A script that fails before it stops Fleet
@@ -93,24 +96,7 @@ export class FleetBuilds {
       adopt,
     });
     const held = this.wiring.current().fleetBuild;
-    if (answer.ok !== true) {
-      // Said where the panel already says why a restart did not take.
-      const said = answer.outcome;
-      const why =
-        said.ok === false && said.why === "refused"
-          ? said.error.message
-          : said.ok === false && said.why === "transport"
-            ? said.detail
-            : "Fleet did not answer";
-      if (held !== null)
-        this.wiring.publish({
-          fleetBuild: {
-            ...held,
-            failed: why,
-          },
-        });
-      return said;
-    }
+    if (answer.ok !== true) return this.refused(answer.outcome, held);
     if (held !== null) {
       const { failed: _gone, ...rest } = held;
       this.wiring.publish({
@@ -126,6 +112,55 @@ export class FleetBuilds {
     };
   }
 
+  /**
+   * Ask Fleet to swap back onto the build kept before the running one. **No body**: the build is the
+   * one `previous` names. The report is marked `reverting` at once, as `change` marks `restarting`;
+   * a refusal leaves it as it was and says why where a failed restart is said. What it came to is
+   * the next read, from the Fleet that comes back.
+   */
+  async revert(): Promise<Outcome> {
+    const port = this.wiring.port();
+    if (port === null)
+      return {
+        ok: false,
+        why: "not_connected",
+      };
+    const answer = await this.ask(port, "POST", "/fleet/build/revert");
+    const held = this.wiring.current().fleetBuild;
+    if (answer.ok !== true) return this.refused(answer.outcome, held);
+    if (held !== null) {
+      const { failed: _gone, ...rest } = held;
+      this.wiring.publish({
+        fleetBuild: {
+          ...rest,
+          reverting: true,
+        },
+      });
+    }
+    this.follow();
+    return {
+      ok: true,
+    };
+  }
+
+  /** A refusal or a Fleet that did not answer, said where the panel already says why a restart did not take. */
+  private refused(said: Outcome, held: FleetBuildReport | null): Outcome {
+    const why =
+      said.ok === false && said.why === "refused"
+        ? said.error.message
+        : said.ok === false && said.why === "transport"
+          ? said.detail
+          : "Fleet did not answer";
+    if (held !== null)
+      this.wiring.publish({
+        fleetBuild: {
+          ...held,
+          failed: why,
+        },
+      });
+    return said;
+  }
+
   private follow(): void {
     const now = this.wiring.now ?? Date.now;
     this.followUntil = now() + FOLLOW_FOR_MS;
@@ -135,7 +170,7 @@ export class FleetBuilds {
       const port = this.wiring.port();
       void (port === null ? Promise.resolve() : this.read(port)).then(() => {
         const held = this.wiring.current().fleetBuild;
-        if (held?.restarting === undefined && port !== null) return;
+        if (held?.restarting === undefined && held?.reverting !== true && port !== null) return;
         if (now() >= this.followUntil) return;
         this.following = setTimeout(tick, FOLLOW_MS);
       });

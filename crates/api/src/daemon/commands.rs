@@ -169,6 +169,15 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::ChangeFleetBuild,
     ) -> impl Future<Output = Result<ipc::FleetBuildChanging, Refusal>> + Send;
 
+    /// `revert_fleet_build` — start `builds/previous/armada build revert` detached, so that it
+    /// outlives the Fleet it stops, and answer that it has begun.
+    ///
+    /// **Answers before the undo has done anything**; what it came to is the next
+    /// `get_fleet_build`. [`Refusal::IllegalMove`] where no previous build is kept, launchd's Fleet
+    /// is not on `builds/current`, or a restart or a revert is under way; [`Refusal::Fault`] where
+    /// the undo would not start.
+    fn revert_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReverting, Refusal>> + Send;
+
     /// `remove_repository_allowed_command` — take back a rule a person
     /// always-allowed for this Manifest's repository. **Since `#836`.**
     ///

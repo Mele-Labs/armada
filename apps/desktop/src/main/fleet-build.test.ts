@@ -286,3 +286,120 @@ describe("the stage of a restart", () => {
     builds.close();
   });
 });
+
+describe("reverting to the build before", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const KEPT: FleetBuildReport = {
+    ...AT_MAIN,
+    previous: {
+      built_at: "2026-11-05T16:20:00Z",
+      commit: "b".repeat(40),
+    },
+  };
+
+  it("posts no body, and marks the report reverting with the old failure gone", async () => {
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            commit: "b".repeat(40),
+          },
+        },
+      ],
+      {
+        ...KEPT,
+        failed: "launchd would not load",
+      },
+    );
+    const done = await builds.revert();
+    expect(done).toEqual({
+      ok: true,
+    });
+    expect(asked[0]).toEqual({
+      method: "POST",
+      path: "/fleet/build/revert",
+      body: undefined,
+    });
+    expect(state().fleetBuild?.reverting).toBe(true);
+    expect(state().fleetBuild).not.toHaveProperty("failed");
+    builds.close();
+  });
+
+  it("says why a refusal came where a failed restart is said, and does not mark it reverting", async () => {
+    const { builds, state } = rig(
+      [
+        {
+          ok: false,
+          outcome: {
+            ok: false,
+            why: "refused",
+            error: {
+              code: "fleet.build_not_revertible",
+              message: "No build before this one is kept",
+              run_id: "r",
+              fields: {},
+              chain: [],
+            },
+          },
+        },
+      ],
+      KEPT,
+    );
+    const done = await builds.revert();
+    expect(done).toMatchObject({
+      ok: false,
+      why: "refused",
+    });
+    expect(state().fleetBuild?.failed).toBe("No build before this one is kept");
+    expect(state().fleetBuild?.reverting).toBeUndefined();
+  });
+
+  it("is refused before it is sent when Fleet is not connected", async () => {
+    const { builds, asked } = rig([], KEPT, null);
+    await expect(builds.revert()).resolves.toEqual({
+      ok: false,
+      why: "not_connected",
+    });
+    expect(asked).toEqual([]);
+  });
+
+  it("reads again until the revert has stopped, and then stops reading", async () => {
+    const working: FleetBuildReport = {
+      ...KEPT,
+      reverting: true,
+    };
+    const done: FleetBuildReport = {
+      ...AT_MAIN,
+    };
+    const { builds, asked, state } = rig(
+      [
+        {
+          ok: true,
+          body: {
+            commit: "b".repeat(40),
+          },
+        },
+        {
+          ok: true,
+          body: working,
+        },
+        {
+          ok: true,
+          body: done,
+        },
+      ],
+      KEPT,
+    );
+    await builds.revert();
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild?.reverting).toBe(true);
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS);
+    expect(state().fleetBuild).toEqual(done);
+    const reads = asked.length;
+    await vi.advanceTimersByTimeAsync(FOLLOW_MS * 5);
+    expect(asked).toHaveLength(reads);
+  });
+});

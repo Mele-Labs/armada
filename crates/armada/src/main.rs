@@ -107,9 +107,43 @@ async fn main() -> ExitCode {
             }
         }
         Verb::Job(act) => armada::job::run(act),
+        Verb::BuildRevert => build_reverted(),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
         Verb::WatchLine { reader, values } => watch_line(reader, values).await,
+    }
+}
+
+/// Swap Fleet and Bridge back onto the build before this one, and say where they are now.
+fn build_reverted() -> ExitCode {
+    let Some(home) = std::env::var_os("HOME") else {
+        eprintln!("HOME is not set, so there are no kept builds to read");
+        return ExitCode::FAILURE;
+    };
+    let support = fleet::runtime::support_dir(&home.to_string_lossy());
+    // The same override `scripts/restart` reads, so a scratch Fleet's revert never reaches the owner's.
+    let label = fleet::kept_builds::fleet_label();
+    let stamp = fleet::kept_builds::stamp_now();
+    let outcome = fleet::kept_builds::revert(&support, &label, &stamp, &fleet::kept_builds::OnThisMac);
+    // The Fleet that started this reads the file back, once a Fleet is up again.
+    fleet::kept_builds::revert_ended(&support, &outcome);
+    match outcome {
+        Ok(reverted) => {
+            println!("Fleet runs {}, built {} from {}", reverted.to.name, reverted.to.built_at, reverted.to.commit);
+            println!("{} is kept as the previous build", reverted.from.name);
+            match reverted.bridge_reopened {
+                true => println!("Bridge reopened on it"),
+                false => println!("Bridge holds the same build, so it was left open"),
+            }
+            if let Some(copy) = reverted.store_copy {
+                println!("The store as it stood before: {}", copy.display());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
     }
 }
 

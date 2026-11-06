@@ -1,0 +1,14 @@
+[operations.revert_fleet_build]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Swap Fleet and Bridge back onto the build kept before the running one, detached from Fleet"
+notes = """
+`POST /fleet/build/revert`, no body, answered `FleetBuildReverting` with a 202: the undo has begun, not finished. Fleet stops during it, so the answer is the last thing this Fleet says about it; the next Fleet's `get_fleet_build` says whether it took.
+
+Fleet writes `Armada/revert.status` as `running`, then starts `Armada/builds/previous/armada build revert` detached and unmarked, as `change_fleet_build` starts its wrapper. **Only the build reverted to runs the undo**, which is why the path names `previous`: a broken build never has to run its own. `armada build revert` removes the file when the swap took and writes `failed` and one line of plain facts when it did not. A `running` file older than two minutes is a revert that died and reads as not reverting.
+
+Refused with a 409 where the swap would move nothing or collide: `fleet.build_not_revertible` where no previous build is kept or launchd's Fleet does not run from `builds/current`, `fleet.build_restarting` while a restart is under way, `fleet.build_reverting` while a revert is. A start that failed is a 500 `fleet.build_revert_not_started`.
+
+`Bridge only`: swapping the build under a Fleet that serves a Job on your words is a person's act, whatever the action authority setting says.
+"""
