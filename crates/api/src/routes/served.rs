@@ -117,6 +117,21 @@ const ROUTES: &[Route] = &[
         method: "POST",
         path: "/fleet/build/revert",
     },
+    Route {
+        operation: "pick_fleet_build_job",
+        method: "POST",
+        path: "/fleet/build/pick",
+    },
+    Route {
+        operation: "swap_fleet_build",
+        method: "POST",
+        path: "/fleet/build/swap",
+    },
+    Route {
+        operation: "keep_fleet_build",
+        method: "POST",
+        path: "/fleet/build/keep",
+    },
     // Words typed for a running Job, read for which Job they are for.
     Route {
         operation: "read_thought",

@@ -12,7 +12,7 @@ use core_model::{Actor, AllowedCommand, ManifestId, Timestamp};
 
 use crate::error::{fault, RowError, WriteError};
 use crate::open::Store;
-use crate::row::{column, enum_value};
+use crate::row::{column, enum_value, known};
 
 /// Version 56 — the commands a person always-allowed for a Manifest's
 /// repository, kept here instead of a commit on some Job's branch.
@@ -55,7 +55,7 @@ impl Store {
             .map_err(unreadable)?;
         let mut allowed = Vec::new();
         for row in rows {
-            allowed.push(row.map_err(unreadable)??);
+            allowed.extend(known(row.map_err(unreadable)?)?);
         }
         Ok(allowed)
     }

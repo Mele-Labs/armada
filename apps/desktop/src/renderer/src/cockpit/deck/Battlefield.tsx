@@ -924,6 +924,7 @@ export function Battlefield({
     <div
       ref={host}
       className="bf"
+      data-loop-clock
       tabIndex={-1}
       data-grab={view.grab || undefined}
       {...view.handlers}

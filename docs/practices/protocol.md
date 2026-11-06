@@ -1442,6 +1442,46 @@ Bridge's half is `running`, `previous`, `carried` and `reverting` on `FleetBuild
 The command removes the file on success, and on failure writes `failed`, the build `current` names, and one line, which is history once `current` names another.
 **Bridge marks the report `reverting` at once and reads every two seconds** until the report says neither `reverting` nor `restarting`, as it does for a restart.
 **A Bridge that predates these fields** reads a report without them as one with no kept builds, which draws no Revert.
+**`previous` is left out where the build before is marked `unhealthy`**, one `armada build settle` swapped back from, so no Revert is drawn onto it and `revert_fleet_build` refuses it as `fleet.build_not_revertible`.
+
+## The snapshot: `pick_fleet_build_job`, `swap_fleet_build`, `keep_fleet_build`, and four fields on `FleetBuildReport`
+
+Since 6 Nov 2026. The protocol ID moves with `crates/ipc/src`, the three operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `picked`, `snapshot`, `trying` and `swapping` on `FleetBuildReport`, `PickedJob`, `KeptSnapshot`, `SnapshotState`, `PickFleetBuildJob`, `FleetBuildSnapshotting`, `FleetBuildSwapping` and `FleetBuildKept`, in `packages/protocol/src/building.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `pick_fleet_build_job` (`POST /fleet/build/pick`, `agent_access = "Bridge only"`) | Bridge writes, Fleet reads | Body `PickFleetBuildJob` `{ branch, picked }`, both required. Answers 202 `FleetBuildSnapshotting` `{ picked }`, the branches picked now. 409 `fleet.build_not_offered` (no served repository holds `scripts/restart-build`), `fleet.build_restarting`, `fleet.build_snapshotting`; 500 `fleet.build_not_started` |
+| `swap_fleet_build` (`POST /fleet/build/swap`, `agent_access = "Bridge only"`) | Bridge writes, Fleet reads | No body. Answers 202 `FleetBuildSwapping` `{ commit }`, the commit of the snapshot swapped onto. 409 `fleet.build_not_swappable` (no snapshot, it is the build running, it was swapped back from, or launchd's Fleet not on `builds/current`), `fleet.build_restarting`, `fleet.build_reverting`, `fleet.build_swapping`; 500 `fleet.build_swap_not_started` |
+| `keep_fleet_build` (`POST /fleet/build/keep`, `agent_access = "Bridge only"`) | Bridge writes, Fleet reads | No body. Answers 200 `FleetBuildKept` `{ told }`, the titles of the Jobs told to land. `[]` where nothing was being tried. 500 `fleet.build_not_kept` where Keep could not be written |
+| `FleetBuildReport.picked` | Fleet writes, Bridge reads | `[{ branch, title? }]`, the branches in `Armada/preview-picked`, or the running build's own Jobs until the person picks. `title` is the title of the live Job holding the branch, left out where none does. Left out when empty |
+| `FleetBuildReport.snapshot` | Fleet writes, Bridge reads | `{ state, stage?, built_at?, commit?, jobs?, bridge_reopens?, failed? }`. `state` is `building`, `ready` or `failed`. Left out where none of them holds |
+| `FleetBuildReport.trying` | Fleet writes, Bridge reads | The titles of the running build's Jobs that Keep has not been pressed on, or the branch where no Job holds it. Left out when none |
+| `FleetBuildReport.swapping` | Fleet writes, Bridge reads | `bool`, left out when false. `Armada/swap.status` reads `running` and is under two minutes old |
+| `FleetBuildReport.failed` | Fleet writes, Bridge reads | Gains a third source: the line `armada build swap` left in `swap.status` after `failed`, shown where neither the restart nor the revert has a failure of its own |
+
+`snapshot.state` is decided in this order:
+
+| State | When | Fields |
+| --- | --- | --- |
+| `building` | `snapshot.status` reads `running` and is under 20 minutes old | `stage`, the status file's third line, where it has one |
+| `failed` | `snapshot.status` reads `failed`, the build, the commit, then a message | `failed`, the message |
+| `ready` | `Armada/snapshot` names a kept build that is not the one running, not marked unhealthy, with launchd's Fleet on `builds/current` | `built_at`, `commit`, `jobs` (titles, or branches where no Job holds one) and `bridge_reopens` |
+
+**`pick_fleet_build_job` writes the branch into, or out of, `preview-picked`, writes `snapshot.status` as `running`, removes `snapshot`, then starts `scripts/restart-build snapshot` detached and unmarked**, as `change_fleet_build` starts its wrapper.
+The snapshot is built and kept and nothing that runs is touched.
+It is offered on `main` as well as the preview, so the tree the running build came from is not asked.
+A start that failed removes the status and answers 500.
+
+**`swap_fleet_build` writes `swap.status` as `running`, then starts `builds/current/armada build swap` detached and unmarked.**
+The build running now runs it, since it settles the swap and swaps back from a Fleet that does not answer.
+The command ends `swap.status` itself.
+
+**`keep_fleet_build` marks the running build in `kept-tried`, so `trying` empties, then tells each live hosted Job holding a branch that was being tried to land it.**
+The text is `The person kept <branch> in the app they use. Land it: finish its pull request and let it merge.`
+A branch no live Job holds is skipped, and so is a Job that could not be told.
+
+**A Bridge that predates these fields** reads a report without them as one with no snapshot, which draws no Swap and no Keep.
 
 ## Open questions
 

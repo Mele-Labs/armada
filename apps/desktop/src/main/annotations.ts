@@ -11,7 +11,7 @@
 
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
@@ -42,6 +42,30 @@ export function repositoryRoot(start: string): string | null {
     const up = dirname(at);
     if (up === at) return null;
     at = up;
+  }
+}
+
+/**
+ * The repository a Bridge writes its notes in. **A kept build has none above it**: it runs from
+ * `Armada/builds/<build>/bridge`, so the tree it was built from is read from the `tree` line of
+ * that build's `build.toml`, which `scripts/keep-build` writes. Notes land where they did when
+ * Bridge ran from that tree.
+ */
+export function annotationRoot(appPath: string): string | null {
+  const above = repositoryRoot(appPath);
+  if (above !== null) return above;
+  let record: string;
+  try {
+    record = readFileSync(join(resolve(appPath), "..", "build.toml"), "utf8");
+  } catch {
+    return null;
+  }
+  const quoted = /^tree = (".*")$/m.exec(record)?.[1];
+  if (quoted === undefined) return null;
+  try {
+    return repositoryRoot(JSON.parse(quoted) as string);
+  } catch {
+    return null;
   }
 }
 
@@ -220,14 +244,17 @@ type Handles = {
 export type Capture = (event: unknown, box: Box) => Promise<ArrayBuffer | null>;
 
 /**
- * Registers the channels against the repository above `appPath`. Returns the
- * directory, or null when no repository was found — a Bridge run from
- * somewhere that is not this repository has nowhere to write, and says so.
+ * Registers the channels against the repository `annotationRoot` finds for
+ * `appPath`. Returns the directory, or null when none was found — a Bridge
+ * run from somewhere that is not this repository has nowhere to write, and
+ * says so.
  */
 export function handleAnnotations(ipc: Handles, appPath: string, capture: Capture): string | null {
-  const root = repositoryRoot(appPath);
+  const root = annotationRoot(appPath);
   if (root === null) {
-    console.warn(`annotations: no repository above ${appPath}; the layer cannot save`);
+    console.warn(
+      `annotations: no repository above ${appPath}, nor a kept build's tree; the layer cannot save`,
+    );
     return null;
   }
   const dir = annotationsDir(root);

@@ -113,12 +113,26 @@ The floor is why a window nobody is looking at stills its loops (`styles/index.c
 **Nothing blurs what is behind it.** Any frame redraws the window, and a blur made that frame several times dearer: on the mock, one row's fade at the display's rate read 26.5% with the blur and 3.9% with solid panels, and a Job open with only the clock running read 1.7% and 0.3%.
 The owner chose solid panels on 2 Nov 2026.
 
-**Every loop moves on one clock.** A smooth loop holds the display's frames.
-One smooth loop of any size, a faint row pulse as much as the star field, held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule add up.
-`apps/desktop/src/renderer/src/loop-clock.ts` pauses every infinite animation in each Bridge document, and any that runs 5 seconds or more, and moves them together 5 times a second.
-Every renderer entry starts it through `startMotionRules` in `still.ts`, the walk window's page, bar and panel without the focus half, since they hold that window's focus in turn.
+**Loops move in two tiers.** A small loop runs smooth at the display's rate: the working mark and every spinner, a needs-you pulse, a lamp on a row, a mark in a thread or list.
+The Cockpit's map and console, and any loop large enough to redraw much of the window, move together on one clock, 5 times a second.
+The rule is decided when `apps/desktop/src/renderer/src/loop-clock.ts` first meets a loop, so a new one needs no list:
+a loop takes the clock if it sits inside an element marked `data-loop-clock` (the map's `.bf` and the console's block), or if its box covers more than a tenth of the window.
+Any other infinite loop runs free.
+An animation that ends takes the clock if it runs 5 seconds or more, wherever it is, since nobody sees its steps.
+Every renderer entry starts the clock through `startMotionRules` in `still.ts`, the walk window's page, bar and panel without the focus half, since they hold that window's focus in turn.
+Both tiers stand still while the window is hidden or unfocused (`data-still`), and after a minute with no input (`data-idle`).
+A loop out of sight does not move, since a move nobody can see still costs a frame.
+The owner asked for the split on 6 Nov 2026, after a spinner on the clock read "like a video game running at 5 fps".
+
+Why the clock existed: a smooth loop holds the display's frames, and while the panels were blurred one faint row pulse held the GPU at 52% on the mock Cockpit, and steps on each loop's own schedule added up.
 A mock page left open read 120 to 180% of a core in headless Chromium, and 0 to 1% once idle.
-It moves none while the window has had no input for a minute, and skips a loop out of sight, since a move nobody can see still costs a frame.
+With the blur gone, a small loop's frames cost little GPU, and the price of a free tier is CPU for frame production:
+
+| Mock on Metal, 1512×982 at 2x, a working Job open in the Cockpit, focused and active | GPU time | GPU process CPU | Browser CPU, all processes |
+|---|---|---|---|
+| Every loop on the clock | 0.35 to 0.41% | 1.4 to 2.1% | 5.5 to 5.8% |
+| Small loops free, the map on the clock | 0.19 to 0.34% | 3.7 to 6.8% | 10.5 to 12.7% |
+| Reduced motion | 0.01% | 0.1 to 0.2% | |
 
 | Measured in Bridge on an M5 Pro at 3024 by 1964, on the mock Cockpit | GPU |
 |---|---|

@@ -4,6 +4,7 @@
 //! table's reads and writes across a reopen.
 
 mod corrupt;
+mod rows_from_newer;
 mod devices;
 mod job_shells;
 mod job_times;

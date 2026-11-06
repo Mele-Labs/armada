@@ -161,7 +161,8 @@ main, jobs = commit, []
 if source == "preview":
     main = None
     try:
-        with open(os.path.join(support, "preview-held")) as f:
+        # `scripts/preview --keep-only` writes `snapshot-held`, leaving the running build's own.
+        with open(os.path.join(support, os.environ.get("ARMADA_PREVIEW_HELD") or "preview-held")) as f:
             held = f.read().splitlines()
     except OSError:
         held = []
@@ -170,7 +171,8 @@ if source == "preview":
         main = held[1] if len(held) > 1 and held[1] else None
         jobs = [line.split("\t")[:2] for line in held[2:] if "\t" in line]
 
-rows = [("built_at", built_at), ("commit", commit), ("source", source)]
+# The tree it was built from: a Bridge run from the kept folder has no repository above it.
+rows = [("built_at", built_at), ("commit", commit), ("source", source), ("tree", os.path.abspath(src))]
 if main:
     rows.append(("main", main))
 rows.append(("protocol_id", protocol_id))

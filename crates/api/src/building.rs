@@ -1,4 +1,5 @@
-//! The build Fleet runs on: the read, the restart onto another, and the revert to the one before.
+//! The build Fleet runs on: the read, the restart onto another, the revert to the one before, and the
+//! snapshot of picked Jobs with its swap and keep.
 //!
 //! **No `Resolved` extractor and no path parameter**, `limiting`'s reason:
 //! the build is Fleet's own, and no Job's. The change answers 202, because it
@@ -8,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::ChangeFleetBuild;
+use ipc::{ChangeFleetBuild, PickFleetBuildJob};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Commands, Queries};
@@ -42,6 +43,38 @@ pub(crate) async fn change_fleet_build<D: Commands>(
 pub(crate) async fn revert_fleet_build<D: Commands>(State(served): State<Served<D>>) -> Response {
     match served.daemon().revert_fleet_build().await {
         Ok(reverting) => answer(StatusCode::ACCEPTED, &reverting, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Pick a Job's branch for the next snapshot, or take it out, and start building the snapshot.
+pub(crate) async fn pick_fleet_build_job<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: PickFleetBuildJob = match ipc::decode_body("a branch to pick for the snapshot", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().pick_fleet_build_job(asked).await {
+        Ok(snapshotting) => answer(StatusCode::ACCEPTED, &snapshotting, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Start the swap onto the kept snapshot, and answer that it has begun. No body: the build swapped
+/// onto is the one `snapshot` names.
+pub(crate) async fn swap_fleet_build<D: Commands>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().swap_fleet_build().await {
+        Ok(swapping) => answer(StatusCode::ACCEPTED, &swapping, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Keep the running build's tried Jobs, and answer the titles of the Jobs told to land them.
+pub(crate) async fn keep_fleet_build<D: Commands>(State(served): State<Served<D>>) -> Response {
+    match served.shared().keep_fleet_build().await {
+        Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

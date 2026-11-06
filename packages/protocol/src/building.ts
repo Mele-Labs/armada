@@ -67,6 +67,44 @@ export type FleetBuildReport = {
   carried?: string[];
   /** A revert is under way. Omitted when false. */
   reverting?: boolean;
+  /**
+   * The branches picked for the next snapshot; the running build's own Jobs until the person picks.
+   * Omitted when none.
+   */
+  picked?: PickedJob[];
+  /** The snapshot of picked Jobs. Absent where none is kept or building. */
+  snapshot?: KeptSnapshot;
+  /** The titles of the Jobs the running build holds that Keep has not been pressed on, or the branch where no Job holds it. Omitted when none. */
+  trying?: string[];
+  /** A swap onto the snapshot is under way. Omitted when false. */
+  swapping?: boolean;
+};
+
+/** A branch picked for the next snapshot. */
+export type PickedJob = {
+  branch: string;
+  /** The title of the live Job holding the branch. Absent where no Job does. */
+  title?: string;
+};
+
+/** Where the snapshot of picked Jobs stands. */
+export type SnapshotState = "building" | "ready" | "failed";
+
+/** The snapshot of picked Jobs, built and kept without swapping. */
+export type KeptSnapshot = {
+  state: SnapshotState;
+  /** Where a build under way has got to. Absent where it has not said, and when not building. */
+  stage?: BuildStage;
+  /** When the kept snapshot was built (RFC 3339). Present when `ready`. */
+  built_at?: string;
+  /** The full commit it was built from. Present when `ready`. */
+  commit?: string;
+  /** The Jobs it holds, by title, or by branch where no Job holds it. Omitted when none. */
+  jobs?: string[];
+  /** Swapping onto it closes Bridge and opens it on the snapshot's. Omitted when false. */
+  bridge_reopens?: boolean;
+  /** Why it did not build, in one line of plain facts. Present when `failed`. */
+  failed?: string;
 };
 
 /** A kept build: when it was built (RFC 3339) and the full commit it was built from. */
@@ -100,4 +138,25 @@ export type FleetBuildChanging = {
 /** The 202 answer to `POST /fleet/build/revert`, which takes no body: the undo has begun, onto the build with this commit. */
 export type FleetBuildReverting = {
   commit: string;
+};
+
+/** `POST /fleet/build/pick`: pick a Job's branch for the next snapshot, or take it back out. */
+export type PickFleetBuildJob = {
+  branch: string;
+  picked: boolean;
+};
+
+/** The 202 answer to `POST /fleet/build/pick`: the snapshot has begun, over these branches. */
+export type FleetBuildSnapshotting = {
+  picked: string[];
+};
+
+/** The 202 answer to `POST /fleet/build/swap`, which takes no body: the swap has begun, onto the snapshot with this commit. */
+export type FleetBuildSwapping = {
+  commit: string;
+};
+
+/** The 200 answer to `POST /fleet/build/keep`, which takes no body: the titles of the Jobs told to land. */
+export type FleetBuildKept = {
+  told: string[];
 };

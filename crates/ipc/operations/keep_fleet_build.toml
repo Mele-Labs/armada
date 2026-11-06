@@ -1,0 +1,12 @@
+[operations.keep_fleet_build]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Keep the running build's tried Jobs, and tell each live Job holding one to land it"
+notes = """
+`POST /fleet/build/keep`, no body, answered `FleetBuildKept { told }` with a 200: the titles of the Jobs told.
+
+Fleet marks the running build in `Armada/kept-tried`, so `get_fleet_build`'s `trying` empties, then tells each live hosted Job holding one of the branches that were being tried: `The person kept <branch> in the app they use. Land it: finish its pull request and let it merge.` The message is Fleet's news and asks nothing of a Job that has no work to find in it. **A branch no live Job holds is skipped**, and a Keep with nothing being tried answers `told: []`, not an error.
+
+`Bridge only`: telling a Job to land its change is a person's say-so, whatever the action authority setting says.
+"""

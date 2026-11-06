@@ -4,7 +4,8 @@
 
 use crate::{
     decode, encode, BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildReport,
-    FleetBuildReverting, Instant, KeptBuildPrevious, KeptBuildRunning, LeftOutBranch, WaitingActKind,
+    FleetBuildKept, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, Instant, KeptBuildPrevious,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState, WaitingActKind,
     WaitingItem, WaitingSource,
 };
 
@@ -22,6 +23,10 @@ fn a_build_with_nothing_to_say_carries_only_where_it_runs() {
         previous: None,
         carried: Vec::new(),
         reverting: false,
+        picked: Vec::new(),
+        snapshot: None,
+        trying: Vec::new(),
+        swapping: false,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(json, r#"{"on":"main"}"#);
@@ -48,6 +53,10 @@ fn a_full_report_round_trips() {
         previous: None,
         carried: Vec::new(),
         reverting: false,
+        picked: Vec::new(),
+        snapshot: None,
+        trying: Vec::new(),
+        swapping: false,
     };
     let json = encode(&report).expect("a report is plain data");
     assert!(json.contains(r#""on":"preview""#), "{json}");
@@ -86,6 +95,10 @@ fn the_kept_builds_cross_as_they_are_named_and_what_is_empty_leaves_no_key() {
         }),
         carried: vec!["Kept builds".into()],
         reverting: true,
+        picked: Vec::new(),
+        snapshot: None,
+        trying: Vec::new(),
+        swapping: false,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(
@@ -123,6 +136,83 @@ fn the_answer_to_a_revert_names_the_commit_reverted_to() {
 }
 
 #[test]
+fn the_snapshot_crosses_as_it_is_named_and_what_is_empty_leaves_no_key() {
+    let report = FleetBuildReport {
+        on: BuildSource::Main,
+        commit: None,
+        position: None,
+        restarting: None,
+        stage: None,
+        failed: None,
+        left_out: Vec::new(),
+        running: None,
+        previous: None,
+        carried: Vec::new(),
+        reverting: false,
+        picked: vec![
+            PickedJob { branch: "armada/a".into(), title: Some("Kept builds".into()) },
+            PickedJob { branch: "armada/b".into(), title: None },
+        ],
+        snapshot: Some(KeptSnapshot {
+            state: SnapshotState::Ready,
+            stage: None,
+            built_at: Some(Instant::carried("2026-11-06T01:10:00Z")),
+            commit: Some("a1b2c3d".into()),
+            jobs: vec!["Kept builds".into()],
+            bridge_reopens: true,
+            failed: None,
+        }),
+        trying: vec!["Fleet core and mods".into()],
+        swapping: true,
+    };
+    let json = encode(&report).expect("a report is plain data");
+    assert_eq!(
+        json,
+        concat!(
+            r#"{"on":"main","picked":[{"branch":"armada/a","title":"Kept builds"},{"branch":"armada/b"}],"#,
+            r#""snapshot":{"state":"ready","built_at":"2026-11-06T01:10:00Z","commit":"a1b2c3d","jobs":["Kept builds"],"bridge_reopens":true},"#,
+            r#""trying":["Fleet core and mods"],"swapping":true}"#
+        )
+    );
+    assert_eq!(decode::<FleetBuildReport>("build", json.as_bytes()).expect("it round-trips"), report);
+}
+
+#[test]
+fn a_snapshot_state_crosses_as_a_snake_case_word_and_a_building_one_carries_its_stage() {
+    for (state, word) in [(SnapshotState::Building, "building"), (SnapshotState::Ready, "ready"), (SnapshotState::Failed, "failed")] {
+        assert_eq!(encode(&state).unwrap(), format!("\"{word}\""));
+    }
+    let building = KeptSnapshot {
+        state: SnapshotState::Building,
+        stage: Some(BuildStage::BuildingBridge),
+        built_at: None,
+        commit: None,
+        jobs: Vec::new(),
+        bridge_reopens: false,
+        failed: None,
+    };
+    assert_eq!(encode(&building).unwrap(), r#"{"state":"building","stage":"building_bridge"}"#);
+    let failed = KeptSnapshot { state: SnapshotState::Failed, stage: None, failed: Some("a conflict".into()), ..building };
+    assert_eq!(encode(&failed).unwrap(), r#"{"state":"failed","failed":"a conflict"}"#);
+}
+
+#[test]
+fn a_report_from_before_the_snapshot_reads_with_none() {
+    let report = decode::<FleetBuildReport>("build", br#"{"on":"main"}"#).expect("the new fields are optional");
+    assert_eq!((report.picked, report.snapshot, report.trying, report.swapping), (Vec::new(), None, Vec::new(), false));
+}
+
+#[test]
+fn the_three_commands_cross_as_their_bodies_and_answers() {
+    assert_eq!(encode(&PickFleetBuildJob { branch: "armada/a".into(), picked: true }).unwrap(), r#"{"branch":"armada/a","picked":true}"#);
+    assert!(decode::<PickFleetBuildJob>("pick", br#"{"branch":"armada/a"}"#).is_err(), "the flag is not defaulted");
+    assert_eq!(encode(&FleetBuildSnapshotting { picked: vec!["armada/a".into()] }).unwrap(), r#"{"picked":["armada/a"]}"#);
+    assert_eq!(encode(&FleetBuildSwapping { commit: "a1b2c3d".into() }).unwrap(), r#"{"commit":"a1b2c3d"}"#);
+    assert_eq!(encode(&FleetBuildKept { told: vec!["Kept builds".into()] }).unwrap(), r#"{"told":["Kept builds"]}"#);
+    assert_eq!(encode(&FleetBuildKept { told: Vec::new() }).unwrap(), r#"{"told":[]}"#);
+}
+
+#[test]
 fn a_stage_crosses_as_a_snake_case_word_and_round_trips() {
     for (stage, word) in [
         (BuildStage::Merging, "merging"),
@@ -145,6 +235,10 @@ fn a_stage_crosses_as_a_snake_case_word_and_round_trips() {
             previous: None,
             carried: Vec::new(),
             reverting: false,
+            picked: Vec::new(),
+            snapshot: None,
+            trying: Vec::new(),
+            swapping: false,
         };
         let json = encode(&report).expect("a report is plain data");
         assert!(json.contains(&format!(r#""stage":"{word}""#)), "{json}");

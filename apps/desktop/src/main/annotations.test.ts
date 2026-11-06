@@ -793,6 +793,70 @@ describe("the files", () => {
     });
     expect(repositoryRoot(join(root, "apps", "desktop"))).toBe(root);
   });
+
+  it("saves a note from a Bridge started from a kept build, in the tree it was built from", async () => {
+    const root = join(dir, "..", "..");
+    await writeFile(join(root, "pnpm-workspace.yaml"), "");
+    await writeFile(join(root, "Cargo.toml"), "");
+    const kept = await mkdtemp(join(tmpdir(), "kept-build-"));
+    const bridge = join(kept, "builds", "2026-11-06T045609Z-3db530b", "bridge");
+    await mkdir(bridge, {
+      recursive: true,
+    });
+    await writeFile(
+      join(bridge, "..", "build.toml"),
+      `built_at = "2026-11-06T04:56:09Z"\nsource = "preview"\ntree = ${JSON.stringify(root)}\n`,
+    );
+    const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
+    try {
+      expect(
+        handleAnnotations(
+          {
+            handle: (channel, listener) => void handlers.set(channel, listener),
+          },
+          bridge,
+          async () => null,
+        ),
+      ).toBe(dir);
+      await handlers.get(ANNOTATION_CHANNELS.save)!({}, note());
+
+      expect(await listAnnotations(dir)).toEqual([
+        note(),
+      ]);
+    } finally {
+      await rm(kept, {
+        recursive: true,
+        force: true,
+      });
+    }
+  });
+
+  it("registers nothing for a kept build whose record names no tree", async () => {
+    const kept = await mkdtemp(join(tmpdir(), "kept-build-"));
+    const bridge = join(kept, "builds", "old", "bridge");
+    await mkdir(bridge, {
+      recursive: true,
+    });
+    await writeFile(join(bridge, "..", "build.toml"), `source = "main"\n`);
+    const handlers = new Map<string, unknown>();
+    try {
+      expect(
+        handleAnnotations(
+          {
+            handle: (channel, listener) => void handlers.set(channel, listener),
+          },
+          bridge,
+          async () => null,
+        ),
+      ).toBeNull();
+      expect(handlers.size).toBe(0);
+    } finally {
+      await rm(kept, {
+        recursive: true,
+        force: true,
+      });
+    }
+  });
 });
 
 /** A request as connect hands it to the middleware, with the mount path stripped. */

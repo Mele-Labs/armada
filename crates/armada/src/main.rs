@@ -122,19 +122,92 @@ async fn main() -> ExitCode {
         }
         Verb::Job(act) => armada::job::run(act),
         Verb::BuildRevert => build_reverted(),
+        Verb::BuildRehearse => build_rehearsed(),
+        Verb::BuildSwap => build_swapped(),
+        Verb::BuildSettle { was } => build_settled(was),
         Verb::Worktree(act) => worktree_verb(act),
         Verb::TestMap(TestMapAct::Record { check, out }) => record_the_test_map(&check, &out),
         Verb::WatchLine { reader, values } => watch_line(reader, values).await,
     }
 }
 
-/// Swap Fleet and Bridge back onto the build before this one, and say where they are now.
-fn build_reverted() -> ExitCode {
+/// Where the kept builds and the store are, or none and why on stderr.
+fn kept_support() -> Option<PathBuf> {
     let Some(home) = std::env::var_os("HOME") else {
         eprintln!("HOME is not set, so there are no kept builds to read");
+        return None;
+    };
+    Some(fleet::runtime::support_dir(&home.to_string_lossy()))
+}
+
+/// Open a copy of the store with this build, and say if it could not.
+fn build_rehearsed() -> ExitCode {
+    let Some(support) = kept_support() else {
         return ExitCode::FAILURE;
     };
-    let support = fleet::runtime::support_dir(&home.to_string_lossy());
+    match fleet::kept_builds::rehearse(&support, &fleet::kept_builds::OnThisMac) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Wait for the Fleet just booted to answer, or swap back and say why. Fails either way it did not answer.
+fn build_settled(was: Option<u32>) -> ExitCode {
+    let Some(support) = kept_support() else {
+        return ExitCode::FAILURE;
+    };
+    let label = fleet::kept_builds::fleet_label();
+    let stamp = fleet::kept_builds::stamp_now();
+    match fleet::kept_builds::settle(&support, &label, was, &stamp, &fleet::kept_builds::OnThisMac) {
+        Ok(fleet::kept_builds::Settled::Healthy) => ExitCode::SUCCESS,
+        Ok(fleet::kept_builds::Settled::SwappedBack { why, reverted }) => {
+            eprintln!("{why}");
+            eprintln!("Swapped back: Fleet runs {}, and {} is marked as one that did not come up", reverted.to.name, reverted.from.name);
+            ExitCode::FAILURE
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Swap onto the kept snapshot and say where Fleet is now. Fleet's Swap press starts it, detached,
+/// from the running build, which settles the swap and swaps back from a Fleet that does not answer.
+fn build_swapped() -> ExitCode {
+    let Some(support) = kept_support() else {
+        return ExitCode::FAILURE;
+    };
+    let label = fleet::kept_builds::fleet_label();
+    let stamp = fleet::kept_builds::stamp_now();
+    let outcome = fleet::kept_builds::swap_onto(&support, &label, &stamp, &fleet::kept_builds::OnThisMac);
+    // The Fleet that started this reads the file back, once a Fleet is up again.
+    fleet::kept_builds::swap_ended(&support, &outcome);
+    match outcome {
+        Ok(fleet::kept_builds::Settled::Healthy) => {
+            println!("Swapped onto the kept build");
+            ExitCode::SUCCESS
+        }
+        Ok(fleet::kept_builds::Settled::SwappedBack { why, reverted }) => {
+            eprintln!("{why}");
+            eprintln!("Swapped back: Fleet runs {}, and {} is marked as one that did not come up", reverted.to.name, reverted.from.name);
+            ExitCode::FAILURE
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Swap Fleet and Bridge back onto the build before this one, and say where they are now.
+fn build_reverted() -> ExitCode {
+    let Some(support) = kept_support() else {
+        return ExitCode::FAILURE;
+    };
     // The same override `scripts/restart` reads, so a scratch Fleet's revert never reaches the owner's.
     let label = fleet::kept_builds::fleet_label();
     let stamp = fleet::kept_builds::stamp_now();

@@ -178,6 +178,32 @@ pub trait Commands: Send + Sync + 'static {
     /// the undo would not start.
     fn revert_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildReverting, Refusal>> + Send;
 
+    /// `pick_fleet_build_job` — write the branch into, or out of, the picked file, then start
+    /// `scripts/restart-build snapshot` detached, and answer that it has begun.
+    ///
+    /// **Answers before the snapshot has built anything**; what it came to is the next
+    /// `get_fleet_build`. [`Refusal::IllegalMove`] where this Fleet serves no checkout to build
+    /// from, a restart is under way, or a snapshot is; [`Refusal::Fault`] where the wrapper would
+    /// not start.
+    fn pick_fleet_build_job(
+        &self,
+        asked: ipc::PickFleetBuildJob,
+    ) -> impl Future<Output = Result<ipc::FleetBuildSnapshotting, Refusal>> + Send;
+
+    /// `swap_fleet_build` — start `builds/current/armada build swap` detached, so that it outlives
+    /// the Fleet it stops and can swap back from one that does not answer, and answer that it has
+    /// begun.
+    ///
+    /// **Answers before the swap has done anything**. [`Refusal::IllegalMove`] where no snapshot
+    /// is kept to swap onto, launchd's Fleet is not on `builds/current`, or a restart, a revert or
+    /// a swap is under way; [`Refusal::Fault`] where the swap would not start.
+    fn swap_fleet_build(&self) -> impl Future<Output = Result<ipc::FleetBuildSwapping, Refusal>> + Send;
+
+    /// `keep_fleet_build` — mark the running build kept, and tell each live Job holding a branch
+    /// that was being tried to land it. **Not `&self`**: telling a Job takes the `Arc` it is
+    /// hosted by. A Keep with nothing being tried answers an empty list.
+    fn keep_fleet_build(self: Arc<Self>) -> impl Future<Output = Result<ipc::FleetBuildKept, Refusal>> + Send;
+
     /// `remove_repository_allowed_command` — take back a rule a person
     /// always-allowed for this Manifest's repository. **Since `#836`.**
     ///
