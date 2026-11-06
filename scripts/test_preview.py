@@ -299,6 +299,43 @@ class Preview(unittest.TestCase):
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
 
+    def test_a_picked_file_names_the_branches_and_an_empty_one_is_main_alone(self):
+        for name in ("feat/a", "feat/b"):
+            self.branch(name, {name.split("/")[1] + ".txt": "x\n"})
+        self.hold("feat/a", "feat/b")
+        picked = os.path.join(self.dir, "picked")
+        with open(picked, "w") as f:
+            f.write("feat/b\n")
+        self.run_preview("--picked", picked)
+        self.assertEqual(self.merged_in_order(), ["feat/b"])
+        with open(picked, "w") as f:
+            f.write("")
+        self.run_preview("--picked", picked)
+        self.assertEqual(self.merged_in_order(), [])
+
+    def test_a_kept_only_restart_says_so_and_keeps_its_record_beside_the_running_builds(self):
+        self.branch("feat/k", {"k.txt": "k\n"})
+        self.hold("feat/k")
+        record = os.path.join(self.dir, "restart-args")
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho "$@ $ARMADA_PREVIEW_HELD" > "{record}"\n')
+        os.chmod(script, 0o755)
+        held = os.path.join(self.support, "preview-held")
+        with open(held, "w") as f:
+            f.write("running\n")
+        os.environ["ARMADA_PREVIEW_RESTART"] = script
+        try:
+            self.run_preview("--restart", "--keep-only")
+        finally:
+            del os.environ["ARMADA_PREVIEW_RESTART"]
+        with open(record) as f:
+            self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt), "--keep-only", "snapshot-held"])
+        with open(held) as f:
+            self.assertEqual(f.read(), "running\n")
+        with open(os.path.join(self.support, "snapshot-held")) as f:
+            self.assertIn("feat/k\t", f.read())
+
     def failing_restart(self, named, always=False):
         """A restart script that fails with a compiler error naming `named` while `bad.rs` is
         in the tree it is told to build, and records each run. `always` fails whatever the tree."""

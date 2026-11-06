@@ -276,6 +276,15 @@ One that does not is marked with an `unhealthy` line in its `build.toml`, and Fl
 Revert refuses to go back onto a build marked `unhealthy`, and says why.
 `crates/fleet/src/kept_builds.rs`.
 
+**A snapshot is a build of the Jobs the person picked, kept and not swapped onto.**
+`Armada/preview-picked` lists the picked branches, one a line; until the person picks one it reads as the running build's own `[[job]]` branches, and an empty file is main alone.
+Try it, or × on a chip, changes the list and has Fleet run `scripts/restart-build snapshot`, which runs `scripts/preview --restart --keep-only --picked Armada/preview-picked` under its own `snapshot.status` and `snapshot.log`.
+`scripts/restart --keep-only` builds, keeps and rehearses, names the kept build in `Armada/snapshot`, and stops before anything that runs is touched: no Drone is waited for, and the CLI, the mod and the phone app are left as they are.
+What the preview held goes in `snapshot-held` and `snapshot-left-out`, beside the running build's own record.
+**Swap is `armada build swap`, run detached by the build running now**: it moves onto the snapshot as a revert moves back, and settles as a restart does, swapping back from a Fleet that does not answer within the minute.
+Every swap and revert writes `restart-commit` and `restart-source` for the build it moved onto, and a swap moves the snapshot's held record into place.
+While the running build holds branches, they are being tried; Keep writes `Armada/kept-tried` and tells each branch's Job to land.
+
 ### Restarting onto another tree
 
 ```sh

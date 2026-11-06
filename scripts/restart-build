@@ -6,6 +6,11 @@
 #
 #   scripts/restart-build main [--adopt]      scripts/restart --main
 #   scripts/restart-build preview [--adopt]   scripts/preview --restart
+#   scripts/restart-build snapshot            scripts/preview --restart --keep-only --picked Armada/preview-picked
+#
+# A snapshot is built and kept and swaps nothing, so it keeps its own record,
+# `Armada/snapshot.status`, and log, `snapshot.log`; on success
+# `scripts/restart` has written `Armada/snapshot`, the kept build's name.
 #
 # `docs/practices/running-locally.md`, "Restarting from Bridge", is what it
 # leaves behind and what reads it. In short: `Armada/restart-build.status` says
@@ -45,7 +50,7 @@ LIMIT = 200
 # here leaves the stage as it was.
 HEADINGS = [
     (re.compile(r"^\x1b\[1mFast-forwarding main"), "fetching_main"),
-    (re.compile(r"^\x1b\[1mInstalling armada from"), "building_fleet"),
+    (re.compile(r"^\x1b\[1m(?:Installing|Building) armada from"), "building_fleet"),
     (re.compile(r"^\x1b\[1mBuilding Bridge"), "building_bridge"),
     (re.compile(r"^\x1b\[1m(?:Snapshot of the database|Stopping the Fleet in|Booting )"), "restarting_fleet"),
     (re.compile(r"^\x1b\[1m(?:Quitting the running Bridge|Reopening Bridge from)"), "reopening_bridge"),
@@ -88,15 +93,17 @@ def one_line(log):
 
 def main():
     args = sys.argv[1:]
-    if not args or args[0] not in ("main", "preview") or any(a != "--adopt" for a in args[1:]):
-        sys.exit("usage: scripts/restart-build main|preview [--adopt]")
+    if (not args or args[0] not in ("main", "preview", "snapshot") or any(a != "--adopt" for a in args[1:])
+            or (args[0] == "snapshot" and len(args) > 1)):
+        sys.exit("usage: scripts/restart-build main|preview [--adopt] | snapshot")
     build, adopt = args[0], "--adopt" in args[1:]
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     home = os.path.expanduser("~")
     support = os.path.join(home, "Library", "Application Support", "Armada")
-    status = os.path.join(support, "restart-build.status")
-    log_path = os.path.join(home, "Library", "Logs", "Armada", "restart-build.log")
+    kind = "snapshot" if build == "snapshot" else "restart-build"
+    status = os.path.join(support, f"{kind}.status")
+    log_path = os.path.join(home, "Library", "Logs", "Armada", f"{kind}.log")
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
     def commit_now():
@@ -132,6 +139,8 @@ def main():
         tree = root
     else:
         command = [os.environ.get("ARMADA_PREVIEW_SCRIPT") or os.path.join(root, "scripts", "preview"), "--restart"]
+        if build == "snapshot":
+            command += ["--keep-only", "--picked", os.path.join(support, "preview-picked")]
         tree = os.path.join(root, ".armada", "preview")
     if adopt:
         command.append("--adopt")

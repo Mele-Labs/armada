@@ -7,8 +7,9 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 use crate::kept_builds::{
-    answers_health, kept_at, rehearse, revert, revert_begun, revert_ended, revert_status_in, revertible, settle, undoing, RevertStatus,
-    Reverted, Services, Settled, BUILDS, CURRENT, PREVIOUS, STATUS,
+    answers_health, kept_at, kept_tried, picked_changed, picked_in, rehearse, revert, revert_begun, revert_ended, revert_status_in,
+    revertible, settle, swap_ended, swap_onto, swap_status_in, swappable, trying_in, undoing, RevertStatus, Reverted, Services, Settled,
+    BUILDS, CURRENT, PICKED, PREVIOUS, SNAPSHOT, STATUS,
 };
 use crate::tests::tmp::TempDir;
 
@@ -331,4 +332,101 @@ fn a_fleet_answers_health_only_with_200() {
     assert!(!answers_health(answering("503 Service Unavailable")));
     let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
     assert!(!answers_health(closed));
+}
+
+/// `kept` with a third build, `snap`, made by `scripts/restart --keep-only` from a preview of `jobs`.
+fn with_snapshot(new_bridge: &str, snap_bridge: &str, jobs: &[&str]) -> (TempDir, PathBuf) {
+    let (home, support) = kept(new_bridge, "b1");
+    let builds = support.join(BUILDS);
+    build_of(&builds, "snap", snap_bridge, jobs);
+    let record = builds.join("snap").join("build.toml");
+    let text = std::fs::read_to_string(&record).unwrap().replace("source = \"main\"", "source = \"preview\"\ntree = \"/repo/.armada/preview\"");
+    std::fs::write(&record, text).unwrap();
+    std::fs::write(support.join(SNAPSHOT), "snap\n").unwrap();
+    (home, support)
+}
+
+#[test]
+fn a_swap_moves_onto_the_snapshot_keeping_the_running_build_as_previous() {
+    let (_home, support) = with_snapshot("b2", "b3", &["armada/a"]);
+    std::fs::write(support.join("snapshot-held"), "snap\nmain1\narmada/a\t0123\n").unwrap();
+    let services = Recorded::default();
+
+    let settled = swap_onto(&support, LABEL, "1", &services).expect("swapped");
+
+    assert_eq!(settled, Settled::Healthy);
+    assert_eq!((on(&support, CURRENT), on(&support, PREVIOUS)), ("snap".to_string(), "new".to_string()));
+    assert!(!support.join(SNAPSHOT).exists());
+    let did = services.did.lock().unwrap().clone();
+    assert_eq!(did, ["copy".to_string(), format!("reboot {LABEL}"), "up".to_string(), format!("reboot {LABEL}.bridge")]);
+    assert_eq!(std::fs::read_to_string(support.join("restart-commit")).unwrap(), "snap\n");
+    assert_eq!(std::fs::read_to_string(support.join("restart-source")).unwrap(), "/repo/.armada/preview\n");
+    assert!(std::fs::read_to_string(support.join("preview-held")).unwrap().starts_with("snap\n"));
+}
+
+#[test]
+fn a_swap_whose_fleet_does_not_answer_is_marked_and_swapped_back_leaving_bridge_alone() {
+    let (_home, support) = with_snapshot("b2", "b3", &["armada/a"]);
+    let services = Recorded { down_once: Mutex::new(Some(String::from("No new Fleet answered"))), ..Recorded::default() };
+
+    let settled = swap_onto(&support, LABEL, "1", &services).expect("swapped back");
+
+    let Settled::SwappedBack { why, reverted } = settled else { panic!("not swapped back: {settled:?}") };
+    assert_eq!(why, "No new Fleet answered");
+    assert!(!reverted.bridge_reopened);
+    assert_eq!((on(&support, CURRENT), on(&support, PREVIOUS)), ("new".to_string(), "snap".to_string()));
+    assert_eq!(kept_at(&support.join(BUILDS), PREVIOUS).unwrap().unhealthy.as_deref(), Some("No new Fleet answered"));
+    assert!(!services.did.lock().unwrap().iter().any(|one| one.ends_with(".bridge")));
+    assert_eq!(std::fs::read_to_string(support.join("restart-commit")).unwrap(), "new\n");
+}
+
+#[test]
+fn a_swap_with_no_snapshot_or_onto_the_running_build_is_refused_and_nothing_moves() {
+    let (_home, support) = kept("b2", "b1");
+    let services = Recorded::default();
+    assert!(swap_onto(&support, LABEL, "1", &services).unwrap_err().contains("No build is kept to swap onto"));
+
+    std::fs::write(support.join(SNAPSHOT), "new\n").unwrap();
+    assert!(swappable(&support, LABEL).unwrap_err().contains("is the one running"));
+    assert!(services.did.lock().unwrap().is_empty());
+    assert_eq!(on(&support, CURRENT), "new");
+}
+
+#[test]
+fn a_swap_undone_by_itself_is_kept_as_a_failure_until_the_build_moves() {
+    let (_home, support) = with_snapshot("b2", "b3", &[]);
+    let services = Recorded { down_once: Mutex::new(Some(String::from("No new Fleet answered"))), ..Recorded::default() };
+    let outcome = swap_onto(&support, LABEL, "1", &services);
+
+    swap_ended(&support, &outcome);
+
+    assert_eq!(
+        swap_status_in(&support, SystemTime::now()),
+        Some(RevertStatus::Failed(String::from("Swapped back, since the new Fleet did not answer: No new Fleet answered")))
+    );
+}
+
+#[test]
+fn the_picked_branches_start_as_the_running_builds_and_follow_each_pick() {
+    let (_home, support) = kept("b2", "b1");
+    build_of(&support.join(BUILDS), "new", "b2", &["armada/a"]);
+    assert_eq!(picked_in(&support), ["armada/a"]);
+
+    assert_eq!(picked_changed(&support, "armada/b", true).unwrap(), ["armada/a", "armada/b"]);
+    assert_eq!(picked_changed(&support, "armada/a", false).unwrap(), ["armada/b"]);
+    assert_eq!(picked_changed(&support, "armada/b", false).unwrap(), Vec::<String>::new());
+
+    assert_eq!(std::fs::read_to_string(support.join(PICKED)).unwrap(), "");
+    assert!(picked_in(&support).is_empty(), "an empty file is none picked, not the running build's");
+}
+
+#[test]
+fn the_running_builds_branches_are_tried_until_keep_is_pressed_on_it() {
+    let (_home, support) = kept("b2", "b1");
+    build_of(&support.join(BUILDS), "new", "b2", &["armada/a"]);
+    assert_eq!(trying_in(&support), ["armada/a"]);
+
+    assert_eq!(kept_tried(&support).unwrap(), ["armada/a"]);
+
+    assert!(trying_in(&support).is_empty());
 }

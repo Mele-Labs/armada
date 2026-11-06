@@ -1,0 +1,14 @@
+[operations.swap_fleet_build]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Swap Fleet and Bridge onto the kept snapshot of picked Jobs, detached from Fleet"
+notes = """
+`POST /fleet/build/swap`, no body, answered `FleetBuildSwapping { commit }` with a 202: the swap has begun, onto the snapshot with this commit, and has not finished. Fleet stops during it, so the answer is the last thing this Fleet says about it; the next Fleet's `get_fleet_build` says whether it took.
+
+Fleet writes `Armada/swap.status` as `running`, then starts `Armada/builds/current/armada build swap` detached and unmarked. **The build running now runs the swap**, since it settles it: where the new Fleet does not answer within the minute, it swaps back from it, which a build that is not running could not do.
+
+Refused with a 409 where the swap would move nothing or collide: `fleet.build_not_swappable` where no snapshot is kept, it is the build running, it was swapped back from, or launchd's Fleet does not run from `builds/current`; `fleet.build_restarting` while a restart is under way, `fleet.build_reverting` while a revert is, `fleet.build_swapping` while a swap is. A start that failed is a 500 `fleet.build_swap_not_started`.
+
+`Bridge only`: swapping the build under a Fleet that serves a Job on your words is a person's act, whatever the action authority setting says.
+"""

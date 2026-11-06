@@ -81,6 +81,12 @@ pub struct FakeDaemon {
     builds: Mutex<Vec<ipc::ChangeFleetBuild>>,
     /// How many reverts were asked for.
     reverts: Mutex<u32>,
+    /// Every pick asked for, in order, which the next report folds over its picked branches.
+    picks: Mutex<Vec<ipc::PickFleetBuildJob>>,
+    /// How many swaps were asked for.
+    swaps: Mutex<u32>,
+    /// How many Keeps were pressed.
+    keeps: Mutex<u32>,
     /// The preferences in force, which the fake's own saves change.
     preferences: Mutex<ipc::Preferences>,
     /// settings.json as the fake holds it, which its own saves change.
@@ -133,6 +139,9 @@ impl FakeDaemon {
             limits: Mutex::new(shapes::limits()),
             builds: Mutex::new(Vec::new()),
             reverts: Mutex::new(0),
+            picks: Mutex::new(Vec::new()),
+            swaps: Mutex::new(0),
+            keeps: Mutex::new(0),
             preferences: Mutex::new(shapes::preferences()),
             settings: Mutex::new(settings::settings()),
             accounts: Mutex::new(accounts::signed_out()),
