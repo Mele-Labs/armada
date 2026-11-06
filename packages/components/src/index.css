@@ -414,6 +414,7 @@
 @import "./compositions/HeldSlots/HeldSlots.css";
 @import "./compositions/SessionThread/thread-keys.css";
 @import "./compositions/SessionThread/SubagentRow.css";
+@import "./compositions/SessionThread/SubagentsCard.css";
 @import "./compositions/TaskChip/TaskChip.css";
 @import "./compositions/WorkspacesPage/WorkspacesPage.css";
 @import "./compositions/SessionComposer/QuickBar.css";

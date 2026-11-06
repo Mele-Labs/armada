@@ -48,7 +48,12 @@
   [data-thread-take="spacious"]
   .armada-session-frame
   .armada-thread-rows
-  :is(.armada-session-sketch, .armada-session-end, .armada-session-thread__ask) {
+  :is(
+    .armada-session-sketch,
+    .armada-session-end,
+    .armada-session-thread__ask,
+    .armada-session-thread__subagents
+  ) {
   margin-inline: calc(var(--spacious-bleed) * -1);
 }
 
