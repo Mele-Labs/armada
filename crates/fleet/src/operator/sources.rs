@@ -1,9 +1,10 @@
 //! The arrivals from outside a Job's own run: a bug report, a new issue, a red main, a review
-//! request, a Later item handed over and a note the person left on Bridge. **Words from off this
-//! machine are data**: an issue's body and someone else's review request are offered only a raise,
-//! so nothing they say can start a Job or answer for the person, and the call can name only a way it
-//! was offered. A note is the person's own words, so it is offered every way, and Fleet keeps what
-//! is ruled on it as a suggestion until he presses Do it.
+//! request, a Later item handed over, a note the person left on Bridge and an error Bridge showed
+//! him. **Words from off this machine are data**: an issue's body and someone else's review request
+//! are offered only a raise, so nothing they say can start a Job or answer for the person, and the
+//! call can name only a way it was offered. A note is the person's own words, so it is offered every
+//! way, and Fleet keeps what is ruled on it as a suggestion until he presses Do it. An error is
+//! Fleet's own build's words, offered every way as a report is, and goes by the role's position.
 
 use super::arriving::{Arrival, Arrived, Source};
 use super::candidates::open_near;
@@ -213,8 +214,17 @@ impl Handed {
     }
 }
 
-/// The most of a note's first line its subject keeps.
+/// The most of a first line a subject keeps.
 const SUBJECT_CHARS: usize = 120;
+
+/// The first line of `text` that says something, cut at [`SUBJECT_CHARS`].
+fn subject_of(text: &str) -> String {
+    let first = text.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default();
+    match first.char_indices().nth(SUBJECT_CHARS) {
+        Some((at, _)) => format!("{}…", first[..at].trim_end()),
+        None => first.to_string(),
+    }
+}
 
 /// A note the person left on Bridge, as its file under the repository's annotations holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -244,11 +254,7 @@ impl Note {
             ways.push(Way::File);
         }
         ways.extend([Way::ExistingJob, Way::NewJob, Way::Raise]);
-        let first = self.text.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default();
-        let subject = match first.char_indices().nth(SUBJECT_CHARS) {
-            Some((at, _)) => format!("{}…", first[..at].trim_end()),
-            None => first.to_string(),
-        };
+        let subject = subject_of(&self.text);
         Arrival {
             id: format!("note:{}:{}", self.manifest_id, self.id),
             arrived: Arrived::Note,
@@ -275,5 +281,90 @@ impl Note {
             (None, Some(component)) => format!("Left on {component}"),
             (None, None) => "Left on Bridge".to_string(),
         }
+    }
+}
+
+/// An error Bridge showed the person, as the card carried it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BridgeError {
+    /// `error:<fingerprint>:<local day>`, which is also its arrival's id.
+    pub id: String,
+    pub manifest_id: String,
+    pub code: String,
+    pub message: String,
+    pub fields: Vec<(String, String)>,
+    pub chain: Vec<String>,
+    pub logs: Vec<String>,
+    pub commit: Option<String>,
+    /// The Job the card was raised in, as `(id, title)`.
+    pub job: Option<(String, String)>,
+    /// When the card was taken.
+    pub at: String,
+    /// The repository's open issues, which the error is read against.
+    pub open: Vec<Filed>,
+    /// Whether the repository's tracker is beads, the one Fleet files in.
+    pub files: bool,
+}
+
+impl BridgeError {
+    /// Linked to an open issue it may be, filed where the repository's beads take it, handed to a
+    /// live Job near it, started as a Job of its own or raised. **It names no Job as its own**, so
+    /// the Job it was raised in is weighed with the rest: its title is in the words.
+    pub fn arrival(&self) -> Arrival {
+        let words = self.words();
+        let subject = subject_of(&self.message);
+        let open = open_near(&format!("{subject} {words}"), &self.open);
+        let mut ways = Vec::new();
+        if !open.is_empty() {
+            ways.push(Way::Link);
+        }
+        if self.files {
+            ways.push(Way::File);
+        }
+        ways.extend([Way::ExistingJob, Way::NewJob, Way::Raise]);
+        Arrival {
+            id: self.id.clone(),
+            arrived: Arrived::Error,
+            source: Source::Bridge,
+            session_id: String::new(),
+            manifest_id: self.manifest_id.clone(),
+            subject,
+            words,
+            paths: Vec::new(),
+            issues: Vec::new(),
+            group: None,
+            ways,
+            answers: Vec::new(),
+            rule: None,
+            open,
+        }
+    }
+
+    /// Everything the card carried, one fact to a line.
+    fn words(&self) -> String {
+        let mut out = format!("Code: {}\nMessage: {}", self.code, self.message.trim());
+        if !self.fields.is_empty() {
+            out.push_str("\nFields:");
+            for (key, value) in &self.fields {
+                out.push_str(&format!("\n  {key}: {value}"));
+            }
+        }
+        if !self.chain.is_empty() {
+            out.push_str("\nCause chain, outermost first:");
+            for (at, cause) in self.chain.iter().enumerate() {
+                out.push_str(&format!("\n  {}. {cause}", at + 1));
+            }
+        }
+        if !self.logs.is_empty() {
+            out.push_str(&format!("\nLogs: {}", self.logs.join(", ")));
+        }
+        if let Some(commit) = &self.commit {
+            out.push_str(&format!("\nCommit: {commit}"));
+        }
+        if let Some((id, title)) = &self.job {
+            out.push_str(&format!("\nRaised in Job {id} \"{title}\""));
+        }
+        out.push_str(&format!("\nTime: {}", self.at));
+        out
     }
 }

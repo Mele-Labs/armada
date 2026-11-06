@@ -65,6 +65,7 @@ import { handlePlanUsage } from "./plan-usage-channels";
 import { handleModelDownshift } from "./model-downshift-channels";
 import { handleProjects } from "./projects-channels";
 import { handleBugReports } from "./bug-reports-channels";
+import { handleOperatorErrors } from "./operator-errors-channels";
 import { handleLifecycles } from "./lifecycles-channels";
 import { showHeld } from "./banners";
 import { DownshiftNotice } from "./downshift-notice";
@@ -1154,6 +1155,10 @@ void app.whenReady().then(() => {
     connection: () => connection,
   });
   handleBugReports({
+    ipc: ipcMain,
+    connection: () => connection,
+  });
+  handleOperatorErrors({
     ipc: ipcMain,
     connection: () => connection,
   });

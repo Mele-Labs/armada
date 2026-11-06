@@ -265,6 +265,7 @@ mod operator_acting;
 mod operator_arrivals;
 mod operator_board;
 mod operator_notes;
+mod operator_errors;
 mod operator_suggestions;
 mod operator_order;
 mod operator_answers;

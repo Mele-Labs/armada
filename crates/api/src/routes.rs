@@ -400,6 +400,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::move_on_operator_board::<D>),
         )
         .route(
+            "/operator/errors",
+            post(crate::hosted_sessions::report_bridge_error::<D>),
+        )
+        .route(
             "/operator/suggestions/answer",
             post(crate::hosted_sessions::answer_operator_suggestion::<D>),
         )

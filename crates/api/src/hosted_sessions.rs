@@ -237,6 +237,22 @@ pub(crate) async fn move_on_operator_board<D: HostedSessions>(
     }
 }
 
+/// An error Bridge showed the person, handed to the Operator. 200 whatever became of it: `repeated` says
+/// whether it was already with the Operator that day.
+pub(crate) async fn report_bridge_error<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let error: ipc::operator_errors::ReportBridgeError = match ipc::decode_body("an error Bridge showed the person", &body) {
+        Ok(error) => error,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().report_bridge_error(error).await {
+        Ok(taken) => answer(StatusCode::OK, &taken, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// One press settles a suggestion no Job holds. 200 with the board; 404 where none has the id, 409 where it
 /// is settled already.
 pub(crate) async fn answer_operator_suggestion<D: HostedSessions>(
