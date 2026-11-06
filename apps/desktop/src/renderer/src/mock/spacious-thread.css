@@ -409,3 +409,228 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- Cards: a soft fill and a hairline drawn inside it, no border of their own. The document, the ending, a walk, a failed
+   run, code and a table all take it. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame {
+  --spacious-card: color-mix(in srgb, var(--fg-default) 4%, transparent);
+  --spacious-card-edge: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--fg-default) 7%, transparent);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__asked,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end {
+  border: none;
+  background: var(--spacious-card);
+  box-shadow: var(--spacious-card-edge);
+}
+
+/* A walk: a card with its window's name, lit under the pointer. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head--press {
+  gap: var(--space-2);
+  min-width: min(100%, 280px);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--spacious-radius);
+  background: var(--spacious-card);
+  box-shadow: var(--spacious-card-edge);
+  font-size: var(--text-sm);
+  line-height: 20px;
+  color: var(--fg-default);
+  transition: background var(--duration-fast) var(--ease);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head--press:hover {
+  background: color-mix(in srgb, var(--fg-default) 7%, transparent);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head--press > svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  color: var(--fg-muted);
+}
+
+/* A failed run: a card tinted with the failure hue, its exit code said, its last lines inside it. A passing run stays a line. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--spacious-radius);
+  background: color-mix(in srgb, var(--run-failed) 7%, transparent);
+  box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--run-failed) 18%, transparent);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__head {
+  gap: var(--space-2);
+  width: auto;
+  color: var(--fg-default);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__exit {
+  flex: none;
+  margin-inline-start: auto;
+  font-size: var(--spacious-meta);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--run-failed);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__peek,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__tail {
+  margin: var(--space-2) 0 0 calc(var(--space-4) + var(--space-2));
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--text-xs);
+  line-height: 18px;
+  color: var(--fg-muted);
+}
+
+/* No chevron beside a call's mark: the line opens on a press as it did, and reads brighter while open. */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__chevron {
+  display: none;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold details[open] > .armada-session-fold__head {
+  color: var(--fg-default);
+}
+
+/* ---- Code: a card in the mono face, no accent edge, coloured by its language. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block {
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--spacious-radius);
+  background: var(--spacious-card);
+  box-shadow: var(--spacious-card-edge);
+  font-size: var(--spacious-meta);
+  line-height: 20px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-keyword {
+  color: var(--tool-change);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-string,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-literal {
+  color: var(--tool-run);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-name {
+  color: var(--tool-look);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-comment {
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-punctuation {
+  color: var(--fg-muted);
+}
+
+/* ---- A table: a card with its head in sentence case, rows parted by hairlines. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__table {
+  border: none;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--spacious-radius);
+  background: var(--spacious-card);
+  box-shadow: var(--spacious-card-edge);
+  overflow: hidden;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__th,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__td {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 20px;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__th {
+  padding-top: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+  background: none;
+  font-size: var(--spacious-meta);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--fg-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__td {
+  border-bottom: var(--border-width) solid color-mix(in srgb, var(--fg-default) 5%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__table tr:last-child > .armada-prose__td {
+  border-bottom: none;
+}
+
+/* ---- Needs you dims the whole pane under the Job's head, edge to edge and down to its foot; the frame clips it there. The
+   composer stays lit over it, as one box with the panel. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__stage::after {
+  inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-6)) -100vh;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer {
+  z-index: 2;
+}
+
+/* ---- The working mark: an arc turning on the compositor, the whole mark at once, in place of a dot round a ring. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-working-mark svg {
+  animation: armada-spacious-spin 0.9s linear infinite;
+  will-change: transform;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-working-mark circle:first-child {
+  opacity: 1;
+  stroke-dasharray: 11 27;
+  stroke-linecap: round;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-working-mark__spin {
+  display: none;
+}
+
+@keyframes armada-spacious-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-working-mark svg {
+    animation: none;
+  }
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__target {
+  color: var(--fg-default);
+}
+
+/* ---- The quick bar's Save and Hide: one size, no edge, quiet until the pointer is on one. Save typed nothing is faint. ---- */
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick {
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-2) 0 var(--space-4);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick > .armada-tooltip .armada-button,
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick > .armada-button {
+  width: var(--h-control);
+  height: var(--h-control);
+  padding: 0;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-subtle);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick .armada-button:not(:disabled):hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick .armada-button:disabled {
+  opacity: 0.4;
+}
+
+:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick .armada-button svg {
+  width: 15px;
+  height: 15px;
+}

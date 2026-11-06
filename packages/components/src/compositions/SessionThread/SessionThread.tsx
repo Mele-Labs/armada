@@ -130,6 +130,7 @@ import { PlanRevisionView, useUnchanged } from "./PlanRevision";
 import type { PlanRevision } from "./PlanRevision";
 export type { PlanRevision, RevisionGroup, RevisionSince, RevisionTask } from "./PlanRevision";
 export { PlanRevisionView, useUnchanged } from "./PlanRevision";
+export { colourCode } from "./colourCode";
 import type { Scene } from "../SketchScene/scene";
 import type { ComposerTag } from "../SessionComposer/InlineTag";
 
@@ -1641,6 +1642,7 @@ function RanRow({
   const since = row.since === undefined ? Number.NaN : Date.parse(row.since);
   const first = row.command.split("\n")[0] ?? "";
   const peek = row.tail.replace(/\s+$/, "").split("\n").slice(-PEEK_LINES).join("\n");
+  const spacious = useContext(SpaciousTake);
   if (running) {
     return (
       <li className="armada-session-fold armada-session-fold--ran" data-running="">
@@ -1682,6 +1684,11 @@ function RanRow({
             }}
           />
           <code className="armada-session-fold__target">{first}</code>
+          {spacious && row.code !== 0 ? (
+            <span className="armada-session-fold__exit" aria-hidden>
+              {row.code === null ? "Stopped" : `Exit ${row.code}`}
+            </span>
+          ) : null}
         </summary>
         <pre className="armada-session-fold__tail" role="log" aria-label="Sent to the Job">
           {row.tail}

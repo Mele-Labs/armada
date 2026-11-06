@@ -44,6 +44,8 @@ import {
   SessionEndBand,
   DoneBody,
   SpaciousTake,
+  ProseCodeColour,
+  colourCode,
   NotOursCard,
   ProseTerminal,
   Tooltip,
@@ -2994,6 +2996,7 @@ export function SessionView({
                     <RequestOpen.Provider value={openRequest}>
                       <SavedOpen.Provider value={openSaved}>
                         <SpaciousTake.Provider value={spacious}>
+                        <ProseCodeColour.Provider value={spacious ? colourCode : null}>
                         <SessionThread
                           sessionId={session.id}
                           rows={withJudged}
@@ -3198,6 +3201,7 @@ export function SessionView({
                                 },
                               })}
                         />
+                        </ProseCodeColour.Provider>
                         </SpaciousTake.Provider>
                       </SavedOpen.Provider>
                     </RequestOpen.Provider>
