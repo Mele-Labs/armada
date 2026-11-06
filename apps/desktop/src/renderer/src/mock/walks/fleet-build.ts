@@ -147,12 +147,20 @@ export const fleetBuildRevert = walk("fleet/build-revert", [
     say: "Revert",
   },
   {
-    look: role("dialog"),
-    say: "It asks first. Fleet and Bridge restart, and the Jobs at work are named: their agents run on",
+    look: text("Running now"),
+    say: "It asks first, and says the build you are on and the one you go back to",
   },
   {
-    hover: role("img", "Their agents run on while Fleet restarts, and Fleet takes them back when it starts"),
-    say: "What carries them across, on hover",
+    look: role("list", "Jobs taken out"),
+    say: "The Jobs whose change leaves your app: in this build and not the older one",
+  },
+  {
+    look: text("Restarts"),
+    say: "What restarts: Fleet, and this window, since the older build has another Bridge",
+  },
+  {
+    look: role("list", "Jobs still working"),
+    say: "The Jobs at work. Their agents keep running while Fleet restarts",
   },
   {
     press: inside(role("dialog"), REVERT),

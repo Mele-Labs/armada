@@ -9,6 +9,7 @@ import type {
   FleetBuildChoice,
   FleetBuildLeftOut,
   FleetBuildPosition,
+  FleetBuildKept,
   FleetBuildPrevious,
   FleetBuildStage,
 } from "@armada/components";
@@ -23,6 +24,7 @@ type Seed = {
   stage?: FleetBuildStage;
   failed?: string;
   leftOut?: FleetBuildLeftOut[];
+  running?: FleetBuildKept;
   previous?: FleetBuildPrevious;
   reverting?: boolean;
   carried?: string[];
@@ -124,10 +126,16 @@ const SEEDS: Record<string, Seed> = {
       behind: 0,
     },
     working: null,
+    running: {
+      built: "5 Nov, 17:05",
+      commit: "e4f5a6b",
+    },
     previous: {
       built: "5 Nov, 16:20",
       commit: "a1b2c3d",
       bridgeReopens: true,
+      takesOut: ["Fleet core and mods"],
+      bringsBack: [],
     },
     carried: ["Operator board", "Store tests open a migrated copy"],
   },
@@ -219,13 +227,18 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
         setNow((was) => ({
           ...was,
           reverting: false,
-          ...(was.previous === undefined
+          ...(was.previous === undefined || was.running === undefined
             ? {}
             : {
+                running: {
+                  built: was.previous.built,
+                  commit: was.previous.commit,
+                },
                 previous: {
-                  ...was.previous,
-                  built: "5 Nov, 17:05",
-                  commit: "e4f5a6b",
+                  ...was.running,
+                  bridgeReopens: was.previous.bridgeReopens,
+                  takesOut: was.previous.bringsBack,
+                  bringsBack: was.previous.takesOut,
                 },
               }),
         })),
@@ -261,6 +274,11 @@ function Seeded({ seed, children }: { seed: Seed; children: ReactNode }) {
       ? {}
       : {
           previous: now.previous,
+          ...(now.running === undefined
+            ? {}
+            : {
+                running: now.running,
+              }),
           reverting: now.reverting === true,
           carried: now.carried ?? [],
           onRevert: revert,

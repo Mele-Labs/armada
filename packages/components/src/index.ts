@@ -52,6 +52,7 @@ export type {
   FleetBuild,
   FleetBuildChoice,
   FleetBuildDrone,
+  FleetBuildKept,
   FleetBuildLeftOut,
   FleetBuildPrevious,
   FleetBuildPosition,

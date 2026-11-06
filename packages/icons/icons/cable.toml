@@ -4,10 +4,3 @@
   size = "12px"
   status = "Specified"
   notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Marks the Refine, Fix, Wire and Build steps on a workflow step card. Each wires the change to the real thing, which is what a cable between two plugs shows. Drawn at 14px, stroke 2."
-
-  [[icons.cable.usage]]
-    means = "Agents run on across a restart, in the Revert confirm, over the Jobs their keepers carry"
-    group = "Fleet"
-    size = "12px"
-    status = "Proposed"
-    notes = "Proposed 5 Nov 2026 for the walk `fleet/build-revert`, tooltip `Their agents run on while Fleet restarts, and Fleet takes them back when it starts`. A cable still between its plugs is the connection held, the counterpart of `unplug`, which the Drones confirm beside it uses for pipes that die."

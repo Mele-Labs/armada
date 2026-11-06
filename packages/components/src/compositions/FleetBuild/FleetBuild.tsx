@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
-  Cable,
   Check,
   CircleSlash,
   GitCommitHorizontal,
@@ -59,14 +58,22 @@ export type FleetBuildLeftOut = {
   moved?: boolean;
 };
 
-/** The build before this one, kept on disk, which Revert swaps Fleet and Bridge back onto. */
-export type FleetBuildPrevious = {
-  /** When it was built, as the panel says it: `5 Nov, 16:20`. */
+/** One build kept on disk, as the panel names it. */
+export type FleetBuildKept = {
+  /** When it was built: `5 Nov, 16:20`. */
   built: string;
   /** Its short commit. */
   commit: string;
+};
+
+/** The build before this one, which Revert swaps Fleet and Bridge back onto, and what that changes. */
+export type FleetBuildPrevious = FleetBuildKept & {
   /** Its Bridge differs from the one open, so this window closes and opens on it. */
   bridgeReopens: boolean;
+  /** The Jobs whose change the running build holds and this one does not. */
+  takesOut: readonly string[];
+  /** The Jobs whose change this one holds and the running build does not. */
+  bringsBack: readonly string[];
 };
 
 export type FleetBuild = {
@@ -87,6 +94,8 @@ export type FleetBuild = {
   onChoose: (build: FleetBuildChoice, adopt: boolean) => void;
   /** Restart onto the build in use: merge the preview again, or move to the latest main. */
   onRestart: (adopt: boolean) => void;
+  /** The build Fleet runs now, where it is a kept one. */
+  running?: FleetBuildKept;
   /** The build Revert swaps onto. Absent draws no Revert. */
   previous?: FleetBuildPrevious;
   /** A revert is under way. */
@@ -97,9 +106,38 @@ export type FleetBuild = {
   onRevert?: () => void;
 };
 
-const REVERT_RESTARTS = "Fleet stops for a few seconds and starts on that build";
-const REVERT_REOPENS = "Fleet stops for a few seconds and starts on that build, and this window closes and opens on it";
-const REVERT_CARRIES = "Their agents run on while Fleet restarts, and Fleet takes them back when it starts";
+const keptSaid = (kept: FleetBuildKept) => `${kept.built} · ${kept.commit}`;
+
+/** One row of the Revert confirm: what it is about, then a line or the Jobs it names, and why under them. */
+function RevertRow({
+  label,
+  value,
+  jobs,
+  why,
+}: {
+  label: string;
+  value?: string;
+  jobs?: readonly string[];
+  why?: string;
+}) {
+  return (
+    <>
+      <dt className="armada-fleet-build__revert-label">{label}</dt>
+      <dd className="armada-fleet-build__revert-value">
+        {jobs === undefined ? (
+          value
+        ) : (
+          <ul aria-label={label}>
+            {jobs.map((one) => (
+              <li key={one}>{one}</li>
+            ))}
+          </ul>
+        )}
+        {why === undefined ? null : <p className="armada-fleet-build__revert-why">{why}</p>}
+      </dd>
+    </>
+  );
+}
 
 const commits = (count: number) => (count === 1 ? "1 commit" : `${count} commits`);
 
@@ -346,16 +384,37 @@ export function FleetBuildSection({ build }: { build: FleetBuild }) {
             setRevertAsked(false);
           }}
         >
-          {previous.bridgeReopens ? (
-            <Line Glyph={RotateCw} said={REVERT_REOPENS} word="Fleet and Bridge restart" />
-          ) : (
-            <Line Glyph={RotateCw} said={REVERT_RESTARTS} word="Fleet restarts" />
-          )}
-          {carried.length === 0 ? null : (
-            <Line Glyph={Cable} said={REVERT_CARRIES} word="Agents run on">
-              <Mono label="Jobs carried across" items={carried} />
-            </Line>
-          )}
+          <dl className="armada-fleet-build__revert">
+            {build.running === undefined ? null : (
+              <RevertRow label="Running now" value={keptSaid(build.running)} />
+            )}
+            <RevertRow label="Goes back to" value={keptSaid(previous)} />
+            {previous.takesOut.length === 0 ? null : (
+              <RevertRow
+                label="Jobs taken out"
+                jobs={previous.takesOut}
+                why={`Their changes are in the ${build.running?.built ?? "running"} build and not in the ${previous.built} one, so your app goes without them. The Jobs themselves carry on.`}
+              />
+            )}
+            {previous.bringsBack.length === 0 ? null : (
+              <RevertRow
+                label="Jobs brought back"
+                jobs={previous.bringsBack}
+                why={`Their changes are in the ${previous.built} build and not in the ${build.running?.built ?? "running"} one, so your app gets them back.`}
+              />
+            )}
+            <RevertRow
+              label="Restarts"
+              value={previous.bridgeReopens ? "Fleet, and this window" : "Fleet. This window stays open"}
+            />
+            {carried.length === 0 ? null : (
+              <RevertRow
+                label="Jobs still working"
+                jobs={carried}
+                why="These Jobs are at work now. Their agents keep running while Fleet restarts."
+              />
+            )}
+          </dl>
         </Dialog>
       )}
       {asked === null ? null : (

@@ -46,10 +46,3 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Every poll control is this glyph's. Turns while the poll runs, held still under reduced motion. Tooltip `Waiting for GitHub`. The same turn marks a set-up row in progress, tooltip `Setting up`, and a kind pulling on, tooltip `Pulling`."
-
-  [[icons.rotate-cw.usage]]
-    means = "Fleet restarts, or Fleet and Bridge restart, in the Revert confirm"
-    group = "Fleet"
-    size = "12px"
-    status = "Proposed"
-    notes = "Proposed 5 Nov 2026 for the walk `fleet/build-revert`. A restart onto another build is the act the build section's own button draws with this glyph."
