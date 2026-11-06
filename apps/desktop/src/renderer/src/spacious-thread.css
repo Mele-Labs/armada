@@ -58,6 +58,19 @@
   margin-inline: calc(var(--spacious-bleed) * -1);
 }
 
+/* Handoffs made one after another read as one run of lines, as calls do, not a turn apart. */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-session-subagent[data-handoff]
+  + .armada-session-subagent[data-handoff] {
+  margin-block-start: calc(
+    var(--space-1) -
+    var(--spacious-turns, calc(var(--space-6) + var(--space-1)))
+  );
+}
+
 /* A subagent's row, and the card's, reach the cards' edge, and their marks and words stand on the prose's. */
 :root[data-look]
   [data-thread-take="spacious"]

@@ -63,15 +63,32 @@ button.armada-session-subagent__press:hover {
   color: var(--fg-muted);
 }
 
-/* Its own last call, quieter than the task: one line in the body's face, cut at the row's edge. */
-.armada-session-subagent__latest {
-  min-width: 0;
-  /* Under the task, past the status mark and the gap beside it. */
-  padding-inline-start: calc(var(--space-4) + var(--space-2));
-  overflow: hidden;
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+/* Running, it is the handoff: one quiet line as a call is, no box. The pinned card carries it live. */
+.armada-session-subagent[data-handoff] .armada-session-subagent__press {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  border-color: transparent;
+  background: transparent;
   color: var(--fg-subtle);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.armada-session-subagent[data-handoff] button.armada-session-subagent__press:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--fg-default);
+}
+
+.armada-session-subagent__bot {
+  flex: none;
+}
+
+.armada-session-subagent__handoff {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
