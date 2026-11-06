@@ -23,7 +23,8 @@ export type OperatorDid =
 /** The four roles a person turns. Evaluate is the Operator switch itself; Raise has no control. */
 export type OperatorRole = "dispatch" | "delegate" | "answer" | "file";
 
-export type OperatorPosition = "on" | "suggest" | "off";
+/** How far the Operator may go with what a role covers, as a browser's tool permissions are set. */
+export type OperatorPosition = "read_only" | "suggest" | "decide";
 
 /** A Job a row names, drawn as the Job card that opens it. `title` is what it was called, for a Job the window no longer holds. */
 export type OperatorJob = {
@@ -303,8 +304,13 @@ export type OperatorSeed = {
   /** The Operator switch: off sends everything to the person as today. */
   on: boolean;
   positions: Readonly<Record<OperatorRole, OperatorPosition>>;
-  /** The most calls a day before it stops and everything passes through. */
-  ceiling: number;
+  /** The share of the week's plan, in percent, past which it pauses and everything passes through. */
+  pause: number;
+  /** While it is paused: where the week stands and the share it paused at. */
+  paused?: {
+    week: number;
+    at: number;
+  };
   log: readonly OperatorLogRow[];
   line: readonly OperatorLineRow[];
   orders: readonly StandingOrder[];
@@ -397,9 +403,16 @@ export const ROLES: readonly {
 ];
 
 export const POSITION_SAID: Readonly<Record<OperatorPosition, string>> = {
-  on: "On",
+  read_only: "Read-only",
   suggest: "Suggest",
-  off: "Off",
+  decide: "Decide",
+};
+
+/** What each level does, under its name in the menu. */
+export const POSITION_DOES: Readonly<Record<OperatorPosition, string>> = {
+  read_only: "Sees it and does nothing",
+  suggest: "Puts its pick in Needs you",
+  decide: "Does it on its own",
 };
 
 export const DID_SAID: Readonly<Record<OperatorDid, string>> = {
@@ -496,7 +509,7 @@ export function tieSaid(tie: OperatorTie): string {
 export function orderSaid(order: StandingOrder): string {
   switch (order.kind) {
     case "role_off":
-      return `${ROLES.find((one) => one.role === order.role)?.name ?? order.role} off in ${order.repository}`;
+      return `${ROLES.find((one) => one.role === order.role)?.name ?? order.role} read-only in ${order.repository}`;
     case "hold_paths":
       return `Hold ${order.paths} until ${order.until.job} ${order.until.event === "ends" ? "ends" : "pushes"}`;
     case "always_raise":
