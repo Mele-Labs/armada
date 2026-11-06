@@ -102,6 +102,12 @@ where
         self.change_fleet_build_now(&asked)
     }
 
+    /// Start the undo of the last restart — [`crate::building`]. **Not `budgeted`**, for the same
+    /// reason: no Job is touched, and the answer is that the undo has started.
+    async fn revert_fleet_build(&self) -> Result<ipc::FleetBuildReverting, Refusal> {
+        self.revert_fleet_build_now()
+    }
+
     /// The one pull a held checkout is offered — `crate::catching_up`. **Not
     /// `budgeted`**, `change_fleet_build`'s reason: no Job is touched.
     async fn catch_up_checkout(

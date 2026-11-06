@@ -1424,6 +1424,25 @@ A newest file last written more than a day ago is named as such and its lines ar
 **Bridge adds its own protocol** by putting `bridge protocol <id>  ` ahead of the last line of either text, since only Bridge knows it.
 It reads Fleet's text over the connection and, where that fails or Fleet is not connected, has main run `armada report` (`apps/desktop/src/main/debug-report.ts`).
 
+## The Revert press: `revert_fleet_build`, and four fields on `FleetBuildReport`
+
+Since 5 Nov 2026. The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `running`, `previous`, `carried` and `reverting` on `FleetBuildReport`, and `FleetBuildReverting`, in `packages/protocol/src/building.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `revert_fleet_build` (`POST /fleet/build/revert`, `agent_access = "Bridge only"`) | Bridge writes, Fleet reads | No body. Answers 202 `FleetBuildReverting` `{ commit }`, the commit reverted to. 409 `fleet.build_not_revertible` (no previous build, or launchd's Fleet not on `builds/current`), `fleet.build_restarting`, `fleet.build_reverting`; 500 `fleet.build_revert_not_started` |
+| `FleetBuildReport.running` | Fleet writes, Bridge reads | `{ built_at, commit }` of the build `builds/current` names, the commit whole. Left out where none is kept |
+| `FleetBuildReport.previous` | Fleet writes, Bridge reads | `{ built_at, commit, bridge_reopens?, takes_out?, brings_back? }` of the build `builds/previous` names. `bridge_reopens` is left out when false; the lists when empty. Each Job is named by the title of the live Job holding its branch, or by the branch. Left out where no previous build is kept or launchd's Fleet is not on `builds/current` |
+| `FleetBuildReport.carried` | Fleet writes, Bridge reads | The titles of the hosted Jobs with a turn under way, sorted. Left out when none |
+| `FleetBuildReport.reverting` | Fleet writes, Bridge reads | `bool`, left out when false. `Armada/revert.status` reads `running` and is under two minutes old |
+| `FleetBuildReport.failed` | Fleet writes, Bridge reads | Gains a second source: the line `armada build revert` left in `revert.status` after `failed`, shown where the restart has no failure of its own |
+
+**Fleet writes `revert.status` as `running`, then starts `builds/previous/armada build revert` detached and unmarked**, as `change_fleet_build` starts its wrapper.
+The command removes the file on success, and on failure writes `failed`, the build `current` names, and one line, which is history once `current` names another.
+**Bridge marks the report `reverting` at once and reads every two seconds** until the report says neither `reverting` nor `restarting`, as it does for a restart.
+**A Bridge that predates these fields** reads a report without them as one with no kept builds, which draws no Revert.
+
 ## Open questions
 
 Naming these rather than deciding them, per this document's brief:

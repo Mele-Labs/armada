@@ -56,6 +56,33 @@ export type FleetBuildReport = {
     why: string;
     moved?: boolean;
   }[];
+  /** The kept build Fleet runs. Absent where none is kept. */
+  running?: KeptBuildRunning;
+  /**
+   * The kept build a revert swaps onto, and what that changes. Absent where no previous build is
+   * kept, and where launchd does not run Fleet from the kept builds.
+   */
+  previous?: KeptBuildPrevious;
+  /** The titles of the hosted Jobs with a turn under way, which their keepers carry across a restart. Omitted when none. */
+  carried?: string[];
+  /** A revert is under way. Omitted when false. */
+  reverting?: boolean;
+};
+
+/** A kept build: when it was built (RFC 3339) and the full commit it was built from. */
+export type KeptBuildRunning = {
+  built_at: string;
+  commit: string;
+};
+
+/** The build before the running one. */
+export type KeptBuildPrevious = KeptBuildRunning & {
+  /** Its Bridge differs from the running one's, or either lacks the hash. Omitted when false. */
+  bridge_reopens?: boolean;
+  /** The Jobs whose change the running build holds and this one does not, by title, or by branch where no Job holds it. Omitted when none. */
+  takes_out?: string[];
+  /** The Jobs whose change this one holds and the running build does not, named the same way. Omitted when none. */
+  brings_back?: string[];
 };
 
 /** `POST /fleet/build/change`. */
@@ -68,4 +95,9 @@ export type ChangeFleetBuild = {
 /** The 202 answer: the restart has begun, onto this build. */
 export type FleetBuildChanging = {
   build: BuildSource;
+};
+
+/** The 202 answer to `POST /fleet/build/revert`, which takes no body: the undo has begun, onto the build with this commit. */
+export type FleetBuildReverting = {
+  commit: string;
 };

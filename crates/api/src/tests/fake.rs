@@ -79,6 +79,8 @@ pub struct FakeDaemon {
     limits: Mutex<ipc::FleetLimits>,
     /// Every restart asked for, so a route test can assert what arrived.
     builds: Mutex<Vec<ipc::ChangeFleetBuild>>,
+    /// How many reverts were asked for.
+    reverts: Mutex<u32>,
     /// The preferences in force, which the fake's own saves change.
     preferences: Mutex<ipc::Preferences>,
     /// settings.json as the fake holds it, which its own saves change.
@@ -130,6 +132,7 @@ impl FakeDaemon {
             land: Mutex::new(None),
             limits: Mutex::new(shapes::limits()),
             builds: Mutex::new(Vec::new()),
+            reverts: Mutex::new(0),
             preferences: Mutex::new(shapes::preferences()),
             settings: Mutex::new(settings::settings()),
             accounts: Mutex::new(accounts::signed_out()),

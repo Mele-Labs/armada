@@ -122,9 +122,12 @@ fn build_reverted() -> ExitCode {
     };
     let support = fleet::runtime::support_dir(&home.to_string_lossy());
     // The same override `scripts/restart` reads, so a scratch Fleet's revert never reaches the owner's.
-    let label = std::env::var("ARMADA_FLEET_LABEL").unwrap_or_else(|_| String::from("com.armada.fleet"));
+    let label = fleet::kept_builds::fleet_label();
     let stamp = fleet::kept_builds::stamp_now();
-    match fleet::kept_builds::revert(&support, &label, &stamp, &fleet::kept_builds::OnThisMac) {
+    let outcome = fleet::kept_builds::revert(&support, &label, &stamp, &fleet::kept_builds::OnThisMac);
+    // The Fleet that started this reads the file back, once a Fleet is up again.
+    fleet::kept_builds::revert_ended(&support, &outcome);
+    match outcome {
         Ok(reverted) => {
             println!("Fleet runs {}, built {} from {}", reverted.to.name, reverted.to.built_at, reverted.to.commit);
             println!("{} is kept as the previous build", reverted.from.name);

@@ -4,7 +4,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::kept_builds::{kept_at, revert, Services, BUILDS, CURRENT, PREVIOUS};
+use std::time::{Duration, SystemTime};
+
+use crate::kept_builds::{
+    kept_at, revert, revert_begun, revert_ended, revert_status_in, revertible, undoing, RevertStatus, Reverted, Services,
+    BUILDS, CURRENT, PREVIOUS, STATUS,
+};
 use crate::tests::tmp::TempDir;
 
 const LABEL: &str = "com.armada.fleet";
@@ -32,12 +37,17 @@ impl Services for Recorded {
 }
 
 fn build(builds: &Path, name: &str, bridge: &str) {
+    build_of(builds, name, bridge, &[]);
+}
+
+/// A build holding the preview's branches `jobs`, as `scripts/keep-build` writes the rows.
+fn build_of(builds: &Path, name: &str, bridge: &str, jobs: &[&str]) {
     std::fs::create_dir_all(builds.join(name)).unwrap();
-    std::fs::write(
-        builds.join(name).join("build.toml"),
-        format!("built_at = \"2026-11-05T16:20:00Z\"\ncommit = \"{name}\"\nsource = \"main\"\nbridge = \"{bridge}\"\n"),
-    )
-    .unwrap();
+    let mut text = format!("built_at = \"2026-11-05T16:20:00Z\"\ncommit = \"{name}\"\nsource = \"main\"\nbridge = \"{bridge}\"\n");
+    for branch in jobs {
+        text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
+    }
+    std::fs::write(builds.join(name).join("build.toml"), text).unwrap();
 }
 
 /// A support folder whose Fleet runs from `builds/current`, on `new`, with `old` before it.
@@ -120,4 +130,105 @@ fn a_fleet_launchd_does_not_run_from_the_kept_builds_is_refused_and_nothing_move
     assert!(refused.contains("does not run"), "{refused}");
     assert_eq!((on(&support, CURRENT), on(&support, PREVIOUS)), ("new".to_string(), "old".to_string()));
     assert!(services.did.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_build_names_the_branches_of_its_job_rows_and_a_main_build_has_none() {
+    let (_home, support) = kept("b2", "b1");
+    let builds = support.join(BUILDS);
+    build_of(&builds, "new", "b2", &["armada/a", "armada/b"]);
+
+    assert_eq!(kept_at(&builds, CURRENT).unwrap().jobs, ["armada/a", "armada/b"]);
+    assert!(kept_at(&builds, PREVIOUS).unwrap().jobs.is_empty());
+}
+
+#[test]
+fn a_revert_takes_out_the_branches_only_the_running_build_holds_and_brings_back_the_reverse() {
+    let (_home, support) = kept("b2", "b1");
+    let builds = support.join(BUILDS);
+    build_of(&builds, "new", "b2", &["armada/a", "armada/both"]);
+    build_of(&builds, "old", "b1", &["armada/both", "armada/c"]);
+    let (from, to) = revertible(&support, LABEL).expect("revertible");
+
+    let undo = undoing(&from, &to);
+
+    assert_eq!(undo.takes_out, ["armada/a"]);
+    assert_eq!(undo.brings_back, ["armada/c"]);
+    assert_eq!((undo.built_at.as_str(), undo.commit.as_str()), ("2026-11-05T16:20:00Z", "old"));
+}
+
+#[test]
+fn bridge_reopens_where_the_hashes_differ_or_either_is_missing() {
+    let reopens = |new: &str, old: &str, drop_new: bool, drop_old: bool| {
+        let (_home, support) = kept(new, old);
+        let builds = support.join(BUILDS);
+        for (name, dropped) in [("new", drop_new), ("old", drop_old)] {
+            if dropped {
+                let record = builds.join(name).join("build.toml");
+                let text = std::fs::read_to_string(&record).unwrap();
+                std::fs::write(&record, text.lines().filter(|line| !line.starts_with("bridge")).collect::<Vec<_>>().join("\n")).unwrap();
+            }
+        }
+        let (from, to) = revertible(&support, LABEL).expect("revertible");
+        undoing(&from, &to).bridge_reopens
+    };
+    assert!(reopens("b2", "b1", false, false), "differ");
+    assert!(!reopens("same", "same", false, false), "equal");
+    assert!(reopens("same", "same", true, false), "the running build lacks it");
+    assert!(reopens("same", "same", false, true), "the previous build lacks it");
+    assert!(reopens("same", "same", true, true), "both lack it");
+}
+
+#[test]
+fn revertible_is_the_check_revert_makes_and_names_why_not() {
+    let (_home, support) = kept("b2", "b1");
+    assert!(revertible(&support, LABEL).is_ok());
+
+    std::fs::write(support.join(format!("{LABEL}.plist")), "<string>/Users/user/.cargo/bin/armada</string>").unwrap();
+    assert!(revertible(&support, LABEL).unwrap_err().contains("does not run"));
+
+    std::fs::remove_file(support.join(BUILDS).join(PREVIOUS)).unwrap();
+    assert!(revertible(&support, LABEL).unwrap_err().contains("No build before this one"));
+
+    std::fs::remove_file(support.join(BUILDS).join(CURRENT)).unwrap();
+    assert!(revertible(&support, LABEL).unwrap_err().contains("nothing to revert from"));
+}
+
+#[test]
+fn a_revert_under_way_is_running_until_it_is_old_enough_to_be_a_dead_one() {
+    let (_home, support) = kept("b2", "b1");
+    revert_begun(&support).unwrap();
+    let now = SystemTime::now();
+
+    assert_eq!(revert_status_in(&support, now), Some(RevertStatus::Running));
+    assert_eq!(revert_status_in(&support, now + Duration::from_secs(119)), Some(RevertStatus::Running));
+    assert_eq!(revert_status_in(&support, now + Duration::from_secs(3 * 60)), None);
+}
+
+#[test]
+fn a_revert_that_took_removes_its_status_and_one_that_failed_keeps_one_line_until_the_build_moves() {
+    let (_home, support) = kept("b2", "b1");
+    revert_begun(&support).unwrap();
+    let builds = support.join(BUILDS);
+    let took = Reverted {
+        from: kept_at(&builds, CURRENT).unwrap(),
+        to: kept_at(&builds, PREVIOUS).unwrap(),
+        bridge_reopened: false,
+        store_copy: None,
+    };
+
+    revert_ended(&support, &Ok(took));
+    assert!(!support.join(STATUS).exists());
+
+    revert_ended(&support, &Err(String::from("launchd would not load\n/x/y.plist")));
+    assert_eq!(std::fs::read_to_string(support.join(STATUS)).unwrap(), "failed\nnew\nlaunchd would not load /x/y.plist\n");
+    assert_eq!(
+        revert_status_in(&support, SystemTime::now()),
+        Some(RevertStatus::Failed(String::from("launchd would not load /x/y.plist")))
+    );
+
+    // A restart onto another build since makes the failure history.
+    std::fs::remove_file(builds.join(CURRENT)).unwrap();
+    std::os::unix::fs::symlink("old", builds.join(CURRENT)).unwrap();
+    assert_eq!(revert_status_in(&support, SystemTime::now()), None);
 }

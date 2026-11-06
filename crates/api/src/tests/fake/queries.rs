@@ -88,6 +88,7 @@ impl Queries for FakeDaemon {
             .map(|asked| asked.build);
         // A restart under way has reached some stage; the fake says the first build one.
         report.stage = report.restarting.map(|_| ipc::BuildStage::BuildingFleet);
+        report.reverting = *self.reverts.lock().expect("not poisoned") > 0;
         Ok(report)
     }
 

@@ -73,6 +73,19 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         stage: None,
         failed: None,
         left_out: Vec::new(),
+        running: Some(ipc::KeptBuildRunning {
+            built_at: ipc::Instant::carried("2026-11-05T17:05:00Z"),
+            commit: String::from("0123456789abcdef0123456789abcdef01234567"),
+        }),
+        previous: Some(ipc::KeptBuildPrevious {
+            built_at: ipc::Instant::carried("2026-11-05T16:20:00Z"),
+            commit: String::from("89abcdef0123456789abcdef0123456789abcdef"),
+            bridge_reopens: true,
+            takes_out: vec![String::from("Fleet core and mods")],
+            brings_back: Vec::new(),
+        }),
+        carried: vec![String::from("Kept builds")],
+        reverting: false,
     }
 }
 

@@ -307,6 +307,7 @@ export const openLink = (address: string) => window.armada.openLink(address);
 export const restartFleet = () => window.armada.restartFleet();
 export const changeFleetBuild = (build: BuildSource, adopt: boolean) =>
   window.armada.changeFleetBuild(build, adopt);
+export const revertFleetBuild = () => window.armada.revertFleetBuild();
 
 // The capture window on a server Run — #1294. One entry, and everything the
 // window then does is its own bar's.
