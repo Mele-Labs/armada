@@ -1,5 +1,5 @@
-# Throwaway: what each way of cutting fleet would save, on the runner the Rust
-# shards use. Lives only on armada/spike-fleet-split and is never merged.
+# Throwaway: main against the trait-object Fleet prototype, on the runner the
+# Rust shards use. Lives only on armada/spike-fleet-split and is never merged.
 name: spike-fleet-split
 on:
   push:
@@ -8,27 +8,38 @@ env:
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: "0"
 jobs:
-  lines:
+  proto:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { variant: main, sha: aaacebe710, testfile: crates/fleet/src/tests/backlog.rs }
+          - { variant: dyn, sha: 3f8737581e, testfile: crates/fleet/src/tests/backlog.rs }
+          - { variant: dyn_out, sha: cbe9730709c34b1110ec6d1d4915164dad208443, testfile: crates/fleet/tests/suite/backlog.rs }
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 170
     env:
       RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - run: git checkout -q ${{ matrix.sha }} && git log -1 --oneline
       - uses: ./.github/actions/rust-setup
         with:
           key: test
           shared: test-test
+          nextest: "true"
       - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
         with:
           tool: cargo-llvm-lines
       - name: Warm
         run: |
-          cargo test -p fleet --lib --no-run 2>&1 | tail -1
+          cargo nextest run --workspace --exclude acceptance --no-run 2>&1 | tail -2
           cargo build -p armada 2>&1 | tail -1
-      - name: Where the generated code comes from
+      - name: Clean compiles, the shards' settings
         run: |
           set +e
           out="$RUNNER_TEMP/out"; mkdir -p "$out"
@@ -38,27 +49,65 @@ jobs:
             "$@" > "$out/$label.log" 2>&1
             code=$?
             end=$(date +%s.%N)
-            printf '%s\t%.1f\texit %s\n' "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/times.tsv"
+            printf '%s\t%s\t%.1f\texit %s\n' "${{ matrix.variant }}" "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/times.tsv"
           }
-          # armada is where Fleet meets its real types: its own compile, fleet's lib cached.
-          touch crates/armada/src/lib.rs crates/armada/src/main.rs
-          t armada_build cargo build -p armada
-          cargo build -p armada --timings > /dev/null 2>&1; cp target/cargo-timings/cargo-timing.html "$out/armada-timing.html"
-          t lines_fleet_test sh -c 'cargo llvm-lines -p fleet --lib --profile test > "$0"' "$out/llvm-fleet-test.txt"
-          t lines_fleet_test_files sh -c 'cargo llvm-lines -p fleet --lib --profile test --files > "$0"' "$out/llvm-fleet-test-files.txt"
-          t lines_fleet_lib sh -c 'cargo llvm-lines -p fleet --lib > "$0"' "$out/llvm-fleet-lib.txt"
-          t lines_armada sh -c 'cargo llvm-lines -p armada --lib > "$0"' "$out/llvm-armada.txt"
-          t lines_armada_bin sh -c 'cargo llvm-lines -p armada --bin armada > "$0"' "$out/llvm-armada-bin.txt"
-          for f in "$out"/llvm-*.txt; do echo "== $f"; head -45 "$f"; done
+          for rep in 1 2; do
+            touch crates/fleet/src/lib.rs; t "fleet_lib_$rep" cargo rustc -p fleet --lib
+            touch crates/fleet/src/lib.rs; t "fleet_libtest_$rep" cargo rustc -p fleet --lib --profile test
+            if [ -d crates/fleet/tests/suite ]; then
+              touch crates/fleet/tests/suite/main.rs; t "fleet_suite_$rep" cargo rustc -p fleet --test suite --profile test
+            fi
+            touch crates/fleet/src/lib.rs; t "fleet_all_tests_$rep" cargo test -p fleet --no-run
+            touch crates/armada/src/lib.rs crates/armada/src/main.rs; t "armada_$rep" cargo build -p armada
+            # What a shard compiles, every workspace crate again, dependencies cached.
+            touch crates/core-model/src/lib.rs; t "shard_compile_$rep" cargo nextest run --workspace --exclude acceptance --no-run
+          done
+          t lines_libtest sh -c 'cargo llvm-lines -p fleet --lib --profile test | head -3 > "$0"' "$out/lines-libtest.txt"
+          [ -d crates/fleet/tests/suite ] && t lines_suite sh -c 'cargo llvm-lines -p fleet --test suite --profile test | head -3 > "$0"' "$out/lines-suite.txt"
+          t lines_armada sh -c 'cargo llvm-lines -p armada --lib | head -3 > "$0"' "$out/lines-armada.txt"
+          t lines_fleet_lib sh -c 'cargo llvm-lines -p fleet --lib | head -3 > "$0"' "$out/lines-fleet-lib.txt"
+      - name: Incremental edit loop, an agent's settings
+        env:
+          CARGO_INCREMENTAL: "1"
+          CARGO_PROFILE_DEV_DEBUG: line-tables-only
+          CARGO_PROFILE_TEST_DEBUG: line-tables-only
+          CARGO_TARGET_DIR: ${{ runner.temp }}/inc
+        run: |
+          set +e
+          unset RUSTC_WORKSPACE_WRAPPER
+          out="$RUNNER_TEMP/out"
+          t() {
+            label="$1"; shift
+            start=$(date +%s.%N)
+            "$@" > "$out/$label.log" 2>&1
+            code=$?
+            end=$(date +%s.%N)
+            printf '%s\t%s\t%.1f\texit %s\n' "${{ matrix.variant }}" "$label" "$(echo "$end - $start" | bc)" "$code" | tee -a "$out/times.tsv"
+          }
+          n=0
+          edit() { n=$((n+1)); printf '\n#[allow(dead_code)]\nfn spike_edit_%s() -> u32 { %s }\n' "$n" "$n" >> "$1"; }
+          t inc_first cargo nextest run --no-run
+          for f in crates/fleet/src/clock.rs crates/fleet/src/daemon.rs ${{ matrix.testfile }}; do
+            k=$(basename "$f" .rs)
+            edit "$f"; t "inc_fleet_after_$k" cargo test -p fleet --no-run
+            edit "$f"; t "inc_whole_after_$k" cargo nextest run --no-run
+          done
+          git checkout -- crates
+      - name: Run fleet's tests once
+        run: |
+          set +e
+          cargo nextest run -p fleet --no-fail-fast --test-threads 4 > "$RUNNER_TEMP/out/fleet-tests.log" 2>&1
+          grep -E '^\s*Summary' "$RUNNER_TEMP/out/fleet-tests.log" | tail -1 | tee "$RUNNER_TEMP/out/fleet-tests-summary.txt"
+          grep -E '^\s*FAIL ' "$RUNNER_TEMP/out/fleet-tests.log" | sort -u | head -40 >> "$RUNNER_TEMP/out/fleet-tests-summary.txt"
       - name: Summary
         if: always()
         run: |
           out="$RUNNER_TEMP/out"
-          { echo '## times'; echo '```'; cat "$out/times.tsv"; echo '```'
-            for f in "$out"/llvm-*.txt; do echo "## $(basename "$f")"; echo '```'; head -40 "$f"; echo '```'; done
-          } >> "$GITHUB_STEP_SUMMARY"
+          { echo "## ${{ matrix.variant }}"; echo '```'; cat "$out/times.tsv"; cat "$out"/lines-*.txt; cat "$out/fleet-tests-summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
-          name: spike-fleet-lines
-          path: ${{ runner.temp }}/out
+          name: proto-${{ matrix.variant }}
+          path: |
+            ${{ runner.temp }}/out/*.tsv
+            ${{ runner.temp }}/out/*.txt
