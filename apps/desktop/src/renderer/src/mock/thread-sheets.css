@@ -102,3 +102,45 @@
   font-size: var(--text-sm);
   color: var(--fg-muted);
 }
+
+/* The quick bar's icon pairs, side by side, each in a message box's top corner. */
+.thread-sheet__icons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+
+.thread-sheet__icon-take {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
+.thread-sheet__box {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  height: calc(var(--space-12) + var(--space-6));
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+}
+
+.thread-sheet__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control);
+  height: var(--h-control);
+  border-radius: var(--radius-md);
+  color: var(--fg-subtle);
+}
+
+.thread-sheet__glyph:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}

@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { EyeOff, ListPlus, MessageSquareOff, MessageSquarePlus, MessageSquareQuote, type LucideIcon } from "lucide-react";
 import { SpaciousTake } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -109,6 +110,36 @@ const NOT_SHOWN: readonly string[] = [
   "Widths other than half this page and 360",
 ];
 
+// The quick bar's Save and Hide, each pair as the message box would draw it, so the choice is made by looking.
+const QUICK_ICONS: readonly { name: string; save: LucideIcon; hide: LucideIcon }[] = [
+  { name: "Quote bubble and eye", save: MessageSquareQuote, hide: EyeOff },
+  { name: "Plus bubble and struck bubble", save: MessageSquarePlus, hide: MessageSquareOff },
+  { name: "Today's list and eye", save: ListPlus, hide: EyeOff },
+];
+
+function QuickIcons() {
+  return (
+    <section className="thread-sheet__row" aria-label="Quick bar icons">
+      <h2 className="thread-sheet__name">Quick bar icons</h2>
+      <div className="thread-sheet__icons">
+        {QUICK_ICONS.map(({ name, save: Save, hide: Hide }) => (
+          <figure key={name} className="thread-sheet__icon-take" data-take={name}>
+            <div className="thread-sheet__box">
+              <span className="thread-sheet__glyph" title="Save as quick reply">
+                <Save size={15} strokeWidth={2} aria-hidden />
+              </span>
+              <span className="thread-sheet__glyph" title="Hide quick replies">
+                <Hide size={15} strokeWidth={2} aria-hidden />
+              </span>
+            </div>
+            <figcaption>{name}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StateSheet() {
   const sessions = useSessions();
   const draft = useSessionsDraft();
@@ -125,6 +156,7 @@ function StateSheet() {
   if (draft === undefined) return null;
   return (
     <>
+      <QuickIcons />
       <div className="thread-sheet__heads" aria-hidden>
         <span>Today</span>
         <span>Spacious</span>
