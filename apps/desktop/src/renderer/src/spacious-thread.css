@@ -1208,6 +1208,16 @@
   margin-inline: calc(var(--spacious-bleed) * -1);
 }
 
+/* A table is as wide as its content elsewhere; here it fills the column as code does, or it reaches out on the left alone. */
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose
+  > .armada-prose__table {
+  width: calc(100% + var(--spacious-bleed) * 2);
+}
+
 :root[data-look]
   [data-thread-take="spacious"]
   .armada-session-frame
