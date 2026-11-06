@@ -200,12 +200,12 @@ Confirmed 15 Oct 2026: a Job holding a 31-hour-old branch in a second slot was t
 A file both edited in places that merge clean says nothing.
 Where git will not answer, the last reading stands.
 
-**What each side is told.** The files that conflict, who the other is, and how to reach it.
-A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*) and reaches the other with `SendMessage`.
-**A paused Job is not one to reach**, since a message waits for the person's Resume: the notice names its branch and says to resolve the conflict on merge.
-**Told once per file per peer**: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
+**What each side is told.** The fact git gave: the files whose lines both write, and the branch that holds the other's writes, the one checked out where it wrote.
+A Job hears it as a message from Fleet (`docs/concepts/session.md`, *What Fleet tells a Job*), with no instruction and no one blamed.
+Where the other Job is paused, the notice says so.
+**Told once per file per peer**, main a peer of its own: a file added to the overlap is told alone, a file already told is never said again, and a cleared one is never said.
 Fleet keeps no record that two Jobs agreed, so a settled file stays quiet because it was told, not because it was settled.
-Each file told is kept in the store (`clash_told_paths`), and a notice of main or of a paused peer by its words (`clash_told`), so a restart that refills the table repeats nothing.
+Each file told is kept in the store (`clash_told_paths`), and a notice by its words (`clash_told`), so a restart that refills the table repeats nothing.
 Confirmed 31 Oct 2026: three restarts told one Job the same clash with a paused Job three times, each time to message it.
 
 **Main moving.** Where Fleet reads the base's head and it has moved, every standing pair is asked again, since a holder may have merged main in or the other may have landed.

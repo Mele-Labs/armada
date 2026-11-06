@@ -197,10 +197,11 @@ async fn a_file_is_named_to_both_sides_once_and_a_later_file_is_named_alone() {
     let told_a = rig.the_mod_asks("sess-a").await;
     let told_b = rig.the_mod_asks("sess-b").await;
     let [said] = told_a.as_slice() else { panic!("one message: {told_a:?}") };
-    assert!(said.starts_with("Fleet: Your changes to `f.txt` conflict with Job s-sess-b"), "{said}");
-    assert!(said.contains("SendMessage to s-sess-b"), "how to reach it: {said}");
+    assert!(said.starts_with("Fleet: Git says your changes and "), "{said}");
+    assert!(said.contains("Job s-sess-b") && said.contains("write the same lines of `f.txt`"), "{said}");
+    assert!(!said.contains("SendMessage"), "no instruction: {said}");
     let [said] = told_b.as_slice() else { panic!("one message: {told_b:?}") };
-    assert!(said.contains("SendMessage to s-sess-a"), "{said}");
+    assert!(said.contains("Job s-sess-a") && !said.contains("SendMessage"), "{said}");
     let clashes = rig.clashes().await.clashes;
     let [clash] = clashes.as_slice() else { panic!("one clash: {clashes:?}") };
     assert_eq!(clash.paths, vec!["f.txt".to_string()]);
