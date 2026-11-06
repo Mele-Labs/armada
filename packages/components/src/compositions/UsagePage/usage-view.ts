@@ -375,33 +375,6 @@ const WORDS: Record<UsageRuleName, Words> = {
     tell: 'Context is {figure} tokens. To carry on in a new job, ask the owner with the options "Carry on in a new Job", "Stay here", "Stay, don\'t ask again this Job" and "Remind me at a higher limit", and write your brief (where the work is, what is open, what you hold) in the description of "Carry on in a new Job". Start nothing yourself.',
     tell_figure: "312k",
   },
-  subagents: {
-    name: "Subagents",
-    limit: (value) => `${value}% of the last hour`,
-    tip: (value) => `Over ${value}% of the last hour's burn in subagents`,
-    figure: (figure) => `${Math.round(figure)}%`,
-    figure_tip: "Share of the last hour's burn that ran in subagents",
-    tell: "Subagents burned {figure} of your last hour, on opus. Pass model sonnet on reading and searching agents.",
-    tell_figure: "71%",
-  },
-  cache_hit: {
-    name: "Cache",
-    limit: (value) => `under ${value}% over 10 turns`,
-    tip: (value) => `Cache hit rate under ${value}% over the last 10 turns`,
-    figure: (figure) => `${Math.round(figure)}%`,
-    figure_tip: "Cache hit rate over the last 10 turns",
-    tell: "Cache hit rate is {figure} over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers.",
-    tell_figure: "54%",
-  },
-  opus_reading: {
-    name: "Opus reading",
-    limit: (value) => `${value} turns only reading`,
-    tip: (value) => `The last ${value} turns on opus only read and searched`,
-    figure: (figure) => `${figure}`,
-    figure_tip: "Turns on opus in a row that only read and searched",
-    tell: "Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet.",
-    tell_figure: "",
-  },
 };
 
 /** The rules Fleet answered, in its order, each worded for the panel. A rule the page has no words for is left out. */

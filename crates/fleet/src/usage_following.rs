@@ -86,8 +86,7 @@ where
                 }
                 let kind = match trip.rule {
                     Rule::Context if !handing => Some(tell_refusal::CONTEXT),
-                    Rule::Subagents => Some(tell_refusal::SUBAGENTS),
-                    _ => None,
+                    Rule::Context => None,
                 };
                 if let Some(kind) = kind.filter(|_| sent) {
                     self.tell_kept(session, kind).await;

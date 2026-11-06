@@ -101,102 +101,6 @@ fn context_under_300k_is_not_told_however_busy_the_job_is() {
     assert!(trips(&busy).is_empty(), "25 turns in the last hour at 160k");
 }
 
-/// A subagent turn on `model`, burning `output` output tokens.
-fn subagent_on(minute: i64, output: u64, model: &str) -> KeptTurnUsage {
-    KeptTurnUsage { model: model.into(), ..burning(minute, output, true) }
-}
-
-#[test]
-fn opus_subagents_over_the_floor_and_the_share_are_told_the_model_part_only() {
-    // 2.9 units of output on a sonnet main thread, 8.7 weighed, and 7.1 in opus subagents, 35.5 weighed: over the
-    // 25-unit floor and 80% of 44.2.
-    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 116_000, false)).collect();
-    turns.extend((5..10).map(|minute| subagent_on(minute, 284_000, "model-opus-x")));
-    let found = only(&turns);
-    assert_eq!(found.rule, Rule::Subagents);
-    assert_eq!(
-        found.text,
-        "Subagents burned 35.5 units in your last hour, 80% of it, on opus. Pass model sonnet on reading and searching agents."
-    );
-}
-
-#[test]
-fn a_share_of_64_percent_on_a_small_burn_is_not_told() {
-    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 36_000, false)).collect();
-    turns.extend((5..10).map(|minute| subagent_on(minute, 64_000, "model-opus-x")));
-    assert!(trips(&turns).is_empty(), "1.6 units of 2.5 is under the floor");
-}
-
-#[test]
-fn subagents_over_the_floor_all_on_cheap_models_are_not_told() {
-    let mut turns: Vec<_> = (0..5).map(|minute| burning(minute, 116_000, false)).collect();
-    turns.extend((5..10).map(|minute| subagent_on(minute, 284_000, if minute % 2 == 0 { "model-sonnet-x" } else { "model-haiku-x" })));
-    assert!(trips(&turns).is_empty());
-}
-
-#[test]
-fn a_job_whose_only_subagent_ran_on_a_cheap_model_is_never_told_at_any_burn() {
-    for model in ["model-sonnet-x", "model-haiku-x"] {
-        for output in [60_000, 600_000, 6_000_000, 60_000_000] {
-            let turns = [burning(0, 10_000, false), subagent_on(1, output, model), burning(2, 10_000, false)];
-            assert!(trips(&turns).is_empty(), "{model} at {output}");
-        }
-    }
-}
-
-#[test]
-fn a_cache_hit_rate_under_70_percent_over_the_last_10_turns_is_told() {
-    let mut turns = quiet(4);
-    turns.extend((0..10).map(|minute| {
-        let mut one = turn(20 + minute);
-        one.cache_creation_tokens = 46_000;
-        one.cache_read_tokens = 54_000;
-        one.input_tokens = 0;
-        one
-    }));
-    let found = only(&turns);
-    assert_eq!(found.rule, Rule::CacheHit);
-    assert_eq!(
-        found.text,
-        "Cache hit rate is 54% over your last 10 turns. Something in the prompt or tools changed each turn; check hooks and MCP servers."
-    );
-}
-
-fn reading(minute: i64, opus: bool) -> KeptTurnUsage {
-    let mut one = turn(minute);
-    one.model = if opus { "model-opus-x".into() } else { "model-sonnet-x".into() };
-    one.tools = vec!["Bash".into()];
-    one.bash_use = Some("read_search".into());
-    if minute % 2 == 1 {
-        one.tools = vec!["Read".into()];
-        one.bash_use = None;
-    }
-    one
-}
-
-#[test]
-fn twenty_turns_of_reading_on_opus_are_told_and_an_edit_or_another_model_is_not() {
-    let turns: Vec<_> = (0..20).map(|minute| reading(minute, true)).collect();
-    let found = only(&turns);
-    assert_eq!(found.rule, Rule::OpusReading);
-    assert_eq!(
-        found.text,
-        "Your last 20 turns on opus only read and searched. Subagents for reading can run on sonnet."
-    );
-
-    let mut edited = turns.clone();
-    edited[7].tools = vec!["Bash".into(), "Edit".into()];
-    assert!(trips(&edited).is_empty(), "a turn that edited");
-    let mut other = turns.clone();
-    other[19].model = "model-sonnet-x".into();
-    assert!(trips(&other).is_empty(), "a turn on another model");
-    assert!(trips(&turns[1..]).is_empty(), "19 turns are not 20");
-    let mut by_script = turns;
-    by_script[3].tools = vec!["Bash".into()];
-    by_script[3].bash_use = Some("scripts".into());
-    assert!(trips(&by_script).is_empty(), "a shell command that was not reading");
-}
-
 #[test]
 fn a_rule_switched_off_trips_nothing() {
     let turns = vec![with_context(turn(0), 900_000)];
@@ -295,28 +199,20 @@ fn kept(session: &str, rule: &str, minute: i64, after: Option<f64>) -> KeptTrip 
 fn the_rules_report_names_each_rule_with_its_limit_and_its_trips_newest_first() {
     let dials = [
         RuleDial { on: true, limit: 300 },
-        RuleDial { on: true, limit: 50 },
-        RuleDial { on: false, limit: 70 },
-        RuleDial { on: true, limit: 20 },
     ];
     let trips = [
         kept("s1", "context", 5, Some(2.5)),
         kept("s2", "context", 30, None),
-        kept("s1", "subagents", 20, Some(1.0)),
     ];
     let asked = report("2026-10-11T00:00:00.000Z", "2026-10-18T12:00:00.000Z", &dials, &trips);
     let names: Vec<&str> = asked.rules.iter().map(|one| one.rule.as_str()).collect();
-    assert_eq!(names, ["context", "subagents", "cache_hit", "opus_reading"]);
+    assert_eq!(names, ["context"]);
     let context = &asked.rules[0];
     assert_eq!((context.on, context.limit.value, context.limit.unit.as_str()), (true, 300, "thousand tokens"));
     let seen: Vec<(&str, &str, Option<f64>)> =
         context.trips.iter().map(|one| (one.session_id.as_str(), one.at.as_str(), one.burn_per_hour_after)).collect();
     assert_eq!(seen, [("s2", "2026-10-18T08:30:00.000Z", None), ("s1", "2026-10-18T08:05:00.000Z", Some(2.5))]);
     assert_eq!(context.trips[0].burn_per_hour_before, 4.0);
-    assert_eq!(asked.rules[1].trips.len(), 1);
-    assert_eq!((asked.rules[2].on, asked.rules[2].limit.value, asked.rules[2].limit.unit.as_str()), (false, 70, "percent"));
-    assert!(asked.rules[2].trips.is_empty() && asked.rules[3].trips.is_empty());
-    assert_eq!(asked.rules[3].limit.unit, "turns");
 
     // A reading that was not made is left out of the wire, not sent as null.
     let wire = ipc::encode(&context.trips[0]).expect("encodes");

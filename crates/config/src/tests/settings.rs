@@ -142,9 +142,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::RUN_LOG_DAYS,
         s::PLAN_DOWNSHIFT_AT,
         s::CONTEXT_WATCH_KTOKENS,
-        s::SUBAGENT_WATCH_PERCENT,
-        s::CACHE_WATCH_PERCENT,
-        s::OPUS_READING_WATCH_TURNS,
         s::DISPUTE_READ_MINUTES,
         s::WATCHES_AT_ONCE,
         s::WATCHES_PER_JOB,
@@ -192,9 +189,6 @@ fn every_handle_names_an_entry_of_its_kind() {
         s::WHERE_THINGS_ARE_OPEN,
         s::OPEN_GROUP,
         s::CONTEXT_WATCH,
-        s::SUBAGENT_WATCH,
-        s::CACHE_WATCH,
-        s::OPUS_READING_WATCH,
         s::SUMMARY_SHORT_CACHE,
         s::SUMMARY_THINKING,
         s::COMPACT_WHILE_WAITING,
@@ -263,7 +257,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 20 + 12 + 22 + 27 + 4 + 2 + 10 + s::prompt_keys().count();
+    let handles = 20 + 12 + 16 + 27 + 4 + 2 + 10 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

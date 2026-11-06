@@ -2,8 +2,8 @@
 // `crates/ipc/src/usage_rules.rs`. Names and counts only: a trip names its Job by id and a client
 // joins the title it holds. `GET /usage/rules?since=&until=`.
 
-/** `context`, `subagents`, `cache_hit` or `opus_reading`. */
-export type UsageRuleName = "context" | "subagents" | "cache_hit" | "opus_reading";
+/** `context`. */
+export type UsageRuleName = "context";
 
 /** A rule's limit as settings.json holds it. */
 export type UsageRuleLimit = {
@@ -17,7 +17,7 @@ export type UsageRuleTrip = {
   session_id: string;
   /** RFC3339: the newest turn when the Job was told. */
   at: string;
-  /** What crossed: tokens for `context`, a percent for `subagents` and `cache_hit`, turns for `opus_reading`. */
+  /** What crossed: tokens for `context`. */
   figure: number;
   /** Cost units per hour of the Job's active time over the 60 minutes up to `at`, counted as `burn_per_hour_after` is. */
   burn_per_hour_before: number;
@@ -36,7 +36,7 @@ export type UsageRule = {
   trips: UsageRuleTrip[];
 };
 
-/** The four rules, in the order `context`, `subagents`, `cache_hit`, `opus_reading`, over `[since, until)`. */
+/** The rules, `context`, over `[since, until)`. */
 export type UsageRules = {
   since: string;
   until: string;
