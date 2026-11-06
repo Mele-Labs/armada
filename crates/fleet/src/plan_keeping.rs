@@ -6,7 +6,7 @@ use ipc::{FileTouch, Instant, PlanLandsInState, ReportedTask, TouchAct, TouchBy}
 use store::{AttachmentState, Holder, KeptAttachment, KeptTouch, Store, WriteError};
 
 use crate::file_touching::WINDOW;
-use crate::plan_record::{commit_named, edit_seen, listed, untold, PlanPull};
+use crate::plan_record::{commit_named, edit_seen, listed, PlanPull};
 use crate::session_host::linking::GROUP;
 
 /// The agent's task list, heard. Whether a task of the plan moved, so the row is worth publishing.
@@ -106,23 +106,6 @@ fn pull_of(row: &KeptAttachment, from_task: Option<String>, handed: Option<Strin
         from_task,
         handed,
     })
-}
-
-/// `calls` more of the agent's own tool calls. Whether the Session has a plan, which is all that counts them.
-pub(crate) fn calls_counted(store: &mut Store, id: &str, calls: u32) -> Result<bool, WriteError> {
-    Ok(store.count_session_calls(id, calls)?.is_some())
-}
-
-/// What the agent is told of the tasks Fleet marked or saw go stale since it was last told, kept as told.
-/// Absent where there is none.
-pub(crate) fn marks_untold(store: &mut Store, id: &str) -> Result<Option<String>, WriteError> {
-    let Some(mut plan) = store.session_plan(id)? else { return Ok(None) };
-    let touches = store.session_touches(id)?;
-    let said = untold(&mut plan, &touches);
-    if said.is_some() {
-        store.keep_session_plan_progress(id, &plan)?;
-    }
-    Ok(said)
 }
 
 /// The touches as the record carries them, oldest first.

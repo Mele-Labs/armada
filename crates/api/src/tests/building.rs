@@ -1,4 +1,4 @@
-//! `get_fleet_build` and `change_fleet_build` over the router: the read is the
+//! `get_fleet_build`, `change_fleet_build` and `revert_fleet_build` over the router: the read is the
 //! report as the daemon gave it, a change is a 202 that names the build it moves
 //! onto, `adopt` arrives as sent and defaults to no, and a build outside the two
 //! is a 400 that starts nothing.
@@ -7,7 +7,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use http_body_util::BodyExt;
-use ipc::{BuildSource, BuildStage, FleetBuildChanging, FleetBuildReport};
+use ipc::{BuildSource, BuildStage, FleetBuildChanging, FleetBuildReport, FleetBuildReverting};
 use tower::ServiceExt;
 
 use crate::tests::fake::FakeDaemon;
@@ -86,4 +86,26 @@ async fn a_build_that_is_neither_main_nor_the_preview_is_a_400_and_starts_nothin
     let (status, _) = call(&app, "POST", "/fleet/build/change", r#"{"build":"feature"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(read(&app).await.restarting, None);
+}
+
+#[tokio::test]
+async fn the_read_carries_the_kept_builds_as_the_daemon_gave_them() {
+    let app = wired();
+    let (_, body) = call(&app, "GET", "/fleet/build", "").await;
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains(r#""running":{"built_at":"2026-11-05T17:05:00Z""#), "{text}");
+    assert!(text.contains(r#""takes_out":["Fleet core and mods"]"#), "{text}");
+    assert!(!text.contains("brings_back"), "an empty list leaves no key: {text}");
+    assert!(!text.contains("reverting"), "{text}");
+    assert!(text.contains(r#""carried":["Kept builds"]"#), "{text}");
+}
+
+#[tokio::test]
+async fn a_revert_is_accepted_with_no_body_and_the_next_read_says_reverting() {
+    let app = wired();
+    let (status, body) = call(&app, "POST", "/fleet/build/revert", "").await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    let reverting: FleetBuildReverting = ipc::decode("answer", &body).expect("decodes");
+    assert_eq!(Some(reverting.commit), shapes::fleet_build().previous.map(|previous| previous.commit));
+    assert!(read(&app).await.reverting);
 }

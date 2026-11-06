@@ -54,7 +54,6 @@ pub(crate) fn wanted() -> bool {
         crate::operator::shortlist::matching::IN_FORCE,
         crate::session_host::tell_refusal::IN_FORCE,
         crate::session_host::extracting::IN_FORCE,
-        crate::session_host::plan_asks::IN_FORCE,
         crate::session_host::workflow_pick::IN_FORCE,
     ])
 }

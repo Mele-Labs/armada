@@ -61,6 +61,11 @@ fn the_list_has_unique_names_and_the_numbered_list_for_a_prefix() {
 /// A file written by the numbered list at every count it ever had opens, takes
 /// every later name, and does not re-run the earlier ones: `CREATE TABLE` with
 /// no `IF NOT EXISTS`, which most of them are, would fail if it did.
+///
+/// Every count converts against the numbered list, and the first, middle and
+/// last also take the named list after it. Those names apply the same way
+/// whatever the count, and taking them at all 114 made this the last test of
+/// its CI shard by a minute (55 to 101 s, 5 Nov 2026).
 #[test]
 fn a_numbered_file_converts_at_every_count_the_old_list_had() {
     let origin = TempDir::new();
@@ -68,6 +73,7 @@ fn a_numbered_file_converts_at_every_count_the_old_list_had() {
     conn.pragma_update(None, "journal_mode", "WAL")
         .expect("wal");
     let want: Vec<&str> = MIGRATIONS.iter().map(|m| m.name).collect();
+    let whole = [1, LEGACY_COUNT / 2, LEGACY_COUNT];
 
     for count in 1..=LEGACY_COUNT {
         conn.execute_batch(MIGRATIONS[count - 1].sql)
@@ -83,12 +89,17 @@ fn a_numbered_file_converts_at_every_count_the_old_list_had() {
 
         let copy = TempDir::new();
         fs::copy(origin.db(), copy.db()).expect("a copy of the file at this count");
-        let store = Store::open(&copy.db())
+        let list = if whole.contains(&count) {
+            MIGRATIONS
+        } else {
+            &MIGRATIONS[..LEGACY_COUNT]
+        };
+        let store = Store::open_with(&copy.db(), list)
             .unwrap_or_else(|e| panic!("a file at {count} converts and opens: {e}"));
         let names: Vec<String> = applied(&store).into_iter().map(|(n, _)| n).collect();
         let mut sorted = names.clone();
         sorted.sort();
-        let mut expected: Vec<String> = want.iter().map(|n| n.to_string()).collect();
+        let mut expected: Vec<String> = want[..list.len()].iter().map(|n| n.to_string()).collect();
         expected.sort();
         assert_eq!(sorted, expected, "at {count}");
         assert_eq!(

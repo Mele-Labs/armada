@@ -414,6 +414,7 @@ type OldBridgeApi = {
   openLink: (address: string) => Promise<Followed>;
   restartFleet: () => Promise<FleetRestart>;
   changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
+  revertFleetBuild: () => Promise<Outcome>;
   readSessionCheckOutput: (run: number) => Promise<CheckOutputRead>;
   stopSessionCheck: (run: number, force: boolean) => Promise<Outcome>;
   readRetro: (subject: RetroSubject) => Promise<RetroRead>;
@@ -901,6 +902,7 @@ const OLD_CHANNELS = {
   openLink: "bridge:open-link",
   restartFleet: "bridge:restart-fleet",
   changeFleetBuild: "bridge:change-fleet-build",
+  revertFleetBuild: "bridge:revert-fleet-build",
   readSessionCheckOutput: "bridge:read-session-check-output",
   stopSessionCheck: "bridge:stop-session-check",
   readRetro: "bridge:read-retro",

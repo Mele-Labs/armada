@@ -83,6 +83,12 @@ impl Commands for FakeDaemon {
         Ok(ipc::FleetBuildChanging { build })
     }
 
+    /// Counted and answered; nothing reverts.
+    async fn revert_fleet_build(&self) -> Result<ipc::FleetBuildReverting, Refusal> {
+        *self.reverts.lock().expect("not poisoned") += 1;
+        Ok(ipc::FleetBuildReverting { commit: crate::tests::shapes::fleet_build().previous.expect("a previous build").commit })
+    }
+
     /// The named row goes, by its exact text; one absent is the 409 every
     /// fake give a name that names nothing.
     async fn add_repository(

@@ -96,6 +96,7 @@ import {
   openLink,
   restartFleet,
   changeFleetBuild,
+  revertFleetBuild,
   observeCheckoutRun,
   pickRepository,
   chooseFolder,
@@ -310,7 +311,11 @@ export function App() {
   // The mock provides a fixture; a real window builds it from what Fleet reported.
   const fleetBuild =
     useFleetBuild() ??
-    fleetBuildOf(state.fleetBuild, (build, adopt) => void changeFleetBuild(build, adopt));
+    fleetBuildOf(
+      state.fleetBuild,
+      (build, adopt) => void changeFleetBuild(build, adopt),
+      () => void revertFleetBuild(),
+    );
   // The catalogue list's width, remembered the same way the shell's column is.
   const [guideList, resizeGuideList] = useGuideListWidth();
 

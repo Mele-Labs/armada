@@ -1,17 +1,16 @@
-//! Every ask of a reply's close, one item each with the act its words name, and the follow-ups the
-//! agent keeps for itself. `docs/spikes/reply-sentence-readers.md` has the two heads measured.
+//! Every ask of a reply's close, one item each with the act its words name.
+//! `docs/spikes/reply-sentence-readers.md` has the head measured.
 //!
 //! **One sentence, one read.** The asks reader of [`super::asks_model`] reads the whole close for one
 //! sentence; a reply asks several things at once, so here each sentence of the close is read alone by
-//! two heads, and what it says is turned into an act by rules. Pure below [`read`]: the probabilities
+//! a head, and what it says is turned into an act by rules. Pure below [`read`]: the probabilities
 //! come in, so every rule is tested without a model.
 
 use adapter_traits::{NotEmbedded, TextModel, TextReading};
 
 use super::asks::{self, Closing};
-use super::clarity;
 
-/// Whether the sentence readers are in force. **They are**: both heads are measured and the owner
+/// Whether the sentence reader is in force. **It is**: the head is measured and the owner
 /// picked them on 22 Oct 2026. A reply raises each of its asks as an item, not one by the asks reader.
 pub(crate) const IN_FORCE: bool = true;
 
@@ -19,10 +18,6 @@ pub(crate) const IN_FORCE: bool = true;
 /// half's five folds by reply (1,564 sentences, 125 asks) kept precision at 0.90, for `sentence_asks`
 /// trained 8 epochs. Held out, it read 0.90 precision and 0.20 recall at this point, 21 Oct 2026.
 pub(crate) const ASKS_AT: f32 = 0.85;
-
-/// The probability at and above which a sentence is a follow-up the agent keeps: chosen the same way
-/// on the same folds (217 follow-ups), for `sentence_follows_up`. Held out, 0.86 precision and 0.53 recall.
-pub(crate) const FOLLOWS_UP_AT: f32 = 0.81;
 
 /// What pressing the item does, read from the sentence.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,8 +45,6 @@ pub(crate) struct Ask {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Extracted {
     pub asks: Vec<Ask>,
-    /// The follow-ups the agent puts past this Job, as said.
-    pub later: Vec<String>,
 }
 
 impl Extracted {
@@ -63,30 +56,22 @@ impl Extracted {
     }
 }
 
-/// The sentences the heads read: the close with its headings left out.
+/// The sentences the head reads: the close with its headings left out.
 pub(crate) fn candidates(reply: &str) -> Vec<Closing> {
     asks::closing(reply)
 }
 
-/// The reply read by both heads, a sentence at a time.
+/// The reply read by the head, a sentence at a time.
 pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<Extracted, NotEmbedded> {
     let close = candidates(reply);
     let texts: Vec<&str> = close.iter().map(|one| one.sentence.as_str()).collect();
     let asks = model.read(TextReading::SentenceAsks, &texts)?;
-    let later = model.read(TextReading::SentenceFollowsUp, &texts)?;
-    let clear = if clarity::IN_FORCE { Some(model.read(TextReading::ItemClear, &texts)?) } else { None };
-    Ok(extracted(reply, &close, &asks, &later, clear.as_deref()))
+    Ok(extracted(reply, &close, &asks))
 }
 
-/// From the close's sentences and each one's two probabilities. The rules' own sentence is the first
+/// From the close's sentences and each one's probability. The rules' own sentence is the first
 /// ask where the rules call it, so nothing the asks reader catches today is lost.
-///
-/// `clear` is each sentence's probability of being clear to him, from the `item_clear` head, and is
-/// `Some` only where [`clarity::IN_FORCE`]. Then an ask that does not read as clear, by the rules and
-/// by the head, is worded as the clearest of its candidate sentences ([`clearest`]), and left out where
-/// none is clear: a reply whose asks are all unclear raises no item. The asks are numbered among
-/// themselves, so an id does not depend on how many unclear ones came before it.
-pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f32], clear: Option<&[f32]>) -> Extracted {
+pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32]) -> Extracted {
     let rules = asks::asking_line(reply);
     let mut found: Vec<String> = Vec::new();
     if let Some(line) = rules {
@@ -96,16 +81,6 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f
         if *score >= ASKS_AT && !found.contains(&one.sentence) {
             found.push(one.sentence.clone());
         }
-    }
-    let raised = found.clone();
-    if let Some(clear) = clear {
-        let mut worded: Vec<String> = Vec::new();
-        for sentence in found.iter().filter_map(|sentence| clearest(reply, close, clear, sentence)) {
-            if !worded.contains(&sentence) {
-                worded.push(sentence);
-            }
-        }
-        found = worded;
     }
     let asked: Vec<Ask> = found
         .iter()
@@ -117,73 +92,7 @@ pub(crate) fn extracted(reply: &str, close: &[Closing], asks: &[f32], later: &[f
             Ask { sentence: sentence.to_string(), index, act, options }
         })
         .collect();
-    let later = close
-        .iter()
-        .zip(asks)
-        .zip(later)
-        .filter(|((one, asks), later)| **later >= FOLLOWS_UP_AT && **asks < ASKS_AT && !raised.contains(&one.sentence) && !found.contains(&one.sentence) && past_this_job(&one.sentence))
-        .map(|((one, _), _)| one.sentence.clone())
-        .collect();
-    Extracted { asks: asked, later }
-}
-
-/// Words that put work past this Job: to an issue, another Job or a separate pull request. The head
-/// reads any next step as a follow-up, and "when it reports back, I'll play the walks" is one the agent
-/// takes itself in this Job, so it is not deferred.
-const PAST_THIS_JOB: &[&str] = &[
-    "another job",
-    "a new job",
-    "a later job",
-    "a separate job",
-    "follow-up job",
-    "follow-up pull request",
-    "follow-up pr",
-    "a follow-up",
-    "another pull request",
-    "another pr",
-    "a separate pull request",
-    "a separate pr",
-    "its own pull request",
-    "its own pr",
-    "an issue",
-    "filing",
-    "filed",
-    "i'll file",
-    "i will file",
-    "out of scope",
-    "beyond this job",
-    "outside this job",
-];
-
-/// Whether a follow-up puts its work past this Job, by [`PAST_THIS_JOB`].
-fn past_this_job(sentence: &str) -> bool {
-    let said = sentence.to_lowercase();
-    PAST_THIS_JOB.iter().any(|words| said.contains(words))
-}
-
-/// The sentence an ask is worded as: its own where that reads as clear, else the clearest of the
-/// agent's other sentences in the paragraph or list item it sits in, or the paragraph it heads
-/// ([`asks::candidates_for`]), else none. A candidate is clear when the rules find nothing wrong with it
-/// and, where the head read it, the head does not call it unclear; the rules decide first and the head's
-/// probability breaks a tie. A sentence of the agent's is never changed, only chosen.
-fn clearest(reply: &str, close: &[Closing], clear: &[f32], sentence: &str) -> Option<String> {
-    let at = |said: &str| close.iter().position(|one| one.sentence == said);
-    let head = |said: &str| at(said).and_then(|at| clear.get(at)).copied();
-    let is_clear = |said: &str| {
-        let runs = at(said).is_some_and(|at| close[at].command.is_some());
-        clarity::unclear(said, runs).is_none() && head(said).is_none_or(|clear| 1.0 - clear < clarity::UNCLEAR_AT)
-    };
-    if is_clear(sentence) {
-        return Some(sentence.to_string());
-    }
-    let mut best: Option<(String, f32)> = None;
-    for said in asks::candidates_for(reply, sentence).into_iter().skip(1).filter(|said| is_clear(said)) {
-        let score = head(&said).unwrap_or(0.5);
-        if best.as_ref().is_none_or(|(_, top)| score > *top) {
-            best = Some((said, score));
-        }
-    }
-    best.map(|(said, _)| said)
+    Extracted { asks: asked }
 }
 
 /// A pull request to approve where the sentence names one with approve, merge or land; else an answer.

@@ -32,7 +32,7 @@ use crate::conversing::{ask_the_person, read_thought, tell_session};
 use crate::daemon::Daemon;
 use crate::editing::{get_manifest_file, save_manifest_file};
 use crate::fleetwide::{get_events_since, get_health, get_manifest};
-use crate::building::{change_fleet_build, get_fleet_build};
+use crate::building::{change_fleet_build, get_fleet_build, revert_fleet_build};
 use crate::limiting::{get_limits, save_limits};
 use crate::preferring::{get_preferences, save_preferences};
 use crate::queries::{
@@ -681,6 +681,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/models", get(list_models::<D>))
         .route("/fleet/build", get(get_fleet_build::<D>))
         .route("/fleet/build/change", post(change_fleet_build::<D>))
+        .route("/fleet/build/revert", post(revert_fleet_build::<D>))
         .route("/limits", get(get_limits::<D>))
         .route("/limits/save", post(save_limits::<D>))
         .route("/preferences", get(get_preferences::<D>))

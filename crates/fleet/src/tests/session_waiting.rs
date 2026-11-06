@@ -342,11 +342,12 @@ async fn a_pick_with_words_tells_the_agent_both() {
     assert_eq!(last, "Re: Run the tests\nYes\nbut only the store ones\nThis settles the item, so Fleet took it off your waiting list. Do not add it back.");
 }
 
-/// One item as an agent words it, with no act: how the walks the owner saw on 19 Oct were sent.
+/// One item as an agent sends it for a walk: a `walk` act, the only thing Fleet reads as one.
 fn said(id: &ipc::SessionId, item: &str, text: &str) -> SetWaitingFor {
+    let act = WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5187/?walk=filesAsATree".into() };
     SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { id: item.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { id: item.into(), text: text.into(), act: Some(act), options: Vec::new(), steps: Vec::new() }],
     }
 }
 
@@ -393,7 +394,7 @@ async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clea
         item_id: "walk-delivery-question".into(),
         text: "Walk the delivery question (window open, 4 steps), then say land it or what to change.".into(),
         since: "2026-10-19T17:59:35Z".into(),
-        act: None,
+        act: Some(("walk".into(), url.into())),
         options: Vec::new(),
         steps: Vec::new(),
     };

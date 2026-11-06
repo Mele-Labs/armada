@@ -31,7 +31,6 @@ const SENTENCES: usize = 6;
 /// The tells that are read, as `store::KeptTell::kind` spells them.
 pub(crate) const STRANDED_SLOT: &str = "stranded_slot";
 pub(crate) const CONTEXT: &str = "context";
-pub(crate) const SUBAGENTS: &str = "subagents";
 
 /// What the model made of one reply: how likely it refuses, and its closing sentence most like a refusal.
 pub(crate) fn read(model: &dyn TextModel, reply: &str) -> Result<ModelRead, NotEmbedded> {

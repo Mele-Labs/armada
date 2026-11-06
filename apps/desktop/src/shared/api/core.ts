@@ -64,6 +64,12 @@ export type CoreApi<S = CoreState> = {
    */
   changeFleetBuild: (build: BuildSource, adopt: boolean) => Promise<Outcome>;
   /**
+   * Swap Fleet and Bridge back onto the build kept before the running one. **Fleet starts the
+   * undo detached and answers at once**: what it came to arrives as `fleetBuild`, `reverting`
+   * while it works and `failed` with one line if it did not take.
+   */
+  revertFleetBuild: () => Promise<Outcome>;
+  /**
    * Where a pressed notification says to go.
    *
    * **The one entry here the renderer cannot initiate.** Every other capability
@@ -183,6 +189,7 @@ export const CORE_CHANNELS = {
   openLink: "bridge:open-link",
   restartFleet: "bridge:restart-fleet",
   changeFleetBuild: "bridge:change-fleet-build",
+  revertFleetBuild: "bridge:revert-fleet-build",
   summoned: "bridge:summoned",
   // A pull request's link opened from outside, main to the window. Sent by main, never invoked.
   pullLinked: "bridge:pull-linked",

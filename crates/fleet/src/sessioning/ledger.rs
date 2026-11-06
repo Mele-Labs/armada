@@ -319,7 +319,7 @@ where
         record.plan = reads
             .plan
             .as_ref()
-            .map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire_read(kept, &reads.touches, &reads.pulls) });
+            .map(|kept| ipc::SessionPlan { held_by: plan_held, ..crate::plan_record::wire_read(kept, &reads.pulls) });
         if let (Some(kept), Some(activity)) = (&reads.plan, &mut record.activity) {
             crate::plan_record::mark_listed(kept, &mut activity.todos);
         }

@@ -980,6 +980,8 @@ void app.whenReady().then(() => {
   ipcMain.handle(CHANNELS.changeFleetBuild, (_event, build: BuildSource, adopt: boolean) =>
     connection?.fleetBuild.change(build, adopt),
   );
+  // Asks Fleet, which starts `builds/previous/armada build revert` detached: `fleet-build.ts`.
+  ipcMain.handle(CHANNELS.revertFleetBuild, () => connection?.fleetBuild.revert());
   ipcMain.handle(CHANNELS.readSessionCheckOutput, (_event, run: number) =>
     connection?.readSessionCheckOutput(run),
   );

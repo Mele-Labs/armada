@@ -1,4 +1,4 @@
-// The Usage page's rules panel over Fleet's answer: how a rule reads, the slots left empty, what 1 to 4 and Esc do, and
+// The Usage page's rules panel over Fleet's answer: how a rule reads, the slots left empty, what 1 and Esc do, and
 // the line a picked rule shows. It draws what it is handed, so the page is mounted bare, with the mock's answer.
 
 import { UsagePage } from "@armada/components";
@@ -63,14 +63,8 @@ test("each rule reads with its limit from the answer, and an off rule is marked 
   const host = mount(usageRulesNow());
   expect(rules(host).map((one) => one.querySelector(".armada-usage__limit")?.textContent)).toEqual([
     "300k",
-    "50% of the last hour",
-    "under 70% over 10 turns",
-    "20 turns only reading",
   ]);
   expect(rules(host).map((one) => one.getAttribute("aria-label")?.split(", ")[1])).toEqual([
-    "on",
-    "on",
-    "off",
     "on",
   ]);
   expect(trips(host)).toHaveLength(0);
@@ -85,30 +79,27 @@ test("a limit that moved is the one drawn", () => {
   expect(rules(mount(moved))[0]!.querySelector(".armada-usage__limit")?.textContent).toBe("200k");
 });
 
-test("1 to 4 pick a rule and list its trips, newest first, and Esc clears the pick", async () => {
+test("1 picks the rule and lists its trips, newest first, and Esc clears the pick", async () => {
   const host = mount(usageRulesNow());
-  await press("4");
-  expect(rules(host)[3]!.getAttribute("aria-selected")).toBe("true");
-  expect(trips(host).map((one) => one.querySelector(".armada-usage__title")?.textContent)).toEqual([
-    "Debug Job 14",
-    "Cockpit Updates",
-    "Jobs -> Session Merger",
-  ]);
   await press("1");
+  expect(rules(host)[0]!.getAttribute("aria-selected")).toBe("true");
   expect(trips(host)).toHaveLength(5);
+  expect(trips(host)[1]!.querySelector(".armada-usage__title")?.textContent).toBe("Debug Job 14");
   await press("Escape");
   expect(rules(host).every((one) => one.getAttribute("aria-selected") === "false")).toBe(true);
   expect(trips(host)).toHaveLength(0);
 });
 
 test("a rule with no trips lists nothing when picked, and a key past the last rule does nothing", async () => {
-  const host = mount(usageRulesNow());
-  await press("3");
-  expect(rules(host)[2]!.getAttribute("aria-selected")).toBe("true");
+  const none = usageRulesNow();
+  none.rules[0]!.trips = [];
+  const host = mount(none);
+  await press("1");
+  expect(rules(host)[0]!.getAttribute("aria-selected")).toBe("true");
   expect(panel(host)!.querySelector(".armada-usage__trips")).toBeNull();
   expect(panel(host)!.querySelector(".armada-usage__tripheads")).toBeNull();
-  await press("5");
-  expect(rules(host)[2]!.getAttribute("aria-selected")).toBe("true");
+  await press("2");
+  expect(rules(host)[0]!.getAttribute("aria-selected")).toBe("true");
 });
 
 test("a trip not yet measured leaves its after and its change empty", async () => {
@@ -130,34 +121,32 @@ test("a trip not yet measured leaves its after and its change empty", async () =
 
 test("a measured trip draws its change with a name, and a small move reads as none", async () => {
   const host = mount(usageRulesNow());
-  await press("4");
+  await press("1");
   const labels = trips(host).map((one) =>
     one.querySelector(".armada-usage__delta")?.getAttribute("aria-label"),
   );
   expect(labels).toEqual([
-    "Down 60% in the burn per hour",
+    null,
     "No change in the burn per hour",
-    "Down 59% in the burn per hour",
+    "Down 36% in the burn per hour",
+    "Up 10% in the burn per hour",
+    "Down 37% in the burn per hour",
   ]);
 });
 
 test("a Job with no title shows its short id", async () => {
   const host = mount(usageRulesNow(), new Map());
-  await press("2");
+  await press("1");
   const title = trips(host)[0]!.querySelector(".armada-usage__title");
-  expect(title?.textContent).toBe(usageRulesNow().rules[1]!.trips[0]!.session_id.slice(-6));
+  expect(title?.textContent).toBe(usageRulesNow().rules[0]!.trips[0]!.session_id.slice(-6));
   expect(title?.hasAttribute("data-id")).toBe(true);
 });
 
 test("the picked rule shows what the Job is told, with the newest trip's figure", async () => {
   const host = mount(usageRulesNow());
   expect(host.querySelector(".armada-usage__tell")).toBeNull();
-  await press("2");
-  expect(host.querySelector(".armada-usage__tell")?.textContent).toBe(
-    "Subagents burned 87% of your last hour, on opus. Pass model sonnet on reading and searching agents.",
-  );
-  await press("3");
+  await press("1");
   expect(host.querySelector(".armada-usage__tell")?.textContent).toContain(
-    "Cache hit rate is 54% over your last 10 turns.",
+    "Context is 351k tokens.",
   );
 });

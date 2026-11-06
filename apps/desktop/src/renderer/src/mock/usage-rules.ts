@@ -48,42 +48,6 @@ export function usageRulesNow(now = Date.now()): UsageRules {
           trip(now, 140, MERGE_LINE, 305_000, 4.1, 2.6),
         ],
       },
-      {
-        rule: "subagents",
-        on: true,
-        limit: {
-          value: 50,
-          unit: "percent",
-        },
-        trips: [
-          trip(now, 9, MERGER, 87, 12.4, 5.2),
-          trip(now, 40, COCKPIT, 71, 8.1, 8.3),
-          trip(now, 77, MERGE_LINE, 64, 5.6, 3.0),
-          trip(now, 120, MERGER, 78, 10.2, 11.6),
-        ],
-      },
-      {
-        rule: "cache_hit",
-        on: false,
-        limit: {
-          value: 70,
-          unit: "percent",
-        },
-        trips: [],
-      },
-      {
-        rule: "opus_reading",
-        on: true,
-        limit: {
-          value: 20,
-          unit: "turns",
-        },
-        trips: [
-          trip(now, 21, DEBUG, 20, 15.6, 6.2),
-          trip(now, 66, COCKPIT, 20, 7.4, 7.5),
-          trip(now, 95, MERGER, 20, 9.9, 4.1),
-        ],
-      },
     ],
   };
 }

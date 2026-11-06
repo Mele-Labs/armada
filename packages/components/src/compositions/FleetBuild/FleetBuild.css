@@ -137,3 +137,39 @@
     animation: none;
   }
 }
+
+/* The Revert confirm: what each row is about on the left, the build or the Jobs on the right. */
+.armada-fleet-build__revert {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+  margin: 0;
+}
+
+.armada-fleet-build__revert-label {
+  color: var(--fg-muted);
+}
+
+.armada-fleet-build__revert-value {
+  margin: 0;
+  color: var(--fg-default);
+}
+
+.armada-fleet-build__revert-value ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Why a row names those Jobs, under them, in the panel's muted small text. */
+.armada-fleet-build__revert-why {
+  margin: var(--space-1) 0 0;
+  max-width: 36ch;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}

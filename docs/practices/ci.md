@@ -116,7 +116,7 @@ changed paths ──> armada covers ──> plan.py ──> checks (JSON array o
                                                                           ci  (needs plan + every Check job + the grouped jobs)
 ```
 
-**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `format_catch_up_test`).
+**A Check is a key.** A root Check is its bare name (`build`, `test`, `acceptance`, `typecheck`, `hooks_test`, `preview_test`, `sync_mod_test`, `keep_build_test`, `format_catch_up_test`).
 A workspace Check is `<dir>:<name>` (`bridge_build` of `apps/desktop`, `storybook` of `packages/components`), as `armada covers` prints it and `armada check <key>` takes it.
 
 **The plan job pipes the changed paths into `armada covers`**, with `main`'s last built `armada` or one it builds (*Only `plan` builds `armada`*).
@@ -183,6 +183,7 @@ requires for the Checks below. `desktop_test` is to be added.
 | `hooks_test` | `ubuntu-latest` | `python3 .claude/hooks/test_guard_merge.py` | none |
 | `preview_test` | `ubuntu-latest` | `python3 scripts/test_preview.py` | none |
 | `sync_mod_test` | `ubuntu-latest` | `python3 scripts/test_sync_mod.py` | none |
+| `keep_build_test` | `ubuntu-latest` | `python3 scripts/test_keep_build.py` | none |
 | `format_catch_up_test` | `ubuntu-latest` | `python3 scripts/test_format_catch_up.py` | none |
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |
@@ -191,6 +192,7 @@ requires for the Checks below. `desktop_test` is to be added.
 
 **No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
 A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
+`test` and `test_compile` build with no debug info and type-check Armada's own crates on four threads, through `.github/ci/rustc-threads.sh`, which took 31% off that harness; a backtrace in CI has no line numbers.
 
 `$WIDTH` is the runner's core count and stands for armada.yml's `${width}`.
 `run-check` also sets `ARMADA_SOLE_TENANT=1`, so `armada check` resolves `${width}` to every core on a runner and not the half a person's machine gets (`docs/concepts/manifest.md`, *How wide a Check runs*).

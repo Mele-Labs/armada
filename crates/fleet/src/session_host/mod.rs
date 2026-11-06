@@ -93,12 +93,10 @@ mod serving;
 pub(crate) use serving::NoticeBatches;
 pub(crate) mod asks;
 pub(crate) mod asks_model;
-pub(crate) mod clarity;
 pub(crate) mod dedup;
 pub(crate) mod extracting;
 pub(crate) mod tell_refusal;
 pub(crate) mod unanswered;
-pub(crate) mod plan_asks;
 pub(crate) mod page_replies;
 pub(crate) mod standing;
 pub(crate) mod workflow_pick;
@@ -529,12 +527,6 @@ pub(crate) struct State {
     /// The harness said its sign-in ran out and the Job stopped, until the account works again. In
     /// memory: `signed_out`.
     pub signed_out: bool,
-    /// The agent's own calls not yet added to its plan's count, which is written ten at a time as a
-    /// terminal session's mod tells it. In memory.
-    pub calls: u32,
-    /// Its mod told of a list or a commit that may have moved Fleet's marks, which the agent hears at
-    /// its next call. In memory.
-    pub marks_owed: bool,
     /// What the live process's `init` said the agent lacks of Armada's own. Replaced at each `init`, and
     /// kept past the process, so the last one to come up is what the record says. In memory.
     pub tools_missing: Option<ipc::ToolsMissing>,
@@ -617,8 +609,6 @@ impl State {
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
             signed_out: false,
-            calls: 0,
-            marks_owed: false,
             tools_missing: None,
             healed_into: None,
             moved_onto: None,
