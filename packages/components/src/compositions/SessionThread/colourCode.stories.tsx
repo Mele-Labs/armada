@@ -28,9 +28,7 @@ export const KnownLanguage: Story = {
   play: async ({ canvas }) => {
     await expect(canvas.getByText("const")).toHaveClass("tok-keyword");
     await expect(canvas.getByText("1")).toHaveClass("tok-literal");
-    await expect(
-      canvas.getByLabelText("Code"),
-    ).toHaveTextContent("const a = 1");
+    await expect(canvas.getByLabelText("Code")).toHaveTextContent("const a = 1");
   },
 };
 

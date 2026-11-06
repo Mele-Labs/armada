@@ -81,9 +81,9 @@ export const ProseLinks = createContext<((address: string) => void) | null>(null
 export const ProseWalk = createContext<((address: string) => void) | null>(null);
 
 /** What colours a fenced block's text by its language. Without one the block is plain, as it is everywhere today. */
-export const ProseCodeColour = createContext<((language: string | undefined, source: string) => ReactNode) | null>(
-  null,
-);
+export const ProseCodeColour = createContext<
+  ((language: string | undefined, source: string) => ReactNode) | null
+>(null);
 
 function isWalkLink(address: string): boolean {
   try {

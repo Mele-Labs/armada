@@ -42,9 +42,7 @@ type Story = StoryObj<typeof AttachmentTray>;
 
 /** The tile is the nearest wrapper of a name that holds its own Remove. */
 const tileOf = (name: string): HTMLElement =>
-  document
-    .querySelector<HTMLElement>(`button[aria-label="Remove ${name}"]`)!
-    .parentElement!;
+  document.querySelector<HTMLElement>(`button[aria-label="Remove ${name}"]`)!.parentElement!;
 
 /** A picture is drawn as itself, named by its file; a file without one is a tile that says what it is. */
 export const WhatIsDrawn: Story = {

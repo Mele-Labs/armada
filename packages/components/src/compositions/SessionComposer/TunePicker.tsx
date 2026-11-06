@@ -24,7 +24,8 @@ export type TunePickerProps = {
 
 /** Which of the two the proposer picked, said on its mark. */
 function proposedSaid(proposed: TunePickerProps["proposed"]): string | null {
-  if (proposed?.model === true && proposed.effort === true) return "Model and effort picked by the proposer";
+  if (proposed?.model === true && proposed.effort === true)
+    return "Model and effort picked by the proposer";
   if (proposed?.model === true) return "Model picked by the proposer";
   if (proposed?.effort === true) return "Effort picked by the proposer";
   return null;
@@ -37,7 +38,15 @@ const AUTO = "";
  * pressed, the models to pick from over an effort slider. ↑↓ move between models, Tab reaches the slider, ←→ slide it, and
  * Enter or Esc put it away.
  */
-export function TunePicker({ model, effort, models, efforts, said, onTune, proposed }: TunePickerProps) {
+export function TunePicker({
+  model,
+  effort,
+  models,
+  efforts,
+  said,
+  onTune,
+  proposed,
+}: TunePickerProps) {
   const level = effort === null ? 0 : efforts.indexOf(effort) + 1;
   const picked = proposedSaid(proposed);
   return (
@@ -106,9 +115,14 @@ function TunePanel({
   said,
   onTune,
   close,
-}: TunePickerProps & { close: () => void }) {
+}: TunePickerProps & {
+  close: () => void;
+}) {
   const list = useRef<HTMLDivElement>(null);
-  const choices: (string | null)[] = [null, ...models];
+  const choices: (string | null)[] = [
+    null,
+    ...models,
+  ];
   // Opened, the model in use has the focus, so the keys work at once.
   useEffect(() => {
     list.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
@@ -120,7 +134,9 @@ function TunePanel({
       return;
     }
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const rows = [...(list.current?.querySelectorAll<HTMLElement>('[role="radio"]') ?? [])];
+    const rows = [
+      ...(list.current?.querySelectorAll<HTMLElement>('[role="radio"]') ?? []),
+    ];
     const at = rows.indexOf(document.activeElement as HTMLElement);
     if (at < 0) return;
     event.preventDefault();
@@ -169,7 +185,10 @@ function TunePanel({
         <span className="armada-tune__label">Effort</span>
         <Slider
           aria-label="Effort"
-          steps={[AUTO, ...efforts]}
+          steps={[
+            AUTO,
+            ...efforts,
+          ]}
           value={effort ?? AUTO}
           show={(step) => (step === AUTO ? "Auto" : step)}
           onChange={(step) =>

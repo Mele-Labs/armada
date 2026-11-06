@@ -80,7 +80,12 @@ const NOTES = new File(
 );
 
 const attach = async (canvas: Parameters<NonNullable<Story["play"]>>[0]["canvas"]) =>
-  userEvent.upload(canvas.getByLabelText("Files to attach", { selector: "input" }), NOTES);
+  userEvent.upload(
+    canvas.getByLabelText("Files to attach", {
+      selector: "input",
+    }),
+    NOTES,
+  );
 
 /** What waits is one tray over the words, and nothing of it is left in the bar. */
 export const HeldFilesAreATray: Story = {
@@ -153,9 +158,7 @@ export const ChipsWithoutTheTake: Story = {
     await expect(held[0]).not.toHaveClass("armada-tray");
     await expect(within(held[0]!).getByText("notes.txt")).toBeVisible();
     await expect(
-      canvasElement
-        .querySelector<HTMLElement>(".armada-session-composer__bar")!
-        .contains(held[0]!),
+      canvasElement.querySelector<HTMLElement>(".armada-session-composer__bar")!.contains(held[0]!),
     ).toBe(true);
   },
 };

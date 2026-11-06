@@ -2447,7 +2447,11 @@ function Row({
             ? {}
             : (() => {
                 const one = picks.marks.get(`${row.id}\u0000${plainOf(row.text).trim()}`);
-                return one === undefined ? {} : { marked: one };
+                return one === undefined
+                  ? {}
+                  : {
+                      marked: one,
+                    };
               })())}
           at={<RowStamp row={row} className="armada-message-bar__at" />}
         />
@@ -3838,242 +3842,244 @@ export function SessionThread({
           <StampSurface>
             <NotedOpens.Provider value={noted ?? null}>
               <MessageReply.Provider value={spacious ? (onReplyAt ?? null) : null}>
-              <ThreadPicks.Provider value={picks}>
-                <ProseWalk.Provider value={onOpenWindow ?? null}>
-                  <ProseRunner.Provider value={runner ?? null}>
-                    <ProseCommand.Provider value={slash}>
-                      <ol
-                        ref={rowList}
-                        className="armada-thread-rows"
-                        {...(transcript === "unread"
-                          ? {
-                              "aria-busy": true,
-                            }
-                          : {})}
-                      >
-                        {lead === undefined ? null : (
-                          <li className="armada-session-thread__lead">{lead}</li>
-                        )}
-                        {transcript === "unread" ? <TranscriptSkeleton /> : null}
-                        {hidden === 0 ? null : (
-                          <li className="armada-session-thread__earlier">
-                            <Tooltip label="Show earlier">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label="Show earlier"
-                                onClick={() => setDrawn((now) => now + DRAWN)}
-                              >
-                                <ChevronUp size={12} strokeWidth={2} aria-hidden />
-                              </Button>
-                            </Tooltip>
-                          </li>
-                        )}
-                        {items.flatMap((item, at) => [
-                          item.kind === "calls" ? (
-                            <Calls
-                              key={item.id}
-                              rows={item.rows}
-                              working={working === true && !asking && at === items.length - 1}
-                              {...(onStop === undefined
-                                ? {}
-                                : {
-                                    onStop,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                            />
-                          ) : item.kind === "fleetTurn" ? (
-                            <FleetTurn
-                              key={item.id}
-                              notice={item.notice}
-                              reply={item.reply}
-                              handled={item.handled}
-                              {...(onMuteNotice === undefined
-                                ? {}
-                                : {
-                                    onMuteNotice,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                            />
-                          ) : item.kind === "subagent" ? (
-                            <SubagentRow
-                              key={item.id}
-                              subagent={item.subagent}
-                              {...(onOpenSubagent === undefined
-                                ? {}
-                                : {
-                                    onOpen: onOpenSubagent,
-                                  })}
-                            />
-                          ) : item.kind === "checks" ? (
-                            <CheckRuns
-                              key={item.id}
-                              rows={item.rows}
-                              {...(onOpenCheck === undefined
-                                ? {}
-                                : {
-                                    onOpenCheck,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                            />
-                          ) : (
-                            <Row
-                              key={
-                                "stableKey" in item.row && item.row.stableKey !== undefined
-                                  ? item.row.stableKey
-                                  : item.row.id
+                <ThreadPicks.Provider value={picks}>
+                  <ProseWalk.Provider value={onOpenWindow ?? null}>
+                    <ProseRunner.Provider value={runner ?? null}>
+                      <ProseCommand.Provider value={slash}>
+                        <ol
+                          ref={rowList}
+                          className="armada-thread-rows"
+                          {...(transcript === "unread"
+                            ? {
+                                "aria-busy": true,
                               }
-                              row={item.row}
-                              {...(onRetry === undefined
-                                ? {}
-                                : {
-                                    onRetry,
-                                  })}
-                              {...(onStartAgain === undefined
-                                ? {}
-                                : {
-                                    onStartAgain,
-                                  })}
-                              {...(onReport === undefined
-                                ? {}
-                                : {
-                                    onReport,
-                                  })}
-                              onOpenSession={onOpenSession}
-                              onOpenWindow={onOpenWindow}
-                              onOpenSketch={onOpenSketch}
-                              {...(onOpenFile === undefined
-                                ? {}
-                                : {
-                                    onOpenFile,
-                                  })}
-                              {...(onReadMedia === undefined
-                                ? {}
-                                : {
-                                    onReadMedia,
-                                  })}
-                              {...(onDraft === undefined
-                                ? {}
-                                : {
-                                    onDraft,
-                                  })}
-                              {...(onWithdrawDraft === undefined
-                                ? {}
-                                : {
-                                    onWithdrawDraft,
-                                  })}
-                              {...(onAnswerSketch === undefined || sketching !== undefined
-                                ? {}
-                                : {
-                                    onAnswerSketch,
-                                  })}
-                              {...(onWithdrawSketch === undefined || sketching !== undefined
-                                ? {}
-                                : {
-                                    onWithdrawSketch,
-                                  })}
-                              {...(onOpenDocument === undefined
-                                ? {}
-                                : {
-                                    onOpenDocument,
-                                  })}
-                              {...(onAnswerDocument === undefined
-                                ? {}
-                                : {
-                                    onAnswerDocument,
-                                  })}
-                              {...(sessionId === undefined
-                                ? {}
-                                : {
-                                    sessionId,
-                                  })}
-                              onOpenRetro={onOpenRetro}
-                              onOpenSent={onOpenSent}
-                              forkable={
-                                onForkAt !== undefined ||
-                                onReplyAt !== undefined ||
-                                onTeachAt !== undefined
-                              }
-                              disputed={disputes.has(item.row.id)}
-                              {...(onMuteNotice === undefined
-                                ? {}
-                                : {
-                                    onMuteNotice,
-                                  })}
-                              {...(onTeachRow === undefined
-                                ? {}
-                                : {
-                                    onTeach: onTeachRow,
-                                  })}
-                              {...(agentName === undefined
-                                ? {}
-                                : {
-                                    agentName,
-                                  })}
-                            />
-                          ),
-                          approval?.approved === true &&
-                          item.kind === "row" &&
-                          item.row.id === approval.after ? (
-                            <li key="plan-approved" className="armada-session-thread__record">
-                              <PlanCard approval={approval} />
+                            : {})}
+                        >
+                          {lead === undefined ? null : (
+                            <li className="armada-session-thread__lead">{lead}</li>
+                          )}
+                          {transcript === "unread" ? <TranscriptSkeleton /> : null}
+                          {hidden === 0 ? null : (
+                            <li className="armada-session-thread__earlier">
+                              <Tooltip label="Show earlier">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label="Show earlier"
+                                  onClick={() => setDrawn((now) => now + DRAWN)}
+                                >
+                                  <ChevronUp size={12} strokeWidth={2} aria-hidden />
+                                </Button>
+                              </Tooltip>
                             </li>
-                          ) : null,
-                          ...cardsAfter(at).map((card) => (
-                            <li key={card.key} className="armada-session-thread__card">
-                              {card.node}
+                          )}
+                          {items.flatMap((item, at) => [
+                            item.kind === "calls" ? (
+                              <Calls
+                                key={item.id}
+                                rows={item.rows}
+                                working={working === true && !asking && at === items.length - 1}
+                                {...(onStop === undefined
+                                  ? {}
+                                  : {
+                                      onStop,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                              />
+                            ) : item.kind === "fleetTurn" ? (
+                              <FleetTurn
+                                key={item.id}
+                                notice={item.notice}
+                                reply={item.reply}
+                                handled={item.handled}
+                                {...(onMuteNotice === undefined
+                                  ? {}
+                                  : {
+                                      onMuteNotice,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                              />
+                            ) : item.kind === "subagent" ? (
+                              <SubagentRow
+                                key={item.id}
+                                subagent={item.subagent}
+                                {...(onOpenSubagent === undefined
+                                  ? {}
+                                  : {
+                                      onOpen: onOpenSubagent,
+                                    })}
+                              />
+                            ) : item.kind === "checks" ? (
+                              <CheckRuns
+                                key={item.id}
+                                rows={item.rows}
+                                {...(onOpenCheck === undefined
+                                  ? {}
+                                  : {
+                                      onOpenCheck,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                              />
+                            ) : (
+                              <Row
+                                key={
+                                  "stableKey" in item.row && item.row.stableKey !== undefined
+                                    ? item.row.stableKey
+                                    : item.row.id
+                                }
+                                row={item.row}
+                                {...(onRetry === undefined
+                                  ? {}
+                                  : {
+                                      onRetry,
+                                    })}
+                                {...(onStartAgain === undefined
+                                  ? {}
+                                  : {
+                                      onStartAgain,
+                                    })}
+                                {...(onReport === undefined
+                                  ? {}
+                                  : {
+                                      onReport,
+                                    })}
+                                onOpenSession={onOpenSession}
+                                onOpenWindow={onOpenWindow}
+                                onOpenSketch={onOpenSketch}
+                                {...(onOpenFile === undefined
+                                  ? {}
+                                  : {
+                                      onOpenFile,
+                                    })}
+                                {...(onReadMedia === undefined
+                                  ? {}
+                                  : {
+                                      onReadMedia,
+                                    })}
+                                {...(onDraft === undefined
+                                  ? {}
+                                  : {
+                                      onDraft,
+                                    })}
+                                {...(onWithdrawDraft === undefined
+                                  ? {}
+                                  : {
+                                      onWithdrawDraft,
+                                    })}
+                                {...(onAnswerSketch === undefined || sketching !== undefined
+                                  ? {}
+                                  : {
+                                      onAnswerSketch,
+                                    })}
+                                {...(onWithdrawSketch === undefined || sketching !== undefined
+                                  ? {}
+                                  : {
+                                      onWithdrawSketch,
+                                    })}
+                                {...(onOpenDocument === undefined
+                                  ? {}
+                                  : {
+                                      onOpenDocument,
+                                    })}
+                                {...(onAnswerDocument === undefined
+                                  ? {}
+                                  : {
+                                      onAnswerDocument,
+                                    })}
+                                {...(sessionId === undefined
+                                  ? {}
+                                  : {
+                                      sessionId,
+                                    })}
+                                onOpenRetro={onOpenRetro}
+                                onOpenSent={onOpenSent}
+                                forkable={
+                                  onForkAt !== undefined ||
+                                  onReplyAt !== undefined ||
+                                  onTeachAt !== undefined
+                                }
+                                disputed={disputes.has(item.row.id)}
+                                {...(onMuteNotice === undefined
+                                  ? {}
+                                  : {
+                                      onMuteNotice,
+                                    })}
+                                {...(onTeachRow === undefined
+                                  ? {}
+                                  : {
+                                      onTeach: onTeachRow,
+                                    })}
+                                {...(agentName === undefined
+                                  ? {}
+                                  : {
+                                      agentName,
+                                    })}
+                              />
+                            ),
+                            approval?.approved === true &&
+                            item.kind === "row" &&
+                            item.row.id === approval.after ? (
+                              <li key="plan-approved" className="armada-session-thread__record">
+                                <PlanCard approval={approval} />
+                              </li>
+                            ) : null,
+                            ...cardsAfter(at).map((card) => (
+                              <li key={card.key} className="armada-session-thread__card">
+                                {card.node}
+                              </li>
+                            )),
+                          ])}
+                          {transcript === "refreshing" ? (
+                            <li className="armada-session-thread__refreshing">
+                              <Tooltip label="Loading new messages">
+                                <span
+                                  className="armada-session-thread__loading"
+                                  role="img"
+                                  aria-label="Loading new messages"
+                                >
+                                  <LoaderCircle size={12} strokeWidth={2} aria-hidden />
+                                </span>
+                              </Tooltip>
                             </li>
-                          )),
-                        ])}
-                        {transcript === "refreshing" ? (
-                          <li className="armada-session-thread__refreshing">
-                            <Tooltip label="Loading new messages">
-                              <span
-                                className="armada-session-thread__loading"
-                                role="img"
-                                aria-label="Loading new messages"
-                              >
-                                <LoaderCircle size={12} strokeWidth={2} aria-hidden />
-                              </span>
-                            </Tooltip>
-                          </li>
-                        ) : null}
-                        {asking ? (
-                          <li className="armada-session-thread__tail" aria-label="Waiting on you">
-                            {cards}
-                          </li>
-                        ) : null}
-                        {working === true && (!endsInCalls || asking) ? (
-                          <li className="armada-session-thread__working">
-                            <SessionMark state="working" said="Working" />
-                            {spacious ? (
-                              <span className="armada-session-thread__working-said">Thinking</span>
-                            ) : null}
-                            {onStop === undefined ? null : <SessionStop onStop={onStop} />}
-                          </li>
-                        ) : null}
-                        {trailing === undefined ? null : (
-                          <li ref={tail} className="armada-session-thread__trailing">
-                            {trailing}
-                          </li>
-                        )}
-                      </ol>
-                    </ProseCommand.Provider>
-                  </ProseRunner.Provider>
-                </ProseWalk.Provider>
-              </ThreadPicks.Provider>
+                          ) : null}
+                          {asking ? (
+                            <li className="armada-session-thread__tail" aria-label="Waiting on you">
+                              {cards}
+                            </li>
+                          ) : null}
+                          {working === true && (!endsInCalls || asking) ? (
+                            <li className="armada-session-thread__working">
+                              <SessionMark state="working" said="Working" />
+                              {spacious ? (
+                                <span className="armada-session-thread__working-said">
+                                  Thinking
+                                </span>
+                              ) : null}
+                              {onStop === undefined ? null : <SessionStop onStop={onStop} />}
+                            </li>
+                          ) : null}
+                          {trailing === undefined ? null : (
+                            <li ref={tail} className="armada-session-thread__trailing">
+                              {trailing}
+                            </li>
+                          )}
+                        </ol>
+                      </ProseCommand.Provider>
+                    </ProseRunner.Provider>
+                  </ProseWalk.Provider>
+                </ThreadPicks.Provider>
               </MessageReply.Provider>
             </NotedOpens.Provider>
           </StampSurface>

@@ -1294,7 +1294,9 @@ export function SessionComposer({
           onPaste={onPaste}
         />
       </div>
-      {compact && held && !spacious ? <div className="armada-session-composer__held">{chips}</div> : null}
+      {compact && held && !spacious ? (
+        <div className="armada-session-composer__held">{chips}</div>
+      ) : null}
       <div className="armada-session-composer__bar">
         {modeHidden || bare || onMode === undefined ? null : (
           <Pick
@@ -1326,11 +1328,17 @@ export function SessionComposer({
                 efforts={efforts}
                 said={(one) =>
                   one === null
-                    ? (resolvedSaidFor(model === null ? defaultModel : undefined) ?? defaultModel ?? "Default")
+                    ? (resolvedSaidFor(model === null ? defaultModel : undefined) ??
+                      defaultModel ??
+                      "Default")
                     : (resolvedSaidFor(model === one ? one : undefined) ?? one)
                 }
                 onTune={onTune}
-                {...(proposed === undefined ? {} : { proposed })}
+                {...(proposed === undefined
+                  ? {}
+                  : {
+                      proposed,
+                    })}
               />
             ) : (
               <>

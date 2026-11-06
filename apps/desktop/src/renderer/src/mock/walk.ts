@@ -804,7 +804,10 @@ function slideRange(element: HTMLElement, key: string): void {
             ? Math.min(max, now + step)
             : undefined;
   if (to === undefined || to === now) return;
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(element, String(to));
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+    element,
+    String(to),
+  );
   element.dispatchEvent(
     new Event("input", {
       bubbles: true,

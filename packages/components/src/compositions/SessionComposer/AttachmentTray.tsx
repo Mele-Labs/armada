@@ -31,7 +31,12 @@ export function AttachmentTray({
     <div className="armada-tray" role="group" aria-label="Attached">
       {files.map((one) =>
         one.src === undefined ? (
-          <Tile key={one.id} name={one.name} kind={extensionOf(one.name)} onRemove={() => onRemoveFile(one.id)} />
+          <Tile
+            key={one.id}
+            name={one.name}
+            kind={extensionOf(one.name)}
+            onRemove={() => onRemoveFile(one.id)}
+          />
         ) : (
           <Tooltip key={one.id} label={one.name}>
             <span className="armada-tray__tile" data-picture="">
@@ -48,7 +53,15 @@ export function AttachmentTray({
   );
 }
 
-function Tile({ name, kind, onRemove }: { name: string; kind: string | null; onRemove: () => void }) {
+function Tile({
+  name,
+  kind,
+  onRemove,
+}: {
+  name: string;
+  kind: string | null;
+  onRemove: () => void;
+}) {
   return (
     <span className="armada-tray__tile">
       <span className="armada-tray__name">{name}</span>
@@ -60,7 +73,12 @@ function Tile({ name, kind, onRemove }: { name: string; kind: string | null; onR
 
 function Remove({ name, onRemove }: { name: string; onRemove: () => void }) {
   return (
-    <button type="button" className="armada-tray__remove" aria-label={`Remove ${name}`} onClick={onRemove}>
+    <button
+      type="button"
+      className="armada-tray__remove"
+      aria-label={`Remove ${name}`}
+      onClick={onRemove}
+    >
       <Trash2 size={12} strokeWidth={2} aria-hidden />
     </button>
   );

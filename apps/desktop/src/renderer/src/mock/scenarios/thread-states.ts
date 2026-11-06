@@ -147,7 +147,11 @@ const failed = job("st5", "Fix the flaky clock test", [
 /** A Job that put a walk to him. */
 const walked = job("st6", "Settings search", [
   you("st6a", "10:00:00", "Let me find a setting by typing its name."),
-  agent("st6b", "10:08:20", "Settings has a search box at the top. Typing filters the sections as you type."),
+  agent(
+    "st6b",
+    "10:08:20",
+    "Settings has a search box at the top. Typing filters the sections as you type.",
+  ),
   {
     id: "st6c",
     at: "10:08:30",
@@ -197,14 +201,22 @@ const ours: Session = {
       "Two problems: the sheet's background is see-through, so `--bg-canvas` must not exist, and focusing the paragraph scrolled the page to the bottom. Finding the page background token.",
     ),
     tool("st9c", "22:04:40", `Read ${SHOTS}/sheet-1.png`),
-    agent("st9d", "22:04:48", "The sheet draws both looks side by side. Scrolling through the rest to check each state."),
+    agent(
+      "st9d",
+      "22:04:48",
+      "The sheet draws both looks side by side. Scrolling through the rest to check each state.",
+    ),
     tool("st9e", "22:04:50", "mcp__plugin_playwright_playwright__browser_evaluate"),
     agent(
       "st9f",
       "22:04:53",
       "All 14 rows draw. Checking the riskier ones: the failed run with Needs you, the ending, and the empty and narrow panes.",
     ),
-    tool("st9g", "22:05:00", "Bash grep -n \"const waits =\" apps/desktop/src/renderer/src/sessions.tsx"),
+    tool(
+      "st9g",
+      "22:05:00",
+      'Bash grep -n "const waits =" apps/desktop/src/renderer/src/sessions.tsx',
+    ),
     tool("st9h", "22:05:10", "Bash sed -n 2596,2620p apps/desktop/src/renderer/src/sessions.tsx"),
     agent(
       "st9i",
@@ -217,7 +229,11 @@ const ours: Session = {
       "22:05:36",
       "In the app the band shows, so the sheet's mount is missing something the Cockpit passes. Reading the Cockpit's SessionView mount.",
     ),
-    tool("st9l", "22:05:40", "Bash grep -n \"<SessionView\" -A40 apps/desktop/src/renderer/src/cockpit/deck/panes.tsx"),
+    tool(
+      "st9l",
+      "22:05:40",
+      'Bash grep -n "<SessionView" -A40 apps/desktop/src/renderer/src/cockpit/deck/panes.tsx',
+    ),
     tool("st9m", "22:05:44", "Grep inPanes in apps/desktop/src/renderer/src"),
   ]),
   turn: {
@@ -267,7 +283,11 @@ const media: Session = {
 
 /** A run of mixed calls between two messages, as this take's own thread had one: a commit, two pages shown, a task ticked. */
 const chain = job("st11", "Show the sheets", [
-  agent("st11a", "22:08:25", "The walk still plays, and types pass. Committing, then showing both pages."),
+  agent(
+    "st11a",
+    "22:08:25",
+    "The walk still plays, and types pass. Committing, then showing both pages.",
+  ),
   tool("st11b", "22:08:27", "Bash git add -A apps/desktop/src/renderer/src/mock"),
   {
     id: "st11c",
@@ -299,7 +319,11 @@ const slotted = job("st12", "Kept builds", [
     branch: "armada/kept-builds",
   },
   tool("st12c", "10:31:02", "Edit crates/fleet/src/builds.rs"),
-  agent("st12d", "10:39:18", "Step 1 landed. The last two builds are kept under Armada/builds, and Revert puts the previous one back."),
+  agent(
+    "st12d",
+    "10:39:18",
+    "Step 1 landed. The last two builds are kept under Armada/builds, and Revert puts the previous one back.",
+  ),
   {
     id: "st12e",
     at: "10:39:25",
@@ -315,14 +339,18 @@ const longCode = job("st13", "Revert to the last build", [
   agent(
     "st13b",
     "11:06:40",
-    "Here it is, in `builds.ts`:\n\n```ts\nimport { readFile } from \"node:fs/promises\";\n\nexport type Build = {\n  id: string;\n  at: number;\n  path: string;\n};\n\n/** The builds kept on disk, newest first, read from the folder's index. */\nexport async function keptBuilds(folder: string): Promise<Build[]> {\n  const text = await readFile(`${folder}/index.json`, \"utf8\");\n  const builds = JSON.parse(text) as Build[];\n  return builds.sort((a, b) => b.at - a.at);\n}\n\n/** The build to go back to: the newest that is not the one running. */\nexport function previous(builds: readonly Build[], running: string): Build | null {\n  for (const one of builds) {\n    if (one.id !== running) return one;\n  }\n  return null;\n}\n\n/** Keeps the newest `keep` builds and names the rest to delete. */\nexport function pruned(builds: readonly Build[], keep = 2): {\n  kept: Build[];\n  gone: Build[];\n} {\n  const sorted = [...builds].sort((a, b) => b.at - a.at);\n  return {\n    kept: sorted.slice(0, keep),\n    gone: sorted.slice(keep),\n  };\n}\n\n/** Puts the previous build back, and says which it was. */\nexport async function revert(folder: string, running: string): Promise<Build> {\n  const builds = await keptBuilds(folder);\n  const back = previous(builds, running);\n  if (back === null) throw new Error(\"No earlier build is kept\");\n  await swap(folder, back);\n  return back;\n}\n\nasync function swap(folder: string, to: Build): Promise<void> {\n  const { rename, symlink, unlink } = await import(\"node:fs/promises\");\n  const link = `${folder}/current`;\n  const next = `${folder}/current.next`;\n  await symlink(to.path, next);\n  await rename(next, link).catch(async () => {\n    await unlink(link);\n    await rename(next, link);\n  });\n}\n```\n\nThe swap is a rename over a link, so a running Fleet never sees a half-written one.",
+    'Here it is, in `builds.ts`:\n\n```ts\nimport { readFile } from "node:fs/promises";\n\nexport type Build = {\n  id: string;\n  at: number;\n  path: string;\n};\n\n/** The builds kept on disk, newest first, read from the folder\'s index. */\nexport async function keptBuilds(folder: string): Promise<Build[]> {\n  const text = await readFile(`${folder}/index.json`, "utf8");\n  const builds = JSON.parse(text) as Build[];\n  return builds.sort((a, b) => b.at - a.at);\n}\n\n/** The build to go back to: the newest that is not the one running. */\nexport function previous(builds: readonly Build[], running: string): Build | null {\n  for (const one of builds) {\n    if (one.id !== running) return one;\n  }\n  return null;\n}\n\n/** Keeps the newest `keep` builds and names the rest to delete. */\nexport function pruned(builds: readonly Build[], keep = 2): {\n  kept: Build[];\n  gone: Build[];\n} {\n  const sorted = [...builds].sort((a, b) => b.at - a.at);\n  return {\n    kept: sorted.slice(0, keep),\n    gone: sorted.slice(keep),\n  };\n}\n\n/** Puts the previous build back, and says which it was. */\nexport async function revert(folder: string, running: string): Promise<Build> {\n  const builds = await keptBuilds(folder);\n  const back = previous(builds, running);\n  if (back === null) throw new Error("No earlier build is kept");\n  await swap(folder, back);\n  return back;\n}\n\nasync function swap(folder: string, to: Build): Promise<void> {\n  const { rename, symlink, unlink } = await import("node:fs/promises");\n  const link = `${folder}/current`;\n  const next = `${folder}/current.next`;\n  await symlink(to.path, next);\n  await rename(next, link).catch(async () => {\n    await unlink(link);\n    await rename(next, link);\n  });\n}\n```\n\nThe swap is a rename over a link, so a running Fleet never sees a half-written one.',
   ),
 ]);
 
 /** A Job with two pictures, a file and a sketch in its box, waiting to go with the next message. */
 const attaching = job("st14", "Phone layout", [
   you("st14a", "15:20:00", "The Job page on the phone cuts the composer off."),
-  agent("st14b", "15:24:10", "Send me a screenshot of where it cuts off and I will match the breakpoint to it."),
+  agent(
+    "st14b",
+    "15:24:10",
+    "Send me a screenshot of where it cuts off and I will match the breakpoint to it.",
+  ),
 ]);
 writeKept(
   "session:st14",
@@ -330,12 +358,26 @@ writeKept(
     text: "",
     tags: [],
     files: [
-      { id: "st14-wide", name: "cockpit-wide.jpg", src: landscape },
-      { id: "st14-phone", name: "job-on-the-phone.jpg", src: portrait },
-      { id: "st14-log", name: "renderer-console.log" },
+      {
+        id: "st14-wide",
+        name: "cockpit-wide.jpg",
+        src: landscape,
+      },
+      {
+        id: "st14-phone",
+        name: "job-on-the-phone.jpg",
+        src: portrait,
+      },
+      {
+        id: "st14-log",
+        name: "renderer-console.log",
+      },
     ],
   },
-  { text: "", tags: [] },
+  {
+    text: "",
+    tags: [],
+  },
 );
 
 /** A Job with nothing in its thread yet. */

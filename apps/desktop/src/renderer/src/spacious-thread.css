@@ -37,33 +37,53 @@
   width: 100%;
   /* The thread scrolls one way. A card that reaches past the padding is clipped, never a sideways scrollbar under the words. */
   overflow-x: hidden;
-  padding: var(--space-4) calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
+  padding: var(--space-4)
+    calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
 }
 
 /* The thread's cards reach the bleed past the words, as his bubble does, so their edges are the box's and Needs you's. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows :is(.armada-session-sketch, .armada-session-end, .armada-session-thread__ask) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  :is(.armada-session-sketch, .armada-session-end, .armada-session-thread__ask) {
   margin-inline: calc(var(--spacious-bleed) * -1);
 }
 
 /* A thin thumb with no track, there only while the pointer is over the thread. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__rows::-webkit-scrollbar {
   width: calc(var(--space-1) + var(--space-1) / 2);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-track {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__rows::-webkit-scrollbar-track {
   background: transparent;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-thumb {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__rows::-webkit-scrollbar-thumb {
   border-radius: var(--radius-md);
   background: transparent;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows:hover::-webkit-scrollbar-thumb {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__rows:hover::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg-default) 14%, transparent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__rows::-webkit-scrollbar-thumb:hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__rows::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--fg-default) 28%, transparent);
 }
 
@@ -88,37 +108,64 @@
 }
 
 /* The Aa panel's Text size and Spacing hold here as in today's thread: 15 px is its own base. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-text="xs"] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread[data-text="xs"] {
   --spacious-body: var(--text-xs);
   --spacious-leading: 20px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-text="sm"] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread[data-text="sm"] {
   --spacious-body: var(--text-sm);
   --spacious-leading: 22px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-text="lg"] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread[data-text="lg"] {
   --spacious-body: var(--text-lg);
   --spacious-leading: 28px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-spacing="compact"] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread[data-spacing="compact"] {
   --spacious-turns: var(--space-4);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-spacing="roomy"] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread[data-spacing="roomy"] {
   --spacious-turns: calc(var(--space-8) + var(--space-2));
 }
 
 /* ---- The body: a larger sans with looser lines. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__paragraph {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose__paragraph {
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose {
   gap: var(--space-4);
 }
 
@@ -168,7 +215,11 @@
 }
 
 /* A run's command reads in the body's face. Its output keeps the mono face its columns line up in. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head .mono,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold__head
+  .mono,
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__target,
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-command__text {
   font-family: var(--font-sans);
@@ -177,15 +228,27 @@
 }
 
 /* What the agent reasoned, opened: quieter than its answer, set in under a rule as a run's output is. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-session-fold__body {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--reasoning
+  .armada-session-fold__body {
   margin: var(--space-2) 0 0 calc(var(--space-1) + var(--space-1) / 2);
   padding-left: var(--space-4);
   border-left: var(--border-width) solid var(--border-subtle);
   color: var(--fg-muted);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-prose,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-prose__paragraph {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--reasoning
+  .armada-prose,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--reasoning
+  .armada-prose__paragraph {
   font-size: var(--text-sm);
   line-height: 22px;
 }
@@ -196,7 +259,11 @@
   isolation: isolate;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick]::before {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose
+  p[data-pick]::before {
   content: "";
   position: absolute;
   inset: calc(var(--space-3) * -1) calc((var(--space-4) + var(--space-1)) * -1);
@@ -205,22 +272,40 @@
   pointer-events: none;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick]:is([data-hot], :focus-visible) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose
+  p[data-pick]:is([data-hot], :focus-visible) {
   background: none;
   box-shadow: none;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose p[data-pick]:is([data-hot], :focus-visible)::before {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose
+  p[data-pick]:is([data-hot], :focus-visible)::before {
   background: color-mix(in srgb, var(--fg-default) 4%, transparent);
 }
 
 /* Paragraphs far enough apart that one's fill stops short of the next one's words. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > p + p {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose
+  > p
+  + p {
   margin-top: var(--space-6);
 }
 
 /* A list's line keeps a tighter wash: the bubble's side padding would run into its number. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose li[data-pick]:is([data-hot], :focus-visible) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose
+  li[data-pick]:is([data-hot], :focus-visible) {
   border-radius: var(--spacious-radius);
   box-shadow: 0 0 0 var(--space-2) var(--bg-hover);
 }
@@ -235,7 +320,11 @@
   border-radius: var(--spacious-radius);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts .armada-button {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__pick-acts
+  .armada-button {
   width: var(--h-control);
   height: var(--h-control);
   border-color: transparent;
@@ -243,7 +332,11 @@
   background: transparent;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__pick-acts .armada-button:hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__pick-acts
+  .armada-button:hover {
   background: var(--bg-hover);
 }
 
@@ -283,15 +376,26 @@
   color: var(--fg-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-sketch__answers {
   padding: var(--space-2) var(--space-4) var(--space-4);
   border-top: none;
   background: transparent;
 }
 
 /* Its answers: full height, the body's size, the bubble's corners, Send back a quiet fill with no edge. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-done__acts .armada-button,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers .armada-button {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-done__acts
+  .armada-button,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-sketch__answers
+  .armada-button {
   height: var(--h-control-lg);
   padding: 0 var(--space-4);
   border-radius: var(--spacious-radius);
@@ -299,13 +403,25 @@
   font-weight: var(--weight-medium);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-done__acts .armada-button[data-variant="secondary"],
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers .armada-button[data-variant="secondary"] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-done__acts
+  .armada-button[data-variant="secondary"],
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-sketch__answers
+  .armada-button[data-variant="secondary"] {
   border-color: transparent;
   background: color-mix(in srgb, var(--fg-default) 8%, transparent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__answers .armada-card-footer {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-sketch__answers
+  .armada-card-footer {
   gap: var(--space-2);
 }
 
@@ -334,11 +450,17 @@
 
 /* Typing in it lights no edge: the caret says where the words go. The edge Needs you or an ending gives it still holds, and
    a control in its bar still rings when reached by key. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer:focus-within {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-composer:focus-within {
   border-color: var(--border-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__editor {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-composer__editor {
   padding: var(--space-3) var(--space-4);
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
@@ -349,13 +471,20 @@
 }
 
 /* ---- The Job's tools under the composer: room above, wider apart, lit only under the pointer. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-frame__toolbelt {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-frame__toolbelt {
   margin-top: var(--space-2);
   padding: var(--space-1) var(--space-2) 0;
   gap: var(--space-3);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-frame__toolbelt .armada-button {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-frame__toolbelt
+  .armada-button {
   width: var(--h-control);
   height: var(--h-control);
   border-color: transparent;
@@ -363,19 +492,30 @@
   color: var(--fg-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-frame__toolbelt .armada-button:hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-frame__toolbelt
+  .armada-button:hover {
   color: var(--fg-default);
   background: var(--bg-hover);
 }
 
 /* ---- A working agent: what it is doing, in words beside the mark. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__working {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__working {
   gap: var(--space-2);
   font-size: var(--spacious-meta);
   line-height: 20px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--reasoning .armada-session-fold__head {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--reasoning
+  .armada-session-fold__head {
   gap: var(--space-2);
 }
 
@@ -398,7 +538,10 @@
   color: var(--fg-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-live__call[data-now] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-live__call[data-now] {
   color: var(--fg-default);
 }
 
@@ -434,14 +577,22 @@
   color: var(--step-advanced);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end .armada-session-done__summary {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-end
+  .armada-session-done__summary {
   padding: 0;
   font-size: var(--spacious-body);
   line-height: var(--spacious-leading);
   color: var(--fg-muted);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-end .armada-session-done__acts {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-end
+  .armada-session-done__acts {
   margin-top: var(--space-1);
 }
 
@@ -456,7 +607,8 @@
    run, code and a table all take it. ---- */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame {
   --spacious-card: color-mix(in srgb, var(--fg-default) 4%, transparent);
-  --spacious-card-edge: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--fg-default) 7%, transparent);
+  --spacious-card-edge: inset 0 0 0 var(--border-width)
+    color-mix(in srgb, var(--fg-default) 7%, transparent);
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-sketch__asked,
@@ -467,7 +619,10 @@
 }
 
 /* A walk: a card with its window's name, lit under the pointer. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head--press {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold__head--press {
   gap: var(--space-2);
   min-width: min(100%, 280px);
   padding: var(--space-3) var(--space-4);
@@ -480,25 +635,39 @@
   transition: background var(--duration-fast) var(--ease);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head--press:hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold__head--press:hover {
   background: color-mix(in srgb, var(--fg-default) 7%, transparent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold__head--press > svg {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold__head--press
+  > svg {
   width: var(--space-4);
   height: var(--space-4);
   color: var(--fg-muted);
 }
 
 /* A failed run: a card tinted with the failure hue, its exit code said, its last lines inside it. A passing run stays a line. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) {
   padding: var(--space-3) var(--space-4);
   border-radius: var(--spacious-radius);
   background: color-mix(in srgb, var(--run-failed) 7%, transparent);
   box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--run-failed) 18%, transparent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__head {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"])
+  .armada-session-fold__head {
   gap: var(--space-2);
   width: auto;
   color: var(--fg-default);
@@ -513,8 +682,16 @@
   color: var(--run-failed);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__peek,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__tail {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"])
+  .armada-session-fold__peek,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"])
+  .armada-session-fold__tail {
   margin: var(--space-2) 0 0 calc(var(--space-4) + var(--space-2));
   padding: 0;
   border: none;
@@ -529,7 +706,12 @@
   display: none;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold details[open] > .armada-session-fold__head {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold
+  details[open]
+  > .armada-session-fold__head {
   color: var(--fg-default);
 }
 
@@ -544,25 +726,49 @@
   line-height: 20px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-keyword {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__block
+  .tok-keyword {
   color: var(--tool-change);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-string,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-literal {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__block
+  .tok-string,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__block
+  .tok-literal {
   color: var(--tool-run);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-name {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__block
+  .tok-name {
   color: var(--tool-look);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-comment {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__block
+  .tok-comment {
   color: var(--fg-subtle);
   font-style: italic;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__block .tok-punctuation {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__block
+  .tok-punctuation {
   color: var(--fg-muted);
 }
 
@@ -599,13 +805,21 @@
   font-variant-numeric: tabular-nums;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__table tr:last-child > .armada-prose__td {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__table
+  tr:last-child
+  > .armada-prose__td {
   border-bottom: none;
 }
 
 /* ---- Needs you dims the whole pane under the Job's head, edge to edge and down to its foot; the frame clips it there. The
    composer stays lit over it, as one box with the panel. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread__stage::after {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread__stage::after {
   inset: calc(-1 * var(--space-2)) calc(-1 * var(--space-6)) -100vh;
 }
 
@@ -619,7 +833,11 @@
   will-change: transform;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-working-mark circle:first-child {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-working-mark
+  circle:first-child {
   opacity: 1;
   stroke-dasharray: 11 27;
   stroke-linecap: round;
@@ -641,7 +859,11 @@
   }
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"]) .armada-session-fold__target {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-fold--ran:has(.armada-terminal-mark[data-result="failed"])
+  .armada-session-fold__target {
   color: var(--fg-default);
 }
 
@@ -652,8 +874,17 @@
   padding: var(--space-2) var(--space-2) 0 var(--space-4);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick > .armada-tooltip .armada-button,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick > .armada-button {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-quick
+  > .armada-tooltip
+  .armada-button,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-quick
+  > .armada-button {
   width: var(--h-control);
   height: var(--h-control);
   padding: 0;
@@ -663,16 +894,29 @@
   color: var(--fg-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick .armada-button:not(:disabled):hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-quick
+  .armada-button:not(:disabled):hover {
   background: var(--bg-hover);
   color: var(--fg-default);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick .armada-button:disabled {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-quick
+  .armada-button:disabled {
   opacity: 0.4;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-quick .armada-button svg {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-quick
+  .armada-button
+  svg {
   width: 15px;
   height: 15px;
 }
@@ -688,11 +932,19 @@
   transition: opacity var(--duration-fast) var(--ease);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-row:is(:hover, :focus-within) > .armada-message-bar {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-row:is(:hover, :focus-within)
+  > .armada-message-bar {
   opacity: 1;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar .armada-button {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-message-bar
+  .armada-button {
   width: var(--h-control);
   height: var(--h-control);
   border-color: transparent;
@@ -701,17 +953,29 @@
   color: var(--fg-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar .armada-button:hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-message-bar
+  .armada-button:hover {
   background: var(--bg-hover);
   color: var(--fg-default);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar .armada-button svg {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-message-bar
+  .armada-button
+  svg {
   width: 15px;
   height: 15px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar__responses {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-message-bar__responses {
   display: inline-flex;
   gap: var(--space-1);
 }
@@ -722,7 +986,12 @@
   opacity: 0.7;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar .armada-button:is(:hover, [aria-pressed="true"]) .armada-message-bar__emoji {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-message-bar
+  .armada-button:is(:hover, [aria-pressed="true"])
+  .armada-message-bar__emoji {
   filter: none;
   opacity: 1;
 }
@@ -752,12 +1021,19 @@
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__trigger:hover,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-popover:has(.armada-tune) .armada-tune__trigger {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-popover:has(.armada-tune)
+  .armada-tune__trigger {
   background: var(--bg-hover);
   color: var(--fg-default);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__trigger:focus-visible {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tune__trigger:focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
@@ -780,12 +1056,15 @@
   background: color-mix(in srgb, var(--fg-default) 16%, transparent);
 }
 
-
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__bar[data-on] {
   background: var(--accent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-popover:has(.armada-tune) > .armada-popover__panel {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-popover:has(.armada-tune)
+  > .armada-popover__panel {
   position-area: block-start span-inline-end;
   inset: auto;
   margin-bottom: var(--space-2);
@@ -825,7 +1104,10 @@
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__row:hover,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune__row:focus-visible {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tune__row:focus-visible {
   outline: none;
   background: var(--bg-hover);
 }
@@ -846,30 +1128,65 @@
   color: var(--fg-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tune .armada-slider__input::-webkit-slider-runnable-track {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tune
+  .armada-slider__input::-webkit-slider-runnable-track {
   background: color-mix(in srgb, var(--fg-default) 12%, transparent);
 }
 
 /* ---- Code and tables reach the edge a hovered line's card and his bubble reach, their words still in line with the prose's. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose
+  > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) {
   margin-inline: calc(var(--spacious-bleed) * -1);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__block {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose__block {
   padding-inline: var(--spacious-bleed);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__table :is(th, td):first-child {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose__table
+  :is(th, td):first-child {
   padding-left: var(--spacious-bleed);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose__table :is(th, td):last-child {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose__table
+  :is(th, td):last-child {
   padding-right: var(--spacious-bleed);
 }
 
 /* A paragraph and the code or table beside it stand apart far enough that a hovered line's card clears the block by a gap of its own. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > p + :is(.armada-prose__run, .armada-prose__block, .armada-prose__table),
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-thread-rows .armada-prose > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table) + p {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose
+  > p
+  + :is(.armada-prose__run, .armada-prose__block, .armada-prose__table),
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-thread-rows
+  .armada-prose
+  > :is(.armada-prose__run, .armada-prose__block, .armada-prose__table)
+  + p {
   margin-top: var(--space-8);
 }
 
@@ -879,7 +1196,10 @@
 }
 
 /* ---- A slot leased or released: one quiet line, as a call reads, the branch after it and the time there under the pointer. ---- */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-lease[data-line] {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -893,16 +1213,27 @@
 }
 
 /* Today's slot hue, a little of it: the key and the words in it, on a pill of its tint, so the line stands apart from the calls. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] > svg,
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-lease[data-line]
+  > svg,
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease__said {
   color: var(--slot-held);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] > svg {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-lease[data-line]
+  > svg {
   flex: none;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-lease[data-line] {
   width: fit-content;
   max-width: 100%;
   padding: var(--space-1) var(--space-3) var(--space-1) calc(var(--space-2) + var(--space-1) / 2);
@@ -928,7 +1259,11 @@
 }
 
 /* The time sits just past the pill, so the pill is only as wide as its words. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line] .armada-session-lease__at {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-lease[data-line]
+  .armada-session-lease__at {
   position: absolute;
   left: calc(100% + var(--space-3));
   font-family: var(--font-sans);
@@ -939,7 +1274,11 @@
   transition: opacity var(--duration-fast) var(--ease);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-lease[data-line]:hover .armada-session-lease__at {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-lease[data-line]:hover
+  .armada-session-lease__at {
   opacity: 1;
 }
 
@@ -949,7 +1288,11 @@
   display: grid;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-block > :is(.armada-prose__block, .armada-prose__run-acts) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__run-block
+  > :is(.armada-prose__block, .armada-prose__run-acts) {
   grid-area: 1 / 1;
 }
 
@@ -963,7 +1306,11 @@
   margin: var(--space-2) var(--space-2) 0 0;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-prose__run-acts .armada-button {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-prose__run-acts
+  .armada-button {
   border-color: var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-overlay);
@@ -979,7 +1326,11 @@
 }
 
 /* A quote in the box: a hairline rule and quieter words, no fill, so his own words beneath it lead. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-composer__editor blockquote {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-composer__editor
+  blockquote {
   margin: var(--space-1) 0 var(--space-3);
   padding: 0 0 0 var(--space-3);
   background: none;
@@ -1012,7 +1363,10 @@
   border-radius: var(--radius-md);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__tile[data-picture] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tray__tile[data-picture] {
   width: auto;
   padding: 0;
   overflow: hidden;
@@ -1063,11 +1417,18 @@
   transition: opacity var(--duration-fast) var(--ease);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__tile:is(:hover, :focus-within) .armada-tray__remove {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tray__tile:is(:hover, :focus-within)
+  .armada-tray__remove {
   opacity: 1;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tray__remove:focus-visible {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tray__remove:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -1078,7 +1439,11 @@
 }
 
 /* The Aa panel's Show times off: the message bar keeps its acts and drops the time. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-session-thread[data-times="hidden"] .armada-message-bar__at {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-session-thread[data-times="hidden"]
+  .armada-message-bar__at {
   display: none;
 }
 
@@ -1094,7 +1459,10 @@
   text-wrap: pretty;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answers {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-question-deck__answers {
   gap: var(--space-2);
 }
 
@@ -1108,19 +1476,31 @@
   box-shadow: var(--spacious-card-edge);
   font-size: var(--spacious-body);
   line-height: 22px;
-  transition: box-shadow var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+  transition:
+    box-shadow var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer:hover {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-question-deck__answer:hover {
   box-shadow: inset 0 0 0 var(--border-width) color-mix(in srgb, var(--hue) 60%, transparent);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer[data-on] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-question-deck__answer[data-on] {
   background: color-mix(in srgb, var(--hue) 14%, transparent);
   box-shadow: inset 0 0 0 var(--border-width) var(--hue);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__answer > kbd {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-question-deck__answer
+  > kbd {
   min-width: 1ch;
   font-size: var(--spacious-meta);
   line-height: 22px;
@@ -1132,13 +1512,19 @@
   row-gap: 2px;
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-question-deck__description {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-question-deck__description {
   font-size: var(--spacious-meta);
   line-height: 20px;
 }
 
 /* A tooltip over the thread: the softer corner the thread's cards have, and its edge a faint ring, not a line. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-tooltip__bubble:not([data-card]) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-tooltip__bubble:not([data-card]) {
   padding: var(--space-1) calc(var(--space-2) + var(--space-1));
   border-color: transparent;
   border-radius: var(--radius-lg);
@@ -1160,7 +1546,11 @@
 }
 
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn__row:hover,
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-fleet-turn[data-open="true"] .armada-fleet-turn__row {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-fleet-turn[data-open="true"]
+  .armada-fleet-turn__row {
   background: none;
   color: var(--fg-muted);
 }
@@ -1185,7 +1575,10 @@
   border-inline-start: var(--border-width) solid var(--border-subtle);
 }
 
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame :is(.armada-fleet-turn__notice, .armada-fleet-turn__reply) {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  :is(.armada-fleet-turn__notice, .armada-fleet-turn__reply) {
   font-family: var(--font-sans);
   font-size: var(--spacious-meta);
   line-height: 20px;
@@ -1195,7 +1588,8 @@
 /* Started by: one quiet line on the column's edge over the thread, the name pressable, not a filled box at the pane's edge. */
 :root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-started-by {
   align-self: stretch;
-  margin: var(--space-4) calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
+  margin: var(--space-4)
+    calc(max(var(--spacious-gutter), (100% - var(--spacious-outer)) / 2) + var(--spacious-bleed)) 0;
   padding: 0;
   background: none;
   border-radius: 0;
@@ -1211,7 +1605,10 @@
 }
 
 /* A response's menu or editor is open: the bar stays up while the pointer is on it. */
-:root[data-look] [data-thread-take="spacious"] .armada-session-frame .armada-message-bar[data-held] {
+:root[data-look]
+  [data-thread-take="spacious"]
+  .armada-session-frame
+  .armada-message-bar[data-held] {
   opacity: 1;
 }
 

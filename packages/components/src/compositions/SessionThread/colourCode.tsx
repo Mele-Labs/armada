@@ -1,5 +1,10 @@
 import { cssLanguage } from "@codemirror/lang-css";
-import { javascriptLanguage, jsxLanguage, tsxLanguage, typescriptLanguage } from "@codemirror/lang-javascript";
+import {
+  javascriptLanguage,
+  jsxLanguage,
+  tsxLanguage,
+  typescriptLanguage,
+} from "@codemirror/lang-javascript";
 import { jsonLanguage } from "@codemirror/lang-json";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { rustLanguage } from "@codemirror/lang-rust";
@@ -39,15 +44,31 @@ const PARSERS: Record<string, Parser> = {
 // Classes and not styles: the hues are the editor's roles, set by the stylesheet that draws the block.
 const roles = tagHighlighter([
   {
-    tag: [tags.keyword, tags.modifier, tags.operatorKeyword, tags.controlKeyword, tags.definitionKeyword],
+    tag: [
+      tags.keyword,
+      tags.modifier,
+      tags.operatorKeyword,
+      tags.controlKeyword,
+      tags.definitionKeyword,
+    ],
     class: "tok-keyword",
   },
   {
-    tag: [tags.string, tags.special(tags.string), tags.regexp],
+    tag: [
+      tags.string,
+      tags.special(tags.string),
+      tags.regexp,
+    ],
     class: "tok-string",
   },
   {
-    tag: [tags.number, tags.bool, tags.null, tags.atom, tags.literal],
+    tag: [
+      tags.number,
+      tags.bool,
+      tags.null,
+      tags.atom,
+      tags.literal,
+    ],
     class: "tok-literal",
   },
   {
@@ -67,7 +88,11 @@ const roles = tagHighlighter([
     class: "tok-comment",
   },
   {
-    tag: [tags.punctuation, tags.bracket, tags.operator],
+    tag: [
+      tags.punctuation,
+      tags.bracket,
+      tags.operator,
+    ],
     class: "tok-punctuation",
   },
 ]);

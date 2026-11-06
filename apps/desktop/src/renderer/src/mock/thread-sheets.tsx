@@ -5,7 +5,14 @@
 
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { EyeOff, ListPlus, MessageSquareOff, MessageSquarePlus, MessageSquareQuote, type LucideIcon } from "lucide-react";
+import {
+  EyeOff,
+  ListPlus,
+  MessageSquareOff,
+  MessageSquarePlus,
+  MessageSquareQuote,
+  type LucideIcon,
+} from "lucide-react";
 import { SpaciousTake } from "@armada/components";
 import type { Session } from "@armada/screens/src/draft/sessions";
 
@@ -54,8 +61,21 @@ function Take({
 
 function JobCell({ session, width }: { session: Session; width?: number }) {
   return (
-    <div className="deck thread-sheet__deck" style={width === undefined ? undefined : { width }}>
-      <section className="deck-pane" data-frame="" aria-label={`Job: ${session.title ?? session.id}`}>
+    <div
+      className="deck thread-sheet__deck"
+      style={
+        width === undefined
+          ? undefined
+          : {
+              width,
+            }
+      }
+    >
+      <section
+        className="deck-pane"
+        data-frame=""
+        aria-label={`Job: ${session.title ?? session.id}`}
+      >
         <SessionView
           session={session}
           goes={GOES}
@@ -78,27 +98,92 @@ const STATES: readonly {
   width?: number;
   focus?: true;
 }[] = [
-  { name: "A long message each way", id: "st1" },
-  { name: "Twelve calls in a row", id: "st2" },
-  { name: "Code", id: "st3" },
-  { name: "A table", id: "st4" },
-  { name: "A failed run", id: "st5" },
-  { name: "Needs you", id: "st8" },
-  { name: "A document waiting on Approve", id: "s58" },
-  { name: "A walk", id: "st6" },
-  { name: "Thinking", id: "s91" },
-  { name: "Making calls", id: "s94" },
-  { name: "Reasoned, then answered", id: "s92" },
-  { name: "Nothing left to do", id: "s93" },
-  { name: "A thread like this one", id: "st9" },
-  { name: "Mixed calls between two messages", id: "st11" },
-  { name: "A slot leased and released", id: "st12" },
-  { name: "A long code block, scrolled into", id: "st13" },
-  { name: "Pictures and a file waiting to send", id: "st14" },
-  { name: "Pictures, a video and a doc", id: "st10" },
-  { name: "An empty thread", id: "st7" },
-  { name: "A narrow pane, 360 wide", id: "st1", width: 360 },
-  { name: "Keyboard focus on a paragraph", id: "st4", focus: true },
+  {
+    name: "A long message each way",
+    id: "st1",
+  },
+  {
+    name: "Twelve calls in a row",
+    id: "st2",
+  },
+  {
+    name: "Code",
+    id: "st3",
+  },
+  {
+    name: "A table",
+    id: "st4",
+  },
+  {
+    name: "A failed run",
+    id: "st5",
+  },
+  {
+    name: "Needs you",
+    id: "st8",
+  },
+  {
+    name: "A document waiting on Approve",
+    id: "s58",
+  },
+  {
+    name: "A walk",
+    id: "st6",
+  },
+  {
+    name: "Thinking",
+    id: "s91",
+  },
+  {
+    name: "Making calls",
+    id: "s94",
+  },
+  {
+    name: "Reasoned, then answered",
+    id: "s92",
+  },
+  {
+    name: "Nothing left to do",
+    id: "s93",
+  },
+  {
+    name: "A thread like this one",
+    id: "st9",
+  },
+  {
+    name: "Mixed calls between two messages",
+    id: "st11",
+  },
+  {
+    name: "A slot leased and released",
+    id: "st12",
+  },
+  {
+    name: "A long code block, scrolled into",
+    id: "st13",
+  },
+  {
+    name: "Pictures and a file waiting to send",
+    id: "st14",
+  },
+  {
+    name: "Pictures, a video and a doc",
+    id: "st10",
+  },
+  {
+    name: "An empty thread",
+    id: "st7",
+  },
+  {
+    name: "A narrow pane, 360 wide",
+    id: "st1",
+    width: 360,
+  },
+  {
+    name: "Keyboard focus on a paragraph",
+    id: "st4",
+    focus: true,
+  },
 ];
 
 // What neither page draws, so a state left out is named rather than taken as covered.
@@ -114,10 +199,26 @@ const NOT_SHOWN: readonly string[] = [
 ];
 
 // The quick bar's Save and Hide, each pair as the message box would draw it, so the choice is made by looking.
-const QUICK_ICONS: readonly { name: string; save: LucideIcon; hide: LucideIcon }[] = [
-  { name: "Quote bubble and eye", save: MessageSquareQuote, hide: EyeOff },
-  { name: "Plus bubble and struck bubble", save: MessageSquarePlus, hide: MessageSquareOff },
-  { name: "Today's list and eye", save: ListPlus, hide: EyeOff },
+const QUICK_ICONS: readonly {
+  name: string;
+  save: LucideIcon;
+  hide: LucideIcon;
+}[] = [
+  {
+    name: "Quote bubble and eye",
+    save: MessageSquareQuote,
+    hide: EyeOff,
+  },
+  {
+    name: "Plus bubble and struck bubble",
+    save: MessageSquarePlus,
+    hide: MessageSquareOff,
+  },
+  {
+    name: "Today's list and eye",
+    save: ListPlus,
+    hide: EyeOff,
+  },
 ];
 
 function QuickIcons() {
@@ -151,8 +252,10 @@ function StateSheet() {
   useEffect(() => {
     const at = window.setTimeout(() => {
       focusRow.current
-        ?.querySelector<HTMLElement>('[data-thread-take] .armada-prose [data-pick]')
-        ?.focus({ preventScroll: true });
+        ?.querySelector<HTMLElement>("[data-thread-take] .armada-prose [data-pick]")
+        ?.focus({
+          preventScroll: true,
+        });
     }, 400);
     return () => window.clearTimeout(at);
   }, []);
@@ -176,9 +279,19 @@ function StateSheet() {
           >
             <h2 className="thread-sheet__name">{state.name}</h2>
             <div className="thread-sheet__pair">
-              {[false, true].map((spacious) => (
+              {[
+                false,
+                true,
+              ].map((spacious) => (
                 <Take key={String(spacious)} spacious={spacious} job>
-                  <JobCell session={session} {...(state.width === undefined ? {} : { width: state.width })} />
+                  <JobCell
+                    session={session}
+                    {...(state.width === undefined
+                      ? {}
+                      : {
+                          width: state.width,
+                        })}
+                  />
                 </Take>
               ))}
             </div>
@@ -207,7 +320,10 @@ function StoryTile({ file, story }: { file: string; story: string }) {
     return () => {
       live = false;
     };
-  }, [file, story]);
+  }, [
+    file,
+    story,
+  ]);
   return (
     <div className="thread-sheet__tile">
       <StoryBoundary>{drawn}</StoryBoundary>
@@ -261,7 +377,9 @@ const PIECES: readonly {
   {
     name: "Button",
     count: 226,
-    places: ["Every surface in Bridge and Pocket"],
+    places: [
+      "Every surface in Bridge and Pocket",
+    ],
     file: "packages/components/src/primitives/Button/Button.stories.tsx",
     story: "Secondary",
   },
@@ -287,7 +405,9 @@ const PIECES: readonly {
   {
     name: "Job frame",
     count: 1,
-    places: ["Pocket's Job page, which does not load the take"],
+    places: [
+      "Pocket's Job page, which does not load the take",
+    ],
   },
   {
     name: "Tokens and shared stylesheets",
@@ -300,7 +420,8 @@ function RippleSheet() {
   return (
     <>
       <p className="thread-sheet__lead">
-        Every rule of the take is scoped to a Job's own thread, so each place below draws as it does today.
+        Every rule of the take is scoped to a Job's own thread, so each place below draws as it does
+        today.
       </p>
       <div className="thread-sheet__heads" aria-hidden>
         <span>Before</span>
@@ -311,7 +432,9 @@ function RippleSheet() {
           <h2 className="thread-sheet__name">
             {piece.name}
             <span className="thread-sheet__count">
-              {piece.count === 0 ? "Only in a Job's thread" : `${piece.count} places outside a Job's thread`}
+              {piece.count === 0
+                ? "Only in a Job's thread"
+                : `${piece.count} places outside a Job's thread`}
             </span>
           </h2>
           {piece.places.length === 0 ? null : (
@@ -323,7 +446,10 @@ function RippleSheet() {
           )}
           {piece.file === undefined || piece.story === undefined ? null : (
             <div className="thread-sheet__pair">
-              {[false, true].map((spacious) => (
+              {[
+                false,
+                true,
+              ].map((spacious) => (
                 <Take key={String(spacious)} spacious={spacious}>
                   <StoryTile file={piece.file!} story={piece.story!} />
                 </Take>
