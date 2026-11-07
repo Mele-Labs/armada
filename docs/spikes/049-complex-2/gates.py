@@ -105,6 +105,32 @@ class Keeper:
         self.edits_logged = set()
         self.mismatches = 0
         self.ledger_seen = set()
+        self.uuids = set()
+        self.stop_name = a.stop_name
+
+    def resume(self):
+        """Pick the record up again after a restart of the keeper in the same run: rows, base, pushes, transcript offsets."""
+        rp = f"{self.run_dir}/gate_rows.jsonl"
+        if os.path.exists(rp):
+            self.rows = [json.loads(l) for l in open(rp)]
+        for l in open(f"{self.run_dir}/keeper.jsonl"):
+            e = json.loads(l)
+            if e["event"] == "main_moved" and self.base_main is None:
+                rc, full = git("--git-dir", self.origin, "rev-parse", e["sha"])
+                self.base_main = full if rc == 0 else None
+            if e["event"] == "push_own_branch":
+                self.own_pushes.append({"at": e["at"], "sha": e["sha"]})
+        doc = next((r for r in self.rows if r["gate"] == "document_approved"), None)
+        self.doc_closed_at = doc["at"] if doc else None
+        for path in glob.glob(f"{self.home}/.claude/projects/**/*.jsonl", recursive=True):
+            if self.sid in path:
+                self.offsets[path] = os.path.getsize(path)
+        self.item_n = 100  # item ids of the restarted keeper do not repeat the first keeper's
+        self.log_new_ledger_rows(quiet=True)
+        plan = self.read_plan()
+        if plan:
+            self.seen_version = plan["version"]
+        self.log("keeper_resumed", rows=len(self.rows), base_main=(self.base_main or "")[:10], pushes=len(self.own_pushes))
 
     # ---------------------------------------------------------------- output
     def log(self, event, **kw):
@@ -181,7 +207,7 @@ class Keeper:
             con.close()
         return out
 
-    def log_new_ledger_rows(self):
+    def log_new_ledger_rows(self, quiet=False):
         """Subagent and other non-artifact rows Fleet's ledger keeps for this Job, logged once each."""
         con = self.store()
         try:
@@ -189,7 +215,8 @@ class Keeper:
                 key = (r["kind"], r["target"], r["state"])
                 if key not in self.ledger_seen:
                     self.ledger_seen.add(key)
-                    self.log("ledger_row", kind=r["kind"], target=short(r["target"], 80), state=r["state"], detail=short(r["detail"], 160), ledger_at=r["at"])
+                    if not quiet:
+                        self.log("ledger_row", kind=r["kind"], target=short(r["target"], 80), state=r["state"], detail=short(r["detail"], 160), ledger_at=r["at"])
         except sqlite3.Error:
             pass
         finally:
@@ -320,8 +347,11 @@ class Keeper:
     def hold(self, g, reason, fresh_done=False):
         """Hold the Job on this gate and raise a Needs you item for the person: never silent."""
         if self.held and not fresh_done:
-            self.log("hold_again", gate=g["gate"], reason=reason, already=self.held["gate"])
-            return
+            open_item = next((i for i in self.needs_you if i["open"]), None)
+            if open_item is not None and open_item["text"] == f"Held on {g['title']}: {self.missing(g)}":
+                self.log("hold_again", gate=g["gate"], reason=reason, already=self.held["gate"])
+                return
+            self.log("hold_text_changed", gate=g["gate"], reason=reason, was=open_item["text"] if open_item else None)
         if self.held is None:
             self.held = {"gate": g["gate"], "title": g["title"], "since": now(), "reason": reason}
         self.item_n += 1
@@ -374,7 +404,7 @@ class Keeper:
             line = next((l.strip() for l in text.splitlines() if l.strip().startswith("Tests ")), "no Tests line")
             lines.append(line)
             if not (r.returncode == 0 and " passed" in line and " failed" not in line):
-                failed += [l.strip().split(" ")[1] for l in text.splitlines() if l.strip().startswith("FAIL ")][:4] or rel[:3]
+                failed += [l.split()[1] + (" " + l.split(">", 1)[1].strip() if ">" in l else "") for l in text.splitlines() if l.strip().startswith("FAIL ") and len(l.split()) > 1][:4] or rel[:3]
         said = f"vitest on {len(files)} file(s) ({', '.join(os.path.basename(f) for f in files)}): {'; '.join(lines)} ({time.time() - t0:.0f}s)"
         return not failed, said, files, failed
 
@@ -447,6 +477,10 @@ class Keeper:
         msg = d.get("message")
         if not at or not isinstance(msg, dict):
             return
+        if d.get("uuid"):
+            if d["uuid"] in self.uuids:
+                return
+            self.uuids.add(d["uuid"])
         rec = None
         if sub:
             rec = self.subs.setdefault(sub, {"first": at, "last": at, "prompt": None, "edits": [], "git": [], "calls": 0})
@@ -677,7 +711,7 @@ class Keeper:
     def run(self):
         self.log("keeper_started", branch=self.branch, template=[t for t in TEMPLATE_HEAD] + [TEMPLATE_TAIL])
         while True:
-            stopping = os.path.exists(f"{self.run_dir}/gates.stop")
+            stopping = os.path.exists(f"{self.run_dir}/{self.stop_name}")
             try:
                 self.poll()
             except Exception as e:  # the keeper must not die mid-run
@@ -699,7 +733,12 @@ def main():
     ap.add_argument("--template", required=True, help="a tree with node_modules to copy from")
     ap.add_argument("--rig", required=True, help="the 042-rig directory (seed-node-modules.sh)")
     ap.add_argument("--poll", type=float, default=1)
-    Keeper(ap.parse_args()).run()
+    ap.add_argument("--resume", action="store_true", help="continue a run whose keeper was stopped")
+    ap.add_argument("--stop-name", default="gates.stop")
+    k = Keeper(ap.parse_args())
+    if k.a.resume:
+        k.resume()
+    k.run()
 
 
 if __name__ == "__main__":

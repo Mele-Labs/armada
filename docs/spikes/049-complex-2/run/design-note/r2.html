@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dropping the state of gone Jobs</title>
+<link rel="stylesheet" href="armada-kit.css">
+<style>
+  .pick { color: var(--status-completed-success); font-weight: 600; }
+  td code, li code { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+<h1>Dropping the state of gone Jobs</h1>
+<p>A Job counts as gone when Fleet's list no longer has it, or when it ended more than 7 days ago. Bridge drops a gone Job's arrangement and its Custom tab state on the first fresh read of the Job list after it starts, and again at most every 10 minutes while it runs, never for a live Job and never for a Job drawn in the window. Custom tab state gets keyed by Job and tab, so two Jobs that mint the same tab id each keep their own. Approve this and the two build groups start side by side.</p>
+
+<h2>What grows today</h2>
+<table>
+  <caption>State Bridge keeps per Job, and what removes it now</caption>
+  <thead><tr><th>State</th><th>Where</th><th>Removed by</th></tr></thead>
+  <tbody>
+    <tr><td>A Job's arrangement</td><td>kept key <code>job-panes:job:&lt;id&gt;</code></td><td>Only <code>forget()</code>, which drops the whole family and is meant for tests and mocks</td></tr>
+    <tr><td>A Job's entry, ⌘Z history and measured area</td><td>memory, in <code>createPaneFamily</code></td><td>Nothing until the window closes</td></tr>
+    <tr><td>A Custom tab's stage, mod and building Job</td><td>memory, in <code>custom.ts</code>, keyed by tab id alone</td><td>Nothing until the window closes</td></tr>
+    <tr><td>A Custom tab's draft description</td><td>kept key <code>session:custom:&lt;tab id&gt;</code></td><td>Nothing</td></tr>
+  </tbody>
+</table>
+<p>Tab ids are minted per window, so the last two rows are shared by any two Jobs whose tabs got the same id (armada-20v4).</p>
+
+<h2>When a Job counts as gone</h2>
+<p>Fleet's <code>GET /sessions</code> lists every Job it has ever held, across every repository, with no cutoff (<code>crates/api/src/sessions.rs:721</code>). An ended Job stays openable in Bridge: its thread, its panes and Fork.</p>
+<table>
+  <thead><tr><th>Option</th><th>What it costs</th></tr></thead>
+  <tbody>
+    <tr><td>A. Gone once it has ended</td><td>Reopening a Job that ended an hour ago shows the default layout and resets its Custom tabs. That changes how a layout looks while the Job still exists.</td></tr>
+    <tr><td>B. Gone once Fleet's list no longer has it</td><td>Fleet never forgets a Job, so this drops only keys of Jobs from another Fleet or a replaced store. The keys still grow without bound.</td></tr>
+    <tr><td class="pick">C. Gone once Fleet's list no longer has it, or it ended more than 7 days ago (by <code>ended_at</code>)</td><td>Keys stay for a week after a Job ends. A Job reopened after that opens on the default layout, which is the layout for all. One constant to tune.</td></tr>
+  </tbody>
+</table>
+<p>A live Job is never gone, and neither is a terminal Job Bridge shows as quiet: it is still <code>live</code> on the ledger and can come back. A Job with <code>state: ended</code> and no <code>ended_at</code> is kept: with no instant to count from, the rule cannot tell its age.</p>
+
+<h2>When the rule runs</h2>
+<armada-sketch title="When Bridge sweeps"><script type="application/json">
+{"nodes":[
+  {"id":"start","kind":"box","x":0,"y":0,"title":"Bridge starts","body":"Picture from disk drawn; readAt is null","icon":"rocket","step":1},
+  {"id":"wait","kind":"box","x":330,"y":0,"title":"No sweep yet","body":"Disk picture, reading or failed read","icon":"lock","step":1,"color":"amber"},
+  {"id":"fresh","kind":"box","x":660,"y":0,"title":"First fresh read","body":"sessions read and readAt set","icon":"server","step":2},
+  {"id":"sweep","kind":"box","x":660,"y":170,"title":"Sweep","body":"Every kept job-panes key and Custom draft, plus owners in memory","icon":"wrench","step":3,"color":"green"},
+  {"id":"later","kind":"box","x":330,"y":170,"title":"Later fresh reads","body":"Sweep again if 10 minutes have passed","icon":"clock","step":4}
+],"edges":[
+  {"id":"e1","from":"start","to":"wait","step":1},
+  {"id":"e2","from":"wait","to":"fresh","label":"Fleet answers","step":2},
+  {"id":"e3","from":"fresh","to":"sweep","step":3},
+  {"id":"e4","from":"sweep","to":"later","step":4},
+  {"id":"e5","from":"later","to":"sweep","label":"10 min","step":4}
+]}
+</script></armada-sketch>
+<ul>
+  <li>A fresh read is <code>sessions.state === "read"</code> with <code>readAt</code> set. Bridge launches on a picture it kept on disk, which also arrives as <code>read</code>; <code>readAt</code> stays <code>null</code> until Fleet answers, so the disk picture never sweeps. A failed re-read keeps the last good list in the inputs, and the sweep ignores it as well.</li>
+  <li>The startup sweep and the running one are the same function over the same rule: it reads every kept <code>job-panes:job:</code> key and every owner held in memory, and drops the gone ones. One code path, so the startup case cannot drift from the running one.</li>
+  <li>The 10 minute spacing: the Job list arrives on every event, several a second in a busy turn, and a sweep lists every kept key. A Job crossing its 7 days does not need dropping to the second.</li>
+  <li>A Job whose panes are drawn in this window is never dropped, whatever the rule says. The store counts the owners drawn now; the sweep skips them, and picks them up on a later sweep once closed.</li>
+</ul>
+
+<h2>Dropping one owner of a family</h2>
+<p>Each family gets <code>drop(id)</code>: it forgets the owner's kept key, removes its entry, ⌘Z history and measured area, and tells listeners. Opened again later, the owner is made fresh from the layout for all, as a Job seen for the first time is. The family's saved layouts and layout for all are untouched.</p>
+
+<h2>The pull request and Operator families</h2>
+<table>
+  <thead><tr><th>Family</th><th>Decision</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Operator</td><td>Gets <code>drop</code> with the others, never swept</td><td>One owner that always exists. Nothing grows.</td></tr>
+    <tr><td>Pull requests</td><td class="pick">Gets <code>drop</code>, not swept in this change</td><td>Keys grow with each pull request opened on Reviews. A merged pull request stays openable, and Bridge has no list that says one is gone, so a rule would need its own design. Kept as a follow-up.</td></tr>
+  </tbody>
+</table>
+
+<h2>How Custom tab state is keyed and dropped</h2>
+<table>
+  <thead><tr><th>Option</th><th>What it costs</th></tr></thead>
+  <tbody>
+    <tr><td>A. Mint tab ids unique across Jobs</td><td>Fixes new tabs only. Kept arrangements already hold clashing ids, and the state still has no Job to drop it by.</td></tr>
+    <tr><td>B. One flat map keyed by <code>jobId</code> and tab id joined</td><td>Dropping a Job scans every entry.</td></tr>
+    <tr><td class="pick">C. A map of Jobs, each a map of tabs</td><td>Dropping a Job is one delete. Every function in <code>custom.ts</code> takes the Job id first; all 9 callers already hold it.</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>The draft's key becomes <code>custom:&lt;jobId&gt;:&lt;tabId&gt;</code>, kept as <code>session:custom:&lt;jobId&gt;:&lt;tabId&gt;</code>.</li>
+  <li><code>forgetCustom(jobId)</code> drops the Job's tabs from memory and every kept draft under its prefix. Part A's drop of a gone Job calls it, so the sweep clears both.</li>
+  <li>Old drafts under <code>session:custom:&lt;tab id&gt;</code> name no Job, so they cannot be moved to one. <span class="pick">Pick: the first sweep forgets them.</span> Cost: a Custom tab description typed and not sent before this lands is lost once. The other way, letting the first Job that opens the tab id adopt it, repeats the sharing bug once.</li>
+  <li>The seeded tab at id 900 in the job layouts mock stays as it is; it no longer needs to dodge a clash, and moving it is outside what was asked.</li>
+</ul>
+
+<h2>Tests</h2>
+<table>
+  <thead><tr><th>File</th><th>Holds</th></tr></thead>
+  <tbody>
+    <tr><td><code>job-panes/store.test.ts</code></td><td>Dropping one owner forgets its key, entry, history and area, leaves other owners and the family's layouts, and the owner reopens fresh</td></tr>
+    <tr><td><code>job-panes/gone.test.ts</code></td><td>The rule over live, quiet, ended within and past 7 days, absent; no sweep on a disk picture or failed read; a drawn Job kept; old drafts forgotten; a dropped Job's Custom state gone</td></tr>
+    <tr><td><code>job-panes/custom.test.ts</code></td><td>Two Jobs with the same tab id keep their own stage, mod and draft key; <code>forgetCustom</code> drops one Job only</td></tr>
+  </tbody>
+</table>
+
+<h2>What this does not cover</h2>
+<ul>
+  <li>Pull request panes on the Reviews page. Their <code>pr-panes:pr:</code> keys keep growing; this change only gives that family the drop it needs.</li>
+  <li>The Operator's panes. One owner, nothing to clean up.</li>
+  <li>The shared layouts of each family: saved layouts, the layout for all and their versions. They are one key per family and are left alone.</li>
+  <li>Any other per-Job state Bridge keeps under its own kept keys, such as composer drafts of a Job's thread, queued ideas or browser tabs. Only the two stores named in armada-vs8t and armada-20v4 are swept.</li>
+  <li>How tab ids are minted. They stay per window; the Custom tab state stops depending on them being unique.</li>
+  <li>Fleet. Nothing outside <code>apps/desktop/src/renderer/src</code> changes, and Fleet still keeps every Job forever.</li>
+  <li>A setting for the 7 days or the 10 minutes. Both are constants in the code.</li>
+  <li>How a layout or a Custom tab looks or behaves while its Job exists. Nothing changes there, apart from the one-time loss of old drafts named above.</li>
+</ul>
+
+<h2>What was not checked</h2>
+<ul>
+  <li>How many <code>job-panes:job:</code> keys a long-used Bridge holds today. No real profile was read.</li>
+  <li>Whether any other surface reads a Custom tab draft by its old key. A search of <code>apps/desktop/src/renderer/src</code> found only <code>custom-body.tsx</code>.</li>
+  <li>Bridge was not started, so the sweep is proven by tests only.</li>
+</ul>
+</body>
+</html>

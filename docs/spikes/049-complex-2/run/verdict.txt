@@ -1,0 +1,24 @@
+stopped because: done
+refs on origin:
+  armada/session-1e84dbdc 874a0f61fb
+  main 0e3da73336
+commits on armada/session-1e84dbdc past the first commit of main: 15645
+files changed by the branch against its merge base with main (before the merge):
+   apps/desktop/src/renderer/src/cockpit/deck/ship.ts |   2 +-
+   .../src/renderer/src/job-panes/PaneView.tsx        |  16 +-
+   .../src/renderer/src/job-panes/custom-body.tsx     |   8 +-
+   .../src/renderer/src/job-panes/custom.test.ts      |  82 +++++++
+   apps/desktop/src/renderer/src/job-panes/custom.ts  |  84 +++++--
+   .../src/renderer/src/job-panes/gone.test.ts        | 254 +++++++++++++++++++++
+   apps/desktop/src/renderer/src/job-panes/gone.ts    |  71 ++++++
+   .../src/renderer/src/job-panes/mod-tabs.test.ts    |   2 +-
+   .../desktop/src/renderer/src/job-panes/mod-tabs.ts |   2 +-
+   .../src/renderer/src/job-panes/store.test.ts       |  57 ++++-
+   apps/desktop/src/renderer/src/job-panes/store.ts   |  41 +++-
+   .../src/renderer/src/job-panes/tab-host.test.tsx   |  62 ++---
+   .../src/renderer/src/job-panes/tab-host.tsx        |   2 +-
+   .../src/renderer/src/mock/scenarios/job-layouts.ts |   2 +-
+   apps/desktop/src/renderer/src/mods-made.test.ts    |  19 ++
+   apps/desktop/src/renderer/src/mods-made.ts         |   6 +-
+   apps/desktop/src/renderer/src/sessions-wired.tsx   |   3 +
+   17 files changed, 640 insertions(+), 73 deletions(-)

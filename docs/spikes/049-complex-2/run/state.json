@@ -1,0 +1,17 @@
+{
+ "session": "1e84dbdc-c774-4123-8fcc-d3676279830d",
+ "plan_version": 2,
+ "doc_closed_at": "2026-11-07T03:40:33.996Z",
+ "own_pushes": 6,
+ "own_pushes_after_doc": 6,
+ "live": null,
+ "gates_open": [],
+ "gates_open_before_deliver": [],
+ "merge_ready": true,
+ "merged": true,
+ "doc_open": false,
+ "tip": "874a0f61fb",
+ "missing": {},
+ "held": null,
+ "needs_you": []
+}

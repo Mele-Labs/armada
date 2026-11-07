@@ -69,9 +69,8 @@ finish)
     echo "refs on origin:"
     git --git-dir="$origin" for-each-ref --format='  %(refname:short) %(objectname:short)' refs/heads
     if git --git-dir="$origin" rev-parse -q --verify "refs/heads/$branch" >/dev/null; then
-      base=$(git --git-dir="$origin" rev-list --max-parents=0 refs/heads/main | tail -1)
-      echo "commits on $branch past the first commit of main: $(git --git-dir="$origin" rev-list --count "$base..refs/heads/$branch" 2>/dev/null)"
       mb=$(git --git-dir="$origin" merge-base "refs/heads/$branch" "$(git --git-dir="$origin" rev-parse refs/heads/main^1 2>/dev/null || echo refs/heads/main)" 2>/dev/null || true)
+      echo "commits on $branch past its merge base with main: $(git --git-dir="$origin" rev-list --count "${mb:-refs/heads/main}..refs/heads/$branch" 2>/dev/null)"
       echo "files changed by the branch against its merge base with main (before the merge):"
       git --git-dir="$origin" diff --stat "${mb:-refs/heads/main}" "refs/heads/$branch" | sed 's/^/  /'
     fi

@@ -147,6 +147,17 @@ def watch(args):
     told_missing = {}  # (kind, missing text) -> time, so one missing fact is told once
     last_change, last_fingerprint = time.time(), None
     done_at = None
+    if args.resume and os.path.exists(args.acts):  # a restart of this script in the same run keeps what it already did
+        for l in open(args.acts):
+            d = json.loads(l)
+            if d["act"] == "document_send_back" and d["status"] < 300:
+                flags["note_sent"] = True
+            if d["act"] == "change_request" and d["status"] < 300:
+                flags["change_sent"] = True
+            if d["act"] == "merge_branch":
+                flags["merged"] = True
+            if d["act"].startswith("held_item"):
+                acted_holds.add(d["item"])
 
     def log(name, item, status, text, answer, why=""):
         with open(args.acts, "a") as f:
@@ -267,11 +278,7 @@ def watch(args):
                 st = keeper_state()
                 ok, why = merge_gate(st)
                 if not ok:
-                    # asked too early: answer what is missing, once per distinct fact
-                    key = ("merge_early", why)
-                    if key in told_missing:
-                        return False if source == "replied" else True
-                    told_missing[key] = time.time()
+                    # asked too early: answer what is missing, every time it is asked
                     reply = f"I have not merged. Deliver is not live yet; {why}."
                     if source == "replied":
                         return say("merge_refused_gate_open", iid, reply, "scripted: never merge while a gate before Deliver is open")
@@ -366,6 +373,7 @@ def main():
     w.add_argument("--rules", required=True)
     w.add_argument("--max-minutes", type=float, default=75)
     w.add_argument("--quiet-seconds", type=float, default=420)
+    w.add_argument("--resume", action="store_true")
     sys.exit(watch(ap.parse_args()))
 
 
