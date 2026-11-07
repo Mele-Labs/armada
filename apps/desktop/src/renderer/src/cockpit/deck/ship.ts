@@ -391,7 +391,8 @@ export function shipOf(input: Inputs): Ship {
           session.modFor.job,
         ],
         label:
-          customLabel(session.modFor.job, session.modFor.tab) ?? (mod === undefined ? "Custom tab" : tabTitle(mod)),
+          customLabel(session.modFor.job, session.modFor.tab) ??
+          (mod === undefined ? "Custom tab" : tabTitle(mod)),
       };
     return mod === undefined
       ? undefined

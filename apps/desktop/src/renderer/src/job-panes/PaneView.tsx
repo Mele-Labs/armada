@@ -248,7 +248,8 @@ function TabButton({
   // The tab keeps its mod's name, so after a restart it is drawn as the mod it was, not a fresh composer.
   useEffect(() => {
     if (tab.kind !== "custom") return;
-    if (tab.mod !== undefined && peekCustom(jobId, tab.id).stage === "compose") seedBuilt(jobId, tab.id, tab.mod);
+    if (tab.mod !== undefined && peekCustom(jobId, tab.id).stage === "compose")
+      seedBuilt(jobId, tab.id, tab.mod);
     else if (custom.stage === "built" && custom.mod !== undefined && custom.mod !== tab.mod)
       look(jobId, (arrangement) => markTabMod(arrangement, tab.id, custom.mod!));
   }, [

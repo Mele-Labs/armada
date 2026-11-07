@@ -443,7 +443,9 @@ export function createPaneFamily(spec: FamilySpec) {
         if (left > 0) drawn.set(jobId, left);
         else drawn.delete(jobId);
       };
-    }, [jobId]);
+    }, [
+      jobId,
+    ]);
     const entry = seen.jobs[jobId]!;
     return {
       arrangement: entry.arrangement,

@@ -28,7 +28,9 @@ function storage(): Storage {
 }
 
 // Decoded, so a checkout under a folder with a space in its name is still found.
-const KEEP = decodeURIComponent(new URL("../../../../../../packages/components/src/keep.ts", import.meta.url).pathname);
+const KEEP = decodeURIComponent(
+  new URL("../../../../../../packages/components/src/keep.ts", import.meta.url).pathname,
+);
 
 let kept: Storage;
 

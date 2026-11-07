@@ -53,7 +53,11 @@ let oldDraftsForgotten = false;
  * the list is asked for, so only the list's own `listedAt` says Fleet answered it. An empty answer cannot be told from a ledger that failed to load.
  */
 export function sweepOnRead(sessions: BridgeState["sessions"], now: number): string[] {
-  if (sessions.state !== "read" || sessions.listedAt === undefined || sessions.sessions.length === 0)
+  if (
+    sessions.state !== "read" ||
+    sessions.listedAt === undefined ||
+    sessions.sessions.length === 0
+  )
     return [];
   if (sweptAt !== undefined && now - sweptAt < SWEEP_EVERY_MS) return [];
   sweptAt = now;

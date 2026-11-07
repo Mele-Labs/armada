@@ -20,7 +20,10 @@ beforeEach(() => {
       get length() {
         return store.size;
       },
-      key: (at: number) => [...store.keys()][at] ?? null,
+      key: (at: number) =>
+        [
+          ...store.keys(),
+        ][at] ?? null,
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
       removeItem: (key: string) => void store.delete(key),

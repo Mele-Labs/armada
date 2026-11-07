@@ -41,14 +41,18 @@ export const peekCustom = (jobId: string, id: string): CustomTab =>
   held.get(jobId)?.get(id) ?? COMPOSE;
 
 /** The key the tab's unsent description is kept under, apart for each Job. */
-export const customDraftKey = (jobId: string, tabId: string): string =>
-  `custom:${jobId}:${tabId}`;
+export const customDraftKey = (jobId: string, tabId: string): string => `custom:${jobId}:${tabId}`;
 
 const KEPT = "armada:kept:";
 const keptNames = (): string[] => {
   try {
     const store = window.localStorage;
-    return Array.from({ length: store.length }, (_, at) => store.key(at) ?? "")
+    return Array.from(
+      {
+        length: store.length,
+      },
+      (_, at) => store.key(at) ?? "",
+    )
       .filter((key) => key.startsWith(KEPT))
       .map((key) => key.slice(KEPT.length));
   } catch {
