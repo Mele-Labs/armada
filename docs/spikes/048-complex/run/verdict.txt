@@ -1,0 +1,5 @@
+Job 9d96b11c, opus. Stopped by the operator at 20.5 minutes (the Job was idle and held; nothing could close the open gate).
+refs on origin after the run: main 3129659d48 (the person's merge), armada/session-9d96b11c d2d770de00. No other branch was pushed.
+Files changed by the branch against its base d27878840b: gone.test.ts (231 lines, new), gone.ts (18, new), store.test.ts (+68), store.ts (+44 -9), sessions-wired.tsx (+2). Five files, 354 insertions, 9 deletions.
+Checks, run by hand after the run (the keeper never ran them, because the Checks group was never due): vitest on gone.test.ts and store.test.ts at d2d770de00 in a fresh checkout: 2 files passed, 42 tests passed, 2 seconds.
+Cost as Fleet measured it: 1,701,344 micros. 62 requests on claude-opus-5-5: input 128, cache creation 110,832, cache read 5,551,952, output 33,087 tokens. Subagent requests: 0.
