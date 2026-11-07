@@ -116,6 +116,7 @@ import { useTeachMenu } from "../TeachPanel/TeachMenu";
 import { MovedRow } from "./MovedRow";
 import { StartedRow } from "./StartedRow";
 import { SubagentRow } from "./SubagentRow";
+import { SubagentsCard } from "./SubagentsCard";
 import { WaiterRow } from "./WaiterRow";
 import { SketchPin, SketchRow, type SketchPinProps } from "./SketchRow";
 import { DocumentRow } from "./DocumentRow";
@@ -3739,6 +3740,14 @@ export function SessionThread({
   const endsInCalls =
     last?.kind === "calls" ||
     (last?.kind === "row" && last.row.kind === "reasoning" && last.row.live === true);
+  // The subagents still running stand in one card at the thread's foot, which carries the one live mark while it does.
+  const running = all.flatMap((item) =>
+    item.kind === "subagent" && item.subagent.state === "running"
+      ? [
+          item.subagent,
+        ]
+      : [],
+  );
   const cardsAfter = (at: number): ThreadCard[] =>
     (inline ?? []).filter((card) => afterWhich(items, card) === at);
   // What waits on him is the thread's last card, answered in place.
@@ -4068,7 +4077,7 @@ export function SessionThread({
                               {cards}
                             </li>
                           ) : null}
-                          {working === true && (!endsInCalls || asking) ? (
+                          {working === true && running.length === 0 && (!endsInCalls || asking) ? (
                             <li className="armada-session-thread__working">
                               <SessionMark state="working" said="Working" />
                               {spacious ? (
@@ -4079,6 +4088,23 @@ export function SessionThread({
                               {onStop === undefined ? null : <SessionStop onStop={onStop} />}
                             </li>
                           ) : null}
+                          {running.length === 0 ? null : (
+                            <li className="armada-session-thread__subagents">
+                              <SubagentsCard
+                                running={running}
+                                {...(onOpenSubagent === undefined
+                                  ? {}
+                                  : {
+                                      onOpen: onOpenSubagent,
+                                    })}
+                                {...(working === true && onStop !== undefined
+                                  ? {
+                                      onStop,
+                                    }
+                                  : {})}
+                              />
+                            </li>
+                          )}
                           {trailing === undefined ? null : (
                             <li ref={tail} className="armada-session-thread__trailing">
                               {trailing}

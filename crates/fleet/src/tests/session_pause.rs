@@ -249,6 +249,7 @@ async fn another_jobs_note_leaves_a_paused_job_paused() {
     rig.send(&sender, "hello").await;
     rig.stand_in.init(0);
     let id = rig.start().await;
+    rig.started_from(&sender, &id).await;
     rig.send(&id, "change a file").await;
     rig.stand_in.init(1);
     let path = format!("{}/src/lib.rs", rig.root);

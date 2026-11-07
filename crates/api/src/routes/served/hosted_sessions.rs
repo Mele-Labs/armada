@@ -196,6 +196,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/ask/terminal",
     },
     Route {
+        operation: "message_reach",
+        method: "POST",
+        path: "/sessions/message_reach",
+    },
+    Route {
         operation: "take_held_messages",
         method: "POST",
         path: "/sessions/held",

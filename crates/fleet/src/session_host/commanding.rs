@@ -66,7 +66,7 @@ where
 
     /// Every Job below `parent` as `(id, started_by)`: each child followed by its own descendants,
     /// oldest first at each level. A Job met twice is listed once, so a cycle ends.
-    async fn started_tree(&self, parent: &str) -> Result<Vec<(String, String)>, Refusal> {
+    pub(super) async fn started_tree(&self, parent: &str) -> Result<Vec<(String, String)>, Refusal> {
         let mut seen = vec![parent.to_string()];
         let mut found = Vec::new();
         // Depth first: the stack holds the next Jobs to visit, the nearest sibling on top.
