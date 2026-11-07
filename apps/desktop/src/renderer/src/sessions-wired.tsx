@@ -97,6 +97,7 @@ import { videoAddressOf } from "../../shared/video-address";
 import { buildChangeOf, type BuildChange } from "./build-change";
 import { clashFileRead } from "./clash-file-read";
 import { fileChangeRead } from "./file-change-read";
+import { sweepOnRead } from "./job-panes/gone";
 import { catchingUp } from "./checkout-catch-up";
 import { uploadOfFile, uploadOfSketch, wireTagOf } from "./session-uploads";
 import { readHistory } from "./session-history";
@@ -283,6 +284,8 @@ export class WiredStore {
       this.lifecyclesHeard.clear();
     }
     this.missedSeen = state.missed;
+    // Fleet's own list, not the inputs: those keep an old one after a failed re-read.
+    sweepOnRead(state.sessions, state.readAt, Date.now());
     // Every message brings the whole state as new objects. What did not change is kept as it was, so a message about
     // one Session finds every other one the same and reads only that one.
     const next = {
