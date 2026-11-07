@@ -1,0 +1,51 @@
+You are the agent for stretch 1 of 3 of one bug Job. A different agent did the earlier stretches, a different one does the later ones. You do only your stretch, and you stop when it is done. Other agents work in your absence and know only what the handoff below and the repository tell them.
+
+## The report
+
+A test on main is red and has been for days: `apps/desktop/src/renderer/src/mock/scenario.test.ts`, the test "every row exported from scenarios/ has a name of its own, and reaches the list". It fails with `expected 380 to be 381` at the line that compares the size of a set of export names with the number of names. Find why and fix it.
+
+The issue about it is armada-tyl, filed on 26 Oct and since partly overtaken, so do not trust its wording:
+
+> apps/desktop/src/renderer/src/mock/scenario.ts globs every export of scenarios/*.ts as a Scenario, but several files there export plain values (TITLE and ASKED in now-and-plain-plans.ts, NOTES_JOB in job-notes.ts, shipSessionsStarting in cockpit-ship.ts). On main, 'every scenario has its own name' fails with expected 269 to be 278, and the Studio test reads holds of undefined. Either move the helpers out of scenarios/ or filter the glob to Scenario-shaped exports.
+
+## Your stretch: Find the cause and plan the fix
+
+It ends when the person approves your plan.
+
+### Find the cause
+
+Reads the report and the code, reproduces the bug and names the cause, then writes down the fix as tasks. Nothing is changed yet.
+
+Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.
+Say `seen: true` in record_plan when the person would see any piece of the change.
+Name the root cause with file:line, not the reported symptom.
+Propose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.
+Separate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.
+List the tasks in the order they must happen. Tests come after the walk, so name none to write yet. The walk is the Fix step's own work, so list no walk as a task.
+Name the files you expect to touch.
+Open each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.
+Say when the work is bigger than it looked and which part grew.
+End with what you could not settle, each with file:line evidence.
+Record the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.
+
+## In this rig
+
+- There is no forge here: no pull request and no ci. `origin` is a local bare repository, and pushing a branch to it is the push.
+- No cargo, no pnpm install, and no test file but the one named below: the machine is shared.
+- Edit nothing in the repository. Running `armada run bootstrap` is not an edit.
+
+How to run the test. A fresh slot has no dependencies, so run `armada run bootstrap` once in your slot (a few seconds, it copies them). Then:
+
+```bash
+cd apps/desktop && node_modules/.bin/vitest run src/renderer/src/mock/scenario.test.ts
+```
+
+Run only that one file. Do not run cargo, do not run pnpm install, and do not run the other test files: the machine is shared.
+
+## Handoff in
+
+None. You are first.
+
+## When your stretch is done
+
+Fleet tells you when the person approves the plan. Your last message before you call all_done is the handoff brief for the next agent. Its first line is `HANDOFF`. Then three short sections: where the work is (branch, commit, files, what you ran), what you decided and why, and what is open. Write it for an agent that has not seen this conversation and starts from it alone. Then call all_done. Do not begin the fix.

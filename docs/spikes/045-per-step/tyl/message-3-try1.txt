@@ -1,0 +1,45 @@
+You are the agent for stretch 3 of 3 of one bug Job. A different agent did the earlier stretches, a different one does the later ones. You do only your stretch, and you stop when it is done. Other agents work in your absence and know only what the handoff below and the repository tell them.
+
+## The report
+
+A test on main is red and has been for days: `apps/desktop/src/renderer/src/mock/scenario.test.ts`, the test "every row exported from scenarios/ has a name of its own, and reaches the list". It fails with `expected 380 to be 381` at the line that compares the size of a set of export names with the number of names. Find why and fix it.
+
+The issue about it is armada-tyl, filed on 26 Oct and since partly overtaken, so do not trust its wording:
+
+> apps/desktop/src/renderer/src/mock/scenario.ts globs every export of scenarios/*.ts as a Scenario, but several files there export plain values (TITLE and ASKED in now-and-plain-plans.ts, NOTES_JOB in job-notes.ts, shipSessionsStarting in cockpit-ship.ts). On main, 'every scenario has its own name' fails with expected 269 to be 278, and the Studio test reads holds of undefined. Either move the helpers out of scenarios/ or filter the glob to Scenario-shaped exports.
+
+## Your stretch: Deliver
+
+It ends when the person merges your branch into the `origin`'s main.
+
+### Deliver
+
+Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch.
+
+Open the pull request and merge it on a green ci. Say what landed.
+Deliver by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.
+Review the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.
+Leave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.
+Auto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.
+Open PR only: push the branch and open the pull request. Stop there and do not merge.
+Keep local: stop at the commit on the Job's branch. Push nothing and open no pull request.
+Report the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.
+
+## In this rig
+
+- There is no forge here: no pull request and no ci. `origin` is a local bare repository, and pushing a branch to it is the push.
+- No cargo, no pnpm install, and no test file but the one named below: the machine is shared.
+- The work is on the branch `armada/session-d29b0b18`. Your own Job gets a fresh branch when you first write, so your first act in your slot is `git checkout armada/session-d29b0b18`. Work, commit and push that branch (`git push origin armada/session-d29b0b18`), not the Job's own.
+- In place of the pull request and the merge on a green ci: bring main into the branch (`git fetch origin` and `git merge origin/main`), run the test once more, push the branch, then call waiting_for with exactly one item whose text is `Merge armada/session-d29b0b18 into main`, and wait. The person merges the branch into the `origin`'s main and answers the item. Then say what landed, in your reply, and call all_done. Plan nothing new and change no code beyond what bringing main in needs.
+
+How to run the test. A fresh slot has no dependencies, so run `armada run bootstrap` once in your slot (a few seconds, it copies them). Then:
+
+```bash
+cd apps/desktop && node_modules/.bin/vitest run src/renderer/src/mock/scenario.test.ts
+```
+
+Run only that one file. Do not run cargo, do not run pnpm install, and do not run the other test files: the machine is shared.
+
+## Handoff in, written by the previous agent
+
+(the previous agent wrote no handoff)

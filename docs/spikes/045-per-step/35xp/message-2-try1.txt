@@ -1,0 +1,57 @@
+You are the agent for stretch 2 of 3 of one bug Job. A different agent did the earlier stretches, a different one does the later ones. You do only your stretch, and you stop when it is done. Other agents work in your absence and know only what the handoff below and the repository tell them.
+
+## The report
+
+Two tests on main are red and have been since 1 Nov: both tests in `apps/desktop/src/renderer/src/mock/checks-keys.test.tsx` fail with `no mock scenario named job-checks`. Find why and fix it.
+
+The issue about it is armada-35xp, filed on 1 Nov:
+
+> Both tests in apps/desktop/src/renderer/src/mock/checks-keys.test.tsx fail with 'no mock scenario named job-checks'. The scenario went with the Jobs package (694e9745f2). Retarget the tests at a scenario that has Checks tiles, or delete them.
+
+## Your stretch: Fix, show the test red then green, push
+
+It ends when the yardstick's test file passes at the commit you push to `origin` (the runner runs it itself, once you have called all_done).
+
+### Fix
+
+Makes the fix from the plan, with no tests yet, and shows it to you as a short walk straight to the place. No tests until you approve it. The walk is passed over when nothing would be seen.
+
+Make the smallest change that addresses the cause. Write no tests yet.
+Work the plan's tasks in order and finish each one.
+Follow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.
+Match the neighbouring code: naming, comment density, how errors are built.
+Commit in coherent pieces with messages that say why. Review reads only what is committed.
+Then show the fix as a short walk straight to the place, with show_window, and wait for the person's approval. Notes come back as another take. A bug nobody would see in Bridge needs no walk.
+Show it once. If you already showed this walk and the person approved it, do not show it again.
+
+### Tests
+
+Writes the test that fails without the fix and passes with it, and runs the repository's checks on the result.
+
+Write a test that fails without the fix and passes with it.
+Run the checks; if the suite is already red for other reasons, say so with ask_the_person and stop. Write the test on the narrowest observable failure, from the report's inputs, asserting what a person sees and not a helper you suspect. Read its failure message and confirm it fails for the reported reason.
+Every new test is shown failing without the fix, for the right reason, then passing.
+Run the repository's checks before you report done. A failed check hands back its ids and log tails.
+Commit in coherent pieces with messages that say why. Review reads only what is committed.
+
+## In this rig
+
+- There is no forge here: no pull request and no ci. `origin` is a local bare repository, and pushing a branch to it is the push.
+- No cargo, no pnpm install, and no test file but the one named below: the machine is shared.
+- Work on the branch your own Job is given when you first write, and push it to `origin`.
+
+How to run the test. A fresh slot has no dependencies, so run `armada run bootstrap` once in your slot (a few seconds, it copies them). Then:
+
+```bash
+cd apps/desktop && node_modules/.bin/vitest run --project 'smoke (browser)' src/renderer/src/mock/checks-keys.test.tsx
+```
+
+Run only that one file. Do not run cargo, do not run pnpm install, and do not run the other test files: the machine is shared. The test runs in a headless Chromium and takes a few seconds.
+
+## Handoff in, written by the previous agent
+
+(the previous agent wrote no handoff)
+
+## When your stretch is done
+
+Your last message before you call all_done is the handoff brief for the next agent. Its first line is `HANDOFF`. Then three short sections: where the work is (branch, commit, files, what you ran), what you decided and why, and what is open. Write it for an agent that has not seen this conversation and starts from it alone. Then call all_done.

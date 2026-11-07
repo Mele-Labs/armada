@@ -1,0 +1,64 @@
+You are the agent for stretch 3 of 3 of one bug Job. A different agent did the earlier stretches, a different one does the later ones. You do only your stretch, and you stop when it is done. Other agents work in your absence and know only what the handoff below and the repository tell them.
+
+## The report
+
+Two tests on main are red and have been since 1 Nov: both tests in `apps/desktop/src/renderer/src/mock/checks-keys.test.tsx` fail with `no mock scenario named job-checks`. Find why and fix it.
+
+The issue about it is armada-35xp, filed on 1 Nov:
+
+> Both tests in apps/desktop/src/renderer/src/mock/checks-keys.test.tsx fail with 'no mock scenario named job-checks'. The scenario went with the Jobs package (694e9745f2). Retarget the tests at a scenario that has Checks tiles, or delete them.
+
+## Your stretch: Deliver
+
+It ends when the person merges your branch into the `origin`'s main.
+
+### Deliver
+
+Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch.
+
+Open the pull request and merge it on a green ci. Say what landed.
+Deliver by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.
+Review the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.
+Leave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.
+Auto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.
+Open PR only: push the branch and open the pull request. Stop there and do not merge.
+Keep local: stop at the commit on the Job's branch. Push nothing and open no pull request.
+Report the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.
+
+## In this rig
+
+- There is no forge here: no pull request and no ci. `origin` is a local bare repository, and pushing a branch to it is the push.
+- No cargo, no pnpm install, and no test file but the one named below: the machine is shared.
+- The work is on the branch `armada/session-2115a55a`. Your own Job gets a fresh branch when you first write, so your first act in your slot is `git checkout armada/session-2115a55a`. Work, commit and push that branch (`git push origin armada/session-2115a55a`), not the Job's own.
+- In place of the pull request and the merge on a green ci: bring main into the branch (`git fetch origin` and `git merge origin/main`), run the test once more, push the branch, then call waiting_for with exactly one item whose text is `Merge armada/session-2115a55a into main`, and wait. The person merges the branch into the `origin`'s main and answers the item. Then say what landed, in your reply, and call all_done. Plan nothing new and change no code beyond what bringing main in needs.
+
+How to run the test. A fresh slot has no dependencies, so run `armada run bootstrap` once in your slot (a few seconds, it copies them). Then:
+
+```bash
+cd apps/desktop && node_modules/.bin/vitest run --project 'smoke (browser)' src/renderer/src/mock/checks-keys.test.tsx
+```
+
+Run only that one file. Do not run cargo, do not run pnpm install, and do not run the other test files: the machine is shared. The test runs in a headless Chromium and takes a few seconds.
+
+## Handoff in, written by the previous agent
+
+HANDOFF
+
+**Where the work is**
+- Branch `armada/session-2115a55a`, commit `70925db32d`, pushed to `origin`.
+- The only file changed is `apps/desktop/src/renderer/src/mock/checks-keys.test.tsx`.
+- I ran the yardstick command on that one file. Before the change it failed with `no mock scenario named job-checks`. With only the scenario name retargeted it still failed: the first test's second Tab stayed inside the Checks region and the second test timed out. After my edits both tests pass.
+- I ran no other test files.
+
+**What I decided and why**
+- The cause is that the `job-checks` scenario was deleted with the Jobs package. The scenario that now draws Checks tiles is `checks` (`mock/checks-fleet.ts`).
+- Retargeting the name alone wasn't enough, for two reasons:
+  - `checks` has no `hooks_test` or `ipc_test` tiles. Its tiles are desktop_test, screens_test, test, then build (twice), format, bridge_build, typecheck, storybook and bridge_test.
+  - A Check that has started draws a `Stamp`, which is a button, so that tile has two Tab stops. The "one Tab stop" assertion fails on desktop_test.
+- I rewrote both tests to use tiles that exist. The Tab test enters and leaves at `screens_test`, which is waiting and has no stamp. The arrow test walks desktop_test, screens_test and test. A comment above `opened()` explains the stamp.
+- I did not touch product code. `packages/components/src/tile-grid.ts` deliberately keeps a native button inside the current tile as a stop. `Stamp` documents itself as a button, so I treated the stamp as intended behaviour.
+- I showed no walk, because nothing changed that a person would see in Bridge. The failing tests were red before the change, and the same file is green now, so I wrote no new tests.
+
+**What is open**
+- I did not check whether "the tiles are one Tab stop" should still hold for started tiles that carry a stamp. If the owner wants one stop per tile, that is a product change in `Stamp`, `CheckList` or `tile-grid`, not a test change. I did not run `armada job` to defer it.
+- `armada-35xp` is not closed. I did not run the repository's wider checks, because the rig limits me to this one test file.
