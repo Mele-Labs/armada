@@ -459,12 +459,21 @@ export const OpensAtTheNewest: Story = {
     await expect(canvas.getByText("Newest of all")).toBeVisible();
     region.scrollTop = 0;
     region.dispatchEvent(new Event("scroll"));
+    // The rows above come in as the top nears, keeping what he reads in place; then a row arriving does not move him.
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", {
+          name: "Show earlier",
+        }),
+      ).toBeNull(),
+    );
+    const reading = region.scrollTop;
     await userEvent.click(
       canvas.getByRole("button", {
         name: "Add a row",
       }),
     );
-    await expect(region.scrollTop).toBe(0);
+    await expect(region.scrollTop).toBe(reading);
   },
 };
 

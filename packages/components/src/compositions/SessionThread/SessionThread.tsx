@@ -2516,8 +2516,13 @@ function TranscriptSkeleton() {
 const NEAR_END = 24;
 /** How long after a thread opens its rows are still settling. */
 const OPENING_MS = 5000;
-/** How many items a thread draws at first, and how many more each press of Show earlier adds. A Session that ran for days is thousands of rows, and drawing them all makes typing beside it lag. */
-const DRAWN = 150;
+/**
+ * How many items a thread draws at first, and how many more come in each time the person nears its top or presses Show earlier.
+ * Rows above the screen are drawn when he scrolls to them: drawing 150 as a long thread opened held typing for about a third of a second.
+ */
+const DRAWN = 40;
+/** How near the top, in screens, the next items start coming in, so a scroll up rarely reaches the end of what is drawn. */
+const EARLIER_AHEAD = "100%";
 
 /** Words in a field the person types in are theirs to keep; only the thread's own text is copied. */
 const EDITABLE = "textarea, input, [contenteditable]:not([contenteditable='false'])";
@@ -3733,8 +3738,61 @@ export function SessionThread({
   }, [
     sessionId,
   ]);
+  // A row arriving at the end widens what is drawn for a person reading higher up, so nothing above him drops out.
+  const counted = useRef(all.length);
+  useLayoutEffect(() => {
+    const grew = all.length - counted.current;
+    counted.current = all.length;
+    if (grew > 0 && !pinned.current) setDrawn((now) => now + grew);
+  }, [
+    all.length,
+  ]);
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
+  // What he is reading stays where it was as rows arrive above it. The browser's own anchoring does not hold at the very top.
+  const grownFrom = useRef<{
+    height: number;
+    top: number;
+  }>(undefined);
+  const drawEarlier = (): void => {
+    const one = scroller.current;
+    if (one !== null)
+      grownFrom.current = {
+        height: one.scrollHeight,
+        top: one.scrollTop,
+      };
+    setDrawn((now) => now + DRAWN);
+  };
+  useLayoutEffect(() => {
+    const one = scroller.current;
+    const was = grownFrom.current;
+    grownFrom.current = undefined;
+    if (one !== null && was !== undefined) one.scrollTop = was.top + one.scrollHeight - was.height;
+  }, [
+    drawn,
+  ]);
+  // Show earlier presses itself as it nears the screen.
+  const earlier = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    const one = scroller.current;
+    const mark = earlier.current;
+    if (one === null || mark === null || typeof IntersectionObserver === "undefined") return;
+    const near = new IntersectionObserver(
+      (seen) => {
+        if (seen.some((entry) => entry.isIntersecting)) drawEarlier();
+      },
+      {
+        root: one,
+        rootMargin: `${EARLIER_AHEAD} 0% 0% 0%`,
+      },
+    );
+    near.observe(mark);
+    return () => near.disconnect();
+  }, [
+    drawn,
+    hidden === 0,
+    sessionId,
+  ]);
   const last = items[items.length - 1];
   // Calls still running, or reasoning still written, carry the working mark themselves.
   const endsInCalls =
@@ -3878,13 +3936,13 @@ export function SessionThread({
                           )}
                           {transcript === "unread" ? <TranscriptSkeleton /> : null}
                           {hidden === 0 ? null : (
-                            <li className="armada-session-thread__earlier">
+                            <li ref={earlier} className="armada-session-thread__earlier">
                               <Tooltip label="Show earlier">
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   aria-label="Show earlier"
-                                  onClick={() => setDrawn((now) => now + DRAWN)}
+                                  onClick={drawEarlier}
                                 >
                                   <ChevronUp size={12} strokeWidth={2} aria-hidden />
                                 </Button>
