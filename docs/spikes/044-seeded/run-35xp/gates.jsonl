@@ -1,0 +1,17 @@
+{"at": "2026-11-07T01:59:55.988Z", "event": "keeper_started", "branch": "armada/session-69d968b4", "target": "integration-69d968b4", "test_file": "src/renderer/src/mock/checks-keys.test.tsx"}
+{"at": "2026-11-07T02:00:06.720Z", "event": "task_status", "task": "1", "status": "in_progress", "subject": "Step: Find the cause"}
+{"at": "2026-11-07T02:00:41.190Z", "event": "task_status", "task": "1", "status": "completed", "subject": "Step: Find the cause"}
+{"at": "2026-11-07T02:00:41.191Z", "event": "task_status", "task": "2", "status": "in_progress", "subject": "Step: Plan the fix"}
+{"at": "2026-11-07T02:01:38.517Z", "event": "task_status", "task": "2", "status": "completed", "subject": "Step: Plan the fix"}
+{"at": "2026-11-07T02:01:47.048Z", "event": "gate_closed", "gate": "plan_approved", "fact": "session_plan v1 approved_at 2026-11-07T02:01:45.690Z", "ticked_task": "3"}
+{"at": "2026-11-07T02:01:51.328Z", "event": "task_status", "task": "10", "status": "in_progress", "subject": "Mount the checks scenario and use its tile names"}
+{"at": "2026-11-07T02:02:53.401Z", "event": "task_status", "task": "10", "status": "completed", "subject": "Mount the checks scenario and use its tile names"}
+{"at": "2026-11-07T02:02:53.402Z", "event": "task_status", "task": "4", "status": "completed", "subject": "Step: Fix"}
+{"at": "2026-11-07T02:02:53.403Z", "event": "task_status", "task": "5", "status": "completed", "subject": "Step: Tests, shown red then green"}
+{"at": "2026-11-07T02:03:10.395Z", "event": "checks_run", "sha": "30d8c9d607", "green": true, "said": "vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 6s)"}
+{"at": "2026-11-07T02:03:10.396Z", "event": "gate_closed", "gate": "checks_green", "fact": "vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 6s) at 30d8c9d607", "ticked_task": "7"}
+{"at": "2026-11-07T02:03:10.414Z", "event": "gate_closed", "gate": "merged", "fact": "30d8c9d607 is an ancestor of origin/integration-69d968b4", "ticked_task": "9"}
+{"at": "2026-11-07T02:03:12.564Z", "event": "task_status", "task": "11", "status": "completed", "subject": "Run the file red then green, commit and push"}
+{"at": "2026-11-07T02:03:12.565Z", "event": "task_status", "task": "6", "status": "completed", "subject": "Step: Push the branch"}
+{"at": "2026-11-07T02:03:12.565Z", "event": "task_status", "task": "8", "status": "completed", "subject": "Step: Deliver"}
+{"at": "2026-11-07T02:03:12.565Z", "event": "keeper_stopped", "open": []}

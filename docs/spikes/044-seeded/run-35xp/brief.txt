@@ -1,0 +1,17 @@
+Both tests in `apps/desktop/src/renderer/src/mock/checks-keys.test.tsx` are red and have been since the Jobs package was removed (commit 694e9745f2): they fail with `no mock scenario named job-checks`. Find why and fix it.
+
+The issue about it is armada-35xp, filed on 1 November and possibly since overtaken, so do not trust its wording:
+
+> Both tests in apps/desktop/src/renderer/src/mock/checks-keys.test.tsx fail with 'no mock scenario named job-checks'. The scenario went with the Jobs package (694e9745f2). Retarget the tests at a scenario that has Checks tiles, or delete them.
+
+What I want: the cause named in a sentence, the tests in that file green, and the change committed on your branch and pushed to `origin`. Whether the tests are retargeted or deleted is a judgement about what they are for; if you cannot tell, ask me with `ask_the_person` and I will say. There is no forge here, so no pull request.
+
+How to run the test. A fresh slot has no dependencies, so run `armada run bootstrap` once in your slot (a few seconds, it copies them). Then:
+
+```bash
+cd apps/desktop && node_modules/.bin/vitest run src/renderer/src/mock/checks-keys.test.tsx
+```
+
+Run only that one file. It runs in a headless browser and takes a few seconds when it passes; a failing test waits up to 15 seconds for an element, so a wrong guess is slow. Do not run cargo, do not run pnpm install, and do not run the other test files: the machine is shared.
+
+Your task list holds the workflow for this Job: work its tasks in order. A task that starts "Gate:" is Fleet's to tick, not yours. The list also asks you to have the person merge the branch, which goes past "pushing the branch is the end of it" above.

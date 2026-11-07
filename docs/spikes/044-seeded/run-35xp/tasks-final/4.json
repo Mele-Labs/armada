@@ -1,0 +1,13 @@
+{
+  "id": "4",
+  "subject": "Step: Fix",
+  "description": "Make the smallest change that addresses the cause. Write no tests yet.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
+  "activeForm": "Fixing",
+  "status": "completed",
+  "blocks": [
+    "5"
+  ],
+  "blockedBy": [
+    "3"
+  ]
+}
