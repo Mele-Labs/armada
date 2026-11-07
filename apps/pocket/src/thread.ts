@@ -41,6 +41,34 @@ const NOTHING_BESIDE = {
 export const sessionOfThread = (wire: WireThread): Session =>
   sessionOfRecord(wire.session, wire.rows, NOTHING_BESIDE);
 
+/** The Job a hand off linked to this one: `replaces` the Job it took the place of, `replaced_by` the one that took its place. */
+export const handedOf = (
+  record: WireThread["session"] | undefined,
+  kind: "replaces" | "replaced_by",
+): string | undefined =>
+  record?.attachments.find((one) => one.kind === kind && one.state === "spent")?.target;
+
+/** **A Job that took another's place carries that Job's turns above its own**, over a plain rule, as Bridge draws it: one Job, one scroll. */
+export function withEarlier(
+  rows: readonly SessionThreadRow[],
+  earlier: WireThread | undefined,
+): SessionThreadRow[] {
+  if (earlier === undefined) return [...rows];
+  const id = earlier.session.id;
+  return [
+    ...rowsOf(sessionOfThread(earlier)).map((row) => ({
+      ...row,
+      id: `${id}:${row.id}`,
+    })),
+    {
+      id: `divider-${id}`,
+      at: "",
+      kind: "divider",
+    } as SessionThreadRow,
+    ...rows,
+  ];
+}
+
 export function sceneOfSketch(drawing: SessionSketch | Scene): Scene {
   if ("nodes" in drawing) return drawing;
   return {
@@ -563,6 +591,9 @@ export function linksOf(wire: WireThread): {
           wire.session.id,
         ],
   );
+  // A child handed on for context is the Job that took its place: Fleet gives the parent's link to the old one back.
+  for (const one of wire.session.attachments)
+    if (one.kind === "started_to" && one.state === "given_back") seen.add(one.target);
   const started: JobLink[] = [];
   for (const row of wire.rows ?? []) {
     if (

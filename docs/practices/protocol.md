@@ -1571,3 +1571,16 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
 - **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.
+
+## A hand off told to a parent: `SessionRow::Linked.replaces`
+
+Since 6 Nov 2026. `docs/concepts/session/a-handed-off-job.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
+
+Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.

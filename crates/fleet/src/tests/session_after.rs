@@ -895,6 +895,23 @@ async fn a_plan_part_wait_becomes_the_successors_end_in_both_threads() {
     rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
 }
 
+/// armada-mi2r: a wait made after the hand, naming the Job that ended, was refused as closed. **To the
+/// person a hand is one Job**, so it waits on the Job that took its place.
+#[tokio::test]
+async fn a_new_wait_naming_a_job_handed_on_waits_on_the_job_that_took_its_place() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    let second = rig.handed_on(&agent).await;
+    let third = rig.handed_on(&second).await;
+
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+
+    assert_eq!(waiting.waits.as_ref().map(|wait| wait.on.id.clone()), Some(third.clone()), "the last of the chain");
+    rig.report(&third, opened("3214", "armada/a")).await;
+    rig.report(&third, landed("3214")).await;
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+}
+
 #[tokio::test]
 async fn a_wait_left_on_a_handed_on_job_follows_when_fleet_starts() {
     let rig = super::agent_starts::rig(None);

@@ -122,6 +122,8 @@ where
     /// **A red pull request is a stall only once a turn ended after Fleet told the Job of it**,
     /// since that turn is the one that left it red.
     async fn stall_of(&self, id: &str, seen: Seen) -> Option<Stall> {
+        // Taken before the ledger, which a pull reading takes while it holds its own lock.
+        let pulls_read = self.sweeping().lock().await.pulls_read.clone();
         let store = self.store().lock().await;
         let session = store.session(id).ok().flatten()?;
         let hosting = store.hosting(id).ok().flatten()?;
@@ -132,6 +134,12 @@ where
                 let millis = |at: &str| core_model::Timestamp::from_rfc3339(at).epoch_millis();
                 let ended = session.last_turn_at.as_deref().and_then(millis)?;
                 if ended <= millis(&told)? {
+                    return None;
+                }
+                // **Red on a reading taken after the turn ended**: a push in that turn shows only
+                // on the next reading, and the failure before it is not what the turn left
+                // (6 Nov 2026: a "Rest of" Job started 18 s after the fix was pushed).
+                if pulls_read.get(&hosting.manifest_id).and_then(|read| read.epoch_millis()).is_none_or(|read| read <= ended) {
                     return None;
                 }
                 (Quiet::Red { number, head, failing }, Vec::new())

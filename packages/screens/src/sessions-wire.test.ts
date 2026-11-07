@@ -26,7 +26,7 @@ import {
   versionsOfHistory,
 } from "./sessions-wire";
 import type { Beside } from "./sessions-wire";
-import { ownerOf, sessionsMatching } from "./draft/sessions";
+import { linkedOf, ownerOf, sessionsMatching } from "./draft/sessions";
 import { share } from "./share";
 
 const AT = "2026-10-07T13:48:02Z";
@@ -4506,6 +4506,72 @@ describe("a Job handed on to a new one", () => {
     expect(old.replacedBy).toBe("new");
     expect(old.dead).toBe("ended");
     expect(old.replaces).toBeUndefined();
+  });
+
+  it("lists the Job that took a child's place as the parent's one child, once Fleet gave the old link back", () => {
+    const records = [
+      record("parent", {
+        attachments: [
+          held("started_to", "old", {}, "given_back"),
+          held("started_to", "new", {}, "spent"),
+        ],
+      }),
+      record("old", {
+        state: "ended",
+        attachments: [
+          held("replaced_by", "new", {}, "spent"),
+        ],
+      }),
+      record("new", {
+        attachments: [
+          held("replaces", "old", {}, "spent"),
+        ],
+      }),
+    ];
+    const sessions = records.map((one) => sessionOfRecord(one, undefined, beside()));
+    expect(linkedOf(sessions, sessions[0]!).map((one) => one.session.id)).toEqual([
+      "new",
+    ]);
+  });
+
+  it("draws no row in the parent's thread for the hand: the row that started the old Job stands for both", () => {
+    const rows: SessionRow[] = [
+      {
+        kind: "started",
+        id: "r1",
+        at: AT,
+        session: {
+          id: "old",
+          title: "Build the Draft screen",
+        },
+        fork: false,
+      },
+      {
+        kind: "linked",
+        id: "r2",
+        at: AT,
+        session: {
+          id: "new",
+          title: "Build the Draft screen",
+        },
+        event: "started",
+        replaces: "old",
+      },
+      {
+        kind: "linked",
+        id: "r3",
+        at: AT,
+        session: {
+          id: "new",
+          title: "Build the Draft screen",
+        },
+        event: "merged",
+      },
+    ];
+    expect(sessionOfRecord(record("parent"), rows, beside()).rows.map((one) => one.id)).toEqual([
+      "r1",
+      "r3",
+    ]);
   });
 
   it("draws the ring while handoff_starting stands and nothing once it is given back", () => {
