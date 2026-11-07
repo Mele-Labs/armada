@@ -19,7 +19,7 @@ const seen = new Set<string>();
 const bound = (jobId: string, mod: string, maker: string): boolean =>
   panesOf(peek(jobId).root).some((pane) =>
     pane.tabs.some(
-      (tab) => tab.kind === "custom" && (tab.mod === mod || peekCustom(tab.id).job === maker),
+      (tab) => tab.kind === "custom" && (tab.mod === mod || peekCustom(jobId, tab.id).job === maker),
     ),
   );
 

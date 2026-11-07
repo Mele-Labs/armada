@@ -130,7 +130,7 @@ async function fix(
     from_tab: tabId,
   });
   if (!started.ok) return askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
-  followJob(tabId, started.value.session_id);
+  followJob(jobId, tabId, started.value.session_id);
 }
 
 function Faults({
