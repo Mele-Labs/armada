@@ -1,5 +1,5 @@
-// A Job whose agent waits on a subagent shows what the subagent is doing: the Agent call is a row with its type, its task,
-// its last call and how long it has run, a press opens its own thread, and messages sent meanwhile are marked queued.
+// A Job whose agent waits on a subagent shows what the subagent is doing: the Agent call is a handoff line, the card at the
+// thread's foot its last call and how long it has run, a press opens its own thread, and messages sent meanwhile are marked queued.
 // Stop cuts it off and the marks go. Over the `foreground-subagent` scenario. armada-d3h.1.
 
 import { button, inside, region, role, text, walk } from "../walk";
@@ -23,11 +23,19 @@ function steps(): Step[] {
     },
     {
       look: row("running"),
-      say: "The Agent call is a row of its own: the subagent's type, its task, and how long it has run, ticking",
+      say: "The Agent call is the handoff: one line naming the subagent's task",
+    },
+    {
+      press: inside(thread, button("1 subagent running")),
+      say: "The card at the thread's foot is its live view",
     },
     {
       look: inside(thread, text("Bash pnpm exec vitest run src/renderer/src/job-browser")),
-      say: "Under it, the subagent's latest call. Its calls are never rows of the agent's thread",
+      say: "Its latest call and how long it has run, ticking. Its calls are never rows of the agent's thread",
+    },
+    {
+      press: inside(thread, button("1 subagent running")),
+      say: "Folded again",
     },
     {
       press: row("running"),
