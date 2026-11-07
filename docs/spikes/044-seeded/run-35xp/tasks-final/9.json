@@ -1,0 +1,11 @@
+{
+  "id": "9",
+  "subject": "Gate: the branch is merged. Fleet ticks this",
+  "description": "Fleet's. It closes when Fleet sees the branch merged on origin. You do not mark it, and marking it moves nothing.\nDo not start the next stretch before it is completed. When it is completed, the Job is delivered.",
+  "activeForm": "Waiting for Fleet",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": [
+    "8"
+  ]
+}

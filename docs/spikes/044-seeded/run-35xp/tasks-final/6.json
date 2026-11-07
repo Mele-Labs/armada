@@ -1,0 +1,13 @@
+{
+  "id": "6",
+  "subject": "Step: Push the branch",
+  "description": "Commit in coherent pieces with messages that say why. Review reads only what is committed.\nThen push the branch to origin with git push origin <your branch>.\nFleet runs the Checks itself at the commit you pushed. Do not mark the gate after this step: it is Fleet's.",
+  "activeForm": "Pushing the branch",
+  "status": "completed",
+  "blocks": [
+    "7"
+  ],
+  "blockedBy": [
+    "5"
+  ]
+}

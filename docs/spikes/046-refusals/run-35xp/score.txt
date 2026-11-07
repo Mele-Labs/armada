@@ -1,0 +1,32 @@
+== gates
+  plan_approved: +00:36  session_plan v1 approved_at 2026-11-07T02:14:25.286Z
+  checks_green: +02:42  vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 9s) at 1b500c4f23
+  merged: +03:32  1b500c4f23 is an ancestor of origin/integration-e63dd8f8
+== refusals (Gate open)
+  count 0
+== plan
+  +00:33 record_plan: 3 groups; titles ['Find the cause and plan the fix', 'Fix and test', 'Deliver']; tasks [2, 4, 1]; matches template: True
+  +02:03 record_plan: 3 groups; titles ['Find the cause and plan the fix', 'Fix and test', 'Deliver']; tasks [2, 5, 1]; matches template: True
+== task calls
+  +00:36 TaskCreate {"subject": "Name the cause: commit 694e9745f2 removed the job-checks scenario, and checks-fleet.ts now registers only checks and checks-without-run-s
+  +00:36 TaskCreate {"subject": "Decide retarget over delete: the tile keyboard walk is still a live feature of the Checks page", "description": "Group: Find the cause an
+  +00:37 TaskCreate {"subject": "Mount checks instead of job-checks and read the tile order it draws", "description": "Group: Fix and test"}
+  +00:37 TaskCreate {"subject": "Replace the removed hooks_test and ipc_test tile names with ones the checks scenario draws", "description": "Group: Fix and test"}
+  +00:38 TaskCreate {"subject": "Run only checks-keys.test.tsx until both tests pass", "description": "Group: Fix and test"}
+  +00:38 TaskCreate {"subject": "Commit on the branch and push to origin", "description": "Group: Fix and test"}
+  +00:38 TaskCreate {"subject": "Ask the person to merge the pushed branch", "description": "Group: Deliver"}
+  +00:40 TaskUpdate {"taskId": "1", "status": "completed"}
+  +00:40 TaskUpdate {"taskId": "2", "status": "completed"}
+  +00:40 TaskUpdate {"taskId": "3", "status": "in_progress"}
+  +01:50 TaskUpdate {"taskId": "3", "status": "completed"}
+  +02:10 TaskUpdate {"taskId": "4", "status": "completed"}
+  +02:11 TaskCreate {"subject": "Stop the tile grid counting a Stamp as a tile's Tab stop (commit 8c61305173 made it a button)", "description": "Group: Fix and test"}
+  +02:19 TaskUpdate {"taskId": "8", "status": "completed"}
+  +02:19 TaskUpdate {"taskId": "5", "status": "completed"}
+  +02:20 TaskUpdate {"taskId": "6", "status": "in_progress"}
+  +03:29 TaskUpdate {"taskId": "6", "status": "completed"}
+  +03:29 TaskUpdate {"taskId": "7", "status": "in_progress"}
+== first call of each kind after each gate closed
+  after plan_approved (+00:36): Bash +00:41 'cd /Users/nickmele/Development/armada/.armada/slots/slot-10/apps/deskt'; mcp__armada-fleet__waiting_for +03:29 ''; mcp__armada-fleet__all_done +03:32 ''
+  after checks_green (+02:42): mcp__armada-fleet__waiting_for +03:29 ''; mcp__armada-fleet__all_done +03:32 ''
+  after merged (+03:32): mcp__armada-fleet__all_done +03:32 ''

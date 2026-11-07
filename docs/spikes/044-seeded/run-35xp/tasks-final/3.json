@@ -1,0 +1,13 @@
+{
+  "id": "3",
+  "subject": "Gate: the person approves the plan. Fleet ticks this",
+  "description": "Fleet's. It closes when Fleet sees the person's approval of the recorded plan. You do not mark it, and marking it moves nothing.\nDo not start the next stretch before it is completed. After record_plan, wait: Fleet tells you when it is approved, and TaskGet on this task shows it.",
+  "activeForm": "Waiting for Fleet",
+  "status": "completed",
+  "blocks": [
+    "4"
+  ],
+  "blockedBy": [
+    "2"
+  ]
+}

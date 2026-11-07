@@ -1,0 +1,19 @@
+{"at": "2026-11-07T02:47:43.721Z", "event": "keeper_started", "branch": "armada/session-9d96b11c", "template": [["Plan the change", "plan_approved"], ["Write the design note", "document_approved"], ["Deliver", "merged"]]}
+{"at": "2026-11-07T02:47:43.730Z", "event": "main_moved", "ref": "main", "sha": "d27878840b", "previous": "", "commits_past_main": "", "live_group": null}
+{"at": "2026-11-07T02:49:01.289Z", "event": "plan_recorded", "version": 1, "groups": [{"pos": 0, "title": "Plan the change", "gate": "plan_approved", "tasks": 1}, {"pos": 1, "title": "Write the design note", "gate": "document_approved", "tasks": 1}, {"pos": 2, "title": "Drop one owner of a family", "gate": "none", "tasks": 3}, {"pos": 3, "title": "Drop gone Jobs while Bridge runs and when it starts", "gate": "checks_green", "tasks": 3}, {"pos": 4, "title": "Deliver", "gate": "merged", "tasks": 1}], "template_problems": []}
+{"at": "2026-11-07T02:49:01.320Z", "event": "live_group", "pos": 0, "title": "Plan the change", "gate": "plan_approved", "plan_version": 1}
+{"at": "2026-11-07T02:49:03.642Z", "event": "gate_closed", "gate": "plan_approved", "title": "Plan the change", "fact": "session_plan v1 approved_at 2026-11-07T02:49:03.286Z"}
+{"at": "2026-11-07T02:49:03.645Z", "event": "notice_sent", "text": "Fleet: the person approved the plan.", "status": 202}
+{"at": "2026-11-07T02:49:03.652Z", "event": "live_group", "pos": 1, "title": "Write the design note", "gate": "document_approved", "plan_version": 1}
+{"at": "2026-11-07T02:50:05.749Z", "event": "turn_ended", "first_open": "Write the design note", "gate": "document_approved", "waiting": ["replied:2026-11-07T02:49:55.081Z:0"], "held": false}
+{"at": "2026-11-07T02:50:06.903Z", "event": "woke", "after_seconds": 63.3, "by": "plan_approved", "held": false}
+{"at": "2026-11-07T02:51:05.372Z", "event": "push_own_branch", "ref": "armada/session-9d96b11c", "sha": "40e9730bc7", "previous": "", "commits_past_main": "1", "live_group": "Write the design note"}
+{"at": "2026-11-07T02:51:05.379Z", "event": "checks_not_due", "sha": "40e9730bc7", "first_open": "Write the design note"}
+{"at": "2026-11-07T02:51:06.536Z", "event": "gate_closed", "gate": "none", "title": "Drop one owner of a family", "fact": "the next group 'Drop gone Jobs while Bridge runs and when it starts' has a task marked started or done (the agent's word)"}
+{"at": "2026-11-07T02:52:56.246Z", "event": "push_own_branch", "ref": "armada/session-9d96b11c", "sha": "d2d770de00", "previous": "40e9730bc7", "commits_past_main": "2", "live_group": "Write the design note"}
+{"at": "2026-11-07T02:52:56.258Z", "event": "checks_not_due", "sha": "d2d770de00", "first_open": "Write the design note"}
+{"at": "2026-11-07T02:53:06.874Z", "event": "main_moved", "ref": "main", "sha": "3129659d48", "previous": "d27878840b", "commits_past_main": "", "live_group": "Write the design note"}
+{"at": "2026-11-07T02:53:22.176Z", "event": "all_done_seen", "since": "2026-11-07T02:53:21.262Z", "first_open": "Write the design note", "gate": "document_approved"}
+{"at": "2026-11-07T02:53:22.177Z", "event": "held", "gate": "document_approved", "title": "Write the design note", "reason": "all_done"}
+{"at": "2026-11-07T02:53:39.963Z", "event": "turn_ended", "first_open": "Write the design note", "gate": "document_approved", "waiting": [], "held": true}
+{"at": "2026-11-07T03:08:05.681Z", "event": "keeper_stopped", "open": ["Write the design note", "Drop gone Jobs while Bridge runs and when it starts", "Deliver"], "held": {"gate": "document_approved", "title": "Write the design note", "since": "2026-11-07T02:53:22.177Z", "reason": "all_done"}}

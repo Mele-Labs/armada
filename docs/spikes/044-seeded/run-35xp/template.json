@@ -1,0 +1,56 @@
+{
+  "session": "69d968b4-61c9-4142-a977-e2698c1610a4",
+  "dir": "/Users/nickmele/Library/Application Support/Armada/attachments/job-scratch/4e9d8cea-3d92-43de-b5cc-2cbb6d77659d/devfleet/home/user/.claude/tasks/69d968b4-61c9-4142-a977-e2698c1610a4",
+  "tasks": [
+    {
+      "id": "1",
+      "kind": "step",
+      "subject": "Step: Find the cause"
+    },
+    {
+      "id": "2",
+      "kind": "step",
+      "subject": "Step: Plan the fix"
+    },
+    {
+      "id": "3",
+      "kind": "gate",
+      "subject": "Gate: the person approves the plan. Fleet ticks this"
+    },
+    {
+      "id": "4",
+      "kind": "step",
+      "subject": "Step: Fix"
+    },
+    {
+      "id": "5",
+      "kind": "step",
+      "subject": "Step: Tests, shown red then green"
+    },
+    {
+      "id": "6",
+      "kind": "step",
+      "subject": "Step: Push the branch"
+    },
+    {
+      "id": "7",
+      "kind": "gate",
+      "subject": "Gate: Checks green at the pushed commit. Fleet ticks this"
+    },
+    {
+      "id": "8",
+      "kind": "step",
+      "subject": "Step: Deliver"
+    },
+    {
+      "id": "9",
+      "kind": "gate",
+      "subject": "Gate: the branch is merged. Fleet ticks this"
+    }
+  ],
+  "gates": {
+    "plan_approved": "3",
+    "checks_green": "7",
+    "merged": "9"
+  }
+}

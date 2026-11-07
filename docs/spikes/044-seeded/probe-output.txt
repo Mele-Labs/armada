@@ -1,0 +1,28 @@
+(a) seeded 4 tasks after the process started, before turn one
+  TOOL ToolSearch {"query": "select:TaskList,TaskGet", "max_results": 2}
+  RESULT [{'type': 'tool_reference', 'tool_name': 'TaskList'}, {'type': 'tool_reference', 'tool_name': 'TaskGet'}]
+  TOOL TaskList {}
+  RESULT #1 [pending] Step: find the cause | #2 [pending] Gate: the person approves the plan. Fleet ticks this [blocked by #1] | #3 [pending] Step: fix [blocked by #2] | #4 [pending] Gate: Checks green at the pushed commit. Fleet ticks this [blocked by #3]
+  TOOL TaskGet {"taskId": "2"}
+  RESULT Task #2: Gate: the person approves the plan. Fleet ticks this | Status: pending | Description: description of task 2 | Blocked by: #1
+  TEXT **TaskList output (verbatim):** | ``` | #1 [pending] Step: find the cause | #2 [pending] Gate: the person approves the plan. Fleet ticks this [blocked by #1] | #3 [pending] Step: fix [blocked by #2] | #4 [pending] Gate: Checks green at the pushed commit. Fleet ticks this [blocked by #3] | ``` |  | **TaskGet on #2 (verbatim):** | ``` | Task #2: Gate: the person approves the plan. Fleet ticks this | Status: pending | Descr
+(b) Fleet marked task 1 completed on disk
+  TOOL TaskList {}
+  RESULT #1 [completed] Step: find the cause | #2 [pending] Gate: the person approves the plan. Fleet ticks this | #3 [pending] Step: fix [blocked by #2] | #4 [pending] Gate: Checks green at the pushed commit. Fleet ticks this [blocked by #3]
+  TOOL TaskGet {"taskId": "1"}
+  RESULT Task #1: Step: find the cause | Status: completed | Description: description of task 1
+  TEXT **TaskList output (verbatim):** | ``` | #1 [completed] Step: find the cause | #2 [pending] Gate: the person approves the plan. Fleet ticks this | #3 [pending] Step: fix [blocked by #2] | #4 [pending] Gate: Checks green at the pushed commit. Fleet ticks this [blocked by #3] | ``` |  | **TaskGet on #1 (verbatim):** | ``` | Task #1: Step: find the cause | Status: completed | Description: description of task 1 | ``` |  | **Status 
+(c) the agent makes its own
+  TOOL ToolSearch {"query": "select:TaskCreate", "max_results": 1}
+  RESULT [{'type': 'tool_reference', 'tool_name': 'TaskCreate'}]
+  TOOL TaskCreate {"subject": "agent own", "description": "x", "activeForm": "x"}
+  RESULT Task #5 created successfully: agent own
+  TOOL TaskList {}
+  RESULT #1 [completed] Step: find the cause | #2 [pending] Gate: the person approves the plan. Fleet ticks this | #3 [pending] Step: fix [blocked by #2] | #4 [pending] Gate: Checks green at the pushed commit. Fleet ticks this [blocked by #3] | #5 [pending] agent own
+  TEXT Created task #5 ("agent own"). |  | **TaskList output (verbatim):** | ``` | #1 [completed] Step: find the cause | #2 [pending] Gate: the person approves the plan. Fleet ticks this | #3 [pending] Step: fix [blocked by #2] | #4 [pending] Gate: Checks green at the pushed commit. Fleet ticks this [blocked by #3] | #5 [pending] agent own | ```
+files now: ['.lock', '1.json', '2.json', '3.json', '4.json', '5.json']
+  1.json completed Step: find the cause blockedBy []
+  2.json pending Gate: the person approves the plan. Fleet ticks this blockedBy ['1']
+  3.json pending Step: fix blockedBy ['2']
+  4.json pending Gate: Checks green at the pushed commit. Fleet ticks this blockedBy ['3']
+  5.json pending agent own blockedBy []

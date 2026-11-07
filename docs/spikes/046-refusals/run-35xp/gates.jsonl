@@ -1,0 +1,6 @@
+{"at": "2026-11-07T02:13:49.679Z", "event": "keeper_started", "branch": "armada/session-e63dd8f8", "target": "integration-e63dd8f8", "test_file": "src/renderer/src/mock/checks-keys.test.tsx"}
+{"at": "2026-11-07T02:14:25.784Z", "event": "gate_closed", "gate": "plan_approved", "fact": "session_plan v1 approved_at 2026-11-07T02:14:25.286Z"}
+{"at": "2026-11-07T02:16:31.894Z", "event": "checks_run", "sha": "1b500c4f23", "green": true, "said": "vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 9s)"}
+{"at": "2026-11-07T02:16:31.894Z", "event": "gate_closed", "gate": "checks_green", "fact": "vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 9s) at 1b500c4f23"}
+{"at": "2026-11-07T02:17:22.111Z", "event": "gate_closed", "gate": "merged", "fact": "1b500c4f23 is an ancestor of origin/integration-e63dd8f8"}
+{"at": "2026-11-07T02:17:25.515Z", "event": "keeper_stopped", "open": []}

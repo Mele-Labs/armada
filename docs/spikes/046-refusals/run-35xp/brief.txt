@@ -1,0 +1,17 @@
+Both tests in `apps/desktop/src/renderer/src/mock/checks-keys.test.tsx` are red and have been since the Jobs package was removed (commit 694e9745f2): they fail with `no mock scenario named job-checks`. Find why and fix it.
+
+The issue about it is armada-35xp, filed on 1 November and possibly since overtaken, so do not trust its wording:
+
+> Both tests in apps/desktop/src/renderer/src/mock/checks-keys.test.tsx fail with 'no mock scenario named job-checks'. The scenario went with the Jobs package (694e9745f2). Retarget the tests at a scenario that has Checks tiles, or delete them.
+
+What I want: the cause named in a sentence, the tests in that file green, and the change committed on your branch and pushed to `origin`. Whether the tests are retargeted or deleted is a judgement about what they are for; if you cannot tell, ask me with `ask_the_person` and I will say. There is no forge here, so no pull request.
+
+How to run the test. A fresh slot has no dependencies, so run `armada run bootstrap` once in your slot (a few seconds, it copies them). Then:
+
+```bash
+cd apps/desktop && node_modules/.bin/vitest run src/renderer/src/mock/checks-keys.test.tsx
+```
+
+Run only that one file. It runs in a headless browser and takes a few seconds when it passes; a failing test waits up to 15 seconds for an element, so a wrong guess is slow. Do not run cargo, do not run pnpm install, and do not run the other test files: the machine is shared.
+
+How to plan. Record your plan with record_plan with exactly three groups, in this order, with these titles word for word: "Find the cause and plan the fix", which ends when the person approves your plan; "Fix and test", which ends when Fleet has run the Checks green at the commit you pushed to origin; and "Deliver", which ends when the branch is merged. Add your own tasks under each group. The end of each group is a gate that Fleet closes, not you. Pushing the branch belongs to "Fix and test". For "Deliver", ask the person to merge the branch with ask_the_person once it is pushed; the merge is theirs. That goes past "pushing the branch is the end of it" above.

@@ -1,0 +1,11 @@
+{
+  "id": "1",
+  "subject": "Step: Find the cause",
+  "description": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nName the root cause with file:line, not the reported symptom.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.",
+  "activeForm": "Finding the cause",
+  "status": "completed",
+  "blocks": [
+    "2"
+  ],
+  "blockedBy": []
+}
