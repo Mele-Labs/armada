@@ -1,0 +1,251 @@
+== Population
+jobs with a rail history (session.step events): 300
+  workflow resolved to a version containing every label the rail named: 298
+  by workflow: {'bug': 164, 'feature': 102, 'design_plan': 24, 'orchestrate': 5, 'prototype': 2, 'refactor': 1}
+  of which have session_rail.visits (the brief's 165): 165; the other 135 have an empty visits column but the same entries on the timeline
+  visits column against the timeline's session.step entries, same step sequence: 157 of 164 Jobs
+disputes 205; on Jobs with a rail history 202; on sessions with none (task marks on plain Sessions) 3
+dispute kinds: {'on-step': 78, 'push-open': 32, 'edit-before-plan': 23, 'tasks': 50, 'turn-end': 18, 'test-before-walk': 4}
+disputes on the 165 rail Jobs with visits: 139, across 73 Jobs; all 205 are across 126 sessions
+
+== Disputes: what each variant does
+Columns per variant: not sent = gate-only sends no such notice at that moment (a non-gate fact made it);
+same notice = gate-only holds the Job on the very step the notice named; then 'agrees' means the agent's reason puts the Job there.
+Placement = the step shown at the notice's time. right/wrong are against the agent's reason (automatic judge); n/a = reason names no step.
+
+-- variant S: strict
+kind                 n  not sent  same notice   of which agrees   disagrees   n/a  | placement right  wrong   n/a  old right  old wrong
+on-step             78        31           46                 3          35     8  |               7     59    11          3         63
+push-open           32        32            0                 0           0     0  |              13     13     6          2         24
+edit-before-plan    23        23            0                 0           0     0  |              20      2     1         20          2
+test-before-walk     4         4            0                 0           0     0  |               0      3     1          0          3
+turn-end            18        17            0                 0           0     0  |               1     15     1          1         15
+tasks               50        50            0                 0           0     0  |               0      0    47          0          0
+ALL                205       157           46                 3          35     8  |              41     92    67         26        107
+
+-- variant P: strict + own push
+kind                 n  not sent  same notice   of which agrees   disagrees   n/a  | placement right  wrong   n/a  old right  old wrong
+on-step             78        36           41                 3          30     8  |              10     56    11          3         63
+push-open           32        32            0                 0           0     0  |               6     20     6          2         24
+edit-before-plan    23        23            0                 0           0     0  |              20      2     1         20          2
+test-before-walk     4         4            0                 0           0     0  |               0      3     1          0          3
+turn-end            18        17            0                 0           0     0  |               1     15     1          1         15
+tasks               50        50            0                 0           0     0  |               0      0    47          0          0
+ALL                205       162           41                 3          30     8  |              37     96    67         26        107
+
+-- variant M: strict + own push + a later gate passes the steps before it
+kind                 n  not sent  same notice   of which agrees   disagrees   n/a  | placement right  wrong   n/a  old right  old wrong
+on-step             78        66           11                 0           6     5  |              43     23    11          3         63
+push-open           32        32            0                 0           0     0  |              13     13     6          2         24
+edit-before-plan    23        23            0                 0           0     0  |              17      5     1         20          2
+test-before-walk     4         4            0                 0           0     0  |               0      3     1          0          3
+turn-end            18        17            0                 0           0     0  |               4     12     1          1         15
+tasks               50        50            0                 0           0     0  |               0      0    47          0          0
+ALL                205       192           11                 0           6     5  |              77     56    67         26        107
+
+
+== Outcome of each of the 205 disputes (automatic judge)
+A gone: no notice, and the step shown is right or the reason names none (all 50 task marks are here)
+B gone, wrong step shown: no notice, but gate-only's step is not where the reason puts the Job
+C sent and still disputed: the notice is sent on the same step and the reason says otherwise (or disputes something else)
+D sent and right: the notice is sent on the same step and the reason agrees
+U the Job's workflow could not be rebuilt (2 Jobs that changed workflow part way)
+variant        A     B     C     D   U    disputes avoided (A+D)   of the 153 step disputes: A+D
+S            100    57    43     3   2                       103                              53
+P             96    66    38     3   2                        99                              49
+M            142    50    11     0   2                       142                              92
+
+By kind of notice (A / B / C / D / U):
+  S on-step            78   A  7  B 24  C 43  D  3  U  1
+  S push-open          32   A 19  B 13  C  0  D  0  U  0
+  S edit-before-plan   23   A 21  B  2  C  0  D  0  U  0
+  S test-before-walk    4   A  1  B  3  C  0  D  0  U  0
+  S turn-end           18   A  2  B 15  C  0  D  0  U  1
+  S tasks              50   A 50  B  0  C  0  D  0  U  0
+  P on-step            78   A 10  B 26  C 38  D  3  U  1
+  P push-open          32   A 12  B 20  C  0  D  0  U  0
+  P edit-before-plan   23   A 21  B  2  C  0  D  0  U  0
+  P test-before-walk    4   A  1  B  3  C  0  D  0  U  0
+  P turn-end           18   A  2  B 15  C  0  D  0  U  1
+  P tasks              50   A 50  B  0  C  0  D  0  U  0
+  M on-step            78   A 49  B 17  C 11  D  0  U  1
+  M push-open          32   A 19  B 13  C  0  D  0  U  0
+  M edit-before-plan   23   A 18  B  5  C  0  D  0  U  0
+  M test-before-walk    4   A  1  B  3  C  0  D  0  U  0
+  M turn-end           18   A  5  B 12  C  0  D  0  U  1
+  M tasks              50   A 50  B  0  C  0  D  0  U  0
+old rail, same judge, the step disputes it could place: {'n/a': 20, 'wrong': 107, 'right': 26}
+
+Of the 133 disputes whose reason names a step, with the same judge:
+  old rail right on 26
+  S right on 41 (31%); of the old rail's right ones, gate-only gets 0 wrong; of its wrong ones, 3 are right ten minutes later (the gate closed just after the notice)
+  P right on 37 (28%); of the old rail's right ones, gate-only gets 0 wrong; of its wrong ones, 3 are right ten minutes later (the gate closed just after the notice)
+  M right on 77 (58%); of the old rail's right ones, gate-only gets 4 wrong; of its wrong ones, 8 are right ten minutes later (the gate closed just after the notice)
+
+== The first 30 hand-labelled disputes
+ # kind                 hand    auto  old           S             P             M              reading
+ 0 on-step              done    done  Implement     Implement     Implement     DONE           merged #2874
+ 1 on-step              None    None  Discuss       Discuss       Discuss       Discuss        owner stopped the Job; the dispute is about what the notice asks
+ 2 on-step              walk    walk  Approve plan  Discuss       Discuss       Discuss        plan approved; first group is a mock he must walk before wiring
+ 3 on-step              done    done  Walk          Discuss       Discuss       Walk           no walk expected, work merged #3040
+ 4 on-step              done    done  Implement     Implement     DONE          DONE           merged #2795
+ 5 tasks                None    None  Refine        Discuss       Discuss       Refine         task marks, parallel subagents
+ 6 on-step             build   build  Walk          Discuss       Discuss       Walk           walk approved earlier; tests written; a preview check page was shown after
+ 7 tasks                None    None  Present       Present       Present       Present        task marks, parallel agents
+ 8 tasks                None    None  Present       Present       Present       Present        task marks credited to the wrong group
+ 9 on-step             build   build  Discuss       Discuss       Discuss       Discuss        past Discuss: he approved the walk, work is in Refine
+10 push-open            walk    walk  Deliver       Discuss       Discuss       Walk           no walk shown or approved; the push was the mock subagent's
+11 tasks                None    None  Fix           Fix           Fix           Fix            task marks, parallel subagents
+12 push-open           build   build  Deliver       Discuss       Discuss       Deliver        Refine unfinished; a wiring agent committed part of it
+13 tasks                None    None  Refine        Discuss       Discuss       Refine         task marks, one agent
+14 on-step             build   build  Deliver       Discuss       Discuss       Walk           Refine not done, tasks 14 to 17 to build
+15 test-before-walk    build   build  Walk          Discuss       Discuss       Walk           walk and plan v2 approved before any test
+16 test-before-walk    build   build  Discuss       Discuss       Discuss       Discuss        walk approved, tests are the next work
+17 on-step              done    done  Walk          Propose       Propose       Walk           merged #2967, no walk expected
+18 edit-before-plan     plan    plan  Plan the chan Plan the chan Plan the chan Plan the chan  no repository file edited
+19 tasks                None    None  Walk          Propose       Propose       Walk           task marks, parallel subagents
+20 push-open           build   build  Present       Present       Present       Present        plan v1 approved, push is the build's first commits
+21 tasks                None    None  Walk          Discuss       Discuss       Walk           task marks, overlapping group paths
+22 edit-before-plan     plan    plan  Plan the chan Plan the chan Plan the chan Plan the chan  plan v2 recorded and waiting; the edits were under approved v1
+23 on-step              done    done  Refine        Discuss       Discuss       Walk           pushed and merged #3162
+24 on-step              done    done  Implement     Implement     Implement     DONE           plan's tasks complete, #2934 merged
+25 turn-end            tests   build  Fix           Fix           Fix           Tests          walk already approved, the step should advance to Tests
+26 tasks                None    None  Walk          Discuss       Discuss       Walk           task marks, one subagent
+27 on-step              done    done  Implement     Implement     Implement     DONE           merged #2925
+28 on-step              done    done  Tests         Fix           Fix           Fix            merged #3137, slot released
+29 tasks                None    None  Refine        Discuss       Discuss       Walk           task marks, two engineers
+
+the first version of the judge, run before it was changed, matched 22 of 30; the second matches this sample on 29, which is no longer an independent test
+tasks: 9 of 9 agree; of the 21 step disputes, hand says a step in 20, auto in 20
+Outcome classes on the 30, hand label against automatic label:
+  S: hand A13 B11 C6 D0   auto A13 B11 C6 D0   same class on 30 of 30
+  P: hand A14 B11 C5 D0   auto A14 B11 C5 D0   same class on 30 of 30
+  M: hand A18 B7 C5 D0   auto A18 B7 C5 D0   same class on 30 of 30
+Of the 20 hand-labelled disputes that name a step, the step shown at the notice's time is right for: old rail 4, S 4, P 5, M 9
+
+== A second 30, drawn after the judge was frozen
+ # kind                 hand    auto  old           S             P             M              reading
+ 0 push-open           build   build  DONE          Find the caus Find the caus Fix            v1 pushed under an approved plan; v2 recorded after, so the Job is on its Fix again
+ 1 turn-end          deliver deliver  Tests         Fix           Fix           Fix            branch pushed, PR open with auto-merge
+ 2 tasks                None    None  DONE          Walk          Walk          Walk           task marks, a background subagent
+ 3 turn-end          deliver deliver  Refine        Discuss       Discuss       Refine         pushed, PR open
+ 4 tasks                None    None  Approve plan  Discuss       Discuss       Walk           task marks, edits outside every group
+ 5 push-open           build   build  Land the chan Implement     Implement     Implement      13 tasks open, the push was a merge of main
+ 6 on-step              done    done  Refine        Discuss       Discuss       Walk           merged #3223
+ 7 tasks                None    None  Tests         Fix           Fix           Fix            task marks, PR in the merge queue
+ 8 on-step              done    done  Implement     Implement     Implement     DONE           merged #2843, finish_up run
+ 9 on-step              done    done  Implement     Implement     Implement     DONE           merged #2827
+10 tasks                None    None  Present       Present       Present       Present        task marks, agent just dispatched
+11 on-step             tests   build  Fix           Fix           Fix           Tests          walk approved, fix committed, next is Tests
+12 edit-before-plan     done    plan  Draft         Draft         Draft         Draft          design merged #2772
+13 push-open            plan    None  Draft         Draft         Draft         Draft          the push was the mock walk, before the plan was recorded
+14 edit-before-plan     plan    plan  Draft         Draft         Draft         Draft          only the Draft step's own document edited
+15 tasks                None    None  Walk          Discuss       Discuss       Walk           task marks, task 21 against task 10
+16 tasks                None    None  Fix           Fix           Fix           Fix            task marks, mock before wiring
+17 push-open           build   build  Land the chan Implement     Land the chan Land the chan  29 tasks open, two agents running
+18 push-open         deliver    None  Deliver       Discuss       Discuss       Deliver        every task finished, Refine committed
+19 on-step              done    done  Implement     Implement     DONE          DONE           merged #2875
+20 on-step              done    done  Refine        Discuss       Discuss       Walk           merged #3042
+21 on-step              done    done  Implement     Implement     Implement     DONE           merged #2878
+22 on-step             tests    None  Fix           Fix           Fix           Tests          fix committed and walk approved; Tests, not Fix
+23 on-step             build   build  Land the chan Implement     DONE          DONE           Implement unfinished, walk unapproved
+24 edit-before-plan    build   build  Draft         Draft         Draft         Draft          plan v1 approved and building; v2 records walk notes
+25 tasks                None    None  Present       Draft         Draft         Draft          task marks, parallel agents
+26 tasks                None    None  Short walk    Fix           Fix           Fix            task marks, a finished task marked started
+27 push-open           build   build  Land the chan Implement     Land the chan Land the chan  first of seven groups done
+28 on-step              done    done  Refine        Propose       Propose       DONE           merged #2971
+29 edit-before-plan    build    plan  Plan the chan Plan the chan Plan the chan Plan the chan  plan v1 approved; the edits are Implement
+
+the second version of the judge, frozen before this sample was drawn, matches the hand label on 24 of 30
+tasks: 8 of 8 agree; of the 22 step disputes, hand says a step in 22, auto in 19
+Outcome classes on the 30, hand label against automatic label:
+  S: hand A14 B10 C4 D2   auto A17 B7 C5 D1   same class on 26 of 30
+  P: hand A12 B13 C3 D2   auto A15 B10 C4 D1   same class on 26 of 30
+  M: hand A20 B10 C0 D0   auto A22 B8 C0 D0   same class on 28 of 30
+Of the 22 hand-labelled disputes that name a step, the step shown at the notice's time is right for: old rail 5, S 8, P 6, M 12
+
+== Control: Jobs with no rail dispute, old rail's end state against gate-only's
+A Job is 'held back' when gate-only's step at the Job's last moment is an earlier step than the old rail's; 'stuck at' names the first step whose end is no gate.
+
+no dispute, rail Jobs with visits (the brief's 165): 92 Jobs
+  S: same 16, held back (earlier step) 74, ahead 2; of 73 Jobs whose PR merged, 73 still show a step at the end; held back on end kind {'walk_approved_all': 19, 'plan_recorded': 28, 'pushed': 11, 'walk_shown': 10, 'walk_approved': 5, 'plan_approved': 1}
+  P: same 18, held back (earlier step) 71, ahead 3; of 73 Jobs whose PR merged, 70 still show a step at the end; held back on end kind {'walk_approved_all': 19, 'plan_recorded': 28, 'pushed': 8, 'walk_shown': 10, 'walk_approved': 5, 'plan_approved': 1}
+  M: same 42, held back (earlier step) 45, ahead 5; of 73 Jobs whose PR merged, 49 still show a step at the end; held back on end kind {'walk_approved_all': 43, 'no end': 2}
+
+no dispute, all Jobs with a rail history: 176 Jobs
+  S: same 56, held back (earlier step) 118, ahead 2; of 148 Jobs whose PR merged, 148 still show a step at the end; held back on end kind {'plan_approved': 5, 'walk_approved_all': 19, 'plan_recorded': 28, 'pushed': 47, 'walk_shown': 10, 'walk_approved': 5, 'replied': 4}
+  P: same 61, held back (earlier step) 110, ahead 5; of 148 Jobs whose PR merged, 139 still show a step at the end; held back on end kind {'plan_approved': 5, 'walk_approved_all': 19, 'plan_recorded': 28, 'pushed': 39, 'walk_shown': 10, 'walk_approved': 5, 'replied': 4}
+  M: same 97, held back (earlier step) 49, ahead 30; of 148 Jobs whose PR merged, 61 still show a step at the end; held back on end kind {'walk_approved_all': 47, 'no end': 2}
+
+disputed, rail Jobs with visits (the brief's 165): 72 Jobs
+  S: same 12, held back (earlier step) 60, ahead 0; of 65 Jobs whose PR merged, 65 still show a step at the end; held back on end kind {'plan_recorded': 33, 'walk_shown': 8, 'replied': 3, 'pushed': 6, 'walk_approved_all': 10}
+  P: same 12, held back (earlier step) 59, ahead 1; of 65 Jobs whose PR merged, 63 still show a step at the end; held back on end kind {'plan_recorded': 33, 'walk_shown': 8, 'replied': 3, 'pushed': 5, 'walk_approved_all': 10}
+  M: same 35, held back (earlier step) 28, ahead 9; of 65 Jobs whose PR merged, 34 still show a step at the end; held back on end kind {'no end': 2, 'walk_approved_all': 24, 'plan_recorded': 2}
+
+disputed, all Jobs with a rail history: 122 Jobs
+  S: same 47, held back (earlier step) 75, ahead 0; of 114 Jobs whose PR merged, 114 still show a step at the end; held back on end kind {'plan_recorded': 33, 'pushed': 20, 'walk_shown': 8, 'replied': 4, 'walk_approved_all': 10}
+  P: same 48, held back (earlier step) 68, ahead 6; of 114 Jobs whose PR merged, 101 still show a step at the end; held back on end kind {'plan_recorded': 33, 'walk_shown': 8, 'replied': 4, 'pushed': 13, 'walk_approved_all': 10}
+  M: same 55, held back (earlier step) 29, ahead 38; of 114 Jobs whose PR merged, 41 still show a step at the end; held back on end kind {'no end': 2, 'walk_approved_all': 25, 'plan_recorded': 2}
+
+Time share held back (control Jobs, rail Jobs with visits): fraction of the Job's life where gate-only is on an earlier step than the old rail
+  S: 59% of 191 Job-hours (gaps over 6 hours left out)
+  P: 57% of 191 Job-hours (gaps over 6 hours left out)
+  M: 32% of 191 Job-hours (gaps over 6 hours left out)
+
+== Why variant M holds Jobs on a walk step at their end (control Jobs, rail Jobs with visits)
+   33  no window ever shown (walk passed over: nothing to see)
+    6  windows shown, some approved, a later or other one not
+    4  windows shown, none approved
+
+== Gates the shipped workflows need, and what backs them in the store
+end                                 defined             store fact                                                                      seen as a gate
+plan_approved                       rail_ends.rs:15     session_plan.approved_at (newest version only); the thread line 'The owner approved plan vN' keeps the earlier onesyes
+walk_approved_all / walk_approved   rail_ends.rs:16,19  a You message 'Approved <address>' (walking.rs:22) beside the window row        yes; dismissed and replaced windows are read from other tables
+sketch_approved                     rail_ends.rs:20     a You message 'Approved sketch: ' (sketching.rs:203), no structured row         yes, by text prefix
+draft_approved                      rail_ends.rs:21     draft row settled.how approved or fixed                                         yes
+idea_picked                         rail_ends.rs:22     ask row options with a preview, and the ':said' answer message                  weak: parsed from answer text
+document_approved                   rail_ends.rs:23     ledger_attachments artifact detail settled='approved', settled_at               yes
+merged                              rail_ends.rs:14     timeline pr.merged, ledger pr detail state=merged                               yes
+pr_opened                           rail_ends.rs:30     timeline pr.opened                                                              yes
+checked                             rail_ends.rs:28     session_check_runs, timeline pr.checks                                          a Check run yes; 'green' is a rule over the latest run of each Check
+pushed                              rail_ends.rs:25     timeline session.pushed, branch in detail                                       partly: no branch on 206 of 474 pushes, so own against a subagent's cannot be told
+committed                           rail_ends.rs:29     timeline session.committed                                                      no: 10 rows in the whole store
+edited                              rail_ends.rs:27     timeline session.edited                                                         seen, not a gate
+walk_shown                          rail_ends.rs:26     timeline session.walked, window rows                                            seen, the Job's act, not a gate
+plan_recorded                       rail_ends.rs:24     session_plan.recorded_at                                                        seen, the Job's act, not a gate
+replied                             rail_ends.rs:17     You messages                                                                    seen, but a reply is not an approval
+lifecycle (job: landed)             rail_ends.rs:33     lifecycle_instances, lifecycle_moves                                            seen by Fleet; not in the brief's gate list, held open in this replay
+tasks completed                     rail.rs:355-358 (passed: follows_plan)session_plan_tasks listed/marked                                                no: the agent's TaskUpdate or Fleet's mark from edits, which the 50 task disputes name
+
+Steps of the workflows as shipped today, and what ends each (from ends_of; * = no gate under the brief's list):
+  bug         0 Find the cause      ends on: plan_approved
+  bug         1 Fix                 ends on: walk_approved_all
+  bug         2 Tests             * ends on: pushed
+  bug         3 Deliver             ends on: merged
+  code_review 0 Read the diff     * ends on: plan_recorded
+  code_review 1 Assess            * ends on: nothing
+  code_review 2 Deliver the review* ends on: nothing
+  design_plan 0 Draft             * ends on: plan_recorded
+  design_plan 1 Present           * ends on: nothing
+  feature     0 Propose             ends on: plan_approved, walk_approved, sketch_approved, draft_approved, idea_picked, document_approved
+  feature     1 Walk                ends on: walk_approved_all
+  feature     2 Refine            * ends on: pushed
+  feature     3 Deliver             ends on: merged
+  orchestrate 0 Assess            * ends on: plan_recorded
+  orchestrate 1 Plan                ends on: plan_approved
+  orchestrate 2 Dispatch          * ends on: nothing
+  orchestrate 3 Oversee           * ends on: job: landed
+  orchestrate 4 Summarise         * ends on: nothing
+  prototype   0 Frame               ends on: plan_approved
+  prototype   1 Build             * ends on: nothing
+  prototype   2 Write up          * ends on: nothing
+  refactor    0 Scope the refactor  ends on: plan_approved
+  refactor    1 Restructure       * ends on: pushed
+  refactor    2 Review the change   ends on: merged
+  revert      0 Undo the change   * ends on: pushed
+  revert      1 Summarise           ends on: merged
+  uat         0 Set up            * ends on: nothing
+  uat         1 Pre-flight        * ends on: nothing
+  uat         2 Run               * ends on: committed
+  uat         3 Review            * ends on: committed
+  uat         4 Write back        * ends on: nothing
