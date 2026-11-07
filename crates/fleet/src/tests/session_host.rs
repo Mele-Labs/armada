@@ -249,6 +249,25 @@ impl Rig {
         self.start_titled(None).await
     }
 
+    /// The links `start_another_session` writes: `started_by` on `child`, `started_to` on `parent`.
+    pub(super) async fn started_from(&self, parent: &SessionId, child: &SessionId) {
+        let now = self.fleet.now().as_str().to_string();
+        let mut store = self.fleet.store().lock().await;
+        for (holder, kind, target) in [(child, "started_by", parent), (parent, "started_to", child)] {
+            let link = store::KeptAttachment {
+                holder: store::Holder::session(holder.as_str()),
+                kind: kind.to_string(),
+                manifest_id: self.manifest.as_str().to_string(),
+                target: target.as_str().to_string(),
+                state: store::AttachmentState::Spent,
+                detail: Default::default(),
+                since: now.clone(),
+                changed_at: now.clone(),
+            };
+            store.attach(&link, false).expect("kept");
+        }
+    }
+
     /// A start that waits on its start card.
     pub(super) async fn start_held(&self) -> SessionId {
         self.start_requesting_nothing(true).await
@@ -768,6 +787,7 @@ async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     let rig = rig();
     let a = rig.start().await;
     let b = rig.start().await;
+    rig.started_from(&a, &b).await;
     rig.send(&a, "hello a").await;
     rig.send(&b, "hello b").await;
     rig.stand_in.init(1);
@@ -800,6 +820,44 @@ async fn a_message_to_a_session_whose_process_ended_resumes_it() {
     assert!(resumed.resuming);
     let line = rig.stand_in.process(2).sent.lock().unwrap()[0].clone();
     assert!(line.contains("are you there"));
+}
+
+/// Where the mod's hooks are skipped, a `SendMessage` from outside the receiver's tree is sent before
+/// anything can refuse it. Fleet does not wake the ended receiver with it, and says so on the sender's thread.
+#[tokio::test]
+async fn a_message_from_outside_its_tree_leaves_an_ended_session_ended() {
+    let rig = rig();
+    let a = rig.start().await;
+    let b = rig.start().await;
+    rig.send(&a, "hello a").await;
+    rig.send(&b, "hello b").await;
+    rig.stand_in.init(1);
+    rig.stand_in.finishes(1, "b ready");
+    eventually(|| async { rig.turn(&b).await == SessionTurn::Idle }).await;
+    rig.fleet
+        .tune_session(TuneSession { session_id: b.clone(), model: None, effort: None, mode: SessionMode::Auto })
+        .await
+        .unwrap();
+    let before = rig.rows(&b).await.len();
+
+    rig.stand_in.says(
+        0,
+        vec![DroneEvent::Called {
+            tool: "SendMessage".into(),
+            call: "toolu_2".into(),
+            detail: CallDetail::of(&format!("to {}: are you there", address_of(b.as_str()))),
+        }],
+    );
+    let refused = format!(
+        "`SendMessage` to {} is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it",
+        address_of(b.as_str())
+    );
+    eventually(|| async {
+        rig.rows(&a).await.iter().any(|row| matches!(row, SessionRow::Message { text, .. } if *text == refused))
+    })
+    .await;
+    assert_eq!(rig.stand_in.starts().len(), 2, "the receiver is not started again");
+    assert_eq!(rig.rows(&b).await.len(), before, "nothing is drawn on the receiver's thread");
 }
 
 #[tokio::test]
