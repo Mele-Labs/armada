@@ -158,6 +158,9 @@ export class Stage {
   }
 
   private async init(): Promise<void> {
+    // A kept application is ready at once, and building the map on it then held a Job's first paint by 100 ms. It waits for the paint.
+    await new Promise<void>((painted) => requestAnimationFrame(() => setTimeout(painted, 0)));
+    if (this.gone) return;
     const app = takeIdleApp(this.size) ?? (await startApp(this.size));
     if (this.gone) {
       giveBackApp(app);

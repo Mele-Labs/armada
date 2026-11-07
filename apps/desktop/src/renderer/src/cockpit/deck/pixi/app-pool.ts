@@ -79,9 +79,13 @@ export function giveBackApp(app: Application): void {
   }
   app.ticker.stop();
   app.ticker.maxFPS = 0;
-  for (const child of app.stage.removeChildren()) child.destroy({
+  for (const child of app.stage.removeChildren()) {
+    child.destroy({
       children: true,
     });
+  }
+  // Drawn empty once, so the next map's canvas does not show this one's last picture before its own first frame.
+  app.render();
   app.canvas.remove();
   idle.push(app);
 }
