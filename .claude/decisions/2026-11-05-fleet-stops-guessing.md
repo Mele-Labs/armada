@@ -38,3 +38,9 @@ refusal, which is built later once size is settled.
 - The 22 Oct item clarity check. An unclear item reaches his list.
 - The 27 Oct task-mark proof from merges and paths, in `2026-10-27-fleet-keeps-the-task-list-honest.md`.
   Only a commit naming the task still marks it.
+
+**6 Nov 2026 replaces the "Refusing by wording" keep.** The question check, which refused a
+question when the agent wrote nothing at all, is deleted outright. It refused text he had
+already read whenever the stream lagged behind the door. His words: *"I thought we got rid
+of those notices about not writing nothing? They clearly failed lol"*. Nothing refuses a
+question on what was written before it.
