@@ -38,8 +38,33 @@ export type Host = {
 };
 
 /** Every number the thread's words hold, as `#N`, as `owner/name#N` of this repository, or as the forge's address for one. */
+/**
+ * What each thread's words were last scanned for, by the rows they are in. **Another Job's update redraws the open
+ * thread**, and the store hands back the same rows when this one did not change, so a long thread is scanned once.
+ */
+const numbersScannedFor = new WeakMap<
+  Session["rows"],
+  {
+    slug: string | undefined;
+    numbers: number[];
+  }
+>();
+const pathsScannedFor = new WeakMap<Session["rows"], string[]>();
+
 function numbersIn(session: Session | undefined, slug: string | undefined): number[] {
-  const words = (session?.rows ?? []).flatMap((row) =>
+  if (session === undefined) return [];
+  const held = numbersScannedFor.get(session.rows);
+  if (held !== undefined && held.slug === slug) return held.numbers;
+  const numbers = numbersScanned(session, slug);
+  numbersScannedFor.set(session.rows, {
+    slug,
+    numbers,
+  });
+  return numbers;
+}
+
+function numbersScanned(session: Session, slug: string | undefined): number[] {
+  const words = session.rows.flatMap((row) =>
     row.kind === "message" || row.kind === "sent"
       ? [
           row.text,
@@ -66,7 +91,16 @@ const PATH = /^\/?[\w.@+-]+(?:\/[\w.@+-]+)*\.[A-Za-z0-9]+$/;
 
 /** Every inline code span of the thread's words that reads as a file path. */
 function pathsIn(session: Session | undefined): string[] {
-  const words = (session?.rows ?? []).flatMap((row) =>
+  if (session === undefined) return [];
+  const held = pathsScannedFor.get(session.rows);
+  if (held !== undefined) return held;
+  const paths = pathsScanned(session);
+  pathsScannedFor.set(session.rows, paths);
+  return paths;
+}
+
+function pathsScanned(session: Session): string[] {
+  const words = session.rows.flatMap((row) =>
     row.kind === "message" || row.kind === "sent"
       ? [
           row.text,
