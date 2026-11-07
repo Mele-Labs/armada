@@ -1,0 +1,14 @@
+[operations.message_reach]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The `armada` mod asks, before a Job's `SendMessage` runs, whether that Job may write to the address it names"
+notes = """
+`POST /sessions/message_reach`, body `MessageTo`: `to`, the address the tool names. Answered with `MessageReach`, tagged by `outcome`: `allowed`, or `refused` with the sentence the mod returns as the tool's denial.
+
+**The sender is placed by the connection**, as the door places a Job, and never named in the body. A caller that is not a hosted Job is allowed, and so is an address that is no Job Fleet hosts, such as a subagent's.
+
+A Job may write to the Jobs that started it, up the chain, to the Jobs it started, down the tree, and to a Job the person tagged in a message to it, since Fleet tells it that Job's address. Any other Job is refused: the Operator passes words between Jobs with `tell_session`, never with `SendMessage`.
+
+**Only as strong as the mod's hook.** Where the hook does not run, as on a Mac whose managed settings skip a plugin's hooks, nothing is asked and the message goes; Fleet still hears it after it is sent.
+"""

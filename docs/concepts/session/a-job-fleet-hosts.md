@@ -63,6 +63,8 @@ thread says whose. **A job whose process was ended is resumed by the
 message**, written for the sender, which is a hosted job Fleet can read the
 send of. **A paused job is not woken by it**: the message is kept and read after the person resumes it (*Pausing a Job*). `settings.session-quiet-timeout` is how long a process may sit idle.
 [Spike 26](../../spikes/026-does-a-message-from-another-session-wake-a-live-process.md).
+**A job writes only to its own tree.** Before `SendMessage` runs, the mod asks Fleet (`message_reach`), which places the sender by its connection and refuses any hosted job that did not start it, was not started by it, and was not tagged to it by the person.
+Where the mod's hooks do not run, as on a Mac whose managed settings skip them, nothing asks and the message goes.
 
 **The lease is taken by a hook, and nothing writes the main checkout before it.**
 A write tool, or a shell line that is not a read, is refused until the job

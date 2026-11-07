@@ -471,3 +471,41 @@ async fn the_operators_live_list_names_who_started_a_job_up_to_the_root_and_an_e
     let chain = live.iter().find(|one| one.session_id == great.as_str()).expect("live").started_by.clone();
     assert_eq!(chain.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(), [grandchild.as_str(), first.as_str(), top.as_str()], "an ended starter is named too");
 }
+
+/// `message_reach`: a Job writes up its starter chain and down its tree, and is refused a sibling.
+/// A caller that is no Job, and an address that is no Job, are allowed.
+#[tokio::test]
+async fn a_job_may_message_the_jobs_above_and_below_it_and_is_refused_its_siblings() {
+    use api::HostedSessions;
+    use crate::session_host::address_of;
+
+    let (rig, top, [first, second], grandchild, great) = a_tree().await;
+    let reach = |from: u16, to: &SessionId| {
+        let fleet = Arc::clone(&rig.fleet);
+        let to = ipc::MessageTo { to: address_of(to.as_str()) };
+        async move {
+            let caller = at(from).expect("an address");
+            fleet.message_reach(caller, to).await.expect("answered")
+        }
+    };
+    let allowed = ipc::MessageReach::Allowed {};
+
+    assert_eq!(reach(52001, &top).await, allowed, "the Job that started it");
+    assert_eq!(reach(52001, &grandchild).await, allowed, "a Job it started");
+    assert_eq!(reach(52001, &great).await, allowed, "a Job below one it started");
+    assert_eq!(reach(52002, &top).await, allowed, "the Job that started its starter");
+    match reach(52001, &second).await {
+        ipc::MessageReach::Refused { message } => assert_eq!(
+            message,
+            format!(
+                "`SendMessage` to {} is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it",
+                address_of(second.as_str())
+            )
+        ),
+        allowed => panic!("a sibling is refused, and was {allowed:?}"),
+    }
+    assert_eq!(reach(59999, &second).await, allowed, "a caller that is no Job");
+    let nobody = ipc::MessageTo { to: String::from("s-0badc0de") };
+    let caller = at(52001).expect("an address");
+    assert_eq!(Arc::clone(&rig.fleet).message_reach(caller, nobody).await.expect("answered"), allowed, "an address that is no Job");
+}

@@ -22,6 +22,9 @@ export type Asked =
   | { outcome: 'refused'; message: string }
   | { outcome: 'gone' }
 
+/** Whether this Job may `SendMessage` an address (`MessageReach`, `crates/ipc/src/hosted_sessions.rs`). */
+export type Reach = { outcome: 'allowed' } | { outcome: 'refused'; message: string }
+
 export type Usage = {
   context_tokens?: number
   context_window?: number

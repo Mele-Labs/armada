@@ -79,6 +79,24 @@ pub(crate) async fn start_waiting_now<D: HostedSessions>(
     }
 }
 
+/// Whether a Job may send its `SendMessage`, asked by the mod before the tool runs. **Placed by
+/// the connection**: the body names only the address.
+pub(crate) async fn message_reach<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+    body: Bytes,
+) -> Response {
+    let to: ipc::MessageTo = match ipc::decode_body("an address to message", &body) {
+        Ok(to) => to,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let caller = peer.map_or_else(crate::Caller::unplaceable, |peer| crate::Caller::at(peer.0));
+    match served.shared().message_reach(caller, to).await {
+        Ok(reach) => answer(StatusCode::OK, &reach, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The most a message may weigh. Its pictures and files ride inside it as base64, and one
 /// Retina screenshot is past axum's 2 MB default on its own.
 pub(crate) const MOST_A_MESSAGE_MAY_BE: usize = 64 * 1024 * 1024;

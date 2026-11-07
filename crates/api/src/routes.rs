@@ -645,6 +645,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::ask_from_terminal::<D>),
         )
         .route(
+            "/sessions/message_reach",
+            post(crate::hosted_sessions::message_reach::<D>),
+        )
+        .route(
             "/sessions/held",
             post(crate::hosted_sessions::take_held_messages::<D>),
         )
