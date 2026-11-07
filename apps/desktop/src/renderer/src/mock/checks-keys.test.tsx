@@ -19,8 +19,10 @@ const tile = (name: string) =>
     exact: true,
   });
 
+// `checks` draws a stamp on every Check that has started, and a stamp is a button of its own, so a
+// started tile has two stops. `screens_test` is waiting and has none: the tile is its only stop.
 async function opened(): Promise<void> {
-  mount("job-checks");
+  mount("checks");
   await onScreen();
   await userEvent.keyboard("{Meta>}k{/Meta}");
   await userEvent.keyboard("Checks{Enter}");
@@ -29,6 +31,7 @@ async function opened(): Promise<void> {
 
 test("Checks keys: the tiles are one Tab stop, entered once and left without visiting a second", async () => {
   await opened();
+  (tile("screens_test").element() as HTMLElement).focus();
   (
     checks()
       .getByRole("tab", {
@@ -39,12 +42,12 @@ test("Checks keys: the tiles are one Tab stop, entered once and left without vis
   ).focus();
 
   await userEvent.keyboard("{Tab}");
-  await expect.element(tile("desktop_test")).toHaveFocus();
+  await expect.element(tile("screens_test")).toHaveFocus();
   // The next stop is past the glass, never the next tile.
   await userEvent.keyboard("{Tab}");
   expect(checks().element().contains(document.activeElement)).toBe(false);
   await userEvent.keyboard("{Shift>}{Tab}{/Shift}");
-  await expect.element(tile("desktop_test")).toHaveFocus();
+  await expect.element(tile("screens_test")).toHaveFocus();
 });
 
 test("Checks keys: the arrows and j/k move between tiles, and Enter or o opens one", async () => {
@@ -55,13 +58,14 @@ test("Checks keys: the arrows and j/k move between tiles, and Enter or o opens o
   await userEvent.keyboard("j");
   await expect.element(tile("desktop_test")).toHaveFocus();
   await userEvent.keyboard("{ArrowDown}");
-  await expect.element(tile("hooks_test")).toHaveFocus();
-  await userEvent.keyboard("jj");
-  await expect.element(tile("ipc_test")).toHaveFocus();
-  await userEvent.keyboard("{ArrowUp}");
+  await expect.element(tile("screens_test")).toHaveFocus();
+  await userEvent.keyboard("j");
   await expect.element(tile("test")).toHaveFocus();
+  await userEvent.keyboard("{ArrowUp}");
+  await expect.element(tile("screens_test")).toHaveFocus();
   await userEvent.keyboard("k");
-  await expect.element(tile("hooks_test")).toHaveFocus();
+  await expect.element(tile("desktop_test")).toHaveFocus();
+  await userEvent.keyboard("j");
 
   await userEvent.keyboard("{Enter}");
   await expect
@@ -71,10 +75,10 @@ test("Checks keys: the arrows and j/k move between tiles, and Enter or o opens o
       }),
     )
     .toBeVisible();
-  await expect.element(tile("hooks_test")).toHaveAttribute("aria-expanded", "true");
+  await expect.element(tile("screens_test")).toHaveAttribute("aria-expanded", "true");
 
-  (tile("ipc_test").element() as HTMLElement).focus();
+  (tile("test").element() as HTMLElement).focus();
   await userEvent.keyboard("o");
-  await expect.element(tile("ipc_test")).toHaveAttribute("aria-expanded", "true");
-  await expect.element(tile("hooks_test")).toHaveAttribute("aria-expanded", "false");
+  await expect.element(tile("test")).toHaveAttribute("aria-expanded", "true");
+  await expect.element(tile("screens_test")).toHaveAttribute("aria-expanded", "false");
 });
