@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -1932,6 +1933,25 @@ function FromSession({
   );
 }
 
+/**
+ * One function for as long as one is passed, calling the latest one passed. **Another Job's update redraws the thread**,
+ * and the host's actions are new on each redraw, so a row handed these keeps its props and is not drawn again.
+ */
+function useSteady<A extends unknown[], R>(
+  act: ((...args: A) => R) | undefined,
+): ((...args: A) => R) | undefined {
+  const latest = useRef(act);
+  useLayoutEffect(() => {
+    latest.current = act;
+  });
+  const steady = useMemo(() => (...args: A): R => latest.current!(...args), []);
+  return act === undefined ? undefined : steady;
+}
+
+/** A row is drawn again only when its row or what it is told changes, which `useSteady` keeps still. */
+const SteadyRow = memo(Row);
+const SteadyCalls = memo(Calls);
+
 function Row({
   row,
   onOpenSession,
@@ -3527,6 +3547,31 @@ export function SessionThread({
   responses,
   onResponses,
 }: SessionThreadProps) {
+  // What every row is handed, kept still across redraws so a row that did not change is not drawn again.
+  const steady = {
+    onRetry: useSteady(onRetry),
+    onStartAgain: useSteady(onStartAgain),
+    onReport: useSteady(onReport),
+    onOpenSession: useSteady(onOpenSession)!,
+    onOpenWindow: useSteady(onOpenWindow),
+    onOpenSketch: useSteady(onOpenSketch),
+    onOpenFile: useSteady(onOpenFile),
+    onReadMedia: useSteady(onReadMedia),
+    onDraft: useSteady(onDraft),
+    onWithdrawDraft: useSteady(onWithdrawDraft),
+    onAnswerSketch: useSteady(onAnswerSketch),
+    onWithdrawSketch: useSteady(onWithdrawSketch),
+    onOpenDocument: useSteady(onOpenDocument),
+    onAnswerDocument: useSteady(onAnswerDocument),
+    onOpenRetro: useSteady(onOpenRetro),
+    onOpenSent: useSteady(onOpenSent),
+    onMuteNotice: useSteady(onMuteNotice),
+    onTeachRow: useSteady(onTeachRow),
+    onStop: useSteady(onStop),
+    onReplyAt: useSteady(onReplyAt),
+    onPickLine: useSteady(onPickLine),
+    onResponses: useSteady(onResponses),
+  };
   const whole = useRef<HTMLDivElement>(null);
   useCopyOnSelect(whole);
   // A few rows arriving after the thread first drew rise in; the first draw, and a long run (Show earlier), do not.
@@ -3543,24 +3588,26 @@ export function SessionThread({
     for (const one of fresh) known.current.add(one);
     if (fresh.length <= 4) for (const one of fresh) one.setAttribute("data-arrived", "");
   });
+  const pickLine = steady.onPickLine;
+  const actOnResponses = steady.onResponses;
   const picks = useMemo(
     (): LinePicks | null =>
-      onPickLine === undefined || responses === undefined
+      pickLine === undefined || responses === undefined
         ? null
         : {
             responses,
-            pick: onPickLine,
-            ...(onResponses === undefined
+            pick: pickLine,
+            ...(actOnResponses === undefined
               ? {}
               : {
-                  onAct: onResponses,
+                  onAct: actOnResponses,
                 }),
             marks: marksOf(rows),
           },
     [
-      onPickLine,
+      pickLine,
       responses,
-      onResponses,
+      actOnResponses,
       rows,
     ],
   );
@@ -3859,9 +3906,9 @@ export function SessionThread({
         >
           <StampSurface>
             <NotedOpens.Provider value={noted ?? null}>
-              <MessageReply.Provider value={spacious ? (onReplyAt ?? null) : null}>
+              <MessageReply.Provider value={spacious ? (steady.onReplyAt ?? null) : null}>
                 <ThreadPicks.Provider value={picks}>
-                  <ProseWalk.Provider value={onOpenWindow ?? null}>
+                  <ProseWalk.Provider value={steady.onOpenWindow ?? null}>
                     <ProseRunner.Provider value={runner ?? null}>
                       <ProseCommand.Provider value={slash}>
                         <ol
@@ -3893,19 +3940,19 @@ export function SessionThread({
                           )}
                           {items.flatMap((item, at) => [
                             item.kind === "calls" ? (
-                              <Calls
+                              <SteadyCalls
                                 key={item.id}
                                 rows={item.rows}
                                 working={working === true && !asking && at === items.length - 1}
-                                {...(onStop === undefined
+                                {...(steady.onStop === undefined
                                   ? {}
                                   : {
-                                      onStop,
+                                      onStop: steady.onStop,
                                     })}
-                                {...(onTeachRow === undefined
+                                {...(steady.onTeachRow === undefined
                                   ? {}
                                   : {
-                                      onTeach: onTeachRow,
+                                      onTeach: steady.onTeachRow,
                                     })}
                               />
                             ) : item.kind === "fleetTurn" ? (
@@ -3951,93 +3998,93 @@ export function SessionThread({
                                     })}
                               />
                             ) : (
-                              <Row
+                              <SteadyRow
                                 key={
                                   "stableKey" in item.row && item.row.stableKey !== undefined
                                     ? item.row.stableKey
                                     : item.row.id
                                 }
                                 row={item.row}
-                                {...(onRetry === undefined
+                                {...(steady.onRetry === undefined
                                   ? {}
                                   : {
-                                      onRetry,
+                                      onRetry: steady.onRetry,
                                     })}
-                                {...(onStartAgain === undefined
+                                {...(steady.onStartAgain === undefined
                                   ? {}
                                   : {
-                                      onStartAgain,
+                                      onStartAgain: steady.onStartAgain,
                                     })}
-                                {...(onReport === undefined
+                                {...(steady.onReport === undefined
                                   ? {}
                                   : {
-                                      onReport,
+                                      onReport: steady.onReport,
                                     })}
-                                onOpenSession={onOpenSession}
-                                onOpenWindow={onOpenWindow}
-                                onOpenSketch={onOpenSketch}
-                                {...(onOpenFile === undefined
+                                onOpenSession={steady.onOpenSession}
+                                onOpenWindow={steady.onOpenWindow}
+                                onOpenSketch={steady.onOpenSketch}
+                                {...(steady.onOpenFile === undefined
                                   ? {}
                                   : {
-                                      onOpenFile,
+                                      onOpenFile: steady.onOpenFile,
                                     })}
-                                {...(onReadMedia === undefined
+                                {...(steady.onReadMedia === undefined
                                   ? {}
                                   : {
-                                      onReadMedia,
+                                      onReadMedia: steady.onReadMedia,
                                     })}
-                                {...(onDraft === undefined
+                                {...(steady.onDraft === undefined
                                   ? {}
                                   : {
-                                      onDraft,
+                                      onDraft: steady.onDraft,
                                     })}
-                                {...(onWithdrawDraft === undefined
+                                {...(steady.onWithdrawDraft === undefined
                                   ? {}
                                   : {
-                                      onWithdrawDraft,
+                                      onWithdrawDraft: steady.onWithdrawDraft,
                                     })}
-                                {...(onAnswerSketch === undefined || sketching !== undefined
+                                {...(steady.onAnswerSketch === undefined || sketching !== undefined
                                   ? {}
                                   : {
-                                      onAnswerSketch,
+                                      onAnswerSketch: steady.onAnswerSketch,
                                     })}
-                                {...(onWithdrawSketch === undefined || sketching !== undefined
+                                {...(steady.onWithdrawSketch === undefined || sketching !== undefined
                                   ? {}
                                   : {
-                                      onWithdrawSketch,
+                                      onWithdrawSketch: steady.onWithdrawSketch,
                                     })}
-                                {...(onOpenDocument === undefined
+                                {...(steady.onOpenDocument === undefined
                                   ? {}
                                   : {
-                                      onOpenDocument,
+                                      onOpenDocument: steady.onOpenDocument,
                                     })}
-                                {...(onAnswerDocument === undefined
+                                {...(steady.onAnswerDocument === undefined
                                   ? {}
                                   : {
-                                      onAnswerDocument,
+                                      onAnswerDocument: steady.onAnswerDocument,
                                     })}
                                 {...(sessionId === undefined
                                   ? {}
                                   : {
                                       sessionId,
                                     })}
-                                onOpenRetro={onOpenRetro}
-                                onOpenSent={onOpenSent}
+                                onOpenRetro={steady.onOpenRetro}
+                                onOpenSent={steady.onOpenSent}
                                 forkable={
                                   onForkAt !== undefined ||
                                   onReplyAt !== undefined ||
                                   onTeachAt !== undefined
                                 }
                                 disputed={disputes.has(item.row.id)}
-                                {...(onMuteNotice === undefined
+                                {...(steady.onMuteNotice === undefined
                                   ? {}
                                   : {
-                                      onMuteNotice,
+                                      onMuteNotice: steady.onMuteNotice,
                                     })}
-                                {...(onTeachRow === undefined
+                                {...(steady.onTeachRow === undefined
                                   ? {}
                                   : {
-                                      onTeach: onTeachRow,
+                                      onTeach: steady.onTeachRow,
                                     })}
                                 {...(agentName === undefined
                                   ? {}
