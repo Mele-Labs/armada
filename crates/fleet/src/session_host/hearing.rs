@@ -332,11 +332,7 @@ where
                 // The harness's words are shown but are not the agent's reply, so a turn
                 // ending on them asks the person nothing.
                 if by == Speaker::Drone {
-                    {
-                        let mut state = runtime.state();
-                        state.said = Some(text.clone());
-                        state.owes_reply = false;
-                    }
+                    runtime.state().said = Some(text.clone());
                     self.said_seen(id, &text);
                     self.links_seen(id, &text, LinkedBy::Agent).await;
                 }
@@ -356,9 +352,6 @@ where
                 .await;
             }
             DroneEvent::Called { tool, detail, call } => {
-                if tool == ipc::ASKS_A_QUESTION {
-                    runtime.state().question_heard = Some(call.clone());
-                }
                 let shown = detail.whole().unwrap_or(detail.shown()).to_string();
                 if let Some((to, message)) = adapters::sent_message(&tool, &shown) {
                     self.delivered(id, to, message).await;
