@@ -479,7 +479,7 @@ async fn a_job_may_message_the_jobs_above_and_below_it_and_is_refused_its_siblin
     use api::HostedSessions;
     use crate::session_host::address_of;
 
-    let (rig, top, [first, second], grandchild, great) = a_tree().await;
+    let (rig, top, [_, second], grandchild, great) = a_tree().await;
     let reach = |from: u16, to: &SessionId| {
         let fleet = Arc::clone(&rig.fleet);
         let to = ipc::MessageTo { to: address_of(to.as_str()) };
