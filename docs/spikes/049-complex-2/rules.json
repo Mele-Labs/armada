@@ -1,0 +1,42 @@
+{
+ "note": "Rules for the scripted person's answers to the agent's questions in spike 49. The first rule whose `when` matches the question text wins. pick = an option's label or description to choose; avoid = an option to skip; text = the sentence to send when no option matches. Reasons are in person.md.",
+ "rules": [
+  {
+   "name": "custom-key",
+   "when": "custom tab|custom state|tab id|key(ed)? (it |the state )?by|composite key",
+   "pick": "job and tab|job \\+ tab|by job|composite|\\(job, ?tab\\)",
+   "text": "Key the Custom tab state by Job and tab, as the issue says, and drop it with its Job. The state lives in memory only, so there is nothing to migrate."
+  },
+  {
+   "name": "gone-means-not-listed",
+   "when": "\\b(gone|ended|end of a job|no longer (listed|in the list)|when (a|the) job (ends|is gone|ended|is removed))",
+   "pick": "no longer (listed|in the list|in fleet)|not listed|missing from|removed from the list|gone from",
+   "avoid": "when (it|the job) ends|on end|as soon as",
+   "text": "Drop only when Fleet no longer lists the Job. An ended Job can still be opened or forked, and losing its layout is something I would see. Keys that linger cost nothing I can see."
+  },
+  {
+   "name": "other-families",
+   "when": "pull request|\\bpr\\b|operator|other famil|prPanes|operatorPanes",
+   "pick": "leave|unchanged|no change|only (the )?job|skip|not touch",
+   "text": "Leave the pull request and operator families alone unless the note shows they have a clear way to be gone. Say so in the note."
+  },
+  {
+   "name": "no-migration",
+   "when": "migrat|old keys|existing keys|already kept|backward|compat|setting|flag",
+   "pick": "\\bno\\b|skip|not needed|don.t|without",
+   "text": "No migration and no setting. Nothing depends on the old keys."
+  },
+  {
+   "name": "stay-in-scope",
+   "when": "\\balso\\b|extend|other kept|other keys|drafts|scope|while (we.re|you are) there|too\\b",
+   "pick": "\\bno\\b|only|just|keep (it|to)|stay",
+   "text": "Stay with pane layouts. If I want another addition I will say so."
+  },
+  {
+   "name": "sweep-waits-for-the-list",
+   "when": "sweep|startup|start-up|before the list|not yet read|loaded",
+   "pick": "wait|after|once|only when",
+   "text": "Wait until Bridge has read the list of Jobs. Never sweep on an empty list."
+  }
+ ]
+}
