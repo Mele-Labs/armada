@@ -1,7 +1,8 @@
 // A built tab mod's body as Fleet's word on the mod moves: switched off it stops drawing and says so, and refused, failing to load or throwing it says why and offers Fix,
-// which starts a Mod Job on the tab that the tab then follows. The module loader is stood in for by name, since a browser test has no mod folder to read.
+// which starts a Mod Job on the tab that the tab then follows. Fleet's mod list arrives through the window's state as main sends it, and each tab is a real module the
+// window loads from a `blob:`. No module is mocked: a mock is missed when the checkout's path holds a space.
 
-import { act, createElement, useSyncExternalStore } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { ModSummary } from "@armada/protocol";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -13,34 +14,29 @@ import { TabMod } from "./tab-host";
 const MOD = "review-queue";
 const TAB = "tab-1";
 
-// Fleet's mod list, which a test moves as Fleet's rescan would.
+// Each tab's `tab.js`, as `validate_mod` hands it back.
+const GOOD = `export default ({ host }) => host.React.createElement("p", null, "Pull request #812");`;
+const THROWS = `export default () => { throw new Error("rows is not defined"); };`;
+const BROKEN = `export default () => }`;
+
+// Fleet's mod list, which a test moves as Fleet's rescan would: each move is a whole state, as main sends after a resync.
 let mods: ModSummary[] = [];
-const listeners = new Set<() => void>();
+let seq = 0;
+let send: ((change: unknown) => void) | undefined;
+const whole = () => ({
+  full: {
+    mods: {
+      mods,
+    },
+  },
+  seq: ++seq,
+});
 const publish = (next: ModSummary[]) => {
   mods = next;
-  listeners.forEach((on) => on());
+  send?.(whole());
 };
-vi.mock("../mod-list", () => ({
-  useModList: () =>
-    useSyncExternalStore(
-      (on) => (listeners.add(on), () => void listeners.delete(on)),
-      () => mods,
-    ),
-}));
 
-// Each module the tests load, by the code `validate_mod` hands back.
-vi.mock("./tab-module", () => ({
-  loadTabModule: async (code: string) => {
-    if (code === "good") return () => createElement("p", null, "Pull request #812");
-    if (code === "throws")
-      return () => {
-        throw new Error("rows is not defined");
-      };
-    throw new Error("tab.js did not load: Unexpected token '}'");
-  },
-}));
-
-let code = "good";
+let code = GOOD;
 const startModSession = vi.fn(async () => ({
   ok: true,
   value: {
@@ -66,7 +62,8 @@ let mounted:
   | undefined;
 
 beforeEach(() => {
-  code = "good";
+  code = GOOD;
+  send = undefined;
   startModSession.mockClear();
   (
     window as unknown as {
@@ -82,6 +79,13 @@ beforeEach(() => {
       },
     }),
     startModSession,
+    syncState: async () => whole(),
+    subscribeChanges: (on: (change: unknown) => void) => {
+      send = on;
+      return () => {
+        send = undefined;
+      };
+    },
   };
   mods = [
     row(),
@@ -162,7 +166,7 @@ test("a tab Fleet refuses shows the reason and Fix, which starts a Mod Job on th
 
 test("a rewrite that does not load is told above the tab still drawn, with Fix", async () => {
   await expect.element(drawn()).toBeVisible();
-  code = "broken";
+  code = BROKEN;
   act(() =>
     publish([
       row({
@@ -177,7 +181,7 @@ test("a rewrite that does not load is told above the tab still drawn, with Fix",
 
 test("a tab that throws as it draws says what it threw and offers Fix", async () => {
   await expect.element(drawn()).toBeVisible();
-  code = "throws";
+  code = THROWS;
   act(() =>
     publish([
       row({
