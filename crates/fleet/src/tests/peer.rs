@@ -15,7 +15,7 @@
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 
-use crate::peer::{held_within, Kernel, PeerOf};
+use crate::peer::{held_anywhere_within, held_within, Kernel, PeerOf};
 use api::Caller;
 
 /// A `PeerOf` a test plants, for the cases that are about Fleet rather than
@@ -189,6 +189,22 @@ fn a_call_from_a_process_a_session_started_is_placed_within_it() {
         &[7000],
         peers.as_ref()
     ));
+}
+
+/// A route that is the person's alone places a call made from deeper in a Job than the door
+/// walks: agent, shell, package runner and the scripts under it.
+#[test]
+fn a_refusal_places_a_call_from_deep_inside_a_job() {
+    let peers = Placing::nothing();
+    for pid in 7000..7009 {
+        peers.started(pid, pid + 1);
+    }
+    peers.holding(7009, 52000, 12345);
+
+    let deep = Caller::at("127.0.0.1:52000".parse::<SocketAddr>().expect("an address"));
+    assert!(!held_within(&deep, 12345, &[7000], peers.as_ref()), "past the door's depth");
+    assert!(held_anywhere_within(&deep, 12345, &[7000], peers.as_ref()));
+    assert!(!held_anywhere_within(&deep, 12345, &[9000], peers.as_ref()), "another tree is not this Job");
 }
 
 /// The kernel's half, against a real tree: a shell whose subshell opens the

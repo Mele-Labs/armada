@@ -30,6 +30,13 @@ pub trait Admitting: Send + Sync + 'static {
     fn always_loads(&self) -> Option<&'static str> {
         None
     }
+
+    /// Whether this call's connection is held inside a Job: its agent, or any process the agent
+    /// started. **For the routes that are the person's alone** (`crate::callers::THE_PERSONS_OWN`),
+    /// which refuse it whatever the call says it is. By default, wherever the door would place it.
+    fn job_at(&self, caller: Caller) -> bool {
+        self.words_reach_at(caller).is_some()
+    }
 }
 
 /// What one placed Job may call through the door.
