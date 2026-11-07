@@ -429,20 +429,50 @@ it("keeps the sessions it holds when a later read fails, and publishes nothing f
   const port = (server.address() as AddressInfo).port;
   const { sessions, published, last } = host(port);
   await sessions.again(port);
+  expect(last("sessions")).toMatchObject({
+    listedAt: expect.any(Number),
+  });
   const before = published.length;
   failing = true;
   await sessions.again(port);
   expect(published.length).toBe(before);
+  // What is held is no longer what Fleet just answered, so nothing folded into it says so.
+  sessions.changed(record("c"));
+  expect(last("sessions")).not.toHaveProperty("listedAt");
   expect(last("sessions")).toMatchObject({
     state: "read",
-    sessions: [
-      {
+    sessions: expect.arrayContaining([
+      expect.objectContaining({
         id: "a",
-      },
-      {
+      }),
+      expect.objectContaining({
         id: "b",
-      },
-    ],
+      }),
+    ]),
+  });
+});
+
+it("says a list is Fleet's own answer only once Fleet has given it, not for the one remembered from disk", async () => {
+  const sent: Sent[] = [];
+  const port = await fleet(sent, [
+    record("a"),
+  ]);
+  const { sessions, last } = host(port);
+  sessions.remember([
+    record("old"),
+  ]);
+  sessions.changed(record("b"));
+  expect(last("sessions")).toMatchObject({
+    state: "read",
+  });
+  expect(last("sessions")).not.toHaveProperty("listedAt");
+  await sessions.again(port);
+  expect(last("sessions")).toMatchObject({
+    listedAt: expect.any(Number),
+  });
+  sessions.changed(record("c"));
+  expect(last("sessions")).toMatchObject({
+    listedAt: expect.any(Number),
   });
 });
 

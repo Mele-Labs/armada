@@ -11,7 +11,7 @@ import { threadRowsOf } from "../session-thread-rows";
 import { useSessions } from "../sessions-draft";
 import { askToTell } from "../tell";
 import { TabMod } from "./tab-host";
-import { startBuilding, useCustom } from "./custom";
+import { customDraftKey, startBuilding, useCustom } from "./custom";
 
 const NONE: readonly never[] = [];
 const NOBODY = () => undefined;
@@ -34,7 +34,7 @@ function Describe({
   manifestId: string | undefined;
 }) {
   const numbered = useNumbered(manifestId);
-  const keep = `custom:${tabId}`;
+  const keep = customDraftKey(jobId, tabId);
   const send = async (sent: SentFromComposer): Promise<boolean> => {
     const started = await window.armada.startModSession({
       title: `Mod ${titleOf(sent.text)}`,
@@ -47,7 +47,7 @@ function Describe({
       askToTell(`Mod Job not started: ${refusal(started.outcome)}`);
       return false;
     }
-    startBuilding(tabId, started.value.session_id);
+    startBuilding(jobId, tabId, started.value.session_id);
     return true;
   };
   return (
@@ -93,7 +93,7 @@ export function CustomBody({
   manifestId: string | undefined;
   onOpenSession: (id: string) => void;
 }) {
-  const custom = useCustom(tabId, true);
+  const custom = useCustom(jobId, tabId, true);
   const job = useSessions().find((one) => one.id === custom.job);
   if (custom.stage === "building") {
     return (
