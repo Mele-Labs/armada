@@ -978,21 +978,21 @@ One call with no tools, kept started and waiting so an arrival pays only for the
 **The value lives in settings.json under `models.operator`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
-[settings.operator-daily-call-ceiling]
-name = "Operator calls a day"
+[settings.operator-plan-pause]
+name = "Pause the Operator at"
 scope = "Machine"
-default = "100"
+default = "80"
 lifetime = "Live"
 merge_strategy = "REPLACE"
 peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-Chosen 4 Nov 2026, not measured, and the owner has not set it: 100. The design page *Helm becomes the Operator* puts a daily ceiling on the Operator's calls, under Permissions, and names no number. The replay of 4 Nov counted 38 calls a working day and 57 on the busiest, before turn ends, permission cards and stalls are counted; 100 is the page's own estimate once they are, about $3.60 a day on the Operator model at the replay's price.
+Chosen 6 Nov 2026 in place of the daily call ceiling (`limits.operatorDailyCalls`), which counted calls and said nothing of what they cost the plan. Eighty percent is where `plan-downshift-line` ships.
 
-Past it the Operator makes no calls until the next day, which begins at midnight on the machine's own clock (the owner, 4 Nov 2026), and every arrival passes on as it did before the Operator, with a Passed on row in its Log saying the ceiling was reached. Zero makes no calls at all. Counted from the Log, so a restart does not reset it.
+At or past this share of the weekly plan window, read as Autopilot reads it, the Operator makes no call and every item that needed one passes to the person as if the Operator were off, with a Passed on row in its Log saying why. The board says so with `paused`, present only while it holds. Zero pauses it whenever a reading exists. **No reading of the plan is no pause**, so an account with no window, or one read from before the window reset, never stops it.
 
-**The value lives in settings.json under `limits.operatorDailyCalls`** (live).
+**The value lives in settings.json under `limits.operatorPlanPause`** (live), a percent from 0 to 100.
 """
 
 [settings.operator]
@@ -1015,22 +1015,22 @@ Live: read at every arrival and every act, and the call kept started follows it 
 [settings.operator-dispatch]
 name = "Operator dispatches"
 scope = "Machine"
-default = "off"
+default = "read_only"
 lifetime = "Live"
 merge_strategy = "REPLACE"
 peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 5 Nov 2026 (owner): every role starts Off. The design page *Helm becomes the Operator*, *What you control*: each role has On, Suggest or Off, and `operator-repositories` sets any role differently for one repository. A word that is not one of the three reads Off. Does nothing while `operator` is Off.
+DECIDED 5 Nov 2026 (owner): every role starts Read-only, which is what Off was. The design page *Helm becomes the Operator*, *What you control*: each role has Read-only, Suggest or Decide, and `operator-repositories` sets any role differently for one repository. A word that is not one of the three reads Read-only, and the older `off` and `on` read Read-only and Decide. Does nothing while `operator` is Off.
 
 **Dispatch is what starts, merges and holds a Job**: a Job on its start card starting, the Job of two doing the same thing that has done less ending into the other unless it has pushed, which raises it to him instead, a Job waiting on another's push, what is left of a quiet Job starting as its own, a quiet Job raised to him, and a start's place in Waiting to start.
 
-**Off changes nothing a Job sees.** Every arrival is still ruled, and each ruling is kept in the Operator's Log with the other Job and the shared paths, but nothing is done, and a first write does not wait for its ruling.
+**Read-only changes nothing a Job sees.** A way whose role is Read-only is not offered to the call. An arrival left with no way but Raise makes no call and goes to the person at once, and nothing it did not do shows in Done. A first write does not wait for its ruling.
 
-**Suggest keeps what it would do on the Job's Needs you list**, `operator_suggestion`, and `Do it` does it as On would have. A first write does not wait, and a start stays on its own card, which is already one press. A quiet Job raised is raised as On raises it, since a raise is already a row.
+**Suggest keeps what it would do on the Job's Needs you list**, `operator_suggestion`, and `Do it` does it as Decide would have. A first write does not wait, and a start stays on its own card, which is already one press. A quiet Job raised is raised as Decide raises it, since a raise is already a row.
 
-**On, Fleet acts on each ruling.** A Job's first write waits at most 20 seconds for its start's ruling.
+**Decide, Fleet acts on each ruling**, and the ruling is kept as done only once the act has gone through. A Job's first write waits at most 20 seconds for its start's ruling.
 
 Live: read again as each ruling comes back, so a call already out when it moves goes by the new position.
 """
@@ -1038,18 +1038,18 @@ Live: read again as each ruling comes back, so a call already out when it moves 
 [settings.operator-delegate]
 name = "Operator delegates"
 scope = "Machine"
-default = "off"
+default = "read_only"
 lifetime = "Live"
 merge_strategy = "REPLACE"
 peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 5 Nov 2026 (owner): every role starts Off, and the panel walked in armada-ehhu.2 gives Delegate its own row, split from Dispatch. The design page's reason holds: a wrong delegate puts words in a running Job's thread. A word that is not one of the three reads Off. Does nothing while `operator` is Off.
+DECIDED 5 Nov 2026 (owner): every role starts Read-only, which is what Off was, and the panel walked in armada-ehhu.2 gives Delegate its own row, split from Dispatch. The design page's reason holds: a wrong delegate puts words in a running Job's thread. A word that is not one of the three reads Read-only, and the older `off` and `on` read Read-only and Decide. Does nothing while `operator` is Off.
 
 **Delegate is what sends words to a live Job**: a start a live Job's plan covers ending with its words sent to that Job, one group of a plan moving to one, a report handed to one, and two Jobs on shared ground each told of the other and told again when either changes its plan or pushes.
 
-Off, Suggest and On do what they do for `operator-dispatch`. A first write waits for its start's ruling while either of the two is On, and stops only on what the role that is On may do.
+Read-only, Suggest and Decide do what they do for `operator-dispatch`. A first write waits for its start's ruling while either of the two is Decide, and stops only on what the role that is Decide may do.
 
 Live: read again as each ruling comes back, so a call already out when it moves goes by the new position.
 """
@@ -1057,18 +1057,18 @@ Live: read again as each ruling comes back, so a call already out when it moves 
 [settings.operator-answer]
 name = "Operator answers"
 scope = "Machine"
-default = "off"
+default = "read_only"
 lifetime = "Live"
 merge_strategy = "REPLACE"
 peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 5 Nov 2026 (owner): every role starts Off, which reverses the replay of 4 Nov starting Answer On. The design page *Helm becomes the Operator*, *What you control*, gives each role its own position. A word that is not one of the three reads Off. Does nothing while `operator` is Off.
+DECIDED 5 Nov 2026 (owner): every role starts Read-only, which is what Off was and reverses the replay of 4 Nov starting Answer On. The design page *Helm becomes the Operator*, *What you control*, gives each role its own position. A word that is not one of the three reads Read-only, and the older `off` and `on` read Read-only and Decide. Does nothing while `operator` is Off.
 
 **Fleet's rules decide first and only narrow, in every position.** A question from a Job on a plan group the person would see, or from a Job with no plan, is raised with no call; a card that runs a command is his while he is here; a card is only ever answered Allow once; a destructive option is never picked. A second Job asking what he already answered for a first is offered his answer, naming the first. While Autopilot runs for a Job he is away: its checked kinds widen what may be answered, and what was already waiting on him when it started is offered once more.
 
-**On, Fleet settles each answer** as his press would, and the Job's thread says what was answered and why. **Suggest settles nothing:** the question carries `operator_read`, the read and the option it would pick, and his press on that option is the one press. Autopilot answers it as it did before the Operator. **Off, nothing is settled:** each question and card is still ruled, and the ruling is kept in the Operator's Log with the answer it would have given; Autopilot answers them as it did before the Operator.
+**Decide, Fleet settles each answer** as his press would, and the Job's thread says what was answered and why. **Suggest settles nothing:** the question carries `operator_read`, the read and the option it would pick, and his press on that option is the one press. Autopilot answers it as it did before the Operator. **Read-only, nothing is settled and no call is made for the question:** Autopilot answers it as it did before the Operator.
 
 Live: read again as each ruling comes back, so a call already out when it moves goes by the new position.
 """
@@ -1076,18 +1076,18 @@ Live: read again as each ruling comes back, so a call already out when it moves 
 [settings.operator-file]
 name = "Operator files"
 scope = "Machine"
-default = "off"
+default = "read_only"
 lifetime = "Live"
 merge_strategy = "REPLACE"
 peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
-DECIDED 5 Nov 2026 (owner): every role starts Off. The design page *Helm becomes the Operator*, *What you control*, gives each role its own position. A word that is not one of the three reads Off. It does nothing while `operator` is Off, and it does not wait on `operator-dispatch`.
+DECIDED 5 Nov 2026 (owner): every role starts Read-only, which is what Off was. The design page *Helm becomes the Operator*, *What you control*, gives each role its own position. A word that is not one of the three reads Read-only, and the older `off` and `on` read Read-only and Decide. It does nothing while `operator` is Off, and it does not wait on `operator-dispatch`.
 
 **File only ever creates.** A Later item a Job hands over is linked where an open issue covers it, and filed in the repository's beads where none does; nothing is commented on, labelled or closed, and nothing the person typed himself is filed. A tracker with a forge is the second milestone's.
 
-**On, Fleet files each Later item the Operator rules filed**, and settles it as filed with the new issue. **Suggest keeps what it would file on the Job's Needs you list**, `operator_suggestion`, and `Do it` files it. **Off, nothing is filed:** each item is still ruled, and the ruling is kept in the Operator's Log with what it would have filed. A link acts in every position, since it writes nothing.
+**Decide, Fleet files each Later item the Operator rules filed**, and settles it as filed with the new issue. **Suggest keeps what it would file on the Job's Needs you list**, `operator_suggestion`, and `Do it` files it. **Read-only, nothing is filed and no call is made for the item.** A link acts in every position, since it writes nothing.
 
 Live: read again as each ruling comes back, so a call already out when it moves goes by the new position.
 """
@@ -1104,7 +1104,7 @@ read_by = "fleet"
 notes = """
 **Any role can differ per repository**: the design page *Helm becomes the Operator*, *What you control*, approved by the owner on 4 Nov 2026. It is read over each role's own setting, so a role a repository does not name stands where the machine has it, and `operator` Off still turns the whole Operator off.
 
-**The value lives in settings.json under `features.operatorRepositories`** (live), shaped `{ "<manifest id>": { "dispatch" | "delegate" | "answer" | "file": "off" | "suggest" | "on" } }`, and is never written into a repository's checkout. A value that does not read is no repository differing.
+**The value lives in settings.json under `features.operatorRepositories`** (live), shaped `{ "<manifest id>": { "dispatch" | "delegate" | "answer" | "file": "read_only" | "suggest" | "decide" } }`, and is never written into a repository's checkout. A value that does not read is no repository differing, and the older `off` and `on` read Read-only and Decide.
 
 Live: read again as each ruling comes back, so a call already out when it moves goes by the new position.
 """

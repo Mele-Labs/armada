@@ -21,7 +21,7 @@ use crate::CallFailed;
 async fn switched(rig: &Rig, key: &str, on: bool) {
     let value = match key {
         "features.operator" => ipc::SettingValue::Bool(on),
-        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+        _ => ipc::SettingValue::Text(if on { "decide" } else { "read_only" }.to_string()),
     };
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
@@ -286,7 +286,7 @@ async fn a_new_job_takes_the_rest_and_a_raise_reaches_his_needs_you_list() {
     let acting = FleetActing::on(&rig.fleet);
 
     let before = rig.fleet.store().lock().await.live_session_ids().expect("read");
-    acting.start_rest(id.as_str(), "It stopped again after Fleet told it to carry on. Left: Open terminals in a tab.");
+    acting.start_rest(id.as_str(), "It stopped again after Fleet told it to carry on. Left: Open terminals in a tab.").await.expect("carried out");
     eventually(|| async { said(&rig, &id).await.iter().any(|one| one.contains("The Operator started what is left of this Job")) }).await;
     let rest = rig.fleet.store().lock().await.live_session_ids().expect("read").into_iter().find(|one| !before.contains(one)).expect("a new Job");
     let rest = SessionId::carried(rest.as_str());
@@ -297,7 +297,7 @@ async fn a_new_job_takes_the_rest_and_a_raise_reaches_his_needs_you_list() {
     assert!(format!("{brief:?}").contains("Left: Open terminals in a tab."), "{brief:?}");
     assert_ne!(record(&rig, &id).await.state, ipc::SessionState::Ended, "the stalled Job is left to him");
 
-    acting.raise(id.as_str(), "the failing check needs a key only the person holds");
+    acting.raise(id.as_str(), "the failing check needs a key only the person holds").await.expect("carried out");
     let fleet = Arc::clone(&rig.fleet);
     let session = id.as_str().to_string();
     eventually(|| {

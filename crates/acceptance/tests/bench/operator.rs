@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use core_model::Timestamp;
 use fleet::operator::{
-    Acting, Answering, Arrival, Arrived, Board, Calling, Choice, Desk, Done, Earlier, Filed, Group, Kind, LiveJob, LogRead, Logged, Operator, Order, Orders, Present, Question,
+    carried, Acted, Acting, Answering, Arrival, Arrived, Board, Calling, Choice, Desk, Done, Earlier, Filed, Group, Kind, LiveJob, LogRead, Logged, Operator, Order, Orders, Present, Question,
     Quiet, Repository, Ruling, Source, Stall, Way,
 };
 use fleet::CallFailed;
@@ -172,12 +172,11 @@ impl Calling for FakeCall {
     }
 }
 
-/// Fleet, as far as the Operator reaches it: the live Jobs, the Log, the day's ceiling and what
+/// Fleet, as far as the Operator reaches it: the live Jobs, the Log and what
 /// becomes of each Job.
 pub struct FakeFleet {
     live: Vec<LiveJob>,
     log: Mutex<Vec<Logged>>,
-    ceiling: u32,
     ended: Mutex<Vec<(String, String)>>,
     in_touch: Mutex<Vec<(String, String)>>,
     raised: Mutex<Vec<(String, String)>>,
@@ -202,11 +201,10 @@ pub struct Sourced {
 }
 
 impl FakeFleet {
-    pub fn with(live: Vec<LiveJob>, ceiling: u32) -> Arc<FakeFleet> {
+    pub fn with(live: Vec<LiveJob>) -> Arc<FakeFleet> {
         Arc::new(FakeFleet {
             live,
             log: Mutex::new(Vec::new()),
-            ceiling,
             ended: Mutex::new(Vec::new()),
             in_touch: Mutex::new(Vec::new()),
             raised: Mutex::new(Vec::new()),
@@ -215,7 +213,7 @@ impl FakeFleet {
             answered_first: Mutex::new(false),
             went_ahead: Mutex::new(Vec::new()),
             sourced: Mutex::new(Vec::new()),
-            answer_stands: Mutex::new(OperatorPosition::On),
+            answer_stands: Mutex::new(OperatorPosition::Decide),
             suggested: Mutex::new(Vec::new()),
             orders: Mutex::new(Orders::default()),
             log_read: Mutex::new(Vec::new()),
@@ -305,10 +303,6 @@ impl Desk for FakeFleet {
         Timestamp::from_rfc3339(NOW)
     }
 
-    fn day_began(&self) -> Done<'_, Timestamp> {
-        Box::pin(async move { Timestamp::from_rfc3339(format!("{}T00:00:00.000Z", &NOW[..10])) })
-    }
-
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move { self.live.clone() })
     }
@@ -327,22 +321,6 @@ impl Desk for FakeFleet {
         })
     }
 
-    fn daily_calls(&self) -> u32 {
-        self.ceiling
-    }
-
-    fn calls_since(&self, since: Timestamp) -> Done<'_, u32> {
-        Box::pin(async move {
-            let log = self.log.lock().expect("not poisoned");
-            let calls: BTreeSet<&str> = log
-                .iter()
-                .filter(|row| row.at.as_str() >= since.as_str())
-                .filter_map(|row| row.call.as_deref())
-                .collect();
-            calls.len() as u32
-        })
-    }
-
     fn keep(&self, row: Logged) -> Done<'_, ()> {
         Box::pin(async move { self.log.lock().expect("not poisoned").push(row) })
     }
@@ -356,49 +334,58 @@ impl Desk for FakeFleet {
 impl Acting for FakeFleet {
     fn position(&self, role: Option<OperatorRole>, manifest: &str) -> OperatorPosition {
         if role.is_some_and(|role| self.orders.lock().expect("not poisoned").role_off(role, manifest, &Timestamp::from_rfc3339(NOW))) {
-            return OperatorPosition::Off;
+            return OperatorPosition::ReadOnly;
         }
         match role {
             Some(OperatorRole::Answer) => *self.answer_stands.lock().expect("not poisoned"),
-            _ => OperatorPosition::On,
+            _ => OperatorPosition::Decide,
         }
     }
 
-    fn suggest(&self, arrival: &Arrival, ruling: &Ruling) {
+    fn suggest(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
         self.suggested.lock().expect("not poisoned").push((arrival.session_id.clone(), ruling.way));
+        carried()
     }
 
-    fn go_ahead(&self, session: &str) {
+    fn go_ahead(&self, session: &str) -> Acted<'_> {
         self.went_ahead.lock().expect("not poisoned").push(session.into());
+        carried()
     }
 
-    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) {
+    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) -> Acted<'_> {
         self.ended.lock().expect("not poisoned").push((session.into(), into.into()));
+        carried()
     }
 
-    fn merge(&self, ending: &str, into: &str, _shared: &[String]) {
+    fn merge(&self, ending: &str, into: &str, _shared: &[String]) -> Acted<'_> {
         self.ended.lock().expect("not poisoned").push((ending.into(), into.into()));
+        carried()
     }
 
-    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) {
+    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) -> Acted<'_> {
         self.in_touch.lock().expect("not poisoned").push((one.into(), other.into()));
+        carried()
     }
 
-    fn start_rest(&self, session: &str, _seen: &str) {
+    fn start_rest(&self, session: &str, _seen: &str) -> Acted<'_> {
         self.started_anew.lock().expect("not poisoned").push(session.into());
+        carried()
     }
 
-    fn raise(&self, session: &str, read: &str) {
+    fn raise(&self, session: &str, read: &str) -> Acted<'_> {
         self.raised.lock().expect("not poisoned").push((session.into(), read.into()));
+        carried()
     }
 
-    fn answer(&self, session: &str, item: &str, choice: &Choice, _because: &str) {
+    fn answer(&self, session: &str, item: &str, choice: &Choice, _because: &str) -> Acted<'_> {
         self.answered.lock().expect("not poisoned").push((session.into(), item.into(), choice.at, choice.label.clone()));
+        carried()
     }
 
-    fn sourced(&self, arrival: &Arrival, ruling: &Ruling) {
+    fn sourced(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
         let done = Sourced { arrival: arrival.id.clone(), way: ruling.way, other: ruling.other.clone(), issue: ruling.issue.clone() };
         self.sourced.lock().expect("not poisoned").push(done);
+        carried()
     }
 }
 

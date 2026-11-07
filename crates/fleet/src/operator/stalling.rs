@@ -159,8 +159,8 @@ where
 
     /// What is left of a Job gone quiet starts as a Job of its own, nested under it and briefed
     /// with what Fleet saw. **The quiet Job is left to the person**: its branch may hold work.
-    pub(super) async fn operator_started_rest(self: &Arc<Self>, id: &str, seen: &str) {
-        let Ok((session, hosting)) = self.session_and_hosting(id).await else { return };
+    pub(super) async fn operator_started_rest(self: &Arc<Self>, id: &str, seen: &str) -> Result<(), String> {
+        let Ok((session, hosting)) = self.session_and_hosting(id).await else { return Err("the Job is not there".to_string()) };
         let title = session.title.clone().unwrap_or_else(|| id.to_string());
         let made = self
             .start_session(ipc::StartSession {
@@ -180,11 +180,14 @@ where
             .await;
         let made = match made {
             Ok(made) => made,
-            Err(why) => return self.session_warned(id, "the Operator's new Job for the rest did not start", format!("{why:?}")),
+            Err(why) => {
+                self.session_warned(id, "the Operator's new Job for the rest did not start", format!("{why:?}"));
+                return Err("the new Job did not start".to_string());
+            }
         };
         let rest = made.id.as_str().to_string();
         if self.started_linked(id, &rest, &hosting.manifest_id, None).await.is_err() {
-            return;
+            return Err("the new Job was not tied to the quiet one".to_string());
         }
         let mut brief = format!("Job {id}, \"{title}\", went quiet with work left, and the Operator started what is left as this Job. What Fleet saw:\n\n{seen}");
         if let Some(branch) = hosting.lease_branch {
@@ -194,16 +197,19 @@ where
         let sent = Arc::clone(self)
             .send_session_message(ipc::SendSessionMessage { session_id: made.id.clone(), text: brief, attachments: Vec::new(), mentions: Vec::new() })
             .await;
-        if sent.is_ok() {
-            self.fleet_note(id, format!("The Operator started what is left of this Job as \"Rest of {title}\".")).await;
-            let _ = self.published_hosted(id).await;
+        if sent.is_err() {
+            return Err("the new Job was not briefed".to_string());
         }
+        self.fleet_note(id, format!("The Operator started what is left of this Job as \"Rest of {title}\".")).await;
+        let _ = self.published_hosted(id).await;
+        Ok(())
     }
 
     /// A Job gone quiet goes on his Needs you list with the Operator's read.
-    pub(super) async fn operator_raised(&self, id: &str, read: &str) {
+    pub(super) async fn operator_raised(&self, id: &str, read: &str) -> Result<(), String> {
         let text = format!("The Operator raised this Job: {read}");
         self.fleet_note(id, text.clone()).await;
         self.call_raised(id, Notice::Operator, &text).await;
+        Ok(())
     }
 }

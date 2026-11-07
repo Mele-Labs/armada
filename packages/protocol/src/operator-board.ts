@@ -28,7 +28,7 @@ export type OperatorBoardSettled = {
   session_id?: string;
   title: string;
   repository?: string;
-  /** `Kind: what`, a one or two word kind and a short what, or the kind alone: `Answered: Keep them in the store`, `Passed on`. */
+  /** `Kind: what`, a one or two word kind and a short what, or the kind alone: `Answered: Keep them in the store`, `Sent: to Fix the pane`, `Passed on`. */
   outcome: string;
   /** RFC 3339. */
   at: string;
@@ -68,6 +68,11 @@ export type OperatorBoard = {
   /** The unsettled suggestions tied to no Job, oldest first. */
   suggestions: OperatorBoardSuggestion[];
   done: OperatorBoardSettled[];
+  /** Present only while the week's plan is used to the share where the Operator pauses; both are percent. */
+  paused?: {
+    week: number;
+    at: number;
+  };
 };
 
 /**

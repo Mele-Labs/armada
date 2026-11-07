@@ -47,8 +47,8 @@ export type Act =
       on: boolean;
     }
   | {
-      kind: "ceiling";
-      calls: number;
+      kind: "pause";
+      share: number;
     }
   | {
       kind: "unorder";
@@ -421,10 +421,10 @@ function reduce(state: OperatorState, act: Act): OperatorState {
         ...state,
         on: act.on,
       };
-    case "ceiling":
+    case "pause":
       return {
         ...state,
-        ceiling: act.calls,
+        pause: act.share,
       };
     case "unorder":
       return {

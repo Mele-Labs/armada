@@ -19,7 +19,7 @@ use crate::CallFailed;
 async fn switched(rig: &Rig, key: &str, on: bool) {
     let value = match key {
         "features.operator" => ipc::SettingValue::Bool(on),
-        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+        _ => ipc::SettingValue::Text(if on { "decide" } else { "read_only" }.to_string()),
     };
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
@@ -30,6 +30,11 @@ pub(super) async fn dispatch(rig: &Rig, on: bool) {
     switched(rig, "features.operator", true).await;
     switched(rig, "features.operatorDispatch", on).await;
     switched(rig, "features.operatorDelegate", on).await;
+}
+
+/// Its Answer role at Decide, so a question reaches the call instead of passing to the person unasked.
+pub(super) async fn answering(rig: &Rig) {
+    switched(rig, "features.operatorAnswer", true).await;
 }
 
 async fn told(rig: &Rig, id: &SessionId) -> Vec<String> {
@@ -92,25 +97,76 @@ pub(super) fn shared() -> Vec<String> {
 }
 
 #[tokio::test]
-async fn with_dispatch_off_a_ruling_is_logged_and_tells_and_ends_no_job() {
+async fn with_dispatch_read_only_a_start_makes_no_call_and_tells_and_ends_no_job() {
     let rig = rig_placing(None);
     dispatch(&rig, false).await;
     let other = asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
     let one = asked(&rig, "The terminal scrollback is lost on redraw").await;
-    let reply = format!("item: 1\nway: 3\njob: {}\nshared: terminal scrollback\nbecause: the same fix", other.as_str());
-    assert!(rig.fleet.operator_seated_with(Arc::new(Saying(Mutex::new(Some(reply))))));
+    let call = Arc::new(Counting::default());
+    assert!(rig.fleet.operator_seated_with(call.clone()));
 
     rig.fleet.start_handed(one.as_str(), Source::Dispatch, "The terminal scrollback is lost on redraw").await;
     let fleet = Arc::clone(&rig.fleet);
     eventually(|| {
         let fleet = Arc::clone(&fleet);
-        async move { fleet.store().lock().await.operator_rulings(10).expect("read").iter().any(|ruling| ruling.outcome == "merge") }
+        async move { fleet.store().lock().await.operator_rulings(10).expect("read").iter().any(|ruling| ruling.outcome == "read_only") }
     })
     .await;
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    assert!(!ended(&rig, &one).await, "Dispatch ships off");
+    assert_eq!(call.0.load(std::sync::atomic::Ordering::SeqCst), 0, "no call is spent on what it could not do");
+    assert!(!ended(&rig, &one).await, "Dispatch ships Read-only");
     assert!(told(&rig, &one).await.is_empty() && told(&rig, &other).await.is_empty());
+    assert!(rig.fleet.operator_board_wire().await.expect("read").done.is_empty(), "nothing is in Done");
+}
+
+async fn positioned(rig: &Rig, key: &str, word: &str) {
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Text(word.to_string())))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+}
+
+#[tokio::test]
+async fn a_start_ruled_a_new_job_at_suggest_is_its_own_card_and_is_not_in_done() {
+    let rig = rig_placing(None);
+    dispatch(&rig, true).await;
+    positioned(&rig, "features.operatorDispatch", "suggest").await;
+    assert!(rig.fleet.operator_seated_with(Arc::new(Counting::default())));
+    let one = asked(&rig, "The terminal scrollback is lost on redraw").await;
+
+    rig.fleet.start_handed(one.as_str(), Source::Dispatch, "The terminal scrollback is lost on redraw").await;
+    let fleet = Arc::clone(&rig.fleet);
+    eventually(|| {
+        let fleet = Arc::clone(&fleet);
+        async move { !fleet.store().lock().await.operator_rulings(10).expect("read").is_empty() }
+    })
+    .await;
+
+    let log = rig.fleet.store().lock().await.operator_rulings(10).expect("read");
+    assert_eq!(log[0].outcome, "proposed_new_job", "the Log keeps the ruling");
+    assert!(rig.fleet.operator_board_wire().await.expect("read").done.is_empty(), "nothing started, so Done says nothing started");
+}
+
+#[tokio::test]
+async fn a_new_job_ruling_that_could_not_be_carried_out_is_kept_as_what_refused_it_and_not_as_started() {
+    let rig = rig_placing(None);
+    dispatch(&rig, true).await;
+    // A Job already working is not waiting on its start card, so there is nothing to start.
+    assert!(rig.fleet.operator_seated_with(Arc::new(Counting::default())));
+    let one = asked(&rig, "The terminal scrollback is lost on redraw").await;
+
+    rig.fleet.start_handed(one.as_str(), Source::Dispatch, "The terminal scrollback is lost on redraw").await;
+    let fleet = Arc::clone(&rig.fleet);
+    eventually(|| {
+        let fleet = Arc::clone(&fleet);
+        async move { !fleet.store().lock().await.operator_rulings(10).expect("read").is_empty() }
+    })
+    .await;
+
+    let log = rig.fleet.store().lock().await.operator_rulings(10).expect("read");
+    assert_eq!(log[0].outcome, "passed_on");
+    assert!(log[0].because.starts_with("it could not be carried out: "), "{}", log[0].because);
+    let done = rig.fleet.operator_board_wire().await.expect("read").done;
+    assert_eq!(done.iter().map(|one| one.outcome.as_str()).collect::<Vec<_>>(), ["Passed on"]);
 }
 
 #[tokio::test]
@@ -121,7 +177,7 @@ async fn a_merge_ends_the_job_that_has_done_less_and_sends_its_brief_plan_and_br
     rig.fleet.record_plan(None, plan(&ending, &[("Scrollback kept", "apps/panes/terminal.tsx")]), false).await.expect("recorded");
     let into = asked(&rig, "Fix the terminal pane").await;
 
-    FleetActing::on(&rig.fleet).merge(ending.as_str(), into.as_str(), &shared());
+    FleetActing::on(&rig.fleet).merge(ending.as_str(), into.as_str(), &shared()).await.expect("carried out");
 
     eventually(|| async { ended(&rig, &ending).await }).await;
     let message = told(&rig, &into).await.join("\n");
@@ -141,14 +197,14 @@ async fn a_job_that_has_pushed_is_raised_rather_than_merged_and_one_that_has_not
     pushed(&rig, &first).await;
 
     // The Operator named `first` to end, but it pushed and `second` has not: `second` ends.
-    FleetActing::on(&rig.fleet).merge(first.as_str(), second.as_str(), &shared());
+    FleetActing::on(&rig.fleet).merge(first.as_str(), second.as_str(), &shared()).await.expect("carried out");
     eventually(|| async { ended(&rig, &second).await }).await;
     assert!(!ended(&rig, &first).await);
 
     // Both have pushed now: the one named is raised, and nothing ends.
     let third = asked(&rig, "And again").await;
     pushed(&rig, &third).await;
-    FleetActing::on(&rig.fleet).merge(third.as_str(), first.as_str(), &shared());
+    FleetActing::on(&rig.fleet).merge(third.as_str(), first.as_str(), &shared()).await.expect_err("raised and not ended");
     eventually(|| async { said(&rig, &third).await.iter().any(|one| one.contains("has pushed, so it was not ended")) }).await;
     let calls = rig.fleet.store().lock().await.calls_of(third.as_str()).expect("read");
     assert!(calls.iter().any(|call| call.notice == "operator"), "raised on his Needs you list: {calls:?}");
@@ -162,13 +218,13 @@ async fn a_hand_over_ends_a_start_but_moves_one_group_of_a_plan_and_leaves_its_j
     let (start, into) = (asked(&rig, "Open terminals in a tab").await, asked(&rig, "Terminal bugs").await);
     let acting = FleetActing::on(&rig.fleet);
 
-    acting.hand_over(start.as_str(), None, into.as_str(), &shared());
+    acting.hand_over(start.as_str(), None, into.as_str(), &shared()).await.expect("carried out");
     eventually(|| async { ended(&rig, &start).await }).await;
     assert!(told(&rig, &into).await.iter().any(|one| one.contains("Open terminals in a tab")));
 
     let planner = asked(&rig, "Tabs for reviews").await;
     rig.fleet.record_plan(None, plan(&planner, &[("Tab host", "apps/panes/host.tsx"), ("Terminal in a tab", "apps/panes/terminal.tsx")]), false).await.expect("recorded");
-    acting.hand_over(planner.as_str(), Some("g2"), into.as_str(), &shared());
+    acting.hand_over(planner.as_str(), Some("g2"), into.as_str(), &shared()).await.expect("carried out");
     eventually(|| async { told(&rig, &planner).await.iter().any(|one| one.contains("Leave it to that Job")) }).await;
     assert!(told(&rig, &into).await.iter().any(|one| one.contains("Terminal in a tab") && !one.contains("Tab host")));
     assert!(!ended(&rig, &planner).await, "a group goes, the Job stays");
@@ -184,7 +240,7 @@ async fn kept_in_touch_each_is_told_the_others_groups_and_told_again_when_it_mov
     // That plan was recorded before the two were in touch, so it is nobody's word.
     rig.fleet.in_touch_told().await;
 
-    FleetActing::on(&rig.fleet).keep_in_touch(terminal.as_str(), tabs.as_str(), &shared);
+    FleetActing::on(&rig.fleet).keep_in_touch(terminal.as_str(), tabs.as_str(), &shared).await.expect("carried out");
     eventually(|| async { !told(&rig, &terminal).await.is_empty() && !told(&rig, &tabs).await.is_empty() }).await;
     let to_terminal = told(&rig, &terminal).await.join("\n");
     for part in ["Tab host (apps/panes/host.tsx)", "It owns: Tab host; Review list", "Fleet tells you when it changes its plan or pushes"] {
@@ -207,7 +263,7 @@ async fn a_held_start_nothing_shares_anything_with_starts_as_his_press_would() {
     dispatch(&rig, true).await;
     let held = rig.start_held().await;
 
-    FleetActing::on(&rig.fleet).go_ahead(held.as_str());
+    FleetActing::on(&rig.fleet).go_ahead(held.as_str()).await.expect("carried out");
 
     let fleet = Arc::clone(&rig.fleet);
     eventually(|| {
@@ -244,6 +300,8 @@ async fn a_start_a_call_merges_stops_at_its_first_write_and_takes_no_slot() {
     eventually(|| async { ended(&rig, &start).await }).await;
     let hosting = rig.fleet.store().lock().await.hosting(start.as_str()).expect("read").expect("kept");
     assert!(hosting.lease_slot.is_none(), "no slot was leased for it");
+    // The row is kept once the merge is done.
+    eventually(|| async { !rig.fleet.store().lock().await.operator_rulings(10).expect("read").is_empty() }).await;
     let log = rig.fleet.store().lock().await.operator_rulings(10).expect("read");
     assert_eq!((log.len(), log[0].outcome.as_str()), (1, "merge"));
 }
@@ -315,12 +373,12 @@ async fn the_call_is_kept_started_only_while_the_operator_is_on() {
 }
 
 #[tokio::test]
-async fn every_role_ships_off_and_a_switch_saved_with_two_positions_carries_across() {
+async fn every_role_ships_read_only_and_a_switch_saved_with_two_positions_or_the_old_words_carries_across() {
     use ipc::operator_positions::{OperatorPosition as Position, OperatorRole as Role};
     let rig = rig_placing(None);
     switched(&rig, "features.operator", true).await;
     for role in [Role::Dispatch, Role::Delegate, Role::Answer, Role::File] {
-        assert_eq!(rig.fleet.operator_position(role, "a repository"), Position::Off, "{role:?}");
+        assert_eq!(rig.fleet.operator_position(role, "a repository"), Position::ReadOnly, "{role:?}");
     }
 
     // Saved before a role had three positions; Dispatch's switch held Delegate too.
@@ -330,9 +388,16 @@ async fn every_role_ships_off_and_a_switch_saved_with_two_positions_carries_acro
     };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("a saved switch is still read");
 
-    for (role, position) in [(Role::Dispatch, Position::On), (Role::Delegate, Position::On), (Role::Answer, Position::Off), (Role::File, Position::On)] {
+    for (role, position) in [(Role::Dispatch, Position::Decide), (Role::Delegate, Position::Decide), (Role::Answer, Position::ReadOnly), (Role::File, Position::Decide)] {
         assert_eq!(rig.fleet.operator_position(role, "a repository"), position, "{role:?}");
     }
     switched(&rig, "features.operatorDelegate", false).await;
-    assert_eq!(rig.fleet.operator_position(Role::Delegate, "a repository"), Position::Off, "its own value wins once he sets one");
+    assert_eq!(rig.fleet.operator_position(Role::Delegate, "a repository"), Position::ReadOnly, "its own value wins once he sets one");
+
+    // Saved as the words of the three positions that came first, and any other word.
+    for (word, position) in [("on", Position::Decide), ("off", Position::ReadOnly), ("suggest", Position::Suggest), ("decide", Position::Decide), ("read_only", Position::ReadOnly)] {
+        let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorFile".to_string(), Some(ipc::SettingValue::Text(word.to_string())))]) };
+        api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("an old word is still saved");
+        assert_eq!(rig.fleet.operator_position(Role::File, "a repository"), position, "{word}");
+    }
 }

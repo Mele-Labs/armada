@@ -71,7 +71,7 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 - Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge
 - Voice/tone
 - On your words can act: `features.onYourWordsCanAct`
-- Operator calls a day: `limits.operatorDailyCalls`
+- Pause the Operator at: `limits.operatorPlanPause`, the share of the week's plan where it stops making calls
 
 **Whether a Job on your words may act is Machine, not Kit.** Why: what such a Job may do is a property of the installation, not of a repo.
 

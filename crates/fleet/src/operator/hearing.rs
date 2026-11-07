@@ -228,12 +228,15 @@ where
     }
 
     /// An end or a merge ruled to a live Job it is tied to: told, with what happened and why.
-    pub(super) async fn operator_told_ending(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling, into: &str) {
+    pub(super) async fn operator_told_ending(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling, into: &str) -> Result<(), String> {
         let text = format!(
             "The Operator tells you what may unblock your work. {}\n\nWhy the Operator tells you: {}\n\nCarry on with it, or say why it changes nothing for you.",
             arrival.words, ruling.because
         );
-        let _ = self.told_by_fleet(into, &text, Notice::Operator).await;
+        match self.told_by_fleet(into, &text, Notice::Operator).await {
+            Ok(true) => Ok(()),
+            _ => Err("the Job did not take the word".to_string()),
+        }
     }
 
     /// The next piece of work an end or a merge was ruled to start, as a Job of its own, briefed with

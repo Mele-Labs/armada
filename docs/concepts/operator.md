@@ -45,13 +45,20 @@ An item reaches the Operator before it starts a Job or pulses in Needs you.
 | A bug report, a Later item, a new issue | A Job, or the repository's tracker |
 | A red main | The repository's own checks |
 | A review request | The forge |
-| A note | The person, left on Bridge. One new since Fleet started, open and sent to no Job |
+| A note | The person, left on Bridge. One new since Fleet started, still open and sent to no Job once it has waited ten minutes for the person to send it. One he sends to a Job is a second arrival, below |
 | A Job ending, or a pull request merging | Fleet's own detection, for every hosted Job whoever started it. Only those after Fleet started, and none while the Operator is off |
 | An error | Bridge, for a failure card it showed the person. It carries the code, message, fields, cause chain, log paths, commit and time |
 
 **A note is only ever proposed.**
-A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Off, so no note is filed, started or sent to a Job unasked.
+A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Read-only, so no note is filed, started or sent to a Job unasked.
 Its row has no Job, so it is kept for the panel, and Do it marks the note sent to the Job it went to, or done where it was filed or linked.
+
+**A note the person sends to a Job is his row first.**
+Fleet reads an open note with no `sent` again on each tick, for ten minutes, until it gains `sent`, is no longer open, or has waited that long and is handed on as it stands.
+When it gains `sent`, the Log keeps a row signed by the person with the outcome `sent` and the Job it went to, and Done reads `Sent: to <Job title>` with the person as its decider.
+The Operator is then handed the note as its own arrival, `note-sent:<repository>:<note>`, whose words say he sent it to that Job.
+It may send the note to another live Job, start a Job on it, or leave it where he sent it, which writes nothing that shows in Done.
+A move goes by the role of its way like any ruling: at Suggest it is a suggestion, and at Decide it is done and the note is marked sent to the Job it moved to.
 
 **An end or a merge is told once, and never replayed.**
 Its words carry the Job's title, summary and end reason, its pull requests, who started it and the Jobs it started that are live, and what it may unblock: Jobs waiting to start on it, its Later items not yet settled, open issues near it, and Needs you items that name it or wait on a restart.
@@ -63,7 +70,7 @@ A Job handed on for context is no end.
 **An error goes first, once.**
 It stands ahead of every waiting arrival that is not an error, and errors keep the order they came in.
 Its id is a fingerprint of its code and message, less the numbers, ids and paths that differ between two of the same fault, with the machine's local day, so the same error is one item for the day however often Bridge shows it.
-It is weighed against live Jobs as a report is, the Job it was raised in included, and it goes by the role's position: acted on at On, kept as a suggestion at Suggest.
+It is weighed against live Jobs as a report is, the Job it was raised in included, and it goes by the role's position: acted on at Decide, kept as a suggestion at Suggest.
 A Job it starts is briefed with every word the card carried.
 
 **Detection stays Fleet's**, read from state as it always was.
@@ -80,7 +87,7 @@ What arrives while a call is out is ruled together in the next one, so three Job
 A ruling is one way: start a new Job, send the words to an existing Job, merge two Jobs, keep two in touch, raise it to the person, answer a question, link a report to an open issue, or file a new one.
 A way between two Jobs names the other Job and the paths or plan group they share, or Fleet refuses it.
 
-Each role that acts has a position, Off, Suggest or On.
+Each role that acts has a position, Read-only, Suggest or Decide.
 
 | Role | What it does | Setting |
 |---|---|---|
@@ -91,15 +98,15 @@ Each role that acts has a position, Off, Suggest or On.
 | Raise | Puts the item in Needs you with the Operator's read and its pick. It has no position | None |
 | File | Files a new issue for a Later item or a note no open issue covers. It only ever creates | `operator-file` |
 
-**Every role starts Off**, and any role can differ for one repository (`operator-repositories`).
-A word that is not Off, Suggest or On reads Off.
+**Every role starts Read-only**, and any role can differ for one repository (`operator-repositories`).
+A word that is not Read-only, Suggest or Decide reads Read-only, and the older `off` and `on` read Read-only and Decide.
 The settings are in `crates/config/settings.toml`.
 
 | Position | What a ruling does |
 |---|---|
-| Off | Is in the Log and does nothing. A first write does not wait on it |
+| Read-only | The way is not offered to the call. With only a raise left, no call is made and the item goes to the person, and nothing shows in Done. A first write does not wait on it |
 | Suggest | Is in the Log and waits on one press. A question carries the Operator's read and its pick, and a press on that option is the press the person would make anyway |
-| On | Fleet does what is ruled |
+| Decide | Fleet does what is ruled, and the ruling is kept as done only once the act has gone through. A refused act keeps its refusal |
 
 **Fleet's rules decide first and only narrow, in every position.**
 A destructive option is never picked, and a card is only ever answered Allow once.
@@ -113,7 +120,9 @@ While Autopilot runs, the person is away, and its checked kinds widen what Answe
 **A call that fails passes the item on untouched.**
 So does one that answers what cannot be read, one that rules what Fleet did not offer, and one with no ruling by the time its item could wait.
 A first write waits at most 20 seconds for its start's ruling, and a Needs you item at most 60 before it pulses with no read.
-Every item passes on once the day's calls reach the ceiling (`limits.operatorDailyCalls`), which counts from the Log, so a restart does not reset it.
+Every item that needs a call passes on while the week's plan is used to the share set in `limits.operatorPlanPause`, read as Autopilot reads the week, and the board says so with `paused`.
+No reading of the plan is no pause.
+A message in the box is refused with `fleet.operator_paused` then.
 A ruling that comes back after its item passed on is dropped.
 
 **Nothing is dropped.**
@@ -221,7 +230,7 @@ Words sent to a Job are published as `operator.words_sent`.
 | `operator`, and a position for each role | Machine |
 | `operator-repositories`, a role's position for one repository | Machine |
 | `operator-model`, `sonnet`, never the proposer's cheap tier | Machine |
-| `limits.operatorDailyCalls` | Machine |
+| `limits.operatorPlanPause`, the share of the week's plan where it stops making calls | Machine |
 | `features.onYourWordsCanAct` | Machine |
 
 `../contracts/configuration.md` is the contract and `crates/config/settings.toml` has each row.

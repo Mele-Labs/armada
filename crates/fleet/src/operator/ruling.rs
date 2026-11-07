@@ -12,6 +12,7 @@ use std::time::Duration;
 use super::arriving::{Arrival, InLine};
 use super::candidates::Near;
 use super::questions::Choice;
+use super::Paused;
 
 /// One way an item can go.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +35,8 @@ pub enum Way {
     File,
     /// An end or a merge is read and nothing follows: it goes to Done.
     Noted,
+    /// A note the person sent to a Job stays where he sent it. Nothing follows and nothing is in Done.
+    Leave,
 }
 
 impl Way {
@@ -51,12 +54,29 @@ impl Way {
             Way::Link => "link",
             Way::File => "file",
             Way::Noted => "noted",
+            Way::Leave => "leave",
+        }
+    }
+
+    /// The Log's outcome for this way kept as a proposal.
+    pub(super) fn proposed_word(self) -> &'static str {
+        match self {
+            Way::NewJob => "proposed_new_job",
+            Way::ExistingJob => "proposed_existing_job",
+            Way::Merge => "proposed_merge",
+            Way::KeepInTouch => "proposed_keep_in_touch",
+            Way::Raise => "proposed_raise",
+            Way::Answer => "proposed_answer",
+            Way::Link => "proposed_link",
+            Way::File => "proposed_file",
+            Way::Noted => "proposed_noted",
+            Way::Leave => "proposed_leave",
         }
     }
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File, Way::Noted].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Merge, Way::KeepInTouch, Way::Raise, Way::Answer, Way::Link, Way::File, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -70,6 +90,7 @@ impl Way {
             Way::Link => "link to an open issue",
             Way::File => "file a new issue",
             Way::Noted => "noted, nothing follows",
+            Way::Leave => "leave it with the Job he sent it to",
         }
     }
 
@@ -173,10 +194,14 @@ pub enum PassedOn {
     Unreadable(String),
     /// The answer named something Fleet did not offer.
     Refused(String),
-    /// The day's calls reached the ceiling, so no call was made.
-    Ceiling(u32),
+    /// The week's plan is used to the Operator's pause, so no call was made.
+    Paused(Paused),
     /// An answer that could no longer be given, such as to a question the person answered first.
     Settled(String),
+    /// Every way it could go is Read-only, so no call was made. **Not in Done.**
+    ReadOnly,
+    /// The ruling came back, and Fleet could not carry it out.
+    Undone(String),
 }
 
 impl fmt::Display for PassedOn {
@@ -186,8 +211,10 @@ impl fmt::Display for PassedOn {
             PassedOn::Late(waited) => write!(out, "no ruling came within {} seconds", waited.as_secs()),
             PassedOn::Unreadable(why) => write!(out, "the answer could not be read: {why}"),
             PassedOn::Refused(why) => write!(out, "the ruling was refused: {why}"),
-            PassedOn::Ceiling(calls) => write!(out, "today's ceiling of {calls} calls was reached, so no call was made"),
+            PassedOn::Paused(paused) => write!(out, "the week's plan is {}% used, past the Operator's pause at {}%, so no call was made", paused.week, paused.at),
             PassedOn::Settled(why) => write!(out, "{why}"),
+            PassedOn::ReadOnly => write!(out, "every way it could go is Read-only, so no call was made"),
+            PassedOn::Undone(why) => write!(out, "it could not be carried out: {why}"),
         }
     }
 }
@@ -216,6 +243,13 @@ pub enum Outcome {
     Skipped,
     /// The Job an item waited on ended, so the item is Done unruled.
     Ended,
+    /// The person sent a note to a Job himself, from Bridge.
+    Sent,
+    /// Its role is Read-only, so no call was made or none was acted on. **Not in Done.**
+    ReadOnly,
+    /// The ruling was kept to wait on a press, or is the press a start's own card already is. **Not in
+    /// Done**: the press is the row.
+    Proposed(Way),
 }
 
 impl Outcome {
@@ -229,6 +263,9 @@ impl Outcome {
             Outcome::Answered => "answered",
             Outcome::Skipped => "skipped",
             Outcome::Ended => "ended",
+            Outcome::Sent => "sent",
+            Outcome::ReadOnly => "read_only",
+            Outcome::Proposed(way) => way.proposed_word(),
         }
     }
 }

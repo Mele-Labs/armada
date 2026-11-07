@@ -307,12 +307,12 @@ const from = (session: Session) => ({
 const seed: OperatorSeed = {
   on: true,
   positions: {
-    dispatch: "on",
-    delegate: "on",
-    answer: "on",
-    file: "on",
+    dispatch: "decide",
+    delegate: "decide",
+    answer: "decide",
+    file: "decide",
   },
-  ceiling: 100,
+  pause: 80,
   log: [
     {
       id: "log-bug",
