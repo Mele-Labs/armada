@@ -1,0 +1,23 @@
+{
+  "session": "69d968b4-61c9-4142-a977-e2698c1610a4",
+  "gates": {
+    "plan_approved": {
+      "name": "the person approved the plan",
+      "task": "3",
+      "closed_at": "2026-11-07T02:01:47.046Z",
+      "fact": "session_plan v1 approved_at 2026-11-07T02:01:45.690Z"
+    },
+    "checks_green": {
+      "name": "Checks green at the pushed commit",
+      "task": "7",
+      "closed_at": "2026-11-07T02:03:10.396Z",
+      "fact": "vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 6s) at 30d8c9d607"
+    },
+    "merged": {
+      "name": "the branch merged",
+      "task": "9",
+      "closed_at": "2026-11-07T02:03:10.413Z",
+      "fact": "30d8c9d607 is an ancestor of origin/integration-69d968b4"
+    }
+  }
+}

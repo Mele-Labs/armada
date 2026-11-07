@@ -1,0 +1,13 @@
+{
+  "id": "2",
+  "subject": "Step: Plan the fix",
+  "description": "Say `seen: true` in record_plan when the person would see any piece of the change.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet. The walk is the Fix step's own work, so list no walk as a task.\nName the files you expect to touch.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
+  "activeForm": "Planning the fix",
+  "status": "completed",
+  "blocks": [
+    "3"
+  ],
+  "blockedBy": [
+    "1"
+  ]
+}

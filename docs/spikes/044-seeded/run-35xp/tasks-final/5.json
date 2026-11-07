@@ -1,0 +1,13 @@
+{
+  "id": "5",
+  "subject": "Step: Tests, shown red then green",
+  "description": "Write a test that fails without the fix and passes with it.\nRun the checks; if the suite is already red for other reasons, say so with ask_the_person and stop. Write the test on the narrowest observable failure, from the report's inputs, asserting what a person sees and not a helper you suspect. Read its failure message and confirm it fails for the reported reason.\nEvery new test is shown failing without the fix, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.\nIn this Job the repository's check is the one vitest file named in the brief.",
+  "activeForm": "Showing the test red then green",
+  "status": "completed",
+  "blocks": [
+    "6"
+  ],
+  "blockedBy": [
+    "4"
+  ]
+}
