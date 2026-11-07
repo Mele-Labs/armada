@@ -42,18 +42,18 @@ where
         let Some(target) = target else {
             return Ok(MessageReach::Allowed {});
         };
-        if target == from
-            || self.started_above(&from).await?.contains(&target)
-            || self.started_tree(&from).await?.iter().any(|(id, _)| *id == target)
-            || self.named_by_the_person(&from, &target).await?
-        {
+        if self.reaches(&from, &target).await? {
             return Ok(MessageReach::Allowed {});
         }
-        Ok(MessageReach::Refused {
-            message: format!(
-                "`SendMessage` to {to} is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it"
-            ),
-        })
+        Ok(MessageReach::Refused { message: refused_to(to) })
+    }
+
+    /// Whether Job `from` may write to Job `target`. Fleet's own delivery asks it too, where the mod's hooks are skipped.
+    pub(super) async fn reaches(&self, from: &str, target: &str) -> Result<bool, Refusal> {
+        Ok(target == from
+            || self.started_above(from).await?.iter().any(|id| id == target)
+            || self.started_tree(from).await?.iter().any(|(id, _)| id == target)
+            || self.named_by_the_person(from, target).await?)
     }
 
     /// The Jobs that started `id`, nearest first.
@@ -87,4 +87,9 @@ where
             _ => false,
         }))
     }
+}
+
+/// Why a `SendMessage` to `to` is refused, as the hook and Fleet's own delivery both say it.
+pub(super) fn refused_to(to: &str) -> String {
+    format!("`SendMessage` to {to} is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it")
 }
