@@ -24,7 +24,8 @@ export const modTitle = (name: string): string => {
 };
 
 /** A made mod's card title: a tab reads as its tab does, so the card and the tab never disagree. */
-export const madeTitle = (name: string, kind: ModKind): string => (kind === "tab" ? tabTitle(name) : modTitle(name));
+export const madeTitle = (name: string, kind: ModKind): string =>
+  kind === "tab" ? tabTitle(name) : modTitle(name);
 
 const madeBy =
   (jobId: string) =>
