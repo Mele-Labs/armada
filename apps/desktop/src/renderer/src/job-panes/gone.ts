@@ -1,5 +1,6 @@
 // What Bridge keeps of a Job once the Job is gone: nothing. A Job is gone when Fleet's list no longer has it, or when it ended more than
-// GONE_AFTER_MS ago. The sweep runs on a fresh read of that list, at most once every SWEEP_EVERY_MS, and never drops a Job drawn in the window.
+// GONE_AFTER_MS ago. The sweep runs only on a list Fleet answered whole (`listedAt`), at most once every SWEEP_EVERY_MS, and never drops a Job drawn
+// in the window. A list from disk, one held through a failed read, or an empty one is not a fact about any Job, so it drops nothing.
 
 import type { SessionRecord } from "@armada/protocol";
 
@@ -47,13 +48,13 @@ export function sweepGoneJobs(
 let sweptAt: number | undefined;
 let oldDraftsForgotten = false;
 
-/** Sweeps on a read Fleet just answered, once per SWEEP_EVERY_MS. The picture from disk arrives as read with no `readAt`, and is not trusted to say a Job is gone. */
-export function sweepOnRead(
-  sessions: BridgeState["sessions"],
-  readAt: number | null,
-  now: number,
-): string[] {
-  if (sessions.state !== "read" || readAt === null) return [];
+/**
+ * Sweeps on a list Fleet answered whole, once per SWEEP_EVERY_MS. The picture from disk arrives as read too, and so does the connection's `readAt` before
+ * the list is asked for, so only the list's own `listedAt` says Fleet answered it. An empty answer cannot be told from a ledger that failed to load.
+ */
+export function sweepOnRead(sessions: BridgeState["sessions"], now: number): string[] {
+  if (sessions.state !== "read" || sessions.listedAt === undefined || sessions.sessions.length === 0)
+    return [];
   if (sweptAt !== undefined && now - sweptAt < SWEEP_EVERY_MS) return [];
   sweptAt = now;
   // Drafts kept before they named their Job belong to no Job to sweep; once per window is enough.

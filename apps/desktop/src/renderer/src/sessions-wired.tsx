@@ -285,7 +285,7 @@ export class WiredStore {
     }
     this.missedSeen = state.missed;
     // Fleet's own list, not the inputs: those keep an old one after a failed re-read.
-    sweepOnRead(state.sessions, state.readAt, Date.now());
+    sweepOnRead(state.sessions, Date.now());
     // Every message brings the whole state as new objects. What did not change is kept as it was, so a message about
     // one Session finds every other one the same and reads only that one.
     const next = {

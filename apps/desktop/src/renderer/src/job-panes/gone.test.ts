@@ -86,10 +86,16 @@ const ended = (id: string, daysAgo?: number): Row => ({
         ended_at: new Date(NOW - daysAgo * DAY).toISOString(),
       }),
 });
-const read = (sessions: Row[]) =>
+/** A list Fleet answered whole; the same rows from disk, or held through a failed read, carry no `listedAt`. */
+const read = (sessions: Row[], listedAt: number | null = NOW) =>
   ({
     state: "read",
     sessions,
+    ...(listedAt === null
+      ? {}
+      : {
+          listedAt,
+        }),
   }) as unknown as Parameters<Awaited<ReturnType<typeof start>>["sweepOnRead"]>[0];
 
 const keyOf = (id: string) => `armada:kept:job-panes:job:${id}`;
@@ -145,7 +151,6 @@ describe("the sweep", () => {
         ended("old", 8),
       ]),
       NOW,
-      NOW,
     );
     expect(dropped.sort()).toEqual([
       "absent",
@@ -165,7 +170,7 @@ describe("the sweep", () => {
     const first = await start();
     first.rearrange("old", (x) => first.addTab(x, x.focus, "files"));
     const s = await start();
-    expect(s.sweepOnRead(read([]), NOW, NOW)).toEqual([
+    expect(s.sweepOnRead(read([live("other")]), NOW)).toEqual([
       "old",
     ]);
     expect(kept.getItem(keyOf("old"))).toBeNull();
@@ -185,15 +190,15 @@ describe("the sweep", () => {
 
   test("never runs on the picture from disk, before Fleet answers, or on a failed read", async () => {
     const s = await start();
-    s.rearrange("old", (x) => s.addTab(x, x.focus, "files"));
-    // The picture Bridge launches on arrives as read, with no readAt.
-    expect(s.sweepOnRead(read([]), null, NOW)).toEqual([]);
+    s.rearrange("started-since", (x) => s.addTab(x, x.focus, "files"));
+    // The picture Bridge launches on arrives as read, and the connection's `readAt` is set before the list is asked for:
+    // a Job started since the picture was kept is missing from it and live.
+    expect(s.sweepOnRead(read([live("other")], null), NOW)).toEqual([]);
     expect(
       s.sweepOnRead(
         {
           state: "none",
         },
-        NOW,
         NOW,
       ),
     ).toEqual([]);
@@ -203,19 +208,41 @@ describe("the sweep", () => {
           state: "failed",
         } as unknown as Parameters<typeof s.sweepOnRead>[0],
         NOW,
+      ),
+    ).toEqual([]);
+    expect(kept.getItem(keyOf("started-since"))).not.toBeNull();
+  });
+
+  test("never runs on an empty list, which a ledger that failed to load answers too", async () => {
+    const s = await start();
+    s.rearrange("kept", (x) => s.addTab(x, x.focus, "files"));
+    expect(s.sweepOnRead(read([]), NOW)).toEqual([]);
+    expect(kept.getItem(keyOf("kept"))).not.toBeNull();
+  });
+
+  test("keeps a paused or stopped Job and one in another repository: only the list's own word drops a Job", async () => {
+    const s = await start();
+    for (const id of ["paused", "stopped", "elsewhere"])
+      s.rearrange(id, (x) => s.addTab(x, x.focus, "files"));
+    expect(
+      s.sweepOnRead(
+        read([
+          live("paused"),
+          ended("stopped", 1),
+          { ...live("elsewhere"), manifest_id: "other" } as Row,
+        ]),
         NOW,
       ),
     ).toEqual([]);
-    expect(kept.getItem(keyOf("old"))).not.toBeNull();
   });
 
   test("runs at most once every 10 minutes", async () => {
     const s = await start();
-    s.sweepOnRead(read([]), NOW, NOW);
+    s.sweepOnRead(read([live("a")]), NOW);
     s.rearrange("later", (x) => s.addTab(x, x.focus, "files"));
-    expect(s.sweepOnRead(read([]), NOW, NOW + s.SWEEP_EVERY_MS - 1)).toEqual([]);
+    expect(s.sweepOnRead(read([live("a")]), NOW + s.SWEEP_EVERY_MS - 1)).toEqual([]);
     expect(kept.getItem(keyOf("later"))).not.toBeNull();
-    expect(s.sweepOnRead(read([]), NOW, NOW + s.SWEEP_EVERY_MS)).toEqual([
+    expect(s.sweepOnRead(read([live("a")]), NOW + s.SWEEP_EVERY_MS)).toEqual([
       "later",
     ]);
   });
@@ -223,8 +250,8 @@ describe("the sweep", () => {
   test("a disk picture does not spend the throttle: the first fresh read still sweeps", async () => {
     const s = await start();
     s.rearrange("old", (x) => s.addTab(x, x.focus, "files"));
-    s.sweepOnRead(read([]), null, NOW);
-    expect(s.sweepOnRead(read([]), NOW, NOW + 1)).toEqual([
+    s.sweepOnRead(read([live("a")], null), NOW);
+    expect(s.sweepOnRead(read([live("a")]), NOW + 1)).toEqual([
       "old",
     ]);
   });
@@ -236,7 +263,7 @@ describe("the sweep", () => {
       s.seedBuilt(id, "t1", "review-queue");
       kept.setItem(`armada:kept:session:custom:${id}:t1`, "draft");
     }
-    s.sweepOnRead(read([live("live")]), NOW, NOW);
+    s.sweepOnRead(read([live("live")]), NOW);
     expect(s.peekCustom("old", "t1").stage).toBe("compose");
     expect(kept.getItem("armada:kept:session:custom:old:t1")).toBeNull();
     expect(s.peekCustom("live", "t1").stage).toBe("built");
@@ -246,9 +273,9 @@ describe("the sweep", () => {
   test("forgets drafts kept in the old shape on the first fresh sweep, not on the disk picture", async () => {
     const s = await start();
     kept.setItem("armada:kept:session:custom:t7", "draft");
-    s.sweepOnRead(read([]), null, NOW);
+    s.sweepOnRead(read([live("a")], null), NOW);
     expect(kept.getItem("armada:kept:session:custom:t7")).not.toBeNull();
-    s.sweepOnRead(read([]), NOW, NOW + 1);
+    s.sweepOnRead(read([live("a")]), NOW + 1);
     expect(kept.getItem("armada:kept:session:custom:t7")).toBeNull();
   });
 });
