@@ -3783,7 +3783,7 @@ export function SessionThread({
       },
       {
         root: one,
-        rootMargin: `${EARLIER_AHEAD} 0px 0px 0px`,
+        rootMargin: `${EARLIER_AHEAD} 0% 0% 0%`,
       },
     );
     near.observe(mark);
