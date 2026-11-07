@@ -1,0 +1,53 @@
+--- a/plugins/armada/hooks/register.ts
++++ b/plugins/armada/hooks/register.ts
+@@ -1199,6 +1199,36 @@
+   }
+ }
+ 
++/**
++ * Spike 46: a call refused while a gate Fleet keeps is open. The gate keeper writes the record to
++ * `$HOME/.spike046/<session id>/record.json`; a session with no record is never refused. The refusal is one
++ * sentence naming the open gate, and nothing else.
++ */
++async function gateRefusal($: Dollar, tool: string, input: Record<string, unknown>): Promise<string | undefined> {
++  const home = await $.env.get('HOME')
++  const id = await $.session.id().catch(() => '')
++  if (!home || !id) return undefined
++  const text = await $.fs.read(`${home}/.spike046/${id}/record.json`).catch(() => undefined)
++  if (typeof text !== 'string') return undefined
++  const gates = (JSON.parse(text) as { gates?: Record<string, { name?: string; closed_at?: unknown }> }).gates ?? {}
++  const open = Object.values(gates).filter(gate => !gate.closed_at)
++  if (open.length === 0) return undefined
++  const planOpen = !gates.plan_approved?.closed_at
++  if (tool === 'mcp__armada-fleet__all_done') return `Gate open: ${open.map(gate => gate.name).join('; ')}.`
++  if (!planOpen) return undefined
++  const stood = `Gate open: ${gates.plan_approved?.name}.`
++  if (tool === 'Bash') {
++    const command = String(input.command ?? '')
++    return /\bgit\b[^|;&\n]*?\bpush\b/.test(command) && !/--dry-run/.test(command) ? stood : undefined
++  }
++  const path = input.file_path
++  if (typeof path !== 'string' || path.includes('/.armada/') || !path.includes('/')) return undefined
++  const dir = path.slice(0, path.lastIndexOf('/'))
++  if (!(await $.fs.exists(path).catch(() => false))) return undefined
++  const listed = await $.process.run(['git', '-C', dir, 'ls-files', '--error-unmatch', '--', path]).catch(() => undefined)
++  return listed?.exitCode === 0 ? stood : undefined
++}
++
+ async function ended($: Dollar, id: string, reason: string): Promise<void> {
+   if (!known.has(id)) await begin($, id)
+   say($, id, { kind: 'ended', reason })
+@@ -1263,6 +1293,13 @@
+     const out = await next(e)
+     void renamed($, e.args).catch(() => undefined)
+     return out
++  })
++
++  // Spike 46: an edit of a tracked file or a push before the plan is approved, and `all_done` while any gate is open.
++  on('tool.call', { tool: /^(Edit|Write|Bash|mcp__armada-fleet__all_done)$/ }, async ($, e, next) => {
++    if (await $.env.get('ARMADA_DRONE')) return next(e)
++    const refused = await gateRefusal($, e.tool, e as Record<string, unknown>)
++    return refused === undefined ? next(e) : { deny: refused }
+   })
+ 
+   // A page is shown in Bridge's window and lands on the ledger; `open` would go to the owner's browser.
