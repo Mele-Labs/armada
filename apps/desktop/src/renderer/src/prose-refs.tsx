@@ -42,7 +42,13 @@ export type Host = {
  * What each thread's words were last scanned for, by the rows they are in. **Another Job's update redraws the open
  * thread**, and the store hands back the same rows when this one did not change, so a long thread is scanned once.
  */
-const numbersScannedFor = new WeakMap<Session["rows"], { slug: string | undefined; numbers: number[] }>();
+const numbersScannedFor = new WeakMap<
+  Session["rows"],
+  {
+    slug: string | undefined;
+    numbers: number[];
+  }
+>();
 const pathsScannedFor = new WeakMap<Session["rows"], string[]>();
 
 function numbersIn(session: Session | undefined, slug: string | undefined): number[] {

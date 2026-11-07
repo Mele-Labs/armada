@@ -1944,7 +1944,12 @@ function useSteady<A extends unknown[], R>(
   useLayoutEffect(() => {
     latest.current = act;
   });
-  const steady = useMemo(() => (...args: A): R => latest.current!(...args), []);
+  const steady = useMemo(
+    () =>
+      (...args: A): R =>
+        latest.current!(...args),
+    [],
+  );
   return act === undefined ? undefined : steady;
 }
 
@@ -4048,7 +4053,8 @@ export function SessionThread({
                                   : {
                                       onAnswerSketch: steady.onAnswerSketch,
                                     })}
-                                {...(steady.onWithdrawSketch === undefined || sketching !== undefined
+                                {...(steady.onWithdrawSketch === undefined ||
+                                sketching !== undefined
                                   ? {}
                                   : {
                                       onWithdrawSketch: steady.onWithdrawSketch,
