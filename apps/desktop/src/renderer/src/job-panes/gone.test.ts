@@ -9,6 +9,10 @@ function storage(): Storage {
   const items = new Map<string, string>();
   const target: Record<string, unknown> = {};
   const methods = {
+    get length() {
+      return items.size;
+    },
+    key: (at: number) => [...items.keys()][at] ?? null,
     getItem: (key: string) => items.get(key) ?? null,
     setItem: (key: string, value: string) => {
       items.set(key, value);
@@ -46,16 +50,18 @@ afterEach(() => {
 async function start() {
   vi.resetModules();
   vi.doMock("@armada/components", () => import(/* @vite-ignore */ KEEP));
-  const [gone, store, tree] = await Promise.all([
+  const [gone, store, tree, custom] = await Promise.all([
     import("./gone"),
     import("./store"),
     import("./tree"),
+    import("./custom"),
   ]);
   gone.resetSweep();
   return {
     ...gone,
     ...store,
     ...tree,
+    ...custom,
   };
 }
 
@@ -221,5 +227,28 @@ describe("the sweep", () => {
     expect(s.sweepOnRead(read([]), NOW, NOW + 1)).toEqual([
       "old",
     ]);
+  });
+
+  test("drops a gone Job's Custom tab state and drafts, and leaves a live Job's", async () => {
+    const s = await start();
+    for (const id of ["live", "old"]) {
+      s.rearrange(id, (x) => s.addTab(x, x.focus, "files"));
+      s.seedBuilt(id, "t1", "review-queue");
+      kept.setItem(`armada:kept:session:custom:${id}:t1`, "draft");
+    }
+    s.sweepOnRead(read([live("live")]), NOW, NOW);
+    expect(s.peekCustom("old", "t1").stage).toBe("compose");
+    expect(kept.getItem("armada:kept:session:custom:old:t1")).toBeNull();
+    expect(s.peekCustom("live", "t1").stage).toBe("built");
+    expect(kept.getItem("armada:kept:session:custom:live:t1")).not.toBeNull();
+  });
+
+  test("forgets drafts kept in the old shape on the first fresh sweep, not on the disk picture", async () => {
+    const s = await start();
+    kept.setItem("armada:kept:session:custom:t7", "draft");
+    s.sweepOnRead(read([]), null, NOW);
+    expect(kept.getItem("armada:kept:session:custom:t7")).not.toBeNull();
+    s.sweepOnRead(read([]), NOW, NOW + 1);
+    expect(kept.getItem("armada:kept:session:custom:t7")).toBeNull();
   });
 });

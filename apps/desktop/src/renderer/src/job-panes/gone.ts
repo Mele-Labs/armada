@@ -4,6 +4,7 @@
 import type { SessionRecord } from "@armada/protocol";
 
 import type { BridgeState } from "../../../shared/bridge";
+import { forgetCustom, forgetOldCustomDrafts } from "./custom";
 import { jobPanes } from "./store";
 
 /** A week after a Job ends, its arrangement is let go. */
@@ -28,6 +29,7 @@ export function isGone(
 /** Everything Bridge keeps of one gone Job, dropped. The one place a Job's other state is let go with its panes. */
 function dropJob(id: string): void {
   jobPanes.drop(id);
+  forgetCustom(id);
 }
 
 /** Drops every gone Job that holds panes and is not drawn now, and says which. */
@@ -43,6 +45,7 @@ export function sweepGoneJobs(
 }
 
 let sweptAt: number | undefined;
+let oldDraftsForgotten = false;
 
 /** Sweeps on a read Fleet just answered, once per SWEEP_EVERY_MS. The picture from disk arrives as read with no `readAt`, and is not trusted to say a Job is gone. */
 export function sweepOnRead(
@@ -53,10 +56,16 @@ export function sweepOnRead(
   if (sessions.state !== "read" || readAt === null) return [];
   if (sweptAt !== undefined && now - sweptAt < SWEEP_EVERY_MS) return [];
   sweptAt = now;
+  // Drafts kept before they named their Job belong to no Job to sweep; once per window is enough.
+  if (!oldDraftsForgotten) {
+    oldDraftsForgotten = true;
+    forgetOldCustomDrafts();
+  }
   return sweepGoneJobs(sessions.sessions, now);
 }
 
 /** The throttle as a window opens with it: a test starts from here. */
 export function resetSweep(): void {
   sweptAt = undefined;
+  oldDraftsForgotten = false;
 }
