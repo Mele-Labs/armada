@@ -346,6 +346,12 @@ are closed by the same decision and a route added later inherits it.
 below: every *process* here is trusted. This closes the browser a person is
 already running, not a program written to reach Fleet.
 
+**A Job is the one process that is not.** The routes that are the person's alone (settings, limits, the slot pool, the Operator's orders and board, the Autopilot, the Fleet build, signing in) refuse a call from inside a Job with `api.the_persons_own` and a 403, whatever the call says it is.
+It is the second layer over `api::router`, and the list is `api::callers::THE_PERSONS_OWN`.
+The caller is placed by the process holding the connection, walked down from each hosted Job's agent as the door places one, because a header is something any process sends and a credential Bridge reads from disk is one a Job of the same user reads too.
+The door's own copy of the routes is outside the layer: what the door offers a Job is the inventory's `agent_access`.
+A process a Job detaches from its tree, so that launchd is its parent, is not placed and is not refused.
+
 **Largest open risk:** axum's WebSocket sink is unbounded from the
 application side. Several Drones running against a minimised Bridge can
 outrun it, and nothing in the framework pushes back. Needs a bounded
