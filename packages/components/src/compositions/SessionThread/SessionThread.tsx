@@ -3738,6 +3738,15 @@ export function SessionThread({
   }, [
     sessionId,
   ]);
+  // A row arriving at the end widens what is drawn for a person reading higher up, so nothing above him drops out.
+  const counted = useRef(all.length);
+  useLayoutEffect(() => {
+    const grew = all.length - counted.current;
+    counted.current = all.length;
+    if (grew > 0 && !pinned.current) setDrawn((now) => now + grew);
+  }, [
+    all.length,
+  ]);
   const hidden = Math.max(0, all.length - drawn);
   const items = hidden === 0 ? all : all.slice(hidden);
   // What he is reading stays where it was as rows arrive above it. The browser's own anchoring does not hold at the very top.
