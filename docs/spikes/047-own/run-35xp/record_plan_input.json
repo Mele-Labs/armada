@@ -1,0 +1,44 @@
+{
+ "body": {
+  "summary": "The two Checks keyboard tests go green again. They mount a scenario that left with the Jobs package; I point them at the Checks scenario that still exists, keeping what they prove, then commit and push to origin.",
+  "groups": [
+   {
+    "id": "find",
+    "title": "Name the cause and the target",
+    "agent": "armada:explorer",
+    "paths": [
+     "apps/desktop/src/renderer/src/mock"
+    ],
+    "gives": "The cause is named: job-checks was removed with the Jobs package, and the tests still mount it; the checks scenario has the tiles. [gate: plan_approved]",
+    "tasks": [
+     {
+      "title": "Confirm job-checks is gone and the checks scenario has Checks tiles"
+     },
+     {
+      "title": "Decide retarget over delete: the tests guard Tab stops and arrow-key movement"
+     }
+    ]
+   },
+   {
+    "id": "fix",
+    "title": "Retarget the tests, run, commit, push",
+    "agent": "bridge-engineer",
+    "paths": [
+     "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx"
+    ],
+    "gives": "Both tests in checks-keys.test.tsx pass, committed on my branch and pushed to origin. [gate: checks_green]",
+    "tasks": [
+     {
+      "title": "Mount the checks scenario and use tiles it really has"
+     },
+     {
+      "title": "Run checks-keys.test.tsx until both tests pass"
+     },
+     {
+      "title": "Commit and push to origin"
+     }
+    ]
+   }
+  ]
+ }
+}

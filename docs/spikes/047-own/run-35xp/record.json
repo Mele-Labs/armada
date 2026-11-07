@@ -1,0 +1,143 @@
+{
+  "session": "9a3470ee-f894-40a5-b957-3fbe902a460f",
+  "plan_version": 1,
+  "groups": [
+    {
+      "id": "g1",
+      "title": "Name the cause and the target",
+      "paths": [
+        "apps/desktop/src/renderer/src/mock"
+      ],
+      "gives": "The cause is named: job-checks was removed with the Jobs package, and the tests still mount it; the checks scenario has the tiles. [gate: plan_approved]",
+      "gate": "plan_approved",
+      "gate_note": null,
+      "tasks": [
+        {
+          "id": "t1",
+          "text": "Confirm job-checks is gone and the checks scenario has Checks tiles"
+        },
+        {
+          "id": "t2",
+          "text": "Decide retarget over delete: the tests guard Tab stops and arrow-key movement"
+        }
+      ]
+    },
+    {
+      "id": "g2",
+      "title": "Retarget the tests, run, commit, push",
+      "paths": [
+        "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx"
+      ],
+      "gives": "Both tests in checks-keys.test.tsx pass, committed on my branch and pushed to origin. [gate: checks_green]",
+      "gate": "checks_green",
+      "gate_note": null,
+      "tasks": [
+        {
+          "id": "t3",
+          "text": "Mount the checks scenario and use tiles it really has"
+        },
+        {
+          "id": "t4",
+          "text": "Run checks-keys.test.tsx until both tests pass"
+        },
+        {
+          "id": "t5",
+          "text": "Commit and push to origin"
+        }
+      ]
+    }
+  ],
+  "closed": [
+    {
+      "kind": "plan_approved",
+      "closed_at": "2026-11-07T02:13:47.650Z",
+      "fact": "session_plan v1 approved_at 2026-11-07T02:13:46.695Z",
+      "group": "Name the cause and the target",
+      "group_index": 0,
+      "plan_version": 1
+    },
+    {
+      "kind": "checks_green",
+      "closed_at": "2026-11-07T02:14:37.273Z",
+      "fact": "vitest src/renderer/src/mock/checks-keys.test.tsx: Tests  2 passed (2) (exit 0, 9s) at d0551642c9",
+      "group": "Retarget the tests, run, commit, push",
+      "group_index": 1,
+      "plan_version": 1
+    }
+  ],
+  "orphaned": [],
+  "live": 2,
+  "placements": {
+    "in_live": 5
+  },
+  "edits": [
+    {
+      "path": "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx",
+      "tool": "Edit",
+      "placement": "in_live",
+      "live": 1,
+      "live_group": "Retarget the tests, run, commit, push",
+      "in_groups": [
+        0,
+        1
+      ],
+      "row_at": "2026-11-07T02:13:58.386Z"
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx",
+      "tool": "Edit",
+      "placement": "in_live",
+      "live": 1,
+      "live_group": "Retarget the tests, run, commit, push",
+      "in_groups": [
+        0,
+        1
+      ],
+      "row_at": "2026-11-07T02:13:59.703Z"
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx",
+      "tool": "Edit",
+      "placement": "in_live",
+      "live": 1,
+      "live_group": "Retarget the tests, run, commit, push",
+      "in_groups": [
+        0,
+        1
+      ],
+      "row_at": "2026-11-07T02:14:02.304Z"
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx",
+      "tool": "Edit",
+      "placement": "in_live",
+      "live": 1,
+      "live_group": "Retarget the tests, run, commit, push",
+      "in_groups": [
+        0,
+        1
+      ],
+      "row_at": "2026-11-07T02:14:04.837Z"
+    },
+    {
+      "path": "apps/desktop/src/renderer/src/mock/checks-keys.test.tsx",
+      "tool": "Edit",
+      "placement": "in_live",
+      "live": 1,
+      "live_group": "Retarget the tests, run, commit, push",
+      "in_groups": [
+        0,
+        1
+      ],
+      "row_at": "2026-11-07T02:14:07.088Z"
+    }
+  ],
+  "done": true,
+  "tip": "d0551642c9a55c38214189b393d3fed35054ded3",
+  "commits": [
+    {
+      "sha": "d0551642c9",
+      "live": 2
+    }
+  ]
+}
