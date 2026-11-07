@@ -13,7 +13,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -25,6 +25,7 @@ function world(
   const logbookAsks: Posted[] = []
   const prePrAsks: Posted[] = []
   const questions: any[] = []
+  const reached: { to?: string }[] = []
   const ran: { command: string; args?: string }[] = []
   // What reached the engine, submits and commands alike, in the order they did.
   const order: string[] = []
@@ -60,6 +61,12 @@ function world(
       const answer = { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ messages, commands, end }) } }
       // Held open as Fleet holds an ask with nothing to hand over, until the test lets it go.
       return options.heldGate === undefined ? answer : options.heldGate.then(() => answer)
+    }
+    // Whether a Job may write to an address, as the test says; Fleet out of reach where it says nothing.
+    if (e.url.endsWith('/sessions/message_reach')) {
+      reached.push(JSON.parse(e.init?.body ?? '{}'))
+      if (options.reach === undefined) throw new Error('connection refused')
+      return { value: { status: 200, ok: true, headers: {}, text: options.reach } }
     }
     // A question held by Fleet answers when the test says; the terminal's settling is answered at once.
     if (e.url.endsWith('/sessions/ask/terminal')) {
@@ -148,7 +155,7 @@ function world(
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => (options.stopBlock === undefined ? {} : { block: options.stopBlock }))
   on('tool.call', { tool: 'mcp__armada-fleet__waiting_for' }, () => ({ result: {}, text: '{}' }))
-  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, prePrAsks }
+  return { posts, attempts, clock, submitted, asked, ran, questions, order, usages, processes, logbookAsks, prePrAsks, reached }
 }
 
 const facts = (posts: Posted[]) => posts.map(one => one.body.fact)
@@ -2271,4 +2278,37 @@ test('a command that is not a pull request being opened is not asked about', asy
   await seen.clock.settle()
 
   expect(seen.prePrAsks).toEqual([])
+})
+
+const OUTSIDE = '`SendMessage` to s-0badc0de is refused: a Job writes only to the Jobs that started it, the Jobs it started and the Jobs the person names to it'
+
+test('a message Fleet refuses is denied before it is sent', async ($, on) => {
+  const { reached } = world(on, { reach: JSON.stringify({ outcome: 'refused', message: OUTSIDE }) })
+  let sent = false
+  on('tool.call', { tool: 'SendMessage' }, () => {
+    sent = true
+    return { result: 'sent' }
+  })
+  const out = await $.tool.call({ tool: 'SendMessage', to: 's-0badc0de', message: 'Finish the operator' })
+
+  expect(out.deny).toBe(OUTSIDE)
+  expect(sent).toBe(false)
+  expect(reached).toEqual([{ to: 's-0badc0de' }])
+})
+
+test('a message Fleet allows is sent', async ($, on) => {
+  world(on, { reach: JSON.stringify({ outcome: 'allowed' }) })
+  on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }))
+  const out = await $.tool.call({ tool: 'SendMessage', to: 's-1234abcd', message: 'done' })
+
+  expect(out.deny).toBeUndefined()
+  expect(out.result).toBe('sent')
+})
+
+test('a message is sent when Fleet is out of reach', async ($, on) => {
+  world(on)
+  on('tool.call', { tool: 'SendMessage' }, () => ({ result: 'sent' }))
+  const out = await $.tool.call({ tool: 'SendMessage', to: 's-1234abcd', message: 'done' })
+
+  expect(out.result).toBe('sent')
 })

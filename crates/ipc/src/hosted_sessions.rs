@@ -1035,6 +1035,21 @@ pub enum TerminalAsked {
     Gone {},
 }
 
+/// `message_reach`'s body: the address a Job's `SendMessage` names, asked before it is sent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessageTo {
+    pub to: String,
+}
+
+/// Whether the Job holding the connection may send to that address. `Refused` carries the
+/// sentence the agent reads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum MessageReach {
+    Allowed {},
+    Refused { message: String },
+}
+
 /// What a person sent a terminal session, oldest first, handed over once. The
 /// mod submits each as the person's own prompt.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
