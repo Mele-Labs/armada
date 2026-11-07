@@ -85,6 +85,9 @@ pub use served::{Route, SERVED};
 pub fn router<D: Daemon>(served: Served<D>) -> Router {
     let refusing_a_page =
         from_fn_with_state(served.run_id().clone(), crate::callers::refuse_a_page);
+    // Over the listener and not the door's copy: what the door offers a Job is the inventory's
+    // `agent_access`, and this refuses the same routes reached around it.
+    let refusing_a_job = from_fn_with_state(served.clone(), crate::callers::refuse_a_job::<D>);
     let waiting = served
         .waiting_on()
         .map(|over| (over, served.run_id().clone()));
@@ -98,7 +101,7 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
         )),
         None => app,
     };
-    app.layer(refusing_a_page)
+    app.layer(refusing_a_job).layer(refusing_a_page)
 }
 
 /// The HTTP surface and the Drone's endpoint: every route but the door.
@@ -640,6 +643,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/ask/terminal",
             post(crate::hosted_sessions::ask_from_terminal::<D>),
+        )
+        .route(
+            "/sessions/message_reach",
+            post(crate::hosted_sessions::message_reach::<D>),
         )
         .route(
             "/sessions/held",

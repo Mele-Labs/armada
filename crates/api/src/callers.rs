@@ -13,13 +13,18 @@
 //! browser sends whatever it likes, so naming trusted values buys nothing.
 //! Absence stays allowed, and absence is what every caller Fleet has sends.
 
-use axum::extract::{Request, State};
+use std::net::SocketAddr;
+
+use axum::extract::{ConnectInfo, MatchedPath, Request, State};
 use axum::http::{header, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 use ipc::{RunId, WireError, WireValue};
 
 use crate::answers::problem;
+use crate::daemon::Admitting;
+use crate::mcp::Caller;
+use crate::served::Served;
 
 /// A request or an upgrade that carried an `Origin` header, which is a page in
 /// a browser saying it is one.
@@ -57,5 +62,96 @@ pub(crate) async fn refuse_a_page(
             run_id,
         )
         .with_field("origin", WireValue::Str(said.to_string())),
+    )
+}
+
+/// A call from inside a Job to a route that is the person's alone.
+///
+/// **Placed, never claimed**: by the process holding the connection, as the door places a Job
+/// (`crate::daemon::Admitting::job_at`). A header saying `bridge` is something any process can
+/// send, and a credential Bridge could read from disk a Job running as the same user could read
+/// too; which process holds the socket is the kernel's record, and a Job cannot write it.
+pub(crate) const A_JOBS_CALL: &str = "api.the_persons_own";
+
+/// The acts only the person takes, from Bridge, each with what its refusal says the person
+/// does. **The door already offers none of them to an ordinary Job**; this closes the same routes
+/// to a Job calling the port around the door, as Job `8fd49e7c` turned the Operator on.
+pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
+    ("save_settings", "changes settings"),
+    ("save_limits", "changes settings"),
+    ("save_preferences", "changes settings"),
+    ("set_phone", "changes settings"),
+    ("set_repository_profile", "changes settings"),
+    ("set_notice_mute", "changes settings"),
+    ("accept_downshift", "changes settings"),
+    ("restore_downshift", "changes settings"),
+    ("keep_downshift", "changes settings"),
+    ("settle_downshift", "changes settings"),
+    ("save_flight_controls", "changes settings"),
+    ("save_repository_flight_controls", "changes settings"),
+    ("approve_repository_tile", "changes settings"),
+    ("change_slot_pool", "changes the slot pool"),
+    ("confirm_operator_order", "gives the Operator its orders"),
+    ("remove_operator_order", "gives the Operator its orders"),
+    ("move_on_operator_board", "moves the Operator's board"),
+    ("answer_operator_suggestion", "answers the Operator"),
+    ("talk_to_operator", "talks to the Operator"),
+    ("start_autopilot", "runs the Autopilot"),
+    ("stop_autopilot", "runs the Autopilot"),
+    ("pause_autopilot", "runs the Autopilot"),
+    ("resume_autopilot", "runs the Autopilot"),
+    ("update_autopilot", "runs the Autopilot"),
+    ("override_autopilot_decision", "runs the Autopilot"),
+    ("review_autopilot_decision", "runs the Autopilot"),
+    ("change_fleet_build", "chooses the build Fleet runs"),
+    ("swap_fleet_build", "chooses the build Fleet runs"),
+    ("keep_fleet_build", "chooses the build Fleet runs"),
+    ("revert_fleet_build", "chooses the build Fleet runs"),
+    ("pick_fleet_build_job", "chooses the build Fleet runs"),
+    ("start_sign_in", "signs this Mac in and out"),
+    ("sign_out", "signs this Mac in and out"),
+];
+
+/// The operation a matched route serves and what its refusal says, where it is the person's.
+pub(crate) fn the_persons(method: &str, path: &str) -> Option<(&'static str, &'static str)> {
+    let route = crate::SERVED
+        .iter()
+        .find(|route| route.method == method && route.path == path)?;
+    THE_PERSONS_OWN
+        .iter()
+        .find(|(operation, _)| *operation == route.operation)
+        .copied()
+}
+
+/// The layer: a call to a route in [`THE_PERSONS_OWN`] from inside a Job is refused, plainly and
+/// before the handler, and every other call passes. **A call with no peer passes**, which is a
+/// test's router; the served listener always records one.
+pub(crate) async fn refuse_a_job<D: Admitting>(
+    State(served): State<Served<D>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let persons = request
+        .extensions()
+        .get::<MatchedPath>()
+        .and_then(|matched| the_persons(request.method().as_str(), matched.as_str()));
+    let peer = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(peer)| *peer);
+    let (Some((operation, does)), Some(peer)) = (persons, peer) else {
+        return next.run(request).await;
+    };
+    if !served.daemon().job_at(Caller::at(peer)) {
+        return next.run(request).await;
+    }
+    problem(
+        StatusCode::FORBIDDEN,
+        &WireError::raised(
+            A_JOBS_CALL,
+            format!("`{operation}` is refused to a Job: only the person {does}, from Bridge"),
+            served.run_id().clone(),
+        )
+        .with_field("operation", WireValue::Str(operation.to_string())),
     )
 }

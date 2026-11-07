@@ -11,4 +11,6 @@ notes = """
 **A `live` setting reaches Fleet at once**, from the next time it is read — the next admission turn, the next Check, the next Judge call. An `at_restart` one is saved and answered with `pending_restart` until Fleet starts again. A setting an environment variable overrides is saved and stays overridden.
 
 `agent_access` is `On your words`: the owner asked that a Job on your words change any setting he asks it to (15 Oct 2026). A Job on your words acts on an ask, and a read-only calls no command, so it cannot raise its own authority. No other agent is offered it, since settings.json names the program every Drone is started as.
+
+**Called on the port from inside any Job, around the door, it is a 403 `api.the_persons_own`**, as is every route `api::callers::THE_PERSONS_OWN` names: only the person changes settings, from Bridge. `docs/contracts/system-architecture.md`.
 """
