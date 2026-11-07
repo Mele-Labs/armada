@@ -12,10 +12,12 @@
 
 // A page whose policy has no `unsafe-eval` cannot use Pixi's generated uniform code; this swaps it for the same code written out.
 import "pixi.js/unsafe-eval";
-import { Application, Container, RendererType, Ticker } from "pixi.js";
+import type { Application } from "pixi.js";
+import { Container, RendererType } from "pixi.js";
 
 import type { Cam } from "../camera";
 import type { Size } from "../layout";
+import { giveBackApp, startApp, takeIdleApp } from "./app-pool";
 import { drawAir } from "./air";
 import { over, type Clock } from "./clock";
 import { Beams, drawDoings } from "./doings";
@@ -156,52 +158,14 @@ export class Stage {
   }
 
   private async init(): Promise<void> {
-    const app = new Application();
-    await app.init({
-      preference: "webgl",
-      antialias: true,
-      backgroundAlpha: 0,
-      autoDensity: true,
-      resolution: Math.min(window.devicePixelRatio || 1, 2),
-      width: Math.max(1, this.size.width),
-      height: Math.max(1, this.size.height),
-      // No loop of its own: this class asks for each frame, and starts the ticker only while something eases.
-      autoStart: false,
-      sharedTicker: false,
-      powerPreference: "low-power",
-      eventFeatures: {
-        move: false,
-        globalMove: false,
-        click: false,
-        wheel: false,
-      },
-    });
-    // Starting a renderer starts Pixi's system ticker, which then asks for an animation frame every frame for as long as one lives, and an
-    // idle map must ask for none. It only sweeps unused textures, which a handful of name labels do not need. A stage that was dropped while
-    // it started starts it too, so this runs on that path as well.
-    Ticker.system.stop();
+    const app = takeIdleApp(this.size) ?? (await startApp(this.size));
     if (this.gone) {
-      // Never `destroy(true)`: that releases Pixi's pools, which the console's stage shares with this one (`console-stage.ts`).
-      app.destroy(
-        {
-          removeView: true,
-        },
-        {
-          children: true,
-        },
-      );
+      giveBackApp(app);
       return;
     }
     // With no WebGL Pixi starts its 2D renderer, which cannot draw these meshes and throws on each frame.
     if (app.renderer.type === RendererType.CANVAS) {
-      app.destroy(
-        {
-          removeView: true,
-        },
-        {
-          children: true,
-        },
-      );
+      giveBackApp(app);
       throw new Error("WebGL is not available");
     }
     this.app = app;
@@ -391,14 +355,7 @@ export class Stage {
     this.lines?.destroy();
     this.linesGlow?.destroy();
     this.lens?.destroy();
-    app.destroy(
-      {
-        removeView: true,
-      },
-      {
-        children: true,
-      },
-    );
+    giveBackApp(app);
   }
 
   // ---- Drawing ---------------------------------------------------------------------------------------------
