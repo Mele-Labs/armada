@@ -1,0 +1,13 @@
+{
+  "id": "7",
+  "subject": "Gate: Checks green at the pushed commit. Fleet ticks this",
+  "description": "Fleet's. It closes when Fleet sees the Checks run green by Fleet at the commit on origin. You do not mark it, and marking it moves nothing.\nDo not start the next stretch before it is completed. If it stays open, the Checks are not green at what you pushed: read the file, fix, push again.",
+  "activeForm": "Waiting for Fleet",
+  "status": "completed",
+  "blocks": [
+    "8"
+  ],
+  "blockedBy": [
+    "6"
+  ]
+}
