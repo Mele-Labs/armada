@@ -157,7 +157,7 @@ test("a tab Fleet refuses shows the reason and Fix, which starts a Mod Job on th
   ]);
   expect(start.said).toContain(`\`${MOD}\``);
   expect(start.said).toContain(reason);
-  await vi.waitFor(() => expect(peekCustom(TAB).job).toBe("fixer"));
+  await vi.waitFor(() => expect(peekCustom("job", TAB).job).toBe("fixer"));
 });
 
 test("a rewrite that does not load is told above the tab still drawn, with Fix", async () => {

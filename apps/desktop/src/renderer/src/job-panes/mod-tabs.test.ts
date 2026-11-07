@@ -113,7 +113,7 @@ test("a tab mod a Mod Job built for a tab opens in the panes of the Job it was s
 test("a tab the composer is building for the mod's Job gets no second copy beside it", () => {
   jobOpens("composing-holder", "custom");
   const tab = customs("composing-holder")[0]!;
-  startBuilding(tab.id, "builder-mod");
+  startBuilding("composing-holder", tab.id, "builder-mod");
   openBuiltTabs(
     "composing-holder",
     [

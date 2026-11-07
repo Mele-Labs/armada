@@ -64,8 +64,8 @@ const terminalNumber = (terminal: string | undefined): number =>
 const terminalIdOf = (tab: Tab): string => tab.terminal ?? `t${terminalNumber(tab.terminal)}`;
 
 /** The words a tab reads: its own label where it has one, else its kind. A Custom tab reads the name of the mod it built, once it has one. A Terminal tab reads its number until it is renamed. */
-export const labelOf = (tab: Tab): string =>
-  (tab.kind === "custom" ? customLabel(tab.id) : undefined) ??
+export const labelOf = (jobId: string, tab: Tab): string =>
+  (tab.kind === "custom" ? customLabel(jobId, tab.id) : undefined) ??
   tab.label ??
   (tab.kind === "terminal" ? `Terminal ${terminalNumber(tab.terminal)}` : KINDS[tab.kind].label);
 
@@ -242,13 +242,13 @@ function TabButton({
   const head = useJobHead(jobId);
   // The Thread tab is the Job's head while the Job stands in panes: its state, its name and its menu.
   const job = tab.kind === "thread" ? head : undefined;
-  const label = job?.title ?? labelOf(tab);
+  const label = job?.title ?? labelOf(jobId, tab);
   const active = pane.active === tab.id;
-  const custom = useCustom(tab.id, tab.kind === "custom");
+  const custom = useCustom(jobId, tab.id, tab.kind === "custom");
   // The tab keeps its mod's name, so after a restart it is drawn as the mod it was, not a fresh composer.
   useEffect(() => {
     if (tab.kind !== "custom") return;
-    if (tab.mod !== undefined && peekCustom(tab.id).stage === "compose") seedBuilt(tab.id, tab.mod);
+    if (tab.mod !== undefined && peekCustom(jobId, tab.id).stage === "compose") seedBuilt(jobId, tab.id, tab.mod);
     else if (custom.stage === "built" && custom.mod !== undefined && custom.mod !== tab.mod)
       look(jobId, (arrangement) => markTabMod(arrangement, tab.id, custom.mod!));
   }, [
@@ -811,7 +811,7 @@ export function PaneView({
       data-pane={pane.id}
       data-focused={focused || undefined}
       data-hot={(hot && dragging !== undefined && !gapLit) || undefined}
-      aria-label={active === undefined ? "Empty pane" : `Pane: ${labelOf(active)}`}
+      aria-label={active === undefined ? "Empty pane" : `Pane: ${labelOf(jobId, active)}`}
       onFocusCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
       onPointerDownCapture={() => look(jobId, (arrangement) => focusPane(arrangement, pane.id))}
       onDragOver={() => dragging !== undefined && setHot(true)}
@@ -880,7 +880,7 @@ export function PaneView({
             );
             // The tab is the pane's front tab now; a built mod's is drawn as built.
             const front = panesOf(peek(jobId).root).find((one) => one.id === pane.id)?.active;
-            if (mod !== undefined && front !== undefined) seedBuilt(front, mod);
+            if (mod !== undefined && front !== undefined) seedBuilt(jobId, front, mod);
             focusIn(pane.id);
           }}
         />
@@ -916,7 +916,7 @@ export function PaneView({
         className="job-pane__body"
         data-kind={active?.kind}
         role="tabpanel"
-        aria-label={active === undefined ? "Empty" : labelOf(active)}
+        aria-label={active === undefined ? "Empty" : labelOf(jobId, active)}
       >
         {children}
         {dragging === undefined ? null : (
