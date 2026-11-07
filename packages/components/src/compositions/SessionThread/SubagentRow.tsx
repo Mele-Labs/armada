@@ -1,7 +1,7 @@
-import { ChevronRight } from "lucide-react";
+import { Bot, ChevronRight } from "lucide-react";
+import type { ReactNode } from "react";
 import type { ToolSubagent } from "@armada/protocol";
 
-import { useNowWhile } from "../../clock";
 import { StepActivityMark, type StepActivity } from "../StepActivityMark/StepActivityMark";
 import { elapsedWords } from "../SessionRetroRow/SessionRetroRow";
 
@@ -26,6 +26,12 @@ const MARK: Record<
   },
 };
 
+/** What its status mark says on hover: the state, and the kind of subagent where the call named one. The mark is what says it is a subagent. */
+export function saidOf(subagent: ToolSubagent): string {
+  const said = `Subagent ${MARK[subagent.state].said.toLowerCase()}`;
+  return subagent.agent_type === undefined ? said : `${said} · ${subagent.agent_type}`;
+}
+
 /** How long it ran: to now while it runs, to `ended` once settled, and nothing where either end will not parse. */
 function ranFor(subagent: ToolSubagent, now: number): string | undefined {
   const from = Date.parse(subagent.since);
@@ -39,9 +45,9 @@ function ranFor(subagent: ToolSubagent, now: number): string | undefined {
 }
 
 /**
- * The subagent an `Agent` call started, in place of its one tool line: its type, its task, its own last call and how
- * long it has run. **Its calls are never rows of the thread**, which would put its words in the agent's mouth. A press
- * opens its own thread.
+ * The subagent an `Agent` call started, in place of its one tool line: while it runs, the handoff, its live view being the
+ * pinned `SubagentsCard`; once it returns, how it ended and how long it took. **Its calls are never rows of the thread**,
+ * which would put its words in the agent's mouth. A press opens its own thread.
  */
 export function SubagentRow({
   subagent,
@@ -51,46 +57,52 @@ export function SubagentRow({
   onOpen?: (id: string) => void;
 }) {
   const running = subagent.state === "running";
-  const now = useNowWhile(running);
-  const ran = ranFor(subagent, now);
   const mark = MARK[subagent.state];
-  const body = (
-    <>
-      <span className="armada-session-subagent__head">
-        <StepActivityMark activity={mark.activity} label={mark.said} says={mark.said} />
-        <span className="armada-session-subagent__eyebrow">Subagent</span>
-        {subagent.agent_type === undefined ? null : (
-          <code className="armada-session-subagent__type">{subagent.agent_type}</code>
+  const press = (body: ReactNode) =>
+    onOpen === undefined ? (
+      <div className="armada-session-subagent__press">{body}</div>
+    ) : (
+      <button
+        type="button"
+        className="armada-session-subagent__press"
+        aria-label={`Subagent ${subagent.task}, ${mark.said.toLowerCase()}`}
+        onClick={() => onOpen(subagent.id)}
+      >
+        {body}
+      </button>
+    );
+  // While it runs, the pinned card is its live view: here it is the handoff, one quiet line as a call is.
+  if (running)
+    return (
+      <li className="armada-session-subagent" data-state={subagent.state} data-handoff="">
+        {press(
+          <>
+            <Bot size={14} strokeWidth={2} aria-hidden className="armada-session-subagent__bot" />
+            <span className="armada-session-subagent__handoff">
+              Started a subagent: {subagent.task}
+            </span>
+          </>,
         )}
-        <span className="armada-session-subagent__task">{subagent.task}</span>
-        {ran === undefined ? null : <span className="armada-session-subagent__ran">{ran}</span>}
-        {onOpen === undefined ? null : (
-          <ChevronRight
-            size={12}
-            strokeWidth={2}
-            aria-hidden
-            className="armada-session-subagent__go"
-          />
-        )}
-      </span>
-      {subagent.latest === undefined ? null : (
-        <code className="armada-session-subagent__latest">{subagent.latest}</code>
-      )}
-    </>
-  );
+      </li>
+    );
+  // Once it returns, its result: how it ended and how long it took. A press opens its thread.
+  const ran = ranFor(subagent, Date.now());
   return (
     <li className="armada-session-subagent" data-state={subagent.state}>
-      {onOpen === undefined ? (
-        <div className="armada-session-subagent__press">{body}</div>
-      ) : (
-        <button
-          type="button"
-          className="armada-session-subagent__press"
-          aria-label={`Subagent ${subagent.task}, ${mark.said.toLowerCase()}`}
-          onClick={() => onOpen(subagent.id)}
-        >
-          {body}
-        </button>
+      {press(
+        <span className="armada-session-subagent__head">
+          <StepActivityMark activity={mark.activity} label={mark.said} says={saidOf(subagent)} />
+          <span className="armada-session-subagent__task">{subagent.task}</span>
+          {ran === undefined ? null : <span className="armada-session-subagent__ran">{ran}</span>}
+          {onOpen === undefined ? null : (
+            <ChevronRight
+              size={12}
+              strokeWidth={2}
+              aria-hidden
+              className="armada-session-subagent__go"
+            />
+          )}
+        </span>,
       )}
     </li>
   );
