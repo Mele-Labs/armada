@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import type { ModKind, ModSummary } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
+import { tabTitle } from "./job-panes/custom";
 import { useModList } from "./mod-list";
 import { askToTell } from "./tell";
 
@@ -21,6 +22,9 @@ export const modTitle = (name: string): string => {
   const bare = name.startsWith("built-in:") ? name.slice("built-in:".length) : name;
   return bare.charAt(0).toUpperCase() + bare.slice(1);
 };
+
+/** A made mod's card title: a tab reads as its tab does, so the card and the tab never disagree. */
+export const madeTitle = (name: string, kind: ModKind): string => (kind === "tab" ? tabTitle(name) : modTitle(name));
 
 const madeBy =
   (jobId: string) =>
@@ -48,7 +52,7 @@ export function useModsMade(jobId: string): {
     () =>
       listed.filter(madeBy(jobId)).map((row) => ({
         name: row.name,
-        title: modTitle(row.name),
+        title: madeTitle(row.name, row.kind),
         kind: row.kind,
         enabled: row.enabled,
         ...(row.changed_at === undefined
