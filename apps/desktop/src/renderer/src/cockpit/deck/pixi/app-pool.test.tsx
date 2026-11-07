@@ -20,15 +20,27 @@ let hosts: HTMLElement[] = [];
 let stages: Stage[] = [];
 
 /** A stage in a host of its own, once its canvas is in. */
-const open = async (): Promise<{ host: HTMLElement; stage: Stage; app: Application }> => {
+const open = async (): Promise<{
+  host: HTMLElement;
+  stage: Stage;
+  app: Application;
+}> => {
   const host = document.createElement("div");
   host.style.cssText = `position:relative;width:${PANE.width}px;height:${PANE.height}px`;
   document.body.append(host);
   hosts.push(host);
   const stage = Stage.start(host);
   stages.push(stage);
-  await expect.poll(() => host.querySelector("canvas") !== null, { timeout: 60_000 }).toBe(true);
-  return { host, stage, app: appOf(stage)! };
+  await expect
+    .poll(() => host.querySelector("canvas") !== null, {
+      timeout: 60_000,
+    })
+    .toBe(true);
+  return {
+    host,
+    stage,
+    app: appOf(stage)!,
+  };
 };
 
 beforeEach(async () => {
@@ -40,7 +52,15 @@ afterEach(async () => {
   for (const host of hosts) host.remove();
   stages = [];
   hosts = [];
-  for (const app of idleApps().splice(0)) app.destroy({ removeView: true }, { children: true });
+  for (const app of idleApps().splice(0))
+    app.destroy(
+      {
+        removeView: true,
+      },
+      {
+        children: true,
+      },
+    );
   await commands.motion(false);
 });
 
@@ -48,7 +68,9 @@ test("a map that starts after another ended draws on the same application, with 
   const first = await open();
   first.stage.destroy();
   expect(first.host.querySelector("canvas")).toBeNull();
-  expect(idleApps()).toEqual([first.app]);
+  expect(idleApps()).toEqual([
+    first.app,
+  ]);
   expect(first.app.stage.children).toHaveLength(0);
   expect(first.app.ticker.started).toBe(false);
 
@@ -69,12 +91,24 @@ test("two maps live at once draw on two applications, and both come back for the
 
   const c = await open();
   const d = await open();
-  expect(new Set([c.app, d.app])).toEqual(new Set([a.app, b.app]));
+  expect(
+    new Set([
+      c.app,
+      d.app,
+    ]),
+  ).toEqual(
+    new Set([
+      a.app,
+      b.app,
+    ]),
+  );
 });
 
 test("an application whose context was lost is dropped, not handed on", async () => {
   const first = await open();
-  const lose = (first.app.canvas as HTMLCanvasElement).getContext("webgl2")?.getExtension("WEBGL_lose_context");
+  const lose = (first.app.canvas as HTMLCanvasElement)
+    .getContext("webgl2")
+    ?.getExtension("WEBGL_lose_context");
   expect(lose).toBeTruthy();
   lose!.loseContext();
   first.stage.destroy();
