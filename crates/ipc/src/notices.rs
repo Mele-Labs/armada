@@ -87,6 +87,10 @@ pub enum Notice {
     Operator,
     /// The Job that started this one ended it, and said why.
     StartedJobEnded,
+    /// A gate of the plan closed, so the group ends.
+    GateClosed,
+    /// A gate holds: its Checks went red, or `all_done` could not finish when the last gate closed.
+    GateHold,
 }
 
 impl Notice {
@@ -158,6 +162,8 @@ impl Notice {
             Notice::LifecyclesClear => "lifecycles_clear",
             Notice::Operator => "operator",
             Notice::StartedJobEnded => "started_job_ended",
+            Notice::GateClosed => "gate_closed",
+            Notice::GateHold => "gate_hold",
         }
     }
 }

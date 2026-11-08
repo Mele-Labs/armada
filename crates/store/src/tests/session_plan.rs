@@ -35,6 +35,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
         next_group: 2,
         next_task: 10,
         calls: 0,
+        held: None,
         groups: vec![KeptPlanGroup {
             id: "g1".to_string(),
             gives: Some("The page itself.".to_string()),

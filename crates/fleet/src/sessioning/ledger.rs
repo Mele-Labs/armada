@@ -305,6 +305,12 @@ where
         let reply_owed_since = reads.waiting.reply_owed_since();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        // A call held at a gate only the person can close is his to settle.
+        if session.state == store::SessionState::Live {
+            let nothing_runs = record.running.is_empty();
+            let gate = reads.plan.as_ref().and_then(|plan| crate::gate_holding::item_of(plan, &reads.held, &session.id, nothing_runs));
+            record.waiting_for.extend(gate);
+        }
         // A question or a card it waits on: the Operator is handed it on the next tick.
         let asked = if session.state == store::SessionState::Live { record.waiting_for.as_slice() } else { &[] };
         self.operator_seat().asked_noted(&session.id, asked);

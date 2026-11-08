@@ -236,7 +236,7 @@ pub use projects::{
 pub use session_init::KeptInit;
 pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
-pub use session_gates::{KeptGate, KeptGateChecks, CHECKS_GREEN, PLAN_APPROVED};
+pub use session_gates::{KeptGate, KeptGateChecks, KeptGateHold, CHECKS_GREEN, PLAN_APPROVED};
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};
