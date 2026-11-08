@@ -229,6 +229,14 @@ where
             wake.notify_one();
         }
     });
+    // A push of a Job whose `checks_green` gate is open queues its Checks, which run behind every Check.
+    let pushes = Arc::clone(&fleet);
+    tokio::spawn(async move {
+        loop {
+            pushes.gate_runs().woken().await;
+            pushes.gate_checks_started();
+        }
+    });
     tokio::spawn(async move {
         loop {
             woken.notified().await;

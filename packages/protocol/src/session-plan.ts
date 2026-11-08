@@ -54,6 +54,8 @@ export type SessionPlanGroup = {
   gate?: PlanGate;
   /** How its gate closed, kept once when Fleet saw the fact. Absent while it is open, and for a group with no gate. */
   gate_closed?: GateClose;
+  /** The Checks Fleet last ran for this group's `checks_green` gate. Only on the first open group of that gate, and absent once it closes. */
+  gate_checks?: GateChecks;
 };
 
 /**
@@ -67,6 +69,18 @@ export type GateClose = {
   commit?: string;
   already_red?: string[];
   skipped?: true;
+};
+
+/**
+ * Where the Checks Fleet runs for a `checks_green` gate stand while it is open. `state`: `running`, or `red` where a test
+ * failed at `commit` that passes at the base on main. `failed`: those tests. `already_red`: tests that failed at the base on
+ * main too, so they do not hold the gate. Both lists are sent only where they hold any.
+ */
+export type GateChecks = {
+  commit: string;
+  state: "running" | "red";
+  failed?: string[];
+  already_red?: string[];
 };
 
 /**

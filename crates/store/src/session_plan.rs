@@ -53,6 +53,9 @@ pub struct KeptPlanGroup {
     /// How its gate closed, read from the Job's gate rows with the plan. Absent while it is open, and
     /// never written with the plan.
     pub closed: Option<crate::KeptGate>,
+    /// The Job's latest gate-check run, on the first group gated on `checks_green` that is still open.
+    /// Read with the plan and never written with it.
+    pub checks: Option<crate::KeptGateChecks>,
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
@@ -167,6 +170,7 @@ impl Store {
                     seen: row.get::<_, i64>(10)? == 1,
                     gate: row.get(11)?,
                     closed: None,
+                    checks: None,
                     agent: row.get(1)?,
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
@@ -232,6 +236,9 @@ impl Store {
         for group in &mut plan.groups {
             let Some(gate) = group.gate.as_deref() else { continue };
             group.closed = gates.iter().find(|one| one.closes(&group.id, gate, version)).cloned();
+        }
+        if let Some(group) = plan.groups.iter_mut().find(|group| group.gate.as_deref() == Some(crate::CHECKS_GREEN) && group.closed.is_none()) {
+            group.checks = self.session_gate_checks(session_id)?;
         }
         Ok(Some(plan))
     }

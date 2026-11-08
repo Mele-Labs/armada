@@ -431,6 +431,25 @@ pub struct SessionPlanGroup {
     /// and for a group with no gate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gate_closed: Option<GateClose>,
+    /// The latest Check run Fleet made for the group's `checks_green` gate. Only on the first open group
+    /// of that gate, and absent once it closes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_checks: Option<GateChecks>,
+}
+
+/// Where the Checks Fleet runs for a `checks_green` gate stand while the gate is open.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateChecks {
+    /// The commit they ran at.
+    pub commit: String,
+    /// `running`, or `red` where a test failed here that passes at the base on main.
+    pub state: String,
+    /// The tests that failed here and passed at the base.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failed: Vec<String>,
+    /// The tests that failed here and at the base on main too, so they do not hold the gate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub already_red: Vec<String>,
 }
 
 /// A gate's close, written once when Fleet saw its fact and never worked out again.

@@ -133,6 +133,9 @@ pub struct Fleet<H, V, W> {
     /// Each repository's `when_base_moves:` runs, one at a time. Never written down, for
     /// `sweeping`'s reason — `crate::base_moves`.
     base_moves: crate::base_moves::BaseMoves,
+    /// The Checks that close a plan's `checks_green` gates, queued by repository. Never written down —
+    /// `crate::gate_checks`.
+    gate_runs: crate::gate_checks::GateRuns,
     /// What each repository holds and what each slot's holder changed, kept a while. Never written
     /// down, for `sweeping`'s reason; an `Arc` because a read is spawned — `crate::territory`.
     territory: Arc<crate::territory::Territory>,

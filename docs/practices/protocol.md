@@ -1599,3 +1599,17 @@ Bridge's half is `GateClose` and `gate_closed` in `packages/protocol/src/session
 **Written once.** A close is a `session_gates` row, read with the plan; nothing works it out again on a later draw.
 **The live stretch is Bridge's to draw** from these: the first group whose gate is open.
 **Skew.** An older Fleet sends no `gate_closed`, and Bridge draws every gate open.
+
+## A gate's Checks: `gate_checks` on `SessionPlanGroup`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/fleet/src/gate_checks.rs`, `crates/store/migrations/20261108T2300Z-session_gate_checks.table.sql`.
+**One type and one optional field on an existing type**: no operation, route, event kind or error.
+Bridge's half is `GateChecks` and `gate_checks` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlanGroup.gate_checks` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `commit` (seven characters), `state` (`running` or `red`), `failed` where any test failed here and passes at the base on main, `already_red` where any failed at the base too. Only on the first group gated on `checks_green` that is open |
+
+**Absent once the gate closes**, and absent from a group whose gate is not `checks_green`.
+The latest run of a Job is one `session_gate_checks` row, replaced by the next run and removed when the gate closes, and read with the plan.
+**Skew.** An older Fleet sends no `gate_checks`, and Bridge draws the gate with no run under it.

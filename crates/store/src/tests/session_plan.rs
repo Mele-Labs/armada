@@ -42,6 +42,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             own_job: false,
             gate: Default::default(),
             closed: None,
+            checks: None,
             seen: false,
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
@@ -201,4 +202,46 @@ fn each_groups_gate_is_kept_and_a_group_with_none_reads_none() {
     let read = open(&dir).session_plan("s1").unwrap().expect("a plan");
     assert_eq!(read.groups.iter().map(|one| one.gate.as_deref()).collect::<Vec<_>>(), [None, Some("checks_green")]);
     assert_eq!(read, kept);
+}
+
+#[test]
+fn a_gate_check_run_reads_with_the_first_open_checks_green_group() {
+    use crate::{KeptGate, KeptGateChecks};
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut kept = plan(1, &[("t1", "One")]);
+    for id in ["g2", "g3"] {
+        let mut gated = kept.groups[0].clone();
+        gated.id = id.to_string();
+        gated.gate = Some("checks_green".to_string());
+        gated.tasks = vec![task(&format!("t-{id}"), "Two")];
+        kept.groups.push(gated);
+    }
+    store.keep_session_plan("s1", &kept).unwrap();
+    let run = KeptGateChecks {
+        commit: "1b500c4".into(),
+        state: "red".into(),
+        failed: vec!["fleet tests::a".into()],
+        already_red: Vec::new(),
+        at: "2026-11-08T23:00:00.000Z".into(),
+    };
+    store.keep_session_gate_checks("s1", &run).unwrap();
+    let on = |store: &crate::Store| store.session_plan("s1").unwrap().unwrap().groups.iter().map(|one| one.checks.clone()).collect::<Vec<_>>();
+    assert_eq!(on(&store), [None, Some(run.clone()), None]);
+
+    let closed = KeptGate {
+        group_id: "g2".into(),
+        gate: "checks_green".into(),
+        version: 0,
+        closed_at: "2026-11-08T23:30:00.000Z".into(),
+        fact: "Checks passed at 2c611d5".into(),
+        source: "checks:2c611d5".into(),
+        commit: Some("2c611d5".into()),
+        already_red: Vec::new(),
+        skipped: false,
+    };
+    store.close_session_gate("s1", &closed).unwrap();
+    assert_eq!(on(&store), [None, None, Some(run)], "the next open group of the kind reads the row until it is cleared");
+    store.clear_session_gate_checks("s1").unwrap();
+    assert_eq!(on(&store), [None, None, None]);
 }

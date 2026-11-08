@@ -289,6 +289,7 @@ fn pending_plan() -> ipc::SessionPlan {
             own_job: false,
             gate: Default::default(),
             gate_closed: None,
+            gate_checks: None,
             tasks: vec![ipc::SessionPlanTask {
                 id: "t1".to_string(),
                 text: "Rotate at midnight".to_string(),

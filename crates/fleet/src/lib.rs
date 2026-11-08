@@ -85,6 +85,7 @@ mod builds_run;
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
 mod base_moves;
+mod gate_checks;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.

@@ -118,6 +118,7 @@ mod session_release_slot;
 mod test_map;
 mod test_map_feed;
 mod base_moves;
+mod gate_checks;
 mod test_map_reading;
 mod test_map_ci;
 mod folder_jobs;

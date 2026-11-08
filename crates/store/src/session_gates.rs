@@ -13,6 +13,9 @@ use crate::open::Store;
 /// The gate kind that holds for one plan version only.
 pub const PLAN_APPROVED: &str = "plan_approved";
 
+/// The gate kind a Fleet-run Check closes.
+pub const CHECKS_GREEN: &str = "checks_green";
+
 /// One gate that closed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptGate {
@@ -39,6 +42,20 @@ impl KeptGate {
     pub fn closes(&self, group_id: &str, gate: &str, version: u32) -> bool {
         self.group_id == group_id && self.gate == gate && (gate != PLAN_APPROVED || self.version == version)
     }
+}
+
+/// The latest gate-check run of a Job whose `checks_green` gate is open.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptGateChecks {
+    /// The commit Fleet ran at.
+    pub commit: String,
+    /// `running` or `red`.
+    pub state: String,
+    /// Tests that failed here and passed at the base.
+    pub failed: Vec<String>,
+    /// Tests that failed here and at the base on main too.
+    pub already_red: Vec<String>,
+    pub at: String,
 }
 
 fn reading(why: rusqlite::Error) -> WriteError {
@@ -103,5 +120,52 @@ impl Store {
             .map_err(fault("keeping a job's gate"))
             .map_err(WriteError::Database)?;
         Ok(wrote == 1)
+    }
+
+    /// The latest gate-check run of the Job, where it has one.
+    pub fn session_gate_checks(&self, session_id: &str) -> Result<Option<KeptGateChecks>, WriteError> {
+        let lines = |text: Option<String>| text.map(|text| text.lines().map(str::to_string).collect()).unwrap_or_default();
+        self.conn
+            .query_row(
+                "SELECT commit_sha, state, failed, already_red, at FROM session_gate_checks WHERE session_id = ?1",
+                [session_id],
+                |row| {
+                    Ok(KeptGateChecks {
+                        commit: row.get(0)?,
+                        state: row.get(1)?,
+                        failed: lines(row.get(2)?),
+                        already_red: lines(row.get(3)?),
+                        at: row.get(4)?,
+                    })
+                },
+            )
+            .map(Some)
+            .or_else(|why| match why {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(reading(other)),
+            })
+    }
+
+    /// Keep the Job's latest gate-check run, replacing the one before it.
+    pub fn keep_session_gate_checks(&mut self, session_id: &str, run: &KeptGateChecks) -> Result<(), WriteError> {
+        let joined = |names: &[String]| (!names.is_empty()).then(|| names.join("\n"));
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO session_gate_checks (session_id, commit_sha, state, failed, already_red, at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![session_id, run.commit, run.state, joined(&run.failed), joined(&run.already_red), run.at],
+            )
+            .map_err(fault("keeping a job's gate check"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Forget the Job's gate-check run: its gate closed.
+    pub fn clear_session_gate_checks(&mut self, session_id: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("DELETE FROM session_gate_checks WHERE session_id = ?1", [session_id])
+            .map_err(fault("clearing a job's gate check"))
+            .map_err(WriteError::Database)?;
+        Ok(())
     }
 }
