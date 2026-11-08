@@ -1613,3 +1613,21 @@ Bridge's half is `GateChecks` and `gate_checks` in `packages/protocol/src/sessio
 **Absent once the gate closes**, and absent from a group whose gate is not `checks_green`.
 The latest run of a Job is one `session_gate_checks` row, replaced by the next run and removed when the gate closes, and read with the plan.
 **Skew.** An older Fleet sends no `gate_checks`, and Bridge draws the gate with no run under it.
+
+## A held `all_done`: `gate_closed`, `gate_hold`, `WaitingSource::Gate`, `SessionPlan.held`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/ipc/src/notices.rs`, `crates/fleet/src/gate_holding.rs`, `crates/store/migrations/20261109T0000Z-session_gate_holds.table.sql`.
+**Two notice words, one source, one optional field and one receipt field**: no operation, route, event kind or error.
+Bridge's half is `gate_closed` and `gate_hold` in `packages/protocol/src/notices.ts`, `gate` in `WaitingSource` and `GateHeld` and `held` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| Notice `gate_closed` (thread rows, `set_notice_mute`) | Fleet writes, Bridge reads | One line, `Gate closed on "<group title>": <fact>.`, once for each row written |
+| Notice `gate_hold` | Fleet writes, Bridge reads | A red run of a gate's Checks, `Checks failed at <sha>: <tests>.` with `Already red on main: <tests>.` where any were, or `all_done could not finish: <reason>.` |
+| `WaitingSource::Gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Id `gate:<group id>`, text `"<group title>" waits on <what>`, an `answer` act on the Job, and the options `Approve` (choice 0) and `Skip this group` (choice 1). Never kept, and not dismissed |
+| `SessionPlan.held` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `group`, the first group in plan order whose gate is open, and `since`, when the agent first said it was done. Absent when no call is held or no gate is open |
+| `all_done` receipt | Fleet writes, the agent reads | `held`, one line saying which group's gate the call waits on. Absent when the call was taken |
+
+**Derived on every read.** The item is built from the plan, the hold and what runs, so it goes when the gate closes or the hold clears.
+**Skew.** An older Fleet sends no `held` and no `gate` item, and Bridge draws neither.
+

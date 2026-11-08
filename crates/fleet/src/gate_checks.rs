@@ -144,6 +144,18 @@ pub(crate) fn verdict(sha7: &str, ended: &Ended) -> Verdict {
     }
 }
 
+/// What the agent is told of a red run: the tests that failed here, and any red on main as well.
+fn red_said(sha7: &str, failed: &[String], already_red: &[String]) -> String {
+    let mut said = match failed.is_empty() {
+        true => format!("Checks failed at {sha7}."),
+        false => format!("Checks failed at {sha7}: {}.", failed.join(", ")),
+    };
+    if !already_red.is_empty() {
+        said.push_str(&format!(" Already red on main: {}.", already_red.join(", ")));
+    }
+    said
+}
+
 fn short(sha: &str) -> String {
     sha.chars().take(7).collect()
 }
@@ -221,7 +233,7 @@ where
 
     /// One run: the commit pushed, what it changed since the base, the tests those touch, and the
     /// verdict. A reading git or the manifest cannot give is said on the console and ends the run.
-    async fn gate_check_ran(&self, repository: &str, asked: &Asked) {
+    async fn gate_check_ran(self: &Arc<Self>, repository: &str, asked: &Asked) {
         let Some(served) = self.repositories().serving(repository) else { return };
         let id = served.manifest().id().clone();
         let said = |why: String| {
@@ -324,9 +336,11 @@ where
 
     /// A run at `sha` ended. Closes the first open `checks_green` gate where the verdict is green and
     /// keeps the run as red where it is not. Nothing is kept for a Job whose gate has closed.
-    pub(crate) async fn gate_checked(&self, id: &str, sha: &str, ended: Ended) {
+    pub(crate) async fn gate_checked(self: &Arc<Self>, id: &str, sha: &str, ended: Ended) {
         let sha7 = short(sha);
         let now = self.timeline().now();
+        let mut closed = None;
+        let mut red = None;
         let kept = {
             let mut store = self.store().lock().await;
             let Some(group_id) = open_group(&store, id) else { return };
@@ -343,15 +357,24 @@ where
                         already_red,
                         skipped: false,
                     };
-                    store.close_session_gate(id, &gate).is_ok() && store.clear_session_gate_checks(id).is_ok()
+                    let wrote = store.close_session_gate(id, &gate);
+                    closed = wrote.as_ref().is_ok_and(|wrote| *wrote).then_some(gate);
+                    wrote.is_ok() && store.clear_session_gate_checks(id).is_ok()
                 }
                 Verdict::Red { failed, already_red } => {
+                    red = Some(red_said(&sha7, &failed, &already_red));
                     store.keep_session_gate_checks(id, &KeptGateChecks { commit: sha7, state: "red".into(), failed, already_red, at: now }).is_ok()
                 }
             }
         };
         if kept {
             let _ = self.published_hosted(id).await;
+        }
+        if let Some(gate) = closed {
+            self.gates_closed(id, &[gate]).await;
+        }
+        if let Some(text) = red.filter(|_| kept) {
+            let _ = self.told_by_fleet(id, &text, ipc::Notice::GateHold).await;
         }
     }
 }

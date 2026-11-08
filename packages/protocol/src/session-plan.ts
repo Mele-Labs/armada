@@ -156,6 +156,14 @@ export type SessionPlan = {
   sketch?: PlanSketch;
   /** The windows that keep a pending plan from being put to the person. Absent when none does. */
   held_by?: PlanHold[];
+  /** The agent's `all_done` is held at a gate: Fleet finishes the Job when the last gate closes. Absent when no call is held and when no gate is open. */
+  held?: GateHeld;
+};
+
+/** An `all_done` held at the first open gate of the plan. `group`: that group's id. `since`: when the agent first said it was done. */
+export type GateHeld = {
+  group: string;
+  since: string;
 };
 
 /** A window that holds a pending plan back, and why: what settles it. */

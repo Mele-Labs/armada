@@ -260,7 +260,7 @@ where
 {
     /// Keep every gate of the Job whose fact Fleet now sees, and draw the Job again where one closed.
     /// Answers the gates it closed.
-    pub(crate) async fn gates_kept(&self, id: &str) -> Vec<KeptGate> {
+    pub(crate) async fn gates_kept(self: &Arc<Self>, id: &str) -> Vec<KeptGate> {
         let closed = {
             let mut store = self.store().lock().await;
             let Ok(Some(plan)) = store.session_plan(id) else { return Vec::new() };
@@ -281,6 +281,7 @@ where
         };
         if !closed.is_empty() {
             let _ = self.published_hosted(id).await;
+            self.gates_closed(id, &closed).await;
         }
         closed
     }

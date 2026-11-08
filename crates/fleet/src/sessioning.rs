@@ -335,6 +335,7 @@ where
                 if terminal {
                     self.hosts().terminals().turn_began(&id);
                     store.clear_done(&id).map_err(fault)?;
+                    store.clear_session_gate_hold(&id).map_err(fault)?;
                     store.clear_turn_end(&id).map_err(fault)?;
                 }
                 changed = true;

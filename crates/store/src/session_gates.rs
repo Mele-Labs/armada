@@ -58,6 +58,15 @@ pub struct KeptGateChecks {
     pub at: String,
 }
 
+/// The agent's `all_done`, held while a gate of its plan stands open.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptGateHold {
+    /// When the agent first said it. A second call leaves it.
+    pub since: String,
+    /// The agent's summary of the last call that was held.
+    pub summary: Option<String>,
+}
+
 fn reading(why: rusqlite::Error) -> WriteError {
     WriteError::Database(fault("reading a job's gates")(why))
 }
@@ -167,5 +176,41 @@ impl Store {
             .map_err(fault("clearing a job's gate check"))
             .map_err(WriteError::Database)?;
         Ok(())
+    }
+
+    /// The Job's held `all_done`, where it has one.
+    pub fn session_gate_hold(&self, session_id: &str) -> Result<Option<KeptGateHold>, WriteError> {
+        self.conn
+            .query_row("SELECT since, summary FROM session_gate_holds WHERE session_id = ?1", [session_id], |row| {
+                Ok(KeptGateHold { since: row.get(0)?, summary: row.get(1)? })
+            })
+            .map(Some)
+            .or_else(|why| match why {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(reading(other)),
+            })
+    }
+
+    /// Hold the Job's `all_done`. **The first `since` stands** and the summary is replaced.
+    pub fn keep_session_gate_hold(&mut self, session_id: &str, since: &str, summary: Option<&str>) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO session_gate_holds (session_id, since, summary) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(session_id) DO UPDATE SET summary = excluded.summary",
+                params![session_id, since, summary],
+            )
+            .map_err(fault("keeping a job's held done"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Forget the Job's held `all_done`. True where there was one.
+    pub fn clear_session_gate_hold(&mut self, session_id: &str) -> Result<bool, WriteError> {
+        let gone = self
+            .conn
+            .execute("DELETE FROM session_gate_holds WHERE session_id = ?1", [session_id])
+            .map_err(fault("clearing a job's held done"))
+            .map_err(WriteError::Database)?;
+        Ok(gone == 1)
     }
 }

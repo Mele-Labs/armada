@@ -99,6 +99,8 @@ pub struct KeptPlan {
     pub next_task: u32,
     /// How many tool calls the Session's own agent has made since the plan was first recorded.
     pub calls: u32,
+    /// The agent's `all_done`, held while a gate stands open. Read with the plan, kept apart from it.
+    pub held: Option<crate::KeptGateHold>,
     pub groups: Vec<KeptPlanGroup>,
 }
 
@@ -145,6 +147,7 @@ impl Store {
                         set_aside_at: row.get(10)?,
                         calls: row.get(11)?,
                         seen: row.get::<_, i64>(12)? == 1,
+                        held: None,
                         groups: Vec::new(),
                     })
                 },
@@ -240,6 +243,7 @@ impl Store {
         if let Some(group) = plan.groups.iter_mut().find(|group| group.gate.as_deref() == Some(crate::CHECKS_GREEN) && group.closed.is_none()) {
             group.checks = self.session_gate_checks(session_id)?;
         }
+        plan.held = self.session_gate_hold(session_id)?;
         Ok(Some(plan))
     }
 

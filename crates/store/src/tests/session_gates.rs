@@ -56,3 +56,18 @@ fn a_gate_check_run_is_kept_per_job_replaced_by_the_next_and_cleared() {
     assert_eq!(store.session_gate_checks("s1").unwrap(), None);
     assert!(store.session_gate_checks("s2").unwrap().is_some(), "another Job's stands");
 }
+
+#[test]
+fn a_held_done_keeps_its_first_instant_takes_the_latest_summary_and_clears_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert_eq!(store.session_gate_hold("s1").unwrap(), None);
+    store.keep_session_gate_hold("s1", "2026-11-08T11:00:00.000Z", Some("First")).unwrap();
+    store.keep_session_gate_hold("s1", "2026-11-08T12:00:00.000Z", Some("Second")).unwrap();
+    drop(store);
+    let mut store = open(&dir);
+    let held = store.session_gate_hold("s1").unwrap().expect("held");
+    assert_eq!((held.since.as_str(), held.summary.as_deref()), ("2026-11-08T11:00:00.000Z", Some("Second")));
+    assert!(store.clear_session_gate_hold("s1").unwrap());
+    assert!(!store.clear_session_gate_hold("s1").unwrap(), "cleared once");
+}
