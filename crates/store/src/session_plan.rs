@@ -50,6 +50,9 @@ pub struct KeptPlanGroup {
     pub seen: bool,
     /// The fact that ends the group, as the wire's word such as `checks_green`. Absent is `none`.
     pub gate: Option<String>,
+    /// How its gate closed, read from the Job's gate rows with the plan. Absent while it is open, and
+    /// never written with the plan.
+    pub closed: Option<crate::KeptGate>,
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
@@ -163,6 +166,7 @@ impl Store {
                     own_job: row.get::<_, i64>(9)? == 1,
                     seen: row.get::<_, i64>(10)? == 1,
                     gate: row.get(11)?,
+                    closed: None,
                     agent: row.get(1)?,
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
@@ -222,6 +226,12 @@ impl Store {
                 .map_err(reading)?
                 .collect::<Result<_, _>>()
                 .map_err(reading)?;
+        }
+        let gates = self.session_gates(session_id)?;
+        let version = plan.version;
+        for group in &mut plan.groups {
+            let Some(gate) = group.gate.as_deref() else { continue };
+            group.closed = gates.iter().find(|one| one.closes(&group.id, gate, version)).cloned();
         }
         Ok(Some(plan))
     }

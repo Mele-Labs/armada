@@ -41,6 +41,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             lands_in: Some("PR 2".to_string()),
             own_job: false,
             gate: Default::default(),
+            closed: None,
             seen: false,
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),

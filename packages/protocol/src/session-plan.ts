@@ -52,6 +52,21 @@ export type SessionPlanGroup = {
   own_job?: true;
   /** The fact that ends the group, as the agent named it. Absent is `none`. */
   gate?: PlanGate;
+  /** How its gate closed, kept once when Fleet saw the fact. Absent while it is open, and for a group with no gate. */
+  gate_closed?: GateClose;
+};
+
+/**
+ * A gate's close, written once and never worked out again. `fact` is one line ("Pull request #3360 merged").
+ * `already_red`: tests that failed here and at the base on main too, so they did not hold it; sent only where there are
+ * any. `skipped`: the person skipped the group rather than the fact arriving.
+ */
+export type GateClose = {
+  at: string;
+  fact: string;
+  commit?: string;
+  already_red?: string[];
+  skipped?: true;
 };
 
 /**

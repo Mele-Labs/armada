@@ -427,6 +427,27 @@ pub struct SessionPlanGroup {
     /// The fact that ends the group, as the agent named it. Absent is `none`.
     #[serde(default, skip_serializing_if = "PlanGate::is_none")]
     pub gate: PlanGate,
+    /// How the group's gate closed, as Fleet kept it when it saw the fact. Absent while it is open,
+    /// and for a group with no gate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_closed: Option<GateClose>,
+}
+
+/// A gate's close, written once when Fleet saw its fact and never worked out again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateClose {
+    pub at: Instant,
+    /// One line, as a person reads it: "Pull request #3360 merged".
+    pub fact: String,
+    /// The commit it closed at, where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// Tests that failed at the commit and at the base on main too, so they did not hold the gate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub already_red: Vec<String>,
+    /// The person skipped the group rather than the fact arriving.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub skipped: bool,
 }
 
 /// Where a group lands. Every group that shares a label reads the same `pull_request`.

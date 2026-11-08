@@ -200,7 +200,7 @@ where
 }
 
 /// The first words of the person's approval, which [`sketch_approved`] reads it back by.
-const APPROVED: &str = "Approved sketch: ";
+pub(crate) const APPROVED: &str = "Approved sketch: ";
 
 /// The person's message for each answer to a sketch. Words with an approval go on a line after it.
 pub(crate) fn approved(title: &str, words: Option<&str>) -> String {

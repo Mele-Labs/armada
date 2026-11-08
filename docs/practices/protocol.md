@@ -1585,3 +1585,17 @@ Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts
 
 **Why it is a field and not a word read beside the body**, as `seen` is: the gate is what Fleet will record against, so it rides the wire type and a decoder refuses a word it does not know.
 **Skew.** An older Fleet drops `gate` from a plan it is sent, as every Fleet before this one did, and sends none; Bridge reads that as `none`.
+
+## A gate's close: `gate_closed` on `SessionPlanGroup`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/fleet/src/gate_keeping.rs`, `crates/store/migrations/20261108T2200Z-session_gates.table.sql`.
+**One type and one optional field on an existing type**: no operation, route, event kind or error.
+Bridge's half is `GateClose` and `gate_closed` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlanGroup.gate_closed` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `at`, `fact` (one line), `commit` where there is one, `already_red` where any test was red at the base too, `skipped` where he skipped the group. Absent while the gate is open |
+
+**Written once.** A close is a `session_gates` row, read with the plan; nothing works it out again on a later draw.
+**The live stretch is Bridge's to draw** from these: the first group whose gate is open.
+**Skew.** An older Fleet sends no `gate_closed`, and Bridge draws every gate open.
