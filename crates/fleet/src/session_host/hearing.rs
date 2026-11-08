@@ -251,9 +251,9 @@ where
         let shown = {
             let mut store = self.store().lock().await;
             let Ok(Some(session)) = store.session(id) else { return };
-            let worktree = self.worktree_of(&session.cwd);
             let mut shown = false;
             for (path, act) in touched {
+                let worktree = self.worktree_of_touch(&session.cwd, &path);
                 let Some(path) = crate::file_touching::rooted(&worktree, &session.cwd, &home, &path) else { continue };
                 shown |= crate::plan_keeping::touch_kept(&mut store, id, by.clone(), &path, act, &now).unwrap_or(false);
             }

@@ -85,6 +85,20 @@ where
         .unwrap_or_else(|| cwd.to_string())
     }
 
+    /// The worktree a file the Job touched lies in: the slot an absolute `path` is under, else the one
+    /// `cwd` is in. **A Job still being moved into its slot edits there while its `cwd` names the checkout
+    /// it came from**, and rooted at that checkout every edit read `.armada/slots/slot-N/...`, under no
+    /// group's paths (spike 47).
+    pub(crate) fn worktree_of_touch(&self, cwd: &str, path: &str) -> String {
+        if path.starts_with('/') {
+            let held = self.worktree_of(path);
+            if held != path {
+                return held;
+            }
+        }
+        self.worktree_of(cwd)
+    }
+
     pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
