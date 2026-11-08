@@ -4,7 +4,7 @@
 // of its own and is not handed yet is the placeholder card alone. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { JobCard, Tooltip } from "@armada/components";
+import { JobCard, TaskMark, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -14,6 +14,7 @@ import { childrenOf, inHandOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
 import type { ViewGroup } from "./plan-marks";
+import type { SubagentAtWork } from "./subagents-at-work";
 import { Flow, StepRail } from "./StatusPanel";
 import "./flight.css";
 
@@ -102,7 +103,10 @@ export function FlightGroup({
   parent,
   manifestId,
   onOpenSession,
+  atWork = [],
 }: {
+  /** Subagents placed on the group by the paths they edit: a guess, drawn as one. */
+  atWork?: readonly SubagentAtWork[];
   group: ViewGroup;
   step: Step;
   open: boolean;
@@ -164,6 +168,22 @@ export function FlightGroup({
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
         {open ? null : <TaskTrack tasks={group.tasks} />}
+        {atWork.length === 0 ? null : (
+          <span className="sv-flight__agents">
+            {atWork.map((one) => (
+              <Tooltip
+                key={one.id}
+                asChild
+                label={`At work on ${one.task}. Placed here by the paths it edits, a guess`}
+              >
+                <span className="sv-flight__agent">
+                  <TaskMark state="working" />
+                  <code>{one.agentType}</code>
+                </span>
+              </Tooltip>
+            ))}
+          </span>
+        )}
       </button>
       {!open ? null : (
         <div className="sv-flight__open">
@@ -193,7 +213,10 @@ export function FlightRows({
   onOpenSession,
   calm = false,
   all = false,
+  atWork,
 }: {
+  /** Subagents placed on groups by the paths they edit, by group id. */
+  atWork?: ReadonlyMap<string, readonly SubagentAtWork[]>;
   calm?: boolean /** Whole plan: every group open. */;
   all?: boolean;
   groups: readonly ViewGroup[];
@@ -238,6 +261,7 @@ export function FlightRows({
               })
             }
             now={group.id === workingGroup ? now : undefined}
+            atWork={atWork?.get(group.id) ?? []}
             parent={session}
             manifestId={manifestId}
             onOpenSession={onOpenSession}

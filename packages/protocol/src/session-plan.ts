@@ -50,6 +50,44 @@ export type SessionPlanGroup = {
   lands_in: PlanLandsIn;
   /** The group goes to a Job of its own, as the agent wrote it. Sent only where it is true. */
   own_job?: true;
+  /** The fact that ends the group, as the agent named it. Absent is `none`. */
+  gate?: PlanGate;
+  /** Written once, when Fleet saw the gate's fact. Absent while the gate is open, and always where it is `none`. */
+  gate_closed?: GateClose;
+  /** A `checks_green` gate still open: Fleet's Checks at the pushed commit. Absent before the first push. */
+  gate_checks?: GateChecks;
+};
+
+/**
+ * What ends a plan group: a fact Fleet sees for itself, never the agent's word. Groups with no gate between them are one
+ * stretch.
+ */
+export type PlanGate =
+  | "plan_approved"
+  | "walk_approved"
+  | "sketch_approved"
+  | "document_approved"
+  | "checks_green"
+  | "merged"
+  | "none";
+
+export type GateClose = {
+  at: string;
+  /** The line Fleet saw, as the agent is told it: "Checks passed at 1b500c4". */
+  fact: string;
+  /** The commit a Checks or merge gate closed at. */
+  commit?: string;
+  /** A Checks gate: tests red at the pushed commit and at the Job's base on main too, so they did not hold it. Sent only where there is one. */
+  already_red?: string[];
+  /** He pressed Skip this group. */
+  skipped?: true;
+};
+
+export type GateChecks = {
+  commit: string;
+  state: "running" | "red";
+  failed: string[];
+  already_red: string[];
 };
 
 /** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */

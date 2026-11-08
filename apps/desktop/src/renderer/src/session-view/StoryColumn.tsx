@@ -55,11 +55,14 @@ import { WALK_STEP, byKind, madeOf, reportOf, stepOf, unlandedOf, type Made } fr
 import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
+import type { Step } from "./PlanGroup";
+import { GateBeat, GateLine } from "./GateLine";
+import { gated, stretchesOf } from "./stretches";
 import { MARK, stateOf } from "./StatusPanel";
 import { viewOf } from "./plan-marks";
 import { routeOf } from "./route";
 import { SubagentsAtWork } from "./SubagentsAtWork";
-import { subagentsAtWork } from "./subagents-at-work";
+import { subagentsAtWork, type SubagentAtWork } from "./subagents-at-work";
 import { freshestOf } from "./TaskAge";
 import {
   AskBeat,
@@ -209,7 +212,19 @@ export function StoryColumn({
   const actsNow = byFleet.filter((one) => one.state === "under_way");
   const actsComing = byFleet.filter((one) => one.state === "coming");
   const groups = planned ? viewOf(plan, ed.marks) : [];
-  const steps = stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
+  // A plan whose groups end on gates is the workflow: its zones are the stretches between gates, and a group stands where its stretch does, whatever its tasks say.
+  const byGates = approved && !editing && gated(groups);
+  const stretches = byGates ? stretchesOf(groups) : [];
+  const steps = byGates
+    ? new Map(
+        stretches.flatMap((one) =>
+          one.groups.map((group): [string, Step] => [
+            group.id,
+            one.state === "done" ? "done" : one.state === "now" ? "current" : "upcoming",
+          ]),
+        ),
+      )
+    : stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
   // A Job started outside the plan is work in hand in Now until it finishes, then something made in Done.
   const outside = looseChildrenOf(sessions, session);
   const running = outside.filter((child) => !finishedChild(child));
@@ -297,6 +312,35 @@ export function StoryColumn({
     session.asked?.questions?.[0]?.question ??
     (session.asked === undefined ? undefined : session.asked.command);
   const atWork = planned ? [] : subagentsAtWork(session);
+  // With the plan as the workflow, the subagents the Field sees at work stand in the live stretch: listed, or (the other take) each on the group whose paths it edits, drawn as a guess.
+  const helpers: SubagentAtWork[] = !byGates
+    ? []
+    : (work.field ?? []).flatMap((one) =>
+        one.agent === undefined
+          ? []
+          : [
+              {
+                id: one.id,
+                task: one.task ?? one.path,
+                agentType: one.agent,
+              },
+            ],
+      );
+  const placedOn = (one: SubagentAtWork) => {
+    if (work.placeSubagents !== true) return undefined;
+    const drone = work.field?.find((d) => d.id === one.id);
+    const at = drone?.file ?? drone?.path;
+    return at === undefined
+      ? undefined
+      : groups.find((group) => group.paths.some((path) => at.startsWith(path)))?.id;
+  };
+  const placed = new Map<string, SubagentAtWork[]>();
+  const unplaced: SubagentAtWork[] = [];
+  for (const one of helpers) {
+    const group = placedOn(one);
+    if (group === undefined) unplaced.push(one);
+    else placed.set(group, [...(placed.get(group) ?? []), one]);
+  }
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
@@ -331,7 +375,7 @@ export function StoryColumn({
       <AgentTasks todos={todos} working={working_} />
     );
   // With a workflow and a plan group being worked, the list follows the plan's tasks; otherwise it stands under the Agent row.
-  const afterPlan = stepped && working.length > 0;
+  const afterPlan = (stepped || byGates) && working.length > 0;
 
   // Done holds only merged pull requests, so it is landed once it holds one and none is still open.
   const landed =
@@ -465,6 +509,27 @@ export function StoryColumn({
     (work.workflow !== undefined || (work.proposal !== undefined && acts !== undefined)) ? (
       <WorkflowHead work={work} acts={acts} id={id} manifestId={manifestId} />
     ) : null;
+  // The plan's gates as the progress line, under the workflow's name. A press puts that stretch's zone at the top of the spine.
+  const pickStretch = (key: string) => {
+    const name = stretches.find((one) => one.key === key)?.name;
+    if (name === undefined) return;
+    const zone = document.querySelector<HTMLElement>(
+      `.sv-spine section.sv-panel[aria-label="${CSS.escape(name)}"]`,
+    );
+    if (zone === null) return;
+    placeZone(zone, "smooth");
+    zone.querySelector<HTMLElement>(".sv-panel__band")?.focus({
+      preventScroll: true,
+    });
+  };
+  const line = !byGates ? null : <GateLine stretches={stretches} onPick={pickStretch} />;
+  const heading =
+    head === null && line === null ? null : (
+      <div className="sv-story__head">
+        {head}
+        {line}
+      </div>
+    );
 
   // The agent's row says what Fleet saw: stopped and why, stuck on the call it has not come back from, the call it is in and how long, or what it detected. A Job doing
   // nothing draws no row, and never the bare word.
@@ -544,7 +609,9 @@ export function StoryColumn({
         {actsNow.map((one) => (
           <FleetBeat key={one.id} said={one.said} why={one.why} since={one.at} />
         ))}
-        {workflowNow === undefined || stepped ? null : <StepBeat name={workflowNow} state="now" />}
+        {workflowNow === undefined || stepped || byGates ? null : (
+          <StepBeat name={workflowNow} state="now" />
+        )}
         {(waiting ?? []).map((said) => (
           <WaitBeat key={said} text={said} />
         ))}
@@ -573,10 +640,17 @@ export function StoryColumn({
           groups={working}
           workingGroup={workingGroup}
           now={now}
+          atWork={placed}
           session={session}
           manifestId={manifestId}
           onOpenSession={onOpenSession}
         />
+      )}
+      {unplaced.length === 0 ? null : (
+        <section className="sv-helpers" aria-label="Subagents at work">
+          <h4 className="sv-kind__label">Subagents</h4>
+          <SubagentsAtWork rows={unplaced} />
+        </section>
       )}
       {running.length === 0 ? null : (
         <ul className="sv-flight__groups" aria-label="Jobs">
@@ -1072,6 +1146,134 @@ export function StoryColumn({
           </SvPanel>
         );
       });
+  // ---- Zones as the plan's stretches ----
+  // One zone for each run of groups up to a gate, named for all its groups, with the gate as its last row. A finished stretch is folded until pressed and holds its groups and
+  // what was made before its gate closed; the live one holds what Now holds; one to come holds its groups, calm.
+  // A thing made stands in the stretch whose gate closed next after it; one with no time, or made since the last close, stands in the last finished stretch.
+  const closes = stretches.map((one) => one.gate?.closed?.at);
+  const lastClosed = stretches.reduce((found, one, i) => (one.state === "done" ? i : found), -1);
+  const stretchOfTime = (when: string | undefined): number => {
+    if (when === undefined) return lastClosed;
+    const hit = closes.findIndex((at) => at !== undefined && Date.parse(when) <= Date.parse(at));
+    return hit < 0 ? lastClosed : hit;
+  };
+  const madeIn = (i: number): Done[] =>
+    finishedThings.filter((one) => "made" in one && stretchOfTime(one.time) === i);
+  const gateRow = (i: number) => {
+    const stretch = stretches[i]!;
+    return stretch.gate === undefined ? null : (
+      <div className="sv-nav" onKeyDown={arrowsIn}>
+        <ol className="sv-beats" aria-label="Gate">
+          <GateBeat gate={stretch.gate} state={stretch.state} />
+        </ol>
+      </div>
+    );
+  };
+  const gateZones = stretches.map((stretch, i) => {
+    const last = i === stretches.length - 1;
+    if (stretch.state === "done") {
+      const list: Done[] = [
+        ...stretch.groups.map(
+          (group): Done => ({
+            time: groupTime(group),
+            group,
+          }),
+        ),
+        ...madeIn(i),
+      ];
+      const open = own[i] ?? doneFold.open;
+      const { Glyph, said } = MARK.done;
+      return (
+        <SvPanel
+          key={stretch.key}
+          label={stretch.name}
+          area="step-done"
+          place="side"
+          marker={
+            <Tooltip asChild label={said}>
+              <span className="sv-panel__mark" role="img" aria-label={said}>
+                <Glyph size={16} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+          }
+          fold={{
+            open,
+            toggle: () =>
+              setOwn((was) => ({
+                ...was,
+                [i]: !open,
+              })),
+            current: false,
+          }}
+          keycap={bandKeyFor("done")}
+        >
+          <>
+            {underDone(list)}
+            {gateRow(i)}
+          </>
+        </SvPanel>
+      );
+    }
+    if (stretch.state === "now")
+      return (
+        <SvPanel
+          key={stretch.key}
+          label={stretch.name}
+          area="step-now"
+          place="side"
+          state={nowState}
+          acts={nowActs}
+          fold={nowFold}
+          keycap={bandKeyFor("now")}
+        >
+          <>
+            {nowBody}
+            {gateRow(i)}
+            {openShown || alone || (openMade.length === 0 && comingList === null) ? null : (
+              <div className="sv-nav" onKeyDown={arrowsIn}>
+                {openMade.length === 0 ? null : (
+                  <ol className="sv-beats" aria-label="Open">
+                    <li className="sv-beat sv-beat--made">
+                      <MadeList session={session} list={openMade} newest="last" />
+                    </li>
+                  </ol>
+                )}
+                {comingList}
+              </div>
+            )}
+            {last ? landing : null}
+          </>
+        </SvPanel>
+      );
+    return (
+      <SvPanel
+        key={stretch.key}
+        label={stretch.name}
+        area="step-next"
+        place="side"
+        fold={nextFold}
+        keycap={bandKeyFor("next")}
+      >
+        <>
+          <div className="sv-nav" onKeyDown={arrowsIn}>
+            <FlightRows
+              calm
+              all={all}
+              groups={stretch.groups}
+              atWork={placed}
+              workingGroup={undefined}
+              now={undefined}
+              session={session}
+              manifestId={manifestId}
+              onOpenSession={onOpenSession}
+            />
+          </div>
+          {gateRow(i)}
+          {last ? landing : null}
+        </>
+      </SvPanel>
+    );
+  });
   // Open work in one place after the last step, so a folded step never hides it (`OpenGroup.tsx`). Hidden, the current step lists it instead. A pane of its own is always shown.
   const openPanel = (
     <SvPanel
@@ -1093,7 +1295,7 @@ export function StoryColumn({
     </SvPanel>
   );
   const pinned =
-    !stepped || (openMade.length === 0 && comingList === null) ? null : alone ? (
+    !(stepped || byGates) || (openMade.length === 0 && comingList === null) ? null : alone ? (
       openPanel
     ) : !openShown ? null : (
       <OpenGroupMenu>{openPanel}</OpenGroupMenu>
@@ -1102,19 +1304,21 @@ export function StoryColumn({
     const areas = ZONE_AREAS[only];
     return (
       <Spine session={session} single>
-        {only === "now" && head !== null ? <div className="sv-story__head">{head}</div> : null}
+        {only === "now" ? heading : null}
         {only === "deferred"
           ? deferredPanel
-          : stepped
-            ? stepZones.filter((zone) => areas.includes(areaOf(zone) ?? ""))
-            : zones[only]}
+          : byGates
+            ? gateZones.filter((zone) => areas.includes(areaOf(zone) ?? ""))
+            : stepped
+              ? stepZones.filter((zone) => areas.includes(areaOf(zone) ?? ""))
+              : zones[only]}
         {only === "next" ? pinned : null}
       </Spine>
     );
   }
   return (
     <Spine session={session}>
-      {head === null ? null : <div className="sv-story__head">{head}</div>}
+      {heading}
       {brief === undefined ? null : (
         <BriefZone
           key={session.id}
@@ -1124,7 +1328,7 @@ export function StoryColumn({
           onOpenSession={onOpenSession}
         />
       )}
-      {stepped ? stepZones : drawn}
+      {byGates ? gateZones : stepped ? stepZones : drawn}
       {pinned}
       {kept.length === 0 ? null : deferredPanel}
     </Spine>

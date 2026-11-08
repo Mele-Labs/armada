@@ -12,6 +12,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
+import type { GateChecks, GateClose, PlanGate } from "@armada/protocol";
 import type {
   AnswerDocument,
   AnswerSketch,
@@ -355,7 +356,10 @@ export type WorkGroup = {
   paths: readonly string[] /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */;
   issue?: string /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */;
   landsIn?: PlanLandsIn /** The group goes to a Job of its own, started with the group. Until it is handed, Bridge draws it as that Job, not started yet. Fleet sets it from the agent's `own_job`. */;
-  ownJob?: true;
+  ownJob?: true /** The fact Fleet sees that ends the group. Absent is none: the group runs on into the next as one stretch. */;
+  gate?: Exclude<PlanGate, "none"> /** Fleet saw the gate's fact. Absent while it is open. */;
+  gateClosed?: GateClose /** An open Checks gate: Fleet's Checks at the pushed commit. */;
+  gateChecks?: GateChecks;
   tasks: readonly WorkTask[];
 };
 
@@ -503,6 +507,8 @@ export type SessionWork = {
   /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. The spine draws `activity.todos` and not this. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
+  /** Mock only, for the walk's two takes: place each subagent at work on the group whose paths it edits, drawn as a guess. Absent lists them under the stretch. */
+  placeSubagents?: true;
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */

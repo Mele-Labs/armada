@@ -211,6 +211,21 @@ export function planOf(
             ownJob: true as const,
           }
         : {}),
+      ...(group.gate === undefined || group.gate === "none"
+        ? {}
+        : {
+            gate: group.gate,
+          }),
+      ...(group.gate_closed === undefined
+        ? {}
+        : {
+            gateClosed: group.gate_closed,
+          }),
+      ...(group.gate_checks === undefined
+        ? {}
+        : {
+            gateChecks: group.gate_checks,
+          }),
       tasks: group.tasks.map((task) => ({
         id: task.id,
         text: task.text,
