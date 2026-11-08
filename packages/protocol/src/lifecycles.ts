@@ -171,7 +171,11 @@ export type RuleTarget = {
   in_state?: string;
 };
 
-/** The moment a rule is for. `job`'s `event` is `started`, `pull_request_opened`, `landed` or `ended`. */
+/**
+ * The moment a rule is for. `job`'s `event` is `started`, `pull_request_opened`, `landed` or `ended`.
+ * `gate_closes`' `gate` is `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`,
+ * `checks_green` or `merged`.
+ */
 export type RuleWhen =
   | {
       kind: "enters";
@@ -185,6 +189,10 @@ export type RuleWhen =
   | {
       kind: "step_ends";
       step: string;
+    }
+  | {
+      kind: "gate_closes";
+      gate: string;
     }
   | {
       kind: "job";

@@ -51,6 +51,15 @@ The item offers `Approve` and `Skip this group`, and goes when the gate closes.
 `Approve` on a `plan_approved` gate approves the plan, and on any other closes the gate on his word.
 `Skip this group` closes it as skipped.
 
+**A Job's lifecycle rules hear its step moments from the gate rows, never from the rail** (`crates/fleet/src/lifecycles/ruling.rs`, owner, 8 Nov 2026).
+The rail's derived step slid backwards after a merge and moved a merged Job's ticket back, so `step_starts` and `step_ends` no longer follow it.
+A stretch is the groups after the previous gated group, up to and including the next one, and its steps are the groups' ids.
+A close that writes a row ends every group of its stretch, then closes its kind, then starts every group of the next stretch.
+The first stretch starts when the first version of the plan is recorded, and a later version starts nothing.
+`when: { gate_closes: <gate> }` fires on a gate's kind, `plan_approved` to `merged`, so a rule works for a plan the Job wrote itself.
+Each moment is stamped from the row it came from, so a rule runs once for a close however often Fleet hears it.
+A pull request opening is still the Job's own event, `when: { job: pull_request_opened }`.
+
 **A group says which pull request it lands in, so the person can see whether approving means one or two.** Fleet binds a pull request to a `lands_in` label from the Job's ledger and every group that shares the label reads that pull request's number, title and state.
 A group handed to its own Job takes that Job's pull request.
 A pull request opened while a task was in progress takes that task's group's label.

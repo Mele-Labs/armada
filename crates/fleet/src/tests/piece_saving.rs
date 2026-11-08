@@ -117,6 +117,8 @@ on_failure: { retries: 0, then: ask_owner }
 
 const NUDGE: &str = "version: 1\nrule_id: nudge\nname: Nudge\nwhen: { job: landed }\ndo:\n  - tell_agent: { wake: true }\n";
 
+const ON_MERGE: &str = "version: 1\nrule_id: on_merge\nname: On merge\nwhen: { gate_closes: merged }\ndo:\n  - tell_agent: { wake: true }\n";
+
 /// A prompt that is several lines, and words that read as something else unquoted.
 const AWKWARD_RULE: &str = "version: 1
 rule_id: awkward_rule
@@ -198,7 +200,7 @@ async fn the_parsers_own_fixtures_come_back_the_same_through_the_writer() {
         let again = config::parse_lifecycle(Path::new(&saved.file), &written).unwrap_or_else(|why| panic!("{why}\n{written}"));
         assert_eq!(again, read, "{written}");
     }
-    for fixture in [MOVES_TICKETS, EVERYTHING, NUDGE, AWKWARD_RULE] {
+    for fixture in [MOVES_TICKETS, EVERYTHING, NUDGE, ON_MERGE, AWKWARD_RULE] {
         let (read, piece) = rule_of(fixture);
         let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
         let written = std::fs::read_to_string(&saved.file).expect("a file");

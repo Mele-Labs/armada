@@ -92,6 +92,7 @@ where
         if closed.is_empty() {
             return;
         }
+        self.rules_gates_closed(id, closed).await;
         let titles: Vec<String> = {
             let store = self.store().lock().await;
             let plan = store.session_plan(id).ok().flatten();

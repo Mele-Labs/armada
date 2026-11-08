@@ -351,7 +351,7 @@ function readRule(
   | undefined {
   const { rule, kept } = applied;
   const when = rule.when;
-  if (when.kind === "job") return undefined;
+  if (when.kind === "job" || when.kind === "gate_closes") return undefined;
   const from =
     when.kind === "enters"
       ? {

@@ -1,7 +1,7 @@
 //! The When and the If of a rule file, and the two ideas they share with an act's target: which
 //! instances, and in which state.
 
-use core_model::rule::{Among, Condition, JobCondition, JobEvent, Quantity, Target, When, Words};
+use core_model::rule::{Among, Condition, Gate, JobCondition, JobEvent, Quantity, Target, When, Words};
 use core_model::{LifecycleId, StateId, StepId};
 use serde_yaml_ng::Value;
 
@@ -11,9 +11,10 @@ use crate::yaml::{self, Table};
 
 use super::{the_one, yes};
 
-const WHEN_KEYS: &[&str] = &["step_starts", "step_ends", "job", "enters"];
-const WHEN_WANTED: &str = "one of `step_starts`, `step_ends`, `job` or `enters`";
+const WHEN_KEYS: &[&str] = &["step_starts", "step_ends", "gate_closes", "job", "enters"];
+const WHEN_WANTED: &str = "one of `step_starts`, `step_ends`, `gate_closes`, `job` or `enters`";
 const ENTERS_KEYS: &[&str] = &["lifecycle", "state"];
+const GATES: &[&str] = &["plan_approved", "walk_approved", "sketch_approved", "document_approved", "checks_green", "merged"];
 const JOB_EVENTS: &[&str] = &["started", "pull_request_opened", "landed", "ended"];
 
 const CONDITION_KEYS: &[&str] = &["every", "any", "no", "job"];
@@ -34,6 +35,16 @@ pub(super) fn when_of(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option
     match key {
         "step_starts" => yaml::text(&at, value, out).map(|step| When::StepStarts(StepId::new(step))),
         "step_ends" => yaml::text(&at, value, out).map(|step| When::StepEnds(StepId::new(step))),
+        "gate_closes" => {
+            let gate = yaml::text(&at, value, out)?;
+            match Gate::from_wire(&gate) {
+                Some(gate) => Some(When::GateCloses(gate)),
+                None => {
+                    out.push(Refusal::new(at, Fault::NotInTheSchema { value: gate, legal: GATES }));
+                    None
+                }
+            }
+        }
         "job" => {
             let event = yaml::text(&at, value, out)?;
             match JobEvent::from_wire(&event) {
