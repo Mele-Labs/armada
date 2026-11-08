@@ -693,7 +693,7 @@ pub use session_activity::{
 };
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
-    ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGate, PlanGroupInput, PlanMark,
+    ApprovePlan, CheckedPlan, FileTouch, GateChecks, GateClose, PlanChangeLine, PlanChanges, PlanGate, PlanGroupInput, PlanMark,
     PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
     TaskStale, TouchAct, TouchBy, FIRST_PULL_REQUEST, MOST_LANDS_IN_CHARS, MOST_MARKS, TASK_LIST_IS_THE_PLAN,

@@ -25,6 +25,8 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         lands_in: None,
         own_job: false,
         gate: Default::default(),
+        closed: None,
+        checks: None,
         seen: false,
         agent: "rust-engineer".to_string(),
         title: id.to_string(),

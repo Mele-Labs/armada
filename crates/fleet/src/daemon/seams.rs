@@ -442,6 +442,9 @@ where
     pub(crate) fn base_moves(&self) -> &crate::base_moves::BaseMoves {
         &self.base_moves
     }
+    pub(crate) fn gate_runs(&self) -> &crate::gate_checks::GateRuns {
+        &self.gate_runs
+    }
     /// A room in the machine's line of places, asking as `asking`: what a heavy run outside a
     /// Check holds around itself.
     pub(crate) fn room_asking(&self, asking: crate::places::Asking) -> crate::places::Room {

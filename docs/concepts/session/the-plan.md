@@ -18,7 +18,24 @@ The agent gets back the version and each id Fleet gave.
 Absent is `none`, and groups with no gate between them are one stretch.
 A word not on the list is refused with the list, rather than dropped.
 Each group carries its gate on the wire and in `session_plan_groups.gate`; recording the plan again replaces it.
-Fleet does not record a gate closing yet.
+**A gate closes once, on a fact Fleet saw, and stays closed** (`crates/fleet/src/gate_keeping.rs`).
+Fleet keeps a `session_gates` row when it sees the fact, and never works it out again: the rail placed a Job afresh on every draw, so a fact that dropped out moved it backwards.
+His approval of a plan version closes every `plan_approved` gate for that version, and a version recorded again is his to approve again.
+Any other fact closes the first open gate of its kind in plan order, and no other: the merge of a pull request the Job holds, his approval of a page's newest revision or of a sketch, and his Approve once every walk shown stands approved.
+Only facts from after the plan was first recorded count.
+Each gate is watched on its own, so a merge closes its gate while an earlier one is open.
+A group keeps its close through a recording that keeps its id and its gate.
+The group's `gate_closed` carries the close: when, the fact in one line, and the commit where there is one.
+Bridge works out the live stretch from it: the first group whose gate is open, with the groups before it that name none.
+
+**Fleet closes a `checks_green` gate by running Checks itself** (`crates/fleet/src/gate_checks.rs`), never on the agent's word that they passed.
+A push of the Job's branch queues a run while a group gated on `checks_green` is open, and nothing else does.
+The run is the manifest's test Check over the tests the push touched, read as an agent's `armada check test --changed` reads them, in one detached worktree per repository at `.armada/gate-check` that keeps its `target/` between runs.
+It waits for a place behind every Check a Drone waits on, runs one at a time per repository, and a newer push replaces the Job's queued older one.
+A run that fails names its failing tests, and Fleet runs only those at the commit the branch met main at.
+A test red there too is `already_red` and does not hold the gate; a base result is kept per repository, base commit and test, so a base runs a test once.
+Green closes the gate with the fact `Checks passed at <sha>`, with `, <n> already red on main` where tests were, or `: no test touched` where the push touched none.
+While the gate is open the first such group carries `gate_checks`: the commit, `running` or `red`, the tests that failed and the ones also red on main.
 
 **A group says which pull request it lands in, so the person can see whether approving means one or two.** Fleet binds a pull request to a `lands_in` label from the Job's ledger and every group that shares the label reads that pull request's number, title and state.
 A group handed to its own Job takes that Job's pull request.
