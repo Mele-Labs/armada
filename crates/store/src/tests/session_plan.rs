@@ -40,6 +40,7 @@ fn plan(version: u32, tasks: &[(&str, &str)]) -> KeptPlan {
             gives: Some("The page itself.".to_string()),
             lands_in: Some("PR 2".to_string()),
             own_job: false,
+            gate: Default::default(),
             seen: false,
             agent: "rust-engineer".to_string(),
             title: "Store".to_string(),
@@ -182,4 +183,21 @@ fn touches_are_a_bounded_window_oldest_first_and_a_repeat_by_the_same_hand_is_on
     let held = store.session_touches("s1").unwrap();
     assert_eq!(held.iter().map(|one| one.path.as_str()).collect::<Vec<_>>(), ["src/b.rs", "src/c.rs", "src/d.rs"]);
     assert!(store.session_touches("s2").unwrap().is_empty(), "another session's window is its own");
+}
+
+#[test]
+fn each_groups_gate_is_kept_and_a_group_with_none_reads_none() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let mut kept = plan(1, &[("t1", "One")]);
+    let mut gated = kept.groups[0].clone();
+    gated.id = "g2".to_string();
+    gated.gate = Some("checks_green".to_string());
+    gated.tasks = vec![task("t2", "Two")];
+    kept.groups.push(gated);
+    store.keep_session_plan("s1", &kept).unwrap();
+    drop(store);
+    let read = open(&dir).session_plan("s1").unwrap().expect("a plan");
+    assert_eq!(read.groups.iter().map(|one| one.gate.as_deref()).collect::<Vec<_>>(), [None, Some("checks_green")]);
+    assert_eq!(read, kept);
 }

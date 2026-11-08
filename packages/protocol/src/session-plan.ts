@@ -50,7 +50,22 @@ export type SessionPlanGroup = {
   lands_in: PlanLandsIn;
   /** The group goes to a Job of its own, as the agent wrote it. Sent only where it is true. */
   own_job?: true;
+  /** The fact that ends the group, as the agent named it. Absent is `none`. */
+  gate?: PlanGate;
 };
+
+/**
+ * What ends a plan group: a fact Fleet sees for itself, never the agent's word. Groups with no gate between them are one
+ * stretch.
+ */
+export type PlanGate =
+  | "plan_approved"
+  | "walk_approved"
+  | "sketch_approved"
+  | "document_approved"
+  | "checks_green"
+  | "merged"
+  | "none";
 
 /** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */
 export type PlanLandsIn = {
@@ -212,6 +227,8 @@ export type RecordPlan = {
     lands_in?: string;
     /** The group goes to a Job of its own, which the caller starts with `start_another_job` naming the group. Absent is false. */
     own_job?: boolean;
+    /** The fact that ends the group. Absent is `none`; a word not on the list is refused. */
+    gate?: PlanGate;
     tasks: {
       id?: string;
       title: string;
