@@ -146,6 +146,7 @@ mod plan_held;
 mod plan_issues;
 mod gate_holding;
 mod gate_keeping;
+mod gate_rules;
 mod plan_lands_in;
 mod session_plan;
 mod subagent_rows;

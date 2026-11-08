@@ -253,6 +253,9 @@ where
         kept.seen |= kept.groups.iter().any(|group| group.seen);
         let version = kept.version;
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
+        if before.is_none() {
+            self.rules_plan_first_recorded(&id, &kept.groups).await;
+        }
         self.plan_handed(&id, before.as_ref(), &kept).await;
         // A version after one he approved comes once the plan step is passed: it is his to approve again.
         let late = before.as_ref().is_some_and(|one| one.approved_at.is_some());

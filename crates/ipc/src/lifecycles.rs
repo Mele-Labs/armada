@@ -209,6 +209,9 @@ pub enum RuleWhen {
     Enters { lifecycle: String, state: String },
     StepStarts { step: String },
     StepEnds { step: String },
+    /// A gate of the Job's plan closes: `plan_approved`, `walk_approved`, `sketch_approved`,
+    /// `document_approved`, `checks_green` or `merged`.
+    GateCloses { gate: String },
     /// The Job does something as a whole: `started`, `pull_request_opened`, `landed` or `ended`.
     Job { event: String },
 }

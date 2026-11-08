@@ -19,7 +19,7 @@ use crate::lifecycle::{InstanceRef, Moved, Standing};
 use crate::workflow::StepId;
 
 use super::ids::RuleId;
-use super::when::{JobEvent, When};
+use super::when::{Gate, JobEvent, When};
 
 /// What happened.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,6 +28,7 @@ pub enum Happening {
     Entered { instance: InstanceRef, moved: Moved },
     StepStarted(StepId),
     StepEnded(StepId),
+    GateClosed(Gate),
     Job(JobEvent),
 }
 
@@ -54,6 +55,11 @@ impl Occurrence {
 
     pub fn step_ended(step: StepId, at: &str) -> Occurrence {
         Occurrence { happening: Happening::StepEnded(step), at: String::from(at) }
+    }
+
+    /// A gate of the plan closed. `stamp` tells this close from any other of the same kind.
+    pub fn gate_closed(gate: Gate, stamp: &str) -> Occurrence {
+        Occurrence { happening: Happening::GateClosed(gate), at: String::from(stamp) }
     }
 
     pub fn job(event: JobEvent, at: &str) -> Occurrence {
@@ -85,6 +91,7 @@ impl Occurrence {
             }
             (Happening::StepStarted(seen), When::StepStarts(named)) => seen == named,
             (Happening::StepEnded(seen), When::StepEnds(named)) => seen == named,
+            (Happening::GateClosed(seen), When::GateCloses(named)) => seen == named,
             (Happening::Job(seen), When::Job(named)) => seen == named,
             _ => false,
         }
@@ -105,6 +112,7 @@ impl Occurrence {
             }
             Happening::StepStarted(step) => parts.extend([String::from("step_started"), String::from(step.as_str())]),
             Happening::StepEnded(step) => parts.extend([String::from("step_ended"), String::from(step.as_str())]),
+            Happening::GateClosed(gate) => parts.extend([String::from("gate_closed"), String::from(gate.as_wire())]),
             Happening::Job(event) => parts.extend([String::from("job"), String::from(event.as_wire())]),
         }
         parts.push(self.at.clone());

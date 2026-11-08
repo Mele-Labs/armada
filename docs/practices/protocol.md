@@ -1631,3 +1631,16 @@ Bridge's half is `gate_closed` and `gate_hold` in `packages/protocol/src/notices
 **Derived on every read.** The item is built from the plan, the hold and what runs, so it goes when the gate closes or the hold clears.
 **Skew.** An older Fleet sends no `held` and no `gate` item, and Bridge draws neither.
 
+
+## A rule's gate moment: `RuleWhen::GateCloses`
+
+Since 8 Nov 2026. `crates/ipc/src/lifecycles.rs`, `crates/core-model/src/rule/when.rs`, `crates/config/src/rule/moment.rs`.
+**One variant on an existing enum**: no operation, route, event kind or error.
+Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/src/lifecycles.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green` or `merged`. Never `none` |
+
+**A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
+**Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.

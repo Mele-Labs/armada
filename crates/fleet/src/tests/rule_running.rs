@@ -105,7 +105,7 @@ async fn record_of(rig: &Rig, job: &SessionId) -> SessionRecord {
 }
 
 #[tokio::test]
-async fn a_step_starting_and_ending_and_the_pull_request_opening_are_found_by_comparing_two_looks() {
+async fn the_pull_request_opening_is_found_by_comparing_two_looks_and_the_rails_step_moves_nothing() {
     let rig = ruled_on(Arc::new(FakeJudge::saying("nothing")), workflow());
     save(
         &rig,
@@ -128,13 +128,14 @@ async fn a_step_starting_and_ending_and_the_pull_request_opening_are_found_by_co
 
     row.workflow_step = Some(0);
     rig.fleet.rules_looked_at(&row).await;
-    assert!(planned(&rig, &job).await.is_empty(), "entering the first step is not a rule's moment here");
+    row.workflow_step = Some(1);
+    rig.fleet.rules_looked_at(&row).await;
+    row.workflow_step = Some(0);
     rig.fleet.rules_looked_at(&row).await;
     row.workflow_step = Some(1);
     rig.fleet.rules_looked_at(&row).await;
-    rig.fleet.rules_looked_at(&row).await;
     let rules = |kept: Vec<(String, String, String)>| kept.into_iter().map(|one| one.0).collect::<Vec<_>>();
-    assert_eq!(rules(planned(&rig, &job).await), ["tell_on_leaving", "tell_on_steps"], "the step it left, then the one it entered, once each");
+    assert!(planned(&rig, &job).await.is_empty(), "the rail's step moving, forward or back, sets off no step moment");
 
     row.attachments.push(ipc::Attachment {
         kind: "pr".to_string(),
@@ -149,7 +150,7 @@ async fn a_step_starting_and_ending_and_the_pull_request_opening_are_found_by_co
     rig.fleet.rules_looked_at(&row).await;
     assert_eq!(
         rules(planned(&rig, &job).await),
-        ["tell_on_leaving", "tell_on_steps", "tell_on_opening"],
+        ["tell_on_opening"],
         "the opening is heard once, and its If reads the step the look left the Job on"
     );
 }
@@ -160,15 +161,22 @@ async fn a_rule_reads_the_step_a_job_added_to_its_own_copy() {
     save(
         &rig,
         "dispatch.yml",
-        "version: 1\nrule_id: tell_on_dispatch\nname: Tell on dispatch\nwhen: { step_starts: dispatch }\ndo:\n  - tell_agent: { message: \"Dispatch\" }\n",
+        "version: 1\nrule_id: tell_on_dispatch\nname: Tell on dispatch\nwhen: { job: pull_request_opened }\nif:\n  - job: { step: dispatch }\ndo:\n  - tell_agent: { message: \"Dispatch\" }\n",
     );
     let job = on_the_rail(&rig).await;
     change(&rig, &job, dispatch()).await.expect("added after plan");
 
     let mut row = record(&rig, &job).await;
-    row.workflow_step = Some(0);
-    rig.fleet.rules_looked_at(&row).await;
     row.workflow_step = Some(1);
+    row.attachments.push(ipc::Attachment {
+        kind: "pr".to_string(),
+        manifest_id: None,
+        target: "812".to_string(),
+        state: ipc::AttachmentState::Standing,
+        detail: Default::default(),
+        since: ipc::Instant::carried("2026-10-29T10:00:00Z"),
+        changed_at: ipc::Instant::carried("2026-10-29T10:00:00Z"),
+    });
     rig.fleet.rules_looked_at(&row).await;
     let rules = planned(&rig, &job).await.into_iter().map(|one| one.0).collect::<Vec<_>>();
     assert_eq!(rules, ["tell_on_dispatch"], "the Job's second step is the one it added, not the repository's second");
