@@ -214,7 +214,7 @@ export function StoryColumn({
   const groups = planned ? viewOf(plan, ed.marks) : [];
   // A plan whose groups end on gates is the workflow: its zones are the stretches between gates, and a group stands where its stretch does, whatever its tasks say.
   const byGates = approved && !editing && gated(groups);
-  const stretches = byGates ? stretchesOf(groups) : [];
+  const stretches = byGates ? stretchesOf(groups, plan?.held) : [];
   const steps = byGates
     ? new Map(
         stretches.flatMap((one) =>

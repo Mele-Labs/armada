@@ -24,6 +24,7 @@ import {
   type StretchGate,
   type StretchState,
 } from "./stretches";
+import { Since } from "./StoryParts";
 import "./gate-line.css";
 
 export const GATE_GLYPH: Record<GateKind, LucideIcon> = {
@@ -48,7 +49,8 @@ const STATE_SAID: Record<StretchState, string> = {
 
 /** What a gate's glyph says on hover: what it waits for, or the fact that closed it. */
 const gateSaid = (gate: StretchGate): string =>
-  gate.closed?.fact ?? `Waits for: ${GATE_SAID[gate.kind]}`;
+  gate.closed?.fact ??
+  (gate.held === undefined ? `Waits for: ${GATE_SAID[gate.kind]}` : `Held on you: ${GATE_SAID[gate.kind]}`);
 
 export function GateLine({
   stretches,
@@ -116,6 +118,7 @@ export function GateLine({
                       ? ""
                       : undefined
                   }
+                  data-lamp={stretch.gate.held === undefined ? undefined : "needs"}
                 >
                   <Gate size={12} strokeWidth={2} aria-hidden />
                 </span>
@@ -147,6 +150,11 @@ export function GateBeat({ gate, state }: { gate: StretchGate; state: StretchSta
   return (
     <li
       className="sv-beat sv-gate"
+      {...(gate.held === undefined
+        ? {}
+        : {
+            "data-lamp": "needs",
+          })}
       data-state={
         closed !== undefined
           ? "done"
@@ -157,13 +165,37 @@ export function GateBeat({ gate, state }: { gate: StretchGate; state: StretchSta
               : "next"
       }
     >
-      <Tooltip asChild label={closed === undefined ? "Gate, open" : "Gate, closed by Fleet"}>
-        <span className="armada-session-mark sv-beat__lead" role="img" aria-label="Gate">
+      <Tooltip
+        asChild
+        label={
+          closed !== undefined
+            ? "Gate, closed by Fleet"
+            : gate.held !== undefined
+              ? "Gate, the Job is held on you"
+              : "Gate, open"
+        }
+      >
+        <span
+          className="armada-session-mark sv-beat__lead"
+          role="img"
+          aria-label="Gate"
+          {...(gate.held === undefined
+            ? {}
+            : {
+                "data-pulsing": "",
+              })}
+        >
           <Gate size={12} strokeWidth={2} aria-hidden />
         </span>
       </Tooltip>
       <span className="sv-beat__label">{said}</span>
-      {closed === undefined ? <span /> : <Stamp at={closed.at} className="sv-beat__figure" />}
+      {closed !== undefined ? (
+        <Stamp at={closed.at} className="sv-beat__figure" />
+      ) : gate.held !== undefined ? (
+        <Since at={gate.held} said="Held on you for" />
+      ) : (
+        <span />
+      )}
       {failed.length === 0 && red.length === 0 ? null : (
         <ul className="sv-gate__red" aria-label="Tests">
           {failed.map((test) => (

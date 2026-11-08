@@ -446,7 +446,11 @@ export type WorkPlan = {
   setAside?: true /** What changed since the plan before this one. */;
   changes?: PlanChanges /** The sketch drawn with the plan, if the agent drew one. */;
   sketch?: WorkSketch /** The thread row that recorded it, which the approved plan settles after. */;
-  after?: string;
+  after?: string /** The Job ended its work and is held on this group's open gate, with nothing of it running, since then. */;
+  held?: {
+    group: string;
+    since: string;
+  };
 };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */

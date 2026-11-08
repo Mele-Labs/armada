@@ -103,7 +103,7 @@ const groups = (stage: number): WorkGroup[] => [
       },
     ],
     gate: "walk_approved",
-    ...(stage === 0
+    ...(stage < 2
       ? {}
       : {
           gateClosed: closedAt(
@@ -123,16 +123,16 @@ const groups = (stage: number): WorkGroup[] => [
       {
         id: "D1",
         text: "Delete files past the keep count",
-        state: stage === 0 ? "open" : stage === 1 ? "working" : "done",
+        state: stage < 2 ? "open" : stage === 2 ? "working" : "done",
       },
       {
         id: "D2",
         text: "Test the prune",
-        state: stage < 2 ? "open" : stage === 2 ? "working" : "done",
+        state: stage < 3 ? "open" : stage === 3 ? "working" : "done",
       },
     ],
     gate: "checks_green",
-    ...(stage === 2
+    ...(stage === 3
       ? {
           gateChecks: {
             commit: "9c41e2a",
@@ -145,7 +145,7 @@ const groups = (stage: number): WorkGroup[] => [
             ],
           },
         }
-      : stage === 3
+      : stage === 4
         ? {
             gateClosed: closedAt("2026-10-26T14:21:00.000Z", "Checks passed at 1b500c4", {
               commit: "1b500c4",
@@ -193,7 +193,7 @@ const field = (stage: number): WorkDrone[] =>
           file: "apps/desktop/src/renderer/src/system/AuditFiles.tsx",
         },
       ]
-    : stage < 3
+    : stage === 2 || stage === 3
       ? [
           {
             id: "prune",
@@ -226,6 +226,15 @@ const staged =
             plan: {
               ...one.work.plan,
               groups: groups(stage),
+              // Its subagents done and its turn ended, the Job is held on the walk's gate until he answers.
+              ...(stage === 1
+                ? {
+                    held: {
+                      group: "f3",
+                      since: "2026-10-26T14:02:00.000Z",
+                    },
+                  }
+                : {}),
             },
             field: field(stage),
             ...(placed
@@ -265,9 +274,9 @@ export const planAsProgress = (name: string, says: string, placed: boolean): Sce
       let stage = 0;
       return {
         ...store,
-        // Time passes: the walk is approved, then Checks fail, then they pass.
+        // Time passes: the Job is held on the walk, the walk is approved, then Checks fail, then they pass.
         later: () => {
-          if (stage >= 3) return;
+          if (stage >= 4) return;
           stage += 1;
           store.edit(BUSY, staged(stage, placed));
         },

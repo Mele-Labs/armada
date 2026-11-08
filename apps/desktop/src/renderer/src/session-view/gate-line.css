@@ -167,3 +167,18 @@
   border-color: color-mix(in srgb, var(--step-failed) 60%, var(--border-default));
   color: var(--step-failed);
 }
+
+/* Held on him: the gate takes the Needs you lamp's hue and pulses where it lives, on the line and on its row. */
+.sv-gates__step .sv-gates__gate[data-lamp="needs"] {
+  border-color: color-mix(in srgb, var(--status-awaiting-review) 60%, var(--border-default));
+  color: var(--status-awaiting-review);
+  animation: sv-lamp-pulse 1.6s ease-in-out infinite;
+}
+.sv-gate[data-lamp="needs"] .sv-beat__lead {
+  color: var(--status-awaiting-review);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-gates__step .sv-gates__gate[data-lamp="needs"] {
+    animation: none;
+  }
+}

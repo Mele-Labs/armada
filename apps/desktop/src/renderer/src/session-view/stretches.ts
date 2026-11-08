@@ -13,6 +13,8 @@ export type StretchGate = {
   kind: GateKind;
   closed: GateClose | undefined;
   checks: GateChecks | undefined;
+  /** The Job is held on this gate, waiting on him: since when. */
+  held: string | undefined;
 };
 
 export type Stretch<G extends WorkGroup = WorkGroup> = {
@@ -29,7 +31,13 @@ export type Stretch<G extends WorkGroup = WorkGroup> = {
 export const gated = (groups: readonly WorkGroup[]): boolean =>
   groups.some((group) => group.gate !== undefined);
 
-export function stretchesOf<G extends WorkGroup>(groups: readonly G[]): Stretch<G>[] {
+export function stretchesOf<G extends WorkGroup>(
+  groups: readonly G[],
+  held?: {
+    group: string;
+    since: string;
+  },
+): Stretch<G>[] {
   const runs: G[][] = [];
   let run: G[] = [];
   for (const group of groups) {
@@ -50,6 +58,7 @@ export function stretchesOf<G extends WorkGroup>(groups: readonly G[]): Stretch<
             kind: end.gate,
             closed: end.gateClosed,
             checks: end.gateChecks,
+            held: held?.group === end.id && end.gateClosed === undefined ? held.since : undefined,
           };
     const closed = gate?.closed !== undefined;
     const state: StretchState = closed ? "done" : live ? "next" : "now";
