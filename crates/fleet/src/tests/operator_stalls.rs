@@ -90,6 +90,7 @@ async fn planned(rig: &Rig, id: &SessionId) {
             gives: None,
             lands_in: None,
             own_job: false,
+            gate: Default::default(),
             tasks: ["Find where the scrollback is dropped", "Keep the scrollback on redraw"]
                 .into_iter()
                 .map(|title| PlanTaskInput { id: None, title: title.into() })

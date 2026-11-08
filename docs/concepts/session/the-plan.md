@@ -13,6 +13,13 @@ A group or task may send back the `id` Fleet gave it.
 Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan.
 The agent gets back the version and each id Fleet gave.
 
+**A group names the gate that ends it: a fact Fleet sees for itself, never the agent's word** (owner, 8 Nov 2026).
+`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, or `none`.
+Absent is `none`, and groups with no gate between them are one stretch.
+A word not on the list is refused with the list, rather than dropped.
+Each group carries its gate on the wire and in `session_plan_groups.gate`; recording the plan again replaces it.
+Fleet does not record a gate closing yet.
+
 **A group says which pull request it lands in, so the person can see whether approving means one or two.** Fleet binds a pull request to a `lands_in` label from the Job's ledger and every group that shares the label reads that pull request's number, title and state.
 A group handed to its own Job takes that Job's pull request.
 A pull request opened while a task was in progress takes that task's group's label.

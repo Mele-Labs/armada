@@ -473,6 +473,8 @@ export type SessionsRead =
   | {
       state: "read";
       sessions: SessionRecord[];
+      /** When Fleet answered this list whole, in epoch milliseconds. Absent on the picture kept on disk, and after a read that failed: such a list may lack a Job that is live. */
+      listedAt?: number;
     }
   | {
       state: "failed";
