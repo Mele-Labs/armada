@@ -115,7 +115,7 @@ pub fn changed_since(worktree: &Path, base: &str) -> Result<Vec<String>, NotRead
     Ok(paths)
 }
 
-fn git(dir: &Path, args: &[&str]) -> Result<String, NotRead> {
+pub(crate) fn git(dir: &Path, args: &[&str]) -> Result<String, NotRead> {
     let ran = read_in(&dir.to_string_lossy(), "git", args)
         .map_err(|why| NotRead(format!("git {} could not run: {why}", args[0])))?;
     if !ran.status.success() {

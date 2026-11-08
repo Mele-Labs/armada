@@ -179,6 +179,11 @@ export function planOf(
       : {
           setAside: true as const,
         }),
+    ...(plan.held === undefined
+      ? {}
+      : {
+          held: plan.held,
+        }),
     groups: plan.groups.map((group) => ({
       id: group.id,
       agent: group.agent,

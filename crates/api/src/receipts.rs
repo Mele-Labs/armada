@@ -74,6 +74,9 @@ enum Set<'a> {
         done: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         done_since: Option<&'a str>,
+        /// Where the call was held rather than taken: the group whose gate is open.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        held: Option<String>,
     },
 }
 
@@ -299,11 +302,17 @@ impl<'a> Receipt<'a> {
 
     pub(crate) fn done(record: &'a SessionRecord) -> Self {
         let done_since = record.done_since.as_ref().map(|at| at.as_str());
+        let held = record.plan.as_ref().and_then(|plan| {
+            let held = plan.held.as_ref()?;
+            let group = plan.groups.iter().find(|group| group.id == held.group)?;
+            Some(format!("on the gate of \"{}\" ({}). Fleet finishes the Job when it closes.", group.title, group.gate.word()))
+        });
         Receipt::of(
             record,
             Set::Done {
                 done: done_since.is_some(),
                 done_since,
+                held,
             },
         )
     }

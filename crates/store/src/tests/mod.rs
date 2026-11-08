@@ -45,6 +45,7 @@ mod usage_summary;
 mod usage_spent;
 mod session_plan;
 mod session_focus;
+mod session_gates;
 mod session_rail;
 mod session_tells;
 mod session_later;

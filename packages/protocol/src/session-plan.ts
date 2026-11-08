@@ -52,10 +52,35 @@ export type SessionPlanGroup = {
   own_job?: true;
   /** The fact that ends the group, as the agent named it. Absent is `none`. */
   gate?: PlanGate;
-  /** Written once, when Fleet saw the gate's fact. Absent while the gate is open, and always where it is `none`. */
+  /** How its gate closed, kept once when Fleet saw the fact. Absent while it is open, and for a group with no gate. */
   gate_closed?: GateClose;
-  /** A `checks_green` gate still open: Fleet's Checks at the pushed commit. Absent before the first push. */
+  /** The Checks Fleet last ran for this group's `checks_green` gate. Only on the first open group of that gate, and absent once it closes. */
   gate_checks?: GateChecks;
+};
+
+/**
+ * A gate's close, written once and never worked out again. `fact` is one line ("Pull request #3360 merged").
+ * `already_red`: tests that failed here and at the base on main too, so they did not hold it; sent only where there are
+ * any. `skipped`: the person skipped the group rather than the fact arriving.
+ */
+export type GateClose = {
+  at: string;
+  fact: string;
+  commit?: string;
+  already_red?: string[];
+  skipped?: true;
+};
+
+/**
+ * Where the Checks Fleet runs for a `checks_green` gate stand while it is open. `state`: `running`, or `red` where a test
+ * failed at `commit` that passes at the base on main. `failed`: those tests. `already_red`: tests that failed at the base on
+ * main too, so they do not hold the gate. Both lists are sent only where they hold any.
+ */
+export type GateChecks = {
+  commit: string;
+  state: "running" | "red";
+  failed?: string[];
+  already_red?: string[];
 };
 
 /**
@@ -70,25 +95,6 @@ export type PlanGate =
   | "checks_green"
   | "merged"
   | "none";
-
-export type GateClose = {
-  at: string;
-  /** The line Fleet saw, as the agent is told it: "Checks passed at 1b500c4". */
-  fact: string;
-  /** The commit a Checks or merge gate closed at. */
-  commit?: string;
-  /** A Checks gate: tests red at the pushed commit and at the Job's base on main too, so they did not hold it. Sent only where there is one. */
-  already_red?: string[];
-  /** He pressed Skip this group. */
-  skipped?: true;
-};
-
-export type GateChecks = {
-  commit: string;
-  state: "running" | "red";
-  failed: string[];
-  already_red: string[];
-};
 
 /** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */
 export type PlanLandsIn = {
@@ -150,6 +156,14 @@ export type SessionPlan = {
   sketch?: PlanSketch;
   /** The windows that keep a pending plan from being put to the person. Absent when none does. */
   held_by?: PlanHold[];
+  /** The agent's `all_done` is held at a gate: Fleet finishes the Job when the last gate closes. Absent when no call is held and when no gate is open. */
+  held?: GateHeld;
+};
+
+/** An `all_done` held at the first open gate of the plan. `group`: that group's id. `since`: when the agent first said it was done. */
+export type GateHeld = {
+  group: string;
+  since: string;
 };
 
 /** A window that holds a pending plan back, and why: what settles it. */

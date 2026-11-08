@@ -1,20 +1,22 @@
 //! Running the rules a Job started with: what happens to it is handed to the engine, and what the
 //! engine plans is kept.
 //!
-//! **Three things are heard.** An instance moved (every reader comes through
-//! [`Fleet::lifecycle_seen`]), a step started or ended, and the Job did something (opened its
-//! pull request, landed, ended). The last two are found by comparing two looks at the Job, from the
-//! tap that already hears every Job's row change ([`looking`]).
+//! **Four things are heard.** An instance moved (every reader comes through
+//! [`Fleet::lifecycle_seen`]), a gate of the Job's plan closed, a step started or ended, and the Job
+//! did something (opened its pull request, landed, ended). The Job's own events are found by
+//! comparing two looks at it, from the tap that already hears every Job's row change ([`looking`]).
+//! **A step moment is a gate row's**: a group's stretch ends when its gate closes and the next one
+//! starts, and the first starts when the plan is first recorded.
 //!
 //! **Planned in one hold of the store, with the pairs that made the plan**, so a Fleet that stops
 //! between hearing and doing neither loses an act nor plans it twice. Doing it is [`super::acting`]'s.
 //!
 //! **A Job with no copy is never planned for**: the check is a row, and no file is read for it.
 
-use core_model::rule::{ActKind, Course, Engine, JobEvent, JobFacts, Occurrence, RanOnce, RuleId, Words};
+use core_model::rule::{ActKind, Course, Engine, Gate, JobEvent, JobFacts, Occurrence, RanOnce, RuleId, Words};
 use core_model::{InstanceRef, Lifecycle, Moved, StepId, Standing};
 use ipc::{SessionRecord, SessionState};
-use store::{rule_act_standing as standing, KeptSeen, NewRuleAct, Store, WriteError};
+use store::{rule_act_standing as standing, KeptGate, KeptPlanGroup, KeptSeen, NewRuleAct, Store, WriteError};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
@@ -110,6 +112,37 @@ pub(crate) fn plan_and_keep(
         .collect();
     // A not carried act is among them: it settled as it was kept, and the Job is drawn again for it.
     store.keep_rule_plan(session, &written, &newly, &acts, at)
+}
+
+/// Whether the group names a gate, as the plan keeps it: absent and `none` are the same.
+fn gated(group: &KeptPlanGroup) -> bool {
+    group.gate.as_deref().is_some_and(|word| word != "none")
+}
+
+/// The groups from the one after `after` (the first, where there is none) up to and including the
+/// next group with a gate, or to the end of the plan where no more is gated.
+fn stretch_after(groups: &[KeptPlanGroup], after: Option<usize>) -> impl Iterator<Item = &KeptPlanGroup> {
+    let from = after.map_or(0, |at| at + 1);
+    let to = groups.iter().skip(from).position(gated).map_or(groups.len(), |at| from + at + 1);
+    groups.get(from..to).unwrap_or_default().iter()
+}
+
+/// What one closed gate makes happen to the Job, in order: its stretch's steps end, the gate's kind
+/// closes, the next stretch's steps start. **Nothing for a group the plan no longer has.**
+fn gate_moments(groups: &[KeptPlanGroup], row: &KeptGate) -> Vec<Occurrence> {
+    let Some(at) = groups.iter().position(|group| group.id == row.group_id) else { return Vec::new() };
+    let previous = groups[..at].iter().rposition(gated);
+    let stamp = |kind: &str, group: &str| format!("gate:{}:{}:{}:{kind}:{group}", row.group_id, row.gate, row.version);
+    let mut moments: Vec<Occurrence> = stretch_after(&groups[..=at], previous)
+        .map(|group| Occurrence::step_ended(StepId::new(&group.id), &stamp("ends", &group.id)))
+        .collect();
+    if let Some(gate) = Gate::from_wire(&row.gate) {
+        moments.push(Occurrence::gate_closed(gate, &stamp("closes", &row.group_id)));
+    }
+    moments.extend(
+        stretch_after(groups, Some(at)).map(|group| Occurrence::step_started(StepId::new(&group.id), &stamp("starts", &group.id))),
+    );
+    moments
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -208,7 +241,7 @@ where
             _ => None,
         };
         let now = KeptSeen {
-            step,
+            step: None,
             pull_request_opened: opened_pull_request(&record.attachments),
             landed: landed(&record.attachments),
             ended: record.state == SessionState::Ended,
@@ -224,7 +257,8 @@ where
             if same_look(&before, &now) {
                 return;
             }
-            let facts = facts_from(&now, record.workflow.as_deref());
+            // The step is read for an `if` and is never kept or compared: a look is kept without it.
+            let facts = facts_from(&KeptSeen { step, ..now.clone() }, record.workflow.as_deref());
             let manifest = record.manifest_id.as_ref().map(|id| id.as_str());
             let writes = self.writes_for(manifest);
             let mut kept = Vec::new();
@@ -233,8 +267,6 @@ where
                 counted += 1;
                 let stamp = format!("look-{counted}");
                 let seen = match happened {
-                    Happened::StepEnded(step) => Occurrence::step_ended(StepId::new(step), &stamp),
-                    Happened::StepStarted(step) => Occurrence::step_started(StepId::new(step), &stamp),
                     Happened::PullRequestOpened => Occurrence::job(JobEvent::PullRequestOpened, &stamp),
                     Happened::Landed => Occurrence::job(JobEvent::Landed, &stamp),
                     Happened::Ended => Occurrence::job(JobEvent::Ended, &stamp),
@@ -246,6 +278,55 @@ where
             kept
         };
         self.rules_published(session, &kept).await;
+    }
+
+    /// Gates of the Job's plan closed just now (`closed` are rows written now, and none else). For each,
+    /// in order: every group of the stretch it ends has its step end, the gate's kind closes, and every
+    /// group of the next stretch has its step start. **A stretch is the groups from just after the
+    /// previous gated group to this one**, so a group with no gate runs on into the next gated one.
+    ///
+    /// Each stamp names the row it came from, so a second hearing of one close plans nothing.
+    pub(crate) async fn rules_gates_closed(&self, session: &str, closed: &[KeptGate]) {
+        let at = self.now().as_str().to_string();
+        let kept = {
+            let mut store = self.store().lock().await;
+            if !store.has_job_copy(session).unwrap_or(false) {
+                return;
+            }
+            let Some(plan) = store.session_plan(session).ok().flatten() else { return };
+            let seen: Vec<Occurrence> = closed.iter().flat_map(|row| gate_moments(&plan.groups, row)).collect();
+            self.rules_planned(&mut store, session, &seen, &at)
+        };
+        self.rules_published(session, &kept).await;
+    }
+
+    /// The first version of a plan was recorded: the first stretch starts.
+    pub(crate) async fn rules_plan_first_recorded(&self, session: &str, groups: &[KeptPlanGroup]) {
+        let at = self.now().as_str().to_string();
+        let kept = {
+            let mut store = self.store().lock().await;
+            if !store.has_job_copy(session).unwrap_or(false) {
+                return;
+            }
+            let seen: Vec<Occurrence> = stretch_after(groups, None)
+                .map(|group| Occurrence::step_started(StepId::new(&group.id), &format!("plan:first:{}", group.id)))
+                .collect();
+            self.rules_planned(&mut store, session, &seen, &at)
+        };
+        self.rules_published(session, &kept).await;
+    }
+
+    /// Hand each of `seen` to the Job's rules, in one hold of the store. The ids of the acts kept.
+    fn rules_planned(&self, store: &mut Store, session: &str, seen: &[Occurrence], at: &str) -> Vec<i64> {
+        let Ok(facts) = facts_of(store, session) else { return Vec::new() };
+        let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
+        let writes = self.writes_for(manifest.as_deref());
+        let mut kept = Vec::new();
+        for one in seen {
+            let built_in = self.built_in_lifecycles(manifest.as_deref());
+            kept.extend(plan_and_keep(store, session, one, &facts, at, &writes, built_in).unwrap_or_default());
+        }
+        kept
     }
 
     /// Draw the Job again where its rules kept something, so an Asks item reaches Bridge and the

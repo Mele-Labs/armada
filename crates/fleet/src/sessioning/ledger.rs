@@ -85,6 +85,20 @@ where
         .unwrap_or_else(|| cwd.to_string())
     }
 
+    /// The worktree a file the Job touched lies in: the slot an absolute `path` is under, else the one
+    /// `cwd` is in. **A Job still being moved into its slot edits there while its `cwd` names the checkout
+    /// it came from**, and rooted at that checkout every edit read `.armada/slots/slot-N/...`, under no
+    /// group's paths (spike 47).
+    pub(crate) fn worktree_of_touch(&self, cwd: &str, path: &str) -> String {
+        if path.starts_with('/') {
+            let held = self.worktree_of(path);
+            if held != path {
+                return held;
+            }
+        }
+        self.worktree_of(cwd)
+    }
+
     pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
@@ -305,6 +319,12 @@ where
         let reply_owed_since = reads.waiting.reply_owed_since();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        // A call held at a gate only the person can close is his to settle.
+        if session.state == store::SessionState::Live {
+            let nothing_runs = record.running.is_empty();
+            let gate = reads.plan.as_ref().and_then(|plan| crate::gate_holding::item_of(plan, &reads.held, &session.id, nothing_runs));
+            record.waiting_for.extend(gate);
+        }
         // A question or a card it waits on: the Operator is handed it on the next tick.
         let asked = if session.state == store::SessionState::Live { record.waiting_for.as_slice() } else { &[] };
         self.operator_seat().asked_noted(&session.id, asked);

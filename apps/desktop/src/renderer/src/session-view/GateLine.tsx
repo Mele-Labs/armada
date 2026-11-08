@@ -138,7 +138,7 @@ export function GateBeat({ gate, state }: { gate: StretchGate; state: StretchSta
   // While a Checks gate is open, Fleet's run at the pushed commit stands on its row: running, or red with what failed.
   const checks = closed === undefined ? gate.checks : undefined;
   const red = closed?.already_red ?? checks?.already_red ?? [];
-  const failed = checks?.state === "red" ? checks.failed : [];
+  const failed = checks?.state === "red" ? (checks.failed ?? []) : [];
   const said =
     closed !== undefined
       ? closed.fact
