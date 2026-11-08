@@ -84,7 +84,7 @@ const tabModFaults = walk("job-layouts", [
     say: "The tab draws",
   },
   {
-    press: role("switch", "Review-queue"),
+    press: role("switch", "Review queue"),
     say: "The Job's thread holds the mod's switch: off",
   },
   {
@@ -92,7 +92,7 @@ const tabModFaults = walk("job-layouts", [
     say: "The tab is empty and says why",
   },
   {
-    press: role("switch", "Review-queue"),
+    press: role("switch", "Review queue"),
     say: "On",
   },
   {
