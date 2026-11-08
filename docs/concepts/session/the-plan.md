@@ -37,6 +37,20 @@ A test red there too is `already_red` and does not hold the gate; a base result 
 Green closes the gate with the fact `Checks passed at <sha>`, with `, <n> already red on main` where tests were, or `: no test touched` where the push touched none.
 While the gate is open the first such group carries `gate_checks`: the commit, `running` or `red`, the tests that failed and the ones also red on main.
 
+**The agent is told when a gate closes, and `all_done` waits for every gate** (`crates/fleet/src/gate_holding.rs`, owner, 8 Nov 2026).
+Each close sends one line, `Gate closed on "<group title>": <fact>.`, from one funnel, and only for a row written then.
+A red run of the Checks sends one line too, `Checks failed at <sha>: <tests>.`, with `Already red on main: <tests>.` after it where any were.
+`all_done` is held, not refused, while a group of the plan has a gate open.
+Fleet keeps the call and its summary in `session_gate_holds`, stamps no `done_since`, and answers that the call was held and on which group.
+Open follow-ups still refuse it, and the in-flight reason is skipped, since the gate covers it.
+When the last gate closes Fleet runs the call itself, and tells the agent if it is refused.
+A call held stops standing as `done_since` does: when he writes, or a turn of the agent's own begins.
+A held call reaches the person in Needs you only for a gate nothing in the Job can close, and only while nothing in the Job runs.
+That is an approval of any kind, a merge no open pull request is on the way to, or Checks no run has begun.
+The item offers `Approve` and `Skip this group`, and goes when the gate closes.
+`Approve` on a `plan_approved` gate approves the plan, and on any other closes the gate on his word.
+`Skip this group` closes it as skipped.
+
 **A group says which pull request it lands in, so the person can see whether approving means one or two.** Fleet binds a pull request to a `lands_in` label from the Job's ledger and every group that shares the label reads that pull request's number, title and state.
 A group handed to its own Job takes that Job's pull request.
 A pull request opened while a task was in progress takes that task's group's label.

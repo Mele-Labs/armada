@@ -576,6 +576,19 @@ pub struct SessionPlan {
     /// The windows that keep a pending plan from being put to the person, each with what settles it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_by: Vec<PlanHold>,
+    /// The agent's `all_done` is held at a gate: Fleet finishes the Job when the last gate closes.
+    /// Absent when no call is held, and when no gate is open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<GateHeld>,
+}
+
+/// An `all_done` held at the first open gate of the plan.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateHeld {
+    /// The id of the first group, in plan order, whose gate is open.
+    pub group: String,
+    /// When the agent first said it was done.
+    pub since: Instant,
 }
 
 /// A window that holds a pending plan back.

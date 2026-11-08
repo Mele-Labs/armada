@@ -14,7 +14,7 @@
 
 use ipc::{
     Instant, PlanChanges, PlanGroupInput, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    FIRST_PULL_REQUEST, GateChecks, GateClose, PlanGate, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo,
+    FIRST_PULL_REQUEST, GateChecks, GateHeld, GateClose, PlanGate, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo,
 };
 use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask};
 
@@ -215,6 +215,7 @@ pub(crate) fn recorded(
         next_group,
         next_task,
         calls,
+        held: None,
         groups: kept_groups,
     }
 }
@@ -577,5 +578,9 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
         }),
         sketch: plan.sketch.as_ref().map(|(id, title)| PlanSketch { id: id.clone(), title: title.clone() }),
         held_by: Vec::new(),
+        held: plan.held.as_ref().and_then(|held| {
+            let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
+            Some(GateHeld { group: group.id.clone(), since: Instant::carried(&held.since) })
+        }),
     }
 }

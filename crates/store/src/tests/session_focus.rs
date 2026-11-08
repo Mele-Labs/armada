@@ -48,6 +48,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         next_group: 3,
         next_task: 4,
         calls: 0,
+        held: None,
         groups: vec![
             group("g1", vec![task("t1", states[0]), task("t2", states[1])]),
             group("g2", vec![task("t3", states[2])]),

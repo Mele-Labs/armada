@@ -413,6 +413,11 @@ export type WaitingAct = {
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
  * `detail.settled`. Its press opens the document. `answer_document` answers it.
+ * `gate` (id `gate:<group id>`, text `"<group title>" waits on <what>`, act `answer` whose `target` is the Job's own id) is the Job's
+ * `all_done` held at a gate that nothing in the Job can close and he can: `Approve` (choice 0) and `Skip this group` (choice 1).
+ * `Approve` on a `plan_approved` gate approves the plan; on another it closes the gate by his word. Neither sends the agent a word of
+ * its own, since the close tells it. Fleet derives it while a hold stands and nothing in the Job runs, and drops it when the gate
+ * closes. It cannot be dismissed.
  */
 export type WaitingSource =
   | "agent"
@@ -437,7 +442,8 @@ export type WaitingSource =
   | "rule_act"
   | "operator_suggestion"
   | "sketch"
-  | "document";
+  | "document"
+  | "gate";
 
 /**
  * What a Session is doing, read by Fleet from what happened and never from what the agent said:
