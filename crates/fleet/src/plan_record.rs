@@ -14,7 +14,7 @@
 
 use ipc::{
     Instant, PlanChanges, PlanGroupInput, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    FIRST_PULL_REQUEST, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo,
+    FIRST_PULL_REQUEST, PlanGate, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo,
 };
 use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask};
 
@@ -174,6 +174,7 @@ pub(crate) fn recorded(
             own_job: group.own_job,
             // The agent's word per group is read beside the plan, and set by its caller.
             seen: false,
+            gate: (!group.gate.is_none()).then(|| group.gate.word().to_string()),
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
@@ -525,6 +526,7 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                     pull_request: None,
                 },
                 own_job: group.own_job,
+                gate: group.gate.as_deref().map(PlanGate::from_word).unwrap_or_default(),
                 tasks: group
                     .tasks
                     .iter()

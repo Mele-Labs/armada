@@ -1571,3 +1571,17 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
 - **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.
+
+## A plan group's gate: `gate` on `PlanGroupInput` and `SessionPlanGroup`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/store/migrations/20261108T2100Z-session_plan.group_gate.sql`.
+**One enum and one optional field on two existing types**: no operation, route, event kind or error.
+Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
+| `SessionPlanGroup.gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | The gate as the agent named it. Absent is `none` |
+
+**Why it is a field and not a word read beside the body**, as `seen` is: the gate is what Fleet will record against, so it rides the wire type and a decoder refuses a word it does not know.
+**Skew.** An older Fleet drops `gate` from a plan it is sent, as every Fleet before this one did, and sends none; Bridge reads that as `none`.

@@ -108,6 +108,7 @@ async fn planned(rig: &Rig, id: &SessionId, seen: bool) {
             gives: None,
             lands_in: None,
             own_job: false,
+            gate: Default::default(),
             tasks: vec![PlanTaskInput { id: None, title: "Freeze the clock in tests".into() }],
         }],
         sketch: None,
