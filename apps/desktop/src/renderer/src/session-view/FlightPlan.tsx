@@ -4,7 +4,7 @@
 // of its own and is not handed yet is the placeholder card alone. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { JobCard, Tooltip } from "@armada/components";
+import { JobCard, TaskMark, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -14,6 +14,7 @@ import { childrenOf, inHandOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
 import type { ViewGroup } from "./plan-marks";
+import { subagentsByGroup, type SubagentAtWork } from "./subagents-at-work";
 import { Flow, StepRail } from "./StatusPanel";
 import "./flight.css";
 
@@ -102,7 +103,10 @@ export function FlightGroup({
   parent,
   manifestId,
   onOpenSession,
+  atWork = [],
 }: {
+  /** The subagents at work that the agent named this group for. */
+  atWork?: readonly SubagentAtWork[];
   group: ViewGroup;
   step: Step;
   open: boolean;
@@ -164,6 +168,18 @@ export function FlightGroup({
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
         {open ? null : <TaskTrack tasks={group.tasks} />}
+        {atWork.length === 0 ? null : (
+          <span className="sv-flight__agents">
+            {atWork.map((one) => (
+              <Tooltip key={one.id} asChild label={`At work on ${one.task}`}>
+                <span className="sv-flight__agent">
+                  <TaskMark state="working" />
+                  <code>{one.agentType ?? "subagent"}</code>
+                </span>
+              </Tooltip>
+            ))}
+          </span>
+        )}
       </button>
       {!open ? null : (
         <div className="sv-flight__open">
@@ -206,6 +222,7 @@ export function FlightRows({
   const [pressed, setPressed] = useState<Readonly<Record<string, boolean>>>({});
   const sessions = useSessions();
   const steps = stepsOf(groups, true, workingGroup, inHandOf(sessions, session));
+  const atWork = subagentsByGroup(session);
   // `calm` opens none by default: the groups still to come, which are read as titles.
   // Every group being worked stands open, since marks that lag can leave several in progress at once.
   const current = calm ? [] : groups.filter((group) => steps.get(group.id) === "current");
@@ -238,6 +255,7 @@ export function FlightRows({
               })
             }
             now={group.id === workingGroup ? now : undefined}
+            atWork={atWork.get(group.id)}
             parent={session}
             manifestId={manifestId}
             onOpenSession={onOpenSession}

@@ -556,6 +556,42 @@ async fn a_touch_is_attributed_to_the_subagent_whose_call_the_line_sat_under() {
 }
 
 #[tokio::test]
+async fn a_subagent_named_a_plan_group_is_kept_on_it_and_its_edits_mark_that_group_alone() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let groups = vec![
+        group(None, "Store", "rust-engineer", &["crates/store"], &[(None, "Add the tables")]),
+        group(None, "Wire", "protocol-engineer", &["crates/ipc"], &[(None, "Add the field")]),
+    ];
+    recorded(&rig, plan(&id, groups)).await;
+    let harness = read(&rig, &id).await.harness;
+    let started = |target: &str, call: &str, group: &str| {
+        let detail = [("type", "rust-engineer"), ("call", call), ("group", group)];
+        let detail = detail.into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect();
+        let attachment = ipc::AttachmentReport { kind: "subagent".into(), target: target.into(), detail };
+        SessionReport { harness: harness.clone(), session_id: id.clone(), fact: SessionFact::Attached { attachment } }
+    };
+
+    // Named by its title, in another case, the group's id is kept; a name no group has is dropped.
+    rig.fleet.report_session(started("agent-1", "toolu_77", "wire")).await.expect("attached");
+    rig.fleet.report_session(started("agent-2", "toolu_76", "Nothing of the plan's")).await.expect("attached");
+    let record = read(&rig, &id).await;
+    let group_of = |target: &str| {
+        let row = record.attachments.iter().find(|one| one.kind == "subagent" && one.target == target).expect("its row");
+        row.detail.get("group").cloned()
+    };
+    assert_eq!(group_of("agent-1").as_deref(), Some("g2"));
+    assert_eq!(group_of("agent-2"), None);
+
+    // Its edit under the store's paths marks the group it named, not the one its paths would.
+    rig.stand_in.hears(0, Heard::Spawned(adapters::subagent_calls(SPAWNING)));
+    rig.stand_in.hears(0, Heard::Subagent { events: vec![edit("crates/store/src/plan.rs")], call: adapters::subagent_parent(INSIDE) });
+    eventually(|| async { read(&rig, &id).await.plan.is_some_and(|plan| plan.groups[1].worked_at.is_some()) }).await;
+    let plan = read(&rig, &id).await.plan.unwrap();
+    assert!(plan.groups[0].worked_at.is_none(), "the store's group was not named");
+}
+
+#[tokio::test]
 async fn a_touch_from_a_job_working_in_a_subdirectory_is_named_from_the_worktree_root() {
     let rig = rig_placing(None);
     let id = running(&rig).await;

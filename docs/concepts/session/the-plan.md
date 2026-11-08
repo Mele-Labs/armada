@@ -128,6 +128,11 @@ Bridge draws it with the done check and a faint mark for no edit seen, tooltip `
 `failed` is not set by anything Fleet observes yet.
 An edit under a group's paths marks the group worked (`worked_at`); a group that names no paths takes every edit.
 
+**A subagent stands on the group its brief names** (owner, 8 Nov 2026).
+The agent gives a subagent's brief a line `Plan group: <id or title>`, the mod reads it at the spawn, and Fleet keeps the group's id as `group` on the `subagent` row, or nothing where no group of the plan is named so.
+An edit that subagent makes marks the group it named worked, whatever its paths, and Bridge draws the subagent at work on that group's row.
+A subagent that names no group is placed by nothing.
+
 **Fleet marks a task itself on one proof, and says nothing to the agent** (owner, 27 Oct 2026; narrowed 5 Nov 2026).
 The proof is a commit whose first line says a task not yet completed (matched as a list item is): that task is completed.
 The mark carries its proof as `marked` (`commit 1a2b3c4 names it`), and Bridge draws it with the proof in its tooltip.
