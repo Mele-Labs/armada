@@ -4,7 +4,7 @@
 // (`keep.ts`): a family's saved layouts and the one new owners open on under one key, and each owner's own arrangement under a key of its own. What ⌘Z can take back is this
 // window's and is not kept.
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 
 import { forgetKept, readKept, writeKept } from "@armada/components";
 
@@ -363,6 +363,19 @@ export function createPaneFamily(spec: FamilySpec) {
     told();
   }
 
+  /** One owner's panes, gone: kept, in memory, its ⌘Z and its area. Opened again, it is made as one seen the first time; the family's layouts stay. */
+  function drop(jobId: string): void {
+    forgetKept(OWNER + jobId);
+    const { [jobId]: _gone, ...jobs } = state.jobs;
+    state = {
+      ...state,
+      jobs,
+    };
+    histories.delete(jobId);
+    areas.delete(jobId);
+    told();
+  }
+
   /** Saved layouts a mock offers beside Default, in place of any a person made. */
   function seedLayouts(saved: Record<string, Arrangement>): void {
     set({
@@ -417,8 +430,22 @@ export function createPaneFamily(spec: FamilySpec) {
     return () => void listeners.delete(hear);
   };
 
+  /** How many of this window's areas draw each owner now: one drawn is never dropped. */
+  const drawn = new Map<string, number>();
+  const isDrawn = (jobId: string): boolean => (drawn.get(jobId) ?? 0) > 0;
+
   function useJobPanes(jobId: string): JobPanes {
     const seen = useSyncExternalStore(subscribe, () => (ensure(jobId), state));
+    useEffect(() => {
+      drawn.set(jobId, (drawn.get(jobId) ?? 0) + 1);
+      return () => {
+        const left = (drawn.get(jobId) ?? 1) - 1;
+        if (left > 0) drawn.set(jobId, left);
+        else drawn.delete(jobId);
+      };
+    }, [
+      jobId,
+    ]);
     const entry = seen.jobs[jobId]!;
     return {
       arrangement: entry.arrangement,
@@ -448,8 +475,8 @@ export function createPaneFamily(spec: FamilySpec) {
     return useSyncExternalStore(subscribe, () => state);
   }
 
-  /** The owners whose panes hold a Custom tab of this mod, open in this window or kept from an earlier one. */
-  function jobsHoldingMod(mod: string): string[] {
+  /** Every owner with panes, open in this window or kept from an earlier one. */
+  function ownerIds(): string[] {
     const kept = Object.keys(window.localStorage)
       .filter((key) => key.startsWith(`armada:kept:${OWNER}`))
       .map((key) => key.slice(`armada:kept:${OWNER}`.length));
@@ -458,7 +485,12 @@ export function createPaneFamily(spec: FamilySpec) {
         ...Object.keys(state.jobs),
         ...kept,
       ]),
-    ].filter((id) => {
+    ];
+  }
+
+  /** The owners whose panes hold a Custom tab of this mod, open in this window or kept from an earlier one. */
+  function jobsHoldingMod(mod: string): string[] {
+    return ownerIds().filter((id) => {
       const entry = state.jobs[id] ?? keptEntry(id);
       return (
         entry !== undefined &&
@@ -781,9 +813,12 @@ export function createPaneFamily(spec: FamilySpec) {
     kinds: spec.kinds,
     forAllLabel: spec.forAllLabel,
     forget,
+    drop,
     seedLayouts,
     useJobPanes,
+    isDrawn,
     usePanesVersion,
+    ownerIds,
     jobsHoldingMod,
     peek,
     measured,
