@@ -184,6 +184,7 @@ pub(super) fn plan(id: &SessionId) -> RecordPlan {
             gives: None,
             lands_in: None,
             own_job: false,
+            gate: Default::default(),
             tasks: vec![PlanTaskInput { id: None, title: "Stop at the end".into() }],
         }],
         sketch: None,

@@ -250,6 +250,8 @@ export type RecordPlan = {
     lands_in?: string;
     /** The group goes to a Job of its own, which the caller starts with `start_another_job` naming the group. Absent is false. */
     own_job?: boolean;
+    /** The fact that ends the group. Absent is `none`; a word not on the list is refused. */
+    gate?: PlanGate;
     tasks: {
       id?: string;
       title: string;
