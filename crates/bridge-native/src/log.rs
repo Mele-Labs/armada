@@ -116,7 +116,7 @@ impl Note {
     fn envelope(&self) -> Envelope {
         let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
         self.fields.iter().fold(
-            Envelope::new(Timestamp::from_rfc3339(now), self.level, Component::BridgeMain, run_id().clone(), self.msg),
+            Envelope::new(Timestamp::from_rfc3339(now), self.level, Component::BridgeNative, run_id().clone(), self.msg),
             |envelope, (key, value)| envelope.with_field(key.clone(), value.clone()),
         )
     }
@@ -204,7 +204,7 @@ mod tests {
         let line = ipc::encode(&Line::from(&note.envelope())).expect("a line");
         assert!(line.starts_with("{\"ts\":\""), "{line}");
         assert!(line.contains("\"level\":\"warn\""), "{line}");
-        assert!(line.contains("\"component\":\"bridge-main\""), "{line}");
+        assert!(line.contains("\"component\":\"bridge-native\""), "{line}");
         assert!(line.contains("\"msg\":\"the Plex fonts did not load\""), "{line}");
         assert!(line.contains("\"fields\":{\"faces\":5,\"why\":\"no such font\"}"), "{line}");
         assert!(!line.contains("null"), "{line}");

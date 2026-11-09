@@ -23,7 +23,7 @@ Identical key names across all emitters. A key is either present with a value or
 | --- | --- | --- | --- |
 | `ts` | RFC3339 UTC, ms precision | Always |  |
 | `level` | `trace` `debug` `info` `warn` `error` | Always | Lowercase |
-| `component` | `fleet` `bridge-main` `bridge-ui` | Always | Emitter identity. Closed set |
+| `component` | `fleet` `bridge-main` `bridge-ui` `bridge-native` | Always | Emitter identity. Closed set |
 | `run_id` | ULID | Always | The **emitting process's** instance, minted by that process at start |
 | `msg` | String | Always | Never carries an interpolated ID |
 | `session_id` | ULID | Once a Job exists | The correlation spine |
