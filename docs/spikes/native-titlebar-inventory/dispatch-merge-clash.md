@@ -788,3 +788,15 @@ Each row is a value Electron works out in TypeScript rather than drawing from Fl
 | `Write clash with <labels>` on tiles and the view strip | `DK/SessionTiles.tsx:402-405`, `DK/JobViews.tsx:67-69` | missing |
 | Path chip folding | `ClashMark.tsx:136-190` | missing; paths are sent sorted |
 | Opening the other holder | `R/open-holder.ts:9-15` | not applicable; `main` has nothing to open |
+
+## 6. Where the native pieces mount
+
+Agreed with the Jobs screens step on 9 Nov, so each step keeps to its own files.
+This step builds the pieces; Jobs screens mounts the two that sit inside its views.
+
+| Piece | Native name | Mounted by | Where |
+|---|---|---|---|
+| A Job's context ring with Compact | `context_ring::ContextRing`, a `RenderOnce` in `BN/context_ring.rs` | Jobs screens | The Job head, where Electron's sits (`PC/compositions/SessionFrame/SessionFrame.tsx:695`) |
+| The write-clash mark | `clash_mark::ClashMark`, a `RenderOnce` in `BN/clash_mark.rs` | Jobs screens | The Jobs list row |
+| The merge queue strip | `merge_strip::MergeStrip`, an entity in `BN/merge_strip.rs` | This step | One child at the bottom of `JobsScreen::render`, and nothing else changed there |
+| The title row's Job slot | a slot in `chrome::title_row` | Jobs screens fills it | The open Job's Layout control and view icons, as `TitleBar.css` places them |
