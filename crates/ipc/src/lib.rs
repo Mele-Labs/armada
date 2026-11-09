@@ -105,6 +105,8 @@ mod holding;
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
 mod ids;
+/// A Job's thread as a screen draws it, folded by Fleet: `get_job_thread` and `job_thread.tail`.
+mod job_thread;
 /// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
 mod flight_controls;
 /// Pieces made into a package, read, and added to the person's own Kit.
@@ -408,6 +410,11 @@ pub use session_mcp::{
     SessionMcpServer,
 };
 pub use session_quick::SessionQuick;
+pub use job_thread::{
+    CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadRead, JobThreadTail, Lapsed,
+    OpenCall, ThreadAsk, ThreadDocument, ThreadHead, ThreadItem, ThreadSketch, ThreadTrail, TrailBay, TrailOpened,
+    THREAD_ITEMS_MOST, THREAD_ITEMS_SERVED,
+};
 pub use session_notes::{
     Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,
     NotesSent, SendSessionNote, SendSessionNotes, SessionNote,
