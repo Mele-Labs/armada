@@ -135,6 +135,10 @@ const editable = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable || target.closest("input, textarea, select") !== null);
 
+const PANED = {
+  side: null,
+} as const;
+
 const HELD = {
   held: {
     state: "none",
@@ -260,6 +264,7 @@ export function JobOver({ state }: { state: OperatorState }) {
         <section
           className="deck-pane armada-operator__over-page"
           data-frame=""
+          data-bare={session.work === undefined ? undefined : ""}
           aria-label={`Job: ${session.title ?? session.id}`}
           {...{
             [OPEN_SESSION_ATTRIBUTE]: session.id,
@@ -278,6 +283,8 @@ export function JobOver({ state }: { state: OperatorState }) {
             deck={{
               ledger: null,
               back: null,
+              // Hosted with no side column, a Job draws its own area in panes: its tabs and layout as he set them on its page.
+              hosts: PANED,
               acts:
                 draft.stop === undefined
                   ? []
