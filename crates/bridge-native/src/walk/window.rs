@@ -439,7 +439,7 @@ impl WalkWindow {
         }
         self.keys_were = window.focused(cx);
         let within = Rc::clone(&self.stage_at);
-        let words = Words { save: "Send", band: None, card: "New note" };
+        let words = Words { save: "Send", band: None, card: "New note", tools: false };
         let keep = format!("walk-note:{}", self.walk.name);
         let capture = cx.new(|cx| Capture::new(within, words, Some(keep), cx));
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
@@ -486,6 +486,8 @@ impl WalkWindow {
                     f32::from(bounds.size.height)
                 ),
             ),
+            // A walk window never arms a whole-window note: the layer does.
+            Held::Window { .. } => ("window".to_string(), "Whole window".to_string()),
         };
         self.held.push(HeldNote {
             said: noted.said.clone(),

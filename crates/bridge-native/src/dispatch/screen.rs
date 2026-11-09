@@ -16,13 +16,13 @@ use ipc::SessionRecord;
 use super::face::{Face, Sent};
 use super::scenes;
 use super::sheet::{Asked, DispatchSheet};
-use crate::annotate::{self, Layer, Toggle};
+use crate::annotate::{self, Layer, Shoot, Toggle};
 use crate::jobs::JobsScreen;
 use crate::keymap::Act;
 use crate::labels::{labelled, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::titlebar::parts::{card, glyph, icon_button, kbd, mono, tip, Btn, Weight};
-use crate::titlebar::{Asked as BarAsked, AskedSink};
+use crate::titlebar::{self, Asked as BarAsked, AskedSink};
 
 /// The strip a send leaves, hung from the title bar's field.
 struct Strip {
@@ -60,7 +60,14 @@ impl DispatchScreen {
         let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));
         let area: Rc<Cell<Option<Bounds<Pixels>>>> = Rc::default();
         // The layer is mounted only where Electron's is: a development build.
-        let layer = annotate::dev_build().then(|| cx.new(|_| Layer::new(Rc::clone(&area), targets)));
+        let layer = annotate::dev_build().then(|| {
+            cx.new(|cx| {
+                let mut layer = Layer::new(Rc::clone(&area), targets, cx);
+                layer.screen = Some("Jobs".into());
+                layer.read_again(scenes::saved_notes(), cx);
+                layer
+            })
+        });
         let mut subs = vec![cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx))];
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
@@ -107,6 +114,13 @@ impl DispatchScreen {
     fn toggle(&mut self, _: &Toggle, window: &mut Window, cx: &mut Context<Self>) {
         match &self.layer {
             Some(layer) => layer.update(cx, |layer, cx| layer.toggle(window, cx)),
+            None => cx.propagate(),
+        }
+    }
+
+    fn shoot(&mut self, _: &Shoot, window: &mut Window, cx: &mut Context<Self>) {
+        match &self.layer {
+            Some(layer) => layer.update(cx, |layer, cx| layer.shoot(window, cx)),
             None => cx.propagate(),
         }
     }
@@ -166,10 +180,7 @@ impl DispatchScreen {
             "scoped" => Some(scenes::scoped),
             "many" => Some(scenes::many),
             "offline" => Some(scenes::offline),
-            "online" => Some(|mut face| {
-                face.connected = true;
-                face
-            }),
+            "online" => Some(scenes::online),
             "autopilot-read" => Some(scenes::autopilot_read),
             "autopilot-refused" => Some(scenes::autopilot_refused),
             _ => None,
@@ -181,6 +192,12 @@ impl DispatchScreen {
         }
         if let Some(change) = change {
             self.sheet.update(cx, |sheet, cx| sheet.set_face(change(face), window, cx));
+            // The window tells one story: the title bar's Fleet dot goes with the sheet's.
+            match name {
+                "offline" => titlebar::scenes::apply("fleet-unreachable", cx)?,
+                "online" => titlebar::scenes::apply("fleet-running", cx)?,
+                _ => {}
+            }
             return Ok(());
         }
         match name {
@@ -192,8 +209,18 @@ impl DispatchScreen {
                 }
             }
             "refuse-start" => {
-                self.sheet.update(cx, |sheet, cx| sheet.refused(cx));
+                // Fleet answered, so it is running again.
+                titlebar::scenes::apply("fleet-running", cx)?;
+                self.sheet.update(cx, |sheet, cx| {
+                    let face = scenes::online(sheet.face.clone());
+                    sheet.set_face(face, window, cx);
+                    sheet.refused(cx)
+                });
                 self.toast = Some("Job not started: the repository has no free slot".into());
+            }
+            "layer-picture" => {
+                let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
+                layer.update(cx, |layer, cx| layer.picture_arrives(cx));
             }
             "layer-sent" | "layer-started" | "layer-refused" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
@@ -296,6 +323,7 @@ impl Render for DispatchScreen {
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
             .on_action(cx.listener(Self::toggle))
+            .on_action(cx.listener(Self::shoot))
             .relative()
             .size_full()
             .child(self.jobs.clone())

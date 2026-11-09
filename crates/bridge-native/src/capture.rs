@@ -16,11 +16,12 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    anchored, deferred, div, Anchor, point, prelude::*, Bounds, Context, CursorStyle, Entity, EventEmitter, FocusHandle, Focusable,
-    MouseButton, Pixels, Point, Role, SharedString, Subscription, Window,
+    anchored, deferred, div, Anchor, point, prelude::*, Bounds, Context, CursorStyle, Entity, EventEmitter, ExternalPaths, FocusHandle,
+    Focusable, MouseButton, Pixels, Point, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 
+use crate::annotate::tools::{self, Tools};
 use crate::labels::{labelled, Drawn, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::walk::bar::{button, Weight};
@@ -33,6 +34,8 @@ pub const SLOP: f32 = 4.;
 pub enum Held {
     Element(Drawn),
     Region(Bounds<Pixels>),
+    /// The whole window, with the screen it was on: no element, so no outline and no pin.
+    Window { bounds: Bounds<Pixels>, screen: Option<SharedString> },
 }
 
 impl Held {
@@ -40,6 +43,7 @@ impl Held {
         match self {
             Held::Element(drawn) => drawn.bounds,
             Held::Region(bounds) => *bounds,
+            Held::Window { bounds, .. } => *bounds,
         }
     }
 
@@ -52,6 +56,7 @@ impl Held {
                 None => drawn.name.clone(),
             },
             Held::Region(_) => "A box you drew".into(),
+            Held::Window { screen, .. } => format!("Whole window · {}", screen.as_deref().unwrap_or("no screen marked")).into(),
         }
     }
 }
@@ -174,6 +179,8 @@ pub struct Words {
     pub band: Option<&'static str>,
     /// The card's own name, for VoiceOver and the walk's aim.
     pub card: &'static str,
+    /// The layer's card carries the tools and the pictures; a walk's does not.
+    pub tools: bool,
 }
 
 /// A note written on what was held.
@@ -182,6 +189,8 @@ pub struct Noted {
     pub held: Held,
     /// The window drawn with nothing of Capture's over it, and its pixels per point.
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
+    /// The card's tools, with the changes and pictures that stand in them.
+    pub tools: Option<Entity<Tools>>,
 }
 
 pub enum CaptureEvent {
@@ -208,6 +217,9 @@ pub struct Capture {
     clean: bool,
     picture: Option<(Arc<image::RgbaImage>, f32)>,
     note: Option<(Entity<TextareaState>, Subscription)>,
+    tools: Option<Entity<Tools>>,
+    /// ⌘V reads a picture off the clipboard before the field sees it, while the card is up.
+    paste: Option<Subscription>,
     focus: FocusHandle,
 }
 
@@ -230,8 +242,30 @@ impl Capture {
             clean: false,
             picture: None,
             note: None,
+            tools: None,
+            paste: None,
             focus: cx.focus_handle(),
         }
+    }
+
+    /// The card's tools, while the card is up.
+    pub fn tools(&self) -> Option<Entity<Tools>> {
+        self.tools.clone()
+    }
+
+    /// A note on the whole window (⌥⌘S): the window as it stands is the picture, and the card opens
+    /// for what he says. A note half written is not thrown away for it.
+    pub fn whole_window(&mut self, screen: Option<SharedString>, cx: &mut Context<Self>) {
+        if self.held.is_some() {
+            return;
+        }
+        let Some(bounds) = self.within.get() else { return };
+        self.hover = None;
+        self.from = None;
+        self.to = None;
+        self.held = Some(Held::Window { bounds, screen });
+        self.clean = true;
+        cx.notify();
     }
 
     fn pointer_moved(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
@@ -309,6 +343,23 @@ impl Capture {
         });
         input.update(cx, |input, cx| input.focus(window, cx));
         self.note = Some((input, watch));
+        self.tools = self.words.tools.then(|| self.held.as_ref().map(tools::scope_of)).flatten().map(|scope| cx.new(|_| Tools::new(scope)));
+        if self.tools.is_some() {
+            let me = cx.entity().downgrade();
+            self.paste = Some(cx.intercept_keystrokes(move |event, window, cx| {
+                let key = &event.keystroke;
+                if key.key != "v" || !key.modifiers.platform || key.modifiers.alt || key.modifiers.shift {
+                    return;
+                }
+                let Some(me) = me.upgrade() else { return };
+                let taken = me.update(cx, |this, cx| {
+                    this.focus.contains_focused(window, cx) && this.tools.clone().is_some_and(|tools| tools.update(cx, |tools, cx| tools.paste(cx)))
+                });
+                if taken {
+                    cx.stop_propagation();
+                }
+            }));
+        }
         cx.notify();
     }
 
@@ -322,10 +373,13 @@ impl Capture {
             crate::drafts::clear(key, cx);
         }
         let picture = self.picture.take();
-        cx.emit(CaptureEvent::Noted(Noted { said, held, picture }));
+        self.paste = None;
+        let tools = self.tools.take();
+        cx.emit(CaptureEvent::Noted(Noted { said, held, picture, tools }));
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
+        self.paste = None;
         cx.emit(CaptureEvent::Closed);
     }
 }
@@ -413,7 +467,10 @@ impl gpui::Render for Capture {
         }
         if let Some(held) = &self.held {
             let bounds = held.bounds();
-            layer = layer.child(outline(bounds));
+            let whole = matches!(held, Held::Window { .. });
+            if !whole {
+                layer = layer.child(outline(bounds));
+            }
             if let Some((input, _)) = &self.note {
                 let input = input.clone();
                 let sent = input.clone();
@@ -429,10 +486,15 @@ impl gpui::Render for Capture {
                         .child(gpui::svg().path(crate::assets::icon_path("crosshair")).size(look.length(token::SPACE_3) + look.length(token::SPACE_1) / 2.).flex_none().text_color(look.color(token::ACCENT)))
                         .child(band)
                 });
+                let tools = self.tools.clone();
+                let dropped = self.tools.clone();
                 let card = div()
                     .id("capture-card")
+                    .occlude()
                     .key_context("capture-note")
                     .w(look.length(token::SPACE_8) * 11.)
+                    .max_h(window.viewport_size().height - gap * 2.)
+                    .overflow_y_scroll()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
@@ -455,6 +517,12 @@ impl gpui::Render for Capture {
                     // `TEXT_BOX` in keymap.rs: add it to this element when the two branches meet, so typing here
                     // fires no list key. The walk window and the annotation layer share this one note box.
                     .child(labelled(div().id("capture-note").child(Textarea::new(&input)), Role::TextInput, "Note"))
+                    .children(tools)
+                    .on_drop(move |paths: &ExternalPaths, _, cx| {
+                        if let Some(tools) = &dropped {
+                            tools::dropped(tools, paths, cx);
+                        }
+                    })
                     .child(
                         div()
                             .flex()
@@ -466,24 +534,25 @@ impl gpui::Render for Capture {
                                 this.write(said, window, cx);
                             }))),
                     );
-                // The card stands under what is held, or over it when the held thing is low on the screen.
-                let low = bounds.origin.y + bounds.size.height > window.viewport_size().height * 0.6;
-                let (corner, at) = if low {
-                    (Anchor::BottomLeft, point(bounds.origin.x, bounds.origin.y - gap))
-                } else {
-                    (Anchor::TopLeft, point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
-                };
-                layer = layer.child(deferred(
-                    anchored()
-                        .anchor(corner)
-                        .position(at)
-                        .snap_to_window_with_margin(gap)
-                        .child(labelled(card, Role::Dialog, self.words.card)),
-                ));
+                layer = layer.child(placed(bounds, whole, window, gap, look.length(token::SPACE_8) * 11., labelled(card, Role::Dialog, self.words.card)));
             }
         }
         layer
     }
+}
+
+/// A card put where all of it is on screen: under what it is about, or over it when that is low on
+/// the screen, and at the top of the window for a note on the whole of it.
+pub fn placed(bounds: Bounds<Pixels>, whole: bool, window: &Window, gap: Pixels, width: Pixels, card: impl IntoElement) -> impl IntoElement {
+    let view = window.viewport_size();
+    let (corner, at) = if whole {
+        (Anchor::TopLeft, point(bounds.origin.x + (bounds.size.width - width) / 2., bounds.origin.y + gap * 2.))
+    } else if bounds.origin.y + bounds.size.height > view.height * 0.6 {
+        (Anchor::BottomLeft, point(bounds.origin.x, bounds.origin.y - gap))
+    } else {
+        (Anchor::TopLeft, point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
+    };
+    deferred(anchored().anchor(corner).position(at).snap_to_window_with_margin(gap).child(card))
 }
 
 #[cfg(test)]

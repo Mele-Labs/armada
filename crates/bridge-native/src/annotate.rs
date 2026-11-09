@@ -8,28 +8,37 @@
 //! everything sends every unsent note on this screen. The layer never opens the dispatch sheet: a
 //! new Job is started held, on its start card, with the notes' words as its request.
 //!
+//! The rest of the layer is here: ⌥⌘S for a note on the whole window, the opened note's card with
+//! its acts, the All notes panel (`panel.rs`) and the card's tools and pictures (`tools.rs`).
+//!
 //! **Available only in a development build**, as Electron's is ([`dev_build`]).
 
+mod panel;
+pub mod tools;
+
 use std::cell::Cell;
+use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    actions, canvas, div, point, prelude::*, Anchor, App, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle,
-    Focusable, FontWeight, KeyBinding, Pixels, Role, SharedString, Subscription, Window,
+    actions, canvas, div, point, prelude::*, Anchor, App, Bounds, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter,
+    ExternalPaths, FocusHandle, Focusable, FontWeight, KeyBinding, Pixels, Point, Role, SharedString, Subscription, Window,
 };
+use gpui_component::input::{InputEvent, InputState};
 
 use crate::capture::{self, Capture, CaptureEvent, Held, Words};
 use crate::dispatch::face::Offered;
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook};
+use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::id_of;
-use crate::titlebar::parts::{card, glyph, mono, spinner, tip};
+use crate::titlebar::parts::{card, glyph, mono, spinner, tip, Btn, Weight};
 use crate::walk::bar::chord;
+use tools::{Scope, Tools};
 
-actions!(annotate, [Toggle]);
+actions!(annotate, [Toggle, Shoot]);
 
 /// The key context the screen that hosts the layer sets, so ⌥⌘A reaches it from anywhere on the screen.
 pub const HOST: &str = "annotate-host";
@@ -37,11 +46,12 @@ pub const HOST: &str = "annotate-host";
 /// Where the layer is kept between openings of the screen: the notes survive a toggle.
 const KEEP_NOTE: &str = "annotate:note";
 
-/// ⌥⌘A. **Electron reads it by key place in the layer itself** (`Layer.tsx:75-82`); the registry does
-/// not list it, so it is restated here until it does. Bound only in a development build.
+/// ⌥⌘A and ⌥⌘S. **Electron reads them by key place in the layer itself** (`Layer.tsx:75-91`); the
+/// registry does not list them, so they are restated here until it does. Bound only in a
+/// development build.
 pub fn bind(cx: &mut App) {
     if dev_build() {
-        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, Some(HOST))]);
+        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, Some(HOST)), KeyBinding::new("alt-cmd-s", Shoot, Some(HOST))]);
     }
 }
 
@@ -68,23 +78,47 @@ pub fn is_dev_build(exe: Option<&Path>, cwd: Option<&Path>, has_git: &dyn Fn(&Pa
     !packaged || cwd.is_some_and(|cwd| cwd.ancestors().any(has_git))
 }
 
-/// A note written on the screen.
-struct Note {
-    said: String,
-    role: String,
-    name: String,
-    ring: Bounds<Pixels>,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Status {
+    Open,
+    Done,
+}
+
+/// A note written on the screen, or read back from where Electron keeps them (a file under
+/// `.armada/annotations`).
+pub(crate) struct Note {
+    pub id: u32,
+    pub said: String,
+    /// What it is about, as the card's path line reads it.
+    pub path: String,
+    /// The component or tag a panel row names it by.
+    pub on: String,
+    pub screen: Option<SharedString>,
+    /// Where it stands on this screen, when it does: a note on another screen has no box, so no pin.
+    pub ring: Option<Bounds<Pixels>>,
+    pub window: bool,
     /// The window as it was when the note was held: the send burns the ring and number into it.
     #[allow(dead_code)]
-    picture: Option<(Arc<image::RgbaImage>, f32)>,
+    pub picture: Option<(Arc<image::RgbaImage>, f32)>,
+    pub status: Status,
     /// The Job it went to, once Fleet took it.
-    sent: Option<SharedString>,
+    pub sent: Option<SharedString>,
+    pub tools: Entity<Tools>,
+}
+
+/// A note as it was saved, for a layer that reads them again when it comes on.
+pub struct Saved {
+    pub said: &'static str,
+    pub on: &'static str,
+    pub screen: Option<&'static str>,
+    pub done: bool,
+    pub sent: Option<&'static str>,
 }
 
 /// What the layer asks of the app.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Asked {
-    /// Every unsent note, to a Job; `None` starts a new held Job with the notes' words.
+    /// Notes, to a Job; `None` starts a new held Job with the notes' words.
     Send { to: Option<Offered>, notes: Vec<String> },
 }
 
@@ -97,6 +131,8 @@ struct Said {
 
 struct Menu {
     dropdown: Entity<Dropdown>,
+    /// The notes it sends.
+    ids: Vec<u32>,
     _picked: Subscription,
     _dismissed: Subscription,
 }
@@ -105,22 +141,101 @@ pub struct Layer {
     on: bool,
     /// The screen the layer sits over, where aim and a box may hold.
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
+    /// The screen's name, as a note records it.
+    pub screen: Option<SharedString>,
     capture: Option<(Entity<Capture>, Subscription)>,
-    notes: Vec<Note>,
+    pub(crate) notes: Vec<Note>,
+    next_id: u32,
     /// The note whose card is open.
-    opened: Option<usize>,
+    pub(crate) opened: Option<u32>,
     /// The live Jobs the picker lists.
     pub targets: Vec<Offered>,
     menu: Option<Menu>,
     split_at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    bar_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     sending: Option<SharedString>,
+    sending_ids: Vec<u32>,
     said: Option<Said>,
     keys_were: Option<FocusHandle>,
+    card_focus: FocusHandle,
+    /// ⌘V on the opened card reads a picture off the clipboard before anything else does.
+    paste: Option<Subscription>,
+    deleting_card: bool,
+    // The All notes panel.
+    pub(crate) listing: bool,
+    pub(crate) tab: panel::Tab,
+    pub(crate) search: Option<(Entity<InputState>, Subscription)>,
+    pub(crate) query: String,
+    pub(crate) selected: BTreeSet<u32>,
+    pub(crate) anchor: Option<u32>,
+    pub(crate) folded: HashSet<Option<SharedString>>,
+    pub(crate) deleting_row: Option<u32>,
+    pub(crate) deleting_selection: bool,
 }
 
 impl Layer {
-    pub fn new(area: Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<Offered>) -> Layer {
-        Layer { on: false, area, capture: None, notes: Vec::new(), opened: None, targets, menu: None, split_at: Rc::default(), sending: None, said: None, keys_were: None }
+    pub fn new(area: Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<Offered>, cx: &mut Context<Self>) -> Layer {
+        Layer {
+            on: false,
+            area,
+            screen: None,
+            capture: None,
+            notes: Vec::new(),
+            next_id: 1,
+            opened: None,
+            targets,
+            menu: None,
+            split_at: Rc::default(),
+            bar_at: Rc::default(),
+            sending: None,
+            sending_ids: Vec::new(),
+            said: None,
+            keys_were: None,
+            card_focus: cx.focus_handle(),
+            paste: None,
+            deleting_card: false,
+            listing: false,
+            tab: panel::Tab::Open,
+            search: None,
+            query: String::new(),
+            selected: BTreeSet::new(),
+            anchor: None,
+            folded: HashSet::new(),
+            deleting_row: None,
+            deleting_selection: false,
+        }
+    }
+
+    /// Notes read back from where they were kept, oldest first: the ones on other screens are in the
+    /// panel and have no pin here.
+    pub fn read_again(&mut self, saved: Vec<Saved>, cx: &mut Context<Self>) {
+        for one in saved {
+            let id = self.next_id;
+            self.next_id += 1;
+            let tools = cx.new(|_| Tools::new(Scope::Element { words: None, stories: Vec::new() }));
+            self.notes.push(Note {
+                id,
+                said: one.said.to_string(),
+                path: format!("{} · {}", one.on, one.screen.unwrap_or("no screen marked")),
+                on: one.on.to_string(),
+                screen: one.screen.map(Into::into),
+                ring: None,
+                window: false,
+                picture: None,
+                status: if one.done { Status::Done } else { Status::Open },
+                sent: one.sent.map(Into::into),
+                tools,
+            });
+        }
+    }
+
+    /// The note's number among the open ones, oldest first: a done note carries none and renumbers nothing.
+    pub(crate) fn number(&self, id: u32) -> Option<usize> {
+        self.notes.iter().filter(|note| note.status == Status::Open).position(|note| note.id == id).map(|at| at + 1)
+    }
+
+    fn note(&self, id: u32) -> Option<&Note> {
+        self.notes.iter().find(|note| note.id == id)
     }
 
     /// ⌥⌘A: on, and again off. The notes stay for the next time.
@@ -130,6 +245,8 @@ impl Layer {
             self.capture = None;
             self.menu = None;
             self.opened = None;
+            self.paste = None;
+            self.listing = false;
             if let Some(keys) = self.keys_were.take() {
                 window.focus(&keys, cx);
             }
@@ -141,9 +258,25 @@ impl Layer {
         cx.notify();
     }
 
+    /// ⌥⌘S and the bar's Screenshot window: a note on the whole window.
+    pub fn shoot(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.on {
+            return;
+        }
+        self.opened = None;
+        self.paste = None;
+        let screen = self.screen.clone();
+        if let Some((capture, _)) = &self.capture {
+            capture.update(cx, |capture, cx| capture.whole_window(screen, cx));
+            let focus = capture.read(cx).focus_handle(cx);
+            window.defer(cx, move |window, cx| window.focus(&focus, cx));
+        }
+        cx.notify();
+    }
+
     /// A fresh capture over the screen, with the keys on it.
     fn arm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let words = Words { save: "Save note", band: Some("New note"), card: "New note" };
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: true };
         let capture = cx.new(|cx| Capture::new(Rc::clone(&self.area), words, Some(KEEP_NOTE.into()), cx));
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
@@ -156,30 +289,58 @@ impl Layer {
     }
 
     fn noted(&mut self, noted: &capture::Noted, window: &mut Window, cx: &mut Context<Self>) {
-        let (role, name) = match &noted.held {
-            Held::Element(drawn) => (capture::role_word(drawn.role).unwrap_or("element").to_lowercase(), drawn.name.to_string()),
-            Held::Region(_) => ("region".to_string(), "A box you drew".to_string()),
+        let (on, path) = match &noted.held {
+            Held::Element(drawn) => {
+                let role = capture::role_word(drawn.role).unwrap_or("element").to_lowercase();
+                (role.clone(), format!("{role} · {}", drawn.name))
+            }
+            Held::Region(_) => ("region".to_string(), "region · A box you drew".to_string()),
+            Held::Window { .. } => ("window".to_string(), noted.held.said().to_string()),
         };
-        self.notes.push(Note { said: noted.said.clone(), role, name, ring: noted.held.bounds(), picture: noted.picture.clone(), sent: None });
+        let id = self.next_id;
+        self.next_id += 1;
+        let tools = noted.tools.clone().unwrap_or_else(|| cx.new(|_| Tools::new(Scope::Window)));
+        self.notes.push(Note {
+            id,
+            said: noted.said.clone(),
+            path,
+            on,
+            screen: self.screen.clone(),
+            ring: Some(noted.held.bounds()),
+            window: matches!(noted.held, Held::Window { .. }),
+            picture: noted.picture.clone(),
+            status: Status::Open,
+            sent: None,
+            tools,
+        });
         self.said = None;
         self.arm(window, cx);
     }
 
-    fn unsent(&self) -> Vec<&Note> {
-        self.notes.iter().filter(|note| note.sent.is_none()).collect()
+    /// The unsent open notes standing on this screen, in the order they were written.
+    fn sendable_here(&self) -> Vec<u32> {
+        self.notes.iter().filter(|note| note.status == Status::Open && note.sent.is_none() && note.ring.is_some()).map(|note| note.id).collect()
     }
 
-    /// Send every unsent note on this screen: pending in this frame, the split off.
-    fn send(&mut self, to: Option<Offered>, cx: &mut Context<Self>) {
-        if self.sending.is_some() || self.unsent().is_empty() {
+    /// Send these notes, those of them that are open and unsent: pending in this frame, the splits
+    /// off. `to` of `None` starts a new held Job.
+    pub(crate) fn send(&mut self, ids: Vec<u32>, to: Option<Offered>, cx: &mut Context<Self>) {
+        let ids: Vec<u32> = ids.into_iter().filter(|id| self.note(*id).is_some_and(|note| note.status == Status::Open && note.sent.is_none())).collect();
+        if self.sending.is_some() || ids.is_empty() {
             return;
         }
-        let notes = self.unsent().iter().map(|note| note.said.clone()).collect();
+        let notes = self.notes.iter().filter(|note| ids.contains(&note.id)).map(|note| note.said.clone()).collect();
         self.sending = Some(to.as_ref().map_or("Starting job".into(), |job| format!("Sending to {}", job.title).into()));
+        self.sending_ids = ids;
         self.said = None;
         self.opened = None;
+        self.paste = None;
         cx.emit(Asked::Send { to, notes });
         cx.notify();
+    }
+
+    pub(crate) fn is_sending(&self) -> bool {
+        self.sending.is_some()
     }
 
     /// The Job the pending send named, for a mock Fleet that answers whoever was asked.
@@ -190,7 +351,8 @@ impl Layer {
     /// Fleet took the notes: each is saved with the Job it went to.
     pub fn sent(&mut self, title: &str, new_job: bool, cx: &mut Context<Self>) {
         self.sending = None;
-        for note in self.notes.iter_mut().filter(|note| note.sent.is_none()) {
+        let ids = std::mem::take(&mut self.sending_ids);
+        for note in self.notes.iter_mut().filter(|note| ids.contains(&note.id)) {
             note.sent = Some(title.to_string().into());
         }
         let text = if new_job { format!("Job started: {title}") } else { format!("Sent to Job {title}") };
@@ -201,29 +363,95 @@ impl Layer {
     /// Fleet refused: the notes are as they were, and the bar says why.
     pub fn refused(&mut self, title: &str, why: &str, cx: &mut Context<Self>) {
         self.sending = None;
+        self.sending_ids.clear();
         self.said = Some(Said { text: format!("Notes not sent to \"{title}\": {why}").into(), fault: true });
         cx.notify();
     }
 
-    fn open_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// A picture arrives on the card that is up, as a paste or a drop would bring one. A walk cannot
+    /// paste, so Fleet's mock answers with this.
+    pub fn picture_arrives(&mut self, cx: &mut Context<Self>) {
+        let tools = match self.opened.and_then(|id| self.note(id)) {
+            Some(note) => Some(note.tools.clone()),
+            None => self.capture.as_ref().and_then(|(capture, _)| capture.read(cx).tools()),
+        };
+        if let Some(tools) = tools {
+            tools.update(cx, |tools, cx| tools.mock_picture(cx));
+        }
+    }
+
+    // -- the notes' own acts -------------------------------------------------------------------------
+
+    pub(crate) fn set_status(&mut self, id: u32, status: Status, cx: &mut Context<Self>) {
+        if let Some(note) = self.notes.iter_mut().find(|note| note.id == id) {
+            note.status = status;
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn remove(&mut self, id: u32, cx: &mut Context<Self>) {
+        self.notes.retain(|note| note.id != id);
+        self.selected.remove(&id);
+        if self.opened == Some(id) {
+            self.opened = None;
+            self.paste = None;
+        }
+        cx.notify();
+    }
+
+    /// A pin or a row opens the note's card, and the keys go to it; pressed again, it shuts.
+    pub(crate) fn open_note(&mut self, id: u32, window: &mut Window, cx: &mut Context<Self>) {
+        if self.opened == Some(id) {
+            self.close_card(window, cx);
+            return;
+        }
+        self.opened = Some(id);
+        self.deleting_card = false;
+        let card = self.card_focus.clone();
+        window.defer(cx, move |window, cx| window.focus(&card, cx));
+        let tools = self.note(id).map(|note| note.tools.clone());
+        let me = cx.entity().downgrade();
+        self.paste = Some(cx.intercept_keystrokes(move |event, window, cx| {
+            let key = &event.keystroke;
+            if key.key != "v" || !key.modifiers.platform || key.modifiers.alt || key.modifiers.shift {
+                return;
+            }
+            let (Some(me), Some(tools)) = (me.upgrade(), tools.clone()) else { return };
+            if me.read(cx).card_focus.contains_focused(window, cx) && tools.update(cx, |tools, cx| tools.paste(cx)) {
+                cx.stop_propagation();
+            }
+        }));
+        cx.notify();
+    }
+
+    fn close_card(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.opened = None;
+        self.paste = None;
+        self.deleting_card = false;
+        self.refocus(window, cx);
+        cx.notify();
+    }
+
+    // -- the picker --------------------------------------------------------------------------------
+
+    /// The Jobs' menu, for these notes, with its corner at `at`.
+    pub(crate) fn open_menu(&mut self, ids: Vec<u32>, at: Point<Pixels>, corner: Anchor, window: &mut Window, cx: &mut Context<Self>) {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        let Some(from) = self.split_at.get() else { return };
         let entries: Vec<Entry> = self
             .targets
             .iter()
             .map(|job| Entry::Act { id: id_of(format!("job:{}", job.id)), label: job.title.clone(), icon: Some("square-terminal"), danger: false })
             .collect();
-        let at = point(from.origin.x + from.size.width, from.origin.y - cx.look().length(token::SPACE_1));
-        let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, Anchor::BottomRight, false, cx));
+        let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, corner, false, cx));
         let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
-            this.menu = None;
+            let ids = this.menu.take().map(|menu| menu.ids).unwrap_or_default();
             this.refocus(window, cx);
             let job = id.strip_prefix("job:").and_then(|id| this.targets.iter().find(|one| one.id == id)).cloned();
             if job.is_some() {
-                this.send(job, cx);
+                this.send(ids, job, cx);
             }
         });
         let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
@@ -233,17 +461,83 @@ impl Layer {
         });
         let keys = dropdown.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
-        self.menu = Some(Menu { dropdown, _picked: picked, _dismissed: dismissed });
+        self.menu = Some(Menu { dropdown, ids, _picked: picked, _dismissed: dismissed });
         cx.notify();
     }
 
-    /// The keys go back to the capture after a menu.
-    fn refocus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn open_bar_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(from) = self.split_at.get() else { return };
+        let at = point(from.origin.x + from.size.width, from.origin.y - cx.look().length(token::SPACE_1));
+        let ids = self.sendable_here();
+        self.open_menu(ids, at, Anchor::BottomRight, window, cx);
+    }
+
+    /// The keys go back to the capture after a menu or a card.
+    pub(crate) fn refocus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some((capture, _)) = &self.capture {
             let focus = capture.read(cx).focus_handle(cx);
             window.focus(&focus, cx);
         }
     }
+}
+
+/// Start job and the caret that lists the Jobs, as Electron's `SplitButton`: one control in two
+/// parts. A press on the first sends to a new Job, a press on the caret opens the menu.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn split(
+    look: &Look,
+    cx: &App,
+    id: String,
+    label: SharedString,
+    off: bool,
+    spin: bool,
+    at: Option<Rc<Cell<Option<Bounds<Pixels>>>>>,
+    main: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+    caret: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> Div {
+    let accent = look.color(token::ACCENT);
+    let ink = look.color(token::TEXT_ON_ACCENT);
+    let part = |id: SharedString| {
+        div()
+            .id(id)
+            .h(look.length(token::H_CONTROL))
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(accent)
+            .text_color(ink)
+            .when(!off, |part| part.cursor_pointer().hover(|style| style.opacity(0.9)))
+            .when(off, |part| part.opacity(0.7))
+    };
+    let measure = at.map(|at| canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full());
+    div()
+        .relative()
+        .flex_none()
+        .flex()
+        .gap(look.length(token::BORDER_WIDTH))
+        .children(measure)
+        .child(labelled(
+            part(format!("{id}-main").into())
+                .px(look.length(token::SPACE_4))
+                .gap(look.length(token::SPACE_2))
+                .rounded_l(look.length(token::RADIUS_LG))
+                .text_size(look.length(token::TEXT_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .children(spin.then(|| spinner(SharedString::from(format!("{id}-spin")), look.length(token::SPACE_4), ink, cx)))
+                .child(label.clone())
+                .when(!off, |part| part.on_click(main)),
+            Role::Button,
+            label,
+        ))
+        .child(labelled(
+            part(format!("{id}-caret").into())
+                .w(look.length(token::H_CONTROL))
+                .rounded_r(look.length(token::RADIUS_LG))
+                .child(glyph("chevron-down", look.length(token::SPACE_3), ink))
+                .when(!off, |part| part.on_click(caret)),
+            Role::Button,
+            "Send to a Job",
+        ))
 }
 
 impl Render for Layer {
@@ -252,22 +546,37 @@ impl Render for Layer {
             return div().into_any_element();
         }
         let look = cx.look();
-        let pins = self.notes.iter().enumerate().map(|(at, note)| {
+        let view = window.viewport_size();
+        // Everything here is placed in the window's own coordinates, which is where the labelled
+        // elements and the pointer are read; the screen this sits in starts below the title bar.
+        let origin = self.area.get().map(|area| area.origin).unwrap_or_default();
+        // Pins are the open notes', and the done ones' too while the Done tab is chosen.
+        let shown = |note: &Note| note.status == Status::Open || self.tab == panel::Tab::Done;
+        let pins = self.notes.iter().filter(|note| shown(note) && !note.window).filter_map(|note| {
+            let ring = note.ring?;
+            let id = note.id;
             let sent = note.sent.is_some();
+            let done = note.status == Status::Done;
+            let number = self.number(id);
             let size = look.length(token::H_BADGE);
-            let (ground, ink, edge) = if sent {
+            let (ground, ink, edge) = if sent || done {
                 (look.color(token::BG_RAISED), look.color(token::ACCENT), look.color(token::ACCENT))
             } else {
                 (look.color(token::ACCENT), look.color(token::TEXT_ON_ACCENT), look.color(token::BG_BASE))
             };
-            let name = if sent { format!("Note {}, sent: {}", at + 1, note.said) } else { format!("Note {}, open: {}", at + 1, note.said) };
-            labelled(
+            // A done note carries no number, here or in its label, so nothing a person reads counts finished work.
+            let place = number.map_or("Done note".to_string(), |number| format!("Note {number}, open"));
+            let name = match &note.sent {
+                Some(title) => format!("{place}, sent to {title}: {}", note.said),
+                None => format!("{place}: {}", note.said),
+            };
+            Some(labelled(
                 div()
-                    .id(SharedString::from(format!("pin-{at}")))
+                    .id(SharedString::from(format!("pin-{id}")))
                     .occlude()
                     .absolute()
-                    .left(note.ring.origin.x + note.ring.size.width - size / 2.)
-                    .top(note.ring.origin.y - size / 2.)
+                    .left(ring.origin.x + ring.size.width - size / 2.)
+                    .top(ring.origin.y - size / 2.)
                     .min_w(size)
                     .h(size)
                     .px(look.length(token::SPACE_1))
@@ -282,58 +591,116 @@ impl Render for Layer {
                     .text_size(look.length(token::TEXT_2XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                     .cursor_pointer()
-                    .child((at + 1).to_string())
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.opened = if this.opened == Some(at) { None } else { Some(at) };
-                        cx.notify();
-                    })),
+                    .children(number.map(|number| number.to_string()))
+                    .on_click(cx.listener(move |this, _, window, cx| this.open_note(id, window, cx))),
                 Role::Button,
                 name,
-            )
+            ))
         });
-        let opened = self.opened.and_then(|at| self.notes.get(at).map(|note| (at, note))).map(|(at, note)| {
+        let opened = self.opened.and_then(|id| self.note(id)).filter(|note| shown(note)).and_then(|note| {
+            let ring = note.ring?;
+            let id = note.id;
             let gap = look.length(token::SPACE_2);
-            // Under what it is about, or over it when that is low on the screen.
-            let view = window.viewport_size();
-            let low = note.ring.origin.y + note.ring.size.height > view.height * 0.6;
-            labelled(
-                card(look)
-                    .id("note-card")
-                    .occlude()
-                    .absolute()
-                    .left(note.ring.origin.x)
-                    .when(low, |card| card.bottom(view.height - note.ring.origin.y + gap))
-                    .when(!low, |card| card.top(note.ring.origin.y + note.ring.size.height + gap))
-                    .w(look.length(token::SPACE_8) * 10.)
-                    .gap(look.length(token::SPACE_2))
-                    .p(look.length(token::SPACE_4))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(look.length(token::SPACE_2))
-                            .text_size(look.length(token::TEXT_XS))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                            .text_color(look.color(token::ACCENT))
-                            .child(glyph("map-pin", look.length(token::SPACE_3) + look.length(token::SPACE_1) / 2., look.color(token::ACCENT)))
-                            .child(format!("Note {}", at + 1)),
-                    )
-                    .child(div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(format!("{} · {}", note.role, note.name)))
-                    .child(div().text_size(look.length(token::TEXT_SM)).child(note.said.clone()))
-                    .children(note.sent.clone().map(|title| {
-                        div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(format!("Sent to Job {title}"))
-                    })),
-                Role::Dialog,
-                "Note",
-            )
+            let number = self.number(id);
+            let title = number.map_or("Done note".to_string(), |number| format!("Note {number}"));
+            let open = note.status == Status::Open;
+            let dispatchable = open && note.sent.is_none();
+            let off = self.sending.is_some();
+            let ids = vec![id];
+            let again = ids.clone();
+            let dropped = note.tools.clone();
+            let armed = self.deleting_card;
+            let delete = Btn::new("note-delete", if armed { "Press again to delete" } else { "Delete" }, Weight::Secondary)
+                .draw(look, cx)
+                .text_color(look.color(token::ERROR))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    if this.deleting_card {
+                        this.remove(id, cx);
+                        this.refocus(window, cx);
+                    } else {
+                        this.deleting_card = true;
+                        cx.notify();
+                    }
+                }));
+            let content = card(look)
+                .id("note-card")
+                .occlude()
+                .track_focus(&self.card_focus)
+                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" {
+                        cx.stop_propagation();
+                        this.close_card(window, cx);
+                    }
+                }))
+                .on_drop(move |paths: &ExternalPaths, _, cx| tools::dropped(&dropped, paths, cx))
+                .w(look.length(token::SPACE_8) * 11.)
+                .max_h(view.height - gap * 2.)
+                .overflow_y_scroll()
+                .gap(look.length(token::SPACE_3))
+                .p(look.length(token::SPACE_4))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .text_color(look.color(token::ACCENT))
+                        .child(glyph("map-pin", look.length(token::SPACE_3) + look.length(token::SPACE_1) / 2., look.color(token::ACCENT)))
+                        .child(title),
+                )
+                .child(div().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(note.path.clone()))
+                .child(div().text_size(look.length(token::TEXT_SM)).child(note.said.clone()))
+                .child(note.tools.clone())
+                .children(note.sent.clone().map(|title| {
+                    div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(format!("Sent to Job {title}"))
+                }))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .justify_end()
+                        .gap(look.length(token::SPACE_2))
+                        .children(dispatchable.then(|| {
+                            split(
+                                look,
+                                cx,
+                                "note-start".into(),
+                                "Start job".into(),
+                                off,
+                                false,
+                                None,
+                                cx.listener(move |this, _, _, cx| this.send(ids.clone(), None, cx)),
+                                cx.listener(move |this, event: &ClickEvent, window, cx| {
+                                    let at = event.position();
+                                    this.open_menu(again.clone(), point(at.x, at.y), Anchor::TopRight, window, cx)
+                                }),
+                            )
+                        }))
+                        .child(labelled(
+                            Btn::new("note-status", if open { "Mark done" } else { "Reopen" }, Weight::Secondary).draw(look, cx).on_click(cx.listener(move |this, _, _, cx| {
+                                let next = if this.note(id).is_some_and(|note| note.status == Status::Open) { Status::Done } else { Status::Open };
+                                this.set_status(id, next, cx);
+                            })),
+                            Role::Button,
+                            if open { "Mark done" } else { "Reopen" },
+                        ))
+                        .child(labelled(delete, Role::Button, if armed { "Press again to delete" } else { "Delete" })),
+                );
+            Some(capture::placed(ring, note.window, window, gap, look.length(token::SPACE_8) * 11., labelled(content, Role::Dialog, "Note")))
         });
+        let panel = self.listing.then(|| self.panel(window, cx));
         div()
             .id("annotate")
             .absolute()
-            .inset_0()
+            .left(-origin.x)
+            .top(-origin.y)
+            .w(view.width)
+            .h(view.height)
             .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
             .children(pins)
             .children(opened)
+            .children(panel)
             .child(self.bar(cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
             .into_any_element()
@@ -341,55 +708,28 @@ impl Render for Layer {
 }
 
 impl Layer {
-    /// The bar over everything: `Annotating`, what the last send said, the split and the key.
+    /// The bar over everything: `Annotating`, the whole-window note, the panel's key, what the last
+    /// send said, the split and the key. **No count of open or done notes is drawn**, so the key
+    /// that opens the panel is named for what it opens.
     fn bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let sendable = !self.unsent().is_empty();
+        let sendable = !self.sendable_here().is_empty();
         let pending = self.sending.clone();
         let split = sendable.then(|| {
-            let accent = look.color(token::ACCENT);
-            let ink = look.color(token::TEXT_ON_ACCENT);
-            let off = pending.is_some();
-            let split_at = Rc::clone(&self.split_at);
-            let part = |id: &'static str| {
-                div()
-                    .id(id)
-                    .h(look.length(token::H_CONTROL))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .bg(accent)
-                    .text_color(ink)
-                    .when(!off, |part| part.cursor_pointer().hover(|style| style.opacity(0.9)))
-                    .when(off, |part| part.opacity(0.7))
-            };
-            div()
-                .relative()
-                .flex()
-                .gap(look.length(token::BORDER_WIDTH))
-                .child(canvas(move |bounds, _, _| split_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
-                .child(labelled(
-                    part("annotate-start")
-                        .px(look.length(token::SPACE_4))
-                        .gap(look.length(token::SPACE_2))
-                        .rounded_l(look.length(token::RADIUS_LG))
-                        .text_size(look.length(token::TEXT_XS))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                        .children(off.then(|| spinner("annotate-sending", look.length(token::SPACE_4), ink, cx)))
-                        .child(pending.clone().map_or(SharedString::from("Start job"), |word| word))
-                        .when(!off, |part| part.on_click(cx.listener(|this, _, _, cx| this.send(None, cx)))),
-                    Role::Button,
-                    pending.clone().map_or(SharedString::from("Start job"), |word| word),
-                ))
-                .child(labelled(
-                    part("annotate-send-to")
-                        .w(look.length(token::H_CONTROL))
-                        .rounded_r(look.length(token::RADIUS_LG))
-                        .child(glyph("chevron-down", look.length(token::SPACE_3), ink))
-                        .when(!off, |part| part.on_click(cx.listener(|this, _, window, cx| this.open_picker(window, cx)))),
-                    Role::Button,
-                    "Send to a Job",
-                ))
+            split(
+                look,
+                cx,
+                "annotate-start".into(),
+                pending.clone().unwrap_or_else(|| "Start job".into()),
+                pending.is_some(),
+                pending.is_some(),
+                Some(Rc::clone(&self.split_at)),
+                cx.listener(|this, _, _, cx| {
+                    let ids = this.sendable_here();
+                    this.send(ids, None, cx)
+                }),
+                cx.listener(|this, _, window, cx| this.open_bar_menu(window, cx)),
+            )
         });
         let said = self.said.as_ref().map(|said| {
             labelled(
@@ -401,11 +741,37 @@ impl Layer {
                 said.text.clone(),
             )
         });
+        let shot = labelled(
+            Btn::new("annotate-shoot", "Screenshot window", Weight::Secondary)
+                .icon("camera")
+                .draw(look, cx)
+                .tooltip(tip("A note on the whole window, with the page, the open Job and Doctor's read ⌥⌘S"))
+                .on_click(cx.listener(|this, _, window, cx| this.shoot(window, cx))),
+            Role::Button,
+            "Screenshot window",
+        );
+        let listing = self.listing;
+        let notes = labelled(
+            Btn::new("annotate-notes", "All notes", if listing { Weight::Primary } else { Weight::Secondary })
+                .icon("list")
+                .draw(look, cx)
+                .on_click(cx.listener(|this, _, window, cx| {
+                    this.listing = !this.listing;
+                    if this.listing {
+                        this.make_search(window, cx);
+                    }
+                    cx.notify();
+                })),
+            Role::Button,
+            "All notes",
+        );
         let key = chord("⌥⌘A", cx);
+        let bar_at = Rc::clone(&self.bar_at);
         div().absolute().left_0().right_0().bottom(look.length(token::SPACE_3)).flex().justify_center().child(labelled(
             div()
                 .id("annotate-bar")
                 .occlude()
+                .relative()
                 .flex()
                 .flex_wrap()
                 .items_center()
@@ -421,6 +787,7 @@ impl Layer {
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(look.color(token::FG_MUTED))
+                .child(canvas(move |bounds, _, _| bar_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
                 .child(
                     div()
                         .px(look.length(token::SPACE_2))
@@ -433,11 +800,27 @@ impl Layer {
                         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                         .child("Annotating"),
                 )
+                .child(shot)
+                .child(notes)
                 .children(said)
                 .children(split)
                 .child(div().id("annotate-key").tooltip(tip("Turns annotating off")).child(key)),
             Role::Status,
             "Annotating",
         ))
+    }
+
+    fn make_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.search.is_some() {
+            return;
+        }
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search notes"));
+        let typed = cx.subscribe_in(&search, window, |this, search, event: &InputEvent, _, cx| {
+            if matches!(event, InputEvent::Change) {
+                this.query = search.read(cx).value().to_string();
+                cx.notify();
+            }
+        });
+        self.search = Some((search, typed));
     }
 }

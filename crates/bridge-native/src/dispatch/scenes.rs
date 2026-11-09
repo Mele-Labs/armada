@@ -158,8 +158,26 @@ pub fn autopilot_refused(mut face: Face) -> Face {
     face
 }
 
+/// Fleet is back: the sheet is live again.
+pub fn online(mut face: Face) -> Face {
+    face.connected = true;
+    face
+}
+
 /// The window lost Fleet: everything in the sheet is off.
 pub fn offline(mut face: Face) -> Face {
     face.connected = false;
     face
+}
+
+/// The notes Fleet's files hold when the layer comes on: written on other screens, so each stands in
+/// the panel and has no pin here. Two are open (one with a Job), two are done.
+pub fn saved_notes() -> Vec<crate::annotate::Saved> {
+    use crate::annotate::Saved;
+    vec![
+        Saved { said: "Group the repositories under their Workspace", on: "list", screen: Some("Projects"), done: false, sent: None },
+        Saved { said: "Show the lane's last start", on: "region", screen: Some("Cockpit"), done: false, sent: Some("Move Bridge's thread to the list") },
+        Saved { said: "Search keeps its scope after Esc", on: "field", screen: Some("Jobs"), done: true, sent: Some("Fix the merge line freshness chip") },
+        Saved { said: "Name the Fleet dot's states", on: "button", screen: None, done: true, sent: None },
+    ]
 }
