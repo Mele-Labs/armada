@@ -81,6 +81,17 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
             Ok(())
         }
+        Verb::Type(text) => {
+            // The press focuses the box; each letter then goes in as the platform's input method would.
+            let at = find(step, window, cx)?.bounds.center();
+            press(MouseButton::Left, at, window, cx);
+            for ch in text.chars() {
+                let key = if ch == ' ' { "space".to_string() } else { ch.to_string() };
+                let keystroke = Keystroke { modifiers: Modifiers::default(), key, key_char: Some(ch.to_string()) };
+                window.dispatch_keystroke(keystroke, cx);
+            }
+            Ok(())
+        }
         Verb::Hover => {
             let at = find(step, window, cx)?.bounds.center();
             window.dispatch_event(

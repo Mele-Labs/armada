@@ -32,6 +32,8 @@ pub enum Verb {
     RightPress(&'static str),
     /// The pointer brought to rest on the target.
     Hover,
+    /// A press in the middle of the target, then these words typed into whatever it focused.
+    Type(&'static str),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -115,6 +117,33 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             step("Each Job's surface takes a faint wash of its lamp's colour", Verb::Look, "row", "Quiet the write-clash notices"),
             step("A Job waiting on you pulses amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "job-view",
+        title: "The open Job",
+        screen: Screen::Jobs,
+        scenario: "job-view",
+        steps: &[
+            step("A press on a Job opens it in the middle", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("The head carries the Job's state and its title", Verb::Look, "row", "Thread: Fix the merge line freshness chip"),
+            step("The thread opens at its newest row and follows it", Verb::Press, "region", "Thread"),
+            step("Home goes to the start of the thread", Verb::Key("home"), "region", "Thread"),
+            step("A run of calls is one line; a press opens it", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
+            step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("End goes back to the newest row", Verb::Key("end"), "region", "Thread"),
+            step("Another Job: a long thread, at its newest row", Verb::Press, "row", "Native Bridge foundation"),
+            step("Its calls fold to one line", Verb::Press, "button", "Tool calls: Read, Grep, Bash"),
+            step("Words typed in the box stay with this Job", Verb::Type("Check the webhook queue too"), "textbox", "Message"),
+            step("Another Job opens with its own box and place", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("Back: the place, the open run and the draft are as they were", Verb::Press, "row", "Native Bridge foundation"),
+            step("Enter sends: the words are in the thread at once", Verb::Press, "textbox", "Message"),
+            step("Sent", Verb::Key("enter"), "textbox", "Message"),
+            step("A Job whose thread has not come draws its shape", Verb::Press, "row", "Quiet the write-clash notices"),
         ],
     },
 ];
