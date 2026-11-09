@@ -298,7 +298,8 @@ where
         let base = self.copy_base(&id, &served, &workflow).await?;
         let old = self.text_resolved(&served, &base.text).map(|found| rail::steps_of(&found)).map_err(|why| self.hosted_refusal(JOB_WORKFLOW_UNFIT, &why))?;
         let edited = config::edit_steps(&base.text, &edit_of(&change.change)).map_err(|fault| self.step_refused(fault))?;
-        let new = self.text_resolved(&served, &edited.text).map(|found| rail::steps_of(&found)).map_err(|why| self.hosted_refusal(JOB_WORKFLOW_UNFIT, &why))?;
+        let resolved = self.text_resolved(&served, &edited.text).map_err(|why| self.hosted_refusal(JOB_WORKFLOW_UNFIT, &why))?;
+        let new = rail::steps_of(&resolved);
         self.check_workflow_file(&SaveWorkflow { scope: WorkflowScope::Repository, definition: edited.text.clone(), overwrite: true }, &served)
             .map_err(|refusal| self.hosted_refusal(JOB_WORKFLOW_UNFIT, &refusal.error().message.clone()))?;
         let label_of = |steps: &[RailStep], step: &str| steps.iter().find(|one| one.id == step).map(|one| one.label.clone()).unwrap_or_else(|| step.to_string());
@@ -332,11 +333,10 @@ where
         self.copy_noted(&session, TimelineKind::SessionCopy, noted.clone(), by);
         // The person's change reaches a Job that has run; the Job's own does not need telling.
         if by == ChangedBy::You && hosting.ran {
-            let labels: Vec<&str> = new.iter().map(|step| step.label.as_str()).collect();
             let words = format!(
-                "Fleet: the person changed the steps of this Job's own copy of its {} workflow ({noted}). Its steps, in order: {}.",
+                "Fleet: the person changed the steps of this Job's own copy of its {} workflow ({noted}). {}",
                 self.workflow_name(&hosting.manifest_id, &workflow),
-                labels.join(" -> ")
+                super::proposing::workflow_groups(&resolved)
             );
             // The change stands whether or not the agent was told, as the rail's own step line does.
             let _ = self.told_by_fleet(&id, &words, ipc::Notice::WorkflowChanged).await;

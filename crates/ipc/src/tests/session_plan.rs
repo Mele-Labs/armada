@@ -20,7 +20,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
 }
 
 fn plan(groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { summary: "You get a plan page.".to_string(), groups, sketch: None, walk: None, session_id: None }
+    RecordPlan { summary: "You get a plan page.".to_string(), groups, sketch: None, walk: None, ask_again: false, session_id: None }
 }
 
 #[test]

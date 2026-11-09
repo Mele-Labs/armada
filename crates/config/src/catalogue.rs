@@ -35,19 +35,15 @@ use crate::workflow::WorkflowDef;
 /// relative to a repository.
 pub const CARRIED_AT: &str = "<carried by Armada>";
 
-/// The set Armada carries: this repository's own nine, compiled in.
+/// The set Armada carries: this repository's own eight, compiled in.
 ///
 /// **The files and not copies of them**, so an edit to one is an edit to what
-/// every repository runs, and `tests/carried.rs` fails if a tenth is added
+/// every repository runs, and `tests/carried.rs` fails if a ninth is added
 /// under `.armada/workflows/` without being listed here.
-const CARRIED: [(&str, &str); 9] = [
+const CARRIED: [(&str, &str); 8] = [
     (
         "bug.json",
         include_str!("../../../.armada/workflows/bug.json"),
-    ),
-    (
-        "code-review.json",
-        include_str!("../../../.armada/workflows/code-review.json"),
     ),
     (
         "design-plan.json",

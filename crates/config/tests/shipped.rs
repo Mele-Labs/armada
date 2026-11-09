@@ -74,7 +74,7 @@ fn every_shipped_workflow_definition_parses() {
         }
         seen += 1;
     }
-    assert!(seen >= 9, "nine workflows ship, and {seen} were read");
+    assert!(seen >= 8, "eight workflows ship, and {seen} were read");
 }
 
 /// **Which shipped workflows send their work out, read off the files.**
@@ -120,8 +120,8 @@ fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
     );
     assert_eq!(
         silent,
-        vec!["code_review", "design_plan", "orchestrate", "prototype", "uat"],
-        "and the five that produce something read, or written to a sheet, rather than merged deliver nothing",
+        vec!["design_plan", "orchestrate", "prototype", "uat"],
+        "and the four that produce something read, or written to a sheet, rather than merged deliver nothing",
     );
 }
 
@@ -131,7 +131,6 @@ fn four_shipped_workflows_send_their_work_out_and_four_do_not() {
 fn each_shipped_step_reads_in_its_phase() {
     use core_model::StepPhase::{Delivery, Work};
     let declared = [
-        ("design_plan", "present"),
         ("orchestrate", "summarise"),
         ("uat", "review"),
         ("uat", "writeback"),
@@ -176,7 +175,6 @@ fn each_shipped_workflow_lands_in_what_it_is_for() {
         named,
         vec![
             ("bug", PullRequest),
-            ("code_review", Report),
             ("design_plan", Document),
             ("feature", PullRequest),
             ("orchestrate", Report),
@@ -232,78 +230,6 @@ fn this_repositorys_own_manifest_loads_and_states_its_patience() {
     // Nothing here has a reason to want more or fewer nudges than Fleet's, and
     // the two halves fall back separately — so an absent one is the assertion.
     assert_eq!(manifest.poke_limit(), None);
-}
-
-/// **A pull request arrives as a link and nothing else, so `code_review` has
-/// to say it is the one for a link to one.** `#1379`.
-///
-/// A Studio dispatches a Link naming a pull request as its address, and Fleet
-/// resolves no text behind one — `adapters::IssueLookup` reads an issue link
-/// and no other shape — so the proposer is choosing off a URL and eight step
-/// lists. `Read the diff -> Assess -> Deliver the review` is this workflow's
-/// own vocabulary and says nothing about whether a request is this kind of
-/// work, which is exactly what `#424` measured.
-#[test]
-fn code_review_says_it_is_for_a_pull_request_in_a_requesters_words() {
-    let what_for = says_what_it_is_for("code-review.json");
-    assert!(what_for.contains("pull request"), "{what_for}");
-    for steps_word in ["diff", "assess", "deliver"] {
-        assert!(
-            !what_for.to_lowercase().contains(steps_word),
-            "`{steps_word}` is the steps' word, not a requester's: {what_for}"
-        );
-    }
-}
-
-/// The `for_requests` line one shipped definition declares, off the file.
-fn says_what_it_is_for(file: &str) -> String {
-    let path = root().join(".armada/workflows").join(file);
-    let text = std::fs::read_to_string(&path).expect("a readable definition");
-    let def = config::WorkflowDef::parse(&path, &text, &roster())
-        .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
-    def.for_requests()
-        .unwrap_or_else(|| panic!("{file} says what requests it is for"))
-        .to_string()
-}
-
-/// **What the proposer is handed for each of the three addresses a Studio
-/// dispatches**, off the shipped catalogue rather than a fixture — `#1379`.
-///
-/// It measures everything up to the model call and nothing past it: which
-/// workflow is chosen is a model's answer, and this file spawns none. What it
-/// holds is the half that was wrong before — that the catalogue offers a line
-/// a person asking about a pull request or a milestone would have used, and
-/// that no other line offers either word to be matched on by accident. Every
-/// shipped definition has declared a line since 1 Oct 2026, so the guard is on
-/// the words and no longer on which two say anything.
-#[test]
-fn a_forge_link_is_offered_a_line_written_in_the_words_somebody_asking_would_use() {
-    let declared: Vec<(String, Option<String>)> = shipped()
-        .into_iter()
-        .map(|(path, text)| {
-            let def = config::WorkflowDef::parse(&path, &text, &roster())
-                .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
-            (
-                def.id().as_str().to_string(),
-                def.for_requests().map(str::to_string),
-            )
-        })
-        .collect();
-    for (word, owner) in [("pull request", "code_review")] {
-        let saying: Vec<&str> = declared
-            .iter()
-            .filter(|(_, line)| {
-                line.as_deref()
-                    .is_some_and(|line| line.to_lowercase().contains(word))
-            })
-            .map(|(id, _)| id.as_str())
-            .collect();
-        assert_eq!(
-            saying,
-            [owner],
-            "only the workflow a bare forge link has to reach says `{word}`"
-        );
-    }
 }
 
 /// **Every shipped step says what it does.** Bridge draws the line at the
@@ -376,86 +302,85 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
     }
 }
 
-/// **The steps the owner chose on 27 Oct 2026**, in order, which of them walk, and what ends each before
-/// the plan: Propose ends on an approval, never a reply (28 Oct 2026). Bug's Fix holds its walk, which was
-/// a step of its own until 30 Oct 2026. The decision record "A feature Job walks before it tests".
+/// **The steps the owner settled on 9 Nov 2026**, in order, and the gate that ends each one's plan group.
+/// A step with no gate is the one that ends the Job by itself: `uat`'s `writeback`.
 #[test]
-fn feature_and_bug_run_the_steps_the_owner_chose() {
-    use core_model::StepEnd::{DocumentApproved, DraftApproved, IdeaPicked, SketchApproved, WalkApproved};
-    let steps_of = |name: &str| -> Vec<(String, bool, Vec<core_model::StepEnd>)> {
-        let (path, text) = shipped()
-            .into_iter()
+fn each_shipped_workflow_runs_the_steps_the_owner_settled() {
+    use core_model::StepGate::{self, DocumentApproved, JobsEnded, Merged, PlanApproved, WalkApproved};
+    let expected: [(&str, Vec<(&str, StepGate)>); 8] = [
+        ("bug", vec![("find_the_cause", PlanApproved), ("fix", WalkApproved), ("deliver", Merged)]),
+        ("design-plan", vec![("draft", DocumentApproved)]),
+        ("feature", vec![("propose", PlanApproved), ("walk", WalkApproved), ("deliver", Merged)]),
+        ("orchestrate", vec![("plan", PlanApproved), ("oversee", JobsEnded), ("summarise", DocumentApproved)]),
+        ("prototype", vec![("frame", PlanApproved), ("build", WalkApproved), ("write_up", DocumentApproved)]),
+        ("refactor", vec![("plan", PlanApproved), ("implement", DocumentApproved), ("handoff", Merged)]),
+        ("revert", vec![("plan", PlanApproved), ("handoff", Merged)]),
+        ("uat", vec![("review", DocumentApproved), ("writeback", StepGate::None)]),
+    ];
+    let shipped = shipped();
+    assert_eq!(shipped.len(), expected.len(), "every shipped workflow is listed");
+    for (name, steps) in expected {
+        let (path, text) = shipped
+            .iter()
             .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some(name))
             .unwrap_or_else(|| panic!("{name} is shipped"));
-        config::WorkflowDef::parse(&path, &text, &roster())
-            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()))
-            .steps()
-            .iter()
-            .map(|step| (step.id().as_str().to_string(), step.walks(), step.ends_on().to_vec()))
-            .collect()
-    };
-    let expect = |rows: &[(&str, bool, &[core_model::StepEnd])]| -> Vec<(String, bool, Vec<core_model::StepEnd>)> {
-        rows.iter().map(|(id, walks, ends)| (id.to_string(), *walks, ends.to_vec())).collect()
-    };
-    assert_eq!(
-        steps_of("feature"),
-        expect(&[
-            ("propose", false, &[WalkApproved, SketchApproved, DraftApproved, IdeaPicked, DocumentApproved]),
-            ("walk", true, &[]),
-            ("refine", false, &[]),
-            ("deliver", false, &[]),
-        ])
-    );
-    assert_eq!(
-        steps_of("bug"),
-        expect(&[
-            ("find_the_cause", false, &[]),
-            ("fix", true, &[]),
-            ("tests", false, &[]),
-            ("deliver", false, &[]),
-        ])
-    );
+        let def = config::WorkflowDef::parse(path, text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        let read: Vec<(&str, StepGate)> = def.steps().iter().map(|step| (step.id().as_str(), step.gate())).collect();
+        assert_eq!(read, steps, "{name}");
+    }
 }
 
-/// **Oversee holds until every Job the parent started has landed or ended** (29 Oct 2026), read off the
-/// Jobs' lifecycle instances and not off what the agent says; no other step of the workflow waits on one.
+/// **Every step of every shipped workflow declares a gate**, except `uat`'s `writeback`, which ends the
+/// Job without one. A step that leaves the key out is a plan group nothing Fleet sees can end.
 #[test]
-fn orchestrate_holds_oversee_until_every_job_it_started_has_landed() {
+fn every_shipped_step_declares_a_gate_but_uat_writeback() {
+    for (path, text) in shipped() {
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for step in def.steps() {
+            let exempt = def.id().as_str() == "uat" && step.id().as_str() == "writeback";
+            assert_eq!(
+                step.gate() == core_model::StepGate::None,
+                exempt,
+                "{} step `{}`",
+                path.display(),
+                step.id().as_str(),
+            );
+        }
+    }
+}
+
+/// **Oversee ends when every Job the parent started has merged or ended** (9 Nov 2026), a fact Fleet
+/// reads off the Jobs' own records and not off what the agent says; no other step of the workflow waits on one.
+#[test]
+fn orchestrate_holds_oversee_until_every_job_it_started_has_ended() {
     let (path, text) = shipped()
         .into_iter()
         .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some("orchestrate"))
         .expect("orchestrate is shipped");
     let def = config::WorkflowDef::parse(&path, &text, &roster()).unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
-    let ends: Vec<(&str, Vec<String>)> =
-        def.steps().iter().map(|step| (step.id().as_str(), step.ends_on().iter().map(|end| end.as_wire().into_owned()).collect())).collect();
-    let expected = ["assess", "plan", "dispatch", "oversee", "summarise"];
-    assert_eq!(ends.iter().map(|(id, _)| *id).collect::<Vec<_>>(), expected);
-    for (id, ends) in &ends {
-        let want: &[&str] = if *id == "oversee" { &["job: landed"] } else { &[] };
-        assert_eq!(ends, want, "{id}");
-    }
+    let waiting: Vec<&str> =
+        def.steps().iter().filter(|step| step.gate() == core_model::StepGate::JobsEnded).map(|step| step.id().as_str()).collect();
+    assert_eq!(waiting, vec!["oversee"]);
 }
 
-/// **Tests come after the walk**: no step before it, nor the walk itself, asks for a test, and the step
-/// after it does.
+/// **Tests are written in `deliver`**: no step before it asks for one, and it does.
 #[test]
-fn no_step_before_the_walk_is_told_to_write_a_test_and_the_one_after_is() {
-    for (name, after) in [("feature", "refine"), ("bug", "tests")] {
+fn no_step_before_deliver_is_told_to_write_a_test_and_deliver_is() {
+    for name in ["feature", "bug"] {
         let (path, text) = shipped()
             .into_iter()
             .find(|(path, _)| path.file_stem().and_then(|stem| stem.to_str()) == Some(name))
             .unwrap_or_else(|| panic!("{name} is shipped"));
         let def = config::WorkflowDef::parse(&path, &text, &roster()).expect("loads");
-        let walk_at = def.steps().iter().position(|step| step.walks()).expect("a walk step");
-        for (at, step) in def.steps().iter().enumerate() {
+        for step in def.steps() {
             let words = step.instructions().unwrap_or_default().to_lowercase();
             let asks_for_tests = words.contains("write the test") || words.contains("write a test") || words.contains("each with the test");
-            let sentence_forbidding = words.contains("write no test") || words.contains("no tests");
-            if at <= walk_at && !sentence_forbidding {
-                assert!(!asks_for_tests, "{name} step `{}` asks for tests before the walk is approved", step.id().as_str());
-            }
-            if step.id().as_str() == after {
-                assert!(asks_for_tests, "{name} step `{after}` is where the tests are written");
+            if step.id().as_str() == "deliver" {
+                assert!(asks_for_tests, "{name} step `deliver` is where the tests are written");
+            } else {
+                assert!(!asks_for_tests, "{name} step `{}` asks for tests before deliver", step.id().as_str());
             }
         }
     }
@@ -476,16 +401,4 @@ fn only_uat_carries_no_code_and_none_of_its_steps_deliver() {
         }
     }
     assert_eq!(carrying_none, vec!["uat"]);
-}
-
-/// **`uat` runs the five steps the owner chose**, and waits on him at pre-flight, review and write back.
-#[test]
-fn uat_runs_the_steps_the_owner_chose() {
-    let (path, text) = shipped()
-        .into_iter()
-        .find(|(path, _)| path.file_name().is_some_and(|name| name == "uat.json"))
-        .expect("uat.json ships");
-    let def = config::WorkflowDef::parse(&path, &text, &roster()).expect("uat parses");
-    let ids: Vec<&str> = def.steps().iter().map(|step| step.id().as_str()).collect();
-    assert_eq!(ids, vec!["setup", "preflight", "run", "review", "writeback"]);
 }
