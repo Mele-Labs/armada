@@ -488,7 +488,7 @@ test("the Waiting on you line for a plain draft opens its card as a tab on the J
   const tabs = panesOf(peek(ID).root)
     .flatMap((pane) => pane.tabs)
     .filter((tab) => tab.kind === "draft");
-  expect(tabs.map(labelOf)).toEqual([
+  expect(tabs.map((tab) => labelOf(ID, tab))).toEqual([
     title,
   ]);
 });

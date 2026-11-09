@@ -13,6 +13,53 @@ A group or task may send back the `id` Fleet gave it.
 Fleet refuses a plan with every reason at once and says to call `record_plan` again; nothing is kept from a refused plan.
 The agent gets back the version and each id Fleet gave.
 
+**A group names the gate that ends it: a fact Fleet sees for itself, never the agent's word** (owner, 8 Nov 2026).
+`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, or `none`.
+Absent is `none`, and groups with no gate between them are one stretch.
+A word not on the list is refused with the list, rather than dropped.
+Each group carries its gate on the wire and in `session_plan_groups.gate`; recording the plan again replaces it.
+**A gate closes once, on a fact Fleet saw, and stays closed** (`crates/fleet/src/gate_keeping.rs`).
+Fleet keeps a `session_gates` row when it sees the fact, and never works it out again: the rail placed a Job afresh on every draw, so a fact that dropped out moved it backwards.
+His approval of a plan version closes every `plan_approved` gate for that version, and a version recorded again is his to approve again.
+Any other fact closes the first open gate of its kind in plan order, and no other: the merge of a pull request the Job holds, his approval of a page's newest revision or of a sketch, and his Approve once every walk shown stands approved.
+Only facts from after the plan was first recorded count.
+Each gate is watched on its own, so a merge closes its gate while an earlier one is open.
+A group keeps its close through a recording that keeps its id and its gate.
+The group's `gate_closed` carries the close: when, the fact in one line, and the commit where there is one.
+Bridge works out the live stretch from it: the first group whose gate is open, with the groups before it that name none.
+
+**Fleet closes a `checks_green` gate by running Checks itself** (`crates/fleet/src/gate_checks.rs`), never on the agent's word that they passed.
+A push of the Job's branch queues a run while a group gated on `checks_green` is open, and nothing else does.
+The run is the manifest's test Check over the tests the push touched, read as an agent's `armada check test --changed` reads them, in one detached worktree per repository at `.armada/gate-check` that keeps its `target/` between runs.
+It waits for a place behind every Check a Drone waits on, runs one at a time per repository, and a newer push replaces the Job's queued older one.
+A run that fails names its failing tests, and Fleet runs only those at the commit the branch met main at.
+A test red there too is `already_red` and does not hold the gate; a base result is kept per repository, base commit and test, so a base runs a test once.
+Green closes the gate with the fact `Checks passed at <sha>`, with `, <n> already red on main` where tests were, or `: no test touched` where the push touched none.
+While the gate is open the first such group carries `gate_checks`: the commit, `running` or `red`, the tests that failed and the ones also red on main.
+
+**The agent is told when a gate closes, and `all_done` waits for every gate** (`crates/fleet/src/gate_holding.rs`, owner, 8 Nov 2026).
+Each close sends one line, `Gate closed on "<group title>": <fact>.`, from one funnel, and only for a row written then.
+A red run of the Checks sends one line too, `Checks failed at <sha>: <tests>.`, with `Already red on main: <tests>.` after it where any were.
+`all_done` is held, not refused, while a group of the plan has a gate open.
+Fleet keeps the call and its summary in `session_gate_holds`, stamps no `done_since`, and answers that the call was held and on which group.
+Open follow-ups still refuse it, and the in-flight reason is skipped, since the gate covers it.
+When the last gate closes Fleet runs the call itself, and tells the agent if it is refused.
+A call held stops standing as `done_since` does: when he writes, or a turn of the agent's own begins.
+A held call reaches the person in Needs you only for a gate nothing in the Job can close, and only while nothing in the Job runs.
+That is an approval of any kind, a merge no open pull request is on the way to, or Checks no run has begun.
+The item offers `Approve` and `Skip this group`, and goes when the gate closes.
+`Approve` on a `plan_approved` gate approves the plan, and on any other closes the gate on his word.
+`Skip this group` closes it as skipped.
+
+**A Job's lifecycle rules hear its step moments from the gate rows, never from the rail** (`crates/fleet/src/lifecycles/ruling.rs`, owner, 8 Nov 2026).
+The rail's derived step slid backwards after a merge and moved a merged Job's ticket back, so `step_starts` and `step_ends` no longer follow it.
+A stretch is the groups after the previous gated group, up to and including the next one, and its steps are the groups' ids.
+A close that writes a row ends every group of its stretch, then closes its kind, then starts every group of the next stretch.
+The first stretch starts when the first version of the plan is recorded, and a later version starts nothing.
+`when: { gate_closes: <gate> }` fires on a gate's kind, `plan_approved` to `merged`, so a rule works for a plan the Job wrote itself.
+Each moment is stamped from the row it came from, so a rule runs once for a close however often Fleet hears it.
+A pull request opening is still the Job's own event, `when: { job: pull_request_opened }`.
+
 **A group says which pull request it lands in, so the person can see whether approving means one or two.** Fleet binds a pull request to a `lands_in` label from the Job's ledger and every group that shares the label reads that pull request's number, title and state.
 A group handed to its own Job takes that Job's pull request.
 A pull request opened while a task was in progress takes that task's group's label.

@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use core_model::rule::{
-    Act, Among, Autonomy, Condition, ForgeWrite, JobCondition, JobEvent, OnFailure, Quantity, Retries, Rule, Target,
+    Act, Among, Autonomy, Condition, ForgeWrite, Gate, JobCondition, JobEvent, OnFailure, Quantity, Retries, Rule, Target,
     Then, TrackerWrite, When, Words,
 };
 use core_model::{LifecycleId, LifecycleScope, ScopeId, StateId, StepId};
@@ -136,6 +136,19 @@ do:
 }
 
 #[test]
+fn a_gate_closing_is_a_moment_a_file_can_name_and_a_word_that_is_no_gate_is_refused() {
+    let file = |gate: &str| format!("version: 1\nrule_id: on_gate\nname: On gate\nwhen: {{ gate_closes: {gate} }}\ndo:\n  - tell_agent: {{ wake: true }}\n");
+    for gate in Gate::ALL {
+        assert_eq!(parsed(&file(gate.as_wire())).when(), &When::GateCloses(*gate));
+    }
+    let said = said(&file("none"));
+    assert!(said.contains("`when.gate_closes`"), "{said}");
+    for gate in Gate::ALL {
+        assert!(said.contains(gate.as_wire()), "the list names {}: {said}", gate.as_wire());
+    }
+}
+
+#[test]
 fn a_condition_fleet_cannot_test_is_refused_and_the_file_names_the_ones_it_can() {
     let said = said(
         "version: 1
@@ -180,7 +193,7 @@ on_failure: { retries: 9, then: shrug }
     for expected in [
         "`version` is `2`",
         "`rule_id` wanted an id",
-        "`when` wanted one of `step_starts`, `step_ends`, `job` or `enters` and holds more than one",
+        "`when` wanted one of `step_starts`, `step_ends`, `gate_closes`, `job` or `enters` and holds more than one",
         "`do[0].tracker_write.on` is required",
         "`do[1].tracker_write` wanted one of `assign`, `move` or `close` and holds more than one",
         "`do[2].forge_write.merge` wanted true, or leave the key out and holds false",

@@ -16,7 +16,38 @@ type SketchCard = Extract<
   }
 >;
 
+/**
+ * What each Job's rows were last drawn as. **Another Job's update redraws the open thread**, and the store hands back the
+ * same rows and ledger when this Job did not change (`SessionMemo`), so they are drawn once, not on every redraw.
+ */
+const drawn = new WeakMap<
+  Session["rows"],
+  {
+    attachments: Session["attachments"];
+    startFailed: Session["startFailed"];
+    rows: SessionThreadRow[];
+  }
+>();
+
+/** The rows a thread draws. The same list while the Job's rows, ledger and start are the same, so never change it in place. */
 export function threadRowsOf(session: Session): SessionThreadRow[] {
+  const held = drawn.get(session.rows);
+  if (
+    held !== undefined &&
+    held.attachments === session.attachments &&
+    held.startFailed === session.startFailed
+  )
+    return held.rows;
+  const rows = drawnRowsOf(session);
+  drawn.set(session.rows, {
+    attachments: session.attachments,
+    startFailed: session.startFailed,
+    rows,
+  });
+  return rows;
+}
+
+function drawnRowsOf(session: Session): SessionThreadRow[] {
   const rows = threadRowsFrom(session.rows, session.attachments);
   // Fleet's line for a Job whose agent never started, after the message it was sent for.
   if (session.startFailed === undefined) return rows;

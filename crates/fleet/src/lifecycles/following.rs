@@ -14,10 +14,10 @@ use super::taking_on::{landed, opened_pull_request};
 use crate::daemon::Fleet;
 
 /// What of a row decides whether anything a rule can see moved.
-type Look = (Option<u32>, bool, bool, bool);
+type Look = (bool, bool, bool);
 
 fn look_of(record: &SessionRecord) -> Look {
-    (record.workflow_step, opened_pull_request(&record.attachments), landed(&record.attachments), record.state == SessionState::Ended)
+    (opened_pull_request(&record.attachments), landed(&record.attachments), record.state == SessionState::Ended)
 }
 
 /// Start finding what happens to Jobs that have rules. Production starts it beside the rail's and the

@@ -135,13 +135,6 @@ where
         id: &str,
         asking: AskingToRun,
     ) -> Result<RunOrNot, Refusal> {
-        // He reads only what the agent writes, so a question with no answer to his message before it
-        // is sent back for the answer.
-        if asking.tool_name == ipc::ASKS_A_QUESTION && self.question_unanswered(id, asking.tool_use_id.as_deref()).await {
-            return Ok(RunOrNot::Deny {
-                message: String::from(super::unanswered::UNANSWERED_QUESTION),
-            });
-        }
         // The owner's browser is never opened by a session: the page goes to
         // Bridge's window, and the session is told so.
         if asking.tool_name == "Bash" {
@@ -408,7 +401,6 @@ where
     /// ask row it answers** ([`answers_a_question`]), so it is not read as words on a walk. It is his
     /// message, so the agent owes him a reply before its next question (`unanswered`).
     async fn person_said(&self, id: &str, ask: &str, text: String) {
-        super::unanswered::owed(&mut self.hosts().of(id).state());
         let row = SessionRow::Message {
             id: format!("{ask}{SAID}"),
             at: self.instant(),

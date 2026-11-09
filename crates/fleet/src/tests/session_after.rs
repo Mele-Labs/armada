@@ -313,10 +313,11 @@ async fn record_with_plan(states: &[ipc::PlanTaskState]) -> SessionRecord {
         approved_at: None,
         set_aside_at: None,
         scope: Vec::new(),
-        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), gives: None, paths: Vec::new(), tasks, issue: None, worked_at: None, lands_in: Default::default(), own_job: false }],
+        groups: vec![ipc::SessionPlanGroup { id: "g1".into(), agent: "x".into(), title: "Add the overlay".into(), gives: None, paths: Vec::new(), tasks, issue: None, worked_at: None, lands_in: Default::default(), own_job: false, gate: Default::default(), gate_closed: None, gate_checks: None }],
         changes: None,
         sketch: None,
         held_by: Vec::new(),
+        held: None,
     });
     record
 }
@@ -892,6 +893,23 @@ async fn a_plan_part_wait_becomes_the_successors_end_in_both_threads() {
     assert!(told.contains("this Job ends") && told.contains("Name the migrations"), "{told}");
 
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: new.clone() }).await.expect("closed");
+    rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
+}
+
+/// armada-mi2r: a wait made after the hand, naming the Job that ended, was refused as closed. **To the
+/// person a hand is one Job**, so it waits on the Job that took its place.
+#[tokio::test]
+async fn a_new_wait_naming_a_job_handed_on_waits_on_the_job_that_took_its_place() {
+    let rig = super::agent_starts::rig(None);
+    let agent = rig.a_waited_on_agent_to_hand_on().await;
+    let second = rig.handed_on(&agent).await;
+    let third = rig.handed_on(&second).await;
+
+    let waiting = rig.waits(&agent, StartCondition::PrLands, StartBase::Main).await;
+
+    assert_eq!(waiting.waits.as_ref().map(|wait| wait.on.id.clone()), Some(third.clone()), "the last of the chain");
+    rig.report(&third, opened("3214", "armada/a")).await;
+    rig.report(&third, landed("3214")).await;
     rig.eventually(&waiting.id, "the start", |one| one.waits.is_none()).await;
 }
 

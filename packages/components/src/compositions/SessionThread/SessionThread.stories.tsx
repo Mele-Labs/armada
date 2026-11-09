@@ -459,12 +459,21 @@ export const OpensAtTheNewest: Story = {
     await expect(canvas.getByText("Newest of all")).toBeVisible();
     region.scrollTop = 0;
     region.dispatchEvent(new Event("scroll"));
+    // The rows above come in as the top nears, keeping what he reads in place; then a row arriving does not move him.
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", {
+          name: "Show earlier",
+        }),
+      ).toBeNull(),
+    );
+    const reading = region.scrollTop;
     await userEvent.click(
       canvas.getByRole("button", {
         name: "Add a row",
       }),
     );
-    await expect(region.scrollTop).toBe(0);
+    await expect(region.scrollTop).toBe(reading);
   },
 };
 
@@ -1061,6 +1070,119 @@ export const WorkingMarkAfterAMessage: Story = {
     working: true,
   },
   play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("img", {
+        name: "Working",
+      }),
+    ).toBeInTheDocument();
+  },
+};
+
+const HANDED: SessionThreadRow[] = [
+  WORKED[0]!,
+  {
+    id: "h1",
+    at: "14:03:14",
+    kind: "tool",
+    text: "Agent Audit the settings pages",
+    subagent: {
+      id: "a1",
+      agent_type: "Explore",
+      task: "Audit the settings pages",
+      latest: "Read SettingsPage.tsx",
+      state: "finished",
+      since: "2026-11-06T14:03:14Z",
+      ended: "2026-11-06T14:05:14Z",
+    },
+  },
+  {
+    id: "h2",
+    at: "14:03:15",
+    kind: "tool",
+    text: "Agent Audit the Cockpit",
+    subagent: {
+      id: "a2",
+      agent_type: "Explore",
+      task: "Audit the Cockpit",
+      latest: "Grep raw colours",
+      state: "running",
+      since: "2026-11-06T14:03:15Z",
+    },
+  },
+  {
+    id: "h3",
+    at: "14:03:16",
+    kind: "tool",
+    text: "Agent Audit the Job panes",
+    subagent: {
+      id: "a3",
+      task: "Audit the Job panes",
+      latest: "Read job-panes.css",
+      state: "running",
+      since: "2026-11-06T14:03:16Z",
+    },
+  },
+];
+
+/** While subagents run, one card at the thread's foot carries the one live mark: no Working line stands under them. */
+export const SubagentsRunning: Story = {
+  args: {
+    rows: HANDED,
+    working: true,
+    onOpenSubagent: fn(),
+  },
+  play: async ({ canvas, args }) => {
+    const card = within(
+      canvas.getByRole("region", {
+        name: "Subagents running",
+      }),
+    );
+    await expect(
+      card.getByRole("button", {
+        name: "2 subagents running",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      canvas.queryByRole("img", {
+        name: "Working",
+      }),
+    ).toBeNull();
+    // In the thread a running one is its handoff, and a returned one its result with no last call.
+    await expect(canvas.getByText("Started a subagent: Audit the Cockpit")).toBeInTheDocument();
+    await expect(canvas.getByText("Started a subagent: Audit the Job panes")).toBeInTheDocument();
+    await expect(canvas.queryByText("Started a subagent: Audit the settings pages")).toBeNull();
+    await expect(canvas.queryByText("Read SettingsPage.tsx")).toBeNull();
+    await expect(card.queryByRole("list")).toBeNull();
+    await userEvent.click(
+      card.getByRole("button", {
+        name: "2 subagents running",
+      }),
+    );
+    const rows = within(card.getByRole("list"));
+    await expect(rows.getAllByRole("listitem")).toHaveLength(2);
+    await expect(rows.getByText("Grep raw colours")).toBeInTheDocument();
+    await expect(rows.queryByText("Explore")).toBeNull();
+    await userEvent.click(
+      rows.getByRole("button", {
+        name: "Subagent Audit the Cockpit",
+      }),
+    );
+    await expect(args.onOpenSubagent).toHaveBeenCalledWith("a2");
+  },
+};
+
+/** Once every subagent has returned the card goes, and the Working line is back. */
+export const SubagentsReturned: Story = {
+  args: {
+    rows: HANDED.slice(0, 2),
+    working: true,
+  },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("region", {
+        name: "Subagents running",
+      }),
+    ).toBeNull();
     await expect(
       canvas.getByRole("img", {
         name: "Working",

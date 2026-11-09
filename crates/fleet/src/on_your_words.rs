@@ -93,6 +93,17 @@ where
     fn always_loads(&self) -> Option<&'static str> {
         self.harness().always_loads_tool()
     }
+
+    /// Any hosted Job, on your words or not, whose agent or anything it started holds the
+    /// connection, walked deeper than the door walks.
+    fn job_at(&self, caller: Caller) -> bool {
+        self.hosts().all().into_iter().any(|(_, runtime)| {
+            let Some(pid) = runtime.state().process.as_ref().and_then(|p| p.pid()) else {
+                return false;
+            };
+            crate::peer::held_anywhere_within(&caller, self.host().port, &[pid], self.peers().as_ref())
+        })
+    }
 }
 
 /// Why a call outside the reach is refused, said after its name.

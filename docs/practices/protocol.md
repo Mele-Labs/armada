@@ -197,6 +197,9 @@ WebSocket event stream, read this first.
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
 | [The Operator takes Helm's place](protocol/the-operator-takes-helms-place.md) |
+| [A Job's thread, folded by Fleet](protocol/a-jobs-thread-fleet-folds.md) |
+| [The merge line, read by Fleet](protocol/the-merge-line-fleet-reads.md) |
+| [A Job's in-flight list: `SessionRecord.in_flight`](protocol/a-jobs-in-flight-list.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1571,3 +1574,89 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.
 - **The types are in `packages/protocol/src/operator-board.ts`**, since `sessions.ts` is past the line the gate refuses.
+
+## A plan group's gate: `gate` on `PlanGroupInput` and `SessionPlanGroup`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/store/migrations/20261108T2100Z-session_plan.group_gate.sql`.
+**One enum and one optional field on two existing types**: no operation, route, event kind or error.
+Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
+| `SessionPlanGroup.gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | The gate as the agent named it. Absent is `none` |
+
+**Why it is a field and not a word read beside the body**, as `seen` is: the gate is what Fleet will record against, so it rides the wire type and a decoder refuses a word it does not know.
+**Skew.** An older Fleet drops `gate` from a plan it is sent, as every Fleet before this one did, and sends none; Bridge reads that as `none`.
+
+## A gate's close: `gate_closed` on `SessionPlanGroup`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/fleet/src/gate_keeping.rs`, `crates/store/migrations/20261108T2200Z-session_gates.table.sql`.
+**One type and one optional field on an existing type**: no operation, route, event kind or error.
+Bridge's half is `GateClose` and `gate_closed` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlanGroup.gate_closed` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `at`, `fact` (one line), `commit` where there is one, `already_red` where any test was red at the base too, `skipped` where he skipped the group. Absent while the gate is open |
+
+**Written once.** A close is a `session_gates` row, read with the plan; nothing works it out again on a later draw.
+**The live stretch is Bridge's to draw** from these: the first group whose gate is open.
+**Skew.** An older Fleet sends no `gate_closed`, and Bridge draws every gate open.
+
+## A gate's Checks: `gate_checks` on `SessionPlanGroup`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/fleet/src/gate_checks.rs`, `crates/store/migrations/20261108T2300Z-session_gate_checks.table.sql`.
+**One type and one optional field on an existing type**: no operation, route, event kind or error.
+Bridge's half is `GateChecks` and `gate_checks` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionPlanGroup.gate_checks` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `commit` (seven characters), `state` (`running` or `red`), `failed` where any test failed here and passes at the base on main, `already_red` where any failed at the base too. Only on the first group gated on `checks_green` that is open |
+
+**Absent once the gate closes**, and absent from a group whose gate is not `checks_green`.
+The latest run of a Job is one `session_gate_checks` row, replaced by the next run and removed when the gate closes, and read with the plan.
+**Skew.** An older Fleet sends no `gate_checks`, and Bridge draws the gate with no run under it.
+
+## A held `all_done`: `gate_closed`, `gate_hold`, `WaitingSource::Gate`, `SessionPlan.held`
+
+Since 8 Nov 2026. `crates/ipc/src/session_plan.rs`, `crates/ipc/src/notices.rs`, `crates/fleet/src/gate_holding.rs`, `crates/store/migrations/20261109T0000Z-session_gate_holds.table.sql`.
+**Two notice words, one source, one optional field and one receipt field**: no operation, route, event kind or error.
+Bridge's half is `gate_closed` and `gate_hold` in `packages/protocol/src/notices.ts`, `gate` in `WaitingSource` and `GateHeld` and `held` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| Notice `gate_closed` (thread rows, `set_notice_mute`) | Fleet writes, Bridge reads | One line, `Gate closed on "<group title>": <fact>.`, once for each row written |
+| Notice `gate_hold` | Fleet writes, Bridge reads | A red run of a gate's Checks, `Checks failed at <sha>: <tests>.` with `Already red on main: <tests>.` where any were, or `all_done could not finish: <reason>.` |
+| `WaitingSource::Gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Id `gate:<group id>`, text `"<group title>" waits on <what>`, an `answer` act on the Job, and the options `Approve` (choice 0) and `Skip this group` (choice 1). Never kept, and not dismissed |
+| `SessionPlan.held` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `group`, the first group in plan order whose gate is open, and `since`, when the agent first said it was done. Absent when no call is held or no gate is open |
+| `all_done` receipt | Fleet writes, the agent reads | `held`, one line saying which group's gate the call waits on. Absent when the call was taken |
+
+**Derived on every read.** The item is built from the plan, the hold and what runs, so it goes when the gate closes or the hold clears.
+**Skew.** An older Fleet sends no `held` and no `gate` item, and Bridge draws neither.
+
+
+## A rule's gate moment: `RuleWhen::GateCloses`
+
+Since 8 Nov 2026. `crates/ipc/src/lifecycles.rs`, `crates/core-model/src/rule/when.rs`, `crates/config/src/rule/moment.rs`.
+**One variant on an existing enum**: no operation, route, event kind or error.
+Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/src/lifecycles.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green` or `merged`. Never `none` |
+
+**A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
+**Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.
+
+## A hand off told to a parent: `SessionRow::Linked.replaces`
+
+Since 6 Nov 2026. `docs/concepts/session/a-handed-off-job.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
+
+Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.

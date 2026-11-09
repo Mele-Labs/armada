@@ -38,4 +38,4 @@ pub use failure::{OnFailure, OverTheCap, Retries, Then};
 pub use ids::{AutonomyId, BlankWords, RuleId, Words};
 pub use occurrence::{Happening, Occurrence, OccurrenceKey, RanOnce};
 pub use select::{Among, Condition, JobCondition, JobFacts, Quantity, Target};
-pub use when::{JobEvent, When};
+pub use when::{Gate, JobEvent, When};

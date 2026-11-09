@@ -48,6 +48,14 @@ pub struct KeptPlanGroup {
     pub own_job: bool,
     /// The group changes what the person sees, as the agent wrote it.
     pub seen: bool,
+    /// The fact that ends the group, as the wire's word such as `checks_green`. Absent is `none`.
+    pub gate: Option<String>,
+    /// How its gate closed, read from the Job's gate rows with the plan. Absent while it is open, and
+    /// never written with the plan.
+    pub closed: Option<crate::KeptGate>,
+    /// The Job's latest gate-check run, on the first group gated on `checks_green` that is still open.
+    /// Read with the plan and never written with it.
+    pub checks: Option<crate::KeptGateChecks>,
     pub agent: String,
     pub title: String,
     pub paths: Vec<String>,
@@ -91,6 +99,8 @@ pub struct KeptPlan {
     pub next_task: u32,
     /// How many tool calls the Session's own agent has made since the plan was first recorded.
     pub calls: u32,
+    /// The agent's `all_done`, held while a gate stands open. Read with the plan, kept apart from it.
+    pub held: Option<crate::KeptGateHold>,
     pub groups: Vec<KeptPlanGroup>,
 }
 
@@ -137,6 +147,7 @@ impl Store {
                         set_aside_at: row.get(10)?,
                         calls: row.get(11)?,
                         seen: row.get::<_, i64>(12)? == 1,
+                        held: None,
                         groups: Vec::new(),
                     })
                 },
@@ -147,7 +158,7 @@ impl Store {
         let mut groups = self
             .conn
             .prepare(
-                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen FROM session_plan_groups
+                "SELECT group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen, gate FROM session_plan_groups
                  WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(reading)?;
@@ -160,6 +171,9 @@ impl Store {
                     lands_in: row.get(8)?,
                     own_job: row.get::<_, i64>(9)? == 1,
                     seen: row.get::<_, i64>(10)? == 1,
+                    gate: row.get(11)?,
+                    closed: None,
+                    checks: None,
                     agent: row.get(1)?,
                     title: row.get(2)?,
                     paths: paths.lines().map(str::to_string).collect(),
@@ -220,6 +234,16 @@ impl Store {
                 .collect::<Result<_, _>>()
                 .map_err(reading)?;
         }
+        let gates = self.session_gates(session_id)?;
+        let version = plan.version;
+        for group in &mut plan.groups {
+            let Some(gate) = group.gate.as_deref() else { continue };
+            group.closed = gates.iter().find(|one| one.closes(&group.id, gate, version)).cloned();
+        }
+        if let Some(group) = plan.groups.iter_mut().find(|group| group.gate.as_deref() == Some(crate::CHECKS_GREEN) && group.closed.is_none()) {
+            group.checks = self.session_gate_checks(session_id)?;
+        }
+        plan.held = self.session_gate_hold(session_id)?;
         Ok(Some(plan))
     }
 
@@ -259,8 +283,8 @@ impl Store {
         for (at, group) in plan.groups.iter().enumerate() {
             kept.execute(
                 "INSERT INTO session_plan_groups
-                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                     (session_id, position, group_id, agent, title, paths, worked_at, issue, issue_reference, gives, lands_in, own_job, seen, gate)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                 params![
                     session_id,
                     at as i64,
@@ -276,6 +300,7 @@ impl Store {
                     group.lands_in,
                     group.own_job,
                     group.seen,
+                    group.gate,
                 ],
             )
             .map_err(keeping)?;

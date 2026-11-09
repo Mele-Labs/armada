@@ -86,6 +86,9 @@ pub enum Asking {
     /// What a repository's `when_base_moves:` runs in its checkout. Nobody waits on it:
     /// **last of all**, beside a warm-up.
     BaseMoved,
+    /// The Checks that close a plan group's `checks_green` gate. A Job's gate waits on it and no Drone
+    /// does: **behind a proof** and ahead of what only makes a later run faster.
+    GateChecked,
 }
 
 impl Asking {
@@ -93,7 +96,7 @@ impl Asking {
         match self {
             Asking::DronesRun => 0,
             Asking::Gate | Asking::FixDraft => 1,
-            Asking::Proof => 2,
+            Asking::Proof | Asking::GateChecked => 2,
             Asking::SeedWarmup | Asking::Recording | Asking::BaseMoved => 3,
         }
     }

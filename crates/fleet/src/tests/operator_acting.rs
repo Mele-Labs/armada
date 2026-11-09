@@ -65,6 +65,7 @@ fn plan(id: &SessionId, groups: &[(&str, &str)]) -> RecordPlan {
                 gives: None,
                 lands_in: None,
                 own_job: false,
+                gate: Default::default(),
                 tasks: vec![PlanTaskInput { id: None, title: format!("Build {title}") }],
             })
             .collect(),

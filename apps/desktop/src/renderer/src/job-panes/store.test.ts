@@ -27,7 +27,10 @@ function storage(): Storage {
   }) as unknown as Storage;
 }
 
-const KEEP = new URL("../../../../../../packages/components/src/keep.ts", import.meta.url).pathname;
+// Decoded, so a checkout under a folder with a space in its name is still found.
+const KEEP = decodeURIComponent(
+  new URL("../../../../../../packages/components/src/keep.ts", import.meta.url).pathname,
+);
 
 let kept: Storage;
 
@@ -475,6 +478,77 @@ describe("kept across a restart", () => {
         "now",
       ],
     ]);
+  });
+
+  test("dropping one Job forgets its kept panes, its ⌘Z and its area, and it opens again as one never seen", async () => {
+    const s = await start();
+    s.rearrange("a", (x) => s.addTab(x, x.focus, "files"));
+    s.saveLayoutAs("a", "Files");
+    s.rearrange("a", (x) => s.addTab(x, x.focus, "plan"));
+    s.rearrange("b", (x) => s.addTab(x, x.focus, "plan"));
+    s.measured("a", {
+      w: s.MIN_PANE_W * 2 + 1,
+      h: s.MIN_PANE_H * 8,
+    });
+    const crowded = s.panesOf(s.peek("a").root)[1]!.tabs[0]!.id;
+    expect(s.droppableEdge("a", crowded, "right")).toBe(false);
+
+    s.jobPanes.drop("a");
+    expect(kept.getItem("armada:kept:job-panes:job:a")).toBeNull();
+    expect(s.jobPanes.ownerIds()).toEqual([
+      "b",
+    ]);
+    // Made from the layout for all, as a Job seen the first time is.
+    expect(kinds(s.peek("a"), (x) => s.panesOf(x.root))).toEqual([
+      [
+        "thread",
+      ],
+      [
+        "open",
+        "done",
+        "deferred",
+      ],
+      [
+        "now",
+      ],
+    ]);
+    // Nothing to take back, and no measured area to refuse a pane by.
+    s.undo("a");
+    expect(kinds(s.peek("a"), (x) => s.panesOf(x.root))[0]).toEqual([
+      "thread",
+    ]);
+    const tab = s.panesOf(s.peek("a").root)[1]!.tabs[0]!.id;
+    expect(s.droppableEdge("a", tab, "right")).toBe(true);
+
+    // Another Job and the family's saved layouts stay, here and after a restart.
+    expect(kinds(s.peek("b"), (x) => s.panesOf(x.root))[0]).toEqual([
+      "thread",
+      "plan",
+    ]);
+    expect(s.nameTaken("Files")).toBe(true);
+    const later = await start();
+    expect(later.nameTaken("Files")).toBe(true);
+    expect(kinds(later.peek("b"), (x) => later.panesOf(x.root))[0]).toEqual([
+      "thread",
+      "plan",
+    ]);
+  });
+
+  test("dropping a Job leaves a pull request and the Operator that share its id, each family dropping only its own", async () => {
+    const s = await start();
+    s.rearrange("x", (a) => s.addTab(a, a.focus, "files"));
+    s.prPanes.rearrange("x", (a) => s.addTab(a, a.focus, "files"));
+    s.operatorPanes.rearrange("operator", (a) => s.addTab(a, a.focus, "files"));
+    s.jobPanes.drop("x");
+    expect(kept.getItem("armada:kept:job-panes:job:x")).toBeNull();
+    expect(kept.getItem("armada:kept:pr-panes:pr:x")).not.toBeNull();
+    expect(kept.getItem("armada:kept:operator-panes:operator")).not.toBeNull();
+    s.prPanes.drop("x");
+    expect(kept.getItem("armada:kept:pr-panes:pr:x")).toBeNull();
+    expect(s.prPanes.ownerIds()).toEqual([]);
+    expect(kept.getItem("armada:kept:operator-panes:operator")).not.toBeNull();
+    s.operatorPanes.drop("operator");
+    expect(kept.getItem("armada:kept:operator-panes:operator")).toBeNull();
   });
 
   test("forgetting the panes clears what was kept, for every Job", async () => {

@@ -174,6 +174,10 @@ where
         self.waiting_started_now(start.session_id.as_str()).await
     }
 
+    async fn message_reach(self: Arc<Self>, caller: api::Caller, to: ipc::MessageTo) -> Result<ipc::MessageReach, Refusal> {
+        self.message_reach_of(caller, &to.to).await
+    }
+
     async fn send_session_message(
         self: Arc<Self>,
         sent: SendSessionMessage,
@@ -590,6 +594,10 @@ where
             session: record,
             rows: self.retro_rows_settled(id.as_str(), rows).await,
         })
+    }
+
+    async fn get_job_thread(self: Arc<Self>, read: ipc::JobThreadRead) -> Result<ipc::JobThread, Refusal> {
+        self.job_thread_served(read).await
     }
 
     async fn get_session_subagent(

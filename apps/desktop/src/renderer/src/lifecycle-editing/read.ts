@@ -268,7 +268,7 @@ export function drawnRule(
   | Pick<Rule, "label" | "from" | "at" | "to" | "ifs" | "does" | "autonomy" | "workflow">
   | undefined {
   const when = rule.when;
-  if (when.kind === "job") return undefined;
+  if (when.kind === "job" || when.kind === "gate_closes") return undefined;
   const to = landing(rule, defs);
   if (to === undefined) return undefined;
   const lifecycles = [

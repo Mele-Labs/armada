@@ -2,7 +2,7 @@
 //! reason in a message that says what to call again. `docs/concepts/session.md`, *The plan*.
 
 use crate::session_plan::MOST_GROUPS;
-use crate::{IssueReference, PlanGroupInput, PlanMark, PlanTaskInput, RecordPlan};
+use crate::{IssueReference, PlanGate, PlanGroupInput, PlanMark, PlanTaskInput, RecordPlan};
 
 fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanGroupInput {
     PlanGroupInput {
@@ -14,6 +14,7 @@ fn group(id: Option<&str>, agent: &str, paths: &[&str], tasks: &[&str]) -> PlanG
         gives: None,
         lands_in: None,
         own_job: false,
+        gate: Default::default(),
         tasks: tasks.iter().map(|one| PlanTaskInput { id: None, title: one.to_string() }).collect(),
     }
 }
@@ -194,4 +195,41 @@ fn a_plan_group_on_the_wire_carries_own_job_only_when_it_is_true() {
     assert!(wire.contains(r#""own_job":true"#), "{wire}");
     let back: crate::SessionPlanGroup = crate::decode("a plan group", wire.as_bytes()).unwrap();
     assert!(back.own_job);
+}
+
+#[test]
+fn a_group_names_the_gate_that_ends_it_and_a_word_no_gate_has_is_refused_rather_than_dropped() {
+    let read = |gate: &str| {
+        crate::decode::<RecordPlan>(
+            "a plan to record",
+            format!(r#"{{"summary":"You get it.","groups":[{{"title":"Fix","agent":"rust-engineer","gate":"{gate}","tasks":[{{"title":"Fix it"}}]}}]}}"#)
+                .as_bytes(),
+        )
+    };
+    for gate in PlanGate::ALL {
+        let plan = read(gate.word()).unwrap_or_else(|why| panic!("{} reads: {why}", gate.word()));
+        assert_eq!(plan.checked().unwrap().groups[0].gate, gate, "checking keeps it");
+    }
+    let why = read("checks").expect_err("a word no gate has").to_string();
+    assert!(why.contains("checks_green") && why.contains("document_approved"), "the refusal names the gates there are: {why}");
+
+    let absent: PlanGroupInput =
+        crate::decode("a group", br#"{"title":"Fleet","agent":"rust-engineer","tasks":[{"title":"Serve it"}]}"#).unwrap();
+    assert_eq!(absent.gate, PlanGate::None, "absent is none");
+    assert!(!crate::encode(&absent).unwrap().contains("gate"), "none is not sent");
+}
+
+#[test]
+fn a_plan_group_on_the_wire_carries_its_gate_and_one_from_before_gates_reads_none() {
+    let bare = br#"{"id":"g1","agent":"rust-engineer","title":"Store","paths":[],"tasks":[]}"#;
+    let mut group: crate::SessionPlanGroup = crate::decode("a plan group", bare).unwrap();
+    assert_eq!(group.gate, PlanGate::None);
+    group.gate = PlanGate::ChecksGreen;
+    let wire = crate::encode(&group).unwrap();
+    assert!(wire.contains(r#""gate":"checks_green""#), "{wire}");
+    let back: crate::SessionPlanGroup = crate::decode("a plan group", wire.as_bytes()).unwrap();
+    assert_eq!(back.gate, PlanGate::ChecksGreen);
+    for gate in PlanGate::ALL {
+        assert_eq!(PlanGate::from_word(gate.word()), gate, "the store's word reads back");
+    }
 }

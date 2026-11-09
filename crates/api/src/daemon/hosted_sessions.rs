@@ -57,6 +57,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         read: ipc::ReadSessionWait,
     ) -> impl Future<Output = Result<ipc::WaitReading, Refusal>> + Send;
 
+    /// `message_reach`: whether the Job holding `caller`'s connection may `SendMessage` the address
+    /// `to`. **Allowed by default**, and for any caller that is not a hosted Job.
+    fn message_reach(
+        self: Arc<Self>,
+        _caller: crate::Caller,
+        _to: ipc::MessageTo,
+    ) -> impl Future<Output = Result<ipc::MessageReach, Refusal>> + Send {
+        async { Ok(ipc::MessageReach::Allowed {}) }
+    }
+
     /// `start_waiting_now`: the person starts a waiting Session at once, whatever its condition.
     /// [`Refusal::IllegalMove`] where it does not wait.
     fn start_waiting_now(
@@ -383,6 +393,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         self: Arc<Self>,
         id: SessionId,
     ) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
+
+    /// `get_job_thread`: the Job's thread folded, as whole items. [`Refusal::Unacceptable`] for a `before` no
+    /// item holds.
+    fn get_job_thread(
+        self: Arc<Self>,
+        read: ipc::JobThreadRead,
+    ) -> impl Future<Output = Result<ipc::JobThread, Refusal>> + Send;
 
     /// `get_session_subagent`: a subagent's own thread.
     fn get_session_subagent(

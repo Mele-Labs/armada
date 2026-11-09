@@ -117,6 +117,11 @@ pub fn lifecycle(lifecycle: &Lifecycle) -> ipc::LifecycleDefinition {
     }
 }
 
+/// What End job lists for one instance a Job holds.
+pub fn in_flight(flying: &super::ending::Flying) -> ipc::InFlight {
+    ipc::InFlight { lifecycle: flying.lifecycle.clone(), key: flying.key.clone(), label: flying.label.clone(), state: flying.state.clone() }
+}
+
 /// Where an instance stands.
 pub fn standing(standing: &Standing) -> ipc::InstanceStanding {
     match standing {
@@ -146,6 +151,7 @@ fn when(when: &When) -> ipc::RuleWhen {
         }
         When::StepStarts(step) => ipc::RuleWhen::StepStarts { step: step.as_str().to_string() },
         When::StepEnds(step) => ipc::RuleWhen::StepEnds { step: step.as_str().to_string() },
+        When::GateCloses(gate) => ipc::RuleWhen::GateCloses { gate: gate.as_wire().to_string() },
         When::Job(event) => ipc::RuleWhen::Job { event: event.as_wire().to_string() },
     }
 }

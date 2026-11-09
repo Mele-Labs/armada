@@ -246,6 +246,7 @@ fn group(title: &str, tasks: &[&str]) -> PlanGroupInput {
         gives: None,
         lands_in: None,
         own_job: false,
+        gate: Default::default(),
         tasks: tasks.iter().map(|title| PlanTaskInput { id: None, title: title.to_string() }).collect(),
     }
 }

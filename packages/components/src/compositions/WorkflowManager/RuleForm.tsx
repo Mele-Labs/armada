@@ -645,7 +645,7 @@ export function RuleForm({ rule, lifecycles, steps, workflows, lands, onChange }
 
   /** The piece to keep: with a node to land on, which the step it fires on is where it has none. */
   const settle = (next: LifecycleRule): LifecycleRule => {
-    if (next.when.kind === "job" || lands(next)) return next;
+    if (next.when.kind === "job" || next.when.kind === "gate_closes" || lands(next)) return next;
     const step =
       next.when.kind === "step_starts" || next.when.kind === "step_ends"
         ? next.when.step

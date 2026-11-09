@@ -721,6 +721,8 @@ export type SessionRow =
         title: string;
       };
       event: LinkedEvent;
+      /** The Job `session` took the place of when it was handed on for context. Not drawn: the row that started that Job stands for both. */
+      replaces?: string;
     }
   /**
    * A Session waits on this one, its condition changed, or it started. Written in this Session's thread (`side` absent,
