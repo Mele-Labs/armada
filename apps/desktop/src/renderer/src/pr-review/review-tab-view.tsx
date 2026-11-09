@@ -31,7 +31,16 @@ import { placeOfDraft } from "./changes";
 import { CodeRefs } from "./code-refs";
 import { YourReview } from "./comments";
 import { ThreadHere } from "./comments-pane";
-import { OpeningAsk, defaultsOf, headTools, runOf, runState, start, unread } from "./opening-run";
+import {
+  OpeningAsk,
+  asksOf,
+  defaultsOf,
+  headTools,
+  runOf,
+  runState,
+  start,
+  unread,
+} from "./opening-run";
 import {
   linesOfFinding,
   orderOf,
@@ -419,7 +428,8 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
     const chosen = defaultsOf(pr.manifestId, head);
     const due = head.filter((one) => chosen.includes(one.id) && unread(runOf(kept, one), pr.head));
     if (due.length === 0) return;
-    if (now.askFirst) return setAsking(true);
+    // The repository's Ask before running decides, not the head's Don't ask again, so System, Repository can turn it back on.
+    if (asksOf(pr.manifestId)) return setAsking(true);
     for (const one of due) start(store, pr, kept, one);
     // Read once the runs are in; what is due is read then, never again for this commit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
