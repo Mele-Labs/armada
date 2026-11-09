@@ -550,6 +550,29 @@ pub(crate) async fn view_session<D: HostedSessions>(
     }
 }
 
+/// Every call standing on the person.
+pub(crate) async fn get_calls<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_calls().await {
+        Ok(calls) => answer(StatusCode::OK, &calls, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// A main or pull request call he opened. 200 with the calls as they stand.
+pub(crate) async fn open_call<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::OpenStandingCall = match ipc::decode_body("a call opened", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().open_call(asked).await {
+        Ok(calls) => answer(StatusCode::OK, &calls, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn pause_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

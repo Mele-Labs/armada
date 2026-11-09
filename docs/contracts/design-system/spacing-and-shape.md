@@ -67,7 +67,9 @@ A page panel's header strip is 36px (`--strip-h`), the height of a thread's head
 Both tokens are in `takes.css`, not `spacing.css`.
 The label in `--text-2xs` caps at 600 with tracked letters on the left, then an optional mono readout and the panel's 24px ghost icon buttons on the right, with one `--border-subtle` rule under it.
 `CardHeader`, `CardTitle` and `CardReadout` are the strip, and the Cockpit's `deck-band`, the Logbook's band, the Worktrees band and a Job's panel band take it from the same rule in `depth.css`.
-A filled or dimmed band is a state in the wrong place, so a header is never filled with a state's hue.
+A panel's legend strip names the panel, so it is never filled with a state's hue.
+**A card that stands for one thing with a state carries it in a solid header band**: the state's hue across the band, its glyph, state and id on it, a dark body under it and one accent for the card.
+The `PoolSlots` slot cards are the owner's example (4 Oct 2026), and his bar for new surfaces since (9 Nov 2026; The product).
 The Cockpit's own panels keep their earlier choice: the strip comes up as a chip on a hover or on focus, and stays drawn on a folded panel.
 
 **What a panel holds nests inside its curve.**
@@ -75,9 +77,9 @@ Content flush against the bezel takes `--radius-bezel`, 6px, which is the panel'
 Content a gutter inside it, which is a row, a chip, a bay, a track or a tile, takes `--radius-inset`, 2px, and nothing is cut to less than `--radius-floor`, 2px.
 Why: the merge queue's track drew a 14px pill inside an 8px panel, and a Blueprint row drew a square bar beside round corners.
 
-**A state is a lamp.**
+**A row's state is a lamp.**
 A lamp is 6px and round (`--lamp`) at the left edge of a row or a band: running `--status-running`, needs him `--status-awaiting-review`, done `--status-completed-success`, failed `--status-completed-failed`, idle `--fg-subtle`.
-It replaces a filled state band and a state-coloured row fill.
+It replaces a state-coloured row fill; a card's state is its header band, above.
 A row that needs him keeps a faint tint, and its lamp pulses on opacity alone, which reduced motion turns off.
 
 ```

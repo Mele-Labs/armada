@@ -199,8 +199,8 @@ Nothing is fetched from the network. Name a source as a link with its words.
 - Facts, in the order the person needs them. The conclusion comes first.
 - No narration: not "let's look at" or "it is important to note". Each
   sentence adds something the person did not have.
-- No emoji, no gradients, no glows, no sheen, no grain, no decoration. The
-  kit's colour is enough.
+- No emoji, no gradients, no glows, no sheen, no grain. Use the kit's
+  colours for what they mean: a state, a kind, a figure that matters.
 - Apply the humanizer rules to every sentence: no "not X but Y", no closing
   line that repeats the paragraph, no triad for rhythm, no dashes as
   connectors.

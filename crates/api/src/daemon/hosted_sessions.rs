@@ -283,6 +283,16 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::ViewSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `get_calls`: every call standing on the person, oldest first. It never refuses.
+    fn get_calls(&self) -> impl Future<Output = Result<ipc::StandingCalls, Refusal>> + Send;
+
+    /// `open_call`: he opened a main or pull request call. Answers the calls as they stand. A Job's
+    /// call is opened by `view_session`, and a key that names no call standing opens nothing.
+    fn open_call(
+        &self,
+        asked: ipc::OpenStandingCall,
+    ) -> impl Future<Output = Result<ipc::StandingCalls, Refusal>> + Send;
+
     /// `pause_session`: ends the turn, parks the slot's work on its branch and gives the slot back.
     fn pause_session(
         &self,

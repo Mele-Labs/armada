@@ -100,6 +100,20 @@ async fn the_merge_line_view_is_served_beside_the_merge_lines() {
     assert!(held.lines.is_empty());
 }
 
+/// The calls on the person are read at `/calls`, and `/calls/open` answers them whole.
+#[tokio::test]
+async fn the_calls_are_served_and_opening_one_answers_them() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/calls", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let held: ipc::StandingCalls = ipc::decode("the calls", &body).expect("the calls");
+    assert!(held.calls.is_empty());
+    let (status, body) = call(&app, "POST", "/calls/open", r#"{"key":"main:/r"}"#).await;
+    assert_eq!(status, StatusCode::OK);
+    ipc::decode::<ipc::StandingCalls>("the calls", &body).expect("the calls");
+}
+
 /// **A step's gates cross before any of them acts.** This is the preview a
 /// person approves a dispatch from — a workflow that will stop and wait at
 /// `handoff`, and spend Judge calls at `implement`, previewed as neither,

@@ -15,7 +15,7 @@ no second drawing of it to reconcile against.
 | For | Read |
 |---|---|
 | The spec | `docs/contracts/design-system.md` — `## Hard rules` and `## Component → token mapping` |
-| The rules broken most | `docs/contracts/iconography.md` — default to no icon, the two sizes, the contrast floor |
+| The rules broken most | `docs/contracts/iconography.md` — a glyph for a row's kind and state and none for anything else, the two sizes, the contrast floor |
 | The tokens | `packages/tokens/src/*.css`. Read the comments; several carry the argument for a value |
 | The glyphs | `packages/icons/icons/` |
 | The states a status can hold | `crates/core-model/domain/enum-verbs.toml` |
