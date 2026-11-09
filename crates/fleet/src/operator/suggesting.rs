@@ -24,7 +24,7 @@ use crate::session_host::waiting::SESSION_WAITING_EMPTY;
 const SUGGESTION_UNKNOWN: &str = "fleet.operator_suggestion_unknown";
 
 /// The id of the item for one suggestion: `suggestion:<n>`.
-const SUGGESTION: &str = "suggestion:";
+pub(super) const SUGGESTION: &str = "suggestion:";
 
 /// Choice 0 does what Decide would have.
 pub(crate) const DO_IT: u32 = 0;
