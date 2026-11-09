@@ -596,7 +596,9 @@ test("the file list floats beside the panel on the Files tab, a press scrolls to
   expect(row().getAttribute("aria-current")).toBeNull();
   await act(async () => row().click());
   expect(intoView).not.toHaveBeenCalled();
-  expect(scrolled.mock.contexts.some((box) => (box as HTMLElement).contains(sections()[1]!))).toBe(true);
+  expect(scrolled.mock.contexts.some((box) => (box as HTMLElement).contains(sections()[1]!))).toBe(
+    true,
+  );
   expect(row().getAttribute("aria-current")).toBe("true");
   await press("Commits");
   expect(list()).toBeNull();
