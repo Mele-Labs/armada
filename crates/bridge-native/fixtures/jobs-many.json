@@ -8,11 +8,17 @@
    "manifest_id": "armada",
    "cwd": "/repos/armada",
    "title": "Fix the merge line freshness chip",
+   "last_turn_at": "2026-11-09T15:52:00Z",
+   "so_far": "Asked which chip colour the stale state takes",
+   "workflow": "feature", "workflow_step": 2, "workflow_copy": { "id": "feature", "name": "Feature", "version": 1, "manifest_id": "armada", "lands": "pull_request", "steps": [ { "step_id": "plan", "label": "Plan", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "build", "label": "Build", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "walk", "label": "Walk", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "land", "label": "Land", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" } ] },
    "state": "live",
    "started_at": "2026-11-08T08:00:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    { "kind": "issue", "target": "3290", "state": "standing", "detail": { "title": "Merge line freshness chip stays green when stale" }, "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" },
+    { "kind": "pr", "target": "3388", "state": "standing", "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" }
+   ],
    "standing": "working"
   },
   {
@@ -23,6 +29,8 @@
    "manifest_id": "armada",
    "cwd": "/repos/armada",
    "title": "Native Bridge foundation",
+   "activity": { "now": "Editing jobs.rs" },
+   "workflow": "feature", "workflow_step": 1, "workflow_copy": { "id": "feature", "name": "Feature", "version": 1, "manifest_id": "armada", "lands": "pull_request", "steps": [ { "step_id": "plan", "label": "Plan", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "build", "label": "Build", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "walk", "label": "Walk", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "land", "label": "Land", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" } ] },
    "state": "live",
    "started_at": "2026-11-08T09:07:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
@@ -64,6 +72,8 @@
    "manifest_id": "armada",
    "cwd": "/repos/armada",
    "title": "Move Bridge's thread rows into Fleet",
+   "last_turn_at": "2026-11-09T15:20:00Z",
+   "activity": { "now": "Running armada check test" },
    "state": "live",
    "started_at": "2026-11-08T10:14:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
@@ -76,7 +86,8 @@
      "state": "spent",
      "since": "2026-11-08T09:00:00Z",
      "changed_at": "2026-11-08T09:00:00Z"
-    }
+    },
+    { "kind": "pr", "target": "3380", "state": "standing", "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" }
    ],
    "standing": "replied"
   },
@@ -88,11 +99,15 @@
    "manifest_id": "armada",
    "cwd": "/repos/armada",
    "title": "Audit the docs index",
+   "last_turn_at": "2026-11-09T13:05:00Z",
+   "so_far": "Listed eleven pages the index does not name",
    "state": "live",
    "started_at": "2026-11-08T11:21:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    { "kind": "issue", "target": "3301", "state": "standing", "detail": { "title": "Docs index misses pages" }, "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" }
+   ],
    "standing": "done"
   },
   {
@@ -144,11 +159,17 @@
    "manifest_id": "sample-web",
    "cwd": "/repos/sample-web",
    "title": "Checkout page loads twice",
+   "last_turn_at": "2026-11-09T14:40:00Z",
+   "so_far": "The second load comes from the auth redirect",
+   "workflow": "feature", "workflow_step": 1, "workflow_copy": { "id": "feature", "name": "Feature", "version": 1, "manifest_id": "sample-web", "lands": "pull_request", "steps": [ { "step_id": "plan", "label": "Plan", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "build", "label": "Build", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "walk", "label": "Walk", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" }, { "step_id": "land", "label": "Land", "checks": [], "judge_checks": [], "advance_gate": "auto", "phase": "work" } ] },
    "state": "live",
    "started_at": "2026-11-08T14:42:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    { "kind": "issue", "target": "412", "state": "standing", "detail": { "title": "Checkout page loads twice" }, "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" },
+    { "kind": "pr", "target": "418", "state": "standing", "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" }
+   ],
    "standing": "working"
   },
   {
@@ -174,6 +195,8 @@
    "manifest_id": "sample-web",
    "cwd": "/repos/sample-web",
    "title": "Upgrade the router",
+   "last_turn_at": "2026-11-09T15:58:00Z",
+   "activity": { "now": "Reading routes.ts" },
    "state": "live",
    "started_at": "2026-11-08T16:56:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
@@ -189,11 +212,15 @@
    "manifest_id": "sample-web",
    "cwd": "/repos/sample-web",
    "title": "Flaky login test",
+   "last_turn_at": "2026-11-09T11:10:00Z",
+   "so_far": "Retried the login test 40 times with no failure",
    "state": "live",
    "started_at": "2026-11-08T17:03:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    { "kind": "issue", "target": "407", "state": "standing", "detail": { "title": "Login test fails one run in ten" }, "since": "2026-11-08T09:00:00Z", "changed_at": "2026-11-08T09:00:00Z" }
+   ],
    "standing": "working"
   },
   {
@@ -234,6 +261,7 @@
    "manifest_id": "sample-api",
    "cwd": "/repos/sample-api",
    "title": "Paginate the audit log",
+   "so_far": "Reading the request",
    "state": "live",
    "started_at": "2026-11-08T10:24:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",

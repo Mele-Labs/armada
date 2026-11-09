@@ -17,7 +17,6 @@ use gpui::{
     Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
-use gpui_component::Sizable as _;
 use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 
 use crate::assets::icon_path;
@@ -85,6 +84,49 @@ struct Row {
     pr: Option<SharedString>,
     last: Option<SharedString>,
     mark: Option<JobMark>,
+    /// The issue the Job works, as its chip says it, and its title for the tooltip.
+    issue: Option<(SharedString, SharedString)>,
+    /// The Job's workflow by name, and the step it is at, or the name again where Fleet gives none.
+    flow: Option<(SharedString, SharedString)>,
+    /// What the Job is doing now, or last said.
+    now: Option<SharedString>,
+}
+
+/// What a row draws, chosen in the View group of its menu (`row-view.tsx`, `VIEW_FIELDS`), in the
+/// menu's order. Electron's default is the Status and Conflicts marks.
+const VIEW_FIELDS: [(&str, &str); 7] = [
+    ("view:pr", "Active PRs"),
+    ("view:issue", "Issues"),
+    ("view:now", "Now"),
+    ("view:time", "Time"),
+    ("view:conflicts", "Conflicts"),
+    ("view:status", "Status"),
+    ("view:workflow", "Workflow"),
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct View([bool; 7]);
+
+impl View {
+    const DEFAULT: View = View([false, false, false, false, true, true, false]);
+    const ALL: View = View([true; 7]);
+
+    fn on(self, id: &str) -> bool {
+        VIEW_FIELDS.iter().position(|(field, _)| *field == id).is_some_and(|at| self.0[at])
+    }
+
+    fn flip(&mut self, id: &str) {
+        if let Some(at) = VIEW_FIELDS.iter().position(|(field, _)| *field == id) {
+            self.0[at] = !self.0[at];
+        }
+    }
+
+    /// The menu's View group: a label and a switch for each field.
+    fn entries(self) -> Vec<Entry> {
+        std::iter::once(Entry::Label("View"))
+            .chain(VIEW_FIELDS.iter().zip(self.0).map(|((id, label), on)| Entry::Toggle { id, label: (*label).into(), on }))
+            .collect()
+    }
 }
 
 /// A state's glyph and the words its tooltip says, as Electron's row draws them
@@ -171,6 +213,15 @@ fn attached<'a>(job: &'a SessionRecord, kind: &str) -> Option<&'a str> {
 }
 
 /// The Job that started `job`, by id: `started_by` is spent the moment it is written, so any state.
+/// The Job's workflow and the step it is at (`row-view.tsx`, `workflowOf`): the step's words where
+/// Fleet gives a step, else the workflow's name. Absent where it follows none.
+fn flow_of(job: &SessionRecord) -> Option<(SharedString, SharedString)> {
+    let copy = job.workflow_copy.as_ref();
+    let name = copy.map(|copy| copy.name.clone()).or_else(|| job.workflow.clone())?;
+    let step = job.workflow_step.and_then(|at| copy?.steps.get(at as usize)).map_or_else(|| name.clone(), |step| step.label.clone());
+    Some((name.into(), step.into()))
+}
+
 fn starter_of(job: &SessionRecord) -> Option<&str> {
     job.attachments.iter().find(|one| one.kind == "started_by").map(|one| one.target.as_str())
 }
@@ -259,6 +310,13 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
             pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
             last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
             mark: job.mark,
+            issue: job.attachments.iter().find(|one| one.kind == "issue").map(|one| {
+                let number = if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() };
+                let title = one.detail.get("title").cloned().unwrap_or_default();
+                (number.into(), title.into())
+            }),
+            flow: flow_of(job),
+            now: job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()).map(Into::into),
         };
         fn under<'a>(
             parent: &str,
@@ -292,6 +350,27 @@ fn read_deck() -> (Scope, Vec<String>) {
     let mut lines = text.lines();
     let scope = Scope::of(lines.next().unwrap_or_default());
     (scope, lines.filter(|line| !line.is_empty()).map(str::to_string).collect())
+}
+
+/// Where the row's View is kept between runs: the id of each field that is on, one a line.
+fn view_file() -> Option<PathBuf> {
+    deck_file().map(|deck| deck.with_file_name("native-row-view"))
+}
+
+fn read_view() -> View {
+    let Some(text) = view_file().and_then(|path| std::fs::read_to_string(path).ok()) else { return View::DEFAULT };
+    View(std::array::from_fn(|at| text.lines().any(|line| line == VIEW_FIELDS[at].0)))
+}
+
+fn write_view(view: View) {
+    let Some(path) = view_file() else { return };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let text = VIEW_FIELDS.iter().filter(|(id, _)| view.on(id)).map(|(id, _)| *id).collect::<Vec<_>>().join("\n");
+    if let Err(why) = std::fs::write(&path, text) {
+        Note::warn("the row's view was not kept").field("why", why.to_string()).emit();
+    }
 }
 
 fn write_deck(scope: Scope, order: &[String]) {
@@ -344,6 +423,8 @@ pub struct JobsList {
     lines: Vec<Line>,
     scope: Scope,
     query: String,
+    /// What each row draws.
+    view: View,
     /// Live Jobs in the order the person placed them, by id.
     order: Vec<String>,
     /// Whether the scope and the order are kept between runs: not on mock data.
@@ -383,18 +464,19 @@ impl JobsList {
         });
         let (scope, order) = read_deck();
         let jobs = fleet.read(cx).held().jobs.clone();
-        Self::with(jobs, scope, order, true, Some(fleet.clone()), Some(watch), cx)
+        Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
-    /// The list on mock Jobs, which never change.
+    /// The list on mock Jobs, which never change, with every field on so a walk shows them all.
     pub fn mock(jobs: &[SessionRecord], cx: &mut Context<Self>) -> Self {
-        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), false, None, None, cx)
+        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::ALL, false, None, None, cx)
     }
 
     fn with(
         jobs: Vec<SessionRecord>,
         scope: Scope,
         order: Vec<String>,
+        view: View,
         remember: bool,
         fleet: Option<Entity<FleetConnection>>,
         watch: Option<Subscription>,
@@ -405,6 +487,7 @@ impl JobsList {
             lines: Vec::new(),
             scope,
             query: String::new(),
+            view,
             order,
             remember,
             focused: None,
@@ -585,7 +668,7 @@ impl JobsList {
             return;
         }
         self.card = None;
-        let entries = vec![
+        let mut entries = vec![
             if row.paused {
                 Entry::Act { id: "resume", label: "Resume".into(), icon: Some("play"), danger: false }
             } else {
@@ -594,7 +677,10 @@ impl JobsList {
             Entry::Act { id: "name", label: "Name it for me".into(), icon: Some("wand-sparkles"), danger: false },
             Entry::Act { id: "try", label: "Try it in your app".into(), icon: None, danger: false },
             Entry::Act { id: "close", label: "Close".into(), icon: Some("x"), danger: true },
+            Entry::Rule,
         ];
+        // The View group comes after the Job's own acts, as in `RowMenu.tsx`.
+        entries.extend(self.view.entries());
         let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx));
         let job = id.clone();
         let picked = cx.subscribe(&menu, move |this, _, picked: &Picked, cx| {
@@ -613,6 +699,13 @@ impl JobsList {
                     cx,
                 ),
                 "close" => send(port, "/sessions/close", encoded(ipc::encode(&ipc::CloseSession { session_id })), cx),
+                field if field.starts_with("view:") => {
+                    this.view.flip(field);
+                    if this.remember {
+                        write_view(this.view);
+                    }
+                    cx.notify();
+                }
                 _ => {}
             }
         });
@@ -715,10 +808,13 @@ impl JobsList {
         }));
     }
 
-    /// A Job's row as Electron's Cockpit list draws it (`console-bridge.css`): a strip with a lamp
-    /// bar at its left and a status slot at its right, indented under the Job that started it.
+    /// A Job's row as Electron's Cockpit list draws it (`ListCard.tsx`, `row-view.tsx`): the title
+    /// and the corner's marks on the first line, the issue and pull request chips and the lines
+    /// under, and the time at the foot, each as the View has it. Rounder and roomier than
+    /// Electron's strip, on the owner's word; the lamp is a bar inset at its left.
     fn render_job(&self, at: usize, row: &Row, cx: &mut Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
+        let view = self.view;
         let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job(_));
         let focused = self.focused.as_ref() == Some(&row.id);
         let opened = self.opened.as_ref() == Some(&row.id);
@@ -742,64 +838,71 @@ impl JobsList {
         let state = row.mark.filter(|_| !row.paused).map(|mark| (glyph_of(mark.state, row.pr.as_deref()), hue_of(mark.state)));
         let rail = look.length(token::BORDER_WIDTH) * 2.;
         let indent = look.length(token::SPACE_4) * row.depth as f32;
-        let tall = if row.depth > 0 { token::SPACE_2 } else { token::SPACE_3 };
+        let line = look.length(token::H_CONTROL_SM);
+        let pad = look.length(if row.depth > 0 { token::SPACE_1 } else { token::SPACE_2 });
+        let radius = look.length(token::RADIUS_LG);
         let mark_glyph = look.length(token::SPACE_3);
         let (pressed, menu_on, hover_on) = (row.id.clone(), row.id.clone(), row.id.clone());
         let store = Rc::clone(&self.bounds);
         let kept = row.id.clone();
         let linked = row.started_by.as_ref().map(|(title, project)| -> SharedString { format!("Linked Job, started by {title} in {project}").into() });
-        let strip = div()
-            .id(SharedString::from(format!("job-{}", row.id)))
-            .relative()
-            .flex_1()
-            .min_w_0()
+        let meta = |look: &Look| div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS));
+        let tip = |said: SharedString| move |window: &mut Window, cx: &mut App| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx);
+        let chip = |id: String, text: SharedString, said: SharedString| {
+            meta(look)
+                .id(SharedString::from(id))
+                .flex_none()
+                .px(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .bg(look.color(token::FG_DEFAULT).opacity(0.08))
+                .text_color(look.color(token::FG_MUTED))
+                .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                .child(text)
+                .tooltip(tip(said))
+        };
+        let issue = row.issue.clone().filter(|_| view.on("view:issue")).map(|(number, title)| {
+            let said = if title.is_empty() { format!("Issue {number}") } else { format!("Issue {number}: {title}") };
+            chip(format!("issue-{}", row.id), number, said.into())
+        });
+        let pr = row.pr.clone().filter(|_| view.on("view:pr")).map(|pr| chip(format!("pr-{}", row.id), pr.clone(), format!("Pull request {pr}").into()));
+        let flow = row.flow.clone().filter(|_| view.on("view:workflow")).map(|(name, step)| {
+            meta(look)
+                .id(SharedString::from(format!("flow-{}", row.id)))
+                .min_w_0()
+                .truncate()
+                .text_color(look.color(token::FG_MUTED))
+                .child(step.clone())
+                .tooltip(tip(format!("{name}: {step}").into()))
+        });
+        let now = row.now.clone().filter(|_| view.on("view:now")).map(|now| {
+            meta(look).min_w_0().truncate().text_color(look.color(if row.paused { token::FG_SUBTLE } else { token::FG_MUTED })).child(now)
+        });
+        let time = row.last.clone().filter(|_| view.on("view:time")).map(|last| {
+            meta(look)
+                .id(SharedString::from(format!("time-{}", row.id)))
+                .flex_none()
+                .text_color(look.color(token::FG_SUBTLE))
+                .child(last)
+                .tooltip(tip("Last turn".into()))
+        });
+        let tagged = issue.is_some() || pr.is_some();
+        let under = tagged || flow.is_some() || now.is_some();
+        let (time_top, time_foot) = if under { (None, time) } else { (time, None) };
+        let marks = div()
+            .flex_none()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_2))
-            .h(look.length(token::SPACE_6) + look.length(tall))
-            .pl(look.length(token::SPACE_3))
-            .pr(look.length(token::SPACE_2))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(edge))
-            .bg(ground)
-            .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
-            .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().size_full())
-            .when(needs, |strip| {
-                let tint = look.color(token::STATUS_AWAITING_REVIEW);
-                strip.child(div().absolute().inset_0().with_animation(
-                    SharedString::from(format!("needs-{}", row.id)),
-                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.06, 0.14)),
-                    move |tinted, at| tinted.bg(tint.opacity(at)),
-                ))
-            })
-            .child(div().absolute().top_0().bottom_0().left_0().w(look.length(token::SPACE_1)).bg(look.color(lamp)))
-            .children(linked.clone().map(|said| {
-                div()
-                    .id(SharedString::from(format!("link-{}", row.id)))
-                    .flex_none()
-                    .child(svg().path(icon_path("link")).size(mark_glyph).text_color(look.color(token::FG_SUBTLE)))
-                    .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx))
-            }))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .truncate()
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .text_color(look.color(ink))
-                    .font_weight(FontWeight(look.number(weight)))
-                    .child(row.title.clone()),
-            )
-            .child(
+            .gap(look.length(token::SPACE_1))
+            // The conflicts column keeps its place; Fleet's write clashes do not reach this list yet.
+            .when(view.on("view:conflicts"), |marks| marks.child(div().flex_none().w(look.length(token::SPACE_4))))
+            .when(view.on("view:status"), |marks| {
                 // The wide status slot: the paused mark in place of the state's glyph.
-                div().flex_none().flex().justify_end().w(look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1)).children(state.map(|((glyph, said), hue)| {
-                    let tip = said.clone();
+                marks.child(div().flex_none().flex().justify_end().w(look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1)).children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
                             .child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(hue)))
-                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx)),
+                            .tooltip(tip(said.clone())),
                         Role::Image,
                         said,
                     )
@@ -808,12 +911,94 @@ impl JobsList {
                         div()
                             .id(SharedString::from(format!("paused-{}", row.id)))
                             .child(svg().path(icon_path("circle-pause")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
-                            .tooltip(|window, cx| gpui_component::tooltip::Tooltip::new("Paused").build(window, cx)),
+                            .tooltip(tip("Paused".into())),
                         Role::Image,
                         "Paused",
                     ))
-                }),
+                }))
+            });
+        let strip = div()
+            .id(SharedString::from(format!("job-{}", row.id)))
+            .relative()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .py(pad)
+            .pl(look.length(token::SPACE_4))
+            .pr(look.length(token::SPACE_3))
+            .rounded(radius)
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(edge))
+            .bg(ground)
+            .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
+            .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .when(needs, |strip| {
+                let tint = look.color(token::STATUS_AWAITING_REVIEW);
+                strip.child(div().absolute().inset_0().rounded(radius).with_animation(
+                    SharedString::from(format!("needs-{}", row.id)),
+                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.06, 0.14)),
+                    move |tinted, at| tinted.bg(tint.opacity(at)),
+                ))
+            })
+            .child(
+                div()
+                    .absolute()
+                    .top(pad)
+                    .bottom(pad)
+                    .left(look.length(token::SPACE_1))
+                    .w(look.length(token::SPACE_1))
+                    .rounded_full()
+                    .bg(look.color(lamp)),
             )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(line)
+                    .children(linked.clone().map(|said| {
+                        div()
+                            .id(SharedString::from(format!("link-{}", row.id)))
+                            .flex_none()
+                            .child(svg().path(icon_path("link")).size(mark_glyph).text_color(look.color(token::FG_SUBTLE)))
+                            .tooltip(tip(said))
+                    }))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_size(look.length(token::TEXT_XS))
+                            .line_height(look.length(token::LEADING_XS))
+                            .text_color(look.color(ink))
+                            .font_weight(FontWeight(look.number(weight)))
+                            .child(row.title.clone()),
+                    )
+                    .children(time_top)
+                    .child(marks),
+            )
+            .when(under, |strip| {
+                strip.child(
+                    div()
+                        .flex()
+                        .items_end()
+                        .gap(look.length(token::SPACE_2))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .gap(look.length(token::SPACE_1))
+                                .when(tagged, |lines| lines.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(issue).children(pr)))
+                                .children(flow)
+                                .children(now),
+                        )
+                        .children(time_foot),
+                )
+            })
             .on_hover(cx.listener(move |this, hovered: &bool, window, cx| this.hovered(hover_on.clone(), *hovered, window, cx)))
             .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                 this.focused = Some(menu_on.clone());
@@ -833,19 +1018,20 @@ impl JobsList {
         div()
             .flex_none()
             .flex()
-            .when(after_job, |line| line.mt(look.length(token::SPACE_1)))
+            .when(after_job, |line| line.mt(look.length(token::SPACE_2)))
             .pl(indent)
-            .when(row.depth > 0, |line| {
-                // The elbow from the Job above: a square rail, its start and bottom edges drawn.
-                line.child(
+            .when(row.depth > 0, |row_line| {
+                // The elbow from the Job above to the middle of this one's first line.
+                row_line.child(
                     div()
                         .flex_none()
                         .w(look.length(token::SPACE_2))
-                        .h(look.length(token::SPACE_6) / 2. + look.length(token::SPACE_1))
+                        .h(line / 2. + pad + look.length(token::BORDER_WIDTH))
                         .ml(-look.length(token::SPACE_2) - look.length(token::SPACE_1))
                         .mr(look.length(token::SPACE_1))
                         .border_l(rail)
                         .border_b(rail)
+                        .rounded_bl(look.length(token::RADIUS_MD))
                         .border_color(look.color(token::BORDER_DEFAULT)),
                 )
             })
@@ -864,8 +1050,8 @@ impl JobsList {
                         .flex()
                         .items_center()
                         .h(look.length(token::SPACE_6))
-                        .when(at > 0, |head| head.mt(look.length(token::SPACE_3)))
-                        .mb(look.length(token::SPACE_1))
+                        .when(at > 0, |head| head.mt(look.length(token::SPACE_4)))
+                        .mb(look.length(token::SPACE_2))
                         .px(look.length(token::SPACE_2))
                         .border_b(look.length(token::BORDER_WIDTH))
                         .border_color(look.color(token::BORDER_SUBTLE))
@@ -898,8 +1084,9 @@ impl JobsList {
             labelled(
                 div().id("search").flex_1().min_w_0().child(
                     Input::new(search)
-                        .small()
-                        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_SUBTLE))),
+                        .h(look.length(token::H_CONTROL_LG))
+                        .rounded(look.length(token::RADIUS_LG))
+                        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
                 ),
                 Role::SearchInput,
                 "Search Jobs",
@@ -910,8 +1097,8 @@ impl JobsList {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_2))
-            .pt(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .pt(look.length(token::SPACE_3))
             // ↓, Enter or Esc give the keys to the rows; Tab opens the scope.
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
                 "down" | "escape" => {
@@ -932,16 +1119,16 @@ impl JobsList {
                     .flex_none()
                     .flex()
                     .items_center()
-                    .gap(look.length(token::SPACE_1))
-                    .h(look.length(token::H_CONTROL_SM))
-                    .px(look.length(token::SPACE_2))
-                    .rounded(look.length(token::RADIUS_MD))
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL_LG))
+                    .px(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG))
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_DEFAULT))
                     .bg(look.color(token::BG_SUNKEN))
                     .cursor_pointer()
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .text_size(look.length(token::TEXT_XS))
+                    .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(ink))
                     .child(canvas(move |bounds, _, _| { store.borrow_mut().insert("scope".into(), bounds); }, |_, _, _, _| {}).absolute().size_full())
                     .child(label)
@@ -1094,7 +1281,7 @@ impl Render for JobsList {
                     .min_h_0()
                     .flex()
                     .flex_col()
-                    .p(look.length(token::SPACE_2))
+                    .p(look.length(token::SPACE_3))
                     .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
                     .children(lines),
                 Role::List,
@@ -1130,6 +1317,7 @@ fn panel(look: &Look) -> gpui::Div {
         .h_full()
         .flex_none()
         .bg(look.color(token::BG_RAISED))
+        .rounded(look.length(token::RADIUS_LG))
         .border(look.length(token::BORDER_WIDTH))
         .border_t(look.length(token::BORDER_WIDTH) * 2.)
         .border_color(look.color(token::BORDER_DEFAULT))
@@ -1222,5 +1410,33 @@ mod tests {
     fn the_ended_scope_holds_only_ended_jobs() {
         let ended = titles(&lines_of(&jobs(), Scope::Ended, "", &[]));
         assert!(!ended.is_empty() && ended.iter().all(|title| title.contains("ended")), "{ended:?}");
+    }
+
+    #[test]
+    fn a_row_carries_its_issue_its_workflow_step_and_what_it_is_doing() {
+        let lines = lines_of(&jobs(), Scope::Active, "", &[]);
+        let row = |title: &str| {
+            lines.iter().find_map(|line| match line {
+                Line::Job(row) if row.title == title => Some(row.clone()),
+                _ => None,
+            }).expect(title)
+        };
+        let first = row("Fix the merge line freshness chip");
+        assert_eq!(first.issue, Some(("#3290".into(), "Merge line freshness chip stays green when stale".into())));
+        assert_eq!(first.flow, Some(("Feature".into(), "Walk".into())));
+        assert_eq!(first.now.as_deref(), Some("Asked which chip colour the stale state takes"));
+        // What it is doing now comes before what it last summed up.
+        assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
+    }
+
+    #[test]
+    fn the_view_group_lists_every_field_and_a_switch_flips_one() {
+        let mut view = View::DEFAULT;
+        assert!(view.on("view:status") && view.on("view:conflicts") && !view.on("view:now"));
+        view.flip("view:now");
+        assert!(view.on("view:now"));
+        let entries = view.entries();
+        assert!(matches!(entries[0], Entry::Label("View")));
+        assert_eq!(entries.len(), VIEW_FIELDS.len() + 1);
     }
 }

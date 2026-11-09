@@ -36,7 +36,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("alt-cmd-left", Back, Some("walk")),
         KeyBinding::new("cmd-enter", Approve, Some("walk")),
         KeyBinding::new("cmd-r", Reload, Some("walk")),
-        KeyBinding::new("alt-cmd-c", TakeNote, Some("walk")),
+        KeyBinding::new("alt-cmd-a", TakeNote, Some("walk")),
         KeyBinding::new("escape", CancelNote, Some("walk-note")),
         KeyBinding::new("escape", CancelNote, Some("walk")),
     ]);
@@ -294,7 +294,7 @@ impl WalkWindow {
         cx.notify();
     }
 
-    /// ⌥⌘C arms Capture, and again puts it away.
+    /// ⌥⌘A arms Capture, as in Electron, and again puts it away.
     fn take_note(&mut self, _: &TakeNote, window: &mut Window, cx: &mut Context<Self>) {
         if self.capture.is_some() {
             self.cancel_note(&CancelNote, window, cx);
@@ -485,7 +485,7 @@ impl WalkWindow {
                 "walk-note",
                 "crosshair",
                 if self.capture.is_some() { "Capturing" } else { "Capture" },
-                Some("⌥⌘C"),
+                Some("⌥⌘A"),
                 if self.capture.is_some() { Weight::Primary } else { Weight::Quiet },
                 true,
                 cx,
