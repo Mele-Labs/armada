@@ -695,7 +695,7 @@ body { overflow: hidden; }
 /* The banner macOS draws for a notification. */
 .nj-banner {
   position: absolute;
-  top: var(--space-3);
+  top: var(--space-1);
   right: var(--space-3);
   z-index: var(--z-toast);
   display: grid;
@@ -703,7 +703,7 @@ body { overflow: hidden; }
   align-items: center;
   gap: var(--space-3);
   width: 340px;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--border-default);
   border-radius: 14px;
   background: var(--surface-floating, var(--bg-overlay));
