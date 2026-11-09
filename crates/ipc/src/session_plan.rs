@@ -113,19 +113,22 @@ pub enum PlanGate {
     ChecksGreen,
     /// The Job's pull request merged.
     Merged,
+    /// Every Job this Job started has merged or ended.
+    JobsEnded,
     #[default]
     None,
 }
 
 impl PlanGate {
     /// Every gate, in the order the list is written to an agent.
-    pub const ALL: [PlanGate; 7] = [
+    pub const ALL: [PlanGate; 8] = [
         PlanGate::PlanApproved,
         PlanGate::WalkApproved,
         PlanGate::SketchApproved,
         PlanGate::DocumentApproved,
         PlanGate::ChecksGreen,
         PlanGate::Merged,
+        PlanGate::JobsEnded,
         PlanGate::None,
     ];
 
@@ -142,6 +145,7 @@ impl PlanGate {
             PlanGate::DocumentApproved => "document_approved",
             PlanGate::ChecksGreen => "checks_green",
             PlanGate::Merged => "merged",
+            PlanGate::JobsEnded => "jobs_ended",
             PlanGate::None => "none",
         }
     }
@@ -175,6 +179,10 @@ pub struct RecordPlan {
     /// only after he approves that walk. Recording again without it clears it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub walk: Option<String>,
+    /// Ask the person to approve this version, though he approved one before. **Absent or false:
+    /// a version recorded after one he approved stands approved**, and no plan gate reopens.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ask_again: bool,
     /// Which session records it. **Read only where the connection places no hosted session**, as
     /// `ShowSketch::session_id` is.
     #[serde(default, skip_serializing_if = "Option::is_none")]

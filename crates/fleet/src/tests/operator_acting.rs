@@ -71,6 +71,7 @@ fn plan(id: &SessionId, groups: &[(&str, &str)]) -> RecordPlan {
             .collect(),
         sketch: None,
         walk: None,
+        ask_again: false,
         session_id: Some(id.clone()),
     }
 }

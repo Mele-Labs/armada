@@ -195,7 +195,8 @@ async fn a_plan_recorded_again_keeps_matched_beads_renames_adds_and_closes_what_
             &[(Some("t1"), "Add the plan tables"), (Some("t2"), "Add the migration"), (None, "Write the docs")],
         )],
     );
-    recorded(&boat.rig, again).await;
+    // Asked again: a version that stands on his earlier approval would be filed at once.
+    recorded(&boat.rig, ipc::RecordPlan { ask_again: true, ..again }).await;
     boat.looks().await;
     assert_eq!(boat.titles(&store), ["Add the tables", "Add the migration"], "a version nobody approved changes nothing");
     boat.approves(2).await;

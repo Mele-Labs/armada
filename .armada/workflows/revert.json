@@ -1,32 +1,13 @@
-# Revert, reduced to what M1's parser accepts. `bug.json` beside this file
-# carries what all eight hold to, and where the schema, the catalogue and the
-# Check reasoning live.
+# Revert, as the owner settled it on 9 Nov 2026: an optional plan, then Revert and deliver. Each step is a
+# plan group and `gate` names the fact Fleet sees for itself that ends it. `bug.json` beside this file says
+# where the schema lives, and `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has his
+# answers.
 #
-# The designed `revert.json` runs five steps in a loop and opens on `revert`
-# itself -- there is no plan step, since a revert's scope is inherited from the
-# Job it undoes rather than classified. This form keeps that shape: `revert`,
-# then `review` + `merge` + `close` folded into one `handoff`.
+# **Whether he looks before a revert depends on the project, and he wants to be asked each time** (dry
+# run, 9 Nov). The agent asks first; with a yes the plan group holds for his approval, with a no it is
+# left out of the plan.
 #
-# **`handoff` is gated `human_always`**, which is the folded `review` step's own
-# gate -- see `feature.json` for why a fold takes the strictest of the three.
-# Revert is the second workflow whose designed `review` spells `human_always` as
-# a literal, and `workflows.toml` gives the opposite reason to Feature's:
-# Feature's review is human because the behaviour is new, this one because the
-# behaviour is old, worked, and is being thrown away.
-#
-# **The designed `revert` step carries a judge check with no question in it.**
-# That is a hole in the sample rather than a decision, so the criteria below are
-# written here rather than ported. What a revert has to be judged on is narrow
-# and obvious: that it undoes the named change, and that it undoes only that.
-#
-# `revert` carries the designed `regression_verify`'s `test` check, dropping its
-# `lint` check, which this repository's Manifest does not declare.
-#
-# **`revert` records the plan and follows it, on the one step there is,
-# `#1006`.** A revert has one step and no plan step to put ahead of it, and
-# `#1006` is what makes that legal: `follows_plan: true` on the same step
-# that declares `records_plan: true` was refused before this, and is now the
-# shape this workflow needs.
+# **`handoff` keeps its id** as the delivering step, which `crates/config/tests/shipped.rs` pins.
 {
   "version": 1,
   "workflow_id": "revert",
@@ -34,59 +15,21 @@
   "for_requests": "Undoing a change that already landed: the commit or Job the request names, taken back out whole and nothing else with it. Keeping the change and fixing what it broke is a bug.",
   "steps": [
     {
-      "id": "revert",
-      "label": "Undo the change",
-      "about": "Takes the named change back out and nothing else, then runs the repository's checks.",
-      "records_plan": true,
-      "plan_unasked": true,
-      "follows_plan": true,
-      "evidence": {
-        "submitted": { "type": "diff" }
-      },
-      "retry_limit": 2,
-      "mechanical_checks": [
-        {
-          "type": "every_manifest_check"
-        },
-        {
-          "type": "diff_nonempty"
-        },
-        {
-          "type": "plan_recorded"
-        }
-      ],
-      "declare_plan_at": "step_start",
-      "evidence_scope": {
-        "context_source": "drone_declared",
-        "scope_diff_check": true
-      },
-      "judge_checks": [
-        {
-          "enabled": true,
-          "model": "haiku",
-          "criteria": [
-            {
-              "criterion_id": "undoes_the_named_change",
-              "question": "Does this diff undo the change it was dispatched to undo?"
-            },
-            {
-              "criterion_id": "undoes_nothing_else",
-              "question": "Does this diff undo or alter anything beyond the change it names?"
-            }
-          ]
-        }
-      ],
+      "id": "plan",
+      "label": "Plan the revert",
+      "about": "Asks whether you want to see a plan first. If you do, says what the revert takes out, including later work built on it, and ends when you approve it. Otherwise left out.",
+      "instructions": "Before anything else, ask the person whether he wants a plan before this revert.\nIf yes: find the change, and say what the revert takes out, including any later work built on it that would conflict. Record it with record_plan and wait for his approval.\nIf no: leave this group out of the plan.",
+      "gate": "plan_approved",
+      "asks_delivery": false,
       "delivers": false,
-      "advance_gate": "auto_if_judge_passes"
+      "advance_gate": "auto"
     },
     {
       "id": "handoff",
-      "label": "Summarise",
-      "about": "Summarises what was taken out. You decide whether it goes out.",
-      "evidence": {
-        "submitted": { "type": "facts_note" }
-      },
-      "model": "haiku",
+      "label": "Revert and deliver",
+      "about": "Takes the named change back out and nothing else, runs the checks, and delivers it the way you chose. Ends at the merge.",
+      "instructions": "Revert the named change with git revert, and nothing else with it. Resolve a conflict with later work by keeping the later work and taking out only what the named change added; say what you kept.\nRun the checks locally. A test that is also red on main is not this Job's to fix: say so and carry on.\nPush the branch and open the pull request. Deliver by the delivery the person chose, and do not ask again. Auto land: merge it on a green ci. Open PR: leave it open; the Job stays until it merges. Keep local: push nothing, and record this group's gate as none.",
+      "gate": "merged",
       "delivers": true,
       "advance_gate": "human_always"
     }

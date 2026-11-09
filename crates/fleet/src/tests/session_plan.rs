@@ -31,7 +31,7 @@ pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], 
 }
 
 pub(super) fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(session.clone()) }
+    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, ask_again: false, session_id: Some(session.clone()) }
 }
 
 /// Two groups: the store's and Fleet's.
@@ -220,7 +220,7 @@ async fn an_approval_tells_the_agent_its_task_list_is_the_plans_tasks_word_for_w
 
     // The plain approval says it too: here, on a plan the agent recorded again.
     let again = plan(&id, vec![group(Some("g1"), "Store", "rust-engineer", &["crates/store"], &[(Some("t1"), "Add the tables, revised")])]);
-    recorded(&rig, again).await;
+    recorded(&rig, RecordPlan { ask_again: true, ..again }).await;
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 2 }).await.unwrap();
     eventually(|| async { told(&rig, "approved plan v2") == 1 }).await;
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("approved plan v2")).cloned().unwrap();
@@ -238,7 +238,7 @@ async fn a_plan_recorded_again_is_pending_again_and_nothing_blocked_while_it_was
     let edit = rig.gate(&id, "Edit", r#"{"file_path":"crates/store/a.rs"}"#).await;
     assert!(!matches!(edit, ipc::GateAnswer::Hold { ref held } if held.reason.contains("plan")), "{edit:?}");
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.unwrap();
-    let again = recorded(&rig, first(&id)).await;
+    let again = recorded(&rig, RecordPlan { ask_again: true, ..first(&id) }).await;
     let plan = again.plan.unwrap();
     assert_eq!((plan.version, plan.approved), (2, false));
     assert!(again.waiting_for.iter().any(|one| one.id == "plan:2"));
@@ -553,6 +553,42 @@ async fn a_touch_is_attributed_to_the_subagent_whose_call_the_line_sat_under() {
     assert_eq!((by.agent.as_str(), by.id.as_str()), ("rust-engineer", "toolu_77"));
     assert_eq!(touches[1].path, "README.md");
     assert!(touches[1].by.is_none(), "the Session's own agent");
+}
+
+#[tokio::test]
+async fn a_subagent_named_a_plan_group_is_kept_on_it_and_its_edits_mark_that_group_alone() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let groups = vec![
+        group(None, "Store", "rust-engineer", &["crates/store"], &[(None, "Add the tables")]),
+        group(None, "Wire", "protocol-engineer", &["crates/ipc"], &[(None, "Add the field")]),
+    ];
+    recorded(&rig, plan(&id, groups)).await;
+    let harness = read(&rig, &id).await.harness;
+    let started = |target: &str, call: &str, group: &str| {
+        let detail = [("type", "rust-engineer"), ("call", call), ("group", group)];
+        let detail = detail.into_iter().map(|(key, value)| (key.to_string(), value.to_string())).collect();
+        let attachment = ipc::AttachmentReport { kind: "subagent".into(), target: target.into(), detail };
+        SessionReport { harness: harness.clone(), session_id: id.clone(), fact: SessionFact::Attached { attachment } }
+    };
+
+    // Named by its title, in another case, the group's id is kept; a name no group has is dropped.
+    rig.fleet.report_session(started("agent-1", "toolu_77", "wire")).await.expect("attached");
+    rig.fleet.report_session(started("agent-2", "toolu_76", "Nothing of the plan's")).await.expect("attached");
+    let record = read(&rig, &id).await;
+    let group_of = |target: &str| {
+        let row = record.attachments.iter().find(|one| one.kind == "subagent" && one.target == target).expect("its row");
+        row.detail.get("group").cloned()
+    };
+    assert_eq!(group_of("agent-1").as_deref(), Some("g2"));
+    assert_eq!(group_of("agent-2"), None);
+
+    // Its edit under the store's paths marks the group it named, not the one its paths would.
+    rig.stand_in.hears(0, Heard::Spawned(adapters::subagent_calls(SPAWNING)));
+    rig.stand_in.hears(0, Heard::Subagent { events: vec![edit("crates/store/src/plan.rs")], call: adapters::subagent_parent(INSIDE) });
+    eventually(|| async { read(&rig, &id).await.plan.is_some_and(|plan| plan.groups[1].worked_at.is_some()) }).await;
+    let plan = read(&rig, &id).await.plan.unwrap();
+    assert!(plan.groups[0].worked_at.is_none(), "the store's group was not named");
 }
 
 #[tokio::test]
