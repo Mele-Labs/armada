@@ -4,7 +4,7 @@
 //! pins their shapes in `crates/fleet/src/tests/native_walk.rs`, so a change to one fails there.
 
 use ipc::{
-    NoteElement, NotePlace, NoteState, NoteWalk, SendSessionMessage, SendSessionMessageBody,
+    NoteCrop, NoteElement, NotePlace, NoteState, NoteWalk, SendSessionMessage, SendSessionMessageBody,
     SendSessionNote, SessionId, SessionNote, WindowClosed, WireError,
 };
 
@@ -23,6 +23,8 @@ pub struct NoteOn<'a> {
     pub of: u32,
     pub role: &'a str,
     pub name: &'a str,
+    /// A picture of what the note was written on, PNG in base64.
+    pub crop: Option<String>,
 }
 
 impl WalkFleet {
@@ -57,7 +59,7 @@ impl WalkFleet {
                     walk: Some(NoteWalk { name: on.walk.to_string(), step: on.step, of: on.of }),
                     ..NoteState::default()
                 },
-                crop: None,
+                crop: on.crop.map(|data| NoteCrop { media_type: "image/png".into(), data }),
                 job: Vec::new(),
             },
         };

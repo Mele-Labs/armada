@@ -12,6 +12,7 @@
 //! [`crate::labels`], which is what VoiceOver reads too.
 
 pub mod bar;
+pub mod capture;
 pub mod check;
 pub mod fleet;
 pub mod stage;

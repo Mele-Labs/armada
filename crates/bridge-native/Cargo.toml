@@ -52,6 +52,8 @@ serde = { version = "1", features = ["derive"] }
 anyhow = "1"
 # A walk check writes each step as a PNG; gpui already links this version.
 image = { version = "0.25", default-features = false, features = ["png"] }
+# A note's picture goes to Fleet as base64; gpui already links this version.
+base64 = "0.22"
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 
