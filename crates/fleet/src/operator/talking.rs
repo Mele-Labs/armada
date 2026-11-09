@@ -187,7 +187,7 @@ marked Stopped.";
 
 /// Said to a call that reads.
 const READS: &str = "\
-You hold three tools, Read, Grep and Glob, and no others, so you can read and change nothing. Besides what is written \
+You hold three tools, Read, Grep and Glob, and no others, so you can read but change nothing. Besides what is written \
 below you may read the folder Fleet wrote for this message, and the code of the repositories listed under Repositories. \
 Read what the question needs before you answer, and keep your reads few: the Job's file for a question about a Job, \
 the issues file for a question about issues, the code for a question about the code. Where the answer is in none of them, \
