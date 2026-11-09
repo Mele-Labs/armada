@@ -1,10 +1,10 @@
-// The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. Opening it asks, then
-// runs the tools that have not run on this commit. Previous and Next step through the files with findings or open threads, and a
-// file Go to file reaches outside them says it is not counted. The forge's threads hang under their lines. It counts the findings
-// marked as they are marked, starts a review from lines picked in its gutter, and opens the lines a finding names in place, with
-// Jump. The submit bar says once that findings are unmarked. An explanation runs from the head and opens in a tab beside Comments,
-// whose Conversation holds what sits under no line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file`
-// scenario.
+// The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. Opening it asks which
+// tools to run, ticked from the repository's default, and keeps a new default. Previous and Next step through the files with
+// findings or open threads, and a file Go to file reaches outside them says it is not counted. The forge's threads hang under their
+// lines. It counts the findings marked as they are marked, starts a review from lines picked in its gutter, and opens the lines a
+// finding names in place, with Jump. The submit bar says once that findings are unmarked. An explanation runs from the head and
+// opens in a tab beside Comments, whose Conversation holds what sits under no line. Ask, docked under the panes, takes a question.
+// Over the `pr-review-by-file` scenario.
 
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 
@@ -34,6 +34,7 @@ const gutter = (line: RegExp) => inside(reviewPane, button(line));
 const yours = inside(reviewPane, region("Your review"));
 const PEEKED = "app/models/payment.rb:17-19";
 const goTo = role("dialog", "Go to file");
+const opening = role("dialog", "Run on opening");
 
 const prReviewByFile = walk("pr-review-by-file", [
   {
@@ -45,7 +46,7 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "A pull request of eight files, asked of him",
   },
 
-  // 1. Opening Review runs the tools that have not run, asking first.
+  // 1. Opening Review asks which tools to run, ticked from the repository's default.
   {
     look: commentsPane,
     say: "To the right of the main pane, Comments alone. Every tool runs from Review",
@@ -55,18 +56,30 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Review is a tab of the main pane, after Files",
   },
   {
-    look: role("dialog", /^Risks, Possible bugs/),
-    say: "Opening it runs every tool that has not run on this commit. It asks first, as every run does",
+    look: inside(opening, role("list", "Tools to run")),
+    say: "Opening it asks what to run. Every tool and explanation of the head has a box, ticked from this repository's default: the four tools",
   },
   {
-    press: inside(role("dialog", /^Risks, Possible bugs/), button("Run")),
-    say: "Run",
+    press: inside(opening, role("checkbox", "Test gaps")),
+    say: "He unticks Test gaps",
+  },
+  {
+    press: inside(opening, role("checkbox", "Use these for fernhill/tally from now on")),
+    say: "And keeps the three as this repository's default, for the next pull request he opens here",
+  },
+  {
+    press: inside(opening, button("Run")),
+    say: "Run starts the ticked ones",
   },
 
   // 2. The tools, each a button in Review's head.
   {
     hover: inside(head, button("Run Risks again")),
     say: "Each tool has a button in the head. Its glyph is its state: done, with when and on which commit",
+  },
+  {
+    hover: inside(head, button("Run Test gaps")),
+    say: "Test gaps was unticked, so it has not run",
   },
   {
     look: inside(findings, role("article", /Two refunds can pass the same check/)),
