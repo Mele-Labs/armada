@@ -3,9 +3,9 @@
 // opens to its tasks and the live line, and a press opens or shuts any. A group handed to a Job is that Job's card instead (`ChildJob.tsx`), and one that goes to a Job
 // of its own and is not handed yet is the placeholder card alone. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Drone } from "lucide-react";
-import { JobCard, Tooltip } from "@armada/components";
+import { Button, JobCard, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
 import { useSessions } from "../sessions-draft";
@@ -15,7 +15,7 @@ import { childrenOf, inHandOf } from "./linked";
 import { GroupIssue, hereOf, StepMark, TaskLine, type Step } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
 import type { ViewGroup } from "./plan-marks";
-import { subagentsByGroup, type SubagentAtWork } from "./subagents-at-work";
+import { subagentsByGroup, type SubagentOnGroup } from "./subagents-at-work";
 import { Flow, StepRail } from "./StatusPanel";
 import "./flight.css";
 
@@ -104,10 +104,13 @@ export function FlightGroup({
   parent,
   manifestId,
   onOpenSession,
-  atWork = [],
+  subagents = [],
+  onOpenSubagent,
 }: {
-  /** The subagents at work that the agent named this group for. */
-  atWork?: readonly SubagentAtWork[];
+  /** The subagents the agent named this group for, running or finished. */
+  subagents?: readonly SubagentOnGroup[];
+  /** Opens a subagent's thread in a tab of its own. */
+  onOpenSubagent?: ((id: string) => void) | undefined;
   group: ViewGroup;
   step: Step;
   open: boolean;
@@ -157,6 +160,8 @@ export function FlightGroup({
       data-group={group.id}
       data-step={step}
       data-open={open || undefined}
+      data-agents={subagents.length || undefined}
+      style={subagents.length === 0 ? undefined : ({ "--agents": subagents.length } as CSSProperties)}
     >
       <button
         type="button"
@@ -169,20 +174,33 @@ export function FlightGroup({
         <StepMark step={step} />
         <span className="sv-flight__title">{group.title}</span>
         {open ? null : <TaskTrack tasks={group.tasks} />}
-        {atWork.length === 0 ? null : (
-          <span className="sv-flight__agents">
-            {atWork.map((one) => (
-              <Tooltip key={one.id} asChild label={`Subagent at work on ${one.task}`}>
-                <span className="sv-flight__agent">
-                  <Drone aria-hidden="true" className="sv-flight__agent-mark" />
-                  <span>Subagent</span>
-                  {one.agentType === undefined ? null : <code>{one.agentType}</code>}
-                </span>
-              </Tooltip>
-            ))}
-          </span>
-        )}
       </button>
+      {subagents.length === 0 ? null : (
+        <span className="sv-flight__agents">
+          {/* The title again, unseen, so the drones stand where the title ends. */}
+          <span className="sv-flight__agents-gap" aria-hidden="true">
+            {group.title}
+          </span>
+          {subagents.map((one) => {
+            const said = one.running ? `Subagent at work on ${one.task}` : `Subagent, finished: ${one.task}`;
+            return (
+              <Tooltip key={one.id} label={said}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconOnly
+                  aria-label={said}
+                  data-running={one.running || undefined}
+                  className="sv-flight__agent"
+                  onClick={() => onOpenSubagent?.(one.id)}
+                >
+                  <Drone size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </Tooltip>
+            );
+          })}
+        </span>
+      )}
       {!open ? null : (
         <div className="sv-flight__open">
           {named === undefined ? null : <GroupIssue issue={named.issue} manifestId={manifestId} />}
@@ -209,9 +227,12 @@ export function FlightRows({
   session,
   manifestId,
   onOpenSession,
+  onOpenSubagent,
   calm = false,
   all = false,
 }: {
+  /** Opens a subagent's thread in a tab of its own, from the drone on its group. */
+  onOpenSubagent?: ((id: string) => void) | undefined;
   calm?: boolean /** Whole plan: every group open. */;
   all?: boolean;
   groups: readonly ViewGroup[];
@@ -224,7 +245,7 @@ export function FlightRows({
   const [pressed, setPressed] = useState<Readonly<Record<string, boolean>>>({});
   const sessions = useSessions();
   const steps = stepsOf(groups, true, workingGroup, inHandOf(sessions, session));
-  const atWork = subagentsByGroup(session);
+  const subagents = subagentsByGroup(session);
   // `calm` opens none by default: the groups still to come, which are read as titles.
   // Every group being worked stands open, since marks that lag can leave several in progress at once.
   const current = calm ? [] : groups.filter((group) => steps.get(group.id) === "current");
@@ -257,7 +278,8 @@ export function FlightRows({
               })
             }
             now={group.id === workingGroup ? now : undefined}
-            atWork={atWork.get(group.id)}
+            subagents={subagents.get(group.id)}
+            onOpenSubagent={onOpenSubagent}
             parent={session}
             manifestId={manifestId}
             onOpenSession={onOpenSession}

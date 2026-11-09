@@ -130,7 +130,8 @@ An edit under a group's paths marks the group worked (`worked_at`); a group that
 
 **A subagent stands on the group its brief names** (owner, 8 Nov 2026).
 The agent gives a subagent's brief a line `Plan group: <id or title>`, the mod reads it at the spawn, and Fleet keeps the group's id as `group` on the `subagent` row, or nothing where no group of the plan is named so.
-An edit that subagent makes marks the group it named worked, whatever its paths, and Bridge draws the subagent at work on that group's row.
+An edit that subagent makes marks the group it named worked, whatever its paths.
+Bridge draws each subagent as a drone at the end of its group's title, pulsing while it runs and still once it has finished, and a press opens its thread in a tab of the Job.
 A subagent that names no group is placed by nothing.
 
 **Fleet marks a task itself on one proof, and says nothing to the agent** (owner, 27 Oct 2026; narrowed 5 Nov 2026).

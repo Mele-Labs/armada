@@ -39,7 +39,7 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { openDraftCard, openOwedDocument } from "../job-panes/focus";
+import { openDraftCard, openOwedDocument, openSubagent } from "../job-panes/focus";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -297,6 +297,9 @@ export function StoryColumn({
     session.asked?.questions?.[0]?.question ??
     (session.asked === undefined ? undefined : session.asked.command);
   const atWork = planned ? [] : subagentsAtWork(session);
+  // A drone on a plan group opens its subagent's thread: a tab of the Job drawn in panes, else the sheet the ledger's row for it opens.
+  const toSubagent = (id: string) =>
+    openSubagent(session, id) || entries.find((one) => one.kind === "subagent" && one.key === id)?.onOpen?.();
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
@@ -576,6 +579,7 @@ export function StoryColumn({
           session={session}
           manifestId={manifestId}
           onOpenSession={onOpenSession}
+          onOpenSubagent={toSubagent}
         />
       )}
       {running.length === 0 ? null : (
@@ -723,6 +727,7 @@ export function StoryColumn({
               session={session}
               manifestId={manifestId}
               onOpenSession={onOpenSession}
+              onOpenSubagent={toSubagent}
             />
           )}
           {unlandedList}
@@ -1020,6 +1025,7 @@ export function StoryColumn({
                       session={session}
                       manifestId={manifestId}
                       onOpenSession={onOpenSession}
+                      onOpenSubagent={toSubagent}
                     />
                   </div>
                 )}
