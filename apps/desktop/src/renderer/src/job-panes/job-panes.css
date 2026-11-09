@@ -105,7 +105,8 @@
   box-shadow: none;
   overflow: hidden;
 }
-.job-pane[data-frame] {
+/* Doubled to outrank `.deck-pane[data-frame]`'s gap, which loads later: a gap here is a strip of the pane's ground between the tabs and the body. */
+.job-pane.job-pane[data-frame] {
   gap: 0;
 }
 .job-pane[data-focused] {
