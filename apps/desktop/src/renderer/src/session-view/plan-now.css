@@ -275,3 +275,25 @@ button.sv-chunk__row:hover {
   padding-inline: 0 var(--space-1);
   color: var(--fg-subtle);
 }
+
+/* ---- The head of a finished chunk in Done: its gate's glyph, what closed it, when. On the done rows' edges. ---- */
+.sv-gate-closed {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  align-items: center;
+  padding-block-end: var(--space-1);
+  color: var(--fg-subtle);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.sv-gate-closed__glyph {
+  display: inline-flex;
+  justify-content: center;
+  color: var(--step-advanced);
+}
+.sv-gate-closed > .sv-gate__red {
+  grid-column: 2 / -1;
+  padding-block-start: var(--space-1);
+}

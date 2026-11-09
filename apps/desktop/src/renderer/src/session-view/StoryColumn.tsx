@@ -57,7 +57,7 @@ import { AddGroup, SendChanges, type PlanEditing } from "./PlanEdit";
 import { Group } from "./PlanGroup";
 import { stepsOf } from "./PlanSteps";
 import type { Step } from "./PlanGroup";
-import { Helpers, PlanChunks, type HelperRow } from "./PlanNow";
+import { GateClosed, Helpers, PlanChunks, type HelperRow } from "./PlanNow";
 import { gated, stretchesOf } from "./stretches";
 import { MARK, stateOf } from "./StatusPanel";
 import { viewOf } from "./plan-marks";
@@ -1173,6 +1173,7 @@ export function StoryColumn({
         keycap={bandKeyFor("done")}
       >
         <>
+          <GateClosed gate={stretch.gate} />
           {underDone(list)}
         </>
       </SvPanel>
@@ -1219,7 +1220,12 @@ export function StoryColumn({
     >
       <>
         <div className="sv-nav" onKeyDown={arrowsIn}>
-          <PlanChunks stretches={stretches} doing={nowBody} tasksOf={tasksOf} />
+          {/* A chunk whose gate has closed stands in Done, with the fact that closed it. */}
+          <PlanChunks
+            stretches={stretches.filter((stretch) => stretch.state !== "done")}
+            doing={nowBody}
+            tasksOf={tasksOf}
+          />
         </div>
         {openShown || alone || (openMade.length === 0 && comingList === null) ? null : (
           <div className="sv-nav" onKeyDown={arrowsIn}>

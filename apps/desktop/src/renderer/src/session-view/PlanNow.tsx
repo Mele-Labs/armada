@@ -141,6 +141,25 @@ function GateTests({ read }: { read: GateRead }) {
   );
 }
 
+/** At the head of a finished chunk in Done: the gate that ended it, the fact Fleet saw close it, and when. */
+export function GateClosed({ gate }: { gate: StretchGate | undefined }) {
+  if (gate?.closed === undefined) return null;
+  const Gate = GATE_GLYPH[gate.kind];
+  const read = readGate(gate, "done");
+  return (
+    <div className="sv-gate-closed">
+      <Tooltip asChild label={read.glyph}>
+        <span className="sv-gate-closed__glyph" role="img" aria-label={read.glyph}>
+          <Gate size={12} strokeWidth={2} aria-hidden />
+        </span>
+      </Tooltip>
+      <span className="sv-chunk__fact">{read.said}</span>
+      <Stamp at={gate.closed.at} className="sv-beat__figure" />
+      <GateTests read={read} />
+    </div>
+  );
+}
+
 /** A subagent at work, with the plan group its brief named where it named one. */
 export type HelperRow = {
   id: string;
