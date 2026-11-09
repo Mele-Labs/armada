@@ -53,10 +53,12 @@ class KeepBuild(unittest.TestCase):
         self.write(os.path.join(scripts, "armada-electron"), (
             "#!/bin/sh\n"
             f'echo "$1" >> "{self.electron_calls}"\n'
-            # What the real one does for a tree with Electron: a copy named Armada in the tree.
+            # What the real one does for a tree with Electron: a copy named Armada Classic in the tree.
             'if [ -f "$1/.stub-makes-the-copy" ]; then\n'
-            '  mkdir -p "$1/node_modules/.cache/armada-bridge/Armada.app/Contents/MacOS"\n'
-            '  echo made > "$1/node_modules/.cache/armada-bridge/Armada.app/Contents/MacOS/Armada"\n'
+            '  rm -rf "$1/node_modules/.cache/armada-bridge"\n'
+            '  mkdir -p "$1/node_modules/.cache/armada-bridge/Armada Classic.app/Contents/MacOS"\n'
+            '  echo made > "$1/node_modules/.cache/armada-bridge/Armada Classic.app/Contents/MacOS/Armada Classic"\n'
+            "  exit 0\n"
             "fi\n"
             "exit 1\n"), mode=0o755)
         self.armada = os.path.join(self.tmp, "armada")
@@ -88,8 +90,8 @@ class KeepBuild(unittest.TestCase):
         self.write(os.path.join(desktop, "node_modules", "electron", "dist", "version"), "40.1.2\n")
         os.symlink("../../../node_modules/.pnpm/x", os.path.join(desktop, "node_modules", "x"))
         self.write(os.path.join(s, "node_modules", ".pnpm", "x", "index.js"), "x\n")
-        self.write(os.path.join(s, "node_modules", ".cache", "armada-bridge", "Armada.app",
-                                "Contents", "MacOS", "Armada"), "armada electron\n", mode=0o755)
+        self.write(os.path.join(s, "node_modules", ".cache", "armada-bridge", "Armada Classic.app",
+                                "Contents", "MacOS", "Armada Classic"), "armada electron\n", mode=0o755)
         self.write(os.path.join(s, "pnpm-lock.yaml"), "lock one\n")
         self.write(os.path.join(s, "packages", "brand", "macos", "AppIcon.icns"), "icon one\n")
         self.write(os.path.join(s, "scripts", "bridge-launch"), "#!/bin/sh\nexec \"$@\"\n", mode=0o755)
@@ -291,7 +293,7 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make()
         with open(os.path.join(snapshot, "launch-bridge")) as f:
             lines = f.read().splitlines()
-        electron = os.path.join(self.support, "electron", "40.1.2", "Armada.app", "Contents", "MacOS", "Armada")
+        electron = os.path.join(self.support, "electron", "40.1.2", "Armada Classic.app", "Contents", "MacOS", "Armada Classic")
         self.assertEqual(lines, ["#!/bin/sh", f'exec "{electron}" "{snapshot}/bridge"'])
         self.assertTrue(os.path.isfile(electron))
         self.assertNotIn(self.src, "\n".join(lines))
@@ -302,9 +304,9 @@ class KeepBuild(unittest.TestCase):
         self.commit()
         second = self.make()
         self.assertEqual(os.listdir(os.path.join(self.support, "electron")), ["40.1.2"])
-        self.assertEqual(os.listdir(os.path.join(self.support, "electron", "40.1.2")), ["Armada.app"])
+        self.assertEqual(os.listdir(os.path.join(self.support, "electron", "40.1.2")), ["Armada Classic.app"])
         for snapshot in (first, second):
-            self.assertIn(os.path.join(self.support, "electron", "40.1.2", "Armada.app"),
+            self.assertIn(os.path.join(self.support, "electron", "40.1.2", "Armada Classic.app"),
                           self.read(snapshot, "launch-bridge"))
 
     def test_page_reload_is_written_only_where_bridges_main_holds_the_mark(self):
@@ -324,18 +326,29 @@ class KeepBuild(unittest.TestCase):
         snapshot = self.make()
         with open(os.path.join(snapshot, "launch-bridge")) as f:
             exec_line = f.read().splitlines()[1]
-        # Kept by its version, like the Armada-named copy.
+        # Kept by its version, like the Armada Classic copy.
         electron = os.path.join(self.support, "electron", "40.1.2", "Electron.app", "Contents", "MacOS", "Electron")
         self.assertEqual(exec_line, f'exec "{electron}" "{snapshot}/bridge"')
         self.assertTrue(os.path.isfile(electron))
 
-    def test_the_armada_named_electron_is_made_in_the_tree_before_it_is_cloned(self):
+    def test_the_armada_classic_electron_is_made_in_the_tree_before_it_is_cloned(self):
         shutil.rmtree(os.path.join(self.src, "node_modules", ".cache"))
         self.write(os.path.join(self.src, ".stub-makes-the-copy"), "")
         snapshot = self.make()
         with open(self.electron_calls) as f:
             self.assertEqual(f.read().split(), [self.src])
-        self.assertIn("/Armada.app/Contents/MacOS/Armada", self.read(os.path.join(snapshot, "launch-bridge")))
+        self.assertIn("/Armada Classic.app/Contents/MacOS/Armada Classic", self.read(os.path.join(snapshot, "launch-bridge")))
+
+    def test_a_node_modules_kept_with_the_old_copy_gets_the_classic_one(self):
+        self.make()
+        cache = os.path.join(self.modules, self.lock_of("lock one\n"), "node_modules", ".cache", "armada-bridge")
+        shutil.rmtree(cache)
+        self.write(os.path.join(cache, "Armada.app", "Contents", "MacOS", "Armada"), "old\n", mode=0o755)
+        self.write(os.path.join(self.src, ".stub-makes-the-copy"), "")
+        self.commit()
+        snapshot = self.make()
+        self.assertEqual(os.listdir(cache), ["Armada Classic.app"])
+        self.assertIn("/Armada Classic.app/Contents/MacOS/Armada Classic", self.read(os.path.join(snapshot, "launch-bridge")))
 
     def test_the_relative_pnpm_link_resolves_inside_the_clone(self):
         snapshot = self.make()
@@ -479,7 +492,7 @@ class KeepBuild(unittest.TestCase):
         with open(os.path.join(self.builds, names[1], "build.toml"), "a") as f:
             f.write('electron = "40.1.2"\n')
         for version in ("40.1.2", "39.0.0"):
-            os.makedirs(os.path.join(self.support, "electron", version, "Armada.app"))
+            os.makedirs(os.path.join(self.support, "electron", version, "Armada Classic.app"))
         self.set_link("current", names[1])
         self.point(os.path.join(self.builds, names[1]))
         self.assertEqual(os.listdir(os.path.join(self.support, "electron")), ["40.1.2"])
@@ -490,7 +503,7 @@ class KeepBuild(unittest.TestCase):
             self.fake_build(name)
         stub = os.path.join(self.tmp, "stub-bin")
         self.write(os.path.join(stub, "ps"),
-                   f'#!/bin/sh\necho "/x/Armada.app/Contents/MacOS/Armada {self.builds}/{names[0]}/bridge"\n', mode=0o755)
+                   f'#!/bin/sh\necho "/x/Armada Classic.app/Contents/MacOS/Armada Classic {self.builds}/{names[0]}/bridge"\n', mode=0o755)
         self.set_link("current", names[-1])
         done = self.run_keep("point", os.path.join(self.builds, names[-1]), path=stub)
         self.assertEqual(done.returncode, 0, done.stderr)

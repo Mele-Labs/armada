@@ -71,7 +71,7 @@ and works from `target/debug/armada` rather than an installed copy.
 reads the dock and the app switcher from whichever bundle it launched — so both
 say `Electron` there whatever `app.setName` is given, and the dock tile is only
 right because Bridge sets it at runtime after the window is ready.
-`pnpm --filter @armada/desktop package` builds an `Armada.app` that carries its
+`pnpm --filter @armada/desktop package` builds an `Armada Classic.app` that carries its
 own name and its own icon, and connects to a running Fleet exactly as the
 unpackaged app does. It is unsigned, so it runs on the machine that built it and
 nowhere else. `apps/desktop/electron-builder.yml` says where it lands and what
@@ -117,12 +117,14 @@ refuses if it cannot be. Two callers: an agent, through Bash, after a merge that
 Fleet or Bridge; and Bridge itself, through the Fleet panel's build section
 (*Restarting from Bridge*, below).
 
-**Bridge is launched from a copy of Electron's app named Armada**, made under
-`node_modules/.cache/armada-bridge/` with a changed `Info.plist` and an ad hoc
+**Bridge is launched from a copy of Electron's app named Armada Classic**, made under
+`node_modules/.cache/armada-bridge/` with a changed `Info.plist`, the grey
+`ClassicIcon.icns` in place of Electron's icon, and an ad hoc
 signature (no Apple certificate), and handed to `electron-vite preview` as
-`ELECTRON_EXEC_PATH`. That is what puts "Armada" in the menu bar, Dock and app
-switcher of an unpackaged Bridge. It is rebuilt only when Electron's version
-changes.
+`ELECTRON_EXEC_PATH`. That is what puts "Armada Classic" in the menu bar, Dock and app
+switcher of an unpackaged Bridge, apart from the native Armada. The name has a space, so every script quotes the path.
+It is rebuilt only when Electron's version
+changes or the name or icon does.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in

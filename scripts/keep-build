@@ -26,7 +26,7 @@
 # named by the lockfile's first 16 hex of sha256 and is reused as it is, never
 # rebuilt. Both clones are needed: pnpm's `apps/desktop/node_modules` is
 # relative links into the root `node_modules/.pnpm`, and the root one also
-# holds the Armada-named Electron copy `scripts/armada-electron` makes.
+# holds the Armada Classic Electron copy `scripts/armada-electron` makes.
 # Clones are APFS clones (`cp -c`), near free; where they cannot be made (CI is
 # Ubuntu) the same call copies.
 #
@@ -112,7 +112,7 @@ make() {
   # half way leaves nothing a later one would reuse as whole.
   modules="$support/node_modules/$lock"
   if [[ ! -d "$modules" ]]; then
-    # Before the clone, so the Armada-named Electron copy is in it. A tree
+    # Before the clone, so the Armada Classic Electron copy is in it. A tree
     # without Electron.app has none, and the build falls back to Electron's own.
     "$here/armada-electron" "$src" >/dev/null 2>&1 || true
     making_modules="$support/node_modules/.making-$lock.$$"
@@ -124,9 +124,15 @@ make() {
     making_modules=""
   fi
 
-  local electron="$modules/node_modules/.cache/armada-bridge/Armada.app/Contents/MacOS/Armada"
+  local electron="$modules/node_modules/.cache/armada-bridge/Armada Classic.app/Contents/MacOS/Armada Classic"
+  if [[ ! -f "$electron" ]] && "$here/armada-electron" "$src" >/dev/null 2>&1; then
+    # A node_modules kept before the rename holds the old copy, and is named by the lockfile, so it is not made again.
+    rm -rf "$modules/node_modules/.cache/armada-bridge"
+    mkdir -p "$modules/node_modules/.cache"
+    clone "$src/node_modules/.cache/armada-bridge" "$modules/node_modules/.cache/armada-bridge"
+  fi
   if [[ ! -f "$electron" ]]; then
-    echo "keep-build: no Armada-named Electron copy in $modules, so Bridge will say Electron" >&2
+    echo "keep-build: no Armada Classic Electron copy in $modules, so Bridge will say Electron" >&2
     # The clone's own link resolved, so the path never names the tree built from.
     electron="$(cd "$modules/apps/desktop/node_modules/electron/dist/Electron.app/Contents/MacOS" 2>/dev/null && pwd -P)/Electron" \
       || fail "no Electron.app under $modules/apps/desktop/node_modules/electron/dist"

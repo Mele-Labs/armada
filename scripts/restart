@@ -588,7 +588,7 @@ bridge_protocol_stale() {
   [[ -f "$main" ]] && ! grep -qF "\"$(tree_protocol)\"" "$main"
 }
 
-# **Bridge runs from a copy of Electron.app that is named Armada**, made by
+# **Bridge runs from a copy of Electron.app that is named Armada Classic**, made by
 # `scripts/armada-electron`, which has the reason. Prints the binary Bridge is
 # run with. `scripts/keep-build` makes it for a real restart; only the dry run asks here.
 armada_electron() {
@@ -648,7 +648,7 @@ if $dry_run; then
   echo "would write $bridge_plist: [$kept_current/bridge-launch, $kept_current/launch-bridge] in $kept_current/bridge, reopened by launchd when it stops without a quit"
   echo "would reopen Bridge too if its job is loaded from anywhere but $kept_current/bridge, or the kept Bridge's main, preload or Electron differ from the build before's; where only its page differs, Bridge reloads it in place"
   if bridge_electron=$(armada_electron); then
-    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada, ad hoc signed, made if missing, kept once per Electron version in $support/electron"
+    echo "would keep Bridge's Electron as $bridge_electron — a copy of Electron.app named Armada Classic with the Classic icon, ad hoc signed, made if missing, kept once per Electron version in $support/electron"
   else
     echo "WARNING: no Electron.app under $src/apps/desktop/node_modules, so Bridge would say Electron"
   fi
@@ -1054,14 +1054,14 @@ if $bridge_reopen; then
   # nothing else's — a path match, not a name pattern. Exactly one match is
   # quit by its pid; more than one, or one that will not quit, is left alone
   # and reported rather than guessed at.
-  bridge_pattern="^${root}/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) \\.\$"
+  bridge_pattern="^${root}/node_modules/.*/(Electron|Armada|Armada Classic)\\.app/Contents/MacOS/(Electron|Armada|Armada Classic) \\.\$"
   # With `--from`, the window already open may be either tree's.
-  [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) \\.\$"
+  [[ "$src" != "$root" ]] && bridge_pattern="^(${root}|${src})/node_modules/.*/(Electron|Armada|Armada Classic)\\.app/Contents/MacOS/(Electron|Armada|Armada Classic) \\.\$"
   # **A Bridge run from a kept build** is the binary under `$support/node_modules/`
   # given a folder of `$support/builds/`. The support folder has a space in it and
   # dots, so it is escaped for the regex.
   support_re=$(printf '%s' "$support" | sed 's/[][\\.*^$+?(){}|]/\\&/g')
-  bridge_pattern="(${bridge_pattern})|(^${support_re}/node_modules/.*/(Electron|Armada)\\.app/Contents/MacOS/(Electron|Armada) ${support_re}/builds/[^/]+/bridge\$)"
+  bridge_pattern="(${bridge_pattern})|(^${support_re}/node_modules/.*/(Electron|Armada|Armada Classic)\\.app/Contents/MacOS/(Electron|Armada|Armada Classic) ${support_re}/builds/[^/]+/bridge\$)"
   # **Out of launchd before any pid is quit**: a Bridge launchd holds and is
   # killed is reopened (`scripts/bridge-launch`), so it would come back old.
   if launchctl print "$bridge_service" >/dev/null 2>&1; then
@@ -1097,7 +1097,7 @@ if $bridge_reopen; then
     # **The kept build's own launcher, through `current`, not pnpm.** Nothing
     # names a tree, so the build kept above is the build run, and a flipped link
     # is all a revert needs. `launch-bridge` names the Electron it was kept with
-    # (the Armada-named copy `scripts/armada-electron` made, else Electron's own,
+    # (the Armada Classic copy `scripts/armada-electron` made, else Electron's own,
     # which says "Electron" in the menu bar but runs).
     bridge_dir="$kept_current/bridge"
     [[ -x "$kept_current/bridge-launch" && -x "$kept_current/launch-bridge" ]] \
