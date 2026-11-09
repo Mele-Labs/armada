@@ -24,7 +24,7 @@ pub const OPERATOR_ANSWER: Position = Position("features.operatorAnswer");
 /// The Operator's File role: how far Fleet goes on the Later items it rules filed.
 pub const OPERATOR_FILE: Position = Position("features.operatorFile");
 /// The positions a role can stand at.
-pub const OPERATOR_POSITIONS: &[&str] = &["off", "suggest", "on"];
+pub const OPERATOR_POSITIONS: &[&str] = &["read_only", "suggest", "decide"];
 /// The roles that differ per repository: `ipc::operator_positions`. Kept in settings.json and never in a repository's checkout.
 pub const OPERATOR_REPOSITORIES: Json = Json("features.operatorRepositories");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
@@ -178,14 +178,14 @@ pub(super) const FEATURES: &[Entry] = &[
         env: None,
         tip: None,
     },
-    // Every role ships Off (the owner, 5 Nov): each ruling is logged with what it would have done.
+    // Every role ships Read-only (the owner, 5 Nov, then named Off): the Operator makes no call for it.
     Entry {
         key: OPERATOR_DISPATCH.0,
         section: Section::Features,
         title: "Operator dispatches",
-        description: "Starts, holds and merges Jobs as the Operator rules. Suggest puts each on Needs you for one press. Off, each ruling is only in its Log.",
+        description: "Starts, holds and merges Jobs as the Operator rules. Suggest puts each on Needs you for one press. Read-only, it makes no call for them.",
         kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("off"),
+        shipped: Shipped::Text("read_only"),
         applies: Applies::Live,
         row: Some("operator-dispatch"),
         env: None,
@@ -195,9 +195,9 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR_DELEGATE.0,
         section: Section::Features,
         title: "Operator delegates",
-        description: "Sends words to a live Job as the Operator rules: work its plan covers, a nudge, or word of a Job on shared ground. Suggest puts each on Needs you for one press. Off, each ruling is only in its Log.",
+        description: "Sends words to a live Job as the Operator rules: work its plan covers, a nudge, or word of a Job on shared ground. Suggest puts each on Needs you for one press. Read-only, it makes no call for them.",
         kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("off"),
+        shipped: Shipped::Text("read_only"),
         applies: Applies::Live,
         row: Some("operator-delegate"),
         env: None,
@@ -207,9 +207,9 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR_ANSWER.0,
         section: Section::Features,
         title: "Operator answers",
-        description: "Settles the questions and permission cards the Operator answers, as your press would, and says so in the job. A question on work you would see waits for you. Suggest shows its pick on the question. Off, each answer is only in its Log.",
+        description: "Settles the questions and permission cards the Operator answers, as your press would, and says so in the job. A question on work you would see waits for you. Suggest shows its pick on the question. Read-only, it makes no call for them.",
         kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("off"),
+        shipped: Shipped::Text("read_only"),
         applies: Applies::Live,
         row: Some("operator-answer"),
         env: None,
@@ -219,9 +219,9 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR_FILE.0,
         section: Section::Features,
         title: "Operator files",
-        description: "Files a Later item a job hands over in the repository's beads, where no open issue covers it. Suggest puts each on Needs you for one press. Off, each filing is only in its Log.",
+        description: "Files a Later item a job hands over in the repository's beads, where no open issue covers it. Suggest puts each on Needs you for one press. Read-only, it files nothing.",
         kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("off"),
+        shipped: Shipped::Text("read_only"),
         applies: Applies::Live,
         row: Some("operator-file"),
         env: None,

@@ -124,15 +124,19 @@ impl Store {
     }
 
     /// The latest rows that settled something, newest first: the Operator's own rulings, except those it
-    /// only suggested (the person's press on the suggestion is the row), and the person's press on a
-    /// suggestion. A person's correction or answer of his own is not one.
+    /// only suggested or withheld (the person's press on the suggestion is the row) and those that leave
+    /// a note where the person sent it or a note's failed ruling, and the person's press on a suggestion or
+    /// his send of a note to a Job. A person's correction or answer of his own is not one.
     pub fn operator_rulings_signed(&self, limit: u32) -> Result<Vec<KeptRuling>, WriteError> {
         let doing = "reading the Operator's rulings";
         let mut statement = self
             .conn
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM operator_rulings
-                 WHERE (by = 'operator' AND arrival NOT IN (SELECT arrival FROM operator_suggestions))
+                 WHERE (by = 'operator' AND arrival NOT IN (SELECT arrival FROM operator_suggestions)
+                        AND outcome NOT IN ('leave', 'read_only')
+                        AND outcome NOT LIKE 'proposed_%'
+                        AND NOT (outcome = 'passed_on' AND arrival LIKE 'note-sent:%'))
                     OR (by = 'human' AND outcome NOT IN ('corrected', 'answered'))
                  ORDER BY position DESC LIMIT ?1"
             ))
@@ -184,17 +188,5 @@ impl Store {
                 |row| row.get::<_, bool>(0),
             )
             .map_err(failed("reading the Operator's Log"))
-    }
-
-    /// How many calls the Log and the conversation name at or after `since`, an RFC3339 instant.
-    pub fn operator_calls_since(&self, since: &str) -> Result<u32, WriteError> {
-        self.conn
-            .query_row(
-                "SELECT (SELECT COUNT(DISTINCT call) FROM operator_rulings WHERE call IS NOT NULL AND at >= ?1)
-                      + (SELECT COUNT(DISTINCT call) FROM operator_talk WHERE call IS NOT NULL AND at >= ?1)",
-                [since],
-                |row| row.get::<_, u32>(0),
-            )
-            .map_err(failed("counting the Operator's calls"))
     }
 }

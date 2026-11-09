@@ -178,7 +178,7 @@ where
     }
 
     /// Item `item` of `id` is settled as his press on `choice` would, and the Job's thread says so.
-    pub(super) async fn operator_answered(self: &Arc<Self>, id: &str, item: &str, choice: &Choice, because: &str) {
+    pub(super) async fn operator_answered(self: &Arc<Self>, id: &str, item: &str, choice: &Choice, because: &str) -> Result<(), String> {
         let said = AnswerWaiting {
             session_id: SessionId::carried(id),
             item_id: item.to_string(),
@@ -188,13 +188,15 @@ where
             fixed: None,
         };
         if let Err(why) = Arc::clone(self).settle_waiting(said).await {
-            return self.session_warned(id, "the Operator's answer did not settle", format!("{why:?}"));
+            self.session_warned(id, "the Operator's answer did not settle", format!("{why:?}"));
+            return Err("the answer did not settle".to_string());
         }
         let text = match &choice.earlier {
             Some(earlier) => format!("The Operator answered \"{}\", your answer when \"{}\" asked the same.", choice.label, earlier.title),
             None => format!("The Operator answered \"{}\": {because}", choice.label),
         };
         self.fleet_note(id, text).await;
+        Ok(())
     }
 
     /// Why the Operator's answer to `arrival` can no longer be given, as its call comes back.

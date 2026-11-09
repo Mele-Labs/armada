@@ -75,10 +75,22 @@ pub fn filed_done(bytes: &[u8], at: &str) -> Result<Vec<u8>, NotMarked> {
 /// leaves it: `sent` before the note's words, and every other key where it was. A note that already
 /// names a Job is refused, so one Job's note is never taken by another.
 pub fn sent_to(bytes: &[u8], session_id: &str, title: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
-    let mut fields = fields_of(bytes)?;
+    let fields = fields_of(bytes)?;
     if fields.iter().any(|(key, _)| key == "sent") {
         return Err(NotMarked::SentAlready);
     }
+    sent_in(fields, session_id, title, at)
+}
+
+/// The note in `bytes` sent to the Job `session_id` as [`sent_to`] leaves it, **taking it from the Job
+/// it was sent to before**: the Operator moving a note he sent to another Job.
+pub fn resent_to(bytes: &[u8], session_id: &str, title: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
+    let mut fields = fields_of(bytes)?;
+    fields.retain(|(key, _)| key != "sent");
+    sent_in(fields, session_id, title, at)
+}
+
+fn sent_in(mut fields: Vec<(String, Ordered)>, session_id: &str, title: &str, at: &str) -> Result<Vec<u8>, NotMarked> {
     let leaf = |text: &str| Ordered::Leaf(Value::String(text.to_string()));
     let sent = Ordered::Object(vec![
         ("at".to_string(), leaf(at)),
@@ -120,6 +132,12 @@ pub struct NoteRead {
 #[serde(rename_all = "camelCase")]
 pub struct NoteSentTo {
     pub session_id: String,
+    /// The Job's title when it was sent.
+    #[serde(default)]
+    pub title: Option<String>,
+    /// When it was sent, RFC 3339.
+    #[serde(default)]
+    pub at: Option<String>,
 }
 
 /// The element a note points at, of which Fleet reads the tag.
@@ -321,6 +339,17 @@ mod tests {
     }
 
     #[test]
+    fn resent_to_takes_a_note_from_the_job_it_was_sent_to_and_sent_to_refuses_it() {
+        let sent = note_sent_to(ME);
+        assert_eq!(sent_to(sent.as_bytes(), OTHER, "Elsewhere", LATER), Err(NotMarked::SentAlready));
+
+        let moved = resent_to(sent.as_bytes(), OTHER, "Elsewhere", LATER).unwrap();
+        let read = note_read(&moved).unwrap().sent.unwrap();
+        assert_eq!((read.session_id.as_str(), read.title.as_deref(), read.at.as_deref()), (OTHER, Some("Elsewhere"), Some(LATER)));
+        assert_eq!(keys(&moved).iter().filter(|key| *key == "sent").count(), 1);
+    }
+
+    #[test]
     fn note_read_reads_the_fields_and_ignores_the_rest() {
         let read = note_read(note_sent_to(ME).as_bytes()).unwrap();
 
@@ -330,7 +359,7 @@ mod tests {
                 id: "mfz1-abc".to_string(),
                 status: "open".to_string(),
                 scope: Some("window".to_string()),
-                sent: Some(NoteSentTo { session_id: ME.to_string() }),
+                sent: Some(NoteSentTo { session_id: ME.to_string(), title: None, at: Some(WRITTEN.to_string()) }),
                 text: "Too tight".to_string(),
                 component: Some("Rail".to_string()),
                 element: NoteReadElement { tag: "li".to_string() },

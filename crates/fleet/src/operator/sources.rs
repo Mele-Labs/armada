@@ -231,6 +231,9 @@ fn subject_of(text: &str) -> String {
     }
 }
 
+/// What an arrival's id starts with for a note once the person sent it to a Job.
+pub(super) const SENT_NOTE: &str = "note-sent:";
+
 /// A note the person left on Bridge, as its file under the repository's annotations holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Note {
@@ -275,6 +278,29 @@ impl Note {
             answers: Vec::new(),
             rule: None,
             open,
+            ties: Vec::new(),
+        }
+    }
+
+    /// The note once the person sent it to Job `job`, called `title`: it goes elsewhere, or stays.
+    /// **It is its own arrival**, so the Operator meets it after the Log holds his send. It names
+    /// the Job as its own, so that Job is not offered as another to send it to.
+    pub fn sent_arrival(&self, job: &str, title: &str) -> Arrival {
+        Arrival {
+            id: format!("{SENT_NOTE}{}:{}", self.manifest_id, self.id),
+            arrived: Arrived::Note,
+            source: Source::Person,
+            session_id: job.to_string(),
+            manifest_id: self.manifest_id.clone(),
+            subject: subject_of(&self.text),
+            words: format!("{}\n\n{}\n\nThe person sent it to Job \"{title}\" from Bridge.", self.text.trim(), self.left()),
+            paths: Vec::new(),
+            issues: Vec::new(),
+            group: None,
+            ways: vec![Way::ExistingJob, Way::NewJob, Way::Leave],
+            answers: Vec::new(),
+            rule: None,
+            open: Vec::new(),
             ties: Vec::new(),
         }
     }

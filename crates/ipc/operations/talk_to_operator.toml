@@ -12,5 +12,5 @@ notes = """
 
 **An order is never made to stand here.** `order` is a form for the person to see; `confirm_operator_order` is his press. **`started` is the one thing it does**, on a Job held that he told it to start, which the Log keeps as his correction.
 
-**Refused**, 422, with nothing kept: `fleet.operator_off` while the Operator is off, `fleet.operator_ceiling` at the day's ceiling, and `fleet.operator_said_nothing` where the call failed or could not be read. Each message counts toward the ceiling.
+**Refused**, 422, with nothing kept: `fleet.operator_off` while the Operator is off, `fleet.operator_paused` while the week's plan is used to the share where the Operator pauses, and `fleet.operator_said_nothing` where the call failed or could not be read.
 """

@@ -770,7 +770,7 @@ pub enum WaitingSource {
     /// Fleet: a role of the Operator's stands at Suggest, so what it would do waits on one press.
     /// Derived on every read from the kept suggestion: id `suggestion:<n>`, text what it would do and
     /// why, an `answer` act whose `target` is the id, and exactly two options, `Do it` (choice 0),
-    /// which does what On would have, and `Skip` (choice 1), labels only. **Neither sends the agent a
+    /// which does what Decide would have, and `Skip` (choice 1), labels only. **Neither sends the agent a
     /// word of its own**: `Do it` tells a Job only what the act tells it. Dismissing it is Skip.
     /// Listed only while the Job is live.
     OperatorSuggestion,
@@ -1466,6 +1466,10 @@ pub struct SessionRecord {
     /// Fleet did not read one. Since 9 Nov 2026. `docs/practices/protocol/a-jobs-row-mark.md`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mark: Option<crate::JobMark>,
+    /// The last instant the person was in the Job, as a client told it by `view_session`: when it came on
+    /// screen or when it left. Absent where he never was. Since 9 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewed_at: Option<Instant>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

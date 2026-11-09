@@ -140,6 +140,7 @@ Everything he uses daily:
 
 - The mod kit.
 - The Cockpit's map, activity, bays, cleanup grid and flight tiles, and the battlefield, as mods.
+- The Job view's Field layer, with its plan bar, replay slider and lens card, which comes with the Cockpit map.
 - Autopilot, the timeline HUD, Doctor, Lessons, Studios, Workflows, Logbook, Guides and the Mods page.
 - The seldom-opened Job panes: Spine, Workflow, Now, Done, Open and Deferred.
 

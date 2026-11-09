@@ -1531,6 +1531,14 @@ export class SessionsHost {
     });
   }
 
+  /** The Job came on screen in a visible window, or left it. Answers the record, `viewed_at` moved to now. */
+  async view(sessionId: string, on: boolean): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/view", {
+      session_id: sessionId,
+      on,
+    });
+  }
+
   /** Stops the turn, commits the work to the branch and gives the slot back. Answers the record with `hosted.paused` set. */
   async pause(sessionId: string): Promise<SessionActed> {
     return await this.act("POST", "/sessions/pause", {
