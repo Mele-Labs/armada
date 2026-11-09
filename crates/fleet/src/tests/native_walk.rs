@@ -39,8 +39,30 @@ fn built(rig: &Rig) {
     std::fs::create_dir_all(std::path::Path::new(&binary).parent().unwrap()).expect("a target folder");
     std::fs::write(&binary, "#!/bin/sh\necho \"$$ $(pwd -P) $@\" >> starts.txt\nexec sleep 60\n").expect("a build");
     std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755)).expect("executable");
-    // The slot's `HEAD` was made long before this build.
-    rig.fleet.vcs().head_made_at(&slot(rig), 1);
+    // Cargo's list of what the build read, beside it: one source, with a space in its path, read before the build.
+    let source = format!("{}/crates/bridge-native/src/main view.rs", slot(rig));
+    std::fs::create_dir_all(std::path::Path::new(&source).parent().unwrap()).expect("a source folder");
+    std::fs::write(&source, "fn main() {}\n").expect("a source");
+    std::fs::File::options()
+        .write(true)
+        .open(&source)
+        .expect("the source")
+        .set_modified(std::time::SystemTime::now() - Duration::from_secs(3600))
+        .expect("written before the build");
+    std::fs::write(format!("{binary}.d"), format!("{binary}: {}\n\n{}:\n", source.replace(' ', "\\ "), source.replace(' ', "\\ "))).expect("cargo's list");
+}
+
+/// The build's one source written again, after the build.
+fn source_changed(rig: &Rig) {
+    let source = format!("{}/crates/bridge-native/src/main view.rs", slot(rig));
+    std::fs::write(&source, "fn main() { changed() }\n").expect("changed");
+    // Set rather than left to the clock, which a coarse filesystem may not move between the two writes.
+    std::fs::File::options()
+        .write(true)
+        .open(&source)
+        .expect("the source")
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(60))
+        .expect("written after the build");
 }
 
 fn starts(rig: &Rig) -> Vec<String> {
@@ -100,14 +122,33 @@ async fn opening_a_native_walk_with_no_build_in_the_slot_is_refused_with_what_to
 }
 
 #[tokio::test]
-async fn opening_a_native_walk_with_a_build_older_than_the_slots_head_commit_is_refused() {
+async fn opening_a_native_walk_with_a_source_changed_since_its_build_is_refused() {
     let (rig, id) = walking().await;
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-    rig.fleet.vcs().head_made_at(&slot(&rig), now + 3600);
+    source_changed(&rig);
 
     let refused = said(rig.fleet.open_native_walk(press(&id, URL)).await);
 
     assert!(refused.contains("Build the walk first: cargo build in crates/bridge-native in"), "{refused}");
+    assert!(starts(&rig).is_empty(), "nothing was started");
+}
+
+#[tokio::test]
+async fn a_build_whose_sources_are_unchanged_opens_after_a_commit_made_since() {
+    let (rig, id) = walking().await;
+    // A commit moves no source, so `cargo build` leaves this build as it is: it has to open.
+    std::process::Command::new("git").args(["init", "-q"]).current_dir(slot(&rig)).status().expect("a repository");
+    let commit = ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "after the build"];
+    assert!(std::process::Command::new("git").args(commit).current_dir(slot(&rig)).status().expect("git").success(), "committed");
+
+    opened(&rig, &id, URL, 1).await;
+}
+
+#[tokio::test]
+async fn a_source_cargo_read_that_is_gone_since_the_build_is_refused() {
+    let (rig, id) = walking().await;
+    std::fs::remove_file(format!("{}/crates/bridge-native/src/main view.rs", slot(&rig))).expect("gone");
+
+    assert!(rig.fleet.open_native_walk(press(&id, URL)).await.is_err());
     assert!(starts(&rig).is_empty(), "nothing was started");
 }
 
