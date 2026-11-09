@@ -426,6 +426,10 @@ impl Queries for FakeDaemon {
         Ok(ipc::MergeLines::default())
     }
 
+    async fn get_merge_line_view(&self) -> Result<ipc::MergeLineViews, Refusal> {
+        Ok(ipc::MergeLineViews::default())
+    }
+
     async fn observe_land_check(
         &self,
         root: String,

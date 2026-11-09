@@ -394,6 +394,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         id: SessionId,
     ) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
 
+    /// `get_job_thread`: the Job's thread folded, as whole items. [`Refusal::Unacceptable`] for a `before` no
+    /// item holds.
+    fn get_job_thread(
+        self: Arc<Self>,
+        read: ipc::JobThreadRead,
+    ) -> impl Future<Output = Result<ipc::JobThread, Refusal>> + Send;
+
     /// `get_session_subagent`: a subagent's own thread.
     fn get_session_subagent(
         &self,

@@ -22,6 +22,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // Every merge line as a screen draws it, whole, after anything it is read from changed.
+    Route {
+        operation: "merge_line_view.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The mods on this machine, whole, whenever one was written or switched.
     Route {
         operation: "mods.changed",
@@ -103,6 +109,18 @@ pub(super) const ROUTES: &[Route] = &[
     // What a Job holds and where it stands, whole, as `get_job_lifecycles` answers it.
     Route {
         operation: "job_lifecycles.changed",
+        method: "GET",
+        path: "/events",
+    },
+    // What changed in a Job's thread as Fleet folds it, from the first item that differs.
+    Route {
+        operation: "job_thread.tail",
+        method: "GET",
+        path: "/events",
+    },
+    // A change too far back in a Job's thread for a tail: a client that holds the item reads its window again.
+    Route {
+        operation: "job_thread.changed",
         method: "GET",
         path: "/events",
     },

@@ -11,6 +11,7 @@
 
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
+import type { MergeLineViews } from "./merge-line-view";
 import type { ReviewRun } from "./review-runs";
 import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
@@ -29,6 +30,7 @@ import type { Autopilot, AutopilotDecisions } from "./autopilot";
 import type { WatchesChanged } from "./watches";
 import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
+import type { JobThreadChanged, JobThreadTail } from "./job-thread";
 import type { KeepDraftsChanged } from "./job-copy";
 import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
@@ -74,6 +76,10 @@ export type Event =
   | ({
       kind: "merge_lines.changed";
     } & MergeLines)
+  /** Every merge line as a screen draws it, whole, as `get_merge_line_view` answers: read it again after a `Missed`. */
+  | ({
+      kind: "merge_line_view.changed";
+    } & MergeLineViews)
   /** A review run moved: queued, running, done or failed, whole. Not replayed; `get_review_runs` reads them again. */
   | {
       kind: "review_run.changed";
@@ -169,6 +175,14 @@ export type Event =
   | ({
       kind: "job_lifecycles.changed";
     } & JobLifecyclesChanged)
+  /** What changed in a Job's thread as Fleet folds it: the items from `from` to the end, and the head. */
+  | ({
+      kind: "job_thread.tail";
+    } & JobThreadTail)
+  /** A change reached back further than `THREAD_TAIL_MOST` items from the end of a Job's thread: read `get_job_thread` again. */
+  | ({
+      kind: "job_thread.changed";
+    } & JobThreadChanged)
   /** A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed in a repository: read `list_keep_drafts` again. */
   | ({
       kind: "keep_drafts.changed";

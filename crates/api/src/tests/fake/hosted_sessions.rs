@@ -313,6 +313,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_job_thread(self: Arc<Self>, _read: ipc::JobThreadRead) -> Result<ipc::JobThread, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_session_subagent(&self, _id: SessionId, _subagent: String) -> Result<SessionSubagent, Refusal> {
         Err(nothing_hosted())
     }

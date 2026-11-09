@@ -197,6 +197,8 @@ WebSocket event stream, read this first.
 | [Sleep leaves the wire](protocol/sleep-leaves-the-wire.md) |
 | [A Job's several terminals: `terminal` and `new`, `list_terminals`, `rename_terminal`](protocol/a-jobs-several-terminals.md) |
 | [The Operator takes Helm's place](protocol/the-operator-takes-helms-place.md) |
+| [A Job's thread, folded by Fleet](protocol/a-jobs-thread-fleet-folds.md) |
+| [The merge line, read by Fleet](protocol/the-merge-line-fleet-reads.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
