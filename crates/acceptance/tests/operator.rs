@@ -248,7 +248,7 @@ async fn a_question_with_a_recommended_option_from_a_job_on_a_group_not_seen_is_
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_role_goes_by_where_it_stands_off_only_in_the_log_suggest_on_one_press_and_on_done() {
+async fn a_role_goes_by_where_it_stands_read_only_spends_no_call_suggest_on_one_press_and_decide_done() {
     use ipc::operator_positions::OperatorPosition;
     let answered = "item: 1\nway: 1\nanswer: 1\nbecause: the recommended option keeps what each tab shows, and nothing he sees changes";
     for (stands, settled, suggested) in [(OperatorPosition::ReadOnly, false, false), (OperatorPosition::Suggest, false, true), (OperatorPosition::Decide, true, false)] {
@@ -260,9 +260,16 @@ async fn a_role_goes_by_where_it_stands_off_only_in_the_log_suggest_on_one_press
         let question = asked(TERMINAL, Group::Unseen(NOT_SEEN.into()), Present::Here, None).arrival().expect("the Operator is on");
         operator.ruled(question, NEEDS_YOU_WAIT).await;
 
-        assert_eq!(call.asked().len(), 1, "{stands:?} is still ruled");
         let log = fleet.log();
-        assert_eq!((log[0].outcome, log[0].answer.as_deref()), (Outcome::Ruled(Way::Answer), Some(PER_TAB)), "{stands:?} keeps what it would answer");
+        if stands == OperatorPosition::ReadOnly {
+            assert!(call.asked().is_empty(), "Read-only offers its way to no call");
+            assert_eq!(log[0].outcome, Outcome::ReadOnly, "the row says it passed on as Read-only");
+        } else {
+            assert_eq!(call.asked().len(), 1, "{stands:?} is ruled");
+            // Done only once carried out: Suggest's pick waits on his press as Proposed.
+            let outcome = if stands == OperatorPosition::Suggest { Outcome::Proposed(Way::Answer) } else { Outcome::Ruled(Way::Answer) };
+            assert_eq!((log[0].outcome, log[0].answer.as_deref()), (outcome, Some(PER_TAB)), "{stands:?} keeps what it would answer");
+        }
         assert_eq!(!fleet.answered().is_empty(), settled, "{stands:?}");
         assert_eq!(fleet.suggested() == vec![(TERMINAL.to_string(), Way::Answer)], suggested, "{stands:?}");
     }
