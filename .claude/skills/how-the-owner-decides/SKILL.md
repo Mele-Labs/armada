@@ -119,9 +119,15 @@ speed about what is shipped.
 > moved it anyway. `2026-09-22-helm-overlays.md` went the same way.
 
 This is not the opposite of *pay for the record being right*. Both are alive:
-rigour about what is **stored**, restraint about what is **drawn**. Where a
+rigour about what is **stored**, economy in how much is **drawn**. Where a
 drawing is complete and crowded, he takes the crowding out and accepts the gap.
 Where a record is convenient and lossy, he pays for the loss.
+
+That is about how many things a screen holds, never about how they look.
+What stays on the screen has colour, depth and meaning, with the Cockpit as
+the bar: *"Once again a newly designed page lacks color, depth and meaning"*
+(9 Nov 2026, the third time he asked). The bar is in
+`docs/contracts/design-system/the-product.md`.
 
 > **Give the person the control; do not infer it from a rule.**
 > `2026-09-22-the-rail-is-a-choice.md` — the left column collapsed only because

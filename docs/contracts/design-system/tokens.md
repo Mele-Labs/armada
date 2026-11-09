@@ -35,10 +35,10 @@ One look, drawn by `packages/components/src/depth.css`, `pages.css` and the role
 `packages/tokens/takes.css`. The root carries `data-look="new"`, which
 `@armada/components/src/look` sets in each window that loads the stylesheet. There is no flag to turn it off.
 
-**Restraint is the rule.** The model is Linear, Vercel Geist, Raycast and the macOS HIG.
-Elevation is a solid lightness step, a 1px hairline and a small neutral shadow. **No
-gradients, no glows, no sheen and no texture** on a surface, a control or a state. Colour is the theme's: nothing in these
-files names a hue, and a shade is a `color-mix` of a theme token.
+**The Cockpit is the bar.** A new surface has colour, depth and meaning, as the Cockpit does; The product says what that holds.
+Elevation is a solid lightness step, a 1px hairline and a shadow, so a card reads as a thing lifted off its ground.
+**No gradients on a control or a state, no glows, no sheen and no grain.** These are the only no's, the owner's of 16 Oct 2026, kept on 9 Nov.
+Colour is the theme's: nothing in these files names a hue, and a shade is a `color-mix` of a theme token.
 The lit screens and lamps of the Cockpit's console are the owner's one exception to no glows (1 Nov 2026), and it reaches nothing else.
 
 **Four levels of lift**, each a shadow and the edge that goes with it:
@@ -405,7 +405,8 @@ lift to the line under its header. All three alias `--status-running`,
 which is what a running phase is one level down. **The mark leaves that
 header**; see Motion.
 
-**Everything else below Job level stays neutral, with one exception.** An
+**Nothing else below Job level takes a status hue, with one exception.**
+That bounds status hue alone: a row's kind takes a hue of its own, under Hard rule 3. An
 origin tag and the retry marker carry position, surface, weight and glyph.
 Drift is the exception: `gone` and `current` render in `--notice-caution`,
 because a drifted file is behind rather than broken. Adding a value to
@@ -467,15 +468,16 @@ Nothing in a log row is a status: a status is a badge, a mark or a row
 surface, and a family is one word at the head of a mono line, so the two
 never appear in the same slot.
 
-**A tool the roster does not name takes no colour.** Hue is scarce and an
-unclassified tool is not a fourth family — the name draws in the line's
-own foreground. Adding one is a decision about what a family means.
+**A tool the roster does not name takes no colour until a family is declared for it.**
+An unclassified tool is not a fourth family, so the name draws in the line's own foreground.
+Adding one is a decision about what a family means.
 
 ## Node kinds
 
 What a node on the approval canvas *is*, in four hues, declared in
 `tokens/kinds.css`. The owner's call of 4 Oct 2026, scoped to that
 canvas's nodes and nothing else.
+His ruling of 9 Nov 2026, that colour says what a thing is, reaches every surface: another surface's kinds declare a file of their own rather than borrowing these.
 
 ```
 --kind-setup     #7DB8AE   the brief, its base branch
