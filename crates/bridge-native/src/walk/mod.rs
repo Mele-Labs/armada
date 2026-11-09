@@ -12,10 +12,12 @@
 //! [`crate::labels`], which is what VoiceOver reads too.
 
 pub mod bar;
-pub mod capture;
 pub mod check;
+pub mod dispatch;
 pub mod fleet;
+pub mod notes;
 pub mod stage;
+pub mod title_bar;
 pub mod window;
 
 /// What a step does when it is reached, before its target is ringed.
@@ -32,6 +34,19 @@ pub enum Verb {
     RightPress(&'static str),
     /// The pointer brought to rest on the target.
     Hover,
+    /// The title bar moves to a named scene of its mock scenario (`titlebar/scenes.rs`), then the
+    /// target is ringed. A scene changes data and presses nothing.
+    Scene(&'static str),
+    /// A press on another element, `(role, name)`, before the target is ringed: for an act whose
+    /// own button is gone once it is pressed.
+    PressOn(&'static str, &'static str),
+    /// Characters typed into whatever holds the keys, one by one, as a person types them.
+    Type(&'static str),
+    /// A drag across the target's inner area, to hold a box rather than the element.
+    Drag,
+    /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
+    /// or a state of the sheet's face. A scene changes data and presses nothing.
+    Answer(&'static str),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -62,6 +77,19 @@ pub struct Walk {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Jobs,
+    Dispatch,
+}
+
+const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
+}
+
+const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
+    Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+}
+
+const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Answer(name), target: Target { role, name: target } }
 }
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
@@ -106,6 +134,27 @@ pub static WALKS: &[Walk] = &[
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
+    },
+    Walk {
+        name: "title-bar",
+        title: "Title bar",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::STEPS,
+    },
+    Walk {
+        name: "dispatch",
+        title: "Dispatch sheet",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &dispatch::STEPS,
+    },
+    Walk {
+        name: "notes",
+        title: "Notes on ⌥⌘A",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &notes::STEPS,
     },
     Walk {
         name: "jobs-lamps",

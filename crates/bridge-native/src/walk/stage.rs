@@ -27,7 +27,19 @@ pub struct Focus {
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         match walk.screen {
+            Screen::Dispatch => {
+                crate::titlebar::scenes::begin(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let jobs = cx.new(|cx| JobsScreen::new(list, cx));
+                let screen = cx.new(|cx| crate::dispatch::DispatchScreen::new(jobs, &records, window, cx));
+                let focus = Focus { keys, within: screen.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: screen.into(), focus })
+            }
             Screen::Jobs => {
+                crate::titlebar::scenes::begin(cx);
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
@@ -78,6 +90,49 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .cloned()
                 .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Scene(name) => crate::titlebar::scenes::apply(name, cx).map_err(Missed),
+        Verb::PressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, name))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            press(MouseButton::Left, at, window, cx);
+            Ok(())
+        }
+        Verb::Answer(name) => {
+            let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
+            screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)
+        }
+        Verb::Type(text) => {
+            for ch in text.chars() {
+                let key = if ch == ' ' { "space".to_string() } else { ch.to_string() };
+                let keystroke = Keystroke { modifiers: Modifiers::default(), key, key_char: Some(ch.to_string()) };
+                window.dispatch_keystroke(keystroke, cx);
+            }
+            Ok(())
+        }
+        Verb::Drag => {
+            let bounds = find(step, window, cx)?.bounds;
+            // From the element's top-left to 70% across and 85% down: a box of its own, whose top-right
+            // corner (where the pin stands) is clear of anything drawn at the element's edge, and whose
+            // card still opens below it.
+            let from = bounds.origin;
+            let to = point(bounds.origin.x + bounds.size.width * 0.7, bounds.origin.y + bounds.size.height * 0.85);
+            let none = Modifiers::default();
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: from, pressed_button: None, modifiers: none }), cx);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: none, click_count: 1, first_mouse: false }),
+                cx,
+            );
+            window.dispatch_event(
+                PlatformInput::MouseMove(MouseMoveEvent { position: to, pressed_button: Some(MouseButton::Left), modifiers: none }),
+                cx,
+            );
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: none, click_count: 1 }), cx);
             Ok(())
         }
         Verb::Hover => {

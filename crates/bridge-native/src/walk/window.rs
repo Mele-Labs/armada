@@ -14,16 +14,15 @@ use gpui::{
 use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui::{anchored, canvas, deferred, point, Anchor, AnimationExt as _, Focusable, Bounds, CursorStyle, DismissEvent, MouseButton, Pixels, Point};
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
+use gpui::{canvas, point, Anchor, AnimationExt as _, Focusable, Bounds, DismissEvent, Pixels};
 
-use super::bar::{button, chord, icon_button, Weight};
-use super::capture::{element_at, region, ringed, Held};
+use super::bar::{chord, icon_button, Weight};
+use crate::capture::{self, ringed, Capture, CaptureEvent, Held, Words};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use super::fleet::WalkFleet;
 use super::stage::{find, perform, Stage};
 use super::Walk;
-use crate::labels::{label_root, labelled, Drawn, LabelBook};
+use crate::labels::{label_root, labelled};
 use crate::look::{token, ActiveLook};
 
 actions!(walk, [Next, Back, Reload, Approve, TakeNote, CancelNote, OpenTakes]);
@@ -54,21 +53,6 @@ pub struct Reading {
 struct Said {
     text: SharedString,
     fault: bool,
-}
-
-/// Capture while it is armed: what the pointer is over, a box being dragged, and once a press
-/// lets go, what is held, its picture and the note being written on it.
-#[derive(Default)]
-struct Capturing {
-    hover: Option<Drawn>,
-    from: Option<Point<Pixels>>,
-    to: Option<Point<Pixels>>,
-    held: Option<Held>,
-    /// The frame drawn for the picture: nothing of Capture's over the screen.
-    clean: bool,
-    /// That frame, and the window's pixels per point.
-    picture: Option<(image::RgbaImage, f32)>,
-    note: Option<(Entity<TextareaState>, Subscription)>,
 }
 
 /// One take of a walk with variations: what the bar calls it, and the walk it plays.
@@ -131,7 +115,8 @@ pub struct WalkWindow {
     at: usize,
     playing: bool,
     fleet: Option<WalkFleet>,
-    capture: Option<Capturing>,
+    /// Capture while it is armed over the screen.
+    capture: Option<(Entity<Capture>, Subscription)>,
     held: Vec<HeldNote>,
     /// Notes on their way to Fleet: they left the bar the moment Send notes was pressed.
     sending: bool,
@@ -453,7 +438,17 @@ impl WalkWindow {
             return;
         }
         self.keys_were = window.focused(cx);
-        self.capture = Some(Capturing::default());
+        let within = Rc::clone(&self.stage_at);
+        let words = Words { save: "Send", band: None, card: "New note", tools: false };
+        let keep = format!("walk-note:{}", self.walk.name);
+        let capture = cx.new(|cx| Capture::new(within, words, Some(keep), cx));
+        let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
+            CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
+            CaptureEvent::Closed => this.cancel_note(&CancelNote, window, cx),
+        });
+        let focus = capture.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&focus, cx));
+        self.capture = Some((capture, watch));
         cx.notify();
     }
 
@@ -475,76 +470,12 @@ impl WalkWindow {
         }
     }
 
-    fn pointer_moved(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        let within = self.stage_at.get();
-        let Some(capture) = self.capture.as_mut().filter(|capture| capture.held.is_none()) else { return };
-        if capture.from.is_some() {
-            capture.to = Some(at);
-        } else {
-            let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
-            capture.hover = within.and_then(|within| element_at(&drawn, at, within));
-        }
-        cx.notify();
-    }
-
-    fn pressed(&mut self, at: Point<Pixels>, cx: &mut Context<Self>) {
-        let Some(capture) = self.capture.as_mut().filter(|capture| capture.held.is_none()) else { return };
-        capture.from = Some(at);
-        capture.to = Some(at);
-        cx.notify();
-    }
-
-    /// A press lets go: a box if it was dragged, else the element under it. The window draws once
-    /// with nothing of Capture's over the screen, and that frame is the note's picture.
-    fn released(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(capture) = self.capture.as_mut().filter(|capture| capture.held.is_none()) else { return };
-        let from = capture.from.take().unwrap_or(at);
-        capture.to = None;
-        let held = region(from, at).map(Held::Region).or_else(|| capture.hover.take().map(Held::Element));
-        let Some(held) = held else {
-            cx.notify();
-            return;
-        };
-        capture.held = Some(held);
-        capture.clean = true;
-        cx.notify();
-        let this = cx.entity().downgrade();
-        window.on_next_frame(move |window, _cx| {
-            window.refresh();
-            window.on_next_frame(move |window, cx| {
-                let _ = this.update(cx, |this, cx| this.pictured(window, cx));
-            });
-        });
-    }
-
-    fn pictured(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let scale = window.scale_factor();
-        let picture = window.render_to_image().ok();
-        let Some(capture) = self.capture.as_mut() else { return };
-        capture.clean = false;
-        capture.picture = picture.map(|picture| (picture, scale));
-        let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8).placeholder("What should change here"));
-        let watch = cx.subscribe_in(&input, window, |this, input, event: &InputEvent, window, cx| {
-            if let InputEvent::PressEnter { secondary: true, .. } = event {
-                let said = input.read(cx).value().to_string();
-                this.send_note(said, window, cx);
-            }
-        });
-        input.update(cx, |input, cx| input.focus(window, cx));
-        capture.note = Some((input, watch));
-        cx.notify();
-    }
-
     /// The card's note joins the held ones, for Send notes.
-    fn send_note(&mut self, said: String, window: &mut Window, cx: &mut Context<Self>) {
-        if said.trim().is_empty() {
-            return;
-        }
-        let Some(capture) = self.capture.take() else { return };
+    fn noted(&mut self, noted: &capture::Noted, window: &mut Window, cx: &mut Context<Self>) {
+        self.capture = None;
         self.give_keys_back(window, cx);
-        let Some(held) = capture.held else { return };
-        let (role, name) = match &held {
-            Held::Element(drawn) => (super::capture::role_word(drawn.role).unwrap_or("element").to_lowercase(), drawn.name.to_string()),
+        let (role, name) = match &noted.held {
+            Held::Element(drawn) => (capture::role_word(drawn.role).unwrap_or("element").to_lowercase(), drawn.name.to_string()),
             Held::Region(bounds) => (
                 "region".to_string(),
                 format!(
@@ -555,8 +486,20 @@ impl WalkWindow {
                     f32::from(bounds.size.height)
                 ),
             ),
+            // A walk window never arms a whole-window note: the layer does.
+            Held::Window { .. } => ("window".to_string(), "Whole window".to_string()),
         };
-        self.held.push(HeldNote { said, take: self.taken(), walk: self.walk.name, of: self.walk.steps.len() as u32, step: self.at as u32 + 1, role, name, ring: held.bounds(), picture: capture.picture.map(|(picture, scale)| (std::sync::Arc::new(picture), scale)) });
+        self.held.push(HeldNote {
+            said: noted.said.clone(),
+            take: self.taken(),
+            walk: self.walk.name,
+            of: self.walk.steps.len() as u32,
+            step: self.at as u32 + 1,
+            role,
+            name,
+            ring: noted.held.bounds(),
+            picture: noted.picture.clone(),
+        });
         self.said = Some(Said { text: format!("Note {} held", self.held.len()).into(), fault: false });
         cx.notify();
     }
@@ -830,7 +773,6 @@ fn approve_button(take: Option<SharedString>, cx: &mut Context<WalkWindow>) -> i
 impl Render for WalkWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let bar = self.render_bar(cx);
-        let capture = self.render_capture(cx);
         let look = cx.look();
         let ring = if self.playing || self.capture.is_some() { None } else { find(&self.walk.steps[self.at], window, cx).ok() };
         let gap = look.length(token::FOCUS_RING_WIDTH) * 2.;
@@ -875,127 +817,8 @@ impl Render for WalkWindow {
                         .border(look.length(token::FOCUS_RING_WIDTH))
                         .border_color(look.color(token::ACCENT))
                 }))
-                .children(capture)
+                .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
                 .children(self.menu.as_ref().map(|(menu, ..)| menu.clone())),
         )
-    }
-}
-
-impl WalkWindow {
-    /// What Capture draws over the screen: a crosshair cover that takes the pointer, the outline
-    /// and name of what it is over or the box being dragged, and the note card on what is held.
-    fn render_capture(&self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
-        let capture = self.capture.as_ref()?;
-        let within = self.stage_at.get()?;
-        let look = cx.look();
-        let edge = look.length(token::FOCUS_RING_WIDTH);
-        let outline = |bounds: Bounds<Pixels>| {
-            div()
-                .absolute()
-                .left(bounds.origin.x)
-                .top(bounds.origin.y)
-                .w(bounds.size.width)
-                .h(bounds.size.height)
-                .border(edge)
-                .border_color(look.color(token::ACCENT))
-                .bg(look.color(token::ACCENT).opacity(0.08))
-        };
-        let mut layer = div().absolute().inset_0();
-        if capture.clean {
-            return Some(layer.into_any_element());
-        }
-        if capture.held.is_none() {
-            layer = layer.child(
-                div()
-                    .id("capture-cover")
-                    .absolute()
-                    .left(within.origin.x)
-                    .top(within.origin.y)
-                    .w(within.size.width)
-                    .h(within.size.height)
-                    .cursor(CursorStyle::Crosshair)
-                    .occlude()
-                    .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, window, cx| this.pointer_moved(event.position, window, cx)))
-                    .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| this.pressed(event.position, cx)))
-                    .on_mouse_up(MouseButton::Left, cx.listener(|this, event: &gpui::MouseUpEvent, window, cx| this.released(event.position, window, cx))),
-            );
-        }
-        let dragged = capture.from.zip(capture.to).and_then(|(from, to)| region(from, to));
-        if let Some(bounds) = dragged {
-            layer = layer.child(outline(bounds));
-        } else if let Some(hover) = capture.hover.as_ref().filter(|_| capture.held.is_none()) {
-            let name = Held::Element(hover.clone()).said();
-            layer = layer.child(outline(hover.bounds)).child(
-                div()
-                    .absolute()
-                    .left(hover.bounds.origin.x)
-                    .top(hover.bounds.origin.y - look.length(token::H_BADGE) - edge)
-                    .h(look.length(token::H_BADGE))
-                    .px(look.length(token::SPACE_2))
-                    .flex()
-                    .items_center()
-                    .rounded(look.length(token::RADIUS_SM))
-                    .bg(look.color(token::ACCENT))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .text_color(look.color(token::TEXT_ON_ACCENT))
-                    .child(name),
-            );
-        }
-        if let Some(held) = &capture.held {
-            let bounds = held.bounds();
-            layer = layer.child(outline(bounds));
-            if let Some((input, _)) = &capture.note {
-                let input = input.clone();
-                let sent = input.clone();
-                let gap = look.length(token::SPACE_2);
-                let card = div()
-                    .id("capture-card")
-                    .key_context("walk-note")
-                    // The field would keep Esc for itself.
-                    .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                        if event.keystroke.key == "escape" {
-                            cx.stop_propagation();
-                            this.cancel_note(&CancelNote, window, cx);
-                        }
-                    }))
-                    .w(look.length(token::SPACE_8) * 10.)
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_2))
-                    .p(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .bg(look.color(token::BG_OVERLAY))
-                    .shadow(look.shadows(token::SHADOW_OVERLAY))
-                    .child(
-                        div()
-                            .truncate()
-                            .text_size(look.length(token::TEXT_2XS))
-                            .line_height(look.length(token::LEADING_2XS))
-                            .text_color(look.color(token::FG_MUTED))
-                            .child(held.said()),
-                    )
-                    .child(labelled(div().id("capture-note").child(Textarea::new(&input)), Role::TextInput, "Note"))
-                    .child(
-                        div()
-                            .flex()
-                            .justify_end()
-                            .gap(look.length(token::SPACE_2))
-                            .child(button("capture-cancel", "Cancel", Some("esc"), Weight::Quiet, true, cx, cx.listener(|this, _, window, cx| this.cancel_note(&CancelNote, window, cx))))
-                            .child(button("capture-send", "Send", Some("⌘↵"), Weight::Primary, true, cx, cx.listener(move |this, _, window, cx| {
-                                let said = sent.read(cx).value().to_string();
-                                this.send_note(said, window, cx);
-                            }))),
-                    );
-                layer = layer.child(deferred(
-                    anchored()
-                        .position(point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
-                        .snap_to_window_with_margin(gap)
-                        .child(card),
-                ));
-            }
-        }
-        Some(layer.into_any_element())
     }
 }

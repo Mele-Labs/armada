@@ -1464,6 +1464,7 @@ impl Render for JobsScreen {
         let column = look.length(token::SPACE_12);
         let width = self.width(window, look);
         let handle = self.render_handle(width, window, cx);
+        let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
         div()
@@ -1474,7 +1475,7 @@ impl Render for JobsScreen {
             .flex()
             .flex_col()
             .bg(look.color(token::BG_BASE))
-            .child(crate::chrome::title_row(look))
+            .child(title)
             .child(
                 div()
                     .id("deck-grid")
