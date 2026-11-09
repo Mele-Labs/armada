@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use api::{HostedSessions, Sessions};
+use api::Sessions;
 use ipc::{PlanGroupInput, PlanTaskInput, RecordPlan, SessionId, SessionStanding};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -35,10 +35,6 @@ async fn on(rig: &Rig) {
 
 async fn told(rig: &Rig, id: &SessionId) -> Vec<String> {
     notices_in(rig, id).await.into_iter().filter(|(notice, _)| notice.as_deref() == Some("operator")).map(|(_, text)| text).collect()
-}
-
-async fn said(rig: &Rig, id: &SessionId) -> Vec<String> {
-    notices_in(rig, id).await.into_iter().map(|(_, text)| text).collect()
 }
 
 /// A call that answers each question with the next of its answers, and keeps what it was asked.
