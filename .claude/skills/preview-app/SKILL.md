@@ -37,7 +37,10 @@ permission prompt is his confirmation, the same reason an agent does not run
 `scripts/dev` (`armada-local`). Dry-run first and put what it printed in front
 of him. Say what it will do, not "restarting Fleet": whether a Drone is working
 now, whether Bridge reopens (only if `apps/` or `packages/` changed since its
-last build), and that it updates his installed armada plugin, which leaves
+last build), whether the native Bridge builds and opens (the dry run names why: its
+crates or `packages/tokens/` moved, another protocol, or it is not open from the kept
+build; a window opens in front of him the first time, and after a quit he meant it
+stays closed unless the app changed), and that it updates his installed armada plugin, which leaves
 `/reload-plugins` as the one step in each open terminal job. A hosted job needs
 none: Fleet lets its process go once its turn ends, and its next message starts
 it on the new mod.
@@ -82,6 +85,7 @@ the lock file; tell the owner, never remove it yourself.
 if launchd loaded any other tree or Fleet reports a protocol ID other than the
 one the preview's wire files hash to
 (`node apps/desktop/codegen/protocol-id.mjs`). Read the `Bridge runs ...` line.
+The native Bridge runs from `builds/current/Armada.app` through its own job, `com.armada.fleet.native`; read the last two lines of the output, `Bridge reopened` and `Native Bridge reopened`.
 
 **A `libsqlite3-sys` compile error in the preview is a stale build script, not
 the code.** Run `cargo clean -p libsqlite3-sys` in `.armada/preview` and run the

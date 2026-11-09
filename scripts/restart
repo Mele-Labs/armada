@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Move the running Fleet — and Bridge, once it needs to — onto whatever is in
+# Move the running Fleet — and Bridge and the native Bridge, once they need to — onto whatever is in
 # this working tree. Two callers: an agent, through Bash, after a merge that
 # touches Fleet or Bridge; and Bridge itself, from its own "restart on latest
 # build" act. Never on an allow list — `.claude/skills/preview-app/SKILL.md`
