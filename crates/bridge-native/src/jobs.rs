@@ -84,8 +84,8 @@ pub enum Lamp {
     Masthead,
     /// A thin line along the inside of the row's foot, as a hull's painted waterline.
     Waterline,
-    /// No mark: the row's ground takes a faint wash of the lamp's colour.
-    Hull,
+    /// No mark: the row's ground takes a faint wash of the lamp's colour, this many hundredths strong.
+    Hull(u8),
     /// No edge mark: the state glyph sits in a housing tinted the lamp's colour.
     Housing,
 }
@@ -977,7 +977,7 @@ impl JobsList {
             .pl(match style {
                 Lamp::Bar => look.length(token::SPACE_4),
                 Lamp::Pennant => look.length(token::SPACE_3) * 3.,
-                Lamp::Brackets | Lamp::Fine | Lamp::Etched | Lamp::Housing | Lamp::Masthead | Lamp::Waterline | Lamp::Hull => look.length(token::SPACE_3),
+                Lamp::Brackets | Lamp::Fine | Lamp::Etched | Lamp::Housing | Lamp::Masthead | Lamp::Waterline | Lamp::Hull(_) => look.length(token::SPACE_3),
             })
             .pr(look.length(token::SPACE_3))
             .rounded(radius)
@@ -993,9 +993,14 @@ impl JobsList {
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .when(needs, |strip| {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);
+                // A tinted hull pulses from its own wash to twice it, so the Job waiting on you sits as quietly.
+                let (low, high) = match style {
+                    Lamp::Hull(strength) => (f32::from(strength) / 100., f32::from(strength) / 50.),
+                    _ => (0.06, 0.14),
+                };
                 strip.child(div().absolute().inset_0().rounded(radius).with_animation(
                     SharedString::from(format!("needs-{}", row.id)),
-                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.06, 0.14)),
+                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(low, high)),
                     move |tinted, at| tinted.bg(tint.opacity(at)),
                 ))
             })
@@ -1121,8 +1126,9 @@ impl JobsList {
                     .h(look.length(token::BORDER_WIDTH))
                     .bg(lamp_ink.opacity(0.7))
                     .into_any_element()],
-                Lamp::Hull if !opened => vec![div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(0.09)).into_any_element()],
-                Lamp::Housing | Lamp::Hull => Vec::new(),
+                // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
+                Lamp::Hull(strength) if !opened && !needs => vec![div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(f32::from(strength) / 100.)).into_any_element()],
+                Lamp::Housing | Lamp::Hull(_) => Vec::new(),
             })
             .child(
                 div()

@@ -159,7 +159,27 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-many",
         steps: &[
-            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull), "row", "Quiet the write-clash notices"),
+            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull(6)), "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-hull-light",
+        title: "Jobs list: a lighter tint",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull(4)), "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-hull-faint",
+        title: "Jobs list: the faintest tint",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull(3)), "row", "Quiet the write-clash notices"),
             step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
         ],
     },
