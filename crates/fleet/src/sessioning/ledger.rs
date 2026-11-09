@@ -324,6 +324,8 @@ where
         let reply_owed_since = reads.waiting.reply_owed_since();
         let (checks_running, spoken) = reads.waiting.thread_facts();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
+        // Whether the Job that owns a failure has been told of it is read by the calls, which hear the row next.
+        self.hosts().calls.told_noted(&session.id, waited.told.as_deref());
         record.waiting_for = waited.items;
         // A call held at a gate only the person can close is his to settle.
         if session.state == store::SessionState::Live {

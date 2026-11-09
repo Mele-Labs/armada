@@ -86,6 +86,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/view",
     },
     Route {
+        operation: "get_calls",
+        method: "GET",
+        path: "/calls",
+    },
+    Route {
+        operation: "open_call",
+        method: "POST",
+        path: "/calls/open",
+    },
+    Route {
         operation: "pause_session",
         method: "POST",
         path: "/sessions/pause",

@@ -485,6 +485,14 @@ where
         self.session_viewed(asked).await
     }
 
+    async fn get_calls(&self) -> Result<ipc::StandingCalls, Refusal> {
+        self.calls_read()
+    }
+
+    async fn open_call(&self, asked: ipc::OpenStandingCall) -> Result<ipc::StandingCalls, Refusal> {
+        Ok(self.call_opened(&asked))
+    }
+
     async fn pause_session(&self, asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         self.session_paused(asked).await
     }
