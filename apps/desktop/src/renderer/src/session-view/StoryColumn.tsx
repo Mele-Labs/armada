@@ -39,7 +39,7 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { focusKind, openDraftCard, openOwedDocument } from "../job-panes/focus";
+import { focusBesideThread, openDraftCard, openOwedDocument } from "../job-panes/focus";
 import { inPanes } from "./layers";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
@@ -480,7 +480,7 @@ export function StoryColumn({
             size="sm"
             iconOnly
             aria-label="Plan"
-            onClick={() => focusKind(id, "plan")}
+            onClick={() => focusBesideThread(id, "plan")}
           >
             <ListChecks size={16} strokeWidth={2} aria-hidden />
           </Button>

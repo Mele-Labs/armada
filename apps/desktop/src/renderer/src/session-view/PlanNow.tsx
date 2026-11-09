@@ -187,7 +187,17 @@ export function PlanChunks<G extends WorkGroup>({
               </span>
             </Tooltip>
             <span className="sv-chunk__name">{stretch.name}</span>
-            {read === undefined ? null : <span className="sv-chunk__said">{read.said}</span>}
+            {/* When it closed, or how long it has held the Job on him, stands after the gate's line, so a narrow pane never squeezes the chunk's name. */}
+            {read === undefined || gate === undefined ? null : (
+              <span className="sv-chunk__said">
+                <span className="sv-chunk__fact">{read.said}</span>
+                {gate.closed !== undefined ? (
+                  <Stamp at={gate.closed.at} className="sv-beat__figure" />
+                ) : gate.held !== undefined ? (
+                  <Since at={gate.held} said="Held on you for" />
+                ) : null}
+              </span>
+            )}
           </>
         );
         return (
@@ -214,11 +224,6 @@ export function PlanChunks<G extends WorkGroup>({
             )}
             {gate === undefined || Gate === undefined || read === undefined ? null : (
               <span className="sv-chunk__end">
-                {gate.closed !== undefined ? (
-                  <Stamp at={gate.closed.at} className="sv-beat__figure" />
-                ) : gate.held !== undefined ? (
-                  <Since at={gate.held} said="Held on you for" />
-                ) : null}
                 <Tooltip asChild label={read.glyph}>
                   <span className="sv-chunk__gate" role="img" aria-label={read.glyph}>
                     <Gate size={12} strokeWidth={2} aria-hidden />

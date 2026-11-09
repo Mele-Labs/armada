@@ -39,7 +39,7 @@ import {
 } from "../job-panes/bodies";
 import { WalkBody } from "../job-walk/WalkBody";
 import { CustomBody } from "../job-panes/custom-body";
-import { focusKind, focusLayer } from "../job-panes/focus";
+import { focusBesideThread, focusKind, focusLayer } from "../job-panes/focus";
 import { JobPanes } from "../job-panes/JobPanes";
 import type { Tab, TabKind } from "../job-panes/tree";
 import { OverTheApp } from "./OverTheApp";
@@ -229,7 +229,7 @@ export function SessionWorkspace({
         event.preventDefault();
         if (layer === "artifacts") closeLayer();
         // On a Job in panes the whole plan is the Job's Plan tab.
-        if (inPanes(id)) return focusKind(id, "plan");
+        if (inPanes(id)) return focusBesideThread(id, "plan");
         pressWhole(session);
         return;
       }
