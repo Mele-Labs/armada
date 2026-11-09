@@ -37,6 +37,7 @@ use crate::watches::WatchList;
 use crate::bug_reports::BugReports;
 use crate::job_copy::KeepDraftsChanged;
 use crate::lifecycles::JobLifecycles;
+use crate::merge_line_view::MergeLineViews;
 use crate::job_thread::{JobThreadChanged, JobThreadTail};
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioJobActed};
@@ -128,6 +129,9 @@ pub enum Event {
     // What `get_merge_lines` answers, whole, whenever a line moved on disk.
     #[serde(rename = "merge_lines.changed")]
     MergeLinesChanged(MergeLines),
+    // Every merge line as a screen draws it, whole, after anything it is read from changed.
+    #[serde(rename = "merge_line_view.changed")]
+    MergeLineViewChanged(MergeLineViews),
     // The mods on this machine, whole, whenever one was added, changed or switched.
     #[serde(rename = "mods.changed")]
     ModsChanged(ModList),

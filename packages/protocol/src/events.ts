@@ -11,6 +11,7 @@
 
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
+import type { MergeLineViews } from "./merge-line-view";
 import type { ReviewRun } from "./review-runs";
 import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
@@ -75,6 +76,10 @@ export type Event =
   | ({
       kind: "merge_lines.changed";
     } & MergeLines)
+  /** Every merge line as a screen draws it, whole, as `get_merge_line_view` answers: read it again after a `Missed`. */
+  | ({
+      kind: "merge_line_view.changed";
+    } & MergeLineViews)
   /** A review run moved: queued, running, done or failed, whole. Not replayed; `get_review_runs` reads them again. */
   | {
       kind: "review_run.changed";
