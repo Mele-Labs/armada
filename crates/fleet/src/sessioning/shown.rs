@@ -36,6 +36,21 @@ pub(crate) fn address_shown(address: &str) -> Option<String> {
     (!shown.is_empty()).then_some(shown)
 }
 
+/// Why `group` cannot be the part a walk is shown for, or `None` where the plan has it. The sentence
+/// names the ids the plan does have, so the Job can pass one.
+pub(super) fn group_unknown(plan: Option<&store::KeptPlan>, group: &str) -> Option<String> {
+    let Some(plan) = plan else {
+        return Some(format!(
+            "group `{group}` names no part of a plan, because this job has recorded none. Record the plan with record_plan first, or leave group out"
+        ));
+    };
+    if plan.groups.iter().any(|one| one.id == group) {
+        return None;
+    }
+    let ids: Vec<String> = plan.groups.iter().map(|one| format!("`{}` ({})", one.id, one.title)).collect();
+    Some(format!("group `{group}` is not in the current plan. The plan's groups are {}", ids.join(", ")))
+}
+
 /// The takes a call named, trimmed, or why they cannot be shown. **Each address is held to the one
 /// `url` is**, and a call that names takes shows the first: `url` must be that same page.
 pub(super) fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<ipc::WindowTake>, &'static str> {

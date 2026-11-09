@@ -47,6 +47,7 @@ fn phrase(gate: &str) -> Option<&'static str> {
 /// close it. **Derived on every read and never kept**, so it goes when the gate closes or the hold clears.
 /// A merge waits on its pull request while one is open, and Checks while a run has begun: those close
 /// themselves.
+/// `jobs_ended` is never his: each child Job's own needs show on its own row, so `phrase` has no words for it.
 pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, nothing_runs: bool) -> Option<WaitingItem> {
     let hold = plan.held.as_ref().filter(|_| nothing_runs)?;
     let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
@@ -149,10 +150,12 @@ where
             return self.published_hosted(id).await;
         }
         let skipped = choice == SKIP;
+        // A walk gate that opened again takes a row of its own beside the one it closed on before.
+        let rows = self.store().lock().await.session_gates(id).unwrap_or_default();
         let kept = KeptGate {
             group_id: group.id.clone(),
             gate: gate.clone(),
-            version: if gate == PLAN_APPROVED { plan.version } else { 0 },
+            version: KeptGate::next_version(&rows, &group.id, &gate, plan.asked_version),
             closed_at: self.timeline().now(),
             fact: if skipped { "You skipped this group" } else { "You approved it in Needs you" }.to_string(),
             source: format!("needs-you:{}", group.id),

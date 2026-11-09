@@ -1,23 +1,25 @@
-# Bug, as the owner chose it on 27 Oct 2026 and folded on 30 Oct: Find the cause, Fix, Tests, Deliver.
-# Fix makes the fix and shows a bug he would see as a short walk straight to the place, and ends on his
-# approval, before any test; one he would not see skips the walk. A separate Short walk step after Fix
-# had him approve one walk twice. `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`
-# has why. This file is also what Armada ships, and `feature.json` beside it is the other workflow that walks.
+# Bug, as the owner settled it on 9 Nov 2026: Find the cause, Fix, Test and deliver.
+# Each step is a plan group, and `gate` names the fact Fleet sees for itself that ends it: his approval
+# of the plan, of a walk, of a sketch or of a page, Checks green at the pushed commit, the merge, or none.
+# Fleet sends the groups to the agent on its first turn and keeps only the gates; nothing moves a Job
+# backwards. `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has each answer and the
+# dry run behind it.
 #
 # Where the reasoning lives: `crates/core-model/domain/workflowdef-fields.toml` is the schema,
-# `docs/concepts/workflow.md` the concept, `crates/config/src/workflow.rs` the parser. These files are
-# YAML and the `.json` extension is kept on purpose: a `#` comment is not JSON. `workflow-samples/bug.json`
-# is the designed seven-step form, not a duplicate of this one; do not reconcile the two.
+# `docs/concepts/workflow.md` the concept, `docs/concepts/session/the-plan.md` the gates,
+# `crates/config/src/workflow.rs` the parser. These files are YAML and the `.json` extension is kept on
+# purpose: a `#` comment is not JSON. `workflow-samples/bug.json` is the designed seven-step form, not a
+# duplicate of this one; do not reconcile the two. This file is also what Armada ships.
 #
-# **`find_the_cause` records the plan**, the cause and the fix as tasks, because the walk is placed from
-# the plan's approval. It asks how the work is delivered, as `feature`'s first step does.
+# **No test order is imposed.** "Write no tests yet" contradicted briefs that ask for a failing test
+# first; the plan says the order.
 #
-# **`deliver` is gated `human_always`: every workflow that produces code stops before it lands**
-# (the owner, Aug 28 2026). Auto land does not stop there (19 Oct 2026); Fleet declares the gate and does
-# not enforce it, and the step's instructions carry the stop.
+# **Tests fold into delivery, which ends at the merge whatever the delivery** (9 Nov 2026): at work a
+# draft pull request goes to a test environment, and what he finds there comes back to the same Job.
 #
-# **`no_behaviour_beyond_the_plan` asks about behaviour, not every line** (#190). Every definition here
-# declares `for_requests`, read off its own criteria; `fleet`'s `tests::proposing` refuses one without.
+# **`deliver` is gated `human_always`** for the old rail, which a later change removes; Fleet does not
+# enforce it. Every definition here declares `for_requests`, read off its own criteria; `fleet`'s
+# `tests::proposing` refuses one without.
 {
   "version": 1,
   "workflow_id": "bug",
@@ -27,127 +29,28 @@
     {
       "id": "find_the_cause",
       "label": "Find the cause",
-      "about": "Reads the report and the code, reproduces the bug and names the cause, then writes down the fix as tasks. Nothing is changed yet.",
-      "instructions": "Reproduce the bug. Find why it happens, not only where it shows. Say the cause in a line.\nSay `seen: true` in record_plan when the person would see any piece of the change.\nName the root cause with file:line, not the reported symptom.\nPropose the fix beside it. If the fix changes what the person would see in Bridge, say so: a short walk of it comes before any test.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nList the tasks in the order they must happen. Tests come after the walk, so name none to write yet. The walk is the Fix step's own work, so list no walk as a task.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
-      "evidence": {
-        "submitted": {
-          "type": "plan"
-        }
-      },
-      "mechanical_checks": [
-        {
-          "type": "plan_recorded",
-          "min_tasks": 1
-        }
-      ],
-      "evidence_scope": {
-        "context_source": "drone_declared"
-      },
-      "judge_checks": [
-        {
-          "enabled": true,
-          "model": "haiku",
-          "criteria": [
-            {
-              "criterion_id": "plan_matches_request",
-              "question": "Does this plan address the problem that was actually reported, rather than a different one?"
-            },
-            {
-              "criterion_id": "names_a_root_cause",
-              "question": "Does this plan name a specific root cause, rather than restating the reported symptom?"
-            }
-          ]
-        }
-      ],
-      "delivers": false,
+      "about": "Reproduces the bug, names the cause and writes down the fix as a plan. Ends when you approve the plan.",
+      "instructions": "Reproduce the bug. Find why it happens, not only where it shows, and name the root cause with file:line.\nPropose the fix beside it, with its tasks in the order they must happen. Say `seen: true` in record_plan when the person would see any piece of the change.\nName the files you expect to touch, and end with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
+      "gate": "plan_approved",
       "asks_delivery": true,
-      "advance_gate": "auto_if_judge_passes"
+      "delivers": false,
+      "advance_gate": "auto"
     },
     {
       "id": "fix",
       "label": "Fix",
-      "about": "Makes the fix from the plan, with no tests yet, and shows it to you as a short walk straight to the place. No tests until you approve it. The walk is passed over when nothing would be seen.",
-      "instructions": "Make the smallest change that addresses the cause. Write no tests yet.\nWork the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.\nThen show the fix as a short walk straight to the place, with show_window, and wait for the person's approval. Notes come back as another take. A bug nobody would see in Bridge needs no walk.\nShow it once. If you already showed this walk and the person approved it, do not show it again.",
-      "walks": true,
-      "evidence": {
-        "submitted": {
-          "type": "diff"
-        }
-      },
-      "retry_limit": 2,
-      "follows_plan": true,
-      "mechanical_checks": [
-        {
-          "type": "diff_nonempty"
-        }
-      ],
-      "declare_plan_at": "step_start",
-      "evidence_scope": {
-        "context_source": "drone_declared",
-        "reference_docs": [
-          "plan.evidence"
-        ],
-        "scope_diff_check": true
-      },
-      "judge_checks": [
-        {
-          "enabled": true,
-          "model": "haiku",
-          "criteria": [
-            {
-              "criterion_id": "addresses_the_cause",
-              "question": "Does this diff address the root cause named in the plan, rather than masking the symptom?"
-            },
-            {
-              "criterion_id": "no_behaviour_beyond_the_plan",
-              "question": "Does this diff change behaviour beyond what the plan described?"
-            },
-            {
-              "criterion_id": "tasks_match_the_diff",
-              "question": "Does the diff do every task set to done or handed in, and does each dropped task's reason hold?"
-            },
-            {
-              "criterion_id": "the_evidence_accounts_for_itself",
-              "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
-            }
-          ]
-        }
-      ],
-      "delivers": false,
-      "advance_gate": "auto_if_judge_passes"
-    },
-    {
-      "id": "tests",
-      "label": "Tests",
-      "about": "Writes the test that fails without the fix and passes with it, and runs the repository's checks on the result.",
-      "instructions": "Write a test that fails without the fix and passes with it.\nRun the checks; if the suite is already red for other reasons, say so with ask_the_person and stop. Write the test on the narrowest observable failure, from the report's inputs, asserting what a person sees and not a helper you suspect. Read its failure message and confirm it fails for the reported reason.\nEvery new test is shown failing without the fix, for the right reason, then passing.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
-      "evidence": {
-        "submitted": {
-          "type": "failing_test"
-        }
-      },
-      "retry_limit": 2,
-      "mechanical_checks": [
-        {
-          "type": "every_manifest_check"
-        },
-        {
-          "type": "diff_nonempty"
-        }
-      ],
+      "about": "Makes the fix and shows it to you as a short walk straight to the place. Ends when you approve the walk. Left out when nothing would be seen.",
+      "instructions": "Make the smallest change that addresses the cause, following the plan. A small correction is yours to make and to say; a change of approach goes to the person.\nShow the fix as a short walk straight to the place with show_window, naming this group, and wait for the person's approval. Leave this group out of the plan when the project serves no walk or nothing would be seen.\nShow a walk once. Do not show one he approved again.",
+      "gate": "walk_approved",
       "delivers": false,
       "advance_gate": "auto"
     },
     {
       "id": "deliver",
-      "label": "Deliver",
-      "about": "Delivers the finished change the way you chose: merged after ci, opened as a pull request, or kept on the branch.",
-      "instructions": "Open the pull request and merge it on a green ci. Say what landed.\nDeliver by the delivery the person chose. Fleet told you the answer when it was given, or the first message named it. Do not ask again.\nReview the branch against the task with git log and git diff against the base. If anything blocks, put every blocker in one ask_the_person question and stop.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why.\nAuto land: push the branch, open the pull request, watch ci until it finishes and merge when it is green. A red ci is fixed on the branch, never merged over.\nOpen PR only: push the branch and open the pull request. Stop there and do not merge.\nKeep local: stop at the commit on the Job's branch. Push nothing and open no pull request.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
-      "evidence": {
-        "submitted": {
-          "type": "review"
-        }
-      },
+      "label": "Test and deliver",
+      "about": "Proves the fix with a test that fails without it, and delivers it the way you chose. Ends at the merge.",
+      "instructions": "Where the Fix group was left out, make the fix here first.\nWrite a test that fails without the fix, for the reported reason, and passes with it.\nPush the branch and open a draft pull request while the checks run locally. Fix what is red. A test that is also red on main is not this Job's to fix: look up who is fixing main, say so, and carry on.\nDeliver by the delivery the person chose, and do not ask again. Auto land: mark the pull request ready and merge it on a green ci. Open PR: leave it open; the Job stays until it merges, so what the person finds in a test environment comes back here. Keep local: push nothing, and record this group's gate as none.\nReport the branch, what is on it, and what the person needs before merging.",
+      "gate": "merged",
       "delivers": true,
       "advance_gate": "human_always"
     }

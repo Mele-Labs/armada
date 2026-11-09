@@ -128,19 +128,25 @@ fn stretch_after(groups: &[KeptPlanGroup], after: Option<usize>) -> impl Iterato
 }
 
 /// What one closed gate makes happen to the Job, in order: its stretch's steps end, the gate's kind
-/// closes, the next stretch's steps start. **Nothing for a group the plan no longer has.**
-fn gate_moments(groups: &[KeptPlanGroup], row: &KeptGate) -> Vec<Occurrence> {
+/// closes, the next stretch's steps start. **Nothing for a group the plan no longer has.** **A walk gate
+/// closed again** (a new walk reopened it and he approved that) says only that the gate closed: its
+/// steps ended and the next stretch started at the first close, and are not ended or started twice.
+pub(crate) fn gate_moments(groups: &[KeptPlanGroup], row: &KeptGate) -> Vec<Occurrence> {
     let Some(at) = groups.iter().position(|group| group.id == row.group_id) else { return Vec::new() };
+    let again = row.gate == store::WALK_APPROVED && row.version > 0;
     let previous = groups[..at].iter().rposition(gated);
     let stamp = |kind: &str, group: &str| format!("gate:{}:{}:{}:{kind}:{group}", row.group_id, row.gate, row.version);
     let mut moments: Vec<Occurrence> = stretch_after(&groups[..=at], previous)
+        .filter(|_| !again)
         .map(|group| Occurrence::step_ended(StepId::new(&group.id), &stamp("ends", &group.id)))
         .collect();
     if let Some(gate) = Gate::from_wire(&row.gate) {
         moments.push(Occurrence::gate_closed(gate, &stamp("closes", &row.group_id)));
     }
     moments.extend(
-        stretch_after(groups, Some(at)).map(|group| Occurrence::step_started(StepId::new(&group.id), &stamp("starts", &group.id))),
+        stretch_after(groups, Some(at))
+            .filter(|_| !again)
+            .map(|group| Occurrence::step_started(StepId::new(&group.id), &stamp("starts", &group.id))),
     );
     moments
 }

@@ -14,6 +14,7 @@ mod covers;
 mod declared;
 pub(crate) mod frozen;
 mod evidence_ref;
+mod gate;
 mod ids;
 mod judge;
 mod lands;
@@ -49,6 +50,7 @@ pub use judge::{
 };
 pub use lands::Lands;
 pub use narrowing::Narrowing;
+pub use gate::StepGate;
 pub use phase::StepPhase;
 pub use pr_mode::PrMode;
 pub use prerequisite::Prerequisite;

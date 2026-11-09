@@ -202,11 +202,14 @@ pub(crate) fn recorded(
             });
         }
     }
+    let version = before.map_or(1, |plan| plan.version + 1);
     KeptPlan {
-        version: before.map_or(1, |plan| plan.version + 1),
+        version,
         summary,
         recorded_at: now.to_string(),
         approved_at: None,
+        // It asks, unless the caller finds an approval it stands on (`plan_recorded`).
+        asked_version: version,
         set_aside_at: None,
         sketch,
         walk,

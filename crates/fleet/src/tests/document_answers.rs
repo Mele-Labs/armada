@@ -281,6 +281,7 @@ pub(super) async fn plan_recorded(rig: &Rig, id: &SessionId) {
         }],
         sketch: None,
         walk: None,
+        ask_again: false,
         session_id: Some(id.clone()),
     };
     rig.fleet.record_plan(None, plan, false).await.expect("recorded");
