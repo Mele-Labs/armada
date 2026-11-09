@@ -94,11 +94,12 @@ pub static WALKS: &[Walk] = &[Walk {
         step("⌥↑ moves the Job up past its neighbour", Verb::Key("alt-up"), "row", "Audit the docs index"),
         step("Shift+F10 opens the menu from the keys", Verb::Key("shift-f10"), "menuitem", "Close"),
         step("Esc shuts it again", Verb::Key("escape"), "row", "Audit the docs index"),
-        step("/ opens the Filter, the search field taking the keys", Verb::Key("/"), "searchbox", "Search Jobs"),
-        step("↓ goes to the scopes", Verb::Key("down"), "menuitemcheckbox", "Active"),
-        step("↓ again, to Paused", Verb::Key("down"), "menuitemcheckbox", "Paused"),
+        step("/ puts the keys in the search over every group", Verb::Key("/"), "searchbox", "Search Jobs"),
+        step("↓ gives them back to the list", Verb::Key("down"), "row", "Fix the merge line freshness chip"),
+        step("The scope beside the search picks which Jobs the list holds", Verb::Press, "button", "Active"),
+        step("↓ to Paused", Verb::Key("down"), "menuitemcheckbox", "Paused"),
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
-        step("The Filter stays lit while it narrows the list", Verb::Look, "button", "Filter: Paused"),
+        step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
 }];
 

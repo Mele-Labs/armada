@@ -3,11 +3,9 @@
 //! outside it shut it.
 
 use gpui::{
-    anchored, deferred, div, prelude::*, svg, App, Context, Anchor, DismissEvent, Entity, EventEmitter,
+    anchored, deferred, div, prelude::*, svg, App, Context, Anchor, DismissEvent, EventEmitter,
     FocusHandle, Focusable, KeyDownEvent, Pixels, Point, Role, SharedString, Window,
 };
-use gpui_component::input::{Input, InputState};
-use gpui_component::Sizable;
 
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -48,7 +46,6 @@ pub struct Dropdown {
     corner: Anchor,
     cursor: Option<usize>,
     name: SharedString,
-    search: Option<Entity<InputState>>,
     focus: FocusHandle,
 }
 
@@ -65,17 +62,11 @@ impl Dropdown {
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), search: None, focus: cx.focus_handle() };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle() };
         if cursor_first {
             this.cursor = this.first();
         }
         this
-    }
-
-    /// A search field over the entries, which takes the keys when the menu opens.
-    pub fn with_search(mut self, search: Entity<InputState>) -> Self {
-        self.search = Some(search);
-        self
     }
 
     fn first(&self) -> Option<usize> {
@@ -120,22 +111,7 @@ impl Dropdown {
                 self.step(1);
                 window.focus(&self.focus, cx);
             }
-            "up" => {
-                // ↑ from the first entry goes back to the search field, and in the field does nothing.
-                if let Some(search) = &self.search {
-                    if self.cursor.is_none() {
-                        return;
-                    }
-                    if self.cursor == self.first() {
-                        self.cursor = None;
-                        search.update(cx, |input, cx| input.focus(window, cx));
-                    } else {
-                        self.step(-1);
-                    }
-                } else {
-                    self.step(-1);
-                }
-            }
+            "up" => self.step(-1),
             "enter" => match self.cursor {
                 Some(at) => self.pick(at, cx),
                 None => return,
@@ -221,17 +197,6 @@ impl Render for Dropdown {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let entries: Vec<_> = (0..self.entries.len()).map(|at| self.render_entry(at, cx)).collect();
         let look = cx.look();
-        let search = self.search.clone().map(|input| {
-            div()
-                .flex_none()
-                .pt(look.length(token::SPACE_1))
-                .px(look.length(token::SPACE_2))
-                .pb(look.length(token::SPACE_2))
-                .mb(look.length(token::SPACE_1))
-                .border_b(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .child(labelled(div().id("menu-search").child(Input::new(&input).small()), Role::SearchInput, "Search Jobs"))
-        });
         deferred(
             anchored()
                 .position(self.at)
@@ -256,7 +221,6 @@ impl Render for Dropdown {
                         .bg(look.color(token::BG_OVERLAY))
                         .shadow(look.shadows(token::SHADOW_OVERLAY))
                         .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
-                        .children(search)
                         .children(entries),
                     Role::Menu,
                     self.name.clone(),

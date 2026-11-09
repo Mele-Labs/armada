@@ -1,7 +1,7 @@
-//! The Jobs list, as Electron's Cockpit list (`cockpit/deck/Deck.tsx`): every Job in the Filter's
+//! The Jobs list, as Electron's Cockpit list (`cockpit/deck/Deck.tsx`): every Job in the chosen
 //! scope, grouped by project in the order the person placed them, a Job another started standing
-//! under it. A right press opens the row's menu, a pause on a row opens its card, and the Filter
-//! narrows the list by scope and by search.
+//! under it. A right press opens the row's menu and a pause on a row opens its card. Where Electron
+//! has a Filter button, a search field and the scope sit over every group, on the owner's word.
 //!
 //! A Job's lamp, state glyph and group come from Fleet as its mark (`SessionRecord::mark`), so
 //! the rules that read them are not copied here. Only the glyph and the words for each state are.
@@ -16,7 +16,8 @@ use gpui::{
     FocusHandle, FontWeight, KeyBinding, MouseButton, Pixels, Point, Role, SharedString, ScrollHandle, Subscription, Task,
     Window,
 };
-use gpui_component::input::{InputEvent, InputState};
+use gpui_component::input::{Input, InputEvent, InputState};
+use gpui_component::Sizable as _;
 use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 
 use crate::assets::icon_path;
@@ -358,7 +359,10 @@ pub struct JobsList {
     /// Each drawn row's place in the window, for a menu opened from the keyboard and for its card.
     bounds: Rc<RefCell<HashMap<SharedString, Bounds<Pixels>>>>,
     menu: Option<Open>,
-    filter: Option<(Open, Entity<InputState>, Subscription)>,
+    /// The scope's menu while it is open.
+    filter: Option<Open>,
+    /// The search field over the groups. It needs a window, so it is made on the first draw.
+    search: Option<(Entity<InputState>, Subscription)>,
     /// The Job whose card is open, and the wait before one opens.
     card: Option<SharedString>,
     _card_wait: Option<Task<()>>,
@@ -411,6 +415,7 @@ impl JobsList {
             bounds: Rc::default(),
             menu: None,
             filter: None,
+            search: None,
             card: None,
             _card_wait: None,
             fleet,
@@ -503,7 +508,7 @@ impl JobsList {
             at += by;
             if at < 0 || at >= self.lines.len() as isize {
                 if by < 0 && from.is_some() {
-                    self.open_filter(window, cx);
+                    self.to_search(window, cx);
                 }
                 return;
             }
@@ -551,7 +556,7 @@ impl JobsList {
                 cx.notify();
             }
         } else if act.is("deck_search") {
-            self.open_filter(window, cx);
+            self.to_search(window, cx);
         } else if act.is("deck_reorder") {
             // ⌥↑ then ⌥↓.
             self.shove(if act.slot == 0 { -1 } else { 1 }, cx);
@@ -623,55 +628,47 @@ impl JobsList {
         cx.notify();
     }
 
-    /// Whether the Filter narrows the list: a scope other than Active, or a search.
-    fn narrowed(&self) -> bool {
-        self.scope != Scope::Active || !self.query.trim().is_empty()
-    }
-
-    /// What the Filter's tooltip says it narrows to (`Deck.tsx`, `Filter`).
-    fn filter_said(&self) -> SharedString {
-        let cut = |text: &str, at: usize| {
-            if text.chars().count() > at { format!("{}…", text.chars().take(at).collect::<String>()) } else { text.to_string() }
-        };
-        let query = self.query.trim();
-        match (self.scope, query.is_empty()) {
-            (Scope::Active, true) => "Filter".into(),
-            (Scope::Active, false) => format!("Filter: {}", cut(query, 14)).into(),
-            (scope, true) => format!("Filter: {}", scope.label()).into(),
-            (scope, false) => format!("Filter: {} · {}", scope.label(), cut(query, 8)).into(),
+    /// The keys to the search field over the groups.
+    fn to_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some((search, _)) = &self.search {
+            search.update(cx, |input, cx| input.focus(window, cx));
+            cx.notify();
         }
     }
 
-    fn filter_entries(&self) -> Vec<Entry> {
-        SCOPES.iter().map(|(scope, id, label)| Entry::Choice { id, label: (*label).into(), on: *scope == self.scope }).collect()
+    /// The keys from the search field to the first Job.
+    fn to_rows(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.focused = self.first_row();
+        window.focus(&self.focus, cx);
+        cx.notify();
     }
 
-    /// The Filter's menu, under its button: the search field, which takes the keys, over the five scopes.
-    fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.filter.is_some() {
+    fn make_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.search.is_some() {
             return;
         }
-        let Some(bounds) = self.bounds.borrow().get("filter").copied() else { return };
-        let gap = cx.look().length(token::SPACE_1);
-        let at = point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
-        let query = self.query.clone();
-        let search = cx.new(|cx| InputState::new(window, cx).default_value(query));
-        let entries = self.filter_entries();
-        let menu = cx.new(|cx| Dropdown::new("Filter", entries, at, Anchor::TopRight, false, cx).with_search(search.clone()));
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search Jobs"));
         let typed = cx.subscribe_in(&search, window, |this, search, event: &InputEvent, window, cx| match event {
             InputEvent::Change => {
                 this.query = search.read(cx).value().to_string();
                 this.relist(cx);
             }
-            // Enter in the field shuts the menu and puts the keys on the first Job.
-            InputEvent::PressEnter { .. } => {
-                this.filter = None;
-                this.focused = this.first_row();
-                window.focus(&this.focus, cx);
-                cx.notify();
-            }
+            InputEvent::PressEnter { .. } => this.to_rows(window, cx),
             _ => {}
         });
+        self.search = Some((search, typed));
+    }
+
+    /// The scope's menu, under its button, the keys on the scope the list holds now.
+    fn open_scope(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.filter.is_some() {
+            return;
+        }
+        let Some(bounds) = self.bounds.borrow().get("scope").copied() else { return };
+        let gap = cx.look().length(token::SPACE_1);
+        let at = point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
+        let entries = SCOPES.iter().map(|(scope, id, label)| Entry::Choice { id, label: (*label).into(), on: *scope == self.scope }).collect();
+        let menu = cx.new(|cx| Dropdown::new("Scope", entries, at, Anchor::TopRight, true, cx));
         let picked = cx.subscribe(&menu, |this, _, picked: &Picked, cx| {
             let Picked::Entry { id, .. } = picked;
             this.scope = Scope::of(id);
@@ -683,8 +680,9 @@ impl JobsList {
             window.focus(&this.focus, cx);
             cx.notify();
         });
-        search.update(cx, |input, cx| input.focus(window, cx));
-        self.filter = Some((Open { menu, _picked: picked, _dismissed: dismissed }, search, typed));
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.filter = Some(Open { menu, _picked: picked, _dismissed: dismissed });
         cx.notify();
     }
 
@@ -890,44 +888,68 @@ impl JobsList {
         }
     }
 
-    /// The Filter's chip at the panel's top right corner (`deck.css`, `.deck-band`), shown while the
-    /// pointer is over the panel or the keys are in it.
-    fn render_filter(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    /// The bar over every group: the search field, and the scope it searches in.
+    fn render_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let shown = self.filter.is_some() || self.focus.contains_focused(window, cx);
-        let said = self.filter_said();
         let store = Rc::clone(&self.bounds);
-        let ink = if self.narrowed() { token::ACCENT } else { token::FG_MUTED };
+        let label = self.scope.label();
+        let ink = if self.scope == Scope::Active { token::FG_MUTED } else { token::ACCENT };
+        let field = self.search.as_ref().map(|(search, _)| {
+            labelled(
+                div().id("search").flex_1().min_w_0().child(
+                    Input::new(search)
+                        .small()
+                        .prefix(svg().path(icon_path("search")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_SUBTLE))),
+                ),
+                Role::SearchInput,
+                "Search Jobs",
+            )
+        });
         div()
-            .absolute()
-            .top(look.length(token::SPACE_1))
-            .right(look.length(token::SPACE_1))
-            .px(look.length(token::SPACE_1))
-            .rounded(look.length(token::RADIUS_MD))
-            .bg(look.color(token::BG_SUNKEN))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .when(!shown, |chip| chip.opacity(0.).group_hover("jobs-panel", |style| style.opacity(1.)))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_2))
+            .pt(look.length(token::SPACE_2))
+            // ↓, Enter or Esc give the keys to the rows; Tab opens the scope.
+            .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
+                "down" | "escape" => {
+                    cx.stop_propagation();
+                    this.to_rows(window, cx);
+                }
+                "tab" => {
+                    cx.stop_propagation();
+                    this.open_scope(window, cx);
+                }
+                _ => {}
+            }))
+            .children(field)
             .child(labelled(
                 div()
-                    .id("filter")
+                    .id("scope")
                     .relative()
-                    .size(look.length(token::H_CONTROL_SM))
+                    .flex_none()
                     .flex()
                     .items_center()
-                    .justify_center()
+                    .gap(look.length(token::SPACE_1))
+                    .h(look.length(token::H_CONTROL_SM))
+                    .px(look.length(token::SPACE_2))
                     .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
                     .cursor_pointer()
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .child(canvas(move |bounds, _, _| { store.borrow_mut().insert("filter".into(), bounds); }, |_, _, _, _| {}).absolute().size_full())
-                    .child(svg().path(icon_path("funnel")).size(look.length(token::SPACE_4)).text_color(look.color(ink)))
-                    .tooltip({
-                        let said = said.clone();
-                        move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx)
-                    })
-                    .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx))),
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(ink))
+                    .child(canvas(move |bounds, _, _| { store.borrow_mut().insert("scope".into(), bounds); }, |_, _, _, _| {}).absolute().size_full())
+                    .child(label)
+                    .child(svg().path(icon_path("chevron-down")).size(look.length(token::SPACE_3)).text_color(look.color(ink)))
+                    .tooltip(|window, cx| gpui_component::tooltip::Tooltip::new("Which Jobs the list holds").build(window, cx))
+                    .on_click(cx.listener(|this, _, window, cx| this.open_scope(window, cx))),
                 Role::Button,
-                said,
+                label,
             ))
     }
 
@@ -1045,15 +1067,18 @@ impl JobsList {
 
 impl Render for JobsList {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.make_search(window, cx);
         let lines: Vec<_> = (0..self.lines.len()).map(|at| self.render_line(at, cx)).collect();
-        let filter = self.render_filter(window, cx);
+        let bar = self.render_bar(cx);
         let card = self.render_card(cx);
         let look = cx.look();
         div()
             .track_focus(&self.within)
             .relative()
             .size_full()
-            .group("jobs-panel")
+            .flex()
+            .flex_col()
+            .child(bar)
             .child(labelled(
                 div()
                     .id("jobs")
@@ -1064,7 +1089,9 @@ impl Render for JobsList {
                     .on_action(cx.listener(Self::on_earlier))
                     .track_scroll(&self.scroll)
                     .overflow_y_scroll()
-                    .size_full()
+                    .w_full()
+                    .flex_1()
+                    .min_h_0()
                     .flex()
                     .flex_col()
                     .p(look.length(token::SPACE_2))
@@ -1073,10 +1100,9 @@ impl Render for JobsList {
                 Role::List,
                 "Jobs",
             ))
-            .child(filter)
             .children(card)
             .children(self.menu.as_ref().map(|open| open.menu.clone()))
-            .children(self.filter.as_ref().map(|(open, ..)| open.menu.clone()))
+            .children(self.filter.as_ref().map(|open| open.menu.clone()))
     }
 }
 
