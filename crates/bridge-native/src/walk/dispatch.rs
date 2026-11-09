@@ -3,9 +3,8 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-const FIRST: &str = "Fix the merge line freshness chip";
 
-pub static STEPS: [Step; 59] = [
+pub static STEPS: [Step; 60] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
     step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
@@ -32,11 +31,12 @@ pub static STEPS: [Step; 59] = [
     step("⌘N opens it again with the draft where it was", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("# opens the issues and pull requests to tag", Verb::Type(" #"), "listbox", "Tag an issue or pull request"),
     step("Esc shuts the list first, the sheet second", Verb::Key("escape"), "dialog", "Dispatch"),
-    answer("No repository in the words: the frame takes the call hue", "unresolved", "img", "Repository, not found"),
+    answer("Fleet found no repository in the words: the mark says so", "unresolved", "img", "Repository, not found"),
     step("Start with no repository asks for one, and the keys go to the chips", Verb::Key("enter"), "radiogroup", "Repository"),
     answer("Twelve repositories: nine chips with keys, the rest under More", "many", "combobox", "More repositories"),
     press_on("More lists the rest and a search over them", "combobox", "More repositories", "menu", "More repositories"),
     step("Esc shuts it", Verb::Key("escape"), "combobox", "More repositories"),
+    step("Esc again puts the call away: the frame is as it was", Verb::Key("escape"), "dialog", "Dispatch"),
     answer("A pasted snippet stands over the line and can be removed", "attach", "button", "Remove pasted-snippet.txt"),
     answer("With Fleet unreachable everything in the sheet is off", "offline", "button", "Start"),
     answer("A repository not ready: the refusal stands as a notice", "refuse-start", "alert", "Job not started: the repository has no free slot"),

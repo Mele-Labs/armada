@@ -123,10 +123,6 @@ impl Layer {
         Layer { on: false, area, capture: None, notes: Vec::new(), opened: None, targets, menu: None, split_at: Rc::default(), sending: None, said: None, keys_were: None }
     }
 
-    pub fn is_on(&self) -> bool {
-        self.on
-    }
-
     /// ⌥⌘A: on, and again off. The notes stay for the next time.
     pub fn toggle(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.on {
@@ -151,7 +147,7 @@ impl Layer {
         let capture = cx.new(|cx| Capture::new(Rc::clone(&self.area), words, Some(KEEP_NOTE.into()), cx));
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
-            CaptureEvent::Closed { .. } => this.arm(window, cx),
+            CaptureEvent::Closed => this.arm(window, cx),
         });
         let focus = capture.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&focus, cx));
@@ -181,6 +177,7 @@ impl Layer {
         let notes = self.unsent().iter().map(|note| note.said.clone()).collect();
         self.sending = Some(to.as_ref().map_or("Starting job".into(), |job| format!("Sending to {}", job.title).into()));
         self.said = None;
+        self.opened = None;
         cx.emit(Asked::Send { to, notes });
         cx.notify();
     }
@@ -250,7 +247,7 @@ impl Layer {
 }
 
 impl Render for Layer {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if !self.on {
             return div().into_any_element();
         }
@@ -296,13 +293,17 @@ impl Render for Layer {
         });
         let opened = self.opened.and_then(|at| self.notes.get(at).map(|note| (at, note))).map(|(at, note)| {
             let gap = look.length(token::SPACE_2);
+            // Under what it is about, or over it when that is low on the screen.
+            let view = window.viewport_size();
+            let low = note.ring.origin.y + note.ring.size.height > view.height * 0.6;
             labelled(
                 card(look)
                     .id("note-card")
                     .occlude()
                     .absolute()
                     .left(note.ring.origin.x)
-                    .top(note.ring.origin.y + note.ring.size.height + gap)
+                    .when(low, |card| card.bottom(view.height - note.ring.origin.y + gap))
+                    .when(!low, |card| card.top(note.ring.origin.y + note.ring.size.height + gap))
                     .w(look.length(token::SPACE_8) * 10.)
                     .gap(look.length(token::SPACE_2))
                     .p(look.length(token::SPACE_4))

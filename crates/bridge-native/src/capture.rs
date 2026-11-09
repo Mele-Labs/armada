@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, Bounds, Context, CursorStyle, Entity, EventEmitter, FocusHandle, Focusable,
+    anchored, deferred, div, Anchor, point, prelude::*, Bounds, Context, CursorStyle, Entity, EventEmitter, FocusHandle, Focusable,
     MouseButton, Pixels, Point, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
@@ -186,8 +186,8 @@ pub struct Noted {
 
 pub enum CaptureEvent {
     Noted(Noted),
-    /// Esc, or Cancel: the person put it away. `drafting` says a card stood.
-    Closed { drafting: bool },
+    /// Esc, or Cancel: the person put it away.
+    Closed,
 }
 
 impl EventEmitter<CaptureEvent> for Capture {}
@@ -232,11 +232,6 @@ impl Capture {
             note: None,
             focus: cx.focus_handle(),
         }
-    }
-
-    /// Whether a card stands, with something held for it.
-    pub fn drafting(&self) -> bool {
-        self.held.is_some()
     }
 
     fn pointer_moved(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
@@ -331,7 +326,7 @@ impl Capture {
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
-        cx.emit(CaptureEvent::Closed { drafting: self.held.is_some() });
+        cx.emit(CaptureEvent::Closed);
     }
 }
 
@@ -471,9 +466,17 @@ impl gpui::Render for Capture {
                                 this.write(said, window, cx);
                             }))),
                     );
+                // The card stands under what is held, or over it when the held thing is low on the screen.
+                let low = bounds.origin.y + bounds.size.height > window.viewport_size().height * 0.6;
+                let (corner, at) = if low {
+                    (Anchor::BottomLeft, point(bounds.origin.x, bounds.origin.y - gap))
+                } else {
+                    (Anchor::TopLeft, point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
+                };
                 layer = layer.child(deferred(
                     anchored()
-                        .position(point(bounds.origin.x, bounds.origin.y + bounds.size.height + gap))
+                        .anchor(corner)
+                        .position(at)
                         .snap_to_window_with_margin(gap)
                         .child(labelled(card, Role::Dialog, self.words.card)),
                 ));

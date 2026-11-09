@@ -47,7 +47,6 @@ impl Render for DispatchSheet {
             .key_context("dispatch")
             .track_focus(&self.frame)
             .on_action(cx.listener(|this, key: &Act, window, cx| this.on_act(key, window, cx)))
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_key(event, window, cx)))
             // A press on the sheet is not a press on the scrim.
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .absolute()
@@ -136,6 +135,7 @@ impl DispatchSheet {
         let word = |text: &'static str| div().flex_none().child(text);
         let mut line = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
@@ -148,7 +148,8 @@ impl DispatchSheet {
             .child(word("Starts when"))
             .child(part("wait-on", Part::On, 0, wait.on.title.clone(), format!("Job {}", wait.on.title), Some("square-terminal"), cx));
         if wait.when.value != "ends" {
-            line = line.child(word("'s"));
+            // The possessive sits against the title: it takes back the gap before it.
+            line = line.child(word("'s").ml(-look.length(token::SPACE_3)));
         }
         line = line
             .child(part("wait-when", Part::When, 1, wait.when.label.clone(), format!("Condition {}", wait.when.label), None, cx))
@@ -166,13 +167,11 @@ impl DispatchSheet {
                 .others
                 .iter()
                 .map(|one| Row {
-                    id: format!("job:{}", one.id).into(),
                     glyph: Glyph::Job,
                     name: one.title.clone(),
                     says: None,
                     standing: None,
                     insert: one.title.clone(),
-                    job: Some(one.id.clone()),
                 })
                 .collect();
             listbox("Jobs", &rows, active, look, cx.listener(|this, at: &usize, _, cx| this.wait_on(*at, cx)))
@@ -203,6 +202,9 @@ impl DispatchSheet {
                 div()
                     .absolute()
                     .inset_0()
+                    // The field's own padding, which the text sits inside.
+                    .px(gpui_component::Size::Medium.input_px())
+                    .py(gpui_component::Size::Medium.input_py())
                     .text_size(look.length(token::TEXT_LG))
                     .line_height(line_h)
                     .text_color(gpui::transparent_black())
@@ -212,7 +214,7 @@ impl DispatchSheet {
                 // The text-box key context comes with the Jobs screens' `TEXT_BOX` in keymap.rs: add it to
                 // this element when the two branches meet.
                 div().id("dispatch-request").size_full().text_size(look.length(token::TEXT_LG)).line_height(line_h).child(
-                    Textarea::new(&self.request).appearance(false).bordered(false).h(line_h * 5.),
+                    Textarea::new(&self.request).appearance(false).bordered(false).h(line_h * 5.).p_0().text_size(look.length(token::TEXT_LG)),
                 ),
                 Role::TextInput,
                 "Request",

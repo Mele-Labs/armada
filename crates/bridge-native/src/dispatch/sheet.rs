@@ -16,7 +16,7 @@ use gpui::{
 };
 use gpui_component::input::{InputEvent, InputState, Position, TextareaState};
 
-use super::face::{Chip, Face, Kind, Mark, Part, Reading, Row, Sent, Trigger, Wait};
+use super::face::{Chip, Face, Kind, Mark, Offered, Part, Reading, Row, Sent, Trigger, Wait};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::keymap::Act;
 use crate::look::{token, ActiveLook};
@@ -102,6 +102,8 @@ pub struct DispatchSheet {
     pub(super) instruction: Option<Entity<InputState>>,
     pub(super) fields: Vec<(&'static str, Entity<InputState>, Option<SharedString>)>,
     keys_were: Option<FocusHandle>,
+    /// The keys the request would take for itself (↑ ↓ ↵) are read before it sees them while the sheet is open.
+    intercept: Option<Subscription>,
     pub(super) frame: FocusHandle,
     pub(super) row: FocusHandle,
     pub(super) parts: [FocusHandle; 4],
@@ -149,6 +151,7 @@ impl DispatchSheet {
             instruction: None,
             fields: Vec::new(),
             keys_were: None,
+            intercept: None,
             frame: cx.focus_handle(),
             row: cx.focus_handle(),
             parts: [cx.focus_handle(), cx.focus_handle(), cx.focus_handle(), cx.focus_handle()],
@@ -170,6 +173,16 @@ impl DispatchSheet {
         }
         self.keys_were = window.focused(cx);
         self.open = true;
+        let me = cx.entity().downgrade();
+        self.intercept = Some(cx.intercept_keystrokes(move |event, window, cx| {
+            let Some(me) = me.upgrade() else { return };
+            me.update(cx, |this, cx| {
+                if this.open && this.frame.contains_focused(window, cx) {
+                    let down = KeyDownEvent { keystroke: event.keystroke.clone(), is_held: false, prefer_character_input: false };
+                    this.on_key(&down, window, cx);
+                }
+            });
+        }));
         self.kind = Kind::Job;
         self.asking = false;
         self.face.fresh();
@@ -195,6 +208,7 @@ impl DispatchSheet {
             return;
         }
         self.open = false;
+        self.intercept = None;
         self.menu = None;
         self.wait_menu = None;
         self.popup = None;
@@ -204,6 +218,11 @@ impl DispatchSheet {
         }
         cx.emit(Asked::Closed);
         cx.notify();
+    }
+
+    /// The Job the words tag, as the screen's mock Fleet reads the wait on it.
+    pub fn tagged(&self) -> Option<Offered> {
+        self.tagged.as_ref().map(|(id, title)| Offered { id: id.clone(), title: title.clone() })
     }
 
     pub(super) fn words(&self, cx: &App) -> String {
@@ -301,7 +320,9 @@ impl DispatchSheet {
             state.set_value(next.clone(), window, cx);
             end_of(state, &next[..end], window, cx);
         });
-        cx.notify();
+        // Setting the value says nothing to the field's watchers: the draft, the read and the tag follow here.
+        let request = self.request.clone();
+        self.typed(&request, window, cx);
     }
 
     // -- kinds ----------------------------------------------------------------------------------
@@ -465,6 +486,8 @@ impl DispatchSheet {
         }
         if self.face.refused.is_none() {
             self.face.refused = refused.filter(|_| false);
+        } else {
+            self.sending = false;
         }
         if let Some(wait) = self.face.wait.clone() {
             self.wait = Some(wait);

@@ -6,7 +6,7 @@
 use ipc::{SessionRecord, SessionState};
 
 use super::face::{
-    AutopilotField, AutopilotRead, Chip, Cycle, Face, Glyph, Kind, Mark, Mentions, Offered, Part, Reading, Ticket, Tuning, Wait,
+    AutopilotField, AutopilotRead, Chip, Cycle, Face, Glyph, Kind, Mark, Mentions, Offered, Reading, Ticket, Tuning, Wait,
 };
 
 /// Repositories the mock Mac serves, in the order the chips take: the first nine keyed, the rest under More.
@@ -40,7 +40,7 @@ pub fn rest(records: &[SessionRecord]) -> Face {
         reading: Reading::Idle,
         tuning: Tuning {
             default_model: Some("Opus".into()),
-            models: vec!["Opus".into(), "Sonnet".into(), "Haiku".into()],
+            models: vec!["Sonnet".into(), "Haiku".into()],
             efforts: ["low", "medium", "high", "xhigh", "max"].iter().map(|one| one.to_string().into()).collect(),
         },
         queue: true,
@@ -112,9 +112,9 @@ pub fn many(mut face: Face) -> Face {
 }
 
 /// The brief waits on a Job: `Starts when [Job]'s [PR lands] · from [main] · needs [..]`.
-pub fn waiting(mut face: Face) -> Face {
-    let mut jobs = face.mentions.jobs.clone().into_iter();
-    let on = jobs.next().unwrap_or(Offered { id: "job".into(), title: "Job".into() });
+pub fn waiting(mut face: Face, tagged: Option<Offered>) -> Face {
+    let on = tagged.or_else(|| face.mentions.jobs.first().cloned()).unwrap_or(Offered { id: "job".into(), title: "Job".into() });
+    let others: Vec<Offered> = face.mentions.jobs.iter().filter(|job| job.id != on.id).take(4).cloned().collect();
     face.wait = Some(Wait {
         on,
         when: Cycle::of("lands", &[("ends", "ends"), ("plan:schema", "Schema change is done"), ("pushed", "PR is pushed"), ("lands", "PR lands")]),
@@ -124,7 +124,7 @@ pub fn waiting(mut face: Face) -> Face {
             &[("the schema change and the seed data", "the schema change and the seed data"), ("the schema change", "the schema change"), ("the seed data", "the seed data")],
         )),
         his: Vec::new(),
-        others: jobs.take(4).collect(),
+        others,
     });
     face
 }
@@ -162,16 +162,4 @@ pub fn autopilot_refused(mut face: Face) -> Face {
 pub fn offline(mut face: Face) -> Face {
     face.connected = false;
     face
-}
-
-/// Which chip a hand picks, for the walk's mock of the proposer reading the wait.
-pub fn others_of(face: &Face) -> Vec<Offered> {
-    face.wait.as_ref().map(|wait| wait.others.clone()).unwrap_or_default()
-}
-
-/// A part set by hand, for the scene that shows the accent edge.
-pub fn set_by_hand(face: &mut Face, part: Part) {
-    if let Some(wait) = &mut face.wait {
-        wait.cycled(part, false);
-    }
 }

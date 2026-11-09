@@ -228,15 +228,12 @@ impl Glyph {
 /// One row of a menu.
 #[derive(Clone, Debug)]
 pub struct Row {
-    pub id: SharedString,
     pub glyph: Glyph,
     pub name: SharedString,
     pub says: Option<SharedString>,
     pub standing: Option<SharedString>,
     /// What choosing it writes into the request.
     pub insert: SharedString,
-    /// The Job a `@` row tags.
-    pub job: Option<SharedString>,
 }
 
 /// Which menu is open, by its trigger.
@@ -283,13 +280,11 @@ impl Mentions {
         match trigger {
             Trigger::At => {
                 let jobs = self.jobs.iter().filter(|one| one.title.to_lowercase().contains(&needle)).map(|one| Row {
-                    id: format!("job:{}", one.id).into(),
                     glyph: Glyph::Job,
                     name: one.title.clone(),
                     says: None,
                     standing: None,
                     insert: format!("@{} ", one.title).into(),
-                    job: Some(one.id.clone()),
                 });
                 let files = self
                     .files
@@ -298,13 +293,11 @@ impl Mentions {
                     .filter(|path| path.to_lowercase().contains(&needle))
                     .take(FILE_ROWS)
                     .map(|path| Row {
-                        id: format!("file:{path}").into(),
                         glyph: Glyph::File,
                         name: path.clone(),
                         says: None,
                         standing: None,
                         insert: format!("@{path} ").into(),
-                        job: None,
                     });
                 jobs.chain(files).collect()
             }
@@ -336,13 +329,11 @@ impl Mentions {
                 rows.into_iter()
                     .take(NUMBERED_ROWS)
                     .map(|one| Row {
-                        id: format!("tag:{}", one.id).into(),
                         glyph: one.glyph,
                         name: one.reference.clone(),
                         says: Some(one.title.clone()),
                         standing: one.standing.clone(),
                         insert: format!("{} {} ", one.reference, one.title).into(),
-                        job: None,
                     })
                     .collect()
             }

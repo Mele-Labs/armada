@@ -119,7 +119,10 @@ impl DispatchScreen {
                 .and_then(|book| book.find(window.window_handle().window_id(), role, "Search, or describe work to dispatch"))
                 .map(|drawn| drawn.bounds)
         });
-        let place = search.unwrap_or_default();
+        // The strip is drawn inside this screen, the search is read in the window's own space.
+        let origin = self.area.get().map(|area| area.origin).unwrap_or_default();
+        let mut place = search.unwrap_or_default();
+        place.origin = place.origin - origin;
         let focus = cx.focus_handle();
         self.strip = Some(Strip { sent, place, focus: focus.clone() });
         // The cursor lands on the strip when it appears.
@@ -162,7 +165,6 @@ impl DispatchScreen {
             "unresolved" => Some(scenes::unresolved),
             "scoped" => Some(scenes::scoped),
             "many" => Some(scenes::many),
-            "waiting" => Some(scenes::waiting),
             "offline" => Some(scenes::offline),
             "online" => Some(|mut face| {
                 face.connected = true;
@@ -172,6 +174,11 @@ impl DispatchScreen {
             "autopilot-refused" => Some(scenes::autopilot_refused),
             _ => None,
         };
+        if name == "waiting" {
+            let tagged = self.sheet.read(cx).tagged();
+            self.sheet.update(cx, |sheet, cx| sheet.set_face(scenes::waiting(face, tagged), window, cx));
+            return Ok(());
+        }
         if let Some(change) = change {
             self.sheet.update(cx, |sheet, cx| sheet.set_face(change(face), window, cx));
             return Ok(());
@@ -203,11 +210,6 @@ impl DispatchScreen {
         }
         cx.notify();
         Ok(())
-    }
-
-    /// The Jobs the picker lists, for a step that names one.
-    pub fn target(&self, cx: &App) -> Option<SharedString> {
-        self.layer.as_ref().and_then(|layer| layer.read(cx).targets.first().map(|job| job.title.clone()))
     }
 }
 

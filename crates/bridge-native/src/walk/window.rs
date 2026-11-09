@@ -444,7 +444,7 @@ impl WalkWindow {
         let capture = cx.new(|cx| Capture::new(within, words, Some(keep), cx));
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
-            CaptureEvent::Closed { .. } => this.cancel_note(&CancelNote, window, cx),
+            CaptureEvent::Closed => this.cancel_note(&CancelNote, window, cx),
         });
         let focus = capture.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&focus, cx));
