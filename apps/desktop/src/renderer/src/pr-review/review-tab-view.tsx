@@ -1,8 +1,10 @@
 // The Review tab: one changed file at a time, with each finding pinned in a margin beside the lines it is about. **The finding in
 // focus is tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims, and
-// its tie goes grey. The head runs the review tools, and every finished run's findings land here with no tool tab open. A press in
-// the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or adds to it. Go to
-// file finds a file by a few of its letters. The bar at the foot holds his pending review and Submit.
+// its tie goes grey. **Previous and Next step through the files that need him**, those with findings or threads; Go to file reaches
+// the rest, which say they are not counted. Opening it runs the tools that have not run on this commit, asking first, and its head
+// runs any tool or explanation again. A tool's findings land here with no tool tab open; an explanation opens its tab when done. A
+// press in the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or adds to it.
+// The bar at the foot holds his pending review and Submit.
 
 import {
   useEffect,
@@ -32,6 +34,7 @@ import { YourReview } from "./comments";
 import {
   linesOfFinding,
   orderOf,
+  pathOf,
   reviewTab,
   useGoTo,
   useReviewTabState,
@@ -40,10 +43,10 @@ import {
 import { ranked } from "./fuzzy";
 import { DraftCard, FindingCard, LineComposer } from "./lines";
 import type { AgentRun, Finding, ReviewPr, ToolDef } from "./model";
-import { openKind } from "./panes";
+import { openKind, openToolTab, openWhenDone } from "./panes";
 import { indexOfPlace, linesOfPatch, placeOfLine } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { isWalk, onlyTools, toolsOf } from "./tools";
+import { isWalk, onlyTools, tilesOf, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
 
@@ -103,6 +106,13 @@ const KEYS: readonly (readonly [
   ],
 ];
 
+/** The pull requests, at a commit, that Review has asked to run their tools on, for the window's life. */
+const askedOn = new Set<string>();
+
+/** Names as a sentence lists them: "A", "A and B", "A, B and C". */
+const namesOf = (names: readonly string[]): string =>
+  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+
 /** Where a card sits in the margin, from the top of the grid, and the middle of its first line where the diff holds it. */
 type Placed = {
   top: number;
@@ -135,7 +145,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
       work,
     ],
   );
-  const path = state.path !== undefined && files.includes(state.path) ? state.path : files[0];
+  const path = pathOf(pr, state.path, files);
   const every = work.every;
   const patch = every.state === "read" ? every.files.find((one) => one.path === path) : undefined;
   const lines = useMemo(
@@ -374,13 +384,50 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const toFile = (to: string | undefined) => {
     if (to !== undefined) reviewTab.go(pr.key, to);
   };
+  const finders = onlyTools(tools).filter((one) => one.agent && !isWalk(one));
+  const unread = (one: ToolDef) => {
+    const run = work.runs[one.id];
+    return (
+      run === undefined || run.state === "idle" || (run.state === "done" && run.head !== pr.head)
+    );
+  };
+  const none =
+    pr.page.files.length === 0
+      ? "No files changed."
+      : finders.some((one) => work.runs[one.id]?.state === "running")
+        ? "The tools are running."
+        : finders.some(unread)
+          ? "Not every tool has run on this commit."
+          : "No file has findings or comments.";
+
+  // Opening Review runs the tools that have not run on this commit, asking first. Asked once a commit, so a reopen never asks again.
+  const ready = work.runsRead && finders.length > 0;
+  useEffect(() => {
+    if (!ready) return;
+    const once = `${pr.key}@${pr.head}`;
+    if (askedOn.has(once)) return;
+    askedOn.add(once);
+    const due = finders.filter(unread);
+    if (due.length === 0) return;
+    store.spend(namesOf(due.map((one) => one.name)), () => {
+      for (const one of due)
+        if (work.runs[one.id]?.state === "done") store.rerun(pr.key, one);
+        else store.runTool(pr.key, one);
+    });
+    // Read once the runs are in; what is due is read then, never again for this commit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    ready,
+    pr.key,
+    pr.head,
+  ]);
 
   return (
     <div ref={root} className="pr-review-tab-view" tabIndex={-1}>
       <header className="pr-review-tab-view__head">
         <span className="pr-review-tab-view__steps" role="group" aria-label="Files">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             aria-label="Previous file"
             disabled={at <= 0}
@@ -388,14 +435,20 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
           >
             Previous
           </Button>
-          <span className="pr-review-tab-view__of">
-            {files.length === 0 ? "" : `file ${at + 1} of ${files.length}`}
-          </span>
+          {at < 0 && path !== undefined ? (
+            <Tooltip label="No findings or comments on this file, so Previous and Next pass it">
+              <span className="pr-review-tab-view__of">Not counted</span>
+            </Tooltip>
+          ) : (
+            <span className="pr-review-tab-view__of">
+              {files.length === 0 ? "" : `file ${at + 1} of ${files.length}`}
+            </span>
+          )}
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             aria-label="Next file"
-            disabled={at < 0 || at >= files.length - 1}
+            disabled={at >= files.length - 1}
             onClick={() => toFile(files[at + 1])}
           >
             Next
@@ -453,7 +506,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             data-tool={focused === undefined ? undefined : markOfTool(focused)}
           >
             {file === undefined ? (
-              <p className="pr-review-tab-view__said">No files changed.</p>
+              <p className="pr-review-tab-view__said">{none}</p>
             ) : every.state !== "read" ? (
               <p className="pr-review-tab-view__said">
                 {every.state === "said" ? every.said : "Reading the diff."}
@@ -603,41 +656,50 @@ function runState(run: AgentRun | undefined, head: string) {
 }
 
 /**
- * The review tools that find things, one button each in the head. A press runs one that has not run, or runs one again, asking
- * first as every run does; its findings land beside their lines here.
+ * The explanations and the review tools, one button each in the head, in the order + lists them. A press on a tool runs it, or runs
+ * it again, and its findings land beside their lines here. A press on an explanation runs it where nothing is kept, and its tab opens
+ * when it is done; one kept opens its tab. Each run asks first, as every run does.
  */
 function RunTools({ pr }: { pr: ReviewPr }) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
-  const tools = onlyTools(toolsOf(reviews, pr.manifestId)).filter((one) => !isWalk(one));
+  const tools = tilesOf(toolsOf(reviews, pr.manifestId)).filter((one) => !isWalk(one));
   if (tools.length === 0) return <span className="pr-review-tab-view__tools" />;
+  const runOf = (tool: ToolDef) =>
+    tool.kind === "explanation" ? work.explains[tool.id] : work.runs[tool.id];
   const press = (tool: ToolDef) => {
-    const run = work.runs[tool.id];
+    const run = runOf(tool);
     if (run?.state === "running") return;
+    if (tool.kind === "explanation") {
+      if (run !== undefined && run.state !== "idle") return openToolTab(pr.key, tool);
+      return store.spend(tool.name, () => {
+        openWhenDone(pr.key, tool);
+        store.explain(pr.key, tool);
+      });
+    }
     store.spend(tool.name, () =>
       run === undefined || run.state === "idle"
         ? store.runTool(pr.key, tool)
         : store.rerun(pr.key, tool),
     );
   };
+  const nameOf = (tool: ToolDef, run: ReturnType<typeof runState>["run"]) => {
+    if (run === "running") return `${tool.name}, running`;
+    if (run === "idle") return `Run ${tool.name}`;
+    return tool.kind === "explanation" ? `Open ${tool.name}` : `Run ${tool.name} again`;
+  };
   return (
     <span className="pr-review-tab-view__tools" role="group" aria-label="Tools">
       {tools.map((tool) => {
-        const { run, Glyph, said } = runState(work.runs[tool.id], pr.head);
+        const { run, Glyph, said } = runState(runOf(tool), pr.head);
         return (
           <Tooltip key={tool.id} label={`${tool.name}. ${said}`}>
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               data-run={run}
-              aria-label={
-                run === "idle"
-                  ? `Run ${tool.name}`
-                  : run === "running"
-                    ? `${tool.name}, running`
-                    : `Run ${tool.name} again`
-              }
+              aria-label={nameOf(tool, run)}
               aria-disabled={run === "running" || undefined}
               onClick={() => press(tool)}
             >

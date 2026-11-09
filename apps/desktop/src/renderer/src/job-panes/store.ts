@@ -65,8 +65,8 @@ const defaultArrangement = (): Arrangement =>
 const ASK_SHARE = 0.22;
 
 /**
- * A pull request's: Overview, Files, Review, Checks and Commits as tabs of the main pane, to its right the tools over Comments, and Ask
- * under them all, as wide as the page.
+ * A pull request's: Overview, Files, Review, Checks and Commits as tabs of the main pane, Comments to its right, and Ask under them all,
+ * as wide as the page. A tool's tab opens beside Comments.
  */
 const prArrangement = (): Arrangement =>
   build({
@@ -82,14 +82,9 @@ const prArrangement = (): Arrangement =>
         "pr-checks",
         "pr-commits",
       ],
-      b: {
-        dir: "column",
-        ratio: 0.5,
-        a: [],
-        b: [
-          "pr-comments",
-        ],
-      },
+      b: [
+        "pr-comments",
+      ],
     },
     b: [
       "pr-ask",

@@ -143,12 +143,12 @@ export function linesOfFinding(lines: readonly DiffLine[], finding: Finding): nu
 }
 
 /**
- * The order the Review tab reads in: files with findings first, then the rest, each in the order the pull request lists them, and the
- * findings file by file, top to bottom.
+ * The files Review steps through, the ones that need him: those with findings first, then those with threads on them, each in the
+ * order the pull request lists them. The rest are reached from Go to file and Files. The findings go file by file, top to bottom.
  */
 export function orderOf(
   pr: ReviewPr,
-  work: Pick<PrWork, "findings">,
+  work: Pick<PrWork, "findings" | "threads">,
 ): {
   files: string[];
   findings: Finding[];
@@ -156,9 +156,10 @@ export function orderOf(
   const findings = work.findings.filter((one) => !one.dismissed);
   const listed = pr.page.files.map((one) => one.path);
   const found = new Set(findings.map((one) => one.at.path));
+  const talked = new Set(work.threads.map((one) => one.path));
   const files = [
     ...listed.filter((one) => found.has(one)),
-    ...listed.filter((one) => !found.has(one)),
+    ...listed.filter((one) => !found.has(one) && talked.has(one)),
   ];
   return {
     files,
@@ -172,6 +173,14 @@ export function orderOf(
     ),
   };
 }
+
+/** The file Review reads: the one asked for, which Go to file may take outside `files`, else the first of `files`. */
+export const pathOf = (
+  pr: ReviewPr,
+  asked: string | undefined,
+  files: readonly string[],
+): string | undefined =>
+  asked !== undefined && pr.page.files.some((one) => one.path === asked) ? asked : files[0];
 
 /** The finding after (or before) the one in focus, going on into the next file's. Absent at either end. */
 export function stepFinding(
@@ -195,11 +204,11 @@ export function stepFinding(
 export function reviewTabKey(
   event: Pick<KeyboardEvent, "key">,
   pr: ReviewPr,
-  work: Pick<PrWork, "findings">,
+  work: Pick<PrWork, "findings" | "threads">,
 ): boolean {
   const state = reviewTabOf(pr.key);
   const { files, findings } = orderOf(pr, work);
-  const path = state.path !== undefined && files.includes(state.path) ? state.path : files[0];
+  const path = pathOf(pr, state.path, files);
   switch (event.key) {
     case "j":
     case "k": {
