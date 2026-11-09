@@ -32,6 +32,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   Button,
+  JobCard,
   DropdownMenu,
   Input,
   SessionComposer,
@@ -47,7 +48,7 @@ import {
   type ThreadCard,
 } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
-import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
+import type { DrawnSketch, Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf } from "@armada/shell";
 
 import { searchFiles } from "../commands";
@@ -69,6 +70,7 @@ import {
 } from "../job-panes/tree";
 import { useNumbered } from "../numbered";
 import { hostedCommands } from "../session-runner";
+import { ChildJob } from "../session-view/ChildJob";
 import { SketchSheet } from "../sessions";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import {
@@ -1472,7 +1474,7 @@ function threadRows(store: OperatorStore): SessionThreadRow[] {
 }
 
 /** What Discussion draws between its words: where an item came up or was settled, a Job it started, an order it proposed. */
-function threadCards(store: OperatorStore): ThreadCard[] {
+function threadCards(store: OperatorStore, sessions: readonly Session[]): ThreadCard[] {
   const { act } = store;
   return store.state.messages.flatMap((message, index): ThreadCard[] => {
     const at = atOf(message, index);
@@ -1485,22 +1487,22 @@ function threadCards(store: OperatorStore): ThreadCard[] {
       });
     if (message.opens !== undefined) {
       const opens = message.opens;
+      const child = sessions.find((one) => one.id === opens.session);
+      // The Job it started as a Job's thread draws one it started: the shared card, live from the Job's record once it is read.
       cards.push({
         key: `${message.id}:opens`,
         at,
-        node: (
-          <span className="armada-operator__marker armada-operator__started">
-            <span className="armada-operator__marker-item">{message.text}</span>
-            <Button
-              size="sm"
-              variant="secondary"
-              aria-label={`Open Job: ${opens.title}`}
-              onClick={() => openJob(opens.session)}
-            >
-              Open Job
-            </Button>
-          </span>
-        ),
+        node:
+          child === undefined ? (
+            <JobCard
+              title={opens.title}
+              state="working"
+              said="Starting"
+              onOpen={() => openJob(opens.session)}
+            />
+          ) : (
+            <ChildJob child={child} manifestId={child.manifestId} onOpen={openJob} />
+          ),
       });
     }
     if (message.offer !== undefined && message.opens === undefined)
@@ -1565,7 +1567,7 @@ function Talk({ store }: { store: OperatorStore }) {
   const off = !state.on;
   const rows = threadRows(store);
   const first = rows[0]?.at;
-  const cards = threadCards(store);
+  const cards = threadCards(store, sessions);
   const leading = cards.filter((one) => first === undefined || (one.at ?? "") < first);
   const after = cards.filter((one) => !leading.includes(one));
   return (
