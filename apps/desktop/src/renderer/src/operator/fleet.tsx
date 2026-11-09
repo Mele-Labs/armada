@@ -298,6 +298,20 @@ type Kept = {
   pressing: readonly string[];
 };
 
+/**
+ * A Job started on `brief`. The start only names it: Fleet reads `request` for the title, model and effort and sends
+ * the agent nothing, so the brief goes again as its first message, which is what sets it working.
+ */
+export async function startOnBrief(title: string, root: string, brief: string) {
+  const started = await window.armada.startSession(title, root, brief);
+  if (!started.ok) return started;
+  const sent = await window.armada.sendSessionMessage({
+    session_id: started.value.id,
+    text: brief,
+  });
+  return sent.ok ? started : sent;
+}
+
 let made = 0;
 const fresh = (prefix: string) => {
   made += 1;
@@ -648,7 +662,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
             }));
           if (root === undefined)
             return said(`${title} did not start: its repository is not served here.`);
-          void window.armada.startSession(title, root, briefOf(raise, one.what)).then((started) =>
+          void startOnBrief(title, root, briefOf(raise, one.what)).then((started) =>
             started.ok
               ? said(`Started Job ${title}. Its answer is in its own thread.`, {
                   session: started.value.id,
@@ -686,7 +700,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
             return settle({
               text: `${title} did not start: ${one.repository} is not served here.`,
             });
-          void window.armada.startSession(title, root, offered.brief).then((started) =>
+          void startOnBrief(title, root, offered.brief).then((started) =>
             started.ok
               ? settle({
                   text: `Started Job ${title} in ${one.repository}. Its answer is in its own thread.`,
