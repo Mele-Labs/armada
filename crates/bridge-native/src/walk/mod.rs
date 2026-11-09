@@ -134,6 +134,36 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "jobs-lamps-masthead",
+        title: "Jobs list: a masthead light",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("A small light on each Job's top edge, in its lamp's colour", Verb::Lamp(Lamp::Masthead), "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-waterline",
+        title: "Jobs list: a waterline",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("A thin line along the inside of each Job's foot, in its lamp's colour", Verb::Lamp(Lamp::Waterline), "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-hull",
+        title: "Jobs list: a tinted hull",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull), "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
         name: "jobs-lamps-fine",
         title: "Jobs list: fine brackets",
         screen: Screen::Jobs,

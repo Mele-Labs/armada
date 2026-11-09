@@ -80,6 +80,12 @@ pub enum Lamp {
     Fine,
     /// The brackets on the row's edge with a shadow line inside them, as if cut into the row.
     Etched,
+    /// A small light set on the row's top edge near its start, as a running light on a hull.
+    Masthead,
+    /// A thin line along the inside of the row's foot, as a hull's painted waterline.
+    Waterline,
+    /// No mark: the row's ground takes a faint wash of the lamp's colour.
+    Hull,
     /// No edge mark: the state glyph sits in a housing tinted the lamp's colour.
     Housing,
 }
@@ -971,14 +977,17 @@ impl JobsList {
             .pl(match style {
                 Lamp::Bar => look.length(token::SPACE_4),
                 Lamp::Pennant => look.length(token::SPACE_3) * 3.,
-                Lamp::Brackets | Lamp::Fine | Lamp::Etched | Lamp::Housing => look.length(token::SPACE_3),
+                Lamp::Brackets | Lamp::Fine | Lamp::Etched | Lamp::Housing | Lamp::Masthead | Lamp::Waterline | Lamp::Hull => look.length(token::SPACE_3),
             })
             .pr(look.length(token::SPACE_3))
             .rounded(radius)
             .border(look.length(token::BORDER_WIDTH))
             // gpui paints a border over the children, so where the brackets are the edge itself,
             // the canvas below draws the whole edge and the border is only room.
-            .border_color(if matches!(style, Lamp::Fine | Lamp::Etched) { gpui::transparent_black() } else { look.color(edge) })
+            .border_color(match style {
+                Lamp::Fine | Lamp::Etched => gpui::transparent_black(),
+                _ => look.color(edge),
+            })
             .bg(ground)
             .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
@@ -1088,7 +1097,32 @@ impl JobsList {
                     .bottom(-border)
                     .into_any_element()]
                 }
-                Lamp::Housing => Vec::new(),
+                Lamp::Masthead => {
+                    // Centred on the top edge, ringed in the panel's ground so it sits in the edge;
+                    // deferred, as gpui paints the row's border over its children.
+                    let (light, ring, border) = (look.length(token::SPACE_2), look.length(token::BORDER_WIDTH) * 2., look.length(token::BORDER_WIDTH));
+                    let side = light + ring * 2.;
+                    vec![gpui::deferred(div()
+                        .absolute()
+                        .top(-side / 2. - border / 2.)
+                        .left(look.length(token::SPACE_3))
+                        .size(side)
+                        .rounded_full()
+                        .border(ring)
+                        .border_color(look.color(token::BG_RAISED))
+                        .bg(lamp_ink))
+                        .into_any_element()]
+                }
+                Lamp::Waterline => vec![div()
+                    .absolute()
+                    .bottom(look.length(token::SPACE_1))
+                    .left(look.length(token::SPACE_3))
+                    .right(look.length(token::SPACE_3))
+                    .h(look.length(token::BORDER_WIDTH))
+                    .bg(lamp_ink.opacity(0.7))
+                    .into_any_element()],
+                Lamp::Hull if !opened => vec![div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(0.09)).into_any_element()],
+                Lamp::Housing | Lamp::Hull => Vec::new(),
             })
             .child(
                 div()
