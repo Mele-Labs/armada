@@ -4,7 +4,31 @@
 
 import { Fragment, createContext, useContext, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
-import { Bot, Check, Clock, GripVertical, LoaderCircle, Lock, MessagesSquare } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Bot,
+  Check,
+  Clock,
+  CornerUpRight,
+  DoorOpen,
+  GitMerge,
+  GripVertical,
+  Hand,
+  Link,
+  LoaderCircle,
+  Lock,
+  Megaphone,
+  MessageSquareText,
+  MessagesSquare,
+  Pause,
+  Play,
+  Power,
+  PowerOff,
+  RotateCcw,
+  Ticket,
+  Undo2,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Button,
   DropdownMenu,
@@ -23,9 +47,8 @@ import {
 } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
-import { askToCloseOperator, jobIdOf } from "@armada/shell";
+import { jobIdOf } from "@armada/shell";
 
-import { select } from "../cockpit/deck/store";
 import { searchFiles } from "../commands";
 import { JobChip } from "../job-chip";
 import { usePlanUsage } from "../plan-usage";
@@ -52,10 +75,8 @@ import {
   POSITION_DOES,
   POSITION_SAID,
   ROLES,
-  ageOf,
   orderSaid,
   outcomeOf,
-  sourceSaid,
   turnLine,
   turnTag,
   waitLine,
@@ -69,11 +90,11 @@ import type {
   OperatorMessage,
   OperatorPosition,
   OperatorRaise,
-  OperatorSource,
   StandingOrder,
   OperatorTurn,
 } from "./model";
 import { takeNamed } from "./takes/take";
+import { JobOver, openJobOver } from "./overlay";
 import { useOperator } from "./store";
 import type { OperatorStore } from "./store";
 import "./operator.css";
@@ -114,6 +135,7 @@ export function OperatorPanel({ picked }: { picked: RepositorySummary | null }) 
             },
           }}
         />
+        <JobOver state={store.state} />
       </div>
     </Picked.Provider>
   );
@@ -183,14 +205,8 @@ function Body({ tab, store }: { tab: Tab; store: OperatorStore }): ReactNode {
   }
 }
 
-/** Opens a Job from a chip: the Job takes the stage and the dock steps aside for it. */
-const openJob = (id: string) => {
-  select({
-    kind: "session",
-    key: `session:${id}`,
-  });
-  askToCloseOperator();
-};
+/** Opens a Job from a chip or a row: over the Operator, which stays as it was behind it. */
+const openJob = openJobOver;
 
 /** A Job a row names, as the Job chip that opens it. */
 function NamedJob({ job }: { job: OperatorJob }) {
@@ -204,19 +220,6 @@ function NamedJob({ job }: { job: OperatorJob }) {
       bare
     />
   );
-}
-
-/** What started the item: a Job as its chip, a bug report naming who filed it, or you, Fleet or Waiting to start in words. */
-function Source({ from }: { from: OperatorSource }) {
-  if (from.kind === "job") return <NamedJob job={from.job} />;
-  if (from.kind === "report" && from.by !== "you")
-    return (
-      <>
-        <span className="armada-operator__from">Bug report from</span>
-        <NamedJob job={from.by} />
-      </>
-    );
-  return <span className="armada-operator__from">{sourceSaid(from)}</span>;
 }
 
 function Line({ store }: { store: OperatorStore }) {
@@ -308,179 +311,291 @@ function LineText({ row }: { row: OperatorLineRow }) {
   );
 }
 
-/** Where an item went, the lanes from left to right. */
-const LANES = [
-  {
-    id: "new",
-    said: "New Job",
-  },
-  {
-    id: "existing",
-    said: "Existing Job",
-  },
-  {
-    id: "merged",
-    said: "Merged",
-  },
-  {
-    id: "in_touch",
-    said: "Kept in touch",
-  },
-  {
-    id: "waiting",
-    said: "Waiting to start",
-  },
-  {
-    id: "you",
-    said: "Sent to you",
-  },
-  {
-    id: "filed",
-    said: "Filed",
-  },
-] as const;
-type Lane = (typeof LANES)[number]["id"];
+/** What kind of thing a row is, at a glance: the Operator decided it, it came to you, the Operator acted on a Job, or you did. */
+type LogKind = "decided" | "to-you" | "acted" | "you";
 
-const LANE_OF_DID: Readonly<Record<OperatorDid, Lane>> = {
-  started: "new",
-  released: "new",
-  existing: "existing",
-  delegated: "existing",
-  answered: "existing",
-  returned: "existing",
-  resumed: "existing",
-  merged: "merged",
-  in_touch: "in_touch",
-  held: "waiting",
-  moved: "waiting",
-  raised: "you",
-  passed_on: "you",
-  filed: "filed",
-  overruled: "you",
+const KIND_SAID: Readonly<Record<LogKind, string>> = {
+  decided: "Decided",
+  "to-you": "Came to you",
+  acted: "Coordinated",
+  you: "You",
 };
 
-/** The lane an outcome Overrule offers puts an item in. */
-function laneOfWay(way: string): Lane {
-  if (way.startsWith("New Job")) return "new";
-  if (way.startsWith("Merge")) return "merged";
-  if (way.startsWith("Keep in touch")) return "in_touch";
-  if (way.startsWith("Raise")) return "you";
-  return "existing";
+const KIND_OF_DID: Readonly<Record<OperatorDid, LogKind>> = {
+  answered: "decided",
+  overruled: "decided",
+  raised: "to-you",
+  passed_on: "to-you",
+  delegated: "acted",
+  existing: "acted",
+  merged: "acted",
+  in_touch: "acted",
+  held: "acted",
+  started: "acted",
+  filed: "acted",
+  released: "acted",
+  returned: "acted",
+  resumed: "acted",
+  moved: "acted",
+};
+
+/** The glyph on the Log's spine: what was done. */
+const GLYPH_OF_DID: Readonly<Record<OperatorDid, LucideIcon>> = {
+  answered: Check,
+  overruled: Undo2,
+  raised: Hand,
+  passed_on: Hand,
+  delegated: Megaphone,
+  existing: CornerUpRight,
+  merged: GitMerge,
+  in_touch: Link,
+  held: Pause,
+  started: Play,
+  filed: Ticket,
+  released: DoorOpen,
+  returned: RotateCcw,
+  resumed: Play,
+  moved: ArrowRightLeft,
+};
+
+const kindOf = (row: OperatorLogRow): LogKind => (row.by === "you" ? "you" : KIND_OF_DID[row.did]);
+
+/** What an item was, as the row's sentence names it. */
+const NOUN: Readonly<Record<NonNullable<OperatorLogRow["about"]>, string>> = {
+  question: "a question",
+  stall: "a quiet Job",
+  report: "a bug report",
+  start: "a start",
+  note: "a note",
+};
+
+const nounOf = (row: OperatorLogRow): string =>
+  row.about !== undefined
+    ? NOUN[row.about]
+    : row.from.kind === "report"
+      ? NOUN.report
+      : row.from.kind === "fleet"
+        ? "what Fleet saw"
+        : NOUN.question;
+
+/** Words and Jobs in order, a space between each, nothing where a part is absent. */
+function said(...parts: ReactNode[]): ReactNode {
+  return parts
+    .filter((one) => one !== undefined && one !== null && one !== false && one !== "")
+    .map((one, at) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one sentence keep their order
+      <Fragment key={at}>
+        {at === 0 ? null : " "}
+        {one}
+      </Fragment>
+    ));
 }
 
-/** Where the item went: where you overruled it to, else where the ruling sent it. */
-const laneOf = (row: OperatorLogRow): Lane =>
-  row.changed === undefined ? LANE_OF_DID[row.did] : laneOfWay(row.changed);
+const chips = (jobs: readonly OperatorJob[]): ReactNode =>
+  jobs.length === 0 ? undefined : jobs.map((one) => <NamedJob key={one.session} job={one} />);
 
-/** The Log: the flow of work to where it went, newest at the top. */
+/** The row as one sentence: who did what to which Job. */
+function sentenceOf(row: OperatorLogRow, job: OperatorJob | undefined): ReactNode {
+  const who = <b className="armada-operator__log-who">{row.by === "you" ? "You" : "Operator"}</b>;
+  const at = job === undefined ? undefined : <NamedJob job={job} />;
+  const others = chips(row.names ?? []);
+  const from = at === undefined ? undefined : said("from", at);
+  switch (row.did) {
+    case "answered":
+      return said(who, "answered", at, row.what === undefined ? undefined : `with ${row.what}`);
+    case "raised":
+      return row.from.kind === "report" && row.from.by === "you"
+        ? said(
+            <b className="armada-operator__log-who">You</b>,
+            "reported a bug, and the Operator passed it back to you",
+          )
+        : said(who, "passed you", nounOf(row), from);
+    case "passed_on":
+      return said(nounOf(row).replace(/^a/, "A"), from, "came to you");
+    case "existing":
+      return row.by === "you"
+        ? said(who, "sent a note", others === undefined ? row.what : said("to", others))
+        : said(
+            who,
+            "handed",
+            nounOf(row),
+            from,
+            others === undefined ? row.what : said("to", others),
+          );
+    case "delegated":
+      return said(who, "nudged", others ?? at);
+    case "merged": {
+      // The Job taken in, then the one it went into.
+      const taken = chips((row.names ?? []).filter((one) => one.as === "merged"));
+      const into = chips((row.names ?? []).filter((one) => one.as !== "merged"));
+      return said(who, "merged", taken ?? at, into === undefined ? row.what : said("into", into));
+    }
+    case "in_touch":
+      return said(
+        who,
+        "kept",
+        at ?? "it",
+        "in touch",
+        others === undefined ? row.what : said("with", others),
+      );
+    case "held":
+      return said(who, "held", at ?? others ?? "it", row.what);
+    case "started":
+      return said(who, "started", others ?? at ?? row.what ?? "a Job");
+    case "filed":
+      return said(who, "filed", nounOf(row), from, "as an issue");
+    default:
+      return said(who, DID_SAID[row.did].toLowerCase(), at ?? others ?? "it");
+  }
+}
+
+const startOfDay = (one: Date) =>
+  new Date(one.getFullYear(), one.getMonth(), one.getDate()).getTime();
+
+/** Today, Yesterday, or the day's name and date. */
+function dayOf(at: string, now: Date): string {
+  const day = new Date(at);
+  const days = Math.round((startOfDay(now) - startOfDay(day)) / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return day.toLocaleDateString([], {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+const timeOf = (at: string) =>
+  new Date(at).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+type Entry =
+  | {
+      kind: "row";
+      at: string;
+      row: OperatorLogRow;
+    }
+  | {
+      kind: "switch";
+      at: string;
+      on: boolean;
+    };
+
+/** The Log: one sentence a row, newest first, grouped by day, with a line where he switched the Operator on or off. */
 function Log({ store }: { store: OperatorStore }) {
-  const now = Date.now();
   const shown = usePickedFilter();
+  const now = new Date();
+  const entries: Entry[] = [
+    ...store.state.log
+      .filter((row) => shown(row.repository))
+      .map((row) => ({
+        kind: "row" as const,
+        at: row.at,
+        row,
+      })),
+    ...(store.state.switched ?? []).map((one) => ({
+      kind: "switch" as const,
+      at: one.at,
+      on: one.on,
+    })),
+  ].sort((one, other) => Date.parse(other.at) - Date.parse(one.at));
+  const days: [
+    string,
+    Entry[],
+  ][] = [];
+  for (const entry of entries) {
+    const day = dayOf(entry.at, now);
+    const last = days.at(-1);
+    if (last?.[0] === day) last[1].push(entry);
+    else
+      days.push([
+        day,
+        [
+          entry,
+        ],
+      ]);
+  }
   return (
-    <ol className="armada-operator__log">
-      <li className="armada-operator__flow-head" role="none">
-        <span className="armada-operator__flow-from">Came from</span>
-        <span />
-        <span>Ruling</span>
-        {LANES.map((lane) => (
-          <span key={lane.id} className="armada-operator__lane-name">
-            {lane.said}
-          </span>
-        ))}
-        <span />
-        <span />
-        <span />
-      </li>
-      {store.state.log
-        .filter((row) => shown(row.repository))
-        .map((row) => (
-          <LogRow key={row.id} row={row} now={now} store={store} />
-        ))}
-    </ol>
+    <div className="armada-operator__log">
+      {days.map(([day, list]) => (
+        <section key={day} className="armada-operator__log-day" aria-label={day}>
+          <h3 className="armada-operator__log-heading">{day}</h3>
+          <ol className="armada-operator__log-list">
+            {list.map((entry) =>
+              entry.kind === "switch" ? (
+                <li
+                  key={`switch ${entry.at}`}
+                  className="armada-operator__log-switch"
+                  data-on={entry.on || undefined}
+                >
+                  <span className="armada-operator__log-time">{timeOf(entry.at)}</span>
+                  <span className="armada-operator__log-node">
+                    {entry.on ? (
+                      <Power size={12} strokeWidth={2.25} aria-hidden />
+                    ) : (
+                      <PowerOff size={12} strokeWidth={2.25} aria-hidden />
+                    )}
+                  </span>
+                  <span className="armada-operator__log-switched">
+                    Operator switched {entry.on ? "on" : "off"}
+                  </span>
+                </li>
+              ) : (
+                <LogRow key={entry.row.id} row={entry.row} />
+              ),
+            )}
+          </ol>
+        </section>
+      ))}
+    </div>
   );
 }
 
-/**
- * One item: what started it, the item, the ruling with why on hover, then where it went, age, Start now and Overrule. Each lane
- * is a column, the Jobs stand in the lane it went to, and a line runs to them from the ruling.
- */
-function LogRow({ row, now, store }: { row: OperatorLogRow; now: number; store: OperatorStore }) {
-  const line =
-    row.line === undefined ? undefined : store.state.line.find((one) => one.id === row.line);
-  const named = (row.names ?? []).map((job) => <NamedJob key={job.session} job={job} />);
-  const lane = laneOf(row);
-  const reached = LANES.findIndex((one) => one.id === lane);
+/** One row: its time, the Operator's mark on its own rows, the sentence, the words it was about, why, and Open Job. */
+function LogRow({ row }: { row: OperatorLogRow }) {
+  const job =
+    row.from.kind === "job"
+      ? row.from.job
+      : row.from.kind === "report" && row.from.by !== "you"
+        ? row.from.by
+        : undefined;
+  const quote = row.item === job?.title ? undefined : row.item;
+  const open = job ?? row.names?.[0];
+  const kind = kindOf(row);
+  const Glyph =
+    row.by === "you" && row.did === "existing" ? MessageSquareText : GLYPH_OF_DID[row.did];
   return (
-    <li className="armada-operator__log-row" aria-label={`${sourceSaid(row.from)}: ${row.item}`}>
-      <span className="armada-operator__source">
-        <Source from={row.from} />
+    <li className="armada-operator__log-row" data-kind={kind}>
+      <span className="armada-operator__log-time">{timeOf(row.at)}</span>
+      <span className="armada-operator__log-node">
+        <Glyph size={12} strokeWidth={2.25} aria-hidden />
       </span>
-      <span className="armada-operator__title">{row.item}</span>
-      <Tooltip label={row.why}>
-        <span className="armada-operator__did" data-did={row.did} tabIndex={0}>
-          {row.changed === undefined ? DID_SAID[row.did] : `Overruled by you: ${row.changed}`}
-        </span>
-      </Tooltip>
-      {LANES.map((one, at) => (
-        <span
-          key={one.id}
-          className="armada-operator__lane"
-          data-through={at < reached || undefined}
-          data-reached={at === reached || undefined}
-        >
-          {at !== reached ? null : named.length > 0 ? (
-            named
-          ) : (
-            <span className="armada-operator__lane-mark">{one.said}</span>
+      <div className="armada-operator__log-card">
+        <div className="armada-operator__log-head">
+          <span className="armada-operator__log-kind">
+            {kind === "you" ? null : <Bot size={12} strokeWidth={2.25} aria-hidden />}
+            {KIND_SAID[kind]}
+          </span>
+          {open === undefined ? null : (
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label={`Open Job: ${open.title}`}
+              onClick={() => openJob(open.session)}
+            >
+              Open Job
+            </Button>
           )}
-        </span>
-      ))}
-      <span className="armada-operator__age">{ageOf(row.at, now)}</span>
-      <span className="armada-operator__act">
-        {line === undefined ? null : (
-          <Button
-            size="sm"
-            variant="secondary"
-            aria-label={`Start now: ${line.title}`}
-            onClick={() =>
-              store.act({
-                kind: "start",
-                line: line.id,
-                by: "press",
-              })
-            }
-          >
-            Start now
-          </Button>
+        </div>
+        <span className="armada-operator__log-said">{sentenceOf(row, job)}</span>
+        {quote === undefined ? null : <span className="armada-operator__log-quote">“{quote}”</span>}
+        {row.why === "" ? null : <span className="armada-operator__log-why">{row.why}</span>}
+        {row.changed === undefined ? null : (
+          <span className="armada-operator__log-why">You changed it to {row.changed}</span>
         )}
-      </span>
-      <span className="armada-operator__act">
-        {row.ways === undefined || row.ways.length === 0 ? null : (
-          <DropdownMenu
-            triggerLabel="Overrule"
-            triggerAriaLabel={`Overrule: ${row.item}`}
-            align="end"
-            portal
-            entries={row.ways.map((way) => ({
-              kind: "item" as const,
-              id: way,
-              label: way,
-              ...(row.changed === way
-                ? {
-                    selected: true,
-                  }
-                : {}),
-            }))}
-            onSelect={(way) =>
-              store.act({
-                kind: "change",
-                log: row.id,
-                way,
-              })
-            }
-          />
-        )}
-      </span>
+      </div>
     </li>
   );
 }

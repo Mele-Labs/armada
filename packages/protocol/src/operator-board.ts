@@ -40,6 +40,14 @@ export type OperatorBoardSettled = {
 
 export type OperatorDecider = "operator" | "person";
 
+/** One move of the Operator's master switch, kept so the Log can show where older rulings end. */
+export type OperatorBoardSwitch = {
+  /** What the switch was moved to. */
+  on: boolean;
+  /** RFC 3339. */
+  at: string;
+};
+
 /** One thing a suggestion offers to do: `Do it` (choice 0), then `Skip` (choice 1). */
 export type OperatorBoardOption = {
   label: string;
@@ -73,6 +81,8 @@ export type OperatorBoard = {
     week: number;
     at: number;
   };
+  /** The last twenty moves of the master switch, newest first. Absent while there are none. */
+  switched?: OperatorBoardSwitch[];
 };
 
 /**
