@@ -18,8 +18,6 @@ pub mod fleet;
 pub mod stage;
 pub mod window;
 
-use crate::jobs::Lamp;
-
 /// What a step does when it is reached, before its target is ringed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verb {
@@ -34,8 +32,6 @@ pub enum Verb {
     RightPress(&'static str),
     /// The pointer brought to rest on the target.
     Hover,
-    /// The Jobs list draws its lamps this way, so a walk can put takes side by side.
-    Lamp(crate::jobs::Lamp),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -111,106 +107,14 @@ pub static WALKS: &[Walk] = &[
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
     },
-    // Where a row's colour goes, as three takes of one walk: each sets its look, then rings a Job
-    // that is working and one waiting on the owner.
     Walk {
-        name: "jobs-lamps-pennant",
-        title: "Jobs list: a signal pennant",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("Each Job flies a signal flag in its lamp's colour from its top edge", Verb::Lamp(Lamp::Pennant), "row", "Fix the merge line freshness chip"),
-            step("A Job waiting on you flies amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-brackets",
-        title: "Jobs list: corner brackets",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("A HUD's corner marks frame each Job in its lamp's colour", Verb::Lamp(Lamp::Brackets), "row", "Fix the merge line freshness chip"),
-            step("A Job waiting on you is framed in amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-masthead",
-        title: "Jobs list: a masthead light",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("A small light on each Job's top edge, in its lamp's colour", Verb::Lamp(Lamp::Masthead), "row", "Quiet the write-clash notices"),
-            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-waterline",
-        title: "Jobs list: a waterline",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("A thin line along the inside of each Job's foot, in its lamp's colour", Verb::Lamp(Lamp::Waterline), "row", "Quiet the write-clash notices"),
-            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-hull",
+        name: "jobs-lamps",
         title: "Jobs list: a tinted hull",
         screen: Screen::Jobs,
         scenario: "jobs-many",
         steps: &[
-            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull(6)), "row", "Quiet the write-clash notices"),
-            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-hull-light",
-        title: "Jobs list: a lighter tint",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull(4)), "row", "Quiet the write-clash notices"),
-            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-hull-faint",
-        title: "Jobs list: the faintest tint",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("No mark: each Job's surface takes a faint wash of its lamp's colour", Verb::Lamp(Lamp::Hull(3)), "row", "Quiet the write-clash notices"),
-            step("A Job waiting on you carries amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-fine",
-        title: "Jobs list: fine brackets",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("The brackets are the row's own edge, 1pt, bending with its corner", Verb::Lamp(Lamp::Fine), "row", "Native Bridge foundation"),
-            step("A Job waiting on you is bracketed in amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-etched",
-        title: "Jobs list: etched brackets",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("The brackets are cut into the row's edge, a shadow line inside each", Verb::Lamp(Lamp::Etched), "row", "Native Bridge foundation"),
-            step("A Job waiting on you is bracketed in amber", Verb::Look, "img", "Waiting on you"),
-        ],
-    },
-    Walk {
-        name: "jobs-lamps-housing",
-        title: "Jobs list: a lit housing",
-        screen: Screen::Jobs,
-        scenario: "jobs-many",
-        steps: &[
-            step("No edge mark: each Job's state glyph sits in a housing lit in its lamp's colour", Verb::Lamp(Lamp::Housing), "row", "Fix the merge line freshness chip"),
-            step("A Job waiting on you is lit amber", Verb::Look, "img", "Waiting on you"),
+            step("Each Job's surface takes a faint wash of its lamp's colour", Verb::Look, "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you pulses amber", Verb::Look, "img", "Waiting on you"),
         ],
     },
 ];

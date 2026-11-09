@@ -262,11 +262,11 @@ mod tests {
     #[test]
     fn a_walk_reads_each_take_as_a_name_and_a_walk_in_the_bars_order() {
         let args: Vec<String> =
-            ["--walk", "jobs-lamps-pennant", "--take", "Pennant=jobs-lamps-pennant", "--take", "Lamp housing=jobs-lamps-housing"].map(String::from).to_vec();
+            ["--walk", "jobs-list", "--take", "List=jobs-list", "--take", "Hull tint=jobs-lamps"].map(String::from).to_vec();
         let Ok(Mode::Walk { takes, .. }) = mode_of(&args) else { panic!("a walk") };
-        assert_eq!(takes, vec![("Pennant".into(), "jobs-lamps-pennant".into()), ("Lamp housing".into(), "jobs-lamps-housing".into())]);
+        assert_eq!(takes, vec![("List".into(), "jobs-list".into()), ("Hull tint".into(), "jobs-lamps".into())]);
         let walks = walk::window::takes_of(&takes);
-        assert_eq!(walks.iter().map(|take| take.walk.name).collect::<Vec<_>>(), ["jobs-lamps-pennant", "jobs-lamps-housing"]);
+        assert_eq!(walks.iter().map(|take| take.walk.name).collect::<Vec<_>>(), ["jobs-list", "jobs-lamps"]);
 
         let bad: Vec<String> = ["--walk", "jobs-list", "--take", "Pennant"].map(String::from).to_vec();
         assert!(mode_of(&bad).is_err(), "a take with no walk");

@@ -67,29 +67,6 @@ impl Scope {
     }
 }
 
-/// Where a row carries its lamp's colour. `Bar` is Electron's edge strip; the others are takes
-/// on something of Armada's own, which the owner is choosing between.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Lamp {
-    Bar,
-    /// A swallowtail signal flag hanging from the row's top edge.
-    Pennant,
-    /// A HUD's corner brackets, at the row's top left and bottom right.
-    Brackets,
-    /// The brackets drawn on the row's own edge, 1pt, in place of its border at the corners.
-    Fine,
-    /// The brackets on the row's edge with a shadow line inside them, as if cut into the row.
-    Etched,
-    /// A small light set on the row's top edge near its start, as a running light on a hull.
-    Masthead,
-    /// A thin line along the inside of the row's foot, as a hull's painted waterline.
-    Waterline,
-    /// No mark: the row's ground takes a faint wash of the lamp's colour, this many hundredths strong.
-    Hull(u8),
-    /// No edge mark: the state glyph sits in a housing tinted the lamp's colour.
-    Housing,
-}
-
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
 struct Row {
@@ -191,6 +168,9 @@ fn hue_of(state: JobState) -> crate::look::Token {
         _ => token::FG_MUTED,
     }
 }
+
+/// How strongly a row's ground takes its lamp's colour; a Job waiting on you pulses from this to twice it.
+const HULL: f32 = 0.06;
 
 fn lamp_of(lamp: JobLamp) -> crate::look::Token {
     match lamp {
@@ -448,8 +428,6 @@ pub struct JobsList {
     query: String,
     /// What each row draws.
     view: View,
-    /// Where a row carries its lamp.
-    lamp: Lamp,
     /// Live Jobs in the order the person placed them, by id.
     order: Vec<String>,
     /// Whether the scope and the order are kept between runs: not on mock data.
@@ -513,7 +491,6 @@ impl JobsList {
             scope,
             query: String::new(),
             view,
-            lamp: Lamp::Bar,
             order,
             remember,
             focused: None,
@@ -554,12 +531,6 @@ impl JobsList {
 
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus
-    }
-
-    /// Draw the lamp as `lamp`: a walk sets it to put the takes side by side.
-    pub fn set_lamp(&mut self, lamp: Lamp, cx: &mut Context<Self>) {
-        self.lamp = lamp;
-        cx.notify();
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -919,22 +890,7 @@ impl JobsList {
         });
         let tagged = issue.is_some() || pr.is_some();
         let under = tagged || flow.is_some() || now.is_some();
-        let style = self.lamp;
         let lamp_ink = look.color(lamp);
-        let housed = move |mark: gpui::Stateful<gpui::Div>| {
-            if style == Lamp::Housing {
-                mark.size(look.length(token::SPACE_6))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(look.length(token::RADIUS_MD))
-                    .bg(lamp_ink.opacity(0.16))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(lamp_ink.opacity(0.4))
-            } else {
-                mark
-            }
-        };
         let marks = div()
             .flex_none()
             .flex()
@@ -949,7 +905,8 @@ impl JobsList {
                 // The paused mark in place of the state's glyph.
                 marks.child(div().flex_none().flex().justify_end().children(state.map(|((glyph, said), hue)| {
                     labelled(
-                        housed(div().id(SharedString::from(format!("state-{}", row.id))))
+                        div()
+                            .id(SharedString::from(format!("state-{}", row.id)))
                             .child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(hue)))
                             .tooltip(tip(said.clone())),
                         Role::Image,
@@ -957,7 +914,8 @@ impl JobsList {
                     )
                 })).when(row.paused, |slot| {
                     slot.child(labelled(
-                        housed(div().id(SharedString::from(format!("paused-{}", row.id))))
+                        div()
+                            .id(SharedString::from(format!("paused-{}", row.id)))
                             .child(svg().path(icon_path("circle-pause")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
                             .tooltip(tip("Paused".into())),
                         Role::Image,
@@ -974,162 +932,24 @@ impl JobsList {
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .py(pad)
-            .pl(match style {
-                Lamp::Bar => look.length(token::SPACE_4),
-                Lamp::Pennant => look.length(token::SPACE_3) * 3.,
-                Lamp::Brackets | Lamp::Fine | Lamp::Etched | Lamp::Housing | Lamp::Masthead | Lamp::Waterline | Lamp::Hull(_) => look.length(token::SPACE_3),
-            })
+            .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_3))
             .rounded(radius)
             .border(look.length(token::BORDER_WIDTH))
-            // gpui paints a border over the children, so where the brackets are the edge itself,
-            // the canvas below draws the whole edge and the border is only room.
-            .border_color(match style {
-                Lamp::Fine | Lamp::Etched => gpui::transparent_black(),
-                _ => look.color(edge),
-            })
+            .border_color(look.color(edge))
             .bg(ground)
             .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .when(needs, |strip| {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);
-                // A tinted hull pulses from its own wash to twice it, so the Job waiting on you sits as quietly.
-                let (low, high) = match style {
-                    Lamp::Hull(strength) => (f32::from(strength) / 100., f32::from(strength) / 50.),
-                    _ => (0.06, 0.14),
-                };
                 strip.child(div().absolute().inset_0().rounded(radius).with_animation(
                     SharedString::from(format!("needs-{}", row.id)),
-                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(low, high)),
+                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(HULL, HULL * 2.)),
                     move |tinted, at| tinted.bg(tint.opacity(at)),
                 ))
             })
-            .children(match style {
-                Lamp::Bar => vec![div()
-                    .absolute()
-                    .top(pad)
-                    .bottom(pad)
-                    .left(look.length(token::SPACE_1))
-                    .w(look.length(token::SPACE_1))
-                    .rounded_full()
-                    .bg(lamp_ink)
-                    .into_any_element()],
-                Lamp::Pennant => {
-                    // Hung from the top edge, its fly cut into a swallowtail.
-                    let (wide, long, notch) = (look.length(token::SPACE_3), look.length(token::SPACE_4) + look.length(token::SPACE_1), look.length(token::SPACE_1) * 1.5);
-                    vec![canvas(|_, _, _| (), move |bounds, _, window, _| {
-                        let at = bounds.origin;
-                        let mut flag = gpui::PathBuilder::fill();
-                        flag.move_to(at);
-                        flag.line_to(point(at.x + wide, at.y));
-                        flag.line_to(point(at.x + wide, at.y + long));
-                        flag.line_to(point(at.x + wide / 2., at.y + long - notch));
-                        flag.line_to(point(at.x, at.y + long));
-                        flag.close();
-                        if let Ok(flag) = flag.build() {
-                            window.paint_path(flag, lamp_ink);
-                        }
-                    })
-                    .absolute()
-                    .top_0()
-                    .left(look.length(token::SPACE_3))
-                    .w(wide)
-                    .h(long)
-                    .into_any_element()]
-                }
-                Lamp::Brackets => {
-                    // Over the row's own edge, following its rounded corners.
-                    let (arm, weight, out) = (look.length(token::SPACE_6), look.length(token::BORDER_WIDTH) * 2., -look.length(token::BORDER_WIDTH));
-                    vec![
-                        div().absolute().top(out).left(out).size(arm).border_t(weight).border_l(weight).rounded_tl(radius).border_color(lamp_ink).into_any_element(),
-                        div().absolute().bottom(out).right(out).size(arm).border_b(weight).border_r(weight).rounded_br(radius).border_color(lamp_ink).into_any_element(),
-                    ]
-                }
-                Lamp::Fine | Lamp::Etched => {
-                    // Stroked on the row's border line, its bend the row's own corner.
-                    let etched = style == Lamp::Etched;
-                    let border = look.length(token::BORDER_WIDTH);
-                    let (arm, weight) = (look.length(token::SPACE_6), if etched { border * 1.5 } else { border });
-                    let edge_ink = look.color(edge);
-                    vec![canvas(|_, _, _| (), move |bounds, _, window, _| {
-                        // The row's whole edge, as its border would draw it.
-                        let half = border / 2.;
-                        let (o, w, h, r) = (bounds.origin, bounds.size.width, bounds.size.height, radius - half);
-                        let (left, top, right, bottom) = (o.x + half, o.y + half, o.x + w - half, o.y + h - half);
-                        let mut outline = gpui::PathBuilder::stroke(border);
-                        outline.move_to(point(left + r, top));
-                        outline.line_to(point(right - r, top));
-                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(right, top + r));
-                        outline.line_to(point(right, bottom - r));
-                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(right - r, bottom));
-                        outline.line_to(point(left + r, bottom));
-                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(left, bottom - r));
-                        outline.line_to(point(left, top + r));
-                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(left + r, top));
-                        if let Ok(outline) = outline.build() {
-                            window.paint_path(outline, edge_ink);
-                        }
-                        // `inset` from the border box's outer edge to the stroke's centre line.
-                        let corner = |inset: Pixels, width: Pixels, ink: gpui::Hsla, window: &mut Window| {
-                            let (o, r) = (bounds.origin, radius - inset);
-                            let (left, top) = (o.x + inset, o.y + inset);
-                            let (right, bottom) = (o.x + bounds.size.width - inset, o.y + bounds.size.height - inset);
-                            let along = arm - inset;
-                            for (start, bend, end) in [
-                                (point(left, top + along), (point(left, top + r), point(left + r, top)), point(left + along, top)),
-                                (point(right, bottom - along), (point(right, bottom - r), point(right - r, bottom)), point(right - along, bottom)),
-                            ] {
-                                let mut path = gpui::PathBuilder::stroke(width);
-                                path.move_to(start);
-                                path.line_to(bend.0);
-                                path.arc_to(point(r, r), gpui::px(0.), false, true, bend.1);
-                                path.line_to(end);
-                                if let Ok(path) = path.build() {
-                                    window.paint_path(path, ink);
-                                }
-                            }
-                        };
-                        // Etched: a faint second line inside, so the mark reads as cut into the row.
-                        if etched {
-                            corner(weight + border * 1.5, border, lamp_ink.opacity(0.35), window);
-                        }
-                        corner(weight / 2., weight, lamp_ink, window);
-                    })
-                    .absolute()
-                    .top(-border)
-                    .left(-border)
-                    .right(-border)
-                    .bottom(-border)
-                    .into_any_element()]
-                }
-                Lamp::Masthead => {
-                    // Centred on the top edge, ringed in the panel's ground so it sits in the edge;
-                    // deferred, as gpui paints the row's border over its children.
-                    let (light, ring, border) = (look.length(token::SPACE_2), look.length(token::BORDER_WIDTH) * 2., look.length(token::BORDER_WIDTH));
-                    let side = light + ring * 2.;
-                    vec![gpui::deferred(div()
-                        .absolute()
-                        .top(-side / 2. - border / 2.)
-                        .left(look.length(token::SPACE_3))
-                        .size(side)
-                        .rounded_full()
-                        .border(ring)
-                        .border_color(look.color(token::BG_RAISED))
-                        .bg(lamp_ink))
-                        .into_any_element()]
-                }
-                Lamp::Waterline => vec![div()
-                    .absolute()
-                    .bottom(look.length(token::SPACE_1))
-                    .left(look.length(token::SPACE_3))
-                    .right(look.length(token::SPACE_3))
-                    .h(look.length(token::BORDER_WIDTH))
-                    .bg(lamp_ink.opacity(0.7))
-                    .into_any_element()],
-                // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
-                Lamp::Hull(strength) if !opened && !needs => vec![div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(f32::from(strength) / 100.)).into_any_element()],
-                Lamp::Housing | Lamp::Hull(_) => Vec::new(),
-            })
+            // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
+            .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
             .child(
                 div()
                     .flex()

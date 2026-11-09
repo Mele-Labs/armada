@@ -109,7 +109,7 @@ mod tests {
     #[test]
     fn approve_names_the_take_on_screen_as_electrons_bar_does() {
         let take = ("B".to_string(), "Brackets".to_string());
-        assert_eq!(approved("armada://walk/jobs-lamps-pennant", Some(&take)), "Approved B, Brackets: armada://walk/jobs-lamps-pennant");
+        assert_eq!(approved("armada://walk/jobs-lamps", Some(&take)), "Approved B, Brackets: armada://walk/jobs-lamps");
         assert_eq!(approved("armada://walk/jobs-list", None), "Approved: armada://walk/jobs-list");
     }
 }

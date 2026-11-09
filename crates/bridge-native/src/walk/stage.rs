@@ -17,12 +17,11 @@ pub struct Stage {
 }
 
 /// Where a step's keys go: the screen's own focus, unless something drawn inside the screen, such
-/// as a menu it opened, holds them. `jobs` is the list a step may set a look on.
+/// as a menu it opened, holds them.
 #[derive(Clone)]
 pub struct Focus {
     pub keys: FocusHandle,
     pub within: FocusHandle,
-    pub jobs: Entity<JobsList>,
 }
 
 impl Stage {
@@ -32,8 +31,8 @@ impl Stage {
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
-                let screen = cx.new(|cx| JobsScreen::new(list.clone(), cx));
-                let focus = Focus { keys, within: screen.read(cx).within().clone(), jobs: list };
+                let screen = cx.new(|cx| JobsScreen::new(list, cx));
+                let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
             }
@@ -58,10 +57,6 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
 pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
     match step.verb {
         Verb::Look => Ok(()),
-        Verb::Lamp(lamp) => {
-            focus.jobs.update(cx, |list, cx| list.set_lamp(lamp, cx));
-            Ok(())
-        }
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
             if !focus.within.contains_focused(window, cx) {
