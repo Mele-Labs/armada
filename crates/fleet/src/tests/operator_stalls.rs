@@ -156,6 +156,13 @@ async fn turn_ended(rig: &Rig, id: &SessionId, ago: i64) {
     store.keep_session(&row).unwrap();
 }
 
+/// The pull requests of `id`'s Manifest read by a reading that began `ago` milliseconds back.
+async fn pulls_read(rig: &Rig, id: &SessionId, ago: i64) {
+    let manifest = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted").manifest_id;
+    let at = core_model::Timestamp::from_rfc3339(crate::clock::rfc3339_utc(rig.fleet.now().epoch_millis().unwrap() - ago));
+    rig.fleet.sweeping().lock().await.pulls_read.insert(manifest, at);
+}
+
 /// The row read, as a publish reads it, and the stalls it noted handed on.
 async fn read_and_handed(rig: &Rig, id: &SessionId) {
     let _ = record(rig, id).await;
@@ -206,8 +213,15 @@ async fn a_red_pull_request_the_job_ended_a_turn_on_with_no_push_arrives_once_ho
     assert_eq!(counted.0.load(Ordering::SeqCst), 0, "not yet");
     assert_ne!(record(&rig, &id).await.standing, Some(SessionStanding::Stopped), "an open pull request excuses a stop");
 
-    // A turn since ended with the pull request still red.
+    // A turn since ended, and the pull request is red on a reading from before it: a push in that
+    // turn shows only on the next reading.
     turn_ended(&rig, &id, 30_000).await;
+    pulls_read(&rig, &id, 40_000).await;
+    read_and_handed(&rig, &id).await;
+    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "not on a reading from before the turn ended");
+
+    // Read again since, and still red.
+    pulls_read(&rig, &id, 10_000).await;
     for _ in 0..3 {
         read_and_handed(&rig, &id).await;
     }
@@ -236,6 +250,7 @@ async fn a_red_pull_request_is_not_a_stall_while_a_subagent_is_still_working() {
     holds_red(&rig, &id).await;
     told_red(&rig, &id, "2222222", 60_000).await;
     turn_ended(&rig, &id, 30_000).await;
+    pulls_read(&rig, &id, 10_000).await;
     let at = rig.fleet.now().as_str().to_string();
     let subagent = KeptAttachment {
         holder: Holder::session(id.as_str()),

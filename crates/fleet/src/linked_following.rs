@@ -85,14 +85,14 @@ where
             match record.attachments.iter().find(|one| one.kind == crate::session_host::replacing::REPLACED_BY) {
                 Some(next) => {
                     let what = format!("was handed on to a new Job ({}) for context", next.target);
-                    self.linked_told(&parent, &next.target, &title, LinkedEvent::Started, said(&what)).await;
+                    self.linked_told(&parent, &next.target, &title, LinkedEvent::Started, said(&what), Some(&child)).await;
                 }
-                None => self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended")).await,
+                None => self.linked_told(&parent, &child, &title, LinkedEvent::Done, said("ended"), None).await,
             }
         }
         for pull in record.attachments.iter().filter(|one| one.kind == "pr" && crate::after_following::merged(one)) {
             if self.linked_once(&child, "merged", &pull.target).await {
-                self.linked_told(&parent, &child, &title, LinkedEvent::Merged, said(&format!("had its pull request #{} merged", pull.target))).await;
+                self.linked_told(&parent, &child, &title, LinkedEvent::Merged, said(&format!("had its pull request #{} merged", pull.target)), None).await;
             }
         }
     }
@@ -105,7 +105,7 @@ where
         let title = record.title.clone().unwrap_or_else(|| child.clone());
         if self.linked_once(&child, "started", "").await {
             let said = linked_said(&title, &child, group.as_deref(), "started");
-            self.linked_told(&parent, &child, &title, LinkedEvent::Started, said).await;
+            self.linked_told(&parent, &child, &title, LinkedEvent::Started, said, None).await;
         }
         let _ = self.published_hosted(&parent).await;
     }
@@ -116,12 +116,14 @@ where
         self.store().lock().await.keep_linked_told(child, event, key, &now).unwrap_or(false)
     }
 
-    async fn linked_told(self: &Arc<Self>, parent: &str, child: &str, title: &str, event: LinkedEvent, text: String) {
+    /// `replaces` is the Job `child` took the place of, on the row that tells of a hand.
+    async fn linked_told(self: &Arc<Self>, parent: &str, child: &str, title: &str, event: LinkedEvent, text: String, replaces: Option<&str>) {
         let row = SessionRow::Linked {
             id: self.row_id(parent),
             at: self.instant(),
             session: SessionLink { id: ipc::SessionId::carried(child), title: title.to_string() },
             event,
+            replaces: replaces.map(ipc::SessionId::carried),
         };
         let _ = self.told_news_by_fleet_as(parent, &text, row).await;
     }

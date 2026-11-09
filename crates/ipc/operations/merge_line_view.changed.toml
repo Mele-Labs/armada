@@ -1,0 +1,12 @@
+[operations."merge_line_view.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A merge line, as a screen draws it, moved, and this is every line now"
+notes = """
+Carries `MergeLineViews` itself, the answer to `get_merge_line_view`, for `merge_lines.changed`' reason: the route and the event are the same fact, and a client replaces what it holds.
+
+**Fleet publishes it on the tick that folds the lines, and only when the view differs from the last one sent.** That is a pull request moving in the queue, main going green or red, and also a repository's `name` moving when the served list changes, which `merge_lines.changed` does not carry. A tick that moves nothing the screen draws publishes nothing, though `merge_lines.changed` may: a hub's `read_at` moves with every forge visit and is in the view, so the two usually go together.
+
+A resync does not carry it. A Bridge that missed one, or reconnects, reads `get_merge_line_view` again on the resync that follows a `Missed`.
+"""

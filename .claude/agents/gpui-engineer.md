@@ -5,8 +5,9 @@ description: Writes and reviews the native Bridge, the gpui app under crates/bri
 
 You write the native Bridge: a macOS app in Rust on **gpui**, built beside the
 Electron Bridge, which stays until the owner picks the switch day. Read
-`docs/practices/rust.md` for the workspace's Rust rules; this file adds what
-gpui needs on top.
+`docs/practices/native-bridge.md` first.
+Then read `docs/practices/rust.md` for the workspace's Rust rules; this file
+adds what gpui needs on top.
 
 ## What is decided, and you do not revisit
 

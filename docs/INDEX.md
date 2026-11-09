@@ -67,6 +67,9 @@ Each ends with the questions it found and did not answer.
 - [`practices/code-graph.md`](practices/code-graph.md) — what to ask GitNexus
   before an edit and before a commit, how to build its index with
   `pnpm gitnexus:index`, and what it cannot see
+- [`practices/native-bridge.md`](practices/native-bridge.md) — how a Job works on
+  `crates/bridge-native/`: the agent to dispatch, the wire, the design loop,
+  labels, web content and the load rules.
 
 ## Contracts
 
