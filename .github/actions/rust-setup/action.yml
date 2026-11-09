@@ -14,6 +14,11 @@ inputs:
       Another job's entry, as `<key>-<job>`, for a job main never runs:
       rust-cache adds this job's own id to `key`, so it would never find one.
     default: ""
+  workspaces:
+    description: >-
+      rust-cache's `workspaces`, one `<folder> -> <target>` per line, for a job that also builds a
+      crate outside the root workspace. Empty is rust-cache's own default, the repository root.
+    default: ""
 runs:
   using: composite
   steps:
@@ -30,6 +35,7 @@ runs:
         prefix-key: ci1
         key: ${{ inputs.shared || inputs.key }}
         add-job-id-key: ${{ inputs.shared == '' }}
+        workspaces: ${{ inputs.workspaces }}
         cache-on-failure: true
 
     - name: cargo-nextest
