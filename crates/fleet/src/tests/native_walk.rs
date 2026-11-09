@@ -127,6 +127,19 @@ async fn opening_a_native_walk_that_is_closed_withdrawn_or_never_shown_is_refuse
 }
 
 #[tokio::test]
+async fn the_walk_runs_as_armada_from_a_bundle_around_the_slots_build() {
+    use std::os::unix::fs::MetadataExt;
+    let (rig, id) = walking().await;
+    opened(&rig, &id, URL, 1).await;
+    let bundle = format!("{}/crates/bridge-native/target/debug/walk/Armada.app/Contents", slot(&rig));
+    let info = std::fs::read_to_string(format!("{bundle}/Info.plist")).expect("an Info.plist");
+    assert!(info.contains("<key>CFBundleName</key><string>Armada</string>"), "{info}");
+    let linked = std::fs::metadata(format!("{bundle}/MacOS/Armada")).expect("the executable");
+    let build = std::fs::metadata(format!("{}/{BUILD}", slot(&rig))).expect("the build");
+    assert_eq!(linked.ino(), build.ino(), "a hard link to the build, not a copy");
+}
+
+#[tokio::test]
 async fn a_native_walk_opens_beside_a_page_shown_after_it() {
     let (rig, id) = walking().await;
     rig.fleet.show_window(None, shown(&id, "http://localhost:5792/?scenario=compare")).await.expect("a second tab");

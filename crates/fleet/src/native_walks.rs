@@ -23,6 +23,47 @@ pub(crate) const PREFIX: &str = "armada://walk/";
 /// Where the slot's build is, from the slot.
 const BINARY: &str = "crates/bridge-native/target/debug/bridge-native";
 
+/// The app the walk runs as, beside the build: macOS names the menu bar and the Dock from the
+/// bundle a process runs from, so a bare binary said "bridge-native" there.
+const BUNDLE: &str = "crates/bridge-native/target/debug/walk/Armada.app";
+
+/// The brand icon, from the slot.
+const ICON: &str = "packages/brand/macos/AppIcon.icns";
+
+const INFO: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Armada</string>
+  <key>CFBundleDisplayName</key><string>Armada</string>
+  <key>CFBundleExecutable</key><string>Armada</string>
+  <key>CFBundleIdentifier</key><string>dev.armada.bridge.native.walk</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+"#;
+
+/// The slot's build wrapped as `Armada.app`, its binary a hard link so nothing is copied, or the
+/// bare build where the wrapping fails: a walk named wrong in the menu bar still walks.
+fn wrapped(slot: &Path, binary: &Path) -> std::path::PathBuf {
+    let bundle = slot.join(BUNDLE);
+    let executable = bundle.join("Contents/MacOS/Armada");
+    let made = (|| -> std::io::Result<()> {
+        std::fs::create_dir_all(executable.parent().expect("inside the bundle"))?;
+        std::fs::create_dir_all(bundle.join("Contents/Resources"))?;
+        std::fs::write(bundle.join("Contents/Info.plist"), INFO)?;
+        let icon = slot.join(ICON);
+        if icon.is_file() {
+            std::fs::copy(&icon, bundle.join("Contents/Resources/AppIcon.icns"))?;
+        }
+        let _ = std::fs::remove_file(&executable);
+        std::fs::hard_link(binary, &executable)
+    })();
+    if made.is_ok() { executable } else { binary.to_path_buf() }
+}
+
 const NOT_NATIVE: &str = "fleet.native_walk_not_native";
 const NOT_OPEN: &str = "fleet.native_walk_not_open";
 const NOT_BUILT: &str = "fleet.native_walk_not_built";
@@ -181,10 +222,11 @@ where
             return Err(build_first());
         }
         let port = self.host().port.to_string();
+        let program = wrapped(Path::new(&slot), &binary);
         let started = self
             .native_walks()
             .started_once(&id, &url, &slot, || {
-                tokio::process::Command::new(&binary)
+                tokio::process::Command::new(&program)
                     .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
                     .current_dir(&slot)
                     .stdin(Stdio::null())
