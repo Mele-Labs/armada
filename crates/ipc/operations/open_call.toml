@@ -1,0 +1,10 @@
+[operations.open_call]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "A client tells Fleet the person opened a main, checkout or pull request call, so it stops counting as unopened"
+notes = """
+`POST /calls/open`, body `OpenStandingCall`: `key`, a call's own (`main:<root>`, `checkout:<root>`, `pull:<number>`). Since 9 Nov 2026. Answers `StandingCalls` as they stand once it is opened, and publishes `calls.changed`. `docs/practices/protocol/a-jobs-calls.md`.
+
+**A Job call is opened by `view_session`**, so a key of `session:<id>...` is a no-op success. So is a key that names no call standing. The opened keys are kept in memory for the life of Fleet and are forgotten on a restart, as Electron's are on a reload.
+"""

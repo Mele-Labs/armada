@@ -175,6 +175,8 @@ pub struct Hosts {
     pub(crate) threads: Arc<crate::thread_keeping::Held>,
     /// The Jobs a client has on screen now, which the row mark reads as viewed now. Memory only.
     pub(crate) on_screen: viewing::OnScreen,
+    /// What calls the person, which of it he has opened and what was told. Memory only.
+    pub(crate) calls: crate::standing_calls::Kept,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -214,6 +216,7 @@ impl Hosts {
             quick: quick::Kept::default(),
             threads: Arc::default(),
             on_screen: viewing::OnScreen::default(),
+            calls: crate::standing_calls::Kept::default(),
         }
     }
 

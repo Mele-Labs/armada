@@ -40,6 +40,7 @@ export * from "./logbook";
 export * from "./holding";
 export * from "./job-mark";
 export * from "./job-viewing";
+export * from "./standing-calls";
 export * from "./job-thread";
 export * from "./kit";
 export * from "./building";

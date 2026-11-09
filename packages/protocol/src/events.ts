@@ -12,6 +12,7 @@
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
 import type { MergeLineViews } from "./merge-line-view";
+import type { CallsChanged } from "./standing-calls";
 import type { ReviewRun } from "./review-runs";
 import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
@@ -80,6 +81,10 @@ export type Event =
   | ({
       kind: "merge_line_view.changed";
     } & MergeLineViews)
+  /** What calls the person moved, or something began to wait on him: every call now as `get_calls` answers, and the news since the last. Not replayed; read `get_calls` again after a `Missed`. */
+  | ({
+      kind: "calls.changed";
+    } & CallsChanged)
   /** A review run moved: queued, running, done or failed, whole. Not replayed; `get_review_runs` reads them again. */
   | {
       kind: "review_run.changed";
