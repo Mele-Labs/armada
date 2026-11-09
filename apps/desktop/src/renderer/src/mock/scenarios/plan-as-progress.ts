@@ -1,7 +1,7 @@
 // The plan as the Job's progress line: the plan's groups run across the head of the story, each run of them ended by a gate Fleet sees for itself. The plan gate is closed;
 // three groups with no gate between them are one live stretch, named for all three, waiting on his walk, with two subagents at work; Checks and the merge are to come. Time
 // passes three times: the walk is approved and Prune old files is live; Checks fail at the pushed commit; Checks pass with one test that is red on main too.
-// Over the Job of `job-walk-on-the-spine`. `plan-as-progress-placed` is the other take, with each subagent on the group whose paths it edits.
+// Over the Job of `job-walk-on-the-spine`. `plan-as-progress-list` is the other take, with the stretches listed at the head of the story.
 
 import type { GateClose } from "@armada/protocol";
 import type { Session, WorkDrone, WorkGroup } from "@armada/screens/src/draft/sessions";
@@ -215,7 +215,7 @@ const field = (stage: number): WorkDrone[] =>
       : [];
 
 const staged =
-  (stage: number, placed: boolean) =>
+  (stage: number, take: "list" | undefined) =>
   (one: Session): Session =>
     one.work?.plan === undefined
       ? one
@@ -237,16 +237,16 @@ const staged =
                 : {}),
             },
             field: field(stage),
-            ...(placed
-              ? {
-                  placeSubagents: true as const,
-                }
-              : {}),
+            ...(take === undefined
+              ? {}
+              : {
+                  progressTake: take,
+                }),
           },
         };
 
-/** The Job over a mock Fleet, its subagents listed under the live stretch or placed on groups. */
-export const planAsProgress = (name: string, says: string, placed: boolean): Scenario => ({
+/** The Job over a mock Fleet, its gates on the spine, or (`list`) its stretches listed at the head. */
+export const planAsProgress = (name: string, says: string, take?: "list"): Scenario => ({
   ...base,
   name,
   says,
@@ -257,7 +257,7 @@ export const planAsProgress = (name: string, says: string, placed: boolean): Sce
       store.edit(BUSY, (one) =>
         staged(
           0,
-          placed,
+          take,
         )(
           auditLedger(
             one,
@@ -278,7 +278,7 @@ export const planAsProgress = (name: string, says: string, placed: boolean): Sce
         later: () => {
           if (stage >= 4) return;
           stage += 1;
-          store.edit(BUSY, staged(stage, placed));
+          store.edit(BUSY, staged(stage, take));
         },
       };
     },
@@ -287,6 +287,5 @@ export const planAsProgress = (name: string, says: string, placed: boolean): Sce
 
 export const s348PlanAsProgress = planAsProgress(
   "plan-as-progress",
-  "A Job whose plan is its workflow: stretches across the head, each ended by a gate, its subagents listed under the live one",
-  false,
+  "A Job whose plan is its workflow: each gate on the spine under its stretch, its subagents listed under the live one",
 );

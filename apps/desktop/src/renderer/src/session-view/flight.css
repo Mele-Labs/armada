@@ -289,22 +289,3 @@
   flex: 1 1 0;
   min-height: 0;
 }
-
-/* Subagents placed on a group by the paths they edit, under its title. A guess, not a fact: a dashed edge, and the tooltip says so. */
-.sv-flight__agents {
-  display: flex;
-  flex-wrap: wrap;
-  grid-column: 2 / -1;
-  gap: var(--space-1);
-  min-width: 0;
-}
-.sv-flight__agent {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-1);
-  border: var(--border-width) dashed var(--border-default);
-  border-radius: var(--radius-sm);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-}

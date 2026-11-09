@@ -511,8 +511,8 @@ export type SessionWork = {
   /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. The spine draws `activity.todos` and not this. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
-  /** Mock only, for the walk's two takes: place each subagent at work on the group whose paths it edits, drawn as a guess. Absent lists them under the stretch. */
-  placeSubagents?: true;
+  /** Mock only, for the walk's two takes: `list` draws the plan's stretches as a list at the story's head. Absent draws each gate on the spine under its stretch. */
+  progressTake?: "list";
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */
