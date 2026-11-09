@@ -951,6 +951,7 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         with:
           key: release
+          nextest: "true"
           workspaces: |
             . -> target
             crates/bridge-native -> target
@@ -969,6 +970,13 @@ jobs:
       - name: Build the native Bridge
         if: steps.version.outputs.exists != 'true'
         run: cargo build --release --locked --manifest-path crates/bridge-native/Cargo.toml
+
+      # Its tests, in its own workspace and on the runner that can build it: gpui builds on no Linux
+      # runner, so no job of `ci` runs them. They gate no more than the build above does, which is
+      # this release. `armada check crates/bridge-native:test` is the same command before a pull request.
+      - name: Test the native Bridge
+        if: steps.version.outputs.exists != 'true'
+        run: cargo nextest run --locked --manifest-path crates/bridge-native/Cargo.toml
 
       # The version lands in the bundle's package.json, which is what
       # `app.getVersion()` and `CFBundleShortVersionString` read.

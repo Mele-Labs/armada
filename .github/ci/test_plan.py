@@ -67,6 +67,12 @@ class Planning(unittest.TestCase):
         self.assertEqual(answer["excluded"], [])
         self.assertEqual(answer["unrun"], [])
 
+    def test_the_native_bridge_test_is_excluded_because_it_builds_on_no_linux_runner(self):
+        answer = plan(["crates/bridge-native:test"])
+        self.assertEqual(answer["excluded"], ["crates/bridge-native:test"])
+        self.assertEqual(answer["checks"], [])
+        self.assertEqual(answer["unrun"], [])
+
     def test_an_excluded_key_is_named_and_not_run(self):
         import plan as module
         module.EXCLUDED["packages/x:skip"] = "test"

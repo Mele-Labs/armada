@@ -56,6 +56,7 @@ EXCLUDED = {
     "apps/desktop:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
     "apps/pocket:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
     "apps/store:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
+    "crates/bridge-native:test": "gpui builds on no Linux runner; the `release` job runs these tests on macOS",
 }
 
 # Check names a pull request's own run keeps with `--quick`: the ones that
