@@ -25,8 +25,34 @@
    "started_at": "2026-11-08T09:07:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
-   "standing": "working"
+   "attachments": [
+    {
+     "kind": "slot",
+     "manifest_id": "armada",
+     "target": "/repos/armada/.armada/slots/slot-7",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "branch",
+     "manifest_id": "armada",
+     "target": "armada/native-foundation",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    },
+    {
+     "kind": "pr",
+     "manifest_id": "armada",
+     "target": "3371",
+     "state": "standing",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    }
+   ],
+   "standing": "working",
+   "last_turn_at": "2026-11-08T21:36:00Z"
   },
   {
    "id": "mock-03",
@@ -39,7 +65,16 @@
    "started_at": "2026-11-08T10:14:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
-   "attachments": [],
+   "attachments": [
+    {
+     "kind": "started_by",
+     "manifest_id": "armada",
+     "target": "mock-02",
+     "state": "spent",
+     "since": "2026-11-08T09:00:00Z",
+     "changed_at": "2026-11-08T09:00:00Z"
+    }
+   ],
    "standing": "replied"
   },
   {
@@ -68,7 +103,18 @@
    "last_seen_at": "2026-11-08T21:40:00Z",
    "usage": {},
    "attachments": [],
-   "standing": "stuck"
+   "standing": "stuck",
+   "hosted": {
+    "turn": {
+     "state": "idle"
+    },
+    "mode": "auto",
+    "running": false,
+    "paused": {
+     "at": "2026-11-08T20:00:00Z",
+     "resuming": false
+    }
+   }
   },
   {
    "id": "mock-06",

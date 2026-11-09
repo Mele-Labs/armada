@@ -26,6 +26,11 @@ pub enum Verb {
     Press,
     /// A key, as gpui writes one (`j`, `enter`, `cmd-k`), sent to the screen.
     Key(&'static str),
+    /// A right press on the step's own target, before the target is ringed: the target is
+    /// what the press opens, so the press aims at `on`, a row's name.
+    RightPress(&'static str),
+    /// The pointer brought to rest on the target.
+    Hover,
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -75,6 +80,23 @@ pub static WALKS: &[Walk] = &[Walk {
         step("Enter opens the focused Job", Verb::Key("enter"), "row", "Fix the merge line freshness chip"),
         step("A press opens a Job too", Verb::Press, "row", "Checkout page loads twice"),
         step("Each project heads its own Jobs", Verb::Look, "heading", "sample-api"),
+        step(
+            "A Job another started stands under it, linked",
+            Verb::Look,
+            "row",
+            "Move Bridge's thread rows into Fleet, Linked Job, started by Native Bridge foundation in armada",
+        ),
+        step("Rest the pointer on a Job and its card opens beside it", Verb::Hover, "row", "Native Bridge foundation"),
+        step("A right press opens the Job's menu", Verb::RightPress("Audit the docs index"), "menuitem", "Pause"),
+        step("Esc shuts it", Verb::Key("escape"), "row", "Audit the docs index"),
+        step("⌥↓ moves the Job down past its neighbour", Verb::Key("alt-down"), "row", "Audit the docs index"),
+        step("Shift+F10 opens the menu from the keys", Verb::Key("shift-f10"), "menuitem", "Close"),
+        step("Esc shuts it again", Verb::Key("escape"), "row", "Audit the docs index"),
+        step("/ opens the Filter, the search field taking the keys", Verb::Key("/"), "searchbox", "Search Jobs"),
+        step("↓ goes to the scopes", Verb::Key("down"), "menuitemcheckbox", "Active"),
+        step("↓ again, to Paused", Verb::Key("down"), "menuitemcheckbox", "Paused"),
+        step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
+        step("The Filter stays lit while it narrows the list", Verb::Look, "button", "Filter: Paused"),
     ],
 }];
 

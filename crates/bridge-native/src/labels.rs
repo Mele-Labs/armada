@@ -31,6 +31,11 @@ pub fn role_named(word: &str) -> Option<Role> {
         "status" => Role::Status,
         "label" => Role::Label,
         "link" => Role::Link,
+        "menu" => Role::Menu,
+        "menuitem" => Role::MenuItem,
+        "menuitemcheckbox" => Role::MenuItemCheckBox,
+        "searchbox" => Role::SearchInput,
+        "img" => Role::Image,
         _ => return None,
     })
 }

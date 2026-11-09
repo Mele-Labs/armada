@@ -16,6 +16,7 @@
 mod assets;
 mod chrome;
 mod deep_link;
+mod dropdown;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
@@ -93,6 +94,7 @@ pub fn init_app(cx: &mut App) {
     gpui_component::init(cx);
     look::init(cx);
     walk::window::bind(cx);
+    jobs::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }

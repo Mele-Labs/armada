@@ -3,7 +3,7 @@
 
 use gpui::{
     point, AnyView, App, AppContext, Entity, FocusHandle, Keystroke, Modifiers, MouseButton, MouseDownEvent,
-    MouseUpEvent, PlatformInput, Window,
+    MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point, Window,
 };
 
 use super::{Screen, Step, Verb, Walk};
@@ -13,7 +13,15 @@ use crate::labels::{role_named, Drawn, LabelBook};
 /// The screen a walk plays on, fresh from its scenario.
 pub struct Stage {
     pub view: AnyView,
-    pub focus: FocusHandle,
+    pub focus: Focus,
+}
+
+/// Where a step's keys go: the screen's own focus, unless something drawn inside the screen, such
+/// as a menu it opened, holds them.
+#[derive(Clone)]
+pub struct Focus {
+    pub keys: FocusHandle,
+    pub within: FocusHandle,
 }
 
 impl Stage {
@@ -22,8 +30,8 @@ impl Stage {
             Screen::Jobs => {
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
-                let focus = list.read(cx).focus_handle().clone();
-                window.focus(&focus, cx);
+                let focus = Focus { keys: list.read(cx).focus_handle().clone(), within: list.read(cx).within().clone() };
+                window.focus(&focus.keys, cx);
                 let screen = cx.new(|_| JobsScreen { list });
                 Ok(Stage { view: screen.into(), focus })
             }
@@ -45,34 +53,48 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
 }
 
 /// Do what reaching `step` does. A press needs its target drawn first; a key goes to the screen.
-pub fn perform(step: &Step, focus: &FocusHandle, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
+pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
     match step.verb {
         Verb::Look => Ok(()),
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
-            window.focus(focus, cx);
+            if !focus.within.contains_focused(window, cx) {
+                window.focus(&focus.keys, cx);
+            }
             window.dispatch_keystroke(keystroke, cx);
             Ok(())
         }
         Verb::Press => {
-            let drawn = find(step, window, cx)?;
-            let at = drawn.bounds.center();
-            let at = point(at.x, at.y);
+            let at = find(step, window, cx)?.bounds.center();
+            press(MouseButton::Left, at, window, cx);
+            Ok(())
+        }
+        Verb::RightPress(on) => {
+            let role = role_named("row").expect("a row is a role");
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
+                .cloned()
+                .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
+            press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Hover => {
+            let at = find(step, window, cx)?.bounds.center();
             window.dispatch_event(
-                PlatformInput::MouseDown(MouseDownEvent {
-                    button: MouseButton::Left,
-                    position: at,
-                    modifiers: Modifiers::default(),
-                    click_count: 1,
-                    first_mouse: false,
-                }),
-                cx,
-            );
-            window.dispatch_event(
-                PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers: Modifiers::default(), click_count: 1 }),
+                PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: None, modifiers: Modifiers::default() }),
                 cx,
             );
             Ok(())
         }
     }
+}
+
+fn press(button: MouseButton, at: Point<Pixels>, window: &mut Window, cx: &mut App) {
+    let at = point(at.x, at.y);
+    window.dispatch_event(
+        PlatformInput::MouseDown(MouseDownEvent { button, position: at, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
+        cx,
+    );
+    window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button, position: at, modifiers: Modifiers::default(), click_count: 1 }), cx);
 }
