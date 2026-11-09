@@ -136,6 +136,11 @@ impl Layer {
         let view = window.viewport_size();
         let gap = look.length(token::SPACE_2);
         let bottom = self.bar_at.get().map_or(look.length(token::SPACE_12), |bar| view.height - bar.origin.y + gap);
+        // Placed in the window's own coordinates, inside the screen: below the title row, over its trailing edge.
+        let screen = self.area.get().unwrap_or(gpui::Bounds { origin: point(gpui::px(0.), gpui::px(0.)), size: view });
+        let below = cx.try_global::<crate::titlebar::TitleRow>().and_then(|row| row.0.get()).map_or(screen.origin.y, |row| row.origin.y + row.size.height);
+        let top = below + look.length(token::SPACE_3);
+        let right = view.width - screen.origin.x - screen.size.width + look.length(token::SPACE_3);
         let groups = self.listed();
         let listed_ids: Vec<u32> = groups.iter().flat_map(|(_, list)| list.iter().map(|note| note.id)).collect();
         let chosen = self.chosen_ids();
@@ -330,8 +335,8 @@ impl Layer {
                 .id("notes-panel")
                 .occlude()
                 .absolute()
-                .right(look.length(token::SPACE_3))
-                .top(look.length(token::SPACE_3))
+                .right(right)
+                .top(top)
                 .bottom(bottom)
                 .w(look.length(token::W_TOOLTIP) * 1.5)
                 .max_w(view.width - look.length(token::SPACE_6))

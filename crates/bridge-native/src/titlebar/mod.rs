@@ -140,7 +140,14 @@ struct Anchors {
     fleet: Rc<Cell<Option<Bounds<Pixels>>>>,
     select: Rc<Cell<Option<Bounds<Pixels>>>>,
     menu: Rc<Cell<Option<Bounds<Pixels>>>>,
+    row: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
+
+/// Where the title row was drawn last frame, for what sits below it to start under it.
+#[derive(Clone)]
+pub struct TitleRow(pub Rc<Cell<Option<Bounds<Pixels>>>>);
+
+impl Global for TitleRow {}
 
 pub struct TitleBar {
     pub face: Face,
@@ -196,6 +203,8 @@ impl TitleBar {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let face = cx.try_global::<scenes::Opening>().map_or_else(Face::bare, |opening| opening.0.clone());
         cx.set_global(Live(cx.entity().downgrade()));
+        let at = Anchors::default();
+        cx.set_global(TitleRow(Rc::clone(&at.row)));
         let me = cx.entity();
         let asked = cx.subscribe(&me, |_, _, asked: &Asked, cx| {
             if let Some(sink) = cx.try_global::<AskedSink>().cloned() {
@@ -213,7 +222,7 @@ impl TitleBar {
             keys_were: None,
             popup_focus: cx.focus_handle(),
             dialog_focus: cx.focus_handle(),
-            at: Anchors::default(),
+            at,
             before: None,
             details_open: false,
             width: None,
@@ -942,12 +951,15 @@ impl Render for TitleBar {
         let look = cx.look();
         let viewport = window.viewport_size();
         let narrow = self.narrow(window);
+        let row_at = Rc::clone(&self.at.row);
         let row = div()
             .id("title-row")
+            .relative()
             .flex_none()
             .flex()
             .items_center()
             .h(look.length(token::H_TITLE_BAR))
+            .child(canvas(move |bounds, _, _| row_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
             .px(look.length(token::SPACE_3))
             .gap(look.length(token::SPACE_4))
             .on_mouse_down(gpui::MouseButton::Left, |event, window, _cx| {

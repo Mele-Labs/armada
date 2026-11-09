@@ -117,9 +117,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Drag => {
             let bounds = find(step, window, cx)?.bounds;
-            let inset = bounds.size.width.min(bounds.size.height) * 0.15;
-            let from = point(bounds.origin.x + inset, bounds.origin.y + inset);
-            let to = point(bounds.origin.x + bounds.size.width - inset, bounds.origin.y + bounds.size.height - inset);
+            // From the element's top-left to 70% across and 85% down: a box of its own, whose top-right
+            // corner (where the pin stands) is clear of anything drawn at the element's edge, and whose
+            // card still opens below it.
+            let from = bounds.origin;
+            let to = point(bounds.origin.x + bounds.size.width * 0.7, bounds.origin.y + bounds.size.height * 0.85);
             let none = Modifiers::default();
             window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: from, pressed_button: None, modifiers: none }), cx);
             window.dispatch_event(
