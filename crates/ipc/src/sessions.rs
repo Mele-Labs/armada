@@ -1462,6 +1462,10 @@ pub struct SessionRecord {
     /// for one that has ended. Since 9 Nov 2026. `docs/practices/protocol/a-jobs-in-flight-list.md`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub in_flight: Vec<crate::InFlight>,
+    /// The state the Job's row in a Jobs list draws: mark, lamp and group, without words. Absent where
+    /// Fleet did not read one. Since 9 Nov 2026. `docs/practices/protocol/a-jobs-row-mark.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mark: Option<crate::JobMark>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

@@ -135,6 +135,13 @@ pub(crate) struct WaitingReads {
     rule_acts: Vec<store::KeptRuleAct>,
 }
 
+impl WaitingReads {
+    /// A Check of its own is running, and its thread holds a row: what the row's mark reads beside the record.
+    pub(crate) fn thread_facts(&self) -> (bool, bool) {
+        (self.checks_running, !self.rows.is_empty())
+    }
+}
+
 /// What [`Fleet::waiting_from`] read: the items, and how the Session stands.
 pub(crate) struct Waited {
     pub items: Vec<WaitingItem>,

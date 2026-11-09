@@ -40,6 +40,7 @@ import {
   pagesOpenedIn,
   cmuxBrowserIn,
   outsideBrowserOf,
+  planGroupIn,
   pullRequestsIn,
   pushIn,
   isOwnPush,
@@ -862,10 +863,17 @@ async function spawned(
   type: string,
   description: string,
   call?: string,
+  group?: string,
 ): Promise<void> {
   const [id] = await current($)
   // The call that started it: Fleet keys a hosted subagent's touches by it, the Field matches them to this row by it.
-  const detail = { type, description: description.slice(0, 80), ...(call === undefined || call === target ? {} : { call }) }
+  // The plan group its brief names, as written: Fleet resolves it against the plan.
+  const detail = {
+    type,
+    description: description.slice(0, 80),
+    ...(call === undefined || call === target ? {} : { call }),
+    ...(group === undefined ? {} : { group }),
+  }
   say($, id, { kind: 'attached', attachment: { kind: 'subagent', target, detail } })
 }
 
@@ -1534,7 +1542,7 @@ export const register: Register = on => {
     const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
-      void spawned($, target, e.subagentType, e.description, e.tool_use_id).catch(() => undefined)
+      void spawned($, target, e.subagentType, e.description, e.tool_use_id, planGroupIn(e.prompt)).catch(() => undefined)
       void current($)
         .then(([, one]) => {
           const use = { kind: 'subagent' as const, name: e.subagentType, ...(e.model === undefined ? {} : { model: e.model }), ...(e.parentAgentId === undefined ? {} : { by: e.parentAgentId }) }

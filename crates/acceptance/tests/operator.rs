@@ -146,54 +146,28 @@ async fn the_three_jobs_of_the_3_nov_report_end_as_one_job_or_as_jobs_kept_in_to
 // Stalls
 // ---------------------------------------------------------------------------
 
-/// One call, holding both stalls: Terminal Bugs has work left, and the review tabs'
-/// pull request fails on something only the person can settle.
-fn stalls_ruled() -> String {
-    format!(
-        "item: 1\nway: 1\nbecause: its plan is approved and the next task waits on nobody\n\n\
-         item: 2\nway: 2\nbecause: the failing check needs a signing key only the person holds"
-    )
-}
-
 #[tokio::test(start_paused = true)]
-async fn a_job_stopped_twice_with_tasks_left_has_the_rest_started_and_one_left_red_is_raised_with_its_read() {
-    let call = FakeCall::replying(vec![Reply::Says(stalls_ruled(), Duration::from_secs(4))]);
+async fn a_job_stopped_twice_with_tasks_left_and_one_left_red_are_each_only_raised_with_no_call() {
+    let call = FakeCall::replying(vec![]);
     let fleet = FakeFleet::with(live(), 100);
     let operator = operator(&call, &fleet);
-    let stopped = stall(TERMINAL, Quiet::Stopped { at: "2026-11-03T15:20:00.000Z".into() }, &["Keep the scrollback when the pane redraws, in terminal-pane.tsx", "Open terminals in a tab"]);
-    let red = stall(TABS, Quiet::Red { number: 3211, head: "4e5ff41acc".into(), failing: "notarize".into() }, &[]);
+    let stopped = stall(TERMINAL, Quiet::Stopped { at: "2026-11-03T15:20:00.000Z".into() }, &["Keep the scrollback when the pane redraws, in terminal-pane.tsx", "Open terminals in a tab"]).arrival();
+    let red = stall(TABS, Quiet::Red { number: 3211, head: "4e5ff41acc".into(), failing: "notarize".into() }, &[]).arrival();
+    assert_eq!((stopped.ways.clone(), red.ways.clone()), (vec![Way::Raise], vec![Way::Raise]), "a quiet Job is only raised, whatever it left");
 
-    let (stopped, red) = tokio::join!(operator.ruled(stopped.arrival(), NEEDS_YOU_WAIT), operator.ruled(red.arrival(), NEEDS_YOU_WAIT));
+    let (stopped, red) = tokio::join!(operator.ruled(stopped, NEEDS_YOU_WAIT), operator.ruled(red, NEEDS_YOU_WAIT));
 
-    // The call reads each Job's plan and tasks against what is left, and is offered only the ways
-    // a stall can go.
-    let asked = call.asked();
-    assert_eq!(asked.len(), 1, "both stalls in one call");
-    for part in [
-        "1. A Job stopped with work left",
-        "2. A Job left its pull request red",
-        "Left: Keep the scrollback when the pane redraws, in terminal-pane.tsx; Open terminals in a tab",
-        "Done: Find where the scrollback is dropped",
-        "#3211 failed its checks at 4e5ff41",
-        "The ways it is offered: 1. new job; 2. raise",
-    ] {
-        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
-    }
-
-    assert!(matches!(&stopped, Ruled::Ruled(ruling) if ruling.way == Way::NewJob), "{stopped:?}");
+    assert!(matches!(&stopped, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{stopped:?}");
     assert!(matches!(&red, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{red:?}");
-        assert_eq!(fleet.raised(), vec![(TABS.to_string(), "the failing check needs a signing key only the person holds".to_string())]);
-    assert_eq!(fleet.started_anew(), vec![TERMINAL.to_string()], "the rest starts as a Job of its own");
+    assert!(call.asked().is_empty(), "no call is made");
+    assert_eq!(fleet.raised().len(), 2);
     assert!(fleet.ended_into().is_empty());
-
-    // Each act is a row of the Log, signed by the Operator, as Fleet's.
     let log = fleet.log();
     assert_eq!(log.len(), 2, "{log:#?}");
-    let (started, raised) = (row(&log, TERMINAL), row(&log, TABS));
-    assert_eq!((started.arrived, started.outcome, started.by), (Arrived::Stopped, Outcome::Ruled(Way::NewJob), Actor::Operator));
-    assert_eq!((raised.arrived, raised.outcome, raised.by), (Arrived::Red, Outcome::Ruled(Way::Raise), Actor::Operator));
-    assert_eq!((started.source.clone(), started.subject.as_str()), (Source::Fleet, "Terminal Bugs"));
-    assert_eq!(started.call, raised.call, "ruled together");
+    let (stopped, red) = (row(&log, TERMINAL), row(&log, TABS));
+    assert_eq!((stopped.arrived, stopped.outcome, stopped.by), (Arrived::Stopped, Outcome::Ruled(Way::Raise), Actor::Operator));
+    assert_eq!((red.arrived, red.outcome, red.by), (Arrived::Red, Outcome::Ruled(Way::Raise), Actor::Operator));
+    assert_eq!((stopped.source.clone(), stopped.subject.as_str()), (Source::Fleet, "Terminal Bugs"));
 }
 
 #[tokio::test(start_paused = true)]

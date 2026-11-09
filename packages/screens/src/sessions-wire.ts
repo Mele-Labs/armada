@@ -742,6 +742,11 @@ export function attachmentsOfRecord(
             : {
                 call: detail["call"],
               }),
+          ...(detail["group"] === undefined || detail["group"] === ""
+            ? {}
+            : {
+                group: detail["group"],
+              }),
         });
         break;
       case "background": {

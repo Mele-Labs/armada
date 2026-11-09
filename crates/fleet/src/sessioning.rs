@@ -91,6 +91,8 @@ enum SubagentRow {
 }
 
 mod ledger;
+/// The state a Jobs-list row draws, on `SessionRecord::mark`.
+mod marking;
 mod shown;
 mod wire;
 
@@ -239,6 +241,10 @@ where
                     {
                         detail = crate::pull_requesting::dismissal_kept(detail, &held.detail);
                     }
+                }
+                // A subagent's brief named a plan group as the agent wrote it; the plan's id for it is kept.
+                if attachment.kind == "subagent" {
+                    detail = crate::plan_keeping::group_resolved(&store, &id, detail).map_err(fault)?;
                 }
                 if backed {
                     changed |= store

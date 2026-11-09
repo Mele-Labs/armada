@@ -11,8 +11,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::HostedSessions;
-use ipc::{Event, ManifestId, Notice, SessionRecord, SessionVoice, StartSession};
+use ipc::{Event, ManifestId, Notice, SessionRecord};
 use store::{AttachmentState, Holder, KeptAttachment, Store};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -26,7 +25,6 @@ use crate::session_host::replacing::REPLACED_BY;
 
 const ENDED: &str = "operator_ended";
 const MERGED: &str = "operator_merged";
-const OPERATOR: &str = "Operator";
 /// The most of anything one end lists: Later items, Needs you items and Jobs.
 const MOST_LISTED: usize = 6;
 /// The most of a Needs you item's words an end carries.
@@ -234,37 +232,6 @@ where
             arrival.words, ruling.because
         );
         let _ = self.told_by_fleet(into, &text, Notice::Operator).await;
-    }
-
-    /// The next piece of work an end or a merge was ruled to start, as a Job of its own, briefed with
-    /// what happened. The Job's id.
-    pub(super) async fn operator_started_next(self: &Arc<Self>, arrival: &Arrival, ruling: &Ruling) -> Option<String> {
-        let what = ruling.what.as_deref()?.trim();
-        let started = self
-            .start_session(StartSession {
-                manifest_id: ManifestId::carried(&arrival.manifest_id),
-                title: Some(cut(what.lines().next().unwrap_or(what), 120)),
-                model: None,
-                effort: None,
-                mode: None,
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await;
-        let record = started.ok()?;
-        let job = record.id.as_str().to_string();
-        let voice = SessionVoice::Session { id: OPERATOR.to_lowercase(), title: OPERATOR.to_string() };
-        let brief = format!("The Operator starts this as the next piece of work: {what}\n\nWhat happened: {}\n\nWhy: {}", arrival.words, ruling.because);
-        if self.first_message_from(&job, voice, &brief).await.is_err() {
-            let _ = self.closed_and_parked(ipc::CloseSession { session_id: record.id }).await;
-            return None;
-        }
-        Some(job)
     }
 
     /// The next piece of work an end or a merge was ruled to file, in the repository's beads. The issue.

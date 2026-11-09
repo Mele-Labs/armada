@@ -18,6 +18,7 @@ import { PatchStack, type PullRequestPatches } from "./PullRequestFiles";
 import { DiffSize, FileRows, PullRequestTabs, type PullRequestTabsProps } from "./PullRequestTabs";
 import type { FilesReach, ReachTest } from "./PullRequestReach";
 import { agoOf } from "./pull-request-format";
+import { scrollWithin } from "./scroll-within";
 
 export type { PullRequestPatch, PullRequestPatches } from "./PullRequestFiles";
 export type { PullRequestFixProps, PullRequestFixRun } from "./PullRequestFix";
@@ -358,9 +359,8 @@ export function PullRequestPanel(
       void (element === null ? sections.current.delete(path) : sections.current.set(path, element)),
     onFile: (path) => {
       setCurrent(path);
-      sections.current.get(path)?.scrollIntoView({
-        block: "start",
-      });
+      const section = sections.current.get(path);
+      if (section !== undefined) scrollWithin(section, "start");
     },
   });
 }

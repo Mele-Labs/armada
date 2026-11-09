@@ -154,6 +154,10 @@ export const KINDS: Readonly<
     label: "Document",
     Glyph: FileText,
   },
+  subagent: {
+    label: "Subagent",
+    Glyph: glyphOf("drone", "zap"),
+  },
   "pr-overview": {
     label: "Overview",
     Glyph: FileText,

@@ -164,6 +164,13 @@ export function titleOf(prompt: string): string | undefined {
   return flat.length > TITLE_MOST ? `${flat.slice(0, TITLE_MOST - 1)}…` : flat
 }
 
+/** The plan group a subagent's brief names on a `Plan group:` line, its id or title as written, or nothing. */
+export function planGroupIn(prompt: string): string | undefined {
+  const named = /^[\s*_>-]*plan group[*_]*:[*_]*\s*(.+)$/im.exec(prompt)?.[1]
+  const group = named?.replace(/[*_`]/g, '').trim()
+  return group === '' ? undefined : group
+}
+
 /**
  * The close of what a turn ended on, which Fleet reads for an ask and shows the first line of as the reply:
  * the last 1,500 characters from the start of a line, as Fleet keeps them for a hosted Session (`tail` in
