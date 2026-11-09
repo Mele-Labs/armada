@@ -313,7 +313,32 @@ const seed: OperatorSeed = {
     file: "decide",
   },
   pause: 80,
+  switched: [
+    {
+      on: true,
+      at: ago(100),
+    },
+    {
+      on: false,
+      at: ago(25 * 3600),
+    },
+  ],
   log: [
+    {
+      id: "log-sent",
+      at: ago(8),
+      by: "you",
+      from: dispatched,
+      item: "Show a placeholder in an empty lane",
+      did: "existing",
+      why: "",
+      names: [
+        {
+          ...job(legend),
+          as: "existing",
+        },
+      ],
+    },
     {
       id: "log-bug",
       at: ago(12),
@@ -374,6 +399,15 @@ const seed: OperatorSeed = {
       ways: [
         "Raise to me",
       ],
+    },
+    {
+      id: "log-console",
+      at: ago(26 * 3600),
+      from: from(console_),
+      item: "Keep the bays in one row?",
+      did: "answered",
+      what: "Keep one row",
+      why: "Its recommended option, and nothing you see changes",
     },
     {
       id: "log-answer",
