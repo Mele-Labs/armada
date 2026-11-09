@@ -1373,7 +1373,10 @@ function StateFacts({
             level === undefined ? [] : (readsAt(state, source, scope, workspace, true) ?? []);
           const shown = readsAt(state, source, scope, workspace) ?? [];
           return [
-            <dt key={`${source}:name`} id={`${id}-${at}`}>{`${source} statuses`}</dt>,
+            <dt
+              key={`${source}:name`}
+              id={`${id}-${at}`}
+            >{`${source.charAt(0).toUpperCase()}${source.slice(1)} statuses`}</dt>,
             <dd key={source}>
               <Wrapped
                 labelledBy={`${id}-${at}`}

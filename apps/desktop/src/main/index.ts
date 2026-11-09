@@ -39,7 +39,7 @@ import { StateSends } from "./state-sends";
 import { stagePng } from "./staging";
 import { FleetConnection } from "./connection";
 import { onCurrentBuild, PageReloads, pageAfterSwap } from "./page-reload";
-import { appMenuTemplate } from "./app-menu";
+import { APP_NAME, appMenuTemplate } from "./app-menu";
 import { canRevert, revertAsked } from "./revert-asked";
 import { machinePath } from "./runtime-file";
 import { handleTaps } from "./haptics";
@@ -130,13 +130,13 @@ import { isDevBuild } from "./dev-build";
  * `iconutil`, while the same iconset's PNG loads at 512×512. This line said
  * `AppIcon.icns` for a fortnight and the tile stayed Electron's the whole time.
  */
-const APP_ICON = join(__dirname, "AppIcon.png");
+const APP_ICON = join(__dirname, "ClassicIcon.png");
 /** What only a dev build turns on; `dev-build.ts` says why `app.isPackaged` alone is not it. */
 const DEV_BUILD = isDevBuild(app.isPackaged, process.defaultApp);
 
 /**
  * Wear the mark. **Runtime, not packaging** — `BrowserWindow`'s `icon` option
- * is ignored on macOS, and a packaged `Armada.app` already carries the `.icns`
+ * is ignored on macOS, and a packaged `Armada Classic.app` already carries the `.icns`
  * through its own `Info.plist`. This is what makes the dock tile right when
  * Bridge is run unpackaged, which is how it is run all day: `electron-vite
  * preview` launches Electron's own bundle, and that bundle's icon is
@@ -479,7 +479,7 @@ function menuFollows(): void {
   menuRevert = enabled;
   Menu.setApplicationMenu(
     Menu.buildFromTemplate(
-      appMenuTemplate(app.name, {
+      appMenuTemplate(APP_NAME, {
         enabled,
         click: () => void askToRevert(),
       }),
@@ -1336,6 +1336,16 @@ void app.whenReady().then(() => {
               ok: true,
             }
           : sent.outcome;
+    },
+    openNative: async (body) => {
+      const opened = await connection?.sessions.openNativeWalk(body);
+      return opened === undefined
+        ? UNSENT
+        : opened.ok
+          ? {
+              ok: true,
+            }
+          : opened.outcome;
     },
   });
   // A Studio node's own address, `openPullRequest`'s reason: read here off the

@@ -60,7 +60,7 @@ export const WithHeader: Story = {
   render: () => (
     <Card>
       <CardHeader>
-        <span className="caps">Evidence</span>
+        <span>Evidence</span>
         <Badge status="awaiting-review" icon={Eye}>
           Needs review
         </Badge>
@@ -91,7 +91,7 @@ export const WithHeader: Story = {
   ),
 };
 
-/** The legend strip: 24px, the title in tracked caps, a mono readout and a ghost icon button at the end, one hairline under it. */
+/** The legend strip: 24px, the title, a mono readout and a ghost icon button at the end, one hairline under it. */
 export const LegendStrip: Story = {
   render: () => (
     <Card>

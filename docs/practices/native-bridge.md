@@ -43,6 +43,24 @@ Every screen goes through the same four steps, in order.
 
 **Nothing he sees lands before his walk.**
 
+## Native walks
+
+A native walk is a screen on mock data in its own window with a walk bar.
+Its steps and scenario live in `crates/bridge-native/src/walk/`, and each step aims at a `{role, name}` that `labels::labelled` put on.
+
+| Step | What to do |
+|---|---|
+| Build | `cargo build` in `crates/bridge-native`, in the Job's own slot |
+| Play it first | `bridge-native --walk <name> --check`, which exits 1 naming the first step it could not play. `--shots <dir>` writes each step as a picture, which is how a Job looks at a native screen |
+| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps` |
+| He opens it | He presses Open on the Job's tab. Fleet starts the slot's own build, and refuses a build older than the slot's HEAD |
+
+**The check never opens a window, and Fleet never starts a walk he did not open.**
+
+**A walk talks to Fleet on three routes only**: the message that carries Approve, the note, and the window closed.
+It skips the protocol check, because a Job's branch may change the wire and its own walk must still reach his Fleet.
+Fleet pins those three request shapes in `crates/fleet/src/tests/native_walk.rs`, so a change to one fails there.
+
 ## Labels
 
 **Every element he can press, read or focus carries a role and a name.**
@@ -57,11 +75,21 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 
 | Rule | Detail |
 |---|---|
-| One native build at a time | gpui and Chrome are large builds on a Mac that also runs Fleet |
-| A heavy cold build | If the foundation measures one, only one native build Job runs at a time |
-| The second slot then | Takes Fleet or docs work |
+| A native build | Runs like any other Rust build Job: a cold one is about a minute and 2 GB, measured in [the feel spike](../spikes/native-bridge-feel.md) |
+| A build with Chrome in it | Measured heavier in [the Chrome spike](../spikes/native-bridge-chrome.md): look again before two run at once |
 | Tests | Only through `armada check test <name>` or `--changed` |
 | Formatting | Never `rustfmt` or `cargo fmt` |
+
+## What gpui cannot match
+
+**A screen is drawn as Electron draws it, and these are the known gaps.**
+Say the ones a screen shows in the brief of its walk.
+A native walk is shown alone, never with the Electron screen in a second tab: he opens Electron himself to compare (9 Nov 2026).
+
+| Gap | Where it shows | Why |
+|---|---|---|
+| No letter-spacing | The Jobs list's group heads, set at 0.18em in Electron | gpui's text style has no tracking |
+| No weight 600 in Plex Mono | The same heads, which ask for 600 | `packages/tokens/fonts` ships Mono at 400 and 500, and a browser fakes the bold where gpui does not |
 
 ## The overlap rule
 
@@ -72,8 +100,3 @@ Electron takes only fixes and small features that help the owner daily.
 
 **A long thread opens, and a Job switch lands, in under 50 ms.**
 The figures tune the build and gate nothing.
-
-## Open questions
-
-- **[native-cold-build-weight]** Is a cold native build heavy enough to limit native build Jobs to one at a time?
-  The foundation measures it. Until then the one-build-at-a-time rule above holds.

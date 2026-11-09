@@ -1163,6 +1163,20 @@ export type WindowClosed = {
 };
 
 /**
+ * `POST /sessions/window/open`: the person pressed Open on a native walk (`armada://walk/<name>`) the
+ * Job showed. Fleet starts the Job's own build of the native app in walk mode.
+ */
+export type OpenNativeWalk = {
+  session_id: string;
+  url: string;
+};
+
+/** What it answers: `started` is false where the app was already running. */
+export type NativeWalkOpened = {
+  started: boolean;
+};
+
+/**
  * `POST /sessions/window/failed`: the window a session showed could not show its page. Fleet tells the
  * session in its own voice; the walk stays open.
  */

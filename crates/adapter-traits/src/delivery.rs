@@ -296,6 +296,10 @@ pub trait Delivery: Forge {
     /// for is the caller's to have limited**: this reads any path it is given.
     fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String>;
 
+    /// When the commit at `HEAD` in `in_repo` was made, in seconds since the epoch, or `None` where
+    /// it cannot be read. **Reads only.** A build is older than the work when it predates this.
+    fn head_committed_at(&self, in_repo: &str) -> Option<i64>;
+
     /// Whether an edit to the Manifest at `file` can go out as a pull request:
     /// `in_repo` is a repository with an `origin`, and the file is tracked and
     /// not ignored there. **False sends the edit to the file on disk.**

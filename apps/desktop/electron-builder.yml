@@ -1,4 +1,4 @@
-# What a built Armada.app is, and why each line is here.
+# What a built Armada Classic.app is, and why each line is here.
 #
 # **This exists so the app says its own name.** macOS reads the dock and the
 # app switcher from `CFBundleName` in the bundle it launched, and an unpackaged
@@ -9,7 +9,7 @@
 # the unpackaged Bridge the owner runs: a renamed, ad hoc signed copy of
 # Electron's bundle, handed over as `ELECTRON_EXEC_PATH`.
 appId: dev.armada.bridge
-productName: Armada
+productName: Armada Classic
 
 directories:
   # Not `dist/` — that is already ignored repository-wide for JavaScript
@@ -64,7 +64,7 @@ mac:
   # The `.icns` here rather than the PNG the dock tile reads at runtime:
   # `Info.plist` is the reader for a packaged bundle, and it handles the format
   # `nativeImage` does not. Both come out of `packages/brand`.
-  icon: ../../packages/brand/macos/AppIcon.icns
+  icon: ../../packages/brand/macos/ClassicIcon.icns
   category: public.app-category.developer-tools
   # A bundle, not an installer. There is no distribution yet, and a `.dmg`
   # target would be a channel nobody ships through — `dmg` is one word away

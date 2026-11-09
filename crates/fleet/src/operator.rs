@@ -77,7 +77,7 @@ pub use sources::{BridgeError, Filed, Handed, NewIssue, Note, RedMain, Report, R
 pub(crate) use sourcing::Sources;
 pub(crate) use stalling::{seen_of, Stalls};
 pub use stalls::{Quiet, Stall};
-pub use talking::{Board, EndedJob, HeldJob, LogRead, NeedsYou, Repository, StoppedJob, TalkFailed, TalkLine, Talked};
+pub use talking::{Board, EndedJob, HeldJob, JobRead, LogRead, NeedsYou, Repository, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked};
 pub(crate) use suggesting::{reads_shown, suggestion_items, SKIP};
 
 /// How long a Job's first write waits for the ruling on its start.
@@ -123,6 +123,10 @@ pub trait Desk: Send + Sync {
     /// What the box may answer from.
     fn board(&self) -> Done<'_, Board> {
         Box::pin(async { Board::default() })
+    }
+    /// The open tasks and last words of the newest of `live`, which a message to the box is handed.
+    fn jobs_read(&self, _live: &[LiveJob]) -> Done<'_, Vec<talking::JobRead>> {
+        Box::pin(async { Vec::new() })
     }
     /// The board changed: an arrival came, went into a call, was ruled, or was reordered.
     fn board_changed(&self) {}

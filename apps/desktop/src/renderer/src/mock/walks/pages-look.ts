@@ -1,4 +1,4 @@
-// Studios, Doctor and the System pages in Bridge's look: a page title, panels with a tracked caps head and hairlines,
+// Studios, Doctor and the System pages in Bridge's look: a page title, panels with a sentence-case head and hairlines,
 // the Cockpit's frame. A design mock: nothing here asserts a colour or a size.
 
 import { button, systemPage, toSystemPage, viaPalette, walk } from "../walk";

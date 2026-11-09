@@ -28,7 +28,7 @@ There is one ladder now, and the Cockpit has no carve-out.
 --text-2xl   28px / 36px   the rare hero number
 ```
 
-The look's roles agree with it: `--text-row` is `--text-xs`, `--size-meta` is `--text-2xs`, and a panel header and a title-bar place are `--text-xs` at 600 in tracked caps.
+The look's roles agree with it: `--text-row` is `--text-xs`, `--size-meta` is `--text-2xs`, and a panel header and a title-bar place are `--text-xs` at 600 in sentence case.
 The steps above `--text-base` did not move.
 The heights that hold the text moved with it, and `tokens/spacing.css` is the authority on each one.
 

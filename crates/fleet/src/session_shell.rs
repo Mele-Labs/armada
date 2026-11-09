@@ -40,7 +40,7 @@ struct Kept {
 
 /// Signal the whole group with `kill`, which takes `-<pgid>`: the gate lists the few places that
 /// speak `unsafe`, and this is not one of them.
-fn signal(pgid: u32, signal: &str) {
+pub(crate) fn signal(pgid: u32, signal: &str) {
     let _ = std::process::Command::new("/bin/kill")
         .args(["-s", signal, "--", &format!("-{pgid}")])
         .stdout(Stdio::null())

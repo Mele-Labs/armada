@@ -301,13 +301,10 @@
 
 /* ---- shared furniture --------------------------------------------------- */
 
-/* The label above a region. ALL CAPS at --tracking-caps, which is what the
-   drawing draws for every one of them. */
+/* The label above a region, in sentence case like every label. */
 .armada-screen__eyebrow {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
   color: var(--fg-subtle);
 }
 

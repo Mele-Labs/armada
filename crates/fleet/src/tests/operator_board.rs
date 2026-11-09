@@ -245,7 +245,7 @@ async fn a_message_about_an_item_hands_the_call_its_title_and_text_and_is_kept_w
 
     let asked = board.call.asked_of(true);
     assert!(asked[0].contains("The person is talking about this item: question \"Delete the cache?\" (question:third), not yet ruled. Its words: The third words"), "{}", asked[0]);
-    assert!(!asked[1].contains("talking about this item"), "an id it cannot find adds nothing");
+    assert!(!asked[1].contains("talking about this item") && asked[1].contains("talking about item question:nobody, which is no longer on the board"), "an id it cannot find is said");
     let talk = board.rig.fleet.operator_talk_wire().await.expect("read");
     assert_eq!(talk.lines.iter().map(|one| one.about.as_deref()).collect::<Vec<_>>(), [Some("question:third"), Some("question:third"), Some("question:nobody"), Some("question:nobody")]);
 }

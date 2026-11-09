@@ -32,6 +32,8 @@ that drone."*
 | The filter reading *All 6* over six drawn rows, against the standing rule on aggregate counts | **The number goes** from the trigger; the menu's counts stay, since those rows are not drawn. Record's filter, which the Drones one copied, lost its number the same way at wrap-up | Nothing |
 | Card heads in capitals (DRONE, ARMADA), as his sketch drew, against a contract that allowed ALL CAPS on table headers alone | **The contract gives way**: an eyebrow, the small label that heads a section or card, may be ALL CAPS too — `design-system.md`, Prose rules | A second place capitals are legal |
 
+**Reversed 9 Nov 2026.** The owner ruled caps out everywhere ("Stop using caps", then "Everywhere"): an eyebrow is sentence case like every label, and `design-system/voice-copy.md` allows no ALL CAPS.
+
 The order answer is [[2026-09-22-the-rail-is-a-choice]] again: offered two orders
 to pick between, he gave the person the control instead.
 

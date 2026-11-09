@@ -242,3 +242,166 @@ async fn a_job_that_ended_today_is_shown_to_the_box_with_what_it_said_and_who_st
     let board = rig.fleet.operator_board().await;
     assert_eq!(board.ended.len(), 1, "{:?}", board.ended);
 }
+
+/// A suggestion no Job holds, as a pull request merging leaves one.
+fn suggestion(text: &str) -> store::KeptSuggestion {
+    store::KeptSuggestion {
+        n: 0,
+        arrival: "merged:42".into(),
+        arrived: "merged".into(),
+        way: "file".into(),
+        session_id: String::new(),
+        manifest_id: String::new(),
+        subject: "Pull request 42".into(),
+        words: String::new(),
+        group: None,
+        other_session: None,
+        shared: Vec::new(),
+        first_session: None,
+        step: None,
+        item: None,
+        pick: None,
+        because: "nothing else covers it".into(),
+        what: None,
+        text: text.into(),
+        raised_at: "2026-11-09T09:00:00.000Z".into(),
+    }
+}
+
+const MERGED_TEXT: &str = "The Operator would file \"Document the retry cap\" as a new issue now that #42 merged: nothing else covers it";
+
+#[tokio::test]
+async fn discussing_a_suggestion_no_job_holds_hands_the_call_its_full_text_and_lists_it_among_those_waiting() {
+    let rig = rig_placing(None);
+    let first = reply("none", "It would file an issue.");
+    let call = seated(&rig, &[&first]).await;
+    let n = {
+        let mut store = rig.fleet.store().lock().await;
+        store.keep_operator_suggestion(&suggestion(MERGED_TEXT)).expect("kept");
+        store.operator_suggestions_of("").expect("read")[0].n
+    };
+    let id = format!("suggestion:{n}");
+
+    rig.fleet.operator_talked("what is this?", Some(&id)).await.expect("answered");
+
+    let asked = call.asked();
+    let listed = asked[0].split("\nYour suggestions, waiting on the person to press Do it or Skip:\n").nth(1).expect("a section of its own").split("\n\n").next().expect("a section");
+    assert_eq!(listed, format!("  {id}: {MERGED_TEXT}"), "{}", asked[0]);
+    assert!(
+        asked[0].contains(&format!("The person is talking about this item: your suggestion ({id}), waiting on the person to press Do it or Skip: {MERGED_TEXT}")),
+        "{}",
+        asked[0]
+    );
+}
+
+#[tokio::test]
+async fn a_settled_suggestion_is_no_longer_on_the_board_and_is_not_listed() {
+    let rig = rig_placing(None);
+    let first = reply("none", "It is settled.");
+    let call = seated(&rig, &[&first]).await;
+    let n = {
+        let mut store = rig.fleet.store().lock().await;
+        store.keep_operator_suggestion(&suggestion(MERGED_TEXT)).expect("kept");
+        let n = store.operator_suggestions_of("").expect("read")[0].n;
+        assert!(store.settle_operator_suggestion(n, false, "2026-11-09T10:00:00.000Z").expect("settled"));
+        n
+    };
+
+    rig.fleet.operator_talked("and this?", Some(&format!("suggestion:{n}"))).await.expect("answered");
+
+    let asked = call.asked();
+    assert!(asked[0].contains(&format!("The person is talking about item suggestion:{n}, which is no longer on the board.")), "{}", asked[0]);
+    assert!(!asked[0].contains(MERGED_TEXT), "{}", asked[0]);
+}
+
+#[tokio::test]
+async fn an_item_that_names_nothing_is_said_to_the_call_and_not_dropped() {
+    let rig = rig_placing(None);
+    let first = reply("none", "I cannot find it.");
+    let call = seated(&rig, &[&first]).await;
+
+    rig.fleet.operator_talked("what about this one?", Some("suggestion:9999")).await.expect("answered");
+
+    let asked = call.asked();
+    assert!(asked[0].contains("\nThe person is talking about item suggestion:9999, which is no longer on the board.\n  Person: what about this one?"), "{}", asked[0]);
+}
+
+#[tokio::test]
+async fn discussing_a_jobs_needs_you_item_hands_the_call_that_item_and_ties_it_to_the_job_it_is_on() {
+    let rig = rig_placing(None);
+    let first = reply("none", "It asks whether to land.");
+    let call = seated(&rig, &[&first]).await;
+    let job = rig.start().await;
+    rig.send(&job, "cap the retries").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "The cap is five.\n\nWant me to land it?");
+    let fleet = Arc::clone(&rig.fleet);
+    eventually(|| {
+        let fleet = Arc::clone(&fleet);
+        async move { !fleet.operator_board().await.needs_you.is_empty() }
+    })
+    .await;
+    let item = rig.fleet.operator_board().await.needs_you.remove(0);
+
+    rig.fleet.operator_talked("what does it ask?", Some(&item.id)).await.expect("answered");
+
+    let asked = call.asked();
+    assert!(
+        asked[0].contains(&format!("The person is talking about this item: Job {} \"{}\", waiting on the person ({}): {}", item.session_id, item.title, item.id, item.text)),
+        "{}",
+        asked[0]
+    );
+    assert!(item.text.contains("Want me to land it?"), "{}", item.text);
+    let live = asked[0].split("\nLive Jobs:\n").nth(1).expect("a section").split("\n\n").next().expect("a section");
+    assert!(live.contains(&format!("    Asking the person: Item {}, written in full under Waiting on the person", item.id)), "{live}");
+}
+
+#[tokio::test]
+async fn a_live_jobs_open_tasks_and_last_words_are_handed_to_the_call_and_bounded() {
+    let rig = rig_placing(None);
+    let first = reply("none", "It is busy.");
+    let call = seated(&rig, &[&first]).await;
+    let job = asked(&rig, "Build the console").await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let task = |at: usize, status: &str| store::KeptTask {
+            id: format!("t{at}"),
+            text: format!("Task number {at}"),
+            status: status.into(),
+            first_seen_at: "2026-11-09T09:00:00.000Z".into(),
+            completed_at: None,
+            edited: false,
+            made_by: None,
+        };
+        let mut tasks: Vec<store::KeptTask> = (1..=9).map(|at| task(at, "pending")).collect();
+        tasks.push(task(10, "completed"));
+        store.keep_session_build_tasks(job.as_str(), &tasks).expect("kept");
+        for at in 1..=5 {
+            let row = ipc::SessionRow::Message {
+                id: format!("said-{at}"),
+                at: ipc::Instant::carried("2026-11-09T09:00:00.000Z"),
+                from: ipc::SessionVoice::Agent,
+                text: format!("Said {at}: {}", "word ".repeat(300)),
+                files: Vec::new(),
+                tags: Vec::new(),
+                notice: None,
+                queued: false,
+            };
+            store.keep_session_row(job.as_str(), row.id(), &ipc::encode(&row).expect("a row")).expect("kept");
+        }
+    }
+
+    rig.fleet.operator_talked("what is it doing?", None).await.expect("answered");
+
+    let asked = call.asked();
+    let live = asked[0].split("\nLive Jobs:\n").nth(1).expect("a section").split("\n\n").next().expect("a section");
+    assert!(live.contains("    Tasks still open: Task number 1; Task number 2; Task number 3; Task number 4; Task number 5; Task number 6\n"), "{live}");
+    assert!(!live.contains("Task number 7") && !live.contains("Task number 10"), "{live}");
+    let said: Vec<&str> = live.lines().filter(|line| line.starts_with("    Its agent said: ")).collect();
+    assert_eq!(said.len(), 3, "{live}");
+    assert!(said[0].contains("Said 3:") && said[2].contains("Said 5:"), "the last three, oldest first: {live}");
+    for line in said {
+        assert!(line.chars().count() <= "    Its agent said: ".len() + 403, "a line is cut: {}", line.chars().count());
+        assert!(line.ends_with("..."), "{line}");
+    }
+}

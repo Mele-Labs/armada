@@ -396,6 +396,7 @@ where
             rehearsals: crate::rehearsing::Rehearsals::default(),
             watches: crate::watches::Watches::default(),
             servers: crate::servers::Servers::default(),
+            native_walks: crate::native_walks::NativeWalks::default(),
             peers: fittings.peers,
             requests: fittings.requests,
             merge_end: Mutex::new(()),

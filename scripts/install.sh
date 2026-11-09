@@ -4,9 +4,11 @@
 #
 #   curl -fsSL https://github.com/Mele-Labs/armada/releases/latest/download/install.sh | sh
 #
-# Puts Armada.app in /Applications (or ~/Applications when that is not
-# writable), starts Fleet from the `armada` inside it under launchd, and opens
-# the app. The `release` job in `.github/workflows/checks.yml` attaches this file to every release.
+# Puts two apps in /Applications (or ~/Applications when that is not writable):
+# `Armada.app`, the native Bridge, with Fleet inside it, and `Armada Classic.app`,
+# the Electron one. Starts Fleet from the `armada` in `Armada.app` under launchd,
+# and opens both. The `release` job in `.github/workflows/checks.yml` attaches
+# this file to every release.
 #
 # **Downloaded with curl, so nothing is quarantined.** macOS quarantines what a
 # browser downloads, and an ad hoc signed app with that flag set is refused
@@ -59,6 +61,7 @@ fi
 if [ -w /Applications ]; then apps=/Applications; else apps="$home/Applications"; fi
 mkdir -p "$apps"
 app="$apps/Armada.app"
+classic="$apps/Armada Classic.app"
 armada="$app/Contents/Resources/bin/armada"
 
 tmp=$(mktemp -d)
@@ -67,16 +70,21 @@ trap 'rm -rf "$tmp"' EXIT
 say "Downloading Armada"
 curl -fL --progress-bar -o "$tmp/Armada.zip" "$url" || fail "could not download $url"
 ditto -x -k "$tmp/Armada.zip" "$tmp" || fail "the download is not a readable zip"
-[ -x "$tmp/Armada.app/Contents/Resources/bin/armada" ] || fail "the download holds no Fleet: $url"
+[ -x "$tmp/Armada.app/Contents/Resources/bin/armada" ] || fail "the download holds no Fleet in Armada.app: $url"
+[ -d "$tmp/Armada Classic.app" ] || fail "the download holds no Armada Classic.app, so it is a release from before there were two apps: $url"
 read -r version _ < "$tmp/Armada.app/Contents/Resources/version" || version=unknown
 
-# The app is closed before it is replaced. Fleet stops below, and a working
+# Both apps are closed before they are replaced. Fleet stops below, and a working
 # Drone is not adopted the way an update from inside the app adopts it.
 osascript -e 'quit app "Armada"' >/dev/null 2>&1 || true
+osascript -e 'quit app "Armada Classic"' >/dev/null 2>&1 || true
 
+# An `Armada.app` already there, whether the native one or the Electron app this
+# name had before, is replaced. Nothing else in `$apps` is touched.
 say "Installing Armada $version into $apps"
-rm -rf "$app"
+rm -rf "$app" "$classic"
 mv "$tmp/Armada.app" "$app"
+mv "$tmp/Armada Classic.app" "$classic"
 
 # **`armada` on a terminal's path**, for a Job run there: `~/.local/bin` is on every Job's `PATH`
 # and where the agent CLI puts its own program. Only a missing file or an earlier link is
@@ -132,5 +140,7 @@ while launchctl print "$domain/$label" >/dev/null 2>&1; do
 done
 launchctl bootstrap "$domain" "$plist" || fail "launchd would not start Fleet from $plist; its log is $log"
 
+# Classic is the one for daily use. The native app opens beside it, to show it runs on this Mac.
 open "$app"
+open "$classic"
 say "Armada $version is installed"

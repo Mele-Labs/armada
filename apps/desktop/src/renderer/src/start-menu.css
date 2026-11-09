@@ -90,8 +90,6 @@
   font-size: calc(var(--text-2xl) * 2.4);
   line-height: 1;
   font-weight: var(--weight-heading);
-  letter-spacing: calc(var(--tracking-caps) * 10);
-  text-transform: uppercase;
   color: var(--fg-default);
 }
 .armada-start .armada-start__orders {
@@ -138,8 +136,6 @@
   font-size: var(--text-sm);
   line-height: var(--leading-sm);
   font-weight: var(--weight-medium);
-  letter-spacing: calc(var(--tracking-caps) * 2);
-  text-transform: uppercase;
 }
 .armada-start__brief {
   margin: 0;

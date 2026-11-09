@@ -194,6 +194,42 @@
   background: var(--bg-raised);
 }
 
+/* A native walk's tab: the walk's name, the Job's brief and Open. The walk itself plays in the native app's own window. */
+.job-walk__native {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  max-width: calc(var(--space-8) * 20);
+}
+
+.job-walk__native-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-heading);
+  color: var(--fg-default);
+}
+
+.job-walk__native-brief {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+}
+
+.job-walk__native-act {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.job-walk__native-said {
+  font-size: var(--text-sm);
+  color: var(--fg-muted);
+}
+
 .job-walk__picture {
   position: absolute;
   inset: 0;

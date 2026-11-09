@@ -2,7 +2,7 @@
 
      a title row      a page title in the title face, its page acts at the far end
      panels           the Cockpit's frame: a raised solid fill, a hairline, the rest shadow, 8px
-     a section head   small tracked caps over a solid hairline
+     a section head   a small label over a solid hairline
      items            rows and cells on hairlines; the pointer is one flat step, a pick is a wash and a 2px bar
 
    The same rules as `depth.css` and nothing the theme has not already got: no colour is named here, no gradient, no
@@ -33,15 +33,13 @@
   box-shadow: var(--shadow-rest);
 }
 
-/* A section head inside a panel: tracked caps, one solid hairline under it. */
+/* A section head inside a panel: a small label, one solid hairline under it. */
 :root[data-look="new"] :is(.armada-lesson__fix-label) {
   color: var(--fg-muted);
   font-family: var(--font-display);
   font-size: var(--text-head);
   line-height: var(--leading-head);
   font-weight: var(--weight-head);
-  letter-spacing: var(--tracking-head);
-  text-transform: uppercase;
 }
 
 /* ================================================================ Retros ===================================== */
@@ -138,8 +136,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-head);
-  letter-spacing: var(--tracking-head);
-  text-transform: uppercase;
 }
 :root[data-look="new"] .armada-lesson > .armada-retro__cites .armada-retro__cite {
   font-family: var(--font-mono);
@@ -458,7 +454,7 @@
   box-shadow: inset var(--bar) 0 0 var(--hue);
 }
 
-/* What nothing probes yet: a panel of its own with a caps head. */
+/* What nothing probes yet: a panel of its own with a head. */
 :root[data-look="new"] .armada-doctor__gaps {
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
@@ -485,8 +481,6 @@
   font-size: var(--text-head);
   line-height: var(--leading-head);
   font-weight: var(--weight-head);
-  letter-spacing: var(--tracking-head);
-  text-transform: uppercase;
 }
 /* A figure beside what it counts is not drawn. */
 :root[data-look="new"] :is(.armada-guides__count, .armada-settings-index__count) {

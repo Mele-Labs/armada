@@ -21,7 +21,7 @@ export type TipHue = Hue | "quiet" | "good";
 type Tone = "calm" | "ask" | "bad" | "good";
 
 export type Tip = {
-  /** The kind, in small caps: Session, Main, Bay. */
+  /** The kind, in sentence case: Session, Main, Bay. */
   label: string;
   title: string;
   hue: TipHue;
@@ -101,7 +101,7 @@ export type GoalIn = {
   red: boolean;
 };
 
-/** What a drone's card names in small caps: a Job's kind, or for a subagent the Job it works for. */
+/** What a drone's card names in sentence case: a Job's kind, or for a subagent the Job it works for. */
 export const droneLabel = (drone: Pick<DroneIn, "job">): string => drone.job ?? "Job";
 
 export const droneTip = (

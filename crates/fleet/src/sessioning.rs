@@ -31,6 +31,9 @@ use crate::session_host::asking_in_window::origin_of;
 use crate::slot_holders::{pool_backs, stand_in_slot};
 use crate::timeline::{Doer, FileAct};
 
+/// A native walk's address or what it was passed is refused: a 422.
+const NATIVE_WALK_REFUSED: &str = "fleet.native_walk_refused";
+
 /// What a session's row reads from the store, taken under the lock.
 pub(crate) struct LedgerReads {
     held: Vec<KeptAttachment>,
@@ -616,7 +619,15 @@ where
         show: ipc::ShowWindow,
     ) -> Result<SessionRecord, Refusal> {
         let url = show.url.trim().to_string();
-        if !shows_a_page(&url) {
+        let native = crate::native_walks::walk_name(&url).is_some();
+        if let Some(why) = crate::native_walks::address_problem(&url) {
+            return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
+        }
+        if native {
+            if let Some(why) = crate::native_walks::takes_no(&show) {
+                return Err(self.hosted_refusal(NATIVE_WALK_REFUSED, why));
+            }
+        } else if !shows_a_page(&url) {
             return Err(self.ledger_unnamed("an `http` or `https` address to show"));
         }
         let variations = takes_shown(&url, show.variations).map_err(|what| self.ledger_unnamed(what))?;
@@ -719,6 +730,10 @@ where
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
         Ok(record)
+    }
+
+    async fn open_native_walk(&self, open: ipc::OpenNativeWalk) -> Result<ipc::NativeWalkOpened, Refusal> {
+        self.native_walk_opened(open).await
     }
 
     async fn take_window_sign_in(&self, take: ipc::TakeWindowSignIn) -> Result<ipc::WindowSignIn, Refusal> {

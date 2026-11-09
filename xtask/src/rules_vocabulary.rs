@@ -57,6 +57,10 @@ const WRITE: &str = "pnpm --filter @armada/desktop codegen";
 const REQUIRED: &[&str] = &[
     "packages/components/src/generated/vocabulary.ts",
     "packages/components/src/generated/actions.ts",
+    // The native Bridge reads the same registries, and a stale copy of it is as wrong as a stale
+    // TypeScript one.
+    "crates/bridge-native/src/generated/vocabulary.rs",
+    "crates/bridge-native/src/generated/actions.rs",
 ];
 
 /// Rule: the generated vocabulary says what the registries say.

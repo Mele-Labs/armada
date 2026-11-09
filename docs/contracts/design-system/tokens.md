@@ -67,7 +67,7 @@ menu, popover, palette, inspect card, combobox list
                --bg-overlay, edge 0.12, --shadow-overlay
 ```
 
-The header is the tracked-caps title with its hairline rule. Inside a sheet a row, tile, field or select is a
+The header is the sentence-case title with its hairline rule. Inside a sheet a row, tile, field or select is a
 chip: `--fg-default` at 8% over the sheet, a 10% edge, 13% under the pointer. On Dark `--fg-muted` and
 `--fg-subtle` are lifted (`#B3BFCE`, `#94A3B6`) so that `--fg-subtle` holds 4.5:1 on a sheet, a chip and the Needs
 you body (4.54 at the lowest), and `--fg-muted` 4.7:1 on a selected row; another theme keeps its own text tokens.
@@ -116,7 +116,7 @@ The keyboard cursor is the hover step and a hairline. Hover is one flat backgrou
 `--bg-step`. **A row never lifts, moves or grows a shadow under the pointer**; only a card that is itself a
 control rises one pixel. An active segment of a tab strip is a solid step over its track with a hairline.
 
-**A panel header has no icon.** It is the legend strip: 24px, small tracked caps over one hairline, with a mono readout, the panel's ghost icon buttons and a keycap at the far end (spacing-and-shape.md).
+**A panel header has no icon.** It is the legend strip: 24px, a small sentence-case label over one hairline, with a mono readout, the panel's ghost icon buttons and a keycap at the far end (spacing-and-shape.md).
 **Look tokens in `takes.css` for the console:** `--bezel`, `--legend-h`, `--radius-floor`, `--radius-bezel`, `--radius-inset`, `--select-edge`, `--select-frame`, `--select-ground` and `--lamp`.
 A count is never drawn beside what it counts.
 

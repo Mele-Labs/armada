@@ -504,6 +504,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/window/closed",
     },
     Route {
+        operation: "open_native_walk",
+        method: "POST",
+        path: "/sessions/window/open",
+    },
+    Route {
         operation: "take_window_sign_in",
         method: "POST",
         path: "/sessions/window/sign_in",
