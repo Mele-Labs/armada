@@ -188,11 +188,12 @@ async fn a_press_after_a_new_build_stops_the_running_app_and_starts_the_new_one(
     opened(&rig, &id, URL, 1).await;
     let first = starts(&rig)[0].split(' ').next().map(str::to_string).expect("its pid");
 
-    // Closed before the press: Linux refuses to start a program open for writing ("Text file busy").
-    {
-        let binary = std::fs::File::options().write(true).open(format!("{}/{BUILD}", slot(&rig))).expect("the build");
-        binary.set_modified(std::time::SystemTime::now() + Duration::from_secs(60)).expect("built again");
-    }
+    // Opened for reading only: Linux refuses to start a program open for writing ("Text file busy"), and a
+    // child another test forks meanwhile keeps a writable handle open until it execs.
+    std::fs::File::open(format!("{}/{BUILD}", slot(&rig)))
+        .expect("the build")
+        .set_modified(std::time::SystemTime::now() + Duration::from_secs(60))
+        .expect("built again");
     let again = rig.fleet.open_native_walk(press(&id, URL)).await.expect("opened again");
 
     assert!(again.started, "the new build was started");

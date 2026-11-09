@@ -1164,6 +1164,7 @@ impl JobsList {
                         .children(now),
                 )
             })
+            .cursor_pointer()
             .on_hover(cx.listener(move |this, hovered: &bool, window, cx| this.hovered(hover_on.clone(), *hovered, window, cx)))
             .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                 this.focused = Some(menu_on.clone());

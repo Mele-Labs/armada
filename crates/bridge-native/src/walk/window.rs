@@ -605,7 +605,7 @@ impl WalkWindow {
         let approve = if self.sending {
             sending_button(cx).into_any_element()
         } else if self.held.is_empty() {
-            approve_button(cx).into_any_element()
+            approve_button(self.takes.get(self.take).map(|take| take.name.clone()), cx).into_any_element()
         } else {
             self.send_notes_button(cx).into_any_element()
         };
@@ -667,8 +667,9 @@ impl WalkWindow {
                 }),
             ))
             .child(
-                // Approve keeps one width, `calc(var(--space-8) * 6)`, so nothing beside it moves.
-                div().flex_none().w(look.length(token::SPACE_8) * 6.).child(approve),
+                // Approve keeps one width, `calc(var(--space-8) * 6)`, so nothing beside it moves; wider
+                // for a walk with takes, as it names the one on screen.
+                div().flex_none().w(look.length(token::SPACE_8) * if self.takes.is_empty() { 6. } else { 8. }).child(approve),
             );
         let line = row()
             .child(icon_button("walk-back", "chevron-left", "Replay to the step before", Some("⌥⌘←"), Weight::Quiet, !first && !self.playing, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
@@ -791,9 +792,13 @@ fn sending_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
 }
 
 /// Approve as Electron's walk bar draws it: a secondary button filling its slot, the word and a
-/// check centred, and the ⌘↵ chord.
-fn approve_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
+/// check centred, and the ⌘↵ chord. With takes it names the one on screen, which Electron's does not.
+fn approve_button(take: Option<SharedString>, cx: &mut Context<WalkWindow>) -> impl IntoElement {
     let look = cx.look();
+    let said: SharedString = match take {
+        Some(take) => format!("Approve {take}").into(),
+        None => "Approve".into(),
+    };
     labelled(
         div()
             .id("walk-approve")
@@ -813,12 +818,12 @@ fn approve_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
             .text_color(look.color(token::FG_DEFAULT))
             .cursor_pointer()
             .hover(|style| style.bg(look.color(token::BG_HOVER)))
-            .child("Approve")
+            .child(div().min_w_0().truncate().child(said.clone()))
             .child(gpui::svg().path(crate::assets::icon_path("check")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT)))
             .child(chord("⌘↵", cx))
             .on_click(cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))),
         Role::Button,
-        "Approve",
+        said,
     )
 }
 
