@@ -8,6 +8,7 @@ import { button, inside, region, role, tab, walk } from "../walk";
 const list = region("Pull requests");
 const reader = (number: number) => region(`Pull request #${number}`);
 const yours = region("Your review");
+const review = (number: number) => inside(reader(number), region("Pane: Review"));
 const lists = inside(list, button("List"));
 const plus = inside(inside(reader(1899), region("Empty pane")), button("Add tab"));
 
@@ -68,7 +69,7 @@ const prReviewStaysOpen = walk("pr-review", [
         exact: true,
       }),
     ),
-    say: "Review is a tab of the pull request, after Commits",
+    say: "Review is a tab of the pull request, after Files",
   },
   {
     press: inside(
@@ -77,7 +78,11 @@ const prReviewStaysOpen = walk("pr-review", [
         exact: true,
       }),
     ),
-    say: "It opens his review",
+    say: "It reads the pull request a file at a time",
+  },
+  {
+    press: inside(review(1905), button("Review changes")),
+    say: "Review changes opens his review under the file",
   },
   {
     look: inside(yours, tab("Approve")),
@@ -101,25 +106,25 @@ const prReviewStaysOpen = walk("pr-review", [
     say: "Review",
   },
   {
-    look: inside(reader(1899), role("article", /^Thread on/)),
-    say: "Comments already posted sit under his review, on the change they are about, each thread with Reply",
+    look: inside(inside(reader(1899), region("Comments")), button(/^Open the thread on /)),
+    say: "Comments already posted are in the Comments tab beside it, each thread folded to a line",
   },
   {
-    look: inside(reader(1899), button("Hide diff")),
-    say: "Show diff and Hide diff open and fold a file's diff, where a line can be commented on",
-  },
-  {
-    press: inside(reader(1899), button(/^Comment on \+ let mut held/)),
-    say: "Comment on a line of the diff",
+    press: inside(review(1899), button(/^Comment on line \d+: let mut held/)),
+    say: "Comment on a line, from the gutter",
   },
   {
     type: "Take the lock after the call.",
-    into: inside(reader(1899), role("textbox", "Comment")),
+    into: inside(review(1899), role("textbox", "Comment")),
     say: "His comment",
   },
   {
-    press: inside(reader(1899), button("Add to review")),
-    say: "Add to review. Nothing reaches the forge until Submit",
+    press: inside(review(1899), button("Start a review")),
+    say: "Start a review. Nothing reaches the forge until Submit",
+  },
+  {
+    press: inside(review(1899), button("Review changes")),
+    say: "His review",
   },
   {
     look: inside(yours, button(/^Go to your comment on /)),
@@ -127,10 +132,10 @@ const prReviewStaysOpen = walk("pr-review", [
   },
   {
     press: inside(yours, button(/^Go to your comment on /)),
-    say: "A press goes to it in the diff, and opens the diff again if he folded it",
+    say: "A press goes to it in the file",
   },
   {
-    look: inside(reader(1899), role("article", "Pending comment")),
+    look: inside(review(1899), role("article", "Pending comment")),
     say: "His comment, under the line it is on",
   },
   {

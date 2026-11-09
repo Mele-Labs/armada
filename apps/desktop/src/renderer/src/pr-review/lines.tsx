@@ -213,7 +213,7 @@ export function FindingCard({
   /** Absent draws no Dismiss, for a host whose own marks put a finding away. */
   onDismiss?: () => void;
   onSend: () => void;
-  /** What the host adds under the words: Focus's marks. */
+  /** What the host adds under the words: the Review tab's marks. */
   children?: ReactNode;
 }) {
   const kind = TOOL_MARK[mark];

@@ -182,21 +182,27 @@ describe("a pull request's panes", () => {
     next: 2,
   });
 
-  test("a pull request opens on Default: Overview, Files, Checks, Commits and Review as one pane, an empty tools pane, and Comments", async () => {
+  test("a pull request opens on Default: Overview, Files, Review, Checks and Commits as one pane, an empty tools pane, Comments, and Ask under them all", async () => {
     const s = await start();
     expect(kinds(s.prPanes.peek("pr1"), (x) => s.panesOf(x.root))).toEqual([
       [
         "pr-overview",
         "pr-files",
+        "pr-review",
         "pr-checks",
         "pr-commits",
-        "pr-review",
       ],
       [],
       [
         "pr-comments",
       ],
+      [
+        "pr-ask",
+      ],
     ]);
+    // Ask is the root's second half, split across the whole width.
+    const root = s.prPanes.peek("pr1").root;
+    expect(root.type === "split" && root.dir).toBe("column");
   });
 
   test("its layouts are kept under pr-panes, apart from the Jobs' under job-panes", async () => {
@@ -271,9 +277,9 @@ describe("a pull request's panes", () => {
     expect(kinds(s.prPanes.peek("a"), (x) => s.panesOf(x.root))[0]).toEqual([
       "pr-overview",
       "pr-files",
+      "pr-review",
       "pr-checks",
       "pr-commits",
-      "pr-review",
     ]);
     expect(kinds(s.jobPanes.peek("a"), (x) => s.panesOf(x.root))[0]).toEqual([
       "thread",

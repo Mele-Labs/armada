@@ -131,8 +131,8 @@ function PendingComment({ pr, draft }: { pr: ReviewPr; draft: Draft }) {
 }
 
 /**
- * His pending review and Submit. `caution` is a line said on the first Submit, which then sends nothing: the second sends. Focus
- * passes one while findings are unmarked.
+ * His pending review and Submit. `caution` is a line said on the first Submit, which then sends nothing: the second sends. The
+ * Review tab passes one while findings are unmarked.
  */
 export function YourReview({ pr, caution }: { pr: ReviewPr; caution?: string }) {
   const store = useReviewStore()!;

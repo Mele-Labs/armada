@@ -7,6 +7,8 @@ import type { Step } from "./walk";
 const list = region("Pull requests");
 const yours = region("Your review");
 const reader = (number: number) => region(`Pull request #${number}`);
+/** The Review tab's pane, where his review is written. */
+const review = (number: number) => inside(reader(number), region("Pane: Review"));
 const theme = (title: string) => region(`Theme: ${title}`);
 const change = (title: string) => role("article", `Change: ${title}`);
 const thread = (title: string, by: string) => role("article", `Thread on ${title} by ${by}`);
@@ -318,7 +320,7 @@ export const theExplanation: Step[] = [
   },
   {
     look: inside(reader(1899), role("textbox", "Ask about this PR")),
-    say: "Ask is not a tool. It is a composer at the foot of the reader, there while a pull request is open",
+    say: "Ask is not a tool. It is a tab of its own, docked under the panes while a pull request is open",
   },
   {
     look: inside(reader(1899), role("list", "Asked")),
@@ -430,24 +432,24 @@ export const theTools: Step[] = [
         exact: true,
       }),
     ),
-    say: "Review is a tab of the main pane: the forge's conversation and line comments, and his review. It runs no agent",
+    say: "Review is a tab of the main pane: a file at a time, the findings beside their lines, and his review",
   },
   {
-    look: inside(reader(1899), yours),
-    say: "His pending review is here, with Submit",
-  },
-  {
-    press: inside(reader(1899), button("Comment on Serve it while it is fresh")),
-    say: "A comment on a change",
+    press: inside(review(1899), button(/^Comment on line \d+: let mut held = self\.held\.lock/)),
+    say: "A comment on a line, from the gutter",
   },
   {
     type: "Take the lock after the call, so a slow read does not hold it.",
-    into: inside(reader(1899), role("textbox", "Comment")),
-    say: "Written where the change is",
+    into: inside(review(1899), role("textbox", "Comment")),
+    say: "Written under the line",
   },
   {
-    press: inside(inside(reader(1899), role("form", "Comment")), button("Add to review")),
-    say: "It joins the pending review. Nothing is posted yet",
+    press: inside(review(1899), button("Start a review")),
+    say: "It starts the pending review. Nothing is posted yet",
+  },
+  {
+    press: inside(review(1899), button("Review changes")),
+    say: "Review changes opens his review under the file",
   },
   {
     look: inside(yours, role("list", "Pending comments")),
@@ -465,6 +467,14 @@ export const theTools: Step[] = [
   {
     press: inside(yours, button("Submit review")),
     say: "Submit posts the pending comments and the verdict together",
+  },
+  {
+    look: inside(yours, role("alert")),
+    say: "Neither tool's findings are marked, so it says so once",
+  },
+  {
+    press: inside(yours, button("Submit anyway")),
+    say: "Submit anyway sends it",
   },
   {
     look: inside(yours, role("list", "Submitted reviews")),
@@ -573,6 +583,10 @@ export const theSessionsOwn: Step[] = [
     say: "Request changes on a pull request a Job holds reaches the Job too",
   },
   {
+    press: inside(review(1896), button("Review changes")),
+    say: "His review, under the file",
+  },
+  {
     type: "The count has to reset when the socket opens. Cap the jitter too.",
     into: inside(yours, role("textbox", "Summary")),
     say: "The review",
@@ -584,6 +598,10 @@ export const theSessionsOwn: Step[] = [
   {
     press: inside(yours, button("Submit review")),
     say: "Submit records it, and sends it to the Job with the review",
+  },
+  {
+    press: inside(yours, button("Submit anyway")),
+    say: "Past the line about the finding not marked",
   },
   {
     look: inside(yours, role("note", /Sent to Fix the reconnect wait/)),
