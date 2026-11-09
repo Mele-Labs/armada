@@ -289,13 +289,11 @@ impl Layer {
     }
 
     fn noted(&mut self, noted: &capture::Noted, window: &mut Window, cx: &mut Context<Self>) {
-        let (on, path) = match &noted.held {
-            Held::Element(drawn) => {
-                let role = capture::role_word(drawn.role).unwrap_or("element").to_lowercase();
-                (role.clone(), format!("{role} · {}", drawn.name))
-            }
-            Held::Region(_) => ("region".to_string(), "region · A box you drew".to_string()),
-            Held::Window { .. } => ("window".to_string(), noted.held.said().to_string()),
+        let path = noted.held.said().to_string();
+        let on = match &noted.held {
+            Held::Element(drawn) => capture::role_word(drawn.role).unwrap_or("element").to_lowercase(),
+            Held::Region(_) => "region".to_string(),
+            Held::Window { .. } => "window".to_string(),
         };
         let id = self.next_id;
         self.next_id += 1;

@@ -15,6 +15,7 @@ pub mod bar;
 pub mod check;
 pub mod dispatch;
 pub mod fleet;
+pub mod notes;
 pub mod stage;
 pub mod title_bar;
 pub mod window;
@@ -143,10 +144,17 @@ pub static WALKS: &[Walk] = &[
     },
     Walk {
         name: "dispatch",
-        title: "Dispatch and notes",
+        title: "Dispatch sheet",
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &dispatch::STEPS,
+    },
+    Walk {
+        name: "notes",
+        title: "Notes on ⌥⌘A",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &notes::STEPS,
     },
     Walk {
         name: "jobs-lamps",

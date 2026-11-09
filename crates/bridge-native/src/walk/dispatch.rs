@@ -1,10 +1,10 @@
-//! The dispatch walk: each step goes straight to a state of the sheet or the annotation layer. The
-//! scenes are `dispatch/scenes.rs`; a step that names one changes Fleet's answer and presses nothing.
+//! The dispatch sheet walk: each step goes straight to a state of the sheet. The scenes are
+//! `dispatch/scenes.rs`; a step that names one changes Fleet's answer and presses nothing. The
+//! annotation layer is its own walk, `notes`.
 
 use super::{answer, press_on, step, Step, Verb};
 
-
-pub static STEPS: [Step; 83] = [
+pub static STEPS: [Step; 35] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
     step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
@@ -12,8 +12,7 @@ pub static STEPS: [Step; 83] = [
     step("Esc shuts the list and the keys go back to the request", Verb::Key("escape"), "textbox", "Request"),
     step("Typing reads the repository: the mark turns to a spinner", Verb::Type("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
     answer("Fleet found sample-api in the words: its chip is chosen", "found", "radio", "Repository sample-api"),
-    step("⌥2 picks the second chip by hand", Verb::Key("alt-2"), "radio", "Repository armada"),
-    step("Queue for later saves the idea without starting it", Verb::Look, "button", "Queue for later"),
+    step("⌥4 picks the fourth chip by hand", Verb::Key("alt-4"), "radio", "Repository sample-docs"),
     step("Tab changes the kind to Autopilot", Verb::Key("tab"), "tab", "Autopilot"),
     step("⌘↵ is Read it: it sends the sentence to Fleet and says Reading in the same frame", Verb::Key("cmd-enter"), "button", "Reading"),
     answer("A refused read says why, in the sheet", "autopilot-refused", "alert", "Autopilot needs a repository with a Manifest, and sample-docs has none"),
@@ -41,51 +40,4 @@ pub static STEPS: [Step; 83] = [
     answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
     answer("A repository not ready: the refusal stands as a notice, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
-    step("⌥⌘A turns annotating on over any screen; the bar says so", Verb::Key("alt-cmd-a"), "status", "Annotating"),
-    step("The pointer aims: the element under it is outlined and named", Verb::Hover, "row", "Audit the docs index"),
-    step("A press holds it and opens the note", Verb::Press, "row", "Audit the docs index"),
-    step("The words go in the note", Verb::Type("Show the repository in the title"), "textbox", "Note"),
-    step("The card's Tools show what he wants: size, colour, fill, spacing, text and a variant", Verb::Look, "toolbar", "Tools"),
-    press_on("Size lists the type scale, each step over a bar at its own size", "button", "Size", "group", "Size"),
-    press_on("A step picked is a change, with what it was and what it is", "button", "--text-lg", "list", "Changes"),
-    press_on("Colour lists the text colours as swatches", "button", "Colour", "group", "Colour"),
-    press_on("Spacing sets Padding and Gap from the space scale", "button", "Spacing", "group", "Padding"),
-    press_on("Text edits the words on the element", "button", "Text", "textbox", "Text"),
-    press_on("Variant lists the states the component is drawn in", "button", "Variant", "group", "Variant"),
-    answer("A picture pasted or dropped sits under the tools", "layer-picture", "list", "Pictures"),
-    step("⌘↵ saves it: pin 3 stands on the row, after the two saved on other screens", Verb::Key("cmd-enter"), "button", "Note 3, open: Show the repository in the title"),
-    step("A drag holds a box instead of an element", Verb::Drag, "row", "Native Bridge foundation"),
-    step("The second note", Verb::Type("Two Jobs share this title"), "textbox", "Note"),
-    step("Pin 4 stands beside the first; the tools stand off on a box", Verb::Key("cmd-enter"), "button", "Note 4, open: Two Jobs share this title"),
-    press_on("A pin opens its note, with the changes and the picture it was saved with", "button", "Note 3, open: Show the repository in the title", "dialog", "Note"),
-    step("The note's acts: Start job, Mark done and Delete", Verb::Look, "button", "Mark done"),
-    step("Esc shuts the note and the keys go back to the layer", Verb::Key("escape"), "status", "Annotating"),
-    step("⌥⌘S holds the whole window: its picture is taken and the card opens", Verb::Key("alt-cmd-s"), "dialog", "New note"),
-    step("The words go in the note", Verb::Type("Everything here sits too tight"), "textbox", "Note"),
-    step("It is saved with no pin, and is listed in the panel", Verb::Key("cmd-enter"), "button", "Screenshot window"),
-    press_on("The caret lists the live Jobs", "button", "Send to a Job", "menu", "Send to a Job"),
-    step("↓ lights the first Job", Verb::Key("down"), "menuitem", "Fix the merge line freshness chip"),
-    step("Enter picks it: the bar says Sending in the same frame", Verb::Key("enter"), "button", "Sending to Fix the merge line freshness chip"),
-    answer("Sent: the pins turn to sent and the bar says where", "layer-sent", "status", "Sent to Job Fix the merge line freshness chip"),
-    step("A fifth note holds the row under the pointer", Verb::Press, "row", "Quiet the write-clash notices"),
-    step("The words go in the note", Verb::Type("Spinner shows twice"), "textbox", "Note"),
-    step("Pin 6 stands, and the bar can send again", Verb::Key("cmd-enter"), "button", "Note 6, open: Spinner shows twice"),
-    press_on("Send it to a Job again", "button", "Send to a Job", "menu", "Send to a Job"),
-    step("↓ lights the first Job", Verb::Key("down"), "menuitem", "Fix the merge line freshness chip"),
-    step("Enter picks it", Verb::Key("enter"), "button", "Sending to Fix the merge line freshness chip"),
-    answer("A refusal leaves the note held and says why", "layer-refused", "status", "Notes not sent to \"Fix the merge line freshness chip\": The Job has ended"),
-    press_on("Start job puts the held note in a new held Job, pending in the same frame", "button", "Start job", "button", "Starting job"),
-    answer("Started: the bar names the new Job", "layer-started", "status", "Job started: Dispatch sheet notes"),
-    press_on("All notes opens the panel over the trailing edge, above the bar", "button", "All notes", "region", "All notes"),
-    press_on("Has job lists the notes a Job took, each with where it went", "tab", "Has job", "button", "Show the lane's last start"),
-    press_on("No job lists the open notes nobody has taken, each screen under its name", "tab", "No job", "button", "Group the repositories under their Workspace"),
-    press_on("A note ticked brings the acts over the selection", "checkbox", "Select Group the repositories under their Workspace", "checkbox", "Select Group the repositories under their Workspace"),
-    press_on("Mark done moves it to Done", "button", "Mark done", "tab", "Done"),
-    press_on("Done lists the finished notes, each with Reopen", "tab", "Done", "button", "Group the repositories under their Workspace"),
-    press_on("Select a done note", "checkbox", "Select Name the Fleet dot's states", "checkbox", "Select Name the Fleet dot's states"),
-    press_on("Delete asks again before it goes", "button", "Delete", "button", "Press again to delete"),
-    press_on("Pressed again it goes", "button", "Press again to delete", "tab", "Done"),
-    press_on("Search narrows the list as it is typed", "searchbox", "Search notes", "searchbox", "Search notes"),
-    step("Only what matches stays", Verb::Type("scope"), "button", "Search keeps its scope after Esc"),
-    step("⌥⌘A turns it off", Verb::Key("alt-cmd-a"), "heading", "armada"),
 ];
