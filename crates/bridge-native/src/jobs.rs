@@ -76,6 +76,10 @@ pub enum Lamp {
     Pennant,
     /// A HUD's corner brackets, at the row's top left and bottom right.
     Brackets,
+    /// The brackets drawn on the row's own edge, 1pt, in place of its border at the corners.
+    Fine,
+    /// The brackets on the row's edge with a shadow line inside them, as if cut into the row.
+    Etched,
     /// No edge mark: the state glyph sits in a housing tinted the lamp's colour.
     Housing,
 }
@@ -967,12 +971,14 @@ impl JobsList {
             .pl(match style {
                 Lamp::Bar => look.length(token::SPACE_4),
                 Lamp::Pennant => look.length(token::SPACE_3) * 3.,
-                Lamp::Brackets | Lamp::Housing => look.length(token::SPACE_3),
+                Lamp::Brackets | Lamp::Fine | Lamp::Etched | Lamp::Housing => look.length(token::SPACE_3),
             })
             .pr(look.length(token::SPACE_3))
             .rounded(radius)
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(edge))
+            // gpui paints a border over the children, so where the brackets are the edge itself,
+            // the canvas below draws the whole edge and the border is only room.
+            .border_color(if matches!(style, Lamp::Fine | Lamp::Etched) { gpui::transparent_black() } else { look.color(edge) })
             .bg(ground)
             .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
@@ -1024,6 +1030,63 @@ impl JobsList {
                         div().absolute().top(out).left(out).size(arm).border_t(weight).border_l(weight).rounded_tl(radius).border_color(lamp_ink).into_any_element(),
                         div().absolute().bottom(out).right(out).size(arm).border_b(weight).border_r(weight).rounded_br(radius).border_color(lamp_ink).into_any_element(),
                     ]
+                }
+                Lamp::Fine | Lamp::Etched => {
+                    // Stroked on the row's border line, its bend the row's own corner.
+                    let etched = style == Lamp::Etched;
+                    let border = look.length(token::BORDER_WIDTH);
+                    let (arm, weight) = (look.length(token::SPACE_6), if etched { border * 1.5 } else { border });
+                    let edge_ink = look.color(edge);
+                    vec![canvas(|_, _, _| (), move |bounds, _, window, _| {
+                        // The row's whole edge, as its border would draw it.
+                        let half = border / 2.;
+                        let (o, w, h, r) = (bounds.origin, bounds.size.width, bounds.size.height, radius - half);
+                        let (left, top, right, bottom) = (o.x + half, o.y + half, o.x + w - half, o.y + h - half);
+                        let mut outline = gpui::PathBuilder::stroke(border);
+                        outline.move_to(point(left + r, top));
+                        outline.line_to(point(right - r, top));
+                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(right, top + r));
+                        outline.line_to(point(right, bottom - r));
+                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(right - r, bottom));
+                        outline.line_to(point(left + r, bottom));
+                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(left, bottom - r));
+                        outline.line_to(point(left, top + r));
+                        outline.arc_to(point(r, r), gpui::px(0.), false, true, point(left + r, top));
+                        if let Ok(outline) = outline.build() {
+                            window.paint_path(outline, edge_ink);
+                        }
+                        // `inset` from the border box's outer edge to the stroke's centre line.
+                        let corner = |inset: Pixels, width: Pixels, ink: gpui::Hsla, window: &mut Window| {
+                            let (o, r) = (bounds.origin, radius - inset);
+                            let (left, top) = (o.x + inset, o.y + inset);
+                            let (right, bottom) = (o.x + bounds.size.width - inset, o.y + bounds.size.height - inset);
+                            let along = arm - inset;
+                            for (start, bend, end) in [
+                                (point(left, top + along), (point(left, top + r), point(left + r, top)), point(left + along, top)),
+                                (point(right, bottom - along), (point(right, bottom - r), point(right - r, bottom)), point(right - along, bottom)),
+                            ] {
+                                let mut path = gpui::PathBuilder::stroke(width);
+                                path.move_to(start);
+                                path.line_to(bend.0);
+                                path.arc_to(point(r, r), gpui::px(0.), false, true, bend.1);
+                                path.line_to(end);
+                                if let Ok(path) = path.build() {
+                                    window.paint_path(path, ink);
+                                }
+                            }
+                        };
+                        // Etched: a faint second line inside, so the mark reads as cut into the row.
+                        if etched {
+                            corner(weight + border * 1.5, border, lamp_ink.opacity(0.35), window);
+                        }
+                        corner(weight / 2., weight, lamp_ink, window);
+                    })
+                    .absolute()
+                    .top(-border)
+                    .left(-border)
+                    .right(-border)
+                    .bottom(-border)
+                    .into_any_element()]
                 }
                 Lamp::Housing => Vec::new(),
             })

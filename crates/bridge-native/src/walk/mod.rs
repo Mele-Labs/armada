@@ -134,6 +134,26 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "jobs-lamps-fine",
+        title: "Jobs list: fine brackets",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("The brackets are the row's own edge, 1pt, bending with its corner", Verb::Lamp(Lamp::Fine), "row", "Native Bridge foundation"),
+            step("A Job waiting on you is bracketed in amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-etched",
+        title: "Jobs list: etched brackets",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("The brackets are cut into the row's edge, a shadow line inside each", Verb::Lamp(Lamp::Etched), "row", "Native Bridge foundation"),
+            step("A Job waiting on you is bracketed in amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
         name: "jobs-lamps-housing",
         title: "Jobs list: a lit housing",
         screen: Screen::Jobs,
