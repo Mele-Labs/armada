@@ -25,6 +25,13 @@ The queue's run is the one that decides, so a pull request that also ran the who
 Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
 `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
 
+**The native Bridge's tests run in `native`, on `macos-15`, for a change that reaches `crates/bridge-native`.**
+gpui builds on no Linux runner, so no other job runs them.
+`plan.py` reads the key `crates/bridge-native:test` from `armada covers` into its `native` output, which `native` waits on, and `ci` needs `native`.
+The job is skipped for any other change and `ci` reads a skipped job as a pass, so only a change to the crate waits on it.
+A pull request runs it as well as the queue, because a native test that fails in the queue takes the entries behind it.
+The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
+
 **A pull request compiles the test code it leaves to the queue.** `cargo build` compiles no test target, so a change that broke a test's code passed its pull request and first failed in the queue, taking the entries behind it with it: 4 of 16 failed queue runs on 30 and 31 Oct 2026, each a compile error in a test.
 The job `test_compile` runs `armada check test --changed` and `armada check acceptance` with a `cargo` ahead on `PATH` that adds `--no-run` to `nextest run`, so it compiles the crates the queue's run narrows to and runs no test.
 `plan.py` names the keys in `compile`, the Rust Checks in `COMPILE` that the plan left to the queue; a Check the pull request runs itself, because the queue last failed it, is not compiled twice.
@@ -161,7 +168,7 @@ A commit the cached entry names that is not in the checkout, or no entry at all,
 
 | Name | Passes when | Failed by |
 |---|---|---|
-| `ci` | The plan succeeded and no Check job, `test_compile`, `format` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, an unformatted file, a new failing foundations line |
+| `ci` | The plan succeeded and no Check job, `native`, `test_compile`, `format` or `foundations` failed or was cancelled | A failed Check, a cancelled one, a failed plan, test code that does not compile, an unformatted file, a new failing foundations line |
 | `desktop_test` | The plan succeeded and the unit job did not fail or get cancelled | A failed unit job, a failed plan |
 
 `ci` needs `workspace_check`, the matrix job, whose entries are the groups below.

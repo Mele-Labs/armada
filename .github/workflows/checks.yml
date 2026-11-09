@@ -48,6 +48,7 @@ jobs:
       matrix: ${{ steps.covers.outputs.matrix }}
       has_matrix: ${{ steps.covers.outputs.has_matrix }}
       compile: ${{ steps.covers.outputs.compile }}
+      native: ${{ steps.covers.outputs.native }}
       whole: ${{ steps.paths.outputs.whole }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -249,6 +250,7 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "has_matrix=$(jq '.matrix.include | length > 0' plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "compile=$(jq -c .compile plan/plan.json)" >> "$GITHUB_OUTPUT"
+          echo "native=$(jq .native plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "CHECKS $checks"
           echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.excluded[] | "excluded: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
@@ -862,6 +864,29 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
+  # The native Bridge's tests, on the runner that can build it: gpui builds on no Linux runner, so
+  # no other job runs them. It runs on a pull request, a queue run and a push to main whose change
+  # reaches `crates/bridge-native`, as `plan` reads it from `armada covers`, and is skipped
+  # otherwise, which `ci` below reads as a pass. So only a change to the crate waits on it.
+  native:
+    name: native
+    needs: plan
+    if: needs.plan.outputs.native == 'true'
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The crate has a `target` of its own, named so it is cached.
+      - uses: ./.github/actions/rust-setup
+        with:
+          key: native
+          nextest: "true"
+          workspaces: crates/bridge-native -> target
+      # Its own lockfile, hence `--locked` on its own manifest. `armada check crates/bridge-native:test`
+      # runs this before a pull request opens.
+      - name: Test the native Bridge
+        run: cargo nextest run --locked --manifest-path crates/bridge-native/Cargo.toml
+
   # The one name the ruleset requires for everything but desktop_test. A Check
   # the plan skipped passes; one that failed or was cancelled fails; a plan
   # that failed fails, so a change is never green because nothing was chosen.
@@ -882,6 +907,7 @@ jobs:
       - format_catch_up_test
       - xtask_test
       - test_compile
+      - native
       - format
       - foundations
     runs-on: ubuntu-latest
@@ -951,7 +977,6 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         with:
           key: release
-          nextest: "true"
           workspaces: |
             . -> target
             crates/bridge-native -> target
@@ -970,13 +995,6 @@ jobs:
       - name: Build the native Bridge
         if: steps.version.outputs.exists != 'true'
         run: cargo build --release --locked --manifest-path crates/bridge-native/Cargo.toml
-
-      # Its tests, in its own workspace and on the runner that can build it: gpui builds on no Linux
-      # runner, so no job of `ci` runs them. They gate no more than the build above does, which is
-      # this release. `armada check crates/bridge-native:test` is the same command before a pull request.
-      - name: Test the native Bridge
-        if: steps.version.outputs.exists != 'true'
-        run: cargo nextest run --locked --manifest-path crates/bridge-native/Cargo.toml
 
       # The version lands in the bundle's package.json, which is what
       # `app.getVersion()` and `CFBundleShortVersionString` read.

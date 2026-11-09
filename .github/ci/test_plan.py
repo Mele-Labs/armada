@@ -67,11 +67,20 @@ class Planning(unittest.TestCase):
         self.assertEqual(answer["excluded"], [])
         self.assertEqual(answer["unrun"], [])
 
-    def test_the_native_bridge_test_is_excluded_because_it_builds_on_no_linux_runner(self):
+    def test_the_native_bridge_test_is_its_own_output_and_no_linux_job(self):
         answer = plan(["crates/bridge-native:test"])
-        self.assertEqual(answer["excluded"], ["crates/bridge-native:test"])
+        self.assertTrue(answer["native"])
         self.assertEqual(answer["checks"], [])
+        self.assertEqual(answer["excluded"], [])
         self.assertEqual(answer["unrun"], [])
+
+    def test_the_native_bridge_test_survives_quick_and_rerun_which_drop_the_rest(self):
+        answer = plan(["test", "crates/bridge-native:test"], quick=True)
+        self.assertTrue(answer["native"])
+        self.assertEqual(answer["queued"], ["test"])
+
+    def test_no_native_output_when_the_change_misses_the_crate(self):
+        self.assertFalse(plan(["build", "apps/desktop:typecheck"])["native"])
 
     def test_an_excluded_key_is_named_and_not_run(self):
         import plan as module

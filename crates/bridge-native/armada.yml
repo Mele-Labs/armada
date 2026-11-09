@@ -17,10 +17,10 @@ checks:
     run: cargo nextest run --locked --manifest-path Cargo.toml --test-threads ${width}
     one_test:
       run: cargo nextest run --locked --manifest-path Cargo.toml --test-threads ${width} -E test(/(^|::){}(::|$)/)
-    # **`pre_pr`: this Check is never a gate.** CI runs these tests on macOS in
-    # `release` after a merge, because gpui builds on no Linux runner and the merge line is Linux.
-    # So the only run on this machine is the one an agent makes before opening a pull
-    # request that touches this crate, and `.github/ci/plan.py` excludes the key from CI's plan.
+    # **`pre_pr`: this Check is never a gate.** CI runs these tests in its `native` job on macOS,
+    # whenever a change reaches this crate, because gpui builds on no Linux runner and the other
+    # jobs are Linux. So the only run on this machine is the one an agent makes before opening a
+    # pull request that touches this crate, and `.github/ci/plan.py` reads the key as `native`.
     runs_at: pre_pr
     # What the command reads. `--changed` runs the crate's whole suite, since a single crate has
     # no member to narrow to; it runs nothing for a change outside these.
