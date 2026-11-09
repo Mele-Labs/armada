@@ -1,5 +1,5 @@
-/* Now for a plan that ends on gates (`PlanNow.tsx`): one row a chunk, its gate as the second line, what is being done now under the live one. Tokens only; no gradient, glow or
-   sheen. */
+/* Now for a plan that ends on gates (`PlanNow.tsx`), in the thread's grammar: one ink for what is read, no frames, two left edges, the thread's line height. One row a chunk, a
+   line a group, the gate's glyph on the last; what ends it and what is being done under the live one. Tokens only; no gradient, glow or sheen. */
 
 .sv-chunks {
   display: flex;
@@ -27,7 +27,7 @@
   color: var(--fg-subtle);
   font: inherit;
   font-size: var(--text-xs);
-  line-height: var(--leading-xs);
+  line-height: var(--leading-sm);
   text-align: start;
 }
 button.sv-chunk__row {
@@ -82,15 +82,13 @@ button.sv-chunk__row:hover {
 .sv-chunk__said > .sv-beat__figure {
   flex: none;
 }
+/* Unframed and quiet: the hue is kept for a gate that holds the Job on him or failed. */
 .sv-chunk__gate {
   grid-column: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--space-6);
-  height: var(--space-6);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
   color: var(--fg-subtle);
 }
 /* Under a chunk: lined up with its name. */
@@ -111,17 +109,23 @@ button.sv-chunk__row:hover {
   flex-direction: column;
   gap: var(--space-1);
 }
+/* The thread's weight for what is being done: outranks a working beat's own medium (`story-zones.css`). */
+.sv-chunks .sv-chunk__doing .sv-beat .sv-beat__label {
+  font-weight: var(--weight-body);
+}
+/* Every glyph under the live chunk stands in one 16px column on its name's edge, so every line's words start at one place. */
 .sv-chunk__tasks {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: var(--space-4) auto;
   align-self: flex-start;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  margin-inline-start: calc(var(--space-1) * -1);
+  justify-items: center;
+  column-gap: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
   font: inherit;
   font-size: var(--text-xs);
   cursor: pointer;
@@ -131,10 +135,8 @@ button.sv-chunk__row:hover {
   color: var(--fg-default);
 }
 
-/* The live chunk leads; the rest step back. */
+/* The live chunk leads by its ink and weight; the rest step back. */
 .sv-chunk[data-state="now"] > .sv-chunk__row {
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
   color: var(--fg-default);
   font-weight: var(--weight-medium);
 }
@@ -148,25 +150,20 @@ button.sv-chunk__row:hover {
 .sv-chunk[data-state="done"] > .sv-chunk__row {
   color: var(--fg-muted);
 }
-.sv-chunk[data-state="done"] .sv-chunk__state,
-.sv-chunk[data-gate="done"] .sv-chunk__gate {
+.sv-chunk[data-state="done"] .sv-chunk__state {
   color: var(--step-advanced);
-}
-.sv-chunk[data-gate="done"] .sv-chunk__gate {
-  border-color: color-mix(in srgb, var(--step-advanced) 50%, var(--border-default));
-}
-.sv-chunk[data-gate="waiting"] .sv-chunk__gate {
-  border-color: color-mix(in srgb, var(--step-waiting) 60%, var(--border-default));
-  color: var(--step-waiting);
 }
 .sv-chunk[data-gate="failed"] .sv-chunk__gate,
 .sv-chunk[data-gate="failed"] .sv-chunk__said {
-  border-color: color-mix(in srgb, var(--step-failed) 60%, var(--border-default));
   color: var(--step-failed);
 }
 
 /* A subagent at work: the Subagents view's glyph, its task, the group it works on. */
 /* A row presses like a task row: no frame, the row's hover ground. */
+/* Two classes, to outrank the Subagents view's own row columns. */
+.sv-chunk__doing .sv-chunk__helper {
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+}
 .sv-chunk__helper {
   width: 100%;
   padding: 0;
@@ -188,6 +185,7 @@ button.sv-chunk__row:hover {
 .sv-chunk__drone {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   height: 1lh;
   color: var(--step-running);
 }
@@ -227,7 +225,6 @@ button.sv-chunk__row:hover {
 
 /* Held on him: the gate takes the Needs you lamp's hue and pulses where it lives. */
 .sv-chunk[data-lamp="needs"] .sv-chunk__gate {
-  border-color: color-mix(in srgb, var(--status-awaiting-review) 60%, var(--border-default));
   color: var(--status-awaiting-review);
   animation: sv-lamp-pulse 1.6s ease-in-out infinite;
 }
@@ -235,46 +232,6 @@ button.sv-chunk__row:hover {
   .sv-chunk[data-lamp="needs"] .sv-chunk__gate {
     animation: none;
   }
-}
-
-/* ---- The walk's second take, `?take=clean`: the thread's grammar. One ink for what is read, no frames, two left edges, the thread's line height. Removed or adopted before landing. ---- */
-.sv-chunks[data-take="clean"] .sv-chunk__row {
-  line-height: var(--leading-sm);
-}
-.sv-chunks[data-take="clean"] .sv-chunk[data-state="now"] > .sv-chunk__row {
-  background: none;
-}
-.sv-chunks[data-take="clean"] .sv-chunk__gate,
-.sv-chunks[data-take="clean"] .sv-chunk[data-gate] .sv-chunk__gate {
-  height: auto;
-  border-color: transparent;
-  color: var(--fg-subtle);
-}
-.sv-chunks[data-take="clean"] .sv-chunk[data-gate="failed"] .sv-chunk__gate {
-  color: var(--step-failed);
-}
-.sv-chunks[data-take="clean"] .sv-chunk[data-lamp="needs"] .sv-chunk__gate {
-  border-color: transparent;
-  color: var(--status-awaiting-review);
-}
-.sv-chunks[data-take="clean"] .sv-chunk__doing .sv-beat__label {
-  font-weight: var(--weight-body);
-}
-/* Every glyph under the live chunk stands in one 16px column on its name's edge, so every line's words start at one place. */
-.sv-chunks[data-take="clean"] .sv-chunk__helper {
-  grid-template-columns: var(--space-4) minmax(0, 1fr);
-}
-.sv-chunks[data-take="clean"] .sv-chunk__drone {
-  justify-content: center;
-}
-.sv-chunks[data-take="clean"] .sv-chunk__tasks {
-  display: inline-grid;
-  grid-template-columns: var(--space-4) auto;
-  justify-items: center;
-  column-gap: var(--space-2);
-  margin-inline-start: 0;
-  padding-inline: 0 var(--space-1);
-  color: var(--fg-subtle);
 }
 
 /* ---- The head of a finished chunk in Done: its gate's glyph, what closed it, when. On the done rows' edges. ---- */

@@ -73,13 +73,13 @@ export function stretchesOf<G extends WorkGroup>(
   });
 }
 
-/** What each gate waits for, as he reads it on its chunk's row. */
-export const GATE_SAID: Record<GateKind, string> = {
-  plan_approved: "You approve the plan",
-  walk_approved: "You approve the walk",
-  sketch_approved: "You approve the sketch",
-  document_approved: "You approve the document",
+/** What an open gate ends its chunk on, after "Ends when": on the live chunk's row, and in any other's gate glyph tooltip. */
+export const GATE_ENDS: Record<GateKind, string> = {
+  plan_approved: "you approve the plan",
+  walk_approved: "you approve the walk",
+  sketch_approved: "you approve the sketch",
+  document_approved: "you approve the document",
   checks_green: "Checks pass at the pushed commit",
-  merged: "Merged into main",
-  jobs_ended: "Every Job it started has merged or ended",
+  merged: "it merges into main",
+  jobs_ended: "every Job it started has merged or ended",
 };

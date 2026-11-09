@@ -1,4 +1,5 @@
-// Now for a plan that ends on gates: one row a chunk, its gate on the row, what is being done under the live chunk, and every chunk's tasks folded until pressed.
+// Now for a plan that ends on gates: one row a chunk, a line a group, what ends the live chunk and what is being done under it, every chunk's tasks folded until pressed; and the
+// gate line that heads a finished chunk in Done.
 // Browser: the drawing is what is read.
 
 import { afterEach, expect, test, vi } from "vitest";
@@ -6,7 +7,7 @@ import { page, userEvent } from "vitest/browser";
 import type { WorkGroup } from "@armada/screens/src/draft/sessions";
 import { mount, unmount } from "@armada/screens/src/mounted";
 
-import { Helpers, PlanChunks } from "./PlanNow";
+import { GateClosed, Helpers, PlanChunks } from "./PlanNow";
 import { stretchesOf, type Stretch } from "./stretches";
 
 afterEach(unmount);
@@ -155,16 +156,34 @@ test("the live chunk shows what is being done at once, and its tasks only after 
     .not.toBeInTheDocument();
 });
 
-test("an open gate reads what it waits for", async () => {
+test("the live chunk says what ends it; a chunk to come says it only in its gate's tooltip", async () => {
   chunks(PLAN);
-  await expect.element(page.getByText("Waits for: You approve the walk")).toBeVisible();
-  await expect.element(page.getByText("Waits for: Merged into main")).toBeVisible();
+  // The glyph's tooltip carries the same words, drawn only on hover, so what counts is the words shown.
+  const shown = (text: string) =>
+    page
+      .getByText(text)
+      .elements()
+      .filter((one) => one.checkVisibility());
+  await expect.poll(() => shown("Ends when you approve the walk")).toHaveLength(1);
+  expect(shown("Ends when it merges into main")).toHaveLength(0);
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "Ends when it merges into main",
+      }),
+    )
+    .toBeVisible();
 });
 
-test("a closed gate reads the fact Fleet saw, and no wait", async () => {
+test("a closed gate reads the fact Fleet saw once its chunk is opened", async () => {
   chunks(PLAN);
+  await expect.element(page.getByText("Plan approved by you")).not.toBeInTheDocument();
+  await userEvent.click(
+    page.getByRole("button", {
+      name: /Plan the work/,
+    }),
+  );
   await expect.element(page.getByText("Plan approved by you")).toBeVisible();
-  await expect.element(page.getByText("Waits for: You approve the plan")).not.toBeInTheDocument();
 });
 
 test("a Checks gate that is running says at which commit", async () => {
@@ -226,8 +245,8 @@ test("a gate with no tests to name draws no Tests list", async () => {
     .not.toBeInTheDocument();
 });
 
-test("a gate closed over tests that were red on main names them", async () => {
-  chunks([
+test("Done heads a finished chunk with the fact that closed its gate, and names the tests red on main", async () => {
+  const [finished] = stretchesOf([
     group("a", "Build", {
       gate: "checks_green",
       gateClosed: {
@@ -239,6 +258,14 @@ test("a gate closed over tests that were red on main names them", async () => {
       },
     }),
   ]);
+  mount(<GateClosed gate={finished!.gate} />);
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "Gate, closed by Fleet",
+      }),
+    )
+    .toBeVisible();
   await expect.element(page.getByText("Checks passed at abc1234")).toBeVisible();
   await expect
     .element(
@@ -261,10 +288,17 @@ test("a gate glyph says whether the gate is open, closed, or holds the Job on hi
   await expect
     .element(
       page.getByRole("img", {
-        name: "Gate, open",
+        name: "Ends when you approve the walk",
       }),
     )
-    .toHaveLength(2);
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("img", {
+        name: "Ends when it merges into main",
+      }),
+    )
+    .toBeVisible();
   await expect
     .element(
       page.getByRole("img", {
@@ -289,10 +323,10 @@ test("the gate the Job is held on has the held glyph, and says how long", async 
   await expect
     .element(
       page.getByRole("img", {
-        name: "Gate, open",
+        name: "Ends when it merges into main",
       }),
     )
-    .toHaveLength(1);
+    .toBeVisible();
   await expect
     .element(
       page.getByRole("img", {
@@ -406,4 +440,15 @@ test("Helpers with no rows draws nothing", async () => {
   // An empty list is not in the accessibility tree, so the page itself is read for it.
   expect(document.body.querySelector("ul")).toBeNull();
   expect(document.body.querySelector("button")).toBeNull();
+});
+
+test("Done draws no gate line for a gate still open", async () => {
+  mount(
+    <>
+      <p>Beside</p>
+      <GateClosed gate={stretchesOf([group("a", "Build", { gate: "merged" })])[0]!.gate} />
+    </>,
+  );
+  await expect.element(page.getByText("Beside")).toBeVisible();
+  expect(document.body.querySelector('[role="img"]')).toBeNull();
 });

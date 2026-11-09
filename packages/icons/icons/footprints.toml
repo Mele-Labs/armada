@@ -25,4 +25,4 @@
   group = "Plan gates"
   size = "12px"
   status = "Specified"
-  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Drawn at 12px in a --space-6 box at the end of a chunk's row in Now. Tooltip `Gate, open`, `Gate, the Job is held on you` (pulsing in the Needs you hue) or `Gate, closed by Fleet`. The workflow step that shows a walk, as a gate. The chunk's progress is its circle mark, so this stays out of a Job's progress."
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Drawn at 12px, unframed, at the end of the last group's line in a chunk's row in Now, and leading the gate line that heads a finished chunk in Done. Tooltip `Ends when <what the gate waits for>`, `Gate, the Job is held on you` (pulsing in the Needs you hue) or `Gate, closed by Fleet`. The workflow step that shows a walk, as a gate. The chunk's progress is its circle mark, so this stays out of a Job's progress."
