@@ -160,6 +160,7 @@ where
     /// Read one repository's pull requests and tell each owner what changed. **Nothing here fails
     /// the turn**, and a forge that will not answer leaves everything as it was.
     pub(crate) async fn pulls_told(self: &Arc<Self>, served: &Served) {
+        let began = self.now();
         let base = served.manifest().base().unwrap_or("the base").to_string();
         let root = served.root().to_string();
         // Before the forge is asked, which may not answer: the pool is local.
@@ -210,6 +211,7 @@ where
         drop(reading);
         let manifest_id = ipc::ManifestId::carried(served.manifest().id().as_str());
         self.pull_ledger_kept_current(&manifest_id, &root).await;
+        self.sweeping().lock().await.pulls_read.insert(manifest_id.as_str().to_string(), began);
         // **The merge line agrees with the rows just written**: its own visit comes round one
         // repository at a time, a minute or more behind them.
         self.notice_queue(served).await;

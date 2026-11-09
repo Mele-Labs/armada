@@ -151,6 +151,8 @@ pub(crate) mod main_hub;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;
 pub mod merge_lines;
+/// The merge line as a screen draws it, read once for every client: `get_merge_line_view`.
+mod merge_line_view;
 mod act_failing;
 mod model_downshift;
 mod model_downshifting;
@@ -172,6 +174,10 @@ pub mod mods;
 pub mod mint;
 /// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
 pub mod timeline;
+/// A Job's thread folded once for every client: `get_job_thread` and `job_thread.tail`.
+mod thread_view;
+/// The threads a client read, held so a change reaches it as a tail.
+pub mod thread_keeping;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
 /// The lines of code a pinned note's spot was drawn from, found by the words on screen.

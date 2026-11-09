@@ -11,6 +11,8 @@ import {
   choicesOf,
   documentOf,
   draftsOf,
+  handedOf,
+  linksOf,
   onMacOf,
   OPEN_ON_MAC,
   pressesOf,
@@ -18,6 +20,7 @@ import {
   runsOf,
   sessionOfThread,
   takesWords,
+  withEarlier,
 } from "./thread";
 import { jobStateOf } from "@armada/screens/src/session-state";
 import { sketchAnswerOf, documentAnswerOf } from "@armada/screens/src/thread-cards";
@@ -808,6 +811,42 @@ describe("a sketch's mock on the phone", () => {
     expect(found.status).toBe(200);
     expect(JSON.parse(found.body).sheets[0].path).toBe("apps/pocket/src/styles.css");
     expect(read("fedcba9876543210fedcba9876543210").status).toBe(404);
+  });
+});
+
+describe("a Job handed on for context is one Job", () => {
+  const threads = () =>
+    fixtureMacs(Date.now(), {
+      studio: "https://studio",
+      laptop: "https://laptop",
+    })["https://studio"]!.threads;
+
+  it("lists the Job that took the place of a child, and not the child it replaced", () => {
+    expect(linksOf(threads()["p1"]!).started).toEqual([
+      {
+        id: "c1",
+        title: "Build the Draft screen",
+      },
+    ]);
+  });
+
+  it("reads the earlier Job's turns above its own, over a rule", () => {
+    const all = threads();
+    const ids = withEarlier(rowsOf(sessionOfThread(all["c1"]!)), all["c0"]).map((row) => row.id);
+    expect(ids.slice(0, 4)).toEqual([
+      "c0:c0-1",
+      "c0:c0-2",
+      "c0:c0-3",
+      "divider-c0",
+    ]);
+    expect(ids).toContain("c1-2");
+  });
+
+  it("names the Job each side of the hand", () => {
+    const all = threads();
+    expect(handedOf(all["c1"]!.session, "replaces")).toBe("c0");
+    expect(handedOf(all["c0"]!.session, "replaced_by")).toBe("c1");
+    expect(handedOf(all["p1"]!.session, "replaces")).toBeUndefined();
   });
 });
 

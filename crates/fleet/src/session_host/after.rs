@@ -250,7 +250,9 @@ where
     /// [`Self::after_checked`], for a wait that stands: **the Session it waits on may have ended**, and a
     /// person changing it is how it gets out of a wait that cannot now be met.
     async fn after_known(&self, waiting: &str, after: &StartAfter) -> Result<store::KeptSession, Refusal> {
-        let on = after.session.as_str();
+        // A Job handed on is the Job that took its place (armada-mi2r).
+        let on_now = self.job_now(after.session.as_str()).await;
+        let on = on_now.as_str();
         if on == waiting {
             return Err(self.hosted_refusal(WAIT_ON_ITSELF, "a Job cannot wait on itself"));
         }
@@ -304,7 +306,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         self.after_checked(waiting, &after).await?;
         let (kind, part) = condition_kept(&after.condition);
-        let on = after.session.as_str().to_string();
+        let on = self.job_now(after.session.as_str()).await;
         let wait = KeptWait {
             session_id: waiting.to_string(),
             on_session: on.clone(),
@@ -373,7 +375,7 @@ where
             let store = self.store().lock().await;
             let open = store.open_waits().unwrap_or_default();
             let on: std::collections::BTreeSet<String> = open.into_iter().map(|one| one.on_session).collect();
-            on.into_iter().filter_map(|on| handed_to(&store, &on).map(|last| (on, last))).collect()
+            on.into_iter().filter_map(|on| super::replacing::handed_to(&store, &on).map(|last| (on, last))).collect()
         };
         for (old, new) in moves {
             self.waits_followed(&old, &new).await;
@@ -614,7 +616,8 @@ where
                 let me = self.session_holding(caller).ok_or_else(|| {
                     self.hosted_refusal(WAIT_UNPLACED, "only a Job's own agent changes when a Job waiting on it starts, and this call comes from none")
                 })?;
-                if me != was.on_session {
+                // The agent of the Job that took the place of the one waited on is that Job's.
+                if me != self.job_now(&was.on_session).await {
                     return Err(self.hosted_refusal(WAIT_NOT_YOURS, &format!("job {waiting} does not wait on you, so its start is not yours to change")));
                 }
                 WaitBy::Agent
@@ -720,23 +723,6 @@ where
         self.wait_met(wait, String::from("You started it")).await;
         self.published_hosted(session).await
     }
-}
-
-/// The Session that last took the place of `on`, down the whole chain of hands. `None` for one never
-/// handed on.
-fn handed_to(store: &store::Store, on: &str) -> Option<String> {
-    let mut last = None;
-    let mut at = on.to_string();
-    while let Some(next) = store
-        .attachments_of(&Holder::session(&at))
-        .ok()?
-        .into_iter()
-        .find(|one| one.kind == super::replacing::REPLACED_BY && one.state == AttachmentState::Spent)
-    {
-        at = next.target.clone();
-        last = Some(next.target);
-    }
-    last
 }
 
 /// The first non-blank line of some words, cut to a title's length.

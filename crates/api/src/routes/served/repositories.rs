@@ -44,6 +44,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/merge_lines",
     },
+    // The same lines as a screen draws them, which Fleet reads once for every client.
+    Route {
+        operation: "get_merge_line_view",
+        method: "GET",
+        path: "/merge_lines/view",
+    },
     // One Check's log on that line, as it is written. Named by the line's own
     // three words in the query, never by a path: a root is a path itself.
     Route {

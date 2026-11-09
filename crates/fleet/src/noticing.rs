@@ -40,6 +40,8 @@ pub(crate) struct Sweep {
     pub(crate) main_last: Option<Timestamp>,
     /// When pull requests were last read to tell their owners, `crate::pull_notices`.
     pub(crate) pulls_told_last: Option<Timestamp>,
+    /// When the last reading of each Manifest's pull requests that finished began, by Manifest id.
+    pub(crate) pulls_read: BTreeMap<String, Timestamp>,
     /// The login the forge's command line is signed in as, once it has answered. `crate::my_pulls`.
     pub(crate) local_login: Option<String>,
     /// When the build on file was last read to tell sessions, and the commit this process has

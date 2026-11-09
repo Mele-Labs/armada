@@ -370,6 +370,11 @@ where
         Ok(crate::merge_lines::answer(self).await)
     }
 
+    /// Each served repository's merge line as a screen draws it — [`crate::merge_line_view`].
+    async fn get_merge_line_view(&self) -> Result<ipc::MergeLineViews, Refusal> {
+        Ok(crate::merge_lines::view(self).await)
+    }
+
     /// One uncommitted file of a held checkout — [`crate::catching_up`].
     async fn checkout_diff(&self, ask: ipc::CheckoutDiffAsk) -> Result<ipc::CheckoutDiff, Refusal> {
         self.checkout_diff_of(ask).await
