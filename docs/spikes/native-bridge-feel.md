@@ -139,8 +139,8 @@ Rebuilding the example after an edit took 4 to 11 s in debug.
 This slot's `target/` holds 11 GB for debug and 1.8 GB for release.
 The Chrome spike's build figures, which add CEF, are in [`native-bridge-chrome.md`](native-bridge-chrome.md).
 
-`[native-cold-build-weight]` is the owner's to decide.
-These figures say a cold native build is the size of one ordinary Rust compile on this Mac: well under two minutes, one process near 2 GB of 48, and a load that stayed in the single digits.
+On these figures native build Jobs are not limited to one at a time.
+They say a cold native build is the size of one ordinary Rust compile on this Mac: well under two minutes, one process near 2 GB of 48, and a load that stayed in the single digits.
 
 ## Reading the timings
 

@@ -73,9 +73,8 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 
 | Rule | Detail |
 |---|---|
-| One native build at a time | gpui and Chrome are large builds on a Mac that also runs Fleet |
-| A heavy cold build | If the foundation measures one, only one native build Job runs at a time |
-| The second slot then | Takes Fleet or docs work |
+| A native build | Runs like any other Rust build Job: a cold one is about a minute and 2 GB, measured in [the feel spike](../spikes/native-bridge-feel.md) |
+| A build with Chrome in it | Measured heavier in [the Chrome spike](../spikes/native-bridge-chrome.md): look again before two run at once |
 | Tests | Only through `armada check test <name>` or `--changed` |
 | Formatting | Never `rustfmt` or `cargo fmt` |
 
@@ -88,8 +87,3 @@ Electron takes only fixes and small features that help the owner daily.
 
 **A long thread opens, and a Job switch lands, in under 50 ms.**
 The figures tune the build and gate nothing.
-
-## Open questions
-
-- **[native-cold-build-weight]** Is a cold native build heavy enough to limit native build Jobs to one at a time?
-  The foundation measures it. Until then the one-build-at-a-time rule above holds.
