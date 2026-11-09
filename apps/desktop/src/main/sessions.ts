@@ -111,6 +111,8 @@ import type {
   BeginSession,
   WaitReading,
   WindowClosed,
+  OpenNativeWalk,
+  NativeWalkOpened,
   WalkTold,
   WindowFailed,
   AskJudge,
@@ -1408,6 +1410,26 @@ export class SessionsHost {
   /** The person closed a window a Session showed: its walk is over, and its waiting item stands. */
   async windowClosed(closed: WindowClosed): Promise<SessionActed> {
     return await this.act("POST", "/sessions/window/closed", closed);
+  }
+
+  /** The person pressed Open on a native walk: Fleet starts the Job's own build of the native app on it. Nothing is folded. */
+  async openNativeWalk(open: OpenNativeWalk): Promise<SessionActed<NativeWalkOpened>> {
+    const port = this.port();
+    if (port === null)
+      return {
+        ok: false,
+        outcome: NOT_CONNECTED,
+      };
+    const answer = await ask(port, "POST", "/sessions/window/open", open);
+    return answer.ok === true
+      ? {
+          ok: true,
+          value: answer.body as NativeWalkOpened,
+        }
+      : {
+          ok: false,
+          outcome: answer.outcome,
+        };
   }
 
   /** A window a Session showed could not show its page: Fleet tells the Session. Fleet answers `WalkTold`, not the record, so nothing is folded. */

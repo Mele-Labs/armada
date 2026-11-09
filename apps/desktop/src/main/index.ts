@@ -1337,6 +1337,16 @@ void app.whenReady().then(() => {
             }
           : sent.outcome;
     },
+    openNative: async (body) => {
+      const opened = await connection?.sessions.openNativeWalk(body);
+      return opened === undefined
+        ? UNSENT
+        : opened.ok
+          ? {
+              ok: true,
+            }
+          : opened.outcome;
+    },
   });
   // A Studio node's own address, `openPullRequest`'s reason: read here off the
   // Studio main published, never off a string the renderer sent. #1406.

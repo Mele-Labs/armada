@@ -32,5 +32,7 @@ export const jobWalkPreload: Required<JobWalkApi> = {
       ipcRenderer.invoke(CHANNELS.jobWalkEditNote, sessionId, id, said),
     removeNote: (sessionId, id) => ipcRenderer.invoke(CHANNELS.jobWalkRemoveNote, sessionId, id),
     sendNotes: (sessionId) => ipcRenderer.invoke(CHANNELS.jobWalkSendNotes, sessionId),
+    openNative: (sessionId, walkId) =>
+      ipcRenderer.invoke(CHANNELS.jobWalkOpenNative, sessionId, walkId),
   },
 };
