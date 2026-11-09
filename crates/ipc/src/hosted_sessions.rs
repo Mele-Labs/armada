@@ -663,6 +663,10 @@ pub enum SessionRow {
         at: Instant,
         session: crate::session_starts::SessionLink,
         event: LinkedEvent,
+        /// The Job `session` took the place of when it was handed on for context, where this row
+        /// says so. **Not drawn**: the row that started that Job stands for both, and opens this one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        replaces: Option<crate::SessionId>,
     },
     /// A Session waits on this one, its condition changed, or it started. Written in **this**
     /// session's thread (`side` `waited`, `session` the one that waits), and in the waiting

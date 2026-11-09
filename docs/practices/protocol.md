@@ -1646,3 +1646,16 @@ Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/sr
 
 **A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
 **Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.
+
+## A hand off told to a parent: `SessionRow::Linked.replaces`
+
+Since 6 Nov 2026. `docs/concepts/session/a-handed-off-job.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
+
+Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.
