@@ -199,6 +199,7 @@ WebSocket event stream, read this first.
 | [The Operator takes Helm's place](protocol/the-operator-takes-helms-place.md) |
 | [A Job's thread, folded by Fleet](protocol/a-jobs-thread-fleet-folds.md) |
 | [The merge line, read by Fleet](protocol/the-merge-line-fleet-reads.md) |
+| [A Job's in-flight list: `SessionRecord.in_flight`](protocol/a-jobs-in-flight-list.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

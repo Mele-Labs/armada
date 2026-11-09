@@ -311,7 +311,7 @@ pub use piece_saving::{
     LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught, WorkspaceToSave,
 };
 pub use lifecycles::{
-    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
     LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
     PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
     RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,

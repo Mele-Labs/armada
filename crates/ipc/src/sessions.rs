@@ -1435,6 +1435,12 @@ pub struct SessionRecord {
     /// Since 30 Oct 2026. `change_session_steps`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workflow_copy: Option<crate::WorkflowSummary>,
+    /// What the Job still holds that End job lists: each lifecycle instance neither ended by ending or
+    /// handing away the Job nor in an end state of its lifecycle, in the order it was taken on. One
+    /// standing in no state is listed too. Set for a live Job only; empty for one that holds nothing and
+    /// for one that has ended. Since 9 Nov 2026. `docs/practices/protocol/a-jobs-in-flight-list.md`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub in_flight: Vec<crate::InFlight>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

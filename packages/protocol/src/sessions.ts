@@ -18,6 +18,7 @@ import type { FileTouch, SessionPlan } from "./session-plan";
 import type { JudgeReading } from "./judge";
 import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
+import type { InFlight } from "./lifecycles";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -260,6 +261,12 @@ export type SessionRecord = {
    * in place of the repository's. Absent until then. Since 30 Oct 2026.
    */
   workflow_copy?: WorkflowSummary;
+  /**
+   * What the Job still holds that End job lists: each lifecycle instance neither ended by ending or handing away the Job nor in an end
+   * state of its lifecycle, in the order it was taken on. One standing in no state is listed too. Set for a live Job only; absent for
+   * one that holds nothing and for one that has ended. Since 9 Nov 2026.
+   */
+  in_flight?: InFlight[];
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
