@@ -808,9 +808,9 @@ impl JobsList {
         }));
     }
 
-    /// A Job's row as Electron's Cockpit list draws it (`ListCard.tsx`, `row-view.tsx`): the title
-    /// and the corner's marks on the first line, the issue and pull request chips and the lines
-    /// under, and the time at the foot, each as the View has it. Rounder and roomier than
+    /// A Job's row as Electron's Cockpit list draws it (`ListCard.tsx`, `row-view.tsx`): the title,
+    /// the time and the corner's marks on the first line, the issue and pull request chips and the
+    /// lines under, each as the View has it. Rounder and roomier than
     /// Electron's strip, on the owner's word; the lamp is a bar inset at its left.
     fn render_job(&self, at: usize, row: &Row, cx: &mut Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
@@ -887,7 +887,6 @@ impl JobsList {
         });
         let tagged = issue.is_some() || pr.is_some();
         let under = tagged || flow.is_some() || now.is_some();
-        let (time_top, time_foot) = if under { (None, time) } else { (time, None) };
         let marks = div()
             .flex_none()
             .flex()
@@ -895,9 +894,12 @@ impl JobsList {
             .gap(look.length(token::SPACE_1))
             // The conflicts column keeps its place; Fleet's write clashes do not reach this list yet.
             .when(view.on("view:conflicts"), |marks| marks.child(div().flex_none().w(look.length(token::SPACE_4))))
+            // The time stands right against the state; the glyphs end at the row's edge, so they
+            // line up down the list.
+            .children(time)
             .when(view.on("view:status"), |marks| {
-                // The wide status slot: the paused mark in place of the state's glyph.
-                marks.child(div().flex_none().flex().justify_end().w(look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1)).children(state.map(|((glyph, said), hue)| {
+                // The paused mark in place of the state's glyph.
+                marks.child(div().flex_none().flex().justify_end().children(state.map(|((glyph, said), hue)| {
                     labelled(
                         div()
                             .id(SharedString::from(format!("state-{}", row.id)))
@@ -976,27 +978,20 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
-                    .children(time_top)
+                    // The time keeps the title line on every row, beside the state, by the owner's
+                    // choice, where Electron moves it to the foot of a row with lines.
                     .child(marks),
             )
             .when(under, |strip| {
                 strip.child(
                     div()
+                        .min_w_0()
                         .flex()
-                        .items_end()
-                        .gap(look.length(token::SPACE_2))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .flex()
-                                .flex_col()
-                                .gap(look.length(token::SPACE_1))
-                                .when(tagged, |lines| lines.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(issue).children(pr)))
-                                .children(flow)
-                                .children(now),
-                        )
-                        .children(time_foot),
+                        .flex_col()
+                        .gap(look.length(token::SPACE_1))
+                        .when(tagged, |lines| lines.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(issue).children(pr)))
+                        .children(flow)
+                        .children(now),
                 )
             })
             .on_hover(cx.listener(move |this, hovered: &bool, window, cx| this.hovered(hover_on.clone(), *hovered, window, cx)))
