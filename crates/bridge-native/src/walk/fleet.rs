@@ -1,11 +1,11 @@
-//! What a walk tells Fleet: Approve, a note, and the window closed. **These three routes and no
+//! What a walk tells Fleet: Approve, the notes, and the window closed. **These three routes and no
 //! others**, on the port Fleet handed over with `--fleet-port`, with no protocol check: a Job's
 //! branch may have changed the wire, and its own walk must still reach the owner's Fleet. Fleet
 //! pins their shapes in `crates/fleet/src/tests/native_walk.rs`, so a change to one fails there.
 
 use ipc::{
     NoteCrop, NoteElement, NotePlace, NoteState, NoteWalk, SendSessionMessage, SendSessionMessageBody,
-    SendSessionNote, SessionId, SessionNote, WindowClosed, WireError,
+    SendSessionNotes, SessionId, SessionNote, WindowClosed, WireError,
 };
 
 /// Who the walk answers to: the Job that showed it, the address it showed it on, and Fleet's port.
@@ -16,15 +16,16 @@ pub struct WalkFleet {
     pub port: u16,
 }
 
-/// Where a note was taken: the walk, the step, and the element the step was on.
-pub struct NoteOn<'a> {
-    pub walk: &'a str,
+/// A note and where it was taken: the walk, the step, and what it was written on.
+pub struct NoteOn {
+    pub said: String,
+    pub walk: &'static str,
     pub step: u32,
     pub of: u32,
-    pub role: &'a str,
-    pub name: &'a str,
-    /// A picture of what the note was written on, PNG in base64.
-    pub crop: Option<String>,
+    pub role: String,
+    pub name: String,
+    /// The window's picture with what the note was written on outlined and numbered, PNG in base64.
+    pub picture: Option<String>,
 }
 
 impl WalkFleet {
@@ -42,28 +43,27 @@ impl WalkFleet {
         self.send("/sessions/message", &body)
     }
 
-    pub fn note(&self, said: &str, on: NoteOn<'_>) -> Result<(), String> {
-        let body = SendSessionNote {
-            session_id: SessionId::carried(self.job.clone()),
-            note: SessionNote {
-                said: said.to_string(),
+    /// The held notes, in the order they were taken: Fleet gives them to the Job as one turn,
+    /// numbered so.
+    pub fn notes(&self, notes: Vec<NoteOn>) -> Result<(), String> {
+        let notes = notes
+            .into_iter()
+            .map(|on| SessionNote {
+                said: on.said,
                 address: self.url.clone(),
                 note_id: None,
                 place: NotePlace {
                     selector: format!("{} \"{}\"", on.role, on.name),
-                    element: NoteElement { tag: on.role.to_string(), text: on.name.to_string(), label: Some(on.name.to_string()) },
+                    element: NoteElement { tag: on.role.clone(), text: on.name.clone(), label: Some(on.name.clone()) },
                     location: format!("{}#step-{}", self.url, on.step),
                     ..NotePlace::default()
                 },
-                state: NoteState {
-                    walk: Some(NoteWalk { name: on.walk.to_string(), step: on.step, of: on.of }),
-                    ..NoteState::default()
-                },
-                crop: on.crop.map(|data| NoteCrop { media_type: "image/png".into(), data }),
+                state: NoteState { walk: Some(NoteWalk { name: on.walk.to_string(), step: on.step, of: on.of }), ..NoteState::default() },
+                crop: on.picture.map(|data| NoteCrop { media_type: "image/png".into(), data }),
                 job: Vec::new(),
-            },
-        };
-        self.send("/sessions/note", &body)
+            })
+            .collect();
+        self.send("/sessions/notes", &SendSessionNotes { session_id: SessionId::carried(self.job.clone()), notes })
     }
 
     pub fn closed(&self) -> Result<(), String> {

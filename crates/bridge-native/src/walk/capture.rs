@@ -1,7 +1,8 @@
 //! Capture on a walk: the screen under a crosshair, as Electron's walk capture (`StudioCapture`).
 //! The element under the pointer is outlined with its name; a press holds it, and a drag holds the
 //! box drawn instead, for a spot that is not one element. The note is written in a card against
-//! what was held, and goes with a picture of it.
+//! what was held, and is held until Send notes. Each goes with a picture of the whole window, its
+//! area outlined and numbered by its place among the notes sent, as Electron burns them (`burn.ts`).
 
 use gpui::{Bounds, Pixels, Point, Role, SharedString};
 
@@ -81,18 +82,59 @@ pub fn region(from: Point<Pixels>, to: Point<Pixels>) -> Option<Bounds<Pixels>> 
     Some(Bounds { origin, size: gpui::size(gpui::px(x), gpui::px(y)) })
 }
 
-/// `bounds` cut out of the window's picture, as a PNG in base64. `scale` is the window's pixels per point.
-pub fn crop(picture: &image::RgbaImage, bounds: Bounds<Pixels>, scale: f32) -> Option<String> {
-    let at = |value: Pixels| (f32::from(value) * scale).max(0.) as u32;
-    let (x, y) = (at(bounds.origin.x).min(picture.width()), at(bounds.origin.y).min(picture.height()));
-    let width = at(bounds.size.width).min(picture.width() - x);
-    let height = at(bounds.size.height).min(picture.height() - y);
-    if width == 0 || height == 0 {
-        return None;
+/// Digits three wide and five tall, a row to a `u8`, for the number burned beside a ring.
+const DIGITS: [[u8; 5]; 10] = [
+    [0b111, 0b101, 0b101, 0b101, 0b111],
+    [0b010, 0b110, 0b010, 0b010, 0b111],
+    [0b111, 0b001, 0b111, 0b100, 0b111],
+    [0b111, 0b001, 0b111, 0b001, 0b111],
+    [0b101, 0b101, 0b111, 0b001, 0b001],
+    [0b111, 0b100, 0b111, 0b001, 0b111],
+    [0b111, 0b100, 0b111, 0b101, 0b111],
+    [0b111, 0b001, 0b010, 0b010, 0b010],
+    [0b111, 0b101, 0b111, 0b101, 0b111],
+    [0b111, 0b101, 0b111, 0b001, 0b111],
+];
+
+/// The window's picture with `ring` outlined in `ink` and `number` in a pill at its top left, as a
+/// PNG in base64. `scale` is the window's pixels per point.
+pub fn ringed(picture: &image::RgbaImage, ring: Bounds<Pixels>, scale: f32, number: usize, ink: [u8; 4], on_ink: [u8; 4]) -> Option<String> {
+    let mut out = picture.clone();
+    let (width, height) = (out.width() as i64, out.height() as i64);
+    let mut fill = |x0: i64, y0: i64, x1: i64, y1: i64, color: [u8; 4]| {
+        for y in y0.max(0)..y1.min(height) {
+            for x in x0.max(0)..x1.min(width) {
+                out.put_pixel(x as u32, y as u32, image::Rgba(color));
+            }
+        }
+    };
+    let at = |value: Pixels| (f32::from(value) * scale).round() as i64;
+    let (x0, y0) = (at(ring.origin.x), at(ring.origin.y));
+    let (x1, y1) = (x0 + at(ring.size.width), y0 + at(ring.size.height));
+    let edge = (2. * scale).round().max(1.) as i64;
+    fill(x0, y0, x1, y0 + edge, ink);
+    fill(x0, y1 - edge, x1, y1, ink);
+    fill(x0, y0, x0 + edge, y1, ink);
+    fill(x1 - edge, y0, x1, y1, ink);
+    // The pill: each digit cell `dot` wide, padded by two cells, above the ring where it fits.
+    let digits: Vec<usize> = number.to_string().bytes().map(|digit| (digit - b'0') as usize).collect();
+    let dot = (3. * scale).round().max(1.) as i64;
+    let (pill_w, pill_h) = (dot * (4 * digits.len() as i64 + 3), dot * 9);
+    let top = if y0 - pill_h >= 0 { y0 - pill_h } else { y0 };
+    fill(x0, top, x0 + pill_w, top + pill_h, ink);
+    for (place, digit) in digits.iter().enumerate() {
+        for (row, bits) in DIGITS[*digit].iter().enumerate() {
+            for column in 0..3 {
+                if bits & (0b100 >> column) != 0 {
+                    let x = x0 + dot * (2 + 4 * place as i64 + column);
+                    let y = top + dot * (2 + row as i64);
+                    fill(x, y, x + dot, y + dot, on_ink);
+                }
+            }
+        }
     }
-    let cut = image::imageops::crop_imm(picture, x, y, width, height).to_image();
     let mut png = std::io::Cursor::new(Vec::new());
-    cut.write_to(&mut png, image::ImageFormat::Png).ok()?;
+    out.write_to(&mut png, image::ImageFormat::Png).ok()?;
     use base64::Engine as _;
     Some(base64::engine::general_purpose::STANDARD.encode(png.into_inner()))
 }
@@ -129,11 +171,18 @@ mod tests {
     }
 
     #[test]
-    fn a_crop_is_cut_at_the_windows_scale_and_kept_inside_it() {
-        let picture = image::RgbaImage::new(200, 100);
-        let inside = Bounds { origin: point(px(10.), px(10.)), size: size(px(20.), px(20.)) };
-        assert!(crop(&picture, inside, 2.).is_some());
-        let outside = Bounds { origin: point(px(500.), px(500.)), size: size(px(20.), px(20.)) };
-        assert!(crop(&picture, outside, 2.).is_none());
+    fn a_ring_is_burned_at_the_windows_scale_with_its_number_and_a_ring_past_the_edge_is_cut() {
+        let picture = image::RgbaImage::new(200, 200);
+        let ink = [255, 0, 0, 255];
+        let ring = Bounds { origin: point(px(20.), px(40.)), size: size(px(30.), px(40.)) };
+        let burned = ringed(&picture, ring, 2., 12, ink, [255; 4]).expect("a picture");
+        use base64::Engine as _;
+        let bytes = base64::engine::general_purpose::STANDARD.decode(burned).expect("base64");
+        let back = image::load_from_memory(&bytes).expect("a PNG").to_rgba8();
+        assert_eq!((back.width(), back.height()), (200, 200), "the whole window, not a crop");
+        assert_eq!(back.get_pixel(40, 140).0, ink, "the ring's left edge, at twice the points");
+        assert_eq!(back.get_pixel(70, 120).0, [0; 4], "inside the ring is left as it was");
+        assert_eq!(back.get_pixel(41, 79).0, ink, "the number's pill stands above the ring");
+        assert!(ringed(&picture, Bounds { origin: point(px(90.), px(40.)), size: size(px(50.), px(50.)) }, 2., 1, ink, [255; 4]).is_some());
     }
 }
