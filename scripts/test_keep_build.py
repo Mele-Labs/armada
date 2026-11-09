@@ -15,6 +15,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEEP = os.path.join(HERE, "scripts", "keep-build")
+NATIVE_APP = os.path.join(HERE, "scripts", "native-app")
 LOCK = "aaaaaaaaaaaaaaaa"
 
 
@@ -44,11 +45,12 @@ class KeepBuild(unittest.TestCase):
         self.modules = os.path.join(self.support, "node_modules")
         self.src = os.path.join(self.tmp, "tree")
         os.makedirs(self.home)
-        # keep-build finds `armada-electron` beside itself, so a stub sits beside a copy of it.
+        # keep-build finds `armada-electron` and `native-app` beside itself, so a stub and a copy sit beside a copy of it.
         scripts = os.path.join(self.tmp, "scripts")
         os.makedirs(scripts)
         self.keep = os.path.join(scripts, "keep-build")
         shutil.copy2(KEEP, self.keep)
+        shutil.copy2(NATIVE_APP, os.path.join(scripts, "native-app"))
         self.electron_calls = os.path.join(scripts, "armada-electron.calls")
         self.write(os.path.join(scripts, "armada-electron"), (
             "#!/bin/sh\n"

@@ -44,11 +44,10 @@
 # sorted by path relative to `out/`, each fed as the path, a NUL, then the
 # sha256 of its contents. Two builds with the same key have the same Bridge.
 #
-# **The native Bridge is kept as `Armada.app`**, when a binary is given: the cargo binary renamed
-# to `Contents/MacOS/Armada`, because the Dock and the app switcher read the executable's file name
-# (`scripts/armada-electron` has the measurement), an `Info.plist`, the brand icon, and an ad hoc
-# signature. `native` in `build.toml` is the first 16 hex of one sha256 over the binary and the icon,
-# so a restart can tell a changed app from an unchanged one. A build kept without one has no `native` line.
+# **The native Bridge is kept as `Armada.app`**, when a binary is given, made by `scripts/native-app`,
+# which the release makes its app with too: the cargo binary renamed to `Contents/MacOS/Armada`, an
+# `Info.plist`, the brand icon, and an ad hoc signature. `native` in `build.toml` is the first 16 hex
+# of one sha256 over the binary and the icon, so a restart can tell a changed app from an unchanged one. A build kept without one has no `native` line.
 #
 # **Everything is derived from `$HOME`**, as in `scripts/restart`, so a test
 # against a scratch home never reaches the owner's builds.
@@ -171,29 +170,7 @@ make() {
   printf '#!/bin/sh\nexec "%s" "%s/bridge"\n' "$electron" "$final" >"$making/launch-bridge"
   chmod 755 "$making/launch-bridge"
   if [[ -n "$native_bin" ]]; then
-    mkdir -p "$making/Armada.app/Contents/MacOS" "$making/Armada.app/Contents/Resources"
-    clone "$native_bin" "$making/Armada.app/Contents/MacOS/Armada"
-    cp "$icon" "$making/Armada.app/Contents/Resources/AppIcon.icns"
-    python3 - "$making/Armada.app/Contents/Info.plist" <<'PY'
-import plistlib, sys
-
-plistlib.dump(
-    {
-        "CFBundleName": "Armada",
-        "CFBundleDisplayName": "Armada",
-        "CFBundleExecutable": "Armada",
-        # Not Electron's: both Bridges can be open, and the system tells apps apart by this.
-        "CFBundleIdentifier": "dev.armada.bridge.native",
-        "CFBundleIconFile": "AppIcon",
-        "CFBundlePackageType": "APPL",
-        "CFBundleInfoDictionaryVersion": "6.0",
-        "LSMinimumSystemVersion": "12.0",
-        "NSHighResolutionCapable": True,
-    },
-    open(sys.argv[1], "wb"),
-)
-PY
-    codesign --force -s - "$making/Armada.app" >/dev/null 2>&1 || fail "could not sign $making/Armada.app"
+    "$here/native-app" "$native_bin" "$making" "$icon" >/dev/null
   fi
 
   python3 - "$making" "$built_at" "$commit" "$source" "$protocol_id" "$lock" "$src" "$support" "$native_bin" "${icon:-}" <<'PY'

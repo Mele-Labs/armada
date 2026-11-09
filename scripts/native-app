@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#
+# Make the native Bridge's `Armada.app`, signed ad hoc, from its cargo binary:
+#
+#   native-app <binary> <out dir> [<AppIcon.icns>]
+#
+# Prints the app's path. **The one place that bundle is made**: `scripts/keep-build`
+# keeps one for a restart and the `release` job in `.github/workflows/checks.yml`
+# ships one, and a second recipe would let the two differ.
+#
+# The binary is renamed to `Contents/MacOS/Armada`, because the Dock and the app
+# switcher read the executable's file name (`scripts/armada-electron` has the
+# measurement). The icon is the brand's, from beside this script unless one is
+# given. A caller that adds to the bundle afterwards signs it again: writing into
+# a signed bundle breaks the seal.
+
+set -euo pipefail
+
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+fail() {
+  echo "native-app: $*" >&2
+  exit 1
+}
+
+[[ $# -eq 2 || $# -eq 3 ]] || fail "usage: native-app <binary> <out dir> [<AppIcon.icns>]"
+binary="$1" out="$2" icon="${3:-$here/../packages/brand/macos/AppIcon.icns}"
+[[ -f "$binary" ]] || fail "$binary is not a file"
+[[ -f "$icon" ]] || fail "$icon is missing"
+
+app="$out/Armada.app"
+rm -rf "$app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+# An APFS clone where the volume allows one, else a plain copy.
+cp -c "$binary" "$app/Contents/MacOS/Armada" 2>/dev/null || cp "$binary" "$app/Contents/MacOS/Armada"
+chmod 755 "$app/Contents/MacOS/Armada"
+cp "$icon" "$app/Contents/Resources/AppIcon.icns"
+python3 - "$app/Contents/Info.plist" <<'PY'
+import plistlib, sys
+
+plistlib.dump(
+    {
+        "CFBundleName": "Armada",
+        "CFBundleDisplayName": "Armada",
+        "CFBundleExecutable": "Armada",
+        # Not Electron's: both Bridges can be open, and the system tells apps apart by this.
+        "CFBundleIdentifier": "dev.armada.bridge.native",
+        "CFBundleIconFile": "AppIcon",
+        "CFBundlePackageType": "APPL",
+        "CFBundleInfoDictionaryVersion": "6.0",
+        "LSMinimumSystemVersion": "12.0",
+        "NSHighResolutionCapable": True,
+    },
+    open(sys.argv[1], "wb"),
+)
+PY
+codesign --force -s - "$app" >/dev/null 2>&1 || fail "could not sign $app"
+echo "$app"
