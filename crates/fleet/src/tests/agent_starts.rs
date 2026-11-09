@@ -889,7 +889,7 @@ async fn the_persons_send_of_the_draft_is_one_first_turn_with_the_message_and_no
     let sent = rig.sent_to(1);
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
     assert!(first.contains(FIRST), "{first}");
-    assert_eq!(first.matches(STEP_WORDS).count(), 0, "the step's words are not sent: {first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the step's words come once, in the workflow's groups, and not again as its entry: {first}");
 }
 
 /// A Job an agent started on the `gate` workflow, whose first step asks how the work is delivered, begun
@@ -916,7 +916,7 @@ async fn a_first_message_that_names_a_delivery_goes_in_one_turn() {
 
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
     assert!(first.contains(message), "{first}");
-    assert_eq!(first.matches(STEP_WORDS).count(), 0, "the step's words are not sent: {first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the step's words come once, in the workflow's groups, and not again as its entry: {first}");
     assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
     assert!(
         rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(_), named: true, .. })),
@@ -931,7 +931,7 @@ async fn a_first_message_that_names_no_delivery_goes_with_the_landing_chosen_on_
     let [first] = &sent[..] else { panic!("one turn, not {}: {sent:?}", sent.len()) };
     assert!(first.contains(FIRST) && first.contains("the owner chose"), "{first}");
     assert!(!first.contains("choosing how this work is delivered"), "nothing is asked: {first}");
-    assert_eq!(first.matches(STEP_WORDS).count(), 0, "the step's words are not sent: {first}");
+    assert_eq!(first.matches(STEP_WORDS).count(), 1, "the step's words come once, in the workflow's groups, and not again as its entry: {first}");
     assert!(
         rig.rows(&id).await.iter().any(|row| matches!(row, SessionRow::Delivery { choice: Some(ipc::DeliveryChoice::OpenPr), named: false, .. })),
         "the card's answer is kept"

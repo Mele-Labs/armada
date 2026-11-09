@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 
 use core_model::{
     AdvanceGate, EvidenceScope, EvidenceType, GateVerdict, JudgeCheck, ModelName, PrMode, StepEnd,
-    StepId, StepPhase,
+    StepGate, StepId, StepPhase,
 };
 use serde_yaml_ng::Value;
 
@@ -58,6 +58,7 @@ const STEP_KEYS: &[&str] = &[
     "awaits_reply",
     "ends_on",
     "phase",
+    "gate",
 ];
 
 /// **The schema's whole set, spelled out rather than sketched.** This held
@@ -110,6 +111,27 @@ const PHASE_CARRIED: &[(&str, StepPhase)] = &[
 ];
 const PHASE_LEGAL: &[&str] = &["setup", "work", "delivery"];
 
+/// `gate`'s words, all carried: the plan's gate words, held equal to `ipc::PlanGate` by a Fleet test.
+const PLAN_GATE_CARRIED: &[(&str, StepGate)] = &[
+    ("plan_approved", StepGate::PlanApproved),
+    ("walk_approved", StepGate::WalkApproved),
+    ("sketch_approved", StepGate::SketchApproved),
+    ("document_approved", StepGate::DocumentApproved),
+    ("checks_green", StepGate::ChecksGreen),
+    ("merged", StepGate::Merged),
+    ("none", StepGate::None),
+];
+/// The same words as a list, for a refusal to print.
+pub(crate) const PLAN_GATE_LEGAL: &[&str] = &[
+    "plan_approved",
+    "walk_approved",
+    "sketch_approved",
+    "document_approved",
+    "checks_green",
+    "merged",
+    "none",
+];
+
 /// The whole of the `evidence` block, and of the `submitted` object inside it.
 const EVIDENCE_KEYS: &[&str] = &["submitted", "captured", "walked"];
 const SUBMITTED_KEYS: &[&str] = &["type"];
@@ -143,6 +165,7 @@ pub struct Step {
     walks: bool,
     ends_on: Vec<StepEnd>,
     phase: Option<StepPhase>,
+    gate: StepGate,
 }
 
 impl Step {
@@ -346,6 +369,12 @@ impl Step {
         &self.ends_on
     }
 
+    /// What ends the step's plan group. **`none` where the file leaves the key out.** Distinct
+    /// from [`advance_gate`](Self::advance_gate), which is the old rail's.
+    pub fn gate(&self) -> StepGate {
+        self.gate
+    }
+
     /// The phase the step declared. **`None` where the file leaves the key
     /// out**, which `core_model::StepPhase::of` reads off `delivers`.
     pub fn phase(&self) -> Option<StepPhase> {
@@ -511,6 +540,20 @@ pub(super) fn read(
             out,
         )
     });
+    // **Absent is none, and a word outside the seven is a refusal**, so a misspelt gate is not a
+    // group that never ends.
+    let gate_word_key = table.at("gate");
+    let plan_gate = match table.optional("gate") {
+        None => Some(StepGate::None),
+        Some(value) => yaml::word(
+            &gate_word_key,
+            value,
+            PLAN_GATE_CARRIED,
+            PLAN_GATE_LEGAL,
+            PLAN_GATE_LEGAL,
+            out,
+        ),
+    };
     // **Required, and there is no default to fall back to.** A file that does
     // not say whether a step sends the work out has two readings and neither is
     // safe: taken as delivering, a workflow that produces a document opens a
@@ -659,6 +702,7 @@ pub(super) fn read(
         walks: walks?,
         ends_on: ends_on?,
         phase,
+        gate: plan_gate?,
     })
 }
 

@@ -28,7 +28,7 @@ mod editing;
 mod ends;
 mod head;
 mod mechanical;
-mod step;
+pub(crate) mod step;
 
 pub use editing::{edit_steps, EditFault, Edited, NewStep, StepEdit};
 pub use ends::{names_no_lifecycle, EndFault, NamesNoLifecycle};
