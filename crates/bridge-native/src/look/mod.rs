@@ -2,8 +2,8 @@
 //!
 //! A screen asks the [`Look`] global for a token by its constant (`token::BG_BASE`) and gets a
 //! gpui type back. Which theme is in force is the person's choice, kept by Fleet as the `theme`
-//! preference: `dark`, `light`, a catalogue id or a mod's name, and `system` to follow macOS (see
-//! [`Choice`]). [`LookController`] watches the choice, the mods Fleet lists and the window's
+//! preference: `dark`, `light`, a catalogue id or a mod's name (see [`Choice`]). Armada's own
+//! dark and light follow macOS; a catalogue theme or a mod stays as picked. [`LookController`] watches the choice, the mods Fleet lists and the window's
 //! appearance, and replaces the global once when any of them moves.
 
 mod components;
@@ -48,11 +48,9 @@ impl Global for Look {}
 /// What a person's theme word means.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Choice {
-    /// Dark or light as macOS has it now. Not a word Fleet's picker offers yet; Fleet keeps the
-    /// word and Bridge decides what it names (`ipc::Preferences::theme`).
-    System,
-    Dark,
-    Light,
+    /// Armada's own theme, dark or light as macOS has it now. The owner chose this on 9 Nov 2026:
+    /// `dark`, `light`, `system` and no word at all all name it.
+    BuiltIn,
     /// `catalogue:ayu-light`.
     Catalogue(String),
     /// A mod's name, drawn once Fleet has checked its sheet.
@@ -62,9 +60,7 @@ pub enum Choice {
 impl Choice {
     pub fn parse(word: &str) -> Choice {
         match word.trim() {
-            "" | "dark" => Choice::Dark,
-            "light" => Choice::Light,
-            "system" => Choice::System,
+            "" | "dark" | "light" | "system" => Choice::BuiltIn,
             id if id.starts_with("catalogue:") => Choice::Catalogue(id.to_string()),
             name => Choice::Mod(name.to_string()),
         }
@@ -80,9 +76,7 @@ impl Look {
     /// catalogue id this build does not have, a mod not yet checked, a mod gone.
     pub fn pick(choice: &Choice, system: Tone, mods: &ModSheets) -> Look {
         match choice {
-            Choice::Dark => Look::dark(),
-            Choice::Light => Look::light(),
-            Choice::System => match system {
+            Choice::BuiltIn => match system {
                 Tone::Dark => Look::dark(),
                 Tone::Light => Look::light(),
             },
@@ -240,10 +234,9 @@ mod tests {
 
     #[test]
     fn the_words_a_preference_holds() {
-        assert_eq!(Choice::parse("dark"), Choice::Dark);
-        assert_eq!(Choice::parse(""), Choice::Dark);
-        assert_eq!(Choice::parse("light"), Choice::Light);
-        assert_eq!(Choice::parse("system"), Choice::System);
+        for word in ["dark", "", "light", "system"] {
+            assert_eq!(Choice::parse(word), Choice::BuiltIn, "{word:?}");
+        }
         assert_eq!(Choice::parse("catalogue:ayu-light"), Choice::Catalogue("catalogue:ayu-light".into()));
         assert_eq!(Choice::parse("dusk"), Choice::Mod("dusk".into()));
         assert_eq!(Choice::parse("built-in:calm"), Choice::Mod("built-in:calm".into()));
@@ -262,11 +255,11 @@ mod tests {
     }
 
     #[test]
-    fn system_follows_the_appearance_it_is_given() {
+    fn the_built_in_theme_follows_the_appearance_and_a_picked_one_stays() {
         let none = ModSheets::new();
-        assert_eq!(Look::pick(&Choice::System, Tone::Dark, &none).id(), "dark");
-        assert_eq!(Look::pick(&Choice::System, Tone::Light, &none).id(), "light");
-        assert_eq!(Look::pick(&Choice::Dark, Tone::Light, &none).id(), "dark");
+        assert_eq!(Look::pick(&Choice::BuiltIn, Tone::Dark, &none).id(), "dark");
+        assert_eq!(Look::pick(&Choice::BuiltIn, Tone::Light, &none).id(), "light");
+        assert_eq!(Look::pick(&Choice::Catalogue("catalogue:ayu-light".into()), Tone::Dark, &none).id(), "catalogue:ayu-light");
     }
 
     #[test]

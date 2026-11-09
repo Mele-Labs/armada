@@ -39,7 +39,8 @@ Each Electron feature that lands during the overlap gets a task in the matching 
 **Code mods, such as tabs and instruments, are sandboxed WebAssembly written in Rust.**
 Themes do not wait for the kit.
 Every theme in the app today works from the foundation: the catalogue in `packages/tokens/themes`, the built-in light and dark, and theme mods such as Dusk.
-Light and dark follow macOS.
+Armada's own light and dark follow macOS, whichever of the two is picked.
+A catalogue theme or a mod stays as picked.
 Job track, the owner's tab mod, waits for the kit.
 
 ### 4. Walks and annotations
