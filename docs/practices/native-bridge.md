@@ -31,13 +31,15 @@ Missing logic is a Fleet change, so Pocket gets it too.
 
 ## The design loop
 
-Every screen goes through the same five steps, in order.
+**A native screen is a port of its Electron screen, never a redesign.**
+It keeps the layout, controls, states and keys it has today.
+Every screen goes through the same four steps, in order.
 
-1. An HTML mock with the real tokens.
-2. The owner walks the mock.
-3. The gpui build.
-4. A native walk on mock data, in the screen's own window with a walk bar.
-5. Land.
+1. An inventory of the Electron screen: its regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
+2. The gpui build, matching the inventory.
+3. A native walk on mock data, in the screen's own window with a walk bar, beside the Electron screen.
+   The owner names his spacing and font tweaks there, and they go into the native screen only.
+4. Land.
 
 **Nothing he sees lands before his walk.**
 

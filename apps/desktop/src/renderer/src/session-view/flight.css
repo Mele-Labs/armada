@@ -289,3 +289,44 @@
   flex: 1 1 0;
   min-height: 0;
 }
+
+/* The subagents the agent named a group for: a drone each at the end of its title, on the row's line. Pulses while the subagent runs, still once it has finished;
+   a press opens its thread. The title keeps room for them, so a long one cuts short before the drones. */
+.sv-flight__agents {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  pointer-events: none;
+}
+.sv-flight__agents-gap {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.sv-flight__group[data-agents] .sv-flight__title {
+  padding-inline-end: calc(var(--agents) * (var(--h-control-sm) + var(--space-1)));
+}
+.sv-flight__agents > :not(.sv-flight__agents-gap) {
+  flex: none;
+  pointer-events: auto;
+}
+.sv-flight__agent {
+  color: var(--fg-muted);
+}
+.sv-flight__agent[data-running] {
+  color: var(--status-running);
+  animation: sv-lamp-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-flight__agent[data-running] {
+    animation: none;
+  }
+}

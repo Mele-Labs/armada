@@ -1,19 +1,13 @@
-# Refactor, reduced to what M1's parser accepts. `bug.json` beside this file
-# carries what all eight hold to, and where the schema, the catalogue and the
-# Check reasoning live.
+# Refactor, as the owner settled it on 9 Nov 2026: Scope, Restructure and review, Deliver. Each step is a
+# plan group and `gate` names the fact Fleet sees for itself that ends it. `bug.json` beside this file says
+# where the schema lives, and `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has his
+# answers.
 #
-# The designed `refactor.json` runs six steps in a loop with a Judge on four.
-# This form is Bug's shape: `scope` renamed `plan`, `refactor` renamed
-# `implement`, and `review` + `merge` + `close` folded into one `handoff`.
+# **Nothing he would see changes, and he still reads the diff** (dry run, 9 Nov): he approves the plan,
+# then a page summarising the change before it merges. Scope did not record a plan before this, and
+# Restructure ended on finished tasks, which is the agent's word.
 #
-# **Nothing here carries #190's defect, and that is worth writing down because
-# the issue names this file.** What refused a sound restructure was Feature's
-# `implements_the_scope` and Bug's sibling, through their *nothing outside it*
-# clauses. Neither criterion below has one: `restructures_without_changing` asks
-# about behaviour, and an unscoped move inside a refactor is still a move.
-# Refactor has the mirror gap instead -- no criterion asks whether the
-# restructure the plan named is the one that was performed -- and that is a
-# different issue from this one.
+# **`handoff` keeps its id** as the delivering step, which `crates/config/tests/shipped.rs` pins.
 {
   "version": 1,
   "workflow_id": "refactor",
@@ -23,96 +17,28 @@
     {
       "id": "plan",
       "label": "Scope the refactor",
-      "about": "Reads the code and writes down the restructure as tasks. Nothing is changed yet. The tasks are what Restructure works from.",
-      "instructions": "Separate what already exists from what is new: for each piece say done, partial or missing, with a path. Say partial when it is partial and which half is missing.\nSay what behaviour stays the same and which existing tests show it.\nList the tasks in the order they must happen, each with the test that proves it. Every new test is shown failing before the change makes it pass.\nName the files you expect to touch.\nOpen each function you plan to call and read its signature before writing it down. If an assumption from exploration was wrong, say so in the plan.\nSay when the work is bigger than it looked and which part grew.\nEnd with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then.",
-      "evidence": {
-        "submitted": { "type": "plan" }
-      },
-      "mechanical_checks": [
-        {
-          "type": "plan_recorded",
-          "min_tasks": 1
-        }
-      ],
-      "evidence_scope": {
-        "context_source": "drone_declared"
-      },
-      "judge_checks": [
-        {
-          "enabled": true,
-          "model": "haiku",
-          "criteria": [
-            {
-              "criterion_id": "structure_only",
-              "question": "Does this plan describe a change to structure only, with no intended change to behaviour?"
-            }
-          ]
-        }
-      ],
+      "about": "Reads the code and writes down the restructure as a plan: what moves, what stays the same and which tests show it. Ends when you approve the plan.",
+      "instructions": "Say what moves where, what behaviour stays the same, and which existing tests show it.\nList the tasks in the order they must happen. Name the files you expect to touch, and end with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Change nothing before then.",
+      "gate": "plan_approved",
+      "asks_delivery": false,
       "delivers": false,
-      "advance_gate": "auto_if_judge_passes"
+      "advance_gate": "auto"
     },
     {
       "id": "implement",
-      "label": "Restructure",
-      "about": "Moves and renames code from the plan, one Drone per task, and runs the repository's checks to confirm behaviour has not changed.",
-      "instructions": "Work the plan's tasks in order and finish each one.\nFollow the plan. A small correction, such as a signature that differs or a helper that already exists, is yours to make and to say. A change of approach goes to the person with ask_the_person.\nMatch the neighbouring code: naming, comment density, how errors are built, how tests are named.\nEvery new test is shown failing without the change, for the right reason, then passing.\nBehaviour does not change. A test you have to edit is a sign it moved.\nRun the repository's checks before you report done. A failed check hands back its ids and log tails.\nCommit in coherent pieces with messages that say why. Review reads only what is committed.",
-      "evidence": {
-        "submitted": { "type": "diff" }
-      },
-      "retry_limit": 2,
-      "follows_plan": true,
-      "mechanical_checks": [
-        {
-          "type": "every_manifest_check"
-        },
-        {
-          "type": "diff_nonempty"
-        }
-      ],
-      "declare_plan_at": "step_start",
-      "evidence_scope": {
-        "context_source": "drone_declared",
-        "reference_docs": [
-          "plan.evidence"
-        ],
-        "scope_diff_check": true
-      },
-      "judge_checks": [
-        {
-          "enabled": true,
-          "model": "sonnet",
-          "criteria": [
-            {
-              "criterion_id": "restructures_without_changing",
-              "question": "Does this diff restructure code without changing what it does?"
-            },
-            {
-              "criterion_id": "test_changes_justified",
-              "question": "Given the stated refactor, are the changes to test files justified by it -- or has test scope been narrowed, have assertions been weakened, or have tests been skipped or deleted?"
-            },
-            {
-              "criterion_id": "tasks_match_the_diff",
-              "question": "Does the diff do every task set to done or handed in, and does each dropped task's reason hold?"
-            },
-          {
-            "criterion_id": "the_evidence_accounts_for_itself",
-            "question": "For each task the plan records as done or handed in, does what it recorded under `shown` either demonstrate what that task recorded under `expects`, or say why the work proved it another way? A task that proved its work differently and says so is not a refusal on this criterion -- what is refused is a `shown` that neither matches nor accounts for itself. A task with no `expects` recorded, and a task neither done nor handed in, are both outside this question."
-          }
-          ]
-        }
-      ],
+      "label": "Restructure and review",
+      "about": "Moves and renames code from the plan, runs the checks, and puts a page in front of you summarising the diff. Ends when you approve the page.",
+      "instructions": "Work the plan's tasks in order. A small correction is yours to make and to say; a change of approach goes to the person.\nBehaviour does not change. A test you have to edit is a sign it moved. Run the checks locally.\nThen load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html summarising the diff: what moved where, what was renamed, what was left, and what the checks showed. Wait for the person to approve it, and answer every note by changing the code or the page.",
+      "gate": "document_approved",
       "delivers": false,
-      "advance_gate": "auto_if_judge_passes"
+      "advance_gate": "human_always"
     },
     {
       "id": "handoff",
-      "label": "Review the change",
-      "about": "Puts the finished change in front of you with what was checked. You decide whether it goes out.",
-      "instructions": "Review the branch against the task, not the repository: git log and git diff against the base show the change.\nBlocking: it does not do what the task asked, it breaks something that worked, a test asserts the bug rather than the fix, an error is swallowed where it mattered. Style preferences and missing tests for cases nobody asked about do not block.\nIf anything blocks, put every blocker in one ask_the_person question before you finish.\nLeave the branch landable: git status is empty, nothing the repository ignores is committed, noise commits such as wip or fix typo are squashed, and messages say why. Do not rewrite what was reviewed beyond tidying.\nReport the branch, what is on it, and what the person needs before merging: a follow-up not done, a decision they might reverse, a check that is green only because something unrelated was fixed.",
-      "evidence": {
-        "submitted": { "type": "review" }
-      },
+      "label": "Deliver",
+      "about": "Delivers the change the way you chose. Ends at the merge.",
+      "instructions": "Push the branch and open the pull request. Deliver by the delivery the person chose, and do not ask again. Auto land: merge it on a green ci. Open PR: leave it open; the Job stays until it merges. Keep local: push nothing, and record this group's gate as none.\nA test that is also red on main is not this Job's to fix: look up who is fixing main, say so, and carry on.",
+      "gate": "merged",
       "delivers": true,
       "advance_gate": "human_always"
     }

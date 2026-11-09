@@ -66,6 +66,27 @@ export function focusDraft(jobId: string, row: string, title: string): void {
   );
 }
 
+/** A subagent's thread as a tab named for its task: its tab comes to the front where it has one, else it joins the thread's pane, or opens by the arrival rule with no thread. */
+export function focusSubagent(jobId: string, id: string, title: string): void {
+  const arrangement = peek(jobId);
+  const open = panesOf(arrangement.root)
+    .flatMap((pane) => pane.tabs)
+    .find((tab) => tab.kind === "subagent" && tab.page === id);
+  if (open !== undefined) return look(jobId, (one) => activate(one, open.id));
+  const holder = holderOf(arrangement, "subagent") ?? holderOf(arrangement, "thread");
+  if (holder !== undefined)
+    return look(jobId, (one) => addTab(one, holder.id, "subagent", title, id));
+  rearrange(jobId, (one) => arrive(one, "subagent", title, id), undefined, true);
+}
+
+/** Opens a subagent's thread as a tab of a Job drawn in panes, named for its task. False where the Job is not in panes. */
+export function openSubagent(session: Session, id: string): boolean {
+  if (!inPanes(session.id)) return false;
+  const one = attachmentsOf(session, "subagent").find((it) => it.id === id);
+  focusSubagent(session.id, id, one?.task ?? KINDS.subagent.label);
+  return true;
+}
+
 /** A document's page as a tab named for it: its tab comes to the front where it has one, else it joins the thread's pane, or opens by the arrival rule with no thread. */
 export function focusDocument(jobId: string, page: string, title: string): void {
   const arrangement = peek(jobId);

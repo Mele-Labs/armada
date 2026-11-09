@@ -39,7 +39,7 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { focusBesideThread, openDraftCard, openOwedDocument } from "../job-panes/focus";
+import { focusBesideThread, openDraftCard, openOwedDocument, openSubagent } from "../job-panes/focus";
 import { inPanes } from "./layers";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
@@ -313,22 +313,23 @@ export function StoryColumn({
     session.asked?.questions?.[0]?.question ??
     (session.asked === undefined ? undefined : session.asked.command);
   const atWork = planned ? [] : subagentsAtWork(session);
+  // A drone on a plan group opens its subagent's thread: a tab of the Job drawn in panes, else the sheet the ledger's row for it opens.
+  const toSubagent = (id: string) =>
+    openSubagent(session, id) ||
+    entries.find((one) => one.kind === "subagent" && one.key === id)?.onOpen?.();
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";
-  // With the plan as the workflow, the subagents at work stand under the live chunk, each with the group its brief named.
+  // With the plan as the workflow, the subagents at work stand under the live chunk, each with the group its brief named, a fact Fleet kept.
   const helpers: HelperRow[] = !byGates
     ? []
-    : (work.field ?? []).flatMap((one) => {
-        if (one.agent === undefined) return [];
+    : subagentsAtWork(session).map((one) => {
         const group = groups.find((each) => each.id === one.group)?.title;
-        return [
-          {
-            id: one.id,
-            task: one.task ?? one.path,
-            ...(group === undefined ? {} : { group }),
-          },
-        ];
+        return {
+          id: one.id,
+          task: one.task,
+          ...(group === undefined ? {} : { group }),
+        };
       });
   // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
   const waiting = session.lanes?.job.waiting;
@@ -623,9 +624,10 @@ export function StoryColumn({
           session={session}
           manifestId={manifestId}
           onOpenSession={onOpenSession}
+          onOpenSubagent={toSubagent}
         />
       )}
-      <Helpers rows={helpers} />
+      <Helpers rows={helpers} onOpen={toSubagent} />
       {running.length === 0 ? null : (
         <ul className="sv-flight__groups" aria-label="Jobs">
           {running.map((child) => (
@@ -771,6 +773,7 @@ export function StoryColumn({
               session={session}
               manifestId={manifestId}
               onOpenSession={onOpenSession}
+              onOpenSubagent={toSubagent}
             />
           )}
           {unlandedList}
@@ -1068,6 +1071,7 @@ export function StoryColumn({
                       session={session}
                       manifestId={manifestId}
                       onOpenSession={onOpenSession}
+                      onOpenSubagent={toSubagent}
                     />
                   </div>
                 )}
@@ -1192,6 +1196,7 @@ export function StoryColumn({
               session={session}
               manifestId={manifestId}
               onOpenSession={onOpenSession}
+              onOpenSubagent={toSubagent}
             />
           </div>
         )}

@@ -4,7 +4,7 @@
 // Over the Job of `job-walk-on-the-spine`.
 
 import type { GateClose } from "@armada/protocol";
-import type { Session, WorkDrone, WorkGroup } from "@armada/screens/src/draft/sessions";
+import type { Session, SessionAttachment, WorkDrone, WorkGroup } from "@armada/screens/src/draft/sessions";
 
 import { BUSY, auditLedger } from "../audit-job";
 import type { Scenario } from "../moment";
@@ -172,6 +172,14 @@ const groups = (stage: number): WorkGroup[] => [
   },
 ];
 
+/** The plan group each subagent's brief named. */
+const GROUP_OF: Readonly<Record<string, string>> = {
+  protocol: "f2",
+  bridge: "f3",
+  prune: "f4",
+  "prune-test": "f4",
+};
+
 /** The subagents the Field sees at work at each stage, over the files they edit. */
 const field = (stage: number): WorkDrone[] =>
   stage === 0
@@ -182,7 +190,6 @@ const field = (stage: number): WorkDrone[] =>
           task: "Mirror rotated_at in the TypeScript types",
           path: "packages/protocol",
           doing: "write",
-          group: "f2",
           file: "packages/protocol/src/audit.ts",
         },
         {
@@ -191,7 +198,6 @@ const field = (stage: number): WorkDrone[] =>
           task: "List rotated files in System",
           path: "apps/desktop",
           doing: "write",
-          group: "f3",
           file: "apps/desktop/src/renderer/src/system/AuditFiles.tsx",
         },
       ]
@@ -203,7 +209,6 @@ const field = (stage: number): WorkDrone[] =>
             task: "Delete audit files past the keep count",
             path: "crates/fleet",
             doing: "write",
-            group: "f4",
             file: "crates/fleet/src/prune.rs",
           },
           {
@@ -212,7 +217,6 @@ const field = (stage: number): WorkDrone[] =>
             task: "Test that seven files are kept",
             path: "crates/fleet",
             doing: "write",
-            group: "f4",
             file: "crates/fleet/src/tests/prune.rs",
           },
         ]
@@ -242,6 +246,21 @@ const staged =
             },
             field: field(stage),
           },
+          // Each subagent at work, on the plan group its brief named: the fact Fleet keeps on its attachment.
+          attachments: [
+            ...one.attachments.filter((each) => each.kind !== "subagent"),
+            ...field(stage).map(
+              (drone): SessionAttachment => ({
+                kind: "subagent",
+                id: drone.id,
+                task: drone.task ?? drone.path,
+                state: "running",
+                ...(drone.agent === undefined ? {} : { agentType: drone.agent }),
+                call: drone.id,
+                ...(GROUP_OF[drone.id] === undefined ? {} : { group: GROUP_OF[drone.id] }),
+              }),
+            ),
+          ],
         };
 
 export const s348PlanAsProgress: Scenario = {

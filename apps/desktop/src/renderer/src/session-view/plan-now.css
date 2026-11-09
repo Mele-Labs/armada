@@ -164,6 +164,25 @@ button.sv-chunk__row:hover {
 }
 
 /* A subagent at work: the Subagents view's glyph, its task, the group it works on. */
+/* A row presses like a task row: no frame, the row's hover ground. */
+.sv-chunk__helper {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sv-chunk__helper:hover {
+  background: var(--bg-hover);
+}
+.sv-chunk__helper:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--border-width);
+}
 .sv-chunk__drone {
   display: inline-flex;
   align-items: center;

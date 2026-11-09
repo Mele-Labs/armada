@@ -11,6 +11,7 @@ import {
   Drone,
   Footprints,
   GitMerge,
+  Link,
   NotebookPen,
   PencilRuler,
   ShieldCheck,
@@ -38,6 +39,8 @@ export const GATE_GLYPH: Record<GateKind, LucideIcon> = {
   document_approved: NotebookPen,
   checks_green: ShieldCheck,
   merged: GitMerge,
+  // The Jobs tab's glyph: the Jobs this one started.
+  jobs_ended: Link,
 };
 
 const STATE_GLYPH: Record<StretchState, LucideIcon> = {
@@ -128,21 +131,34 @@ export type HelperRow = {
   group?: string;
 };
 
-/** The subagents at work in the live chunk: each one's task, and the group it works on. */
-export function Helpers({ rows }: { rows: readonly HelperRow[] }) {
+/** The subagents at work in the live chunk: each one's task, and the group it works on. A press opens its thread. */
+export function Helpers({
+  rows,
+  onOpen,
+}: {
+  rows: readonly HelperRow[];
+  onOpen: (id: string) => void;
+}) {
   return rows.length === 0 ? null : (
     <ul className="sv-subagents" aria-label="Subagents at work">
       {rows.map((one) => (
-        <li key={one.id} className="sv-subagents__row sv-chunk__helper">
-          <Tooltip asChild label="Subagent">
-            <span className="sv-chunk__drone" role="img" aria-label="Subagent">
-              <Drone size={14} strokeWidth={2} aria-hidden />
+        <li key={one.id}>
+          <button
+            type="button"
+            className="sv-subagents__row sv-chunk__helper"
+            data-nav=""
+            onClick={() => onOpen(one.id)}
+          >
+            <Tooltip asChild label="Subagent">
+              <span className="sv-chunk__drone" role="img" aria-label="Subagent">
+                <Drone size={14} strokeWidth={2} aria-hidden />
+              </span>
+            </Tooltip>
+            <span className="sv-subagents__task">
+              {one.task}
+              {one.group === undefined ? null : <span className="sv-chunk__on">{one.group}</span>}
             </span>
-          </Tooltip>
-          <span className="sv-subagents__task">
-            {one.task}
-            {one.group === undefined ? null : <span className="sv-chunk__on">{one.group}</span>}
-          </span>
+          </button>
         </li>
       ))}
     </ul>

@@ -73,7 +73,7 @@ export function stretchesOf<G extends WorkGroup>(
   });
 }
 
-/** What each gate waits for, as he reads it on the line and at the foot of its stretch. */
+/** What each gate waits for, as he reads it on its chunk's row. */
 export const GATE_SAID: Record<GateKind, string> = {
   plan_approved: "You approve the plan",
   walk_approved: "You approve the walk",
@@ -81,4 +81,5 @@ export const GATE_SAID: Record<GateKind, string> = {
   document_approved: "You approve the document",
   checks_green: "Checks pass at the pushed commit",
   merged: "Merged into main",
+  jobs_ended: "Every Job it started has merged or ended",
 };

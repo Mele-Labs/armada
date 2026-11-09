@@ -163,6 +163,8 @@ export type SessionAttachment =
       report?: string;
       agentType?: string /** The Agent call that started it, which Fleet keys the Field's drone by. */;
       call?: string;
+      /** The id of the plan group the agent named in its brief. Absent where it named none of the plan's. */
+      group?: string;
     }
   /**
    * Something the Session's agent has running in the background: a shell command run with `run_in_background`,
@@ -459,8 +461,7 @@ export type WorkDrone = {
   agent?: string;
   task?: string;
   path: string;
-  doing: "read" | "write" | "run" /** Mock only, until the plan group a subagent's brief names lands on its attachment: that group's id. */;
-  group?: string /** The file it is over, which the Field draws as a bar. */;
+  doing: "read" | "write" | "run" /** The file it is over, which the Field draws as a bar. */;
   file?: string /** When Fleet saw it touch that file. */;
   at?: string;
 };
