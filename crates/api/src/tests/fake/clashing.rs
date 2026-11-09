@@ -1,6 +1,6 @@
 //! The clash reads, as the fake answers them: nothing is clashing and nothing is touched.
 
-use ipc::{ClashFile, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClashes};
+use ipc::{AllWriteClashes, ClashFile, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClashes};
 
 use super::FakeDaemon;
 use crate::{Clashing, Refusal};
@@ -14,6 +14,10 @@ impl Clashing for FakeDaemon {
         Ok(WriteClashes {
             clashes: Vec::new(),
         })
+    }
+
+    async fn list_all_write_clashes(&self) -> Result<AllWriteClashes, Refusal> {
+        Ok(AllWriteClashes::default())
     }
 
     async fn read_clash_file(

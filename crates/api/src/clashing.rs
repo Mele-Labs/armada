@@ -30,6 +30,14 @@ pub(crate) async fn list_write_clashes<D: Clashing>(
     }
 }
 
+/// `GET /clashes/all`: the clashes of every served repository.
+pub(crate) async fn list_all_write_clashes<D: Clashing>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().list_all_write_clashes().await {
+        Ok(clashes) => answer(StatusCode::OK, &clashes, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=&other_kind=&other_id=&path=` on `read_clash_file`.
 #[derive(Deserialize)]
 pub(crate) struct ClashFileQuery {

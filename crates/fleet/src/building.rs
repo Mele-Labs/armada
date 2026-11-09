@@ -24,9 +24,9 @@ use std::time::{Duration, Instant, SystemTime};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept, FleetBuildReport,
+    BuildPosition, BuildSource, BuildStage, BuildSwitcher, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept, FleetBuildReport,
     FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, Instant as WireInstant, KeptBuildPrevious,
-    KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState, WireError,
+    KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, RestartAct, SnapshotState, WireError,
 };
 
 use crate::daemon::Fleet;
@@ -332,6 +332,19 @@ pub(crate) fn build_word(build: BuildSource) -> &'static str {
     }
 }
 
+/// What the build switcher draws, off the running build, where it stands against main and the restart
+/// under way. A port of `FleetBuildSection` in `FleetBuild.tsx`: the act follows the build being
+/// restarted onto (`working ?? on`), and with nothing restarting on an aligned main there is nothing
+/// to restart onto.
+pub(crate) fn switcher_of(on: BuildSource, position: Option<BuildPosition>, restarting: Option<BuildSource>) -> BuildSwitcher {
+    let aligned = position.is_some_and(|one| one.ahead == 0 && one.behind == 0);
+    let restart = match restarting.unwrap_or(on) {
+        BuildSource::Preview => RestartAct::RefreshPreview,
+        BuildSource::Main => RestartAct::UpdateToMain,
+    };
+    BuildSwitcher { aligned, idle_on_main: restarting.is_none() && on == BuildSource::Main && aligned, restart }
+}
+
 impl Fetched {
     /// Whether `origin main` is due, and if it is, now counted as started.
     fn take_if_due(&mut self, now: Instant) -> bool {
@@ -501,6 +514,7 @@ impl Building {
                 brings_back: undo.brings_back,
             }
         });
+        let switcher = Some(switcher_of(on, position, restarting));
         Ok(FleetBuildReport {
             on,
             commit,
@@ -517,6 +531,7 @@ impl Building {
             snapshot,
             trying: kept_builds::trying_in(support),
             swapping: matches!(swap, Some(RevertStatus::Running)),
+            switcher,
         })
     }
 

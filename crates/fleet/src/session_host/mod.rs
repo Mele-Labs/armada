@@ -193,6 +193,11 @@ impl Drop for Settling {
     }
 }
 
+/// Each window with the band its percent reads as: Fleet's reading, whatever a report named.
+pub(crate) fn banded(windows: Vec<ipc::PlanWindow>) -> Vec<ipc::PlanWindow> {
+    windows.into_iter().map(|window| ipc::PlanWindow { band: ipc::RingBand::of(window.percent_used), ..window }).collect()
+}
+
 impl Hosts {
     pub fn hosted_by(processes: Arc<dyn Processes>, quiet: Duration, hold: AskHold) -> Hosts {
         Hosts {
@@ -319,9 +324,10 @@ impl Hosts {
 
     /// Take the reading the store kept as the one held, where none is. What is held after, which is a
     /// fresher one where a session reported first.
-    pub(crate) fn plan_restored(&self, kept: ipc::PlanUsage) -> ipc::PlanUsage {
+    pub(crate) fn plan_restored(&self, mut kept: ipc::PlanUsage) -> ipc::PlanUsage {
         let mut held = self.plan.lock().expect("the reading is not held across a panic");
         if held.windows.is_empty() {
+            kept.windows = banded(kept.windows);
             *held = kept;
         }
         held.clone()
@@ -331,6 +337,7 @@ impl Hosts {
     /// one held. An empty report is a session off a subscription: the reading where none was taken,
     /// so Bridge stops waiting for one, and nothing where windows are held.
     pub(crate) fn plan_read(&self, windows: Vec<ipc::PlanWindow>, at: &str) -> Option<ipc::PlanUsage> {
+        let windows = banded(windows);
         let mut held = self.plan.lock().expect("the reading is not held across a panic");
         if windows.is_empty() && (!held.windows.is_empty() || held.read_at.is_some()) {
             return None;

@@ -106,6 +106,15 @@ pub(super) fn held_wire(row: &KeptAttachment, title: Option<String>) -> ipc::Own
     }
 }
 
+/// How full the context window is, as a ring draws it: the whole percent, rounded half up as the
+/// ring's label is and clamped 0 to 100, with its band. Nothing without both figures or with an
+/// empty window, which draws no ring.
+pub(crate) fn context_reading(tokens: Option<u64>, window: Option<u64>) -> Option<(u8, ipc::RingBand)> {
+    let (tokens, window) = (u128::from(tokens?), u128::from(window.filter(|window| *window > 0)?));
+    let percent = ((tokens * 200 + window) / (window * 2)).min(100) as u8;
+    Some((percent, ipc::RingBand::of(u32::from(percent))))
+}
+
 pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> SessionRecord {
     SessionRecord {
         id: ipc::SessionId::carried(&session.id),
@@ -127,10 +136,15 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         last_turn_at: session.last_turn_at.as_deref().map(wire_instant),
         ended_at: session.ended_at.as_deref().map(wire_instant),
         end_reason: session.end_reason.clone(),
-        usage: ipc::SessionUsage {
-            context_tokens: session.figures.context_tokens,
-            context_window: session.figures.context_window,
-            cost_micros: session.figures.cost_micros,
+        usage: {
+            let reading = context_reading(session.figures.context_tokens, session.figures.context_window);
+            ipc::SessionUsage {
+                context_tokens: session.figures.context_tokens,
+                context_window: session.figures.context_window,
+                cost_micros: session.figures.cost_micros,
+                context_percent: reading.map(|(percent, _)| percent),
+                context_band: reading.map(|(_, band)| band),
+            }
         },
         attachments: held.iter().map(attachment_wire).collect(),
         hosted: None,
@@ -177,5 +191,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         in_flight: Vec::new(),
         mark: None,
         viewed_at: None,
+        compact: None,
     }
 }

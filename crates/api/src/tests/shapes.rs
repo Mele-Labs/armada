@@ -98,6 +98,7 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         }),
         trying: vec![String::from("Kept builds")],
         swapping: false,
+        switcher: None,
     }
 }
 

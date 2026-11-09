@@ -12,6 +12,7 @@
 import type { ManifestReading } from "./reading";
 import type { MergeLines } from "./merge-lines";
 import type { MergeLineViews } from "./merge-line-view";
+import type { AllWriteClashes } from "./clashes";
 import type { CallsChanged } from "./standing-calls";
 import type { ReviewRun } from "./review-runs";
 import type { ReviewWalk } from "./review-walks";
@@ -81,6 +82,10 @@ export type Event =
   | ({
       kind: "merge_line_view.changed";
     } & MergeLineViews)
+  /** The standing write clashes of the served repositories moved; every one now, whole, as `list_all_write_clashes` answers: read it again after a `Missed`. Since 9 Nov 2026. */
+  | ({
+      kind: "write_clashes.changed";
+    } & AllWriteClashes)
   /** What calls the person moved, or something began to wait on him: every call now as `get_calls` answers, and the news since the last. Not replayed; read `get_calls` again after a `Missed`. */
   | ({
       kind: "calls.changed";

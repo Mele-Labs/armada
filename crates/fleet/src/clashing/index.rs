@@ -83,6 +83,8 @@ struct State {
     main_moved: BTreeMap<String, String>,
     /// Whether the table was filled from the worktrees once since Fleet started.
     seeded: bool,
+    /// The set of clashes last sent as `write_clashes.changed`, or read as its baseline.
+    sent: Option<ipc::AllWriteClashes>,
 }
 
 /// The table. Shared with the taps that read a Drone's stream, which may not await.
@@ -299,6 +301,11 @@ impl Writes {
     /// Main's tip as last seen.
     pub(crate) fn main_tip(&self, manifest: &str) -> Option<String> {
         self.state().main_tip.get(manifest).cloned()
+    }
+
+    /// `now`, where it differs from the set last sent: [`super::moved`] on the one this holds.
+    pub(crate) fn sent(&self, now: ipc::AllWriteClashes) -> Option<ipc::AllWriteClashes> {
+        super::moved(&mut self.state().sent, now)
     }
 
     /// True the first time it is asked, when the table is to be filled from what git holds.

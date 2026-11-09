@@ -66,6 +66,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         in_flight: Vec::new(),
         mark: None,
         viewed_at: None,
+        compact: None,
     }
 }
 
