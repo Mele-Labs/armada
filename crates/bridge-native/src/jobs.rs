@@ -22,6 +22,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
 use crate::fleet::FleetConnection;
+use crate::job_view::JobView;
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -131,7 +132,7 @@ impl View {
 
 /// A state's glyph and the words its tooltip says, as Electron's row draws them
 /// (`SessionFrame.tsx`, `MARK`; `session-state.ts`, `jobStateOf`).
-fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
+pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
     let (glyph, said) = match state {
         JobState::Working => ("circle-dot", "Working"),
         JobState::Running => ("square-terminal", "Running"),
@@ -157,7 +158,7 @@ fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
 }
 
 /// The hue a state's glyph takes: one per bucket (`SessionFrame.css`, `data-bucket`).
-fn hue_of(state: JobState) -> crate::look::Token {
+pub(crate) fn hue_of(state: JobState) -> crate::look::Token {
     match state {
         JobState::Waiting | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
             token::STATUS_AWAITING_REVIEW
@@ -343,7 +344,7 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
 
 /// Where the list's scope and placed order are kept between runs, as Electron keeps them in its
 /// `localStorage`: the scope's id on the first line, then one Job id a line.
-fn deck_file() -> Option<PathBuf> {
+pub(crate) fn deck_file() -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(PathBuf::from(home).join("Library/Application Support/Armada/native-deck"))
 }
@@ -386,7 +387,7 @@ fn write_deck(scope: Scope, order: &[String]) {
 
 /// A row's act, sent to Fleet off the main thread. With no Fleet to ask, as on mock data, it is
 /// only noted.
-fn send(port: Option<u16>, path: &'static str, body: Result<String, String>, cx: &mut App) {
+pub(crate) fn send(port: Option<u16>, path: &'static str, body: Result<String, String>, cx: &mut App) {
     let Some(port) = port else {
         Note::warn("not sent: no Fleet is connected").field("route", path).emit();
         return;
@@ -537,6 +538,34 @@ impl JobsList {
         &self.within
     }
 
+    /// The Job the person opened, whose room the middle of the screen draws.
+    pub fn opened_id(&self) -> Option<SharedString> {
+        self.opened.clone()
+    }
+
+    /// Open a Job, as a press on its row does.
+    pub fn open(&mut self, id: SharedString, cx: &mut Context<Self>) {
+        if self.opened.as_ref() != Some(&id) {
+            self.focused = Some(id.clone());
+            self.opened = Some(id);
+            self.card = None;
+            cx.notify();
+        }
+    }
+
+    pub fn record(&self, id: &str) -> Option<&SessionRecord> {
+        self.jobs.iter().find(|job| job.id.as_str() == id)
+    }
+
+    pub fn fleet(&self) -> Option<Entity<FleetConnection>> {
+        self.fleet.clone()
+    }
+
+    /// Whether this list is kept between runs: not on mock data.
+    pub fn remembers(&self) -> bool {
+        self.remember
+    }
+
     fn lines_now(&self) -> Vec<Line> {
         lines_of(&self.jobs, self.scope, &self.query, &self.order)
     }
@@ -665,7 +694,7 @@ impl JobsList {
 
     /// The row's menu (`RowMenu.tsx`), at `at`: Pause or Resume, Name it for me, Try it in your app
     /// and Close. An ended Job has none of them, and draws no menu.
-    fn open_menu(&mut self, id: SharedString, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_menu(&mut self, id: SharedString, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = self.rows().find(|row| row.id == id).cloned() else { return };
         if row.ended {
             return;
@@ -1328,6 +1357,8 @@ impl Render for DeckHandle {
 /// A handle on the list's inner edge drags it wider or narrower, as Electron's `DockHandle` does.
 pub struct JobsScreen {
     pub list: Entity<JobsList>,
+    /// The open Job, in the middle.
+    view: Entity<JobView>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
@@ -1337,12 +1368,18 @@ pub struct JobsScreen {
 }
 
 impl JobsScreen {
-    pub fn new(list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        list: Entity<JobsList>,
+        threads: Option<HashMap<String, ipc::JobThread>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let remember = list.read(cx).remember;
+        let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
-        JobsScreen { list, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember }
+        JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1388,6 +1425,9 @@ impl JobsScreen {
             window.focus(&focus, cx);
         } else if act.is("deck_search") {
             self.list.update(cx, |list, cx| list.to_search(window, cx));
+        } else if act.is("message_job") {
+            // ⌥M from anywhere on the deck puts the caret in the open Job's box.
+            self.view.update(cx, |view, cx| view.to_composer(window, cx));
         } else {
             cx.propagate();
         }
@@ -1489,7 +1529,7 @@ impl Render for JobsScreen {
                         this.resize(Some(to), window, cx);
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
-                    .child(div().flex_1())
+                    .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
                     .child(panel(look).w(column * RIGHT)),
             )
     }

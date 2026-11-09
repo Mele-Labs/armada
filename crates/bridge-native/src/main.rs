@@ -22,6 +22,7 @@ mod dropdown;
 mod editor;
 mod fleet;
 mod frames;
+mod job_view;
 mod jobs;
 mod keymap;
 mod labels;
@@ -101,6 +102,7 @@ pub fn init_app(cx: &mut App) {
     look::init(cx);
     walk::window::bind(cx);
     jobs::bind(cx);
+    job_view::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }
@@ -189,17 +191,17 @@ fn main() -> ExitCode {
                     let jobs = cx.new(|cx| JobsList::live(&fleet, cx));
                     let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                    let screen = cx.new(|cx| JobsScreen::new(jobs, cx));
+                    let screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
                     cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu)) })
                 })
                 .map(|_| ()),
-            Mode::Mock(scenario) => match mock::jobs(&scenario) {
-                Ok(records) => cx
+            Mode::Mock(scenario) => match mock::jobs(&scenario).and_then(|records| Ok((records, mock::threads(&scenario)?))) {
+                Ok((records, threads)) => cx
                     .open_window(options("Armada".into()), |window, cx| {
                         let jobs = cx.new(|cx| JobsList::mock(&records, cx));
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                        let screen = cx.new(|cx| JobsScreen::new(jobs, cx));
+                        let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx));
                         cx.new(|_| Shell { screen, _fleet: None })
                     })
                     .map(|_| ()),
