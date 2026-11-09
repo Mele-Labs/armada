@@ -579,7 +579,9 @@ test("while the patches are read, each file's header is drawn with a stand-in un
 });
 
 test("the file list floats beside the panel on the Files tab, a press scrolls to that file's diff and marks it, and leaving Files hides it", async () => {
-  const scrolled = vi.spyOn(HTMLElement.prototype, "scrollIntoView").mockImplementation(() => {});
+  // The press scrolls only the scroller that holds the diff: `scrollIntoView` also moved the window's layout.
+  const intoView = vi.spyOn(HTMLElement.prototype, "scrollIntoView");
+  const scrolled = vi.spyOn(HTMLElement.prototype, "scrollTo").mockImplementation(() => {});
   await mount({
     ...readsOf(async () => WITH_FILES),
     pullRequestPatches: async () => PATCHES,
@@ -593,11 +595,13 @@ test("the file list floats beside the panel on the Files tab, a press scrolls to
   expect(list()!.textContent).toContain("src/tide/");
   expect(row().getAttribute("aria-current")).toBeNull();
   await act(async () => row().click());
-  expect(scrolled.mock.contexts).toContain(sections()[1]);
+  expect(intoView).not.toHaveBeenCalled();
+  expect(scrolled.mock.contexts.some((box) => (box as HTMLElement).contains(sections()[1]!))).toBe(true);
   expect(row().getAttribute("aria-current")).toBe("true");
   await press("Commits");
   expect(list()).toBeNull();
   scrolled.mockRestore();
+  intoView.mockRestore();
 });
 
 // ---- A diff is the one the forge shows now: the head moves, and what was drawn of the old one goes ---------------
