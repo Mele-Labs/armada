@@ -28,6 +28,7 @@ impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         match walk.screen {
             Screen::Jobs => {
+                crate::titlebar::scenes::begin(cx);
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
@@ -78,6 +79,17 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .cloned()
                 .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Scene(name) => crate::titlebar::scenes::apply(name, cx).map_err(Missed),
+        Verb::PressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, name))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            press(MouseButton::Left, at, window, cx);
             Ok(())
         }
         Verb::Hover => {

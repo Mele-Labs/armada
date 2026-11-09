@@ -36,6 +36,8 @@ pub fn role_named(word: &str) -> Option<Role> {
         "menuitemcheckbox" => Role::MenuItemCheckBox,
         "searchbox" => Role::SearchInput,
         "img" => Role::Image,
+        "dialog" => Role::Dialog,
+        "alert" => Role::Alert,
         "separator" => Role::Splitter,
         _ => return None,
     })

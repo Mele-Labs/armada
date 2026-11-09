@@ -1,0 +1,68 @@
+//! The title bar walk: each step goes straight to a state the bar can be in. The scenes are
+//! `titlebar/scenes.rs`; a step that names one changes the bar's data and nothing else.
+
+use super::{press_on, scene, step, Step, Verb};
+
+const FIVE_WEEK: &str = "5-hour limit 42%, Weekly limit 71%";
+const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
+const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
+const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
+
+pub static STEPS: [Step; 56] = [
+    step("The bar at rest: the repository, and the Manifest beside it", Verb::Look, "button", "Repository"),
+    step("Search sits in the middle; ⌘K opens it from anywhere", Verb::Look, "button", "Search, or describe work to dispatch"),
+    step("The Operator button reopens the Operator; ⌘J", Verb::Look, "button", "Operator"),
+    press_on("The repository opens its list, the one chosen ticked", "button", "Repository", "menu", "Repository"),
+    step("Esc shuts it and the keys go back to where they were", Verb::Key("escape"), "button", "Repository"),
+    scene("Until Fleet has a reading the rings are a sweeping glyph", "rings-loading", "img", "Analyzing Usage"),
+    scene("The 5-hour ring outside, the weekly ring inside; grey below 80", "rings-normal", "button", FIVE_WEEK),
+    scene("From 80 a ring turns amber", "rings-warning", "button", WARNING),
+    scene("From 95 it turns red", "rings-danger", "button", DANGER),
+    step("A press keeps the card open", Verb::Press, "button", DANGER),
+    step("Each limit says how much is used and when it resets", Verb::Look, "region", "Plan limits"),
+    step("Esc shuts it", Verb::Key("escape"), "button", DANGER),
+    scene("An account off a subscription draws no rings", "rings-off", "button", "Operator"),
+    scene("A bell stands on the rings while the step down is offered", "offer", "img", "Default to Sonnet offered"),
+    step("A notification says it too, with the same act", Verb::Look, "status", "Weekly limit 84% used"),
+    step("Open the card", Verb::Press, "button", WARNING),
+    step("The weekly limit carries the offer and its acts", Verb::Look, "button", "Default to Sonnet"),
+    press_on("Accepting changes the card in the same frame", "button", "Default to Sonnet", "region", "Weekly limit"),
+    step("Esc shuts the card", Verb::Key("escape"), "button", "5-hour limit 62%, Weekly limit 84%"),
+    scene("When the window resets the offer is to go back", "offer-reset", "img", "Back to Opus offered"),
+    step("The notification says the limit reset", Verb::Look, "status", "Weekly limit reset"),
+    step("Open the card", Verb::Press, "button", RESET),
+    press_on("Keep Sonnet settles it: no bell, no notification", "button", "Keep Sonnet", "button", RESET),
+    scene("The dot is green while Fleet runs; the panel opens under it", "build-main-behind", "button", "Fleet — Running"),
+    step("Open the Fleet panel", Verb::Press, "button", "Fleet — Running"),
+    step("On Main, three commits behind main: update to it", Verb::Look, "button", "Update to main"),
+    step("The position says it as a glyph and a figure", Verb::Look, "img", "3 commits behind main"),
+    scene("On Preview: five ahead, two behind, and the branches left out", "build-preview", "button", "Refresh preview"),
+    step("Each left-out branch says why, and a moved one is marked", Verb::Look, "list", "Left out of the preview"),
+    press_on("Refresh preview is under way in the same frame", "button", "Refresh preview", "button", "Refreshing preview"),
+    scene("The restart names the stage it has got to", "build-restarting", "status", "Building Fleet"),
+    scene("Picked Jobs, and a snapshot ready to swap onto", "build-picked", "button", "Swap"),
+    step("The Jobs the snapshot holds", Verb::Look, "list", "Held by the snapshot"),
+    scene("A restart that did not take says why", "build-failed", "alert", "scripts/preview stopped: cargo build failed in crates/fleet"),
+    scene("Working Drones are named before a restart adopts them", "build-drones", "button", "Update to main"),
+    press_on("Restart asks first", "button", "Update to main", "dialog", "Drones are working"),
+    step("Esc cancels and the panel keeps the keys", Verb::Key("escape"), "button", "Update to main"),
+    scene("Revert goes back to the build before", "build-preview", "button", "Revert"),
+    press_on("Revert says what it takes out and brings back", "button", "Revert", "list", "Jobs taken out"),
+    step("Esc cancels", Verb::Key("escape"), "button", "Revert"),
+    scene("A revert under way turns the button to its pending word", "build-reverting", "button", "Reverting"),
+    step("Esc shuts the panel", Verb::Key("escape"), "button", "Fleet — Running"),
+    scene("A build the person has not kept yet is held in a bar above the screen", "build-trying", "region", "Trying"),
+    press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),
+    scene("Fleet unreachable: the dot is amber and the notice says what is shown is not live", "fleet-unreachable", "status", "Fleet unreachable"),
+    scene("Fleet starting: Armada's mark pulses and no notice yet", "fleet-starting", "button", "Fleet — Starting"),
+    scene("Fleet gone, inside the first 30 seconds: a red dot and no notice", "fleet-powering", "button", "Fleet — Not running"),
+    scene("After that the notice stands above the screen", "fleet-down", "alert", "Fleet is not running"),
+    step("Open the Fleet panel", Verb::Press, "button", "Fleet — Not running"),
+    step("The panel says why", Verb::Look, "region", "Fleet"),
+    step("Esc shuts it", Verb::Key("escape"), "button", "Fleet — Not running"),
+    scene("A Fleet that does not match offers Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),
+    press_on("Restart Fleet answers in the same frame", "button", "Restart Fleet", "button", "Restarting Fleet"),
+    scene("A Fleet that came back and still does not match", "restart-apart", "alert", "Still not matching"),
+    scene("No new runtime file in 30 seconds", "restart-no-answer", "alert", "Fleet did not come back inside 30 seconds"),
+    scene("Fleet running again", "fleet-running", "button", "Fleet — Running"),
+];
