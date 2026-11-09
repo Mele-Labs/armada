@@ -348,6 +348,34 @@ impl KeymapController {
     }
 }
 
+/// A registry spelling as a keycap draws it: `⌘Enter` is `⌘↵`.
+pub fn cap(spelling: &str) -> String {
+    spelling.replace("Enter", "↵").replace("Esc", "esc")
+}
+
+/// The key an act is bound to, as its keycap reads. Empty for an id the registry does not know.
+pub fn shown(id: &str) -> String {
+    crate::generated::actions::act(id).map(|row| cap(row.shortcut)).unwrap_or_default()
+}
+
+/// The key of digit `n` in an act's row of digits (`⌥1–⌥9`), as its keycap reads.
+pub fn shown_digit(id: &str, n: u8) -> Option<String> {
+    let row = crate::generated::actions::act(id)?;
+    match parse_slots(row.shortcut).into_iter().next()? {
+        Slot::Digits { mods: Some(mods), from, to } if (from..=to).contains(&n) => {
+            let mut out = String::new();
+            for (held, glyph) in [(mods.ctrl, '⌃'), (mods.alt, '⌥'), (mods.shift, '⇧'), (mods.meta, '⌘')] {
+                if held {
+                    out.push(glyph);
+                }
+            }
+            out.push_str(&n.to_string());
+            Some(out)
+        }
+        _ => None,
+    }
+}
+
 /// The palette lists every Action and no Motion.
 pub fn in_palette() -> impl Iterator<Item = &'static Row> {
     ACTIONS.iter().filter(|row| row.kind == ActionKind::Action)

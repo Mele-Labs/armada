@@ -1,0 +1,306 @@
+//! The screen a dispatch is made from: the Jobs screen with the dispatch sheet, the strip a send
+//! leaves and the annotation layer over it. It opens the sheet on ⌘N (`new_job`) and on what the
+//! title bar asks (`Search`, and `Dispatch` from the narrow menu), and answers the sheet's and the
+//! layer's asks. **A walk answers them by scene** (`scene`), the way the title bar's walk changes
+//! its face: Fleet is not on the other end, so a step names the answer it wants.
+
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{
+    canvas, div, prelude::*, App, Bounds, Context, Entity, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
+    Subscription, WeakEntity, Window,
+};
+use ipc::SessionRecord;
+
+use super::face::{Face, Sent};
+use super::scenes;
+use super::sheet::{Asked, DispatchSheet};
+use crate::annotate::{self, Layer, Toggle};
+use crate::jobs::JobsScreen;
+use crate::keymap::Act;
+use crate::labels::{labelled, LabelBook};
+use crate::look::{token, ActiveLook};
+use crate::titlebar::parts::{card, glyph, icon_button, kbd, mono, tip, Btn, Weight};
+use crate::titlebar::{Asked as BarAsked, AskedSink};
+
+/// The strip a send leaves, hung from the title bar's field.
+struct Strip {
+    sent: Sent,
+    place: Bounds<Pixels>,
+    focus: FocusHandle,
+}
+
+pub struct DispatchScreen {
+    jobs: Entity<JobsScreen>,
+    sheet: Entity<DispatchSheet>,
+    layer: Option<Entity<Layer>>,
+    strip: Option<Strip>,
+    /// A start Fleet refused, raised as the window's toast.
+    toast: Option<SharedString>,
+    pub within: FocusHandle,
+    area: Rc<Cell<Option<Bounds<Pixels>>>>,
+    _subs: Vec<Subscription>,
+}
+
+/// The screen in front, for a walk to move between scenes.
+struct Live(WeakEntity<DispatchScreen>);
+
+impl Global for Live {}
+
+pub fn live(cx: &App) -> Option<Entity<DispatchScreen>> {
+    cx.try_global::<Live>().and_then(|live| live.0.upgrade())
+}
+
+impl DispatchScreen {
+    pub fn new(jobs: Entity<JobsScreen>, records: &[SessionRecord], window: &mut Window, cx: &mut Context<Self>) -> Self {
+        crate::drafts::forget_all(cx);
+        let face = scenes::rest(records);
+        let targets = face.mentions.jobs.clone();
+        let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));
+        let area: Rc<Cell<Option<Bounds<Pixels>>>> = Rc::default();
+        // The layer is mounted only where Electron's is: a development build.
+        let layer = annotate::dev_build().then(|| cx.new(|_| Layer::new(Rc::clone(&area), targets)));
+        let mut subs = vec![cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx))];
+        if let Some(layer) = &layer {
+            subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
+        }
+        cx.set_global(Live(cx.entity().downgrade()));
+        // What the title bar asks: Search and the narrow menu's Dispatch open the sheet.
+        let handle = window.window_handle();
+        let me = cx.entity().downgrade();
+        cx.set_global(AskedSink(Rc::new(move |asked: &BarAsked, cx: &mut App| {
+            if matches!(asked, BarAsked::Search | BarAsked::Dispatch) {
+                let me = me.clone();
+                let _ = handle.update(cx, move |_, window, cx| {
+                    if let Some(me) = me.upgrade() {
+                        me.update(cx, |this, cx| this.open_sheet("", window, cx));
+                    }
+                });
+            }
+        })));
+        DispatchScreen { jobs, sheet, layer, strip: None, toast: None, within: cx.focus_handle(), area, _subs: subs }
+    }
+
+    /// ⌘N and its other doors: the sheet opens on the draft as it stands, and the strip goes.
+    fn open_sheet(&mut self, add: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.strip = None;
+        self.toast = None;
+        self.sheet.update(cx, |sheet, cx| sheet.show(add, window, cx));
+        cx.notify();
+    }
+
+    fn sheet_asked(&mut self, _asked: &Asked, _window: &mut Window, cx: &mut Context<Self>) {
+        // A start that was refused clears the toast when the next one begins.
+        self.toast = None;
+        cx.notify();
+    }
+
+    fn on_act(&mut self, key: &Act, window: &mut Window, cx: &mut Context<Self>) {
+        match key.id {
+            "new_job" => self.open_sheet("", window, cx),
+            "dispatch_after" => self.open_sheet("@", window, cx),
+            _ => cx.propagate(),
+        }
+    }
+
+    fn toggle(&mut self, _: &Toggle, window: &mut Window, cx: &mut Context<Self>) {
+        match &self.layer {
+            Some(layer) => layer.update(cx, |layer, cx| layer.toggle(window, cx)),
+            None => cx.propagate(),
+        }
+    }
+
+    // -- the strip -----------------------------------------------------------------------------
+
+    fn show_strip(&mut self, sent: Sent, window: &mut Window, cx: &mut Context<Self>) {
+        let search = crate::labels::role_named("button").and_then(|role| {
+            cx.try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, "Search, or describe work to dispatch"))
+                .map(|drawn| drawn.bounds)
+        });
+        let place = search.unwrap_or_default();
+        let focus = cx.focus_handle();
+        self.strip = Some(Strip { sent, place, focus: focus.clone() });
+        // The cursor lands on the strip when it appears.
+        window.defer(cx, move |window, cx| window.focus(&focus, cx));
+        cx.notify();
+    }
+
+    fn dismiss_strip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.strip = None;
+        let keys = self.jobs.read(cx).list.read(cx).focus_handle().clone();
+        window.focus(&keys, cx);
+        cx.notify();
+    }
+
+    fn strip_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        let key = &event.keystroke;
+        if key.key == "escape" {
+            self.dismiss_strip(window, cx);
+        } else if key.key == "enter" {
+            // Opens the repository's Autopilot lane on the Cockpit, which this screen does not draw yet.
+        } else if let Some(typed) = key.key_char.as_ref().filter(|typed| typed.chars().count() == 1 && *typed != " ") {
+            if !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt {
+                let typed = typed.clone();
+                self.open_sheet(&typed, window, cx);
+            }
+        } else {
+            return;
+        }
+        cx.stop_propagation();
+    }
+
+    // -- scenes ----------------------------------------------------------------------------------
+
+    /// Move the screen to a named scene: Fleet's answer to a send, or a state of the sheet's face. A
+    /// scene changes data and presses nothing.
+    pub fn scene(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
+        let face = self.sheet.read(cx).face.clone();
+        let change: Option<fn(Face) -> Face> = match name {
+            "found" => Some(scenes::found),
+            "unresolved" => Some(scenes::unresolved),
+            "scoped" => Some(scenes::scoped),
+            "many" => Some(scenes::many),
+            "waiting" => Some(scenes::waiting),
+            "offline" => Some(scenes::offline),
+            "online" => Some(|mut face| {
+                face.connected = true;
+                face
+            }),
+            "autopilot-read" => Some(scenes::autopilot_read),
+            "autopilot-refused" => Some(scenes::autopilot_refused),
+            _ => None,
+        };
+        if let Some(change) = change {
+            self.sheet.update(cx, |sheet, cx| sheet.set_face(change(face), window, cx));
+            return Ok(());
+        }
+        match name {
+            "attach" => self.sheet.update(cx, |sheet, cx| sheet.attach("pasted-snippet.txt", cx)),
+            "answer-start" | "answer-autopilot" => {
+                let sent = self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                if let Some(sent) = sent {
+                    self.show_strip(sent, window, cx);
+                }
+            }
+            "refuse-start" => {
+                self.sheet.update(cx, |sheet, cx| sheet.refused(cx));
+                self.toast = Some("Job not started: the repository has no free slot".into());
+            }
+            "layer-sent" | "layer-started" | "layer-refused" => {
+                let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
+                layer.update(cx, |layer, cx| {
+                    let title = layer.asked_of();
+                    match name {
+                        "layer-sent" => layer.sent(&title, false, cx),
+                        "layer-started" => layer.sent(&title, true, cx),
+                        _ => layer.refused(&title, "The Job has ended", cx),
+                    }
+                });
+            }
+            other => return Err(format!("no dispatch scene named {other}")),
+        }
+        cx.notify();
+        Ok(())
+    }
+
+    /// The Jobs the picker lists, for a step that names one.
+    pub fn target(&self, cx: &App) -> Option<SharedString> {
+        self.layer.as_ref().and_then(|layer| layer.read(cx).targets.first().map(|job| job.title.clone()))
+    }
+}
+
+impl Render for DispatchScreen {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let area = Rc::clone(&self.area);
+        let strip = self.strip.as_ref().map(|strip| {
+            let sent = &strip.sent;
+            let place = strip.place;
+            let tipped = sent.kind.word();
+            labelled(
+                div()
+                    .id("dispatch-strip")
+                    .track_focus(&strip.focus)
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.strip_keys(event, window, cx)))
+                    .absolute()
+                    .left(place.origin.x)
+                    .top(place.origin.y)
+                    .w(place.size.width)
+                    .h(place.size.height)
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .pl(look.length(token::SPACE_4))
+                    .pr(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .focus(|style| style.border_color(look.color(token::ACCENT)))
+                    .bg(look.color(token::BG_RAISED))
+                    .shadow(look.shadows(token::SHADOW_CARD))
+                    .text_color(look.color(token::FG_MUTED))
+                    .font_family(mono(look))
+                    .text_size(look.length(token::TEXT_XS))
+                    .child(div().id("strip-mark").flex_none().tooltip(tip(tipped)).child(glyph(
+                        sent.kind.glyph(),
+                        look.length(token::SPACE_4),
+                        look.color(token::ACCENT),
+                    )))
+                    .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(sent.title.clone()))
+                    .child(kbd("↵", look).opacity(if strip.focus.is_focused(_window) { 1. } else { 0. }))
+                    .child(labelled(
+                        Btn::new("strip-open", "Open", Weight::Secondary).draw(look, cx).on_click(cx.listener(|_, _, _, cx| {
+                            cx.stop_propagation();
+                        })),
+                        Role::Button,
+                        "Open",
+                    ))
+                    .child(labelled(
+                        icon_button("strip-dismiss", "x", look.color(token::FG_MUTED), look)
+                            .tooltip(tip("Dismiss"))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                cx.stop_propagation();
+                                this.dismiss_strip(window, cx);
+                            })),
+                        Role::Button,
+                        "Dismiss",
+                    )),
+                Role::Group,
+                "Last dispatch",
+            )
+        });
+        let toast = self.toast.clone().map(|text| {
+            labelled(
+                card(look)
+                    .id("dispatch-toast")
+                    .absolute()
+                    .right(look.length(token::SPACE_6))
+                    .bottom(look.length(token::SPACE_6))
+                    .max_w(look.length(token::W_TOAST))
+                    .p(look.length(token::SPACE_4))
+                    .border_color(look.color(token::ERROR_EDGE))
+                    .text_size(look.length(token::TEXT_SM))
+                    .child(text.clone()),
+                Role::Alert,
+                text,
+            )
+        });
+        let sheet = self.sheet.read(cx).is_open().then(|| self.sheet.clone());
+        div()
+            .id("dispatch-screen")
+            .key_context(annotate::HOST)
+            .track_focus(&self.within)
+            .on_action(cx.listener(Self::on_act))
+            .on_action(cx.listener(Self::toggle))
+            .relative()
+            .size_full()
+            .child(self.jobs.clone())
+            .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .children(strip)
+            .children(sheet)
+            .children(toast)
+            .children(self.layer.clone())
+    }
+}

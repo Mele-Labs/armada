@@ -35,6 +35,12 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>) -> Res
         std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
     }
     for at in 0..walk.steps.len() {
+        // A window on screen draws every frame; here a step's callbacks (a picture taken two frames
+        // after a press) each need a draw of their own.
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
         cx.run_until_parked();
         let read = cx
             .update_window(handle.into(), |_, window, cx| {

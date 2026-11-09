@@ -13,7 +13,7 @@
 
 mod face;
 mod fleet_down;
-mod parts;
+pub mod parts;
 pub mod scenes;
 mod switcher;
 mod usage;
@@ -67,6 +67,13 @@ pub enum Asked {
 
 impl EventEmitter<Asked> for TitleBar {}
 
+/// Where the window in front hears what the bar asks: set by the screen that answers it, such as
+/// the one that opens the dispatch sheet. The bar hands every [`Asked`] to it after its own change.
+#[derive(Clone)]
+pub struct AskedSink(pub std::rc::Rc<dyn Fn(&Asked, &mut App)>);
+
+impl Global for AskedSink {}
+
 /// Which popover hangs off the bar.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Popup {
@@ -109,7 +116,7 @@ const NARROW_BELOW: f32 = 900.;
 
 /// An id a menu row answers to, kept for the life of the app: a row's id is a `&'static str` and the
 /// picker's ids name a Workspace and a repository by place. Each distinct id is made once.
-fn id_of(text: String) -> &'static str {
+pub fn id_of(text: String) -> &'static str {
     use std::collections::HashSet;
     use std::sync::{Mutex, OnceLock};
     static KNOWN: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
@@ -155,6 +162,7 @@ pub struct TitleBar {
     details_open: bool,
     /// A window width the bar draws at in place of the window's own: a walk's way of narrowing it.
     pub width: Option<Pixels>,
+    _asked: Subscription,
 }
 
 /// The one bar of the window, for the keys that work from anywhere.
@@ -188,6 +196,12 @@ impl TitleBar {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let face = cx.try_global::<scenes::Opening>().map_or_else(Face::bare, |opening| opening.0.clone());
         cx.set_global(Live(cx.entity().downgrade()));
+        let me = cx.entity();
+        let asked = cx.subscribe(&me, |_, _, asked: &Asked, cx| {
+            if let Some(sink) = cx.try_global::<AskedSink>().cloned() {
+                (sink.0)(asked, cx);
+            }
+        });
         TitleBar {
             face,
             job: None,
@@ -203,6 +217,7 @@ impl TitleBar {
             before: None,
             details_open: false,
             width: None,
+            _asked: asked,
         }
     }
 

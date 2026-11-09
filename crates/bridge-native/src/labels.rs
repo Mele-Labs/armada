@@ -39,6 +39,14 @@ pub fn role_named(word: &str) -> Option<Role> {
         "dialog" => Role::Dialog,
         "alert" => Role::Alert,
         "separator" => Role::Splitter,
+        "listbox" => Role::ListBox,
+        "option" => Role::ListBoxOption,
+        "radiogroup" => Role::RadioGroup,
+        "radio" => Role::RadioButton,
+        "tab" => Role::Tab,
+        "tablist" => Role::TabList,
+        "group" => Role::Group,
+        "combobox" => Role::ComboBox,
         _ => return None,
     })
 }
