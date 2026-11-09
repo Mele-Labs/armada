@@ -47,6 +47,7 @@ import {
   closeLayer,
   drawLayersAsTabs,
   dropLayer,
+  inPanes,
   toggleLayer,
   useLayer,
   useLayerPage,
@@ -227,6 +228,8 @@ export function SessionWorkspace({
       if (isWholeKey(event) && session.work?.plan !== undefined) {
         event.preventDefault();
         if (layer === "artifacts") closeLayer();
+        // On a Job in panes the whole plan is the Job's Plan tab.
+        if (inPanes(id)) return focusKind(id, "plan");
         pressWhole(session);
         return;
       }

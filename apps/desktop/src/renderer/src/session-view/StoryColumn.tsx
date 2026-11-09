@@ -13,7 +13,7 @@
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
-import { ListTree, PencilRuler, SkipForward } from "lucide-react";
+import { ListChecks, ListTree, PencilRuler, SkipForward } from "lucide-react";
 import { Button, TaskMark, Tooltip, sessionGlyphOf, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import {
@@ -39,7 +39,8 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { openDraftCard, openOwedDocument } from "../job-panes/focus";
+import { focusKind, openDraftCard, openOwedDocument } from "../job-panes/focus";
+import { inPanes } from "./layers";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
 import { artifactsOf } from "./artifacts";
@@ -471,8 +472,20 @@ export function StoryColumn({
     <>
       {sketchButton}
       <AskUpdate subject={`session:${id}`} />
-      {/* A plan that ends on gates folds every chunk's tasks behind its own press, so there is no whole plan to open. */}
-      {!approved || byGates ? null : (
+      {/* On a Job in panes the whole plan opens as the Job's Plan tab. Elsewhere, and never on a plan that ends on gates, it unfolds every group here. */}
+      {!approved ? null : inPanes(id) ? (
+        <Tooltip label="Plan" shortcut={WHOLE_KEY.cap}>
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label="Plan"
+            onClick={() => focusKind(id, "plan")}
+          >
+            <ListChecks size={16} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      ) : byGates ? null : (
         <Tooltip label="Whole plan" shortcut={WHOLE_KEY.cap}>
           <Button
             variant="ghost"
