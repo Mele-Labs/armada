@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
 
-import { DID_SAID, waitSaid } from "./model";
+import { DID_SAID, offerTitle, waitSaid } from "./model";
 import type {
   OperatorLineRow,
   OperatorLogRow,
@@ -19,6 +19,8 @@ export type OperatorState = OperatorSeed & {
   messages: readonly OperatorMessage[];
   /** The Waiting on you row being discussed: its card is in the conversation, and words go to it. */
   open?: string;
+  /** His words it is answering now: Discussion draws the thread's working mark until the answer is in. */
+  thinking?: string;
 };
 
 export type Act =
@@ -68,6 +70,10 @@ export type Act =
       kind: "clear";
     }
   | {
+      /** The mock's answer to the words it is thinking over, a moment after they were sent. */
+      kind: "answer";
+    }
+  | {
       kind: "raise";
       raise: string;
       way: string;
@@ -76,6 +82,12 @@ export type Act =
       kind: "order";
       message: string;
       keep: boolean;
+    }
+  | {
+      /** The Job a message offered: started in `repository`, or left where null. */
+      kind: "offer";
+      message: string;
+      repository: string | null;
     }
   | {
       kind: "repository";
@@ -192,6 +204,7 @@ function answered(state: OperatorState, words: string): OperatorState {
       {
         id: fresh("said"),
         from: "operator",
+        at: new Date().toISOString(),
         text: script?.said ?? "Nothing in the Log or Waiting to start answers that.",
         ...(script?.order === undefined
           ? {}
@@ -199,6 +212,21 @@ function answered(state: OperatorState, words: string): OperatorState {
               order: script.order,
             }),
       },
+      // A Job it offers stands under its words, as Fleet's answer is drawn: its own message, so starting it leaves the words.
+      ...(script?.offers === undefined
+        ? []
+        : [
+            {
+              id: fresh("offer"),
+              from: "operator" as const,
+              text: "",
+              at: new Date().toISOString(),
+              offer: {
+                brief: script.offers,
+                in: state.served ?? [],
+              },
+            },
+          ]),
     ],
   };
   const line =
@@ -456,12 +484,19 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           asked,
         ],
       };
-      // It is discussing this with you, so it answers you ahead of its list.
-      if (state.open !== undefined) return answeredOnItem(heard, state.open, words);
+      // It is discussing this with you, so it answers you ahead of its list: thinking first, as a call takes a moment.
+      if (state.open !== undefined)
+        return {
+          ...heard,
+          thinking: words,
+        };
       const turns = openTurns(state);
       // Words that set the order are acted on at once: they cannot wait in the list they change.
       if (turns.length === 0 || scriptFor(state, words)?.puts !== undefined)
-        return answered(heard, words);
+        return {
+          ...heard,
+          thinking: words,
+        };
       return {
         ...heard,
         turns: [
@@ -474,6 +509,13 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           ...doneTurns(state),
         ],
       };
+    }
+    case "answer": {
+      const { thinking: words, ...rest } = state;
+      if (words === undefined) return state;
+      return rest.open !== undefined
+        ? answeredOnItem(rest, rest.open, words)
+        : answered(rest, words);
     }
     case "turn": {
       const [done, ...rest] = openTurns(state);
@@ -725,6 +767,30 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           : state.orders,
       };
     }
+    case "offer":
+      return {
+        ...state,
+        messages: state.messages.map((one) => {
+          if (one.id !== act.message || one.offer === undefined) return one;
+          if (act.repository === null)
+            return {
+              ...one,
+              offer: {
+                ...one.offer,
+                left: true,
+              },
+            };
+          const title = offerTitle(one.offer.brief);
+          return {
+            ...one,
+            text: `Started Job ${title} in ${act.repository}. Its answer is in its own thread.`,
+            opens: {
+              session: fresh("offered"),
+              title,
+            },
+          };
+        }),
+      };
     case "repository":
       return {
         ...state,
@@ -769,6 +835,8 @@ export type OperatorStore = {
 
 const Held = createContext<OperatorStore | null>(null);
 
+const THINKING_MS = 2500;
+
 /** The Operator's state for this window, where the scenario seeds one. Without a seed nothing of the Operator is drawn. */
 export function OperatorFrom({
   seed,
@@ -793,6 +861,20 @@ function Seeded({ seed, children }: { seed: OperatorSeed; children: ReactNode })
     );
   }, [
     seed,
+  ]);
+  // A call takes a moment, so the mock answers a beat after his words, with the working mark between.
+  useEffect(() => {
+    if (state.thinking === undefined) return;
+    const answer = setTimeout(
+      () =>
+        act({
+          kind: "answer",
+        }),
+      THINKING_MS,
+    );
+    return () => clearTimeout(answer);
+  }, [
+    state.thinking,
   ]);
   const store = useMemo(
     () => ({
