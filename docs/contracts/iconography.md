@@ -152,10 +152,9 @@ distinction in the app, and it fails outright under deuteranopia, on a
 miscalibrated second monitor, and in a screenshot pasted into a ticket. Every
 status earns an icon on those grounds before consistency is considered.
 
-This does not contradict *used sparingly*. The badges are one column
-carrying a fixed 16px prefix, not scattered decoration. Sparingly is
-enforced everywhere else in this document, including several places where
-the answer is no icon at all.
+The badges are one column carrying a fixed 16px prefix, not scattered
+decoration. Where a glyph would name nothing, rule 1's answer is no icon,
+and several places in this document say so.
 
 **Label-only was considered and rejected.** The labels are indeed
 distinguishable as text, but that is an argument that the icon is not doing
@@ -788,8 +787,10 @@ minus          nothing checked this — a verdict-sheet row where no Judge and n
 **Listed means: has a table in `packages/icons/icons/`.** A glyph with
 no table has not been decided, whatever it looks like in a mockup.
 
-1. **Default to no icon.** If the label alone is unambiguous, ship the
-   label. Most new things need nothing.
+1. **A row's kind and state take a glyph; anything else defaults to no
+   icon.** The kind or state glyph draws in its hue, so a glance tells rows
+   apart (the owner, 9 Nov 2026). A button, heading or label that is
+   unambiguous alone ships the label.
 2. If an icon is needed it comes from **lucide-react**, at **12 or 16px**,
    **strokeWidth 2**, inheriting text colour. No second library, no emoji,
    no illustration, no custom SVG. **Three exceptions exist, and only three** —

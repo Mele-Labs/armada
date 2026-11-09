@@ -64,6 +64,15 @@ pub enum OperatorDecider {
     Person,
 }
 
+/// One move of the Operator's master switch, kept so the Log can show where rulings before it are older.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorBoardSwitch {
+    /// What the switch was moved to.
+    pub on: bool,
+    /// RFC 3339.
+    pub at: String,
+}
+
 /// One thing a suggestion offers to do.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorBoardOption {
@@ -85,7 +94,7 @@ pub struct OperatorBoardSuggestion {
 
 /// `get_operator_board`: whether the Operator is on, the arrival a call is out on, those waiting
 /// for it in the order they will be taken, the suggestions no Job holds, oldest first, and its last
-/// twenty rulings, newest first.
+/// twenty rulings, newest first, and the last twenty moves of its switch, newest first.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorBoard {
     pub on: bool,
@@ -100,6 +109,9 @@ pub struct OperatorBoard {
     /// Present only while the week's plan is used to the share where the Operator pauses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paused: Option<OperatorPaused>,
+    /// The last twenty moves of the master switch, newest first. Left out while there are none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub switched: Vec<OperatorBoardSwitch>,
 }
 
 /// The week's plan used and the share where the Operator pauses, both in percent.

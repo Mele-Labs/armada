@@ -223,6 +223,14 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }
 
+    async fn get_calls(&self) -> Result<ipc::StandingCalls, Refusal> {
+        Ok(ipc::StandingCalls::default())
+    }
+
+    async fn open_call(&self, _asked: ipc::OpenStandingCall) -> Result<ipc::StandingCalls, Refusal> {
+        Ok(ipc::StandingCalls::default())
+    }
+
     async fn pause_session(&self, _asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         Err(Refusal::Fault(ipc::WireError::raised("fake.unused", "unused", ipc::RunId::carried("fake"))))
     }

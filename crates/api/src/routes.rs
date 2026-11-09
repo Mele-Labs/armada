@@ -560,6 +560,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/sessions/view",
             post(crate::hosted_sessions::view_session::<D>),
         )
+        .route("/calls", get(crate::hosted_sessions::get_calls::<D>))
+        .route("/calls/open", post(crate::hosted_sessions::open_call::<D>))
         .route(
             "/sessions/pause",
             post(crate::hosted_sessions::pause_session::<D>),

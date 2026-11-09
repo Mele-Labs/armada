@@ -1,7 +1,7 @@
 //! The Operator's board on the wire: the suggestions no Job holds ride beside the arrivals, and a board
 //! written before they did still reads.
 
-use crate::operator_board::{AnswerOperatorSuggestion, OperatorBoard, OperatorBoardOption, OperatorBoardSuggestion, OperatorPaused};
+use crate::operator_board::{AnswerOperatorSuggestion, OperatorBoard, OperatorBoardOption, OperatorBoardSuggestion, OperatorBoardSwitch, OperatorPaused};
 
 #[test]
 fn a_suggestion_is_an_id_its_text_two_options_and_when_it_was_raised() {
@@ -46,4 +46,16 @@ fn a_board_names_a_pause_only_while_it_holds() {
     assert_eq!(wire["paused"], serde_json::json!({ "week": 83, "at": 80 }));
     assert_eq!(serde_json::from_value::<OperatorBoard>(wire).expect("read"), paused);
     assert_eq!(serde_json::from_str::<OperatorBoard>(r#"{"on":true}"#).expect("read").paused, None, "a board written before it reads");
+}
+
+#[test]
+fn a_board_names_the_moves_of_the_switch_only_while_there_are_some() {
+    let calm = OperatorBoard { on: true, ..OperatorBoard::default() };
+    assert!(serde_json::to_value(&calm).expect("written").get("switched").is_none());
+
+    let moved = OperatorBoard { on: false, switched: vec![OperatorBoardSwitch { on: false, at: "2026-11-09T10:00:00.000Z".into() }], ..OperatorBoard::default() };
+    let wire = serde_json::to_value(&moved).expect("written");
+    assert_eq!(wire["switched"], serde_json::json!([{ "on": false, "at": "2026-11-09T10:00:00.000Z" }]));
+    assert_eq!(serde_json::from_value::<OperatorBoard>(wire).expect("read"), moved);
+    assert!(serde_json::from_str::<OperatorBoard>(r#"{"on":true}"#).expect("read").switched.is_empty(), "a board written before it reads");
 }
