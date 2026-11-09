@@ -174,5 +174,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         skipped_steps: Vec::new(),
         workflow_waiting_on: Vec::new(),
         workflow_copy: None,
+        in_flight: Vec::new(),
     }
 }
