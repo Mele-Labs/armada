@@ -1,12 +1,12 @@
 // The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. Opening it asks which
-// tools to run, ticked from the repository's default, and keeps a new default. Previous and Next step through the files with
-// findings or open threads, and a file Go to file reaches outside them says it is not counted. The forge's threads hang under their
-// lines. It counts the findings marked as they are marked, starts a review from lines picked in its gutter, and opens the lines a
-// finding names in place, with Jump. The submit bar says once that findings are unmarked. An explanation runs from the head and
-// opens in a tab beside Comments, whose Conversation holds what sits under no line. Ask, docked under the panes, takes a question.
-// Over the `pr-review-by-file` scenario.
+// tools to run, ticked from the repository's default, and keeps a new default, which System, Repository shows with Ask before
+// running. Previous and Next step through the files with findings or open threads, and a file Go to file reaches outside them says
+// it is not counted. The forge's threads hang under their lines. It counts the findings marked as they are marked, starts a review
+// from lines picked in its gutter, and opens the lines a finding names in place, with Jump. The submit bar says once that findings
+// are unmarked. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits under no
+// line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
 
-import { button, inside, place, region, role, tab, text, walk } from "../walk";
+import { button, inside, place, region, role, tab, text, toSystemPage, walk } from "../walk";
 
 const list = region("Pull requests");
 const reader = region("Pull request #2417");
@@ -35,6 +35,7 @@ const yours = inside(reviewPane, region("Your review"));
 const PEEKED = "app/models/payment.rb:17-19";
 const goTo = role("dialog", "Go to file");
 const opening = role("dialog", "Run on opening");
+const tallyDefaults = inside(region("Run on opening"), region("fernhill/tally"));
 
 const prReviewByFile = walk("pr-review-by-file", [
   {
@@ -70,6 +71,15 @@ const prReviewByFile = walk("pr-review-by-file", [
   {
     press: inside(opening, button("Run")),
     say: "Run starts the ticked ones",
+  },
+  ...toSystemPage("Repository", "The default is kept in System, Repository, under Run on opening"),
+  {
+    look: tallyDefaults,
+    say: "fernhill/tally runs three, with Test gaps unticked. Ask before running is on: Don't ask again in the ask turns it off, and this turns it back on",
+  },
+  {
+    press: place("Reviews"),
+    say: "Back to the pull request, where the ticked tools are running",
   },
 
   // 2. The tools, each a button in Review's head.
