@@ -218,6 +218,7 @@ where
             hosting,
             waiting: waiting_reads(store, session).map_err(fault)?,
             limited: store.session_limit(&session.id).map_err(fault)?,
+            viewed: store.session_viewed(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan,
@@ -314,6 +315,7 @@ where
             record.held_until = reads.limited.as_deref().map(wire_instant);
             record.in_flight = reads.flying.iter().map(crate::lifecycles::wire::in_flight).collect();
         }
+        record.viewed_at = reads.viewed.as_deref().map(wire_instant);
         record.context_breakdown = reads
             .context
             .as_deref()
@@ -431,7 +433,8 @@ where
             }
         }
         let thread = super::marking::Thread { lapsed, checks_running, spoken };
-        record.mark = Some(super::marking::mark_of(&record, &thread, self.now().epoch_millis()));
+        let on_screen = self.hosts().on_screen.now(&session.id);
+        record.mark = Some(super::marking::mark_of(&record, &thread, on_screen, self.now().epoch_millis()));
         record
     }
 

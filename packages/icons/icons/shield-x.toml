@@ -12,3 +12,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Tooltip `Invalid`, in the failure hue. Proposed 23 Oct 2026 for the walk `mods-trackers`, for the owner to rule on. The shield-x of a failed gate."
+
+[[icons.shield-x.usage]]
+  means = "A test that failed at the pushed commit and passes on main, holding a Checks gate, under its chunk in Now"
+  group = "Plan gates"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Failed here, and passes on main: holds the gate`, in the failure hue. A failed check, within the shield reservation."

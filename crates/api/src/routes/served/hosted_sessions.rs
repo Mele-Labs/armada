@@ -81,6 +81,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/handoff/retry",
     },
     Route {
+        operation: "view_session",
+        method: "POST",
+        path: "/sessions/view",
+    },
+    Route {
         operation: "pause_session",
         method: "POST",
         path: "/sessions/pause",

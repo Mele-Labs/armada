@@ -20,6 +20,15 @@ export function focusKind(jobId: string, kind: TabKind): void {
   look(jobId, (arrangement) => activate(arrangement, tab.id));
 }
 
+/** A view opened from the Job's story, such as its Plan: its tab comes to the front where it has one, else it joins the thread's pane, or opens by the arrival rule with no thread. */
+export function focusBesideThread(jobId: string, kind: TabKind): void {
+  const arrangement = peek(jobId);
+  if (holderOf(arrangement, kind) !== undefined) return focusKind(jobId, kind);
+  const thread = holderOf(arrangement, "thread");
+  if (thread === undefined) return focusKind(jobId, kind);
+  look(jobId, (one) => addTab(one, thread.id, kind, labelFor(jobId, kind)));
+}
+
 /** The tab that draws each view a Job's layers open over it, for a Job in panes. The Field and the document float over the whole Job and have none. */
 const TAB_OF: Partial<Record<LayerId, TabKind>> = {
   artifacts: "ledger",

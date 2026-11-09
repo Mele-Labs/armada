@@ -11,6 +11,9 @@
 //!
 //! **The fold is by order alone.** A tool row has no call id and no result row, so a run of calls is
 //! the tool rows that came one after another, and any other row ends it.
+//!
+//! **Electron Bridge's fold is the spec, item for item**: `itemsOf` and the rows its host hands it. What
+//! Bridge reads off the record, such as what the plan says, stays on the record.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,6 +21,7 @@ use serde_json::Value;
 use crate::call::{AskedQuestion, CallInFlight};
 use crate::hosted_sessions::{SessionRow, ToolSubagent};
 use crate::ids::Instant;
+use crate::judge::JudgeArtifact;
 use crate::sketch::{draws, RawScene, SketchHow};
 use crate::SessionId;
 
@@ -107,6 +111,14 @@ pub struct ThreadHead {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fleet_acts: Vec<FleetAct>,
     pub trail: ThreadTrail,
+    /// The plan put to the person, or set aside, drawn after the last item. **An approved plan is an item**,
+    /// [`ThreadItem::Plan`]. What it says is `SessionRecord::plan`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<ThreadPlan>,
+    /// The newest sketch put to the person and not answered or taken back, drawn after the plan. **Its
+    /// newest card is no item** while it stands here. The scene is the one the ledger kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sketch: Option<ThreadSketch>,
 }
 
 /// The call the Job waits on, with the command a person reads: the argument whole where `detail`
@@ -193,11 +205,15 @@ pub struct TrailOpened {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ThreadItem {
-    /// A row drawn as it came. **Never a `tool` or a `check` row**, which fold, a waiting `ask`,
-    /// which is the head's `asked`, or a `browser_reminder`, which the Job's browser draws.
+    /// A row drawn as it came. **Never a `tool`, `check`, `ask` or `window_ask` row**, which fold; a
+    /// `plan` row, whose card is [`ThreadItem::Plan`]; a `delivery` row, a `linked` row that
+    /// `replaces`, or a `browser_reminder`, which no screen draws in the thread. **A Fleet notice is
+    /// a row only where it is kept**: one the agent disputed, and the last Fleet turn while the Job
+    /// waits on the person (its `asked`, the head's `plan` waiting or set aside, or its `sketch`).
     Row { row: SessionRow },
-    /// Tool calls that ran one after another, without a subagent: `tool` rows only. A lone call
-    /// is a run of one. `names` are the tools it holds, each once, in the order first called.
+    /// Calls that ran one after another, without a subagent: `tool` rows, settled `ask` rows and
+    /// `window_ask` rows. A lone call is a run of one. `names` are the tools it holds, each once, in
+    /// the order first called: an `ask` names the tool it asked about, a `window_ask` none.
     Calls {
         id: String,
         names: Vec<String>,
@@ -247,6 +263,18 @@ pub enum ThreadItem {
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         log: Vec<String>,
     },
+    /// The approved plan, after the item of the last row written before its `plan` row. **Only where
+    /// that item is one row drawn as it came**: after a run of calls, a Fleet turn or a Check run there
+    /// is none, as Electron Bridge draws none.
+    Plan(ThreadPlan),
+    /// A Judge finished reading, after the last row written by then: `id` is `judged:<reading id>`.
+    /// `clean` is a reading with no notes.
+    Judged {
+        id: String,
+        at: Instant,
+        artifact: JudgeArtifact,
+        clean: bool,
+    },
 }
 
 /// A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the
@@ -275,9 +303,13 @@ pub struct ThreadSketch {
     pub withdrawn: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settled: Option<CardSettled>,
+    /// Each drawing Fleet kept under the title, oldest first, on the latest card only. **Empty until
+    /// every one reads**, so a menu over them never offers one that will not draw.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub revisions: Vec<RawScene>,
 }
 
-/// A document card, one per revision kept.
+/// A document card: one per page, its newest revision. The page's earlier revisions are its own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ThreadDocument {
     /// `document:<page>:r<revision>`.
@@ -290,6 +322,24 @@ pub struct ThreadDocument {
     pub asked: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub settled: Option<CardSettled>,
+}
+
+/// Where a plan's card stands. `id` is `plan:v<version>`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ThreadPlan {
+    pub id: String,
+    pub version: u32,
+    pub state: PlanCardState,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanCardState {
+    /// Fleet puts it to the person.
+    Waiting,
+    /// He put it away to keep talking; nothing waits on him for it.
+    SetAside,
+    Approved,
 }
 
 /// How the person answered a sketch or a document put to him.
@@ -321,9 +371,11 @@ impl ThreadItem {
             | ThreadItem::FleetTurn { id, .. }
             | ThreadItem::File { id, .. }
             | ThreadItem::Change { id, .. }
-            | ThreadItem::NotStarted { id, .. } => id,
+            | ThreadItem::NotStarted { id, .. }
+            | ThreadItem::Judged { id, .. } => id,
             ThreadItem::Sketch(sketch) => &sketch.id,
             ThreadItem::Document(document) => &document.id,
+            ThreadItem::Plan(plan) => &plan.id,
         }
     }
 }
@@ -455,8 +507,16 @@ pub fn kept_from(mut scene: RawScene, held: &RawScene) -> RawScene {
 /// How many revisions a document's `detail.revisions` lists: JSON text of a list of paths, oldest
 /// first. **Anything that is not a list of non-empty strings is none.**
 pub fn revisions_of_detail(text: &str) -> usize {
-    match crate::decode::<Value>("a document's revisions", text.as_bytes()) {
-        Ok(Value::Array(paths)) if paths.iter().all(|path| path.as_str().is_some_and(|path| !path.is_empty())) => paths.len(),
-        _ => 0,
+    revision_paths_of_detail(text).len()
+}
+
+/// The paths a document's or a sketch's `detail.revisions` lists, oldest first, read as
+/// [`revisions_of_detail`] reads them.
+pub fn revision_paths_of_detail(text: &str) -> Vec<String> {
+    match crate::decode::<Value>("a kept revisions list", text.as_bytes()) {
+        Ok(Value::Array(paths)) if paths.iter().all(|path| path.as_str().is_some_and(|path| !path.is_empty())) => {
+            paths.iter().filter_map(Value::as_str).map(str::to_string).collect()
+        }
+        _ => Vec::new(),
     }
 }

@@ -535,6 +535,21 @@ pub(crate) async fn retry_handoff<D: HostedSessions>(
     }
 }
 
+/// A Job came on screen, or left it. 200 with the Job; 404 for one Fleet does not know.
+pub(crate) async fn view_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::ViewSession = match ipc::decode_body("a job on screen or off it", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().view_session(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn pause_session<D: HostedSessions>(
     State(served): State<Served<D>>,
     body: Bytes,

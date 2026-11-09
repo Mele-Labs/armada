@@ -172,6 +172,10 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
       ok: false,
       outcome: unanswered("/sessions/start_again"),
     }),
+    viewSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/view"),
+    }),
     pauseSession: async () => ({
       ok: false,
       outcome: unanswered("/sessions/pause"),

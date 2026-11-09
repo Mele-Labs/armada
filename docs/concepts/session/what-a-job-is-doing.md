@@ -30,7 +30,8 @@ A `done` outranks a reply.
 Needs me is when it needs something from me.
 Replied should be idle or unread." And 17 Oct: "Part of me wonders if we could use a cheap rust natural language processor to detect if the latest message from an agent in a thread is something that needs me.
 Then we can classify replies that dont need me as unread and give them more weight.
-Then replies that need me to respond can show as something that needs me." A reply that only reports is `replied`, an idle Job with an unread mark, which Bridge draws and clears once he has been in the Job (`cockpit/viewed.ts`); Fleet does not yet say that he has.
+Then replies that need me to respond can show as something that needs me." A reply that only reports is `replied`, an idle Job with an unread mark, which Bridge draws and clears once he has been in the Job (`cockpit/viewed.ts`).
+Fleet keeps the same visits (`view_session`, read onto `viewed_at`), and the row mark it serves reads `replied` only until he has been in the Job since its turn ended (`docs/practices/protocol/a-jobs-row-mark.md`).
 
 **Whether the close asks is read by rules and by Fleet's local language model**, and the close asks if either says so (`session_host/asks.rs`, `session_host/asks_model.rs`).
 The owner chose that on 20 Oct 2026: on 300 fresh replies it found 54 of 81 asks where the rules alone found 21, for 20 wrong calls where they made 8 (`docs/spikes/reply-asks-classifier.md`).

@@ -32,6 +32,7 @@ mod stop_nudges;
 mod session_build;
 mod session_plan;
 mod session_focus;
+mod session_viewed;
 mod session_rail;
 mod session_limit;
 mod session_open_turn;

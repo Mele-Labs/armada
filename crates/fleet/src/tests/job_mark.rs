@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use api::{HostedSessions, Sessions};
-use ipc::{CloseSession, JobGroup, JobLamp, JobMark, JobReading, JobState, PauseSession, SessionId, SessionStanding, SessionTurn, ShowWindow};
+use ipc::{CloseSession, JobGroup, JobLamp, JobMark, JobState, PauseSession, SessionId, SessionStanding, SessionTurn, ShowWindow, ViewSession};
 
 use super::session_host::{eventually, rig_placing, Rig};
 use super::session_stops::{stopped_a_while_ago, tell_ripe};
@@ -15,7 +15,7 @@ async fn mark(rig: &Rig, id: &SessionId) -> JobMark {
 }
 
 fn reads(state: JobState, lamp: JobLamp, group: JobGroup) -> JobMark {
-    JobMark { state, lamp, group, once_read: None }
+    JobMark { state, lamp, group }
 }
 
 /// A Job with a turn running that has not written.
@@ -59,22 +59,62 @@ async fn a_job_asked_a_question_reads_waiting_and_needs_him() {
     assert_eq!(mark(&rig, &id).await, reads(JobState::Waiting, JobLamp::Needs, JobGroup::Needs));
 }
 
-/// Only Bridge knows whether he has read the reply, so the record says what the row reads as both ways.
+/// A Job whose turn ends with `said`, as he left it.
+async fn replied(rig: &Rig, said: &str) -> SessionId {
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, said);
+    eventually(|| async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.standing == Some(SessionStanding::Replied) }).await;
+    id
+}
+
+async fn view(rig: &Rig, id: &SessionId, on: bool) {
+    rig.fleet.view_session(ViewSession { session_id: id.clone(), on }).await.expect("viewed");
+}
+
+/// He has not been in it since its turn ended, so the reply is unread; once he has, it reads as it
+/// would with no reply to read.
 #[tokio::test]
-async fn a_replied_turn_reads_replied_and_once_read_reads_idle() {
+async fn a_replied_turn_reads_replied_until_he_has_been_in_it_since() {
+    let rig = rig_placing(None);
+    let id = replied(&rig, "The cap is five.").await;
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Replied, JobLamp::Done, JobGroup::Done));
+    view(&rig, &id, true).await;
+    view(&rig, &id, false).await;
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Idle, JobLamp::Done, JobGroup::Done));
+}
+
+/// A turn that ends while he has the Job on screen is read as it ends, though his visit began before it.
+#[tokio::test]
+async fn a_turn_ending_while_he_has_the_job_on_screen_reads_read() {
     let rig = rig_placing(None);
     let id = rig.start().await;
+    view(&rig, &id, true).await;
     rig.send(&id, "go").await;
     rig.stand_in.init(0);
     rig.stand_in.finishes(0, "The cap is five.");
     eventually(|| async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.standing == Some(SessionStanding::Replied) }).await;
-    assert_eq!(
-        mark(&rig, &id).await,
-        JobMark {
-            once_read: Some(JobReading { state: JobState::Idle, lamp: JobLamp::Done, group: JobGroup::Done }),
-            ..reads(JobState::Replied, JobLamp::Done, JobGroup::Done)
-        }
-    );
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Idle, JobLamp::Done, JobGroup::Done));
+}
+
+/// A reply that comes after he left is unread again.
+#[tokio::test]
+async fn a_turn_ending_after_his_visit_reads_replied_again() {
+    let rig = rig_placing(None);
+    let id = replied(&rig, "The cap is five.").await;
+    view(&rig, &id, true).await;
+    view(&rig, &id, false).await;
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Idle, JobLamp::Done, JobGroup::Done), "read once he has been in it");
+    let before = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.last_turn_at;
+    rig.send(&id, "and the floor?").await;
+    rig.stand_in.finishes(0, "The floor is one.");
+    eventually(|| async {
+        let now = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+        now.last_turn_at != before && now.standing == Some(SessionStanding::Replied)
+    })
+    .await;
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Replied, JobLamp::Done, JobGroup::Done));
 }
 
 /// A walk he has not approved calls on the row as its own question does, though the turn runs on.
