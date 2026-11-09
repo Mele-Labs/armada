@@ -976,7 +976,7 @@ impl WalkWindow {
                             .text_color(look.color(token::FG_MUTED))
                             .child(held.said()),
                     )
-                    .child(labelled(div().id("capture-note").child(Textarea::new(&input)), Role::TextInput, "Note"))
+                    .child(labelled(div().id("capture-note").key_context(crate::keymap::TEXT_BOX).child(Textarea::new(&input)), Role::TextInput, "Note"))
                     .child(
                         div()
                             .flex()

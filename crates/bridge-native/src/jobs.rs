@@ -1103,7 +1103,7 @@ impl JobsList {
         let ink = if self.scope == Scope::Active { token::FG_MUTED } else { token::ACCENT };
         let field = self.search.as_ref().map(|(search, _)| {
             labelled(
-                div().id("search").flex_1().min_w_0().child(
+                div().id("search").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(
                     Input::new(search)
                         .h(look.length(token::H_CONTROL_LG))
                         .rounded(look.length(token::RADIUS_LG))

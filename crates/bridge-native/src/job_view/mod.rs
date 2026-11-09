@@ -860,6 +860,7 @@ impl JobView {
                                 labelled(
                                     div()
                                         .id("message")
+                                        .key_context(crate::keymap::TEXT_BOX)
                                         .px(look.length(token::SPACE_4))
                                         .py(look.length(token::SPACE_3))
                                         .text_size(look.length(token::TEXT_BASE))
