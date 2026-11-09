@@ -22,6 +22,7 @@ colour, and it is the only custom glyph Armada owns.
 | Ink, dark      | `#0F1419`             | The mark on light grounds                      |
 | Accent         | `#4A9EDB`             | Rules, meta text, the app icon's pool of light |
 | App body, dark | `#1A2330` → `#0C1116` | The macOS icon body, top to bottom             |
+| App body, Classic | `#2B3036` → `#121518` | Armada Classic's icon body, top to bottom |
 
 The mark is monotone. It is never given a gradient, a shadow, an outline, or a
 second colour, with one exception: `ArmadaMarkDuo` holds the two trailing hulls
@@ -76,10 +77,11 @@ and the mark should not be used — set the wordmark alone instead.
 ```
 pnpm --filter @armada/brand build:appicon
 iconutil -c icns packages/brand/macos/AppIcon.iconset
+iconutil -c icns packages/brand/macos/ClassicIcon.iconset
 ```
 
-The first command draws both SVG masters and renders all ten iconset PNGs; the
-second packs them. Run both after changing anything in
+The first command draws the SVG masters and renders the ten PNGs of each iconset; the
+others pack them. Run both after changing anything in
 `scripts/build-appicon.mjs`, which is the only place the icon's geometry and
 colour live — the masters and the PNGs are output, and editing one by hand is
 undone by the next build.
@@ -93,7 +95,10 @@ seam where the region ends — two bands across the body, at the drop shadow's
 edge and the halo's. WebKit hides the bug because it composites the whole page
 the same way.
 
-Only the dark master goes into the iconset. `appicon-accent.svg` is drawn
+The dark master is `AppIcon`, the native Armada's icon.
+`appicon-classic.svg` is `ClassicIcon`, worn by Armada Classic, the Electron
+Bridge: the same tile with the accent drained to grey, so the Dock tells the
+two apps apart. `appicon-accent.svg` is drawn
 alongside it and nothing consumes it; it exists so the light-bodied tone stays
 in step if it is ever wanted.
 
