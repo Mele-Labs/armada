@@ -312,6 +312,9 @@ export function StoryColumn({
     session.asked?.questions?.[0]?.question ??
     (session.asked === undefined ? undefined : session.asked.command);
   const atWork = planned ? [] : subagentsAtWork(session);
+  const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
+  const brief = briefOf(session);
+  const working_ = session.turn.state === "working";
   // With the plan as the workflow, the subagents at work stand under the live chunk, each with the group its brief named.
   const helpers: HelperRow[] = !byGates
     ? []
@@ -327,9 +330,6 @@ export function StoryColumn({
           },
         ];
       });
-  const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
-  const brief = briefOf(session);
-  const working_ = session.turn.state === "working";
   // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
   const waiting = session.lanes?.job.waiting;
   // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
