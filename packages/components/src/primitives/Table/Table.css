@@ -26,8 +26,6 @@
   font-weight: var(--weight-medium);
   color: var(--fg-subtle);
   text-align: left;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
   white-space: nowrap;
 }
 

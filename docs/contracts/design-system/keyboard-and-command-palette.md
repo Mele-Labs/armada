@@ -413,7 +413,7 @@ row        32px · --radius-md · --text-sm · --fg-default
            16px leading glyph · title · muted subtitle · kind right-aligned
 hover row  one flat step, --bg-step
 active row --fg-default at 10%, a neutral tint · no left bar, no accent
-section    28px · mono caps --text-2xs · --fg-subtle
+section    28px · mono --text-2xs · --fg-subtle
 ```
 
 Top-anchored rather than centered because a centered dialog shifts

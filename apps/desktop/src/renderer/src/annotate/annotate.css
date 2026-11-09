@@ -109,8 +109,6 @@
 
 .armada-annotate__tag-name {
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 /* The pin sits on the element's top trailing corner, kept inside the window.
@@ -193,7 +191,7 @@
   flex: none;
 }
 
-/* The header band: glyph, the note's name in caps, the file and line in mono at the far end. It stays
+/* The header band: glyph, the note's name, the file and line in mono at the far end. It stays
  * at the top while the body scrolls under it. */
 .armada-annotate__band {
   position: sticky;
@@ -209,8 +207,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-annotate__band > svg {
@@ -314,7 +310,7 @@
   line-height: var(--leading-2xs);
 }
 
-/* A token row: its label in caps over its chips, so a whole scale fits on one line. */
+/* A token row: its label over its chips, so a whole scale fits on one line. */
 .armada-annotate__picker {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -332,8 +328,6 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 /* A step's chip: filled, its step in mono after a bar drawn at the token's own size. */
@@ -465,8 +459,6 @@
 .armada-annotate__change-property {
   color: var(--fg-muted);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-annotate__change-values {
@@ -552,7 +544,7 @@
   white-space: nowrap;
 }
 
-/* The layer's name, lit: a filled chip in caps. */
+/* The layer's name, lit: a filled chip. */
 .armada-annotate__bar > :first-child {
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
@@ -562,8 +554,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 /* The all-notes panel: docked to the trailing edge above the bar, scrolling inside itself. */

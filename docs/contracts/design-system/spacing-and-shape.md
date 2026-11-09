@@ -65,7 +65,7 @@ Why: the owner asked for the stronger console on 26 Oct 2026, and a measured pas
 It is 24px (`--legend-h`, a small control's height) in the Cockpit, in a group head and in a body's own eyebrow.
 A page panel's header strip is 36px (`--strip-h`), the height of a thread's head.
 Both tokens are in `takes.css`, not `spacing.css`.
-The label in `--text-2xs` caps at 600 with tracked letters on the left, then an optional mono readout and the panel's 24px ghost icon buttons on the right, with one `--border-subtle` rule under it.
+The label in `--text-2xs` at 600 in sentence case on the left, then an optional mono readout and the panel's 24px ghost icon buttons on the right, with one `--border-subtle` rule under it.
 `CardHeader`, `CardTitle` and `CardReadout` are the strip, and the Cockpit's `deck-band`, the Logbook's band, the Worktrees band and a Job's panel band take it from the same rule in `depth.css`.
 A panel's legend strip names the panel, so it is never filled with a state's hue.
 **A card that stands for one thing with a state carries it in a solid header band**: the state's hue across the band, its glyph, state and id on it, a dark body under it and one accent for the card.

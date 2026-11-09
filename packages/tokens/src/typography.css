@@ -29,5 +29,5 @@
   --weight-medium: 500;   /* labels only */
   --weight-heading: 600;  /* never 700+ */
 
-  --tracking-caps: 0.04em; /* the one legal ALL CAPS: 13px table headers */
+  --tracking-caps: 0.04em; /* unused: no text is set in capitals since 9 Nov 2026 */
 }

@@ -27,7 +27,7 @@ import { KbdBinding } from "../Kbd/Kbd";
  *
  * Two halves. `InspectCard` is the surface and its anatomy, top to bottom:
  *
- * 1. a head: the kind's glyph, the kind in small caps, and on the right the item's id or where it is, in mono;
+ * 1. a head: the kind's glyph, the kind in sentence case, and on the right the item's id or where it is, in mono;
  * 2. the name, as the title;
  * 3. a state band: the state's glyph and words, **in the item's own status tone, the one place colour carries
  *    meaning** (the card's top edge takes the same tone, as a thin line);

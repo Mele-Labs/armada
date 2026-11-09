@@ -110,8 +110,6 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 /* ---- The log ---------------------------------------------------------------------------------- */
@@ -154,8 +152,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-logbook__row {
@@ -444,8 +440,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 .armada-logbook__line {
   display: grid;
@@ -463,7 +457,6 @@
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  letter-spacing: var(--tracking-caps);
 }
 .armada-logbook__line-text {
   overflow: hidden;

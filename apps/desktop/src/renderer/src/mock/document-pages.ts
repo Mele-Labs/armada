@@ -116,7 +116,7 @@ ${ROWS.map(([job, start, expired, check]) => `    <tr><td>${job}</td><td class="
 /** The page's own design: a reading column, a kicker over the title, a larger first paragraph and tabular figures. */
 const STYLE = `
   body { max-inline-size: 46rem; }
-  .kicker { margin: 0 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+  .kicker { margin: 0 0 var(--space-2); color: var(--fg-subtle); font-family: var(--font-mono); font-size: var(--text-2xs); line-height: var(--leading-2xs); }
   .lede { font-size: var(--text-lg); line-height: var(--leading-lg); }
   h2 { padding-block-start: var(--space-3); border-block-start: var(--border-width) solid var(--border-subtle); }
   .when { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
