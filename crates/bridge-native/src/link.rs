@@ -6,6 +6,7 @@
 //! start over after a connection that said something. A socket that accepts and stays silent is
 //! `Starting` while the Fleet process is younger than the boot window and `Unreachable` after.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -13,7 +14,10 @@ use async_channel::Sender;
 use chrono::Local;
 use tokio::time::{sleep, Instant};
 
-use ipc::{ProtocolId, SessionList, SessionRecord, StreamMessage};
+use ipc::{
+    Event, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, SessionList, SessionRecord,
+    StreamMessage,
+};
 
 use crate::frames::{self, Messages};
 use crate::runtime_file::{self, Presence, RuntimeFile};
@@ -53,6 +57,15 @@ pub enum Signal {
     /// The Jobs, fetched once on connect, as `GET /sessions` answered.
     Jobs(Vec<SessionRecord>),
     JobsFailed(String),
+    /// `GET /preferences`, once per connection. Nothing but a save changes them.
+    Preferences(Preferences),
+    PreferencesFailed(String),
+    /// `GET /mods`, once per connection; `mods.changed` carries the list after that.
+    Mods(ModList),
+    ModsFailed(String),
+    /// Fleet's check of one theme mod, with the `changed_at` of the row it was asked for. Bridge
+    /// draws the sheet Fleet checked and no other.
+    ModChecked { checked: ModChecked, changed_at: Option<ipc::Instant> },
     Stream(StreamMessage),
 }
 
@@ -180,6 +193,8 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
     // not speak ends the connection rather than reading on.
     let mut text = first;
     let mut jobs_asked = false;
+    // What has been sent to Fleet to check, by mod and the `changed_at` it was asked at.
+    let mut asked: HashMap<String, Option<ipc::Instant>> = HashMap::new();
     loop {
         match frames::decode(&text) {
             Ok(StreamMessage::Resync(resync)) if resync.protocol_id != ProtocolId::current() => {
@@ -194,6 +209,13 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     jobs_asked = true;
                     tell_or_stop!(tx, LinkState::Connected);
                     tokio::spawn(fetch_jobs(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_preferences(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_mods(tx.clone(), fleet.port));
+                }
+                if let StreamMessage::Event(delivered) = &message {
+                    if let Event::ModsChanged(list) = &delivered.event {
+                        check_themes(tx, fleet.port, &list.mods, &mut asked);
+                    }
                 }
                 if send(tx, Signal::Stream(message)).await.is_err() {
                     return Ended::NobodyListening;
@@ -237,4 +259,108 @@ async fn fetch_jobs(tx: Sender<Signal>, port: u16) {
         }
     }
     let _ = tx.send(Signal::JobsFailed(last)).await;
+}
+
+/// `GET /preferences`, once per connection, retried as the Jobs are.
+async fn fetch_preferences(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<Preferences>(port, "/preferences", "preferences").await {
+        Ok(preferences) => Signal::Preferences(preferences),
+        Err(why) => Signal::PreferencesFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /mods`, once per connection; then every theme mod on it is asked for.
+async fn fetch_mods(tx: Sender<Signal>, port: u16) {
+    match read_with_retries::<ModList>(port, "/mods", "mod list").await {
+        Ok(list) => {
+            let mods = list.mods.clone();
+            if tx.send(Signal::Mods(list)).await.is_ok() {
+                // A list read at connect starts the checks; none has been asked yet on this connection.
+                check_themes(&tx, port, &mods, &mut HashMap::new());
+            }
+        }
+        Err(why) => {
+            let _ = tx.send(Signal::ModsFailed(why)).await;
+        }
+    }
+}
+
+/// Ask Fleet to check each theme mod that is on and valid, once for each version of it. A mod that
+/// is off or broken is not asked about: it cannot be drawn, whatever its sheet says.
+fn check_themes(
+    tx: &Sender<Signal>,
+    port: u16,
+    mods: &[ModSummary],
+    asked: &mut HashMap<String, Option<ipc::Instant>>,
+) {
+    for row in mods {
+        let is_theme = row.kind.is_none_or(|kind| kind == ModKind::Theme);
+        if !(is_theme && row.enabled && row.valid) || asked.get(&row.name) == Some(&row.changed_at) {
+            continue;
+        }
+        asked.insert(row.name.clone(), row.changed_at.clone());
+        tokio::spawn(check_theme(tx.clone(), port, row.name.clone(), row.changed_at.clone()));
+    }
+}
+
+/// `GET /mods/validate?name=`: the stylesheet as Fleet checked it.
+async fn check_theme(tx: Sender<Signal>, port: u16, name: String, changed_at: Option<ipc::Instant>) {
+    let path = format!("/mods/validate?name={}", percent_encoded(&name));
+    match read_with_retries::<ModChecked>(port, &path, "mod check").await {
+        Ok(checked) => {
+            let _ = tx.send(Signal::ModChecked { checked, changed_at }).await;
+        }
+        Err(why) => {
+            crate::log::Note::warn("a mod could not be checked").field("mod", name).field("why", why).emit();
+        }
+    }
+}
+
+/// A GET that decodes into `T`, tried a few times: a read that times out on a busy machine must not
+/// leave the window without it.
+async fn read_with_retries<T: serde::de::DeserializeOwned>(
+    port: u16,
+    path: &str,
+    expected: &'static str,
+) -> Result<T, String> {
+    let mut last = String::new();
+    for attempt in 0..JOBS_TRIES {
+        if attempt > 0 {
+            sleep(BACKOFF_FIRST * attempt).await;
+        }
+        match transport::get(port, path).await {
+            Ok((200, body)) => match ipc::decode::<T>(expected, &body) {
+                Ok(read) => return Ok(read),
+                Err(why) => last = why.to_string(),
+            },
+            Ok((status, _)) => last = format!("Fleet answered {status}"),
+            Err(why) => last = why,
+        }
+    }
+    Err(last)
+}
+
+/// A query value with everything but unreserved characters escaped.
+fn percent_encoded(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for byte in text.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(byte as char),
+            other => out.push_str(&format!("%{other:02X}")),
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_mod_name_with_a_colon_is_escaped_in_the_query() {
+        assert_eq!(percent_encoded("built-in:calm"), "built-in%3Acalm");
+        assert_eq!(percent_encoded("dusk"), "dusk");
+        assert_eq!(percent_encoded("a b"), "a%20b");
+    }
 }
