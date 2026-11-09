@@ -81,7 +81,9 @@ Each step is its own Job, and at most two run at once.
 
 **The owner picks the switch day once the native app does everything he uses daily.**
 Both his Macs switch together, the work Mac included.
-Electron is renamed Armada Classic, given a muted icon and kept installed for two weeks.
+Electron is Armada Classic, with a grey icon, from the foundation on, so the Dock tells the two apps apart.
+`armada://` links stay with Armada Classic until switch day, and move to the native app on that day.
+Armada Classic stays installed for two weeks after it.
 Then the Electron app is deleted from the repo, and the packages Pocket uses stay.
 
 ## How the build looks and behaves
