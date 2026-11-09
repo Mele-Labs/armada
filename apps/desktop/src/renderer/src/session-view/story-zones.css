@@ -311,6 +311,10 @@
   --lead: var(--space-2);
   padding: var(--space-3) var(--space-3) var(--space-4);
 }
+/* The band pins at the pane's top edge, not inside its padding, so nothing scrolls past above it. */
+.sv-spine[data-single] .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band {
+  inset-block-start: calc(var(--space-3) * -1);
+}
 .sv-spine[data-single] .sv-panel.sv-panel[data-area][data-area]::before,
 .sv-spine[data-single] .sv-panel.sv-panel[data-area][data-area] > .sv-panel__band::after {
   display: none;
