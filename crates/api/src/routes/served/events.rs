@@ -28,6 +28,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What calls the person, whole, and the news since the last one.
+    Route {
+        operation: "calls.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The mods on this machine, whole, whenever one was written or switched.
     Route {
         operation: "mods.changed",
