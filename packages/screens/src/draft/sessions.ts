@@ -12,6 +12,7 @@ import type { Scene } from "@armada/components/src/compositions/SketchScene/scen
 import type { SketchSettled } from "@armada/components/src/compositions/SessionThread/sketch-answer";
 import type { RunsPlace } from "@armada/components/src/compositions/RepositoryRuns/runs-places";
 import type { PlanLandsIn } from "@armada/components/src/compositions/SessionThread/lands-in";
+import type { GateChecks, GateClose, PlanGate } from "@armada/protocol";
 import type {
   AnswerDocument,
   AnswerSketch,
@@ -357,7 +358,10 @@ export type WorkGroup = {
   paths: readonly string[] /** The issue this group works, as digits or a tracker's key. Its title and state are those of the Session's `issue` attachment of that number. */;
   issue?: string /** The pull request the group lands in. Absent on a Job that opens pull requests is PR 1. */;
   landsIn?: PlanLandsIn /** The group goes to a Job of its own, started with the group. Until it is handed, Bridge draws it as that Job, not started yet. Fleet sets it from the agent's `own_job`. */;
-  ownJob?: true;
+  ownJob?: true /** The fact Fleet sees that ends the group. Absent is none: the group runs on into the next as one stretch. */;
+  gate?: Exclude<PlanGate, "none"> /** Fleet saw the gate's fact. Absent while it is open. */;
+  gateClosed?: GateClose /** An open Checks gate: Fleet's Checks at the pushed commit. */;
+  gateChecks?: GateChecks;
   tasks: readonly WorkTask[];
 };
 
@@ -444,7 +448,11 @@ export type WorkPlan = {
   setAside?: true /** What changed since the plan before this one. */;
   changes?: PlanChanges /** The sketch drawn with the plan, if the agent drew one. */;
   sketch?: WorkSketch /** The thread row that recorded it, which the approved plan settles after. */;
-  after?: string;
+  after?: string /** The Job ended its work and is held on this group's open gate, with nothing of it running, since then. */;
+  held?: {
+    group: string;
+    since: string;
+  };
 };
 
 /** A drone of this Session over the area it is working in: the Session's own, or a subagent of `agent` type. */

@@ -148,6 +148,7 @@
   font-weight: inherit;
 }
 
+/* Each task's mark stands where its group's title starts: past the chevron, the group's mark and the gap after each, less the gap the empty change column leaves. The two glyphs are 12px, drawn as --space-6 between them. */
 .armada-plan-revision__group[data-quiet] > .armada-plan-revision__tasks {
-  padding-inline-start: var(--space-4);
+  padding-inline-start: calc(var(--space-6) + var(--space-2));
 }

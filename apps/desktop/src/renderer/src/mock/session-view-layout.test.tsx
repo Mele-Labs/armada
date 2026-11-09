@@ -98,14 +98,21 @@ test("the workflow heads the story as its name alone, its steps are the zones, a
     name: "Build",
     exact: true,
   });
-  // The plan is approved, so a press on Whole plan opens every group with its tasks.
+  // The plan is approved, so a press on Plan opens every group with its tasks, as the Job's Plan tab beside Thread.
   await now
     .getByRole("button", {
-      name: "Whole plan",
+      name: "Plan",
       exact: true,
     })
     .click();
-  await expect.element(now.getByText("Add attempts to the lease reply")).toBeVisible();
+  await expect
+    .element(
+      page.getByRole("tab", {
+        name: /^Plan/,
+      }),
+    )
+    .toBeVisible();
+  await expect.element(page.getByText("Add attempts to the lease reply").first()).toBeVisible();
 });
 
 test("a Session calling him pulses its row and names the call, and the open Session's own row does not", async () => {
