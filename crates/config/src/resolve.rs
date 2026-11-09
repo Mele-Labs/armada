@@ -374,6 +374,7 @@ fn resolve_step(
     // nothing left to decide here.
     .following_plan(step.follows_plan())
     .in_phase(step.phase())
+    .gated_on(step.gate())
     // The step's own product already told `ResolvedStep::frozen` whether
     // this is a plan step; this is the other way one can be, folded in
     // beside it rather than replacing it. `#1006`.

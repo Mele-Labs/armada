@@ -202,11 +202,14 @@ pub(crate) fn recorded(
             });
         }
     }
+    let version = before.map_or(1, |plan| plan.version + 1);
     KeptPlan {
-        version: before.map_or(1, |plan| plan.version + 1),
+        version,
         summary,
         recorded_at: now.to_string(),
         approved_at: None,
+        // It asks, unless the caller finds an approval it stands on (`plan_recorded`).
+        asked_version: version,
         set_aside_at: None,
         sketch,
         walk,
@@ -425,12 +428,22 @@ pub(crate) struct Seen {
     pub shown: bool,
 }
 
-/// An edit of `path` (from the repository's root), seen now. Every group whose paths hold it is
-/// worked, and a task of it that is in progress has an edit seen. It marks no task. Changes `plan` as
-/// the store will.
-pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, now: &str) -> Seen {
+/// The id of the group a subagent's brief `named`, by its id or its title, either in any case. None where
+/// no group of the plan is named so.
+pub(crate) fn group_named(plan: &KeptPlan, named: &str) -> Option<String> {
+    let named = named.trim();
+    let is = |said: &str| said.trim().eq_ignore_ascii_case(named);
+    let group = plan.groups.iter().find(|group| is(&group.id)).or_else(|| plan.groups.iter().find(|group| is(&group.title)));
+    group.map(|group| group.id.clone())
+}
+
+/// An edit of `path` (from the repository's root), seen now. The group the subagent that made it named
+/// is worked, `group`, else every group whose paths hold it; and a task of it that is in progress has an
+/// edit seen. It marks no task. Changes `plan` as the store will.
+pub(crate) fn edit_seen(plan: &mut KeptPlan, path: &str, group: Option<&str>, now: &str) -> Seen {
     let mut seen = Seen::default();
-    for group in plan.groups.iter_mut().filter(|group| under(&group.paths, path)) {
+    let worked = |one: &KeptPlanGroup| group.map_or_else(|| under(&one.paths, path), |named| one.id == named);
+    for group in plan.groups.iter_mut().filter(|one| worked(one)) {
         seen.moved = true;
         seen.shown |= group.worked_at.is_none();
         group.worked_at = Some(now.to_string());

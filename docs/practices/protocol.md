@@ -1649,6 +1649,22 @@ Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/sr
 **A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
 **Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.
 
+## One walk stop per part, and a plan approval that stays: `ShowWindow.group`, `RecordPlan.ask_again`
+
+Since 8 Nov 2026. `crates/ipc/src/sessions.rs`, `crates/ipc/src/session_plan.rs`, `crates/ipc/src/hosted_sessions.rs`, `crates/store/migrations/20261109T0100Z-session_gate_walks.table.sql`, `crates/store/migrations/20261109T0100Z-session_plan.asked_version.sql`.
+**Three optional fields on existing types**: no operation, route, event kind or error code that was not there.
+Bridge's half is `group` on `ShowWindow` in `packages/protocol/src/sessions.ts`, `group` on the `window` row in `packages/protocol/src/hosted-sessions.ts` and `ask_again` on `RecordPlan` in `packages/protocol/src/session-plan.ts`, written by hand.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ShowWindow.group` (`show_window`) | the agent writes, Fleet reads | The id of the plan group the walk is the part of. 422 `fleet.window_group_unknown` naming the ids the plan has, or saying the Job has no plan, with nothing written |
+| `window` row `group` (`session.row`) | Fleet writes, Bridge reads | The same id, kept when the walk ends. Absent on a walk shown for no group |
+| `RecordPlan.ask_again` (`record_plan`) | the agent writes, Fleet reads | `true` puts a version recorded after an approved one to him again. Absent or `false`: the version stands on the earlier approval |
+
+**A version that stands is already approved.** `SessionPlan.approved` and `approved_at` read as the earlier approval's, so Bridge draws no Approve on that card; one that asked again reads `approved: false` as every new version did before.
+**A gate can open again.** `SessionPlanGroup.gate_closed` goes absent once a walk is shown for the group after the close, and comes back with a new close when that walk is approved.
+**Skew.** An older Fleet drops `group` and `ask_again` from a call, and Bridge reads a `window` row with none as a walk of no group.
+
 ## A hand off told to a parent: `SessionRow::Linked.replaces`
 
 Since 6 Nov 2026. `docs/concepts/session/a-handed-off-job.md`.

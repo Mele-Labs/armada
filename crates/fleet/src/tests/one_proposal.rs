@@ -66,6 +66,7 @@ fn window(n: u32, url: &str) -> SessionRow {
         steps: Vec::new(),
         origins: Vec::new(),
         brief: None,
+        group: None,
         ended_at: None,
     }
 }
@@ -216,7 +217,7 @@ async fn several_rough_walks_all_wait_once_one_of_them_is_approved() {
 }
 
 #[tokio::test]
-async fn a_plan_version_recorded_after_he_approved_an_earlier_one_is_put_to_him_though_he_approved_the_walk() {
+async fn a_plan_version_recorded_after_he_approved_an_earlier_one_stands_unless_the_agent_asks_again() {
     let (rig, id) = rig_with(LISTS).await;
     show(&rig, &id, PAGE).await;
     rig.send(&id, &format!("Approved: {PAGE}")).await;
@@ -227,8 +228,16 @@ async fn a_plan_version_recorded_after_he_approved_an_earlier_one_is_put_to_him_
     later.groups[0].tasks[0].title = "Stop at the end, twice".into();
     let recorded = rig.fleet.record_plan(None, later, true).await.expect("recorded again");
     assert_eq!(recorded.plan.as_ref().map(|plan| plan.version), Some(2));
-    assert!(recorded.plan.as_ref().is_some_and(|plan| !plan.approved), "version 2 is not approved: {:?}", recorded.plan);
-    assert!(recorded.waiting_for.iter().any(|one| one.id == "plan:2" && one.source == ipc::WaitingSource::Plan), "{:?}", recorded.waiting_for);
+    assert!(recorded.plan.as_ref().is_some_and(|plan| plan.approved), "version 2 stands on his approval: {:?}", recorded.plan);
+    assert!(!recorded.waiting_for.iter().any(|one| one.source == ipc::WaitingSource::Plan), "{:?}", recorded.waiting_for);
+
+    let mut asking = plan(&id);
+    asking.groups[0].tasks[0].title = "Stop at the end, three times".into();
+    asking.ask_again = true;
+    let recorded = rig.fleet.record_plan(None, asking, true).await.expect("recorded once more");
+    assert_eq!(recorded.plan.as_ref().map(|plan| plan.version), Some(3));
+    assert!(recorded.plan.as_ref().is_some_and(|plan| !plan.approved), "version 3 asked: {:?}", recorded.plan);
+    assert!(recorded.waiting_for.iter().any(|one| one.id == "plan:3" && one.source == ipc::WaitingSource::Plan), "{:?}", recorded.waiting_for);
 }
 
 #[tokio::test]
