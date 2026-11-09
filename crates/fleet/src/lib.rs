@@ -153,6 +153,8 @@ pub mod manifest_proposal;
 pub mod merge_lines;
 /// The merge line as a screen draws it, read once for every client: `get_merge_line_view`.
 mod merge_line_view;
+/// What calls the person and which of it he has not opened, read once for every client: `get_calls`, `calls.changed`.
+pub mod standing_calls;
 mod act_failing;
 mod model_downshift;
 mod model_downshifting;

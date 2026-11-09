@@ -113,6 +113,8 @@ mod job_mark;
 mod job_viewing;
 /// The merge line as a screen draws it, read by Fleet: `get_merge_line_view` and `merge_line_view.changed`.
 mod merge_line_view;
+/// What calls the person and which of it he has not opened, read by Fleet: `get_calls`, `calls.changed` and `open_call`.
+mod standing_calls;
 /// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
 mod flight_controls;
 /// Pieces made into a package, read, and added to the person's own Kit.
@@ -419,6 +421,7 @@ pub use session_quick::SessionQuick;
 pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews};
 pub use job_mark::{JobGroup, JobLamp, JobMark, JobState};
 pub use job_viewing::ViewSession;
+pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, StandingCall, StandingCallKind, StandingCalls};
 pub use job_thread::{
     against_of_detail, file_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
     SketchCall, CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead,
