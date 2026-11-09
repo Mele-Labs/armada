@@ -1,0 +1,14 @@
+[operations.view_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "A client tells Fleet a Job came on screen in a visible window, or left it, so Fleet knows when the person was last in it"
+notes = """
+`POST /sessions/view`, body `ViewSession`: `session_id`, `on`. Since 9 Nov 2026. Answers the `SessionRecord`, whose `viewed_at` is the instant Fleet took the call. `docs/practices/protocol/a-jobs-row-mark.md`.
+
+**Sent at the moments a client counts the person as in a Job**: `on: true` when the Job comes on screen in a visible window, or the window showing it becomes visible; `on: false` when it leaves the screen, or the window hides or closes. Each call keeps Fleet's own clock as `viewed_at` in the store, later only, and publishes `session.changed`.
+
+**On screen counts as now.** Fleet counts the places that sent `on` and have not yet sent `off`, in memory, so two clients showing the same Job keep it on screen until both have left. A Job on screen reads as read: a turn ending while he is in it does not mark the row `replied`. An `off` with none counted counts nothing. A Fleet restart forgets the count and keeps `viewed_at`.
+
+Any Job, hosted or in a terminal, live or ended. 404 `fleet.no_such_session` for an id Fleet does not know, with nothing kept.
+"""

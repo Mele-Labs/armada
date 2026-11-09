@@ -475,6 +475,10 @@ where
         self.published_hosted(&id).await
     }
 
+    async fn view_session(&self, asked: ipc::ViewSession) -> Result<SessionRecord, Refusal> {
+        self.session_viewed(asked).await
+    }
+
     async fn pause_session(&self, asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {
         self.session_paused(asked).await
     }

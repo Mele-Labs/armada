@@ -113,11 +113,28 @@ export function useViewedVersion(): number {
 export function useViewing(sessionId: string | undefined): void {
   useEffect(() => {
     if (sessionId === undefined) return;
+    // Fleet keeps the same moments (`view_session`), so the native Bridge and Pocket read them too. Each
+    // place tells it once on and once off, so Fleet's count of places showing the Job stays even.
+    let told = false;
+    const tell = (on: boolean): void => {
+      if (told === on) return;
+      told = on;
+      void window.armada?.viewSession?.(sessionId, on);
+    };
     viewing.set(sessionId, (viewing.get(sessionId) ?? 0) + 1);
-    if (visible()) markViewed(sessionId);
-    else changed();
-    const leave = (): void => markViewed(sessionId);
-    const toggled = (): void => (visible() ? markViewed(sessionId) : leave());
+    if (visible()) {
+      markViewed(sessionId);
+      tell(true);
+    } else changed();
+    const leave = (): void => {
+      markViewed(sessionId);
+      tell(false);
+    };
+    const toggled = (): void => {
+      if (!visible()) return leave();
+      markViewed(sessionId);
+      tell(true);
+    };
     document.addEventListener("visibilitychange", toggled);
     window.addEventListener("beforeunload", leave);
     return () => {
@@ -127,6 +144,7 @@ export function useViewing(sessionId: string | undefined): void {
       if (left > 0) viewing.set(sessionId, left);
       else viewing.delete(sessionId);
       if (visible()) markViewed(sessionId);
+      tell(false);
     };
   }, [
     sessionId,
