@@ -329,7 +329,7 @@ export const refunds = build({
       {
         change: "issue",
         title: "Two refunds can pass the same check",
-        body: "The cap is read, then the refund is written, with no lock between them. Two requests at once each see the whole amount left, because `app/models/payment.rb:17-19` counts only refunds that have settled.",
+        body: "Two requests at once can refund more than was paid, since `app/models/payment.rb:17-19` counts only settled refunds.",
         severity: "high",
         match: "raise Refund::TooLarge",
         through: 'state: "pending"',
@@ -337,7 +337,7 @@ export const refunds = build({
       {
         change: "issue",
         title: "A timeout leaves the refund pending until the job runs",
-        body: "The page says the refund was requested while it waits in the queue. `refund_retry_job.rb:9` settles it later, with no word to the person who asked.",
+        body: "The person who asked is not told when `refund_retry_job.rb:9` settles it later.",
         severity: "low",
         match: "rescue Gateway::Timeout",
         through: "RefundRetryJob.perform_later",
@@ -345,7 +345,7 @@ export const refunds = build({
       {
         change: "refundable",
         title: "refundable_amount counts only succeeded refunds",
-        body: "A pending refund is not subtracted, so the form's maximum and the cap both allow more than is left while one waits in `refund_retry_job.rb`.",
+        body: "The form and the cap allow more than is left while a refund waits in `refund_retry_job.rb:9`.",
         severity: "high",
         match: "def refundable_amount",
         through: 'where(state: "succeeded")',
@@ -353,7 +353,7 @@ export const refunds = build({
       {
         change: "refundable",
         title: "Old payments have no currency",
-        body: "Payments made before currencies were recorded hold none, and the cap compares cents without one.",
+        body: "The cap compares their cents without a currency at `app/models/payment.rb:6`.",
         severity: "medium",
         place: {
           path: PAYMENT,
