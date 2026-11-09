@@ -11,6 +11,7 @@ import {
   Clock,
   CornerUpRight,
   DoorOpen,
+  FileSearch,
   GitMerge,
   GripVertical,
   Hand,
@@ -75,6 +76,7 @@ import {
   POSITION_DOES,
   POSITION_SAID,
   ROLES,
+  offerTitle,
   orderSaid,
   outcomeOf,
   turnLine,
@@ -1317,6 +1319,63 @@ function OrderProposed({
   );
 }
 
+/** A Job the Operator offered to read the code: its brief, and Dispatch into a repository, or Leave it. */
+function OfferedJob({
+  offer,
+  onSettle,
+}: {
+  offer: NonNullable<OperatorMessage["offer"]>;
+  onSettle: (repository: string | null) => void;
+}) {
+  const title = offerTitle(offer.brief);
+  const only = offer.in.length === 1 ? offer.in[0] : undefined;
+  return (
+    <span className="armada-operator__offer" role="group" aria-label={`Job offered: ${title}`}>
+      <span className="armada-operator__offer-kind">
+        <FileSearch size={12} strokeWidth={2} aria-hidden />
+        Job offered
+      </span>
+      <span className="armada-operator__offer-brief">{offer.brief}</span>
+      {offer.left === true ? (
+        <span className="armada-operator__does">Left</span>
+      ) : (
+        <span className="armada-operator__offer-acts">
+          {offer.in.length === 0 ? (
+            <span className="armada-operator__does">
+              No repository is served here to start it in
+            </span>
+          ) : only !== undefined ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label={`Dispatch in ${only}: ${title}`}
+              onClick={() => onSettle(only)}
+            >
+              Dispatch
+            </Button>
+          ) : (
+            <DropdownMenu
+              triggerLabel="Dispatch"
+              triggerAriaLabel={`Dispatch: ${title}`}
+              align="start"
+              portal
+              entries={offer.in.map((one) => ({
+                kind: "item" as const,
+                id: one,
+                label: `In ${one}`,
+              }))}
+              onSelect={(one) => onSettle(one)}
+            />
+          )}
+          <Button size="sm" variant="secondary" onClick={() => onSettle(null)}>
+            Leave it
+          </Button>
+        </span>
+      )}
+    </span>
+  );
+}
+
 const NONE_YET: readonly OperatorTurn[] = [];
 const READING = "The Operator is reading this";
 const QUEUED = "Queued. The Operator gets to it in turn";
@@ -1444,6 +1503,23 @@ function threadCards(store: OperatorStore): ThreadCard[] {
         ),
       });
     }
+    if (message.offer !== undefined && message.opens === undefined)
+      cards.push({
+        key: `${message.id}:offer`,
+        at,
+        node: (
+          <OfferedJob
+            offer={message.offer}
+            onSettle={(repository) =>
+              act({
+                kind: "offer",
+                message: message.id,
+                repository,
+              })
+            }
+          />
+        ),
+      });
     if (message.order !== undefined) {
       const order = message.order;
       cards.push({

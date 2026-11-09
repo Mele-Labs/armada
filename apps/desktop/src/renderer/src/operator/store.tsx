@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
 
-import { DID_SAID, waitSaid } from "./model";
+import { DID_SAID, offerTitle, waitSaid } from "./model";
 import type {
   OperatorLineRow,
   OperatorLogRow,
@@ -76,6 +76,12 @@ export type Act =
       kind: "order";
       message: string;
       keep: boolean;
+    }
+  | {
+      /** The Job a message offered: started in `repository`, or left where null. */
+      kind: "offer";
+      message: string;
+      repository: string | null;
     }
   | {
       kind: "repository";
@@ -192,6 +198,7 @@ function answered(state: OperatorState, words: string): OperatorState {
       {
         id: fresh("said"),
         from: "operator",
+        at: new Date().toISOString(),
         text: script?.said ?? "Nothing in the Log or Waiting to start answers that.",
         ...(script?.order === undefined
           ? {}
@@ -199,6 +206,21 @@ function answered(state: OperatorState, words: string): OperatorState {
               order: script.order,
             }),
       },
+      // A Job it offers stands under its words, as Fleet's answer is drawn: its own message, so starting it leaves the words.
+      ...(script?.offers === undefined
+        ? []
+        : [
+            {
+              id: fresh("offer"),
+              from: "operator" as const,
+              text: "",
+              at: new Date().toISOString(),
+              offer: {
+                brief: script.offers,
+                in: state.served ?? [],
+              },
+            },
+          ]),
     ],
   };
   const line =
@@ -725,6 +747,30 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           : state.orders,
       };
     }
+    case "offer":
+      return {
+        ...state,
+        messages: state.messages.map((one) => {
+          if (one.id !== act.message || one.offer === undefined) return one;
+          if (act.repository === null)
+            return {
+              ...one,
+              offer: {
+                ...one.offer,
+                left: true,
+              },
+            };
+          const title = offerTitle(one.offer.brief);
+          return {
+            ...one,
+            text: `Started Job ${title} in ${act.repository}. Its answer is in its own thread.`,
+            opens: {
+              session: fresh("offered"),
+              title,
+            },
+          };
+        }),
+      };
     case "repository":
       return {
         ...state,

@@ -33,6 +33,7 @@ import type {
 } from "./model";
 import { OperatorHeld } from "./store";
 import type { Act, OperatorState } from "./store";
+import { offerTitle } from "./model";
 import { openJobOver as openJob, openJobWalkOver } from "./overlay";
 
 const KIND_TAG: Readonly<Record<OperatorBoardKind, string>> = {
@@ -483,6 +484,14 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     model,
   ]);
 
+  // Where a Job the Operator offers may be started: every repository Fleet serves.
+  const served = useMemo(
+    () => repositories.flatMap((one) => jobIdOf(one) ?? []),
+    [
+      repositories,
+    ],
+  );
+
   /** His words to the Operator, about an item where one is open: drawn at once, and answered or refused in the talk. */
   const send = useCallback(
     (words: string, about: string | undefined) => {
@@ -499,6 +508,25 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
         ],
       }));
       void window.armada.talkToOperator(words, about).then((answered) => {
+        const offers = answered.ok ? answered.said.job : undefined;
+        // Fleet keeps the words it said, not the Job it offered, so the offer is held here under them.
+        if (offers !== undefined && offers.trim() !== "")
+          setKept((was) => ({
+            ...was,
+            said: [
+              ...was.said,
+              {
+                id: fresh("offer"),
+                from: "operator",
+                text: "",
+                at: new Date().toISOString(),
+                offer: {
+                  brief: offers.trim(),
+                  in: served,
+                },
+              },
+            ],
+          }));
         if (answered.ok) return readTalk();
         setKept((was) => ({
           ...was,
@@ -516,6 +544,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     },
     [
       readTalk,
+      served,
     ],
   );
 
@@ -600,6 +629,49 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
                   title,
                 })
               : said(`${title} did not start: ${refusedSaid(started.outcome)}`),
+          );
+          return;
+        }
+        case "offer": {
+          const offered = kept.said.find((each) => each.id === one.message)?.offer;
+          if (offered === undefined) return;
+          const settle = (change: Partial<OperatorMessage>) =>
+            setKept((was) => ({
+              ...was,
+              said: was.said.map((each) =>
+                each.id === one.message
+                  ? {
+                      ...each,
+                      ...change,
+                    }
+                  : each,
+              ),
+            }));
+          if (one.repository === null)
+            return settle({
+              offer: {
+                ...offered,
+                left: true,
+              },
+            });
+          const title = offerTitle(offered.brief);
+          const root = repositories.find((each) => jobIdOf(each) === one.repository)?.root;
+          if (root === undefined)
+            return settle({
+              text: `${title} did not start: ${one.repository} is not served here.`,
+            });
+          void window.armada.startSession(title, root, offered.brief).then((started) =>
+            started.ok
+              ? settle({
+                  text: `Started Job ${title} in ${one.repository}. Its answer is in its own thread.`,
+                  opens: {
+                    session: started.value.id,
+                    title,
+                  },
+                })
+              : settle({
+                  text: `${title} did not start: ${refusedSaid(started.outcome)}`,
+                }),
           );
           return;
         }
@@ -721,6 +793,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       raises,
       sessions,
       kept.open,
+      kept.said,
       repositories,
       send,
     ],
