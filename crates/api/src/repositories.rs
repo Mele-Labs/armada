@@ -44,6 +44,14 @@ pub(crate) async fn get_merge_lines<D: Queries>(State(served): State<Served<D>>)
     }
 }
 
+/// Each served repository's merge line as a screen draws it, read by Fleet.
+pub(crate) async fn get_merge_line_view<D: Queries>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().get_merge_line_view().await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?manifest_id=&path=`, both asked for.
 #[derive(serde::Deserialize)]
 pub(crate) struct CheckoutDiffQuery {

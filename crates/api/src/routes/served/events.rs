@@ -22,6 +22,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // Every merge line as a screen draws it, whole, after anything it is read from changed.
+    Route {
+        operation: "merge_line_view.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The mods on this machine, whole, whenever one was written or switched.
     Route {
         operation: "mods.changed",

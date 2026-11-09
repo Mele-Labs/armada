@@ -230,6 +230,7 @@ mod session_notes;
 mod terminal_session;
 mod thread_keeping;
 mod thread_view;
+mod merge_line_view;
 mod walk_question;
 mod walk_steps;
 mod worktrees_kept;

@@ -38,7 +38,7 @@ pub struct MergeLineView {
     /// The pull requests the line draws, in its order: the forge's merge queue by position, then
     /// those waiting for ci to join it, then the rest as the forge lists them. **Someone else's
     /// pull request is listed only while it is in the queue, and quiet** (`mine` false): its
-    /// number, address, branch, author and place, with no ci, review, mergeability or hand, and its
+    /// number, title, address, branch, author and place, with no ci, review, mergeability or hand, and its
     /// queue state `in_queue`, so nothing downstream raises a card for it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pulls: Vec<HubPullRequest>,
