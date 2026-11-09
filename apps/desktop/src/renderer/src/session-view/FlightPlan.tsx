@@ -4,7 +4,7 @@
 // of its own and is not handed yet is the placeholder card alone. The whole plan, with its subagent types and paths, is the whole-plan view in Now.
 
 import { useState } from "react";
-import { Split } from "lucide-react";
+import { Drone } from "lucide-react";
 import { JobCard, Tooltip } from "@armada/components";
 import type { Session, SessionWork, SessionWorkActs } from "@armada/screens/src/draft/sessions";
 
@@ -174,7 +174,7 @@ export function FlightGroup({
             {atWork.map((one) => (
               <Tooltip key={one.id} asChild label={`Subagent at work on ${one.task}`}>
                 <span className="sv-flight__agent">
-                  <Split aria-hidden="true" className="sv-flight__agent-mark" />
+                  <Drone aria-hidden="true" className="sv-flight__agent-mark" />
                   <span>Subagent</span>
                   {one.agentType === undefined ? null : <code>{one.agentType}</code>}
                 </span>

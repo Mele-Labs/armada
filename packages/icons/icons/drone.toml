@@ -12,3 +12,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. A card on the canvas that is a whole Job and not a step or a state needs a mark that says so, and the Drone is what a Job runs. It sits beside the reservation above rather than inside it, and the owner may rule it out."
+
+  [[icons.drone.usage]]
+    means = "A subagent at work on a plan group, on the group's row, before the word Subagent and its type"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 9 Nov 2026 for the walk `subagents-on-plan-groups`, tooltip `Subagent at work on <its task>`. The glyph of the Job's Subagents view, here in the running hue on the group the subagent's brief named."

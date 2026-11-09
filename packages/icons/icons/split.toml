@@ -53,10 +53,3 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Differs in store-api` on a node or chip, naming the levels, and `Changed for store-api` in the panel. One line becoming two: one value, and another below it."
-
-[[icons.split.usage]]
-  means = "A subagent at work on a plan group, on the group's row, before the word Subagent and its type"
-  group = "Session"
-  size = "12px"
-  status = "Proposed"
-  notes = "Proposed 9 Nov 2026 for the walk `subagents-on-plan-groups`, tooltip `Subagent at work on <its task>`. The glyph a subagent wears on the ledger and the Subagents key, here in the running hue on the group its brief named."
