@@ -896,8 +896,7 @@ impl JobsList {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
-            // The conflicts column keeps its place; Fleet's write clashes do not reach this list yet.
-            .when(view.on("view:conflicts"), |marks| marks.child(div().flex_none().w(look.length(token::SPACE_4))))
+            .when(view.on("view:conflicts"), |marks| marks.child(crate::clash_mark::ClashMark::in_row(row.id.clone())))
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
             .children(time)
@@ -1493,6 +1492,7 @@ impl Render for JobsScreen {
                     .child(div().flex_1())
                     .child(panel(look).w(column * RIGHT)),
             )
+            .child(crate::merge_strip::strip(window, cx))
     }
 }
 

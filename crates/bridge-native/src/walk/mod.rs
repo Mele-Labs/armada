@@ -17,6 +17,8 @@ pub mod dispatch;
 pub mod fleet;
 pub mod notes;
 pub mod stage;
+pub mod stand_in;
+pub mod strip_marks;
 pub mod title_bar;
 pub mod window;
 
@@ -47,6 +49,9 @@ pub enum Verb {
     /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
     /// or a state of the sheet's face. A scene changes data and presses nothing.
     Answer(&'static str),
+    /// The merge strip, the context ring or the write-clash marks move to a named scene
+    /// (`strip_marks.rs`). A scene changes data and presses nothing.
+    Marks(&'static str),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -78,6 +83,8 @@ pub struct Walk {
 pub enum Screen {
     Jobs,
     Dispatch,
+    /// The Jobs screen with the Job head's stand-in drawn over it, for the walk of the strip and marks.
+    Marks,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -86,6 +93,10 @@ const fn scene(say: &'static str, name: &'static str, role: &'static str, target
 
 const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
     Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+}
+
+const fn marks(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Marks(name), target: Target { role, name: target } }
 }
 
 const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -134,6 +145,13 @@ pub static WALKS: &[Walk] = &[
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
+    },
+    Walk {
+        name: "strip-marks",
+        title: "Merge strip and Job marks",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::STEPS,
     },
     Walk {
         name: "title-bar",

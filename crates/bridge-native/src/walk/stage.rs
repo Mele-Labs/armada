@@ -28,6 +28,7 @@ impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         match walk.screen {
             Screen::Dispatch => {
+                super::strip_marks::leave(cx);
                 crate::titlebar::scenes::begin(cx);
                 let records = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
@@ -39,6 +40,7 @@ impl Stage {
                 Ok(Stage { view: screen.into(), focus })
             }
             Screen::Jobs => {
+                super::strip_marks::leave(cx);
                 crate::titlebar::scenes::begin(cx);
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
@@ -47,6 +49,18 @@ impl Stage {
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
+            }
+            Screen::Marks => {
+                crate::titlebar::scenes::begin(cx);
+                super::strip_marks::enter(cx);
+                let jobs = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let screen = cx.new(|cx| JobsScreen::new(list, cx));
+                let focus = Focus { keys, within: screen.read(cx).within().clone() };
+                window.focus(&focus.keys, cx);
+                let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(screen.into(), cx));
+                Ok(Stage { view: stood.into(), focus })
             }
         }
     }
@@ -103,6 +117,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::Marks(name) => super::strip_marks::apply(name, cx).map_err(Missed),
         Verb::Answer(name) => {
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)
@@ -143,6 +158,18 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             );
             Ok(())
         }
+    }
+}
+
+/// A press in the middle of the row named `label`, as the window last drew it.
+pub fn press_row(label: &str, window: &mut Window, cx: &mut App) {
+    let role = role_named("row").expect("a row is a role");
+    let at = cx
+        .try_global::<LabelBook>()
+        .and_then(|book| book.find(window.window_handle().window_id(), role, label))
+        .map(|drawn| drawn.bounds.center());
+    if let Some(at) = at {
+        press(MouseButton::Left, at, window, cx);
     }
 }
 
