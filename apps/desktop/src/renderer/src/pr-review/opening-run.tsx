@@ -6,6 +6,10 @@
 import { useEffect, useState } from "react";
 import { CircleDashed, CircleX, History, LoaderCircle, RefreshCw } from "lucide-react";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Checkbox,
   Dialog,
   PrMark,
@@ -286,36 +290,42 @@ function OpeningDefaults({
         .map((one) => one.id),
     });
   return (
-    <section className="pr-opening__repository" aria-label={name}>
-      <h5 className="pr-opening__name">{name}</h5>
-      <div className="armada-repository-switches__row">
-        <span className="armada-repository-switches__name">Ask before running</span>
-        <span className="armada-repository-switches__switch">
-          <SwitchControl
-            size="sm"
-            label={`Ask before running in ${name}`}
-            checked={kept.ask}
-            onChange={(event) =>
-              keep({
-                ...kept,
-                ask: event.target.checked,
-              })
-            }
-          />
-        </span>
-      </div>
-      <ul className="pr-opening__tools" aria-label={`Run on opening in ${name}`}>
-        {tools.map((one) => (
-          <li key={one.id} className="pr-opening__tool">
-            <Checkbox
-              checked={ticked.includes(one.id)}
-              onChange={(event) => toggle(one.id, event.target.checked)}
-            >
-              {one.name}
-            </Checkbox>
+    <Card role="region" aria-label={name} className="pr-opening__repository">
+      <CardHeader>
+        <CardTitle>{name}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="armada-repository-switches__rows">
+          <li className="armada-repository-switches__row">
+            <span className="armada-repository-switches__name">Ask before running</span>
+            <span className="armada-repository-switches__switch">
+              <SwitchControl
+                size="sm"
+                label={`Ask before running in ${name}`}
+                checked={kept.ask}
+                onChange={(event) =>
+                  keep({
+                    ...kept,
+                    ask: event.target.checked,
+                  })
+                }
+              />
+            </span>
           </li>
-        ))}
-      </ul>
-    </section>
+        </ul>
+        <ul className="armada-repository-switches__rows" aria-label={`Run on opening in ${name}`}>
+          {tools.map((one) => (
+            <li key={one.id} className="armada-repository-switches__row">
+              <Checkbox
+                checked={ticked.includes(one.id)}
+                onChange={(event) => toggle(one.id, event.target.checked)}
+              >
+                {one.name}
+              </Checkbox>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
