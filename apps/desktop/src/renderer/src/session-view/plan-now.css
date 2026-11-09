@@ -55,8 +55,10 @@ button.sv-chunk__row:hover {
   -webkit-line-clamp: 2;
   overflow-wrap: anywhere;
 }
+/* The time drops under the fact where both do not fit, rather than squeezing it. */
 .sv-chunk__said {
   display: flex;
+  flex-wrap: wrap;
   grid-column: 2;
   gap: var(--space-2);
   align-items: baseline;
