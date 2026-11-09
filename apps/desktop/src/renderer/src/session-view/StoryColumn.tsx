@@ -325,7 +325,6 @@ export function StoryColumn({
           {
             id: one.id,
             task: one.task ?? one.path,
-            agentType: one.agent,
             ...(group === undefined ? {} : { group }),
           },
         ];

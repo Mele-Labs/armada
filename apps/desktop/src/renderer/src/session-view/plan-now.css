@@ -153,7 +153,7 @@ button.sv-chunk__row:hover {
   color: var(--step-failed);
 }
 
-/* A subagent at work: the Subagents view's glyph, its task, the group it works on, its type. */
+/* A subagent at work: the Subagents view's glyph, its task, the group it works on. */
 .sv-chunk__drone {
   display: inline-flex;
   align-items: center;

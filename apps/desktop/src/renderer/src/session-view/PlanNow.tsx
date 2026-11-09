@@ -124,12 +124,11 @@ function GateTests({ read }: { read: GateRead }) {
 export type HelperRow = {
   id: string;
   task: string;
-  agentType: string | undefined;
   /** The group's title. */
   group?: string;
 };
 
-/** The subagents at work in the live chunk: each one's task, the group it works on, and its type. */
+/** The subagents at work in the live chunk: each one's task, and the group it works on. */
 export function Helpers({ rows }: { rows: readonly HelperRow[] }) {
   return rows.length === 0 ? null : (
     <ul className="sv-subagents" aria-label="Subagents at work">
@@ -144,9 +143,6 @@ export function Helpers({ rows }: { rows: readonly HelperRow[] }) {
             {one.task}
             {one.group === undefined ? null : <span className="sv-chunk__on">{one.group}</span>}
           </span>
-          {one.agentType === undefined ? null : (
-            <code className="sv-subagents__type">{one.agentType}</code>
-          )}
         </li>
       ))}
     </ul>
@@ -234,7 +230,6 @@ export function PlanChunks<G extends WorkGroup>({
             {live ? (
               <div className="sv-chunk__under">
                 <section className="sv-chunk__doing" aria-label="Doing now">
-                  <h4 className="sv-kind__label">Doing now</h4>
                   {doing}
                 </section>
                 <button
