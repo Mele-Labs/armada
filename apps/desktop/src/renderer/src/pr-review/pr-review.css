@@ -1386,6 +1386,28 @@
 
 /* Pending: the row as it will be, in bars. The wrapper takes the line the text takes, so the row is the height it lands at. */
 
+/* ---- The ask on opening Review: a box per tool in one column, its state in the next ---------------------- */
+
+.pr-opening__tools {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pr-opening__tool {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-3);
+}
+.pr-opening__keep {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 /* ---- Review: one file, with each finding pinned beside its lines -------------------------------------------- */
 
 .pr-review-tab-view {

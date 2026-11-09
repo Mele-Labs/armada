@@ -2,10 +2,10 @@
 // focus is tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims, and
 // its tie goes grey. The forge's threads hang under their lines, a resolved one folded, and one on the whole file sits over the diff.
 // **Previous and Next step through the files that need him**, those with findings or open threads; Go to file reaches the rest,
-// which say they are not counted. Opening it runs the tools that have not run on this commit, asking first, and its head runs any
-// tool or explanation again. A tool's findings land here with no tool tab open; an explanation opens its tab when done. A press in
-// the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or adds to it. The bar
-// at the foot holds his pending review and Submit.
+// which say they are not counted. Opening it runs the repository's default tools that have not run on this commit, asking first
+// (`opening-run.tsx`), and its head runs any tool or explanation again. A tool's findings land here with no tool tab open; an
+// explanation opens its tab when done. A press in the gutter picks a line, Shift and a press picks the run to it, and the box under
+// the run starts a review or adds to it. The bar at the foot holds his pending review and Submit.
 
 import {
   useEffect,
@@ -16,14 +16,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { CircleDashed, CircleX, History, LoaderCircle, RefreshCw } from "lucide-react";
 import {
   Button,
   Input,
   Kbd,
   Tooltip,
   UnifiedDiff,
-  agoOf,
   scrollWithin,
   type DiffFile,
 } from "@armada/components";
@@ -33,6 +31,7 @@ import { placeOfDraft } from "./changes";
 import { CodeRefs } from "./code-refs";
 import { YourReview } from "./comments";
 import { ThreadHere } from "./comments-pane";
+import { OpeningAsk, defaultsOf, headTools, runOf, runState, start, unread } from "./opening-run";
 import {
   linesOfFinding,
   orderOf,
@@ -44,11 +43,11 @@ import {
 } from "./review-tab-state";
 import { ranked } from "./fuzzy";
 import { DraftCard, FindingCard, LineComposer } from "./lines";
-import type { AgentRun, Finding, ReviewPr, ToolDef } from "./model";
+import type { Finding, ReviewPr, ToolDef } from "./model";
 import { openKind, openToolTab, openWhenDone } from "./panes";
 import { indexOfPlace, linesOfPatch, placeOfLine } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { isWalk, onlyTools, tilesOf, toolsOf } from "./tools";
+import { isWalk, onlyTools, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
 
@@ -110,10 +109,6 @@ const KEYS: readonly (readonly [
 
 /** The pull requests, at a commit, that Review has asked to run their tools on, for the window's life. */
 const askedOn = new Set<string>();
-
-/** Names as a sentence lists them: "A", "A and B", "A, B and C". */
-const namesOf = (names: readonly string[]): string =>
-  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 
 /** Where a card sits in the margin, from the top of the grid, and the middle of its first line where the diff holds it. */
 type Placed = {
@@ -400,35 +395,32 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
     if (to !== undefined) reviewTab.go(pr.key, to);
   };
   const finders = onlyTools(tools).filter((one) => one.agent && !isWalk(one));
-  const unread = (one: ToolDef) => {
-    const run = work.runs[one.id];
-    return (
-      run === undefined || run.state === "idle" || (run.state === "done" && run.head !== pr.head)
-    );
-  };
   const none =
     pr.page.files.length === 0
       ? "No files changed."
       : finders.some((one) => work.runs[one.id]?.state === "running")
         ? "The tools are running."
-        : finders.some(unread)
+        : finders.some((one) => unread(work.runs[one.id], pr.head))
           ? "Not every tool has run on this commit."
           : "No file has findings or open threads.";
 
-  // Opening Review runs the tools that have not run on this commit, asking first. Asked once a commit, so a reopen never asks again.
-  const ready = work.runsRead && finders.length > 0;
+  // Opening Review runs the repository's default set where any of it has nothing kept for this commit, asking first unless he said
+  // not to. Asked once a commit, so a reopen never asks again.
+  const head = headTools(tools);
+  const ready = work.runsRead && head.length > 0;
+  const [asking, setAsking] = useState(false);
   useEffect(() => {
     if (!ready) return;
     const once = `${pr.key}@${pr.head}`;
     if (askedOn.has(once)) return;
     askedOn.add(once);
-    const due = finders.filter(unread);
+    const now = store.get();
+    const kept = now.work[pr.key] ?? NO_WORK;
+    const chosen = defaultsOf(pr.manifestId, head);
+    const due = head.filter((one) => chosen.includes(one.id) && unread(runOf(kept, one), pr.head));
     if (due.length === 0) return;
-    store.spend(namesOf(due.map((one) => one.name)), () => {
-      for (const one of due)
-        if (work.runs[one.id]?.state === "done") store.rerun(pr.key, one);
-        else store.runTool(pr.key, one);
-    });
+    if (now.askFirst) return setAsking(true);
+    for (const one of due) start(store, pr, kept, one);
     // Read once the runs are in; what is due is read then, never again for this commit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -636,6 +628,15 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
           />
         </div>
       ) : null}
+      {asking ? (
+        <OpeningAsk
+          store={store}
+          pr={pr}
+          work={work}
+          tools={head}
+          onClose={() => setAsking(false)}
+        />
+      ) : null}
       <footer className="pr-review-tab-view__foot">
         <Button
           variant={reviewing ? "ghost" : "secondary"}
@@ -650,36 +651,6 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   );
 }
 
-/** What a tool's run is, as its button in the head says it: the glyph, and the words its tooltip reads. */
-function runState(run: AgentRun | undefined, head: string) {
-  if (run === undefined || run.state === "idle")
-    return {
-      run: "idle",
-      Glyph: CircleDashed,
-      said: "Not run",
-    } as const;
-  if (run.state === "running")
-    return {
-      run: "running",
-      Glyph: LoaderCircle,
-      said: "Running",
-    } as const;
-  if (run.state === "failed")
-    return {
-      run: "failed",
-      Glyph: CircleX,
-      said: `Failed. ${run.said}`,
-    } as const;
-  const stale = run.head !== head;
-  return {
-    run: "done",
-    Glyph: stale ? RefreshCw : History,
-    said: stale
-      ? `Done on ${run.head.slice(0, 7)}. The pull request is at ${head.slice(0, 7)}`
-      : `Done ${agoOf(new Date(run.at).toISOString())} on ${run.head.slice(0, 7)}`,
-  } as const;
-}
-
 /**
  * The explanations and the review tools, one button each in the head, in the order + lists them. A press on a tool runs it, or runs
  * it again, and its findings land beside their lines here. A press on an explanation runs it where nothing is kept, and its tab opens
@@ -689,12 +660,10 @@ function RunTools({ pr }: { pr: ReviewPr }) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
-  const tools = tilesOf(toolsOf(reviews, pr.manifestId)).filter((one) => !isWalk(one));
+  const tools = headTools(toolsOf(reviews, pr.manifestId));
   if (tools.length === 0) return <span className="pr-review-tab-view__tools" />;
-  const runOf = (tool: ToolDef) =>
-    tool.kind === "explanation" ? work.explains[tool.id] : work.runs[tool.id];
   const press = (tool: ToolDef) => {
-    const run = runOf(tool);
+    const run = runOf(work, tool);
     if (run?.state === "running") return;
     if (tool.kind === "explanation") {
       if (run !== undefined && run.state !== "idle") return openToolTab(pr.key, tool);
@@ -717,7 +686,7 @@ function RunTools({ pr }: { pr: ReviewPr }) {
   return (
     <span className="pr-review-tab-view__tools" role="group" aria-label="Tools">
       {tools.map((tool) => {
-        const { run, Glyph, said } = runState(runOf(tool), pr.head);
+        const { run, Glyph, said } = runState(runOf(work, tool), pr.head);
         return (
           <Tooltip key={tool.id} label={`${tool.name}. ${said}`}>
             <Button
