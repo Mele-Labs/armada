@@ -471,7 +471,8 @@ export function StoryColumn({
     <>
       {sketchButton}
       <AskUpdate subject={`session:${id}`} />
-      {!approved ? null : (
+      {/* A plan that ends on gates folds every chunk's tasks behind its own press, so there is no whole plan to open. */}
+      {!approved || byGates ? null : (
         <Tooltip label="Whole plan" shortcut={WHOLE_KEY.cap}>
           <Button
             variant="ghost"
