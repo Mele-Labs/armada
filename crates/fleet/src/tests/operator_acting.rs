@@ -361,7 +361,7 @@ async fn the_call_is_kept_started_only_while_the_operator_is_on() {
         crate::JudgeBudget::of(Duration::from_secs(10)),
     ));
 
-    rig.fleet.operator_kept(Arc::clone(&call)).await;
+    rig.fleet.operator_kept(Arc::clone(&call), Arc::new(crate::operator::Blind(call.clone()))).await;
     assert!(judge.models().is_empty() && !call.is_waiting().await, "off: no process is started");
 
     switched(&rig, "features.operator", true).await;

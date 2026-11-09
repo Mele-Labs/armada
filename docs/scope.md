@@ -190,7 +190,7 @@ not bring it.
 **In such a repository the Checks can have nothing to run.** An empty Check registry expands
 to nothing in `crates/config/src/resolve.rs`, and #847 is what tells a person so.
 
-**A conversation is not a record.** The Operator holds no tools and runs no Job, so it does no work in conversation.
+**A conversation is not a record.** The Operator runs no Job, and in conversation it holds only the read tools, Read, Grep and Glob, so it does no work in conversation.
 A Job started on your words holds what a terminal job holds, writing in a slot on a branch like any Job — and what persists is the Studio's typed graph, the branch, the Jobs it started and the Operator's Log.
 Nothing downstream reads the thread.
 See the third attempt: what was rejected was reading a transcript as a claim, not talking.

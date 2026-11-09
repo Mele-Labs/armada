@@ -24,7 +24,13 @@ Type words into the Operator's box → Fleet reads them against every live Job i
 | A workflow to author | A Job on your words works it out with you and ends with the definition saved, in this repository or in Kit |
 | A Studio to drive | A Job on your words drives it |
 
-The Operator holds no tools and runs no Job of its own, so none of this holds a slot until a Job on your words first writes.
+The Operator runs no Job of its own, so none of this holds a slot until a Job on your words first writes.
+
+**A question is answered by reading.**
+Ask what a Job is waiting on, what an issue says, or where the code does something, and the Operator reads before it answers: the Job's thread and plan, the open issues, and the code of the repositories Fleet hosts.
+It reads and changes nothing, since the only tools it holds are Read, Grep and Glob.
+Where you want something changed, it offers a Job to make the change.
+Why: on 9 Nov you found it could not answer what you asked without reading.
 
 ## What stays yours
 

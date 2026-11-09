@@ -4,7 +4,9 @@
 //! in spike 017 to leave only the three read tools in the session; the deny
 //! list below is the same line drawn again, since deny beats an operator's
 //! own allow. `--restricted` is what keeps the reads inside the checkout: a
-//! bare allow let a scout read another directory, measured.
+//! bare allow let a scout read another directory, measured. A folder named with
+//! `--add-dir` joins the checkout, and it alone does: measured with one folder
+//! of notes and one of code.
 //!
 //! **A search that shows lines of files is a read of them.** A Grep in content
 //! mode returns what files hold, so the files it returned lines from are listed
@@ -75,6 +77,10 @@ pub struct Scouting {
     model: Model,
     servers: McpConfig,
     environment: Environment,
+    /// Folders it may read beside `directory`, each read only: it holds no tool that writes.
+    also: Vec<String>,
+    /// The most turns it takes, reads and its answer together. Absent is the CLI's own.
+    turns: Option<u32>,
 }
 
 impl Scouting {
@@ -96,14 +102,36 @@ impl Scouting {
             model,
             servers,
             environment,
+            also: Vec::new(),
+            turns: None,
         })
+    }
+
+    /// The same scout, let read `directories` as well, each given to the CLI with `--add-dir`:
+    /// measured to reach them under `--restricted`, which still refuses every other path.
+    pub fn also_reading(mut self, directories: &[String]) -> Result<Scouting, ScoutRefused> {
+        for directory in directories {
+            if !directory.starts_with('/') {
+                return Err(ScoutRefused::DirectoryNotAbsolute {
+                    given: directory.clone(),
+                });
+            }
+            self.also.push(directory.trim_end_matches('/').to_string());
+        }
+        Ok(self)
+    }
+
+    /// The same scout, ended after `turns` turns.
+    pub fn capped_at(mut self, turns: u32) -> Scouting {
+        self.turns = Some(turns);
+        self
     }
 }
 
 impl HeadlessAgent {
     /// One ask's process. The ask is not on it: it goes in on stdin.
     pub fn render_scout(&self, scouting: &Scouting) -> Result<Launch, ScoutRefused> {
-        let args: Vec<String> = vec![
+        let mut args: Vec<String> = vec![
             "-p".into(),
             "--input-format".into(),
             "stream-json".into(),
@@ -124,9 +152,17 @@ impl HeadlessAgent {
             READ_TOOLS.join(","),
             "--disallowedTools".into(),
             NOT_A_READ.join(","),
-            // One ask, never resumed: nothing is left for a later session.
-            "--no-session-persistence".into(),
         ];
+        for directory in &scouting.also {
+            args.push("--add-dir".into());
+            args.push(directory.clone());
+        }
+        if let Some(turns) = scouting.turns {
+            args.push("--max-turns".into());
+            args.push(turns.to_string());
+        }
+        // One ask, never resumed: nothing is left for a later session.
+        args.push("--no-session-persistence".into());
         // `Launch`'s one constructor reads a spawn config, as a conversation's
         // does; only the directory and the environment are taken from it.
         let borrowed = DroneSpawnConfig::spawn_in(

@@ -37,7 +37,7 @@ Every screen goes through the same four steps, in order.
 
 1. An inventory of the Electron screen: its regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A native walk on mock data, in the screen's own window with a walk bar, beside the Electron screen.
+3. A native walk on mock data, in the screen's own window with a walk bar, shown alone.
    The owner names his spacing and font tweaks there, and they go into the native screen only.
 4. Land.
 
@@ -52,8 +52,9 @@ Its steps and scenario live in `crates/bridge-native/src/walk/`, and each step a
 |---|---|
 | Build | `cargo build` in `crates/bridge-native`, in the Job's own slot |
 | Play it first | `bridge-native --walk <name> --check`, which exits 1 naming the first step it could not play. `--shots <dir>` writes each step as a picture, which is how a Job looks at a native screen |
-| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps` |
-| He opens it | He presses Open on the Job's tab. Fleet starts the slot's own build, and refuses a build older than the slot's HEAD |
+| Show it | `show_window` on `armada://walk/<name>`, with a `title` and a `brief` and no `steps`. Alternatives are `variations`, each another native walk's address, the first the `url` itself |
+| He opens it | He presses the walk's row or Open on the Job's tab. Fleet starts the slot's own build with `--take <name>=<walk>` for each variation, and refuses a build older than the slot's HEAD |
+| He picks a take | The bar's takes menu, or ⌥⌘T, swaps to that take's walk from its first step. Approve and each note name the take on screen |
 
 **The check never opens a window, and Fleet never starts a walk he did not open.**
 

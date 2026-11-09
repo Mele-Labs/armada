@@ -96,12 +96,16 @@ checks:
     # rather than under `crates`, so a change to it narrows to nothing and this
     # Check is not run — the gate still reads it whole.
     #
-    # No `except`, unlike `test` below: `--workspace` builds `acceptance` too,
-    # so `-p acceptance` measures nothing the whole run does not.
+    # `acceptance` is not excepted, unlike in `test` below: `--workspace` builds
+    # it too, so `-p acceptance` measures nothing the whole run does not.
+    # `bridge-native` is: it is a workspace of its own, which the whole run never
+    # builds, and cargo refuses `-p` of a package outside this one.
     narrow:
       run: cargo build --locked
       each: "-p {}"
       under: crates
+      except:
+        - bridge-native
     # **What the command reads, not what it is usually about.** A pattern
     # missing here is a Check that stops running on a change that breaks it.
     #
@@ -174,6 +178,8 @@ checks:
       under: crates
       except:
         - acceptance
+        # Its own workspace, outside this one, as in `build` above.
+        - bridge-native
       outside:
         - "apps/**"
         - "packages/README.md"
