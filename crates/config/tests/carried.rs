@@ -58,8 +58,8 @@ fn gates_only_on_what_the_repository_declares(text: &str) -> Vec<ResolvedWorkflo
     let resolved = carried_against(&manifest);
     assert_eq!(
         resolved.len(),
-        9,
-        "all nine, against {}",
+        8,
+        "all eight, against {}",
         manifest.id().as_str()
     );
     for workflow in &resolved {
@@ -102,19 +102,23 @@ fn every_carried_workflow_resolves_against_a_manifest_declaring_no_checks() {
         .filter(|step| step.gates_on_every_check())
         .count();
     assert_eq!(
-        asking, 4,
-        "four steps still say they asked, which is all an empty registry leaves; feature folded its tests step into implement"
+        asking, 0,
+        "the carried workflows name no Check: each plan group ends on a fact Fleet sees, and ci runs the checks"
     );
 }
 
 #[test]
 fn every_carried_workflow_resolves_against_checks_named_differently() {
-    let resolved = gates_only_on_what_the_repository_declares(RENAMED);
-    let bug = resolved
-        .iter()
-        .find(|workflow| workflow.id().as_str() == "bug")
-        .expect("bug is carried");
-    let e2e = bug
+    gates_only_on_what_the_repository_declares(RENAMED);
+    // No carried step gates on a Check, so a step that gates on every one is written here to see that
+    // the repository's own `e2e` is the one resolved, with its prerequisite.
+    let text = "version: 1\nworkflow_id: sweeping\nname: sweeping\nsteps:\n  - id: only\n    \
+                label: Only\n    delivers: false\n    advance_gate: auto\n    \
+                mechanical_checks: [{ type: every_manifest_check }]\n";
+    let def = config::WorkflowDef::parse(Path::new("/elsewhere/sweeping.json"), text, &roster())
+        .expect("a step may gate on every declared Check");
+    let sweeping = ResolvedWorkflow::resolve(&def, &manifest(RENAMED)).expect("resolves");
+    let e2e = sweeping
         .steps()
         .iter()
         .flat_map(|step| step.checks())

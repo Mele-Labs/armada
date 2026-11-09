@@ -59,14 +59,25 @@ pub(crate) struct Started {
 
 /// The Jobs `held`, a starter's attachments, names as started, each with when it was done. **A Job
 /// handed on for context is followed to its successor**, whose work is the work that was started.
+/// **A Job Fleet cannot find counts as ended**, at the latest time Fleet knows of for it, or at the time
+/// it was started if nothing else: one that is gone would otherwise hold the gate open for good.
 pub(crate) fn started_of(store: &Store, held: &[KeptAttachment]) -> Vec<Started> {
     let mut started: Vec<Started> = Vec::new();
     for link in held.iter().filter(|one| one.kind == STARTED_TO && one.state != store::AttachmentState::GivenBack) {
         let (mut id, mut visited) = (link.target.clone(), vec![link.target.clone()]);
         let mut done_at = None;
         let mut name = id.clone();
+        let mut known = link.since.clone();
         loop {
-            let Ok(Some(session)) = store.session(&id) else { break };
+            let session = match store.session(&id) {
+                Ok(Some(session)) => session,
+                Ok(None) => {
+                    done_at = Some(known);
+                    break;
+                }
+                Err(_) => break,
+            };
+            known = [Some(known), Some(session.last_seen_at.clone()), session.ended_at.clone()].into_iter().flatten().max().unwrap_or_default();
             let attached = store.attachments_of(&Holder::session(&id)).unwrap_or_default();
             name = session.title.clone().unwrap_or_else(|| id.clone());
             let merged = attached.iter().filter(|one| one.kind == "pr" && crate::build_record::merged(one)).map(|one| one.changed_at.clone()).min();

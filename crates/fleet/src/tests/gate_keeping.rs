@@ -315,6 +315,36 @@ async fn a_jobs_ended_group_stays_open_while_a_started_job_is_live_and_closes_wh
     assert!(rig.fleet.gates_kept(agent.as_str()).await.is_empty(), "a close is kept once");
 }
 
+/// A started Job Fleet cannot find is not live: it counts as ended, at the time it was started when nothing
+/// else is known of it, so the group it would hold open closes.
+#[test]
+fn a_started_job_fleet_cannot_find_counts_as_ended_at_the_time_it_was_started() {
+    use ipc::{Instant, SessionRow};
+    let dir = crate::tests::tmp::TempDir::new();
+    let store = store::Store::open(&dir.path().join("armada.db")).expect("opens");
+    let started_at = "2026-11-08T11:00:00.000Z";
+    let link = store::KeptAttachment {
+        holder: store::Holder::session("parent"),
+        kind: crate::started_jobs::STARTED_TO.to_string(),
+        manifest_id: String::new(),
+        target: "gone".to_string(),
+        state: store::AttachmentState::Standing,
+        detail: Default::default(),
+        since: started_at.to_string(),
+        changed_at: started_at.to_string(),
+    };
+    let started = crate::gate_keeping::started_of(&store, &[link]);
+    assert_eq!(started.len(), 1);
+    assert_eq!(started[0].done_at.as_deref(), Some(started_at));
+
+    let plan = kept(&[gated(None, "Wait for the children", PlanGate::JobsEnded)]);
+    let recorded = SessionRow::Plan { id: "p1".into(), at: Instant::carried("2026-11-08T10:00:00.000Z"), version: 1 };
+    let facts = crate::gate_keeping::facts_seen(&plan, &[recorded], &[], &[], &started);
+    assert_eq!(facts.len(), 1, "{facts:?}");
+    assert_eq!(facts[0].at, started_at);
+    assert_eq!(closing(&plan, &[], &facts).len(), 1);
+}
+
 async fn read_agent(rig: &super::agent_starts::Rig, id: &SessionId) -> SessionRecord {
     rig.record(id).await
 }
