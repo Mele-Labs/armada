@@ -267,6 +267,7 @@ Its `tree` line is that tree's path, where Bridge's annotation layer writes note
 `node_modules` is kept once per `pnpm-lock.yaml` under `Armada/node_modules/<lockfile hash>/`, as APFS clones, since it is 1.7 GB.
 Electron is kept once per version under `Armada/electron/<version>/`, and `launch-bridge` runs that copy, so a relaunch onto an older build gets its own Electron.
 **`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name, as for Electron's copy.
+`scripts/native-app` makes it, and the release job makes the app it ships with the same script, so a restart's app and a release's app are the same bundle.
 Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed ad hoc.
 `build.toml` holds a `native` hash of the binary and the icon, and a build kept before the native Bridge has neither.
 A build a running Bridge was opened from is kept past the five, since that Bridge may have reloaded another build's page and still runs its main process.

@@ -347,6 +347,7 @@ checks:
     when:
       - "scripts/keep-build"
       - "scripts/test_keep_build.py"
+      - "scripts/native-app"
       - "scripts/armada-electron"
       - "armada.yml"
 

@@ -357,11 +357,17 @@ A pull request and a merge group never release.
 
 | | |
 |---|---|
-| Builds | `armada` with the `shipped` profile, optimised and stripped, and `Armada.app` for Apple Silicon, on a `macos-15` runner |
-| Puts Fleet | Inside the app, at `Contents/Resources/bin/armada`, then signs the bundle again ad hoc |
+| Builds | `armada` with the `shipped` profile, optimised and stripped, the native Bridge with `cargo build --release` on its own manifest, and the Electron app, for Apple Silicon, on a `macos-15` runner |
+| Makes | `Armada.app`, the native Bridge, with `scripts/native-app`, the script a restart makes its copy with. `Armada Classic.app` is the Electron app, with the grey icon |
+| Puts Fleet | Inside `Armada.app`, at `Contents/Resources/bin/armada`, with the Claude Code mod beside it in `Contents/Resources/mod`, then signs the bundle again ad hoc. Classic carries no Fleet |
 | Version | `v0.<minor>.<commits on main>`. The minor is the root `package.json`'s, bumped by hand. The hash is in the release notes and in `Contents/Resources/version` |
-| Attaches | `Armada-macos-arm64.zip` and `scripts/install.sh`, with no version in either name, so `releases/latest/download/<name>` never changes |
+| Attaches | `Armada-macos-arm64.zip`, holding both apps side by side, and `scripts/install.sh`, with no version in either name, so `releases/latest/download/<name>` never changes |
 | A commit already tagged | Is not released twice. The run says so and stops |
+
+**The native Bridge has a `target` of its own**, since it is outside the root workspace, so the job names it to `rust-setup`'s `workspaces` input and rust-cache keeps both.
+The job unpacks the zip again and checks both signatures and `armada help` before it publishes, which is what `install.sh` unpacks.
+`install.sh` replaces `Armada.app` and `Armada Classic.app` in `/Applications` and opens both.
+An `Armada.app` already there, such as the Electron app this name had before, is replaced and nothing else is.
 
 **One release builds at a time.** A merge that lands meanwhile waits, and a newer merge replaces the one waiting, so two quick merges make one release.
 
