@@ -5,7 +5,7 @@
 //! The order of the checks is the rule, so a change to one side is a change to the other until
 //! Electron reads this too.
 
-use ipc::{AttachmentState, JobGroup, JobLamp, JobMark, JobReading, JobState, SessionRecord, SessionStanding, SessionTurn, WaitingActKind, WaitingSource};
+use ipc::{AttachmentState, JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionStanding, SessionTurn, WaitingActKind, WaitingSource};
 
 /// What the thread says that the record does not.
 pub(super) struct Thread {
@@ -17,19 +17,21 @@ pub(super) struct Thread {
     pub spoken: bool,
 }
 
-/// The row's mark, and where it reads `replied`, what it reads as once he has read the reply.
-pub(super) fn mark_of(record: &SessionRecord, thread: &Thread, now: Option<i64>) -> JobMark {
-    let state = state_of(record, thread, false);
-    let read = reading_of(record, state, now);
-    JobMark {
-        state: read.state,
-        lamp: read.lamp,
-        group: read.group,
-        once_read: (state == JobState::Replied).then(|| reading_of(record, state_of(record, thread, true), now)),
-    }
+/// The row's mark. `on_screen` is whether a client has the Job on screen now.
+pub(super) fn mark_of(record: &SessionRecord, thread: &Thread, on_screen: bool, now: Option<i64>) -> JobMark {
+    reading_of(record, state_of(record, thread, read_since(record, on_screen)), now)
 }
 
-/// `jobStateOf`. `read` is whether he has read the reply, which only a client knows.
+/// `readSince`: he has been in the Job since its last turn ended, or has it on screen now.
+fn read_since(record: &SessionRecord, on_screen: bool) -> bool {
+    let millis = |at: &ipc::Instant| core_model::Timestamp::from_rfc3339(at.as_str()).epoch_millis();
+    let Some(ended) = record.last_turn_at.as_ref().and_then(millis) else {
+        return false;
+    };
+    on_screen || record.viewed_at.as_ref().and_then(millis).is_some_and(|viewed| viewed >= ended)
+}
+
+/// `jobStateOf`. `read` is whether he has read the reply: [`read_since`].
 fn state_of(record: &SessionRecord, thread: &Thread, read: bool) -> JobState {
     let ended = record.state == ipc::SessionState::Ended;
     let hosted = record.hosted.as_ref().filter(|_| !ended);
@@ -192,7 +194,7 @@ const QUIET_AFTER_MINUTES: i64 = 15;
 
 /// The row's lamp and group for `state`: `sessionMark`, then the row in `shipOf`, then `toneOf`,
 /// `lampOf` and `groupOf`.
-fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobReading {
+fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobMark {
     let bucket = bucket_of(state);
     let dead = matches!(state, JobState::Ended | JobState::Quiet);
     // A paused Job is calm: nothing is asked of him.
@@ -244,5 +246,5 @@ fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobR
         (_, JobGroup::Done) => JobLamp::Done,
         _ => JobLamp::Idle,
     };
-    JobReading { state, lamp, group }
+    JobMark { state, lamp, group }
 }

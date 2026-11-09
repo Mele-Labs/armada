@@ -19,3 +19,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 9 Nov 2026 for the walk `subagents-on-plan-groups`, tooltip `Subagent at work on <its task>` or `Subagent, finished: <its task>`. The glyph of the Job's Subagents view: pulsing in the running hue while it runs, still and muted once finished. A press opens its thread in a tab of the Job."
+
+[[icons.drone.usage]]
+  means = "A subagent at work, one row each under the live chunk in Now, with the plan group its brief named"
+  group = "Plan gates"
+  size = "14px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Subagent`, in the running hue. A press opens its thread in a tab beside Thread."

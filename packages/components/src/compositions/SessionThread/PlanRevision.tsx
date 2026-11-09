@@ -156,7 +156,20 @@ function GoneLine({ text }: { text: string }) {
   );
 }
 
-/** One unchanged group: a line that opens to its tasks. */
+/** Where a group stands, as one mark: one ticked task beside another open says nothing a reader can use. */
+const groupState = (tasks: readonly RevisionTask[]): TaskMarkState =>
+  tasks.length > 0 && tasks.every((task) => task.state === "done")
+    ? "done"
+    : tasks.some((task) => task.state === "failed")
+      ? "failed"
+      : tasks.some((task) => task.state === "working")
+        ? "working"
+        : tasks.length > 0 &&
+            tasks.every((task) => task.state === "done" || task.state === "handed_in")
+          ? "handed_in"
+          : "open";
+
+/** One unchanged group: its state, then a line that opens to its tasks. */
 function Quiet({ group, unchanged }: { group: RevisionGroup; unchanged: Unchanged }) {
   const list = useId();
   const open = unchanged.has(group.id);
@@ -180,17 +193,12 @@ function Quiet({ group, unchanged }: { group: RevisionGroup; unchanged: Unchange
           ) : (
             <ChevronRight size={12} strokeWidth={2} aria-hidden />
           )}
+          <TaskMark state={groupState(group.tasks)} />
           <span className="armada-plan-revision__title">
             <span className="armada-plan-revision__text">
               <span>{group.title}</span>
             </span>
           </span>
-          <span className="armada-session-thread__marks">
-            {group.tasks.map((task) => (
-              <TaskMark key={task.id} state={task.state} />
-            ))}
-          </span>
-          <AgentChip agent={group.agent} />
         </button>
       </Tooltip>
       {open ? (

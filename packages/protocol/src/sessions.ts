@@ -270,6 +270,8 @@ export type SessionRecord = {
   in_flight?: InFlight[];
   /** The state the Job's row in a Jobs list draws: mark, lamp and group, without words. Absent where Fleet did not read one. Since 9 Nov 2026. */
   mark?: JobMark;
+  /** The last instant the person was in the Job, as a client told it by `view_session`: when it came on screen or when it left. Absent where he never was. Since 9 Nov 2026. */
+  viewed_at?: string;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */

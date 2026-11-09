@@ -46,6 +46,12 @@ impl Store {
                 [],
             )
             .map_err(wrap)?;
+        transaction
+            .execute(
+                &format!("DELETE FROM session_viewed WHERE session_id IN (SELECT id FROM sessions WHERE {BLANK})"),
+                [],
+            )
+            .map_err(wrap)?;
         let forgotten = transaction
             .execute(&format!("DELETE FROM sessions WHERE {BLANK}"), [])
             .map_err(wrap)?;

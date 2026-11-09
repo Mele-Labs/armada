@@ -89,3 +89,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 3 Nov 2026 for the walk `pr-conversation-evaluate`, the pull request panel's Conversation, and the review tool's thread card, which drew it already. Bare check in `--status-completed-success`, tooltip `Resolved`. The same yes an approving review takes on the same page."
+
+[[icons.check.usage]]
+  means = "A chunk of a Job's plan whose gate has closed, on its row among the plan's chunks"
+  group = "Plan gates"
+  size = "14px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Done`, in --step-advanced. A completed step is bare check, which circle-check's reservation names."

@@ -557,6 +557,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::retry_handoff::<D>),
         )
         .route(
+            "/sessions/view",
+            post(crate::hosted_sessions::view_session::<D>),
+        )
+        .route(
             "/sessions/pause",
             post(crate::hosted_sessions::pause_session::<D>),
         )

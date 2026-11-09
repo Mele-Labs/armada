@@ -1166,6 +1166,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.retryHandoff, sessionId),
   startAgain: (sessionId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.startAgain, sessionId),
+  viewSession: (sessionId: string, on: boolean): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.viewSession, sessionId, on),
   pauseSession: (sessionId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
   resumeSession: (sessionId: string): Promise<SessionActed> =>

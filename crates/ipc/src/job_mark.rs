@@ -50,21 +50,10 @@ pub enum JobGroup {
     Done,
 }
 
-/// One reading of a row: its state, lamp and group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JobReading {
-    pub state: JobState,
-    pub lamp: JobLamp,
-    pub group: JobGroup,
-}
-
-/// How a Job's row reads. `once_read` is set only where `state` is `replied`: what the row reads as
-/// once the person has read the reply, which only the client knows, so both are sent.
+/// How a Job's row reads: its state, lamp and group.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobMark {
     pub state: JobState,
     pub lamp: JobLamp,
     pub group: JobGroup,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub once_read: Option<JobReading>,
 }
