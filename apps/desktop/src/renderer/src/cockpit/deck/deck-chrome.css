@@ -39,8 +39,6 @@
   color: var(--fg-muted);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
   gap: var(--space-1);
 }
 

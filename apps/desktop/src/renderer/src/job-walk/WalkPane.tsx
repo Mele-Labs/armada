@@ -2,6 +2,8 @@
 // views main lays over this frame (`main/capture/job-walks.ts`), so the pane is an empty box that reports where it is; the mock has no such views and draws `WalkView` with a fixture.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { Outcome } from "@armada/protocol";
+import { Button } from "@armada/components";
 
 import { holdLayerUp } from "../hold-layers";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
@@ -36,6 +38,9 @@ const pictureOf = (png: Uint8Array): string =>
 
 const keyOf = (jobId: string, walkId: string) => `${jobId}\n${walkId}`;
 
+/** A walk of a native screen, which Fleet opens from the Job's slot (`show_window` on `armada://walk/<name>`). */
+const NATIVE_WALK = "armada://walk/";
+
 /** Who placed a walk's views last, by walk: a pane's unplace hides the views only while they are still its own, not after another pane placed them. */
 const placed = new Map<string, object>();
 /** The panes drawing each walk now. A tab moved between panes has two panes drawing the walk for a moment: the one that leaves does not unplace, the other places, and a hide between would stop a walk that plays by itself. */
@@ -43,6 +48,20 @@ const drawn = new Map<string, Set<object>>();
 
 export function WalkPane({ jobId, walkId }: { jobId: string; walkId: string }) {
   const live = window.armada?.jobWalk;
+  if (walkId.startsWith(NATIVE_WALK))
+    return (
+      <NativeWalk
+        jobId={jobId}
+        walkId={walkId}
+        open={
+          live === undefined
+            ? async () => ({
+                ok: true,
+              })
+            : live.openNative
+        }
+      />
+    );
   return live === undefined ? (
     <MockWalk jobId={jobId} walkId={walkId} />
   ) : (
@@ -156,6 +175,51 @@ function LiveWalk({ jobId, walkId, api }: { jobId: string; walkId: string; api: 
         <img className="job-walk__bar-picture" src={pictures.bar} alt="" />
       )}
     </div>
+  );
+}
+
+/**
+ * A walk of a native screen: no page of Bridge's draws it. Open asks Fleet to start the Job's own build of the native app on it, in a window
+ * of its own with its walk bar, where he approves and notes it. A refusal is Fleet's sentence, which says what to build.
+ */
+function NativeWalk({
+  jobId,
+  walkId,
+  open,
+}: {
+  jobId: string;
+  walkId: string;
+  open: (sessionId: string, walkId: string) => Promise<Outcome>;
+}) {
+  const session = useSessions().find((one) => one.id === jobId);
+  const walk =
+    session === undefined ? undefined : walksOf(session).find((one) => one.id === walkId);
+  const [pending, setPending] = useState(false);
+  const [answer, setAnswer] = useState<Outcome>();
+  const press = () => {
+    setPending(true);
+    void open(jobId, walkId).then((outcome) => {
+      setPending(false);
+      setAnswer(outcome);
+    });
+  };
+  return (
+    <section className="job-walk__native" aria-label={walk?.title ?? "Walk"}>
+      <h2 className="job-walk__native-title">{walk?.title}</h2>
+      {walk?.brief === undefined ? null : <p className="job-walk__native-brief">{walk.brief}</p>}
+      <div className="job-walk__native-act">
+        <Button variant="primary" onClick={press} disabled={pending}>
+          Open
+        </Button>
+        {answer === undefined ? null : answer.ok ? (
+          <span className="job-walk__native-said">Open in its own window</span>
+        ) : (
+          <span className="job-walk__native-said" role="alert">
+            {answer.why === "refused" ? answer.error.message : "Fleet did not answer"}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }
 

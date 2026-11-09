@@ -93,14 +93,10 @@ read plausibly under a different job has failed.
 
 ## Prose rules
 
-- **Sentence case everywhere.** No title case, and ALL CAPS in three places
-  only: table headers, an eyebrow — the small label that heads a
-  section or card, like a transcript card's DRONE — and a worktree slot
-  bay's state word (HELD, BUSY, STRANDED, FREE), all at `--text-2xs`
-  with `0.04em` tracking. The owner allowed the eyebrow on 29 Sep 2026,
-  from a sketch that drew one, and the bay's word on 4 Oct 2026, from a
-  preview he picked. Lexicon proper nouns keep their capitals
-  inside sentence case.
+- **Sentence case everywhere, with no exceptions.** No title case, and no ALL CAPS: not on a table header, an eyebrow, a pane tab, a place name or a state word, and never by `text-transform`.
+  A small label keeps its size, weight and colour, and loses only the case and the tracking.
+  The owner ruled this on 9 Nov 2026 ("Stop using caps", then "Everywhere"), over the three places he had allowed on 29 Sep and 4 Oct 2026.
+  Lexicon proper nouns keep their capitals inside sentence case, and text that is capitals in itself, such as an id, an environment variable or a key cap, stays as written.
 - **One column, one case — and the case is the one that can hold for
   every line in it.** Where two producers write lines into the same
   column, the lines read alike or a reader sees a seam where there is no

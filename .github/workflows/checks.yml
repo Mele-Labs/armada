@@ -946,10 +946,14 @@ jobs:
           fi
           echo "VERSION $version $(git rev-parse HEAD)"
 
+      # The native Bridge is outside the root workspace, with a `target` of its own, so it is named here to be cached.
       - uses: ./.github/actions/rust-setup
         if: steps.version.outputs.exists != 'true'
         with:
           key: release
+          workspaces: |
+            . -> target
+            crates/bridge-native -> target
 
       - uses: ./.github/actions/node-setup
         if: steps.version.outputs.exists != 'true'
@@ -960,9 +964,15 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         run: cargo build -p armada --profile shipped --locked
 
+      # The native Bridge. `runtime_shaders` compiles the Metal shaders when it starts, so the runner
+      # needs no Metal compiler. Its own lockfile, hence `--locked` on its own manifest.
+      - name: Build the native Bridge
+        if: steps.version.outputs.exists != 'true'
+        run: cargo build --release --locked --manifest-path crates/bridge-native/Cargo.toml
+
       # The version lands in the bundle's package.json, which is what
       # `app.getVersion()` and `CFBundleShortVersionString` read.
-      - name: Build Armada.app
+      - name: Build Armada Classic.app
         if: steps.version.outputs.exists != 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -972,25 +982,45 @@ jobs:
           pnpm exec electron-vite build
           pnpm exec electron-builder --mac --arm64 --publish never -c.extraMetadata.version="$VERSION"
 
-      # Fleet rides inside the app, so one download is the whole of Armada.
-      # Writing into the bundle breaks electron-builder's ad hoc seal, so the
-      # bundle is signed again, ad hoc, once it is complete. `ditto` keeps the
-      # bundle's symlinks and attributes, which `zip` does not.
-      - name: Bundle Fleet and package
+      # Two apps in one zip. `Armada.app` is the native Bridge, made by `scripts/native-app` as a
+      # restart makes it, with Fleet inside so one download is the whole of Armada. `Armada Classic.app`
+      # is Electron's, which carries no Fleet. The Claude Code mod goes in `Armada.app` too, beside Fleet,
+      # where `bundle_beside` in `crates/adapters/src/agent_mod.rs` looks: a Job on a Mac with only the
+      # apps would otherwise come up with no skills, subagents or hooks.
+      # Writing into a bundle breaks its ad hoc seal, so each is signed again, ad hoc, once complete.
+      # `ditto` keeps the bundle's symlinks and attributes, which `zip` does not.
+      - name: Bundle both apps and package
         if: steps.version.outputs.exists != 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          app=apps/desktop/release/mac-arm64/Armada.app
-          mkdir -p "$app/Contents/Resources/bin"
+          stage="$RUNNER_TEMP/apps"
+          rm -rf "$stage"
+          mkdir -p "$stage"
+          app=$(scripts/native-app crates/bridge-native/target/release/bridge-native "$stage")
+          mkdir -p "$app/Contents/Resources/bin" "$app/Contents/Resources/mod"
           cp target/shipped/armada "$app/Contents/Resources/bin/armada"
           printf '%s %s\n' "$VERSION" "$SHA" > "$app/Contents/Resources/version"
-          codesign --force --deep --sign - "$app"
-          codesign --verify --deep --strict "$app"
+          rsync -a --exclude node_modules --exclude '*.test.ts' plugins/ "$app/Contents/Resources/mod/"
+          test -f "$app/Contents/Resources/mod/armada/.claude-plugin/plugin.json"
+          ditto "apps/desktop/release/mac-arm64/Armada Classic.app" "$stage/Armada Classic.app"
+          for each in "$app" "$stage/Armada Classic.app"; do
+            codesign --force --deep --sign - "$each"
+            codesign --verify --deep --strict "$each"
+          done
           "$app/Contents/Resources/bin/armada" help >/dev/null
           mkdir -p dist-release
-          ditto -c -k --sequesterRsrc --keepParent "$app" dist-release/Armada-macos-arm64.zip
+          ditto -c -k --sequesterRsrc "$stage" dist-release/Armada-macos-arm64.zip
+          # What install.sh unpacks: both apps, still sealed, and Fleet where it looks.
+          check="$RUNNER_TEMP/unpacked"
+          rm -rf "$check"
+          mkdir -p "$check"
+          ditto -x -k dist-release/Armada-macos-arm64.zip "$check"
+          ls "$check"
+          codesign --verify --deep --strict "$check/Armada.app"
+          codesign --verify --deep --strict "$check/Armada Classic.app"
+          "$check/Armada.app/Contents/Resources/bin/armada" help >/dev/null
           cp scripts/install.sh dist-release/install.sh
           ls -l dist-release
 

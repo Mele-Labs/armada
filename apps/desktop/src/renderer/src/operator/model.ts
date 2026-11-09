@@ -194,7 +194,19 @@ export type OperatorMessage = {
   at?: string;
   /** A Job this started, which the message opens. */
   opens?: OperatorJob;
+  /** A Job the Operator offered to read the code, by its brief: Dispatch starts it in one of `in`, a repository id. */
+  offer?: {
+    brief: string;
+    in: readonly string[];
+    left?: boolean;
+  };
 };
+
+/** An offered Job's title: its brief's first sentence, cut to fit a row. */
+export function offerTitle(brief: string): string {
+  const first = (brief.trim().split(/(?<=[.?!])\s/)[0] ?? "").replace(/[.]$/, "");
+  return first.length <= 72 ? first : `${first.slice(0, 71).trimEnd()}…`;
+}
 
 /** What the Operator would do about an item once the two of them have talked: the press that names it, what the row then says, and its line until then. */
 export type OperatorSend = {
@@ -260,6 +272,8 @@ export type OperatorTalk = {
   said: string;
   starts?: string;
   order?: StandingOrder;
+  /** The brief of a Job it offers, as Fleet's answer carries one where the code needs reading. */
+  offers?: string;
   /** The row of Working through these words put next, and what its row then says. */
   puts?: {
     turn: string;

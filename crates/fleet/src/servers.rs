@@ -252,6 +252,8 @@ where
     /// run**, which is the only record there is of a server in a slot: a
     /// server's `StartedBy` says a person or a Drone, never a session.
     pub(crate) async fn stopped_servers_in(&self, path: &str) {
+        // A native walk runs from the slot too, and goes before it is given back.
+        self.native_walks().stopped_in(path);
         stopped_in(self.servers().clone(), path).await;
     }
 

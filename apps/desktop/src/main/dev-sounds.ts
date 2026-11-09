@@ -1,7 +1,7 @@
 // The two tones, where a development Bridge's notifications can find them.
 //
 // A notification names its sound, and macOS looks the name up in the running
-// app's bundle and then in `~/Library/Sounds`. A packaged Armada.app carries
+// app's bundle and then in `~/Library/Sounds`. A packaged Armada Classic.app carries
 // both files in its Resources; `electron-vite preview` runs Electron's own
 // bundle, which carries neither, so a dev Bridge copies them here instead.
 // Measured 17 Sep 2026: `NSSound.soundNamed` resolved a name only once its

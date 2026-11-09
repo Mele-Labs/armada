@@ -191,7 +191,7 @@ export function ThemePicker({ label, value, groups, onValue }: ThemePickerProps)
         >
           {shown.map((group) => (
             <div key={group.label} role="group" aria-label={group.label}>
-              <div className="armada-themepick__group caps" aria-hidden>
+              <div className="armada-themepick__group" aria-hidden>
                 {group.label}
               </div>
               {group.choices.map((choice) => {

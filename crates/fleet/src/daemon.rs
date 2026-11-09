@@ -160,6 +160,9 @@ pub struct Fleet<H, V, W> {
     /// of each that ended. Never written down, for `rehearsals`' reason —
     /// `crate::servers`.
     servers: crate::servers::Servers,
+    /// The native apps a Job's walks run, stopped with the walk, the Job, the slot and Fleet. Never
+    /// written down — `crate::native_walks`.
+    native_walks: crate::native_walks::NativeWalks,
     peers: Arc<dyn PeerOf>,
     /// What sends a request and the secrets it is filled with — `crate::requesting`.
     requests: crate::requesting::Requesting,

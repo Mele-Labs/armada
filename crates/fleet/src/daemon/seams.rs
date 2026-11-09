@@ -427,6 +427,9 @@ where
     pub(crate) fn servers(&self) -> &crate::servers::Servers {
         &self.servers
     }
+    pub(crate) fn native_walks(&self) -> &crate::native_walks::NativeWalks {
+        &self.native_walks
+    }
     pub(crate) fn worktrees_memory(&self) -> &crate::worktrees_kept::Kept {
         &self.kept
     }

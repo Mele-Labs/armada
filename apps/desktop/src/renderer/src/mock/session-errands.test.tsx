@@ -103,7 +103,7 @@ test.skip("a run act with a shell command is a Copy key, the command is on the c
   expect(key(/Copy/).element().textContent).not.toContain("lsof");
   expect(
     getComputedStyle(key(/Copy/).element().querySelector(".armada-keycap__verb")!).textTransform,
-  ).toBe("uppercase");
+  ).toBe("none");
   // No key clips what it says, top or bottom.
   for (const one of document.querySelectorAll<HTMLElement>(
     ".armada-console--right .armada-keycap > button",

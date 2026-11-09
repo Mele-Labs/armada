@@ -32,7 +32,7 @@ export function Card({ className, flat, ...rest }: CardSurfaceProps) {
 }
 
 /**
- * The legend strip, the header every panel in the app takes: 24px, the title in tracked caps at the left, then an
+ * The legend strip, the header every panel in the app takes: 24px, the title in sentence case at the left, then an
  * optional `CardReadout` and the panel's 24px ghost icon buttons at the right, and one hairline under it. The Cockpit's
  * `deck-band`, the Logbook's band and the Job's band draw the same strip from the same rule (`depth.css`), so a panel
  * is told by its header and nothing else. State goes on a lamp or a registry glyph, never on a filled header.
@@ -41,7 +41,7 @@ export function CardHeader({ className, ...rest }: CardProps) {
   return <div className={joined("armada-card-header", className)} {...rest} />;
 }
 
-/** The strip's label. The look sets it in caps, so it is written as a name. */
+/** The strip's label. Written as a name, in sentence case. */
 export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElement>) {
   return <h3 className={joined("armada-card-title", className)} {...rest} />;
 }

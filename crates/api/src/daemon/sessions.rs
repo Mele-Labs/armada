@@ -405,6 +405,13 @@ pub trait Sessions: Send + Sync + 'static {
         closed: ipc::WindowClosed,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `open_native_walk` — the person pressed Open on a native walk: start the job's own build of the
+    /// native app. [`Refusal::Unacceptable`] where there is no open walk on that address or no build.
+    fn open_native_walk(
+        &self,
+        open: ipc::OpenNativeWalk,
+    ) -> impl Future<Output = Result<ipc::NativeWalkOpened, Refusal>> + Send;
+
     /// `take_window_sign_in` — Bridge, opening a session's window, takes the sign-in addresses held for it.
     /// Once: the next take finds none. Answers empty where none are held.
     fn take_window_sign_in(

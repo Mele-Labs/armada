@@ -79,7 +79,7 @@ The discarded prototype drifted from the design contract in five ways. **Recorde
 | --- | --- | --- |
 | Primary CTAs scaled up (larger type, taller, heavier padding) to signal importance | `--accent` fill at the standard 32px control height, `--text-sm` weight 500, one per view | Button spec + 4px grid. Emphasis is fill, not size |
 | Primary buttons carried leading icons (magnifier on Scan, download on Import) | Label only | Iconography → Actions: text buttons carry no icon |
-| Badges read `IN GUILD` / `DRIFTED` / `NOT IN GUILD` | Sentence case | ALL CAPS is legal only in `--text-2xs` table headers at 0.04em |
+| Badges read `IN GUILD` / `DRIFTED` / `NOT IN GUILD` | Sentence case | ALL CAPS is never legal: sentence case everywhere, since 9 Nov 2026 |
 | Field labelled "Where is your project?" | A noun label, e.g. "Project location" | No Wh- sentence openers; they survive only as panel headings |
 | Surfaces styled on the Nocturne palette (blurple accent, outlined primary, 7px radii) | Armada tokens: `--bg-*` slate ground, `--accent` #4A9EDB filled primary, `--radius-md` 5px | Hard rule 1. No value that is not a token |
 

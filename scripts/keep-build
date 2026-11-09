@@ -11,7 +11,7 @@
 # a tree's `target/` and `out/` are rebuilt in place by the next restart, and a
 # worktree under `.armada/` is deleted when its branch lands.
 #
-#   keep-build make <src> <armada binary> <main|preview> <protocol id>
+#   keep-build make <src> <armada binary> <main|preview> <protocol id> [<native binary>]
 #       Builds `builds/<UTC stamp>-<short commit>/` and prints its absolute path.
 #       Touches no link. A folder is made under a temporary name and renamed into
 #       place, so a half copy is never a build.
@@ -26,7 +26,7 @@
 # named by the lockfile's first 16 hex of sha256 and is reused as it is, never
 # rebuilt. Both clones are needed: pnpm's `apps/desktop/node_modules` is
 # relative links into the root `node_modules/.pnpm`, and the root one also
-# holds the Armada-named Electron copy `scripts/armada-electron` makes.
+# holds the Armada Classic Electron copy `scripts/armada-electron` makes.
 # Clones are APFS clones (`cp -c`), near free; where they cannot be made (CI is
 # Ubuntu) the same call copies.
 #
@@ -43,6 +43,11 @@
 # sha256 over every file under `bridge/out` (or only `main/` and `preload/`),
 # sorted by path relative to `out/`, each fed as the path, a NUL, then the
 # sha256 of its contents. Two builds with the same key have the same Bridge.
+#
+# **The native Bridge is kept as `Armada.app`**, when a binary is given, made by `scripts/native-app`,
+# which the release makes its app with too: the cargo binary renamed to `Contents/MacOS/Armada`, an
+# `Info.plist`, the brand icon, and an ad hoc signature. `native` in `build.toml` is the first 16 hex
+# of one sha256 over the binary and the icon, so a restart can tell a changed app from an unchanged one. A build kept without one has no `native` line.
 #
 # **Everything is derived from `$HOME`**, as in `scripts/restart`, so a test
 # against a scratch home never reaches the owner's builds.
@@ -76,8 +81,8 @@ cleanup() {
 }
 
 make() {
-  [[ $# -eq 4 ]] || fail "usage: keep-build make <src> <armada binary> <main|preview> <protocol id>"
-  local src="$1" armada_bin="$2" source="$3" protocol_id="$4"
+  [[ $# -eq 4 || $# -eq 5 ]] || fail "usage: keep-build make <src> <armada binary> <main|preview> <protocol id> [<native binary>]"
+  local src="$1" armada_bin="$2" source="$3" protocol_id="$4" native_bin="${5:-}"
   [[ "$source" == main || "$source" == preview ]] || fail "source is main or preview, not $source"
   [[ -f "$armada_bin" ]] || fail "$armada_bin is not a file"
   [[ -f "$src/apps/desktop/package.json" && -d "$src/apps/desktop/out" ]] \
@@ -85,6 +90,11 @@ make() {
   [[ -f "$src/pnpm-lock.yaml" ]] || fail "$src has no pnpm-lock.yaml"
   [[ -d "$src/node_modules" && -d "$src/apps/desktop/node_modules" ]] || fail "$src has no node_modules — run pnpm install"
   [[ -f "$src/scripts/bridge-launch" ]] || fail "$src/scripts/bridge-launch is missing"
+  local icon="$src/packages/brand/macos/AppIcon.icns"
+  if [[ -n "$native_bin" ]]; then
+    [[ -f "$native_bin" ]] || fail "$native_bin is not a file"
+    [[ -f "$icon" ]] || fail "$icon is missing"
+  fi
 
   local commit lock now stamp built_at name final modules
   commit=$(git -C "$src" rev-parse HEAD) || fail "$src has no commit"
@@ -101,7 +111,7 @@ make() {
   # half way leaves nothing a later one would reuse as whole.
   modules="$support/node_modules/$lock"
   if [[ ! -d "$modules" ]]; then
-    # Before the clone, so the Armada-named Electron copy is in it. A tree
+    # Before the clone, so the Armada Classic Electron copy is in it. A tree
     # without Electron.app has none, and the build falls back to Electron's own.
     "$here/armada-electron" "$src" >/dev/null 2>&1 || true
     making_modules="$support/node_modules/.making-$lock.$$"
@@ -113,9 +123,15 @@ make() {
     making_modules=""
   fi
 
-  local electron="$modules/node_modules/.cache/armada-bridge/Armada.app/Contents/MacOS/Armada"
+  local electron="$modules/node_modules/.cache/armada-bridge/Armada Classic.app/Contents/MacOS/Armada Classic"
+  if [[ ! -f "$electron" ]] && "$here/armada-electron" "$src" >/dev/null 2>&1; then
+    # A node_modules kept before the rename holds the old copy, and is named by the lockfile, so it is not made again.
+    rm -rf "$modules/node_modules/.cache/armada-bridge"
+    mkdir -p "$modules/node_modules/.cache"
+    clone "$src/node_modules/.cache/armada-bridge" "$modules/node_modules/.cache/armada-bridge"
+  fi
   if [[ ! -f "$electron" ]]; then
-    echo "keep-build: no Armada-named Electron copy in $modules, so Bridge will say Electron" >&2
+    echo "keep-build: no Armada Classic Electron copy in $modules, so Bridge will say Electron" >&2
     # The clone's own link resolved, so the path never names the tree built from.
     electron="$(cd "$modules/apps/desktop/node_modules/electron/dist/Electron.app/Contents/MacOS" 2>/dev/null && pwd -P)/Electron" \
       || fail "no Electron.app under $modules/apps/desktop/node_modules/electron/dist"
@@ -153,11 +169,14 @@ make() {
   cp "$src/scripts/bridge-launch" "$making/bridge-launch"
   printf '#!/bin/sh\nexec "%s" "%s/bridge"\n' "$electron" "$final" >"$making/launch-bridge"
   chmod 755 "$making/launch-bridge"
+  if [[ -n "$native_bin" ]]; then
+    "$here/native-app" "$native_bin" "$making" "$icon" >/dev/null
+  fi
 
-  python3 - "$making" "$built_at" "$commit" "$source" "$protocol_id" "$lock" "$src" "$support" <<'PY'
+  python3 - "$making" "$built_at" "$commit" "$source" "$protocol_id" "$lock" "$src" "$support" "$native_bin" "${icon:-}" <<'PY'
 import hashlib, json, os, sys
 
-making, built_at, commit, source, protocol_id, lock, src, support = sys.argv[1:9]
+making, built_at, commit, source, protocol_id, lock, src, support, native_bin, icon = sys.argv[1:11]
 out = os.path.join(making, "bridge", "out")
 
 
@@ -206,6 +225,13 @@ electron = first_line(os.path.join(src, "apps", "desktop", "node_modules", "elec
 if electron:
     rows.append(("electron", electron))
 rows += [("node_modules", lock), ("bridge", digest()), ("bridge_shell", digest({"main", "preload"}))]
+if native_bin:
+    # The unsigned binary, so a signature never makes an unchanged app look changed.
+    h = hashlib.sha256()
+    for path in (native_bin, icon):
+        with open(path, "rb") as f:
+            h.update(hashlib.sha256(f.read()).digest())
+    rows.append(("native", h.hexdigest()[:16]))
 
 
 def reloads():

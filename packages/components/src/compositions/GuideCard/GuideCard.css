@@ -78,8 +78,6 @@
 .armada-guide-card__number {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
   color: var(--fg-subtle);
 }
 

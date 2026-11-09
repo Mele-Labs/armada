@@ -39,7 +39,8 @@ Each Electron feature that lands during the overlap gets a task in the matching 
 **Code mods, such as tabs and instruments, are sandboxed WebAssembly written in Rust.**
 Themes do not wait for the kit.
 Every theme in the app today works from the foundation: the catalogue in `packages/tokens/themes`, the built-in light and dark, and theme mods such as Dusk.
-Light and dark follow macOS.
+Armada's own light and dark follow macOS, whichever of the two is picked.
+A catalogue theme or a mod stays as picked.
 Job track, the owner's tab mod, waits for the kit.
 
 ### 4. Walks and annotations
@@ -53,7 +54,10 @@ A native screen is walked in its own native window on mock data, with a walk bar
 
 **Chrome (CEF) is embedded for all web content: documents, sketch mocks, walks of web pages and the Browser tool.**
 One Armada Chrome profile keeps sign-ins, and the owner's own Chrome is never touched.
-If Chrome cannot be drawn inside the gpui window, it sits in a borderless window glued over its pane.
+Chrome draws inside the gpui window: it renders windowless, and gpui shows each frame in a `surface`.
+Bridge carries a small patch to gpui so `surface` takes Chrome's frames as they are, in exact colour and with alpha.
+A page has no view of its own, so its accessibility tree is mapped into gpui's for VoiceOver.
+What was measured is in [the Chrome spike](../spikes/native-bridge-chrome.md).
 
 ### 6. Order
 
@@ -77,7 +81,9 @@ Each step is its own Job, and at most two run at once.
 
 **The owner picks the switch day once the native app does everything he uses daily.**
 Both his Macs switch together, the work Mac included.
-Electron is renamed Armada Classic, given a muted icon and kept installed for two weeks.
+Electron is Armada Classic, with a grey icon, from the foundation on, so the Dock tells the two apps apart.
+`armada://` links stay with Armada Classic until switch day, and move to the native app on that day.
+Armada Classic stays installed for two weeks after it.
 Then the Electron app is deleted from the repo, and the packages Pocket uses stay.
 
 ## How the build looks and behaves
@@ -85,7 +91,7 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 | Area | Rule |
 |---|---|
 | Look | Today's Electron layout and features, on the same tokens. Only the spacing and font tweaks he names change |
-| Each screen | Built to match its Electron screen, then walked natively beside it before it lands |
+| Each screen | Built to match its Electron screen, then walked natively, on its own, before it lands |
 | Window | One window, as today. One Job shows at a time |
 | Speed | A long thread opens, and a Job switch lands, in under 50 ms |
 | Jobs list | Grouped by project, Needs you first in each group |
@@ -142,5 +148,3 @@ Everything he uses daily:
 
 - **[native-operator-form]** Is the native Operator a panel or a screen?
   The choice is made from mock takes, which the owner walks before the gpui build starts.
-- **[native-chrome-in-window]** Can Chrome be drawn inside the gpui window?
-  If it cannot, it sits in a borderless window glued over its pane.

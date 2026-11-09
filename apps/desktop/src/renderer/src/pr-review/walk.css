@@ -98,8 +98,6 @@
   color: var(--tool-hue);
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 .pr-walk__target {
   min-width: 0;

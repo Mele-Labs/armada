@@ -267,8 +267,6 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     font-weight: var(--weight-heading);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
     color: var(--cb-cyan);
   }
   & .console-hud[data-hud="autopilot"] .console-hud__tick {
@@ -314,8 +312,6 @@
     font-size: var(--text-2xs);
     font-weight: var(--weight-heading);
     line-height: var(--leading-xs);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
     color: var(--cb-cyan);
   }
 
@@ -360,8 +356,6 @@
     font-family: var(--font-mono);
     font-size: var(--text-2xs);
     line-height: var(--leading-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
     color: var(--cb-amber);
   }
   & .ap-hud__who[data-on] {
@@ -382,8 +376,6 @@
   & .ap-hud .armada-input-field__label {
     font-family: var(--font-mono);
     font-size: var(--text-2xs);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
   }
   & .ap-hud__limits {
     display: grid;

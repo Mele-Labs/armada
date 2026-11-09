@@ -514,6 +514,22 @@ pub struct WindowClosed {
     pub url: String,
 }
 
+/// `open_native_walk`: the person pressed Open on a native walk (`armada://walk/<name>`) a job
+/// showed. Bridge sends it; Fleet starts the job's own build of the native app, in walk mode.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OpenNativeWalk {
+    pub session_id: SessionId,
+    /// The address the walk was shown on, as `show_window` named it.
+    pub url: String,
+}
+
+/// What `open_native_walk` answers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeWalkOpened {
+    /// `true` where this call started the app, `false` where it was already running.
+    pub started: bool,
+}
+
 /// `window_failed`: the window a session showed could not show its page. Bridge tells it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WindowFailed {

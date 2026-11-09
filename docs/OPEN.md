@@ -54,7 +54,6 @@ on purpose and makes the gate name what was waiting.
 ## docs/concepts/native-bridge.md
 
 - **[native-operator-form]** Is the native Operator a panel or a screen? The choice is made from mock takes, which the owner walks before the gpui build starts.
-- **[native-chrome-in-window]** Can Chrome be drawn inside the gpui window? If it cannot, it sits in a borderless window glued over its pane.
 
 ## docs/concepts/retro.md
 
@@ -156,10 +155,6 @@ on purpose and makes the gate name what was waiting.
 - **[list-virtualization]** The virtualization approach for lists, logs and diffs. No library chosen.
 - **[shadcn-and-tokens]** How shadcn primitives take their values from the token set. Tailwind 4 is installed and `packages/tokens` is the only spellable scale, but no primitive has been added yet, so nothing has proved the two compose.
 - **[eslint-for-one-rule]** Is `@typescript-eslint/no-floating-promises` worth a linter this repository otherwise has no use for? Every project sets `strict: true` and the four unused-code checks and `noUncheckedIndexedAccess` besides, so the compiler now says everything it can say here. It cannot say this one: a dropped promise is well-typed, and **`void promise()` is the discipline that stands in for the check** — seventy call sites outside tests and stories, most of them the one-line commands in `apps/desktop/src/renderer/src/commands.ts`. Nothing enforces it, so the seventy-first is a silently unhandled rejection. What decides it is not the rule, which is a good rule. It is that adopting it means adopting ESLint, and a generic config would restate `strict` and then argue with a house style `cargo xtask verify-foundations` already enforces — design tokens over literals, story titles matching paths, generated vocabulary agreeing with the registries. So the shape has to be a config that turns nearly everything off, which is a toolchain to keep working for one rule. `[clippy-as-a-check]` in `rust.md` is the same trade on the other side of the repository and neither is settled; whatever answers one is likely to answer both. The narrower alternative is a `verify-foundations` rule that reads for a promise-returning call with no `void`, `await` or `.catch` — cheaper to own, and it would not know a type, so it would have to work by spelling rather than by resolution.
-
-## docs/practices/native-bridge.md
-
-- **[native-cold-build-weight]** Is a cold native build heavy enough to limit native build Jobs to one at a time? The foundation measures it. Until then the one-build-at-a-time rule above holds.
 
 ## docs/practices/protocol.md
 
