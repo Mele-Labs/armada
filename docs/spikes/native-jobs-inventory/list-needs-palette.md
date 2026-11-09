@@ -283,7 +283,23 @@ Density follows `spacing.density` (see the table at the top); the strip's min-he
 The `h` key on a row opens its earlier Job, and it is bound today (`Deck.tsx:669`).
 It is in the spec even though it is not in `actions.toml`; its source comment says it waits on the look.
 
-QUESTION: `deck.css:244-246` gives `.deck-list__rows` a `margin-top` of 32px to clear the hover chip, and `console-bridge.css:986-989` sets `margin: 0` on the same element; by selector weight the second wins, so the chip lies over the first plate or row when it shows. A screenshot of the real Bridge would confirm; the native build needs to know whether to reserve that lane.
+Measured on the mock Fleet at 1440x900 (walk `cockpit-list-by-repository`, Bridge served at `http://localhost:40024/`): the hover chip does overlap the first plate or row, and `.deck-list__rows` has `margin-top: 0px`, so the `deck.css:244-246` lane of 32px is not in effect.
+
+| Box | x | y | width | height | right | bottom |
+|---|---|---|---|---|---|---|
+| `section.deck-list` | 12 | 56 | 288 | 832 | 300 | 888 |
+| `.deck-list__rows` | 13 | 58 | 286 | 829 | 299 | 887 |
+| `.deck-band` chip (hovered, opacity 1) | 263 | 62 | 32 | 24 | 295 | 86 |
+| its Filter button inside the chip | 267 | 62 | 24 | 24 | 291 | 86 |
+| first `.deck-list__head` plate (`armada`) | 21 | 66 | 270 | 24 | 291 | 90 |
+| first `.deck-row` under that plate | 21 | 94 | 36 high, 270 wide | | 291 | 130 |
+
+The chip and the first plate overlap by 28px across and 20px down (x 263-291, y 66-86), so the chip lies over the plate's right end and its Filter button covers it.
+The plate's text sits at the left, so no text is covered; the chip is at `z-index: 2` and the plate is under it.
+With no plate (one repository), the first row has the same top and right edges as the plate here (y 66, right 291), so the chip would lie over the first row's right end and its state marks.
+Opacity is 0 until the panel is hovered or focused inside, then 1.
+Screenshot: `.playwright-mcp/jobs-list-chip-hover.png`.
+Today no lane is reserved for the chip.
 
 ## 2. Needs you
 
