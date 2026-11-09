@@ -2,6 +2,8 @@
 
 Spec for the native build. Records what IS. Line numbers are against `native/jobs-screens` at the time of writing (slot-10). Paths are repo-relative.
 
+**One tweak the owner named for every native screen (9 Nov): more room than Electron.** Padding and gaps are larger, controls are taller, and rows and controls have rounded corners where Electron's are square. The values are the space, control-height and radius tokens Foundation's merged Jobs list uses, never literals, so the Job view matches the list. Layout, controls, states and keys still follow this inventory.
+
 **Which build is described.** The shipped Job view is a Job drawn **in panes**: `SessionView` (`apps/desktop/src/renderer/src/sessions.tsx:1703`) renders `SessionWorkspace` (`session-view/SessionWorkspace.tsx:88`) which, when `paned` (`:132`: `hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined`), draws `JobPanes` with the Thread as one tab; `SessionFrame` is then `headless` (`sessions.tsx:2905-2975`, prop `headless={onTab}`) and the Job's head is the **Thread tab** in the pane's tab strip (`job-panes/job-head.ts:1-3`: "the Job's view publishes them and draws no head of its own; the tab is the head"). The thread is the spacious take, always on (`apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `sessions.tsx:1722`). Where the non-paned path exists (Job without `work`, or `hosts.zones` set) the `SessionFrame` head row is drawn instead; it is recorded at 1.8.
 
 ## 0. Composition of the open Job (shipped, paned)

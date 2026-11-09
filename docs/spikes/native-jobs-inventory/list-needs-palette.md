@@ -12,6 +12,11 @@ Default is `packages/tokens/src/spacing.css`; Compact and Roomy are `packages/to
 Every pixel value below is Default's, resolved from the token named beside it.
 The native app implements all three sets; this table is the whole difference, and type sizes, hairlines, radii and the title row do not move.
 
+**One tweak the owner named for every native screen (9 Nov): more room than Electron.**
+Padding and gaps are larger, controls are taller, and rows and controls have rounded corners where Electron's are square.
+The values are the space, control-height and radius tokens Foundation's merged Jobs list uses, never literals, so every native screen matches.
+Layout, controls, states and keys still follow this inventory.
+
 | Token | Compact | Default | Roomy |
 |---|---|---|---|
 | `--space-1` | 3px | 4px | 5px |
