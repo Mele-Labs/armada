@@ -25,6 +25,7 @@ import {
   spentUntil,
   apiErrorIn,
   customTitleIn,
+  planGroupIn,
   titleOf,
   todoTasks,
   saidOf,
@@ -58,6 +59,13 @@ test('a title is the first line of a prompt, cut, and never a command', () => {
   expect(titleOf('/compact')).toBeUndefined()
   expect(titleOf('   \n  ')).toBeUndefined()
   expect(titleOf('x'.repeat(200))?.length).toBe(80)
+})
+
+test('a plan group is read off its line in a brief, as written, and nothing where none is named', () => {
+  expect(planGroupIn('Plan group: g2\nBuild the store.')).toBe('g2')
+  expect(planGroupIn('Build the store.\n\n**Plan group:** `Fleet keeps it`')).toBe('Fleet keeps it')
+  expect(planGroupIn('plan group:   ')).toBeUndefined()
+  expect(planGroupIn('Work on the plan group of the Job.')).toBeUndefined()
 })
 
 test('what a turn said is the close of its answer, from a line start, and nothing for a turn that said nothing', () => {
