@@ -455,6 +455,39 @@ fn a_finding_must_sit_on_a_file_the_change_touches_and_on_a_real_range() {
     assert!(read("findings", &unknown_severity, &dir, None).is_err());
 }
 
+fn tour_of(stops: &[(&str, &str)]) -> String {
+    let stops: Vec<String> = stops
+        .iter()
+        .map(|(title, path)| format!(r#"{{"title":"{title}","at":{{"path":"{path}","side":"right","start":2,"end":7}}}}"#))
+        .collect();
+    format!(r#"{{"stops":[{}]}}"#, stops.join(","))
+}
+
+#[test]
+fn a_tour_answer_is_kept_as_its_stops_in_the_order_given() {
+    let dir = checkout_with(&[]);
+    let answer = format!("```json\n{}\n```", tour_of(&[("The route takes it", "b/c.rs"), ("The store keeps it", "a.rs")]));
+    let Ok(ReviewResult::Tour { stops }) = read("tour", &answer, &dir, None) else { panic!("a tour") };
+    let walked: Vec<(&str, &str)> = stops.iter().map(|stop| (stop.title.as_str(), stop.at.path.as_str())).collect();
+    assert_eq!(walked, [("The route takes it", "b/c.rs"), ("The store keeps it", "a.rs")]);
+    assert_eq!((stops[0].at.start, stops[0].at.end), (2, 7));
+}
+
+#[test]
+fn a_tour_is_refused_off_the_change_untitled_empty_or_too_long() {
+    let dir = checkout_with(&[]);
+    let outside = read("tour", &tour_of(&[("Entry", "elsewhere.rs")]), &dir, None).unwrap_err();
+    assert!(outside.contains("stop 1") && outside.contains("does not change"), "{outside}");
+    let untitled = read("tour", &tour_of(&[("Entry", "a.rs"), (" ", "a.rs")]), &dir, None).unwrap_err();
+    assert!(untitled.contains("stop 2"), "{untitled}");
+    assert!(read("tour", r#"{"stops":[]}"#, &dir, None).unwrap_err().contains("no stops"));
+    let eleven = tour_of(&[("Stop", "a.rs"); 11]);
+    assert!(read("tour", &eleven, &dir, None).unwrap_err().contains("at most 10"));
+    assert!(read("tour", &tour_of(&[("Entry", "a.rs")]).replace("\"at\"", "\"where\""), &dir, None).is_err());
+    let backwards = tour_of(&[("Entry", "a.rs")]).replace("\"start\":2", "\"start\":9");
+    assert!(read("tour", &backwards, &dir, None).is_err());
+}
+
 #[test]
 fn how_it_works_needs_themes_whose_changes_name_a_changed_place() {
     let dir = checkout_with(&[]);

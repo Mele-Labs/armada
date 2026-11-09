@@ -144,6 +144,12 @@ export type ReviewFinding = {
   at: ReviewPlace;
 };
 
+/** One stop of a tour: a piece of the change and one line on what it does. */
+export type ReviewTourStop = {
+  title: string;
+  at: ReviewPlace;
+};
+
 /** What a run came to, in the shape its kind has. Validated by Fleet before it is kept. */
 export type ReviewResult =
   | {
@@ -172,6 +178,11 @@ export type ReviewResult =
   | {
       shape: "findings";
       findings: ReviewFinding[];
+    }
+  /** The tool `tour`: the change in the order a reader follows it, entry point first. */
+  | {
+      shape: "tour";
+      stops: ReviewTourStop[];
     }
   /** Natural Search: the open pull requests that matched, each with why. */
   | {

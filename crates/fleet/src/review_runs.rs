@@ -33,7 +33,7 @@ use adapter_traits::{
 use api::Refusal;
 use ipc::{
     ManifestId, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace, ReviewResult, ReviewRun,
-    ReviewRunKind, ReviewRunState, ReviewRuns, ReviewStep, ReviewStepSource, ReviewTheme, StartReviewRun, WalkPlace,
+    ReviewRunKind, ReviewRunState, ReviewRuns, ReviewStep, ReviewStepSource, ReviewTheme, ReviewTourStop, StartReviewRun, WalkPlace,
 };
 use serde::Deserialize;
 use store::KeptReviewRun;
@@ -57,6 +57,9 @@ const DIFF_AT_MOST: usize = 200_000;
 pub(crate) const QUESTION_AT_MOST: usize = 2_000;
 /// The most findings one tool may produce. More than this is noise, not a review.
 const FINDINGS_AT_MOST: usize = 50;
+/// The most stops a tour may have. A longer one is the diff again, not a way through it. Fewer
+/// than the three the contract asks for is kept: a change with one piece has one stop.
+const STOPS_AT_MOST: usize = 10;
 /// How long a run waits between asks for a bay while every slot is held, and how many asks it
 /// makes before it gives up: ten minutes.
 const BAY_PAUSE: Duration = Duration::from_secs(1);
@@ -84,14 +87,17 @@ enum Shape {
     Text,
     /// The tool `walk`: a web walk or an API walk, written against a place.
     Walk,
+    /// The tool `tour`: the change in the order a reader follows it.
+    Tour,
 }
 
 /// **By the definition's id**: the four explanations Armada carries answer the shape their id
 /// has, wherever the winning definition was read from, and an explanation anybody adds answers
-/// text. A tool always answers findings, and a question text.
+/// text. A tool answers findings, except `walk` and `tour`, and a question text.
 fn shape_of(kind: ReviewRunKind, id: &str) -> Shape {
     match (kind, id) {
         (ReviewRunKind::Tool, "walk") => Shape::Walk,
+        (ReviewRunKind::Tool, "tour") => Shape::Tour,
         (ReviewRunKind::Tool, _) => Shape::Findings,
         (ReviewRunKind::Ask | ReviewRunKind::Search, _) => Shape::Text,
         (ReviewRunKind::Explanation, "how-it-works") => Shape::Themes,
@@ -601,6 +607,11 @@ fn contract(shape: Shape) -> String {
             .to_string(),
         Shape::Text => "{\"body\": \"Markdown\"}".to_string(),
         Shape::Walk => crate::review_walk_runs::walk_contract(),
+        Shape::Tour => format!(
+            "{{\"stops\": [{{\"title\": \"one line on what this piece does\", \"at\": <place>}}]}}. 3 to 10 stops, in \
+             the order a reader should follow the change, entry point first. Skip lockfiles, generated files and \
+             pure renames; {PLACE}."
+        ),
     };
     format!(
         "Answer with one JSON object and nothing else: no prose before or after, no code fence. Its shape: {fields}"
@@ -636,6 +647,10 @@ struct TextOut {
 #[derive(Deserialize)]
 struct FindingsOut {
     findings: Vec<ReviewFinding>,
+}
+#[derive(Deserialize)]
+struct TourOut {
+    stops: Vec<ReviewTourStop>,
 }
 
 /// The one JSON object in an answer: from the first `{` to the last `}`, which sees through a
@@ -783,6 +798,21 @@ fn read_answer(
             nothing("the answer", &out.body)?;
             Ok(ReviewResult::Text { body: out.body })
         }
+        Shape::Tour => {
+            let out: TourOut = said(json)?;
+            if out.stops.is_empty() {
+                return Err("it has no stops".to_string());
+            }
+            if out.stops.len() > STOPS_AT_MOST {
+                return Err(format!("it has {} stops, and at most {STOPS_AT_MOST} are kept", out.stops.len()));
+            }
+            for (at, stop) in out.stops.iter().enumerate() {
+                let what = format!("stop {}", at + 1);
+                nothing(&format!("the title of {what}"), &stop.title)?;
+                place_holds(&stop.at, changed, &what)?;
+            }
+            Ok(ReviewResult::Tour { stops: out.stops })
+        }
         Shape::Walk => {
             let place = place.ok_or_else(|| "a walk is written against a place, and none was given".to_string())?;
             crate::review_walk_runs::walk_read(json, place)
@@ -807,6 +837,7 @@ pub(crate) fn answer_read(
         "steps" => Shape::Steps,
         "reason" => Shape::Reason,
         "walk" => Shape::Walk,
+        "tour" => Shape::Tour,
         _ => Shape::Text,
     };
     read_answer(shape, answer, changed, checkout, description, place)

@@ -103,6 +103,19 @@ fn a_walk_result_carries_the_place_it_was_written_against() {
 }
 
 #[test]
+fn a_tour_is_tagged_tour_and_its_stops_read_back_in_order() {
+    use crate::ReviewTourStop;
+    let stop = |title: &str, path: &str| ReviewTourStop {
+        title: title.into(),
+        at: ReviewPlace { path: path.into(), side: DiffSide::Right, start: 3, end: 9 },
+    };
+    let result = ReviewResult::Tour { stops: vec![stop("The route takes the request", "routes.rs"), stop("The store keeps it", "store.rs")] };
+    let text = encode(&result).expect("encodes");
+    assert!(text.starts_with(r#"{"shape":"tour","stops":[{"title":"The route takes the request","at":{"path":"routes.rs""#), "{text}");
+    assert_eq!(decode::<ReviewResult>("a result", text.as_bytes()).expect("decodes"), result);
+}
+
+#[test]
 fn the_walk_event_nests_the_walk() {
     use crate::{ReviewWalk, ReviewWalkState};
     let walk = ReviewWalk {
