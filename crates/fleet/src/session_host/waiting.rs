@@ -859,6 +859,7 @@ where
             // Something is owed again, so nothing is left to work on.
             if !items.is_empty() {
                 store.clear_done(&id).map_err(|why| self.ledger_fault(why))?;
+                store.clear_session_gate_hold(&id).map_err(|why| self.ledger_fault(why))?;
             }
             self.ledger_row(&store, &session)?
         };
@@ -889,7 +890,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         let id = self.waiting_session(caller, done.session_id.as_ref())?;
         let now = self.clock().now().as_str().to_string();
-        {
+        let held = {
             let mut store = self.store().lock().await;
             let session = store
                 .session(&id)
@@ -898,7 +899,23 @@ where
             if session.state == store::SessionState::Ended {
                 return Err(self.closed(&id));
             }
-            self.done_holds(&mut store, &id)?;
+            // A gate of the plan still open holds the call instead of taking it: Fleet finishes the Job
+            // when the last one closes. The follow-ups still refuse, as they do without a gate.
+            let gated = crate::gate_holding::gate_open(&store, &id);
+            self.done_holds(&mut store, &id, gated)?;
+            if gated {
+                let summary = done.summary.as_deref().map(str::trim).filter(|said| !said.is_empty());
+                store.keep_session_gate_hold(&id, &now, summary).map_err(|why| self.ledger_fault(why))?;
+                Some(self.ledger_row(&store, &session)?)
+            } else {
+                // Nothing holds it any more, so a call held earlier is taken now.
+                store.clear_session_gate_hold(&id).map_err(|why| self.ledger_fault(why))?;
+                None
+            }
+        };
+        if let Some(record) = held {
+            self.publish(ipc::Event::SessionChanged(record.clone()));
+            return Ok(record);
         }
         // A job in a terminal holds no hosting, so there is nothing to give back and the call says so
         // by failing; what stays is named by `finish_up`.
@@ -930,9 +947,10 @@ where
 
     /// Every reason `all_done` is refused, in one answer: open follow-ups, then what the Job holds in
     /// flight. One reason keeps its own code; with both the answer carries the in-flight code.
-    fn done_holds(&self, store: &mut store::Store, id: &str) -> Result<(), Refusal> {
+    /// **A gate holds the call, and covers what is in flight**: `gated` skips the in-flight reason.
+    fn done_holds(&self, store: &mut store::Store, id: &str, gated: bool) -> Result<(), Refusal> {
         let later = self.later_open_text(store, id)?;
-        let flying = self.lifecycles_hold_text(store, id);
+        let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
         let code = match (&later, &flying) {
             (None, None) => return Ok(()),
             (Some(_), None) => super::later::LATER_OPEN,
@@ -944,8 +962,11 @@ where
     }
 
     /// The agent's word that it was done no longer stands. Whether it had stood.
+    /// **A call held at a gate stops standing with it.**
     pub(crate) async fn done_cleared(&self, id: &str) -> bool {
-        self.store().lock().await.clear_done(id).unwrap_or(false)
+        let mut store = self.store().lock().await;
+        let held = store.clear_session_gate_hold(id).unwrap_or(false);
+        store.clear_done(id).unwrap_or(false) || held
     }
 
     /// A turn ended at `at`, on `said` where the agent said something to the person: its end is kept, so
@@ -1165,6 +1186,11 @@ where
                 _ => self.suggestion_chosen(&id, &item.id, said.choice).await,
             },
             WaitingSource::TaskDone => self.task_done_chosen(&id, &item.id, said.choice).await,
+            // The close tells the agent; words alone are a message to it, as for a done.
+            WaitingSource::Gate => match said.choice {
+                Some(choice) => self.gate_chosen(&id, &item.id, choice).await,
+                None => self.send_known(terminal.then_some(session), message(both.clone().unwrap_or_default())).await,
+            },
             // Fleet raised it, so Ignore tells the agent nothing; Fix it, or his words, are a message.
             WaitingSource::WatchNotOurs => {
                 let watch = item.act.as_ref().map(|act| act.target.clone()).unwrap_or_default();
@@ -1281,6 +1307,12 @@ where
         }
         if item.source == WaitingSource::HeldChild {
             return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY));
+        }
+        if item.source == WaitingSource::Gate {
+            return Err(self.hosted_refusal(
+                SESSION_WAITING_EMPTY,
+                "a gate is approved or its group skipped, not dismissed",
+            ));
         }
         if dismiss.misread && item.source != WaitingSource::Replied {
             return Err(self.hosted_refusal(

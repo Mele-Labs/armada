@@ -1573,6 +1573,13 @@
 .armada-session-thread__trailing {
   list-style: none;
 }
+/* Held in sight at the thread's foot while subagents run, the rows scrolling under it. */
+.armada-session-thread__subagents {
+  position: sticky;
+  bottom: var(--space-2);
+  z-index: 1;
+  list-style: none;
+}
 .armada-session-thread__tail {
   display: flex;
   flex-direction: column;

@@ -85,7 +85,11 @@ test("no scenario names a shape", () => {
 // A name two files both export would overwrite one with the other, which would drop a walk's row
 // without saying so. A file may export plain values beside its rows since 5f6e272ac2, and those are no rows.
 test("every row exported from scenarios/ has a name of its own, and reaches the list", () => {
-  const exported = Object.values(ROW_FILES).flatMap((one) => Object.keys(one));
+  const exported = Object.values(ROW_FILES).flatMap((one) =>
+    Object.entries(one)
+      .filter(([, value]) => isRow(value))
+      .map(([key]) => key),
+  );
   expect(new Set(exported).size).toBe(exported.length);
   const names = SCENARIOS.map((one) => one.name);
   for (const file of Object.values(ROW_FILES)) {

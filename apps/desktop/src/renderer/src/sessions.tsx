@@ -1289,8 +1289,14 @@ export function entriesOf(
                     },
                   ],
             ),
+            // What the Operator would do takes Do it or Skip, drawn with its glyph.
+            ...(one.source !== "operator_suggestion"
+              ? {}
+              : {
+                  operator: "What the Operator would do",
+                }),
             // A page's ask takes Allow or Block: the page has no use for words.
-            ...(one.source === "browser_ask"
+            ...(one.source === "browser_ask" || one.source === "operator_suggestion"
               ? {}
               : {
                   onOther: (text: string) =>

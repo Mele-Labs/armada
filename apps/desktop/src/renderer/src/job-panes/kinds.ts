@@ -4,6 +4,7 @@ import {
   Activity,
   Bot,
   Clock,
+  ListOrdered,
   ScrollText,
   SlidersVertical,
   Circle,
@@ -187,8 +188,12 @@ export const KINDS: Readonly<
     Glyph: Microscope,
   },
   "op-talk": {
-    label: "Talk",
+    label: "Discussion",
     Glyph: Bot,
+  },
+  "op-queue": {
+    label: "Queue",
+    Glyph: ListOrdered,
   },
   "op-log": {
     label: "Log",

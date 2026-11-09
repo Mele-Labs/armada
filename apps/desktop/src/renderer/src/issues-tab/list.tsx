@@ -61,7 +61,8 @@ import {
   toneOfHolders,
   useHolders,
 } from "./marks";
-import { ASSIGNED, CLOSED, DESCRIBE, OPEN, savedChoice, savedName } from "./model";
+import { ASSIGNED, CLOSED, DESCRIBE, OPEN, REPORTED, savedChoice, savedName } from "./model";
+import { useOperator } from "../operator/store";
 import type { ReadTracker, ReportedBug, Ticket } from "./model";
 import { jobOfReport, reportsShown } from "./reports";
 import { issueFieldOf, issueViewEntries, useIssueView } from "./row-view";
@@ -197,11 +198,23 @@ export function IssuesList({
     holdingsKey,
   ]);
 
-  const shown = reportsShown(picked, repositories);
-  const only = picked === null ? undefined : bands[0];
+  // Where the window has an Operator, reports are one more kind in the query menu rather than a band over the rest.
+  const operator = useOperator();
+  const builtIns =
+    operator === null
+      ? BUILT_INS
+      : [
+          ...BUILT_INS,
+          {
+            id: REPORTED,
+            label: "Reported",
+          },
+        ];
+  const shown = reportsShown(picked, repositories) && (operator === null || choice === REPORTED);
+  const only = picked === null || choice === REPORTED ? undefined : bands[0];
   const here = boxed || describing?.phase === "written" ? DESCRIBE : choice;
   const entries: DropdownMenuEntry[] = [
-    ...BUILT_INS.map(
+    ...builtIns.map(
       (one): DropdownMenuEntry => ({
         kind: "item",
         id: one.id,
@@ -269,7 +282,7 @@ export function IssuesList({
   const triggerLabel =
     here === DESCRIBE
       ? "Describe a query"
-      : (BUILT_INS.find((one) => one.id === choice)?.label ?? savedName(choice) ?? "");
+      : (builtIns.find((one) => one.id === choice)?.label ?? savedName(choice) ?? "");
 
   return (
     <section
@@ -464,6 +477,7 @@ function Reported({
 }) {
   const store = useIssuesStore()!;
   const snap = useIssues();
+  const operator = useOperator();
   useEffect(
     () => store.readReports(),
     [
@@ -476,7 +490,7 @@ function Reported({
   if (reports.length === 0) return null;
   const band = (
     <li className="deck-list__band" aria-label="Reported bugs">
-      <h3 className="issues-list__repository">Reported bugs</h3>
+      {operator === null ? <h3 className="issues-list__repository">Reported bugs</h3> : null}
       <ul className="deck-list__group">
         {reports.map((report) => (
           <ReportRow

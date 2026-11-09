@@ -62,6 +62,7 @@ import {
   asksOf,
   choicesOf,
   draftsOf,
+  handedOf,
   linksOf,
   onMacOf,
   pressesOf,
@@ -70,6 +71,7 @@ import {
   runsOf,
   sessionOfThread,
   takesWords,
+  withEarlier,
   type JobLink,
   type OpenDraft,
 } from "./thread";
@@ -655,6 +657,16 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     machine.origin,
     id,
   ]);
+  // A Job handed on opens as the Job that took its place, whose thread carries its turns.
+  const later = handedOf(read.thread?.session, "replaced_by");
+  useEffect(() => {
+    if (later !== undefined) go(jobPath(machine.origin, later), true);
+  }, [
+    later,
+    machine.origin,
+  ]);
+  const earlierId = handedOf(read.thread?.session, "replaces");
+  const [earlier] = useJob(earlierId === undefined ? undefined : machine, earlierId ?? "");
   if (read.thread === undefined) {
     return (
       <section className="pk-screen" aria-label="Job">
@@ -1008,7 +1020,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
               <WithKeptStyles machine={machine}>
                 <SessionThread
                   sessionId={`${machine.origin} ${id}`}
-                  rows={rowsOf(session)}
+                  rows={withEarlier(rowsOf(session), earlier.thread)}
                   {...(approval === undefined
                     ? {}
                     : {

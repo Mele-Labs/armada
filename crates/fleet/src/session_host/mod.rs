@@ -48,6 +48,7 @@ mod handing;
 pub(crate) mod handoff_answers;
 pub(crate) mod replacing;
 pub(crate) mod linking;
+mod message_reach;
 mod hearing;
 mod reviving;
 mod tools_missing;
@@ -97,7 +98,6 @@ pub(crate) mod asks_model;
 pub(crate) mod dedup;
 pub(crate) mod extracting;
 pub(crate) mod tell_refusal;
-pub(crate) mod unanswered;
 pub(crate) mod page_replies;
 pub(crate) mod standing;
 pub(crate) mod workflow_pick;
@@ -170,6 +170,8 @@ pub struct Hosts {
     page_reads: page_replies::Reads,
     /// The quick bar's answers to each Job's last message, and the lines he sends often.
     pub(crate) quick: quick::Kept,
+    /// The Jobs' threads a client read, folded, so a change to one is told as `job_thread.tail`.
+    pub(crate) threads: Arc<crate::thread_keeping::Held>,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -207,6 +209,7 @@ impl Hosts {
             settling: Arc::default(),
             page_reads: page_replies::Reads::default(),
             quick: quick::Kept::default(),
+            threads: Arc::default(),
         }
     }
 
@@ -500,12 +503,6 @@ pub(crate) struct State {
     /// The last thing the agent said to the person in the turn running now, so the turn's end can say
     /// how it ended. Cleared when a turn starts. In memory.
     pub said: Option<String>,
-    /// The person wrote, and the agent has written him nothing since. A question asked now is sent
-    /// back once a message (`unanswered`). In memory.
-    pub owes_reply: bool,
-    /// The call id of the last question the stream showed, so the door reads a question only once
-    /// what the agent wrote before it has been heard. In memory.
-    pub question_heard: Option<String>,
     /// The calls of the stream that wrote a page of the Job's document, by call id, to be kept once the
     /// tool has answered and the file is on disk. In memory.
     pub pages: HashMap<String, String>,
@@ -599,8 +596,6 @@ impl State {
             reattached_busy: false,
             turn_began: None,
             said: None,
-            owes_reply: false,
-            question_heard: None,
             pages: HashMap::new(),
             on_your_words: false,
             activity: activity::Activity::default(),

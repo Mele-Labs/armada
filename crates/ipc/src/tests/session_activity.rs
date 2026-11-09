@@ -63,6 +63,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         skipped_steps: Vec::new(),
         workflow_waiting_on: Vec::new(),
         workflow_copy: None,
+        in_flight: Vec::new(),
     }
 }
 

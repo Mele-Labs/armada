@@ -25,6 +25,7 @@ pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], 
         gives: None,
         lands_in: None,
         own_job: false,
+        gate: Default::default(),
         tasks: tasks.iter().map(|(id, title)| PlanTaskInput { id: id.map(String::from), title: title.to_string() }).collect(),
     }
 }
@@ -579,6 +580,25 @@ async fn a_touch_from_a_job_working_in_a_subdirectory_is_named_from_the_worktree
     eventually(|| async { read(&rig, &id).await.touches.iter().any(|one| one.path.ends_with("last.ts")) }).await;
     let paths: Vec<String> = read(&rig, &id).await.touches.into_iter().map(|one| one.path).collect();
     assert_eq!(paths, ["apps/desktop/src/a.ts", "packages/b.ts", "apps/desktop/last.ts"]);
+}
+
+#[tokio::test]
+async fn an_edit_in_the_slot_a_job_is_being_moved_into_marks_its_group_worked() {
+    // Spike 47: the Job edited its slot by absolute path while its cwd still named the checkout it came
+    // from, and every edit was read as `.armada/slots/slot-1/...`, under no group's paths.
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    let harness = read(&rig, &id).await.harness;
+    let moved = SessionFact::Moved { cwd: rig.root.clone() };
+    rig.fleet.report_session(SessionReport { harness, session_id: id.clone(), fact: moved }).await.expect("moved");
+    recorded(&rig, plan(&id, vec![group(None, "Mock", "bridge-engineer", &["apps/desktop/src/mock"], &[(None, "Retarget the tests")])])).await;
+    let slot = adapter_traits::slot_path(&rig.root, 1);
+    rig.stand_in.says(0, vec![edit(&format!("{slot}/apps/desktop/src/mock/keys.test.tsx"))]);
+
+    eventually(|| async { !read(&rig, &id).await.touches.is_empty() }).await;
+    let record = read(&rig, &id).await;
+    assert_eq!(record.touches[0].path, "apps/desktop/src/mock/keys.test.tsx");
+    assert!(record.plan.expect("a plan").groups[0].worked_at.is_some(), "the group is worked");
 }
 
 #[tokio::test]

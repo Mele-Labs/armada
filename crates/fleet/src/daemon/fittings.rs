@@ -385,6 +385,7 @@ where
             writes: Arc::default(),
             feed: Arc::default(),
             base_moves: Default::default(),
+            gate_runs: Default::default(),
             territory: Arc::default(),
             review_going: Mutex::new(std::collections::BTreeSet::new()),
             logbook: crate::logbook::Distils::default(),

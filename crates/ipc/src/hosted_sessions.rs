@@ -663,6 +663,10 @@ pub enum SessionRow {
         at: Instant,
         session: crate::session_starts::SessionLink,
         event: LinkedEvent,
+        /// The Job `session` took the place of when it was handed on for context, where this row
+        /// says so. **Not drawn**: the row that started that Job stands for both, and opens this one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        replaces: Option<crate::SessionId>,
     },
     /// A Session waits on this one, its condition changed, or it started. Written in **this**
     /// session's thread (`side` `waited`, `session` the one that waits), and in the waiting
@@ -1033,6 +1037,21 @@ pub enum TerminalAsked {
     Refused { message: String },
     /// The terminal answered first, or the card lapsed: nothing more to wait on.
     Gone {},
+}
+
+/// `message_reach`'s body: the address a Job's `SendMessage` names, asked before it is sent.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessageTo {
+    pub to: String,
+}
+
+/// Whether the Job holding the connection may send to that address. `Refused` carries the
+/// sentence the agent reads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum MessageReach {
+    Allowed {},
+    Refused { message: String },
 }
 
 /// What a person sent a terminal session, oldest first, handed over once. The

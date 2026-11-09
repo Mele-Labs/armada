@@ -32,6 +32,7 @@ assuming it is restated here.
 | [machine.md](machine.md) | How this installation behaves: resources, timing, notification routing |
 | [manifest.md](manifest.md) | Per-project config, backed by `armada.yml` |
 | [mods.md](mods.md) | A folder on this machine that changes how Bridge looks, which Fleet reads and checks and which can never stop Fleet |
+| [native-bridge.md](native-bridge.md) | The core Bridge rebuilt natively in Rust on gpui beside the Electron Bridge: what was decided, what ships before the switch day and what waits |
 | [operator.md](operator.md) | The one decider per machine that rules each arrival, and the Job it starts on your words |
 | [pocket.md](pocket.md) | The owner's phone app and the Phone Gateway in front of Fleet: what it shows, what it pushes, what keeps it closed |
 | [project.md](project.md) | A list of tasks and linked issues one person keeps for one repository in Bridge's Projects tab, with a `task_done` question when a Job or a pull request finishes one |

@@ -154,10 +154,10 @@ nothing: check the id against the table.
 |---|---|---|---|---|
 | `dashboard.panels` | `list`, `field`, `merge-line`, `activity`, `bays`, `controls`, `dispatch`, `autopilot` | `list` | no | no |
 | `job.panels` | `done`, `now`, `next` | `now` | no | no |
-| `rail` | `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues`, `projects` | `overview`, `mods`, `settings` | no | no |
+| `rail` | `operator`, `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues`, `projects` | `overview`, `mods`, `settings` | no | no |
 
 `packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
-is the places: the Cockpit, the Jobs tab (`sessions`) and the System strip's pages.
+is the places: the Operator, the Cockpit, the Jobs tab (`sessions`) and the System strip's pages.
 The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight
 control. A right column the layout empties gives its room to the stage.

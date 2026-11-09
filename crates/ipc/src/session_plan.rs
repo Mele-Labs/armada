@@ -89,7 +89,67 @@ pub struct PlanGroupInput {
     /// group. Absent is false.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub own_job: bool,
+    /// The fact that ends the group, which Fleet sees for itself. Absent is `none`, and a word not
+    /// on the list is refused rather than dropped.
+    #[serde(default, skip_serializing_if = "PlanGate::is_none")]
+    pub gate: PlanGate,
     pub tasks: Vec<PlanTaskInput>,
+}
+
+/// What ends a plan group: a fact Fleet sees for itself, never the agent's word. Groups with no gate
+/// between them are one stretch. `docs/concepts/session.md`, *The plan*.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanGate {
+    /// The person approved the plan's newest version.
+    PlanApproved,
+    /// The person approved every walk the Job showed in the group.
+    WalkApproved,
+    /// The person approved a sketch the Job showed.
+    SketchApproved,
+    /// The person approved the newest revision of a page under the Job's documents.
+    DocumentApproved,
+    /// Checks Fleet ran itself are green at the commit the Job pushed.
+    ChecksGreen,
+    /// The Job's pull request merged.
+    Merged,
+    #[default]
+    None,
+}
+
+impl PlanGate {
+    /// Every gate, in the order the list is written to an agent.
+    pub const ALL: [PlanGate; 7] = [
+        PlanGate::PlanApproved,
+        PlanGate::WalkApproved,
+        PlanGate::SketchApproved,
+        PlanGate::DocumentApproved,
+        PlanGate::ChecksGreen,
+        PlanGate::Merged,
+        PlanGate::None,
+    ];
+
+    pub fn is_none(&self) -> bool {
+        *self == PlanGate::None
+    }
+
+    /// The word the wire and the store write.
+    pub fn word(self) -> &'static str {
+        match self {
+            PlanGate::PlanApproved => "plan_approved",
+            PlanGate::WalkApproved => "walk_approved",
+            PlanGate::SketchApproved => "sketch_approved",
+            PlanGate::DocumentApproved => "document_approved",
+            PlanGate::ChecksGreen => "checks_green",
+            PlanGate::Merged => "merged",
+            PlanGate::None => "none",
+        }
+    }
+
+    /// The gate a stored word names. A word no gate has reads as `none`.
+    pub fn from_word(word: &str) -> PlanGate {
+        PlanGate::ALL.into_iter().find(|gate| gate.word() == word).unwrap_or_default()
+    }
 }
 
 /// A sketch drawn with the plan, in the format `show_sketch` takes.
@@ -239,7 +299,18 @@ impl RecordPlan {
             if lands_in.as_deref().is_some_and(|one| one.chars().count() > MOST_LANDS_IN_CHARS) {
                 problems.push(format!("{place} `lands_in` is longer than {MOST_LANDS_IN_CHARS} characters"));
             }
-            groups.push(PlanGroupInput { id, title, agent, paths, issue, gives, lands_in, own_job: group.own_job, tasks });
+            groups.push(PlanGroupInput {
+                id,
+                title,
+                agent,
+                paths,
+                issue,
+                gives,
+                lands_in,
+                own_job: group.own_job,
+                gate: group.gate,
+                tasks,
+            });
         }
         if total > MOST_TASKS {
             problems.push(format!("{total} tasks, and a plan holds at most {MOST_TASKS}"));
@@ -353,6 +424,49 @@ pub struct SessionPlanGroup {
     /// The group goes to a Job of its own, as the agent wrote it. Absent is false.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub own_job: bool,
+    /// The fact that ends the group, as the agent named it. Absent is `none`.
+    #[serde(default, skip_serializing_if = "PlanGate::is_none")]
+    pub gate: PlanGate,
+    /// How the group's gate closed, as Fleet kept it when it saw the fact. Absent while it is open,
+    /// and for a group with no gate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_closed: Option<GateClose>,
+    /// The latest Check run Fleet made for the group's `checks_green` gate. Only on the first open group
+    /// of that gate, and absent once it closes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gate_checks: Option<GateChecks>,
+}
+
+/// Where the Checks Fleet runs for a `checks_green` gate stand while the gate is open.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateChecks {
+    /// The commit they ran at.
+    pub commit: String,
+    /// `running`, or `red` where a test failed here that passes at the base on main.
+    pub state: String,
+    /// The tests that failed here and passed at the base.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failed: Vec<String>,
+    /// The tests that failed here and at the base on main too, so they do not hold the gate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub already_red: Vec<String>,
+}
+
+/// A gate's close, written once when Fleet saw its fact and never worked out again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateClose {
+    pub at: Instant,
+    /// One line, as a person reads it: "Pull request #3360 merged".
+    pub fact: String,
+    /// The commit it closed at, where there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// Tests that failed at the commit and at the base on main too, so they did not hold the gate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub already_red: Vec<String>,
+    /// The person skipped the group rather than the fact arriving.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub skipped: bool,
 }
 
 /// Where a group lands. Every group that shares a label reads the same `pull_request`.
@@ -462,6 +576,19 @@ pub struct SessionPlan {
     /// The windows that keep a pending plan from being put to the person, each with what settles it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub held_by: Vec<PlanHold>,
+    /// The agent's `all_done` is held at a gate: Fleet finishes the Job when the last gate closes.
+    /// Absent when no call is held, and when no gate is open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held: Option<GateHeld>,
+}
+
+/// An `all_done` held at the first open gate of the plan.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GateHeld {
+    /// The id of the first group, in plan order, whose gate is open.
+    pub group: String,
+    /// When the agent first said it was done.
+    pub since: Instant,
 }
 
 /// A window that holds a pending plan back.

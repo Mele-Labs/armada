@@ -1,0 +1,8 @@
+[operations."job_thread.tail"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "What changed in a Job's thread a client has read: the items from the first that differs, and the head"
+notes = """
+Carries `JobThreadTail`. Published only for a Job a client has read with `get_job_thread`, on a row appended or replaced by id, a changed record or a timeline entry of the Job, after Fleet folds the thread again. **`items` replace what a client holds from the item `from` to the end.** `from` is the first item the client held that differs, so an item inserted in the middle names the item it displaced. A client that does not hold `from` holds only items after it, and replaces everything it holds with `items`; it reads `get_job_thread` with `before` the first item's id for older ones. `from` absent is `items` appended after the last item, and with `items` empty it is the head alone changing. **A change more than `THREAD_TAIL_MOST` (200) items back from the end is `job_thread.changed` and not a tail**, because an old ask answered, or a long-finished Check gaining a row, must not push a whole long thread to every client. An append is always a tail. A change that moves nothing publishes nothing. A Bridge that missed one reads `get_job_thread` again on the resync that follows a `Missed`.
+"""

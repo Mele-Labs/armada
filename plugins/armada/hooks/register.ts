@@ -75,7 +75,7 @@ import {
   waitedOf,
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
-import type { Asked, Door, Fact, Report, Task } from './fleet'
+import type { Asked, Door, Fact, Reach, Report, Task } from './fleet'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
 import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
@@ -470,6 +470,29 @@ async function postAsk($: Door, port: number, body: unknown, bound: number): Pro
     $.clock.sleep(bound).then(() => undefined),
   ])
   return sent?.ok === true ? (JSON.parse(sent.text) as Asked) : undefined
+}
+
+/** How long a `SendMessage` waits on Fleet's answer before it goes unasked. */
+const REACH_MS = 3000
+
+/**
+ * Whether Fleet lets this Job write to `to`. **Fleet places the Job by its connection** and decides;
+ * nothing here names the sender. A Fleet out of reach or slow answers nothing, and the message goes.
+ */
+async function messageReach($: Door, to: string): Promise<Reach | undefined> {
+  const port = await portOf($).catch(() => undefined)
+  if (port === undefined || to === '') return undefined
+  const sent = await Promise.race([
+    $.http
+      .fetch(`http://127.0.0.1:${port}/sessions/message_reach`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ to }),
+      })
+      .catch(() => undefined),
+    $.clock.sleep(REACH_MS).then(() => undefined),
+  ])
+  return sent?.ok === true ? (JSON.parse(sent.text) as Reach) : undefined
 }
 
 /**
@@ -1315,6 +1338,15 @@ export const register: Register = on => {
       void backgroundEnded($, target, 'killed').catch(() => undefined)
     }
     return ran
+  })
+
+  // A Job writes only to its own tree and to the Jobs the person names to it: Fleet decides, before
+  // the message goes. `message_reach` holds the rule.
+  on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
+    const to = (e as Record<string, unknown>).to
+    const reach = await messageReach($, typeof to === 'string' ? to : '')
+    if (reach?.outcome === 'refused') return { deny: reach.message }
+    return next(e)
   })
 
   // A question asked in the terminal is also put to Bridge, and the first answer wins; Fleet refusing it

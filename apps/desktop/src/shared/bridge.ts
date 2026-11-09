@@ -128,7 +128,8 @@ export type BridgeState = CoreState &
   OverviewState &
   CleanupState &
   ChecksState &
-  SessionsState;
+  SessionsState &
+  OperatorState;
 
 /**
  * What Bridge holds before anything has answered.
@@ -149,6 +150,7 @@ export const NOTHING_YET: BridgeState = {
   ...CLEANUP_NOTHING_YET,
   ...CHECKS_NOTHING_YET,
   ...SESSIONS_NOTHING_YET,
+  ...OPERATOR_NOTHING_YET,
 };
 
 // Below the block above rather than with the other imports, which would move it. #2092.
@@ -158,6 +160,8 @@ import { FILES_CHANNELS } from "./api/files";
 import { ATTACHMENTS_CHANNELS } from "./api/attachments";
 import { REQUESTS_CHANNELS } from "./api/requests";
 import { LOGBOOK_CHANNELS } from "./api/logbook";
+import { OPERATOR_CHANNELS, OPERATOR_NOTHING_YET } from "./api/operator";
+import type { OperatorState } from "./api/operator";
 import { TEACHING_CHANNELS } from "./api/teaching";
 import { JOB_BROWSER_CHANNELS } from "./api/job-browser";
 import { JOB_WALK_CHANNELS } from "./api/job-walk";
@@ -205,6 +209,7 @@ export const CHANNELS = {
   ...ONBOARDING_CHANNELS,
   ...REQUESTS_CHANNELS,
   ...LOGBOOK_CHANNELS,
+  ...OPERATOR_CHANNELS,
   ...TEACHING_CHANNELS,
   ...JOB_BROWSER_CHANNELS,
   ...JOB_WALK_CHANNELS,

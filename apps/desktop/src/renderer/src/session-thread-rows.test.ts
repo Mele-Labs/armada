@@ -409,6 +409,44 @@ describe("a show_sketch call in a Session's thread", () => {
   });
 });
 
+describe("a thread redrawn for another Job's update", () => {
+  const session = (): Session => ({
+    id: "s",
+    turn: {
+      state: "idle",
+    },
+    rows: [
+      call("t1", {
+        title: "Flow",
+        scene: scene("one"),
+      }),
+    ],
+    attachments: [
+      drawn("Flow"),
+    ],
+  });
+
+  it("draws the same rows while the Job's rows and ledger are the same", () => {
+    const one = session();
+    expect(
+      threadRowsOf({
+        ...one,
+      }),
+    ).toBe(threadRowsOf(one));
+  });
+
+  it("draws again when the Job's ledger changes", () => {
+    const one = session();
+    const before = threadRowsOf(one);
+    const after = threadRowsOf({
+      ...one,
+      attachments: [],
+    });
+    expect(after).not.toBe(before);
+    expect(cards(after)).toHaveLength(0);
+  });
+});
+
 describe("a show_file call as the transcript names it", () => {
   const shown = (path: string): SessionAttachment => ({
     kind: "artifact",

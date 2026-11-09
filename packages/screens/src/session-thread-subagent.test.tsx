@@ -46,8 +46,9 @@ const thread = (rows: SessionThreadRow[], onOpenSubagent?: (id: string) => void)
 );
 
 const ran = () => document.querySelector(".armada-session-subagent__ran")?.textContent;
+const cardRan = () => document.querySelector(".armada-subagents__ran")?.textContent;
 
-test("a running subagent is a button that names its task, shows its type, its latest call and how long it has run, and opens its thread", async () => {
+test("a running subagent is its handoff in the thread, a button that names its task and opens its thread", async () => {
   const open = vi.fn();
   mount(
     thread(
@@ -62,16 +63,17 @@ test("a running subagent is a button that names its task, shows its type, its la
     name: `Subagent ${TASK}, running`,
   });
   await expect.element(row).toBeVisible();
-  await expect.element(row.getByText("implementer")).toBeVisible();
-  await expect.element(row.getByText("Edit JobBrowserPane.tsx")).toBeVisible();
-  expect(ran()).toMatch(/^1m \d\ds$/);
+  await expect.element(row.getByText(`Started a subagent: ${TASK}`)).toBeVisible();
+  // Its type, latest call and time are the pinned card's, not the row's.
+  expect(row.getByText("implementer").query()).toBeNull();
+  expect(row.getByText("Edit JobBrowserPane.tsx").query()).toBeNull();
 
   await row.click();
   expect(open).toHaveBeenCalledOnce();
   expect(open).toHaveBeenCalledWith("agent:a1");
 });
 
-test("a running subagent's elapsed time moves on its own", async () => {
+test("a running subagent's elapsed time moves on its own in the pinned card", async () => {
   mount(
     thread(
       [
@@ -81,16 +83,18 @@ test("a running subagent's elapsed time moves on its own", async () => {
     ),
   );
 
-  await expect
-    .element(
-      page.getByRole("button", {
-        name: `Subagent ${TASK}, running`,
-      }),
-    )
-    .toBeVisible();
-  const first = ran();
+  await page
+    .getByRole("button", {
+      name: "1 subagent running",
+    })
+    .click();
+  const card = page.getByRole("region", {
+    name: "Subagents running",
+  });
+  await expect.element(card.getByText("Edit JobBrowserPane.tsx")).toBeVisible();
+  const first = cardRan();
   expect(first).toMatch(/^1m \d\ds$/);
-  await vi.waitFor(() => expect(ran()).not.toBe(first), {
+  await vi.waitFor(() => expect(cardRan()).not.toBe(first), {
     timeout: 3000,
   });
 });

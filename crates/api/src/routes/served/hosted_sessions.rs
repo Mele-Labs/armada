@@ -176,6 +176,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/one",
     },
     Route {
+        operation: "get_job_thread",
+        method: "GET",
+        path: "/sessions/thread",
+    },
+    Route {
         operation: "get_session_subagent",
         method: "GET",
         path: "/sessions/subagent",
@@ -194,6 +199,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "ask_from_terminal",
         method: "POST",
         path: "/sessions/ask/terminal",
+    },
+    Route {
+        operation: "message_reach",
+        method: "POST",
+        path: "/sessions/message_reach",
     },
     Route {
         operation: "take_held_messages",

@@ -1,6 +1,7 @@
 // A Session that ran for days is thousands of rows. The thread draws the newest items and
-// reveals older ones on a press, so typing beside it stays quick.
+// draws older ones as the person scrolls up to them, or on a press, so typing beside it stays quick.
 
+import { useState } from "react";
 import { afterEach, expect, test } from "vitest";
 import { page } from "vitest/browser";
 
@@ -24,30 +25,89 @@ const rows = (count: number): SessionThreadRow[] =>
     }),
   );
 
+// A window's height, as the Job's pane gives it: a thread with no height of its own would be all on screen.
 const thread = (sessionId: string, count: number) => (
-  <SessionThread
-    sessionId={sessionId}
-    rows={rows(count)}
-    onAnswer={() => {}}
-    onOpenSession={() => {}}
-  />
+  <div
+    style={{
+      height: 600,
+      display: "flex",
+      flexDirection: "column",
+    }}
+  >
+    <SessionThread
+      sessionId={sessionId}
+      rows={rows(count)}
+      onAnswer={() => {}}
+      onOpenSession={() => {}}
+    />
+  </div>
 );
 
-test("draws the newest 150 rows, and Show earlier adds 150 more", async () => {
+const drawn = () => document.querySelectorAll(".armada-thread-rows > li").length;
+const scroller = () => document.querySelector<HTMLElement>(".armada-session-thread__rows")!;
+
+test("opens on the newest 40 rows, with the older ones not drawn", async () => {
   mount(thread("a", 400));
 
   await expect.element(page.getByText("row 399 said")).toBeVisible();
-  expect(document.querySelectorAll(".armada-thread-rows > li").length).toBe(151);
-  expect(page.getByText("row 249 said").query()).toBeNull();
-  expect(page.getByText("row 250 said").query()).not.toBeNull();
+  expect(drawn()).toBe(41);
+  expect(page.getByText("row 359 said").query()).toBeNull();
+  expect(page.getByText("row 360 said").query()).not.toBeNull();
+});
 
-  await page
-    .getByRole("button", {
-      name: "Show earlier",
-    })
-    .click();
-  expect(document.querySelectorAll(".armada-thread-rows > li").length).toBe(301);
-  expect(page.getByText("row 100 said").query()).not.toBeNull();
+test("scrolling up to the top draws the next 40, and what he was reading stays where it was", async () => {
+  mount(thread("a", 400));
+  await expect.element(page.getByText("row 399 said")).toBeVisible();
+
+  const one = scroller();
+  one.scrollTop = 0;
+  const reading = page.getByText("row 360 said").element();
+  const top = reading.getBoundingClientRect().top;
+
+  await expect.poll(() => page.getByText("row 320 said").query()).not.toBeNull();
+  expect(Math.abs(reading.getBoundingClientRect().top - top)).toBeLessThan(2);
+});
+
+test("a row arriving while he reads higher up keeps every row he can see drawn", async () => {
+  let add: () => void = () => {};
+  function Growing() {
+    const [count, setCount] = useState(400);
+    add = () => setCount((now) => now + 1);
+    return thread("a", count);
+  }
+  mount(<Growing />);
+  await expect.element(page.getByText("row 399 said")).toBeVisible();
+
+  const one = scroller();
+  one.scrollTop = one.scrollHeight / 2;
+  one.dispatchEvent(new Event("scroll"));
+  await new Promise((settled) => setTimeout(settled, 300));
+  const firstDrawn = () =>
+    document.querySelector<HTMLElement>(
+      ".armada-thread-rows > li:not(.armada-session-thread__earlier)",
+    )!;
+  const said = firstDrawn().textContent;
+  const top = firstDrawn().getBoundingClientRect().top;
+
+  add();
+  await expect.element(page.getByText("row 400 said")).toBeInTheDocument();
+  expect(firstDrawn().textContent).toBe(said);
+  expect(Math.abs(firstDrawn().getBoundingClientRect().top - top)).toBeLessThan(2);
+});
+
+test("Show earlier draws the next 40 from the keyboard", async () => {
+  mount(thread("a", 400));
+  await expect.element(page.getByText("row 399 said")).toBeVisible();
+
+  // The element's own press: coming into view draws rows above it, so it never holds still for a pointer.
+  (
+    page
+      .getByRole("button", {
+        name: "Show earlier",
+      })
+      .element() as HTMLButtonElement
+  ).click();
+  await expect.poll(() => page.getByText("row 320 said").query()).not.toBeNull();
 });
 
 test("a thread that fits draws no Show earlier", async () => {

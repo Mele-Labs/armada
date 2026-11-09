@@ -227,6 +227,21 @@ const phone = (
   ...session,
 });
 
+/** A link a hand off or a start keeps on a ledger. */
+const handLink = (
+  kind: string,
+  target: string,
+  state: "spent" | "given_back",
+  at: string,
+): SessionRecord["attachments"][number] => ({
+  kind,
+  target,
+  state,
+  detail: {},
+  since: at,
+  changed_at: at,
+});
+
 const started = (
   id: string,
   at: string,
@@ -969,12 +984,59 @@ export function fixtureMacs(
         "you",
         "Plan the phone screens from the sketch and start a Job for each.",
       ),
-      message("p1-2", ago(now, 20), "agent", "Three screens. The Draft screen goes first."),
-      started("p1-3", ago(now, 18), {
-        id: "c1",
+      message("p1-2", ago(now, 52), "agent", "Three screens. The Draft screen goes first."),
+      started("p1-3", ago(now, 50), {
+        id: "c0",
         title: child.title!,
       }),
+      // c0 was handed on to c1 for context: one Job to the owner.
+      {
+        kind: "linked",
+        id: "p1-5",
+        at: ago(now, 18),
+        session: {
+          id: "c1",
+          title: child.title!,
+        },
+        event: "started",
+        replaces: "c0",
+      },
       tool("p1-4", ago(now, 2), "Read apps/pocket/src/Home.tsx"),
+    ],
+  };
+  p1.session.attachments = [
+    handLink("started_to", "c0", "given_back", ago(now, 50)),
+    handLink("started_to", "c1", "spent", ago(now, 18)),
+  ];
+
+  /** The Job c1 took the place of when it was handed on: ended, its turns read above c1's. */
+  const c0: SessionThread = {
+    session: record(now, "c0", child.title!, 50, {
+      state: "ended",
+      attachments: [
+        handLink("replaced_by", "c1", "spent", ago(now, 18)),
+      ],
+      started: {
+        by: {
+          id: "p1",
+          title: parent.title!,
+        },
+      },
+    }),
+    rows: [
+      message(
+        "c0-1",
+        ago(now, 50),
+        "you",
+        "Build the Draft screen: the brief in a box, Send and Discard.",
+      ),
+      tool("c0-2", ago(now, 40), "Read apps/pocket/src/Home.tsx"),
+      message(
+        "c0-3",
+        ago(now, 20),
+        "agent",
+        "The box and Send are in. Discard is next, on branch pocket/draft.",
+      ),
     ],
   };
 
@@ -999,14 +1061,23 @@ export function fixtureMacs(
           title: parent.title!,
         },
       },
+      attachments: [
+        handLink("replaces", "c0", "spent", ago(now, 18)),
+      ],
     }),
     rows: [
-      message(
-        "c1-1",
-        ago(now, 18),
-        "you",
-        "Build the Draft screen: the brief in a box, Send and Discard.",
-      ),
+      {
+        kind: "message",
+        id: "c1-1",
+        at: ago(now, 18),
+        from: {
+          kind: "session",
+          id: "fleet",
+          title: "Fleet",
+        },
+        text: "Carry on with the work of the job you took the place of. What it left you, with its brief if it wrote one, is in your instructions.",
+        notice: "context_handoff",
+      },
       tool("c1-2", ago(now, 1), "Edit apps/pocket/src/Draft.tsx"),
     ],
   };
@@ -1759,6 +1830,7 @@ ${Array.from(
         d1,
         f1,
         p1,
+        c0,
         c1,
         r1,
         l1,

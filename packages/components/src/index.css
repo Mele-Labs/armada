@@ -331,6 +331,7 @@
 @import "./compositions/SessionThread/MovedRow.css";
 @import "./compositions/SessionThread/WaiterRow.css";
 @import "./compositions/SessionThread/LinkedRow.css";
+@import "./compositions/SessionThread/OperatorRow.css";
 @import "./compositions/SessionThread/PlanRevision.css";
 @import "./compositions/SessionRepository/SessionRepository.css";
 @import "./compositions/RepositoryRuns/RepositoryRuns.css";
@@ -414,6 +415,7 @@
 @import "./compositions/HeldSlots/HeldSlots.css";
 @import "./compositions/SessionThread/thread-keys.css";
 @import "./compositions/SessionThread/SubagentRow.css";
+@import "./compositions/SessionThread/SubagentsCard.css";
 @import "./compositions/TaskChip/TaskChip.css";
 @import "./compositions/WorkspacesPage/WorkspacesPage.css";
 @import "./compositions/SessionComposer/QuickBar.css";

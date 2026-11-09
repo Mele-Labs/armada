@@ -74,12 +74,28 @@ const MOST: usize = 256;
 /// agent started**, and that relay holds the socket. A process outside the tree
 /// cannot join it: a parent is the kernel's record, not a process's claim.
 pub fn held_within(caller: &Caller, served_on: u16, roots: &[u32], peers: &dyn PeerOf) -> bool {
+    held_below(caller, served_on, roots, peers, DEEPEST)
+}
+
+/// How deep [`held_anywhere_within`] walks: an agent's shell, a package runner and the scripts it
+/// starts can sit past [`DEEPEST`], and a call refused for being a Job's is rare enough to afford it.
+const DEEPEST_FOR_A_REFUSAL: usize = 16;
+
+/// [`held_within`], walked as deep as [`DEEPEST_FOR_A_REFUSAL`]: for a route that is the
+/// person's alone, where a Job's call let through by depth is the failure. **A process the Job
+/// detached from its tree, as launchd's child, is not found**; the kernel no longer records it as
+/// the Job's.
+pub fn held_anywhere_within(caller: &Caller, served_on: u16, roots: &[u32], peers: &dyn PeerOf) -> bool {
+    held_below(caller, served_on, roots, peers, DEEPEST_FOR_A_REFUSAL)
+}
+
+fn held_below(caller: &Caller, served_on: u16, roots: &[u32], peers: &dyn PeerOf, deepest: usize) -> bool {
     let Some(from) = caller.port() else {
         return false;
     };
     let mut seen: Vec<u32> = Vec::new();
     let mut level = roots.to_vec();
-    for _ in 0..DEEPEST {
+    for _ in 0..deepest {
         let mut below = Vec::new();
         for pid in level {
             if pid == 0 || seen.contains(&pid) || seen.len() >= MOST {

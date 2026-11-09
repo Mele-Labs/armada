@@ -85,6 +85,20 @@ where
         .unwrap_or_else(|| cwd.to_string())
     }
 
+    /// The worktree a file the Job touched lies in: the slot an absolute `path` is under, else the one
+    /// `cwd` is in. **A Job still being moved into its slot edits there while its `cwd` names the checkout
+    /// it came from**, and rooted at that checkout every edit read `.armada/slots/slot-N/...`, under no
+    /// group's paths (spike 47).
+    pub(crate) fn worktree_of_touch(&self, cwd: &str, path: &str) -> String {
+        if path.starts_with('/') {
+            let held = self.worktree_of(path);
+            if held != path {
+                return held;
+            }
+        }
+        self.worktree_of(cwd)
+    }
+
     pub(crate) fn ledger_unnamed(&self, what: &str) -> Refusal {
         Refusal::Unacceptable(WireError::raised(
             SESSION_UNNAMED,
@@ -193,6 +207,7 @@ where
             Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
             None => Vec::new(),
         };
+        let flying = self.lifecycles_flying(store, &session.id);
         let stop = store.session_stop(&session.id).map_err(fault)?;
         let open_turn = store.open_turn(&session.id).map_err(fault)?;
         Ok(LedgerReads {
@@ -211,7 +226,8 @@ where
             pulls,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.live_watch_names(&session.id).map_err(fault)?,
-            holding: self.lifecycles_holding(store, &session.id),
+            holding: flying.iter().filter(|one| one.holds).cloned().collect(),
+            flying,
             repair_over: stop.repair_job.as_deref().is_some_and(|repair| {
                 let ended = store.session(repair).ok().flatten().is_none_or(|one| one.state == store::SessionState::Ended);
                 ended || store.done_since(repair).ok().flatten().is_some()
@@ -296,6 +312,7 @@ where
             record.done_summary = reads.waiting.done_summary.clone();
             record.so_far = reads.waiting.so_far.clone();
             record.held_until = reads.limited.as_deref().map(wire_instant);
+            record.in_flight = reads.flying.iter().map(crate::lifecycles::wire::in_flight).collect();
         }
         record.context_breakdown = reads
             .context
@@ -305,6 +322,12 @@ where
         let reply_owed_since = reads.waiting.reply_owed_since();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
+        // A call held at a gate only the person can close is his to settle.
+        if session.state == store::SessionState::Live {
+            let nothing_runs = record.running.is_empty();
+            let gate = reads.plan.as_ref().and_then(|plan| crate::gate_holding::item_of(plan, &reads.held, &session.id, nothing_runs));
+            record.waiting_for.extend(gate);
+        }
         // A question or a card it waits on: the Operator is handed it on the next tick.
         let asked = if session.state == store::SessionState::Live { record.waiting_for.as_slice() } else { &[] };
         self.operator_seat().asked_noted(&session.id, asked);
