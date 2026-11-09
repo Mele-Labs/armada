@@ -164,7 +164,8 @@ const groupState = (tasks: readonly RevisionTask[]): TaskMarkState =>
       ? "failed"
       : tasks.some((task) => task.state === "working")
         ? "working"
-        : tasks.length > 0 && tasks.every((task) => task.state === "done" || task.state === "handed_in")
+        : tasks.length > 0 &&
+            tasks.every((task) => task.state === "done" || task.state === "handed_in")
           ? "handed_in"
           : "open";
 

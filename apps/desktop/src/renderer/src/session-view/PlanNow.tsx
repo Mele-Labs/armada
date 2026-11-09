@@ -235,7 +235,9 @@ export function PlanChunks<G extends WorkGroup>({
                   className="sv-chunk__gate"
                   role="img"
                   aria-label={read.glyph}
-                  style={{ gridRow: stretch.groups.length }}
+                  style={{
+                    gridRow: stretch.groups.length,
+                  }}
                 >
                   <Gate size={12} strokeWidth={2} aria-hidden />
                 </span>

@@ -39,7 +39,12 @@ import { useModsMade } from "../mods-made";
 import { stateOf as jobStateOf, stoppedSaid } from "../session-state";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import { draftPanelOf } from "../shared-panel/rule";
-import { focusBesideThread, openDraftCard, openOwedDocument, openSubagent } from "../job-panes/focus";
+import {
+  focusBesideThread,
+  openDraftCard,
+  openOwedDocument,
+  openSubagent,
+} from "../job-panes/focus";
 import { inPanes } from "./layers";
 import { AgentTasks } from "./AgentTasks";
 import { detectedOf } from "./detected";
@@ -219,10 +224,17 @@ export function StoryColumn({
   const steps = byGates
     ? new Map(
         stretches.flatMap((one) =>
-          one.groups.map((group): [string, Step] => [
-            group.id,
-            one.state === "done" ? "done" : one.state === "now" ? "current" : "upcoming",
-          ]),
+          one.groups.map(
+            (
+              group,
+            ): [
+              string,
+              Step,
+            ] => [
+              group.id,
+              one.state === "done" ? "done" : one.state === "now" ? "current" : "upcoming",
+            ],
+          ),
         ),
       )
     : stepsOf(groups, approved, workingGroup, inHandOf(sessions, session));
@@ -328,7 +340,11 @@ export function StoryColumn({
         return {
           id: one.id,
           task: one.task,
-          ...(group === undefined ? {} : { group }),
+          ...(group === undefined
+            ? {}
+            : {
+                group,
+              }),
         };
       });
   // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
@@ -1185,7 +1201,14 @@ export function StoryColumn({
     return (
       <>
         {stretch.state === "done" ? (
-          underDone(stretch.groups.map((group): Done => ({ time: groupTime(group), group })))
+          underDone(
+            stretch.groups.map(
+              (group): Done => ({
+                time: groupTime(group),
+                group,
+              }),
+            ),
+          )
         ) : (
           <div className="sv-nav" onKeyDown={arrowsIn}>
             <FlightRows
@@ -1243,7 +1266,13 @@ export function StoryColumn({
     </SvPanel>
   );
   const gateZones = [
-    ...stretches.flatMap((stretch, i) => (stretch.state === "done" ? [doneZone(stretch, i)] : [])),
+    ...stretches.flatMap((stretch, i) =>
+      stretch.state === "done"
+        ? [
+            doneZone(stretch, i),
+          ]
+        : [],
+    ),
     planNow,
   ];
   // Open work in one place after the last step, so a folded step never hides it (`OpenGroup.tsx`). Hidden, the current step lists it instead. A pane of its own is always shown.

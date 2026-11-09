@@ -446,7 +446,15 @@ test("Done draws no gate line for a gate still open", async () => {
   mount(
     <>
       <p>Beside</p>
-      <GateClosed gate={stretchesOf([group("a", "Build", { gate: "merged" })])[0]!.gate} />
+      <GateClosed
+        gate={
+          stretchesOf([
+            group("a", "Build", {
+              gate: "merged",
+            }),
+          ])[0]!.gate
+        }
+      />
     </>,
   );
   await expect.element(page.getByText("Beside")).toBeVisible();

@@ -4,7 +4,12 @@
 // Over the Job of `job-walk-on-the-spine`.
 
 import type { GateClose } from "@armada/protocol";
-import type { Session, SessionAttachment, WorkDrone, WorkGroup } from "@armada/screens/src/draft/sessions";
+import type {
+  Session,
+  SessionAttachment,
+  WorkDrone,
+  WorkGroup,
+} from "@armada/screens/src/draft/sessions";
 
 import { BUSY, auditLedger } from "../audit-job";
 import type { Scenario } from "../moment";
@@ -255,9 +260,17 @@ const staged =
                 id: drone.id,
                 task: drone.task ?? drone.path,
                 state: "running",
-                ...(drone.agent === undefined ? {} : { agentType: drone.agent }),
+                ...(drone.agent === undefined
+                  ? {}
+                  : {
+                      agentType: drone.agent,
+                    }),
                 call: drone.id,
-                ...(GROUP_OF[drone.id] === undefined ? {} : { group: GROUP_OF[drone.id] }),
+                ...(GROUP_OF[drone.id] === undefined
+                  ? {}
+                  : {
+                      group: GROUP_OF[drone.id],
+                    }),
               }),
             ),
           ],
