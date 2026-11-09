@@ -59,7 +59,28 @@ describe("what the editor changes is all that moves", () => {
   });
 
   it("unticking the Judge drops its checks and moves the gate off the Judge", () => {
-    const def = opened(feature);
+    // The carried workflows run no Judge since they became gated plan groups, so this one is inline.
+    const judged = JSON.stringify({
+      version: 1,
+      workflow_id: "judged",
+      name: "judged",
+      steps: [
+        {
+          id: "fix",
+          label: "Fix",
+          judge_checks: [
+            {
+              enabled: true,
+              model: "haiku",
+              criteria: [{ criterion_id: "addresses_the_cause", question: "Does this diff address the cause?" }],
+            },
+          ],
+          delivers: false,
+          advance_gate: "auto_if_judge_passes",
+        },
+      ],
+    });
+    const def = opened(judged);
     const at = def.steps.findIndex(
       (one) => one.gate.judge && !one.gate.you && !one.gate.repository,
     );
