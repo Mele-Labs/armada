@@ -1,10 +1,11 @@
 // The Review tab: one changed file at a time, with each finding pinned in a margin beside the lines it is about. **The finding in
 // focus is tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims, and
-// its tie goes grey. **Previous and Next step through the files that need him**, those with findings or threads; Go to file reaches
-// the rest, which say they are not counted. Opening it runs the tools that have not run on this commit, asking first, and its head
-// runs any tool or explanation again. A tool's findings land here with no tool tab open; an explanation opens its tab when done. A
-// press in the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or adds to it.
-// The bar at the foot holds his pending review and Submit.
+// its tie goes grey. The forge's threads hang under their lines, a resolved one folded, and one on the whole file sits over the diff.
+// **Previous and Next step through the files that need him**, those with findings or open threads; Go to file reaches the rest,
+// which say they are not counted. Opening it runs the tools that have not run on this commit, asking first, and its head runs any
+// tool or explanation again. A tool's findings land here with no tool tab open; an explanation opens its tab when done. A press in
+// the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or adds to it. The bar
+// at the foot holds his pending review and Submit.
 
 import {
   useEffect,
@@ -31,6 +32,7 @@ import type { useSendFindings } from "./acts";
 import { placeOfDraft } from "./changes";
 import { CodeRefs } from "./code-refs";
 import { YourReview } from "./comments";
+import { ThreadHere } from "./comments-pane";
 import {
   linesOfFinding,
   orderOf,
@@ -182,6 +184,8 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const drafts = work.drafts.filter(
     (one) => one.path === path && one.line !== undefined && one.thread === undefined,
   );
+  const threads = work.threads.filter((one) => one.path === path);
+  const onFile = threads.filter((one) => one.line === undefined);
 
   // ---- The margin: each card at its line, pushed down past the one above it ----
   const grid = useRef<HTMLDivElement>(null);
@@ -314,11 +318,22 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
       });
       return at === index;
     });
+    const talk = threads.filter(
+      (one) =>
+        one.line !== undefined &&
+        indexOfPlace(lines, {
+          line: one.line,
+          side: one.side,
+        }) === index,
+    );
     const writing = pick !== undefined && pick.to === index;
-    if (placed.length === 0 && !writing) return null;
+    if (placed.length === 0 && talk.length === 0 && !writing) return null;
     const pending = work.drafts.length;
     return (
       <div className="pr-under">
+        {talk.map((one) => (
+          <ThreadHere key={one.id} pr={pr} thread={one} />
+        ))}
         {placed.map((one) => (
           <DraftCard key={one.id} draft={one} onRemove={() => store.removeDraft(pr.key, one.id)} />
         ))}
@@ -398,7 +413,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         ? "The tools are running."
         : finders.some(unread)
           ? "Not every tool has run on this commit."
-          : "No file has findings or comments.";
+          : "No file has findings or open threads.";
 
   // Opening Review runs the tools that have not run on this commit, asking first. Asked once a commit, so a reopen never asks again.
   const ready = work.runsRead && finders.length > 0;
@@ -436,7 +451,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             Previous
           </Button>
           {at < 0 && path !== undefined ? (
-            <Tooltip label="No findings or comments on this file, so Previous and Next pass it">
+            <Tooltip label="No findings or open threads on this file, so Previous and Next pass it">
               <span className="pr-review-tab-view__of">Not counted</span>
             </Tooltip>
           ) : (
@@ -516,15 +531,25 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
                 {patch?.said ?? "No lines changed in this file."}
               </p>
             ) : (
-              <UnifiedDiff
-                bare
-                files={[
-                  file,
-                ]}
-                markOf={markOf}
-                under={under}
-                onLine={onLine}
-              />
+              <>
+                {/* A thread on the whole file has no line, so it sits over the diff. */}
+                {onFile.length === 0 ? null : (
+                  <div className="pr-under">
+                    {onFile.map((one) => (
+                      <ThreadHere key={one.id} pr={pr} thread={one} />
+                    ))}
+                  </div>
+                )}
+                <UnifiedDiff
+                  bare
+                  files={[
+                    file,
+                  ]}
+                  markOf={markOf}
+                  under={under}
+                  onLine={onLine}
+                />
+              </>
             )}
           </div>
           <aside

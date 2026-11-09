@@ -143,7 +143,7 @@ export function linesOfFinding(lines: readonly DiffLine[], finding: Finding): nu
 }
 
 /**
- * The files Review steps through, the ones that need him: those with findings first, then those with threads on them, each in the
+ * The files Review steps through, the ones that need him: those with findings first, then those with open threads, each in the
  * order the pull request lists them. The rest are reached from Go to file and Files. The findings go file by file, top to bottom.
  */
 export function orderOf(
@@ -156,7 +156,7 @@ export function orderOf(
   const findings = work.findings.filter((one) => !one.dismissed);
   const listed = pr.page.files.map((one) => one.path);
   const found = new Set(findings.map((one) => one.at.path));
-  const talked = new Set(work.threads.map((one) => one.path));
+  const talked = new Set(work.threads.filter((one) => !one.resolved).map((one) => one.path));
   const files = [
     ...listed.filter((one) => found.has(one)),
     ...listed.filter((one) => !found.has(one) && talked.has(one)),
