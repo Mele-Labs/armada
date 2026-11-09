@@ -68,7 +68,7 @@ const MOST_PROBLEMS_SAID: usize = 12;
 /// [`ShowSketch::checked`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct RawScene(Value);
+pub struct RawScene(pub(crate) Value);
 
 /// `show_sketch`: a session draws the person a diagram, which lands on its ledger.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -230,6 +230,20 @@ pub fn page_scene_problems(text: &str) -> Vec<String> {
     }
     problems.truncate(MOST_PROBLEMS_SAID);
     problems
+}
+
+/// Whether a scene read back off the ledger draws: the rules `show_sketch` checks by, with the `kept`
+/// hash Fleet wrote into a `mock` node allowed.
+pub(crate) fn draws(scene: &Value) -> bool {
+    let mut loose = scene.clone();
+    if let Some(Value::Array(nodes)) = loose.get_mut("nodes") {
+        for node in nodes.iter_mut().filter_map(Value::as_object_mut) {
+            node.remove(KEPT_FIELD);
+        }
+    }
+    let mut problems = Vec::new();
+    scene_problems(&loose, &mut problems);
+    problems.is_empty()
 }
 
 fn refusal(problems: &[String]) -> String {
