@@ -19,6 +19,7 @@ import type { JudgeReading } from "./judge";
 import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
 import type { InFlight } from "./lifecycles";
+import type { JobMark } from "./job-mark";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -267,6 +268,8 @@ export type SessionRecord = {
    * one that holds nothing and for one that has ended. Since 9 Nov 2026.
    */
   in_flight?: InFlight[];
+  /** The state the Job's row in a Jobs list draws: mark, lamp and group, without words. Absent where Fleet did not read one. Since 9 Nov 2026. */
+  mark?: JobMark;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
