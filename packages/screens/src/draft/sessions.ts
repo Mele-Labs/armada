@@ -459,7 +459,8 @@ export type WorkDrone = {
   agent?: string;
   task?: string;
   path: string;
-  doing: "read" | "write" | "run" /** The file it is over, which the Field draws as a bar. */;
+  doing: "read" | "write" | "run" /** Mock only, until the plan group a subagent's brief names lands on its attachment: that group's id. */;
+  group?: string /** The file it is over, which the Field draws as a bar. */;
   file?: string /** When Fleet saw it touch that file. */;
   at?: string;
 };
@@ -511,8 +512,6 @@ export type SessionWork = {
   /** The agent's own task list (its TaskCreate and TaskUpdate), in the order made. The spine draws `activity.todos` and not this. */
   tasks?: readonly AgentTask[];
   field?: readonly WorkDrone[];
-  /** Mock only, for the walk's two takes: `list` draws the plan's stretches as a list at the story's head. Absent draws each gate on the spine under its stretch. */
-  progressTake?: "list";
   /** The files the Field draws as bars on its plots. */
   files?: readonly WorkFile[];
   /** The owner's setting turned workflows off: the picker, the steps and the proposer's mark for a workflow are not drawn. */

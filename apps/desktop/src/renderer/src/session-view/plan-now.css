@@ -1,0 +1,207 @@
+/* Now for a plan that ends on gates (`PlanNow.tsx`): one row a chunk, its gate as the second line, what is being done now under the live one. Tokens only; no gradient, glow or
+   sheen. */
+
+.sv-chunks {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+  font-family: var(--font-sans);
+}
+.sv-chunk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  align-items: start;
+}
+.sv-chunk__row {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-subtle);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+}
+button.sv-chunk__row {
+  cursor: pointer;
+}
+button.sv-chunk__row:hover {
+  background: var(--bg-hover);
+}
+.sv-chunk__row:focus-visible,
+.sv-chunk__tasks:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: calc(var(--border-width) * -1);
+}
+.sv-chunk__state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sv-chunk__name {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.sv-chunk__said {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv-chunk__end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block-start: var(--space-1);
+}
+.sv-chunk__gate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--fg-subtle);
+}
+/* Under a chunk: lined up with its name. */
+.sv-chunk__under,
+.sv-chunk > .sv-gate__red {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-inline-start: calc(var(--space-1) + var(--space-4) + var(--space-2));
+}
+.sv-chunk__under {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-1) var(--space-3);
+}
+.sv-chunk__doing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.sv-chunk__tasks {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin-inline-start: calc(var(--space-1) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.sv-chunk__tasks:hover {
+  background: var(--bg-hover);
+  color: var(--fg-default);
+}
+
+/* The live chunk leads; the rest step back. */
+.sv-chunk[data-state="now"] > .sv-chunk__row {
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.sv-chunk[data-state="now"] .sv-chunk__said {
+  color: var(--fg-muted);
+  font-weight: var(--weight-body);
+}
+.sv-chunk[data-state="now"] .sv-chunk__state {
+  color: var(--step-running);
+}
+.sv-chunk[data-state="done"] > .sv-chunk__row {
+  color: var(--fg-muted);
+}
+.sv-chunk[data-state="done"] .sv-chunk__state,
+.sv-chunk[data-gate="done"] .sv-chunk__gate {
+  color: var(--step-advanced);
+}
+.sv-chunk[data-gate="done"] .sv-chunk__gate {
+  border-color: color-mix(in srgb, var(--step-advanced) 50%, var(--border-default));
+}
+.sv-chunk[data-gate="waiting"] .sv-chunk__gate {
+  border-color: color-mix(in srgb, var(--step-waiting) 60%, var(--border-default));
+  color: var(--step-waiting);
+}
+.sv-chunk[data-gate="failed"] .sv-chunk__gate,
+.sv-chunk[data-gate="failed"] .sv-chunk__said {
+  border-color: color-mix(in srgb, var(--step-failed) 60%, var(--border-default));
+  color: var(--step-failed);
+}
+
+/* A subagent at work: the Subagents view's glyph, its task, the group it works on, its type. */
+.sv-chunk__drone {
+  display: inline-flex;
+  align-items: center;
+  height: 1lh;
+  color: var(--step-running);
+}
+.sv-chunk__on {
+  display: block;
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* ---- The tests a Checks gate names ---- */
+.sv-gate__red {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0 0 var(--space-1);
+  list-style: none;
+}
+.sv-gate__test {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+.sv-gate__test[data-failed] {
+  color: var(--step-failed);
+}
+.sv-gate__test:focus-visible {
+  outline: var(--focus-ring);
+}
+
+/* Held on him: the gate takes the Needs you lamp's hue and pulses where it lives. */
+.sv-chunk[data-lamp="needs"] .sv-chunk__gate {
+  border-color: color-mix(in srgb, var(--status-awaiting-review) 60%, var(--border-default));
+  color: var(--status-awaiting-review);
+  animation: sv-lamp-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-chunk[data-lamp="needs"] .sv-chunk__gate {
+    animation: none;
+  }
+}

@@ -1,7 +1,7 @@
-// The plan as the Job's progress line: the plan's groups run across the head of the story, each run of them ended by a gate Fleet sees for itself. The plan gate is closed;
-// three groups with no gate between them are one live stretch, named for all three, waiting on his walk, with two subagents at work; Checks and the merge are to come. Time
-// passes three times: the walk is approved and Prune old files is live; Checks fail at the pushed commit; Checks pass with one test that is red on main too.
-// Over the Job of `job-walk-on-the-spine`. `plan-as-progress-list` is the other take, with the stretches listed at the head of the story.
+// The plan as the Job's progress: Now is one row a chunk of groups, each ended by a gate Fleet sees for itself. The plan gate is closed; three groups with no gate between them
+// are one live chunk, named for all three, waiting on his walk, with two subagents at work, each on the group its brief named; Checks and the merge are to come. Time passes
+// three times: the walk is approved and Prune old files is live; Checks fail at the pushed commit; Checks pass with one test that is red on main too.
+// Over the Job of `job-walk-on-the-spine`.
 
 import type { GateClose } from "@armada/protocol";
 import type { Session, WorkDrone, WorkGroup } from "@armada/screens/src/draft/sessions";
@@ -182,6 +182,7 @@ const field = (stage: number): WorkDrone[] =>
           task: "Mirror rotated_at in the TypeScript types",
           path: "packages/protocol",
           doing: "write",
+          group: "f2",
           file: "packages/protocol/src/audit.ts",
         },
         {
@@ -190,6 +191,7 @@ const field = (stage: number): WorkDrone[] =>
           task: "List rotated files in System",
           path: "apps/desktop",
           doing: "write",
+          group: "f3",
           file: "apps/desktop/src/renderer/src/system/AuditFiles.tsx",
         },
       ]
@@ -201,6 +203,7 @@ const field = (stage: number): WorkDrone[] =>
             task: "Delete audit files past the keep count",
             path: "crates/fleet",
             doing: "write",
+            group: "f4",
             file: "crates/fleet/src/prune.rs",
           },
           {
@@ -209,13 +212,14 @@ const field = (stage: number): WorkDrone[] =>
             task: "Test that seven files are kept",
             path: "crates/fleet",
             doing: "write",
+            group: "f4",
             file: "crates/fleet/src/tests/prune.rs",
           },
         ]
       : [];
 
 const staged =
-  (stage: number, take: "list" | undefined) =>
+  (stage: number) =>
   (one: Session): Session =>
     one.work?.plan === undefined
       ? one
@@ -237,28 +241,19 @@ const staged =
                 : {}),
             },
             field: field(stage),
-            ...(take === undefined
-              ? {}
-              : {
-                  progressTake: take,
-                }),
           },
         };
 
-/** The Job over a mock Fleet, its gates on the spine, or (`list`) its stretches listed at the head. */
-export const planAsProgress = (name: string, says: string, take?: "list"): Scenario => ({
+export const s348PlanAsProgress: Scenario = {
   ...base,
-  name,
-  says,
+  name: "plan-as-progress",
+  says: "A Job whose plan is its workflow: Now one row a chunk, each ended by its gate, what is being done under the live one",
   draft: {
     ...base.draft,
     sessions: (control) => {
       const store = base.draft!.sessions!(control);
       store.edit(BUSY, (one) =>
-        staged(
-          0,
-          take,
-        )(
+        staged(0)(
           auditLedger(
             one,
             {
@@ -278,14 +273,9 @@ export const planAsProgress = (name: string, says: string, take?: "list"): Scena
         later: () => {
           if (stage >= 4) return;
           stage += 1;
-          store.edit(BUSY, staged(stage, take));
+          store.edit(BUSY, staged(stage));
         },
       };
     },
   },
-});
-
-export const s348PlanAsProgress = planAsProgress(
-  "plan-as-progress",
-  "A Job whose plan is its workflow: each gate on the spine under its stretch, its subagents listed under the live one",
-);
+};
