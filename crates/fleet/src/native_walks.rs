@@ -84,9 +84,7 @@ pub(crate) fn address_problem(url: &str) -> Option<&'static str> {
 
 /// Why a native walk takes what `show_window` was passed, or `None` where it takes it.
 pub(crate) fn takes_no(show: &ipc::ShowWindow) -> Option<&'static str> {
-    if !show.variations.is_empty() {
-        Some("a native walk takes no variations: it is one screen")
-    } else if !show.origins.is_empty() {
+    if !show.origins.is_empty() {
         Some("a native walk takes no origins: it is not a web page")
     } else if !show.sign_in.is_empty() {
         Some("a native walk takes no sign_in: it is not a web page")
@@ -209,10 +207,18 @@ where
         };
         let rows = self.rows_of(&id).await?;
         // A walk is a tab of the Job, and a Job may hold several open: any of them on this address.
-        let open = rows.iter().any(|row| matches!(row, SessionRow::Window { url: shown, ended_at: None, .. } if *shown == url));
-        if !open {
+        let Some(variations) = rows.iter().find_map(|row| match row {
+            SessionRow::Window { url: shown, ended_at: None, variations, .. } if *shown == url => Some(variations),
+            _ => None,
+        }) else {
             return Err(self.hosted_refusal(NOT_OPEN, &format!("this job has no open walk on {url}. Show it with show_window first")));
-        }
+        };
+        // Each take as `--take <name>=<walk>`, for the bar's takes dropdown.
+        let takes: Vec<String> = variations
+            .iter()
+            .filter_map(|take| walk_name(&take.url).map(|walk| format!("{}={walk}", take.name)))
+            .flat_map(|take| ["--take".to_string(), take])
+            .collect();
         let (_, hosting) = self.session_and_hosting(&id).await?;
         if hosting.lease_slot.is_none() {
             return Err(self.hosted_refusal(NOT_BUILT, "this job holds no slot, so it has no build to walk"));
@@ -237,6 +243,7 @@ where
             .started_once(&id, &url, &slot, made, || {
                 tokio::process::Command::new(&program)
                     .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
+                    .args(&takes)
                     .current_dir(&slot)
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
