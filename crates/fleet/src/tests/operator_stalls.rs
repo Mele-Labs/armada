@@ -21,7 +21,7 @@ use crate::CallFailed;
 async fn switched(rig: &Rig, key: &str, on: bool) {
     let value = match key {
         "features.operator" => ipc::SettingValue::Bool(on),
-        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+        _ => ipc::SettingValue::Text(if on { "decide" } else { "read_only" }.to_string()),
     };
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
@@ -289,7 +289,7 @@ async fn a_raise_reaches_his_needs_you_list() {
     aged(&rig, &id).await;
     let acting = FleetActing::on(&rig.fleet);
 
-    acting.raise(id.as_str(), "the failing check needs a key only the person holds");
+    acting.raise(id.as_str(), "the failing check needs a key only the person holds").await.expect("carried out");
     let fleet = Arc::clone(&rig.fleet);
     let session = id.as_str().to_string();
     eventually(|| {

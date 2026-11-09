@@ -26,7 +26,7 @@ const SCROLLBACK: &str = "Terminal scrollback is lost when the pane redraws";
 pub(super) async fn switched(rig: &Rig, key: &str, on: bool) {
     let value = match key {
         "features.operator" => ipc::SettingValue::Bool(on),
-        _ => ipc::SettingValue::Text(if on { "on" } else { "off" }.to_string()),
+        _ => ipc::SettingValue::Text(if on { "decide" } else { "read_only" }.to_string()),
     };
     let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
@@ -218,9 +218,9 @@ async fn a_later_item_handed_over_is_refused_while_the_operator_is_off_and_filed
 }
 
 #[tokio::test]
-async fn with_file_off_a_later_item_ruled_filed_is_kept_in_the_log_and_nothing_is_filed_whatever_dispatch_says() {
+async fn with_file_read_only_a_later_item_makes_no_call_is_kept_in_the_log_and_nothing_is_filed() {
     let sentence = "I will move the fixture loader into its own crate.";
-    let (rig, id, _) = keeping_one(sentence).await;
+    let (rig, id, counted) = keeping_one(sentence).await;
     on(&rig).await;
 
     rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
@@ -229,7 +229,8 @@ async fn with_file_off_a_later_item_ruled_filed_is_kept_in_the_log_and_nothing_i
     eventually(|| async { !rulings(&rig).await.is_empty() }).await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     let log = rulings(&rig).await;
-    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str()), ("later", "file"));
+    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str()), ("later", "read_only"));
+    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call was made");
     assert_eq!(rig.fleet.store().lock().await.later_handed().expect("read").len(), 1, "still handed");
     let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
     assert!(!open.iter().any(|one| one.title.as_written() == sentence), "{open:#?}");

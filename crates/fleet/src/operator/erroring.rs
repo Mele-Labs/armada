@@ -170,8 +170,11 @@ where
     }
 
     /// An error the Operator ruled to live Job `into`, whose work is near it: told it.
-    pub(super) async fn operator_told_error(self: &Arc<Self>, arrival: &Arrival, into: &str) {
+    pub(super) async fn operator_told_error(self: &Arc<Self>, arrival: &Arrival, into: &str) -> Result<(), String> {
         let text = format!("The Operator handed you an error Bridge showed the person, as your work is near it:\n\n{}\n\nFix it as part of your work, or say why it is not yours.", arrival.words);
-        let _ = self.told_by_fleet(into, &text, Notice::Operator).await;
+        match self.told_by_fleet(into, &text, Notice::Operator).await {
+            Ok(true) => Ok(()),
+            _ => Err("the Job did not take the error".to_string()),
+        }
     }
 }

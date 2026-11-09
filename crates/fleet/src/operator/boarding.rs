@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Timestamp;
 use ipc::operator_board::{
-    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorDecider,
+    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorDecider, OperatorPaused,
 };
 use store::KeptRuling;
 
@@ -156,6 +156,7 @@ fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, summary_of: &
         "existing_job" => said("Handed over", format!("to {}", other())),
         "merge" => said("Merged", format!("into {}", other())),
         "keep_in_touch" => said("Kept in touch", format!("with {}", other())),
+        "sent" => said("Sent", format!("to {}", other())),
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
         // An end or a merge read and left: what it was is the row.
@@ -238,7 +239,8 @@ where
                 .collect();
             (suggestions, done)
         };
-        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done })
+        let paused = if self.operator_on() { self.operator_paused().await } else { None }.map(|paused| OperatorPaused { week: paused.week, at: paused.at });
+        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done, paused })
     }
 
     /// `move_on_operator_board`: one press. **404** where `id`, or the `before` it goes ahead of,

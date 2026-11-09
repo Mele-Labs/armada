@@ -165,9 +165,10 @@ where
     }
 
     /// A Job gone quiet goes on his Needs you list with the Operator's read.
-    pub(super) async fn operator_raised(&self, id: &str, read: &str) {
+    pub(super) async fn operator_raised(&self, id: &str, read: &str) -> Result<(), String> {
         let text = format!("The Operator raised this Job: {read}");
         self.fleet_note(id, text.clone()).await;
         self.call_raised(id, Notice::Operator, &text).await;
+        Ok(())
     }
 }

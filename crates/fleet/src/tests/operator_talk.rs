@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use ipc::operator_talk::{OperatorHoldUntil, OperatorOrderForm};
 
-use super::operator_acting::{asked, dispatch};
+use super::operator_acting::{answering, asked, dispatch};
 use super::session_host::{denied, eventually, rig_placing, Rig};
 use super::session_queue::close;
 use crate::operator::{Answering, Calling};
@@ -42,6 +42,7 @@ fn reply(order: &str, said: &str) -> String {
 
 async fn seated(rig: &Rig, replies: &[&str]) -> Arc<Replies> {
     dispatch(rig, false).await;
+    answering(rig).await;
     let call = Replies::saying(replies);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     call
@@ -52,7 +53,7 @@ fn code(refused: api::Refusal) -> String {
 }
 
 #[tokio::test]
-async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_counts_toward_the_ceiling() {
+async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_is_kept() {
     let rig = rig_placing(None);
     let first = reply("none", "Nothing has been raised today.");
     let second = reply("none", "Because nothing arrived.");
@@ -72,7 +73,6 @@ async fn the_conversation_is_kept_and_handed_to_the_next_call_and_each_answer_co
         (true, "why?"),
         (false, "Because nothing arrived."),
     ]);
-    assert_eq!(rig.fleet.store().lock().await.operator_calls_since("2000-01-01T00:00:00.000Z").expect("counted"), 2);
 }
 
 #[tokio::test]
@@ -84,6 +84,7 @@ async fn it_cannot_be_talked_to_while_off_nor_past_a_failed_call_and_keeps_nothi
     assert!(call.asked().is_empty(), "no call");
 
     dispatch(&rig, false).await;
+    answering(&rig).await;
     assert!(code(rig.fleet.operator_talked("hello", None).await.expect_err("said nothing")).contains("fleet.operator_said_nothing"));
     assert!(rig.fleet.operator_talk_wire().await.expect("read").lines.is_empty());
 }

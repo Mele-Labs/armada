@@ -754,7 +754,7 @@ pub enum WaitingSource {
     /// Fleet: a role of the Operator's stands at Suggest, so what it would do waits on one press.
     /// Derived on every read from the kept suggestion: id `suggestion:<n>`, text what it would do and
     /// why, an `answer` act whose `target` is the id, and exactly two options, `Do it` (choice 0),
-    /// which does what On would have, and `Skip` (choice 1), labels only. **Neither sends the agent a
+    /// which does what Decide would have, and `Skip` (choice 1), labels only. **Neither sends the agent a
     /// word of its own**: `Do it` tells a Job only what the act tells it. Dismissing it is Skip.
     /// Listed only while the Job is live.
     OperatorSuggestion,

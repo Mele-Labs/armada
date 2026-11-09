@@ -1,7 +1,7 @@
 //! Standing orders: rules Fleet enforces, never prose a call reads. **Only ever one of the forms in
 //! `ipc::operator_talk`**, and only once the person has seen the form and pressed. `crates/ipc/operations/confirm_operator_order.toml`.
 //!
-//! **A role off** reads as the role's Off position in that repository, until the day ends if he
+//! **A role off** reads as the role's Read-only position in that repository, until the day ends if he
 //! said today. **A kind always raised** goes to him with no call. **A hold on paths** refuses a write
 //! under them by any Job but the one it names, in that repository, from a file tool: a shell's writes
 //! cannot be read ahead of time and go through. A Job that ends releases its hold, and so does its
