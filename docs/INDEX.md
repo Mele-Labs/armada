@@ -350,6 +350,17 @@ approximations.
   — where a CI test shard's compile goes: 278 s, 212 of it `fleet`'s test harness, so neither sccache
   nor a nextest archive shortens a landing; `test_compile` never restored `main`'s cache, and restoring
   it saved no time; the push, plan and queue times either side of #3308 and #3310.
+- [`spikes/native-jobs-inventory/list-needs-palette.md`](spikes/native-jobs-inventory/list-needs-palette.md)
+  — what Electron Bridge's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge draw today,
+  as the spec the native Jobs screens match.
+- [`spikes/native-jobs-inventory/job-view.md`](spikes/native-jobs-inventory/job-view.md)
+  — what Electron Bridge's open Job draws today, its head, tab bar, thread rows, cards and composer,
+  as the spec the native Job view matches.
+- [`spikes/native-jobs-inventory/field-layer.md`](spikes/native-jobs-inventory/field-layer.md)
+  — what the Job view's Field layer draws today, its plan bar, replay slider and lens card,
+  kept for its port after switch day.
+- [`spikes/native-jobs-inventory/thread-fold-diff.md`](spikes/native-jobs-inventory/thread-fold-diff.md)
+  — where Fleet's thread fold differed from Electron's, row by row, and what was kept as Electron does it.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

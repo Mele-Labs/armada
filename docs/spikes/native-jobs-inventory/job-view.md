@@ -2,9 +2,13 @@
 
 Spec for the native build. Records what IS. Line numbers are against `native/jobs-screens` at the time of writing (slot-10). Paths are repo-relative.
 
-**One tweak the owner named for every native screen (9 Nov): more room than Electron.** Padding and gaps are larger, controls are taller, and rows and controls have rounded corners where Electron's are square. The values are the space, control-height and radius tokens Foundation's merged Jobs list uses, never literals, so the Job view matches the list. Layout, controls, states and keys still follow this inventory.
+**One tweak the owner named for every native screen (9 Nov): more room than Electron.** Padding and gaps are larger, controls are taller, and rows and controls have rounded corners where Electron's are square.
+The values are the space, control-height and radius tokens Foundation's merged Jobs list uses, never literals, so the Job view matches the list.
+Layout, controls, states and keys still follow this inventory.
 
-**Which build is described.** The shipped Job view is a Job drawn **in panes**: `SessionView` (`apps/desktop/src/renderer/src/sessions.tsx:1703`) renders `SessionWorkspace` (`session-view/SessionWorkspace.tsx:88`) which, when `paned` (`:132`: `hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined`), draws `JobPanes` with the Thread as one tab; `SessionFrame` is then `headless` (`sessions.tsx:2905-2975`, prop `headless={onTab}`) and the Job's head is the **Thread tab** in the pane's tab strip (`job-panes/job-head.ts:1-3`: "the Job's view publishes them and draws no head of its own; the tab is the head"). The thread is the spacious take, always on (`apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `sessions.tsx:1722`). Where the non-paned path exists (Job without `work`, or `hosts.zones` set) the `SessionFrame` head row is drawn instead; it is recorded at 1.8.
+**Which build is described.** The shipped Job view is a Job drawn **in panes**: `SessionView` (`apps/desktop/src/renderer/src/sessions.tsx:1703`) renders `SessionWorkspace` (`session-view/SessionWorkspace.tsx:88`) which, when `paned` (`:132`: `hosts !== undefined && hosts.zones === undefined && work !== undefined && draft !== undefined`), draws `JobPanes` with the Thread as one tab; `SessionFrame` is then `headless` (`sessions.tsx:2905-2975`, prop `headless={onTab}`) and the Job's head is the **Thread tab** in the pane's tab strip (`job-panes/job-head.ts:1-3`: "the Job's view publishes them and draws no head of its own; the tab is the head").
+The thread is the spacious take, always on (`apps/desktop/src/renderer/src/main.tsx:14` sets `document.body.dataset.threadTake = "spacious"`; `sessions.tsx:1722`).
+Where the non-paned path exists (Job without `work`, or `hosts.zones` set) the `SessionFrame` head row is drawn instead; it is recorded at 1.8.
 
 ## 0. Composition of the open Job (shipped, paned)
 
@@ -46,7 +50,9 @@ Default arrangement: `job-panes/store.ts:40-59` `defaultArrangement`: row split 
 | `--duration-fast/base/sheet/pulse` | 120/180/220/1600 ms | `--palette-width / --sidebar-default` | 560 / 200 px |
 | `--status-not-started / running / awaiting-review / completed-failed / handed-in` | #8C97A6 / #4FB8D9 / #E5A93D / #E97878 / #4FB4AA (`:147-263`); light theme differs (`:1211+`) | `--step-waiting / --step-advanced` | = awaiting-review / = completed-success |
 
-Density: `data-spacing="compact"` makes `--space-1..12` 3/6/9/12/18/24/36 and control heights 24/20/28; `roomy` makes `--space-1` 5, `--space-2` 10 ... (`tokens.css:1236-1275`). Colour tokens (`--bg-raised`, `--bg-sunken`, `--bg-hover`, `--fg-default/muted/subtle/inverse`, `--border-default/subtle/glass/strong`, `--accent`) come from the active theme file under `packages/tokens/themes/`.
+Density: `data-spacing="compact"` makes `--space-1..12` 3/6/9/12/18/24/36 and control heights 24/20/28; `roomy` makes `--space-1` 5, `--space-2` 10 ...
+(`tokens.css:1236-1275`).
+Colour tokens (`--bg-raised`, `--bg-sunken`, `--bg-hover`, `--fg-default/muted/subtle/inverse`, `--border-default/subtle/glass/strong`, `--accent`) come from the active theme file under `packages/tokens/themes/`.
 
 Spacious-take variables set on `.armada-session-frame` (`spacious-thread.css:4-22`): `--spacious-column: clamp(680px, 70cqi, 960px)`; `--spacious-bleed: calc(--space-4 + --space-1)` = 20px; `--spacious-outer: column + 2*bleed`; `--spacious-gutter: --space-4`; `--spacious-body: 15px`; `--spacious-leading: 24px`; `--spacious-meta: 13px`; `--spacious-radius: --radius-lg`; and `--radius-sm/md/lg` re-pinned to 3/6/8px inside the frame.
 
@@ -64,7 +70,10 @@ The head is spread over five places. There is **no plan progress bar and no titl
 | CSS | `job-panes/job-panes.css:152-262` (`.job-pane__tab`, `.job-pane__label`, `.job-pane__name`, `.job-pane__close`, `.job-pane__rename`) |
 | Published | `{ state, said: "<said> · <address ?? id>", title?, onRename?, onNameForMe?, menu: {entries, onSelect} }`; published only when `inPanes(session.id)` (`sessions.tsx:2845`) |
 
-**Layout (tab button, left to right):** `[state mark 16px] [Job title text, ellipsised]` inside one `<button role="tab">`, then `[More (…) 24px ghost]` (Job tab only), then `[Close (x)]`; both in `.job-pane__close` wrappers that keep their width always and are `visibility:hidden` unless the tab is active, hovered or has focus within (`job-panes.css:169-177`). Tab label button: `display:inline-flex; align-items:center; gap:--space-2; min-height:--h-control-sm; padding:0 --space-1 0 --space-3; max-width:28ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis` (`:204-225`). Type: `--font-mono`, `--text-xs`/`--leading-xs`, weight `--weight-heading`, `letter-spacing:--tracking-caps`, `text-transform:uppercase`, colour `--fg-muted`; hover `--fg-default` on `--bg-hover`; active tab colour `--fg-default`, transparent background (`:231-238`). (So the Job's title is drawn UPPERCASE in mono; the tooltip carries the title as written.) Tab chrome: no radius, `border:0`; tab separators are inset 1px box-shadows (`:152-167`).
+**Layout (tab button, left to right):** `[state mark 16px] [Job title text, ellipsised]` inside one `<button role="tab">`, then `[More (…) 24px ghost]` (Job tab only), then `[Close (x)]`; both in `.job-pane__close` wrappers that keep their width always and are `visibility:hidden` unless the tab is active, hovered or has focus within (`job-panes.css:169-177`).
+Tab label button: `display:inline-flex; align-items:center; gap:--space-2; min-height:--h-control-sm; padding:0 --space-1 0 --space-3; max-width:28ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis` (`:204-225`).
+Type: `--font-mono`, `--text-xs`/`--leading-xs`, weight `--weight-heading`, `letter-spacing:--tracking-caps`, `text-transform:uppercase`, colour `--fg-muted`; hover `--fg-default` on `--bg-hover`; active tab colour `--fg-default`, transparent background (`:231-238`).
+(So the Job's title is drawn UPPERCASE in mono; the tooltip carries the title as written.) Tab chrome: no radius, `border:0`; tab separators are inset 1px box-shadows (`:152-167`).
 
 | State | How drawn | Condition |
 |---|---|---|
@@ -74,17 +83,24 @@ The head is spread over five places. There is **no plan progress bar and no titl
 | Renaming | the name becomes `<input class="job-pane__rename" aria-label="Rename <label>">` in the label's place (field-sizing:content, min-width `--space-4`, same type, no box); mark, More and Close stay; Enter keeps, Esc/blur: Enter and blur save, Esc cancels (`PaneView.tsx:533-572`); a save only calls `onRename` if trimmed value non-empty and differs (`:306-312`) | `renaming` state; entered by double-click on the tab (only if `job.onRename` present, `:433-437`) or the menu's Rename (opened 60 ms after the menu shuts, `:327`) |
 | Title absent | label text is the kind's label `Thread` (`labelOf`, `:67`) | `job.title === undefined` (`:245`) |
 
-Mark = `SessionMark` (see 1.2). Name tooltip (`Tooltip label={label}`) shows the whole title (`:454`). Strings: aria-label of the tab button `"Thread"` or `"Thread: <title>"` (`:428`); More: tooltip + aria-label `"More"`, `aria-haspopup="menu"`, glyph `Ellipsis` 16px stroke 2; Close: tooltip `"Close"`, aria-label `` `Close ${label}` ``, glyph `X`. Closing the Thread tab is allowed (the + menu then offers Thread again, `PaneView.tsx:594`).
+Mark = `SessionMark` (see 1.2).
+Name tooltip (`Tooltip label={label}`) shows the whole title (`:454`).
+Strings: aria-label of the tab button `"Thread"` or `"Thread: <title>"` (`:428`); More: tooltip + aria-label `"More"`, `aria-haspopup="menu"`, glyph `Ellipsis` 16px stroke 2; Close: tooltip `"Close"`, aria-label `` `Close ${label}` ``, glyph `X`.
+Closing the Thread tab is allowed (the + menu then offers Thread again, `PaneView.tsx:594`).
 
-**Name given by Fleet:** the title is `session.title`; absent until the first turn names it. `onNameForMe` (menu item "Name it for me") has Fleet name the Job from its first message and returns when settled.
+**Name given by Fleet:** the title is `session.title`; absent until the first turn names it.
+`onNameForMe` (menu item "Name it for me") has Fleet name the Job from its first message and returns when settled.
 
 ### 1.2 State mark and its tooltip
 
-`SessionMark` (`packages/components/src/compositions/SessionFrame/SessionFrame.tsx:138`): `<span class="armada-session-mark" role="img" aria-label={said} data-bucket data-pulsing>` inside a Tooltip with the same `said`; 16px lucide glyph stroke 2; `working` draws `WorkingMark` (turning arc) instead of a glyph. `limited` draws `LimitMark` (`BatteryLow`, bucket `waiting`).
+`SessionMark` (`packages/components/src/compositions/SessionFrame/SessionFrame.tsx:138`): `<span class="armada-session-mark" role="img" aria-label={said} data-bucket data-pulsing>` inside a Tooltip with the same `said`; 16px lucide glyph stroke 2; `working` draws `WorkingMark` (turning arc) instead of a glyph.
+`limited` draws `LimitMark` (`BatteryLow`, bucket `waiting`).
 
-Bucket colour (`SessionFrame.css:252-273`): needs `--status-awaiting-review` (only this pulses via `data-apparent` for the tools mark), working `--status-running` (inner dot breathes, `armada-badge-pulse`, `--duration-pulse`; off under reduced motion), waiting `--status-handed-in`, idle `--fg-muted`, draft `--status-not-started`. `bucketOf` `SessionFrame.tsx:117`.
+Bucket colour (`SessionFrame.css:252-273`): needs `--status-awaiting-review` (only this pulses via `data-apparent` for the tools mark), working `--status-running` (inner dot breathes, `armada-badge-pulse`, `--duration-pulse`; off under reduced motion), waiting `--status-handed-in`, idle `--fg-muted`, draft `--status-not-started`.
+`bucketOf` `SessionFrame.tsx:117`.
 
-State -> glyph (`SessionFrame.tsx:87-108`) and the sentence (tooltip = `said + " · " + (address ?? id)`, `sessions.tsx:2851`). State is computed in TypeScript by `jobStateOf` (`packages/screens/src/session-state.ts:103-266`), first match wins; `readSince` from `cockpit/viewed.ts`:
+State -> glyph (`SessionFrame.tsx:87-108`) and the sentence (tooltip = `said + " · " + (address ?? id)`, `sessions.tsx:2851`).
+State is computed in TypeScript by `jobStateOf` (`packages/screens/src/session-state.ts:103-266`), first match wins; `readSince` from `cockpit/viewed.ts`:
 
 | # | Condition | state (glyph) | said |
 |---|---|---|---|
@@ -114,7 +130,8 @@ Plus a separate mark when the mod is out of date: `ModMark` (`RotateCw`, tooltip
 
 ### 1.3 The Thread tab's menu (More ... / right-click / Shift+F10 / Menu key)
 
-Opened by: More button (anchored at its bottom-left), right-click anywhere on the tab (at the pointer), `ContextMenu` key or `Shift+F10` on the focused tab (anchored at the tab's bottom-left) (`PaneView.tsx:398-404, 438-447, 471-477`). `DropdownMenu triggerLabel="Tab actions"`, portalled.
+Opened by: More button (anchored at its bottom-left), right-click anywhere on the tab (at the pointer), `ContextMenu` key or `Shift+F10` on the focused tab (anchored at the tab's bottom-left) (`PaneView.tsx:398-404, 438-447, 471-477`).
+`DropdownMenu triggerLabel="Tab actions"`, portalled.
 
 Order built by `headEntries` (`:175-221`): `[Rename] [Name it for me]` (each only if its handler exists) - rule - the Job's acts (below, up to its `end-rule`) - rule - the tab's own entries - then `End job` (the part after the Job's own `end-rule`; the rule itself is dropped).
 
@@ -133,23 +150,39 @@ Job's acts (`headMenu`, `sessions.tsx:2777-2850`, via `menuWithFresh` `SessionFr
 
 Tab's own entries (`tabEntries`, `PaneView.tsx:87-167`; for the Thread: no terminal items, not editable): `Move to window` (disabled with hint = reason when the kind has no window, `windows.ts`), `Zoom` / `Restore` (shortcut `boundKeyFor("pane_zoom")` = ⌥⌘Enter), `Split right` (⌘D), `Split down` (⌘⌥D), rule, `Close` (danger).
 
-Rename and Name-it-for-me: items `Rename` (`job-rename`) and `Name it for me` (`job-name`). Pause/Resume, Auto land, Judge, Report, Release, Requests, Checks, Subagents are Job acts shown as icons (1.5) and move into this menu only when the toolbelt is narrow.
+Rename and Name-it-for-me: items `Rename` (`job-rename`) and `Name it for me` (`job-name`).
+Pause/Resume, Auto land, Judge, Report, Release, Requests, Checks, Subagents are Job acts shown as icons (1.5) and move into this menu only when the toolbelt is narrow.
 
 ### 1.4 What the person can do to the Job from the head: pause, resume, end
 
-- **Pause / Resume:** icon act in the toolbelt (1.5) id `pause`; label `Pause`, or `Resume` while `session.paused === true`; glyph `circle-pause` (`CirclePause`) while not paused, `Play` while paused; tooltip `Pause` / `Paused` (`SessionTiles.tsx:460`); `aria-pressed = paused`; lit (`data-on`) while paused; presses `draft.pause(id)` or `draft.resume(id)` (`SessionTiles.tsx:236-241`); while Fleet has not answered (`session.pressed` includes `paused`) the tooltip reads `Sending`. Off reasons: `Fleet does not offer this` (no `draft.pause`), `The Job ended` / `The terminal is not listening` (`mute()`, `session-tiles.ts:168-173`). Key: bare `p` (`PAUSE_KEY`, `session-tiles.ts:152`) presses it while the Job is open and `p` is the key on the tile (`flight-keys.ts:47-52`); the palette also offers Pause/Resume ⌘P.
+- **Pause / Resume:** icon act in the toolbelt (1.5) id `pause`; label `Pause`, or `Resume` while `session.paused === true`; glyph `circle-pause` (`CirclePause`) while not paused, `Play` while paused; tooltip `Pause` / `Paused` (`SessionTiles.tsx:460`); `aria-pressed = paused`; lit (`data-on`) while paused; presses `draft.pause(id)` or `draft.resume(id)` (`SessionTiles.tsx:236-241`); while Fleet has not answered (`session.pressed` includes `paused`) the tooltip reads `Sending`.
+  Off reasons: `Fleet does not offer this` (no `draft.pause`), `The Job ended` / `The terminal is not listening` (`mute()`, `session-tiles.ts:168-173`).
+  Key: bare `p` (`PAUSE_KEY`, `session-tiles.ts:152`) presses it while the Job is open and `p` is the key on the tile (`flight-keys.ts:47-52`); the palette also offers Pause/Resume ⌘P.
 - **Resume-and-send:** typing to a paused Job asks first: dialog `Job is paused`, body `Resuming takes a slot again. The note goes after.`, confirm `Resume and send` (initial focus on confirm), cancel gives the box its words back (`paused-send.tsx`).
-- **End job:** menu entry `End job` (1.3) or the done band's End button. `askToEnd` (`apps/desktop/src/renderer/src/end-job.tsx:41-52`): if the Job holds nothing in flight it closes at once (`draft.close(id)`); else opens `InFlightDialog` (`session-view/InFlightDialog.tsx`): `Dialog tone="destructive" title="In flight" confirmLabel="End job" cancelLabel="Keep going"`, body `<ul class="sv-inflight" aria-label="In flight">` rows `"<label>: <state>"` (just `<label>` when state is empty). The list is worked out in TypeScript from `session.lanes.job` (`inFlight()` in `packages/components/src/compositions/LaneCanvas/build.ts:735`: instances not `ended` and not in a lifecycle state with `end:true`, label = instance label, state = lifecycle state label or `unmapped` word or empty). **The wire already carries it as `SessionRecord.in_flight: Vec<InFlight {lifecycle, key, label, state}>` (`crates/ipc/src/sessions.rs:1443`, `lifecycles.rs:398`; "since 9 Nov 2026"), but Electron does not read that field** (grep: only `end-job.tsx`/`sessions-wired.test.ts`/protocol types mention in-flight; the dialog reads `lanes`).
+- **End job:** menu entry `End job` (1.3) or the done band's End button.
+  `askToEnd` (`apps/desktop/src/renderer/src/end-job.tsx:41-52`): if the Job holds nothing in flight it closes at once (`draft.close(id)`); else opens `InFlightDialog` (`session-view/InFlightDialog.tsx`): `Dialog tone="destructive" title="In flight" confirmLabel="End job" cancelLabel="Keep going"`, body `<ul class="sv-inflight" aria-label="In flight">` rows `"<label>: <state>"` (just `<label>` when state is empty).
+  The list is worked out in TypeScript from `session.lanes.job` (`inFlight()` in `packages/components/src/compositions/LaneCanvas/build.ts:735`: instances not `ended` and not in a lifecycle state with `end:true`, label = instance label, state = lifecycle state label or `unmapped` word or empty).
+  **The wire already carries it as `SessionRecord.in_flight: Vec<InFlight {lifecycle, key, label, state}>` (`crates/ipc/src/sessions.rs:1443`, `lifecycles.rs:398`; "since 9 Nov 2026"), but Electron does not read that field** (grep: only `end-job.tsx`/`sessions-wired.test.ts`/protocol types mention in-flight; the dialog reads `lanes`).
 - Stopped Job: `Stop` menu entry (above) is the deck's act.
 
 ### 1.5 The toolbelt under the composer (the rest of the head)
 
-`SessionToolbelt` (`SessionFrame.tsx:490`) draws `<div class="armada-session-frame__toolbelt" role="group" aria-label="Job tools" data-room>` after the composer inside `.sv-dock` (`sessions.tsx:3531`). CSS: `SessionFrame.css:72-86` `display:flex; flex:none; align-items:center; gap:--space-2; min-width:0; min-height:--h-control-sm; color:--fg-subtle`; spacious (`spacious-thread.css:566-600`): `margin-top:--space-2; padding:--space-1 --space-2 0; gap:--space-3`; every `.armada-button` in it is `--h-control` x `--h-control` (28px square), transparent border/ground, `--fg-subtle`, hover `--bg-hover`/`--fg-default`. Contents, in DOM order (`SessionFrame.tsx:~656-696`):
+`SessionToolbelt` (`SessionFrame.tsx:490`) draws `<div class="armada-session-frame__toolbelt" role="group" aria-label="Job tools" data-room>` after the composer inside `.sv-dock` (`sessions.tsx:3531`).
+CSS: `SessionFrame.css:72-86` `display:flex; flex:none; align-items:center; gap:--space-2; min-width:0; min-height:--h-control-sm; color:--fg-subtle`; spacious (`spacious-thread.css:566-600`): `margin-top:--space-2; padding:--space-1 --space-2 0; gap:--space-3`; every `.armada-button` in it is `--h-control` x `--h-control` (28px square), transparent border/ground, `--fg-subtle`, hover `--bg-hover`/`--fg-default`.
+Contents, in DOM order (`SessionFrame.tsx:~656-696`):
 
-1. **Repository** (`SessionRepositoryOf`, `apps/desktop/src/renderer/src/session-move.tsx:15`; `packages/components/src/compositions/SessionRepository/SessionRepository.tsx`): drawn only when Fleet serves `move` and the Job's manifest is found among served repositories. A chip: `FolderGit2` 12px + repository name + `ChevronDown` 12px; tooltip `Move to another repository` (or the name when `icon`-only), aria-label `Repository <name>`; a popover `Move to another repository` lists the other repositories (`aria-label="Repositories"`), a pick shows a caution Alert (what stays, what ends) and a `Move to <name>` button. Becomes a plain non-menu `Repository` chip when already moved (`to=[]`). Goes to icon-only (`icon`) when the head has no room (`useActsPlace().chip`). In a live terminal Job rows are disabled with tooltip `IN_A_TERMINAL`.
-2. **Aa - Thread look** (`lookHere.head` = `ThreadLookButton`, `packages/components/src/compositions/ThreadSettings/ThreadSettings.tsx:507`): ghost sm button text `Aa`, tooltip/aria-label `Thread look`, `aria-haspopup="dialog"`; opens a Popover (align end, label `Thread look`) holding `ThreadSettings`: `Agent name` text field; switches `Show agent name`, `Show times`; selects `Text size`, `Spacing`; section `Quick responses` (buttons per response, `Edit <name>`, `Add response`); section `Quick replies` (list of lines with `Edit/Save/Pin/Unpin/Move up/Move down/Delete <text>`; `New quick reply` field + `Add`; switch `Learn from my messages`; ⌥↑/⌥↓ moves a line); section `Voice` (select `Voice`, `Whisper model` row with `Install` / progress bar `Installing Whisper model` / `Installed`). Look is stored by `thread-look-here.tsx` (setting `thread.look`, saved 400 ms after a change).
-3. **Runs place** (`marked`, `sessions.tsx:2752`): `RunsPlaceControl` (`apps/desktop/src/renderer/src/RunsPlaceControl.tsx:42`): ghost icon button (glyph by place `PLACE_GLYPH`), tooltip/aria-label `Armada configuration kept <placePhrase>`, opens a menu starting with the line `Where Armada keeps this repository's configuration: how its tests, build and dev server run.`; J/K move, Enter picks, Esc closes. Absent while the card form (`RunsPlaceCard` in the thread's lead) is up (`cardLead`) or the thread is unread.
-4. **Job acts** (`JobActsSlot`, `job-panes/acts.tsx:292`): `<span class="job-acts" role="toolbar" aria-label="Job acts">`; flex, gap `--space-1`; empty = `display:none`. Buttons are drawn into this slot by `SessionTiles` (`cockpit/deck/SessionTiles.tsx:796-840`, mounted `Deck.tsx:1734-1749` with `head`) as ghost sm icon-only 16px buttons (`drawIcon`, `:730-795`). Order: the drawn built-in tiles `land, pause, judge, report, release, requests` (`flight-order.ts:9-17`; `terminal` and `browser` are removed and kept as hidden buttons whose keys open those tabs), then the owner's own tiles, then the views `checks`, `subagents` (inserted at `customAt`, `:529-545`).
+1. **Repository** (`SessionRepositoryOf`, `apps/desktop/src/renderer/src/session-move.tsx:15`; `packages/components/src/compositions/SessionRepository/SessionRepository.tsx`): drawn only when Fleet serves `move` and the Job's manifest is found among served repositories.
+   A chip: `FolderGit2` 12px + repository name + `ChevronDown` 12px; tooltip `Move to another repository` (or the name when `icon`-only), aria-label `Repository <name>`; a popover `Move to another repository` lists the other repositories (`aria-label="Repositories"`), a pick shows a caution Alert (what stays, what ends) and a `Move to <name>` button.
+   Becomes a plain non-menu `Repository` chip when already moved (`to=[]`).
+   Goes to icon-only (`icon`) when the head has no room (`useActsPlace().chip`).
+   In a live terminal Job rows are disabled with tooltip `IN_A_TERMINAL`.
+2. **Aa - Thread look** (`lookHere.head` = `ThreadLookButton`, `packages/components/src/compositions/ThreadSettings/ThreadSettings.tsx:507`): ghost sm button text `Aa`, tooltip/aria-label `Thread look`, `aria-haspopup="dialog"`; opens a Popover (align end, label `Thread look`) holding `ThreadSettings`: `Agent name` text field; switches `Show agent name`, `Show times`; selects `Text size`, `Spacing`; section `Quick responses` (buttons per response, `Edit <name>`, `Add response`); section `Quick replies` (list of lines with `Edit/Save/Pin/Unpin/Move up/Move down/Delete <text>`; `New quick reply` field + `Add`; switch `Learn from my messages`; ⌥↑/⌥↓ moves a line); section `Voice` (select `Voice`, `Whisper model` row with `Install` / progress bar `Installing Whisper model` / `Installed`).
+   Look is stored by `thread-look-here.tsx` (setting `thread.look`, saved 400 ms after a change).
+3. **Runs place** (`marked`, `sessions.tsx:2752`): `RunsPlaceControl` (`apps/desktop/src/renderer/src/RunsPlaceControl.tsx:42`): ghost icon button (glyph by place `PLACE_GLYPH`), tooltip/aria-label `Armada configuration kept <placePhrase>`, opens a menu starting with the line `Where Armada keeps this repository's configuration: how its tests, build and dev server run.`; J/K move, Enter picks, Esc closes.
+   Absent while the card form (`RunsPlaceCard` in the thread's lead) is up (`cardLead`) or the thread is unread.
+4. **Job acts** (`JobActsSlot`, `job-panes/acts.tsx:292`): `<span class="job-acts" role="toolbar" aria-label="Job acts">`; flex, gap `--space-1`; empty = `display:none`.
+   Buttons are drawn into this slot by `SessionTiles` (`cockpit/deck/SessionTiles.tsx:796-840`, mounted `Deck.tsx:1734-1749` with `head`) as ghost sm icon-only 16px buttons (`drawIcon`, `:730-795`).
+   Order: the drawn built-in tiles `land, pause, judge, report, release, requests` (`flight-order.ts:9-17`; `terminal` and `browser` are removed and kept as hidden buttons whose keys open those tabs), then the owner's own tiles, then the views `checks`, `subagents` (inserted at `customAt`, `:529-545`).
 
    | Act id | aria-label | Glyph (registry name -> lucide via `flight-glyphs`) | Tooltip (when on) | Off reason(s) | Press |
    |---|---|---|---|---|---|
@@ -182,9 +215,13 @@ Marks that appear in non-paned heads only (`!headless`): `Terminal` ghost button
 
 ### 1.7 The bands on the composer's top edge (`.sv-dock` / `.sv-bands`)
 
-`.sv-dock` (`session-view.css:1365`): `position:relative; flex:none`; spacious: `width: calc(100% - 2*--spacious-gutter); max-width: --spacious-outer; margin-inline:auto` (`spacious-thread.css:30-34`). With `data-needs` (any band up) it takes `margin-block-start: calc(--h-badge + --space-3)` and the composer's top corners go square (`:1382-1388`). `.sv-bands` is absolutely placed with `inset-block-end:100%`, `flex-direction:column`, stacking bands in this order top to bottom: ToolsBand, NeedsYouPanel, HandoffBand, SessionEndBand, WaitingBand (`sessions.tsx:3296-3381`).
+`.sv-dock` (`session-view.css:1365`): `position:relative; flex:none`; spacious: `width: calc(100% - 2*--spacious-gutter); max-width: --spacious-outer; margin-inline:auto` (`spacious-thread.css:30-34`).
+With `data-needs` (any band up) it takes `margin-block-start: calc(--h-badge + --space-3)` and the composer's top corners go square (`:1382-1388`).
+`.sv-bands` is absolutely placed with `inset-block-end:100%`, `flex-direction:column`, stacking bands in this order top to bottom: ToolsBand, NeedsYouPanel, HandoffBand, SessionEndBand, WaitingBand (`sessions.tsx:3296-3381`).
 
-Shared band chrome (`NeedsYouPanel.css`): band = `height:--h-badge` (20px), radius `--radius-md --radius-md 0 0` (`--radius-lg` when open), background = the band hue, text `--fg-inverse`; trigger `padding:0 --space-3; gap:--space-2`; label type `--text-2xs/--leading-2xs`, `--weight-heading`, `--tracking-caps`, UPPERCASE; fold chevron (`ChevronUp` 12px) rotates 180deg when open (`--duration-sheet`); body reveals via grid-rows 0fr->1fr over `--duration-sheet`; body `padding: --space-2 --space-3; gap:--space-3; border 1px solid hue (no top/bottom); background --bg-raised; max-height: calc(var(--thread-h,55vh)*0.95 - --h-badge); overflow:auto`. Hues: waiting-for-you `--step-waiting` (amber), end `--step-advanced`, failed `--status-completed-failed`, waiting `--status-handed-in`. Opening a band dims the thread behind it (`.armada-session-thread__stage::after`) and a press on the dim, or Esc, folds it (`useScrimFold`, `useEscapeFold`).
+Shared band chrome (`NeedsYouPanel.css`): band = `height:--h-badge` (20px), radius `--radius-md --radius-md 0 0` (`--radius-lg` when open), background = the band hue, text `--fg-inverse`; trigger `padding:0 --space-3; gap:--space-2`; label type `--text-2xs/--leading-2xs`, `--weight-heading`, `--tracking-caps`, UPPERCASE; fold chevron (`ChevronUp` 12px) rotates 180deg when open (`--duration-sheet`); body reveals via grid-rows 0fr->1fr over `--duration-sheet`; body `padding: --space-2 --space-3; gap:--space-3; border 1px solid hue (no top/bottom); background --bg-raised; max-height: calc(var(--thread-h,55vh)*0.95 - --h-badge); overflow:auto`.
+Hues: waiting-for-you `--step-waiting` (amber), end `--step-advanced`, failed `--status-completed-failed`, waiting `--status-handed-in`.
+Opening a band dims the thread behind it (`.armada-session-thread__stage::after`) and a press on the dim, or Esc, folds it (`useScrimFold`, `useEscapeFold`).
 
 | Band | Source | Strings, glyph, controls | Shown when (`sessions.tsx`) |
 |---|---|---|---|
@@ -194,15 +231,24 @@ Shared band chrome (`NeedsYouPanel.css`): band = `height:--h-badge` (20px), radi
 | Nothing left to do | `SessionEndBand.tsx` | band `Nothing left to do` (`Check` 12px, chevron, `aria-expanded`); body `DoneBody` (agent A); opens on coming into the Job until folded | `endShown = doneProp !== undefined && !waits && !endInThread` (`:2682`); in the spacious take (`endInThread`) the ending is the thread's last entry instead (`<section class="armada-session-end" aria-label="Nothing left to do">` `<h3>` `Check` 14px `Nothing left to do`) so this band is not drawn in the shipped take |
 | Waiting | `WaitingBand.tsx` | band `Waiting` (`Radar` 12px) + one 12px glyph per wait (`Radar` watch, `GitMerge` merge, `CircleDot` checks; each a `role=img` with tooltip = its sentence) + chevron; body `<ul aria-label="Waiting on">` rows (glyph + sentence) each with a dismiss button (tooltip/aria-label `Stop the watch` for a watch, else `Stop waiting on it`; label `"<away>: <sentence>"`; `X` 12px) | `state==="held" && !waits && !endShown && !failedShown && !toolsBand` (`:2763`); folded until pressed (`waitOpen`) |
 
-Start strip (held Job): `.sv-start-strip` (`session-view.css:1390`): `display:flex; flex-wrap:wrap; align-items:center; gap:--space-2; padding:--space-1 --space-2; border:1px solid --border-default (no bottom); radius --radius-md --radius-md 0 0; background: color-mix(accent 12%, --bg-sunken)`; hosts the Workflow / Delivery selects (`StartPicks`, thread section B). Selects `--h-control-sm`, `--text-xs`. Start's busy spinner `sv-start-spin` 1 turn per `--duration-pulse`.
+Start strip (held Job): `.sv-start-strip` (`session-view.css:1390`): `display:flex; flex-wrap:wrap; align-items:center; gap:--space-2; padding:--space-1 --space-2; border:1px solid --border-default (no bottom); radius --radius-md --radius-md 0 0; background: color-mix(accent 12%, --bg-sunken)`; hosts the Workflow / Delivery selects (`StartPicks`, thread section B).
+Selects `--h-control-sm`, `--text-xs`.
+Start's busy spinner `sv-start-spin` 1 turn per `--duration-pulse`.
 
 ### 1.8 The non-paned head (`SessionFrame` header, when not `headless`)
 
-`SessionFrame.tsx:738-775`. `<Card class="armada-session-frame" role="region" aria-label="Job <address ?? id>">` -> `<header class="armada-session-frame__head">` (flex, `align-items:center`, `gap:--space-2`, `color:--fg-muted`, `SessionFrame.css:35-41`): `[state mark] [SessionTitle: flex:1, gap:--space-3, colour --fg-default, weight --weight-medium; one line ellipsised; Tooltip = whole title; a button when renameable: aria-label "<title>, rename", click edits in place via Input aria-label "Job name", Enter saves, Esc/blur cancels; empty title: SquarePen ghost button "Rename"; wand ghost button "Name it for me" (WandSparkles, pending while naming)] [repository] [actions] [marks]` then More (`Ellipsis`, `triggerLabel="More"`) then `back` (`BackAct`, `cockpit/deck/panes.tsx:40`: ghost icon `X`, tooltip `Back to the Job` | `Back to the bay` | `Back`, shortcut Esc). `data-take="rows"|"overflow"` variants are mock-only (`SessionFrame.css:43-46`, `acts.tsx:19`).
+`SessionFrame.tsx:738-775`.
+`<Card class="armada-session-frame" role="region" aria-label="Job <address ?? id>">` -> `<header class="armada-session-frame__head">` (flex, `align-items:center`, `gap:--space-2`, `color:--fg-muted`, `SessionFrame.css:35-41`): `[state mark] [SessionTitle: flex:1, gap:--space-3, colour --fg-default, weight --weight-medium; one line ellipsised; Tooltip = whole title; a button when renameable: aria-label "<title>, rename", click edits in place via Input aria-label "Job name", Enter saves, Esc/blur cancels; empty title: SquarePen ghost button "Rename"; wand ghost button "Name it for me" (WandSparkles, pending while naming)] [repository] [actions] [marks]` then More (`Ellipsis`, `triggerLabel="More"`) then `back` (`BackAct`, `cockpit/deck/panes.tsx:40`: ghost icon `X`, tooltip `Back to the Job` | `Back to the bay` | `Back`, shortcut Esc).
+`data-take="rows"|"overflow"` variants are mock-only (`SessionFrame.css:43-46`, `acts.tsx:19`).
 
 ### 1.9 Layout control in the title bar
 
-`LayoutControl` (`job-panes/LayoutControl.tsx:31`), portalled into `[data-job-slot]` in the title bar (`.armada-title-bar__job`: flex, `align-items:center`, `gap:--space-3`, hidden when empty, no-drag; `TitleBar.css:366-375`). `<span class="job-layout">` with a `Tooltip` and a `DropdownMenu` trigger glyph `PanelsTopLeft`; tooltip + trigger label `Layout: <layout>` plus ` · edited` when the arrangement differs from the saved layout; when edited a 6px dot (`.job-layout__mark`: absolute `top/right: --space-1`, `calc(--space-1*1.5)` square, round, `--fg-default`, 1px `--bg-base` ring) is drawn. Menu: one item per layout (`take:<name>`, `selected` = current) - rule - `Update <layout>` (act, disabled unless edited), `Save as…` (act), `Reset` (act, disabled unless edited) - rule - `New Jobs open on` with the current value as `detail` and a submenu of layouts. `Save as…` turns the menu into a name field (menu label `Save as`, or `A layout has that name.` when taken; search label `Name`; Enter saves, Esc leaves; name kept via `useKept("job-layout-name:<jobId>")`). Base layout is named `Default` (`store.ts:37`). Key `⌘L` (`layout_menu`) opens it.
+`LayoutControl` (`job-panes/LayoutControl.tsx:31`), portalled into `[data-job-slot]` in the title bar (`.armada-title-bar__job`: flex, `align-items:center`, `gap:--space-3`, hidden when empty, no-drag; `TitleBar.css:366-375`).
+`<span class="job-layout">` with a `Tooltip` and a `DropdownMenu` trigger glyph `PanelsTopLeft`; tooltip + trigger label `Layout: <layout>` plus ` · edited` when the arrangement differs from the saved layout; when edited a 6px dot (`.job-layout__mark`: absolute `top/right: --space-1`, `calc(--space-1*1.5)` square, round, `--fg-default`, 1px `--bg-base` ring) is drawn.
+Menu: one item per layout (`take:<name>`, `selected` = current) - rule - `Update <layout>` (act, disabled unless edited), `Save as…` (act), `Reset` (act, disabled unless edited) - rule - `New Jobs open on` with the current value as `detail` and a submenu of layouts.
+`Save as…` turns the menu into a name field (menu label `Save as`, or `A layout has that name.` when taken; search label `Name`; Enter saves, Esc leaves; name kept via `useKept("job-layout-name:<jobId>")`).
+Base layout is named `Default` (`store.ts:37`).
+Key `⌘L` (`layout_menu`) opens it.
 
 ### 1.10 Keys that act on the head
 
@@ -231,7 +277,10 @@ Start strip (held Job): `.sv-start-strip` (`session-view.css:1390`): `display:fl
 | Marks | `modOutOfDate` <- `mod_out_of_date`; `toolsMissing` <- `tools_missing`; `loadout` <- `loadout_summary`; `context`/`contextBreakdown` <- `context_breakdown` |
 | Bands | `handoff`/`handoffReason`, `heldOpenBy`, `watches`, `done{since,summary}` <- `done_since/done_summary`, `waiting_for` |
 
-QUESTION: There is no plan progress bar in the Job's head in the paned view. The only plan bar is `PlanBar` (`session-view/FieldPlan.tsx:12`, one segment per task, `role="group" aria-label="Plan"`), drawn in the Field panel's large layer (`FieldPanel.tsx:687`) and the map card (`cockpit/deck/BuildCard.tsx`). Which one did the owner mean by "the plan progress bar" in the head? Not determined.
+QUESTION: There is no plan progress bar in the Job's head in the paned view.
+The only plan bar is `PlanBar` (`session-view/FieldPlan.tsx:12`, one segment per task, `role="group" aria-label="Plan"`), drawn in the Field panel's large layer (`FieldPanel.tsx:687`) and the map card (`cockpit/deck/BuildCard.tsx`).
+Which one did the owner mean by "the plan progress bar" in the head?
+Not determined.
 
 QUESTION: `Fleet` `Session` is assembled in `packages/screens/src/draft/sessions.ts` and a mock/wired layer from `SessionRecord`+`SessionRow`; this pass did not read that mapping file in full, so some TS-only derivations (for example `owes`, `lapsed`, `standing` defaults, `pressed`) are named above from usage, not from their definitions.
 
@@ -262,7 +311,8 @@ Tab strip contents, left to right: the pane's tabs (`pane.tabs` order), the **Ad
 
 ### 2.2 Which tabs the strip can list and how each looks
 
-Tab labels use `KINDS[kind].label` unless the tab has its own `label` (a Terminal's name, a browser's host, a Custom tab's mod name via `customLabel`/`tabTitle`) (`PaneView.tsx:67-70`). Every non-Thread tab shows its kind's 16px glyph (stroke 2) in the mark slot; a Custom tab shows the mod's glyph (`tabGlyph(custom.glyph)`, fallback `PanelTop`); while its Mod Job builds or works, the glyph is a turning `LoaderCircle` (tooltip = the Mod Job's title or `Mod Job`; `role=img`); while the Mod Job waits on the person the mark is `SessionMark state="waiting" said="Waiting on you"` pulsing in the needs-you amber (`.job-pane__asks`, 1.6 s opacity 0.35); a **Walk** tab not yet seen gets a tint+pulse overlay (`.job-pane__tab[data-owes]::after`: `--status-awaiting-review` at opacity 0.06 -> 0.14, 1.6 s, runs under reduced motion too).
+Tab labels use `KINDS[kind].label` unless the tab has its own `label` (a Terminal's name, a browser's host, a Custom tab's mod name via `customLabel`/`tabTitle`) (`PaneView.tsx:67-70`).
+Every non-Thread tab shows its kind's 16px glyph (stroke 2) in the mark slot; a Custom tab shows the mod's glyph (`tabGlyph(custom.glyph)`, fallback `PanelTop`); while its Mod Job builds or works, the glyph is a turning `LoaderCircle` (tooltip = the Mod Job's title or `Mod Job`; `role=img`); while the Mod Job waits on the person the mark is `SessionMark state="waiting" said="Waiting on you"` pulsing in the needs-you amber (`.job-pane__asks`, 1.6 s opacity 0.35); a **Walk** tab not yet seen gets a tint+pulse overlay (`.job-pane__tab[data-owes]::after`: `--status-awaiting-review` at opacity 0.06 -> 0.14, 1.6 s, runs under reduced motion too).
 
 | Kind (`TabKind`) | Label | Glyph | In the + menu | Notes |
 |---|---|---|---|---|
@@ -319,7 +369,8 @@ Tab labels use `KINDS[kind].label` unless the tab has its own `label` (a Termina
 
 ### 2.5 Keys
 
-`←`/`→` move among tabs, `Home`/`End` go to first/last (the reached tab comes to the front and takes focus) when focus is on a tab (`PaneView.tsx:750-772`); roving tabindex (`tabIndex=0` on the active tab only). Global pane keys in 1.10. Focus into a pane goes to its active tab or `Add tab` (`keys.ts:focusIn`).
+`←`/`→` move among tabs, `Home`/`End` go to first/last (the reached tab comes to the front and takes focus) when focus is on a tab (`PaneView.tsx:750-772`); roving tabindex (`tabIndex=0` on the active tab only).
+Global pane keys in 1.10. Focus into a pane goes to its active tab or `Add tab` (`keys.ts:focusIn`).
 
 ### 2.6 Accessibility
 
@@ -327,13 +378,18 @@ Tab labels use `KINDS[kind].label` unless the tab has its own `label` (a Termina
 
 ### 2.7 Data
 
-Arrangement/layouts are local state (`job-panes/store.ts`, kept per Job id and per family `job`; saved layouts shared across Jobs; `forAll` default). Nothing on the wire. Tab labels for terminals mirror Fleet shells (`shellsOf(window.armada)`); Custom tabs follow the mod list.
+Arrangement/layouts are local state (`job-panes/store.ts`, kept per Job id and per family `job`; saved layouts shared across Jobs; `forAll` default).
+Nothing on the wire.
+Tab labels for terminals mirror Fleet shells (`shellsOf(window.armada)`); Custom tabs follow the mod list.
 
 ---
 
 ## 3. The thread
 
-The thread is `SessionThread` (`packages/components/src/compositions/SessionThread/SessionThread.tsx`, 4238 lines) drawn with the spacious take (`apps/desktop/src/renderer/src/spacious-thread.css`, always on, `main.tsx:14`), mounted by `sessions.tsx:3058-3278` as the Thread tab's pane. It is fed raw `SessionRow`s plus the `SessionRecord`; it folds them itself. Part A covers the container, messages, folded calls, subagents, Checks, Fleet turns, other ledger rows and fork-from-selection. Part B covers the cards (sketch, file, document, plan, draft, asked question, picks, open call, lapsed, notices), the four thread keys and the Needs you dock.
+The thread is `SessionThread` (`packages/components/src/compositions/SessionThread/SessionThread.tsx`, 4238 lines) drawn with the spacious take (`apps/desktop/src/renderer/src/spacious-thread.css`, always on, `main.tsx:14`), mounted by `sessions.tsx:3058-3278` as the Thread tab's pane.
+It is fed raw `SessionRow`s plus the `SessionRecord`; it folds them itself.
+Part A covers the container, messages, folded calls, subagents, Checks, Fleet turns, other ledger rows and fork-from-selection.
+Part B covers the cards (sketch, file, document, plan, draft, asked question, picks, open call, lapsed, notices), the four thread keys and the Needs you dock.
 
 ### Part A: Job view — THREAD, part A (as built in Electron; record of what IS)
 
@@ -343,7 +399,8 @@ All paths are repo-relative `path:line`. `SC` = `packages/components/src/composi
 
 ## Tokens used
 
-Values from `packages/tokens/tokens.css` (dark is default `:root`; light = `[data-theme="light"]`). Density default; `data-spacing="compact|roomy"` on root rescales `--space-*`, `--h-control*` (tokens.css:1245-1281) — default set below.
+Values from `packages/tokens/tokens.css` (dark is default `:root`; light = `[data-theme="light"]`).
+Density default; `data-spacing="compact|roomy"` on root rescales `--space-*`, `--h-control*` (tokens.css:1245-1281) — default set below.
 `takes.css` (`:root[data-look="new"]`, always set by `packages/components/src/look.ts`) lifts Dark `--fg-muted`/`--fg-subtle` and fixes shadows.
 
 | Token | Dark value (shipped default) | Light | Source |
@@ -466,7 +523,8 @@ Colours quoted as `x N%` mean `color-mix(in srgb, x N%, transparent)` unless a s
 | `not_started` row | `session-thread-rows.ts:50` from `session.startFailed` (`why = "Did not start: " + cause`, id `not-started`, `at` = last row's at, else `lastTurnAt`, else epoch) | `ThreadItem::NotStarted{cause,log}` — Rust carries `cause` only; the `Did not start: ` prefix is TS |
 | `reasoning`, `act`, `woke`, `operator` rows | TS row types exist (`SessionThread.tsx:232-312, 314-330`); the only producers found are mocks/stories; no wire variant | none |
 
-A0.3b settled `ask` row → one tool line (so it folds inside a calls run): text `"<command>: <word>"`, `fromPhone` when `via == "phone"`, word map `packages/screens/src/sessions-wire.ts:1064`: ran_unasked "ran without asking"; allowed_once "allowed once"; allowed_and_remembered "allowed and remembered"; always_allowed "always allowed"; always_blocked "always blocked"; allowed_for_session "allowed for this job"; refused "refused"; unanswered "no answer"; kept "kept for you"; session_gone "job ended". `window_ask` row → tool line `Asked in the window: <question>` + (answer ? ` — <answer with \n→" · ">`).
+A0.3b settled `ask` row → one tool line (so it folds inside a calls run): text `"<command>: <word>"`, `fromPhone` when `via == "phone"`, word map `packages/screens/src/sessions-wire.ts:1064`: ran_unasked "ran without asking"; allowed_once "allowed once"; allowed_and_remembered "allowed and remembered"; always_allowed "always allowed"; always_blocked "always blocked"; allowed_for_session "allowed for this job"; refused "refused"; unanswered "no answer"; kept "kept for you"; session_gone "job ended".
+`window_ask` row → tool line `Asked in the window: <question>` + (answer ? ` — <answer with \n→" · ">`).
 
 ### A0.4 What `sessions.tsx` passes to `<SessionThread>` (`apps/desktop/src/renderer/src/sessions.tsx:3071-3262`)
 Wrapped in `RequestOpen`, `SavedOpen`, `ProseCodeColour` (= `colourCode` when spacious, else null), and (outside this file) `SessionRefs` (prose references), `StampSurface` is inside the thread.
@@ -564,10 +622,13 @@ Base (non-spacious) differences: no max width or centring, no padding on the scr
 1. `lead` node (if any) — `li.armada-session-thread__lead`, no styling (`css:1570`).
 2. Transcript skeleton if `transcript === "unread"` (A1.7).
 3. `Show earlier` row if `hidden > 0` (A1.6).
-4. Items oldest → newest. Each `Item` is drawn as: `calls`→`SteadyCalls` (A3), `fleetTurn`→`FleetTurn` (A6), `subagent`→`SubagentRow` (A4), `checks`→`CheckRuns` (A5), `row`→`SteadyRow` (A0.2). React key = `stableKey ?? id` for rows, `item.id` otherwise.
+4. Items oldest → newest.
+   Each `Item` is drawn as: `calls`→`SteadyCalls` (A3), `fleetTurn`→`FleetTurn` (A6), `subagent`→`SubagentRow` (A4), `checks`→`CheckRuns` (A5), `row`→`SteadyRow` (A0.2).
+   React key = `stableKey ?? id` for rows, `item.id` otherwise.
 5. After an item, in this order: (a) the **approved plan record** (`li.armada-session-thread__record` holding `PlanCard`) after the row whose id equals `approval.after` (only when `approval.approved`); (b) each `inline` card whose `afterWhich` index equals this item.
 6. `refreshing` spinner row.
-7. `li.armada-session-thread__tail aria-label="Waiting on you"` when `asking` (= unapproved plan, or sketch pin, or `asked`, or `lapsed`): contents are plan card, sketch pin, ask cards in that order [B]. `display:flex; flex-direction:column; gap: space-3 (12); list-style none` (css:1583).
+7. `li.armada-session-thread__tail aria-label="Waiting on you"` when `asking` (= unapproved plan, or sketch pin, or `asked`, or `lapsed`): contents are plan card, sketch pin, ask cards in that order [B].
+   `display:flex; flex-direction:column; gap: space-3 (12); list-style none` (css:1583).
 8. Working line (A1.9) when `working && no running subagents && (!endsInCalls || asking)`.
 9. `SubagentsCard` (A4.3) when any subagent is running.
 10. `trailing` node (host's: e.g. unsent turn, or the end section) in `li.armada-session-thread__trailing`; the thread follows its growth (ResizeObserver).
@@ -599,7 +660,9 @@ Ordering rules inside items:
 | **There is no jump-to-latest control.** The only floating jump control is `CallChip` (below). | |
 | Keys on the scroller itself (only when `event.target === scroller` and no ⌘/Ctrl/Alt): PageUp = `scrollBy −0.9*clientHeight`; PageDown = `+0.9*clientHeight`; Home = `scrollBy −scrollTop` (to top); End = `scrollBy +scrollHeight` (to bottom). `behavior: "smooth"` unless `prefers-reduced-motion: reduce` → `"auto"`. Arrow keys and Space use the browser default. | 3938-3961 |
 
-`CallChip` (`apps/desktop/src/renderer/src/session-view/CallChip.tsx`) — the one jump control: a pill centred horizontally over the composer, `position:absolute; inset-block-end: calc(space-8 + space-2)` = 40px above the zero-height `.sv-callchip` box, `inset-inline-start: 50%; translate −50% 0`; height `--h-control-sm` 24, padding `0 space-3`, border 1px `border-default`, radius `radius-md`, bg `bg-raised`, text colour `status-awaiting-review`, gap `space-1`; label is the word `Plan` (only when an unapproved plan is waiting and `planAsked`), then `ArrowDown` 12px. Shown only while `li.armada-session-thread__tail`'s top is below `scrollerBottom − 24`; press scrolls the tail into view (`block:"end"`, smooth unless reduced motion) and focuses its first `button, textarea, input`. Hover bg `color-mix(fg-default 6%, bg-raised)`; focus-visible: `box-shadow: inset 2px 0 0 var(--accent)` no outline (`session-view.css:1331-1361`).
+`CallChip` (`apps/desktop/src/renderer/src/session-view/CallChip.tsx`) — the one jump control: a pill centred horizontally over the composer, `position:absolute; inset-block-end: calc(space-8 + space-2)` = 40px above the zero-height `.sv-callchip` box, `inset-inline-start: 50%; translate −50% 0`; height `--h-control-sm` 24, padding `0 space-3`, border 1px `border-default`, radius `radius-md`, bg `bg-raised`, text colour `status-awaiting-review`, gap `space-1`; label is the word `Plan` (only when an unapproved plan is waiting and `planAsked`), then `ArrowDown` 12px.
+Shown only while `li.armada-session-thread__tail`'s top is below `scrollerBottom − 24`; press scrolls the tail into view (`block:"end"`, smooth unless reduced motion) and focuses its first `button, textarea, input`.
+Hover bg `color-mix(fg-default 6%, bg-raised)`; focus-visible: `box-shadow: inset 2px 0 0 var(--accent)` no outline (`session-view.css:1331-1361`).
 
 ### A1.6 Windowing
 | Fact | Value | Code |
@@ -618,7 +681,9 @@ Ordering rules inside items:
 | `transcript === "refreshing"` | `li.armada-session-thread__refreshing` (flex, `fg-muted`) with `LoaderCircle` 12px/2 in `span[role=img aria-label="Loading new messages"]`, tooltip `Loading new messages`, turning `armada-session-you-turn` 1600ms linear infinite (none under reduced motion) | 4170-4182; css:1627-1646 |
 
 ### A1.8 Arrival animation
-Rows added after the first draw: if ≤ 4 new `li` children appear in one commit, each gets `data-arrived`; CSS `.armada-thread-rows > [data-arrived] { animation: armada-thread-arrive var(--duration-enter) var(--ease-out) backwards }`, keyframe from `opacity 0; translateY(space-2 = 8px)` (`css:1649-1658`). The first draw, a "Show earlier" batch (>4) and `transcript === "unread"` (resets the tracking) get none. Code `SessionThread.tsx:3589-3602`.
+Rows added after the first draw: if ≤ 4 new `li` children appear in one commit, each gets `data-arrived`; CSS `.armada-thread-rows > [data-arrived] { animation: armada-thread-arrive var(--duration-enter) var(--ease-out) backwards }`, keyframe from `opacity 0; translateY(space-2 = 8px)` (`css:1649-1658`).
+The first draw, a "Show earlier" batch (>4) and `transcript === "unread"` (resets the tracking) get none.
+Code `SessionThread.tsx:3589-3602`.
 
 ### A1.9 Working line (`li.armada-session-thread__working`)
 Shown when `working === true && running subagents == 0 && (!endsInCalls || asking)` where `endsInCalls` = last drawn item is a `calls` item or a `reasoning` row with `live`.
@@ -628,10 +693,13 @@ Shown when `working === true && running subagents == 0 && (!endsInCalls || askin
 | Mark | `SessionMark state="working" said="Working"` → `span.armada-session-mark[role=img][aria-label="Working"][data-bucket="working"]` colour `status-running`, containing `WorkingMark` 16px; tooltip `Working` |
 | Word | spacious only: `span.armada-session-thread__working-said` text **Thinking** |
 | Stop | `SessionStop` when `onStop` (A1.10) |
-`WorkingMark` (`primitives/WorkingMark`): 16×16 viewBox, stroke 1.6 currentColor, ring `r=6` at 30% opacity + a dot `r=1.4` orbiting (group rotates 360° per `--duration-spin` 1100ms linear; none under reduced motion). **Spacious rewrites it** (SPA:~930-960): ring opacity 1, `stroke-dasharray: 11 27`, `stroke-linecap: round`, dot hidden, whole `svg` rotates 360° in 0.9s linear infinite (`will-change: transform`; none under reduced motion).
+`WorkingMark` (`primitives/WorkingMark`): 16×16 viewBox, stroke 1.6 currentColor, ring `r=6` at 30% opacity + a dot `r=1.4` orbiting (group rotates 360° per `--duration-spin` 1100ms linear; none under reduced motion).
+**Spacious rewrites it** (SPA:~930-960): ring opacity 1, `stroke-dasharray: 11 27`, `stroke-linecap: round`, dot hidden, whole `svg` rotates 360° in 0.9s linear infinite (`will-change: transform`; none under reduced motion).
 
 ### A1.10 `SessionStop` (`SC/SessionStop.tsx`)
-`Button variant=ghost size=sm iconOnly aria-label="Stop"`, tooltip `Stop`, glyph `Square` 16px/2 (filled square: "stop what is running"). Click `preventDefault + stopPropagation` (does not toggle a folded group) then `onStop()`. Button box = 24×24 (`--h-control-sm`), ghost: transparent, `fg-muted`, hover bg `bg-hover` + `fg-default`, active bg `bg-sunken` + border `border-strong`, radius `radius-md`.
+`Button variant=ghost size=sm iconOnly aria-label="Stop"`, tooltip `Stop`, glyph `Square` 16px/2 (filled square: "stop what is running").
+Click `preventDefault + stopPropagation` (does not toggle a folded group) then `onStop()`.
+Button box = 24×24 (`--h-control-sm`), ghost: transparent, `fg-muted`, hover bg `bg-hover` + `fg-default`, active bg `bg-sunken` + border `border-strong`, radius `radius-md`.
 
 ### A1.11 Timestamps (`RowStamp` 587 → `Stamp`, `packages/components/src/primitives/Stamp/Stamp.tsx`)
 | Aspect | Rule |
@@ -645,7 +713,9 @@ Shown when `working === true && running subagents == 0 && (!endsInCalls || askin
 | Wire | `at` is `Instant` RFC 3339 on every row |
 
 ### A1.12 Copy on select (`useCopyOnSelect`, 2562)
-On `mousedown` (button 0) inside the thread set `dragging`; on `mouseup` anywhere (document), if dragging and a non-collapsed selection whose common ancestor is inside the thread and not inside `textarea, input, [contenteditable]:not([contenteditable='false'])`, and the focused element is not such a field inside the thread, then `navigator.clipboard.writeText(selection.toString())` silently (errors swallowed). No toast, no mark. It reads, never owns, the selection.
+On `mousedown` (button 0) inside the thread set `dragging`; on `mouseup` anywhere (document), if dragging and a non-collapsed selection whose common ancestor is inside the thread and not inside `textarea, input, [contenteditable]:not([contenteditable='false'])`, and the focused element is not such a field inside the thread, then `navigator.clipboard.writeText(selection.toString())` silently (errors swallowed).
+No toast, no mark.
+It reads, never owns, the selection.
 
 ### A1.13 Aa panel look (`look` prop → attributes on `div.armada-session-thread`)
 | Setting | Attribute | Effect (spacious) |
@@ -669,11 +739,16 @@ Note: the body-size attribute does not size a plain (tag-bearing) sent paragraph
 | Fork bar | `role="toolbar" aria-label="Selection"` (A8) |
 
 ### A1.15 Wire for the container
-`JobThread{session_id, head: ThreadHead{asked, open_call, lapsed, fleet_acts[], trail}, items[], older}` (`crates/ipc/src/job_thread.rs:50`). Part A reads only `items` (+ `head` for working/asked state elsewhere). `working` comes from `SessionRecord`'s turn state (`session.turn.state === "working"`), `transcript` from the client's load state. Electron's `endsInCalls`, windowing, pin, skeleton, arrival animation are all renderer-local.
+`JobThread{session_id, head: ThreadHead{asked, open_call, lapsed, fleet_acts[], trail}, items[], older}` (`crates/ipc/src/job_thread.rs:50`).
+Part A reads only `items` (+ `head` for working/asked state elsewhere).
+`working` comes from `SessionRecord`'s turn state (`session.turn.state === "working"`), `transcript` from the client's load state.
+Electron's `endsInCalls`, windowing, pin, skeleton, arrival animation are all renderer-local.
 
 ## A2 Messages
 
-Common: all message `<li>`s sit in `ol.armada-thread-rows` (A1). Glyph sizes are px with `strokeWidth 2` unless said. `FORK_ROW` (`data-fork-row="<row id>"`) marks the text block of a person, agent or Fleet-band message when the thread is `forkable` (= any of onForkAt/onReplyAt/onTeachAt given; `sessions.tsx` always gives onReplyAt unless the Job is dead, onTeachAt when teach is open, onForkAt when the host serves `forkAt`) — it is what makes selected words in that block reachable by A8. Wire row: `SessionRow::Message{from, text, files, sketches, tags, queued, ...}`; `delivery` and `stableKey` are client-only (A0.3).
+Common: all message `<li>`s sit in `ol.armada-thread-rows` (A1).
+Glyph sizes are px with `strokeWidth 2` unless said.
+`FORK_ROW` (`data-fork-row="<row id>"`) marks the text block of a person, agent or Fleet-band message when the thread is `forkable` (= any of onForkAt/onReplyAt/onTeachAt given; `sessions.tsx` always gives onReplyAt unless the Job is dead, onTeachAt when teach is open, onForkAt when the host serves `forkAt`) — it is what makes selected words in that block reachable by A8. Wire row: `SessionRow::Message{from, text, files, sketches, tags, queued, ...}`; `delivery` and `stableKey` are client-only (A0.3).
 
 ### A2.1 The person's message (`YourMessage`, SessionThread.tsx:1726; `li.armada-session-you`)
 Location: right-aligned in the row list. Used by `Row` for every `from:"you"` message that is not an act (A2.4).
@@ -691,7 +766,9 @@ Location: right-aligned in the row list. Used by `Row` for every `from:"you"` me
 | Debug info | A2.10 | |
 | Notes message | A2.11 | |
 
-Content derivation: `splitDebugInfo(text)` → `said` (before the line `## Debug info`) and `debug`. `placeTags(said, tags, openTag)` (A2.8) → if any tag found in the words, draw `p.armada-session-said`; else `Prose` (or `NotedMessage` when the text parses as a notes message and an `opens` context exists). Prose here is wrapped so Run and slash-command sends are OFF (`ProseRunner=null`, `ProseCommand=null`).
+Content derivation: `splitDebugInfo(text)` → `said` (before the line `## Debug info`) and `debug`.
+`placeTags(said, tags, openTag)` (A2.8) → if any tag found in the words, draw `p.armada-session-said`; else `Prose` (or `NotedMessage` when the text parses as a notes message and an `opens` context exists).
+Prose here is wrapped so Run and slash-command sends are OFF (`ProseRunner=null`, `ProseCommand=null`).
 
 Keys: none on the bubble (not focusable). Selecting words → A8; Aa text-size does not apply to a tag-bearing `p.armada-session-said` (A1.13).
 
@@ -702,7 +779,8 @@ Keys: none on the bubble (not focusable). Selecting words → A8; Aa text-size d
 | Delivery failed | `row.delivery === "failed"` | `X` 12px, same span, `data-state="failed"` (band ink, no extra colour) | `Not sent` |
 | none | `delivery` undefined (Fleet's row) | nothing | |
 | Queued | `row.queued === true` (wire `Message.queued`) | `span.armada-session-you__queued` role=img: `Clock` 12px + word **Queued** (root `--text-2xs` 12px / `--leading-2xs` 16px, `fg-muted`, gap `space-1`; the bubble is not inside `.armada-prose`) | `Queued until the subagent returns` |
-`delivery` clears when Fleet's own row arrives; the row keeps `stableKey` so the DOM element survives (`outgoing.ts`). Sending→failed rule and Retry resend live in `apps/desktop/src/renderer/src/outgoing.ts` (client).
+`delivery` clears when Fleet's own row arrives; the row keeps `stableKey` so the DOM element survives (`outgoing.ts`).
+Sending→failed rule and Retry resend live in `apps/desktop/src/renderer/src/outgoing.ts` (client).
 
 ### A2.3 The agent's message (`li.armada-thread-row[data-from="agent"]`, SessionThread.tsx ~2418)
 | Part | Spacious (shipped) | Base |
@@ -732,7 +810,9 @@ Note the stamp font: `.armada-message-bar__at` uses `var(--text-xs)`; the bar is
 Tab order: Copy, Reply, each response, stamp (a `button`), in DOM order; the bar is fully in the tab order even at opacity 0 (so `:focus-within` reveals it).
 
 ### A2.4 The person's act (`Did`, 1544; `li.armada-session-did`)
-Condition: a `from:"you"` message whose whole text is `Approved: <address>` (regex `^Approved: (\S+)$`) or starts `Re: <first line>` (`^Re: ([^\n]+)\n?([\s\S]*)$`). `Re:` body has Fleet's closing line stripped (`Fleet took this off your waiting list.` or `This settles the item, so Fleet took it off your waiting list. Do not add it back.`) and is trimmed. Not shown as a bubble.
+Condition: a `from:"you"` message whose whole text is `Approved: <address>` (regex `^Approved: (\S+)$`) or starts `Re: <first line>` (`^Re: ([^\n]+)\n?([\s\S]*)$`).
+`Re:` body has Fleet's closing line stripped (`Fleet took this off your waiting list.` or `This settles the item, so Fleet took it off your waiting list. Do not add it back.`) and is trimmed.
+Not shown as a bubble.
 | Aspect | Value |
 |---|---|
 | `li` | `role="region" aria-label="You approved"` / `"You answered"`; grid `auto minmax(0,1fr) auto`, `align-items:center`, gap `space-1 / space-3`, padding `space-2 / space-3`, radius `radius-md`, **bg `fg-default`, text `fg-inverse`** (a filled light bar on Dark; dark bar on Light). Not overridden by spacious. |
@@ -759,21 +839,29 @@ Drawn for `from:"session"` rows NOT swallowed into a Fleet turn (A6): any other 
 2. each sketch → `AttachmentChip filename=<title> from="Sketch"`.
 3. each tag NOT placed inline → `AttachmentChip filename=<tag title> from=<TAG_KIND[kind]>` where `TAG_KIND`: session "Job", pull_request "Pull request", branch "Branch", issue "Issue", report "Reported bug", terminal "Terminal".
 `AttachmentChip` (read-only: no remove): `span.armada-attachment-chip` inline-flex, align center, gap `space-2`, min-height 24, padding `space-1 space-2`, border 1px `border-default`, radius `radius-sm`, bg `bg-sunken`, sans `text-xs` 13/18 `fg-default`, max-width 100%; `from` rendered BEFORE the name (`span.__from`, quiet); name `span.__name` ellipsis nowrap; optional kind word after (`link`, `Studio node`, none for file) in `fg-subtle`.
-`Enlargeable` (primitives/Enlargeable): thumbnail is `button.armada-enlargeable aria-label=<name>` → opens a modal `role=dialog aria-modal aria-label=<name>` portalled to body via `ZoomablePicture` (zoom, Close button `ViewerClose`); Escape closes (capture phase), Tab is trapped inside, a press outside the picture at fit closes, focus returns to the thumbnail. Picture is the same `src` (no second fetch). No text drawn.
-`SentTo` (`div.armada-sent-to`): flex, align center, gap `space-2`, `text-2xs`/`leading-xs`, `fg-muted`: label **Sent to** · `button.armada-sent-to__chip type=button aria-label="Sent to Job <title>"` (inline-flex, gap `space-1`, padding `0 space-2`, border 1px `border-default`, radius `radius-sm`, bg `bg-sunken`, `fg-default`; hover border `operator-edge`) with `SquareTerminal` 12 (`fg-muted`), title (ellipsis), repository (mono, `fg-muted`, flex none). Press → `onOpenSent({kind:"session", id})`. `target.slot` hovering draws the Session card (not in this file).
+`Enlargeable` (primitives/Enlargeable): thumbnail is `button.armada-enlargeable aria-label=<name>` → opens a modal `role=dialog aria-modal aria-label=<name>` portalled to body via `ZoomablePicture` (zoom, Close button `ViewerClose`); Escape closes (capture phase), Tab is trapped inside, a press outside the picture at fit closes, focus returns to the thumbnail.
+Picture is the same `src` (no second fetch).
+No text drawn.
+`SentTo` (`div.armada-sent-to`): flex, align center, gap `space-2`, `text-2xs`/`leading-xs`, `fg-muted`: label **Sent to** · `button.armada-sent-to__chip type=button aria-label="Sent to Job <title>"` (inline-flex, gap `space-1`, padding `0 space-2`, border 1px `border-default`, radius `radius-sm`, bg `bg-sunken`, `fg-default`; hover border `operator-edge`) with `SquareTerminal` 12 (`fg-muted`), title (ellipsis), repository (mono, `fg-muted`, flex none).
+Press → `onOpenSent({kind:"session", id})`.
+`target.slot` hovering draws the Session card (not in this file).
 
 ### A2.7 `sent` row (words sent to another Job from a box not this thread's own; 2358)
-Wire row `sent` (`sessions-wire.ts:1133`: words an old thread sent on to a Session or Job; `target{id,kind,title,manifest_id→repository}`, `files`, `tags`). Draws as `li.armada-session-you[role=region][aria-label="Your message"]` with the bubble: words (tag-bearing → `p.armada-session-said`, else Prose), `Sent`, then `SentTo`; band with stamp. No Delivery/Queued/Retry, not forkable.
+Wire row `sent` (`sessions-wire.ts:1133`: words an old thread sent on to a Session or Job; `target{id,kind,title,manifest_id→repository}`, `files`, `tags`).
+Draws as `li.armada-session-you[role=region][aria-label="Your message"]` with the bubble: words (tag-bearing → `p.armada-session-said`, else Prose), `Sent`, then `SentTo`; band with stamp.
+No Delivery/Queued/Retry, not forkable.
 
 ### A2.8 Inline tags (`InlineTag.tsx`; css `SessionComposer.css:291-366`)
-A message's `tags` (kind session|pull_request|branch|issue|report|terminal, `id`, `title`, optional `url`) are drawn inline where the words contain `@<title>` (first match from the previous position, in tag order); the matched `@title` text is REPLACED by the chip; unmatched tags go to `Sent` as chips (A2.6). If no tag matched, the message draws as Prose instead.
+A message's `tags` (kind session|pull_request|branch|issue|report|terminal, `id`, `title`, optional `url`) are drawn inline where the words contain `@<title>` (first match from the previous position, in tag order); the matched `@title` text is REPLACED by the chip; unmatched tags go to `Sent` as chips (A2.6).
+If no tag matched, the message draws as Prose instead.
 | Variant | Draw |
 |---|---|
 | Read-only | `span.armada-inline-tag`: inline-flex, align center, gap `space-1`, padding-inline `space-1`, border 1px `border-default`, radius `radius-md`, bg `bg-raised`, `fg-default`, `text-xs` 13/18, nowrap, baseline-aligned, `user-select: all`. Glyph 12/2 (`fg-muted`) from `TAG_GLYPH`: session `SquareTerminal`, pull_request `GitPullRequest`, branch `GitBranch`, issue `Ticket`, report `Bug`, terminal `Terminal`; then `tag.title`. |
 | Link (host provides `ProseRefs` and the kind is session/pull_request/issue) | `a.armada-inline-tag.armada-inline-tag--link href="#<kind>"`, colour `accent` (hover `accent-hover`), glyph inherits, no underline, `user-select:auto`; tooltip `<Job|Pull request|Issue|…> · <title without leading "#123 " or issue key>`; click `preventDefault` then `refs.open({kind,id,title})` (opens the layer). branch/report/terminal tags are never links. |
 
 ### A2.9 Markdown (`Prose`, `primitives/Prose/Prose.tsx`; css `Prose.css`)
-Parser: remark-parse + remark-gfm (+ breaks); block flow (margins between siblings, never flex). All sizes below are the Prose scale (`--text-sm`=15/22, `--text-xs`=14/20, `--text-2xs`=13/18, `--text-base`=16/24); in the spacious thread paragraphs and `.armada-prose` are forced to 15/24 and the prose gap is `space-4` (16); `p + p` extra top margin `space-6` (24) (SPA ~330).
+Parser: remark-parse + remark-gfm (+ breaks); block flow (margins between siblings, never flex).
+All sizes below are the Prose scale (`--text-sm`=15/22, `--text-xs`=14/20, `--text-2xs`=13/18, `--text-base`=16/24); in the spacious thread paragraphs and `.armada-prose` are forced to 15/24 and the prose gap is `space-4` (16); `p + p` extra top margin `space-6` (24) (SPA ~330).
 | Element | Draw |
 |---|---|
 | Paragraph | `p.armada-prose__paragraph`, `text-wrap: pretty` |
@@ -791,17 +879,28 @@ Parser: remark-parse + remark-gfm (+ breaks); block flow (margins between siblin
 | Line picks | `ProsePick` (per-paragraph hover bar with the quick responses) is OFF in the Job view (spacious): `picks === null || spacious → null`. The CSS for `p[data-pick]` hot/focus fills exists in SPA ~290-335 but nothing sets `data-pick` here (see Open questions). |
 
 ### A2.10 Debug info (inside the person's bubble)
-Condition: the message text contains a line exactly `## Debug info`. `details.armada-session-you__debug` after the words (Prose of the facts under it): summary `summary.armada-session-you__debug-head` — flex, gap `space-1`, `fit-content`, pointer, no marker, `text-2xs` `fg-muted` — `ChevronRight` 12/2 (rotates 90° when open, 120ms) + text **Debug info**. Open body = Prose of everything after the heading (Run/commands off).
+Condition: the message text contains a line exactly `## Debug info`.
+`details.armada-session-you__debug` after the words (Prose of the facts under it): summary `summary.armada-session-you__debug-head` — flex, gap `space-1`, `fit-content`, pointer, no marker, `text-2xs` `fg-muted` — `ChevronRight` 12/2 (rotates 90° when open, 120ms) + text **Debug info**.
+Open body = Prose of everything after the heading (Run/commands off).
 
 ### A2.11 Notes message (inside the person's bubble)
-Condition: no inline tags AND the `NotedOpens` context is given AND `notedOf(said)` parses (every line belongs to numbered blocks `N. <ref>` with indented bodies; numbering must run 1..n, any stray line returns `undefined`). Draws `ol.armada-noted[aria-label="Notes"]` (flex column gap `space-2`, no marker): each `li.armada-noted__note` = head (`span.__n` "N." `fg-muted` tabular · tooltip + `button.armada-prose__link.armada-noted__ref[data-kind]` (accent link look; `file` kind mono) whose text is `notedSaid(ref, root)`) and, if the note has a body, `div.armada-noted__body` (padding-inline-start `space-4`) holding Prose. `notedSaid`: document `"<section>: <target>"`; sketch `"<title>: <part labels, comma>"`; file `"<path rel. to Job checkout or ~…>:<line|from-to>"`; picture `"<name>"` or `"<name>, region"`. Tooltip (`opensSaid`): document `Open <page>, revision <n>`; sketch `Open <title>, part picked` / `parts picked`; file `Open <name>, line N` / `lines A-B`; picture `Open <name>` + `, region marked`. Press → `opens.open(ref)`.
+Condition: no inline tags AND the `NotedOpens` context is given AND `notedOf(said)` parses (every line belongs to numbered blocks `N. <ref>` with indented bodies; numbering must run 1..n, any stray line returns `undefined`).
+Draws `ol.armada-noted[aria-label="Notes"]` (flex column gap `space-2`, no marker): each `li.armada-noted__note` = head (`span.__n` "N." `fg-muted` tabular · tooltip + `button.armada-prose__link.armada-noted__ref[data-kind]` (accent link look; `file` kind mono) whose text is `notedSaid(ref, root)`) and, if the note has a body, `div.armada-noted__body` (padding-inline-start `space-4`) holding Prose.
+`notedSaid`: document `"<section>: <target>"`; sketch `"<title>: <part labels, comma>"`; file `"<path rel. to Job checkout or ~…>:<line|from-to>"`; picture `"<name>"` or `"<name>, region"`.
+Tooltip (`opensSaid`): document `Open <page>, revision <n>`; sketch `Open <title>, part picked` / `parts picked`; file `Open <name>, line N` / `lines A-B`; picture `Open <name>` + `, region marked`.
+Press → `opens.open(ref)`.
 
-Addenda to A2.9 (spacious Prose geometry, SPA:330-345, 1240-1300): `> p + p` margin-top `space-6` (24); a paragraph next to a fenced block or table: `margin-top: space-8` (32) both ways; fenced blocks, `div.armada-prose__run` and tables get `margin-inline: −20px` (bleed) and `padding-inline: 20px`; a table is `width: calc(100% + 40px)` with first/last cell padding 20px. The Copy/Run acts of a long block ride (`position: sticky`) down the block's top edge as the thread scrolls, under the head fade, stopping at the block's foot (`.armada-prose__run-block {display: grid}`, SPA ~1180-1225).
+Addenda to A2.9 (spacious Prose geometry, SPA:330-345, 1240-1300): `> p + p` margin-top `space-6` (24); a paragraph next to a fenced block or table: `margin-top: space-8` (32) both ways; fenced blocks, `div.armada-prose__run` and tables get `margin-inline: −20px` (bleed) and `padding-inline: 20px`; a table is `width: calc(100% + 40px)` with first/last cell padding 20px.
+The Copy/Run acts of a long block ride (`position: sticky`) down the block's top edge as the thread scrolls, under the head fade, stopping at the block's foot (`.armada-prose__run-block {display: grid}`, SPA ~1180-1225).
 
 ## A3 Folded calls
 
 ### A3.1 Item and folding rule
-A `calls` item = a run of consecutive `tool` rows without `subagent`; id = first row's id (`itemsOf`, A1.4). Rows removed first in spacious: `UNDRAWN` (A1.4). A tool row's `text` is `"<ToolName> <input>"` as Fleet wrote it (`Edit crates/store/src/audit.rs`, `Bash cd x && cargo check`, `mcp__server__tool …`). `namesOf(rows)` = first whitespace-separated word of each row, each once, in first-call order (used only for aria-labels). Wire: `ThreadItem::Calls{id, rows, names}`.
+A `calls` item = a run of consecutive `tool` rows without `subagent`; id = first row's id (`itemsOf`, A1.4).
+Rows removed first in spacious: `UNDRAWN` (A1.4).
+A tool row's `text` is `"<ToolName> <input>"` as Fleet wrote it (`Edit crates/store/src/audit.rs`, `Bash cd x && cargo check`, `mcp__server__tool …`).
+`namesOf(rows)` = first whitespace-separated word of each row, each once, in first-call order (used only for aria-labels).
+Wire: `ThreadItem::Calls{id, rows, names}`.
 
 ### A3.2 Three drawings of a calls item
 | Case | Condition | Draw |
@@ -812,13 +911,15 @@ A `calls` item = a run of consecutive `tool` rows without `subagent`; id = first
 `working` passed to `Calls` is `working && !asking && at === items.length − 1` (`SessionThread.tsx:4010`).
 
 ### A3.3 Live list (spacious, last item while the agent works)
-`li.armada-session-fold.armada-session-fold--live` `aria-label="Tool calls: <names, comma-joined>"` containing `ol.armada-session-live` (flex column, gap `space-2` (8), margin/padding 0, no marker). One `li.armada-session-live__call` per call in order: flex, align center, gap `space-2`, `spacious-meta` 13px / 20px, colour `fg-subtle`; the newest (`data-now`) `fg-default`.
+`li.armada-session-fold.armada-session-fold--live` `aria-label="Tool calls: <names, comma-joined>"` containing `ol.armada-session-live` (flex column, gap `space-2` (8), margin/padding 0, no marker).
+One `li.armada-session-live__call` per call in order: flex, align center, gap `space-2`, `spacious-meta` 13px / 20px, colour `fg-subtle`; the newest (`data-now`) `fg-default`.
 | Part | Draw |
 |---|---|
 | Mark cell `span.armada-session-live__mark` | inline-flex, flex none, width `space-4` (16), centered; holds `SessionMark state="working" said="Working"` (16px `WorkingMark`, A1.9) ONLY on the newest call; empty (16px gap kept) for the others |
 | Line `span.armada-session-live__line` | min-width 0, single line, ellipsis. Text: a `Bash <cmd>` call → `Running <cmd>` (newest) or `Ran <cmd>` (older) with the WHOLE command (the line is cut at the column's end by ellipsis); any other call → `callLine(row, isNewest)` (A3.5) |
 | Stop | after the newest line's text, `SessionStop` (A1.10) when `onStop` |
-Not a press, not focusable, no keys. Earlier calls in the run stay listed (the list grows as calls arrive; when the next non-call item arrives or the agent stops, the item becomes the folded line A3.4).
+Not a press, not focusable, no keys.
+Earlier calls in the run stay listed (the list grows as calls arrive; when the next non-call item arrives or the agent stops, the item becomes the folded line A3.4).
 
 ### A3.4 Folded line (`summary.armada-session-fold__head`)
 | Aspect | Value |
@@ -832,9 +933,15 @@ Not a press, not focusable, no keys. Earlier calls in the run stay listed (the l
 | Opened | `ol.armada-session-fold__calls`: flex column gap `space-1`, margin-top `space-1`, padding-left `space-4`, no marker; each call is a `Command` (A3.6) |
 
 ### A3.5 The line text (`calls-line.ts`) — the exact algorithm
-Inputs: the rows' `text`. `toolOf`: tool = text before first whitespace (if it contains `__`, the part after the last `__`), detail = rest trimmed. Families by tool name: `Edit, Write, MultiEdit, NotebookEdit`→edit; `Read`→read; `Grep, Glob`→search; `Bash`→run; `Agent, Task`→agent; `WebFetch, WebSearch`→web; `start_watch`→watch; `AskUserQuestion`→ask. Anything else = unknown.
+Inputs: the rows' `text`.
+`toolOf`: tool = text before first whitespace (if it contains `__`, the part after the last `__`), detail = rest trimmed.
+Families by tool name: `Edit, Write, MultiEdit, NotebookEdit`→edit; `Read`→read; `Grep, Glob`→search; `Bash`→run; `Agent, Task`→agent; `WebFetch, WebSearch`→web; `start_watch`→watch; `AskUserQuestion`→ask.
+Anything else = unknown.
 Verbs [running, finished]: edit [Editing, Edited]; read [Reading, Read]; search [Searching, Searched]; run [Running, Ran]; agent [Briefing, Briefed]; web [Reading, Read]; watch [Watching, Watched]; ask [Waiting for you to answer, You answered].
-Rule: take the LAST call (in the group) whose family is known → `last`; if none known, the line is the LAST call's tool name (`""` if empty). `of` = the calls of family `last`. If `last = agent` and the last such call has a non-empty detail, the line is that detail clipped to 40 chars (`clip`: >40 → first 39 + `…`). Otherwise `verb <about>` where:
+Rule: take the LAST call (in the group) whose family is known → `last`; if none known, the line is the LAST call's tool name (`""` if empty).
+`of` = the calls of family `last`.
+If `last = agent` and the last such call has a non-empty detail, the line is that detail clipped to 40 chars (`clip`: >40 → first 39 + `…`).
+Otherwise `verb <about>` where:
 | Family | about |
 |---|---|
 | edit, read | set of `baseName(detail)` (first word of detail, last `/` segment) over `of`; >1 distinct → `multiple files`; exactly 1 → that name; none → `a file` |
@@ -849,7 +956,8 @@ Examples: `Edited foo.ts`; `Edited multiple files`; `Ran cargo check`; `Running 
 Tense: `working` true → first verb; false → second.
 
 ### A3.6 One call (`Command`, 1324; also `row.kind==="command"` 2303 and `ran` 1634)
-`Command` = `li.armada-session-command` (flex, align baseline, gap `space-2`, min-width 0) with `code.armada-session-command__text` (spacious: sans 13/20; base mono 12/16; `fg-muted`; `pre-wrap`; wraps anywhere) holding the raw `text`; if `fromPhone` a `span.armada-session-command__door` (inline-flex, `fg-muted`) with `Smartphone` 12/2 and tooltip `From phone`. When the host gives `onTeach` (Teach open) the `li` is `tabIndex=0`; right press, ContextMenu key or Shift+F10 opens `useTeachMenu("Command")`: `DropdownMenu` with a label `Command` and one item `Teach` (GraduationCap) → `onTeach({kind:"command", text, at})`; closing focuses the `li` back.
+`Command` = `li.armada-session-command` (flex, align baseline, gap `space-2`, min-width 0) with `code.armada-session-command__text` (spacious: sans 13/20; base mono 12/16; `fg-muted`; `pre-wrap`; wraps anywhere) holding the raw `text`; if `fromPhone` a `span.armada-session-command__door` (inline-flex, `fg-muted`) with `Smartphone` 12/2 and tooltip `From phone`.
+When the host gives `onTeach` (Teach open) the `li` is `tabIndex=0`; right press, ContextMenu key or Shift+F10 opens `useTeachMenu("Command")`: `DropdownMenu` with a label `Command` and one item `Teach` (GraduationCap) → `onTeach({kind:"command", text, at})`; closing focuses the `li` back.
 The `row.kind === "command"` row (a command the person typed in a terminal Job, `commandNames`/`onCommand`): `li.armada-session-command > code` with the text only; no Teach.
 
 **`ran` row (RanRow)** — a command the person ran in the Job's terminal, whose lines were sent to the agent:
@@ -866,10 +974,13 @@ Wire: `SessionRow::Ran{command, code, tail, running, since}`.
 ## A4 Subagents
 
 ### A4.1 Item
-A `tool` row with `subagent: ToolSubagent` (`@armada/protocol`: `{id, agent_type?, task, latest?, state: "running"|"finished"|"cut_off", since, ended?}`) is its own `subagent` item (ends the calls run before it and after it). Its own calls are never rows of the thread. Wire: `ThreadItem::Subagent`; `ToolSubagent` is Fleet's `ipc::ToolSubagent`.
+A `tool` row with `subagent: ToolSubagent` (`@armada/protocol`: `{id, agent_type?, task, latest?, state: "running"|"finished"|"cut_off", since, ended?}`) is its own `subagent` item (ends the calls run before it and after it).
+Its own calls are never rows of the thread.
+Wire: `ThreadItem::Subagent`; `ToolSubagent` is Fleet's `ipc::ToolSubagent`.
 
 ### A4.2 `SubagentRow` (`li.armada-session-subagent[data-state]`)
-`li`: flex. Spacious: `margin-inline: −20px`; two `data-handoff` rows in a row have `margin-block-start: space-1 − turn-gap` (i.e. −24px at default spacing) so a run of handoffs reads as one list of lines.
+`li`: flex.
+Spacious: `margin-inline: −20px`; two `data-handoff` rows in a row have `margin-block-start: space-1 − turn-gap` (i.e. −24px at default spacing) so a run of handoffs reads as one list of lines.
 | State | Draw |
 |---|---|
 | running | `data-handoff`. Wrapper `.armada-session-subagent__press` is a `button` (aria-label `Subagent <task>, running`) when `onOpenSubagent` is given (it is: `sessions.tsx:3211` opens the subagent's layer `read({kind:"subagent", id})`), else a `div`. Row layout: flex row, align center, gap `space-2`, padding-block `space-1`, no border, transparent bg, `fg-subtle`, `text-sm` (14/20; spacious padding-inline 20px). Content: `Bot` 14/2 (`__bot`) · `span.armada-session-subagent__handoff` text **`Started a subagent: <task>`** (ellipsis, nowrap). Hover: colour `fg-default`. |
@@ -877,7 +988,9 @@ A `tool` row with `subagent: ToolSubagent` (`@armada/protocol`: `{id, agent_type
 Focus ring `1px accent`, offset 2px. Keys: Tab/Enter/Space on the button.
 
 ### A4.3 `SubagentsCard` (pinned live view; `li.armada-session-thread__subagents`)
-Drawn after the working-line slot (A1.4 #9) while ≥1 subagent item is `running` (`running` = all running subagent items, in order). The `li` is `position: sticky; bottom: space-2 (8px); z-index: 1`; spacious `margin-inline: −20px`. The working line is NOT drawn while any subagent runs.
+Drawn after the working-line slot (A1.4 #9) while ≥1 subagent item is `running` (`running` = all running subagent items, in order).
+The `li` is `position: sticky; bottom: space-2 (8px); z-index: 1`; spacious `margin-inline: −20px`.
+The working line is NOT drawn while any subagent runs.
 | Part | Draw |
 |---|---|
 | `section.armada-subagents aria-label="Subagents running"` | flex column, border 1px `border-subtle`, radius `radius-md`, bg `bg-raised`, `box-shadow: --shadow-overlay`, overflow hidden |
@@ -890,21 +1003,34 @@ Gone when the last running subagent returns; its `SubagentRow` then redraws as t
 ## A5 Checks
 
 ### A5.1 Item and states
-Check rows (`kind:"check"`, `{id, at, name, run: number, state, target?}`; wire `SessionRow::Check`). Folding: consecutive Check rows with the same `name` and nothing between are ONE `checks` item (A1.4). State → mark via `StepActivityMark` (12px, `strokeWidth 2`) and word: `running` → `running` activity (CircleDot, `step-running` #4FB8D9, pulsing dot) word `running`; `passed` → `advanced` (Check, `step-advanced` #4FAF7C) `passed`; `failed` → `failed` (X, `step-failed` #E97878) `failed`; `timed_out` → `failed` mark, word `timed out` (a budget kill is not a failed test). Tooltip on the mark = the word; the word is also a visually hidden `span.armada-step-mark__name` for screen readers. Mark cell is `width: space-4` (16) inline-flex centered.
+Check rows (`kind:"check"`, `{id, at, name, run: number, state, target?}`; wire `SessionRow::Check`).
+Folding: consecutive Check rows with the same `name` and nothing between are ONE `checks` item (A1.4).
+State → mark via `StepActivityMark` (12px, `strokeWidth 2`) and word: `running` → `running` activity (CircleDot, `step-running` #4FB8D9, pulsing dot) word `running`; `passed` → `advanced` (Check, `step-advanced` #4FAF7C) `passed`; `failed` → `failed` (X, `step-failed` #E97878) `failed`; `timed_out` → `failed` mark, word `timed out` (a budget kill is not a failed test).
+Tooltip on the mark = the word; the word is also a visually hidden `span.armada-step-mark__name` for screen readers.
+Mark cell is `width: space-4` (16) inline-flex centered.
 
 ### A5.2 Lone run (`rows.length === 1`)
 `li.armada-session-fold` containing the head:
 | Host gives `onOpenCheck` (sessions.tsx:3210 → opens run `run` of this Job's Check in a layer) | Head is `button.armada-session-fold__head.armada-session-fold__head--press` `aria-label="Check <name> <target>, <word>"` (no target → `Check <name>, <word>`); press → `onOpenCheck(run)` |
 | otherwise | head is a `span.armada-session-fold__head` (tabIndex 0 only if Teach is on) |
-Head content: mark · `span.mono` name · `code.armada-session-fold__target` target (mono, `fg-subtle`, ellipsis) if present. Base size 12/16 (`text-2xs`); spacious: head 13/20 `fg-muted`, the `.mono` name span becomes sans 13/20 (SPA:253). **Spacious press card**: `--press` heads are drawn as a card: gap `space-2`, min-width `min(100%, 280px)`, padding `space-3 space-4`, radius 8, bg `fg-default 4%` + inset 1px ring `fg-default 7%`, `text-sm` 14/20 `fg-default`, hover bg `fg-default 7%`, svg inside 16×16 `fg-muted`. (So a lone Check, a shown window and a `judged`/`file` press are all cards.)
+Head content: mark · `span.mono` name · `code.armada-session-fold__target` target (mono, `fg-subtle`, ellipsis) if present.
+Base size 12/16 (`text-2xs`); spacious: head 13/20 `fg-muted`, the `.mono` name span becomes sans 13/20 (SPA:253).
+**Spacious press card**: `--press` heads are drawn as a card: gap `space-2`, min-width `min(100%, 280px)`, padding `space-3 space-4`, radius 8, bg `fg-default 4%` + inset 1px ring `fg-default 7%`, `text-sm` 14/20 `fg-default`, hover bg `fg-default 7%`, svg inside 16×16 `fg-muted`.
+(So a lone Check, a shown window and a `judged`/`file` press are all cards.)
 ### A5.3 Several runs (`rows.length > 1`)
-`li.armada-session-fold.armada-session-fold--checks` > `details` > `summary.armada-session-fold__head` (`aria-label="Check <name>, latest <state>"`; chevron hidden in spacious; head font inherits parent so same size as a lone press) with the LATEST run's mark and the name (`span.mono`); NO count. Opened: `ol.armada-session-fold__calls` with one `li` per run in order: a press button (if `onOpenCheck`, `aria-label` as A5.2) or span: mark · target `code` (if any) · `Stamp still` (`armada-session-fold__at`: flex none, `fg-subtle`). Right press / ContextMenu / Shift+F10 on the item opens the Teach menu (`useTeachMenu("Check")`, item `Teach`) when Teach is on → `onTeach({kind:"check", text:"<name> <target> <state>" whitespace-collapsed, at: latest.at})`.
+`li.armada-session-fold.armada-session-fold--checks` > `details` > `summary.armada-session-fold__head` (`aria-label="Check <name>, latest <state>"`; chevron hidden in spacious; head font inherits parent so same size as a lone press) with the LATEST run's mark and the name (`span.mono`); NO count.
+Opened: `ol.armada-session-fold__calls` with one `li` per run in order: a press button (if `onOpenCheck`, `aria-label` as A5.2) or span: mark · target `code` (if any) · `Stamp still` (`armada-session-fold__at`: flex none, `fg-subtle`).
+Right press / ContextMenu / Shift+F10 on the item opens the Teach menu (`useTeachMenu("Check")`, item `Teach`) when Teach is on → `onTeach({kind:"check", text:"<name> <target> <state>" whitespace-collapsed, at: latest.at})`.
 Running Checks: the item's mark pulses until a later row replaces it (the wire replaces the row by id). No timer is drawn on a Check row.
 
 ## A6 Fleet turns
 
 ### A6.1 Folding (A1.4 rules; `itemsOf` 1113-1150, `FleetTurn.tsx`)
-A Fleet notice (`message`, `from:"session"`, `sender.id === "fleet"`, not in `keep`) opens a `fleetTurn` item. It swallows the following consecutive `tool` rows (a tool row that carries a `subagent` is swallowed too, and then is NOT drawn as a subagent item) and `agent` messages; a `you` message or any other row ends it. The LAST agent message of the swallowed reply is lifted out and drawn after the fold as a normal agent row. `handled = reply.length > 0` (the agent replied). Batch: a notice with `batch` (name the person taught) holds several notices, one per line of `text`.
+A Fleet notice (`message`, `from:"session"`, `sender.id === "fleet"`, not in `keep`) opens a `fleetTurn` item.
+It swallows the following consecutive `tool` rows (a tool row that carries a `subagent` is swallowed too, and then is NOT drawn as a subagent item) and `agent` messages; a `you` message or any other row ends it.
+The LAST agent message of the swallowed reply is lifted out and drawn after the fold as a normal agent row.
+`handled = reply.length > 0` (the agent replied).
+Batch: a notice with `batch` (name the person taught) holds several notices, one per line of `text`.
 
 ### A6.2 Drawing (`li.armada-fleet-turn`)
 | Part | Spacious (shipped) | Base |
@@ -916,57 +1042,87 @@ A Fleet notice (`message`, `from:"session"`, `sender.id === "fleet"`, not in `ke
 | Label | `span.armada-fleet-turn__label`: sans (base mono), ellipsis, nowrap = `notice.batch` (the batch's name) else `summaryOf(notice.text)` = the notice's first sentence up to the first line break or `. ` without a trailing full stop; tooltip = the notice's full text | |
 | Body (when open) | `div#<id>.armada-fleet-turn__body`: flex column, gap `space-2`, margin `space-2 0 0 6px`, padding-left `space-4`, left border 1px `border-subtle`. Content in order: the notice (`p.armada-fleet-turn__notice` — for a batch one `p` per line); then each swallowed row: a tool row → `p.armada-fleet-turn__tool` (the raw tool text); a message → `div.armada-fleet-turn__reply` with `Prose`. Notice/tool/reply: sans 13/20 `fg-muted` | margin-inline-start `space-4`, padding `space-1 space-2`, left border 1px `border-default`; notice/tool mono; reply `text-xs` `fg-muted` |
 | Open state | local `useState(false)`; closed again on remount (not persisted) | |
-Press toggles. Keys: Enter/Space on the button. Context menu: right press on the `li`, or ContextMenu / Shift+F10 on it, opens `DropdownMenu triggerLabel="Fleet notice"` with `noticeEntries(kind, muting, teaching)` (A2.5), available when `onTeach` is given or (`notice` kind known and `onMuteNotice` given); Teach → `onTeach({kind:"notice", text, at, ids:[kind]?})`; a mute choice → `onMuteNotice(kind, "job"|"repo"|"hour")`; closing returns focus to the row button.
+Press toggles.
+Keys: Enter/Space on the button.
+Context menu: right press on the `li`, or ContextMenu / Shift+F10 on it, opens `DropdownMenu triggerLabel="Fleet notice"` with `noticeEntries(kind, muting, teaching)` (A2.5), available when `onTeach` is given or (`notice` kind known and `onMuteNotice` given); Teach → `onTeach({kind:"notice", text, at, ids:[kind]?})`; a mute choice → `onMuteNotice(kind, "job"|"repo"|"hour")`; closing returns focus to the row button.
 Wire: Rust `thread_view.rs` folds Fleet turns the same way into `ThreadItem::FleetTurn` (`crates/ipc/src/job_thread.rs:217`); Electron derives it in TS from `message` rows.
 
 ### A1.16 Rows drawn just above the thread (inside `.armada-session-frame__centre`, before `SessionThread`; `sessions.tsx:3050-3066`)
-In order, inside `ThreadKeys` (B): `Refused` (when Fleet refused the last act on the Job: `Alert tone="escalated"` with Fleet's words, else nothing); `ForkedFrom` (a Job forked from another and not a moved one): `details.armada-forked-from` (`aria-label="Forked from <title>"`, flex none, bg `bg-raised`, radius `radius-md`) closed by default, `summary.armada-forked-from__head role=button` text **`Forked from <title>`** (padding `space-2 space-3`, `fg-muted`, `text-xs`, pointer) — opening calls `watch(origin.id)` and draws a read-only `SessionThread` (BASE look, no context) of the origin's rows up to and including the fork message, in `div.armada-forked-from__rows` (flex, `max-height: 48*6 = 288px`, padding `0 space-3 space-3`); then `startedBy` (the Job another Job's agent started): `button.armada-started-by` text **`Started by <title>`** (press opens that Job); spacious: `align-self: stretch`, margin `space-4 (max(16px,(100%−outer)/2)+20px) 0`, no padding/bg/radius, `fg-subtle` 13/20, hover `fg-default` + underline offset 3px. Base look (`StartedBy.css`): `flex:none`, padding `space-2 space-3`, no border, radius `radius-md`, bg `bg-raised`, `fg-muted`, `text-xs` 13/18, left aligned, pointer; hover `fg-default`.
+In order, inside `ThreadKeys` (B): `Refused` (when Fleet refused the last act on the Job: `Alert tone="escalated"` with Fleet's words, else nothing); `ForkedFrom` (a Job forked from another and not a moved one): `details.armada-forked-from` (`aria-label="Forked from <title>"`, flex none, bg `bg-raised`, radius `radius-md`) closed by default, `summary.armada-forked-from__head role=button` text **`Forked from <title>`** (padding `space-2 space-3`, `fg-muted`, `text-xs`, pointer) — opening calls `watch(origin.id)` and draws a read-only `SessionThread` (BASE look, no context) of the origin's rows up to and including the fork message, in `div.armada-forked-from__rows` (flex, `max-height: 48*6 = 288px`, padding `0 space-3 space-3`); then `startedBy` (the Job another Job's agent started): `button.armada-started-by` text **`Started by <title>`** (press opens that Job); spacious: `align-self: stretch`, margin `space-4 (max(16px,(100%−outer)/2)+20px) 0`, no padding/bg/radius, `fg-subtle` 13/20, hover `fg-default` + underline offset 3px.
+Base look (`StartedBy.css`): `flex:none`, padding `space-2 space-3`, no border, radius `radius-md`, bg `bg-raised`, `fg-muted`, `text-xs` 13/18, left aligned, pointer; hover `fg-default`.
 
 ## A7 Other rows
 
-Spacious has no override for any row below unless stated; they draw with the base CSS in `SessionThread.css` / their own CSS file at the root scale (`--text-2xs` 12/16, `--text-xs` 13/18, `--text-sm` 14/20). Row `<li>`s sit in the 28px row gap; none is focusable unless it holds a button.
+Spacious has no override for any row below unless stated; they draw with the base CSS in `SessionThread.css` / their own CSS file at the root scale (`--text-2xs` 12/16, `--text-xs` 13/18, `--text-sm` 14/20).
+Row `<li>`s sit in the 28px row gap; none is focusable unless it holds a button.
 
 ### A7.1 `woke` (Fleet woke the agent; `Row` 2047; `rowsOfThread` has no case for it — no wire producer)
 `li.armada-session-woke`: flex, align center, gap `space-2`, padding-block `space-1`, **dashed** 1px `border-default` top and bottom, `fg-muted`, mono 12/18. `Server` 12/2 in `span.__mark role=img aria-label="Fleet woke it"` (tooltip `Fleet woke it`) · `span.__why` (flex 1, `row.why`) · stamp (`armada-session-woke__at`, flex none, `fg-subtle`).
 
 ### A7.2 `not_started` (`StartFailedRow`)
-`li.armada-session-start-failed role=region aria-label="Failed to start"`: grid `auto minmax(0,1fr) auto auto auto auto`, align center, column-gap `space-2`, padding-block `space-1`, dashed 1px `border-default` top and bottom, colour **`status-completed-failed`** (#E97878), mono 12/18. Cells: `X` 12/2 in `span[role=img aria-label="Failed to start"]` (tooltip `Failed to start`) · `span.__why` = `Did not start: <cause>` (wire `cause`; TS adds the prefix) · col A: if `log` non-empty `Button ghost sm iconOnly aria-label="Error lines"` (tooltip `Error lines`, `aria-expanded`, `aria-controls`) with `ChevronRight` (closed) / `ChevronDown` (open) 12/2 · col B: `Start again` button (`RotateCcw` 12/2, tooltip + aria `Start again`) if the host serves `startAgain` (always for a live Job) → `onStartAgain()` · col C: `Report` button (`Flag` 12/2, tooltip + aria `Report`) → `onReport(button element)` (host opens the report sheet for the Job) · `Stamp still` (`fg-subtle`). Columns A–C keep their width when empty (`fg-muted`, inline-flex centered) so the presses line up. Open: `pre.__log` spanning all columns: margin-top `space-1`, padding `space-2`, radius `radius-md`, bg `bg-sunken`, `fg-default`, inherits mono 12/18, pre-wrap, wraps anywhere; text = `log` lines joined by `\n`. Open state is local. The "message from the person is the retry" (the composer).
+`li.armada-session-start-failed role=region aria-label="Failed to start"`: grid `auto minmax(0,1fr) auto auto auto auto`, align center, column-gap `space-2`, padding-block `space-1`, dashed 1px `border-default` top and bottom, colour **`status-completed-failed`** (#E97878), mono 12/18. Cells: `X` 12/2 in `span[role=img aria-label="Failed to start"]` (tooltip `Failed to start`) · `span.__why` = `Did not start: <cause>` (wire `cause`; TS adds the prefix) · col A: if `log` non-empty `Button ghost sm iconOnly aria-label="Error lines"` (tooltip `Error lines`, `aria-expanded`, `aria-controls`) with `ChevronRight` (closed) / `ChevronDown` (open) 12/2 · col B: `Start again` button (`RotateCcw` 12/2, tooltip + aria `Start again`) if the host serves `startAgain` (always for a live Job) → `onStartAgain()` · col C: `Report` button (`Flag` 12/2, tooltip + aria `Report`) → `onReport(button element)` (host opens the report sheet for the Job) · `Stamp still` (`fg-subtle`).
+Columns A–C keep their width when empty (`fg-muted`, inline-flex centered) so the presses line up.
+Open: `pre.__log` spanning all columns: margin-top `space-1`, padding `space-2`, radius `radius-md`, bg `bg-sunken`, `fg-default`, inherits mono 12/18, pre-wrap, wraps anywhere; text = `log` lines joined by `\n`.
+Open state is local.
+The "message from the person is the retry" (the composer).
 
 ### A7.3 `act` (`Row` 2076)
-Producer: mocks only (no wire). `li.armada-session-act`: flex, align center, gap `space-2`, padding `space-1 space-2`, border 1px `border-strong`, radius `radius-md`, bg `bg-sunken`, `fg-default`, 12/18. `row.icon` glyph 12/2 in `span[role=img aria-label=<row.said>]` (tooltip `row.said`) · `code.__text` (flex 1, mono 13/18, wraps anywhere) · stamp (`fg-subtle`).
+Producer: mocks only (no wire).
+`li.armada-session-act`: flex, align center, gap `space-2`, padding `space-1 space-2`, border 1px `border-strong`, radius `radius-md`, bg `bg-sunken`, `fg-default`, 12/18. `row.icon` glyph 12/2 in `span[role=img aria-label=<row.said>]` (tooltip `row.said`) · `code.__text` (flex 1, mono 13/18, wraps anywhere) · stamp (`fg-subtle`).
 
 ### A7.4 `window` (a walk/window shown; `Row` 2090; wire `SessionRow::Window`)
-`li.armada-session-fold` > `button.armada-session-fold__head.armada-session-fold__head--press` `aria-label="Open window <title>"`, `AppWindow` 12/2 + `row.title` → `onOpenWindow(row.url)`. Drawn as the spacious press card (A5.2 card spec). NOTE: `show_window` tool calls are removed by `UNDRAWN`, so this row stands for the window. In Job view walks open as Job tabs; the host maps the url.
+`li.armada-session-fold` > `button.armada-session-fold__head.armada-session-fold__head--press` `aria-label="Open window <title>"`, `AppWindow` 12/2 + `row.title` → `onOpenWindow(row.url)`.
+Drawn as the spacious press card (A5.2 card spec).
+NOTE: `show_window` tool calls are removed by `UNDRAWN`, so this row stands for the window.
+In Job view walks open as Job tabs; the host maps the url.
 
 ### A7.5 `requested` (`RequestedRow`; wire `SessionRow::Requested` / `crates`' request row)
-`li.armada-session-fold.armada-session-fold--requested > details`: summary `aria-label="<You|AgentName>: <status|No answer> <METHOD> <url>"`, chevron (hidden in spacious), `RequestMark` (12/2 in `span[role=img]` with tooltip = `<status>` or `No answer` / `No answer: <error>`; glyph `Check` `step-advanced` for status <400, `X` `status-completed-failed` for ≥400, `Unplug` same red for none) · `span.__by` (`fg-subtle`; `You` when `by === "owner"` else the agent name) · `code.__method` (mono, `fg-default`, flex none) · `code.armada-session-fold__target` (url; `fg-muted`; ellipsis) · `span.__ms` (mono `fg-subtle`, margin-left `space-2`): `<n> ms` under 1000 else `<n.n> s`. Opened `div.__body` (flex column, gap `space-1`): `p.__error` if `error` (12/16 `fg-muted`); `pre.armada-session-fold__tail role=log aria-label="Response"` if response non-empty; `p.__cut` **`Cut at 16 KiB`** if `truncated`; `Button ghost sm` **`Open in Requests`** if the host provides `RequestOpen` (the Job view does) → opens the request in Requests.
+`li.armada-session-fold.armada-session-fold--requested > details`: summary `aria-label="<You|AgentName>: <status|No answer> <METHOD> <url>"`, chevron (hidden in spacious), `RequestMark` (12/2 in `span[role=img]` with tooltip = `<status>` or `No answer` / `No answer: <error>`; glyph `Check` `step-advanced` for status <400, `X` `status-completed-failed` for ≥400, `Unplug` same red for none) · `span.__by` (`fg-subtle`; `You` when `by === "owner"` else the agent name) · `code.__method` (mono, `fg-default`, flex none) · `code.armada-session-fold__target` (url; `fg-muted`; ellipsis) · `span.__ms` (mono `fg-subtle`, margin-left `space-2`): `<n> ms` under 1000 else `<n.n> s`.
+Opened `div.__body` (flex column, gap `space-1`): `p.__error` if `error` (12/16 `fg-muted`); `pre.armada-session-fold__tail role=log aria-label="Response"` if response non-empty; `p.__cut` **`Cut at 16 KiB`** if `truncated`; `Button ghost sm` **`Open in Requests`** if the host provides `RequestOpen` (the Job view does) → opens the request in Requests.
 
 ### A7.6 `saved` (`SavedRow`)
-Wire row `saved` (`sessions-wire.ts:1291`: `name`, `collection`, `collection_id`, `request`); the component's own comment calls it "proposed, not on the wire" but `rowsOfThread` does map it. `li.armada-session-saved aria-label="Saved <name> to <collection>"`: flex, align center, gap `space-3`, padding `space-2 space-3`, border 1px `border-subtle`, radius `radius-md`, bg `bg-sunken`, 13/18 `fg-default`. `Save` 12/2 `fg-muted` in `span[role=img aria-label="Saved request"]` (tooltip same) · text **`Saved <name> to <collection>`** (flex 1) · stamp still (`fg-subtle`) · `Button ghost sm` **`Open in Requests`** when `SavedOpen` is provided.
+Wire row `saved` (`sessions-wire.ts:1291`: `name`, `collection`, `collection_id`, `request`); the component's own comment calls it "proposed, not on the wire" but `rowsOfThread` does map it.
+`li.armada-session-saved aria-label="Saved <name> to <collection>"`: flex, align center, gap `space-3`, padding `space-2 space-3`, border 1px `border-subtle`, radius `radius-md`, bg `bg-sunken`, 13/18 `fg-default`.
+`Save` 12/2 `fg-muted` in `span[role=img aria-label="Saved request"]` (tooltip same) · text **`Saved <name> to <collection>`** (flex 1) · stamp still (`fg-subtle`) · `Button ghost sm` **`Open in Requests`** when `SavedOpen` is provided.
 
 ### A7.7 `started` (`StartedRow`; wire: derived from the Job-started record)
-`li.armada-session-started`: relative, flex, align center, gap `space-3`, padding-inline-end `space-3`, radius `radius-md`, **bg `fg-default`, text `fg-inverse`**; hover bg `accent`. The open press `button.__press` (aria-label = the started Job's title) covers the row (flex 1, padding `space-2 0 space-2 space-3`; `::after` overlay `inset:0` takes the focus ring `1px accent` offset 2px): `GitFork` 14/2 (fork) or `CornerUpRight` 14/2 (started) · eyebrow **`Forked`** or **`Started`** (12/16 weight 600 uppercase tracking 0.04em) · title (flex 1, `text-sm` weight 500, wraps anywhere) · `Stamp still` (mono 12/16, above the overlay so it still flips). If the started Job is held on its start card (`row.start`): `StartAct` before the chevron: `Button secondary sm` **`Start`** (`aria-label="Start <title>"`) → `start.onStart()`; while starting: `LoaderCircle` 12 (tooltip `Starting`) + text **`Starting…`**. Then `ChevronRight` 14/2 (translates `space-1` right on hover). Press anywhere else → `onOpenSession(session.id)`.
+`li.armada-session-started`: relative, flex, align center, gap `space-3`, padding-inline-end `space-3`, radius `radius-md`, **bg `fg-default`, text `fg-inverse`**; hover bg `accent`.
+The open press `button.__press` (aria-label = the started Job's title) covers the row (flex 1, padding `space-2 0 space-2 space-3`; `::after` overlay `inset:0` takes the focus ring `1px accent` offset 2px): `GitFork` 14/2 (fork) or `CornerUpRight` 14/2 (started) · eyebrow **`Forked`** or **`Started`** (12/16 weight 600 uppercase tracking 0.04em) · title (flex 1, `text-sm` weight 500, wraps anywhere) · `Stamp still` (mono 12/16, above the overlay so it still flips).
+If the started Job is held on its start card (`row.start`): `StartAct` before the chevron: `Button secondary sm` **`Start`** (`aria-label="Start <title>"`) → `start.onStart()`; while starting: `LoaderCircle` 12 (tooltip `Starting`) + text **`Starting…`**.
+Then `ChevronRight` 14/2 (translates `space-1` right on hover).
+Press anywhere else → `onOpenSession(session.id)`.
 
 ### A7.8 `moved` (`MovedRow`; TS-derived)
-`li.armada-session-moved > button.__press` `aria-label="Moved <to|from> <repository>"`: inline-flex, align center, gap `space-2`, padding `space-2 space-3`, no border, radius `radius-md`, bg `bg-raised`, `fg-muted`, 13/18, hover `fg-default`. `FolderGit2` 12/2 · `Moved to` / `Moved from` · `span.__repository` (mono, ellipsis) · `ChevronRight` 12. Press → `onOpenSession(row.session)` (the other Job). A move carries the whole old conversation into the new thread under this `Moved from <repo>` row; the old thread ends with `Moved to <repo>`.
+`li.armada-session-moved > button.__press` `aria-label="Moved <to|from> <repository>"`: inline-flex, align center, gap `space-2`, padding `space-2 space-3`, no border, radius `radius-md`, bg `bg-raised`, `fg-muted`, 13/18, hover `fg-default`.
+`FolderGit2` 12/2 · `Moved to` / `Moved from` · `span.__repository` (mono, ellipsis) · `ChevronRight` 12. Press → `onOpenSession(row.session)` (the other Job).
+A move carries the whole old conversation into the new thread under this `Moved from <repo>` row; the old thread ends with `Moved to <repo>`.
 
 ### A7.9 `judged` (`Row` 2189; TS: judge records)
-`li.armada-session-fold > button.…--press` `aria-label="Judged <title>"`: `Scale` 12/2 · `Judged ` + `span.mono` title · `Stamp still` (`armada-session-act__at`) → `row.onOpen()` (opens the artifact at its judge notes). `clean` is on the row but not drawn. Spacious card look (A5.2).
+`li.armada-session-fold > button.…--press` `aria-label="Judged <title>"`: `Scale` 12/2 · `Judged ` + `span.mono` title · `Stamp still` (`armada-session-act__at`) → `row.onOpen()` (opens the artifact at its judge notes).
+`clean` is on the row but not drawn.
+Spacious card look (A5.2).
 
 ### A7.10 `divider` (`Row` 2205)
 `li.armada-session-divider role="separator"`: `height: 0`, margin-block `space-4`, top border 1px `border-subtle`. Where an earlier Job's carried turns end and this Job's begin (hand off).
 
 ### A7.11 `waiter` (`WaiterRow`)
-`li.armada-session-waiter > button.__press` `aria-label="<title>, <eyebrow lower-case>"` (`changed` → `<title>, condition changed`): flex column, gap `space-1`, padding `space-2 space-3`, radius `radius-md`, **bg `fg-default`, text `fg-inverse`**; hover bg `accent`; focus ring 1px accent offset 2px. Line (`flex`, gap `space-3`): `Link` 12/2 in `span[role=img]` (tooltip/aria `Waits on this Job`; `waiting: true` → `Waits on that Job`) · eyebrow (12/16 weight 600 caps) = event `waits` → **`Waits on you`** (`waiting` → **`Waits on`**), `changed` → **`Condition changed`** (or **`You changed it`** when `by === "you"`), `started` → **`Started`** · title (flex 1, `text-sm` weight 500) · `Stamp still` (mono 12/16) · `ChevronRight` 14/2 (nudges right on hover). Under it, if `says`: `span.__facts` (flex, gap `space-2`, mono 12/18) with the text (first line of the waiting Job's brief, or where it started from); if `from` and `to`: `from` `ArrowRight` 12/2 `to` in the same style. Press → `onOpenSession(session.id)`.
+`li.armada-session-waiter > button.__press` `aria-label="<title>, <eyebrow lower-case>"` (`changed` → `<title>, condition changed`): flex column, gap `space-1`, padding `space-2 space-3`, radius `radius-md`, **bg `fg-default`, text `fg-inverse`**; hover bg `accent`; focus ring 1px accent offset 2px.
+Line (`flex`, gap `space-3`): `Link` 12/2 in `span[role=img]` (tooltip/aria `Waits on this Job`; `waiting: true` → `Waits on that Job`) · eyebrow (12/16 weight 600 caps) = event `waits` → **`Waits on you`** (`waiting` → **`Waits on`**), `changed` → **`Condition changed`** (or **`You changed it`** when `by === "you"`), `started` → **`Started`** · title (flex 1, `text-sm` weight 500) · `Stamp still` (mono 12/16) · `ChevronRight` 14/2 (nudges right on hover).
+Under it, if `says`: `span.__facts` (flex, gap `space-2`, mono 12/18) with the text (first line of the waiting Job's brief, or where it started from); if `from` and `to`: `from` `ArrowRight` 12/2 `to` in the same style.
+Press → `onOpenSession(session.id)`.
 
 ### A7.12 `linked` (`LinkedRow`)
-`li.armada-session-linked[data-event] > button.__press` `aria-label="<title>, <said>"`: flex 1, align center, gap `space-3`, padding `space-2 space-3`, border 1px `border-subtle` (**`status-awaiting-review` for `needs`**), radius `radius-md`, bg `bg-sunken`, `fg-default`, mono 13/18; hover border `border-strong`, bg `bg-hover`. Content: `Link` 12/2 (tooltip/aria `Linked Job`, `fg-muted`) · title (flex 1, weight 500, ellipsis) · event glyph 12/2 with tooltip = word: needs `Eye` **Needs you** (`status-awaiting-review`), done `Power` **Done** (`step-advanced`), merged `GitMerge` **Merged** (`step-advanced`), started `CircleDot` **Started** (`fg-muted`) · `Stamp still` (`fg-muted`, 12/16) · `ChevronRight` 12/2 (nudges). Press → `onOpenSession(session.id)`. Linked needs are not relayed to the parent Job's other surfaces (it pulses on its own row only).
+`li.armada-session-linked[data-event] > button.__press` `aria-label="<title>, <said>"`: flex 1, align center, gap `space-3`, padding `space-2 space-3`, border 1px `border-subtle` (**`status-awaiting-review` for `needs`**), radius `radius-md`, bg `bg-sunken`, `fg-default`, mono 13/18; hover border `border-strong`, bg `bg-hover`.
+Content: `Link` 12/2 (tooltip/aria `Linked Job`, `fg-muted`) · title (flex 1, weight 500, ellipsis) · event glyph 12/2 with tooltip = word: needs `Eye` **Needs you** (`status-awaiting-review`), done `Power` **Done** (`step-advanced`), merged `GitMerge` **Merged** (`step-advanced`), started `CircleDot` **Started** (`fg-muted`) · `Stamp still` (`fg-muted`, 12/16) · `ChevronRight` 12/2 (nudges).
+Press → `onOpenSession(session.id)`.
+Linked needs are not relayed to the parent Job's other surfaces (it pulses on its own row only).
 
 ### A7.13 `operator` (`OperatorRow`; no wire producer found; see Open questions)
 `li.armada-session-operator`: flex, align baseline, gap `space-2`, padding `space-1 space-3`, `fg-muted`, mono 13/18. `Bot` 12/2 in `span[role=img aria-label=Operator]` (tooltip `Operator`, `align-self:center`) · text (flex 1, the exact words) · `Stamp still`.
 
 ### A7.14 `retro` (`SessionRetroRow`; wire `SessionRow::Retro`, replaced by id as Fleet writes)
-`li.armada-session-retro role=region aria-label="Retro"` `data-stage`: flex column, gap `space-3`, padding `space-3 20px`, border 1px `edge-card` (= `border-default`) with a **2px `border-strong` left edge**, radius `radius-md`, bg `surface-card` (= `bg-raised`). Memoised by row value.
+`li.armada-session-retro role=region aria-label="Retro"` `data-stage`: flex column, gap `space-3`, padding `space-3 20px`, border 1px `edge-card` (= `border-default`) with a **2px `border-strong` left edge**, radius `radius-md`, bg `surface-card` (= `bg-raised`).
+Memoised by row value.
 | Stage | Draw |
 |---|---|
 | `asking_agent`, `reading_record`, `writing` | head (flex wrap, gap `space-2`, 13/18 `fg-muted`): `Rewind` 12/2 (opacity 1↔.5 over 1600 ms; static .5 under reduced motion) · `span[role=status]` weight 500 `fg-default`: **`Asking the agent what got in the way`** / **`Reading what Fleet kept of the Job`** / **`Writing the retro`** · `span.mono[role=timer aria-label="<elapsed> in this stage"]` = `elapsedWords(now − stageSince)` (`7s`, `1m 05s`, `1h 02m`; ticks per second) when `stageSince` exists · during `writing` and `characters > 0`: `span.__hint` right-aligned `<n> characters` (tabular). During `writing` with items: `ol[aria-label="Items so far"]` of cards (below). |
@@ -975,27 +1131,39 @@ Wire row `saved` (`sessions-wire.ts:1291`: `name`, `collection`, `collection_id`
 | `failed` | head `Rewind` + **`The retro was not written`**; `Alert tone="escalated"` with `row.why` or **`Fleet gave no reason.`** |
 
 ### A7.15 `disputed` (`DisputedRow`; wire `SessionRow::Disputed`)
-`li.armada-session-disputed role=region aria-label="Notice disputed"`: flex wrap, align center, gap `space-1 space-2`, padding-block `space-1`, dashed 1px `border-default` top/bottom, `fg-muted`, mono 12/18. `DisputedMark` (`MessageSquareWarning` 12/2, tooltip/aria **`Disputed`**) · `span.__why` (flex-basis ≈100%, `fg-default`, wraps anywhere) · `span.__spotted`: `called` → **`Said by the agent`**, `read` → **`Read by Fleet from the agent's replies`** · if `review`: `button.__review` **`Review job`** + `ChevronRight` 12 (`accent`, hover `accent-hover` + underline, no bg/padding; `aria-label="Open the review job"`) → `onOpenSession(review)` · `Stamp still` (`fg-subtle`). The disputed notice itself stays a `FromSession` band (A1.4 `keep`) carrying `DisputedMark`.
+`li.armada-session-disputed role=region aria-label="Notice disputed"`: flex wrap, align center, gap `space-1 space-2`, padding-block `space-1`, dashed 1px `border-default` top/bottom, `fg-muted`, mono 12/18. `DisputedMark` (`MessageSquareWarning` 12/2, tooltip/aria **`Disputed`**) · `span.__why` (flex-basis ≈100%, `fg-default`, wraps anywhere) · `span.__spotted`: `called` → **`Said by the agent`**, `read` → **`Read by Fleet from the agent's replies`** · if `review`: `button.__review` **`Review job`** + `ChevronRight` 12 (`accent`, hover `accent-hover` + underline, no bg/padding; `aria-label="Open the review job"`) → `onOpenSession(review)` · `Stamp still` (`fg-subtle`).
+The disputed notice itself stays a `FromSession` band (A1.4 `keep`) carrying `DisputedMark`.
 
 ### A7.16 `change` (`Row` 2210; TS from timeline events)
-`li.armada-session-change role=region aria-label="<what> changed"`: flex, align center, gap `space-3`, padding `space-2 space-3`, radius `radius-md`, **bg `you` (#E8C547 Dark / #8F7000 Light), text `fg-inverse`**. Eyebrow `span.armada-session-lease__eyebrow` (12/16 weight 600 caps) = `Workflow` / `Model` / `Effort` · `span.__facts` (flex 1, mono 12/18, gap `space-2`): `from` `ArrowRight` 12/2 `to` · stamp (`.armada-session-lease__at`, mono 12/16). The agent was told in the same moment.
+`li.armada-session-change role=region aria-label="<what> changed"`: flex, align center, gap `space-3`, padding `space-2 space-3`, radius `radius-md`, **bg `you` (#E8C547 Dark / #8F7000 Light), text `fg-inverse`**.
+Eyebrow `span.armada-session-lease__eyebrow` (12/16 weight 600 caps) = `Workflow` / `Model` / `Effort` · `span.__facts` (flex 1, mono 12/18, gap `space-2`): `from` `ArrowRight` 12/2 `to` · stamp (`.armada-session-lease__at`, mono 12/16).
+The agent was told in the same moment.
 
 ### A7.17 `suggest` (`Row` 2223; wire `plan_changes`)
-`li.armada-session-suggest role=region aria-label="Changes to the plan"`: flex, align start, gap `space-3`, padding `space-2 space-3`, border 1px `you-edge`, radius `radius-md`, bg `color-mix(you 14%, bg-raised)`, `fg-default`. Eyebrow **`Plan changes`** · `ul.__lines` (flex column gap `space-1`): per line `li` (flex wrap, align center, gap `space-2`, 13/18): verb glyph in `span[role=img aria-label=<verb>]` (tooltip verb) — `Renamed` Pencil, `Removed` Trash2, `Added` Plus, `Moved` MoveRight, `Subagent` Bot, `Note` MessageSquare (12/2) · `span.__where` (mono 12/16) · `<s>from</s>` (opacity .7) · `ArrowRight` 12 when both `from` and `text` · `span.__text`. Stamp (lease `__at`).
+`li.armada-session-suggest role=region aria-label="Changes to the plan"`: flex, align start, gap `space-3`, padding `space-2 space-3`, border 1px `you-edge`, radius `radius-md`, bg `color-mix(you 14%, bg-raised)`, `fg-default`.
+Eyebrow **`Plan changes`** · `ul.__lines` (flex column gap `space-1`): per line `li` (flex wrap, align center, gap `space-2`, 13/18): verb glyph in `span[role=img aria-label=<verb>]` (tooltip verb) — `Renamed` Pencil, `Removed` Trash2, `Added` Plus, `Moved` MoveRight, `Subagent` Bot, `Note` MessageSquare (12/2) · `span.__where` (mono 12/16) · `<s>from</s>` (opacity .7) · `ArrowRight` 12 when both `from` and `text` · `span.__text`.
+Stamp (lease `__at`).
 
 ### A7.18 `lease` / `release` (`Row` 2261; wire `SessionRow::Lease|Release`, `{slot, branch}`)
-Spacious: `li.armada-session-lease[data-line] role=region aria-label="Slot leased"|"Slot released"`: flex, align center, gap `space-2`, `width: fit-content`, padding `space-1 space-3 space-1 10px`, margin-inline-start −10px, radius 8, bg `slot-held 10%` (slot-held = `status-running`), `relative`, 13/20 `fg-muted`. `KeyRound` 14/2 (`slot-held`) · `span.__said` (weight 500, `slot-held`) **`Leased slot <n>`** / **`Released slot <n>`** · `span.__branch` (inline-flex, gap `space-1`, `fg-subtle`, ellipsis nowrap) with `GitBranch` 12/2 + branch name · stamp absolutely positioned at `left: calc(100% + 12px)`, sans 13px tabular `fg-subtle`, `opacity 0`, → 1 while the row is hovered (120 ms). Base: a filled card (bg `slot-held`, text `fg-inverse`, padding `space-2 space-3`, radius `radius-md`) with the eyebrow **`Slot leased`/`Slot released`** and two chips (`role=img`, aria `Worktree slot <n>` with `KeyRound` + number; `Branch <name>` with `GitBranch` + name; border 1px `fg-inverse`, radius `radius-sm`, mono 12/18) and a stamp.
+Spacious: `li.armada-session-lease[data-line] role=region aria-label="Slot leased"|"Slot released"`: flex, align center, gap `space-2`, `width: fit-content`, padding `space-1 space-3 space-1 10px`, margin-inline-start −10px, radius 8, bg `slot-held 10%` (slot-held = `status-running`), `relative`, 13/20 `fg-muted`.
+`KeyRound` 14/2 (`slot-held`) · `span.__said` (weight 500, `slot-held`) **`Leased slot <n>`** / **`Released slot <n>`** · `span.__branch` (inline-flex, gap `space-1`, `fg-subtle`, ellipsis nowrap) with `GitBranch` 12/2 + branch name · stamp absolutely positioned at `left: calc(100% + 12px)`, sans 13px tabular `fg-subtle`, `opacity 0`, → 1 while the row is hovered (120 ms).
+Base: a filled card (bg `slot-held`, text `fg-inverse`, padding `space-2 space-3`, radius `radius-md`) with the eyebrow **`Slot leased`/`Slot released`** and two chips (`role=img`, aria `Worktree slot <n>` with `KeyRound` + number; `Branch <name>` with `GitBranch` + name; border 1px `fg-inverse`, radius `radius-sm`, mono 12/18) and a stamp.
 
 ### A7.19 `command` — see A3.6.
 
 ### A7.20 `compaction` (`Row` 2310; wire `SessionRow::Compaction`)
-`li.armada-session-fold > details > summary.armada-session-fold__head`: chevron (hidden in spacious), `Layers` 12/2, text **`Conversation compacted`**. Opened `div.armada-session-fold__body` (margin-top `space-1`, padding-left `space-4`, `text-sm`, `fg-muted`) holding `Prose` of the summary text (15/24 in spacious).
+`li.armada-session-fold > details > summary.armada-session-fold__head`: chevron (hidden in spacious), `Layers` 12/2, text **`Conversation compacted`**.
+Opened `div.armada-session-fold__body` (margin-top `space-1`, padding-left `space-4`, `text-sm`, `fg-muted`) holding `Prose` of the summary text (15/24 in spacious).
 
 ### A7.21 `reasoning` (`Row` 2331; no wire producer found; see Open questions)
-`li.armada-session-fold.armada-session-fold--reasoning > details[open when live]`: summary head (spacious gap `space-2`; chevron hidden): `live` → `SessionMark working` + text **`Thinking`**; else **`Thought for <seconds>s`**. Body: `div.__body` Prose; spacious: margin `space-2 0 0 6px`, padding-left `space-4`, left border 1px `border-subtle`, `fg-muted`, prose at 14/22. A live reasoning row also counts as "ends in calls" for the working-line rule (A1.9).
+`li.armada-session-fold.armada-session-fold--reasoning > details[open when live]`: summary head (spacious gap `space-2`; chevron hidden): `live` → `SessionMark working` + text **`Thinking`**; else **`Thought for <seconds>s`**.
+Body: `div.__body` Prose; spacious: margin `space-2 0 0 6px`, padding-left `space-4`, left border 1px `border-subtle`, `fg-muted`, prose at 14/22. A live reasoning row also counts as "ends in calls" for the working-line rule (A1.9).
 
 ### A7.22 End card "Nothing left to do" (trailing; spacious only)
-`sessions.tsx:3223-3242` renders it as the `trailing` node when `done` is set, the Job is not waiting, and the take is spacious: `section.armada-session-end aria-label="Nothing left to do"`: flex column, gap `space-3`, padding `space-4`, no border; bg `fg-default 4%` + inset 1px ring `fg-default 7%`, radius 8, `margin-inline −20px`. `h3.armada-session-end__head` flex, gap `space-2`, `spacious-body` 15/24 weight 500: `Check` 14/2 (`step-advanced`) + **`Nothing left to do`**. `DoneBody`: `p.armada-session-done__summary` (if summary; padding 0, 15/24, `fg-muted`) · `ul.armada-session-done__made` (aria-label `Pull requests` if the first entry is a pull request else `Artifacts`; flex column gap `space-2`, scrolls) of `li.armada-session-ledger__row` (flex, border 1px `border-subtle`, radius `radius-md`, bg `bg-raised`, 13/18; hover border `border-strong` bg `bg-hover`; arrive animation tinting `status-running 14%` decaying over 45 s) each holding `button.armada-session-ledger__open` `aria-label="Open <name>"` (flex, align center, gap `space-2`, padding `space-2 space-3`): a pull request → `PullRequestStateMark merged`, else the artifact glyph by `artifactOf` (tooltip = its word) else `GitPullRequest` 12/2; text (flex 1, ellipsis nowrap); for a PR also `PullRequestChecksMark` · `div.armada-session-done__acts` (flex gap `space-2`; it is one of the waiting cards of the thread keys [B]): `Button secondary sm` **`End job`** + `ThreadKbd` hint, `Button ghost sm` **`Keep going`** + hint (⌥↵ / ⌥X shown per thread-keys [B]). Base (non-spacious): the same `DoneBody` is the body of the composer's end band instead (`endShown`).
+`sessions.tsx:3223-3242` renders it as the `trailing` node when `done` is set, the Job is not waiting, and the take is spacious: `section.armada-session-end aria-label="Nothing left to do"`: flex column, gap `space-3`, padding `space-4`, no border; bg `fg-default 4%` + inset 1px ring `fg-default 7%`, radius 8, `margin-inline −20px`.
+`h3.armada-session-end__head` flex, gap `space-2`, `spacious-body` 15/24 weight 500: `Check` 14/2 (`step-advanced`) + **`Nothing left to do`**.
+`DoneBody`: `p.armada-session-done__summary` (if summary; padding 0, 15/24, `fg-muted`) · `ul.armada-session-done__made` (aria-label `Pull requests` if the first entry is a pull request else `Artifacts`; flex column gap `space-2`, scrolls) of `li.armada-session-ledger__row` (flex, border 1px `border-subtle`, radius `radius-md`, bg `bg-raised`, 13/18; hover border `border-strong` bg `bg-hover`; arrive animation tinting `status-running 14%` decaying over 45 s) each holding `button.armada-session-ledger__open` `aria-label="Open <name>"` (flex, align center, gap `space-2`, padding `space-2 space-3`): a pull request → `PullRequestStateMark merged`, else the artifact glyph by `artifactOf` (tooltip = its word) else `GitPullRequest` 12/2; text (flex 1, ellipsis nowrap); for a PR also `PullRequestChecksMark` · `div.armada-session-done__acts` (flex gap `space-2`; it is one of the waiting cards of the thread keys [B]): `Button secondary sm` **`End job`** + `ThreadKbd` hint, `Button ghost sm` **`Keep going`** + hint (⌥↵ / ⌥X shown per thread-keys [B]).
+Base (non-spacious): the same `DoneBody` is the body of the composer's end band instead (`endShown`).
 
 ### A7.23 Other pieces that exist beside the rows
 | Piece | Where | Note |
@@ -1012,16 +1180,26 @@ Spacious: `li.armada-session-lease[data-line] role=region aria-label="Slot lease
 ## A8 Fork from selection (`ForkFromSelection.tsx`, `ForkFromSelection.css`)
 
 ### A8.1 What it reads
-Mounted by the thread when any of `onForkAt`, `onReplyAt`, `onTeachAt` is given (`SessionThread.tsx:3912`), with `scope` = the thread's whole box. It reads the document selection and never owns it. A selection counts only if it lies wholly inside ONE `[data-fork-row]` block under `scope` (the text block of a person bubble, an agent message, or a Fleet-band body; folded/Fleet-turn bodies, calls, cards and the composer are not forkable). A triple-press selection that ends at the start of the next block counts when the block's own text from the start equals the selection. Empty/whitespace-only, collapsed, or scrolled fully out of the scroller's box → no bar.
+Mounted by the thread when any of `onForkAt`, `onReplyAt`, `onTeachAt` is given (`SessionThread.tsx:3912`), with `scope` = the thread's whole box.
+It reads the document selection and never owns it.
+A selection counts only if it lies wholly inside ONE `[data-fork-row]` block under `scope` (the text block of a person bubble, an agent message, or a Fleet-band body; folded/Fleet-turn bodies, calls, cards and the composer are not forkable).
+A triple-press selection that ends at the start of the next block counts when the block's own text from the start equals the selection.
+Empty/whitespace-only, collapsed, or scrolled fully out of the scroller's box → no bar.
 
 ### A8.2 The bar
-`div.armada-fork-from-selection role="toolbar" aria-label="Selection"` portalled to `document.body`: `position: fixed`, `z-index: var(--z-menu)` (40), flex, align center, gap `space-1`, padding `space-1`, border 1px `border-subtle`, radius `radius-md`, bg `bg-overlay`, `box-shadow: --shadow-overlay`. Each act: `Button type=button variant=ghost size=sm iconOnly` (24×24) with a 16px/2 glyph, `aria-label` = label, `Tooltip beside` = label. Bar order and labels: **Reply** (`Reply` glyph), **Fork from here** (`GitFork`), **Teach** (`GraduationCap`); each shown only when its handler exists. `onMouseDown` preventDefault (a press never takes the selection).
-Position: horizontally centred over the first line of the selection (`left = first.left + min(first.width, 96)/2 − width/2`, clamped to `8px` from the window edges), `top = first.top − height − 8`; if there is less than 8px room above, `top = last line bottom + 8`. Hidden (`visibility:hidden`) until measured.
-When it shows/goes: appears on mouse-up (left button) or selection change when no drag is in progress (keyboard selections too); goes when the selection collapses, on Escape (clears the selection; ignored while the menu is open), when the selected words scroll out of the scope, or on resize recompute. Taking an act clears the selection.
+`div.armada-fork-from-selection role="toolbar" aria-label="Selection"` portalled to `document.body`: `position: fixed`, `z-index: var(--z-menu)` (40), flex, align center, gap `space-1`, padding `space-1`, border 1px `border-subtle`, radius `radius-md`, bg `bg-overlay`, `box-shadow: --shadow-overlay`.
+Each act: `Button type=button variant=ghost size=sm iconOnly` (24×24) with a 16px/2 glyph, `aria-label` = label, `Tooltip beside` = label.
+Bar order and labels: **Reply** (`Reply` glyph), **Fork from here** (`GitFork`), **Teach** (`GraduationCap`); each shown only when its handler exists.
+`onMouseDown` preventDefault (a press never takes the selection).
+Position: horizontally centred over the first line of the selection (`left = first.left + min(first.width, 96)/2 − width/2`, clamped to `8px` from the window edges), `top = first.top − height − 8`; if there is less than 8px room above, `top = last line bottom + 8`.
+Hidden (`visibility:hidden`) until measured.
+When it shows/goes: appears on mouse-up (left button) or selection change when no drag is in progress (keyboard selections too); goes when the selection collapses, on Escape (clears the selection; ignored while the menu is open), when the selected words scroll out of the scope, or on resize recompute.
+Taking an act clears the selection.
 Coexistence: `useCopyOnSelect` (A1.12) also copies the same selection to the clipboard at mouse-up.
 
 ### A8.3 The menu form
-A right press ON the selected words (inside the selection's bounding box and in the same block), or ContextMenu / Shift+F10 while words are selected (both captured and stopped at `scope`, so a row's own menu, e.g. Fleet's notice menu, is used for every other press) opens `DropdownMenu triggerLabel="Selection"` at the pointer (or under the selection's first line centre for the key) with items in this order: **Teach** (GraduationCap), **Reply** (Reply), **Fork from here** (GitFork) — only the offered ones. Selecting an item takes the act.
+A right press ON the selected words (inside the selection's bounding box and in the same block), or ContextMenu / Shift+F10 while words are selected (both captured and stopped at `scope`, so a row's own menu, e.g. Fleet's notice menu, is used for every other press) opens `DropdownMenu triggerLabel="Selection"` at the pointer (or under the selection's first line centre for the key) with items in this order: **Teach** (GraduationCap), **Reply** (Reply), **Fork from here** (GitFork) — only the offered ones.
+Selecting an item takes the act.
 
 ### A8.4 The acts (host: `sessions.tsx:3102-3140`)
 | Act | Payload `ForkPick{rowId, quote}` | Effect |
@@ -1029,7 +1207,8 @@ A right press ON the selected words (inside the selection's bounding box and in 
 | Reply | `quote` = `quoteOf(words)` (every line prefixed `> `, blank line → `>`, trailing blank line) | `quoteIntoDraft(session.id, quote)` puts the quote in this Job's composer draft and focuses it; not offered when the Job is dead |
 | Fork from here | same | `forkAt(id, rowId)` creates a new Job forked at that message (carries the conversation up to and including it); then the new Job's draft is seeded with the quote and focused, and the new Job opens (`seedDraft`, `setFocusFor`, `opening(…)`) |
 | Teach | same | `teachOpen("words", wordsOfQuote(quote))` — quote with the `> ` marks removed; opens the Teach panel |
-Row ids: the id of the message row (person bubble, agent message, Fleet-band body). An optimistic person message has a client-made `id` until Fleet's row replaces it (it keeps `stableKey`); what `forkAt` does with such an id is not in the files read.
+Row ids: the id of the message row (person bubble, agent message, Fleet-band body).
+An optimistic person message has a client-made `id` until Fleet's row replaces it (it keeps `stableKey`); what `forkAt` does with such an id is not in the files read.
 `MessageBar` Reply (A2.3a) uses the same `onReplyAt` with the WHOLE message as the quote.
 
 ## Open questions
@@ -1092,7 +1271,10 @@ Record of what IS. Paths are repo-relative. `ST` = `packages/components/src/comp
 | Every spacious selector is `:root[data-look] [data-thread-take="spacious"] .armada-session-frame ...` (so only inside a Job's frame) | `DESK/spacious-thread.css` |
 | JS difference with `spacious` true: rows the take leaves out (`UNDRAWN`: `TaskCreate TaskUpdate TaskList TaskGet ToolSearch show_window` tool rows) are filtered before folding | `ST/SessionThread.tsx:1215-1226, 3728-3731` |
 
-Spacious variables on `.armada-session-frame`: `--spacious-column: clamp(680px, 70cqi, 960px)`, `--spacious-bleed: calc(space-4 + space-1)` = 20px, `--spacious-outer: column + 2*bleed`, `--spacious-gutter: space-4`, `--spacious-body: 15px`, `--spacious-leading: 24px`, `--spacious-meta: 13px`, `--spacious-radius: var(--radius-lg)` (8px), `--spacious-card: color-mix(in srgb, var(--fg-default) 4%, transparent)`, `--spacious-card-edge: inset 0 0 0 1px color-mix(in srgb, var(--fg-default) 7%, transparent)` (`spacious-thread.css:5-22, 703-708`). Aa-panel overrides: `data-text` xs/sm/lg change `--spacious-body` to `--text-xs`/`--text-sm`/`--text-lg` and leading 20/22/28; `data-spacing` compact/roomy set `--spacious-turns` (`:145-181`). The rows column: `.armada-session-thread__rows` gets `overflow-x:hidden; padding: var(--space-4) calc(max(var(--spacious-gutter), (100% - outer)/2) + bleed) 0` (`:36-41`). `.armada-thread-rows` gap = `var(--spacious-turns, calc(var(--space-6) + var(--space-1)))` = 28px, `padding-bottom: var(--space-6)` (`:139-142`).
+Spacious variables on `.armada-session-frame`: `--spacious-column: clamp(680px, 70cqi, 960px)`, `--spacious-bleed: calc(space-4 + space-1)` = 20px, `--spacious-outer: column + 2*bleed`, `--spacious-gutter: space-4`, `--spacious-body: 15px`, `--spacious-leading: 24px`, `--spacious-meta: 13px`, `--spacious-radius: var(--radius-lg)` (8px), `--spacious-card: color-mix(in srgb, var(--fg-default) 4%, transparent)`, `--spacious-card-edge: inset 0 0 0 1px color-mix(in srgb, var(--fg-default) 7%, transparent)` (`spacious-thread.css:5-22, 703-708`).
+Aa-panel overrides: `data-text` xs/sm/lg change `--spacious-body` to `--text-xs`/`--text-sm`/`--text-lg` and leading 20/22/28; `data-spacing` compact/roomy set `--spacious-turns` (`:145-181`).
+The rows column: `.armada-session-thread__rows` gets `overflow-x:hidden; padding: var(--space-4) calc(max(var(--spacious-gutter), (100% - outer)/2) + bleed) 0` (`:36-41`).
+`.armada-thread-rows` gap = `var(--spacious-turns, calc(var(--space-6) + var(--space-1)))` = 28px, `padding-bottom: var(--space-6)` (`:139-142`).
 
 Spacious rules that touch cards of part B (all in `DESK/spacious-thread.css`):
 
@@ -1185,15 +1367,21 @@ Derived values used below: `--h-row*1.25` = 35px; `--h-row-unit*8` = 288px; `--h
 | `span.__glass` | `display:block; box-sizing:border-box; block-size: calc(var(--h-row-unit) * 8)` = 288px; `padding: var(--space-2)` (:85-90). `[data-replaced]` glass and title: `opacity:0.5` (:96-99). Holds `<SketchScene scene=... against=... preview playing={pointed\|\|focused} key={revision}>` |
 | `span.__revision` (only with revisions) | `position:absolute; inset-block-start: 1px; inset-inline-end: var(--space-3); display:flex; align-items:center; block-size: calc(var(--h-row)*1.25)` (:76-83); contains `RevisionMenu align="end"` |
 
-Revision menu (`RevisionMenu.tsx`): `span.armada-revision-menu` (`inline-flex; color --fg-muted`); the trigger is a plain `DropdownMenu` button labelled `Revision <n>` with tooltip `Revision`, text `--text-xs`/`--leading-xs`/weight 400 (`RevisionMenu.css`). Entries `Revision N` for N = count down to 1 (newest first), the shown one `selected`. Picking the newest sets `picked` undefined. The menu exists wherever `revisions.length > 0` (even one).
+Revision menu (`RevisionMenu.tsx`): `span.armada-revision-menu` (`inline-flex; color --fg-muted`); the trigger is a plain `DropdownMenu` button labelled `Revision <n>` with tooltip `Revision`, text `--text-xs`/`--leading-xs`/weight 400 (`RevisionMenu.css`).
+Entries `Revision N` for N = count down to 1 (newest first), the shown one `selected`.
+Picking the newest sets `picked` undefined.
+The menu exists wherever `revisions.length > 0` (even one).
 
-Behaviour: press = `onOpen(row.sketch)` (aria-label `Open sketch <title>`); hover or focus sets `playing` on the scene (steps loop only while pointed/focused, else a still drawing). `sketchAtRevision`: with revisions, each revision is read against the one before it (title `Revision <n-1>`), the first plain; the newest keeps the card's own `against` when the agent named one (`named`); an earlier revision is read only (`earlier`).
+Behaviour: press = `onOpen(row.sketch)` (aria-label `Open sketch <title>`); hover or focus sets `playing` on the scene (steps loop only while pointed/focused, else a still drawing).
+`sketchAtRevision`: with revisions, each revision is read against the one before it (title `Revision <n-1>`), the first plain; the newest keeps the card's own `against` when the agent named one (`named`); an earlier revision is read only (`earlier`).
 
 ### B1.3 Sketch card put to the person (asked)
 
 Chosen when `(row.asked === true && row.withdrawn !== true) || settled !== undefined` (`SketchRow.tsx:329`). Otherwise B1.2.
 
-`li.armada-session-sketch[data-asked]` > `div.__asked[role="article"][aria-label="Sketch: <title>"][data-settled=<how>]` (flex column, `flex:1; min-width:0; border:1px solid --border-default; radius --radius-lg; bg --bg-sunken; overflow:hidden; transition border-color` `SketchRow.css:103-113`; border `--accent` when the press is hovered :115-117). Inside it the press loses border/radius (:119-122). Under the press, when `open || settled`: `div.__answers` = `ApprovalAnswers`.
+`li.armada-session-sketch[data-asked]` > `div.__asked[role="article"][aria-label="Sketch: <title>"][data-settled=<how>]` (flex column, `flex:1; min-width:0; border:1px solid --border-default; radius --radius-lg; bg --bg-sunken; overflow:hidden; transition border-color` `SketchRow.css:103-113`; border `--accent` when the press is hovered :115-117).
+Inside it the press loses border/radius (:119-122).
+Under the press, when `open || settled`: `div.__answers` = `ApprovalAnswers`.
 
 `div.__answers`: flex column, `gap: var(--space-2)`, `padding: var(--space-2) var(--space-3)`, `border-top: 1px solid --border-default`, bg `--bg-raised` (:124-131).
 
@@ -1202,17 +1390,21 @@ Chosen when `(row.asked === true && row.withdrawn !== true) || settled !== undef
 `ApprovalAnswers` (`SketchRow.tsx:43-135`), top to bottom:
 1. Note `Textarea` `aria-label="Note"` `rows=3` `autoFocus` `keep="<keep>:note"` (only when `open && noting`). `noting` initial = a kept note exists.
 2. Quoted note `blockquote.__note` when `settled.how==="sent_back" && settled.words`: `margin 0; padding 8px 12px; border-left: 2px solid var(--you-edge); pre-wrap; anywhere; 14/20; color --fg-default` (:134-143).
-3. Settled line `p.__settled[data-how]` (`flex; gap space-2; text-xs 13/18; color --fg-muted` :145-153) with a `Tooltip` + `span.__mark[role=img][aria-label=<said>]` holding a 16px glyph (`BadgeCheck` for Approved, `Reply` for Sent back; mark colour `--step-advanced`, `--fg-muted` for sent_back :155-163) and `<span aria-hidden>` with the same word. Strings: `Approved`, `Sent back`.
-4. `CardFooter[role=group][aria-label="Answers"]` when `open && onAnswer`: not noting: `Approve` (primary sm; sends `{choice:0}`), `Send back` (secondary sm; sets noting), `Withdraw` (ghost sm; only when `onWithdraw` given; calls `onWithdraw(id)`). Noting: `Send back` (primary sm, disabled while note blank; sends `{text: note.trim()}` then cancels), `Cancel` (ghost sm; forgets the kept note).
+3. Settled line `p.__settled[data-how]` (`flex; gap space-2; text-xs 13/18; color --fg-muted` :145-153) with a `Tooltip` + `span.__mark[role=img][aria-label=<said>]` holding a 16px glyph (`BadgeCheck` for Approved, `Reply` for Sent back; mark colour `--step-advanced`, `--fg-muted` for sent_back :155-163) and `<span aria-hidden>` with the same word.
+   Strings: `Approved`, `Sent back`.
+4. `CardFooter[role=group][aria-label="Answers"]` when `open && onAnswer`: not noting: `Approve` (primary sm; sends `{choice:0}`), `Send back` (secondary sm; sets noting), `Withdraw` (ghost sm; only when `onWithdraw` given; calls `onWithdraw(id)`).
+   Noting: `Send back` (primary sm, disabled while note blank; sends `{text: note.trim()}` then cancels), `Cancel` (ghost sm; forgets the kept note).
 5. A settle (`settled` changes) cancels the note box (effect :60-65).
 
 Strings: `Open sketch <title>`, `Sketch: <title>`, `Replaced`, `Against <title>`, `Note`, `Answers`, `Approve`, `Send back`, `Withdraw`, `Cancel`, `Approved`, `Sent back`, `Revision <n>`, `Revision`.
 
 ### B1.4 Pinned sketch (`SketchPin`)
 
-When Electron has a sketch waiting, `sessions.tsx:2420-2445` builds `sketching` from the **newest asked sketch only** (`newestAskedSketch(attachmentsOf(session,"sketch"))`) when `draft.answerSketch` exists and the sketch is not withdrawn or settled. The thread then (a) drops that sketch's own non-replaced card from the rows (`ST/SessionThread.tsx:3724-3731`), (b) does not pass `onAnswerSketch/onWithdrawSketch` to rows (`:4111-4120`), (c) draws `SketchPin` in the tail `li` after the plan card.
+When Electron has a sketch waiting, `sessions.tsx:2420-2445` builds `sketching` from the **newest asked sketch only** (`newestAskedSketch(attachmentsOf(session,"sketch"))`) when `draft.answerSketch` exists and the sketch is not withdrawn or settled.
+The thread then (a) drops that sketch's own non-replaced card from the rows (`ST/SessionThread.tsx:3724-3731`), (b) does not pass `onAnswerSketch/onWithdrawSketch` to rows (`:4111-4120`), (c) draws `SketchPin` in the tail `li` after the plan card.
 
-`Card flat.armada-session-thread__ask.armada-session-sketch-pin[role=article][aria-label="Sketch to approve: <title>"][data-folded]` (`SketchRow.tsx:540-548`). Base `.armada-session-thread__ask`: flex column, `gap: var(--space-2)`, `flex-shrink:0`, `max-height:60vh`, `overflow:auto` (`ST/SessionThread.css:164-172`).
+`Card flat.armada-session-thread__ask.armada-session-sketch-pin[role=article][aria-label="Sketch to approve: <title>"][data-folded]` (`SketchRow.tsx:540-548`).
+Base `.armada-session-thread__ask`: flex column, `gap: var(--space-2)`, `flex-shrink:0`, `max-height:60vh`, `overflow:auto` (`ST/SessionThread.css:164-172`).
 
 | Region | Content / size |
 |---|---|
@@ -1221,24 +1413,30 @@ When Electron has a sketch waiting, `sessions.tsx:2420-2445` builds `sketching` 
 | `div.armada-session-sketch__answers` | `ApprovalAnswers` with `open` always true |
 | Folded | `[data-folded]` becomes a grid `minmax(0,1fr) auto`, `align-items:center; column-gap: space-3`; head spans row 1; the answers' `[role=group]` footer sits on row 1 col 2 with `margin-inline-end: calc(var(--space-8)*2 + var(--space-2))` = 72px (left of the fold button); a note box goes on row 2 (:249-276) |
 
-`SketchReading` (`:386-470`) when `against` or a menu exists: `div.__read__band` flex gap space-4, min-height 35px, padding `space-1 space-3 space-1 space-4`, bottom rule, bg raised, mono 13/18 weight 600 caps; left `span.__against` "Against <title>" (flex 1, ellipsis); `span[role=group][aria-label="Read as"]` with `Button sm` `Changes` / `Whole` (`aria-pressed`; active = `secondary`, other `ghost`; default Changes); then the menu. The scene fills the rest (`.armada-sketch` flex 1, no border).
+`SketchReading` (`:386-470`) when `against` or a menu exists: `div.__read__band` flex gap space-4, min-height 35px, padding `space-1 space-3 space-1 space-4`, bottom rule, bg raised, mono 13/18 weight 600 caps; left `span.__against` "Against <title>" (flex 1, ellipsis); `span[role=group][aria-label="Read as"]` with `Button sm` `Changes` / `Whole` (`aria-pressed`; active = `secondary`, other `ghost`; default Changes); then the menu.
+The scene fills the rest (`.armada-sketch` flex 1, no border).
 
 ### B1.5 Document card
 
-`li.armada-session-sketch.armada-session-document[data-asked]` > `div.__asked[role=article][aria-label="Document: <title>, Revision <n>"][data-settled]` (`DocumentRow.tsx:41-48`). Always the "asked" frame (B1.3 CSS), no drawing.
+`li.armada-session-sketch.armada-session-document[data-asked]` > `div.__asked[role=article][aria-label="Document: <title>, Revision <n>"][data-settled]` (`DocumentRow.tsx:41-48`).
+Always the "asked" frame (B1.3 CSS), no drawing.
 
 | Region | Detail |
 |---|---|
 | `div.__band` (`[data-press]` when `onOpen`; whole band is a click target, `cursor:pointer`, hover bg `--bg-hover` `SketchRow.css:283-289`) | same band as B1.2 but `border-bottom:0` (:279-281). Children: `FileText` 12px; `span.__title`; `Tooltip(Revision <n>)` over `span.__state` text `r<n>` (`text-transform:none` :296-298); `Stamp still` `__at`; `Button ghost sm iconOnly.armada-session-document__open` `Maximize2` 12px, tooltip `Open`, aria-label `Open <title>, Revision <n>`, `stopPropagation`, `flex:none` |
 | `div.__answers` | when `open \|\| settled`; `ApprovalAnswers` with `keep = keep ?? document:<row.id>`; **no `onWithdraw`**, so no Withdraw |
 
-`open` = `row.asked && settled===undefined && onAnswer!==undefined`. Every revision is put to the person; a new revision asks again. Press on band or Open: `onOpen(row.page)` -> `openOwedDocument(session, page)` (opens the page layer; not covered). Approve/Send back -> `documentAnswerOf` -> `draft.answerDocument` (`DESK/sessions.tsx:3173-3181`, `packages/screens/src/thread-cards.ts:49-71`).
+`open` = `row.asked && settled===undefined && onAnswer!==undefined`.
+Every revision is put to the person; a new revision asks again.
+Press on band or Open: `onOpen(row.page)` -> `openOwedDocument(session, page)` (opens the page layer; not covered).
+Approve/Send back -> `documentAnswerOf` -> `draft.answerDocument` (`DESK/sessions.tsx:3173-3181`, `packages/screens/src/thread-cards.ts:49-71`).
 
 ### B1.6 File, window and judged rows (quiet rows)
 
 All three are `li.armada-session-fold` > `button.armada-session-fold__head.armada-session-fold__head--press` (type button).
 
-Base CSS (`SessionThread.css:507-546`): `.armada-session-fold {min-width:0}`; `__head`: flex, `align-items:center; gap: var(--space-1); min-width:0; width:fit-content; max-width:100%; cursor:pointer; list-style:none; font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted)`; `--press`: `padding:0; border:0; background:none; font:inherit`; hover `color: --fg-default`; focus-visible ring. In spacious (shipped) these become cards, B0.3.
+Base CSS (`SessionThread.css:507-546`): `.armada-session-fold {min-width:0}`; `__head`: flex, `align-items:center; gap: var(--space-1); min-width:0; width:fit-content; max-width:100%; cursor:pointer; list-style:none; font-size: var(--text-2xs); line-height: var(--leading-2xs); color: var(--fg-muted)`; `--press`: `padding:0; border:0; background:none; font:inherit`; hover `color: --fg-default`; focus-visible ring.
+In spacious (shipped) these become cards, B0.3.
 
 | Row | Content | aria-label | Press |
 |---|---|---|---|
@@ -1270,7 +1468,12 @@ Base CSS (`SessionThread.css:507-546`): `.armada-session-fold {min-width:0}`; `_
 
 ### B1.9 Keys
 
-No card-level keys of its own. The pinned sketch and an asked sketch/document card are **not** registered with `useThreadCard` (only plan, draft, permission, question, done, handoff register). `⌥↵/⌥E/⌥R/⌥X` do nothing on them. Press on the card is a button (Enter/Space natively). Esc in the note `Textarea`: none bound. Tab order: press, revision menu button, then footer buttons.
+No card-level keys of its own.
+The pinned sketch and an asked sketch/document card are **not** registered with `useThreadCard` (only plan, draft, permission, question, done, handoff register).
+`⌥↵/⌥E/⌥R/⌥X` do nothing on them.
+Press on the card is a button (Enter/Space natively).
+Esc in the note `Textarea`: none bound.
+Tab order: press, revision menu button, then footer buttons.
 
 ### B1.10 Accessibility
 
@@ -1325,9 +1528,12 @@ QUESTION: `ThreadSketch` has no `revisions`; where does the native app get the r
 
 ### B2.3 Layout (pending / open)
 
-`Card flat.armada-session-thread__ask.armada-session-thread__plan` with `role="article"`, `aria-label` = `Plan approved` \| `Plan set aside` \| `Plan to approve`; data attrs `data-approved`, `data-aside`, `data-folded`, `data-findings` (judge notes present), `data-jobs` (some group goes to its own Job). `ref`/`tabIndex`/`data-thread-target` come from `useThreadCard` (`bind`); then `review` spreads `tabIndex:0 data-reviewable onClick onKeyDown` (so a reviewable card is a tab stop).
+`Card flat.armada-session-thread__ask.armada-session-thread__plan` with `role="article"`, `aria-label` = `Plan approved` \| `Plan set aside` \| `Plan to approve`; data attrs `data-approved`, `data-aside`, `data-folded`, `data-findings` (judge notes present), `data-jobs` (some group goes to its own Job).
+`ref`/`tabIndex`/`data-thread-target` come from `useThreadCard` (`bind`); then `review` spreads `tabIndex:0 data-reviewable onClick onKeyDown` (so a reviewable card is a tab stop).
 
-Card box (`SessionThread.css`): base `__ask` flex column gap `--space-2`, `flex-shrink:0; max-height:60vh; overflow:auto` (:164-172); `__plan`: `max-height: calc(var(--space-12)*5)` = 240px, `overflow:hidden` (:193-196); `[data-jobs]`: `max-height:none` (:198-200); `[data-findings]`: `max-height:70vh` (:202-204); `[data-reviewable]`: `cursor:pointer`, `transition: border-color 120ms ease`, hover border `--accent`, focus-visible ring (:182-192). Padding `--pad-card` = 12px (frame override), radius 6, border default, bg raised. `[data-aside][data-folded]`: `padding-block: var(--space-1)`, color `--fg-muted`; band colour `--fg-subtle` (:256-263).
+Card box (`SessionThread.css`): base `__ask` flex column gap `--space-2`, `flex-shrink:0; max-height:60vh; overflow:auto` (:164-172); `__plan`: `max-height: calc(var(--space-12)*5)` = 240px, `overflow:hidden` (:193-196); `[data-jobs]`: `max-height:none` (:198-200); `[data-findings]`: `max-height:70vh` (:202-204); `[data-reviewable]`: `cursor:pointer`, `transition: border-color 120ms ease`, hover border `--accent`, focus-visible ring (:182-192).
+Padding `--pad-card` = 12px (frame override), radius 6, border default, bg raised.
+`[data-aside][data-folded]`: `padding-block: var(--space-1)`, color `--fg-muted`; band colour `--fg-subtle` (:256-263).
 
 Regions, top to bottom:
 
@@ -1364,17 +1570,23 @@ Regions, top to bottom:
 
 ### B2.5 PlanRevisionView (`ST/PlanRevision.tsx`, `PlanRevision.css`)
 
-`div.armada-plan-revision` (flex column gap space-2) > `ul.__groups[aria-label="Plan"]` (flex column gap space-2). A group is **changed** if it has `since`, or `gone.length>0`, or any task with `since`.
+`div.armada-plan-revision` (flex column gap space-2) > `ul.__groups[aria-label="Plan"]` (flex column gap space-2).
+A group is **changed** if it has `since`, or `gone.length>0`, or any task with `since`.
 - Changed group: `li.__group` (flex column gap space-1) > `div.__head` (flex wrap, `align-items:center; gap: space-1 space-3`) with `span.__title[data-kind]` (inline-flex, `align-items:flex-start; gap: space-2; flex: 1 1 calc(var(--space-12)*2)` = 96px basis; weight 600; a `ChangeMark` first when added/renamed; the text column shows `<s>{from}</s>` above the title) and the agent chip (right: `margin-inline-start:auto`); then `ul.__tasks` (grid `auto auto minmax(0,1fr)`, column-gap space-2, row-gap space-1, `padding-inline-start: space-3`, 13/18) of `li.__task` (subgrid; colour `--fg-muted`, `--fg-default` when it carries a change): [change mark or empty `span aria-hidden`] [`TaskMark state`] [text with `<s>` for renamed]; then `GoneLine`s (removed mark, empty, `<s>{text}</s>`, colour `--fg-muted`).
-- Unchanged group: `li[data-quiet]` > `button.__fold.__head` (`aria-label=<title>`, `aria-expanded`, `aria-controls` when open; tooltip `Show tasks` / `Hide tasks`): `ChevronRight`/`ChevronDown` 12px, title in `--fg-muted`, task marks (`span.armada-session-thread__marks`), agent chip. Button CSS: inline-flex, `gap: space-2`, `padding: space-1 space-2`, `margin-inline-start: -space-2`, radius md, transparent, 13/18, hover bg `--bg-hover` + `--fg-default`, width `calc(100% + space-4)`, `margin-inline-end: -space-2`. Open shows `ul.__tasks` with `padding-inline-start: space-4`.
+- Unchanged group: `li[data-quiet]` > `button.__fold.__head` (`aria-label=<title>`, `aria-expanded`, `aria-controls` when open; tooltip `Show tasks` / `Hide tasks`): `ChevronRight`/`ChevronDown` 12px, title in `--fg-muted`, task marks (`span.armada-session-thread__marks`), agent chip.
+  Button CSS: inline-flex, `gap: space-2`, `padding: space-1 space-2`, `margin-inline-start: -space-2`, radius md, transparent, 13/18, hover bg `--bg-hover` + `--fg-default`, width `calc(100% + space-4)`, `margin-inline-end: -space-2`.
+  Open shows `ul.__tasks` with `padding-inline-start: space-4`.
 - ChangeMark: `span.__change[role=img][aria-label=Added\|Renamed\|Removed]` 12px glyph `Plus` / `Pencil` / `Trash2`, colours as B2.3 row 2.
 - `useUnchanged`: set of open unchanged group ids; `toggleAll` opens all, or closes all once every one is open.
 - `TaskMark` (12px glyph, `role=img`, tooltip = verb capitalised): `open` CircleDashed `--fg-subtle` (tooltip `Open`), `working` CircleDot `--step-running`, `handed_in` Check (+ 8px PencilOff corner), `done` Check `--step-advanced`, `failed` X, `dropped` Minus; Fleet `marked`/`stale` add tooltip lines `Marked by Fleet: <text>` and `Stale: <why>, <age>`.
 
 ### B2.6 Judge pieces on the card
 
-- `judged` = `usePlanJudge(session)` (`DESK/judge/thread.tsx:89-139`): defined when a judge API exists, a plan exists and is not approved. Props: `findings` (notes mapped by `findingOf`), `onRun` (`openJudge`), `onSend`, `onDismiss`, `press` = `<JudgeAct label="Judge plan" shortcut={keyFor("plan_judge")}>` (a Scale-glyph act; opens a small popover asking what to verify, placeholder `existing sign-ins survive the switch`; `DESK/judge/JudgeAct.tsx`).
-- Keys (focus anywhere in the card, `onKeys`, `:2862-2871`): `U` (plain key, no meta/ctrl/alt) toggles unchanged groups when `!folded && revising`; `plan_judge` (`R`, scope `plan`, Contextual) calls `judged.onRun()` when `!folded && judged`; otherwise the review key handler (Enter/Space on the card itself opens the full plan). Findings keys (`useFindingKeys` `AnchoredFindings.tsx:42-92`, bound on `div.__plan-body` when pinned): `finding_move` (`j / k / ↓ / ↑`) moves between notes, `judge_note_send` (`Enter`) sends the focused note, `judge_note_dismiss` (`d / Backspace`) dismisses it, focus passes to the next. Scope `plan` in `crates/core-model/domain/actions.toml:1121-1165`.
+- `judged` = `usePlanJudge(session)` (`DESK/judge/thread.tsx:89-139`): defined when a judge API exists, a plan exists and is not approved.
+  Props: `findings` (notes mapped by `findingOf`), `onRun` (`openJudge`), `onSend`, `onDismiss`, `press` = `<JudgeAct label="Judge plan" shortcut={keyFor("plan_judge")}>` (a Scale-glyph act; opens a small popover asking what to verify, placeholder `existing sign-ins survive the switch`; `DESK/judge/JudgeAct.tsx`).
+- Keys (focus anywhere in the card, `onKeys`, `:2862-2871`): `U` (plain key, no meta/ctrl/alt) toggles unchanged groups when `!folded && revising`; `plan_judge` (`R`, scope `plan`, Contextual) calls `judged.onRun()` when `!folded && judged`; otherwise the review key handler (Enter/Space on the card itself opens the full plan).
+  Findings keys (`useFindingKeys` `AnchoredFindings.tsx:42-92`, bound on `div.__plan-body` when pinned): `finding_move` (`j / k / ↓ / ↑`) moves between notes, `judge_note_send` (`Enter`) sends the focused note, `judge_note_dismiss` (`d / Backspace`) dismisses it, focus passes to the next.
+  Scope `plan` in `crates/core-model/domain/actions.toml:1121-1165`.
 - The card key handler is attached only if `revising || judged !== undefined` (`:3013-3017`); otherwise `review.onKeyDown` from the `review` spread.
 
 ### B2.7 Acts (what each does)
@@ -1398,9 +1610,14 @@ Regions, top to bottom:
 Mounted from `sessions.tsx` (`reviewing` state; `<PlanReview>`/`PlanPane`). Recorded at the level the brief asks.
 
 - `PlanReview` (`DESK/session-view/PlanReview.tsx:215-336`): `Sheet kind="plan-review" floating size="widest" title="Plan" closeLabel="Close" closeBinding="Esc"`, wrapped in `OverTheApp`; `controls` = `BadgeCheck` 16px with tooltip `Plan approved` when approved; `footer` (`div.sv-review__foot`) shown if `marked || !approved`: `Edit plan`/`Show changes` ghost sm (only if a `revision` exists, plan not approved, no marks), `Send changes` (secondary sm, `Send` 16px glyph, only if marks), `Approve` primary sm with tooltip `Approve with these changes` (marks) or `Approve`.
-- `PlanBody` (`:55-190`): `div.sv-review` > `div.sv-review__groups` (findings keys bound if judge notes) > either `PlanRevisionView` (when `revision` and not `editing` and no marks) or: `FindingNotes` `Findings on the plan`, landing runs (`landingsOf`) each `div.sv-review__landing[role=group][aria-label=...]` with `LandsInChip` + one `section.sv-group.sv-review__group[data-open][aria-label=<title>]` per group holding a `GroupEditor`; own-Job runs are `JobCard`s; then `AddGroup`. A plan sketch is drawn large below: `div.sv-review__sketch` > `SketchReading`.
+- `PlanBody` (`:55-190`): `div.sv-review` > `div.sv-review__groups` (findings keys bound if judge notes) > either `PlanRevisionView` (when `revision` and not `editing` and no marks) or: `FindingNotes` `Findings on the plan`, landing runs (`landingsOf`) each `div.sv-review__landing[role=group][aria-label=...]` with `LandsInChip` + one `section.sv-group.sv-review__group[data-open][aria-label=<title>]` per group holding a `GroupEditor`; own-Job runs are `JobCard`s; then `AddGroup`.
+  A plan sketch is drawn large below: `div.sv-review__sketch` > `SketchReading`.
 - `PlanPane` (review sheet pane): summary `p.sv-blueprint__summary`, `Edit plan`/`Show changes` foot, `PlanBody`.
-- Marks (`plan-marks.ts`): `PlanMark` = `rename {group, task?, from, to}`, `remove {group, task?}`, `add {group, task?|id, text}`, `move {task, from, to}`, `agent {group, from, to}` (UI name; wire `Subagent`), `note {id, group, task?, text}`. Wire `PlanMark` (`crates/ipc/src/session_plan.rs`): `Rename`, `Remove`, `AddTask`, `AddGroup`, `MoveTask`, `Subagent`, `Note`. `viewOf(plan, marks)` lays marks over the plan (renamed shows the old text struck, removed struck, added marked new, moved shows source, notes pinned, `since` from agent changes, `gone` = tasks the agent removed). `linesOf` words marks as lines (`Renamed`, `Removed`, `Added`, `Moved`, `Subagent`, `Note`; `where` = `<group title> › <task>`). Helpers: `rename`, `remove`, `addTask`, `addGroup`, `move`, `setAgent`, `addNote`, `dropNote`, `newId(prefix)` -> `<prefix>-new-<n>`.
+- Marks (`plan-marks.ts`): `PlanMark` = `rename {group, task?, from, to}`, `remove {group, task?}`, `add {group, task?|id, text}`, `move {task, from, to}`, `agent {group, from, to}` (UI name; wire `Subagent`), `note {id, group, task?, text}`.
+  Wire `PlanMark` (`crates/ipc/src/session_plan.rs`): `Rename`, `Remove`, `AddTask`, `AddGroup`, `MoveTask`, `Subagent`, `Note`.
+  `viewOf(plan, marks)` lays marks over the plan (renamed shows the old text struck, removed struck, added marked new, moved shows source, notes pinned, `since` from agent changes, `gone` = tasks the agent removed).
+  `linesOf` words marks as lines (`Renamed`, `Removed`, `Added`, `Moved`, `Subagent`, `Note`; `where` = `<group title> › <task>`).
+  Helpers: `rename`, `remove`, `addTask`, `addGroup`, `move`, `setAgent`, `addNote`, `dropNote`, `newId(prefix)` -> `<prefix>-new-<n>`.
 - Edit pieces (`PlanEdit.tsx`): `EditText` (a button showing the text, `aria-label="<label>: <value>"`; press -> `Input` `aria-label=<label>`; Enter saves, Esc/blur keeps old); `Tools` hover glyphs: `Suggest` (MessageSquarePlus 16, aria `Suggest on <what>`), `Teach` (GraduationCap, aria `Teach on <what>`, only when teaching is available), `Remove`/`Keep` (Trash2 / Undo2, aria `Remove <what>`/`Keep <what>`); `NoteBox` (Enter pins, Shift+Enter newline, Esc closes; close button `Close suggestion`); notes list `ul.sv-pins[aria-label="Suggestions"]` with mark tooltip `Suggestion, not sent yet` and take-back button aria `Take back suggestion` (tooltip `Take back`); agent marks `Added by the agent` / `Renamed by the agent, was <from>`; `Added, not sent yet`; `Removed by the agent`; task rows `draggable` (drag a task onto another group to move; dataTransfer `text/plain` = task id); group subagent `Select` aria `Subagent type of <title>` with options `rust-engineer, bridge-engineer, protocol-engineer, fixture-author, judge, general-purpose` (tooltip `Subagent type`); `Edit group` tooltip; `AddTask` input aria `New task in <group title>` (Enter adds if non-blank, Esc closes); `AddGroup`: ghost sm `Plus 16` + `Add group` -> `Input` aria `New group` (Enter adds, Esc/blur closes); `SendChanges`: `Send changes` secondary sm with `Send` 16 (only with marks) -> `ed.send`.
 - `sendBack(note)` in the review sheet: the note rides on the plan's first group as a `note` mark then `draft.work.suggest(session.id, marks)`; marks cleared (`DESK/sessions.tsx:2594-2612`).
 - The thread afterwards shows the `Plan changes` row (B2.9).
@@ -1410,7 +1627,9 @@ QUESTION: `Sheet`, `OverTheApp`, `Dialog`, `JobCard`, `PullRequestChip`, `JudgeA
 
 ### B2.9 Rows that belong to the plan in the thread
 
-`suggest` row = Plan changes (`ST/SessionThread.tsx:2223-2257`, wire `SessionRow::PlanChanges{version, approved, lines[]}`): `li.armada-session-suggest[role=region][aria-label="Changes to the plan"]`: flex, `align-items:flex-start; gap: space-3; padding: space-2 space-3; border: 1px solid var(--you-edge); radius md; bg color-mix(you 14%, --bg-raised); color --fg-default` (`SessionThread.css:1284-1293`). Children: eyebrow `Plan changes`; `ul.__lines` (flex column gap space-1); each `li.__line` (flex wrap, `align-items:center; gap: space-2`, 13/18): verb glyph 12px with tooltip+aria = verb (`Renamed` Pencil, `Removed` Trash2, `Added` Plus, `Moved` MoveRight, `Subagent` Bot, `Note` MessageSquare), `span.__where` (mono 2xs), optional `<s>{from}</s>` (opacity .7), `ArrowRight` 12 when both from and text, `span.__text`; then `RowStamp`. The plain `Plan` wire row (`SessionRow::Plan{version}`) draws nothing; it only anchors `after`.
+`suggest` row = Plan changes (`ST/SessionThread.tsx:2223-2257`, wire `SessionRow::PlanChanges{version, approved, lines[]}`): `li.armada-session-suggest[role=region][aria-label="Changes to the plan"]`: flex, `align-items:flex-start; gap: space-3; padding: space-2 space-3; border: 1px solid var(--you-edge); radius md; bg color-mix(you 14%, --bg-raised); color --fg-default` (`SessionThread.css:1284-1293`).
+Children: eyebrow `Plan changes`; `ul.__lines` (flex column gap space-1); each `li.__line` (flex wrap, `align-items:center; gap: space-2`, 13/18): verb glyph 12px with tooltip+aria = verb (`Renamed` Pencil, `Removed` Trash2, `Added` Plus, `Moved` MoveRight, `Subagent` Bot, `Note` MessageSquare), `span.__where` (mono 2xs), optional `<s>{from}</s>` (opacity .7), `ArrowRight` 12 when both from and text, `span.__text`; then `RowStamp`.
+The plain `Plan` wire row (`SessionRow::Plan{version}`) draws nothing; it only anchors `after`.
 
 ### B2.10 Fleet data
 
@@ -1434,7 +1653,9 @@ QUESTION: `Sheet`, `OverTheApp`, `Dialog`, `JobCard`, `PullRequestChip`, `JudgeA
 `DraftRow` `ST/DraftRow.tsx:1-530` (row `kind:"draft"`, `ST/SessionThread.tsx:444-466`); CSS `ST/DraftRow.css:1-101`; `DraftAnswer` type `DraftRow.tsx:29-39`; mounted `ST/SessionThread.tsx:2126-2147`.
 
 ### B3.2 Layout
-`li.armada-session-draft-row` (`list-style:none`) > `Card flat.armada-session-draft[role=article][aria-label="<Draft\|Rule\|Workflow>: <title>"][data-settled]` (+ `bind` from `useThreadCard`, + `teaching.on` context-menu handlers). Card = base `Card` (12px pad in the frame, gap `--space-3`, radius 6, border default, bg raised). No spacious rule; no bleed.
+`li.armada-session-draft-row` (`list-style:none`) > `Card flat.armada-session-draft[role=article][aria-label="<Draft\|Rule\|Workflow>: <title>"][data-settled]` (+ `bind` from `useThreadCard`, + `teaching.on` context-menu handlers).
+Card = base `Card` (12px pad in the frame, gap `--space-3`, radius 6, border default, bg raised).
+No spacious rule; no bleed.
 
 | # | Region | Detail |
 |---|---|---|
@@ -1449,11 +1670,14 @@ QUESTION: `Sheet`, `OverTheApp`, `Dialog`, `JobCard`, `PullRequestChip`, `JudgeA
 | 9 | footer | `CardFooter[role=group][aria-label="Answers"]` when `open` |
 
 ### B3.3 Settled words and glyphs (`DraftRow.tsx:48-65, 210-226`)
-`approved` -> `Approved` BadgeCheck; `fixed` -> `Approved with your fixes` BadgeCheck; `sent_back` -> `Sent back` Reply; `withdrawn` -> `Withdrawn` Ban. Overrides: proposed workflow + withdrawn -> `Dismissed` Ban; rule + approved -> `Sent` BadgeCheck.
+`approved` -> `Approved` BadgeCheck; `fixed` -> `Approved with your fixes` BadgeCheck; `sent_back` -> `Sent back` Reply; `withdrawn` -> `Withdrawn` Ban.
+Overrides: proposed workflow + withdrawn -> `Dismissed` Ban; rule + approved -> `Sent` BadgeCheck.
 
 ### B3.4 Modes, footer and keys
 
-State: `mode` read | edit | note (initially edit if a kept `:fixed` exists, else note if kept `:note`, else read). `open = settled===undefined && onAnswer!==undefined`; `editing = open && mode==="edit"`; `noting = open && mode==="note"`. Settle clears kept text.
+State: `mode` read | edit | note (initially edit if a kept `:fixed` exists, else note if kept `:note`, else read).
+`open = settled===undefined && onAnswer!==undefined`; `editing = open && mode==="edit"`; `noting = open && mode==="note"`.
+Settle clears kept text.
 
 | Mode | Footer buttons (all `size sm`) |
 |---|---|
@@ -1461,7 +1685,9 @@ State: `mode` read | edit | note (initially edit if a kept `:fixed` exists, else
 | edit | `Approve with fixes` (primary; `Send with fixes` for rule; disabled if text blank; sends `{fixed}` or `{choice:0}` when unchanged) + yes kbd; `Cancel` (ghost; restores text, forgets keeps) |
 | note | `Send back` (primary; disabled if note blank; `{text: note.trim()}`); `Cancel` (ghost); Withdraw (with the typed note as reason) |
 
-`Approve` sends `{choice:0}`. `⌘Enter` (`isPressed("send_message")`) inside the Draft text box sends `approveFixed` when the text is non-blank, inside the Note box sends `sendBack` when the note is non-blank (`:287-293`). Edit opened by key focuses the textarea next frame (`openBox`).
+`Approve` sends `{choice:0}`.
+`⌘Enter` (`isPressed("send_message")`) inside the Draft text box sends `approveFixed` when the text is non-blank, inside the Note box sends `sendBack` when the note is non-blank (`:287-293`).
+Edit opened by key focuses the textarea next frame (`openBox`).
 
 Card registration `useThreadCard` id `draft:<row.id>`, kind `Rule`/`Workflow`/`Draft`, title `row.title`, acts:
 - `yes`: editing -> `Approve with fixes`/`Send with fixes` (only if text non-blank); noting or headed -> none; else `Approve`/`Send`
@@ -1471,10 +1697,15 @@ Card registration `useThreadCard` id `draft:<row.id>`, kind `Rule`/`Workflow`/`D
 Kbd chips (`ThreadKbd`, at rest only on the target card) sit in the buttons above (yes on Approve, change on Edit, sendBack on Note, no on Withdraw).
 
 ### B3.5 Selection menu and Teach
-`onContextMenu` on the text when `open` and the press is inside a non-collapsed selection within the text: `DropdownMenu triggerLabel="Selection"` at the pointer with items `Edit` (Pencil; opens edit with those words selected in the box) and `Add note` (MessageSquarePlus; opens the note quoted with `quoteOf(words)`; omitted when `headed`). `useTeachMenu("Draft", ...)` adds a Teach context menu on the card (`onTeach({kind:"words", text: row.text, at: row.at})`).
+`onContextMenu` on the text when `open` and the press is inside a non-collapsed selection within the text: `DropdownMenu triggerLabel="Selection"` at the pointer with items `Edit` (Pencil; opens edit with those words selected in the box) and `Add note` (MessageSquarePlus; opens the note quoted with `quoteOf(words)`; omitted when `headed`).
+`useTeachMenu("Draft", ...)` adds a Teach context menu on the card (`onTeach({kind:"words", text: row.text, at: row.at})`).
 
 ### B3.6 Wire and Electron
-Wire: `SessionRow::Draft{id, at, title, text, before, settled: DraftSettled{how: approved\|fixed\|sent_back\|withdrawn, words, at}, change}` (`hosted_sessions.rs:700-720, 501-520`) via `ThreadItem::Row`. The row is replaced by id on settle. Electron: pass-through plus `withWorkflowCards` (`DESK/sessions.tsx:3810-3828`): a draft with `change` and no `workflow` gets `workflow{name: proposedName(...), scope}` looked up asynchronously by change number (`useProposedScopes`); `rule` is a mock-only field. Answer routing: `onDraft(rowId, answer)` -> `draft.answerWaiting(session.id, "draft:<rowId>", answer)`; `onWithdrawDraft(rowId, reason?)` -> `dismissWaiting(session.id, "draft:<rowId>", reason)`; `keep = draft:<sessionId>:<rowId>`. The review sheet draws the same card with `headed` (its Approve/Send back in the sheet head).
+Wire: `SessionRow::Draft{id, at, title, text, before, settled: DraftSettled{how: approved\|fixed\|sent_back\|withdrawn, words, at}, change}` (`hosted_sessions.rs:700-720, 501-520`) via `ThreadItem::Row`.
+The row is replaced by id on settle.
+Electron: pass-through plus `withWorkflowCards` (`DESK/sessions.tsx:3810-3828`): a draft with `change` and no `workflow` gets `workflow{name: proposedName(...), scope}` looked up asynchronously by change number (`useProposedScopes`); `rule` is a mock-only field.
+Answer routing: `onDraft(rowId, answer)` -> `draft.answerWaiting(session.id, "draft:<rowId>", answer)`; `onWithdrawDraft(rowId, reason?)` -> `dismissWaiting(session.id, "draft:<rowId>", reason)`; `keep = draft:<sessionId>:<rowId>`.
+The review sheet draws the same card with `headed` (its Approve/Send back in the sheet head).
 
 ---
 
@@ -1495,7 +1726,10 @@ Wire: `SessionRow::Draft{id, at, title, text, before, settled: DraftSettled{how:
 | Open group | `DESK/session-view/OpenGroup.tsx` (Story column panel, not a thread card) |
 
 ### B4.2 What Electron passes (and does not)
-`const asked = askedOf(session)` (`DESK/asked-of.ts`) builds `{command, questions?, offers?[{id,label,means}], reaches?, reachesTo?, kind?}`; offer words come from `CALL_ANSWER` (`packages/screens/src/copy.ts:61-110`) via `offeredOf`, or `reachOfferedOf` when `reaches` is set (which renames `refuse`: label `Reject once`, means `Not run. The job is told no, and the next call asks again.`, and `allow_once` means `Runs it now. The next call outside its slots asks again.`). `lapsed` = `session.lapsed` unless `session.lapsed.id === answeredLapse`. The panel passes `AskCards flat asked keep onAnswer lapsed [detail pick]`. `SessionThread` itself receives neither `asked` nor `lapsed`, only `waitingOnYou`.
+`const asked = askedOf(session)` (`DESK/asked-of.ts`) builds `{command, questions?, offers?[{id,label,means}], reaches?, reachesTo?, kind?}`; offer words come from `CALL_ANSWER` (`packages/screens/src/copy.ts:61-110`) via `offeredOf`, or `reachOfferedOf` when `reaches` is set (which renames `refuse`: label `Reject once`, means `Not run. The job is told no, and the next call asks again.`, and `allow_once` means `Runs it now. The next call outside its slots asks again.`).
+`lapsed` = `session.lapsed` unless `session.lapsed.id === answeredLapse`.
+The panel passes `AskCards flat asked keep onAnswer lapsed [detail pick]`.
+`SessionThread` itself receives neither `asked` nor `lapsed`, only `waitingOnYou`.
 
 | Offer id | Label | Means (tooltip) |
 |---|---|---|
@@ -1508,11 +1742,14 @@ Wire: `SessionRow::Draft{id, at, title, text, before, settled: DraftSettled{how:
 | `allow_like_this_for_session` | `Allow calls like this for this job` | Runs it, and every call of this kind until the job is closed. Settings does not list it. |
 
 ### B4.3 AskCards structure
-`asked` present: `Card flat.armada-session-thread__ask[role=article][aria-label="Waiting on you"]` (+ `bind` from `useThreadCard`, `ref` forwards to `askRef`). Base `__ask` CSS B2.3. When the card holds a deck, `.__ask:has(.armada-question-deck)` is `padding:0; border:0; background:transparent; box-shadow:none` (:174-179). Inside the Needs you detail the panel also sets `.armada-needs-panel__content .armada-session-thread__ask {max-height:none; padding:0; border:0; background:transparent; box-shadow:none}` (`NeedsYouPanel.css:362-370`), so a panel permission card is its content bare.
+`asked` present: `Card flat.armada-session-thread__ask[role=article][aria-label="Waiting on you"]` (+ `bind` from `useThreadCard`, `ref` forwards to `askRef`).
+Base `__ask` CSS B2.3. When the card holds a deck, `.__ask:has(.armada-question-deck)` is `padding:0; border:0; background:transparent; box-shadow:none` (:174-179).
+Inside the Needs you detail the panel also sets `.armada-needs-panel__content .armada-session-thread__ask {max-height:none; padding:0; border:0; background:transparent; box-shadow:none}` (`NeedsYouPanel.css:362-370`), so a panel permission card is its content bare.
 
 A. **Permission** (no `questions`):
 1. `span.__eyebrow` `Permission` or `Permission to read|write|run` (`reachesTo`).
-2. command: if `allowsOnce` (offers include `allow_once`): `div.armada-prose__run[role=group][aria-label=<first command line>]` > `div.__run-block` > `pre.armada-prose__block > code {command}` + `span.__run-acts` with `Tooltip("Allow once")` > `Button ghost sm iconOnly aria-label="Allow once"` glyph `Play` 16 (always visible: `.armada-session-thread__ask .armada-prose__run-acts {opacity:1}` :1279-1281) and the yes `ThreadKbd`. Else `p.__command` (`margin:0; mono 2xs/16`, `:447-452`) with the command text.
+2. command: if `allowsOnce` (offers include `allow_once`): `div.armada-prose__run[role=group][aria-label=<first command line>]` > `div.__run-block` > `pre.armada-prose__block > code {command}` + `span.__run-acts` with `Tooltip("Allow once")` > `Button ghost sm iconOnly aria-label="Allow once"` glyph `Play` 16 (always visible: `.armada-session-thread__ask .armada-prose__run-acts {opacity:1}` :1279-1281) and the yes `ThreadKbd`.
+   Else `p.__command` (`margin:0; mono 2xs/16`, `:447-452`) with the command text.
 3. answers:
    - reach card (`reaches` set and offers include a folder answer) -> `ReachAnswers`: `div.__reach[role=group][aria-label="Answers"]` (flex column gap space-2): a row `div.__answers` of the once offers (everything except `allow_once`, `allow_like_this_for_session`, and folder answers), each `Tooltip(means) > Button sm secondary {label}` + `ThreadKbd no` on the `refuse` button when the card is the target; then `div.__always` (flex column gap space-2; `padding: space-2 space-3; border: 1px solid --accent-muted; radius md; bg --accent-faint`): head `Always applies to` (+ `<strong>reads|writes|commands</strong> of|to|on` when `reachesTo`), `PathPicker path=reaches chosen=folder label="Folder for always"` (folders as mono 2xs buttons, `height --h-kbd`, border subtle; chosen = accent on accent-muted; covered = accent-faint; `aria-pressed`; `title`=full folder; separators `›`), `span.__always-covers` (mono 2xs `--fg-muted`; shows `reaches` or `<folder>/*`), a row of folder offers `Button sm secondary {label} <span.__always-folder>{last folder name}</span>` (accent mono) each calling `onAnswer(id, undefined, folder)`; and when the offers include `allow_like_this_for_session` and `kind` is set: `div.__like` (border-top accent-muted, padding-top space-2) with head `Calls like`, `KindPicker` (`role=group aria-label="Calls like"`: words `program` and `script` as buttons, `aria-pressed`, `data-covered` for script when the program is chosen; pressing program = wide), a `Switch size sm` `Only in <folder name>` (off by default) and `Button sm secondary {like.label}` calling `onAnswer(like.id, undefined, onlyIn ? folder : undefined, chosenKind)`.
    - no offers list: `div.__answers[role=group][aria-label="Answers"]`: `Button sm secondary` `Allow once` + yes kbd (`onAnswer()`), `Button sm secondary` `Deny` + no kbd (`onAnswer()`).
@@ -1523,7 +1760,8 @@ B. **Question** (has `questions`): `QuestionDeck` (key = command), props `flat`,
 
 C. **Lapsed** (only when `lapsed` and no `asked`): `Card flat.armada-session-thread__ask[role=article][aria-label="Unanswered"]` > `QuestionDeck key=lapsed.id questions flat canSkip` with `onAnswer` -> `lapsed.onAnswer(answers)` when answers are given, `lapsed.onSkip()` when the answer is `"refuse"`.
 
-Registration (`useThreadCard`, only for permission cards, `permission = asked && no questions`): id `permission:<command>`, kind `Permission` or `Permission to <reachesTo>`, title first command line; `yes` `Allow once` (when no offers, or offers include allow_once); `no` `Deny` (no offers) or the `refuse` offer's label. A question registers inside `QuestionDeck`.
+Registration (`useThreadCard`, only for permission cards, `permission = asked && no questions`): id `permission:<command>`, kind `Permission` or `Permission to <reachesTo>`, title first command line; `yes` `Allow once` (when no offers, or offers include allow_once); `no` `Deny` (no offers) or the `refuse` offer's label.
+A question registers inside `QuestionDeck`.
 
 ### B4.4 QuestionDeck layout and behaviour (`QuestionDeck.tsx`, `SessionThread.css:745-1030`)
 
@@ -1531,59 +1769,99 @@ Registration (`useThreadCard`, only for permission cards, `permission = asked &&
 
 Not flat: above the card a `div.__done[role=group][aria-label="Answered"]` (flex wrap gap space-1) of ghost sm buttons `<header or question>: <chosen>` (title attr = question) for earlier questions when `front>0`; strips behind (`__behind`, up to 3, `aria-hidden`, `title=question`) peeking above the card: `__stack` `position:relative; padding-top: calc(var(--space-2)*behind)`; each behind strip absolute, `left/right: calc(var(--space-3)*(i+1))`, height `space-2 + radius-lg`, border hue, radius `8 8 0 0`, bg `color-mix(hue 45%, --bg-overlay)`, `opacity: 1 - i*0.25`.
 
-`div.__card[role=group][aria-label=<question>]` (`onKeyDown=key`): not flat: `position:relative; z-index:20; border:0; radius lg; bg --bg-overlay; box-shadow --shadow-overlay; overflow:hidden; animation armada-question-up var(--duration-travel) var(--ease)` (opacity .6, translateY(-24px) scale .97; none under reduced motion). Flat: border 0, radius 0, transparent, no shadow, no animation, `__band` hidden, `__body` padding 0 (`:905-917`).
+`div.__card[role=group][aria-label=<question>]` (`onKeyDown=key`): not flat: `position:relative; z-index:20; border:0; radius lg; bg --bg-overlay; box-shadow --shadow-overlay; overflow:hidden; animation armada-question-up var(--duration-travel) var(--ease)` (opacity .6, translateY(-24px) scale .97; none under reduced motion).
+Flat: border 0, radius 0, transparent, no shadow, no animation, `__band` hidden, `__body` padding 0 (`:905-917`).
 
 Band (`header.__band`, not flat only): bg hue, color `--fg-inverse`, 13px weight 600; `button.__toggle` (flex, gap space-2, width 100%, padding `space-2 space-4`, transparent, `aria-expanded={open}`, `title=question` when closed): `MessageCircleQuestion` 16; `span.__title` (flex 1) = `header` or `Question`; pips `span.__pips[title="<n> of <N>"]` (only when N>1) of `span.__pip` (8px circles, border 1px `--fg-inverse`; here/done filled; done opacity .6); `ChevronDown` (open) / `ChevronRight` 16. Press folds the body (`hidden`).
 
 Body (`div.__body`): flex column, `gap: var(--space-3)`, `padding: var(--space-4)` (halved to 8px inside the Job frame, `session-view.css:1324-1326`; flat: padding 0).
 1. `p.__ask`: `margin:0; font-size --text-lg (18/28); weight 600; color --fg-default; text-wrap: balance`; content `RefText(question)` (issue/PR refs become chips).
 2. `detail` node (Operator read / steps) if any.
-3. `div.__answers[role=radiogroup\|group][aria-label="Options"]`: flex column gap `--space-1`. Each option `button.__answer[role=radio\|checkbox][aria-checked][aria-label=<label>][aria-description=<description>][data-on]`: flex, `align-items:center; gap: space-3; padding: space-2 space-3` (4px/6px in the Job frame, `session-view.css:1318-1320`); `border: 1px solid --border-default; radius md; bg --bg-sunken; color --fg-default; weight 500; text-align:left`; hover border hue; `[data-on]` border hue + bg `color-mix(hue 18%, --bg-sunken)`; focus ring; transition border/background 120ms. Inside: `<kbd>{index+1}</kbd>` (mono 2xs `--fg-subtle`, `flex:none`; a bare `<kbd>`, not the `Kbd` primitive), `span.__option` (flex wrap, `align-items:baseline; column-gap: space-3`) with `<span>{label}</span>` and `span.__description` (13/18, weight 400, `--fg-muted`; `RefText`) when the description is non-empty. Hover/focus on an option with `preview` shows `PreviewCard`. Last row `Other` (unless `noOther`): same button `aria-label="Other"` with `<kbd>{options.length+1}</kbd>`, text `Other`, and `ThreadKbd change`.
-4. `PreviewCard` (portal on body, `role=region aria-label="Preview"`): `pre.__preview` fixed, `z-index: var(--z-menu)`, `max-width: calc(100vw - space-8)`, `pointer-events:none`, `--shadow-overlay`, padding `space-3`, border 1px default, radius md, bg `--bg-sunken`, mono 13/18, `white-space:pre`, `overflow:auto`, `max-height: calc(var(--space-6)*10)` = 240px. Placed beside the panel (right if room, else left, else narrowed with wrap if >= 160px free, else over the row's end), level with its row (top, or bottom-anchored when the row is below mid-window); gap 8px (`GAP`), drawn once hidden to measure.
+3. `div.__answers[role=radiogroup\|group][aria-label="Options"]`: flex column gap `--space-1`.
+   Each option `button.__answer[role=radio\|checkbox][aria-checked][aria-label=<label>][aria-description=<description>][data-on]`: flex, `align-items:center; gap: space-3; padding: space-2 space-3` (4px/6px in the Job frame, `session-view.css:1318-1320`); `border: 1px solid --border-default; radius md; bg --bg-sunken; color --fg-default; weight 500; text-align:left`; hover border hue; `[data-on]` border hue + bg `color-mix(hue 18%, --bg-sunken)`; focus ring; transition border/background 120ms.
+   Inside: `<kbd>{index+1}</kbd>` (mono 2xs `--fg-subtle`, `flex:none`; a bare `<kbd>`, not the `Kbd` primitive), `span.__option` (flex wrap, `align-items:baseline; column-gap: space-3`) with `<span>{label}</span>` and `span.__description` (13/18, weight 400, `--fg-muted`; `RefText`) when the description is non-empty.
+   Hover/focus on an option with `preview` shows `PreviewCard`.
+   Last row `Other` (unless `noOther`): same button `aria-label="Other"` with `<kbd>{options.length+1}</kbd>`, text `Other`, and `ThreadKbd change`.
+4. `PreviewCard` (portal on body, `role=region aria-label="Preview"`): `pre.__preview` fixed, `z-index: var(--z-menu)`, `max-width: calc(100vw - space-8)`, `pointer-events:none`, `--shadow-overlay`, padding `space-3`, border 1px default, radius md, bg `--bg-sunken`, mono 13/18, `white-space:pre`, `overflow:auto`, `max-height: calc(var(--space-6)*10)` = 240px.
+   Placed beside the panel (right if room, else left, else narrowed with wrap if >= 160px free, else over the row's end), level with its row (top, or bottom-anchored when the row is below mid-window); gap 8px (`GAP`), drawn once hidden to measure.
 5. If `Other` is on: `Input aria-label="Other" autoFocus` (value in `words[front]`).
 6. `beneath` node (held slots) if given.
 7. `div.armada-session-thread__answers[role=group][aria-label="Answers"]`: last question -> `Button sm primary` `Answer` + yes kbd (`disabled` unless every question has a choice and not sending; `autoFocus` when a `pick` was preset); other questions -> `Button sm secondary` `Next` (disabled until the question has a choice); `Button sm ghost` `Skip` + no kbd (only if `canSkip`); and flat with N>1: step nodes `div.__steps[role=group][aria-label="Questions"]` (flex, gap space-1, `margin-inline-start:auto`): `button.__step` 24x24 (`--space-6`), border 1px default, radius md, mono 2xs; shows the number, or `Check` 12px stroke 3 when answered (`data-done`: border+bg hue, text `--bg-sunken`); `aria-current="step"` on the front (border hue, extra 1px hue ring); `aria-label`/tooltip `<name>` or `<name>: <chosen>`; `span.__link` (8x1px, default border colour; hue when done) between nodes.
 
-State: `held = {front, picked[][], using[], words[]}` kept under `question:<keep>` (`useKept`) until answered or skipped; a deck with no `keep` keeps nothing. Single choice: picking sets the choice, clears Other, advances unless last. Multi-select: toggles, never advances. `Other` single: selects Other, clears picks; multi: toggles. `chosenFor` = picks + typed Other text if on and non-blank. `answer()` -> `onAnswer("allow_once", [{question, chosen}...])` (a returned promise disables Answer until settled, then keeps released); `skip()` -> forget, `onAnswer("refuse")`. Electron's `onAnswer` -> `draft.answer(session.id, answer, answers, folder, kind)` after `operatorRead?.answered()`; a lapsed answer -> `draft.send(...)` of text `Answering your earlier question "<q>": <a, b>` per line (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts:1017`) and hides the deck when it went; lapsed skip -> hides the deck for that `lapsed.id` (`answeredLapse`).
+State: `held = {front, picked[][], using[], words[]}` kept under `question:<keep>` (`useKept`) until answered or skipped; a deck with no `keep` keeps nothing.
+Single choice: picking sets the choice, clears Other, advances unless last.
+Multi-select: toggles, never advances.
+`Other` single: selects Other, clears picks; multi: toggles.
+`chosenFor` = picks + typed Other text if on and non-blank.
+`answer()` -> `onAnswer("allow_once", [{question, chosen}...])` (a returned promise disables Answer until settled, then keeps released); `skip()` -> forget, `onAnswer("refuse")`.
+Electron's `onAnswer` -> `draft.answer(session.id, answer, answers, folder, kind)` after `operatorRead?.answered()`; a lapsed answer -> `draft.send(...)` of text `Answering your earlier question "<q>": <a, b>` per line (`lapsedAnswerText`, `packages/screens/src/sessions-wire.ts:1017`) and hides the deck when it went; lapsed skip -> hides the deck for that `lapsed.id` (`answeredLapse`).
 
-Keys on the deck (the four ⌥ keys: B6): `1`–`9` on the card group (`onKeyDown` at `QuestionDeck.tsx:305-324`): ignored when the card is folded or the event target is an `<input>`; with a preset `pick`, Enter takes the selection (answers if last and complete) unless the target is a radio; digit `n` picks option `n` if `n <= options.length`, `Other` if `n === options.length+1` and not `noOther`, else ignored; calls `preventDefault`. There is **no modifier check**, so `⌘1` also picks. Enter/Space press the focused option (native button). No arrow-key roving: options are separate tab stops. The panel moves focus to the first `[role=radio]`/`checkbox`/input/button of the content when a question opens, so digits work at once (B7).
+Keys on the deck (the four ⌥ keys: B6): `1`–`9` on the card group (`onKeyDown` at `QuestionDeck.tsx:305-324`): ignored when the card is folded or the event target is an `<input>`; with a preset `pick`, Enter takes the selection (answers if last and complete) unless the target is a radio; digit `n` picks option `n` if `n <= options.length`, `Other` if `n === options.length+1` and not `noOther`, else ignored; calls `preventDefault`.
+There is **no modifier check**, so `⌘1` also picks.
+Enter/Space press the focused option (native button).
+No arrow-key roving: options are separate tab stops.
+The panel moves focus to the first `[role=radio]`/`checkbox`/input/button of the content when a question opens, so digits work at once (B7).
 
 Spacious (`spacious-thread.css:1557-1640`): `__body gap: space-4`; `__ask font-size: calc(var(--spacious-body)+1px)` = 16px, leading `--spacious-leading` 24px, weight 600, `text-wrap: pretty`; `__answers gap: space-2`; each `__answer`: `align-items:flex-start; gap: space-3; padding: space-3 space-4; border:0; radius lg; bg var(--spacious-card); box-shadow var(--spacious-card-edge); font-size --spacious-body; line-height 22px`; hover shadow `inset 0 0 0 1px color-mix(hue 60%, transparent)`; `[data-on]` bg `color-mix(hue 14%, transparent)`, shadow `inset 0 0 0 1px hue`; `> kbd` `min-width:1ch; font-size --spacious-meta; line-height 22px`; `__option` column, `align-items:flex-start; row-gap:2px`; `__description` 13px/20px.
 Panel overrides for a flat deck (`NeedsYouPanel.css:377-409`): the detail becomes a flex column that fills; `__answers` is the scroll box: `flex: 1 1 auto; min-height: calc(var(--space-6)*5)` = 120px; `overflow-y:auto; padding: space-1; margin: -space-1` (room for the focus ring); everything else in the body is `flex:none`.
 
 ### B4.5 Texts (verbatim)
-`Waiting on you`, `Unanswered`, `Permission`, `Permission to read|write|run`, `Allow once`, `Deny`, `Reject once`, `Always applies to`, `reads of`, `writes to`, `commands on`, `Folder for always`, `Calls like`, `Only in <folder>`, `Question` (default header), `Options`, `Answered`, `Questions`, `Other`, `Next`, `Answer`, `Skip`, `<n> of <N>` (pips title), `Preview`. `askLabel`: permission with no questions -> `Permission` or `Permission to <reachesTo>`; else the first question's `header`, or `Question` if blank. `askText`: the first question's text, or the first line of the command, or the lapsed first question's text.
+`Waiting on you`, `Unanswered`, `Permission`, `Permission to read|write|run`, `Allow once`, `Deny`, `Reject once`, `Always applies to`, `reads of`, `writes to`, `commands on`, `Folder for always`, `Calls like`, `Only in <folder>`, `Question` (default header), `Options`, `Answered`, `Questions`, `Other`, `Next`, `Answer`, `Skip`, `<n> of <N>` (pips title), `Preview`.
+`askLabel`: permission with no questions -> `Permission` or `Permission to <reachesTo>`; else the first question's `header`, or `Question` if blank.
+`askText`: the first question's text, or the first line of the command, or the lapsed first question's text.
 
 ### B4.6 START picks (held Job) and Open group
-- `useStartPicks(session, repositories, compact)` (`StartPicks.tsx`) returns `{lead, begin}` for a held Job (`session.start` defined and a draft source), else undefined; `sessions.tsx:1891` mounts `lead` in the composer (`sv-start-strip`: flex wrap, `gap: space-2`, `padding: space-1 space-2`, border 1px default no bottom, radius `md md 0 0`, bg `color-mix(accent 12%, --bg-sunken)`, `session-view.css:1382+`). It is a strip of `Pick` controls, **not a card in the thread** and not a question deck; digits do not drive it.
+- `useStartPicks(session, repositories, compact)` (`StartPicks.tsx`) returns `{lead, begin}` for a held Job (`session.start` defined and a draft source), else undefined; `sessions.tsx:1891` mounts `lead` in the composer (`sv-start-strip`: flex wrap, `gap: space-2`, `padding: space-1 space-2`, border 1px default no bottom, radius `md md 0 0`, bg `color-mix(accent 12%, --bg-sunken)`, `session-view.css:1382+`).
+  It is a strip of `Pick` controls, **not a card in the thread** and not a question deck; digits do not drive it.
   - Optional status glyphs first: `LoaderCircle` 12 tooltip `Starting` (when `start.queued`), `TextCursor` 12 tooltip `Reading the request` (while the proposer reads).
-  - `Pick Glyph=Workflow label="Workflow"` with `Select aria-label="Workflow"`: options `Workflow` placeholder (when none is chosen), `None`, then the repository's workflows (those for this manifest and not switched off by `workflows.off`); disabled while reading; value = proposed workflow else `feature` else first. A `proposed` mark when Fleet proposed it.
-  - `Pick Glyph=GitMerge` (only when `start.asksDelivery` and Workflow is not `None`) with `Select aria-label="Delivery"`: options `Select delivery` placeholder, `Auto land` (title `Open a pull request, watch ci, merge it.`), `Open PR only` (`Stop at the open pull request.`), `Keep local` (`Stop at the commit on the job's branch. Nothing is pushed.`). Label shown = the chosen option's detail, else `Delivery`. A mark glyph `Quote` (tooltip `Named in your request`) or `Repeat` (`Your usual for <plural of workflow name> in <repository>` or `Your usual`) when Fleet took it from his words or usual.
+  - `Pick Glyph=Workflow label="Workflow"` with `Select aria-label="Workflow"`: options `Workflow` placeholder (when none is chosen), `None`, then the repository's workflows (those for this manifest and not switched off by `workflows.off`); disabled while reading; value = proposed workflow else `feature` else first.
+    A `proposed` mark when Fleet proposed it.
+  - `Pick Glyph=GitMerge` (only when `start.asksDelivery` and Workflow is not `None`) with `Select aria-label="Delivery"`: options `Select delivery` placeholder, `Auto land` (title `Open a pull request, watch ci, merge it.`), `Open PR only` (`Stop at the open pull request.`), `Keep local` (`Stop at the commit on the job's branch. Nothing is pushed.`).
+    Label shown = the chosen option's detail, else `Delivery`.
+    A mark glyph `Quote` (tooltip `Named in your request`) or `Repeat` (`Your usual for <plural of workflow name> in <repository>` or `Your usual`) when Fleet took it from his words or usual.
   - `begin(text)` sends `draft.begin(id, landing | undefined, text?)`; choosing a workflow calls `draft.work.choose(id, value|null)`.
-- `OpenGroup` (`OpenGroup.tsx`) is the Story column's Open work group; a right press offers one `DropdownMenu` item `Hide Open group` (EyeOff) which sets setting `bridge.openGroup=false`. Not a thread card.
+- `OpenGroup` (`OpenGroup.tsx`) is the Story column's Open work group; a right press offers one `DropdownMenu` item `Hide Open group` (EyeOff) which sets setting `bridge.openGroup=false`.
+  Not a thread card.
 
 ### B4.7 Fleet data
-Wire: `ThreadHead.asked: ThreadAsk{command ("argument whole where detail was cut, else detail, else tool name"), call: CallInFlight{call, manifest_id, asked_at, tool, detail, truncated, length, whole, rule, offers[CallAnswer], holding_for_seconds, questions[AskedQuestion{question, header, multi_select, options[{label, description, preview}]}], reaches, reaches_to, kind}}`; `ThreadHead.lapsed: Lapsed{id, questions}` ("questions nobody answered in time, that were skipped or kept, oldest first; absent for an ended Job"). Electron derives from `SessionRecord.hosted.asked`/`terminal.asked` (`askOf`, `sessions-wire.ts:978-1011`: `command = whole ?? (detail==="" ? tool : detail)`) and computes `lapsed` itself from rows (`lapsedOf` `:1032-1062`: walks `ask` rows newest to oldest; a row is kept if `state==="kept"` or (nothing he said after it and state is `unanswered` or `refused`); a message of his that starts `Answering your earlier question` ends the walk; any other message of his sets "said"; a question text asked again later is left to the later ask; id = newest ask row id). Offer labels/means (B4.2) are TS only; the wire has ids. `holding_for_seconds`, `rule`, `truncated`, `length` are not drawn.
+Wire: `ThreadHead.asked: ThreadAsk{command ("argument whole where detail was cut, else detail, else tool name"), call: CallInFlight{call, manifest_id, asked_at, tool, detail, truncated, length, whole, rule, offers[CallAnswer], holding_for_seconds, questions[AskedQuestion{question, header, multi_select, options[{label, description, preview}]}], reaches, reaches_to, kind}}`; `ThreadHead.lapsed: Lapsed{id, questions}` ("questions nobody answered in time, that were skipped or kept, oldest first; absent for an ended Job").
+Electron derives from `SessionRecord.hosted.asked`/`terminal.asked` (`askOf`, `sessions-wire.ts:978-1011`: `command = whole ?? (detail==="" ? tool : detail)`) and computes `lapsed` itself from rows (`lapsedOf` `:1032-1062`: walks `ask` rows newest to oldest; a row is kept if `state==="kept"` or (nothing he said after it and state is `unanswered` or `refused`); a message of his that starts `Answering your earlier question` ends the walk; any other message of his sets "said"; a question text asked again later is left to the later ask; id = newest ask row id).
+Offer labels/means (B4.2) are TS only; the wire has ids.
+`holding_for_seconds`, `rule`, `truncated`, `length` are not drawn.
 
 ---
 
 ## B5 Open call, lapsed, ThreadCard, notices
 
 ### B5.1 Call chip (the only "call" the Job view draws)
-`CallChip word={callWord(session)} scope={centre}` mounted after the thread (`sessions.tsx:3285`). `callWord` = `"Plan"` iff the plan exists, is not approved and `planAsked(session)`; else undefined (a question, a permission and Needs-you items are in the panel). `DESK/session-view/CallChip.tsx`.
+`CallChip word={callWord(session)} scope={centre}` mounted after the thread (`sessions.tsx:3285`).
+`callWord` = `"Plan"` iff the plan exists, is not approved and `planAsked(session)`; else undefined (a question, a permission and Needs-you items are in the panel).
+`DESK/session-view/CallChip.tsx`.
 
 - Visible when `word` is set and the thread tail (`.armada-session-thread__tail`) has its top below `scroller.bottom - 24px` (scroll and resize listeners). Hidden while the tail is in view or absent.
-- Control: `div.sv-callchip` (relative; `z-index:2; flex:none; height:0`, `session-view.css:1331-1336`) > `button.sv-callchip__press` (`absolute; inset-block-end: calc(var(--space-8) + var(--space-2))` = 40px; `inset-inline-start:50%; translate: -50% 0`; inline-flex, `gap: space-1`; `height: --h-control-sm` 24; `padding: 0 space-3`; border 1px default; radius md; bg raised; color `--status-awaiting-review`; 13px; hover bg `color-mix(fg-default 6%, raised)`; focus-visible `outline:none; box-shadow: inset 2px 0 0 --accent`). Content: `<span>Plan</span>` + `ArrowDown` 12px (aria-hidden).
+- Control: `div.sv-callchip` (relative; `z-index:2; flex:none; height:0`, `session-view.css:1331-1336`) > `button.sv-callchip__press` (`absolute; inset-block-end: calc(var(--space-8) + var(--space-2))` = 40px; `inset-inline-start:50%; translate: -50% 0`; inline-flex, `gap: space-1`; `height: --h-control-sm` 24; `padding: 0 space-3`; border 1px default; radius md; bg raised; color `--status-awaiting-review`; 13px; hover bg `color-mix(fg-default 6%, raised)`; focus-visible `outline:none; box-shadow: inset 2px 0 0 --accent`).
+  Content: `<span>Plan</span>` + `ArrowDown` 12px (aria-hidden).
 - Press: scroll the tail into view (`block:"end"`, smooth unless reduced motion) and focus its first `button, textarea, input` (`preventScroll`).
 
 ### B5.2 Open call
-`ThreadHead.open_call{text, since}` "the tool call the running turn is in: set while a turn runs and the thread's last row is a tool row". Electron: `openCallOf(rows, record)` (`sessions-wire.ts:1525-1537`): `record.turn_since` defined and the last row is a tool row -> `{text: last.text, since: last.at}`. Read in `StoryColumn.tsx:207` (`session.openCall`) as the agent's line in the story column; **not drawn in the thread's card area** (part A's calls fold carries the working mark). `CallCard.tsx` is Cockpit-only.
+`ThreadHead.open_call{text, since}` "the tool call the running turn is in: set while a turn runs and the thread's last row is a tool row".
+Electron: `openCallOf(rows, record)` (`sessions-wire.ts:1525-1537`): `record.turn_since` defined and the last row is a tool row -> `{text: last.text, since: last.at}`.
+Read in `StoryColumn.tsx:207` (`session.openCall`) as the agent's line in the story column; **not drawn in the thread's card area** (part A's calls fold carries the working mark).
+`CallCard.tsx` is Cockpit-only.
 
 ### B5.3 ThreadCard (`inline`)
-`ThreadCard{key, at?, node}` (`ST/SessionThread.tsx:716-720`): drawn as `li.armada-session-thread__card` (`list-style:none`) after the item chosen by `afterWhich(items, card)` (`:736-744`): the newest item whose last-row time is <= `card.at`; the first item (index 0) if it came before all; the last item if `at` is missing or not a date. Cards are placed after each item in the `flatMap`, after any approved-plan record `li` for that item (`:4160-4172`). Electron passes `inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)]` (`DESK/sessions.tsx:2748`): mod cards (`DESK/session-view/mod-cards.tsx`) and the Job browser's reminder card (`DESK/job-browser/JobBrowserPane.tsx`, per the `session-thread-rows.ts` comment). A wire `browser_reminder` row is excluded from the rows (`session-thread-rows.ts:227-236`). Their contents are not covered here.
+`ThreadCard{key, at?, node}` (`ST/SessionThread.tsx:716-720`): drawn as `li.armada-session-thread__card` (`list-style:none`) after the item chosen by `afterWhich(items, card)` (`:736-744`): the newest item whose last-row time is <= `card.at`; the first item (index 0) if it came before all; the last item if `at` is missing or not a date.
+Cards are placed after each item in the `flatMap`, after any approved-plan record `li` for that item (`:4160-4172`).
+Electron passes `inlineCards = [...useModCards(session.id), ...useBrowserReminders(session.id)]` (`DESK/sessions.tsx:2748`): mod cards (`DESK/session-view/mod-cards.tsx`) and the Job browser's reminder card (`DESK/job-browser/JobBrowserPane.tsx`, per the `session-thread-rows.ts` comment).
+A wire `browser_reminder` row is excluded from the rows (`session-thread-rows.ts:227-236`).
+Their contents are not covered here.
 
 ### B5.4 Notice / Teach (menus, not cards)
-`SessionNotice` (list `ST/SessionThread.tsx:155-197`, 43 names) and `NoticeChoice = "job"|"repo"|"hour"` (:198); `TeachPick{kind: "words"|"command"|"notice"|"check", text, at?, ids?}` (:201-206). A Fleet notice row/turn (`FleetTurn.tsx`) opens a context menu on right press, ContextMenu key or Shift+F10 (`noticeEntries`, `ST/FleetTurn.tsx:106-145`): `Teach` (GraduationCap; first on every notice; a separator when both exist) then, only when the notice can be muted, a label `Disable <notice name>` (`NOTICE_NAMES`, e.g. `slot behind notice`, `checks failed`, `conflicts`, `merged`, `delivery question`) with items `For job`, `For repo`, `For 1 hour`. `Teach` -> `onTeach({kind:"notice", text, at, ids:[notice]})`; a choice -> `onMuteNotice(notice, choice)` (`muteNoticeFor`, `DESK/sessions.tsx`). The menu is a `DropdownMenu triggerLabel="Fleet notice"` at the pointer (or at the row's bottom centre for the key); closing returns focus to the row button. The folded row itself (part A's Fleet-turn row): `li.armada-fleet-turn[role=region][aria-label="Fleet turn"][data-open]` > `button.__row[aria-expanded][aria-controls]` with `ChevronRight` 12, `BellRing` 12 (tooltip `Fleet notice`), `Rows3` 12 (tooltip `Batched`, when `notice.batch`), label (`batch` or `summaryOf(text)`: first sentence up to ". " or line break, closing full stop dropped; tooltip = full notice text), `Check` 12 (tooltip `Handled`).
+`SessionNotice` (list `ST/SessionThread.tsx:155-197`, 43 names) and `NoticeChoice = "job"|"repo"|"hour"` (:198); `TeachPick{kind: "words"|"command"|"notice"|"check", text, at?, ids?}` (:201-206).
+A Fleet notice row/turn (`FleetTurn.tsx`) opens a context menu on right press, ContextMenu key or Shift+F10 (`noticeEntries`, `ST/FleetTurn.tsx:106-145`): `Teach` (GraduationCap; first on every notice; a separator when both exist) then, only when the notice can be muted, a label `Disable <notice name>` (`NOTICE_NAMES`, e.g. `slot behind notice`, `checks failed`, `conflicts`, `merged`, `delivery question`) with items `For job`, `For repo`, `For 1 hour`.
+`Teach` -> `onTeach({kind:"notice", text, at, ids:[notice]})`; a choice -> `onMuteNotice(notice, choice)` (`muteNoticeFor`, `DESK/sessions.tsx`).
+The menu is a `DropdownMenu triggerLabel="Fleet notice"` at the pointer (or at the row's bottom centre for the key); closing returns focus to the row button.
+The folded row itself (part A's Fleet-turn row): `li.armada-fleet-turn[role=region][aria-label="Fleet turn"][data-open]` > `button.__row[aria-expanded][aria-controls]` with `ChevronRight` 12, `BellRing` 12 (tooltip `Fleet notice`), `Rows3` 12 (tooltip `Batched`, when `notice.batch`), label (`batch` or `summaryOf(text)`: first sentence up to ". " or line break, closing full stop dropped; tooltip = full notice text), `Check` 12 (tooltip `Handled`).
 
 ### B5.5 Lapsed
 See B4.3C and B4.7: drawn as a deck in the Needs you panel (label from `askLabel`, row text `askText`), not in the thread. The lapsed deck keeps no state (no `keep`).
@@ -1601,21 +1879,35 @@ See B4.3C and B4.7: drawn as a deck in the Needs you panel (label from `askLabel
 | `thread_send_back` | `⌥R` | Send back | Global / `thread` | no / no | Draft Note box; plan Not yet |
 | `thread_no` | `⌥X` | No | Global / `thread` | no / **yes** | Deny, Skip, Keep going, Withdraw/Dismiss |
 
-Contract: `docs/contracts/design-system/keyboard-and-command-palette.md:352-378` (*Keys on a Job's thread cards*): `⌥` chords because the caret usually sits in the message box; `1`–`9` still pick a question's option; `⌘↵` commits an open edit/note box; in the review sheet (`⇧⌘Y`) `⌘↵` approves the selected item, `⌥R` sends back with a note, `↑↓` move, Esc returns focus. `⌥↵`/`⌥X` always confirm in a dialog (owner, 28 Oct 2026); `⌥E`/`⌥R` open the card's own box, no dialog. Palette hints (`DESK/palette.ts:115-118`): `⌥↵ on a card in a Job's thread` etc.
+Contract: `docs/contracts/design-system/keyboard-and-command-palette.md:352-378` (*Keys on a Job's thread cards*): `⌥` chords because the caret usually sits in the message box; `1`–`9` still pick a question's option; `⌘↵` commits an open edit/note box; in the review sheet (`⇧⌘Y`) `⌘↵` approves the selected item, `⌥R` sends back with a note, `↑↓` move, Esc returns focus.
+`⌥↵`/`⌥X` always confirm in a dialog (owner, 28 Oct 2026); `⌥E`/`⌥R` open the card's own box, no dialog.
+Palette hints (`DESK/palette.ts:115-118`): `⌥↵ on a card in a Job's thread` etc.
 
-Keys read by place: `keyOf` uses `event.code` (`KeyE`, `KeyR`, `KeyX`, `Digit*`) when Alt is held, because Option changes the typed character (`packages/components/src/keymap.ts:429-444`); a `Dead` key with Alt and a letter/digit code is still read (`:450`). `⌘` also answers to Ctrl unless the chord asks for ⌃ (`:471-476`). Chords can be rebound by the user (`isPressed`, `keyFor` read the live binding).
+Keys read by place: `keyOf` uses `event.code` (`KeyE`, `KeyR`, `KeyX`, `Digit*`) when Alt is held, because Option changes the typed character (`packages/components/src/keymap.ts:429-444`); a `Dead` key with Alt and a letter/digit code is still read (`:450`).
+`⌘` also answers to Ctrl unless the chord asks for ⌃ (`:471-476`).
+Chords can be rebound by the user (`isPressed`, `keyFor` read the live binding).
 
 ### B6.2 Mechanism (`ST/thread-keys.tsx`)
-- `ThreadKeys` (provider) wraps both the thread and the composer (the Job's `centre`, `sessions.tsx:3051`; keyed by session id). It owns `cards` (Map id -> {kind,title,acts}), `places` (id -> element), `focused`, `confirming`.
-- Order = cards drawn top to bottom by `compareDocumentPosition`, only elements still connected. **Target** = the card containing focus (a `focusin` listener on document; ignores focus inside `[role=dialog],[role=alertdialog]`; focus anywhere else clears it), else the newest (last) card.
+- `ThreadKeys` (provider) wraps both the thread and the composer (the Job's `centre`, `sessions.tsx:3051`; keyed by session id).
+  It owns `cards` (Map id -> {kind,title,acts}), `places` (id -> element), `focused`, `confirming`.
+- Order = cards drawn top to bottom by `compareDocumentPosition`, only elements still connected.
+  **Target** = the card containing focus (a `focusin` listener on document; ignores focus inside `[role=dialog],[role=alertdialog]`; focus anywhere else clears it), else the newest (last) card.
 - One `keydown` listener on `window` (not capture) while no confirm is open: ignored if `defaultPrevented` or any `[role=dialog],[role=alertdialog]` exists; finds the act by `isPressed(THREAD_ACT_ID[act])`.
-  - `yes`/`no`: collect all cards having that act, in drawn order; `preventDefault`; open the confirm dialog with `picked` = the target's index in that list (else the last); remember `document.activeElement` to return focus. No card with the act -> key ignored (not prevented).
+  - `yes`/`no`: collect all cards having that act, in drawn order; `preventDefault`; open the confirm dialog with `picked` = the target's index in that list (else the last); remember `document.activeElement` to return focus.
+    No card with the act -> key ignored (not prevented).
   - `change`/`sendBack`: run the target's act directly (`preventDefault`); if the target lacks it, nothing happens.
-- `ThreadConfirm` (portal on `document.body`, `Dialog open tone="neutral" confirmLabel=<verb> initialFocus="confirm"`; title `` `${picked.run.verb} which?` ``, e.g. `Approve which?`, `Answer which?`, `Allow once which?`, `Withdraw which?`): body `RadioGroup label="Waiting cards"` with one `Radio name="thread-confirm"` per card: `span.armada-thread-confirm__row` (inline-flex, `align-items:center; gap: space-2; min-width:0`) = `Kbd aria-hidden` digit (1–9; a blank `span` for the 10th+) + `span.armada-thread-confirm__title` (`overflow-wrap:anywhere`) `{kind} · {title}`. A window capture-phase listener while open: `⌥↵` (`thread_yes`) or plain Enter on a radio confirms; plain `1`–`9` picks that row (ignored beyond the count); both `preventDefault` + `stopPropagation`. Confirm runs the picked card's act; Esc / Cancel closes; focus returns to the element that had it. If every listed card disappears, the dialog closes.
-- `useThreadCard(card|undefined)` registers while `card` is given and drops on unmount/undefined; returns `{target, bind}`. `bind` = `{ref, tabIndex:-1, "data-thread-target": ""}` (the data attribute only on the target); with no provider or no card it returns just `ref`. The plan card spreads `review` after `bind`, so a reviewable plan has `tabIndex:0`.
-- `ThreadKbd act on`: renders `Kbd aria-hidden` containing `keyFor(thread_*)` (`⌥↵`, `⌥E`, `⌥R`, `⌥X`) only when `on` (the card is the target); nothing otherwise or if the key is unbound. Chips sit inside the buttons, after the label (Button gap `--space-2`).
+- `ThreadConfirm` (portal on `document.body`, `Dialog open tone="neutral" confirmLabel=<verb> initialFocus="confirm"`; title `` `${picked.run.verb} which?` ``, e.g. `Approve which?`, `Answer which?`, `Allow once which?`, `Withdraw which?`): body `RadioGroup label="Waiting cards"` with one `Radio name="thread-confirm"` per card: `span.armada-thread-confirm__row` (inline-flex, `align-items:center; gap: space-2; min-width:0`) = `Kbd aria-hidden` digit (1–9; a blank `span` for the 10th+) + `span.armada-thread-confirm__title` (`overflow-wrap:anywhere`) `{kind} · {title}`.
+  A window capture-phase listener while open: `⌥↵` (`thread_yes`) or plain Enter on a radio confirms; plain `1`–`9` picks that row (ignored beyond the count); both `preventDefault` + `stopPropagation`.
+  Confirm runs the picked card's act; Esc / Cancel closes; focus returns to the element that had it.
+  If every listed card disappears, the dialog closes.
+- `useThreadCard(card|undefined)` registers while `card` is given and drops on unmount/undefined; returns `{target, bind}`.
+  `bind` = `{ref, tabIndex:-1, "data-thread-target": ""}` (the data attribute only on the target); with no provider or no card it returns just `ref`.
+  The plan card spreads `review` after `bind`, so a reviewable plan has `tabIndex:0`.
+- `ThreadKbd act on`: renders `Kbd aria-hidden` containing `keyFor(thread_*)` (`⌥↵`, `⌥E`, `⌥R`, `⌥X`) only when `on` (the card is the target); nothing otherwise or if the key is unbound.
+  Chips sit inside the buttons, after the label (Button gap `--space-2`).
 - `useThreadYesWaits()` -> true when some registered card has a `yes`; `SessionComposer.tsx:976` then ignores `⌥↵` in the message box instead of sending (`if (yesWaits && isPressed("thread_yes", event)) return;`), outside the `open` autocomplete state.
-- Ring: `[data-thread-target] {outline: var(--focus-ring); outline-offset: var(--focus-ring-offset)}` (`thread-keys.css:1-5`): 1px accent, 2px offset. No ring (outline none) on `.armada-question-deck[data-thread-target]` (`SessionThread.css:759-761`) and `.armada-session-done__acts[data-thread-target]`.
+- Ring: `[data-thread-target] {outline: var(--focus-ring); outline-offset: var(--focus-ring-offset)}` (`thread-keys.css:1-5`): 1px accent, 2px offset.
+  No ring (outline none) on `.armada-question-deck[data-thread-target]` (`SessionThread.css:759-761`) and `.armada-session-done__acts[data-thread-target]`.
 
 ### B6.3 Which cards register (id, kind, acts)
 | Card | id | kind | yes | change | sendBack | no | Registered when |
@@ -1630,14 +1922,17 @@ Keys read by place: `keyOf` uses `event.code` (`KeyE`, `KeyR`, `KeyX`, `Digit*`)
 Sketch/document/pin cards, the Needs-you ledger rows and Operator rows do not register.
 
 ### B6.4 Hint chips drawn (labels and positions)
-`Approve ⌥↵`, `Suggest ⌥E` and `Not yet ⌥R` on the plan card (answers row; the folded head's Approve); draft `Approve ⌥↵`, `Edit ⌥E`, `Note ⌥R`, `Withdraw ⌥X` (read), `Approve with fixes ⌥↵` (edit); question `Answer ⌥↵`, `Skip ⌥X`, and an `Other` row ending in `⌥E` after its label; permission `▶ Allow once` icon button followed by `⌥↵`, `Deny ⌥X` or the refuse button `⌥X`. A chip is a `Kbd` (20px tall, mono 12px, `--fg-muted` on `--bg-raised`, 1px border + 2px bottom lip, radius 3px, `padding 0 4px`), `aria-hidden`.
+`Approve ⌥↵`, `Suggest ⌥E` and `Not yet ⌥R` on the plan card (answers row; the folded head's Approve); draft `Approve ⌥↵`, `Edit ⌥E`, `Note ⌥R`, `Withdraw ⌥X` (read), `Approve with fixes ⌥↵` (edit); question `Answer ⌥↵`, `Skip ⌥X`, and an `Other` row ending in `⌥E` after its label; permission `▶ Allow once` icon button followed by `⌥↵`, `Deny ⌥X` or the refuse button `⌥X`.
+A chip is a `Kbd` (20px tall, mono 12px, `--fg-muted` on `--bg-raised`, 1px border + 2px bottom lip, radius 3px, `padding 0 4px`), `aria-hidden`.
 
 ---
 
 ## B7 Needs you panel (dock): where the question sits
 
 ### B7.1 Where it lives
-`NeedsYouPanel` `packages/components/src/compositions/NeedsYouPanel/NeedsYouPanel.tsx:152-715`, CSS `NeedsYouPanel.css:1-426`; mounted `DESK/sessions.tsx:3306-3334` inside `div.sv-bands` inside `div.sv-dock` (`:3286-3300`), keyed by `session.id`. Sibling bands (ToolsBand, HandoffBand, SessionEndBand, WaitingBand) are not covered here. `sv-dock` props: `data-needs` (when `waits || endShown || failedShown || toolsBand || waitingBand`), `data-open={panelOpen || endOpen}`, `data-end`, `data-wait-open`, `data-starting`.
+`NeedsYouPanel` `packages/components/src/compositions/NeedsYouPanel/NeedsYouPanel.tsx:152-715`, CSS `NeedsYouPanel.css:1-426`; mounted `DESK/sessions.tsx:3306-3334` inside `div.sv-bands` inside `div.sv-dock` (`:3286-3300`), keyed by `session.id`.
+Sibling bands (ToolsBand, HandoffBand, SessionEndBand, WaitingBand) are not covered here.
+`sv-dock` props: `data-needs` (when `waits || endShown || failedShown || toolsBand || waitingBand`), `data-open={panelOpen || endOpen}`, `data-end`, `data-wait-open`, `data-starting`.
 
 ### B7.2 Props passed (`sessions.tsx:3306-3334`)
 `rows={needs}` (`cardRowsOf(session, waitingRows, reviewWaiting)`: waiting ledger rows minus those the review sheet built, and never `plan`/`sketch`/`document` sources, `JobReviewSheet.tsx:292-308`), `open={panelOpen}`, `onOpen(open) -> setPanel({id: session.id, open})`, `question` (when defined: `{id, text: askText(...), label: askLabel(...), children: <AskCards flat ...>}`; `id = asked ? (session.asked.call ?? asked.command) : lapsed.id`), `cards={notOurs}` (Fleet's own "watch ended, not ours" cards: `CornerUpRight` glyph, `NotOursCard` with `Fix it` / `Ignore`; not detailed), `review={reviewWaiting.map({key, Glyph, said})}`, `onReview` -> `setReviewSheetFor(session.id)` or, for a lone page, `openOwedDocument(session, lonePage)`.
@@ -1660,7 +1955,8 @@ Sketch/document/pin cards, the Needs-you ledger rows and Operator rows do not re
 | dimming | the thread's stage is dimmed over its own box while open: `.armada-session-thread__stage::after` bg `color-mix(--bg-base 50%, transparent)`, `opacity` 0 -> 1 over `--duration-sheet`, `pointer-events:auto` while open | `NeedsYouPanel.css:~235-255` |
 
 ### B7.4 Layout
-`section.armada-needs-panel[aria-label="Needs you"][data-open][data-keeps-escape]` (`--hue: var(--step-waiting)`; `position:absolute; inset-block-end:100%; inset-inline:0; z-index:2; flex column; pointer-events:none`, children `auto`; data-kind variants `end` -> `--step-advanced`, `failed` -> `--status-completed-failed`, `waiting` -> `--status-handed-in` belong to the sibling bands). `.sv-bands > .armada-needs-panel {position: static}`; `.sv-bands` is `position:absolute; inset-block-end:100%; inset-inline:0; z-index:2; flex column`; `.sv-dock[data-needs]` has `margin-block-start: calc(var(--h-badge) + var(--space-3))` and a composer with squared top corners.
+`section.armada-needs-panel[aria-label="Needs you"][data-open][data-keeps-escape]` (`--hue: var(--step-waiting)`; `position:absolute; inset-block-end:100%; inset-inline:0; z-index:2; flex column; pointer-events:none`, children `auto`; data-kind variants `end` -> `--step-advanced`, `failed` -> `--status-completed-failed`, `waiting` -> `--status-handed-in` belong to the sibling bands).
+`.sv-bands > .armada-needs-panel {position: static}`; `.sv-bands` is `position:absolute; inset-block-end:100%; inset-inline:0; z-index:2; flex column`; `.sv-dock[data-needs]` has `margin-block-start: calc(var(--h-badge) + var(--space-3))` and a composer with squared top corners.
 
 | Region | Detail |
 |---|---|
@@ -1674,7 +1970,10 @@ Sketch/document/pin cards, the Needs-you ledger rows and Operator rows do not re
 
 ### B7.5 Row kinds in the list (order top to bottom)
 Section groups (`section.armada-session-ledger__group[aria-label=<label>]` > `h3.armada-session-ledger__eyebrow` + rows):
-1. **Questions** (`asks(row)`): the question (`MessageCircleQuestion` mark, tooltip = `label`, text = `askText`; key `question:<id>`), then `cards` (Fleet's own: their `Glyph`/`said`, key `card:<id>`), then ledger rows that are not walk/run/steps/approve_pr and not a banded restart (their mark from `waitingMark`: Bot with `row.operator` text; `ScanText` `Read from the reply`; `MessageCircleQuestion` `Question` (has options); `Link` `Opens the linked Job` (held child start); `Reply` `Reply`; else by act `AppWindow` `Opens the walk`, `MessageSquare` `Goes to the question`, `GitPullRequestArrow` `Opens the pull request`, `Terminal` `Copies the command`, `SquarePen` `Goes to the message`, `ListChecks` `Steps`, none `BellRing` `Waiting on you`). Each `li.armada-session-ledger__row[aria-label=<name>]` has `button.__open[aria-label="Open <name>"][data-thing]` = mark + `span.__text`; pressing opens the detail (`opensHere`: no custom `press`, no `operator`, and (no ledger row, or a row with `options` or `onReply`)), else it runs the row's own `press`/`onOpen`. Extras at the row end: thumbs (`Thumbs`, only when `misread.yes` exists: ghost sm iconOnly 12px glyph in 24px squares `ThumbsUp` aria/tooltip `A question`, `ThumbsDown` `Not a question`); `StartAct` (Start for a held child); Operator ways (`Button sm` per option, first `secondary`, rest `ghost`, aria `<label>: <name>`, fixed columns 96px and 56px). Right press / ContextMenu / Shift+F10 on a misread row: `DropdownMenu triggerLabel="Question"` items `A question` (ThumbsUp, only if yes), `Not a question` (ThumbsDown).
+1. **Questions** (`asks(row)`): the question (`MessageCircleQuestion` mark, tooltip = `label`, text = `askText`; key `question:<id>`), then `cards` (Fleet's own: their `Glyph`/`said`, key `card:<id>`), then ledger rows that are not walk/run/steps/approve_pr and not a banded restart (their mark from `waitingMark`: Bot with `row.operator` text; `ScanText` `Read from the reply`; `MessageCircleQuestion` `Question` (has options); `Link` `Opens the linked Job` (held child start); `Reply` `Reply`; else by act `AppWindow` `Opens the walk`, `MessageSquare` `Goes to the question`, `GitPullRequestArrow` `Opens the pull request`, `Terminal` `Copies the command`, `SquarePen` `Goes to the message`, `ListChecks` `Steps`, none `BellRing` `Waiting on you`).
+   Each `li.armada-session-ledger__row[aria-label=<name>]` has `button.__open[aria-label="Open <name>"][data-thing]` = mark + `span.__text`; pressing opens the detail (`opensHere`: no custom `press`, no `operator`, and (no ledger row, or a row with `options` or `onReply`)), else it runs the row's own `press`/`onOpen`.
+   Extras at the row end: thumbs (`Thumbs`, only when `misread.yes` exists: ghost sm iconOnly 12px glyph in 24px squares `ThumbsUp` aria/tooltip `A question`, `ThumbsDown` `Not a question`); `StartAct` (Start for a held child); Operator ways (`Button sm` per option, first `secondary`, rest `ghost`, aria `<label>: <name>`, fixed columns 96px and 56px).
+   Right press / ContextMenu / Shift+F10 on a misread row: `DropdownMenu triggerLabel="Question"` items `A question` (ThumbsUp, only if yes), `Not a question` (ThumbsDown).
 2. **To review** (when `review` has items and `onReview`): `section[aria-label="To review"]` with one row `aria-label="Review"`, `button.__open[aria-label="Review"][aria-haspopup="dialog"][data-thing="review"]`: glyphs per item + text joined from the `said`s with `, `.
 3. **Walks** (`act==="walk"`), 4. **Commands** (`act` `run` or `steps`), 5. **PRs** (`act==="approve_pr"`): `LedgerRows kind="waiting"`: a `run` row with a command draws a `RunnableBlock` (`pre.armada-prose__block > code`, Run via runner); a row with `options` draws a flat `QuestionDeck` (`canSkip={false}`, `noOther={no onOther}`, `beneath` = `HeldSlots`, `detail` = `StepLines`; its answer calls the option's `onPick()` or `onOther(text)`); other rows are the opener button with mark and text (PR rows add `PullRequestStateMark` and a checks mark), a reply row opens a reply box (`aria-expanded`).
 
@@ -1682,7 +1981,8 @@ Section groups (`section.armada-session-ledger__group[aria-label=<label>]` > `h3
 
 ### B7.6 How the question (QuestionDeck) sits in it
 - Folded: the band shows `MessageCircleQuestion` (tooltip = header or `Question`/`Permission…`) among the glyphs; nothing of the deck is in the tree (`visibility:hidden`).
-- Open with one thing: the detail shows directly: `Back` head, then `div.__content` holding `AskCards flat` (for a question: `Card.__ask` collapsed to bare content, `QuestionDeck[data-flat]`, band hidden). Open with several things: the list; pressing the question row opens its detail.
+- Open with one thing: the detail shows directly: `Back` head, then `div.__content` holding `AskCards flat` (for a question: `Card.__ask` collapsed to bare content, `QuestionDeck[data-flat]`, band hidden).
+  Open with several things: the list; pressing the question row opens its detail.
 - On opening a detail, focus goes (next frame) to the first of `input, textarea, [role='radio'], [role='checkbox'], button` inside `.armada-needs-panel__content`, else to `Back` (`NeedsYouPanel.tsx:~330-343`), so `1`–`9` and the four `⌥` keys work at once.
 - The panel's body replaces the composer's top edge; the thread behind is dimmed; a press on the dimmed thread folds it.
 
@@ -1692,7 +1992,8 @@ Section groups (`section.armada-session-ledger__group[aria-label=<label>]` > `h3
 QUESTION: `SessionLedger.css` row classes (`armada-session-ledger__row/__open/__text/__eyebrow/__group/__held`), `RestartKey`/`RestartRow`, `StartAct`, `HeldSlots`, `StepLines`, `RunnableBlock`, `NotOursCard` and `LedgerPreview` (hover card over a row) were not read; the panel list rows' pixel sizes are not recorded.
 QUESTION: exact `useScrimFold` behaviour (what counts as a press on the thread, and the CSS `z-index`/pointer rules of the dimming `::after` beyond `inset: -space-2 -space-3 0`) was not read in full.
 QUESTION: `Dialog` primitive (used by `ThreadConfirm`: size, buttons `Cancel`/confirm label, backdrop) and `Radio`/`RadioGroup` pixels were not read.
-QUESTION: Electron derives almost all of B1–B5 in TypeScript from `SessionRecord` + rows and does not call `get_job_thread` (`JobThread` appears only in `packages/protocol/src/job-thread.ts` and a story). The wire has no `plan`, no `revisions`, no offer wording, no `going`, no judged rows, and `ThreadItem::Document` is per revision; the native app must either take these from `SessionRecord` or add them to the wire.
+QUESTION: Electron derives almost all of B1–B5 in TypeScript from `SessionRecord` + rows and does not call `get_job_thread` (`JobThread` appears only in `packages/protocol/src/job-thread.ts` and a story).
+The wire has no `plan`, no `revisions`, no offer wording, no `going`, no judged rows, and `ThreadItem::Document` is per revision; the native app must either take these from `SessionRecord` or add them to the wire.
 
 ## 4. The composer (message box)
 
@@ -1762,7 +2063,9 @@ Region rules:
 | Send | label `Send` (a held Job: `Start`); `slim` draws the glyph only with aria-label and tooltip | `Send` 12px | always; disabled when `disabled` or (`text.trim()==="" && nothing attached && !sendEmpty`) | `send()` |
 | Quick bar | see 4.7 | | | |
 
-Talk guide texts (`talk-guide.ts`): `microphone_denied`: title `The microphone is off for Armada Voice`, steps `Open **Privacy & Security**, then **Microphone**.` / `Turn on **Armada Voice**.` / `Press Talk again.`, button `Open Microphone settings`; `speech_denied`: `Speech recognition is off for Armada Voice`, `Open **Privacy & Security**, then **Speech Recognition**.` / `Turn on **Armada Voice**.` / `Press Talk again.`, button `Open Speech Recognition settings`; `microphone_unavailable`: `No microphone is available`; any other: `Talk stopped`. `**x**` is bold. Card: absolute, `right:0; bottom: calc(100% + --space-2)`, `z-index:--z-menu (40)`, `min-width:--sidebar-default (200px)`, `max-width:--palette-width (560px)`, `padding --space-3`, `gap --space-3`, radius `--radius-lg`, `--bg-overlay`, `1px --border-default`, `--shadow-overlay`, `--text-sm/--leading-sm`; step numbers on `--bg-sunken` discs `--space-4` wide, mono `--text-xs`.
+Talk guide texts (`talk-guide.ts`): `microphone_denied`: title `The microphone is off for Armada Voice`, steps `Open **Privacy & Security**, then **Microphone**.` / `Turn on **Armada Voice**.` / `Press Talk again.`, button `Open Microphone settings`; `speech_denied`: `Speech recognition is off for Armada Voice`, `Open **Privacy & Security**, then **Speech Recognition**.` / `Turn on **Armada Voice**.` / `Press Talk again.`, button `Open Speech Recognition settings`; `microphone_unavailable`: `No microphone is available`; any other: `Talk stopped`.
+`**x**` is bold.
+Card: absolute, `right:0; bottom: calc(100% + --space-2)`, `z-index:--z-menu (40)`, `min-width:--sidebar-default (200px)`, `max-width:--palette-width (560px)`, `padding --space-3`, `gap --space-3`, radius `--radius-lg`, `--bg-overlay`, `1px --border-default`, `--shadow-overlay`, `--text-sm/--leading-sm`; step numbers on `--bg-sunken` discs `--space-4` wide, mono `--text-xs`.
 
 ### 4.3 States
 
@@ -1782,29 +2085,54 @@ Talk guide texts (`talk-guide.ts`): `microphone_denied`: title `The microphone i
 
 ### 4.4 Typing rules (`SessionComposer.tsx`)
 
-- Enter sends; Shift+Enter inserts a line break (`execCommand("insertLineBreak")`); with `enterBreaks` (phone) Enter breaks the line and only Send sends; Cmd/Ctrl+Enter also sends (the Enter test ignores meta/ctrl) (`:964-987`). IME composition never sends. In a quote or list line, Enter/Backspace belong to the block (`enterInBlock`, `backspaceInBlock`, `message-dom.ts:473, 498`).
+- Enter sends; Shift+Enter inserts a line break (`execCommand("insertLineBreak")`); with `enterBreaks` (phone) Enter breaks the line and only Send sends; Cmd/Ctrl+Enter also sends (the Enter test ignores meta/ctrl) (`:964-987`).
+  IME composition never sends.
+  In a quote or list line, Enter/Backspace belong to the block (`enterInBlock`, `backspaceInBlock`, `message-dom.ts:473, 498`).
 - Markdown drawn as typed: a run of `> ` lines is one quote block, a run of `- ` or `* ` lines one list, markers left out of the element and given back in the text (`readDom`); bare web addresses, paths and `[text](https://…)` links are decorated; Cmd-click on a link opens it via `ProseLinks` (`onClick` `:910`).
 - Sent text (`sentText`, `message-dom.ts:167`): each tag chip is written `@<title>` at its place; a blank line is added where a quote/list ends in a line of words. Trimmed.
 - Triggers (`tokenAt`, `:450-484`): `/` at the very start (`^\/(\S*)$`) lists skills and commands; `@` at the start of a word lists Jobs (`taggable`: other live Jobs with titles) then up to 5 files; `#` at the start of a word with digits or key letters lists issues and pull requests.
-  - `/`: commands whose names start with the query, then those that contain it; row = `/name` + the command's `says`. A command typed whole (`items[current].id === query`) sends on Enter; Enter/Tab otherwise completes `/name ` and puts the caret after it. List aria-label `Skills and commands`. Commands for a hosted Job = `hostedCommands(draft.commands)`; for a terminal Job `session.commands`. `/mcp` (typed alone, no files) opens the Job's Loadout on MCP instead of sending (`opensMcp`, `sessions.tsx:3501`).
-  - `@`: groups `Jobs` (a Job row = `SquareTerminal` + the Job's title; chosen -> an atomic chip) then `Files` (`File` glyph, name then folder; chosen -> plain `@path ` text). List aria-label `Tag a Job or a file`. File search runs `searchFiles(query, manifestId)` 150 ms (`LOOKUP_MS`) after the last keystroke; the previous answer stays until the next arrives.
-  - `#`: up to 6 rows (`NUMBERED_ROWS`): open issues / PRs, numbers newest first, keys in source order; a number not among the open ones is looked up after 150 ms and put first, with a `standing` word (`Merged`, `Closed`); row = kind glyph (`GitPullRequest` / `Ticket`, tooltip `Pull request` / `Issue`) + `#<n>` or key + title; chosen -> atomic chip; tags already in the message are not offered again. List aria-label `Tag an issue or pull request`. Tag kinds and glyphs (`InlineTag.tsx:32`): session `SquareTerminal`, pull_request `GitPullRequest`, branch `GitBranch`, issue `Ticket`, report `Bug`, terminal `Terminal`; kind words `Job`, `Pull request`, `Branch`, `Issue`, `Reported bug`, `Terminal`. In the thread a tag with an open target is a link `a.armada-inline-tag--link` (accent colour, tooltip `<Kind> · <title>`).
+  - `/`: commands whose names start with the query, then those that contain it; row = `/name` + the command's `says`.
+    A command typed whole (`items[current].id === query`) sends on Enter; Enter/Tab otherwise completes `/name ` and puts the caret after it.
+    List aria-label `Skills and commands`.
+    Commands for a hosted Job = `hostedCommands(draft.commands)`; for a terminal Job `session.commands`.
+    `/mcp` (typed alone, no files) opens the Job's Loadout on MCP instead of sending (`opensMcp`, `sessions.tsx:3501`).
+  - `@`: groups `Jobs` (a Job row = `SquareTerminal` + the Job's title; chosen -> an atomic chip) then `Files` (`File` glyph, name then folder; chosen -> plain `@path ` text).
+    List aria-label `Tag a Job or a file`.
+    File search runs `searchFiles(query, manifestId)` 150 ms (`LOOKUP_MS`) after the last keystroke; the previous answer stays until the next arrives.
+  - `#`: up to 6 rows (`NUMBERED_ROWS`): open issues / PRs, numbers newest first, keys in source order; a number not among the open ones is looked up after 150 ms and put first, with a `standing` word (`Merged`, `Closed`); row = kind glyph (`GitPullRequest` / `Ticket`, tooltip `Pull request` / `Issue`) + `#<n>` or key + title; chosen -> atomic chip; tags already in the message are not offered again.
+    List aria-label `Tag an issue or pull request`.
+    Tag kinds and glyphs (`InlineTag.tsx:32`): session `SquareTerminal`, pull_request `GitPullRequest`, branch `GitBranch`, issue `Ticket`, report `Bug`, terminal `Terminal`; kind words `Job`, `Pull request`, `Branch`, `Issue`, `Reported bug`, `Terminal`.
+    In the thread a tag with an open target is a link `a.armada-inline-tag--link` (accent colour, tooltip `<Kind> · <title>`).
   - Tags can also arrive from outside (`tags` prop: Terminal tab "Send to agent", session-pick tags, `pendingTags` from Fleet/draft) and are appended as chips at the end of the draft, then `onTags([])` (`:806-827`).
-- Paste: files/images on the clipboard are attached (`Pasted file` if unnamed); a text paste over 8000 estimated tokens (4 chars each, `large-paste.ts`) becomes a file `pasted-snippet-<n>.txt` attached; otherwise plain text is inserted (rich text is stripped). Drop of files anywhere on the box attaches them (not when `disabled`/`textOnly`). Pictures get an object-URL preview.
-- A quote from the thread (Reply / fork-from-selection) is put in the draft with `quoteIntoDraft` and the caret goes to the blank line under it; `focusFor` focuses the box with the caret at the end (`sessions.tsx:3132-3137`, `focusFor` `:3465`). A Job opened empty takes the caret as its page shows (`sessions.tsx:~1760`).
+- Paste: files/images on the clipboard are attached (`Pasted file` if unnamed); a text paste over 8000 estimated tokens (4 chars each, `large-paste.ts`) becomes a file `pasted-snippet-<n>.txt` attached; otherwise plain text is inserted (rich text is stripped).
+  Drop of files anywhere on the box attaches them (not when `disabled`/`textOnly`).
+  Pictures get an object-URL preview.
+- A quote from the thread (Reply / fork-from-selection) is put in the draft with `quoteIntoDraft` and the caret goes to the blank line under it; `focusFor` focuses the box with the caret at the end (`sessions.tsx:3132-3137`, `focusFor` `:3465`).
+  A Job opened empty takes the caret as its page shows (`sessions.tsx:~1760`).
 - `! command` (text starting with `!`, no files): runs in the Job's docked terminal, not sent to the agent (`bangOf`, `sessions.tsx:3506-3510`).
 
 ### 4.5 Sending and queued messages
 
-`onSend` (`sessions.tsx:3498-3528`): held Job -> `starting.begin(text)`; `/mcp` -> Loadout; `!cmd` -> terminal; else (paused check) -> `draft.send(session.id, {text, files, sketches: drawn, tags})`, then `drawn` is cleared, and if the send fails the sketches return. **The composer has no queue control or queue key.** A message sent while a turn runs is the agent's next input ("Send stays on" when `working`, prop doc `:172`) and the thread draws it as a message row with a `Queued` mark until delivered (thread section A: `Queued` `SessionThread.tsx:1603`, `Delivery` `:1574`). `⇧⌘↵` (`queue_session` "Queue for later") belongs to the Dispatch panel (`dispatch-panel/DispatchPanel.tsx:148`); `⌘↵` (`send_message`) is registered as "type in a message box first" (`palette.ts:106`) and the Job's box sends on plain Enter or ⌘/⌃ Enter. A failed message gets a `Retry` on its own row (`draft.retry`, thread section A), so the box has nothing to take back.
+`onSend` (`sessions.tsx:3498-3528`): held Job -> `starting.begin(text)`; `/mcp` -> Loadout; `!cmd` -> terminal; else (paused check) -> `draft.send(session.id, {text, files, sketches: drawn, tags})`, then `drawn` is cleared, and if the send fails the sketches return.
+**The composer has no queue control or queue key.** A message sent while a turn runs is the agent's next input ("Send stays on" when `working`, prop doc `:172`) and the thread draws it as a message row with a `Queued` mark until delivered (thread section A: `Queued` `SessionThread.tsx:1603`, `Delivery` `:1574`).
+`⇧⌘↵` (`queue_session` "Queue for later") belongs to the Dispatch panel (`dispatch-panel/DispatchPanel.tsx:148`); `⌘↵` (`send_message`) is registered as "type in a message box first" (`palette.ts:106`) and the Job's box sends on plain Enter or ⌘/⌃ Enter.
+A failed message gets a `Retry` on its own row (`draft.retry`, thread section A), so the box has nothing to take back.
 
 ### 4.6 Voice (Talk)
 
-Press Talk (or hold `⌥Space` in the box): the box takes focus with the caret at the end, `talk.listen(onWord, onEnd)` is called; each word heard is appended to the draft with one space between (`joined`); nothing is sent. Held key: keydown `Alt`+`Space` (not repeat) starts; keyup of Space or Alt stops. Pressed: a second press stops. A hearing that ends by itself leaves the button; if it carries a reason the guide card shows. Engines: `Apple on-device` or `Whisper` (select `Voice` in Aa; Whisper needs its model installed: `Install` -> progress -> `Installed`). Words come from `voice.listen(engine, ...)` supplied by the host (`thread-look-here.tsx:185`). The key `⌥Space` is read by `event.code === "Space"` with `altKey` and no meta/ctrl (`:935-945`).
+Press Talk (or hold `⌥Space` in the box): the box takes focus with the caret at the end, `talk.listen(onWord, onEnd)` is called; each word heard is appended to the draft with one space between (`joined`); nothing is sent.
+Held key: keydown `Alt`+`Space` (not repeat) starts; keyup of Space or Alt stops.
+Pressed: a second press stops.
+A hearing that ends by itself leaves the button; if it carries a reason the guide card shows.
+Engines: `Apple on-device` or `Whisper` (select `Voice` in Aa; Whisper needs its model installed: `Install` -> progress -> `Installed`).
+Words come from `voice.listen(engine, ...)` supplied by the host (`thread-look-here.tsx:185`).
+The key `⌥Space` is read by `event.code === "Space"` with `altKey` and no meta/ctrl (`:935-945`).
 
 ### 4.7 Quick bar (`QuickBar.tsx`)
 
-`<div class="armada-quick" role="group" aria-label="Quick replies">` on the box's top edge inside its border (`padding --space-2 --space-2 0 --space-4` spacious; gap `--space-1`). Hidden entirely when `quickShownIn(look)` is false (`look.quickOff` or this Job in `quickOffFor`) or `waits`. Content: `.armada-quick__chips` (flex, gap `--space-1`, scrolls x, no scrollbar) then `Save` then (if `onHide`) `Hide`.
+`<div class="armada-quick" role="group" aria-label="Quick replies">` on the box's top edge inside its border (`padding --space-2 --space-2 0 --space-4` spacious; gap `--space-1`).
+Hidden entirely when `quickShownIn(look)` is false (`look.quickOff` or this Job in `quickOffFor`) or `waits`.
+Content: `.armada-quick__chips` (flex, gap `--space-1`, scrolls x, no scrollbar) then `Save` then (if `onHide`) `Hide`.
 
 | Piece | Detail |
 |---|---|
@@ -1833,7 +2161,11 @@ Press Talk (or hold `⌥Space` in the box): the box takes focus with the caret a
 
 ### 4.9 Context ring (`ContextFigure`, in the bar via `beforeSend`)
 
-`SessionFrame/ContextFigure.tsx`. Drawn only if `fill.window > 0` (`session.context = {tokens, window}`; `contextBreakdown` from the record). Ring 16 x 16 viewBox: track `r=5.25 --border-default`, arc `stroke var(--tone, --fg-muted)` from 12 o'clock to `tokens/window`, tick at the autocompact threshold (`stroke color-mix(--fg-subtle 60%)`, 1px) when the breakdown holds `autocompactThreshold`; ring `--space-4` square; then the percent text in mono `--text-xs --fg-muted` (hidden under the 400px container). Tone by `usageLevel(percent)`: normal below 80, warning (amber) from 80, danger (red) from 95. Variants: no breakdown + no compact -> `role=img aria-label="Context <n>%"` with tooltip `Context · <tokens> of <window> tokens`; no breakdown + compact (Cockpit) -> button with popover `Context`: `<tokens> of <window> tokens` + `Compact`; with breakdown -> `Inspect` card (hover/focus opens, Enter keeps open) titled `Context window`, kind `Context` (`Layers`), where `<tokens> / <window>`, state `<n>% used`, a proportional bar of categories, fact rows per category, `Memory files` (top 3 by tokens), `MCP tools` (top 3 servers), and `Compact` (secondary sm button; tooltip `Compact the Job's context`, or the off reason `The agent has not listed compact` / `The terminal has not listed compact` / mute reason). `tokensSaid`: `53840 -> 53.8k`, `5000 -> 5.0k`, `142000 -> 142k`, `1000000 -> 1M`.
+`SessionFrame/ContextFigure.tsx`.
+Drawn only if `fill.window > 0` (`session.context = {tokens, window}`; `contextBreakdown` from the record).
+Ring 16 x 16 viewBox: track `r=5.25 --border-default`, arc `stroke var(--tone, --fg-muted)` from 12 o'clock to `tokens/window`, tick at the autocompact threshold (`stroke color-mix(--fg-subtle 60%)`, 1px) when the breakdown holds `autocompactThreshold`; ring `--space-4` square; then the percent text in mono `--text-xs --fg-muted` (hidden under the 400px container).
+Tone by `usageLevel(percent)`: normal below 80, warning (amber) from 80, danger (red) from 95. Variants: no breakdown + no compact -> `role=img aria-label="Context <n>%"` with tooltip `Context · <tokens> of <window> tokens`; no breakdown + compact (Cockpit) -> button with popover `Context`: `<tokens> of <window> tokens` + `Compact`; with breakdown -> `Inspect` card (hover/focus opens, Enter keeps open) titled `Context window`, kind `Context` (`Layers`), where `<tokens> / <window>`, state `<n>% used`, a proportional bar of categories, fact rows per category, `Memory files` (top 3 by tokens), `MCP tools` (top 3 servers), and `Compact` (secondary sm button; tooltip `Compact the Job's context`, or the off reason `The agent has not listed compact` / `The terminal has not listed compact` / mute reason).
+`tokensSaid`: `53840 -> 53.8k`, `5000 -> 5.0k`, `142000 -> 142k`, `1000000 -> 1M`.
 
 ### 4.10 Props the Job passes (Fleet data)
 
@@ -1851,7 +2183,8 @@ Press Talk (or hold `⌥Space` in the box): the box takes focus with the caret a
 | `drawn` | local `useKept("session:<id>:drawn")` sketches | |
 | `sendLabel`, `sendEmpty` | `starting` (held Job: `Start`, `session.start.message === undefined`) | |
 
-QUESTION: The box's accessible name is `Message` and `⌥M` finds it by `.sv-dock [role="textbox"][aria-label="Message"]`. No other composer (Operator Talk, Request tab, call-card `SessionBox`) is described here.
+QUESTION: The box's accessible name is `Message` and `⌥M` finds it by `.sv-dock [role="textbox"][aria-label="Message"]`.
+No other composer (Operator Talk, Request tab, call-card `SessionBox`) is described here.
 
 ---
 
@@ -1869,9 +2202,12 @@ QUESTION: The box's accessible name is `Message` and `⌥M` finds it by `.sv-doc
 | `SessionRow` | `hosted_sessions.rs:565` | `Message, Tool, Command, Compaction, Lease, Release, Window, Started, Linked, Waiter, WindowAsk, Draft, Check, Ran, Requested, Saved, Retro, Sent, Ask, Plan, PlanChanges, Delivery, BrowserReminder, Disputed` |
 | `SessionRecord` | `sessions.rs` (`in_flight` at `:1443`) | the Job's record: title, state, turn, model, effort, mode, context, pending tags, work/proposal, start, hosted, dead, commands... `in_flight: Vec<InFlight>` is on the wire. |
 
-**The shipped Electron renderer does not read `get_job_thread` or `job_thread.tail`.** Only the types exist in `packages/protocol/src/job-thread.ts` and `events.ts`. `SessionThread` folds, groups, orders and decides everything from the raw `SessionRow` list plus the `SessionRecord` (thread sections A/B below). The native app is the first consumer of the server-side folding; its output must match what `SessionThread` draws.
+**The shipped Electron renderer does not read `get_job_thread` or `job_thread.tail`.** Only the types exist in `packages/protocol/src/job-thread.ts` and `events.ts`.
+`SessionThread` folds, groups, orders and decides everything from the raw `SessionRow` list plus the `SessionRecord` (thread sections A/B below).
+The native app is the first consumer of the server-side folding; its output must match what `SessionThread` draws.
 
-QUESTION: Does `ThreadItem` (server fold) match `SessionThread`'s client fold row for row (run breaks, Fleet-turn grouping, Check runs, last-agent-message-after-Fleet-turn, document placement)? This inventory records the client fold as the spec and has not diffed the two.
+QUESTION: Does `ThreadItem` (server fold) match `SessionThread`'s client fold row for row (run breaks, Fleet-turn grouping, Check runs, last-agent-message-after-Fleet-turn, document placement)?
+This inventory records the client fold as the spec and has not diffed the two.
 
 ### 5.2 Worked out in TypeScript, not on the wire
 
