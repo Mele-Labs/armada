@@ -28,6 +28,7 @@ import { askToCloseOperator, jobIdOf } from "@armada/shell";
 import { select } from "../cockpit/deck/store";
 import { searchFiles } from "../commands";
 import { JobChip } from "../job-chip";
+import { usePlanUsage } from "../plan-usage";
 import { JobPanes } from "../job-panes/JobPanes";
 import { focusIn } from "../job-panes/keys";
 import { KINDS } from "../job-panes/kinds";
@@ -48,6 +49,7 @@ import { SketchSheet } from "../sessions";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import {
   DID_SAID,
+  POSITION_DOES,
   POSITION_SAID,
   ROLES,
   ageOf,
@@ -484,13 +486,15 @@ function LogRow({ row, now, store }: { row: OperatorLogRow; now: number; store: 
 }
 
 const POSITIONS: readonly OperatorPosition[] = [
-  "on",
+  "read_only",
   "suggest",
-  "off",
+  "decide",
 ];
 
 function Permissions({ store }: { store: OperatorStore }) {
   const { state, act } = store;
+  // Where the week's plan stands, from the meter the title bar reads.
+  const week = usePlanUsage()?.find((one) => one.kind === "seven_day")?.percentUsed;
   return (
     <>
       <ul className="armada-operator__permissions">
@@ -552,7 +556,7 @@ function Permissions({ store }: { store: OperatorStore }) {
                 <span className="armada-operator__does">{does}</span>
                 {ordered.map((repository) => (
                   <span key={repository} className="armada-operator__differs">
-                    Off in {repository} by standing order
+                    Read-only in {repository} by standing order
                   </span>
                 ))}
                 {set.map((said) => (
@@ -571,6 +575,7 @@ function Permissions({ store }: { store: OperatorStore }) {
                   kind: "item" as const,
                   id: one,
                   label: POSITION_SAID[one],
+                  description: POSITION_DOES[one],
                   selected: one === position,
                 }))}
                 onSelect={(id) =>
@@ -612,22 +617,25 @@ function Permissions({ store }: { store: OperatorStore }) {
         )}
         <li className="armada-operator__permission">
           <span className="armada-operator__line-text">
-            <span className="armada-operator__title">Daily ceiling</span>
+            <span className="armada-operator__title">Pause past</span>
             <span className="armada-operator__does">
-              Past it, everything passes through as today
+              {week === undefined
+                ? "Of the week's plan. Past it, everything comes to you as today"
+                : `Of the week's plan, now at ${Math.round(week)}%. Past it, everything comes to you as today`}
             </span>
           </span>
           <span className="armada-operator__ceiling">
             <Input
               type="number"
               min={0}
-              aria-label="Daily ceiling"
-              unit="calls"
-              value={state.ceiling}
+              max={100}
+              aria-label="Pause past this share of the week's plan"
+              unit="%"
+              value={state.pause}
               onChange={(event) =>
                 act({
-                  kind: "ceiling",
-                  calls: Number(event.target.value),
+                  kind: "pause",
+                  share: Number(event.target.value),
                 })
               }
             />

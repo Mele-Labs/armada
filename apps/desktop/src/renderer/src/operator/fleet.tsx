@@ -33,6 +33,7 @@ import type {
 } from "./model";
 import { OperatorHeld } from "./store";
 import type { Act, OperatorState } from "./store";
+import { openJobWalk } from "../job-walk/open";
 import { openJob } from "./takes/board";
 
 const KIND_TAG: Readonly<Record<OperatorBoardKind, string>> = {
@@ -63,6 +64,8 @@ const SOURCE_TAG: Partial<Readonly<Record<WaitingItem["source"], string>>> = {
 };
 
 const OPEN_JOB = "Open Job";
+/** A walk the Job shows: its Job opens with the walk's tab in front. */
+const OPEN_WALK = "Open walk";
 
 /** What pressing Discuss asks the Operator about the item. */
 const OPENING_ASK = "What is this, and what do you recommend?";
@@ -103,6 +106,7 @@ const DID: Readonly<Record<string, OperatorDid>> = {
   Raised: "raised",
   Started: "started",
   "Handed over": "existing",
+  Sent: "existing",
   Merged: "merged",
   "Kept in touch": "in_touch",
   Filed: "filed",
@@ -148,16 +152,21 @@ function raiseOf(session: Session, item: WaitingItem): OperatorRaise {
   const labels = (item.options ?? []).map((one) => one.label);
   const pick = item.operator_read?.pick;
   const ways =
-    labels.length === 0
+    item.source === "walk" && item.act?.target !== undefined
       ? [
+          OPEN_WALK,
           OPEN_JOB,
         ]
-      : pick !== undefined && labels.includes(pick)
+      : labels.length === 0
         ? [
-            pick,
-            ...labels.filter((one) => one !== pick),
+            OPEN_JOB,
           ]
-        : labels;
+        : pick !== undefined && labels.includes(pick)
+          ? [
+              pick,
+              ...labels.filter((one) => one !== pick),
+            ]
+          : labels;
   const title = session.title ?? session.address ?? "Job";
   const suggests = item.source === "operator_suggestion";
   const recommends =
@@ -218,12 +227,17 @@ function noteOf(suggestion: OperatorBoardSuggestion): OperatorRaise {
 const live = (session: Session) => session.dead === undefined && session.replacedBy === undefined;
 
 const POSITIONS: readonly OperatorPosition[] = [
-  "on",
+  "decide",
   "suggest",
-  "off",
+  "read_only",
 ];
+/** A saved level, its old words read as their new ones; anything else is the lowest. */
 const positionOf = (value: unknown): OperatorPosition =>
-  POSITIONS.includes(value as OperatorPosition) ? (value as OperatorPosition) : "off";
+  value === "on"
+    ? "decide"
+    : POSITIONS.includes(value as OperatorPosition)
+      ? (value as OperatorPosition)
+      : "read_only";
 
 /** A refusal in words, for Discussion. */
 function refusedSaid(outcome: Outcome): string {
@@ -233,7 +247,8 @@ function refusedSaid(outcome: Outcome): string {
   const { code, message } = outcome.error;
   if (code === "fleet.operator_off")
     return "I'm switched off, so I can't answer. Switch me on in the Permissions tab.";
-  if (code === "fleet.operator_ceiling") return "I've used today's calls.";
+  if (code === "fleet.operator_ceiling" || code === "fleet.operator_paused")
+    return "I'm paused: your week's plan is past the share set in Permissions.";
   if (code === "fleet.operator_said_nothing") return "I had nothing to say to that.";
   return message;
 }
@@ -287,7 +302,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
   const delegate = useSetting("features.operatorDelegate");
   const answer = useSetting("features.operatorAnswer");
   const file = useSetting("features.operatorFile");
-  const ceiling = useSetting("limits.operatorDailyCalls");
+  const pause = useSetting("limits.operatorPlanPause");
   const model = useSetting("models.operator");
 
   useEffect(() => {
@@ -408,7 +423,12 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
         answer: positionOf(answer),
         file: positionOf(file),
       },
-      ceiling: Number(ceiling ?? 100),
+      pause: Number(pause ?? 80),
+      ...(board?.paused === undefined
+        ? {}
+        : {
+            paused: board.paused,
+          }),
       ...(typeof model === "string"
         ? {
             model,
@@ -442,7 +462,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
     delegate,
     answer,
     file,
-    ceiling,
+    pause,
     model,
   ]);
 
@@ -604,6 +624,14 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
           if (one.way === OPEN_JOB) return openJob(raise.job.session);
           const [session, ...rest] = one.raise.split(" ");
           const item = rest.join(" ");
+          if (one.way === OPEN_WALK) {
+            const walk = sessions
+              .find((each) => each.id === session)
+              ?.waitingFor?.find((each) => each.id === item)?.act?.target;
+            return walk === undefined
+              ? openJob(raise.job.session)
+              : openJobWalk(raise.job.session, walk);
+          }
           const choice = sessions
             .find((each) => each.id === session)
             ?.waitingFor?.find((each) => each.id === item)
@@ -661,8 +689,8 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
         case "position":
           void saveSetting(ROLE_KEY[one.role], one.position);
           return;
-        case "ceiling":
-          void saveSetting("limits.operatorDailyCalls", one.calls);
+        case "pause":
+          void saveSetting("limits.operatorPlanPause", one.share);
           return;
         case "model":
           void saveSetting("models.operator", one.model);

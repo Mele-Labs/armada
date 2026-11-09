@@ -5,7 +5,7 @@
 //! repository; where an answer needs the code read it offers a Job. **A call never makes an order
 //! stand**: it names a form, and the person sees that form and presses. A number or an id Fleet did
 //! not show it is dropped. A message is outside the queue of arrivals, since the person is waiting on
-//! it, and counts toward the day's ceiling. **It does not fail open**: nothing passes on here, so a
+//! it, and makes no call while the Operator is paused. **It does not fail open**: nothing passes on here, so a
 //! failed call is said back to him.
 
 use std::sync::Arc;
@@ -22,10 +22,10 @@ use super::arriving::started_by_shown;
 use super::desk::started_by_chain;
 use super::orders::{checked, said_of, OPERATOR_OFF};
 use super::boarding::Queued;
-use super::{Arrived, InLine, LiveJob, Logged, Operator, Outcome};
+use super::{Arrived, InLine, LiveJob, Logged, Operator, Outcome, Paused};
 use crate::daemon::Fleet;
 
-const OPERATOR_CEILING: &str = "fleet.operator_ceiling";
+const OPERATOR_PAUSED: &str = "fleet.operator_paused";
 const OPERATOR_SAID_NOTHING: &str = "fleet.operator_said_nothing";
 
 /// How much of the conversation a call is handed.
@@ -133,7 +133,7 @@ pub struct Talked {
     pub order: Option<(OperatorOrderForm, String)>,
     /// He asked for an order that fits no form.
     pub no_form: bool,
-    /// The call that answered, for the day's ceiling.
+    /// The call that answered.
     pub call: String,
     /// The board item he asked to have taken first, one the call was shown as waiting its turn.
     pub first: Option<String>,
@@ -142,7 +142,7 @@ pub struct Talked {
 /// Why a message came back with nothing.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TalkFailed {
-    Ceiling(u32),
+    Paused(Paused),
     Failed(String),
     Unreadable,
 }
@@ -332,9 +332,8 @@ impl Operator {
     /// One message from the person, with the conversation before it.
     pub async fn talk(self: &Arc<Self>, words: &str, so_far: &[TalkLine], about: Option<&str>) -> Result<Talked, TalkFailed> {
         let now = self.desk.now();
-        let ceiling = self.desk.daily_calls();
-        if self.desk.calls_since(self.desk.day_began().await).await >= ceiling {
-            return Err(TalkFailed::Ceiling(ceiling));
+        if let Some(paused) = self.desk.plan_pause().await {
+            return Err(TalkFailed::Paused(paused));
         }
         let (board, live) = self.board_and_live().await;
         let line = self.desk.waiting().await;
@@ -417,8 +416,8 @@ where
         Ok(OperatorTalk { lines: kept.into_iter().map(|one| OperatorTalkLine { from_person: one.from_person, text: one.text, at: one.at, about: one.about }).collect() })
     }
 
-    /// `talk_to_operator`: one message from the person. **Refused** while the Operator is off, at the
-    /// day's ceiling, and where the call fails or says what cannot be read. Nothing is kept then.
+    /// `talk_to_operator`: one message from the person. **Refused** while the Operator is off, while it is
+    /// paused for the week's plan, and where the call fails or says what cannot be read. Nothing is kept then.
     pub(crate) async fn operator_talked(self: &Arc<Self>, words: &str, about: Option<&str>) -> Result<OperatorSaid, Refusal> {
         let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off"));
@@ -426,7 +425,7 @@ where
         let so_far = self.store().lock().await.operator_talk(LINES_HANDED).map_err(|why| self.ledger_fault(why))?;
         let so_far: Vec<TalkLine> = so_far.into_iter().map(|one| TalkLine { from_person: one.from_person, text: one.text }).collect();
         let talked = operator.talk(words, &so_far, about).await.map_err(|failed| match failed {
-            TalkFailed::Ceiling(ceiling) => self.hosted_refusal(OPERATOR_CEILING, &format!("the Operator has made its {ceiling} calls for today")),
+            TalkFailed::Paused(paused) => self.hosted_refusal(OPERATOR_PAUSED, &format!("the week's plan is {}% used, past the Operator's pause at {}%", paused.week, paused.at)),
             TalkFailed::Failed(why) => self.hosted_refusal(OPERATOR_SAID_NOTHING, &why),
             TalkFailed::Unreadable => self.hosted_refusal(OPERATOR_SAID_NOTHING, "the Operator's answer could not be read"),
         })?;

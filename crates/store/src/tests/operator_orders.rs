@@ -29,7 +29,7 @@ fn an_order_stands_until_it_is_removed_and_is_removed_once() {
 }
 
 #[test]
-fn the_conversation_reads_its_last_messages_in_order_and_its_answers_count_as_calls() {
+fn the_conversation_reads_its_last_messages_in_order() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     store.add_operator_talk(&talk(true, "why?", None, "2026-11-04T09:00:00.000Z")).expect("kept");
@@ -41,7 +41,6 @@ fn the_conversation_reads_its_last_messages_in_order_and_its_answers_count_as_ca
     assert_eq!(last.iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), vec!["and now?", "today"]);
     assert!(last[0].from_person && !last[1].from_person);
 
-    assert_eq!(store.operator_calls_since("2026-11-05T00:00:00.000Z").expect("counted"), 1, "only today's answer");
 }
 
 #[test]

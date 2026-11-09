@@ -1,9 +1,8 @@
 //! The Operator's core: its call is kept started on the Operator model and holds no tools, the
-//! day's ceiling stops the calls and says so, a ruling naming what Fleet did not offer is refused,
+//! week's plan used to the pause stops the calls and says so, a ruling naming what Fleet did not offer is refused,
 //! and Fleet keeps the Log in its store, signed by the Operator. The acceptance test
 //! `crates/acceptance/tests/operator.rs` drives the batch and the failed and late calls.
 
-use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -13,7 +12,7 @@ use testkit::FakeJudge;
 
 use super::session_host::rig_placing;
 use crate::operator::{
-    Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, InLine, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Place, Ruled,
+    carried, Acted, Acting, Answering, Arrival, Arrived, Calling, Desk, Done, FleetDesk, InLine, KeptStarted, LiveJob, Logged, Operator, Outcome, PassedOn, Paused, Place, Ruled,
     Source, Way, FIRST_WRITE_WAIT,
 };
 use crate::{CallFailed, JudgeBudget};
@@ -95,7 +94,7 @@ impl Calling for Answers {
 
 /// A Desk held in memory, at a fixed instant.
 struct Held {
-    ceiling: u32,
+    paused: Option<Paused>,
     live: Vec<LiveJob>,
     waiting: Vec<InLine>,
     log: Mutex<Vec<Logged>>,
@@ -103,7 +102,7 @@ struct Held {
 }
 
 impl Held {
-    fn with(ceiling: u32) -> Arc<Held> {
+    fn with() -> Arc<Held> {
         // The other Job shares the terminal pane with every start below, so each is put to a call.
         let live = [("01OTHER", "panes/"), ("01THIS", "panes/terminal.tsx")]
             .into_iter()
@@ -118,16 +117,21 @@ impl Held {
                 started_by: Vec::new(),
             })
             .collect();
-        Arc::new(Held { ceiling, live, waiting: Vec::new(), log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
+        Arc::new(Held { paused: None, live, waiting: Vec::new(), log: Mutex::new(Vec::new()), acts: Mutex::new(Vec::new()) })
+    }
+
+    /// [`Held::with`], paused for the week's plan.
+    fn paused(paused: Paused) -> Arc<Held> {
+        Arc::new(Held { paused: Some(paused), ..Arc::into_inner(Held::with()).expect("one holder") })
     }
 
     /// [`Held::with`], with `waiting` waiting to start in the repository, in that order.
-    fn with_waiting(ceiling: u32, waiting: &[&str]) -> Arc<Held> {
+    fn with_waiting(waiting: &[&str]) -> Arc<Held> {
         let waiting = waiting
             .iter()
             .map(|id| InLine { session_id: (*id).into(), title: format!("Job {id}"), manifest_id: "01REPO".into() })
             .collect();
-        let held = Held::with(ceiling);
+        let held = Held::with();
         Arc::new(Held { waiting, ..Arc::into_inner(held).expect("one holder") })
     }
 
@@ -145,23 +149,12 @@ impl Desk for Held {
         Timestamp::from_rfc3339(NOW)
     }
 
-    fn day_began(&self) -> Done<'_, Timestamp> {
-        Box::pin(async move { Timestamp::from_rfc3339(format!("{}T00:00:00.000Z", &NOW[..10])) })
-    }
-
-    fn daily_calls(&self) -> u32 {
-        self.ceiling
+    fn plan_pause(&self) -> Done<'_, Option<Paused>> {
+        Box::pin(async move { self.paused })
     }
 
     fn live(&self) -> Done<'_, Vec<LiveJob>> {
         Box::pin(async move { self.live.clone() })
-    }
-
-    fn calls_since(&self, since: Timestamp) -> Done<'_, u32> {
-        Box::pin(async move {
-            let log = self.log.lock().expect("not poisoned");
-            log.iter().filter(|row| row.at.as_str() >= since.as_str()).filter_map(|row| row.call.clone()).collect::<BTreeSet<_>>().len() as u32
-        })
     }
 
     fn keep(&self, row: Logged) -> Done<'_, ()> {
@@ -174,20 +167,24 @@ impl Desk for Held {
 }
 
 impl Acting for Held {
-    fn go_ahead(&self, session: &str) {
+    fn go_ahead(&self, session: &str) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("go_ahead {session}"));
+        carried()
     }
 
-    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) {
+    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("hand_over {session} {into}"));
+        carried()
     }
 
-    fn merge(&self, ending: &str, into: &str, _shared: &[String]) {
+    fn merge(&self, ending: &str, into: &str, _shared: &[String]) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("merge {ending} {into}"));
+        carried()
     }
 
-    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) {
+    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) -> Acted<'_> {
         self.acts.lock().expect("not poisoned").push(format!("keep_in_touch {one} {other}"));
+        carried()
     }
 
     fn place(&self, session: &str, place: &Place) {
@@ -220,25 +217,24 @@ fn start(id: &str, ways: &[Way]) -> Arrival {
 }
 
 #[tokio::test]
-async fn past_the_days_ceiling_no_call_is_made_and_each_item_passes_on_saying_so() {
+async fn while_paused_no_call_is_made_and_each_item_passes_on_saying_so() {
     let call = Answers::of(&["item: 1\nway: 1\njob: none\nshared: none\nbecause: nothing overlaps"]);
-    let desk = Held::with(1);
+    let desk = Held::with();
     let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
-
     let first = operator.ruled(start("a", Way::STARTING), FIRST_WRITE_WAIT).await;
+    assert!(matches!(first, Ruled::Ruled(_)), "{first:?}");
+
+    let paused = Paused { week: 83, at: 80 };
+    let desk = Held::paused(paused);
+    let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
     let second = operator.ruled(start("b", Way::STARTING), FIRST_WRITE_WAIT).await;
 
-    assert!(matches!(first, Ruled::Ruled(_)), "{first:?}");
-    assert_eq!(second, Ruled::PassedOn(PassedOn::Ceiling(1)));
-    assert_eq!(call.asked(), 1, "no call past the ceiling");
+    assert_eq!(second, Ruled::PassedOn(PassedOn::Paused(paused)));
+    assert_eq!(call.asked(), 1, "no call while paused");
     let log = desk.log();
-    assert_eq!((log[1].outcome, log[1].call.as_deref()), (Outcome::PassedOn, None));
-    assert!(log[1].because.contains("ceiling"), "{}", log[1].because);
-    assert_eq!(desk.acts(), ["go_ahead 01THIS"], "a new Job goes ahead, and one passed on is not acted on");
-
-    let none = Held::with(0);
-    let operator = Operator::new(Answers::of(&[]), none.clone(), none.clone());
-    assert_eq!(operator.ruled(start("c", Way::STARTING), FIRST_WRITE_WAIT).await, Ruled::PassedOn(PassedOn::Ceiling(0)));
+    assert_eq!((log[0].outcome, log[0].call.as_deref()), (Outcome::PassedOn, None));
+    assert!(log[0].because.contains("83% used") && log[0].because.contains("pause at 80%"), "{}", log[0].because);
+    assert!(desk.acts().is_empty(), "one passed on is not acted on");
 }
 
 #[tokio::test]
@@ -250,7 +246,7 @@ async fn a_ruling_naming_what_fleet_did_not_offer_is_refused_and_the_item_passes
         "item: 1\nway: 3\njob: 01THIS\nshared: panes/terminal.tsx\nbecause: its own Job",
         "way: 1\nbecause: no item named",
     ]);
-    let desk = Held::with(100);
+    let desk = Held::with();
     let operator = Operator::new(call, desk.clone(), desk.clone());
 
     for id in ["a", "b", "c", "d"] {
@@ -266,7 +262,7 @@ async fn a_ruling_naming_what_fleet_did_not_offer_is_refused_and_the_item_passes
 #[tokio::test]
 async fn an_item_fleets_rules_leave_one_way_is_ruled_without_a_call() {
     let call = Answers::of(&[]);
-    let desk = Held::with(100);
+    let desk = Held::with();
     let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
 
     let ruled = operator.ruled(start("a", &[Way::Raise]), FIRST_WRITE_WAIT).await;
@@ -288,7 +284,6 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
 
     let live = desk.live().await;
     assert!(live.iter().any(|one| one.session_id == id.as_str()), "a hosted Job not ended is live: {live:?}");
-    assert_eq!(desk.daily_calls(), 100, "the setting as it ships");
 
     let at = desk.now();
     let row = Logged {
@@ -318,12 +313,11 @@ async fn fleet_keeps_the_log_in_its_store_signed_by_the_operator_and_counts_the_
     assert_eq!(kept, vec![row.kept()]);
     assert_eq!((kept[0].by.as_str(), kept[0].source.as_str(), kept[0].source_session.as_deref()), ("operator", "job", Some("01PARENT")));
     assert_eq!(kept[0].outcome, "merge");
-    assert_eq!(desk.calls_since(at).await, 1);
     assert!(said.lock().expect("not poisoned").is_empty(), "nothing went wrong");
 }
 
 #[tokio::test]
-async fn the_days_ceiling_counts_from_the_machines_midnight_and_not_utcs() {
+async fn a_day_begins_at_the_machines_midnight_and_not_utcs() {
     let millis = |at: &str| Timestamp::from_rfc3339(at).epoch_millis().expect("an instant");
     let began = |at: &str, offset: i64| crate::clock::rfc3339_utc(crate::clock::day_began(millis(at), offset));
 
@@ -344,7 +338,7 @@ async fn a_start_where_jobs_wait_to_start_is_placed_among_them_and_one_naming_a_
         "item: 1\nway: 1\njob: none\nshared: none\nplace: ahead of 01WAITB\nbecause: it is small and the others wait on it",
         "item: 1\nway: 1\njob: none\nshared: none\nplace: ahead of 01GONE\nbecause: a Job not waiting",
     ]);
-    let desk = Held::with_waiting(100, &["01WAITA", "01WAITB"]);
+    let desk = Held::with_waiting(&["01WAITA", "01WAITB"]);
     let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
 
     // One way left, and still put to a call: others wait, so it has a place to be given.
@@ -361,7 +355,7 @@ async fn a_start_where_jobs_wait_to_start_is_placed_among_them_and_one_naming_a_
     assert_eq!(desk.acts(), ["go_ahead 01THIS", "place 01THIS ahead:01WAITB", "go_ahead 01THIS", "place 01THIS last"]);
 
     // Nobody waits: no place is asked, and first come, first served stands.
-    let none = Held::with(100);
+    let none = Held::with();
     let operator = Operator::new(Answers::of(&[]), none.clone(), none.clone());
     let ruled = operator.ruled(start("c", &[Way::NewJob]), FIRST_WRITE_WAIT).await;
     assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.place.is_none()), "{ruled:?}");
@@ -371,7 +365,7 @@ async fn a_start_where_jobs_wait_to_start_is_placed_among_them_and_one_naming_a_
 async fn of_two_kept_in_touch_the_one_named_first_builds_and_a_first_outside_the_pair_holds_nothing() {
     let keep = |first: &str| format!("item: 1\nway: 4\njob: 01OTHER\nshared: panes/terminal.tsx\nfirst: {first}\nbecause: one builds the pane the other calls");
     let call = Answers::of(&[&keep("01OTHER"), &keep("01THIS"), &keep("01GONE"), &keep("none")]);
-    let desk = Held::with(100);
+    let desk = Held::with();
     let operator = Operator::new(call, desk.clone(), desk.clone());
 
     for id in ["a", "b", "c", "d"] {

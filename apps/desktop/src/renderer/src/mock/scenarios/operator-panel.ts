@@ -127,7 +127,7 @@ const seed: OperatorSeed = {
       name: "storefront",
       positions: {
         dispatch: "suggest",
-        answer: "off",
+        answer: "read_only",
       },
     },
   ],

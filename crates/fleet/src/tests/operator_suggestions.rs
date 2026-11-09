@@ -176,7 +176,7 @@ async fn the_board_is_told_when_a_suggestion_is_added_and_when_one_is_settled() 
         ties: Vec::new(),
     };
 
-    FleetActing::on(&rig.fleet).suggest(&arrival, &Ruling::alone(Way::File, "no open issue covers it"));
+    FleetActing::on(&rig.fleet).suggest(&arrival, &Ruling::alone(Way::File, "no open issue covers it")).await.expect("carried out");
 
     assert!(matches!(board_told(&mut watching).await, Event::OperatorBoardChanged(_)));
     eventually(|| async { standing(&rig).await.len() == 1 }).await;
