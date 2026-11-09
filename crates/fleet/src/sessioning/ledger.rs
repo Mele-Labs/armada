@@ -207,6 +207,7 @@ where
             Some(_) => crate::plan_keeping::pulls_read(store, &session.id, &held).map_err(fault)?,
             None => Vec::new(),
         };
+        let flying = self.lifecycles_flying(store, &session.id);
         let stop = store.session_stop(&session.id).map_err(fault)?;
         let open_turn = store.open_turn(&session.id).map_err(fault)?;
         Ok(LedgerReads {
@@ -225,7 +226,8 @@ where
             pulls,
             later: store.later_of(&session.id).map_err(fault)?,
             watching: store.live_watch_names(&session.id).map_err(fault)?,
-            holding: self.lifecycles_holding(store, &session.id),
+            holding: flying.iter().filter(|one| one.holds).cloned().collect(),
+            flying,
             repair_over: stop.repair_job.as_deref().is_some_and(|repair| {
                 let ended = store.session(repair).ok().flatten().is_none_or(|one| one.state == store::SessionState::Ended);
                 ended || store.done_since(repair).ok().flatten().is_some()
@@ -310,6 +312,7 @@ where
             record.done_summary = reads.waiting.done_summary.clone();
             record.so_far = reads.waiting.so_far.clone();
             record.held_until = reads.limited.as_deref().map(wire_instant);
+            record.in_flight = reads.flying.iter().map(crate::lifecycles::wire::in_flight).collect();
         }
         record.context_breakdown = reads
             .context

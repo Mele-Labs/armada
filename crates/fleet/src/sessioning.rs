@@ -61,7 +61,9 @@ pub(crate) struct LedgerReads {
     later: Vec<store::KeptLater>,
     /// The names of its live watches, the oldest first.
     watching: Vec<String>,
-    /// What of its lifecycles keeps it open.
+    /// What its lifecycles hold that no end state has taken, as End job lists it.
+    flying: Vec<crate::lifecycles::ending::Flying>,
+    /// What of `flying` keeps it open.
     holding: Vec<crate::lifecycles::ending::Flying>,
     /// The stop it was told about and the stop passed over.
     stop: store::KeptStop,
