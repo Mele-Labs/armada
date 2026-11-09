@@ -83,7 +83,8 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 ## What gpui cannot match
 
 **A screen is drawn as Electron draws it, and these are the known gaps.**
-Say them in the brief of any walk that puts the two side by side.
+Say the ones a screen shows in the brief of its walk.
+A native walk is shown alone, never with the Electron screen in a second tab: he opens Electron himself to compare (9 Nov 2026).
 
 | Gap | Where it shows | Why |
 |---|---|---|
