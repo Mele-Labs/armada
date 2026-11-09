@@ -411,6 +411,7 @@ pub use session_mcp::{
 };
 pub use session_quick::SessionQuick;
 pub use job_thread::{
+    against_of_detail, file_call_of, kept_from, revisions_of_detail, scene_of_detail, sketch_call_of, SketchCall,
     CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadRead, JobThreadTail, Lapsed,
     OpenCall, ThreadAsk, ThreadDocument, ThreadHead, ThreadItem, ThreadSketch, ThreadTrail, TrailBay, TrailOpened,
     THREAD_ITEMS_MOST, THREAD_ITEMS_SERVED,

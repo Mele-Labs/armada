@@ -172,6 +172,8 @@ pub mod mods;
 pub mod mint;
 /// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
 pub mod timeline;
+/// A Job's thread folded once for every client: `get_job_thread` and `job_thread.tail`.
+mod thread_view;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
 /// The lines of code a pinned note's spot was drawn from, found by the words on screen.

@@ -13,11 +13,12 @@
 //! the tool rows that came one after another, and any other row ends it.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::call::{AskedQuestion, CallInFlight};
 use crate::hosted_sessions::{SessionRow, ToolSubagent};
 use crate::ids::Instant;
-use crate::sketch::{RawScene, SketchHow};
+use crate::sketch::{draws, RawScene, SketchHow};
 use crate::SessionId;
 
 /// What `get_job_thread` answers when it is asked for no `limit`.
@@ -54,12 +55,12 @@ pub struct JobThread {
 
 /// `job_thread.tail`: what changed in a thread a client has read.
 ///
-/// **`items` replace everything a client holds from the item `from` to the end.** A row appended,
-/// or one replaced by id (an ask answered, a Check run ended, a tool call's subagent settled),
-/// re-folds the thread, and `from` is the first item that differs. A client that does not hold
-/// `from`, because it is older than the window it read, keeps the items it holds older than the
-/// first one in `items` and takes the rest. `from` absent is the head alone changing, with `items`
-/// empty. A client that missed one reads `get_job_thread` again on the resync after a `Missed`.
+/// **`items` replace what a client holds from the item `from` to the end.** A row appended, or one
+/// replaced by id (an ask answered, a Check run ended, a tool call's subagent settled), re-folds the
+/// thread, and `from` is the first item the client held that differs. A client that does not hold
+/// `from` holds only items after it, so it replaces everything it holds with `items`. `from` absent
+/// is `items` after the last item, and with `items` empty it is the head alone changing. A client
+/// that missed one reads `get_job_thread` again on the resync after a `Missed`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobThreadTail {
     pub session_id: SessionId,
@@ -306,5 +307,138 @@ impl ThreadItem {
             ThreadItem::Sketch(sketch) => &sketch.id,
             ThreadItem::Document(document) => &document.id,
         }
+    }
+}
+
+impl SessionRow {
+    /// When the row was written. A retro row's is when the press was accepted.
+    pub fn at(&self) -> &Instant {
+        match self {
+            SessionRow::Message { at, .. }
+            | SessionRow::Tool { at, .. }
+            | SessionRow::Command { at, .. }
+            | SessionRow::Compaction { at, .. }
+            | SessionRow::Lease { at, .. }
+            | SessionRow::Release { at, .. }
+            | SessionRow::Window { at, .. }
+            | SessionRow::Started { at, .. }
+            | SessionRow::Linked { at, .. }
+            | SessionRow::Waiter { at, .. }
+            | SessionRow::Check { at, .. }
+            | SessionRow::Ran { at, .. }
+            | SessionRow::Requested { at, .. }
+            | SessionRow::Saved { at, .. }
+            | SessionRow::Retro { at, .. }
+            | SessionRow::WindowAsk { at, .. }
+            | SessionRow::Draft { at, .. }
+            | SessionRow::Sent { at, .. }
+            | SessionRow::Plan { at, .. }
+            | SessionRow::PlanChanges { at, .. }
+            | SessionRow::Delivery { at, .. }
+            | SessionRow::Disputed { at, .. }
+            | SessionRow::BrowserReminder { at, .. }
+            | SessionRow::Ask { at, .. } => at,
+        }
+    }
+}
+
+// What follows reads the JSON a tool row's text and a ledger row's `detail` carry. It is here and
+// not in `fleet` because the JSON stays in this crate.
+
+/// A `show_sketch` call as a thread's tool row carries it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SketchCall {
+    pub title: String,
+    pub scene: RawScene,
+    pub against: Option<String>,
+}
+
+/// The tool a row's text starts with, its arguments after it, and the harness's `server__` prefix
+/// left off the name.
+fn call_of(text: &str) -> Option<(&str, &str)> {
+    let (name, rest) = text.split_once(char::is_whitespace)?;
+    let name = name.rsplit("__").next().unwrap_or(name);
+    Some((name, rest))
+}
+
+/// A `show_sketch` call: the tool's name, then its arguments as JSON. **`None` for any row that is not
+/// one, and for one whose scene would not draw**, which stays the plain tool row it was.
+pub fn sketch_call_of(text: &str) -> Option<SketchCall> {
+    let (name, rest) = call_of(text)?;
+    let args = rest.trim();
+    if name != "show_sketch" || !args.starts_with('{') || !args.ends_with('}') {
+        return None;
+    }
+    let Value::Object(mut args) = crate::decode::<Value>("a show_sketch call", args.as_bytes()).ok()? else {
+        return None;
+    };
+    let title = args.get("title").and_then(Value::as_str).map(str::trim).filter(|title| !title.is_empty())?;
+    let title = title.to_string();
+    let scene = args.remove("scene").filter(draws)?;
+    let against = args
+        .get("against")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|against| !against.is_empty())
+        .map(str::to_string);
+    Some(SketchCall { title, scene: RawScene(scene), against })
+}
+
+/// The path a `show_file` call names, as the agent wrote it.
+pub fn file_call_of(text: &str) -> Option<String> {
+    let (name, rest) = call_of(text)?;
+    let path = rest.trim();
+    (name == "show_file" && !path.is_empty() && !path.contains(['\n', '\r'])).then(|| path.to_string())
+}
+
+/// The scene a ledger row keeps as JSON text, `None` where it would not draw.
+pub fn scene_of_detail(text: &str) -> Option<RawScene> {
+    let scene = crate::decode::<Value>("a kept scene", text.as_bytes()).ok()?;
+    draws(&scene).then_some(RawScene(scene))
+}
+
+/// A ledger sketch's `detail.against`: the title of the sketch it is read against and that sketch's
+/// scene, which is JSON text again inside the JSON.
+pub fn against_of_detail(text: &str) -> Option<(String, RawScene)> {
+    let Value::Object(earlier) = crate::decode::<Value>("a kept earlier sketch", text.as_bytes()).ok()? else {
+        return None;
+    };
+    let title = earlier.get("title")?.as_str()?.to_string();
+    let scene = match earlier.get("scene")? {
+        Value::String(text) => scene_of_detail(text)?,
+        other => draws(other).then(|| RawScene(other.clone()))?,
+    };
+    Some((title, scene))
+}
+
+/// `scene` with the `kept` hash of each `mock` node that `held`, the scene Fleet kept, carries for the
+/// same node. Fleet writes `kept` into the sketch it keeps and not into the call a card is read from.
+/// **Only a node the call and the kept scene draw alike takes it**: a hash is for one set of HTML and
+/// rules, and a node redrawn since has none to give.
+pub fn kept_from(mut scene: RawScene, held: &RawScene) -> RawScene {
+    let Some(Value::Array(had)) = held.0.get("nodes") else { return scene };
+    let Some(Value::Array(nodes)) = scene.0.get_mut("nodes") else { return scene };
+    for node in nodes.iter_mut().filter_map(Value::as_object_mut) {
+        if node.get("kind").and_then(Value::as_str) != Some("mock") || node.contains_key("kept") {
+            continue;
+        }
+        let was = had.iter().filter_map(Value::as_object).find(|was| {
+            was.get("id") == node.get("id")
+                && was.get("kind").and_then(Value::as_str) == Some("mock")
+                && ["html", "css", "styles"].iter().all(|field| was.get(*field) == node.get(*field))
+        });
+        if let Some(kept) = was.and_then(|was| was.get("kept")) {
+            node.insert(String::from("kept"), kept.clone());
+        }
+    }
+    scene
+}
+
+/// How many revisions a document's `detail.revisions` lists: JSON text of a list of paths, oldest
+/// first. **Anything that is not a list of non-empty strings is none.**
+pub fn revisions_of_detail(text: &str) -> usize {
+    match crate::decode::<Value>("a document's revisions", text.as_bytes()) {
+        Ok(Value::Array(paths)) if paths.iter().all(|path| path.as_str().is_some_and(|path| !path.is_empty())) => paths.len(),
+        _ => 0,
     }
 }

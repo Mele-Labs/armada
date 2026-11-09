@@ -29,6 +29,7 @@ import type { Autopilot, AutopilotDecisions } from "./autopilot";
 import type { WatchesChanged } from "./watches";
 import type { BugReportsChanged } from "./bug-reports";
 import type { JobLifecyclesChanged } from "./lifecycles";
+import type { JobThreadChanged, JobThreadTail } from "./job-thread";
 import type { KeepDraftsChanged } from "./job-copy";
 import type { BrowserAskAnswered, BrowserRequest, JobTerminal, SessionRecord } from "./sessions";
 import type { RepositoryList } from "./setup";
@@ -169,6 +170,14 @@ export type Event =
   | ({
       kind: "job_lifecycles.changed";
     } & JobLifecyclesChanged)
+  /** What changed in a Job's thread as Fleet folds it: the items from `from` to the end, and the head. */
+  | ({
+      kind: "job_thread.tail";
+    } & JobThreadTail)
+  /** A change reached back further than `THREAD_TAIL_MOST` items from the end of a Job's thread: read `get_job_thread` again. */
+  | ({
+      kind: "job_thread.changed";
+    } & JobThreadChanged)
   /** A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed in a repository: read `list_keep_drafts` again. */
   | ({
       kind: "keep_drafts.changed";
