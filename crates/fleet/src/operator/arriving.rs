@@ -258,6 +258,11 @@ pub struct Arrival {
 }
 
 impl Arrival {
+    /// A note the person sent to a Job himself, which the Operator may move or leave.
+    pub fn is_sent_note(&self) -> bool {
+        self.id.starts_with(super::sources::SENT_NOTE)
+    }
+
     /// The item as the call reads it, numbered `at`.
     pub(super) fn shown(&self, at: usize) -> String {
         let mut out = format!("  {at}. {}, {}: \"{}\" in repository {}", self.arrived.said(), self.source.said(), self.subject, self.manifest_id);

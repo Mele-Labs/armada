@@ -171,7 +171,7 @@ A dispatch goes through the proposer, then the [Operator](operator.md), which ru
 |  | Proposer | Operator |
 | --- | --- | --- |
 | Runs | On every start from the sheet | On every arrival, a dispatch after the proposer has read it |
-| Budget | Tight | `limits.operatorDailyCalls` a day |
+| Budget | Tight | None while the week's plan is below `limits.operatorPlanPause` |
 | Model | `models.proposer` | `models.operator` |
 
 It shares the `ModelClient` adapter with the [Judge](judge.md) — same client, different callers, model as a parameter.

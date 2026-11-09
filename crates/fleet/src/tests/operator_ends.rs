@@ -18,10 +18,10 @@ use super::session_host::{eventually, Rig};
 use crate::operator::{keep_the_ends_told, Answering, Arrival, Arrived, Calling, Source, Way};
 use crate::CallFailed;
 
-/// With a file way offered and no live Job near it, an end is offered: 1 file, 2 new job, 3 raise, 4 noted.
-const NOTED: &str = "item: 1\nway: 4\njob: none\nshared: none\nwhat: none\nbecause: nothing follows";
-/// With a Job waiting on it: 1 file, 2 existing job, 3 new job, 4 raise, 5 noted.
-const NOTED_WITH_A_WAITER: &str = "item: 1\nway: 5\njob: none\nshared: none\nwhat: none\nbecause: nothing follows";
+/// With a file way offered and no live Job near it, an end is offered: 1 file, 2 raise, 3 noted.
+const NOTED: &str = "item: 1\nway: 3\njob: none\nshared: none\nwhat: none\nbecause: nothing follows";
+/// With a Job waiting on it: 1 file, 2 existing job, 3 raise, 4 noted.
+const NOTED_WITH_A_WAITER: &str = "item: 1\nway: 4\njob: none\nshared: none\nwhat: none\nbecause: nothing follows";
 
 async fn end(rig: &Rig, id: &SessionId) {
     Arc::clone(&rig.fleet).close_session(CloseSession { session_id: id.clone() }).await.expect("closed");
@@ -100,7 +100,7 @@ async fn operator_ends_a_job_that_ends_after_start_arrives_once_with_its_summary
     for part in [
         "A Job ended, one of Fleet's own: \"Build the pane\"",
         "What it said it achieved: Moved the pane to the store. It keeps scrollback now.",
-        "The ways it is offered: 1. file a new issue; 2. new job; 3. raise; 4. noted, nothing follows\n",
+        "The ways it is offered: 1. file a new issue; 2. raise; 3. noted, nothing follows\n",
     ] {
         assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
     }

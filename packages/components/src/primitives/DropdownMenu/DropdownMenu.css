@@ -137,6 +137,25 @@
   white-space: nowrap;
 }
 
+/* A label with what choosing it does under it: the row grows past its height to hold both lines. */
+.armada-dropdown-menu__item:has(> .armada-dropdown-menu__text[data-described]) {
+  height: auto;
+  min-height: var(--h-menu-item);
+  padding-block: var(--space-2);
+}
+
+.armada-dropdown-menu__text[data-described] {
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+}
+
+.armada-dropdown-menu__description {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-muted);
+}
+
 /* A filter's count, Tabs' own rule: trailing mono in --fg-subtle, never a
  * filled pill, and --weight-body so a medium trigger does not lift the number
  * into the label. */

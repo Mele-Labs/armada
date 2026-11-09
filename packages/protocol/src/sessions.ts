@@ -19,6 +19,7 @@ import type { JudgeReading } from "./judge";
 import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
 import type { InFlight } from "./lifecycles";
+import type { JobMark } from "./job-mark";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -267,6 +268,8 @@ export type SessionRecord = {
    * one that holds nothing and for one that has ended. Since 9 Nov 2026.
    */
   in_flight?: InFlight[];
+  /** The state the Job's row in a Jobs list draws: mark, lamp and group, without words. Absent where Fleet did not read one. Since 9 Nov 2026. */
+  mark?: JobMark;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */
@@ -415,7 +418,7 @@ export type WaitingAct = {
  * the Job's browser asking him for a permission, which Bridge raised with `raise_browser_ask`. Fleet holds it in memory only. Answering with a `choice`
  * publishes `browser.ask_answered` with that index and removes it, and dismissing publishes it with `choice: null`. The agent is told nothing and is not
  * woken. Words alone are refused. It goes when `end_browser_ask` names it, when Fleet restarts, and when no client holds `/events` open.
- * `operator_suggestion` (id `suggestion:<n>`, text what the Operator would do and why, act `answer`) is a role of the Operator's standing at Suggest: `Do it` (choice 0) does what On would
+ * `operator_suggestion` (id `suggestion:<n>`, text what the Operator would do and why, act `answer`) is a role of the Operator's standing at Suggest: `Do it` (choice 0) does what Decide would
  * have, `Skip` (choice 1) leaves it, and dismissing it is Skip.
  * `document` (id `document:<path>`, the page's path, text its title, act `message` whose `target` is the Job's own id) is the newest revision of a
  * page the Job wrote under `.armada/documents/` that he has not approved or sent back: a document artifact with `detail.asked` and no
@@ -665,7 +668,7 @@ export type RemoveOperatorOrder = {
 
 /**
  * `talk_to_operator` (`POST /operator/talk`): one message in the box. A fresh call with no tools answers it. 422
- * `fleet.operator_off`, `fleet.operator_ceiling`, `fleet.operator_said_nothing`. Answers `OperatorSaid`.
+ * `fleet.operator_off`, `fleet.operator_paused`, `fleet.operator_said_nothing`. Answers `OperatorSaid`.
  */
 export type TalkToOperator = {
   words: string;

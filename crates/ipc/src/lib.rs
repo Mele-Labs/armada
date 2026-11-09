@@ -107,6 +107,8 @@ mod hosted_sessions;
 mod ids;
 /// A Job's thread as a screen draws it, folded by Fleet: `get_job_thread` and `job_thread.tail`.
 mod job_thread;
+/// The state a Jobs-list row draws, on `SessionRecord::mark`.
+mod job_mark;
 /// The merge line as a screen draws it, read by Fleet: `get_merge_line_view` and `merge_line_view.changed`.
 mod merge_line_view;
 /// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
@@ -413,6 +415,7 @@ pub use session_mcp::{
 };
 pub use session_quick::SessionQuick;
 pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews};
+pub use job_mark::{JobGroup, JobLamp, JobMark, JobReading, JobState};
 pub use job_thread::{
     against_of_detail, file_call_of, kept_from, revision_paths_of_detail, revisions_of_detail, scene_of_detail, sketch_call_of,
     SketchCall, CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead,
