@@ -5,8 +5,8 @@
 //! takes that over as a view. Copying it here would make a second vocabulary.
 
 use gpui::{
-    div, prelude::*, uniform_list, Context, Entity, FocusHandle, FontWeight, Role, SharedString,
-    Subscription, UniformListScrollHandle, Window,
+    div, prelude::*, Context, Entity, FocusHandle, FontWeight, Role, SharedString,
+    ScrollHandle, Subscription, Window,
 };
 use ipc::{SessionRecord, SessionState};
 
@@ -23,7 +23,8 @@ enum Line {
 }
 
 /// The lines for `jobs`: ended Jobs leave the list, and each project's Jobs sit under its name,
-/// projects in the order their first Job came.
+/// projects in the order their first Job came. One project draws no name, as Electron's list
+/// draws a head only when more than one repository is listed (`cockpit/deck/bands.ts`).
 fn lines_of(jobs: &[SessionRecord]) -> Vec<Line> {
     let mut projects: Vec<(String, Vec<&SessionRecord>)> = Vec::new();
     for job in jobs.iter().filter(|job| job.state == SessionState::Live) {
@@ -33,10 +34,11 @@ fn lines_of(jobs: &[SessionRecord]) -> Vec<Line> {
             None => projects.push((project, vec![job])),
         }
     }
+    let headed = projects.len() > 1;
     projects
         .into_iter()
         .flat_map(|(project, jobs)| {
-            std::iter::once(Line::Project(project.into())).chain(jobs.into_iter().map(|job| Line::Job {
+            headed.then(|| Line::Project(project.into())).into_iter().chain(jobs.into_iter().map(|job| Line::Job {
                 id: job.id.as_str().to_string().into(),
                 title: job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()).into(),
             }))
@@ -51,7 +53,7 @@ pub struct JobsList {
     /// The Job opened with Enter or a press.
     opened: Option<SharedString>,
     focus: FocusHandle,
-    scroll: UniformListScrollHandle,
+    scroll: ScrollHandle,
     _watch: Option<Subscription>,
 }
 
@@ -79,7 +81,7 @@ impl JobsList {
             Line::Job { id, .. } => Some(id.clone()),
             Line::Project(_) => None,
         });
-        JobsList { lines, focused, opened: None, focus: cx.focus_handle(), scroll: UniformListScrollHandle::new(), _watch: watch }
+        JobsList { lines, focused, opened: None, focus: cx.focus_handle(), scroll: ScrollHandle::new(), _watch: watch }
     }
 
     pub fn focus_handle(&self) -> &FocusHandle {
@@ -108,7 +110,7 @@ impl JobsList {
             }
             if let Some(id) = self.job_at(at as usize).cloned() {
                 self.focused = Some(id);
-                self.scroll.scroll_to_item(at as usize, gpui::ScrollStrategy::Nearest);
+                self.scroll.scroll_to_item(at as usize);
                 cx.notify();
                 return;
             }
@@ -129,21 +131,31 @@ impl JobsList {
         }
     }
 
+    /// One line as Electron's Cockpit list draws it (`cockpit/deck/deck.css`, `console-bridge.css`): a
+    /// project's head in small mono capitals over a rule, and each Job as a strip with a lamp bar at
+    /// its left and a status slot at its right. The lamp and the glyph are a Job's state, which Fleet
+    /// does not send yet, so the lamp is idle and the slot is empty.
     fn render_line(&self, at: usize, cx: &mut Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
-        let row = look.length(token::H_ROW);
+        let after_job = at > 0 && matches!(self.lines[at - 1], Line::Job { .. });
         match &self.lines[at] {
             Line::Project(name) => labelled(
                 div()
                     .id(("project", at))
-                    .w_full()
-                    .h(row)
-                    .px(look.length(token::SPACE_4))
-                    .pt(look.length(token::SPACE_2))
+                    .flex_none()
                     .flex()
-                    .items_end()
-                    .text_size(look.length(token::TEXT_XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .items_center()
+                    .h(look.length(token::SPACE_6))
+                    .when(at > 0, |head| head.mt(look.length(token::SPACE_3)))
+                    .mb(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_2))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    // `--cb-code`: four fifths of the smallest text.
+                    .text_size(look.length(token::TEXT_2XS) * 0.8)
+                    .line_height(look.length(token::LEADING_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                     .text_color(look.color(token::FG_MUTED))
                     .child(name.to_uppercase()),
                 Role::Heading,
@@ -153,32 +165,53 @@ impl JobsList {
             Line::Job { id, title } => {
                 let focused = self.focused.as_ref() == Some(id);
                 let opened = self.opened.as_ref() == Some(id);
-                let bar = if focused { look.color(token::ACCENT) } else { gpui::transparent_black() };
+                let edge = if opened { token::ACCENT } else { token::BORDER_SUBTLE };
                 let ground = if opened {
-                    look.color(token::SURFACE_ROW_SELECTED)
+                    look.color(token::ACCENT_MUTED)
                 } else if focused {
-                    look.color(token::SURFACE_ROW_HOVER)
+                    look.color(token::BG_HOVER)
                 } else {
-                    gpui::transparent_black()
+                    look.color(token::BG_SUNKEN)
                 };
+                let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
                 let pressed = id.clone();
                 labelled(
                     div()
                         .id(("job", at))
-                        .w_full()
-                        .h(row)
+                        .relative()
+                        .flex_none()
                         .flex()
                         .items_center()
-                        .border_l(look.length(token::FOCUS_RING_WIDTH))
-                        .border_color(bar)
+                        .gap(look.length(token::SPACE_2))
+                        .h(look.length(token::SPACE_6) + look.length(token::SPACE_3))
+                        .when(after_job, |row| row.mt(look.length(token::SPACE_1)))
+                        .pl(look.length(token::SPACE_3))
+                        .pr(look.length(token::SPACE_2))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(edge))
                         .bg(ground)
-                        .hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER)))
-                        .pl(look.length(token::SPACE_4) - look.length(token::FOCUS_RING_WIDTH))
-                        .pr(look.length(token::SPACE_4))
-                        .text_size(look.length(token::TEXT_SM))
-                        .text_color(look.color(if opened { token::FG_DEFAULT } else { token::TEXT_BODY }))
-                        .font_weight(FontWeight(look.number(if opened { token::WEIGHT_MEDIUM } else { token::WEIGHT_BODY })))
-                        .child(div().truncate().child(title.clone()))
+                        .when(!opened, |row| row.hover(|style| style.bg(look.color(token::BG_HOVER))))
+                        .child(
+                            div()
+                                .absolute()
+                                .top_0()
+                                .bottom_0()
+                                .left_0()
+                                .w(look.length(token::SPACE_1))
+                                .bg(look.color(token::BORDER_STRONG)),
+                        )
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .truncate()
+                                .text_size(look.length(token::TEXT_XS))
+                                .line_height(look.length(token::LEADING_XS))
+                                .text_color(look.color(token::FG_DEFAULT))
+                                .font_weight(FontWeight(look.number(weight)))
+                                .child(title.clone()),
+                        )
+                        .child(div().flex_none().w(look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1)))
                         .on_click(cx.listener(move |this, _event, window, cx| {
                             this.focused = Some(pressed.clone());
                             this.opened = Some(pressed.clone());
@@ -196,56 +229,59 @@ impl JobsList {
 
 impl Render for JobsList {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let lines: Vec<_> = (0..self.lines.len()).map(|at| self.render_line(at, cx)).collect();
         let look = cx.look();
-        let count = self.lines.len();
         labelled(
             div()
                 .id("jobs")
                 .key_context("list")
                 .track_focus(&self.focus)
                 .on_action(cx.listener(Self::on_act))
+                .track_scroll(&self.scroll)
+                .overflow_y_scroll()
+                .size_full()
                 .flex()
                 .flex_col()
-                .size_full()
-                .bg(look.color(token::SURFACE_CANVAS))
+                .p(look.length(token::SPACE_2))
                 .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
-                .child(
-                    uniform_list("jobs-lines", count, cx.processor(|this, range: std::ops::Range<usize>, _window, cx| {
-                        range.map(|at| this.render_line(at, cx)).collect::<Vec<_>>()
-                    }))
-                    .track_scroll(&self.scroll)
-                    .flex_1()
-                    .py(look.length(token::SPACE_2)),
-                ),
+                .children(lines),
             Role::List,
             "Jobs",
         )
     }
 }
 
-/// The Jobs screen as the window draws it: the list in a column of the sidebar's width, and the
-/// rest of the window, where an opened Job will be drawn.
+/// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
+/// the left, the open Job's room in the middle, and the right column's panel. The title bar above them
+/// is its own later step.
 pub struct JobsScreen {
     pub list: Entity<JobsList>,
+}
+
+/// A deck panel's frame (`.deck-panel`): the raised ground, a heavier top edge.
+fn panel(look: &crate::look::Look) -> gpui::Div {
+    div()
+        .h_full()
+        .flex_none()
+        .bg(look.color(token::BG_RAISED))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_t(look.length(token::BORDER_WIDTH) * 2.)
+        .border_color(look.color(token::BORDER_DEFAULT))
 }
 
 impl Render for JobsScreen {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
+        let column = look.length(token::SPACE_12);
         div()
             .size_full()
             .flex()
-            .bg(look.color(token::SURFACE_CANVAS))
-            .child(
-                div()
-                    .w(look.length(token::SIDEBAR_DEFAULT))
-                    .h_full()
-                    .flex_none()
-                    .border_r(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .child(self.list.clone()),
-            )
+            .gap(look.length(token::GAP_PANEL))
+            .p(look.length(token::SPACE_3))
+            .bg(look.color(token::BG_BASE))
+            .child(panel(look).w(column * 6.).child(self.list.clone()))
             .child(div().flex_1())
+            .child(panel(look).w(column * 5.75))
     }
 }
 
@@ -264,5 +300,13 @@ mod tests {
         assert!(!lines.iter().any(|line| matches!(line, Line::Job { title, .. } if title.contains("ended"))));
         let projects: Vec<_> = lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.clone()), _ => None }).collect();
         assert_eq!(projects, vec![SharedString::from("armada"), "sample-web".into(), "sample-api".into()]);
+    }
+
+    #[test]
+    fn one_project_draws_its_jobs_with_no_head() {
+        let armada: Vec<_> = jobs().into_iter().filter(|job| job.manifest_id.as_ref().is_some_and(|id| id.as_str() == "armada")).collect();
+        let lines = lines_of(&armada);
+        assert!(!lines.is_empty());
+        assert!(lines.iter().all(|line| matches!(line, Line::Job { .. })));
     }
 }
