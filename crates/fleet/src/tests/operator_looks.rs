@@ -162,6 +162,7 @@ async fn a_ruling_goes_through_the_call_with_no_tools_and_never_through_the_one_
     let rules = Arc::new(Rules::default());
     let reads = Reads::saying(&[&reply("Nothing.")]);
     seated(&rig, rules.clone(), reads.clone()).await;
+    asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
     let start = asked(&rig, ISSUE).await;
 
     rig.fleet.start_handed(start.as_str(), crate::operator::Source::Dispatch, ISSUE).await;
