@@ -193,3 +193,33 @@ async fn a_key_for_a_workspace_that_is_not_there_is_not_declared() {
     .to_string();
     assert!(refused.contains("nope:test"), "{refused}");
 }
+
+/// This repository's own manifests, not Kit's copy of them.
+fn this_repository_covers(paths: &[&str]) -> Vec<String> {
+    let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+    let changed: Vec<String> = paths.iter().map(|path| path.to_string()).collect();
+    crate::manifests::Manifests::load_over(root, None)
+        .expect("this repository's manifests read")
+        .covering(&changed)
+}
+
+#[test]
+fn a_path_in_the_native_bridge_names_its_own_test_and_none_of_the_roots() {
+    let covered = this_repository_covers(&["crates/bridge-native/src/keymap.rs"]);
+    assert_eq!(covered, ["crates/bridge-native:test"]);
+}
+
+#[test]
+fn a_path_in_a_crate_the_native_bridge_links_does_not_name_its_test() {
+    let covered = this_repository_covers(&["crates/ipc/src/lib.rs"]);
+    assert!(!covered.iter().any(|key| key.starts_with("crates/bridge-native:")), "{covered:?}");
+}
+
+#[test]
+fn the_native_bridge_test_is_never_a_gate() {
+    let root = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+    let manifests = crate::manifests::Manifests::load_over(root, None).expect("read");
+    let (manifest, name) = manifests.named("crates/bridge-native:test");
+    let check = manifest.check(name).expect("the native Bridge declares `test`");
+    assert_eq!(check.runs_at(), core_model::RunsAt::PrePr);
+}
