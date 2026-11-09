@@ -161,7 +161,13 @@ export function FlightGroup({
       data-step={step}
       data-open={open || undefined}
       data-agents={subagents.length || undefined}
-      style={subagents.length === 0 ? undefined : ({ "--agents": subagents.length } as CSSProperties)}
+      style={
+        subagents.length === 0
+          ? undefined
+          : ({
+              "--agents": subagents.length,
+            } as CSSProperties)
+      }
     >
       <button
         type="button"
@@ -182,7 +188,9 @@ export function FlightGroup({
             {group.title}
           </span>
           {subagents.map((one) => {
-            const said = one.running ? `Subagent at work on ${one.task}` : `Subagent, finished: ${one.task}`;
+            const said = one.running
+              ? `Subagent at work on ${one.task}`
+              : `Subagent, finished: ${one.task}`;
             return (
               <Tooltip key={one.id} label={said}>
                 <Button

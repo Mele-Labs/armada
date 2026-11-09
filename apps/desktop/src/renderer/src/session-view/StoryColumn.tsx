@@ -299,7 +299,8 @@ export function StoryColumn({
   const atWork = planned ? [] : subagentsAtWork(session);
   // A drone on a plan group opens its subagent's thread: a tab of the Job drawn in panes, else the sheet the ledger's row for it opens.
   const toSubagent = (id: string) =>
-    openSubagent(session, id) || entries.find((one) => one.kind === "subagent" && one.key === id)?.onOpen?.();
+    openSubagent(session, id) ||
+    entries.find((one) => one.kind === "subagent" && one.key === id)?.onOpen?.();
   const kept = (session.later ?? []).filter((one) => one.confirmed !== true);
   const brief = briefOf(session);
   const working_ = session.turn.state === "working";

@@ -18,7 +18,11 @@ export const subagentsAtWork = (session: Session): SubagentAtWork[] =>
             id: one.id,
             task: one.task,
             agentType: one.agentType,
-            ...(one.group === undefined ? {} : { group: one.group }),
+            ...(one.group === undefined
+              ? {}
+              : {
+                  group: one.group,
+                }),
           },
         ]
       : [],
@@ -32,12 +36,21 @@ export type SubagentOnGroup = {
 };
 
 /** Every subagent by the plan group the agent named for it, a fact Fleet kept, running or finished. One that named none is on no group. */
-export const subagentsByGroup = (session: Session): ReadonlyMap<string, readonly SubagentOnGroup[]> => {
+export const subagentsByGroup = (
+  session: Session,
+): ReadonlyMap<string, readonly SubagentOnGroup[]> => {
   const by = new Map<string, SubagentOnGroup[]>();
   for (const one of attachmentsOf(session, "subagent")) {
     if (one.group === undefined) continue;
-    const placed = { id: one.id, task: one.task, running: one.state === "running" };
-    by.set(one.group, [...(by.get(one.group) ?? []), placed]);
+    const placed = {
+      id: one.id,
+      task: one.task,
+      running: one.state === "running",
+    };
+    by.set(one.group, [
+      ...(by.get(one.group) ?? []),
+      placed,
+    ]);
   }
   return by;
 };

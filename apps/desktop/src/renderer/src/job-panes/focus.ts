@@ -65,7 +65,8 @@ export function focusSubagent(jobId: string, id: string, title: string): void {
     .find((tab) => tab.kind === "subagent" && tab.page === id);
   if (open !== undefined) return look(jobId, (one) => activate(one, open.id));
   const holder = holderOf(arrangement, "subagent") ?? holderOf(arrangement, "thread");
-  if (holder !== undefined) return look(jobId, (one) => addTab(one, holder.id, "subagent", title, id));
+  if (holder !== undefined)
+    return look(jobId, (one) => addTab(one, holder.id, "subagent", title, id));
   rearrange(jobId, (one) => arrive(one, "subagent", title, id), undefined, true);
 }
 
