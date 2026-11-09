@@ -4,7 +4,31 @@
 
 import { Fragment, createContext, useContext, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
-import { Bot, Check, Clock, GripVertical, LoaderCircle, Lock, MessagesSquare } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Bot,
+  Check,
+  Clock,
+  CornerUpRight,
+  DoorOpen,
+  GitMerge,
+  GripVertical,
+  Hand,
+  Link,
+  LoaderCircle,
+  Lock,
+  Megaphone,
+  MessageSquareText,
+  MessagesSquare,
+  Pause,
+  Play,
+  Power,
+  PowerOff,
+  RotateCcw,
+  Ticket,
+  Undo2,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Button,
   DropdownMenu,
@@ -59,6 +83,7 @@ import {
   waitSaid,
 } from "./model";
 import type {
+  OperatorDid,
   OperatorJob,
   OperatorLineRow,
   OperatorLogRow,
@@ -286,6 +311,55 @@ function LineText({ row }: { row: OperatorLineRow }) {
   );
 }
 
+/** What kind of thing a row is, at a glance: the Operator decided it, it came to you, the Operator acted on a Job, or you did. */
+type LogKind = "decided" | "to-you" | "acted" | "you";
+
+const KIND_SAID: Readonly<Record<LogKind, string>> = {
+  decided: "Decided",
+  "to-you": "Came to you",
+  acted: "Coordinated",
+  you: "You",
+};
+
+const KIND_OF_DID: Readonly<Record<OperatorDid, LogKind>> = {
+  answered: "decided",
+  overruled: "decided",
+  raised: "to-you",
+  passed_on: "to-you",
+  delegated: "acted",
+  existing: "acted",
+  merged: "acted",
+  in_touch: "acted",
+  held: "acted",
+  started: "acted",
+  filed: "acted",
+  released: "acted",
+  returned: "acted",
+  resumed: "acted",
+  moved: "acted",
+};
+
+/** The glyph on the Log's spine: what was done. */
+const GLYPH_OF_DID: Readonly<Record<OperatorDid, LucideIcon>> = {
+  answered: Check,
+  overruled: Undo2,
+  raised: Hand,
+  passed_on: Hand,
+  delegated: Megaphone,
+  existing: CornerUpRight,
+  merged: GitMerge,
+  in_touch: Link,
+  held: Pause,
+  started: Play,
+  filed: Ticket,
+  released: DoorOpen,
+  returned: RotateCcw,
+  resumed: Play,
+  moved: ArrowRightLeft,
+};
+
+const kindOf = (row: OperatorLogRow): LogKind => (row.by === "you" ? "you" : KIND_OF_DID[row.did]);
+
 /** What an item was, as the row's sentence names it. */
 const NOUN: Readonly<Record<NonNullable<OperatorLogRow["about"]>, string>> = {
   question: "a question",
@@ -451,8 +525,22 @@ function Log({ store }: { store: OperatorStore }) {
           <ol className="armada-operator__log-list">
             {list.map((entry) =>
               entry.kind === "switch" ? (
-                <li key={`switch ${entry.at}`} className="armada-operator__log-switch">
-                  Operator switched {entry.on ? "on" : "off"} at {timeOf(entry.at)}
+                <li
+                  key={`switch ${entry.at}`}
+                  className="armada-operator__log-switch"
+                  data-on={entry.on || undefined}
+                >
+                  <span className="armada-operator__log-time">{timeOf(entry.at)}</span>
+                  <span className="armada-operator__log-node">
+                    {entry.on ? (
+                      <Power size={12} strokeWidth={2.25} aria-hidden />
+                    ) : (
+                      <PowerOff size={12} strokeWidth={2.25} aria-hidden />
+                    )}
+                  </span>
+                  <span className="armada-operator__log-switched">
+                    Operator switched {entry.on ? "on" : "off"}
+                  </span>
                 </li>
               ) : (
                 <LogRow key={entry.row.id} row={entry.row} />
@@ -475,13 +563,32 @@ function LogRow({ row }: { row: OperatorLogRow }) {
         : undefined;
   const quote = row.item === job?.title ? undefined : row.item;
   const open = job ?? row.names?.[0];
+  const kind = kindOf(row);
+  const Glyph =
+    row.by === "you" && row.did === "existing" ? MessageSquareText : GLYPH_OF_DID[row.did];
   return (
-    <li className="armada-operator__log-row" data-by={row.by === "you" ? "you" : "operator"}>
+    <li className="armada-operator__log-row" data-kind={kind}>
       <span className="armada-operator__log-time">{timeOf(row.at)}</span>
-      <span className="armada-operator__log-mark">
-        {row.by === "you" ? null : <Bot size={14} strokeWidth={2} aria-hidden />}
+      <span className="armada-operator__log-node">
+        <Glyph size={12} strokeWidth={2.25} aria-hidden />
       </span>
-      <div className="armada-operator__log-text">
+      <div className="armada-operator__log-card">
+        <div className="armada-operator__log-head">
+          <span className="armada-operator__log-kind">
+            {kind === "you" ? null : <Bot size={12} strokeWidth={2.25} aria-hidden />}
+            {KIND_SAID[kind]}
+          </span>
+          {open === undefined ? null : (
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Open Job: ${open.title}`}
+              onClick={() => openJob(open.session)}
+            >
+              Open Job
+            </Button>
+          )}
+        </div>
         <span className="armada-operator__log-said">{sentenceOf(row, job)}</span>
         {quote === undefined ? null : <span className="armada-operator__log-quote">“{quote}”</span>}
         {row.why === "" ? null : <span className="armada-operator__log-why">{row.why}</span>}
@@ -489,18 +596,6 @@ function LogRow({ row }: { row: OperatorLogRow }) {
           <span className="armada-operator__log-why">You changed it to {row.changed}</span>
         )}
       </div>
-      {open === undefined ? (
-        <span />
-      ) : (
-        <Button
-          size="sm"
-          variant="ghost"
-          aria-label={`Open Job: ${open.title}`}
-          onClick={() => openJob(open.session)}
-        >
-          Open Job
-        </Button>
-      )}
     </li>
   );
 }
