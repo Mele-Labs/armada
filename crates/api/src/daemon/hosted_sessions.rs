@@ -276,6 +276,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         retry: ipc::RetryHandoff,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `view_session`: a Job came on screen in a visible window, or left it. Answers the Job, with
+    /// `viewed_at` moved to now.
+    fn view_session(
+        &self,
+        asked: ipc::ViewSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `pause_session`: ends the turn, parks the slot's work on its branch and gives the slot back.
     fn pause_session(
         &self,
