@@ -47,7 +47,7 @@ use fleet::FleetConnection;
 use jobs::{JobsList, JobsScreen};
 use keymap::KeymapController;
 use labels::label_root;
-use look::LookController;
+use look::{ActiveLook, LookController};
 use walk::fleet::WalkFleet;
 use walk::window::WalkWindow;
 
@@ -92,8 +92,10 @@ struct Shell {
 }
 
 impl Render for Shell {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        label_root(div().size_full().child(self.screen.clone()))
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // What a library widget inherits; gpui's own text colour is black.
+        let text = cx.look().color(look::token::FG_DEFAULT);
+        label_root(div().size_full().text_color(text).child(self.screen.clone()))
     }
 }
 

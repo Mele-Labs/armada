@@ -317,6 +317,8 @@ impl Render for WalkWindow {
                 .flex()
                 .flex_col()
                 .bg(look.color(token::SURFACE_CANVAS))
+                // What a library widget inherits, such as the note's typed text; gpui's own is black.
+                .text_color(look.color(token::FG_DEFAULT))
                 .font_family(look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_default())
                 .child(bar)
                 .child(div().flex_1().min_h(px(0.)).children(self.stage.as_ref().map(|stage| stage.view.clone())))
