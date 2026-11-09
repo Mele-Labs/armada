@@ -8,7 +8,7 @@ use gpui::{App, Global, SharedString};
 use ipc::{FleetBuildReport, ModelDownshift};
 
 use super::face::{
-    connection_of, Band, Build, Connection, Doctor, Face, FleetFace, Limit, Link, Outcome, Power, Repository, Restarting, Usage,
+    connection_of, Band, Build, Connection, Doctor, Face, FleetFace, Limit, Link, Outcome, Power, Repository, Restarting, Usage, Workspace,
 };
 use super::{live, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
@@ -19,6 +19,8 @@ pub struct Opening(pub Face);
 impl Global for Opening {}
 
 const PATH: &str = "/Users/nick/Library/Application Support/Armada/fleet.json";
+/// A window narrower than the row's 900px bound.
+const NARROW: gpui::Pixels = gpui::px(720.);
 const UNTIL: &str = "13 Nov, 09:00";
 
 fn report(json: &str) -> FleetBuildReport {
@@ -145,6 +147,9 @@ pub fn rest() -> Face {
             Repository { name: "sample-docs".into(), not_set_up: true },
         ],
         chosen: Some(0),
+        workspaces: vec![Workspace { name: "Storefront".into(), members: vec![1, 2] }],
+        scoped: None,
+        signed_in: true,
         manifest: true,
         downshift: None,
     }
@@ -163,9 +168,29 @@ pub fn begin(cx: &mut App) {
 
 /// Move the bar to a named scene. A scene changes the part of the face it is about and leaves the rest.
 pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
+    // A window's width is the bar's own, not the face's: a resize is the one thing here that is not data.
+    let resized = match name {
+        "narrow-window" => Some((Some(NARROW), None)),
+        "back-to-rest" => Some((None, Some(true))),
+        _ => None,
+    };
+    if let Some((width, signed_in)) = resized {
+        let bar = live(cx).ok_or("no title bar is drawn yet")?;
+        bar.update(cx, |bar: &mut TitleBar, cx| {
+            bar.width = width;
+            if let Some(signed_in) = signed_in {
+                bar.face.signed_in = signed_in;
+            }
+            cx.notify();
+        });
+        return Ok(());
+    }
     let change: fn(&mut Face) = match name {
         "rings-loading" => |face| face.usage = Usage::Loading,
-        "rings-normal" => |face| face.usage = limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h")),
+        "rings-normal" => |face| {
+            face.usage = limits((42, Band::Normal, "2h 14m"), (71, Band::Normal, "2d 17h"));
+            face.downshift = None;
+        },
         "rings-warning" => |face| face.usage = limits((62, Band::Normal, "1h 40m"), (84, Band::Warning, "2d 17h")),
         "rings-danger" => |face| face.usage = limits((97, Band::Danger, "9m"), (96, Band::Danger, "17h 3m")),
         "rings-off" => |face| face.usage = Usage::Hidden,
@@ -185,6 +210,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-drones" => |face| face.build = Some(drones()),
         "build-failed" => |face| face.build = Some(failed()),
         "build-reverting" => |face| face.build = Some(reverting()),
+        "signed-out" => |face| face.signed_in = false,
+        "signed-in" => |face| face.signed_in = true,
         "fleet-running" => |face| face.fleet = fleet(connected(), Power::Live),
         "fleet-unreachable" => |face| {
             let link = Link::Unreachable { silent: "2m".into(), last_read: Some("2m".into()) };

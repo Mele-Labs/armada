@@ -23,15 +23,15 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyView, App, Bounds, Context, DismissEvent, Entity,
-    EventEmitter, FocusHandle, FontWeight, Focusable, Global, Pixels, Role, SharedString, Subscription, Task, WeakEntity, Window,
+    canvas, div, point, prelude::*, px, Anchor, AnyView, App, Bounds, Context, DismissEvent, Entity,
+    EventEmitter, FocusHandle, FontWeight, Focusable, Global, Pixels, Role, Subscription, Task, WeakEntity, Window,
 };
 use ipc::{BuildSource, ModelDownshift};
 
 pub use face::{Connection, Face, Remedy, Restarting};
 
 use crate::assets::MARK;
-use crate::dropdown::{Dropdown, Entry, Picked};
+use crate::dropdown::{Dropdown, Entry, Gear, Picked, Row};
 use crate::generated::actions::act;
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -42,12 +42,16 @@ use parts::{glyph, mono, no_drag, sans, tip};
 #[derive(Clone, Debug, PartialEq)]
 pub enum Asked {
     Search,
+    Dispatch,
     Operator,
     Settings,
     Account,
     Doctor,
     Manifest,
     Repository(Option<usize>),
+    /// Scope the window to a Workspace, or (from its gear) open its page.
+    Workspace(usize),
+    OpenWorkspace(usize),
     AddRepository,
     NewProject,
     NewWorkspace,
@@ -96,6 +100,26 @@ struct Menu {
     kind: MenuKind,
     _picked: Subscription,
     _dismissed: Subscription,
+    _gear: Subscription,
+}
+
+/// The row is narrow below this width, as Electron's container query is (`TitleBar.css` 746). The
+/// stylesheet states it off-contract because a container condition cannot read a token.
+const NARROW_BELOW: f32 = 900.;
+
+/// An id a menu row answers to, kept for the life of the app: a row's id is a `&'static str` and the
+/// picker's ids name a Workspace and a repository by place. Each distinct id is made once.
+fn id_of(text: String) -> &'static str {
+    use std::collections::HashSet;
+    use std::sync::{Mutex, OnceLock};
+    static KNOWN: OnceLock<Mutex<HashSet<&'static str>>> = OnceLock::new();
+    let mut known = KNOWN.get_or_init(Default::default).lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(found) = known.get(text.as_str()) {
+        return found;
+    }
+    let kept: &'static str = Box::leak(text.into_boxed_str());
+    known.insert(kept);
+    kept
 }
 
 /// The ids the repository menu's entries answer to: an entry's id lives as long as the app.
@@ -129,6 +153,8 @@ pub struct TitleBar {
     before: Option<Face>,
     /// The notice's folded detail is open.
     details_open: bool,
+    /// A window width the bar draws at in place of the window's own: a walk's way of narrowing it.
+    pub width: Option<Pixels>,
 }
 
 /// The one bar of the window, for the keys that work from anywhere.
@@ -176,6 +202,7 @@ impl TitleBar {
             at: Anchors::default(),
             before: None,
             details_open: false,
+            width: None,
         }
     }
 
@@ -189,6 +216,13 @@ impl TitleBar {
         self.details_open = false;
         self.over_card = false;
         self.keys_were = None;
+        self.width = None;
+    }
+
+    /// Whether the window is narrower than the row can lay out: the start, the centre and the
+    /// Operator button go behind the menu.
+    fn narrow(&self, window: &Window) -> bool {
+        self.width.unwrap_or(window.viewport_size().width) < px(NARROW_BELOW)
     }
 
     /// Put the open Job's Layout control and view icons in the end region, or take them out. Empty,
@@ -344,23 +378,46 @@ impl TitleBar {
             }
             cx.notify();
         });
+        let gear = cx.subscribe_in(&dropdown, window, move |this, _, opened: &Gear, window, cx| {
+            this.menu = None;
+            if let Some(at) = opened.0.strip_prefix("workspace-").and_then(|n| n.parse::<usize>().ok()) {
+                this.leave_with(Asked::OpenWorkspace(at.saturating_sub(1)), window, cx);
+            }
+        });
         let keys = dropdown.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
-        self.menu = Some(Menu { dropdown, kind, _picked: picked, _dismissed: dismissed });
+        self.menu = Some(Menu { dropdown, kind, _picked: picked, _dismissed: dismissed, _gear: gear });
         cx.notify();
     }
 
     fn picked(&mut self, kind: MenuKind, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         match (kind, id) {
-            (MenuKind::Repository, "all") => self.choose_repository(None, window, cx),
+            (MenuKind::Repository | MenuKind::Account, "all") => self.choose_repository(None, window, cx),
             (MenuKind::Repository, "add-repository") => self.leave_with(Asked::AddRepository, window, cx),
             (MenuKind::Repository, "new-project") => self.leave_with(Asked::NewProject, window, cx),
             (MenuKind::Repository, "new-workspace") => self.leave_with(Asked::NewWorkspace, window, cx),
-            (MenuKind::Repository, id) => {
+            (MenuKind::Repository | MenuKind::Account, id) if id.starts_with("workspace-") => {
+                let at = id["workspace-".len()..].parse::<usize>().unwrap_or(1).saturating_sub(1);
+                self.give_keys_back(window, cx);
+                self.answer(|face| {
+                    face.scoped = Some(at);
+                    face.chosen = None;
+                }, cx);
+                cx.emit(Asked::Workspace(at));
+            }
+            (MenuKind::Repository | MenuKind::Account, id) if id.starts_with("in-") => {
+                let place = id["in-".len()..].split('-').nth(1).and_then(|n| n.parse::<usize>().ok()).unwrap_or(1).saturating_sub(1);
+                self.choose_repository(Some(place), window, cx);
+            }
+            (MenuKind::Repository | MenuKind::Account, id) if REPO.contains(&id) => {
                 if let Some(at) = REPO.iter().position(|one| *one == id) {
                     self.choose_repository(Some(at), window, cx);
                 }
             }
+            (MenuKind::Account, "manifest") => self.leave_with(Asked::Manifest, window, cx),
+            (MenuKind::Account, "search") => self.leave_with(Asked::Search, window, cx),
+            (MenuKind::Account, "dispatch") => self.leave_with(Asked::Dispatch, window, cx),
+            (MenuKind::Account, "operator") => self.leave_with(Asked::Operator, window, cx),
             (MenuKind::Build, "main") => self.change_build(BuildSource::Main, window, cx),
             (MenuKind::Build, "preview") => self.change_build(BuildSource::Preview, window, cx),
             (MenuKind::Account, "account") => self.leave_with(Asked::Account, window, cx),
@@ -380,7 +437,13 @@ impl TitleBar {
 
     fn choose_repository(&mut self, at: Option<usize>, window: &mut Window, cx: &mut Context<Self>) {
         self.give_keys_back(window, cx);
-        self.answer(|face| face.chosen = at, cx);
+        self.answer(
+            |face| {
+                face.chosen = at;
+                face.scoped = None;
+            },
+            cx,
+        );
         cx.emit(Asked::Repository(at));
     }
 
@@ -654,16 +717,82 @@ impl TitleBar {
             return;
         }
         let Some(from) = self.at.repository.get() else { return };
-        let mut entries = vec![Entry::Choice { id: "all", label: "All repositories".into(), on: self.face.chosen.is_none() }];
-        for (at, one) in self.face.repositories.iter().enumerate().take(REPO.len()) {
-            let label: SharedString = if one.not_set_up { format!("{}  Not set up", one.name).into() } else { one.name.clone() };
-            entries.push(Entry::Choice { id: REPO[at], label, on: self.face.chosen == Some(at) });
+        let entries = self.repository_entries(false);
+        self.open_menu(MenuKind::Repository, entries, "Repository", from, false, window, cx);
+    }
+
+    /// The picker's rows as Electron lists them: All, each Workspace as a heading over its
+    /// repositories, the rest, those not set up with their detail, then the acts below a rule.
+    /// `narrow` is the same list inside the menu, with no acts and the Manifest at its end.
+    fn repository_entries(&self, narrow: bool) -> Vec<Entry> {
+        let face = &self.face;
+        let all_ticked = face.chosen.is_none() && face.scoped.is_none();
+        let mut entries = vec![Entry::Search { label: "Find a repository", to_rule: narrow }];
+        entries.push(Entry::Row(Row::new("all", "All repositories").icon("layers").ticked(all_ticked)));
+        let mut in_one = vec![false; face.repositories.len()];
+        let set_up = face.repositories.iter().any(|one| !one.not_set_up);
+        if set_up {
+            entries.push(Entry::Rule);
+        }
+        for (w, workspace) in face.workspaces.iter().enumerate() {
+            let held: Vec<usize> = workspace.members.iter().copied().filter(|&at| face.repositories.get(at).is_some_and(|one| !one.not_set_up)).collect();
+            if held.is_empty() {
+                continue;
+            }
+            let heading = Row::new(id_of(format!("workspace-{}", w + 1)), workspace.name.clone()).icon("layers").ticked(face.scoped == Some(w));
+            entries.push(Entry::Row(if narrow { heading } else { heading.gear(format!("Open {}", workspace.name)) }));
+            for at in held {
+                in_one[at] = true;
+                entries.push(Entry::Row(
+                    Row::new(id_of(format!("in-{}-{}", w + 1, at + 1)), face.repositories[at].name.clone())
+                        .icon("folder-git-2")
+                        .member()
+                        .ticked(face.chosen == Some(at) && face.scoped.is_none()),
+                ));
+            }
+        }
+        for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
+            if !one.not_set_up && !in_one[at] {
+                entries.push(Entry::Row(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").ticked(face.chosen == Some(at) && face.scoped.is_none())));
+            }
+        }
+        for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
+            if one.not_set_up {
+                entries.push(Entry::Row(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").detail("Not set up").ticked(face.chosen == Some(at) && face.scoped.is_none())));
+            }
+        }
+        if narrow {
+            return entries;
         }
         entries.push(Entry::Rule);
-        entries.push(Entry::Act { id: "add-repository", label: "Add a repository".into(), icon: Some("folder-plus"), danger: false });
-        entries.push(Entry::Act { id: "new-project", label: "New project".into(), icon: Some("plus"), danger: false });
-        entries.push(Entry::Act { id: "new-workspace", label: "New workspace".into(), icon: Some("plus"), danger: false });
-        self.open_menu(MenuKind::Repository, entries, "Repository", from, false, window, cx);
+        entries.push(Entry::Row(Row::new("new-project", "New project").icon("folder-plus").accent()));
+        entries.push(Entry::Row(Row::new("add-repository", "Add a repository").icon("plus").accent()));
+        entries.push(Entry::Row(Row::new("new-workspace", "New Workspace").icon("plus").accent()));
+        entries
+    }
+
+    /// The menu's rows: the account (Sign in until a profile is the active one), Settings and
+    /// Doctor, and below a width of 900px everything the row above carries.
+    fn menu_entries(&self, narrow: bool) -> Vec<Entry> {
+        let signed_in = self.face.signed_in;
+        let account = Row::new("account", if signed_in { "Account" } else { "Sign in" }).icon("user-check");
+        let settings_key = act("open_settings").map(|row| row.shortcut).unwrap_or_default();
+        let mut entries = vec![
+            Entry::Row(if signed_in { account } else { account.attention() }),
+            Entry::Row(Row::new("settings", "Settings").icon("settings").key(settings_key)),
+            Entry::Row(Row::new("doctor", "Doctor").icon("stethoscope")),
+        ];
+        if narrow {
+            entries.push(Entry::Rule);
+            entries.extend(self.repository_entries(true));
+            entries.push(Entry::Rule);
+            entries.push(Entry::Row(Row::new("manifest", "Open the Manifest").icon("file-cog").disabled(!self.face.manifest)));
+            let key = |id: &str| act(id).map(|row| row.shortcut).unwrap_or_default();
+            entries.push(Entry::Row(Row::new("search", "Search").icon("search").key(key("command_palette"))));
+            entries.push(Entry::Row(Row::new("dispatch", "Dispatch").icon("plus").key(key("new_job")).disabled(!self.face.fleet.connection.is_live())));
+            entries.push(Entry::Row(Row::new("operator", "Operator").icon("bot").key(key("operator"))));
+        }
+        entries
     }
 
     /// The centre: the search trigger at Electron's width, its key drawn from the registry.
@@ -704,7 +833,7 @@ impl TitleBar {
     }
 
     /// The end region: the Job slot, the rings, the Operator, the Fleet dot and the Menu.
-    fn end(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    fn end(&self, narrow: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let ring = Self::focus_ring(look);
         let operator = {
             let key = act("operator").map(|row| row.shortcut).unwrap_or_default();
@@ -737,11 +866,24 @@ impl TitleBar {
             )
         };
         let menu_at = Rc::clone(&self.at.menu);
+        let signed_out = !self.face.signed_in;
         let menu = labelled(
             no_drag(parts::icon_button("menu", "menu", look.color(token::FG_MUTED), look)
                 .child(canvas(move |bounds, _, _| menu_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
                 .relative()
-                .tooltip(tip("Menu"))
+                // Nothing signed in: an amber dot at the button's bottom-right, read without the menu opened.
+                .when(signed_out, |button| {
+                    button.child(
+                        div()
+                            .absolute()
+                            .right(look.length(token::SPACE_1))
+                            .bottom(look.length(token::SPACE_1))
+                            .size(look.length(token::SPACE_2))
+                            .rounded_full()
+                            .bg(look.color(token::STATUS_AWAITING_REVIEW)),
+                    )
+                })
+                .tooltip(tip(if signed_out { "Menu, signed out" } else { "Menu" }))
                 .on_click(cx.listener(|this, _, window, cx| this.menu_pressed(window, cx)))),
             Role::Button,
             "Menu",
@@ -756,7 +898,7 @@ impl TitleBar {
             // Empty, it takes no room: a flex child with nothing in it and no gap of its own.
             .children(self.job.clone())
             .children(self.meter(look, cx))
-            .child(operator)
+            .when(!narrow, |end| end.child(operator))
             .child(self.dot(look, cx))
             .child(menu)
     }
@@ -769,11 +911,8 @@ impl TitleBar {
             return;
         }
         let Some(from) = self.at.menu.get() else { return };
-        let entries = vec![
-            Entry::Act { id: "account", label: "Sign in".into(), icon: Some("user-check"), danger: false },
-            Entry::Act { id: "settings", label: "Settings".into(), icon: Some("settings"), danger: false },
-            Entry::Act { id: "doctor", label: "Doctor".into(), icon: Some("stethoscope"), danger: false },
-        ];
+        let narrow = self.narrow(window);
+        let entries = self.menu_entries(narrow);
         self.open_menu(MenuKind::Account, entries, "Menu", from, true, window, cx);
     }
 }
@@ -787,6 +926,7 @@ impl Render for TitleBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let viewport = window.viewport_size();
+        let narrow = self.narrow(window);
         let row = div()
             .id("title-row")
             .flex_none()
@@ -802,11 +942,12 @@ impl Render for TitleBar {
                     window.start_window_move();
                 }
             })
-            .child(self.start(look, cx))
-            .child(self.centre(look, cx))
-            .child(self.end(look, cx));
+            // Narrow, the start and the centre go behind the menu and the end takes the whole row.
+            .when(!narrow, |row| row.child(self.start(look, cx)).child(self.centre(look, cx)))
+            .child(self.end(narrow, look, cx));
         div()
             .flex_none()
+            .when_some(self.width, |bar, width| bar.w(width))
             .flex()
             .flex_col()
             .child(row)

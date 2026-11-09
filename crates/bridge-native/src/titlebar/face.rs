@@ -412,6 +412,11 @@ impl Connection {
         }
     }
 
+    /// Fleet answers: the one state Dispatch is offered in.
+    pub fn is_live(&self) -> bool {
+        matches!(self, Connection::Connected { .. })
+    }
+
     pub fn is_mismatch(&self) -> bool {
         matches!(self, Connection::Mismatch { .. })
     }
@@ -477,6 +482,13 @@ pub struct Repository {
     pub not_set_up: bool,
 }
 
+/// A Workspace the picker lists as a heading, with the repositories under it by place in [`Face::repositories`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct Workspace {
+    pub name: SharedString,
+    pub members: Vec<usize>,
+}
+
 /// Everything the title bar draws, in one place the scenario fills and the wiring will.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Face {
@@ -486,6 +498,11 @@ pub struct Face {
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
     pub chosen: Option<usize>,
+    /// The Workspaces, each a heading over its repositories; the one the window is scoped to, if any.
+    pub workspaces: Vec<Workspace>,
+    pub scoped: Option<usize>,
+    /// Whether a profile is the active one: the menu's account entry says Account, else Sign in.
+    pub signed_in: bool,
     /// Whether a repository is read, which the Manifest button needs.
     pub manifest: bool,
     /// Where the step down stands, with the window's reset said as a stamp. The weekly limit's card
@@ -502,6 +519,9 @@ impl Face {
             fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None },
             repositories: Vec::new(),
             chosen: None,
+            workspaces: Vec::new(),
+            scoped: None,
+            signed_in: false,
             manifest: false,
             downshift: None,
         }
@@ -509,6 +529,9 @@ impl Face {
 
     /// The picker's trigger: the repository chosen, else `All repositories`, or the reason none is listed.
     pub fn repository_said(&self) -> SharedString {
+        if let Some(one) = self.scoped.and_then(|at| self.workspaces.get(at)) {
+            return one.name.clone();
+        }
         match self.chosen.and_then(|at| self.repositories.get(at)) {
             Some(one) => one.name.clone(),
             None if self.repositories.is_empty() => "No repository read yet".into(),
