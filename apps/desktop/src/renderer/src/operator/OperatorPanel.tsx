@@ -547,7 +547,7 @@ function Log({ store }: { store: OperatorStore }) {
                   </span>
                 </li>
               ) : (
-                <LogRow key={entry.row.id} row={entry.row} />
+                <LogRow key={entry.row.id} row={entry.row} store={store} />
               ),
             )}
           </ol>
@@ -557,8 +557,8 @@ function Log({ store }: { store: OperatorStore }) {
   );
 }
 
-/** One row: its time, the Operator's mark on its own rows, the sentence, the words it was about, why, and Open Job. */
-function LogRow({ row }: { row: OperatorLogRow }) {
+/** One row: its time, the glyph of what was done, and a card with its kind, the sentence, the words it was about, why, Overrule and Open Job. */
+function LogRow({ row, store }: { row: OperatorLogRow; store: OperatorStore }) {
   const job =
     row.from.kind === "job"
       ? row.from.job
@@ -582,16 +582,43 @@ function LogRow({ row }: { row: OperatorLogRow }) {
             {kind === "you" ? null : <Bot size={12} strokeWidth={2.25} aria-hidden />}
             {KIND_SAID[kind]}
           </span>
-          {open === undefined ? null : (
-            <Button
-              size="sm"
-              variant="secondary"
-              aria-label={`Open Job: ${open.title}`}
-              onClick={() => openJob(open.session)}
-            >
-              Open Job
-            </Button>
-          )}
+          <span className="armada-operator__log-acts">
+            {row.ways === undefined || row.ways.length === 0 ? null : (
+              <DropdownMenu
+                triggerLabel="Overrule"
+                triggerAriaLabel={`Overrule: ${row.item}`}
+                align="end"
+                portal
+                entries={row.ways.map((way) => ({
+                  kind: "item" as const,
+                  id: way,
+                  label: way,
+                  ...(row.changed === way
+                    ? {
+                        selected: true,
+                      }
+                    : {}),
+                }))}
+                onSelect={(way) =>
+                  store.act({
+                    kind: "change",
+                    log: row.id,
+                    way,
+                  })
+                }
+              />
+            )}
+            {open === undefined ? null : (
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Open Job: ${open.title}`}
+                onClick={() => openJob(open.session)}
+              >
+                Open Job
+              </Button>
+            )}
+          </span>
         </div>
         <span className="armada-operator__log-said">{sentenceOf(row, job)}</span>
         {quote === undefined ? null : <span className="armada-operator__log-quote">“{quote}”</span>}
