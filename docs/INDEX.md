@@ -350,6 +350,10 @@ approximations.
   — where a CI test shard's compile goes: 278 s, 212 of it `fleet`'s test harness, so neither sccache
   nor a nextest archive shortens a landing; `test_compile` never restored `main`'s cache, and restoring
   it saved no time; the push, plan and queue times either side of #3308 and #3310.
+- [`spikes/native-bridge-chrome.md`](spikes/native-bridge-chrome.md)
+  — whether Chrome (CEF 156) can draw inside a gpui window: yes, windowless into gpui's `surface`, so no
+  glued window; the price is a 4:2:0 conversion that muddies small coloured text, no VoiceOver until
+  Chrome's accessibility tree is mapped, hand-built input, 329 MB of bundle, and CDP answering on a port.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
