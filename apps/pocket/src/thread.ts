@@ -53,7 +53,10 @@ export function withEarlier(
   rows: readonly SessionThreadRow[],
   earlier: WireThread | undefined,
 ): SessionThreadRow[] {
-  if (earlier === undefined) return [...rows];
+  if (earlier === undefined)
+    return [
+      ...rows,
+    ];
   const id = earlier.session.id;
   return [
     ...rowsOf(sessionOfThread(earlier)).map((row) => ({
