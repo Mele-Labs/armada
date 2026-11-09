@@ -169,6 +169,28 @@ async fn two_presses_start_one_app_from_the_slot_with_the_walk_the_job_the_addre
 }
 
 #[tokio::test]
+async fn a_press_after_a_new_build_stops_the_running_app_and_starts_the_new_one() {
+    let (rig, id) = walking().await;
+    opened(&rig, &id, URL, 1).await;
+    let first = starts(&rig)[0].split(' ').next().map(str::to_string).expect("its pid");
+
+    let binary = std::fs::File::options().write(true).open(format!("{}/{BUILD}", slot(&rig))).expect("the build");
+    binary.set_modified(std::time::SystemTime::now() + Duration::from_secs(60)).expect("built again");
+    let again = rig.fleet.open_native_walk(press(&id, URL)).await.expect("opened again");
+
+    assert!(again.started, "the new build was started");
+    eventually(|| async { starts(&rig).len() == 2 }).await;
+    assert!(running(&rig, &id, URL));
+    // Gone, or a zombie not yet reaped.
+    let stopped = || {
+        let out = std::process::Command::new("ps").args(["-o", "stat=", "-p", &first]).output().expect("ps runs");
+        let stat = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        stat.is_empty() || stat.starts_with('Z')
+    };
+    eventually(|| async { stopped() }).await;
+}
+
+#[tokio::test]
 async fn the_app_goes_when_the_walk_is_closed_or_approved_and_stays_beside_another_tab() {
     let (rig, id) = walking().await;
 

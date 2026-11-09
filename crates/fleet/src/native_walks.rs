@@ -97,10 +97,20 @@ pub(crate) fn takes_no(show: &ipc::ShowWindow) -> Option<&'static str> {
     }
 }
 
+fn stop(mut one: Held) {
+    if let Some(group) = one.child.id() {
+        // The group `process_group(0)` made, so what the app started goes with it.
+        crate::session_shell::signal(group, "KILL");
+    }
+    let _ = one.child.start_kill();
+}
+
 struct Held {
     session: String,
     url: String,
     slot: String,
+    /// When the build it was started from was made.
+    built: std::time::SystemTime,
     child: tokio::process::Child,
 }
 
@@ -111,24 +121,29 @@ pub(crate) struct NativeWalks {
 }
 
 impl NativeWalks {
-    /// Start the app `spawn` makes for this Job and address, **or leave the one already running**:
-    /// `true` where this call started it. One lock holds the look and the start, so two presses at
-    /// once start one.
+    /// Start the app `spawn` makes for this Job and address, **or leave the one already running**
+    /// from this build: `true` where this call started it. One running from an older build is
+    /// stopped and started again, so a press opens the Job's latest walk without a quit first.
+    /// One lock holds the look and the start, so two presses at once start one.
     fn started_once(
         &self,
         session: &str,
         url: &str,
         slot: &str,
+        built: std::time::SystemTime,
         spawn: impl FnOnce() -> std::io::Result<tokio::process::Child>,
     ) -> std::io::Result<bool> {
         let mut held = self.held.lock().expect("not poisoned");
         // One the person closed on its own has ended, and is started again by the next press.
         held.retain_mut(|one| one.child.try_wait().map(|ended| ended.is_none()).unwrap_or(false));
-        if held.iter().any(|one| one.session == session && one.url == url) {
-            return Ok(false);
+        if let Some(at) = held.iter().position(|one| one.session == session && one.url == url) {
+            if held[at].built >= built {
+                return Ok(false);
+            }
+            stop(held.remove(at));
         }
         let child = spawn()?;
-        held.push(Held { session: session.to_string(), url: url.to_string(), slot: slot.to_string(), child });
+        held.push(Held { session: session.to_string(), url: url.to_string(), slot: slot.to_string(), built, child });
         Ok(true)
     }
 
@@ -139,13 +154,7 @@ impl NativeWalks {
             *held = kept;
             gone
         };
-        for mut one in gone {
-            if let Some(group) = one.child.id() {
-                // The group `process_group(0)` made, so what the app started goes with it.
-                crate::session_shell::signal(group, "KILL");
-            }
-            let _ = one.child.start_kill();
-        }
+        gone.into_iter().for_each(stop);
     }
 
     /// The walk on `url` ended: closed, withdrawn or approved.
@@ -192,7 +201,7 @@ where
     }
 
     /// `open_native_walk`: start the Job's own build of the native app for the walk it has open on
-    /// `open.url`, **or answer that it is already running**.
+    /// `open.url`, **or answer that it is already running** from that build.
     pub(crate) async fn native_walk_opened(&self, open: OpenNativeWalk) -> Result<NativeWalkOpened, Refusal> {
         let (id, url) = (open.session_id.as_str().trim().to_string(), open.url.trim().to_string());
         let Some(name) = walk_name(&url) else {
@@ -212,12 +221,12 @@ where
         let slot = Self::directory_of(&served, &hosting);
         let binary = Path::new(&slot).join(BINARY);
         let build_first = || self.hosted_refusal(NOT_BUILT, &format!("Build the walk first: cargo build in crates/bridge-native in {slot}"));
-        let built = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| build_first())?;
+        let made = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| build_first())?;
         let committed = {
             let (vcs, slot) = (std::sync::Arc::clone(self.vcs()), slot.clone());
             tokio::task::spawn_blocking(move || vcs.head_committed_at(&slot)).await.ok().flatten()
         };
-        let built = built.duration_since(std::time::UNIX_EPOCH).map(|since| since.as_secs() as i64).unwrap_or(0);
+        let built = made.duration_since(std::time::UNIX_EPOCH).map(|since| since.as_secs() as i64).unwrap_or(0);
         if committed.is_some_and(|committed| built < committed) {
             return Err(build_first());
         }
@@ -225,7 +234,7 @@ where
         let program = wrapped(Path::new(&slot), &binary);
         let started = self
             .native_walks()
-            .started_once(&id, &url, &slot, || {
+            .started_once(&id, &url, &slot, made, || {
                 tokio::process::Command::new(&program)
                     .args(["--walk", name, "--job", &id, "--url", &url, "--fleet-port", &port])
                     .current_dir(&slot)
