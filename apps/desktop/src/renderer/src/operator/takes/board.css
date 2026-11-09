@@ -76,8 +76,6 @@
   font-size: var(--text-2xs);
   font-weight: var(--weight-heading);
   line-height: var(--leading-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-board__lane[data-hue="done"] .armada-board__band {
@@ -217,8 +215,6 @@
   white-space: nowrap;
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-board__repo {
@@ -294,8 +290,6 @@
   font-size: var(--text-2xs);
   font-weight: var(--weight-heading);
   line-height: var(--leading-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-board__outcome-what {
@@ -329,7 +323,6 @@
 .armada-board__detail-row dt {
   color: var(--fg-muted);
   font-size: var(--text-2xs);
-  text-transform: uppercase;
 }
 
 .armada-board__detail-row dd {

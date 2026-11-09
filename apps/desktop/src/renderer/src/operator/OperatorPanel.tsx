@@ -581,7 +581,7 @@ function LogRow({ row }: { row: OperatorLogRow }) {
           {open === undefined ? null : (
             <Button
               size="sm"
-              variant="ghost"
+              variant="secondary"
               aria-label={`Open Job: ${open.title}`}
               onClick={() => openJob(open.session)}
             >
