@@ -82,7 +82,10 @@ walked it.**
 ## Build, test and load
 
 - Tests are `#[gpui::test]` with `TestAppContext` or `VisualTestContext`, run
-  only through `armada check test <name>` or `--changed`. Never `cargo test`.
+  only through `armada check crates/bridge-native:test <name>` or
+  `armada check crates/bridge-native:test --changed`. The crate is a workspace
+  of its own, so the root's `armada check test` does not reach it. Never
+  `cargo test`.
 - One build at a time, debug unless the brief says release. gpui and Chrome
   are large builds on a machine that also runs Fleet and other Jobs.
 - **Never run `rustfmt` or `cargo fmt`.**

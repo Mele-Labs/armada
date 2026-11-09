@@ -99,7 +99,8 @@ checks:
     # `acceptance` is not excepted, unlike in `test` below: `--workspace` builds
     # it too, so `-p acceptance` measures nothing the whole run does not.
     # `bridge-native` is: it is a workspace of its own, which the whole run never
-    # builds, and cargo refuses `-p` of a package outside this one.
+    # builds, and cargo refuses `-p` of a package outside this one. Its tests are
+    # `crates/bridge-native/armada.yml`'s `test`; nothing builds it on the merge line.
     narrow:
       run: cargo build --locked
       each: "-p {}"
@@ -178,7 +179,8 @@ checks:
       under: crates
       except:
         - acceptance
-        # Its own workspace, outside this one, as in `build` above.
+        # Its own workspace, outside this one, as in `build` above. Its tests are
+        # `armada check crates/bridge-native:test`.
         - bridge-native
       outside:
         - "apps/**"

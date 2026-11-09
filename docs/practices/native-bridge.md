@@ -37,7 +37,7 @@ Every screen goes through the same four steps, in order.
 
 1. An inventory of the Electron screen: its regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A native walk on mock data, in the screen's own window with a walk bar, beside the Electron screen.
+3. A native walk on mock data, in the screen's own window with a walk bar, shown alone.
    The owner names his spacing and font tweaks there, and they go into the native screen only.
 4. Land.
 
@@ -78,7 +78,7 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 |---|---|
 | A native build | Runs like any other Rust build Job: a cold one is about a minute and 2 GB, measured in [the feel spike](../spikes/native-bridge-feel.md) |
 | A build with Chrome in it | Measured heavier in [the Chrome spike](../spikes/native-bridge-chrome.md): look again before two run at once |
-| Tests | Only through `armada check test <name>` or `--changed` |
+| Tests | Only through `armada check crates/bridge-native:test <name>` or `armada check crates/bridge-native:test --changed`: the crate is a workspace of its own, so the root's `armada check test` does not reach it. `bridge-native --walk <name> --check` stays the walk's own test. CI runs the whole suite in the `native` job on any pull request whose change touches the crate, and `ci` waits on it |
 | Formatting | Never `rustfmt` or `cargo fmt` |
 
 ## What gpui cannot match
