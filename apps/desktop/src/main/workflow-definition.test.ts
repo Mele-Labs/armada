@@ -72,7 +72,12 @@ describe("what the editor changes is all that moves", () => {
             {
               enabled: true,
               model: "haiku",
-              criteria: [{ criterion_id: "addresses_the_cause", question: "Does this diff address the cause?" }],
+              criteria: [
+                {
+                  criterion_id: "addresses_the_cause",
+                  question: "Does this diff address the cause?",
+                },
+              ],
             },
           ],
           delivers: false,
