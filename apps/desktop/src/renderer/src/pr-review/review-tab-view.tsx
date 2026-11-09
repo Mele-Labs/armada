@@ -55,7 +55,7 @@ import { DraftCard, FindingCard, LineComposer } from "./lines";
 import type { Finding, ReviewPr, ToolDef } from "./model";
 import { openKind, openToolTab, openWhenDone } from "./panes";
 import { indexOfPlace, linesOfPatch, placeOfLine } from "./patch";
-import { NO_WORK, useReviewStore, useReviews } from "./store";
+import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { isWalk, onlyTools, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
@@ -116,8 +116,13 @@ const KEYS: readonly (readonly [
   ],
 ];
 
-/** The pull requests, at a commit, that Review has asked to run their tools on, for the window's life. */
-const askedOn = new Set<string>();
+/** The pull requests, at a commit, that Review has asked to run their tools on, for the life of the window's store. */
+const askedBy = new WeakMap<ReviewStore, Set<string>>();
+const askedOn = (store: ReviewStore): Set<string> => {
+  const held = askedBy.get(store) ?? new Set<string>();
+  askedBy.set(store, held);
+  return held;
+};
 
 /** Where a card sits in the margin, from the top of the grid, and the middle of its first line where the diff holds it. */
 type Placed = {
@@ -421,8 +426,8 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   useEffect(() => {
     if (!ready) return;
     const once = `${pr.key}@${pr.head}`;
-    if (askedOn.has(once)) return;
-    askedOn.add(once);
+    if (askedOn(store).has(once)) return;
+    askedOn(store).add(once);
     const now = store.get();
     const kept = now.work[pr.key] ?? NO_WORK;
     const chosen = defaultsOf(pr.manifestId, head);
@@ -648,14 +653,22 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         />
       ) : null}
       <footer className="pr-review-tab-view__foot">
-        <Button
-          variant={reviewing ? "ghost" : "secondary"}
-          size="sm"
-          aria-expanded={reviewing}
-          onClick={() => setReviewing((was) => !was)}
-        >
-          {reviewing ? "Hide review" : "Review changes"}
-        </Button>
+        {reviewing ? (
+          <Button variant="ghost" size="sm" aria-expanded onClick={() => setReviewing(false)}>
+            Hide review
+          </Button>
+        ) : (
+          <Tooltip label="Comment, approve or request changes on GitHub">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-expanded={false}
+              onClick={() => setReviewing(true)}
+            >
+              Submit review
+            </Button>
+          </Tooltip>
+        )}
       </footer>
     </div>
   );
@@ -793,7 +806,7 @@ function MarginCard({
             {MARKS.filter((one) => !(one.mark === "commented" && away)).map((one) => (
               <Button
                 key={one.mark}
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 aria-pressed={mark === one.mark}
                 onClick={() => {

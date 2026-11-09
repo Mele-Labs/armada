@@ -39,6 +39,20 @@ async function openThePullRequest() {
     .click();
 }
 
+/** Opening Review asks which tools to run. Run, and Review steps from the first file with findings, as the walk does. */
+async function runTheTools() {
+  await page
+    .getByRole("dialog", {
+      name: "Run on opening",
+    })
+    .getByRole("button", {
+      name: "Run",
+      exact: true,
+    })
+    .click();
+  await expect.element(reviewPane().getByText("file 1 of 4")).toBeVisible();
+}
+
 async function comment(line: number, words: string) {
   await reviewPane()
     .getByRole("button", {
@@ -67,6 +81,7 @@ test("Add to review puts a second comment in the pending review, and sends nothi
       exact: true,
     })
     .click();
+  await runTheTools();
 
   await comment(8, "Lock the payment row before reading what is left.");
   await reviewPane()
@@ -84,7 +99,7 @@ test("Add to review puts a second comment in the pending review, and sends nothi
   // The submit bar lists the same pending review.
   await reviewPane()
     .getByRole("button", {
-      name: "Review changes",
+      name: "Submit review",
     })
     .click();
   const pending = reviewPane()

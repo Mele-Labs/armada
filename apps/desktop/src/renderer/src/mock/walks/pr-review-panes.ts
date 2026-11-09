@@ -95,6 +95,15 @@ const prReviewPanes = walk("pr-review-panes", [
     say: "Its tab opens and runs, with no Run to press",
   },
   {
+    press: inside(
+      reader,
+      tab("Comments", {
+        exact: true,
+      }),
+    ),
+    say: "Comments, a tab in the same pane as the tools",
+  },
+  {
     look: inside(open, button(/^Go to crates\/fleet\/src\/plan_usage\.rs:\d+ in Files$/)),
     say: "Comments lists each open thread by its file and line",
   },
@@ -178,13 +187,8 @@ const prReviewPanes = walk("pr-review-panes", [
     say: "Its tabs are where he left them, with the results kept for them",
   },
   {
-    look: inside(
-      reader,
-      region("Why", {
-        exact: true,
-      }),
-    ),
-    say: "The one in front is the one that was",
+    look: comments,
+    say: "The one in front is the one that was: Comments",
   },
   {
     look: inside(files, region("crates/fleet/src/plan_usage.rs")),

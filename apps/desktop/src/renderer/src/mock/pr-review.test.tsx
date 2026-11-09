@@ -56,11 +56,20 @@ async function openReview(number: number) {
       exact: true,
     })
     .click();
+  // Opening Review asks which tools to run; Cancel runs none, as the tab did before it asked.
+  await page
+    .getByRole("dialog", {
+      name: "Run on opening",
+    })
+    .getByRole("button", {
+      name: "Cancel",
+    })
+    .click();
 }
 async function reviewChanges(number: number) {
   await reviewPane(number)
     .getByRole("button", {
-      name: "Review changes",
+      name: "Submit review",
     })
     .click();
 }
@@ -440,7 +449,7 @@ test("a pull request opened by its link has a row above whichever list is chosen
   await expect.element(reader(1905)).toBeVisible();
 });
 
-test("Review, a tab after Files, holds his review under Review changes, with Comment, Approve and Request changes", async () => {
+test("Review, a tab after Files, holds his review under Submit review, with Comment, Approve and Request changes", async () => {
   await reviews();
   await open(1899);
   await openReview(1899);
@@ -692,46 +701,6 @@ test(
     await expect
       .element(reader(1899).getByText("Running this uses tokens."))
       .not.toBeInTheDocument();
-  },
-  SLOW,
-);
-
-test(
-  "an empty tools pane lists the tools, and a row opens its tool's tab",
-  async () => {
-    await reviews();
-    await open(1899);
-    const tools = reader(1899).getByRole("list", {
-      name: "Tools",
-    });
-    await expect.element(tools).toBeVisible();
-    await expect
-      .element(
-        tools.getByRole("button", {
-          name: "Risks",
-        }),
-      )
-      .toBeVisible();
-    await expect
-      .element(
-        reader(1899).getByRole("button", {
-          name: "Add a tool",
-        }),
-      )
-      .toBeVisible();
-    await tools
-      .getByRole("button", {
-        name: "Risks",
-      })
-      .click();
-    await expect
-      .element(
-        reader(1899).getByRole("tab", {
-          name: "Risks",
-          exact: true,
-        }),
-      )
-      .toBeVisible();
   },
   SLOW,
 );

@@ -260,8 +260,12 @@ const prReviewByFile = walk("pr-review-by-file", [
 
   // 6. The submit bar.
   {
-    press: inside(reviewPane, button("Review changes")),
-    say: "Review changes opens his review under the file: the two comments, a summary and Submit",
+    hover: inside(reviewPane, button("Submit review")),
+    say: "Submit review, at the foot: comment, approve or request changes on GitHub",
+  },
+  {
+    press: inside(reviewPane, button("Submit review")),
+    say: "It opens his review under the file: the two comments, a summary, and the button that sends it",
   },
   {
     look: inside(yours, role("list", "Pending comments")),

@@ -448,8 +448,8 @@ export const theTools: Step[] = [
     say: "It starts the pending review. Nothing is posted yet",
   },
   {
-    press: inside(review(1899), button("Review changes")),
-    say: "Review changes opens his review under the file",
+    press: inside(review(1899), button("Submit review")),
+    say: "Submit review opens his review under the file",
   },
   {
     look: inside(yours, role("list", "Pending comments")),
@@ -583,7 +583,7 @@ export const theSessionsOwn: Step[] = [
     say: "Request changes on a pull request a Job holds reaches the Job too",
   },
   {
-    press: inside(review(1896), button("Review changes")),
+    press: inside(review(1896), button("Submit review")),
     say: "His review, under the file",
   },
   {

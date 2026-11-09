@@ -81,8 +81,8 @@ const prReviewStaysOpen = walk("pr-review", [
     say: "It reads the pull request a file at a time",
   },
   {
-    press: inside(review(1905), button("Review changes")),
-    say: "Review changes opens his review under the file",
+    press: inside(review(1905), button("Submit review")),
+    say: "Submit review opens his review under the file",
   },
   {
     look: inside(yours, tab("Approve")),
@@ -123,7 +123,7 @@ const prReviewStaysOpen = walk("pr-review", [
     say: "Start a review. Nothing reaches the forge until Submit",
   },
   {
-    press: inside(review(1899), button("Review changes")),
+    press: inside(review(1899), button("Submit review")),
     say: "His review",
   },
   {
