@@ -37,7 +37,7 @@ Every screen goes through the same four steps, in order.
 
 1. An inventory of the Electron screen: its regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A native walk on mock data, in the screen's own window with a walk bar, beside the Electron screen.
+3. A native walk on mock data, in the screen's own window with a walk bar, shown alone.
    The owner names his spacing and font tweaks there, and they go into the native screen only.
 4. Land.
 

@@ -370,6 +370,12 @@ approximations.
   kept for its port after switch day.
 - [`spikes/native-jobs-inventory/thread-fold-diff.md`](spikes/native-jobs-inventory/thread-fold-diff.md)
   — where Fleet's thread fold differed from Electron's, row by row, and what was kept as Electron does it.
+- [`spikes/native-titlebar-inventory/title-bar-rings-build.md`](spikes/native-titlebar-inventory/title-bar-rings-build.md)
+  — what Electron Bridge's title bar, usage rings, context ring, build switcher and Fleet-down states draw today,
+  as the spec the native title bar matches.
+- [`spikes/native-titlebar-inventory/dispatch-merge-clash.md`](spikes/native-titlebar-inventory/dispatch-merge-clash.md)
+  — what Electron Bridge's dispatch sheet, annotation layer, merge queue strip and write-clash marks draw today,
+  as the spec the native ones match.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
