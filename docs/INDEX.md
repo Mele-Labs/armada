@@ -354,6 +354,11 @@ approximations.
   — whether Chrome (CEF 156) can draw inside a gpui window: yes, windowless into gpui's `surface`, so no
   glued window; the price is a 4:2:0 conversion that muddies small coloured text, no VoiceOver until
   Chrome's accessibility tree is mapped, hand-built input, 329 MB of bundle, and CDP answering on a port.
+- [`spikes/native-bridge-feel.md`](spikes/native-bridge-feel.md)
+  — how the native Jobs screen feels and what it costs: a switch or keystroke in 0.2 to 0.5 ms in release
+  and under 5 ms in debug on the CPU side, 39 MB headless and 73 MB as a real window, against about 1.0 GB
+  for the Electron Bridge's main window; no thread to open yet, and vsync, present and the OS input path
+  not reachable without a window on screen.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 
