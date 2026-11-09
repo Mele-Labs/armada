@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
-use crate::thread_view::{folded, tail_of, window};
+use crate::thread_view::{folded, revision_paths, tail_of, window, Revisions};
 
 /// How many Jobs are held at once: the ones read most recently.
 pub(crate) const HELD_MOST: usize = 32;
@@ -37,6 +37,8 @@ pub(crate) enum Change {
 struct Reading {
     thread: SessionThread,
     timeline: Vec<TimelineEvent>,
+    /// The sketch revisions read so far, each once: a kept revision never changes.
+    revisions: Revisions,
     head: ThreadHead,
     items: Vec<ThreadItem>,
 }
@@ -122,11 +124,13 @@ impl Held {
         for change in heard {
             apply(&mut thread, &mut timeline, change);
         }
-        let (head, items) = folded(&thread, &timeline);
+        let mut revisions = entries.map.get_mut(id).and_then(|entry| entry.reading.take()).map(|was| was.revisions).unwrap_or_default();
+        revisions_read(&thread.session, &mut revisions).await;
+        let (head, items) = folded(&thread, &timeline, &revisions);
         if thread.session.state == SessionState::Ended {
             self.forget(&mut entries, id);
         } else if let Some(entry) = entries.map.get_mut(id) {
-            entry.reading = Some(Reading { thread, timeline, head: head.clone(), items: items.clone() });
+            entry.reading = Some(Reading { thread, timeline, revisions, head: head.clone(), items: items.clone() });
         }
         (head, items)
     }
@@ -150,6 +154,7 @@ impl Held {
         for change in changes {
             apply(&mut reading.thread, &mut reading.timeline, change);
         }
+        revisions_read(&reading.thread.session, &mut reading.revisions).await;
         let events = refolded(reading);
         if reading.thread.session.state == SessionState::Ended {
             self.forget(&mut entries, id);
@@ -167,6 +172,7 @@ impl Held {
         let Some(reading) = entry.reading.as_mut() else { return Vec::new() };
         reading.thread = thread;
         reading.timeline = timeline;
+        revisions_read(&reading.thread.session, &mut reading.revisions).await;
         let events = refolded(reading);
         if reading.thread.session.state == SessionState::Ended {
             self.forget(&mut entries, id);
@@ -177,11 +183,31 @@ impl Held {
 
 /// Fold the held thread again, keep the result, and say what moved.
 fn refolded(reading: &mut Reading) -> Vec<Event> {
-    let (head, items) = folded(&reading.thread, &reading.timeline);
+    let (head, items) = folded(&reading.thread, &reading.timeline, &reading.revisions);
     let events = events_of(&reading.thread.session.id, (&reading.head, &reading.items), (&head, &items));
     reading.head = head;
     reading.items = items;
     events
+}
+
+/// Read the sketch revisions the record names that are not read yet, off the turn loop. A file that will
+/// not read or draw is tried again at the next fold, and the sketch offers no revisions until it does.
+async fn revisions_read(record: &SessionRecord, revisions: &mut Revisions) {
+    let missing = revision_paths(record).into_iter().filter(|path| !revisions.contains_key(path)).collect::<Vec<_>>();
+    if missing.is_empty() {
+        return;
+    }
+    let read = tokio::task::spawn_blocking(move || {
+        missing
+            .into_iter()
+            .filter_map(|path| {
+                let scene = ipc::scene_of_detail(&std::fs::read_to_string(&path).ok()?)?;
+                Some((path, scene))
+            })
+            .collect::<Vec<_>>()
+    })
+    .await;
+    revisions.extend(read.unwrap_or_default());
 }
 
 /// Apply one thing heard to a thread. A row is appended, or replaces the row with its id.

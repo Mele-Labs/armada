@@ -7,11 +7,11 @@ use ipc::{
     SessionThread, SessionVoice, ThreadItem, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
-use crate::thread_view::{folded, tail_of, window};
+use crate::thread_view::{folded, tail_of, window, Revisions};
 
-const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"A"}],"edges":[]}"#;
+pub(super) const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"A"}],"edges":[]}"#;
 
-fn at(minute: u32) -> Instant {
+pub(super) fn at(minute: u32) -> Instant {
     Instant::carried(format!("2026-11-03T10:{minute:02}:00.000Z"))
 }
 
@@ -31,13 +31,13 @@ pub(super) fn tool(id: &str, minute: u32, text: &str) -> SessionRow {
     SessionRow::Tool { id: id.into(), at: at(minute), text: text.into(), subagent: None }
 }
 
-fn subagent(id: &str, minute: u32) -> SessionRow {
+pub(super) fn subagent(id: &str, minute: u32) -> SessionRow {
     let text = r#"{"id":"sub","task":"look","state":"running","since":"2026-11-03T10:00:00.000Z"}"#;
     let subagent = ipc::decode("a subagent", text.as_bytes()).expect("a subagent");
     SessionRow::Tool { id: id.into(), at: at(minute), text: "Agent look".into(), subagent: Some(subagent) }
 }
 
-fn message(id: &str, minute: u32, from: SessionVoice, text: &str, notice: Option<&str>) -> SessionRow {
+pub(super) fn message(id: &str, minute: u32, from: SessionVoice, text: &str, notice: Option<&str>) -> SessionRow {
     SessionRow::Message {
         id: id.into(),
         at: at(minute),
@@ -58,17 +58,17 @@ pub(super) fn you(id: &str, minute: u32, text: &str) -> SessionRow {
     message(id, minute, SessionVoice::You, text, None)
 }
 
-fn fleet(id: &str, minute: u32, text: &str, notice: Option<&str>) -> SessionRow {
+pub(super) fn fleet(id: &str, minute: u32, text: &str, notice: Option<&str>) -> SessionRow {
     let from = SessionVoice::Session { id: "fleet".into(), title: "Fleet".into() };
     message(id, minute, from, text, notice)
 }
 
-fn check(id: &str, minute: u32, name: &str) -> SessionRow {
+pub(super) fn check(id: &str, minute: u32, name: &str) -> SessionRow {
     let text = format!(r#"{{"kind":"check","id":"{id}","at":"{}","name":"{name}","run":1,"state":"passed"}}"#, at(minute).as_str());
     ipc::decode("a check", text.as_bytes()).expect("a check")
 }
 
-fn ask(id: &str, state: SessionAskState, questions: &[&str]) -> SessionRow {
+pub(super) fn ask(id: &str, state: SessionAskState, questions: &[&str]) -> SessionRow {
     let asked = questions
         .iter()
         .map(|question| format!(r#"{{"question":"{question}","header":"H","multi_select":false,"options":[]}}"#))
@@ -81,7 +81,7 @@ fn ask(id: &str, state: SessionAskState, questions: &[&str]) -> SessionRow {
     SessionRow::Ask { id: id.into(), at: at(0), ask: ipc::decode("a call", call.as_bytes()).expect("a call"), state, via: None }
 }
 
-fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
+pub(super) fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
     items
         .iter()
         .map(|item| match item {
@@ -95,6 +95,8 @@ fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
             ThreadItem::Document(_) => "document",
             ThreadItem::Change { .. } => "change",
             ThreadItem::NotStarted { .. } => "not_started",
+            ThreadItem::Plan(_) => "plan",
+            ThreadItem::Judged { .. } => "judged",
         })
         .collect()
 }
@@ -103,11 +105,11 @@ pub(super) fn ids(items: &[ThreadItem]) -> Vec<&str> {
     items.iter().map(ThreadItem::id).collect()
 }
 
-fn items(rows: Vec<SessionRow>) -> Vec<ThreadItem> {
-    folded(&thread(rows), &[]).1
+pub(super) fn items(rows: Vec<SessionRow>) -> Vec<ThreadItem> {
+    folded(&thread(rows), &[], &Revisions::new()).1
 }
 
-fn held(kind: &str, target: &str, detail: &[(&str, &str)]) -> Attachment {
+pub(super) fn held(kind: &str, target: &str, detail: &[(&str, &str)]) -> Attachment {
     Attachment {
         kind: kind.into(),
         manifest_id: None,
@@ -119,20 +121,20 @@ fn held(kind: &str, target: &str, detail: &[(&str, &str)]) -> Attachment {
     }
 }
 
-fn kept_sketch(title: &str, extra: &[(&str, &str)]) -> Attachment {
+pub(super) fn kept_sketch(title: &str, extra: &[(&str, &str)]) -> Attachment {
     let mut detail = vec![("form", "sketch"), ("scene", SCENE), ("title", title)];
     detail.extend_from_slice(extra);
     held("artifact", &format!("sketch:{title}"), &detail)
 }
 
-fn show_sketch(id: &str, minute: u32, title: &str, extra: &str) -> SessionRow {
+pub(super) fn show_sketch(id: &str, minute: u32, title: &str, extra: &str) -> SessionRow {
     tool(id, minute, &format!(r#"mcp__armada-fleet__show_sketch {{"title":"{title}","scene":{SCENE}{extra}}}"#))
 }
 
-fn with_ledger(rows: Vec<SessionRow>, ledger: Vec<Attachment>) -> Vec<ThreadItem> {
+pub(super) fn with_ledger(rows: Vec<SessionRow>, ledger: Vec<Attachment>) -> Vec<ThreadItem> {
     let mut one = thread(rows);
     one.session.attachments = ledger;
-    folded(&one, &[]).1
+    folded(&one, &[], &Revisions::new()).1
 }
 
 // ---- the fold
@@ -282,17 +284,24 @@ fn a_show_file_the_ledger_holds_is_a_file_opened_by_the_ledgers_own_path() {
 }
 
 #[test]
-fn a_waiting_ask_and_a_browser_reminder_are_no_items_and_the_rest_stay_rows() {
+fn a_waiting_ask_a_reminder_a_plan_row_a_delivery_row_and_a_handed_off_link_are_no_items() {
     let reminder = SessionRow::BrowserReminder { id: "b1".into(), at: at(1), tool: "Chrome".into(), address: None };
     let plan = SessionRow::Plan { id: "p1".into(), at: at(2), version: 1 };
+    let row = |text: String| -> SessionRow { ipc::decode("a row", text.as_bytes()).expect("a row") };
+    let delivery = row(format!(r#"{{"kind":"delivery","id":"d1","at":"{}"}}"#, at(3).as_str()));
+    let linked = |id: &str, replaces: &str| {
+        row(format!(r#"{{"kind":"linked","id":"{id}","at":"{}","session":{{"id":"s2","title":"Next"}},"event":"done"{replaces}}}"#, at(4).as_str()))
+    };
     let found = items(vec![
         reminder,
         ask("a1", SessionAskState::Waiting, &["Which?"]),
-        ask("a2", SessionAskState::AllowedOnce, &[]),
         plan,
+        delivery,
+        linked("l1", r#","replaces":"s0""#),
+        linked("l2", ""),
     ]);
-    assert_eq!(ids(&found), ["a2", "p1"]);
-    assert_eq!(kinds(&found), ["row", "row"]);
+    assert_eq!(ids(&found), ["l2"]);
+    assert_eq!(kinds(&found), ["row"]);
 }
 
 #[test]
@@ -380,7 +389,7 @@ fn a_value_the_person_changed_is_an_item_where_it_happened() {
         event(10, 1, TimelineKind::SessionWorkflow, "s1", "workflow: Feature  →  Fix "),
     ];
     let one = thread(vec![agent("a", 2, "x"), agent("b", 4, "y")]);
-    let (_, found) = folded(&one, &timeline);
+    let (_, found) = folded(&one, &timeline, &Revisions::new());
     assert_eq!(ids(&found), ["event:10", "a", "event:7", "b"]);
     let ThreadItem::Change { what, from, to, .. } = &found[2] else { panic!("a change") };
     assert_eq!((*what, from.as_str(), to.as_str()), (ipc::ChangedValue::Model, "opus", "sonnet"));
@@ -395,7 +404,7 @@ fn a_job_whose_agent_never_started_ends_in_a_not_started_item() {
     one.session = record(&format!(
         r#""hosted":{{"turn":{{"state":"idle"}},"mode":"auto","running":false,"start_failed":{start_failed}}}"#
     ));
-    let (_, found) = folded(&one, &[]);
+    let (_, found) = folded(&one, &[], &Revisions::new());
     let ThreadItem::NotStarted { id, at: when, cause, log } = found.last().expect("items") else { panic!("not started") };
     assert_eq!((id.as_str(), cause.as_str(), log.len()), ("not-started", "no such binary", 1));
     assert_eq!(*when, at(5), "after the last row");
@@ -417,7 +426,7 @@ fn the_open_ask_is_hosted_first_and_named_by_the_whole_command_else_detail_else_
     };
     let command = |fields: String| {
         let one = SessionThread { session: record(&fields), rows: Vec::new() };
-        folded(&one, &[]).0.asked.map(|asked| asked.command)
+        folded(&one, &[], &Revisions::new()).0.asked.map(|asked| asked.command)
     };
     assert_eq!(command(hosted(call("ls", "ls -la"))).as_deref(), Some("ls -la"));
     assert_eq!(command(hosted(call("ls", ""))).as_deref(), Some("ls"));
@@ -431,15 +440,15 @@ fn the_open_ask_is_hosted_first_and_named_by_the_whole_command_else_detail_else_
 fn an_open_call_is_the_last_row_while_a_turn_runs() {
     let rows = vec![agent("a", 1, "x"), tool("t1", 2, "Bash cargo check")];
     let running = SessionThread { session: record(r#""turn_since":"2026-11-03T10:00:00.000Z""#), rows: rows.clone() };
-    let open = folded(&running, &[]).0.open_call.expect("an open call");
+    let open = folded(&running, &[], &Revisions::new()).0.open_call.expect("an open call");
     assert_eq!((open.text.as_str(), open.since), ("Bash cargo check", at(2)));
-    assert!(folded(&thread(rows), &[]).0.open_call.is_none(), "no turn runs");
+    assert!(folded(&thread(rows), &[], &Revisions::new()).0.open_call.is_none(), "no turn runs");
     let spoke = SessionThread { session: record(r#""turn_since":"2026-11-03T10:00:00.000Z""#), rows: vec![tool("t", 1, "Bash ls"), agent("a", 2, "x")] };
-    assert!(folded(&spoke, &[]).0.open_call.is_none(), "the last row is not a tool row");
+    assert!(folded(&spoke, &[], &Revisions::new()).0.open_call.is_none(), "the last row is not a tool row");
 }
 
 fn lapsed_in(rows: Vec<SessionRow>) -> Option<(String, Vec<String>)> {
-    folded(&thread(rows), &[]).0.lapsed.map(|lapsed| (lapsed.id, lapsed.questions.into_iter().map(|one| one.question).collect()))
+    folded(&thread(rows), &[], &Revisions::new()).0.lapsed.map(|lapsed| (lapsed.id, lapsed.questions.into_iter().map(|one| one.question).collect()))
 }
 
 #[test]
@@ -472,9 +481,9 @@ fn earlier_kept_questions_come_oldest_first_under_the_newest_ones_id() {
 #[test]
 fn an_ended_job_has_nothing_lapsed() {
     let mut one = thread(vec![ask("1", SessionAskState::Kept, &["Q?"])]);
-    assert!(folded(&one, &[]).0.lapsed.is_some(), "a live Job holds it");
+    assert!(folded(&one, &[], &Revisions::new()).0.lapsed.is_some(), "a live Job holds it");
     one.session.state = ipc::SessionState::Ended;
-    assert!(folded(&one, &[]).0.lapsed.is_none());
+    assert!(folded(&one, &[], &Revisions::new()).0.lapsed.is_none());
 }
 
 #[test]
@@ -484,7 +493,7 @@ fn fleets_words_are_acts_that_are_over_and_nothing_the_agent_said_is() {
         fleet("r2", 2, "Step moved.", Some("rail_step")),
         agent("r3", 3, "Done."),
     ];
-    let acts = folded(&thread(rows), &[]).0.fleet_acts;
+    let acts = folded(&thread(rows), &[], &Revisions::new()).0.fleet_acts;
     let read = acts.iter().map(|act| (act.id.as_str(), act.state, act.kind, act.said.as_str())).collect::<Vec<_>>();
     assert_eq!(
         read,
@@ -499,7 +508,7 @@ fn fleets_words_are_acts_that_are_over_and_nothing_the_agent_said_is() {
 fn a_running_repair_and_a_coming_nudge_are_read_off_the_record() {
     let stopped = r#""stopped":{"reason":"process_gone","at":"2026-11-03T10:00:00.000Z","restart":"failed","repair":"running","said":"tool not found"}"#;
     let one = SessionThread { session: record(&format!(r#"{stopped},"stop_told_by":"2026-11-03T10:01:00.000Z""#)), rows: Vec::new() };
-    let acts = folded(&one, &[]).0.fleet_acts;
+    let acts = folded(&one, &[], &Revisions::new()).0.fleet_acts;
     assert_eq!(acts.iter().map(|act| (act.state, act.said.as_str())).collect::<Vec<_>>(), [
         (FleetActState::UnderWay, "Repair Job running"),
         (FleetActState::Coming, "Tell it to carry on or name what it waits on"),
@@ -517,12 +526,12 @@ fn the_trail_keeps_every_slot_held_and_when_each_pull_request_opened() {
     let mut pull = held("pr", "1847", &[]);
     pull.since = at(55);
     one.session.attachments = vec![standing, given_back, pull, held("branch", "fix/x", &[])];
-    let trail = folded(&one, &[]).0.trail;
+    let trail = folded(&one, &[], &Revisions::new()).0.trail;
     assert_eq!(trail.started, Instant::carried("2026-11-03T09:00:00.000Z"));
     assert_eq!(trail.bays.iter().map(|bay| (bay.slot, bay.until.is_some())).collect::<Vec<_>>(), [(2, true), (5, false)]);
     assert_eq!(trail.bays[0].until, Some(at(40)));
     assert_eq!(trail.opened.iter().map(|opened| opened.number).collect::<Vec<_>>(), [1847]);
-    let bare = folded(&thread(Vec::new()), &[]).0.trail;
+    let bare = folded(&thread(Vec::new()), &[], &Revisions::new()).0.trail;
     assert!(bare.bays.is_empty() && bare.opened.is_empty());
 }
 
