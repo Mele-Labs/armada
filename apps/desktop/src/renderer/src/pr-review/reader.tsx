@@ -2,8 +2,8 @@
 // Overview is the description first. Each explanation (`explain.tsx`) is a tab of its own: how it works (its changes grouped into
 // themes by what they make happen, each in the order it was made with why), what it changes for him, how to test it, or why it was
 // needed. An explanation names no list of files: a path is a caption on a change, and a hunk is its evidence, folded until opened.
-// The Files tab is that list, every changed file's diff as the pull request panel draws them. Checks, Commits and Review are tabs
-// too, and each tool's result is a tab in the tools pane.
+// The Files tab is that list, every changed file's diff as the pull request panel draws them. Review, Checks, Commits and Ask are
+// tabs too, and each tool's result is a tab in the tools pane.
 
 import { useState } from "react";
 import {
@@ -17,7 +17,7 @@ import {
 import { Badge, Button, DiffSize, Kbd, Prose, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
-import { AskComposer, AskedOf, Explained } from "./explain";
+import { AskedOf, Explained } from "./explain";
 import { REVIEW_KEYS, capOf } from "./key-table";
 import { ChecksMark, ReviewMark } from "./marks";
 import { Moved } from "./moved";
@@ -153,7 +153,6 @@ function Reader({
       <div className="pr-reader__panes">
         <PrPanes pr={pr} onOpenLink={onOpenLink} controls={layout} />
       </div>
-      <AskComposer pr={pr} />
     </section>
   );
 }

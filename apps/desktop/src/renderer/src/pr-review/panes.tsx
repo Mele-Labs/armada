@@ -1,8 +1,9 @@
 // The open pull request's area: its tabs in the panes a Job's are drawn in, of the pull requests' own family (`job-panes/store.ts`),
-// so a layout made here never moves a Job's. Overview, Files, Checks, Commits and Review are tabs; each tool and each explanation
+// so a layout made here never moves a Job's. Overview, Files, Review, Checks and Commits are tabs; each tool and each explanation
 // is a tab of its own, opened from + or by its number, and **runs when it is opened and has not run**, asking first as every act that
-// spends does. Comments lists the threads, and a press on one brings Files forward at its line. Focus reads one file at a time with
-// the findings beside their lines (`focus.tsx`).
+// spends does. Comments lists the threads, and a press on one brings Files forward at its line. Review reads one file at a time with
+// the findings beside their lines, runs the tools from its head and holds the submit bar (`review-tab-view.tsx`). Ask is his
+// questions and their answers, with the box he asks in.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { LoaderCircle, SquarePlus } from "lucide-react";
@@ -36,11 +37,10 @@ import {
 import { patchesOf } from "../shared-panel/pull-request-patches";
 
 import { useSendFindings } from "./acts";
-import { CommentsView } from "./comments";
 import { CommentsPane, ThreadHere } from "./comments-pane";
-import { Chosen } from "./explain";
+import { AskView, Chosen } from "./explain";
 import { AddTool } from "./flight";
-import { FocusView, GoToFile } from "./focus";
+import { GoToFile, ReviewTabView } from "./review-tab-view";
 import { HidesMark, SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, Thread, ToolDef } from "./model";
 import { indexOfPlace } from "./patch";
@@ -54,11 +54,11 @@ import { WalkView } from "./walk";
 const OFFERED: readonly TabKind[] = [
   "pr-overview",
   "pr-files",
-  "pr-focus",
+  "pr-review",
   "pr-checks",
   "pr-commits",
-  "pr-review",
   "pr-comments",
+  "pr-ask",
 ];
 
 const WHOSE = {
@@ -514,11 +514,9 @@ export function PrPanes({
           </div>
         );
       case "pr-review":
-        return (
-          <div className="job-pane__scroll">
-            <CommentsView pr={pr} send={send} />
-          </div>
-        );
+        return <ReviewTabView pr={pr} send={send} />;
+      case "pr-ask":
+        return <AskView pr={pr} />;
       case "pr-comments":
         return (
           <div className="job-pane__scroll">
@@ -527,8 +525,6 @@ export function PrPanes({
         );
       case "pr-tool":
         return <ToolBody pr={pr} id={tab.page} send={send} onOpenLink={onOpenLink} />;
-      case "pr-focus":
-        return <FocusView pr={pr} send={send} />;
       default:
         return null;
     }

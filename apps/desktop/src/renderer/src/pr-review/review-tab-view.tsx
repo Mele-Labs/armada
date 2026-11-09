@@ -1,7 +1,8 @@
-// Focus: one changed file at a time, with each finding pinned in a margin beside the lines it is about. **The finding in focus is
-// tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims, and its tie
-// goes grey. A press in the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or
-// adds to it. Go to file finds a file by a few of its letters. The submit bar holds his pending review, as Review does.
+// The Review tab: one changed file at a time, with each finding pinned in a margin beside the lines it is about. **The finding in
+// focus is tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims, and
+// its tie goes grey. The head runs the review tools, and every finished run's findings land here with no tool tab open. A press in
+// the gutter picks a line, Shift and a press picks the run to it, and the box under the run starts a review or adds to it. Go to
+// file finds a file by a few of its letters. The bar at the foot holds his pending review and Submit.
 
 import {
   useEffect,
@@ -12,12 +13,14 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { CircleDashed, CircleX, History, LoaderCircle, RefreshCw } from "lucide-react";
 import {
   Button,
   Input,
   Kbd,
   Tooltip,
   UnifiedDiff,
+  agoOf,
   scrollWithin,
   type DiffFile,
 } from "@armada/components";
@@ -25,14 +28,21 @@ import {
 import type { useSendFindings } from "./acts";
 import { CodeRefs } from "./code-refs";
 import { YourReview } from "./comments";
-import { focus, linesOfFinding, orderOf, useFocus, useGoTo, type FindingMark } from "./focus-state";
+import {
+  linesOfFinding,
+  orderOf,
+  reviewTab,
+  useGoTo,
+  useReviewTabState,
+  type FindingMark,
+} from "./review-tab-state";
 import { ranked } from "./fuzzy";
 import { DraftCard, FindingCard, LineComposer } from "./lines";
-import type { Finding, ReviewPr } from "./model";
+import type { AgentRun, Finding, ReviewPr, ToolDef } from "./model";
 import { openKind } from "./panes";
 import { indexOfPlace, linesOfPatch, placeOfLine } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
-import { toolsOf } from "./tools";
+import { isWalk, onlyTools, toolsOf } from "./tools";
 
 type Send = ReturnType<typeof useSendFindings>;
 
@@ -102,12 +112,12 @@ const samePlaces = (a: Readonly<Record<string, Placed>>, b: Readonly<Record<stri
   Object.keys(a).length === Object.keys(b).length &&
   Object.entries(a).every(([id, one]) => b[id]?.top === one.top && b[id]?.line === one.line);
 
-export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
+export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const store = useReviewStore()!;
   const reviews = useReviews();
   const work = reviews.work[pr.key] ?? NO_WORK;
   const tools = toolsOf(reviews, pr.manifestId);
-  const state = useFocus(pr.key);
+  const state = useReviewTabState(pr.key);
   const [reviewing, setReviewing] = useState(false);
   useEffect(
     () => store.readPatches(pr.key),
@@ -155,8 +165,8 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const markOfTool = (finding: Finding) =>
     tools.find((def) => def.id === finding.tool)?.mark ?? "custom";
   const focused = here.find((one) => one.id === state.finding);
-  const handled = findings.filter((one) => state.marks[one.id] !== undefined).length;
-  const unhandled = handled < findings.length;
+  const marked = findings.filter((one) => state.marks[one.id] !== undefined).length;
+  const unmarked = marked < findings.length;
   const pick = state.pick;
   const drafts = work.drafts.filter(
     (one) => one.path === path && one.line !== undefined && one.thread === undefined,
@@ -238,7 +248,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
       return;
     }
     shown.current = wanted.n;
-    const body = root.current?.querySelector<HTMLElement>(".pr-focus__body");
+    const body = root.current?.querySelector<HTMLElement>(".pr-review-tab-view__body");
     if (body !== null && body !== undefined) body.scrollTop = 0;
     root.current?.focus({
       preventScroll: true,
@@ -263,7 +273,8 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const commentedOn = (from: number, to: number) => {
     for (const one of here) {
       const at = tied.get(one.id) ?? [];
-      if (at.some((index) => index >= from && index <= to)) focus.mark(pr.key, one.id, "commented");
+      if (at.some((index) => index >= from && index <= to))
+        reviewTab.mark(pr.key, one.id, "commented");
     }
   };
   const addDraft = (body: string) => {
@@ -280,7 +291,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
       body,
     });
     commentedOn(pick.from, pick.to);
-    focus.change(pr.key, {
+    reviewTab.change(pr.key, {
       pick: undefined,
     });
   };
@@ -302,7 +313,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
         ))}
         {writing ? (
           <LineComposer
-            keep={`pr-review:${pr.key}:focus:${path}:${pick.from}-${pick.to}`}
+            keep={`pr-review:${pr.key}:review-tab:${path}:${pick.from}-${pick.to}`}
             label="Comment"
             action={pending === 0 ? "Start a review" : `Add to review (${pending})`}
             {...(pending === 0
@@ -318,7 +329,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
               : {})}
             onAdd={addDraft}
             onCancel={() =>
-              focus.change(pr.key, {
+              reviewTab.change(pr.key, {
                 pick: undefined,
               })
             }
@@ -344,7 +355,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
         shift: boolean;
       },
     ) =>
-      focus.change(pr.key, {
+      reviewTab.change(pr.key, {
         pick:
           held.shift && pick !== undefined
             ? {
@@ -360,13 +371,13 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
 
   const at = path === undefined ? -1 : files.indexOf(path);
   const toFile = (to: string | undefined) => {
-    if (to !== undefined) focus.go(pr.key, to);
+    if (to !== undefined) reviewTab.go(pr.key, to);
   };
 
   return (
-    <div ref={root} className="pr-focus" tabIndex={-1}>
-      <header className="pr-focus__head">
-        <span className="pr-focus__steps">
+    <div ref={root} className="pr-review-tab-view" tabIndex={-1}>
+      <header className="pr-review-tab-view__head">
+        <span className="pr-review-tab-view__steps" role="group" aria-label="Files">
           <Button
             variant="ghost"
             size="sm"
@@ -376,6 +387,9 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
           >
             Previous
           </Button>
+          <span className="pr-review-tab-view__of">
+            {files.length === 0 ? "" : `file ${at + 1} of ${files.length}`}
+          </span>
           <Button
             variant="ghost"
             size="sm"
@@ -386,15 +400,20 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
             Next
           </Button>
         </span>
-        <span className="pr-focus__path" title={path}>
+        <span className="pr-review-tab-view__path" title={path}>
           {path ?? ""}
         </span>
-        <span className="pr-focus__of">
-          {files.length === 0 ? "" : `file ${at + 1} of ${files.length}`}
-        </span>
-        <span className="pr-focus__handled">
-          {findings.length === 0 ? "" : `${handled} of ${findings.length} handled`}
-        </span>
+        {/* Drawn empty where there are no findings, so the columns after it stay where they are. */}
+        {findings.length === 0 ? (
+          <span className="pr-review-tab-view__marked" />
+        ) : (
+          <Tooltip label="Findings marked Expected, Not valid or Commented, across every file">
+            <span className="pr-review-tab-view__marked">
+              {`${marked} of ${findings.length} findings marked`}
+            </span>
+          </Tooltip>
+        )}
+        <RunTools pr={pr} />
         <Tooltip label="Keys">
           <Button
             variant="ghost"
@@ -403,7 +422,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
             aria-label="Keys"
             aria-expanded={state.keys}
             onClick={() =>
-              focus.change(pr.key, {
+              reviewTab.change(pr.key, {
                 keys: !state.keys,
               })
             }
@@ -413,9 +432,9 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
         </Tooltip>
       </header>
       {state.keys ? (
-        <dl className="pr-focus__keys" aria-label="Keys">
+        <dl className="pr-review-tab-view__keys" aria-label="Keys">
           {KEYS.map(([keys, does]) => (
-            <div key={does} className="pr-focus__key">
+            <div key={does} className="pr-review-tab-view__key">
               <dt>
                 {keys.map((one) => (
                   <Kbd key={one}>{one}</Kbd>
@@ -426,20 +445,22 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
           ))}
         </dl>
       ) : null}
-      <div className="pr-focus__body">
-        <div ref={grid} className="pr-focus__grid">
+      <div className="pr-review-tab-view__body">
+        <div ref={grid} className="pr-review-tab-view__grid">
           <div
-            className="pr-focus__diff"
+            className="pr-review-tab-view__diff"
             data-tool={focused === undefined ? undefined : markOfTool(focused)}
           >
             {file === undefined ? (
-              <p className="pr-focus__said">No files changed.</p>
+              <p className="pr-review-tab-view__said">No files changed.</p>
             ) : every.state !== "read" ? (
-              <p className="pr-focus__said">
+              <p className="pr-review-tab-view__said">
                 {every.state === "said" ? every.said : "Reading the diff."}
               </p>
             ) : lines.length === 0 ? (
-              <p className="pr-focus__said">{patch?.said ?? "No lines changed in this file."}</p>
+              <p className="pr-review-tab-view__said">
+                {patch?.said ?? "No lines changed in this file."}
+              </p>
             ) : (
               <UnifiedDiff
                 bare
@@ -454,17 +475,19 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
           </div>
           <aside
             ref={margin}
-            className="pr-focus__margin"
+            className="pr-review-tab-view__margin"
             aria-label="Findings"
             style={{
               minHeight: floor,
             }}
           >
             {findings.length === 0 ? (
-              <p className="pr-focus__said">No findings. A tool's findings are drawn here.</p>
+              <p className="pr-review-tab-view__said">
+                No findings. A tool's findings are drawn here.
+              </p>
             ) : null}
             {stacked.map((one) => (
-              <FocusCard
+              <MarginCard
                 key={one.id}
                 pr={pr}
                 finding={one}
@@ -487,7 +510,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
                 onComment={() => {
                   const at = tied.get(one.id) ?? [];
                   if (at.length === 0) return;
-                  focus.change(pr.key, {
+                  reviewTab.change(pr.key, {
                     finding: one.id,
                     pick: {
                       from: at[0]!,
@@ -500,7 +523,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
             {anchorAt === undefined ? null : (
               <span
                 ref={anchor}
-                className="pr-focus__anchor"
+                className="pr-review-tab-view__anchor"
                 aria-hidden
                 style={{
                   top: anchorAt,
@@ -511,10 +534,10 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
         </div>
       </div>
       {reviewing ? (
-        <div className="pr-focus__review">
+        <div className="pr-review-tab-view__review">
           <YourReview
             pr={pr}
-            {...(unhandled
+            {...(unmarked
               ? {
                   caution: "Some findings are not marked. Submit again to send the review.",
                 }
@@ -522,7 +545,7 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
           />
         </div>
       ) : null}
-      <footer className="pr-focus__foot">
+      <footer className="pr-review-tab-view__foot">
         <Button
           variant={reviewing ? "ghost" : "secondary"}
           size="sm"
@@ -536,8 +559,87 @@ export function FocusView({ pr, send }: { pr: ReviewPr; send: Send }) {
   );
 }
 
+/** What a tool's run is, as its button in the head says it: the glyph, and the words its tooltip reads. */
+function runState(run: AgentRun | undefined, head: string) {
+  if (run === undefined || run.state === "idle")
+    return {
+      run: "idle",
+      Glyph: CircleDashed,
+      said: "Not run",
+    } as const;
+  if (run.state === "running")
+    return {
+      run: "running",
+      Glyph: LoaderCircle,
+      said: "Running",
+    } as const;
+  if (run.state === "failed")
+    return {
+      run: "failed",
+      Glyph: CircleX,
+      said: `Failed. ${run.said}`,
+    } as const;
+  const stale = run.head !== head;
+  return {
+    run: "done",
+    Glyph: stale ? RefreshCw : History,
+    said: stale
+      ? `Done on ${run.head.slice(0, 7)}. The pull request is at ${head.slice(0, 7)}`
+      : `Done ${agoOf(new Date(run.at).toISOString())} on ${run.head.slice(0, 7)}`,
+  } as const;
+}
+
+/**
+ * The review tools that find things, one button each in the head. A press runs one that has not run, or runs one again, asking
+ * first as every run does; its findings land beside their lines here.
+ */
+function RunTools({ pr }: { pr: ReviewPr }) {
+  const store = useReviewStore()!;
+  const reviews = useReviews();
+  const work = reviews.work[pr.key] ?? NO_WORK;
+  const tools = onlyTools(toolsOf(reviews, pr.manifestId)).filter((one) => !isWalk(one));
+  if (tools.length === 0) return <span className="pr-review-tab-view__tools" />;
+  const press = (tool: ToolDef) => {
+    const run = work.runs[tool.id];
+    if (run?.state === "running") return;
+    store.spend(tool.name, () =>
+      run === undefined || run.state === "idle"
+        ? store.runTool(pr.key, tool)
+        : store.rerun(pr.key, tool),
+    );
+  };
+  return (
+    <span className="pr-review-tab-view__tools" role="group" aria-label="Tools">
+      {tools.map((tool) => {
+        const { run, Glyph, said } = runState(work.runs[tool.id], pr.head);
+        return (
+          <Tooltip key={tool.id} label={`${tool.name}. ${said}`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              data-run={run}
+              aria-label={
+                run === "idle"
+                  ? `Run ${tool.name}`
+                  : run === "running"
+                    ? `${tool.name}, running`
+                    : `Run ${tool.name} again`
+              }
+              aria-disabled={run === "running" || undefined}
+              onClick={() => press(tool)}
+            >
+              <Glyph size={16} strokeWidth={2} aria-hidden />
+              {tool.name}
+            </Button>
+          </Tooltip>
+        );
+      })}
+    </span>
+  );
+}
+
 /** A finding in the margin, at its line, with the marks that put it away. */
-function FocusCard({
+function MarginCard({
   pr,
   finding,
   tool,
@@ -564,24 +666,24 @@ function FocusCard({
   return (
     <div
       ref={hold}
-      className="pr-focus__card"
+      className="pr-review-tab-view__card"
       data-tool={tool}
       data-focused={focused || undefined}
-      data-handled={mark !== undefined || undefined}
+      data-marked={mark !== undefined || undefined}
       data-placed={placed === undefined ? undefined : ""}
       style={{
         top,
       }}
       onFocus={() => {
         if (!focused)
-          focus.change(pr.key, {
+          reviewTab.change(pr.key, {
             finding: finding.id,
           });
       }}
     >
       {placed?.line === undefined ? null : (
         <span
-          className="pr-focus__leader"
+          className="pr-review-tab-view__leader"
           aria-hidden
           style={{
             top: placed.line - top,
@@ -601,9 +703,13 @@ function FocusCard({
           }
         >
           {away ? (
-            <p className="pr-focus__away">{`Line ${finding.at.start} is not in the diff.`}</p>
+            <p className="pr-review-tab-view__away">{`Line ${finding.at.start} is not in the diff.`}</p>
           ) : null}
-          <div className="pr-focus__marks" role="group" aria-label={`Mark ${finding.title}`}>
+          <div
+            className="pr-review-tab-view__marks"
+            role="group"
+            aria-label={`Mark ${finding.title}`}
+          >
             {/* A line the diff does not hold takes no comment, so it has no Comment; the other two keep their columns. */}
             {MARKS.filter((one) => !(one.mark === "commented" && away)).map((one) => (
               <Button
@@ -612,9 +718,9 @@ function FocusCard({
                 size="sm"
                 aria-pressed={mark === one.mark}
                 onClick={() => {
-                  if (mark === one.mark) return focus.mark(pr.key, finding.id, undefined);
+                  if (mark === one.mark) return reviewTab.mark(pr.key, finding.id, undefined);
                   if (one.mark === "commented") return onComment();
-                  focus.mark(pr.key, finding.id, one.mark);
+                  reviewTab.mark(pr.key, finding.id, one.mark);
                 }}
               >
                 {one.label}
@@ -640,7 +746,7 @@ function GoToBox({
   onFiles,
 }: {
   pr: ReviewPr;
-  to: "focus" | "files";
+  to: "review" | "files";
   onFiles: (path: string) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -652,10 +758,10 @@ function GoToBox({
   );
   const pick = (path: string | undefined) => {
     if (path === undefined) return;
-    focus.closeGoTo();
+    reviewTab.closeGoTo();
     if (to === "files") return onFiles(path);
-    focus.go(pr.key, path);
-    openKind(pr.key, "pr-focus");
+    reviewTab.go(pr.key, path);
+    openKind(pr.key, "pr-review");
   };
   const keys = (event: ReactKeyboardEvent) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -672,7 +778,7 @@ function GoToBox({
     } else if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
-      focus.closeGoTo();
+      reviewTab.closeGoTo();
     }
   };
   return (
@@ -682,7 +788,7 @@ function GoToBox({
       role="dialog"
       aria-label="Go to file"
       onBlur={(event) => {
-        if (!box.current?.contains(event.relatedTarget as Node | null)) focus.closeGoTo();
+        if (!box.current?.contains(event.relatedTarget as Node | null)) reviewTab.closeGoTo();
       }}
     >
       <Input

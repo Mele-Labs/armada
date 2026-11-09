@@ -1,4 +1,4 @@
-// What Focus holds for each open pull request, kept outside the tab so a key, a peek's Jump and Go to file can move it from
+// What the Review tab holds for each open pull request, kept outside the tab so a key, a peek's Jump and Go to file can move it from
 // anywhere: the file it reads, the finding in focus, the lines picked for a comment and how each finding was marked. Kept for the
 // window's life, not on disk: a mark is his reading of one run, and nothing on the forge sees it.
 
@@ -12,7 +12,7 @@ import type { Finding, PrWork, ReviewPr } from "./model";
 /** How he marked a finding. Any mark puts it away. */
 export type FindingMark = "expected" | "not-valid" | "commented";
 
-/** What Focus is asked to bring into view next. A new `n` each ask, so asking for the same place twice moves there twice. */
+/** What the Review tab is asked to bring into view next. A new `n` each ask, so asking for the same place twice moves there twice. */
 export type Wanted = {
   n: number;
   finding?: string;
@@ -22,8 +22,8 @@ export type Wanted = {
   };
 };
 
-export type FocusState = {
-  /** The file Focus reads. Absent: the first in its order. */
+export type ReviewTabState = {
+  /** The file the Review tab reads. Absent: the first in its order. */
   path: string | undefined;
   finding: string | undefined;
   /** Lines of the file, by their place in its drawn diff, picked for a comment. */
@@ -39,13 +39,13 @@ export type FocusState = {
   wanted: Wanted | undefined;
 };
 
-/** Go to file, while it is up, and where a pick goes: Focus, or Files where it was opened from Files. */
+/** Go to file, while it is up, and where a pick goes: Review, or Files where it was opened from Files. */
 export type GoTo = {
   key: string;
-  to: "focus" | "files";
+  to: "review" | "files";
 };
 
-const EMPTY: FocusState = {
+const EMPTY: ReviewTabState = {
   path: undefined,
   finding: undefined,
   pick: undefined,
@@ -54,7 +54,7 @@ const EMPTY: FocusState = {
   wanted: undefined,
 };
 
-const states = new Map<string, FocusState>();
+const states = new Map<string, ReviewTabState>();
 let goTo: GoTo | undefined;
 let asked = 0;
 const listeners = new Set<() => void>();
@@ -64,22 +64,22 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 
-export const focusOf = (key: string): FocusState => states.get(key) ?? EMPTY;
+export const reviewTabOf = (key: string): ReviewTabState => states.get(key) ?? EMPTY;
 
-function change(key: string, to: Partial<FocusState>): void {
+function change(key: string, to: Partial<ReviewTabState>): void {
   states.set(key, {
-    ...focusOf(key),
+    ...reviewTabOf(key),
     ...to,
   });
   told();
 }
 
-export const useFocus = (key: string): FocusState =>
-  useSyncExternalStore(subscribe, () => focusOf(key));
+export const useReviewTabState = (key: string): ReviewTabState =>
+  useSyncExternalStore(subscribe, () => reviewTabOf(key));
 
 export const useGoTo = (): GoTo | undefined => useSyncExternalStore(subscribe, () => goTo);
 
-export const focus = {
+export const reviewTab = {
   change,
   /** Reads `path`, at a finding or a line of it where one is named, and brings that into view. */
   go(
@@ -105,7 +105,7 @@ export const focus = {
     });
   },
   mark(key: string, finding: string, mark: FindingMark | undefined): void {
-    const { [finding]: _, ...rest } = focusOf(key).marks;
+    const { [finding]: _, ...rest } = reviewTabOf(key).marks;
     change(key, {
       marks:
         mark === undefined
@@ -143,7 +143,7 @@ export function linesOfFinding(lines: readonly DiffLine[], finding: Finding): nu
 }
 
 /**
- * The order Focus reads in: files with findings first, then the rest, each in the order the pull request lists them, and the
+ * The order the Review tab reads in: files with findings first, then the rest, each in the order the pull request lists them, and the
  * findings file by file, top to bottom.
  */
 export function orderOf(
@@ -188,16 +188,16 @@ export function stepFinding(
 }
 
 /**
- * A key pressed while Focus has the keyboard: `j` and `k` step through the findings and on into the next file's, `]` and `[` go
+ * A key pressed while the Review tab has the keyboard: `j` and `k` step through the findings and on into the next file's, `]` and `[` go
  * to the next and previous file, `?` puts up the key list, and Esc takes down the key list or the picked lines. Answers whether
  * it took the key; an Esc with nothing to close goes on to back out a level, as everywhere in the review.
  */
-export function focusKey(
+export function reviewTabKey(
   event: Pick<KeyboardEvent, "key">,
   pr: ReviewPr,
   work: Pick<PrWork, "findings">,
 ): boolean {
-  const state = focusOf(pr.key);
+  const state = reviewTabOf(pr.key);
   const { files, findings } = orderOf(pr, work);
   const path = state.path !== undefined && files.includes(state.path) ? state.path : files[0];
   switch (event.key) {
@@ -205,7 +205,7 @@ export function focusKey(
     case "k": {
       const to = stepFinding(findings, state.finding, path, event.key === "j" ? 1 : -1);
       if (to !== undefined)
-        focus.go(pr.key, to.at.path, {
+        reviewTab.go(pr.key, to.at.path, {
           finding: to.id,
         });
       return true;
@@ -214,7 +214,7 @@ export function focusKey(
     case "[": {
       const to =
         files[(path === undefined ? -1 : files.indexOf(path)) + (event.key === "]" ? 1 : -1)];
-      if (to !== undefined) focus.go(pr.key, to);
+      if (to !== undefined) reviewTab.go(pr.key, to);
       return true;
     }
     case "?":

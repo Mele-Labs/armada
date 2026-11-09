@@ -1,6 +1,6 @@
 // A changed file named in a finding's words opens in place. **An inline code span is a link only when it is a path the pull request
 // changes, or the end of exactly one**, with a line or a run of lines after a colon: `refund_issuer.rb:14` or
-// `app/models/payment.rb:14-19`. A press shows those lines of the diff under the words, with Jump to read them in Focus; a second press
+// `app/models/payment.rb:14-19`. A press shows those lines of the diff under the words, with Jump to read them in the Review tab; a second press
 // puts them away, and so does Esc. Prose's own reference links draw it (`ProseRefs`), so there is one parser.
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -13,7 +13,7 @@ import {
 } from "@armada/components";
 import type { ReviewPlace } from "@armada/protocol";
 
-import { focus } from "./focus-state";
+import { reviewTab } from "./review-tab-state";
 import type { ReviewPr } from "./model";
 import { openKind } from "./panes";
 import { counted, linesOfPatch, sliceAround } from "./patch";
@@ -158,7 +158,7 @@ function Peek({ pr, at, onJump }: { pr: ReviewPr; at: CodeRef; onJump: () => voi
     );
   const cut = place === undefined || !held ? lines : sliceAround(lines, place);
   const jump = () => {
-    focus.go(
+    reviewTab.go(
       pr.key,
       at.path,
       at.start === undefined
@@ -170,7 +170,7 @@ function Peek({ pr, at, onJump }: { pr: ReviewPr; at: CodeRef; onJump: () => voi
             },
           },
     );
-    openKind(pr.key, "pr-focus");
+    openKind(pr.key, "pr-review");
     onJump();
   };
   return (

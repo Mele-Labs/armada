@@ -1,4 +1,4 @@
-// One pull request for Focus to read: eight changed files, Risks findings on lines of two of them, one finding on a line the
+// One pull request for the Review tab to read: eight changed files, Risks findings on lines of two of them, one finding on a line the
 // diff does not hold, and findings whose words name other changed files by path and line. Invented, as every fixture here is.
 
 import { build, checks, commits } from "./pr-review-pages";
@@ -21,6 +21,12 @@ export const refunds = build({
   checks: "passed",
   review: "none",
   conversation: [],
+  answers: [
+    {
+      when: "retry|twice|again",
+      body: "Not twice. The job reads the refund's `state` first and leaves one that has `succeeded`, so a retry after the gateway answered does nothing. Without an idempotency key, a retry after a timeout the gateway did act on can still send a second refund.",
+    },
+  ],
   checkRows: checks("fernhill/tally", 2417, [
     [
       "rspec",

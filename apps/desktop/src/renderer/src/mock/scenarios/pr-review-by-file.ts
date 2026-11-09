@@ -1,17 +1,17 @@
-// The review surface with one more pull request asked of him, written for Focus: eight changed files, Risks findings on lines of
-// two of them, one on a line the diff does not hold, and findings naming other changed files (`../pr-focus-pages.ts`). The walk
-// `pr-focus-review` plays it.
+// The review surface with one more pull request asked of him, written for the Review tab: eight changed files, Risks findings on
+// lines of two of them, one on a line the diff does not hold, and findings naming other changed files
+// (`../pr-review-by-file-pages.ts`). The walk `pr-review-by-file` plays it.
 
 import type { Scenario } from "../moment";
-import { refunds } from "../pr-focus-pages";
+import { refunds } from "../pr-review-by-file-pages";
 import { reviewSeed } from "../pr-review-pages";
 import { s262PrReview as base } from "./pr-review";
 
 const seed = reviewSeed();
 
-export const sPrFocusReview: Scenario = {
+export const sPrReviewByFile: Scenario = {
   ...base,
-  name: "pr-focus-review",
+  name: "pr-review-by-file",
   says: "The review surface with a pull request of eight files whose Risks findings sit on lines of two of them",
   draft: {
     ...base.draft,

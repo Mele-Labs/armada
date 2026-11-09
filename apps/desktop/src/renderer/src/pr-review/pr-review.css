@@ -500,7 +500,26 @@
 .pr-asked__row[data-selected] .pr-asked__words {
   color: var(--fg-default);
 }
-/* The composer at the foot of the reader: his own question about this pull request, on one row that grows as he types. */
+/* Ask: his questions and their answers over the box he asks in, on one row that grows as he types. */
+.pr-ask {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+.pr-ask__log {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+.pr-ask__none {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
 .pr-ask-bar {
   display: flex;
   flex: none;
@@ -1410,17 +1429,18 @@
   justify-content: flex-end;
 }
 
-/* ---- Focus: one file, with each finding pinned beside its lines -------------------------------------------- */
+/* ---- Review: one file, with each finding pinned beside its lines -------------------------------------------- */
 
-.pr-focus {
+.pr-review-tab-view {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-height: 0;
   outline: none;
 }
-/* Previous and Next, the path, where it is in the order and what is handled: fixed columns, so nothing moves as the file changes. */
-.pr-focus__head {
+/* Previous, where it is in the order and Next, the path, what is marked, the tools and the keys: fixed columns, so nothing moves as the
+   file changes. */
+.pr-review-tab-view__head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto var(--h-control);
   align-items: center;
@@ -1431,11 +1451,25 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
-.pr-focus__steps {
+.pr-review-tab-view__steps {
   display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
 }
-.pr-focus__path {
+.pr-review-tab-view__tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.pr-review-tab-view__tools [data-run="running"] svg {
+  animation: pr-review-spin var(--duration-pulse) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pr-review-tab-view__tools [data-run="running"] svg {
+    animation: none;
+  }
+}
+.pr-review-tab-view__path {
   min-width: 0;
   overflow: hidden;
   color: var(--fg-default);
@@ -1444,12 +1478,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pr-focus__of,
-.pr-focus__handled {
+.pr-review-tab-view__of,
+.pr-review-tab-view__marked {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.pr-focus__keys {
+.pr-review-tab-view__keys {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-1) var(--space-3);
@@ -1459,24 +1493,24 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
-.pr-focus__key {
+.pr-review-tab-view__key {
   display: contents;
 }
-.pr-focus__key > dt {
+.pr-review-tab-view__key > dt {
   display: inline-flex;
   gap: var(--space-1);
 }
-.pr-focus__key > dd {
+.pr-review-tab-view__key > dd {
   margin: 0;
   color: var(--fg-muted);
 }
-.pr-focus__body {
+.pr-review-tab-view__body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
 }
 /* The diff and the margin share one scroll, so a card stays beside its line. */
-.pr-focus__grid {
+.pr-review-tab-view__grid {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
@@ -1484,47 +1518,47 @@
   align-items: start;
   padding: var(--space-3);
 }
-.pr-focus__diff {
+.pr-review-tab-view__diff {
   --diff-mark-hue: var(--tool-hue, var(--accent));
   min-width: 0;
 }
-.pr-focus__diff .armada-diff__line[data-mark="picked"] {
+.pr-review-tab-view__diff .armada-diff__line[data-mark="picked"] {
   --diff-mark-hue: var(--you);
 }
-.pr-focus__margin {
+.pr-review-tab-view__margin {
   position: relative;
   display: flex;
   flex-direction: column;
   row-gap: var(--space-2);
   min-width: 0;
 }
-.pr-focus__card {
+.pr-review-tab-view__card {
   position: absolute;
   right: 0;
   left: 0;
   transition: top var(--duration-fast) var(--ease);
 }
-.pr-focus__card:not([data-placed]) {
+.pr-review-tab-view__card:not([data-placed]) {
   visibility: hidden;
 }
-.pr-focus__card .pr-finding {
+.pr-review-tab-view__card .pr-finding {
   border-left: var(--space-1) solid var(--border-strong);
 }
-.pr-focus__card[data-focused] .pr-finding {
+.pr-review-tab-view__card[data-focused] .pr-finding {
   border-color: var(--tool-hue);
   border-left-color: var(--tool-hue);
   box-shadow: var(--shadow-card);
 }
 /* Marked: put away. It dims and its tie goes grey, and it still reads. */
-.pr-focus__card[data-handled] {
+.pr-review-tab-view__card[data-marked] {
   opacity: 0.55;
 }
-.pr-focus__card[data-handled] .pr-finding {
+.pr-review-tab-view__card[data-marked] .pr-finding {
   border-color: var(--border-strong);
   box-shadow: none;
 }
 /* The tie: from the middle of the finding's first line, across the gap and down to its card. */
-.pr-focus__leader {
+.pr-review-tab-view__leader {
   position: absolute;
   right: 100%;
   box-sizing: content-box;
@@ -1534,24 +1568,24 @@
   border-right: var(--border-width) dashed var(--border-strong);
   pointer-events: none;
 }
-.pr-focus__card[data-focused]:not([data-handled]) .pr-focus__leader {
+.pr-review-tab-view__card[data-focused]:not([data-marked]) .pr-review-tab-view__leader {
   border-style: solid;
   border-color: var(--tool-hue);
 }
-.pr-focus__anchor {
+.pr-review-tab-view__anchor {
   position: absolute;
   left: 0;
   width: 0;
   height: var(--leading-2xs);
 }
-.pr-focus__away {
+.pr-review-tab-view__away {
   margin: 0;
   padding: 0 var(--space-3) var(--space-2);
   color: var(--fg-muted);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
-.pr-focus__marks {
+.pr-review-tab-view__marks {
   display: grid;
   grid-template-columns: repeat(3, auto);
   justify-content: start;
@@ -1559,24 +1593,24 @@
   padding: var(--space-1) var(--space-2);
   border-top: var(--border-width) solid var(--border-subtle);
 }
-.pr-focus__marks [aria-pressed="true"] {
+.pr-review-tab-view__marks [aria-pressed="true"] {
   background: var(--bg-hover);
   color: var(--fg-default);
   font-weight: var(--weight-medium);
 }
-.pr-focus__said {
+.pr-review-tab-view__said {
   margin: 0;
   padding: var(--space-3);
   color: var(--fg-muted);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
 }
-.pr-focus__review {
+.pr-review-tab-view__review {
   max-height: 50%;
   overflow: auto;
   border-top: var(--border-width) solid var(--border-subtle);
 }
-.pr-focus__foot {
+.pr-review-tab-view__foot {
   display: flex;
   justify-content: flex-end;
   padding: var(--space-1) var(--space-3);
