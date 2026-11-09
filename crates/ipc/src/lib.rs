@@ -673,7 +673,7 @@ pub use sessions::{
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
+    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
 };
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};
 pub use terminals::{

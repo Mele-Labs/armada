@@ -823,6 +823,92 @@ class RestartAdopt(unittest.TestCase):
         self.assertEqual(code, 0, said)
         self.assertIn("would not build Bridge", said)
 
+    def built_native(self, built_for="wire1"):
+        """A native Bridge built for `built_for`, stamped after every source, in a tree whose wire
+        files hash to `wire1`."""
+        desktop = os.path.join(self.tree, "apps", "desktop")
+        os.makedirs(os.path.join(desktop, "codegen"), exist_ok=True)
+        with open(os.path.join(desktop, "codegen", "protocol-id.mjs"), "w") as f:
+            f.write('console.log("wire1")\n')
+        release = os.path.join(self.tree, "crates", "bridge-native", "target", "release")
+        os.makedirs(release)
+        open(os.path.join(release, "bridge-native"), "w").close()
+        for source in ("crates/bridge-native/src/main.rs", "crates/ipc/src/lib.rs", "crates/core-model/src/lib.rs",
+                       "packages/tokens/tokens.json"):
+            os.makedirs(os.path.dirname(os.path.join(self.tree, source)), exist_ok=True)
+            open(os.path.join(self.tree, source), "w").close()
+        open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
+        stamp = os.path.join(release, ".armada-restart-stamp")
+        with open(stamp, "w") as f:
+            f.write(f"{built_for}\n")
+        later = time.time() + 60
+        os.utime(stamp, (later, later))
+
+    def test_a_tree_with_no_native_bridge_keeps_none(self):
+        self.fleet({"j1": "escalated"})
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would keep no native Bridge", said)
+        self.assertNotIn("Armada.app", said)
+
+    def test_a_native_bridge_never_built_is_built(self):
+        self.fleet({"j1": "escalated"})
+        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
+        open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn(f"would build the native Bridge from {self.tree} \u2014 no build stamp there", said)
+
+    def test_a_native_bridge_built_for_another_protocol_is_rebuilt_though_no_source_moved(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native("wire0")
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would build the native Bridge from", said)
+        self.assertIn("built for another protocol than wire1", said)
+
+    def test_a_native_bridge_built_for_the_trees_protocol_is_left(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native()
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would not build the native Bridge", said)
+
+    def test_each_crate_the_native_bridge_links_is_a_reason_to_rebuild_it(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native()
+        for source in ("crates/bridge-native/src/main.rs", "crates/ipc/src/lib.rs", "crates/core-model/src/lib.rs",
+                       "packages/tokens/tokens.json"):
+            with self.subTest(source=source):
+                moved = os.path.join(self.tree, source)
+                later = time.time() + 120
+                os.utime(moved, (later, later))
+                code, said = self.restart("--dry-run")
+                self.assertEqual(code, 0, said)
+                self.assertIn("would build the native Bridge from", said)
+                self.assertIn("moved since its last build", said)
+                os.utime(moved, (later - 3600, later - 3600))
+
+    def test_what_cargo_wrote_in_the_native_target_is_not_a_reason_to_rebuild_it(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native()
+        built = os.path.join(self.tree, "crates", "bridge-native", "target", "release", "bridge-native")
+        later = time.time() + 120
+        os.utime(built, (later, later))
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would not build the native Bridge", said)
+
+    def test_the_dry_run_says_where_the_native_bridge_is_kept_and_how_it_is_opened(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native()
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("builds/current/Armada.app", said)
+        self.assertIn("com.armada.fleet.native.plist", said)
+        self.assertIn("reopened by launchd when it stops without a quit", said)
+        self.assertIn("booted out and in, never kickstarted", said)
+
     def test_adopt_with_no_drone_working_prints_no_costs(self):
         self.fleet({"j1": "escalated"})
         code, said = self.restart("--adopt", "--dry-run")
@@ -1222,6 +1308,11 @@ class RestartBuild(unittest.TestCase):
         self.assertEqual(stages[:2], ["fetching_main", "fetching_main"])
         self.assertEqual(stages[2], "building_fleet")
         self.assertEqual(stages[-1], "reopening_bridge")
+
+    def test_the_native_bridge_builds_and_reopens_in_the_bridge_stages(self):
+        stages = self.stages_seen("main", ["Installing armada from /x", "Building the native Bridge \u2014 no build stamp there",
+                                           "Booting org.armada out and back in", "Reopening the native Bridge from /x/Armada.app"])
+        self.assertEqual(stages, ["building_fleet", "building_bridge", "restarting_fleet", "reopening_bridge"])
 
     def test_a_line_that_is_not_bold_never_sets_a_stage(self):
         seen = self.stages_seen("main", [], plain=["Building Bridge", "Installing armada from /x", "Booting x",

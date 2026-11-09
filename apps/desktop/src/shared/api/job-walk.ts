@@ -29,6 +29,8 @@ export type JobWalkApi = {
     removeNote: (sessionId: string, id: string) => Promise<Outcome>;
     /** Every held note as one turn, as the bar's Send notes sends them. */
     sendNotes: (sessionId: string) => Promise<Outcome>;
+    /** A native walk (`armada://walk/<name>`) has no page here: the press asks Fleet to start the Job's own build of the native app on it. */
+    openNative: (sessionId: string, walkId: string) => Promise<Outcome>;
   };
 };
 
@@ -42,4 +44,5 @@ export const JOB_WALK_CHANNELS = {
   jobWalkEditNote: "bridge:job-walk-edit-note",
   jobWalkRemoveNote: "bridge:job-walk-remove-note",
   jobWalkSendNotes: "bridge:job-walk-send-notes",
+  jobWalkOpenNative: "bridge:job-walk-open-native",
 } as const;

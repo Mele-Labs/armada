@@ -5,7 +5,7 @@
 
 import { BrowserWindow, type IpcMain } from "electron";
 
-import type { Outcome, SendSessionNotes } from "@armada/protocol";
+import type { OpenNativeWalk, Outcome, SendSessionNotes } from "@armada/protocol";
 import { CHANNELS } from "../shared/bridge";
 import type { HeldNotes } from "./capture/held-notes";
 import type { CaptureWindows } from "./capture/windows";
@@ -24,9 +24,22 @@ type Hosts = {
   store: HeldNotes;
   captureWindows: CaptureWindows;
   send: (body: SendSessionNotes) => Promise<Outcome>;
+  /** Fleet starts the Job's own build of the native app on a native walk; it refuses one it has no build for, in its own words. */
+  openNative: (body: OpenNativeWalk) => Promise<Outcome>;
 };
 
-export function handleJobWalks({ ipc, store, captureWindows, send }: Hosts): void {
+/** A walk of a native screen, which Fleet opens from the Job's slot and no page of Bridge's draws. */
+const NATIVE_WALK = "armada://walk/";
+
+export function handleJobWalks({ ipc, store, captureWindows, send, openNative }: Hosts): void {
+  ipc.handle(CHANNELS.jobWalkOpenNative, async (_event, sessionId: unknown, walkId: unknown) =>
+    text(sessionId) && text(walkId) && walkId.startsWith(NATIVE_WALK)
+      ? await openNative({
+          session_id: sessionId,
+          url: walkId,
+        })
+      : NOT_HELD,
+  );
   ipc.handle(
     CHANNELS.jobWalkPlace,
     (event, sessionId: unknown, walkId: unknown, bounds: unknown) => {

@@ -7,6 +7,12 @@ import type { MenuItemConstructorOptions } from "electron";
 export const REVERT_ITEM = "Revert to the build before…";
 
 /**
+ * What the app menu is titled. **Not `app.name`**: that is `@armada/desktop`, from `package.json`, and
+ * setting `productName` there would move `userData` (window place, held notes, threads) to a new folder.
+ */
+export const APP_NAME = "Armada Classic";
+
+/**
  * `name` is the app's. **The app menu is spelled out rather than the `appMenu` role**, because the
  * role is one item that expands to a fixed list and takes no addition after About.
  */

@@ -237,6 +237,10 @@ impl<F: Forge> Delivery for GitVcs<F> {
         crate::landing::uncommitted_change_of(in_repo, path)
     }
 
+    fn head_committed_at(&self, in_repo: &str) -> Option<i64> {
+        crate::landing::head_committed_at(in_repo)
+    }
+
     fn manifest_by_pull_request(&self, in_repo: &str, file: &str) -> bool {
         crate::manifest_edit::goes_by_pull_request(in_repo, file)
     }

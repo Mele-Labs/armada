@@ -627,6 +627,10 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn open_native_walk(&self, _open: ipc::OpenNativeWalk) -> Result<ipc::NativeWalkOpened, Refusal> {
+        Ok(ipc::NativeWalkOpened { started: true })
+    }
+
     async fn take_window_sign_in(&self, _take: ipc::TakeWindowSignIn) -> Result<ipc::WindowSignIn, Refusal> {
         Ok(ipc::WindowSignIn { sign_in: ipc::SignIn::default() })
     }

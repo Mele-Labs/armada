@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 const BRAND = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MACOS = join(BRAND, "macos");
 const ICONSET = join(MACOS, "AppIcon.iconset");
+const CLASSIC_ICONSET = join(MACOS, "ClassicIcon.iconset");
 
 /** The hull, and the three positions of the arc. From svg/armada-mark.svg. */
 const HULL =
@@ -137,6 +138,22 @@ const MASTERS = {
       0.34,
     ],
   }),
+  // Armada Classic, the Electron Bridge beside the native one: the same tile with the accent
+  // drained to grey, so the Dock tells the two apart and the mark still reads.
+  "appicon-classic.svg": icon({
+    id: "classic",
+    body: [
+      "#2B3036",
+      "#121518",
+    ],
+    pool: "#8C959E",
+    halo: "#A3ABB3",
+    glyph: "#D2D6DB",
+    rim: [
+      "#C8CDD3",
+      0.28,
+    ],
+  }),
   "appicon-accent.svg": icon({
     id: "accent",
     body: [
@@ -197,27 +214,44 @@ const ICONSET_SIZES = [
   ],
 ];
 
-mkdirSync(ICONSET, {
-  recursive: true,
-});
+for (const dir of [
+  ICONSET,
+  CLASSIC_ICONSET,
+]) {
+  mkdirSync(dir, {
+    recursive: true,
+  });
+}
 
 for (const [name, svg] of Object.entries(MASTERS)) {
   writeFileSync(join(MACOS, name), svg);
   console.log(`macos/${name}`);
 }
 
-const dark = MASTERS["appicon-dark.svg"];
-for (const [name, width] of ICONSET_SIZES) {
-  const png = new Resvg(dark, {
-    fitTo: {
-      mode: "width",
-      value: width,
-    },
-  })
-    .render()
-    .asPng();
-  writeFileSync(join(ICONSET, `${name}.png`), png);
-  console.log(`macos/AppIcon.iconset/${name}.png  ${width}px`);
+for (const [master, dir] of [
+  [
+    "appicon-dark.svg",
+    ICONSET,
+  ],
+  [
+    "appicon-classic.svg",
+    CLASSIC_ICONSET,
+  ],
+]) {
+  for (const [name, width] of ICONSET_SIZES) {
+    const png = new Resvg(MASTERS[master], {
+      fitTo: {
+        mode: "width",
+        value: width,
+      },
+    })
+      .render()
+      .asPng();
+    writeFileSync(join(dir, `${name}.png`), png);
+    console.log(`macos/${dir.split("/").pop()}/${name}.png  ${width}px`);
+  }
 }
 
-console.log("\nNow: iconutil -c icns packages/brand/macos/AppIcon.iconset");
+console.log(
+  "\nNow: iconutil -c icns packages/brand/macos/AppIcon.iconset and packages/brand/macos/ClassicIcon.iconset",
+);

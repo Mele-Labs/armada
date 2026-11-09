@@ -1,5 +1,6 @@
 # Rust
 /target/
+crates/bridge-native/target/
 tools/lm-train/target/
 tools/nli-spike/target/
 **/*.rs.bk

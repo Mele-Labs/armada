@@ -1,0 +1,12 @@
+[operations.open_native_walk]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Start the native Bridge build a job's native walk is drawn by, when the person presses Open"
+notes = """
+`POST /sessions/window/open`, body `OpenNativeWalk`: `session_id` and `url`, the `armada://walk/<name>` address `show_window` named. Answered with `NativeWalkOpened`: `started`, false where the app was already running for that walk. Bridge sends it on the person's press of Open on the job's tab, and nothing else does: Fleet never starts the app on its own.
+
+**Refused with 422 and nothing started** unless the job has an open `window` row on that address (not ended, not withdrawn) and the address is a native walk's; unless the job holds a slot; and unless the slot holds a build: `<slot>/crates/bridge-native/target/debug/bridge-native`, never any installed app. A binary that is missing, or older than the commit at the slot's `HEAD`, is refused with `Build the walk first: cargo build in crates/bridge-native in <slot>`.
+
+**Fleet starts** `<bin> --walk <name> --job <session_id> --url <url> --fleet-port <port>` with the slot as its working directory, and **owns the process**: it is stopped when the walk ends (the window closed, withdrawn, approved or replaced), when the job ends, when the slot is given back and when Fleet stops. Opening again while it runs starts no second process.
+"""

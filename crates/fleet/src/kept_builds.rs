@@ -74,6 +74,9 @@ pub struct KeptBuild {
     pub bridge_shell: Option<String>,
     /// The Electron version Bridge runs on.
     pub electron: Option<String>,
+    /// A hash of the native Bridge's binary and icon: two builds with the same one keep the same
+    /// `Armada.app`. Absent from a build kept without a native Bridge.
+    pub native: Option<String>,
     /// Its Bridge reloads its page in place, from the build `current` names, when Fleet comes back.
     pub page_reload: bool,
     /// The branches merged into it, which only a preview build has.
@@ -92,6 +95,7 @@ struct Record {
     bridge: Option<String>,
     bridge_shell: Option<String>,
     electron: Option<String>,
+    native: Option<String>,
     #[serde(default)]
     page_reload: bool,
     unhealthy: Option<String>,
@@ -125,6 +129,7 @@ pub fn kept_named(builds: &Path, name: &str) -> Option<KeptBuild> {
         bridge: record.bridge,
         bridge_shell: record.bridge_shell,
         electron: record.electron,
+        native: record.native,
         page_reload: record.page_reload,
         jobs: record.jobs.into_iter().map(|row| row.branch).collect(),
         unhealthy: record.unhealthy,
@@ -141,6 +146,13 @@ fn bridge_reopens(from: &KeptBuild, to: &KeptBuild) -> bool {
         return false;
     }
     from.bridge.is_none() || !from.page_reload || from.bridge_shell.is_none() || from.bridge_shell != to.bridge_shell || from.electron != to.electron
+}
+
+/// The native Bridge is booted onto the build moved to where it keeps one and the app differs from the
+/// one before's. **A build with no native app is never booted onto**: the job's working directory is
+/// `builds/current`, so it would be started on an `Armada.app` that is not there.
+fn native_reopens(from: &KeptBuild, to: &KeptBuild) -> bool {
+    to.native.is_some() && from.native != to.native
 }
 
 /// The build running and the one a revert would go to, or why there is none to go to. **The one
@@ -525,6 +537,8 @@ pub struct Reverted {
     pub to: KeptBuild,
     /// Bridge was booted onto the build reverted to: its `out/` differs, or a record lacks the hash.
     pub bridge_reopened: bool,
+    /// The native Bridge was booted onto the build reverted to: it keeps one, and the app differs.
+    pub native_reopened: bool,
     /// The store as it stood before the swap.
     pub store_copy: Option<PathBuf>,
 }
@@ -544,8 +558,9 @@ fn swap(support: &Path, label: &str, stamp: &str, services: &dyn Services, bridg
     let (store_copy, old_pid) = flipped(support, label, stamp, services, &from, &to)?;
     services.fleet_came_up(support, old_pid)?;
     let bridge_reopened = bridge && bridged(support, label, services, &from, &to)?;
+    let native_reopened = bridge && native_bridged(support, label, services, &from, &to)?;
     recorded(support, &to);
-    Ok(Reverted { from, to, bridge_reopened, store_copy })
+    Ok(Reverted { from, to, bridge_reopened, native_reopened, store_copy })
 }
 
 /// Swap onto the snapshot `scripts/restart --keep-only` kept, settling as a restart does: a Fleet
@@ -565,6 +580,7 @@ pub fn swap_onto(support: &Path, label: &str, stamp: &str, services: &dyn Servic
         };
     }
     bridged(support, label, services, &from, &to)?;
+    native_bridged(support, label, services, &from, &to)?;
     recorded(support, &to);
     Ok(Settled::Healthy)
 }
@@ -575,6 +591,17 @@ fn bridged(support: &Path, label: &str, services: &dyn Services, from: &KeptBuil
     let reopens = bridge_reopens(from, to) && bridge_plist.is_file();
     if reopens {
         services.rebooted(&format!("{label}.bridge"), &bridge_plist)?;
+    }
+    Ok(reopens)
+}
+
+/// The native Bridge booted onto `to` where its app differs from `from`'s and its job is there to
+/// boot: `scripts/restart` writes `<label>.native.plist`, so a Mac that never opened it has none.
+fn native_bridged(support: &Path, label: &str, services: &dyn Services, from: &KeptBuild, to: &KeptBuild) -> Result<bool, String> {
+    let native_plist = support.join(format!("{label}.native.plist"));
+    let reopens = native_reopens(from, to) && native_plist.is_file();
+    if reopens {
+        services.rebooted(&format!("{label}.native"), &native_plist)?;
     }
     Ok(reopens)
 }

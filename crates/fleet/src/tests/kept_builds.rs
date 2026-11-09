@@ -92,6 +92,92 @@ fn a_revert_copies_the_store_then_swaps_the_links_and_boots_fleet_then_bridge() 
     assert_eq!(did, ["copy".to_string(), format!("reboot {LABEL}"), "up".to_string(), format!("reboot {LABEL}.bridge")]);
 }
 
+/// `kept`, with the native Bridge's job in place and each build's record carrying its `native` key
+/// (`None` writes none, as a build kept without a native binary has none).
+fn kept_with_native(new_native: Option<&str>, old_native: Option<&str>) -> (TempDir, PathBuf) {
+    let (home, support) = kept("same", "same");
+    std::fs::write(support.join(format!("{LABEL}.native.plist")), "native").unwrap();
+    for (name, key) in [("new", new_native), ("old", old_native)] {
+        if let Some(key) = key {
+            let record = support.join(BUILDS).join(name).join("build.toml");
+            let mut text = std::fs::read_to_string(&record).unwrap();
+            text.push_str(&format!("native = \"{key}\"\n"));
+            std::fs::write(&record, text).unwrap();
+        }
+    }
+    (home, support)
+}
+
+#[test]
+fn a_revert_boots_the_native_bridge_after_fleet_where_its_app_differs() {
+    let (_home, support) = kept_with_native(Some("n2"), Some("n1"));
+    let services = Recorded::default();
+
+    let reverted = revert(&support, LABEL, "1", &services).expect("reverted");
+
+    assert!(reverted.native_reopened);
+    assert!(!reverted.bridge_reopened, "the Electron Bridge is the same build");
+    let did = services.did.lock().unwrap().clone();
+    assert_eq!(did, ["copy".to_string(), format!("reboot {LABEL}"), "up".to_string(), format!("reboot {LABEL}.native")]);
+}
+
+#[test]
+fn the_native_bridge_is_left_open_where_both_builds_keep_the_same_app() {
+    let (_home, support) = kept_with_native(Some("n"), Some("n"));
+    let services = Recorded::default();
+
+    let reverted = revert(&support, LABEL, "1", &services).expect("reverted");
+
+    assert!(!reverted.native_reopened);
+    assert!(!services.did.lock().unwrap().iter().any(|one| one.ends_with(".native")));
+}
+
+#[test]
+fn the_native_bridge_is_booted_only_onto_a_build_that_keeps_one() {
+    // The build reverted to has no app: the job would start on an `Armada.app` that is not there.
+    let (_home, support) = kept_with_native(Some("n2"), None);
+    let services = Recorded::default();
+    assert!(!revert(&support, LABEL, "1", &services).expect("reverted").native_reopened);
+    assert!(!services.did.lock().unwrap().iter().any(|one| one.ends_with(".native")));
+
+    // The build reverted to has one and the running build had none.
+    let (_home, support) = kept_with_native(None, Some("n1"));
+    assert!(revert(&support, LABEL, "1", &Recorded::default()).expect("reverted").native_reopened);
+}
+
+#[test]
+fn a_mac_that_never_opened_the_native_bridge_has_no_job_to_boot() {
+    let (_home, support) = kept_with_native(Some("n2"), Some("n1"));
+    std::fs::remove_file(support.join(format!("{LABEL}.native.plist"))).unwrap();
+    let services = Recorded::default();
+
+    assert!(!revert(&support, LABEL, "1", &services).expect("reverted").native_reopened);
+    assert!(!services.did.lock().unwrap().iter().any(|one| one.ends_with(".native")));
+}
+
+#[test]
+fn a_swap_onto_a_snapshot_boots_the_native_bridge_too_but_a_swap_back_leaves_it_alone() {
+    let (_home, support) = with_snapshot("b2", "b3", &["armada/a"]);
+    std::fs::write(support.join(format!("{LABEL}.native.plist")), "native").unwrap();
+    for (name, key) in [("new", "n1"), ("snap", "n2")] {
+        let record = support.join(BUILDS).join(name).join("build.toml");
+        let mut text = std::fs::read_to_string(&record).unwrap();
+        text.insert_str(text.find("\n[").map_or(text.len(), |at| at + 1), &format!("native = \"{key}\"\n"));
+        std::fs::write(&record, text).unwrap();
+    }
+    let services = Recorded::default();
+    swap_onto(&support, LABEL, "1", &services).expect("swapped");
+    assert!(services.did.lock().unwrap().contains(&format!("reboot {LABEL}.native")));
+
+    // The same swap, with a Fleet that does not answer, is swapped back from and Bridge stays.
+    let (_home, support) = with_snapshot("b2", "b3", &["armada/a"]);
+    std::fs::write(support.join(format!("{LABEL}.native.plist")), "native").unwrap();
+    let services = Recorded::default();
+    *services.down_once.lock().unwrap() = Some(String::from("Fleet did not answer"));
+    swap_onto(&support, LABEL, "1", &services).expect("swapped back");
+    assert!(!services.did.lock().unwrap().iter().any(|one| one.ends_with(".native")));
+}
+
 #[test]
 fn a_second_revert_swaps_back_onto_the_build_reverted_from() {
     let (_home, support) = kept("b2", "b1");
@@ -250,6 +336,7 @@ fn a_revert_that_took_removes_its_status_and_one_that_failed_keeps_one_line_unti
         from: kept_at(&builds, CURRENT).unwrap(),
         to: kept_at(&builds, PREVIOUS).unwrap(),
         bridge_reopened: false,
+        native_reopened: false,
         store_copy: None,
     };
 

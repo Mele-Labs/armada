@@ -1,0 +1,80 @@
+[package]
+name = "bridge-native"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.90"
+license = "MIT"
+publish = false
+# Embeds the token, theme and font files from `packages/tokens` when it builds.
+build = "build.rs"
+
+# Outside the root workspace on purpose (the root `exclude`): gpui pulls hundreds of
+# crates and Linux system libraries, and every Linux CI job and the whole-workspace
+# test map would build them. Its own lockfile is committed beside this file.
+[workspace]
+
+# The workspace's own `forbid`, restated here because the root's table does not reach a crate
+# outside it. The gate reads `[lints] workspace = true` as "this crate forbids unsafe".
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui = { package = "gpui-pre", version = "=0.3.11", features = ["test-support"] }
+# Picks the macOS platform for `application()`; gpui-pre itself carries none. `runtime_shaders`
+# compiles the Metal shaders when the app starts instead of at build time, because a Mac with only
+# the Command Line Tools has no `metal` compiler and the build stops at gpui-pre-apple without it.
+# `font-kit` is the macOS text system: without it gpui draws no text at all, and says so only in a
+# log line. `test-support` is the headless context the walk check plays in.
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["runtime_shaders", "font-kit", "test-support"] }
+gpui-component = "=0.9.0"
+# The lucide SVGs the icon registry names, all 1,830. gpui-component already links this exact version.
+gpui-kit-assets = "=0.9.0"
+# The wire, linked and never copied: the protocol ID covers this crate.
+ipc = { path = "../ipc" }
+# The log envelope's own type, so a line from here joins to a line from Fleet.
+core-model = { path = "../core-model" }
+# Fleet's wire is HTTP/1 and one WebSocket on loopback. hyper's bare client adds no
+# header of its own, and Fleet refuses `Origin`; this is Pocket's approach, on a
+# runtime of its own that gpui never sees.
+tokio = { version = "1", features = ["rt", "macros", "net", "io-util", "time", "sync"] }
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+# The channel from that runtime to a gpui task, which gpui itself already links.
+async-channel = "2"
+# `ps -o lstart=` is local time; Fleet's age is read from it.
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }
+# `open_window` answers anyhow's error, which gpui already links.
+anyhow = "1"
+# A walk check writes each step as a PNG; gpui already links this version.
+image = { version = "0.25", default-features = false, features = ["png"] }
+# A note's picture goes to Fleet as base64; gpui already links this version.
+base64 = "0.22"
+# The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
+getrandom = "0.3"
+
+[build-dependencies]
+# The fonts in `packages/tokens/fonts` are WOFF2; gpui's text system takes TrueType, so the build
+# unpacks them. Pure Rust.
+wuff = { version = "0.2", default-features = false, features = ["brotli"] }
+
+# A note's picture is a whole Retina window, burned and encoded as PNG. Unoptimised, that took
+# 1.5s a picture, so Send notes sat for seconds; these crates are built optimised even in debug.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.crc32fast]
+opt-level = 3
+[profile.dev.package.simd-adler32]
+opt-level = 3
+[profile.dev.package.base64]
+opt-level = 3

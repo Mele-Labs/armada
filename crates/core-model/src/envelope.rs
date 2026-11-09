@@ -137,6 +137,8 @@ pub enum Component {
     Fleet,
     BridgeMain,
     BridgeUi,
+    /// The native Bridge, `crates/bridge-native`.
+    BridgeNative,
     Drone,
 }
 
@@ -147,6 +149,7 @@ impl Component {
             Component::Fleet => "fleet",
             Component::BridgeMain => "bridge-main",
             Component::BridgeUi => "bridge-ui",
+            Component::BridgeNative => "bridge-native",
             Component::Drone => "drone",
         }
     }

@@ -20,7 +20,7 @@ const PROTOCOL_ID = {
 // The app tile, emitted beside the main bundle — twice, in two formats, for
 // two different readers.
 //
-// `packages/brand/macos/AppIcon.icns` is the built icon and its README says it
+// `packages/brand/macos/ClassicIcon.icns` is the built icon and its README says it
 // is ready to drop into a bundle. Nothing was dropping it, so the running app
 // and its dock tile carried Electron's own mark. That was fixed by emitting it
 // — and the tile stayed Electron's anyway, for a second reason nothing here
@@ -45,12 +45,11 @@ const PROTOCOL_ID = {
 // works the same in `dev`, `build` and `preview`, which a path reaching back
 // into `packages/` through a workspace symlink would not.
 //
-// **These carry the dark-bodied variant, not the accent one, and always have.**
-// `packages/icons/icons/` permits an accent fill on the `armada-mark` row —
-// "on the macOS app tile alone" — and permitted is all it is. Nothing took it up.
+// **These carry Armada Classic's grey tile, `ClassicIcon`.** `AppIcon`, the dark one, is the native
+// Armada's (`packages/brand/README.md`).
 const APP_ICONS = [
-  "AppIcon.icns",
-  "AppIcon.png",
+  "ClassicIcon.icns",
+  "ClassicIcon.png",
 ] as const;
 
 function appIcon(): Plugin {

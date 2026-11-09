@@ -229,6 +229,7 @@ mod usage_following;
 mod turn_usage;
 mod session_notes;
 mod terminal_session;
+mod native_walk;
 mod thread_keeping;
 mod thread_view;
 mod merge_line_view;

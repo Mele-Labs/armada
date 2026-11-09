@@ -113,6 +113,7 @@ where
         self.lifecycles_ended_with(session).await;
         self.watches_ended_with(session).await;
         self.job_shell_wound_up(session);
+        self.native_walks().stopped_for_job(session);
         self.scratch_removed(session);
         self.watch_logs_removed(session);
         self.project_tasks_freed(session).await;

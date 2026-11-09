@@ -467,6 +467,22 @@ pub(crate) async fn window_closed<D: Sessions>(
     }
 }
 
+/// The person pressed Open on a native walk. 200 with whether this call started the app; 422 where
+/// there is nothing to open.
+pub(crate) async fn open_native_walk<D: Sessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let open: ipc::OpenNativeWalk = match ipc::decode_body("a native walk to open", &body) {
+        Ok(open) => open,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().open_native_walk(open).await {
+        Ok(opened) => answer(StatusCode::OK, &opened, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// Bridge, opening a session's window, takes the sign-in addresses held for it. 200 with the addresses, empty where none are held.
 pub(crate) async fn take_window_sign_in<D: Sessions>(
     State(served): State<Served<D>>,
