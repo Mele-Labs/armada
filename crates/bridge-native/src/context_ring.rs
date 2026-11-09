@@ -709,10 +709,10 @@ impl Render for Figure {
                         CompactOffer::Offered { .. } => "Compact the Job's context",
                         CompactOffer::Off { why } => why_said(why),
                     };
-                    let at = point(from.origin.x + from.size.width, from.origin.y - look.length(token::SPACE_1));
+                    let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
                     Some(
                         deferred(
-                            anchored().position(at).anchor(Anchor::BottomRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
+                            anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
                                 div().id("compact-tip").child(tip_card(said, look)),
                                 Role::Tooltip,
                                 said,
