@@ -14,7 +14,7 @@ use gpui::{
 use std::cell::Cell;
 use std::rc::Rc;
 
-use gpui::{anchored, canvas, deferred, point, Anchor, Focusable, Bounds, CursorStyle, DismissEvent, MouseButton, Pixels, Point};
+use gpui::{anchored, canvas, deferred, point, Anchor, AnimationExt as _, Focusable, Bounds, CursorStyle, DismissEvent, MouseButton, Pixels, Point};
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 
 use super::bar::{button, chord, icon_button, Weight};
@@ -71,13 +71,15 @@ struct Capturing {
 }
 
 /// A note written and not sent yet.
+#[derive(Clone)]
 struct HeldNote {
     said: String,
     step: u32,
     role: String,
     name: String,
     ring: Bounds<Pixels>,
-    picture: Option<(image::RgbaImage, f32)>,
+    /// Shared, so a send can hand the notes back if Fleet refuses them without a copy.
+    picture: Option<(std::sync::Arc<image::RgbaImage>, f32)>,
 }
 
 /// The ids the notes menu's removals answer to: a menu entry's id lives as long as the app.
@@ -93,6 +95,8 @@ pub struct WalkWindow {
     fleet: Option<WalkFleet>,
     capture: Option<Capturing>,
     held: Vec<HeldNote>,
+    /// Notes on their way to Fleet: they left the bar the moment Send notes was pressed.
+    sending: bool,
     /// The menu beside Send notes, while it is open.
     menu: Option<(Entity<Dropdown>, Subscription, Subscription)>,
     caret_at: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -100,6 +104,9 @@ pub struct WalkWindow {
     stage_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     said: Option<Said>,
     focus: FocusHandle,
+    /// What had the keys before Capture or the notes menu took them, so they go back there and a
+    /// screen's own keys, such as `/`, work again.
+    keys_were: Option<FocusHandle>,
     _play: Option<Task<()>>,
 }
 
@@ -114,11 +121,13 @@ impl WalkWindow {
             fleet,
             capture: None,
             held: Vec::new(),
+            sending: false,
             menu: None,
             caret_at: Rc::default(),
             stage_at: Rc::default(),
             said: None,
             focus: cx.focus_handle(),
+            keys_were: None,
             _play: None,
         };
         this.play_to(0, true, window, cx);
@@ -188,8 +197,12 @@ impl WalkWindow {
         }
     }
 
-    /// ⌘↵: Send notes while any are held, else Approve.
+    /// ⌘↵: Send notes while any are held, else Approve. Nothing while notes are on their way, so an
+    /// approval never reaches the Job before them.
     fn approve(&mut self, _: &Approve, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.sending {
+            return;
+        }
         if self.held.is_empty() {
             self.approve_only(cx);
         } else {
@@ -208,7 +221,7 @@ impl WalkWindow {
     /// Approve, leaving any held notes held.
     fn approve_only(&mut self, cx: &mut Context<Self>) {
         let Some(fleet) = self.fleet_or_say(cx) else { return };
-        self.send(cx, "Approved", |_| {}, move || fleet.approve());
+        self.send(cx, "Approved", |_| {}, |_| {}, move || fleet.approve());
     }
 
     /// Every held note as one turn, each with the window's picture, its area outlined and
@@ -222,25 +235,34 @@ impl WalkWindow {
         };
         let (ink, on_ink) = (bytes(token::ACCENT), bytes(token::TEXT_ON_ACCENT));
         let (walk, of) = (self.walk.name, self.walk.steps.len() as u32);
-        let held: Vec<(String, u32, String, String, Bounds<Pixels>, Option<(image::RgbaImage, f32)>)> = self
-            .held
-            .iter()
-            .map(|note| (note.said.clone(), note.step, note.role.clone(), note.name.clone(), note.ring, note.picture.clone()))
-            .collect();
-        let sent = held.len();
+        if self.sending || self.held.is_empty() {
+            return;
+        }
+        // The notes leave the bar now, and come back in front of any written since if Fleet
+        // refuses them.
+        let held = std::mem::take(&mut self.held);
+        let back = held.clone();
+        self.sending = true;
+        self.said = Some(Said { text: if held.len() == 1 { "Sending the note".into() } else { "Sending the notes".into() }, fault: false });
+        cx.notify();
         let done = if and_approve { "Notes sent and approved" } else { "Notes sent" };
-        self.send(cx, done, move |this| { this.held.drain(..sent.min(this.held.len())); }, move || {
+        let sent = |this: &mut Self| this.sending = false;
+        let refused = move |this: &mut Self| {
+            this.sending = false;
+            this.held.splice(0..0, back);
+        };
+        self.send(cx, done, sent, refused, move || {
             let notes = held
                 .into_iter()
                 .enumerate()
-                .map(|(at, (said, step, role, name, ring, picture))| super::fleet::NoteOn {
-                    said,
+                .map(|(at, note)| super::fleet::NoteOn {
+                    picture: note.picture.and_then(|(picture, scale)| ringed(&picture, note.ring, scale, at + 1, ink, on_ink)),
+                    said: note.said,
                     walk,
-                    step,
+                    step: note.step,
                     of,
-                    role,
-                    name,
-                    picture: picture.and_then(|(picture, scale)| ringed(&picture, ring, scale, at + 1, ink, on_ink)),
+                    role: note.role,
+                    name: note.name,
                 })
                 .collect();
             fleet.notes(notes)?;
@@ -285,9 +307,10 @@ impl WalkWindow {
         });
         let dismissed = cx.subscribe_in(&menu, window, |this, _, _: &DismissEvent, window, cx| {
             this.menu = None;
-            window.focus(&this.focus, cx);
+            this.give_keys_back(window, cx);
             cx.notify();
         });
+        self.keys_were = window.focused(cx).or(self.keys_were.take());
         let keys = menu.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
         self.menu = Some((menu, picked, dismissed));
@@ -300,13 +323,22 @@ impl WalkWindow {
             self.cancel_note(&CancelNote, window, cx);
             return;
         }
+        self.keys_were = window.focused(cx);
         self.capture = Some(Capturing::default());
         cx.notify();
     }
 
+    /// The keys go back to what had them before Capture or the menu, else to the window.
+    fn give_keys_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.keys_were.take() {
+            Some(keys) => window.focus(&keys, cx),
+            None => window.focus(&self.focus, cx),
+        }
+    }
+
     fn cancel_note(&mut self, _: &CancelNote, window: &mut Window, cx: &mut Context<Self>) {
         if self.capture.take().is_some() {
-            window.focus(&self.focus, cx);
+            self.give_keys_back(window, cx);
             cx.notify();
         } else {
             // Esc is the screen's own while nothing is being captured.
@@ -380,7 +412,7 @@ impl WalkWindow {
             return;
         }
         let Some(capture) = self.capture.take() else { return };
-        window.focus(&self.focus, cx);
+        self.give_keys_back(window, cx);
         let Some(held) = capture.held else { return };
         let (role, name) = match &held {
             Held::Element(drawn) => (super::capture::role_word(drawn.role).unwrap_or("element").to_lowercase(), drawn.name.to_string()),
@@ -395,7 +427,7 @@ impl WalkWindow {
                 ),
             ),
         };
-        self.held.push(HeldNote { said, step: self.at as u32 + 1, role, name, ring: held.bounds(), picture: capture.picture });
+        self.held.push(HeldNote { said, step: self.at as u32 + 1, role, name, ring: held.bounds(), picture: capture.picture.map(|(picture, scale)| (std::sync::Arc::new(picture), scale)) });
         self.said = Some(Said { text: format!("Note {} held", self.held.len()).into(), fault: false });
         cx.notify();
     }
@@ -407,6 +439,7 @@ impl WalkWindow {
         cx: &mut Context<Self>,
         done: &'static str,
         sent: impl FnOnce(&mut Self) + 'static,
+        refused: impl FnOnce(&mut Self) + 'static,
         call: impl FnOnce() -> Result<(), String> + Send + 'static,
     ) {
         cx.spawn(async move |this, cx| {
@@ -417,7 +450,10 @@ impl WalkWindow {
                         sent(this);
                         Said { text: done.into(), fault: false }
                     }
-                    Err(why) => Said { text: why.into(), fault: true },
+                    Err(why) => {
+                        refused(this);
+                        Said { text: why.into(), fault: true }
+                    }
                 });
                 cx.notify();
             });
@@ -436,7 +472,13 @@ impl WalkWindow {
     }
 
     fn render_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let approve = if self.held.is_empty() { approve_button(cx).into_any_element() } else { self.send_notes_button(cx).into_any_element() };
+        let approve = if self.sending {
+            sending_button(cx).into_any_element()
+        } else if self.held.is_empty() {
+            approve_button(cx).into_any_element()
+        } else {
+            self.send_notes_button(cx).into_any_element()
+        };
         let look = cx.look();
         let steps = self.walk.steps;
         let step = steps[self.at];
@@ -582,6 +624,39 @@ impl WalkWindow {
                 "More ways to send",
             ))
     }
+}
+
+/// Send notes while the notes are on their way: the same accent, a turning mark, and no press.
+fn sending_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
+    let look = cx.look();
+    let ink = look.color(token::TEXT_ON_ACCENT);
+    labelled(
+        div()
+            .id("walk-sending")
+            .w_full()
+            .h(look.length(token::H_CONTROL_SM))
+            .flex()
+            .items_center()
+            .justify_center()
+            .gap(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .bg(look.color(token::ACCENT).opacity(0.7))
+            .text_color(ink)
+            .text_size(look.length(token::TEXT_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .child(
+                gpui::svg()
+                    .path(crate::assets::icon_path("loader-circle"))
+                    .size(look.length(token::SPACE_4))
+                    .text_color(ink)
+                    .with_animation("walk-sending-turn", gpui::Animation::new(look.duration(token::DURATION_SPIN)).repeat(), |mark, at| {
+                        mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(at)))
+                    }),
+            )
+            .child("Sending"),
+        Role::Button,
+        "Sending",
+    )
 }
 
 /// Approve as Electron's walk bar draws it: a secondary button filling its slot, the word and a

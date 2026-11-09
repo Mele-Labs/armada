@@ -183,7 +183,7 @@ fn main() -> ExitCode {
                     let jobs = cx.new(|cx| JobsList::live(&fleet, cx));
                     let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                    let screen = cx.new(|_| JobsScreen { list: jobs });
+                    let screen = cx.new(|cx| JobsScreen::new(jobs, cx));
                     cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu)) })
                 })
                 .map(|_| ()),
@@ -193,7 +193,7 @@ fn main() -> ExitCode {
                         let jobs = cx.new(|cx| JobsList::mock(&records, cx));
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                        let screen = cx.new(|_| JobsScreen { list: jobs });
+                        let screen = cx.new(|cx| JobsScreen::new(jobs, cx));
                         cx.new(|_| Shell { screen, _fleet: None })
                     })
                     .map(|_| ()),

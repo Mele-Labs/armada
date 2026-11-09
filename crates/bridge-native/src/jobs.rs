@@ -722,7 +722,7 @@ impl JobsList {
     }
 
     /// The keys to the search field over the groups.
-    fn to_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn to_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some((search, _)) = &self.search {
             search.update(cx, |input, cx| input.focus(window, cx));
             cx.notify();
@@ -1099,6 +1099,7 @@ impl JobsList {
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_3))
             .pt(look.length(token::SPACE_3))
+            .pb(look.length(token::SPACE_2))
             // ↓, Enter or Esc give the keys to the rows; Tab opens the scope.
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| match event.keystroke.key.as_str() {
                 "down" | "escape" => {
@@ -1266,7 +1267,13 @@ impl Render for JobsList {
             .flex()
             .flex_col()
             .child(bar)
-            .child(labelled(
+            .child(
+                div()
+                    .relative()
+                    .w_full()
+                    .flex_1()
+                    .min_h_0()
+                    .child(labelled(
                 div()
                     .id("jobs")
                     .key_context("list")
@@ -1276,9 +1283,7 @@ impl Render for JobsList {
                     .on_action(cx.listener(Self::on_earlier))
                     .track_scroll(&self.scroll)
                     .overflow_y_scroll()
-                    .w_full()
-                    .flex_1()
-                    .min_h_0()
+                    .size_full()
                     .flex()
                     .flex_col()
                     .p(look.length(token::SPACE_3))
@@ -1287,27 +1292,165 @@ impl Render for JobsList {
                 Role::List,
                 "Jobs",
             ))
+                    // Rows pass under the bar: the panel's ground fades in over them at the top.
+                    .child({
+                        let ground = look.color(token::BG_RAISED);
+                        div().absolute().top_0().left_0().right_0().h(look.length(token::SPACE_6)).bg(gpui::linear_gradient(
+                            180.,
+                            gpui::linear_color_stop(ground, 0.),
+                            gpui::linear_color_stop(ground.opacity(0.), 1.),
+                        ))
+                    }),
+            )
             .children(card)
             .children(self.menu.as_ref().map(|open| open.menu.clone()))
             .children(self.filter.as_ref().map(|open| open.menu.clone()))
     }
 }
 
+/// The list's column, in `--space-12` as Electron's `columns.ts` sizes it: where it rests, the
+/// narrowest it goes, the right column beside it, and the least the centre keeps.
+const REST_LEFT: f32 = 6.;
+const FLOOR_LEFT: f32 = 4.5;
+const RIGHT: f32 = 5.75;
+const CENTRE_FLOOR: f32 = 10.;
+/// What ← or → on the handle moves it by, in points (`DOCK_WIDTH_STEP`).
+const HANDLE_STEP: f32 = 16.;
+
+/// Where the list's dragged width is kept between runs, in points. No file is the resting width.
+fn columns_file() -> Option<PathBuf> {
+    deck_file().map(|deck| deck.with_file_name("native-deck-columns"))
+}
+
+/// The handle being dragged, and what the pointer carries while it is: nothing to draw.
+struct DeckHandle;
+
+impl Render for DeckHandle {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        gpui::Empty
+    }
+}
+
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
 /// the left, the open Job's room in the middle, and the right column's panel, under the title row.
+/// A handle on the list's inner edge drags it wider or narrower, as Electron's `DockHandle` does.
 pub struct JobsScreen {
     pub list: Entity<JobsList>,
+    /// The list's width as dragged; absent, it rests at Electron's width.
+    left: Option<f32>,
+    handle: FocusHandle,
+    /// The whole screen's, which holds the list and the handle beside it.
+    within: FocusHandle,
+    remember: bool,
 }
 
 impl JobsScreen {
-    /// `l` puts the keys in the list (`deck_panel`'s first slot); the other panels are not drawn yet.
+    pub fn new(list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
+        let remember = list.read(cx).remember;
+        let left = remember
+            .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
+            .flatten();
+        JobsScreen { list, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember }
+    }
+
+    pub fn within(&self) -> &FocusHandle {
+        &self.within
+    }
+
+    /// The narrowest and widest the list may be in this window, so the centre keeps its floor.
+    fn range(&self, window: &Window, look: &Look) -> (f32, f32) {
+        let unit = f32::from(look.length(token::SPACE_12));
+        let frame = f32::from(look.length(token::SPACE_3)) * 2. + f32::from(look.length(token::GAP_PANEL)) * 2.;
+        let room = f32::from(window.viewport_size().width) - frame;
+        let least = unit * FLOOR_LEFT;
+        (least, (room - unit * (RIGHT + CENTRE_FLOOR)).max(least))
+    }
+
+    fn width(&self, window: &Window, look: &Look) -> f32 {
+        let (least, most) = self.range(window, look);
+        self.left.unwrap_or(f32::from(look.length(token::SPACE_12)) * REST_LEFT).clamp(least, most)
+    }
+
+    fn resize(&mut self, to: Option<f32>, window: &Window, cx: &mut Context<Self>) {
+        let (least, most) = self.range(window, cx.look());
+        self.left = to.map(|to| to.clamp(least, most));
+        if self.remember {
+            if let Some(path) = columns_file() {
+                let kept = match self.left {
+                    Some(left) => std::fs::write(&path, format!("{left:.0}")),
+                    None => std::fs::remove_file(&path).or_else(|why| if why.kind() == std::io::ErrorKind::NotFound { Ok(()) } else { Err(why) }),
+                };
+                if let Err(why) = kept {
+                    Note::warn("the list's width was not kept").field("why", why.to_string()).emit();
+                }
+            }
+        }
+        cx.notify();
+    }
+
+    /// `l` puts the keys in the list (`deck_panel`'s first slot), and `/` in its search from
+    /// anywhere on the deck; the other panels are not drawn yet.
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("deck_panel") && act.slot == 0 {
             let focus = self.list.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
+        } else if act.is("deck_search") {
+            self.list.update(cx, |list, cx| list.to_search(window, cx));
         } else {
             cx.propagate();
         }
+    }
+
+    /// The handle on the list's inner edge (`dock-handle.tsx`): a quiet line that shows on hover,
+    /// focus or drag; ← and → move it, a double press puts the list back at its resting width.
+    fn render_handle(&self, width: f32, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let (least, most) = self.range(window, look);
+        let line = look.color(token::BORDER_DEFAULT);
+        let focused = self.handle.is_focused(window);
+        labelled(
+            div()
+                .id("deck-handle")
+                .track_focus(&self.handle)
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .right(-look.length(token::GAP_PANEL) / 2. - look.length(token::SPACE_1))
+                .w(look.length(token::SPACE_2))
+                .flex()
+                .justify_center()
+                .cursor(gpui::CursorStyle::ResizeLeftRight)
+                .child(
+                    div()
+                        .h_full()
+                        .w(look.length(token::BORDER_WIDTH) * 2.)
+                        .rounded_full()
+                        .when(focused, |mark| mark.bg(line))
+                        .group_hover("deck-handle", move |style| style.bg(line)),
+                )
+                .group("deck-handle")
+                .on_drag(DeckHandle, |_, _, _, cx| cx.new(|_| DeckHandle))
+                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| {
+                    window.focus(&this.handle, cx);
+                    cx.notify();
+                }))
+                .on_click(cx.listener(|this, event: &gpui::ClickEvent, window, cx| {
+                    if event.click_count() == 2 {
+                        this.resize(None, window, cx);
+                    }
+                }))
+                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                    let by = match event.keystroke.key.as_str() {
+                        "left" => -HANDLE_STEP,
+                        "right" => HANDLE_STEP,
+                        _ => return,
+                    };
+                    cx.stop_propagation();
+                    this.resize(Some((width + by).clamp(least, most)), window, cx);
+                })),
+            Role::Splitter,
+            "Resize the Jobs list",
+        )
     }
 }
 
@@ -1324,11 +1467,16 @@ fn panel(look: &Look) -> gpui::Div {
 }
 
 impl Render for JobsScreen {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let column = look.length(token::SPACE_12);
+        let width = self.width(window, look);
+        let handle = self.render_handle(width, window, cx);
+        let look = cx.look();
+        let pad = look.length(token::SPACE_3);
         div()
             .key_context("deck")
+            .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
             .size_full()
             .flex()
@@ -1337,14 +1485,20 @@ impl Render for JobsScreen {
             .child(crate::chrome::title_row(look))
             .child(
                 div()
+                    .id("deck-grid")
                     .flex_1()
                     .min_h_0()
                     .flex()
                     .gap(look.length(token::GAP_PANEL))
-                    .p(look.length(token::SPACE_3))
-                    .child(panel(look).w(column * 6.).child(self.list.clone()))
+                    .p(pad)
+                    // The list's edge follows the pointer while its handle is dragged.
+                    .on_drag_move(cx.listener(move |this, event: &gpui::DragMoveEvent<DeckHandle>, window, cx| {
+                        let to = f32::from(event.event.position.x - event.bounds.origin.x - pad);
+                        this.resize(Some(to), window, cx);
+                    }))
+                    .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
                     .child(div().flex_1())
-                    .child(panel(look).w(column * 5.75)),
+                    .child(panel(look).w(column * RIGHT)),
             )
     }
 }

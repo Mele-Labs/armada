@@ -30,9 +30,10 @@ impl Stage {
             Screen::Jobs => {
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
-                let focus = Focus { keys: list.read(cx).focus_handle().clone(), within: list.read(cx).within().clone() };
+                let keys = list.read(cx).focus_handle().clone();
+                let screen = cx.new(|cx| JobsScreen::new(list, cx));
+                let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
-                let screen = cx.new(|_| JobsScreen { list });
                 Ok(Stage { view: screen.into(), focus })
             }
         }

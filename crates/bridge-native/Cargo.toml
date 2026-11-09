@@ -61,3 +61,20 @@ getrandom = "0.3"
 # The fonts in `packages/tokens/fonts` are WOFF2; gpui's text system takes TrueType, so the build
 # unpacks them. Pure Rust.
 wuff = { version = "0.2", default-features = false, features = ["brotli"] }
+
+# A note's picture is a whole Retina window, burned and encoded as PNG. Unoptimised, that took
+# 1.5s a picture, so Send notes sat for seconds; these crates are built optimised even in debug.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.crc32fast]
+opt-level = 3
+[profile.dev.package.simd-adler32]
+opt-level = 3
+[profile.dev.package.base64]
+opt-level = 3
