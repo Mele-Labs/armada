@@ -161,6 +161,13 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
     let rig = rig(None);
     let (old, _) = rig.an_agent_that_has_spoken().await;
     holding_a_pull_request(&rig, &old).await;
+    // Auto land chosen on the Job (armada-di91: a hand lost it, and a green pull request sat unmerged).
+    {
+        let mut store = rig.fleet.store().lock().await;
+        let mut hosting = store.hosting(old.as_str()).unwrap().expect("hosted");
+        hosting.auto_land = true;
+        store.keep_hosting(&hosting).unwrap();
+    }
 
     let decided = asked_and_answered(&rig, &old, HANDOFF_YES).await;
 
@@ -177,6 +184,7 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
     assert_eq!(standing(new, "pr"), vec!["2430"], "the ledger moved to the new job");
     assert!(standing(&old_record, "pr").is_empty(), "and the old job keeps none");
     assert!(kind(new, "forked_from").is_none(), "not a fork: the conversation is not carried");
+    assert!(new.auto_land, "Auto land carries: to the owner it is the same Job");
     assert_eq!(old_record.state, SessionState::Ended, "the old job is ended last");
     assert!(standing(&old_record, "handoff_starting").is_empty());
     assert!(kind(&old_record, "handoff_failed").is_none());
@@ -828,17 +836,50 @@ async fn a_linked_job_handed_on_passes_its_link_and_the_parent_follows_the_succe
     until("the successor names the parent", || async { kind(&rig.record(&new).await, "started_by").is_some() }).await;
     let by = kind(&rig.record(&new).await, "started_by").cloned().unwrap();
     assert_eq!((by.target.as_str(), by.detail.get("group").map(String::as_str)), (parent.as_str(), Some("g1")));
-    let to = kind(&rig.record(&parent).await, "started_to").cloned().expect("the parent names a child");
+    let to = rig
+        .record(&parent)
+        .await
+        .attachments
+        .into_iter()
+        .find(|one| one.kind == "started_to" && one.state != AttachmentState::GivenBack)
+        .expect("the parent names a child");
     assert_eq!(
         (to.target.as_str(), to.detail.get("group").map(String::as_str)),
         (new.as_str(), Some("g1")),
         "the successor is the group's newest link, which the group's row draws"
     );
+    // **One child, not two**: the link to the old Job is given back, so every list of what the parent
+    // started names the successor alone.
+    until("the old link given back", || async {
+        rig.record(&parent).await.attachments.iter().any(|one| one.kind == "started_to" && one.target == child.as_str() && one.state == AttachmentState::GivenBack)
+    })
+    .await;
+    let links: Vec<(String, AttachmentState)> = rig
+        .record(&parent)
+        .await
+        .attachments
+        .iter()
+        .filter(|one| one.kind == "started_to")
+        .map(|one| (one.target.clone(), one.state))
+        .collect();
+    assert!(links.contains(&(child.as_str().to_string(), AttachmentState::GivenBack)), "{links:?}");
+    assert_eq!(crate::started_jobs::children_in(&rig.record(&parent).await.attachments), vec![new.as_str().to_string()]);
 
     let handed = format!("was handed on to a new Job ({}) for context. Plan group: g1.", new.as_str());
     until("told it was handed on", || async { parent_told(&rig, &parent, &handed) == 1 }).await;
     let row_of = |rows: Vec<(String, ipc::LinkedEvent)>, id: &SessionId| rows.into_iter().filter(|(one, _)| one == id.as_str()).map(|(_, event)| event).collect::<Vec<_>>();
     assert!(!row_of(rig.linked_rows(&parent, 1).await, &child).contains(&ipc::LinkedEvent::Done), "not told as a bare end");
+    // The row names the Job it took the place of, so a reader draws the one row that started it.
+    let replaced: Vec<Option<SessionId>> = rig
+        .rows(&parent)
+        .await
+        .into_iter()
+        .filter_map(|row| match row {
+            ipc::SessionRow::Linked { session, replaces, .. } if session.id == new => Some(replaces),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(replaced, vec![Some(child.clone())]);
 
     let merged = [("state".to_string(), "merged".to_string())].into();
     rig.report(&new, ipc::SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "3084".into(), detail: merged } }).await;

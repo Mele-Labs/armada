@@ -163,14 +163,27 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// Tell Bridge what `session` holds now. **A Job that holds nothing, and has changed nothing in its copy,
-    /// publishes nothing.**
+    /// publishes nothing.** A live Job that holds instances publishes its row too, since the row carries
+    /// `in_flight` and every move, take-on and end is a chance for it to differ. It is published without
+    /// asking whether it did: the row is the one place a client reads that list, and every other publish
+    /// of the row carries it, so no memory kept here of what was last sent could stay right.
     pub(crate) async fn job_lifecycles_published(&self, session: &str) {
-        let held = {
+        let (held, row) = {
             let store = self.store().lock().await;
-            job_lifecycles_of(&store, session, &|manifest| self.lifecycles_that_apply(manifest))
+            let held = job_lifecycles_of(&store, session, &|manifest| self.lifecycles_that_apply(manifest));
+            let row = match store.session(session) {
+                Ok(Some(kept)) if kept.state == store::SessionState::Live && !held.instances.is_empty() => {
+                    self.ledger_reads(&store, &kept).ok().map(|reads| (kept, reads))
+                }
+                _ => None,
+            };
+            (held, row)
         };
         if !held.instances.is_empty() || !held.changes.is_empty() {
             self.publish(ipc::Event::JobLifecyclesChanged(held));
+        }
+        if let Some((kept, reads)) = row {
+            self.publish(ipc::Event::SessionChanged(self.ledger_built(&kept, reads)));
         }
     }
 

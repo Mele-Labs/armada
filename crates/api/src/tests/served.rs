@@ -89,6 +89,17 @@ async fn every_operation_the_table_names_is_routed() {
     assert_eq!(status, StatusCode::OK, "delete_studio is routed");
 }
 
+/// The view is its own route beside `/merge_lines`, and answers `MergeLineViews`, not the lines.
+#[tokio::test]
+async fn the_merge_line_view_is_served_beside_the_merge_lines() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/merge_lines/view", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let held: ipc::MergeLineViews = ipc::decode("the merge line view", &body).expect("a view");
+    assert!(held.lines.is_empty());
+}
+
 /// **A step's gates cross before any of them acts.** This is the preview a
 /// person approves a dispatch from — a workflow that will stop and wait at
 /// `handoff`, and spend Judge calls at `implement`, previewed as neither,

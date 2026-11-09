@@ -210,7 +210,7 @@ pub enum RuleWhen {
     StepStarts { step: String },
     StepEnds { step: String },
     /// A gate of the Job's plan closes: `plan_approved`, `walk_approved`, `sketch_approved`,
-    /// `document_approved`, `checks_green` or `merged`.
+    /// `document_approved`, `checks_green`, `merged` or `jobs_ended`.
     GateCloses { gate: String },
     /// The Job does something as a whole: `started`, `pull_request_opened`, `landed` or `ended`.
     Job { event: String },
@@ -390,6 +390,20 @@ pub struct HeldInstance {
     /// of the Job lists among its `links`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<Instant>,
+}
+
+/// One thing a Job holds that no end state has taken and ending the Job has not ended: what End job
+/// lists. Carried on `SessionRecord::in_flight`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InFlight {
+    pub lifecycle: String,
+    /// What its source calls it: `ARM-41`, `812`, a Job's id.
+    pub key: String,
+    /// What a person reads for it: the ticket's key, `PR #812`, the Job's title.
+    pub label: String,
+    /// Where it stands: its lifecycle's label for the state it is In, the word its source used where it is
+    /// Unmapped, and empty where it is Unread.
+    pub state: String,
 }
 
 /// One change of standing, kept when a read found the instance somewhere else.

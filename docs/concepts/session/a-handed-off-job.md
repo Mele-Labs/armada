@@ -49,6 +49,23 @@ A Job's own answer wins over the setting: a quiet Job is never told or handed on
 **The hand never runs on the old Job's call.** Ending the old Job ends the process the call came from, and the connection with it, and the server drops whatever runs on that call.
 A hand run there died partway, after the new Job was made and before it was linked, leaving two Jobs and a `handoff_starting` that never settled (19 Oct 2026).
 
+**To the owner a hand is one Job.** One row, one title, one thread, and one name in what a parent is told (6 Nov 2026: after a hand he saw two Jobs in Pocket and asked for them to read as the same one).
+The two keep their own ids underneath, because a Job's id is its agent's conversation, which the next process resumes, and the hooks, the thread and every ledger table key on it.
+What makes them one is that every place folds the chain:
+
+| Where | How the old Job folds into the new one |
+|---|---|
+| Bridge's lists, Pocket's Home | An ended Job with `replaced_by` is never a row of its own |
+| A Job's thread, in Bridge and in Pocket | The old Job's turns are read above the new one's, over a rule. Opening the old Job opens the new one |
+| A parent's started Jobs | Once the old Job has ended, the parent's `started_to` on it is given back, so its lists, `list_started_sessions` and Pocket's links name the new Job alone |
+| A parent's thread | The row that tells the parent of the hand carries `replaces` and is not drawn: the row that started the old Job stands for both, and opens the new one. Its agent is still told the new Job's id |
+| A wait, or a change to one, naming the old Job | It names the last Job of the chain (`job_now`), so a wait made after the hand is not refused as closed |
+| What the person chose for the Job | Auto land, the workflow and how it was started carry to the new Job (`settings_carried`) |
+
+**The Operator reads a red pull request only off a reading taken after the turn ended.**
+A new Job usually pushes a fix in its first turn, and the reading a minute old still says failed.
+On 6 Nov 2026 that started a "Rest of" Job 18 seconds after the fix was pushed, and that second Job was what he saw.
+
 **The new Job carries on by itself.** Its first turn is Fleet's word to carry on; the owner need not write.
 Every process of it has a replace note in its system prompt, ending in the handoff and the brief: it is a new Job that continues the old one's work, the slots, branches, pull requests and pages came to it, and nothing else the old Job started did.
 The old Job's thread stays reachable behind the new one through `replaces` and `replaced_by`.

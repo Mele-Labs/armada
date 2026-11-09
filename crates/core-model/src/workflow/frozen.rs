@@ -40,6 +40,7 @@ use crate::workflow::declared::{AdvanceGate, EvidenceType};
 use crate::workflow::ids::{ModelName, StepId, WorkflowId};
 use crate::workflow::judge::JudgeCheck;
 use crate::workflow::narrowing::Narrowing;
+use crate::workflow::gate::StepGate;
 use crate::workflow::phase::StepPhase;
 use crate::workflow::prerequisite::Prerequisite;
 use crate::workflow::runs_at::RunsAt;
@@ -493,6 +494,9 @@ pub struct ResolvedStep {
     /// declaring none**, read through [`phase`](Self::phase)'s fallback, and
     /// every row frozen before the key existed.
     phase: Option<StepPhase>,
+    /// What ends this step's plan group. `StepGate::None` is a step declaring none, and every
+    /// row frozen before the key existed.
+    gate: StepGate,
     /// How hard this step's Drone thinks, as a person set it at the approval
     /// press. **`None` is Armada picking**, and every step nobody tuned.
     effort: Option<Effort>,
@@ -567,6 +571,7 @@ impl ResolvedStep {
             poke_limit: None,
             follows_plan: false,
             phase: None,
+            gate: StepGate::None,
             effort: None,
             context: None,
             // Inferred rather than left for a builder: the step's own product
@@ -600,6 +605,18 @@ impl ResolvedStep {
     pub fn in_phase(mut self, phase: Option<StepPhase>) -> ResolvedStep {
         self.phase = phase;
         self
+    }
+
+    /// What ends the step's plan group, for [`describing`](Self::describing)'s reason.
+    pub fn gated_on(mut self, gate: StepGate) -> ResolvedStep {
+        self.gate = gate;
+        self
+    }
+
+    /// What ends the step's plan group. Distinct from [`advance_gate`](Self::advance_gate), which
+    /// is the old rail's.
+    pub fn gate(&self) -> StepGate {
+        self.gate
     }
 
     /// The phase the definition wrote, or `None`. What is frozen and stored.

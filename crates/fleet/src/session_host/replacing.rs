@@ -82,6 +82,23 @@ pub(crate) const BRIEF_ASKED: &str = "Reply with your brief only: where the work
 const BRIEF_WAIT: std::time::Duration = std::time::Duration::from_secs(180);
 const BRIEF_POLL: std::time::Duration = std::time::Duration::from_millis(200);
 
+/// The Session that last took the place of `on`, down the whole chain of hands. `None` for one never
+/// handed on.
+pub(crate) fn handed_to(store: &store::Store, on: &str) -> Option<String> {
+    let mut last = None;
+    let mut at = on.to_string();
+    while let Some(next) = store
+        .attachments_of(&Holder::session(&at))
+        .ok()?
+        .into_iter()
+        .find(|one| one.kind == REPLACED_BY && one.state == AttachmentState::Spent)
+    {
+        at = next.target.clone();
+        last = Some(next.target);
+    }
+    last
+}
+
 /// What a successor's agent is told it is: bare facts, and what came with it.
 pub(crate) fn replace_note(old_title: Option<&str>, old: &str, when: &str, context: &str) -> String {
     let title = old_title
@@ -310,6 +327,7 @@ where
             .await
             .map_err(|why| reason_of("new job did not start", &said_of(&why)))?;
         let new = made.id.as_str().to_string();
+        self.settings_carried(&hosting, &new).await;
         let mut marked = brief_of(&brief.map(String::from));
         marked.insert(String::from(NEW), new.clone());
         self.handoff_mark(old, STARTING, old, AttachmentState::Standing, marked).await;
@@ -343,6 +361,30 @@ where
         // leaves them for its next start.
         self.waits_followed(old, &new).await;
         Ok(new)
+    }
+
+    /// The Job a person means by `id`: the last to take its place, down the whole chain of hands, or
+    /// `id` itself for one never handed on. **To him a hand is one Job**, so an act naming the old
+    /// one reaches the one that carries its work.
+    pub(crate) async fn job_now(&self, id: &str) -> String {
+        handed_to(&*self.store().lock().await, id).unwrap_or_else(|| id.to_string())
+    }
+
+    /// What the person chose for the Job, and how it was started, kept on the new one: to him it is
+    /// the same Job. Auto land lost on a hand left a green pull request unmerged (armada-di91).
+    async fn settings_carried(&self, old: &store::KeptHosting, new: &str) {
+        let mut store = self.store().lock().await;
+        let Some(mut hosting) = store.hosting(new).ok().flatten() else { return };
+        hosting.auto_land = old.auto_land;
+        hosting.workflow = old.workflow.clone();
+        hosting.workflow_chosen = old.workflow_chosen;
+        hosting.on_your_words = old.on_your_words;
+        hosting.setup = old.setup;
+        hosting.mod_job = old.mod_job;
+        hosting.mod_of_bay = old.mod_of_bay;
+        hosting.from_job = old.from_job.clone();
+        hosting.from_tab = old.from_tab.clone();
+        let _ = store.keep_hosting(&hosting);
     }
 
     /// The two links. `replaces` carries what the new Job starts from.
@@ -384,6 +426,17 @@ where
         };
         if let Some(by) = by {
             let _ = self.started_linked(&by.target, new, &by.manifest_id, by.detail.get(super::linking::GROUP).map(String::as_str)).await;
+            // **One child, not two**: the link to the old Job is given back, so every list of what the
+            // parent started names the Job that took its place and no other.
+            let now = self.now().as_str().to_string();
+            let _ = self.store().lock().await.settle(
+                &Holder::session(&by.target),
+                crate::started_jobs::STARTED_TO,
+                &by.manifest_id,
+                old,
+                AttachmentState::GivenBack,
+                &now,
+            );
             let _ = self.published_hosted(&by.target).await;
         }
     }

@@ -113,7 +113,7 @@ A plan recorded after a listed end holds stands with no card, and the step stays
 A plan already put to him stays his to answer, and a plan held behind a walk stands with his Approve of that walk.
 
 **`plan_unasked: true`**, on a step that records the plan, means the plan stands as soon as it is recorded and never makes a card.
-`code_review`, `revert` and `design_plan` set it: their plan is the Job's progress, and what he approves is the review, the summary or the page.
+`design_plan` sets it: its plan is the Job's progress, and what he approves is the page.
 `idea_picked` counts only an option the agent's own question gave a preview; Fleet's questions never count.
 `document_approved` counts only his approval of a page's newest revision, read off the page Fleet kept.
 

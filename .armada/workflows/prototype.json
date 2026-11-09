@@ -1,41 +1,16 @@
-# Prototype, and nothing here is reduced -- this is the designed form.
-# `bug.json` beside this file carries what all eight hold to, and where the
-# schema, the catalogue and the Check reasoning live.
+# Prototype, as the owner settled it on 9 Nov 2026: Frame, Build, Write up. Each step is a plan group and
+# `gate` names the fact Fleet sees for itself that ends it. `bug.json` beside this file says where the
+# schema lives, and `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has his answers.
 #
-# The designed `prototype.json` is already linear, already three steps, and
-# already the one workflow carrying gateless steps by design: `frame` and
-# `write_up` have no Judge in the designed form either, and neither had a
-# mechanical tier until `frame` gained `plan_recorded` for `#1006` — the one
-# check `plan_recorded` ever needs on a step with no deliverable of its own.
-# `write_up` is still gateless.
+# **Build ends on his approval of a walk**, never on finished tasks (dry run, 9 Nov): even a prototype with
+# nothing to see in Bridge is shown running. `evidence.walked` starts the repository's `walk` server in the
+# Job's worktree for it.
 #
-# **`frame` records the plan, `#1006`.** It keeps its own `facts_note`
-# product — a Drone's three lines about what it is about to try — and
-# `build` follows. Prototype had no plan step before this.
+# **What comes after the write-up is his to say**: some prototypes only answer his curiosity, and some
+# prove an idea he wants to move on now. The agent asks once he approves the page.
 #
-# **This workflow carries no Judge, and that is a decision rather than an
-# omission.** The designed file carries none either. A prototype is built to
-# answer a question and is thrown away; there is no criterion it either meets or
-# fails, so there is nothing for a veto-only Judge to refuse.
-# `crates/core-model/domain/workflows.toml` names Prototype and Documentation as
-# the workflows where a gateless step is the common case, not the edge one.
-#
-# **`build` declares no `evidence_scope`, and that is deliberate.** Decided by
-# the owner Aug 28 2026, closing #146. It is the one runtime step that produces
-# a diff with no declared footprint: declaring a plan for exploratory work is
-# friction with no reader, and nobody is going to measure a throwaway's diff
-# against a promise it had no reason to make.
-#
-# `build` is `human_always`, so a prototype stops for the person who asked for
-# it before the write-up is drafted.
-#
-# **`build` is walked**: at that stop Fleet starts the repository's `walk`
-# server in the Job's worktree, and Bridge opens it when the Job is opened —
-# the prototype is looked at by using it. A repository naming no `walk` stops
-# exactly as before.
-#
-# **`lands: spike`**: a prototype is built to answer a question and thrown
-# away, so its Landing is the findings rather than a document.
+# **No Judge**: a prototype answers a question and is thrown away, so there is no criterion to refuse.
+# **`lands: spike`**: its Landing is the findings, and the code is not landed.
 {
   "version": 1,
   "workflow_id": "prototype",
@@ -46,26 +21,19 @@
     {
       "id": "frame",
       "label": "Frame",
-      "about": "Writes three lines on what will be tried and how, before any code. Build works from them.",
-      "records_plan": true,
-      "evidence": {
-        "submitted": { "type": "facts_note" }
-      },
-      "mechanical_checks": [
-        {
-          "type": "plan_recorded"
-        }
-      ],
+      "about": "Says in a few lines what will be tried and how, as a plan. Ends when you approve it.",
+      "instructions": "Say in three lines what you will try, how, and what would answer the question. Record it as the plan with record_plan and wait for the person to approve it. Write no code before then.",
+      "gate": "plan_approved",
       "delivers": false,
       "advance_gate": "auto"
     },
     {
       "id": "build",
       "label": "Build",
-      "about": "Builds a rough version to answer the question. The repository's walk server starts so you can use it. You decide whether it is enough.",
-      "follows_plan": true,
+      "about": "Builds a rough version to answer the question and shows it to you running. Ends when you approve the walk.",
+      "instructions": "Build the roughest version that answers the question. Show it running with show_window, naming this group: the app itself, or a small page of what it measured where nothing would be seen in the app. Wait for the person's approval.",
+      "gate": "walk_approved",
       "evidence": {
-        "submitted": { "type": "diff" },
         "walked": true
       },
       "delivers": false,
@@ -74,11 +42,9 @@
     {
       "id": "write_up",
       "label": "Write up",
-      "about": "Writes up what was tried and what it showed. The code is not landed.",
-      "evidence": {
-        "submitted": { "type": "facts_note" }
-      },
-      "model": "haiku",
+      "about": "Writes up what was tried and what it showed, as a page. Ends when you approve it. The code is not landed.",
+      "instructions": "Load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html: the answer first, what was tried, what it measured, and what was not measured. Answer every note by changing the page.\nOnce the person approves the page, ask him whether to move forward with it now, as build Jobs or in this Job, or leave it as a write-up.",
+      "gate": "document_approved",
       "delivers": false,
       "advance_gate": "auto"
     }

@@ -44,6 +44,7 @@ export * from "./building";
 export * from "./limits";
 export * from "./logbook";
 export * from "./manifest-proposal";
+export * from "./merge-line-view";
 export * from "./merge-lines";
 export * from "./mods";
 export * from "./teaching";

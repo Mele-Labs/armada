@@ -22,7 +22,7 @@ use store::{KeptPiece, PieceKind};
 use testkit::FakeJudge;
 
 use super::session_host::Rig;
-use super::session_rail::{at, delivers, follows, on_the_rail, plan_step, record, ruled_on, step, workflow};
+use super::session_rail::{at, delivers, follows, on_the_rail, plan_step, record, ruled_on, step, told, workflow};
 use super::workflow_page::read;
 use crate::rail::RailStep;
 use crate::session_host::job_copying::rail_remapped;
@@ -159,6 +159,18 @@ async fn a_step_added_to_a_jobs_copy_reaches_that_job_and_no_other() {
     let lanes = Arc::clone(&rig.fleet).get_job_lifecycles(None, Some(id.clone())).await.expect("lanes");
     assert_eq!(lanes.changes.len(), 1, "the lanes mark the change");
     assert_eq!(says_of_copy(&rig).await, [("step added: Dispatch".to_string(), Some("by you".to_string()))]);
+}
+
+#[tokio::test]
+async fn a_persons_change_to_the_steps_tells_a_running_job_the_groups_as_the_workflow_words_do() {
+    let rig = rigged();
+    let id = on_the_rail(&rig).await;
+    change(&rig, &id, dispatch()).await.expect("added");
+    rig.fleet.timeline().settled().await;
+    assert_eq!(told(&rig, "changed the steps of this Job's own copy of its"), 1);
+    assert_eq!(told(&rig, "(step added: Dispatch). Record your plan with these groups, in this order, each with its id and gate"), 1);
+    assert_eq!(told(&rig, "gate none: Start one Job per fix and note its id."), 1, "the new step is listed with its instructions");
+    assert_eq!(told(&rig, "Its steps, in order"), 0, "the old sentence is gone");
 }
 
 #[tokio::test]

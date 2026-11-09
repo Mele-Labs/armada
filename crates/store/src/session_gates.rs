@@ -10,8 +10,11 @@ use rusqlite::params;
 use crate::error::{fault, WriteError};
 use crate::open::Store;
 
-/// The gate kind that holds for one plan version only.
+/// The gate kind that holds for the plan version that asked, and later versions that did not ask again.
 pub const PLAN_APPROVED: &str = "plan_approved";
+
+/// The gate kind a walk closes. It can close again: each close is a row of its own, numbered.
+pub const WALK_APPROVED: &str = "walk_approved";
 
 /// The gate kind a Fleet-run Check closes.
 pub const CHECKS_GREEN: &str = "checks_green";
@@ -22,7 +25,8 @@ pub struct KeptGate {
     pub group_id: String,
     /// The gate's word, such as `merged`.
     pub gate: String,
-    /// The plan version a `plan_approved` row closed for. 0 for every other gate.
+    /// The plan version asked that a `plan_approved` row closed for, and for `walk_approved` which close of
+    /// the group it is (0, then 1 when a new walk reopened it). 0 for every other gate.
     pub version: u32,
     pub closed_at: String,
     /// One line, as a person reads it: "You approved plan v2".
@@ -38,6 +42,16 @@ pub struct KeptGate {
 }
 
 impl KeptGate {
+    /// The `version` a row for `group_id`'s `gate` takes now: the version asked for a plan's approval,
+    /// the number of closes the group's walk gate already has, and 0 for any other gate.
+    pub fn next_version(kept: &[KeptGate], group_id: &str, gate: &str, asked: u32) -> u32 {
+        match gate {
+            PLAN_APPROVED => asked,
+            WALK_APPROVED => kept.iter().filter(|one| one.group_id == group_id && one.gate == WALK_APPROVED).count() as u32,
+            _ => 0,
+        }
+    }
+
     /// Whether this row closes `gate` on the group `group_id` of plan `version`.
     pub fn closes(&self, group_id: &str, gate: &str, version: u32) -> bool {
         self.group_id == group_id && self.gate == gate && (gate != PLAN_APPROVED || self.version == version)
@@ -105,7 +119,7 @@ impl Store {
     /// Keep one gate's close. **False where that gate had closed already**, so a close is kept once and
     /// the first fact stands.
     pub fn close_session_gate(&mut self, session_id: &str, gate: &KeptGate) -> Result<bool, WriteError> {
-        let version = if gate.gate == PLAN_APPROVED { gate.version } else { 0 };
+        let version = if gate.gate == PLAN_APPROVED || gate.gate == WALK_APPROVED { gate.version } else { 0 };
         let red = (!gate.already_red.is_empty()).then(|| gate.already_red.join("\n"));
         let wrote = self
             .conn
@@ -129,6 +143,30 @@ impl Store {
             .map_err(fault("keeping a job's gate"))
             .map_err(WriteError::Database)?;
         Ok(wrote == 1)
+    }
+
+    /// Note that a walk was shown for the plan group at `shown_at`. The newest stands.
+    pub fn keep_session_gate_walk(&mut self, session_id: &str, group_id: &str, shown_at: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO session_gate_walks (session_id, group_id, shown_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(session_id, group_id) DO UPDATE SET shown_at = MAX(shown_at, excluded.shown_at)",
+                params![session_id, group_id, shown_at],
+            )
+            .map_err(fault("keeping when a group's walk was shown"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// When a walk was last shown for each plan group of the Job that has had one.
+    pub fn session_gate_walks(&self, session_id: &str) -> Result<std::collections::HashMap<String, String>, WriteError> {
+        let mut rows = self.conn.prepare("SELECT group_id, shown_at FROM session_gate_walks WHERE session_id = ?1").map_err(reading)?;
+        let walks = rows
+            .query_map([session_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .map_err(reading)?
+            .collect::<Result<_, _>>()
+            .map_err(reading)?;
+        Ok(walks)
     }
 
     /// The latest gate-check run of the Job, where it has one.

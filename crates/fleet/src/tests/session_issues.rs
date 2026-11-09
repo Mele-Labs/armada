@@ -392,6 +392,7 @@ fn plan_naming(id: &SessionId, issues: &[Option<&str>]) -> ipc::RecordPlan {
             .collect(),
         sketch: None,
         walk: None,
+        ask_again: false,
         session_id: Some(id.clone()),
     }
 }

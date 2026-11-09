@@ -692,6 +692,8 @@ export type SessionRow =
       origins?: string[];
       /** The Job's line or two on what changed and what to look at. Kept when the walk ends; absent on a row written before it. */
       brief?: string;
+      /** The plan group the walk is the part of, when the Job named one. Kept when the walk ends. */
+      group?: string;
       ended_at?: string;
     }
   /**
@@ -721,6 +723,8 @@ export type SessionRow =
         title: string;
       };
       event: LinkedEvent;
+      /** The Job `session` took the place of when it was handed on for context. Not drawn: the row that started that Job stands for both. */
+      replaces?: string;
     }
   /**
    * A Session waits on this one, its condition changed, or it started. Written in this Session's thread (`side` absent,

@@ -641,6 +641,10 @@ pub enum SessionRow {
         /// as `variations` are. A row written before it has none.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         brief: Option<String>,
+        /// The plan group the walk is the part of, when the Job named one: its `walk_approved` gate
+        /// closes on his Approve of the walks shown for it. **Kept when the walk ends.**
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        group: Option<String>,
         /// When the walk ended: the person approved the page or closed its window. Absent while
         /// it is open. **The row is replaced by id** when it is set.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -663,6 +667,10 @@ pub enum SessionRow {
         at: Instant,
         session: crate::session_starts::SessionLink,
         event: LinkedEvent,
+        /// The Job `session` took the place of when it was handed on for context, where this row
+        /// says so. **Not drawn**: the row that started that Job stands for both, and opens this one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        replaces: Option<crate::SessionId>,
     },
     /// A Session waits on this one, its condition changed, or it started. Written in **this**
     /// session's thread (`side` `waited`, `session` the one that waits), and in the waiting

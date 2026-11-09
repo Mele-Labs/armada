@@ -107,6 +107,8 @@ mod hosted_sessions;
 mod ids;
 /// A Job's thread as a screen draws it, folded by Fleet: `get_job_thread` and `job_thread.tail`.
 mod job_thread;
+/// The merge line as a screen draws it, read by Fleet: `get_merge_line_view` and `merge_line_view.changed`.
+mod merge_line_view;
 /// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
 mod flight_controls;
 /// Pieces made into a package, read, and added to the person's own Kit.
@@ -309,7 +311,7 @@ pub use piece_saving::{
     LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught, WorkspaceToSave,
 };
 pub use lifecycles::{
-    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
     LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
     PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
     RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
@@ -410,6 +412,7 @@ pub use session_mcp::{
     SessionMcpServer,
 };
 pub use session_quick::SessionQuick;
+pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews};
 pub use job_thread::{
     against_of_detail, file_call_of, kept_from, revisions_of_detail, scene_of_detail, sketch_call_of, SketchCall,
     CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead, JobThreadTail, Lapsed,

@@ -90,8 +90,8 @@ Then the Electron app is deleted from the repo, and the packages Pocket uses sta
 
 | Area | Rule |
 |---|---|
-| Look | Same tokens. Each screen's layout may be reworked |
-| Each screen | A hi-fi HTML mock he walks, then the gpui build he walks again before it lands |
+| Look | Today's Electron layout and features, on the same tokens. Only the spacing and font tweaks he names change |
+| Each screen | Built to match its Electron screen, then walked natively beside it before it lands |
 | Window | One window, as today. One Job shows at a time |
 | Speed | A long thread opens, and a Job switch lands, in under 50 ms |
 | Jobs list | Grouped by project, Needs you first in each group |
