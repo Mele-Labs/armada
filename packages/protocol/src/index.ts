@@ -38,6 +38,8 @@ export * from "./retro-review";
 export * from "./retro-session";
 export * from "./logbook";
 export * from "./holding";
+export * from "./job-mark";
+export * from "./job-viewing";
 export * from "./job-thread";
 export * from "./kit";
 export * from "./building";

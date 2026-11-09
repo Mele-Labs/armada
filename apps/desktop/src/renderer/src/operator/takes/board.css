@@ -73,7 +73,6 @@
   border-bottom: var(--border-width) solid color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
   background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
   color: var(--hue);
-  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: var(--weight-heading);
   line-height: var(--leading-2xs);
@@ -216,7 +215,6 @@
   flex: none;
   color: inherit;
   white-space: nowrap;
-  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   letter-spacing: var(--tracking-caps);
@@ -230,7 +228,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--fg-subtle);
-  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
 }
@@ -294,7 +291,6 @@
 
 .armada-board__outcome-label {
   color: var(--hue);
-  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: var(--weight-heading);
   line-height: var(--leading-2xs);
@@ -310,7 +306,6 @@
 /* Who settled a card and when, under what came of it. */
 .armada-board__who {
   color: var(--fg-muted);
-  font-family: var(--font-mono);
   font-size: var(--text-2xs);
 }
 
@@ -333,7 +328,6 @@
 
 .armada-board__detail-row dt {
   color: var(--fg-muted);
-  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   text-transform: uppercase;
 }
@@ -359,10 +353,12 @@
   padding: var(--space-4);
 }
 
+/* A lane is a faint ground under its label, so the board reads as lanes when they are empty. */
 [data-thread-take="spacious"] .armada-board__lane {
+  padding: var(--space-3) var(--space-2) var(--space-2);
   border: none;
-  border-radius: 0;
-  background: transparent;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--fg-default) 2%, transparent);
 }
 
 [data-thread-take="spacious"] .armada-board__band {

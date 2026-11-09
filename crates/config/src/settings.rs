@@ -332,11 +332,12 @@ key!(
 );
 key!(
     /// A role of the Operator's, a [`Kind::Choice`] of [`OPERATOR_POSITIONS`](machine::OPERATOR_POSITIONS).
-    /// **A switch saved when the role had two positions reads as the one it meant.**
+    /// **A switch saved when the role had two positions reads as the one it meant**, and so do the
+    /// words `off` and `on` it was saved with when it had three: `ipc::operator_positions`.
     Position => String, |value| match value {
         SettingValue::Text(text) => text.clone(),
-        SettingValue::Bool(true) => "on".to_string(),
-        _ => "off".to_string(),
+        SettingValue::Bool(true) => "decide".to_string(),
+        _ => "read_only".to_string(),
     }
 );
 key!(

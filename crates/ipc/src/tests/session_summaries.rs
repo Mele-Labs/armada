@@ -86,6 +86,8 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         workflow_waiting_on: Vec::new(),
         workflow_copy: None,
         in_flight: Vec::new(),
+        mark: None,
+        viewed_at: None,
     }
 }
 

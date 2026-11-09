@@ -38,6 +38,8 @@ pub(crate) struct LedgerReads {
     waiting: WaitingReads,
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,
+    /// When the person was last in the Job, as a client told it.
+    viewed: Option<String>,
     /// The breakdown of the context window, as the wire spells it.
     context: Option<String>,
     /// The latest Loadout list and the latest turn's uses.
@@ -88,6 +90,8 @@ enum SubagentRow {
 }
 
 mod ledger;
+/// The state a Jobs-list row draws, on `SessionRecord::mark`.
+mod marking;
 mod shown;
 mod wire;
 
@@ -236,6 +240,10 @@ where
                     {
                         detail = crate::pull_requesting::dismissal_kept(detail, &held.detail);
                     }
+                }
+                // A subagent's brief named a plan group as the agent wrote it; the plan's id for it is kept.
+                if attachment.kind == "subagent" {
+                    detail = crate::plan_keeping::group_resolved(&store, &id, detail).map_err(fault)?;
                 }
                 if backed {
                     changed |= store

@@ -114,6 +114,7 @@ pub(crate) mod pre_pr;
 pub(crate) mod walk_asks;
 pub(crate) mod step_skipping;
 pub(crate) mod job_copying;
+mod viewing;
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -172,6 +173,8 @@ pub struct Hosts {
     pub(crate) quick: quick::Kept,
     /// The Jobs' threads a client read, folded, so a change to one is told as `job_thread.tail`.
     pub(crate) threads: Arc<crate::thread_keeping::Held>,
+    /// The Jobs a client has on screen now, which the row mark reads as viewed now. Memory only.
+    pub(crate) on_screen: viewing::OnScreen,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -210,6 +213,7 @@ impl Hosts {
             page_reads: page_replies::Reads::default(),
             quick: quick::Kept::default(),
             threads: Arc::default(),
+            on_screen: viewing::OnScreen::default(),
         }
     }
 
