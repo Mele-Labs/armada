@@ -11,13 +11,12 @@
 }
 .sv-chunk {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 .sv-chunk__row {
   display: grid;
-  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto;
   column-gap: var(--space-2);
   align-items: center;
   min-width: 0;
@@ -43,12 +42,18 @@ button.sv-chunk__row:hover {
   outline-offset: calc(var(--border-width) * -1);
 }
 .sv-chunk__state {
+  grid-area: 1 / 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
+/* Each group is a line of the row's own grid; the gate takes the last group's line. */
 .sv-chunk__name {
+  display: contents;
+}
+.sv-chunk__group {
   display: -webkit-box;
+  grid-column: 2;
   min-width: 0;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -59,7 +64,7 @@ button.sv-chunk__row:hover {
 .sv-chunk__said {
   display: flex;
   flex-wrap: wrap;
-  grid-column: 2;
+  grid-column: 2 / -1;
   gap: var(--space-2);
   align-items: baseline;
   min-width: 0;
@@ -77,13 +82,8 @@ button.sv-chunk__row:hover {
 .sv-chunk__said > .sv-beat__figure {
   flex: none;
 }
-.sv-chunk__end {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-block-start: var(--space-1);
-}
 .sv-chunk__gate {
+  grid-column: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -246,6 +246,7 @@ button.sv-chunk__row:hover {
 }
 .sv-chunks[data-take="clean"] .sv-chunk__gate,
 .sv-chunks[data-take="clean"] .sv-chunk[data-gate] .sv-chunk__gate {
+  height: auto;
   border-color: transparent;
   color: var(--fg-subtle);
 }

@@ -239,7 +239,26 @@ export function PlanChunks<G extends WorkGroup>({
                 <State size={14} strokeWidth={2} aria-hidden />
               </span>
             </Tooltip>
-            <span className="sv-chunk__name">{stretch.name}</span>
+            {/* One line a group, and the gate's glyph on the last: one gate ends them all. */}
+            <span className="sv-chunk__name">
+              {stretch.groups.map((group) => (
+                <span key={group.id} className="sv-chunk__group">
+                  {group.title}
+                </span>
+              ))}
+            </span>
+            {gate === undefined || Gate === undefined || read === undefined ? null : (
+              <Tooltip asChild label={read.glyph}>
+                <span
+                  className="sv-chunk__gate"
+                  role="img"
+                  aria-label={read.glyph}
+                  style={{ gridRow: stretch.groups.length }}
+                >
+                  <Gate size={12} strokeWidth={2} aria-hidden />
+                </span>
+              </Tooltip>
+            )}
             {/* When it closed, or how long it has held the Job on him, stands after the gate's line, so a narrow pane never squeezes the chunk's name. */}
             {read === undefined || gate === undefined || (CLEAN && !live && !opened) ? null : (
               <span className="sv-chunk__said">
@@ -274,15 +293,6 @@ export function PlanChunks<G extends WorkGroup>({
               >
                 {head}
               </button>
-            )}
-            {gate === undefined || Gate === undefined || read === undefined ? null : (
-              <span className="sv-chunk__end">
-                <Tooltip asChild label={read.glyph}>
-                  <span className="sv-chunk__gate" role="img" aria-label={read.glyph}>
-                    <Gate size={12} strokeWidth={2} aria-hidden />
-                  </span>
-                </Tooltip>
-              </span>
             )}
             {read === undefined ? null : <GateTests read={read} />}
             {live ? (
