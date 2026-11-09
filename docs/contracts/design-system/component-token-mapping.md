@@ -27,7 +27,7 @@ The densest thing in the app and the reason the spacing scale is tight.
 
 ```
 header row   28px · --bg-base · --text-2xs · --fg-subtle
-             uppercase, 0.04em tracking (ALL CAPS here and on an eyebrow)
+             sentence case, no tracking
              bottom rule --border-default
 body row     28px · --bg-raised · 12px horizontal padding
              row rule --border-subtle
@@ -395,7 +395,7 @@ merge queue light's card, the plan usage card and the map's callout, each
 of which drew its own surface and kept its own timing.
 
 ```
-head     kind glyph · kind in small caps · item id or place, mono, trailing
+head     kind glyph · kind in sentence case · item id or place, mono, trailing
 name     --text-sm · --weight-heading
 state    glyph + words in the item's status tone, on a 14% wash of it
 facts    label --fg-muted · value --fg-default, values right-aligned
@@ -466,7 +466,7 @@ between siblings.
 | Fenced block | mono on `--bg-sunken` at `--radius-md`, edged in `--accent-muted` with a two-unit `--accent` leading edge (the carve-out under Accent). It wraps rather than clipping |
 | `-` list, `1.` list | discs, and mono numbers at `--weight-heading`, in `--accent` |
 | `- [x]` task | a disabled checkbox in `--accent`, in place of the marker |
-| Table | the Table primitive's header: a `--bg-overlay` band, `--text-2xs` caps at `--tracking-caps` in `--fg-muted`, `--border-default` beneath. `--border-subtle` between rows and around the table. Cells wrap; column alignment is dropped |
+| Table | the Table primitive's header: a `--bg-overlay` band, `--text-2xs` in sentence case in `--fg-muted`, `--border-default` beneath. `--border-subtle` between rows and around the table. Cells wrap; column alignment is dropped |
 | Blockquote | a callout on `--accent-faint` with a two-unit `--accent` leading edge, words at `--fg-default` |
 | `---` | a `--border-subtle` rule |
 | Link | `--accent`, underlined on hover (hard rule 2). Only `http:` and `https:` are links; anything else draws as its text |

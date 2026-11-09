@@ -1,5 +1,5 @@
 /* The lanes of a Workspace or a Job. The canvas, its rail and the React Flow mapping are GraphCanvas.css. Weight is in the frame: a lane is a
-   mono-caps head on a raised ground beside an open body, a lit state is framed in the running hue, and state is a registry glyph. No
+   mono head on a raised ground beside an open body, a lit state is framed in the running hue, and state is a registry glyph. No
    gradient, glow or fill that is not a state. */
 
 .armada-lane-canvas {
@@ -66,9 +66,7 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
   text-overflow: ellipsis;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 

@@ -256,8 +256,6 @@
   line-height: var(--leading-2xs);
   font-weight: var(--weight-medium);
   color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
 }
 
 .armada-check-details dd {

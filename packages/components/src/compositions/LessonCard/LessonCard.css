@@ -158,8 +158,6 @@
 .armada-lesson__fix-label {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
   font-weight: var(--weight-medium);
   color: var(--fg-subtle);
 }

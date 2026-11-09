@@ -45,8 +45,5 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
    which muddies status colours. */
 [disabled], [aria-disabled="true"] { color: var(--fg-subtle); pointer-events: none; }
 
-/* The one legal ALL CAPS */
-.caps { text-transform: uppercase; letter-spacing: var(--tracking-caps); font-size: var(--text-2xs); color: var(--fg-subtle); }
-
 /* Machine-derived values */
 .mono { font-family: var(--font-mono); }

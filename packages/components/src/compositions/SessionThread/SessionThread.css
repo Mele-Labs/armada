@@ -65,8 +65,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-session-lease__facts {
@@ -442,8 +440,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-session-thread__command {
@@ -472,8 +468,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
   color: var(--fg-muted);
 }
 
@@ -1231,8 +1225,6 @@
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 
 .armada-session-did__chip {
@@ -1406,8 +1398,6 @@
   color: var(--fg-muted);
   font-size: var(--text-2xs);
   font-weight: var(--weight-medium);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .armada-session-thread__claim-text {
   margin: 0;

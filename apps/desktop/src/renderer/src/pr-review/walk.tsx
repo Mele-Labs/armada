@@ -151,49 +151,49 @@ function actOf(step: WalkStep): {
 } {
   if ("press" in step)
     return {
-      verb: "press",
+      verb: "Press",
       target: step.press,
     };
   if ("look" in step)
     return {
-      verb: "look",
+      verb: "Look",
       target: step.look,
     };
   if ("hover" in step)
     return {
-      verb: "hover",
+      verb: "Hover",
       target: step.hover,
     };
   if ("later" in step)
     return {
-      verb: "look",
+      verb: "Look",
       target: step.later,
     };
   if ("type" in step)
     return {
-      verb: "type",
+      verb: "Type",
       target: step.into,
       with: step.type,
     };
   if ("key" in step)
     return {
-      verb: "key",
+      verb: "Key",
       target: step.on,
       with: step.key,
     };
   if ("select" in step)
     return {
-      verb: "select",
+      verb: "Select",
       target: step.in,
       with: step.select,
     };
   if ("paste" in step)
     return {
-      verb: "paste",
+      verb: "Paste",
       target: step.paste,
     };
   return {
-    verb: "drag",
+    verb: "Drag",
     target: step.drag,
   };
 }

@@ -37,6 +37,8 @@
 /* A group's name sits above its rows and is not one: set back, and short of the row height. */
 .armada-themepick__group {
   padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--fg-subtle);
 }
 
 .armada-themepick__row {

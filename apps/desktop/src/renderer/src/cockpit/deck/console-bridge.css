@@ -876,8 +876,6 @@
       --repository-pad: 0;
       font-family: var(--font-mono);
       font-size: var(--cb-code);
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
       color: var(--fg-subtle);
       padding: 0;
     }
@@ -1013,7 +1011,6 @@
       background: none;
       box-shadow: none;
       font-size: var(--cb-code);
-      letter-spacing: 0.18em;
       color: var(--fg-muted);
     }
   }

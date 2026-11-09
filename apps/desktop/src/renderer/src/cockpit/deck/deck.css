@@ -1,6 +1,6 @@
 /* The flight deck's body. Gray is the baseline: amber is what he is owed, red is a Check failing now, green is a
    state on a bay or main and nothing else. Where he is, the raised tab and the selected thing, is the blue accent and
-   says nothing else. Each panel is dark glass with a small-caps heading over rows that are pills. Tokens only. The
+   says nothing else. Each panel is dark glass with a small heading over rows that are pills. Tokens only. The
    window's own chrome (the places) is `deck-chrome.css`. Ported from proto/cockpit-flight-deck. #2301. */
 
 /* ---- The page ------------------------------------------------------------------------------------------- */
@@ -178,7 +178,7 @@
   flex: 1 1 0;
 }
 
-/* A heading: small caps, quiet, one line, with its arrow or key at the right. No band, no rule. */
+/* A heading: small, quiet, one line, with its arrow or key at the right. No band, no rule. */
 .deck-band {
   display: flex;
   flex: none;
@@ -192,8 +192,6 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 .deck-band .armada-kbd {
   margin-left: auto;
@@ -374,7 +372,7 @@
   padding: 0;
   list-style: none;
 }
-/* Quieter than the band above the list: the same small caps, one step down and subtle. The look sets its padding and line (`--repository-pad`, `--repository-leading`). */
+/* Quieter than the band above the list: the same small label, one step down and subtle. The look sets its padding and line (`--repository-pad`, `--repository-leading`). */
 .deck-list__repository {
   --repository-pad: var(--space-2) var(--space-3) var(--space-1);
   --repository-leading: var(--leading-head);
@@ -383,8 +381,6 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 /* A repository's heading as a filled band, the one look the Jobs list and the Projects list share. Anything inside it (a press to open, an act) takes its type and sits in the band's row. */
 .deck-list__head {
@@ -400,9 +396,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
   line-height: var(--leading-xs);
-  text-transform: uppercase;
 }
 /* An idea saved to start later: the row of a Session not started, dashed in its hue, with the repository and the model where a Session's phase and mark would be. */
 .deck-row[data-queued] {
@@ -719,8 +713,6 @@
 .deck-facts dt {
   color: var(--fg-subtle);
   font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
   font-size: var(--text-2xs);
 }
 .deck-facts dd {
@@ -795,13 +787,12 @@
   > .armada-session-frame__row:first-child {
   min-height: var(--head-min, var(--h-row-header));
 }
-/* The Job's panels: the title as tracked caps over a hairline, the body close under it. */
+/* The Job's panels: the title over a hairline, the body close under it. */
 .deck .sv-panel__band {
   gap: var(--space-2);
   font-family: var(--font-display);
   font-size: var(--text-head);
   line-height: var(--leading-head);
-  letter-spacing: var(--tracking-head);
 }
 .deck .sv-panel__body {
   gap: var(--space-2);
@@ -2235,8 +2226,6 @@ button.deck-pr:hover {
   padding: var(--space-1) var(--space-4) var(--space-1) var(--space-3);
   color: var(--accent);
   font-weight: var(--weight-heading);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
 }
 /* The bar, along the bottom of the map. */
 .deck-replay {
