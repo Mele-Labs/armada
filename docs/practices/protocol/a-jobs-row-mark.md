@@ -50,6 +50,7 @@ Both are ported for the day it does, and `failed` stays in `JobLamp`.
 
 A client calls `view_session` at the moments Electron's `cockpit/viewed.ts` records a visit: `on: true` when a Job comes on screen in a visible window or that window shows again, `on: false` when it leaves, or the window hides or closes.
 Each call keeps Fleet's clock as `viewed_at`, later only, in the store's `session_viewed`, and publishes `session.changed`.
+Fleet keeps a visit of its own when a client's `send_session_message` or `answer_waiting` reaches the Job, so every client counts writing to a Job or answering its card as being in it; a message Fleet sends a Job itself does not.
 `viewed_at` is the instant of the last call, so while he stays in a Job it is when he arrived.
 Fleet also counts in memory the places that sent `on` and not yet `off`, and a Job with any reads as viewed now, so a turn that ends while he is in it is not `replied`.
 Two clients showing one Job keep it on screen until both have left.

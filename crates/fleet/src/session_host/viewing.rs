@@ -12,7 +12,8 @@ use super::NO_SUCH_SESSION;
 use crate::daemon::Fleet;
 
 /// The places that have each Job on screen now, by Job: an `on` counts one, an `off` lets one go.
-/// Memory only, so a Fleet restart forgets it and keeps `viewed_at`.
+/// Memory only, so a Fleet restart forgets it and keeps `viewed_at`. A client that dies without its
+/// `off` leaves its Job on screen until that restart, which is accepted for now.
 #[derive(Default)]
 pub(crate) struct OnScreen(Mutex<HashMap<String, u32>>);
 
@@ -62,5 +63,15 @@ where
         }
         self.hosts().on_screen.moved(id, asked.on);
         self.published_hosted(id).await
+    }
+
+    /// He acted in the Job through a client: Fleet's clock kept as a visit, published with whatever
+    /// the act publishes next. A Job Fleet does not know keeps nothing, and a store that will not
+    /// write leaves the act to go on: a visit is never worth refusing his message for.
+    pub(crate) async fn visit_kept(&self, id: &str) {
+        let mut store = self.store().lock().await;
+        if matches!(store.session(id), Ok(Some(_))) {
+            let _ = store.keep_session_viewed(id, self.now().as_str());
+        }
     }
 }
