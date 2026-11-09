@@ -76,7 +76,7 @@ in Armada Decisions.
 | Native Bridge | Rust / gpui, `crates/bridge-native/` | While the app is open | The user |
 | Fleet | Rust | Survives Bridge close. Ends on reboot or force-kill | The user, by hand, until the Ship milestone puts it under launchd |
 | Drone | Claude Code CLI, headless | One Job | Fleet, after human approval |
-| Operator | One model call with no tools, decided in Fleet | One per machine, one fresh call per arrival | Fleet, when it hands an arrival over |
+| Operator | One model call with no tools, decided in Fleet. A message in its box is put to a call that holds Read, Grep and Glob | One per machine, one fresh call per arrival or message | Fleet, when it hands an arrival over or the person writes |
 | SQLite | File, WAL mode | Persistent | Fleet, via the `store` crate |
 | `armada doctor --json` | Rust, same binary as Fleet | ~253 ms warm. One scan, then it exits | Bridge, on demand |
 
@@ -664,12 +664,13 @@ Surfaces need UX. Shapes and policies need a home on a parent, not a page.
 ## Agent is a closed set
 
 **The test is a toolset.** Not every model invocation Armada makes is an
-Agent. Drone and Scout carry a toolset; every other invocation below does not, the Operator's call included.
+Agent. Drone and Scout carry a toolset; every other invocation below does not, the Operator's rulings included. A message to the Operator holds the three read tools, which the row below says.
 
 | Invocation | Toolset | Worktree | Lifetime | Verdict |
 | --- | --- | --- | --- | --- |
 | Drone | Kit + Manifest resolved, plus Evidence MCP | Yes | One Job | **Agent** |
 | Operator | None | No | One call per arrival | Model call, in `fleet`. See [Operator](../concepts/operator.md) |
+| Operator, in conversation | Read, Grep and Glob only, over a folder Fleet writes for the message and the hosted checkouts. No server, no Fleet tool | No | One message | Model call, in `fleet`, run as a scout's process. It has no Studio and no Finding. See [Operator](../concepts/operator.md) |
 | Scout | Read-only: the checkout on disk and the sources Kit allows. See [Scout](../concepts/scout.md) | No | One ask | **Agent** |
 | Judge | None | No | One call | Model call, in `verification` |
 | Job proposer | None | No | One call | Model call, in `fleet`. Reads a request and proposes a Job — its workflow, its title and the split. Renamed from Job-shape classifier: shape became derived and scope became the workflow's first step, so neither half of that name survived. See [Job proposer](../concepts/job-proposer.md) |
