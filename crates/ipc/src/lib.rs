@@ -109,6 +109,10 @@ mod ids;
 mod job_thread;
 /// The state a Jobs-list row draws, on `SessionRecord::mark`.
 mod job_mark;
+/// Whether a Job offers Compact, on `SessionRecord::compact`.
+mod job_compact;
+/// How full a limit is, as a ring draws it: `RingBand`.
+mod ring_band;
 /// When the person was last in a Job: `view_session`, and `SessionRecord::viewed_at`.
 mod job_viewing;
 /// The merge line as a screen draws it, read by Fleet: `get_merge_line_view` and `merge_line_view.changed`.
@@ -328,7 +332,7 @@ pub use amending::{
     PolicyWords, PortDraft,
 };
 pub use building::{
-    BuildPosition, BuildSource, BuildStage, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
+    BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
     KeptBuildRunning, KeptSnapshot, LeftOutBranch, PickFleetBuildJob, PickedJob, SnapshotState,
 };
@@ -420,6 +424,8 @@ pub use session_mcp::{
 pub use session_quick::SessionQuick;
 pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews};
 pub use job_mark::{JobGroup, JobLamp, JobMark, JobState};
+pub use job_compact::{CompactHow, CompactOff, CompactOffer};
+pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
 pub use job_viewing::ViewSession;
 pub use standing_calls::{CallArrival, CallArrivalKind, CallTone, CallsChanged, OpenStandingCall, StandingCall, StandingCallKind, StandingCalls};
 pub use job_thread::{
@@ -498,7 +504,7 @@ pub use mods::{
     PromoteMod, ScaffoldMod, SetModEnabled, StartModSession, TrackerTry, TryTrackerMod,
 };
 pub use clashes::{
-    ClashFile, ClashHolder, ClashSide, WriteClash, WriteClashes,
+    AllWriteClashes, ClashFile, ClashHolder, ClashSide, RepositoryClashes, WriteClash, WriteClashes,
 };
 pub use logbook::{ForSubagent, Recalled, RecalledEntry, SubagentAsk};
 pub use territory::{

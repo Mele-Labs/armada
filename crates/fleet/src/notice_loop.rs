@@ -128,6 +128,8 @@ where
             fleet.sources_handed().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
+            // The clashes of every repository, pushed when the set moved.
+            fleet.clashes_published().await;
             // What main's moves made stale in the test map, read again where that costs nothing.
             fleet.test_map_moves_fed();
             // A Session that ended or handed on, distilled into the Logbook one at a time.

@@ -30,6 +30,20 @@ export type WriteClashes = {
   clashes: WriteClash[];
 };
 
+/** One served repository's standing clashes, oldest first. Never empty: a repository with none is not listed. */
+export type RepositoryClashes = {
+  manifest_id: string;
+  clashes: WriteClash[];
+};
+
+/**
+ * `list_all_write_clashes` (`GET /clashes/all`), and `write_clashes.changed` whole: every clash standing in every served
+ * repository, in the order Fleet serves them. Since 9 Nov 2026.
+ */
+export type AllWriteClashes = {
+  repositories: RepositoryClashes[];
+};
+
 /**
  * `read_clash_file`: `GET /clashes/file?session_id=&other_kind=&other_id=&path=`. Each side is what `git diff` prints for
  * that one path from where the two split, `diff --git` header and `@@` hunks; empty where that side left the file as it was.

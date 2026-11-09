@@ -202,6 +202,7 @@ WebSocket event stream, read this first.
 | [A Job's in-flight list: `SessionRecord.in_flight`](protocol/a-jobs-in-flight-list.md) |
 | [A Job's row mark: `SessionRecord.mark`](protocol/a-jobs-row-mark.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
+| [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

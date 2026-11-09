@@ -84,6 +84,14 @@ pub struct SessionUsage {
     pub context_window: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost_micros: Option<u64>,
+    /// How much of the window the context fills, whole percent and clamped 0 to 100. **Fleet's
+    /// reading of the two figures above on a record, never a session's**: absent without a window
+    /// to fill, and ignored in a report.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_percent: Option<u8>,
+    /// The band of `context_percent`, present with it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_band: Option<crate::ring_band::RingBand>,
 }
 
 /// One thing a harness says a session took or did. `kind` is open text: the
@@ -1470,6 +1478,10 @@ pub struct SessionRecord {
     /// screen or when it left. Absent where he never was. Since 9 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewed_at: Option<Instant>,
+    /// Whether Compact is offered on the Job, or off and why, without words. Absent where Fleet did
+    /// not read one. Since 9 Nov 2026. `docs/practices/protocol/the-title-bars-views-fleet-reads.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compact: Option<crate::CompactOffer>,
 }
 
 /// How a Job was started. Every part is absent where it was not set then.

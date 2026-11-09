@@ -116,6 +116,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         in_flight: Vec::new(),
         mark: None,
         viewed_at: None,
+        compact: None,
     }
 }
 

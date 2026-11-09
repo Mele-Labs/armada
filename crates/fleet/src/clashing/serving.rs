@@ -3,12 +3,13 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Clashing, Refusal};
 use ipc::{
-    ClashFile, ClashHolder, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClash,
+    AllWriteClashes, ClashFile, ClashHolder, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClash,
     WriteClashes,
 };
 
 use super::{Side, Who};
 use crate::daemon::Fleet;
+use crate::repositories::Served;
 
 fn kind_and_id(who: &Who) -> (ClashSide, String) {
     match who {
@@ -42,6 +43,15 @@ where
         holder: Option<String>,
     ) -> Result<WriteClashes, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
+        let mut clashes = self.clashes_in(&served).await;
+        if let Some(wanted) = holder.as_deref() {
+            clashes.retain(|clash| clash.one.id == wanted || clash.other.id == wanted);
+        }
+        Ok(WriteClashes { clashes })
+    }
+
+    /// Every clash standing in `served`, oldest first.
+    pub(super) async fn clashes_in(&self, served: &Served) -> Vec<WriteClash> {
         let base = served.manifest().base().unwrap_or("main").to_string();
         let mut readings = self.writes().readings_in(served.manifest().id().as_str());
         readings.sort_by(|(_, one), (_, other)| one.since.as_str().cmp(other.since.as_str()));
@@ -56,9 +66,6 @@ where
                     label: base.clone(),
                 },
             };
-            if holder.as_deref().is_some_and(|wanted| one.id != wanted && other.id != wanted) {
-                continue;
-            }
             clashes.push(WriteClash {
                 one,
                 other,
@@ -66,7 +73,7 @@ where
                 since: ipc::Instant::carried(reading.since.as_str()),
             });
         }
-        Ok(WriteClashes { clashes })
+        clashes
     }
 }
 
@@ -105,6 +112,10 @@ where
         seen: Option<String>,
     ) -> Result<SessionFileChange, Refusal> {
         self.session_file_change(&session_id, &path, seen).await
+    }
+
+    async fn list_all_write_clashes(&self) -> Result<AllWriteClashes, Refusal> {
+        Ok(self.all_write_clashes().await)
     }
 
     async fn list_repository_areas(&self) -> Result<RepositoryAreas, Refusal> {

@@ -278,6 +278,7 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
                     context_tokens: Some(40_000),
                     context_window: Some(200_000),
                     cost_micros: None,
+                    ..Default::default()
                 },
                 plan: Vec::new(),
                 context_breakdown: None,
@@ -293,6 +294,7 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
                     context_tokens: None,
                     context_window: None,
                     cost_micros: Some(2_000_000),
+                    ..Default::default()
                 },
                 plan: Vec::new(),
                 context_breakdown: None,
@@ -306,6 +308,51 @@ async fn usage_keeps_what_was_reported_and_a_later_report_adds_to_it() {
         record.manifest_id, None,
         "a directory in no served repository"
     );
+}
+
+/// The percent and band are Fleet's reading of the two figures, so a report that names them is not believed.
+#[tokio::test]
+async fn a_record_carries_the_context_percent_and_band_read_from_its_figures() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let before = fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+    assert_eq!((before.usage.context_percent, before.usage.context_band), (None, None), "no window to fill");
+    let measured = |tokens| SessionFact::Measured {
+        usage: SessionUsage {
+            context_tokens: Some(tokens),
+            context_window: Some(200_000),
+            cost_micros: None,
+            context_percent: Some(1),
+            context_band: Some(ipc::RingBand::Normal),
+        },
+        plan: Vec::new(),
+        context_breakdown: None,
+    };
+    let record = fleet.report_session(report("s1", measured(170_000))).await.unwrap();
+    assert_eq!((record.usage.context_percent, record.usage.context_band), (Some(85), Some(ipc::RingBand::Warning)));
+    let record = fleet.report_session(report("s1", measured(196_000))).await.unwrap();
+    assert_eq!((record.usage.context_percent, record.usage.context_band), (Some(98), Some(ipc::RingBand::Danger)));
+}
+
+/// Fleet bands each window itself, and holds the banded reading, so a repeat of it still says nothing.
+#[tokio::test]
+async fn a_plan_window_is_held_with_the_band_fleet_read_and_a_repeat_says_nothing() {
+    use api::HostedSessions;
+    let home = TempDir::new();
+    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    fleet.report_session(report("s1", started("/nowhere"))).await.unwrap();
+    let mut watching = fleet.events().subscribe();
+    let reported = ipc::PlanWindow {
+        kind: "five_hour".into(),
+        percent_used: 96,
+        resets_at: Some(ipc::Instant::carried("2026-10-12T22:40:00.000Z")),
+        band: ipc::RingBand::Normal,
+    };
+    fleet.report_session(report("s1", measured_plan(vec![reported.clone()]))).await.unwrap();
+    let heard = next_plan(&mut watching).await;
+    assert_eq!(heard.windows[0].band, ipc::RingBand::Danger);
+    fleet.report_session(report("s1", measured_plan(vec![reported]))).await.unwrap();
+    assert_eq!(fleet.get_plan_usage().await.unwrap(), heard, "held as read, and a repeat moves nothing");
 }
 
 #[tokio::test]
@@ -630,6 +677,7 @@ fn window(kind: &str, percent_used: u32, resets_at: &str) -> ipc::PlanWindow {
         kind: kind.into(),
         percent_used,
         resets_at: Some(ipc::Instant::carried(resets_at)),
+        band: ipc::RingBand::of(percent_used),
     }
 }
 

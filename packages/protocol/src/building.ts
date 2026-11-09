@@ -78,6 +78,24 @@ export type FleetBuildReport = {
   trying?: string[];
   /** A swap onto the snapshot is under way. Omitted when false. */
   swapping?: boolean;
+  /** What the build switcher draws, read by Fleet from `on`, `position` and `restarting`. Absent from a report built without it. Since 9 Nov 2026. */
+  switcher?: BuildSwitcher;
+};
+
+/**
+ * Which act the restart button is: the build it targets is the one a restart under way is moving onto, else the one in
+ * use. `refresh_preview` merges the in-flight branches again and restarts on the preview; `update_to_main` restarts on
+ * the latest `origin/main`.
+ */
+export type RestartAct = "refresh_preview" | "update_to_main";
+
+/** What the build switcher draws, without its words. */
+export type BuildSwitcher = {
+  /** The running build is level with `origin/main`: a position that is known, with none ahead and none behind. A position that cannot be counted is not aligned. */
+  aligned: boolean;
+  /** Nothing is restarting, the build is `main` and it is aligned: the restart button is disabled rather than absent. */
+  idle_on_main: boolean;
+  restart: RestartAct;
 };
 
 /** A branch picked for the next snapshot. */

@@ -1,0 +1,12 @@
+[operations.list_all_write_clashes]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Every standing write clash of every served repository, in one read"
+notes = """
+`GET /clashes/all`. Since 9 Nov 2026. Answers `AllWriteClashes`: one `RepositoryClashes` `{ manifest_id, clashes }` for each served repository that has a clash, in the order Fleet serves them, and none for one that has not. Each `clashes` is what `list_write_clashes` answers for that repository, oldest first. It is the same table read for every repository at once, so the native Bridge and Pocket need no Manifest to ask with. `list_write_clashes` stays as it was.
+
+In memory, as `list_write_clashes` is: a Fleet that restarts answers none until the holders write again. `agent_access` is `No`: an agent asks for its own clashes in the thread, where Fleet tells it.
+
+A Bridge that missed `write_clashes.changed` reads this route again on the resync that follows a `Missed`.
+"""
