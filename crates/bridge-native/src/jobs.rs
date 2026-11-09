@@ -67,6 +67,19 @@ impl Scope {
     }
 }
 
+/// Where a row carries its lamp's colour. `Bar` is Electron's edge strip; the others are takes
+/// on something of Armada's own, which the owner is choosing between.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lamp {
+    Bar,
+    /// A swallowtail signal flag hanging from the row's top edge.
+    Pennant,
+    /// A HUD's corner brackets, at the row's top left and bottom right.
+    Brackets,
+    /// No edge mark: the state glyph sits in a housing tinted the lamp's colour.
+    Housing,
+}
+
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
 struct Row {
@@ -425,6 +438,8 @@ pub struct JobsList {
     query: String,
     /// What each row draws.
     view: View,
+    /// Where a row carries its lamp.
+    lamp: Lamp,
     /// Live Jobs in the order the person placed them, by id.
     order: Vec<String>,
     /// Whether the scope and the order are kept between runs: not on mock data.
@@ -488,6 +503,7 @@ impl JobsList {
             scope,
             query: String::new(),
             view,
+            lamp: Lamp::Bar,
             order,
             remember,
             focused: None,
@@ -528,6 +544,12 @@ impl JobsList {
 
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus
+    }
+
+    /// Draw the lamp as `lamp`: a walk sets it to put the takes side by side.
+    pub fn set_lamp(&mut self, lamp: Lamp, cx: &mut Context<Self>) {
+        self.lamp = lamp;
+        cx.notify();
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -887,6 +909,22 @@ impl JobsList {
         });
         let tagged = issue.is_some() || pr.is_some();
         let under = tagged || flow.is_some() || now.is_some();
+        let style = self.lamp;
+        let lamp_ink = look.color(lamp);
+        let housed = move |mark: gpui::Stateful<gpui::Div>| {
+            if style == Lamp::Housing {
+                mark.size(look.length(token::SPACE_6))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(lamp_ink.opacity(0.16))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(lamp_ink.opacity(0.4))
+            } else {
+                mark
+            }
+        };
         let marks = div()
             .flex_none()
             .flex()
@@ -901,8 +939,7 @@ impl JobsList {
                 // The paused mark in place of the state's glyph.
                 marks.child(div().flex_none().flex().justify_end().children(state.map(|((glyph, said), hue)| {
                     labelled(
-                        div()
-                            .id(SharedString::from(format!("state-{}", row.id)))
+                        housed(div().id(SharedString::from(format!("state-{}", row.id))))
                             .child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(hue)))
                             .tooltip(tip(said.clone())),
                         Role::Image,
@@ -910,8 +947,7 @@ impl JobsList {
                     )
                 })).when(row.paused, |slot| {
                     slot.child(labelled(
-                        div()
-                            .id(SharedString::from(format!("paused-{}", row.id)))
+                        housed(div().id(SharedString::from(format!("paused-{}", row.id))))
                             .child(svg().path(icon_path("circle-pause")).size(mark_glyph).text_color(look.color(token::FG_MUTED)))
                             .tooltip(tip("Paused".into())),
                         Role::Image,
@@ -928,7 +964,11 @@ impl JobsList {
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .py(pad)
-            .pl(look.length(token::SPACE_4))
+            .pl(match style {
+                Lamp::Bar => look.length(token::SPACE_4),
+                Lamp::Pennant => look.length(token::SPACE_3) * 3.,
+                Lamp::Brackets | Lamp::Housing => look.length(token::SPACE_3),
+            })
             .pr(look.length(token::SPACE_3))
             .rounded(radius)
             .border(look.length(token::BORDER_WIDTH))
@@ -944,16 +984,49 @@ impl JobsList {
                     move |tinted, at| tinted.bg(tint.opacity(at)),
                 ))
             })
-            .child(
-                div()
+            .children(match style {
+                Lamp::Bar => vec![div()
                     .absolute()
                     .top(pad)
                     .bottom(pad)
                     .left(look.length(token::SPACE_1))
                     .w(look.length(token::SPACE_1))
                     .rounded_full()
-                    .bg(look.color(lamp)),
-            )
+                    .bg(lamp_ink)
+                    .into_any_element()],
+                Lamp::Pennant => {
+                    // Hung from the top edge, its fly cut into a swallowtail.
+                    let (wide, long, notch) = (look.length(token::SPACE_3), look.length(token::SPACE_4) + look.length(token::SPACE_1), look.length(token::SPACE_1) * 1.5);
+                    vec![canvas(|_, _, _| (), move |bounds, _, window, _| {
+                        let at = bounds.origin;
+                        let mut flag = gpui::PathBuilder::fill();
+                        flag.move_to(at);
+                        flag.line_to(point(at.x + wide, at.y));
+                        flag.line_to(point(at.x + wide, at.y + long));
+                        flag.line_to(point(at.x + wide / 2., at.y + long - notch));
+                        flag.line_to(point(at.x, at.y + long));
+                        flag.close();
+                        if let Ok(flag) = flag.build() {
+                            window.paint_path(flag, lamp_ink);
+                        }
+                    })
+                    .absolute()
+                    .top_0()
+                    .left(look.length(token::SPACE_3))
+                    .w(wide)
+                    .h(long)
+                    .into_any_element()]
+                }
+                Lamp::Brackets => {
+                    // Over the row's own edge, following its rounded corners.
+                    let (arm, weight, out) = (look.length(token::SPACE_6), look.length(token::BORDER_WIDTH) * 2., -look.length(token::BORDER_WIDTH));
+                    vec![
+                        div().absolute().top(out).left(out).size(arm).border_t(weight).border_l(weight).rounded_tl(radius).border_color(lamp_ink).into_any_element(),
+                        div().absolute().bottom(out).right(out).size(arm).border_b(weight).border_r(weight).rounded_br(radius).border_color(lamp_ink).into_any_element(),
+                    ]
+                }
+                Lamp::Housing => Vec::new(),
+            })
             .child(
                 div()
                     .flex()

@@ -18,6 +18,8 @@ pub mod fleet;
 pub mod stage;
 pub mod window;
 
+use crate::jobs::Lamp;
+
 /// What a step does when it is reached, before its target is ringed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Verb {
@@ -32,6 +34,8 @@ pub enum Verb {
     RightPress(&'static str),
     /// The pointer brought to rest on the target.
     Hover,
+    /// The Jobs list draws its lamps this way, so a walk can put takes side by side.
+    Lamp(crate::jobs::Lamp),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -69,7 +73,8 @@ const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static 
 }
 
 /// Every walk this build can play, by name.
-pub static WALKS: &[Walk] = &[Walk {
+pub static WALKS: &[Walk] = &[
+    Walk {
     name: "jobs-list",
     title: "Jobs list",
     screen: Screen::Jobs,
@@ -105,7 +110,40 @@ pub static WALKS: &[Walk] = &[Walk {
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
-}];
+    },
+    // Where a row's colour goes, as three takes of one walk: each sets its look, then rings a Job
+    // that is working and one waiting on the owner.
+    Walk {
+        name: "jobs-lamps-pennant",
+        title: "Jobs list: a signal pennant",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("Each Job flies a signal flag in its lamp's colour from its top edge", Verb::Lamp(Lamp::Pennant), "row", "Fix the merge line freshness chip"),
+            step("A Job waiting on you flies amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-brackets",
+        title: "Jobs list: corner brackets",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("A HUD's corner marks frame each Job in its lamp's colour", Verb::Lamp(Lamp::Brackets), "row", "Fix the merge line freshness chip"),
+            step("A Job waiting on you is framed in amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+    Walk {
+        name: "jobs-lamps-housing",
+        title: "Jobs list: a lit housing",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("No edge mark: each Job's state glyph sits in a housing lit in its lamp's colour", Verb::Lamp(Lamp::Housing), "row", "Fix the merge line freshness chip"),
+            step("A Job waiting on you is lit amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
     WALKS.iter().find(|walk| walk.name == name)
