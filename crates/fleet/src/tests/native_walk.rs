@@ -111,7 +111,7 @@ async fn opening_a_native_walk_with_a_build_older_than_the_slots_head_commit_is_
 }
 
 #[tokio::test]
-async fn opening_a_native_walk_that_is_closed_withdrawn_replaced_or_never_shown_is_refused() {
+async fn opening_a_native_walk_that_is_closed_withdrawn_or_never_shown_is_refused() {
     let (rig, id) = walking().await;
     assert!(rig.fleet.open_native_walk(press(&id, OTHER)).await.is_err(), "never shown");
     assert!(rig.fleet.open_native_walk(press(&id, "http://localhost:5173/x")).await.is_err(), "not a native walk's address");
@@ -123,11 +123,15 @@ async fn opening_a_native_walk_that_is_closed_withdrawn_replaced_or_never_shown_
     rig.fleet.withdraw_window(None, WithdrawWindow { url: URL.into(), session_id: Some(id.clone()) }).await.expect("withdrawn");
     assert!(rig.fleet.open_native_walk(press(&id, URL)).await.is_err(), "withdrawn");
 
-    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown again");
-    rig.fleet.show_window(None, shown(&id, OTHER)).await.expect("replaced by another");
-    assert!(rig.fleet.open_native_walk(press(&id, URL)).await.is_err(), "replaced");
-
     assert!(starts(&rig).is_empty(), "nothing was started");
+}
+
+#[tokio::test]
+async fn a_native_walk_opens_beside_a_page_shown_after_it() {
+    let (rig, id) = walking().await;
+    rig.fleet.show_window(None, shown(&id, "http://localhost:5792/?scenario=compare")).await.expect("a second tab");
+    let opened = rig.fleet.open_native_walk(press(&id, URL)).await.expect("its tab is still open");
+    assert!(opened.started);
 }
 
 #[tokio::test]
@@ -152,7 +156,7 @@ async fn two_presses_start_one_app_from_the_slot_with_the_walk_the_job_the_addre
 }
 
 #[tokio::test]
-async fn the_app_goes_when_the_walk_is_closed_approved_or_replaced() {
+async fn the_app_goes_when_the_walk_is_closed_or_approved_and_stays_beside_another_tab() {
     let (rig, id) = walking().await;
 
     opened(&rig, &id, URL, 1).await;
@@ -161,16 +165,17 @@ async fn the_app_goes_when_the_walk_is_closed_approved_or_replaced() {
 
     rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
     opened(&rig, &id, URL, 2).await;
-    rig.fleet.show_window(None, shown(&id, OTHER)).await.expect("replaced");
-    assert!(!running(&rig, &id, URL), "replaced");
+    rig.fleet.show_window(None, shown(&id, OTHER)).await.expect("another tab");
+    assert!(running(&rig, &id, URL), "a page shown beside it leaves it running");
 
     opened(&rig, &id, OTHER, 3).await;
     rig.send(&id, &format!("Approved: {OTHER}")).await;
     assert!(!running(&rig, &id, OTHER), "approved");
+    assert!(running(&rig, &id, URL), "approving one walk leaves the other");
 
-    rig.fleet.show_window(None, shown(&id, URL)).await.expect("shown");
-    opened(&rig, &id, URL, 4).await;
-    assert!(running(&rig, &id, URL), "opened again after its app went");
+    rig.fleet.show_window(None, shown(&id, OTHER)).await.expect("shown");
+    opened(&rig, &id, OTHER, 4).await;
+    assert!(running(&rig, &id, OTHER), "opened again after its app went");
 }
 
 #[tokio::test]

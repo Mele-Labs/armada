@@ -678,8 +678,6 @@ where
             })
             .await?;
         self.walk_noted(&id, &record, &title);
-        // A newer window replaces the walk the Job had open, and its app goes with it.
-        self.native_walks().stopped_for_job(&id);
         // The row is published below, carrying it.
         let _ = self.live_page_seen(&id, &url, &title);
         // A walk dismissed, by him or by withdraw_window, waits again once the job shows it again.

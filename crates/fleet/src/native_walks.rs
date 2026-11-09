@@ -13,7 +13,7 @@ use std::sync::Mutex;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{NativeWalkOpened, OpenNativeWalk};
+use ipc::{NativeWalkOpened, OpenNativeWalk, SessionRow};
 
 use crate::daemon::Fleet;
 
@@ -107,7 +107,7 @@ impl NativeWalks {
         }
     }
 
-    /// The walk on `url` ended: closed, withdrawn, approved or replaced.
+    /// The walk on `url` ended: closed, withdrawn or approved.
     pub(crate) fn stopped_for_walk(&self, session: &str, url: &str) {
         self.stopped_where(|one| one.session == session && one.url == url);
     }
@@ -158,7 +158,9 @@ where
             return Err(self.hosted_refusal(NOT_NATIVE, &format!("{url} is not a native walk: its address is armada://walk/<name>")));
         };
         let rows = self.rows_of(&id).await?;
-        if crate::session_host::walking::open_walk(&rows) != Some(url.as_str()) {
+        // A walk is a tab of the Job, and a Job may hold several open: any of them on this address.
+        let open = rows.iter().any(|row| matches!(row, SessionRow::Window { url: shown, ended_at: None, .. } if *shown == url));
+        if !open {
             return Err(self.hosted_refusal(NOT_OPEN, &format!("this job has no open walk on {url}. Show it with show_window first")));
         }
         let (_, hosting) = self.session_and_hosting(&id).await?;
