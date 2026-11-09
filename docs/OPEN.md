@@ -54,7 +54,6 @@ on purpose and makes the gate name what was waiting.
 ## docs/concepts/native-bridge.md
 
 - **[native-operator-form]** Is the native Operator a panel or a screen? The choice is made from mock takes, which the owner walks before the gpui build starts.
-- **[native-chrome-in-window]** Can Chrome be drawn inside the gpui window? If it cannot, it sits in a borderless window glued over its pane.
 
 ## docs/concepts/retro.md
 

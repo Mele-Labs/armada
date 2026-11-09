@@ -54,7 +54,10 @@ A native screen is walked in its own native window on mock data, with a walk bar
 
 **Chrome (CEF) is embedded for all web content: documents, sketch mocks, walks of web pages and the Browser tool.**
 One Armada Chrome profile keeps sign-ins, and the owner's own Chrome is never touched.
-If Chrome cannot be drawn inside the gpui window, it sits in a borderless window glued over its pane.
+Chrome draws inside the gpui window: it renders windowless, and gpui shows each frame in a `surface`.
+Bridge carries a small patch to gpui so `surface` takes Chrome's frames as they are, in exact colour and with alpha.
+A page has no view of its own, so its accessibility tree is mapped into gpui's for VoiceOver.
+What was measured is in [the Chrome spike](../spikes/native-bridge-chrome.md).
 
 ### 6. Order
 
@@ -142,5 +145,3 @@ Everything he uses daily:
 
 - **[native-operator-form]** Is the native Operator a panel or a screen?
   The choice is made from mock takes, which the owner walks before the gpui build starts.
-- **[native-chrome-in-window]** Can Chrome be drawn inside the gpui window?
-  If it cannot, it sits in a borderless window glued over its pane.
