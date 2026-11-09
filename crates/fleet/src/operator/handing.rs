@@ -164,7 +164,7 @@ where
             return None;
         }
         let manifest = self.store().lock().await.hosting(id).ok().flatten()?.manifest_id;
-        let on = |role| self.operator_position(role, &manifest) == OperatorPosition::On;
+        let on = |role| self.operator_position(role, &manifest) == OperatorPosition::Decide;
         if !on(OperatorRole::Delegate) && !on(OperatorRole::Dispatch) {
             return None;
         }
@@ -193,7 +193,7 @@ where
             let (pairs, plan, touched) = {
                 let store = self.store().lock().await;
                 let Some(manifest) = store.hosting(&id).ok().flatten().map(|hosting| hosting.manifest_id) else { continue };
-                if self.operator_position(OperatorRole::Delegate, &manifest) != OperatorPosition::On {
+                if self.operator_position(OperatorRole::Delegate, &manifest) != OperatorPosition::Decide {
                     continue;
                 }
                 let pairs = store.operator_in_touch(&id).unwrap_or_default();

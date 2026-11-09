@@ -4,12 +4,11 @@ use std::collections::BTreeSet;
 use std::sync::{Arc, Weak};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use config::settings as keys;
 use core_model::Timestamp;
 use ipc::{SessionRow, SessionVoice};
 use store::{AttachmentState, Holder};
 
-use super::{Desk, Done, InLine, LiveJob, Logged};
+use super::{Desk, Done, InLine, LiveJob, Logged, Paused};
 use crate::session_issues::ISSUE;
 use crate::adrift::Adrift;
 use crate::daemon::Fleet;
@@ -17,8 +16,7 @@ use crate::daemon::Fleet;
 /// The attachment on a started Job that names the Job that started it.
 const STARTED_BY: &str = "started_by";
 
-/// Fleet as the Operator reaches it. A store failure is said through `adrift`, and a count of
-/// calls that cannot be read stands for the ceiling reached. **Held weakly**, since Fleet holds the
+/// Fleet as the Operator reaches it. A store failure is said through `adrift`. **Held weakly**, since Fleet holds the
 /// Operator that holds this: a Fleet that is gone has no Jobs and makes no calls.
 pub struct FleetDesk<H, V, W> {
     fleet: Weak<Fleet<H, V, W>>,
@@ -48,17 +46,11 @@ where
         }
     }
 
-    fn day_began(&self) -> Done<'_, Timestamp> {
+    fn plan_pause(&self) -> Done<'_, Option<Paused>> {
         Box::pin(async move {
-            let now = self.now().epoch_millis().unwrap_or(0);
-            Timestamp::from_rfc3339(crate::clock::rfc3339_utc(crate::clock::local_day_began(now).await))
+            let fleet = self.fleet.upgrade()?;
+            fleet.operator_paused().await
         })
-    }
-
-    fn daily_calls(&self) -> u32 {
-        let Some(fleet) = self.fleet.upgrade() else { return 0 };
-        let calls = fleet.machine_settings().now().get(keys::OPERATOR_DAILY_CALLS);
-        u32::try_from(calls.max(0)).unwrap_or(u32::MAX)
     }
 
     /// Every hosted Job not ended, with what Fleet holds of its work: its plan's
@@ -97,20 +89,6 @@ where
                 });
             }
             live
-        })
-    }
-
-    fn calls_since(&self, since: Timestamp) -> Done<'_, u32> {
-        Box::pin(async move {
-            let Some(fleet) = self.fleet.upgrade() else { return u32::MAX };
-            let counted = fleet.store().lock().await.operator_calls_since(since.as_str());
-            match counted {
-                Ok(calls) => calls,
-                Err(why) => {
-                    (self.adrift)(Adrift::Writing(why));
-                    u32::MAX
-                }
-            }
         })
     }
 

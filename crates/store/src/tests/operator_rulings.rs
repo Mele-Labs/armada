@@ -57,23 +57,6 @@ fn a_ruling_reads_back_whole_with_its_shared_paths_and_signer() {
 }
 
 #[test]
-fn the_calls_of_a_day_are_counted_once_each_and_a_row_with_no_call_is_not_one() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    for (arrival, call, at) in [
-        ("yesterday", Some("c0"), "2026-11-03T23:59:00.000Z"),
-        ("a", Some("c1"), "2026-11-04T09:00:00.000Z"),
-        ("b", Some("c1"), "2026-11-04T09:00:00.000Z"),
-        ("c", Some("c2"), "2026-11-04T09:05:00.000Z"),
-        ("ceiling", None, "2026-11-04T09:06:00.000Z"),
-    ] {
-        store.add_operator_ruling(&ruled(arrival, call, at)).expect("kept");
-    }
-    assert_eq!(store.operator_calls_since("2026-11-04T00:00:00.000Z").expect("counted"), 2);
-    assert_eq!(store.operator_calls_since("2026-11-03T00:00:00.000Z").expect("counted"), 3);
-}
-
-#[test]
 fn a_jobs_rows_read_back_oldest_first_and_an_arrival_in_the_log_reads_as_ruled_and_since_when() {
     let dir = TempDir::new();
     let mut store = open(&dir);
@@ -154,4 +137,29 @@ fn the_persons_answers_to_one_question_read_back_newest_first_and_the_operators_
     let said: Vec<(&str, Option<&str>)> = read.iter().map(|row| (row.session_id.as_str(), row.answer.as_deref())).collect();
     assert_eq!(said, vec![("01third", Some("Shared")), ("01first", Some("Per tab"))]);
     assert!(store.operator_answers_to("01REPOSITORY", "Something else?").expect("read").is_empty());
+}
+
+#[test]
+fn what_settled_leaves_out_what_was_read_only_proposed_or_left_and_a_note_passed_on_but_keeps_the_persons_send() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let row = |arrival: &str, outcome: &str, by: &str, minute: u32| KeptRuling {
+        outcome: outcome.to_string(),
+        by: by.to_string(),
+        ..ruled(arrival, None, &format!("2026-11-04T10:{minute:02}:00.000Z"))
+    };
+    for kept in [
+        row("a-done", "merge", "operator", 0),
+        row("b-read-only", "read_only", "operator", 1),
+        row("c-proposed", "proposed_file", "operator", 2),
+        row("d-left", "leave", "operator", 3),
+        row("note-sent:m:1", "passed_on", "operator", 4),
+        row("note-sent:m:2", "sent", "human", 5),
+        row("e-passed", "passed_on", "operator", 6),
+    ] {
+        store.add_operator_ruling(&kept).expect("kept");
+    }
+
+    let settled: Vec<String> = store.operator_rulings_signed(10).expect("read").into_iter().map(|one| one.arrival).collect();
+    assert_eq!(settled, ["e-passed", "note-sent:m:2", "a-done"]);
 }

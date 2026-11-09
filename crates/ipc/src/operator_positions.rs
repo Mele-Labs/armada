@@ -1,4 +1,4 @@
-//! How far each of the Operator's roles goes: Off, Suggest or On, for the machine and for single
+//! How far each of the Operator's roles goes: Read-only, Suggest or Decide, for the machine and for single
 //! repositories. `crates/config/settings.toml`, *Operator positions per repository*.
 //!
 //! **Here for `reach_folders`' reason**: JSON is read only in `ipc` and `store`. What a position
@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// One of the roles a person turns. Evaluate is the Operator switch itself; Raise has no control.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -22,28 +22,35 @@ pub enum OperatorRole {
     File,
 }
 
-/// How far a role goes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// How far a role goes, as the settings word it: `read_only`, `suggest` or `decide`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperatorPosition {
-    /// Each ruling is only in the Log.
+    /// The Operator makes no call for what the role would do, and nothing it does shows in Done.
     #[default]
-    Off,
-    /// Each ruling is in the Log and on a raised row, for one press.
+    ReadOnly,
+    /// What it would do is on a raised row, for one press. Done shows only that press.
     Suggest,
-    /// Fleet does what is ruled.
-    On,
+    /// Fleet does what is ruled, and Done shows it once it is done.
+    Decide,
 }
 
 impl OperatorPosition {
-    /// The position a setting's word names. **A word that is not one is Off**, so a hand edit gone
-    /// wrong acts on nothing.
+    /// The position a setting's word names. **The words of the two-position and three-position
+    /// switches that came first read as the ones they meant**: `off` is `read_only` and `on` is
+    /// `decide`. A word that is none of them is Read-only, so a hand edit gone wrong acts on nothing.
     pub fn read(word: &str) -> OperatorPosition {
         match word {
-            "on" => OperatorPosition::On,
+            "decide" | "on" => OperatorPosition::Decide,
             "suggest" => OperatorPosition::Suggest,
-            _ => OperatorPosition::Off,
+            _ => OperatorPosition::ReadOnly,
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for OperatorPosition {
+    fn deserialize<D: Deserializer<'de>>(from: D) -> Result<OperatorPosition, D::Error> {
+        String::deserialize(from).map(|word| OperatorPosition::read(&word))
     }
 }
 

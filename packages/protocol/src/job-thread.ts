@@ -7,6 +7,7 @@
 
 import type { AskedQuestion, CallInFlight } from "./calls";
 import type { SessionRow, ToolSubagent } from "./hosted-sessions";
+import type { JudgeArtifact } from "./judge";
 
 /** What `get_job_thread` answers when it is asked for no `limit`. */
 export const THREAD_ITEMS_SERVED = 200;
@@ -66,6 +67,10 @@ export type ThreadHead = {
   /** What Fleet did, does and will do for the Job, oldest first. Absent where none. */
   fleet_acts?: FleetAct[];
   trail: ThreadTrail;
+  /** The plan put to the person, or set aside, drawn after the last item. **An approved plan is an item.** What it says is the record's `plan`. */
+  plan?: ThreadPlan;
+  /** The newest sketch put to the person and not answered or taken back, drawn after the plan. **Its newest card is no item** while it stands here. */
+  sketch?: ThreadSketch;
 };
 
 /** The call the Job waits on, with the command a person reads: the argument whole where `detail` was cut, else `detail`, else the tool's name. */
@@ -122,12 +127,19 @@ export type TrailOpened = {
 
 /** One thing a thread draws. */
 export type ThreadItem =
-  /** A row drawn as it came. **Never a `tool` or a `check` row**, which fold, a waiting `ask`, or a `browser_reminder`. */
+  /**
+   * A row drawn as it came. **Never a `tool`, `check`, `ask` or `window_ask` row**, which fold; a `plan` row, whose card is the
+   * `plan` item; a `delivery` row, a `linked` row that `replaces`, or a `browser_reminder`. **A Fleet notice is a row only where it
+   * is kept**: one the agent disputed, and the last Fleet turn while the Job waits on the person (its `asked`, or the head's `plan` or `sketch`).
+   */
   | {
       kind: "row";
       row: SessionRow;
     }
-  /** Tool calls that ran one after another, without a subagent. `names` are the tools it holds, each once, in the order first called. */
+  /**
+   * Calls that ran one after another, without a subagent: `tool` rows, settled `ask` rows and `window_ask` rows. `names` are the tools it
+   * holds, each once, in the order first called: an `ask` names the tool it asked about, a `window_ask` none.
+   */
   | {
       kind: "calls";
       id: string;
@@ -187,6 +199,18 @@ export type ThreadItem =
       at: string;
       cause: string;
       log?: string[];
+    }
+  /** The approved plan, after the item of the last row written before its `plan` row, only where that item is a `row`. */
+  | ({
+      kind: "plan";
+    } & ThreadPlan)
+  /** A Judge finished reading, after the last row written by then. `id` is `judged:<reading id>`; `clean` is a reading with no notes. */
+  | {
+      kind: "judged";
+      id: string;
+      at: string;
+      artifact: JudgeArtifact;
+      clean: boolean;
     };
 
 /** A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the ledger's kept scene draws alike. */
@@ -206,9 +230,11 @@ export type ThreadSketch = {
   asked?: boolean;
   withdrawn?: boolean;
   settled?: CardSettled;
+  /** Each drawing Fleet kept under the title, oldest first, on the latest card only. **Absent until every one reads.** */
+  revisions?: unknown[];
 };
 
-/** A document card, one per revision kept. */
+/** A document card: one per page, its newest revision. */
 export type ThreadDocument = {
   /** `document:<page>:r<revision>`. */
   id: string;
@@ -218,6 +244,13 @@ export type ThreadDocument = {
   revision: number;
   asked?: boolean;
   settled?: CardSettled;
+};
+
+/** Where a plan's card stands. `id` is `plan:v<version>`; `state` is `waiting`, `set_aside` or `approved`. */
+export type ThreadPlan = {
+  id: string;
+  version: number;
+  state: string;
 };
 
 /** How the person answered a sketch or a document put to him. `how` is `approved` or `sent_back`. */
