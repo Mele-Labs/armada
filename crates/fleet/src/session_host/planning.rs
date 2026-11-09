@@ -252,15 +252,24 @@ where
         }
         kept.seen |= kept.groups.iter().any(|group| group.seen);
         let version = kept.version;
+        // A version recorded after one he approved stands on that approval unless the agent asks again
+        // (owner, 8 Nov 2026): no card, no waiting item, and no plan gate reopens.
+        let approved_before = before.as_ref().filter(|one| one.approved_at.is_some());
+        if let Some(one) = approved_before.filter(|_| !record.ask_again) {
+            kept.approved_at = one.approved_at.clone();
+            kept.asked_version = one.asked_version;
+        }
         self.store().lock().await.keep_session_plan(&id, &kept).map_err(|why| self.ledger_fault(why))?;
         if before.is_none() {
             self.rules_plan_first_recorded(&id, &kept.groups).await;
         }
         self.plan_handed(&id, before.as_ref(), &kept).await;
-        // A version after one he approved comes once the plan step is passed: it is his to approve again.
-        let late = before.as_ref().is_some_and(|one| one.approved_at.is_some());
-        if let Some(since) = self.plan_stands_since(&id, late).await {
-            self.store().lock().await.approve_session_plan(&id, version, &since).map_err(|why| self.ledger_fault(why))?;
+        // A version after one he approved, with `ask_again`, comes once the plan step is passed: it is his to approve again.
+        let late = approved_before.is_some();
+        if kept.approved_at.is_none() {
+            if let Some(since) = self.plan_stands_since(&id, late).await {
+                self.store().lock().await.approve_session_plan(&id, version, &since).map_err(|why| self.ledger_fault(why))?;
+            }
         }
         // The issues the groups work, held as the person's tags are: a second recording is a no-op.
         if let Some(manifest) = session.manifest_id.as_deref() {

@@ -110,6 +110,7 @@ fn window(n: u32, url: &str) -> SessionRow {
         steps: Vec::new(),
         origins: Vec::new(),
         brief: None,
+        group: None,
         ended_at: None,
     }
 }

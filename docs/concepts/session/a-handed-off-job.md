@@ -64,7 +64,7 @@ What makes them one is that every place folds the chain:
 
 **The Operator reads a red pull request only off a reading taken after the turn ended.**
 A new Job usually pushes a fix in its first turn, and the reading a minute old still says failed.
-On 6 Nov 2026 that started a "Rest of" Job 18 seconds after the fix was pushed, and that second Job was what he saw.
+On 6 Nov 2026 that started a "Rest of" Job 18 seconds after the fix was pushed, and that second Job was what he saw. A stall is now only raised to him (*Operator*).
 
 **The new Job carries on by itself.** Its first turn is Fleet's word to carry on; the owner need not write.
 Every process of it has a replace note in its system prompt, ending in the handoff and the brief: it is a new Job that continues the old one's work, the slots, branches, pull requests and pages came to it, and nothing else the old Job started did.

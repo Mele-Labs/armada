@@ -111,11 +111,6 @@ where
         self.doing(move |fleet| async move { fleet.operator_kept_in_touch(&one, &other, &shared).await })
     }
 
-    fn start_rest(&self, session: &str, seen: &str) -> Acted<'_> {
-        let (session, seen) = (session.to_string(), seen.to_string());
-        self.doing(move |fleet| async move { fleet.operator_started_rest(&session, &seen).await })
-    }
-
     fn raise(&self, session: &str, read: &str) -> Acted<'_> {
         let (session, read) = (session.to_string(), read.to_string());
         self.doing(move |fleet| async move { fleet.operator_raised(&session, &read).await })

@@ -160,10 +160,6 @@ pub trait Acting: Send + Sync {
     fn merge(&self, ending: &str, into: &str, shared: &[String]) -> Acted<'_>;
     /// Both carry on, each told the other's plan group and the paths they share.
     fn keep_in_touch(&self, one: &str, other: &str, shared: &[String]) -> Acted<'_>;
-    /// What is left of a Job gone quiet starts as a Job of its own, briefed with `seen`.
-    fn start_rest(&self, _session: &str, _seen: &str) -> Acted<'_> {
-        carried()
-    }
     /// A Job gone quiet goes to the person, with the call's `read`.
     fn raise(&self, _session: &str, _read: &str) -> Acted<'_> {
         carried()
@@ -559,7 +555,6 @@ impl Operator {
         }
         if arrival.arrived.is_stall() {
             return match ruling.way {
-                Way::NewJob => self.acting.start_rest(session, &arrival.words).await,
                 Way::Raise => self.acting.raise(session, &ruling.because).await,
                 _ => Ok(()),
             };

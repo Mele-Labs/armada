@@ -40,6 +40,7 @@ fn plan(states: [(&str, Option<&str>); 3]) -> KeptPlan {
         summary: String::new(),
         recorded_at: "2026-10-22T09:00:00.000Z".to_string(),
         approved_at: None,
+        asked_version: 1,
         set_aside_at: None,
         sketch: None,
         walk: None,

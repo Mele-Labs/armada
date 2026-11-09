@@ -103,10 +103,9 @@ fn this_repositorys_own_setup_loads_and_resolves() {
         .collect();
     assert_eq!(
         steps,
-        vec!["find_the_cause", "fix", "tests", "deliver"],
-        "the steps the owner chose on 27 Oct 2026, with the walk folded into \
-         `fix` on 30 Oct: the walk comes before the tests, and `tests` carries \
-         the test Check itself rather than handing off to a separate `verify` step"
+        vec!["find_the_cause", "fix", "deliver"],
+        "the steps the owner settled on 9 Nov 2026: each is a plan group, and the tests \
+         fold into `deliver`"
     );
 }
 
@@ -120,7 +119,17 @@ fn this_repositorys_own_setup_loads_and_resolves() {
 fn each_named_check_resolved_to_the_command_the_manifest_holds() {
     let setup =
         Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    let resolved: Vec<(&str, &str, &str)> = bug(&setup)
+    // The shipped workflows name no Check, so a step gating on every one is written here.
+    let text = "version: 1\nworkflow_id: sweeping\nname: sweeping\nsteps:\n  \
+                - id: implement\n    label: Implement\n    delivers: false\n    \
+                advance_gate: auto\n    mechanical_checks:\n      \
+                - { type: every_manifest_check }\n";
+    let def = WorkflowDef::parse(std::path::Path::new("sweeping.yml"), text, &roster())
+        .expect("a step may gate on every declared Check");
+    let gating: Vec<&config::Manifest> = std::iter::once(setup.manifest()).chain(setup.workspaces()).collect();
+    let sweeping = config::ResolvedWorkflow::resolve_gated(&def, setup.manifest(), &gating)
+        .expect("every declared Check resolves against the file that declared it");
+    let resolved: Vec<(&str, &str, &str)> = sweeping
         .steps()
         .iter()
         .flat_map(|step| step.checks())
@@ -351,16 +360,16 @@ fn the_designed_bug_workflow_is_refused_for_a_reason_a_later_milestone_removes()
 /// The two definitions are different files with different scope, and nothing
 /// reconciles them by accident.
 ///
-/// The shipped form has five steps, the order the owner chose on 27 Oct 2026,
-/// and `tests` carries the test Check itself rather than handing off to a step
-/// of its own. The designed one has seven and loops. A change that made the two
+/// The shipped form has three steps, the plan groups the owner settled on 9 Nov
+/// 2026, and `deliver` carries the tests rather than handing off to a step of
+/// its own. The designed one has seven and loops. A change that made the two
 /// the same length would mean one of them had been quietly rewritten into the
 /// other.
 #[test]
 fn the_designed_definition_and_m1s_reduced_form_are_not_the_same_workflow() {
     let setup =
         Setup::at(&repository(), TempDir::new().path(), &roster()).expect("a setup that loads");
-    assert_eq!(bug(&setup).steps().len(), 4);
+    assert_eq!(bug(&setup).steps().len(), 3);
 
     let designed = repository()
         .join("crates/core-model/domain/workflow-samples")
@@ -484,7 +493,6 @@ fn a_repository_with_no_workflows_of_its_own_runs_on_what_armada_carries() {
             .unwrap_or_else(|why| panic!("no workflows of its own, directory made {made}: {why}"));
         let carried = [
             "bug",
-            "code_review",
             "design_plan",
             "feature",
             "orchestrate",

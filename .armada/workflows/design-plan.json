@@ -1,37 +1,16 @@
-# Design Plan, the loop it was designed as. `bug.json` beside this file carries
-# what all eight hold to, and where the schema, the catalogue and the Check
-# reasoning live.
+# Design Plan, as the owner settled it on 9 Nov 2026: one group, ended by his approval of the design
+# page. Draft and Present were two steps; the 12 disputes about them were the rail flagging the design
+# page itself as an edit made too early, and pushes after he had approved. Each step is a plan group and
+# `gate` names the fact Fleet sees for itself. `bug.json` beside this file says where the schema lives,
+# and `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has his answers.
 #
-# `crates/core-model/domain/workflows.toml` calls this Armada's only
-# instantiated loop: `draft` and `present`, with `present`'s `request_changes`
-# routing back to `draft`. The routing and the cap of five are the designed
-# file's; the cap lives on the step here rather than under
-# `default_gate_policy`, which the parser still defers.
-# `crates/fleet/src/tests/looping.rs` drives this file, off disk, round twice
-# and then into a spent cap.
+# **This workflow carries no Judge.** Design Plan is a back-and-forth he ends when the design is in a good
+# place, and his approval of the newest revision is that end.
 #
-# **This workflow carries no Judge, and that is a decision rather than an
-# omission.** The designed file carries none either: Design Plan is a
-# back-and-forth the engineer ends when the design is in a good place, which
-# `workflowdef-fields.toml` says treating as a config error would break. What
-# ends it is `present`'s `human_always`, and what carries the reading back to
-# `draft` is the loop.
+# **What comes after the approval is his to say** (dry run, 9 Nov): the agent asks whether to stop there,
+# start build Jobs, or build in this Job.
 #
-# **`draft` writes a Document, and declares no `artifact_exists`.** The
-# deliverable is the HTML page `docs/concepts/document.md` describes, named
-# for its subject under `.armada/documents/`, which a fixed target cannot
-# name. The check it carried named `.armada/artifacts/draft.md`, read by
-# nothing at runtime, and told the agent to write markdown the person could
-# not note.
-#
-# **`present` declares `phase: delivery`**: it sends nothing out, so the
-# fallback off `delivers` would draw the step the person reads as the work.
-#
-# **`draft` records the plan, `#1006`.** It keeps the document, and `present`
-# follows. `draft` is also the step a loop returns to, so each round records
-# again — `WorkPlan::after` replaces a `Recorded` change whole, so a second
-# round's recording is not a second plan beside the first, and
-# `crates/fleet/src/tests/looping.rs` drives this file round twice to prove it.
+# **The plan stands unasked** (`records_plan`, `plan_unasked`): the page is what he approves, not the plan.
 {
   "version": 1,
   "workflow_id": "design_plan",
@@ -40,38 +19,19 @@
   "steps": [
     {
       "id": "draft",
-      "label": "Draft",
-      "about": "Writes the design as a document and records the plan behind it. No code is written.",
-      "instructions": "Write the design as a document: load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html, never a markdown file. Conclusion first, what was decided and by whom, a sketch inline where a flow or a structure needs one, and what is still open in its own section. Then record the plan behind it with record_plan: it stands without being asked, and the page is what the person approves. No code is written.",
+      "label": "Draft and present",
+      "about": "Writes the design as a page you read and note in Bridge, and revises it on your notes. Ends when you approve its newest revision.",
+      "instructions": "Write the design as a document: load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html, never a markdown file. Conclusion first, what was decided and by whom, a sketch inline where a flow or a structure needs one, and what is still open in its own section. Record the plan behind it with record_plan: it stands without being asked, and the page is what the person approves. No code is written.\nAnswer every note by changing the page where the note points and writing the same file again.\nOnce the person approves the page, ask him what comes next: stop here, start build Jobs, or build it in this Job.",
+      "gate": "document_approved",
       "records_plan": true,
       "plan_unasked": true,
-      "evidence": {
-        "submitted": { "type": "document" }
-      },
       "mechanical_checks": [
         {
           "type": "plan_recorded"
         }
       ],
       "delivers": false,
-      "advance_gate": "auto"
-    },
-    {
-      "id": "present",
-      "label": "Present",
-      "about": "Shows you the document. You approve it or send it back with notes for another draft.",
-      "instructions": "The person reads the document in Bridge and notes it. Answer every note by changing the page where the note points and writing the same file again, as the writing-a-document skill says.",
-      "phase": "delivery",
-      "follows_plan": true,
-      "evidence": {
-        "submitted": { "type": "document" }
-      },
-      "delivers": false,
-      "advance_gate": "human_always",
-      "verdict_routing": {
-        "request_changes": "draft"
-      },
-      "iteration_cap": 5
+      "advance_gate": "human_always"
     }
   ]
 }

@@ -113,6 +113,7 @@ async fn planned(rig: &Rig, id: &SessionId, seen: bool) {
         }],
         sketch: None,
         walk: None,
+        ask_again: false,
         session_id: Some(id.clone()),
     };
     rig.fleet.record_plan_seen(None, plan, false, vec![seen]).await.expect("recorded");

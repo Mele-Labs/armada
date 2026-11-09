@@ -591,6 +591,7 @@ function addEntries(
         kind !== "draft" &&
         kind !== "walk" &&
         kind !== "document" &&
+        kind !== "subagent" &&
         (kind !== "thread" || !thread),
     )
     .flatMap((kind): DropdownMenuEntry[] => [

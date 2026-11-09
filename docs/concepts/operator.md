@@ -62,8 +62,8 @@ A move goes by the role of its way like any ruling: at Suggest it is a suggestio
 
 **An end or a merge is told once, and never replayed.**
 Its words carry the Job's title, summary and end reason, its pull requests, who started it and the Jobs it started that are live, and what it may unblock: Jobs waiting to start on it, its Later items not yet settled, open issues near it, and Needs you items that name it or wait on a restart.
-It may be told to a live Job, started as the next piece, filed, linked, raised or `noted`, which leaves it in Done and does nothing else.
-The role positions decide as they do for a report: at Suggest a start, a tell or a filing waits on one press, and `noted` needs no role.
+It may be told to a live Job, filed, linked, raised or `noted`, which leaves it in Done and does nothing else.
+The role positions decide as they do for a report: at Suggest a tell or a filing waits on one press, and `noted` needs no role.
 A Job ending also settles its own arrivals still waiting or out on a call, such as its start, plan, stall or questions, as Done with `Ended`.
 A Job handed on for context is no end.
 
@@ -86,6 +86,15 @@ What arrives while a call is out is ruled together in the next one, so three Job
 
 A ruling is one way: start a new Job, send the words to an existing Job, merge two Jobs, keep two in touch, raise it to the person, answer a question, link a report to an open issue, or file a new one.
 A way between two Jobs names the other Job and the paths or plan group they share, or Fleet refuses it.
+
+**The Operator starts no Job for another Job's work.**
+A Job that stopped, a pull request left red, and the end or merge of a Job (with its Later items) are offered raise, tell a live Job, file and `noted`, never a new Job, so the stall's only way is to raise it to the person.
+A Job it starts is one he asked for: a start card, or his words in the panel.
+On 9 Nov 2026 he ruled it out: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it."
+It started a second "Rest of Workflow Evaluation" while a subagent of the first still ran, one on a pull request red only on formatting, "Rest of Fleet takes Bridge views" beside the live Job, and on 6 Nov "Rest of Tail-first thread loading" 70 seconds after a handoff.
+This follows his 5 Nov rule to delete what acts on a guess: "stopped" was guessed while subagents ran.
+It replaces the `Rest of {title}` Job a stall could start, and the new Job an end or a merge could start as its next piece.
+Rows of the Log from before keep their `new_job` outcome.
 
 Each role that acts has a position, Read-only, Suggest or Decide.
 

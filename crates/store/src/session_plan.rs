@@ -84,6 +84,10 @@ pub struct KeptPlan {
     pub summary: String,
     pub recorded_at: String,
     pub approved_at: Option<String>,
+    /// The newest version that asked the person to approve it, this one or an earlier. A
+    /// `plan_approved` close is kept for it, so a version recorded without asking again stands on the
+    /// approval already given, and one that asks again is open until it is approved.
+    pub asked_version: u32,
     /// When the person put this version away to keep talking. A new version starts without it.
     pub set_aside_at: Option<String>,
     /// The ledger target and the title of the sketch drawn with it.
@@ -128,7 +132,7 @@ impl Store {
         let head = self
             .conn
             .query_row(
-                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen
+                "SELECT version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen, asked_version
                  FROM session_plan WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -147,6 +151,8 @@ impl Store {
                         set_aside_at: row.get(10)?,
                         calls: row.get(11)?,
                         seen: row.get::<_, i64>(12)? == 1,
+                        // A plan kept before it asked for the version it is.
+                        asked_version: Some(row.get::<_, i64>(13)?).filter(|asked| *asked > 0).map_or(row.get(0)?, |asked| asked as u32),
                         held: None,
                         groups: Vec::new(),
                     })
@@ -235,10 +241,19 @@ impl Store {
                 .map_err(reading)?;
         }
         let gates = self.session_gates(session_id)?;
-        let version = plan.version;
+        let walks = self.session_gate_walks(session_id)?;
+        let asked = plan.asked_version;
         for group in &mut plan.groups {
             let Some(gate) = group.gate.as_deref() else { continue };
-            group.closed = gates.iter().find(|one| one.closes(&group.id, gate, version)).cloned();
+            // The newest close, so a walk gate closed again reads its latest.
+            group.closed = gates.iter().rev().find(|one| one.closes(&group.id, gate, asked)).cloned();
+            // A walk shown for the group after its close opens it again; a skip is his word and stands.
+            let reopened = |closed: &crate::KeptGate| {
+                gate == crate::WALK_APPROVED && !closed.skipped && walks.get(&group.id).is_some_and(|shown| shown.as_str() > closed.closed_at.as_str())
+            };
+            if group.closed.as_ref().is_some_and(reopened) {
+                group.closed = None;
+            }
         }
         if let Some(group) = plan.groups.iter_mut().find(|group| group.gate.as_deref() == Some(crate::CHECKS_GREEN) && group.closed.is_none()) {
             group.checks = self.session_gate_checks(session_id)?;
@@ -260,8 +275,8 @@ impl Store {
         }
         kept.execute(
             "INSERT INTO session_plan
-                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                 (session_id, version, recorded_at, approved_at, sketch_id, sketch_title, changed, next_group, next_task, walk, summary, set_aside_at, calls, seen, asked_version)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 session_id,
                 plan.version,
@@ -277,6 +292,7 @@ impl Store {
                 plan.set_aside_at,
                 plan.calls,
                 plan.seen,
+                plan.asked_version,
             ],
         )
         .map_err(keeping)?;

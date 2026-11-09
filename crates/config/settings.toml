@@ -1024,7 +1024,7 @@ read_by = "fleet"
 notes = """
 DECIDED 5 Nov 2026 (owner): every role starts Read-only, which is what Off was. The design page *Helm becomes the Operator*, *What you control*: each role has Read-only, Suggest or Decide, and `operator-repositories` sets any role differently for one repository. A word that is not one of the three reads Read-only, and the older `off` and `on` read Read-only and Decide. Does nothing while `operator` is Off.
 
-**Dispatch is what starts, merges and holds a Job**: a Job on its start card starting, the Job of two doing the same thing that has done less ending into the other unless it has pushed, which raises it to him instead, a Job waiting on another's push, what is left of a quiet Job starting as its own, a quiet Job raised to him, and a start's place in Waiting to start.
+**Dispatch is what starts, merges and holds a Job**: a Job on its start card starting, the Job of two doing the same thing that has done less ending into the other unless it has pushed, which raises it to him instead, a Job waiting on another's push, a quiet Job raised to him (never a new Job for what it left), and a start's place in Waiting to start.
 
 **Read-only changes nothing a Job sees.** A way whose role is Read-only is not offered to the call. An arrival left with no way but Raise makes no call and goes to the person at once, and nothing it did not do shows in Done. A first write does not wait for its ruling.
 

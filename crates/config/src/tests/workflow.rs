@@ -9,6 +9,7 @@
 
 mod editing;
 mod ends;
+mod gate;
 mod gated;
 mod mechanical;
 mod panel;

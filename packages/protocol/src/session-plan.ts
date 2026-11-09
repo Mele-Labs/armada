@@ -94,6 +94,7 @@ export type PlanGate =
   | "document_approved"
   | "checks_green"
   | "merged"
+  | "jobs_ended"
   | "none";
 
 /** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */
@@ -277,6 +278,8 @@ export type RecordPlan = {
   };
   /** The page the plan depends on: it is put to the person after he approves that walk. */
   walk?: string;
+  /** Ask the person to approve this version though he approved one before. Absent or false: a version recorded after one he approved stands approved, and no plan gate reopens. */
+  ask_again?: boolean;
   session_id?: string;
 };
 

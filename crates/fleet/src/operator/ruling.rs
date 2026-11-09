@@ -172,7 +172,7 @@ pub struct Ruling {
     pub answer: Option<Choice>,
     /// The open issue a link names, one of those the item was offered.
     pub issue: Option<String>,
-    /// The next piece of work in a line, for a new job or a new issue ruled on an end or a merge.
+    /// The next piece of work in a line, for a new issue ruled on an end or a merge.
     pub what: Option<String>,
 }
 
@@ -310,7 +310,7 @@ fn read_one(block: &[(String, String)], item: &Arrival, near: &[Near]) -> Result
         }
         return Ok(Ruling { issue: Some(issue), ..Ruling::alone(way, because) });
     }
-    if item.arrived.is_ending() && matches!(way, Way::NewJob | Way::File) {
+    if item.arrived.is_ending() && way == Way::File {
         let what = said(block, "what").filter(|what| !none(what)).ok_or_else(|| PassedOn::Refused(format!("{} named no what", way.word_shown())))?;
         return Ok(Ruling { what: Some(what), ..Ruling::alone(way, because) });
     }

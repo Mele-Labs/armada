@@ -180,7 +180,6 @@ pub struct FakeFleet {
     ended: Mutex<Vec<(String, String)>>,
     in_touch: Mutex<Vec<(String, String)>>,
     raised: Mutex<Vec<(String, String)>>,
-    started_anew: Mutex<Vec<String>>,
     answered: Mutex<Vec<(String, String, u32, String)>>,
     answered_first: Mutex<bool>,
     went_ahead: Mutex<Vec<String>>,
@@ -208,7 +207,6 @@ impl FakeFleet {
             ended: Mutex::new(Vec::new()),
             in_touch: Mutex::new(Vec::new()),
             raised: Mutex::new(Vec::new()),
-            started_anew: Mutex::new(Vec::new()),
             answered: Mutex::new(Vec::new()),
             answered_first: Mutex::new(false),
             went_ahead: Mutex::new(Vec::new()),
@@ -223,11 +221,6 @@ impl FakeFleet {
     /// Each Job raised to the person, and the Operator's read.
     pub fn raised(&self) -> Vec<(String, String)> {
         self.raised.lock().expect("not poisoned").clone()
-    }
-
-    /// Each Job whose rest was started as a new Job.
-    pub fn started_anew(&self) -> Vec<String> {
-        self.started_anew.lock().expect("not poisoned").clone()
     }
 
     /// Each item answered as the person's press would: the Job, the item, the option and its label.
@@ -364,11 +357,6 @@ impl Acting for FakeFleet {
 
     fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) -> Acted<'_> {
         self.in_touch.lock().expect("not poisoned").push((one.into(), other.into()));
-        carried()
-    }
-
-    fn start_rest(&self, session: &str, _seen: &str) -> Acted<'_> {
-        self.started_anew.lock().expect("not poisoned").push(session.into());
         carried()
     }
 

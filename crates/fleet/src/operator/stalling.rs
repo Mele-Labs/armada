@@ -10,7 +10,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::HostedSessions;
 use ipc::Notice;
 
 use super::seat::Seat;
@@ -163,54 +162,6 @@ where
             done,
             left,
         })
-    }
-
-    /// What is left of a Job gone quiet starts as a Job of its own, nested under it and briefed
-    /// with what Fleet saw. **The quiet Job is left to the person**: its branch may hold work.
-    pub(super) async fn operator_started_rest(self: &Arc<Self>, id: &str, seen: &str) -> Result<(), String> {
-        let Ok((session, hosting)) = self.session_and_hosting(id).await else { return Err("the Job is not there".to_string()) };
-        let title = session.title.clone().unwrap_or_else(|| id.to_string());
-        let made = self
-            .start_session(ipc::StartSession {
-                manifest_id: ipc::ManifestId::carried(&hosting.manifest_id),
-                title: Some(format!("Rest of {title}")),
-                model: None,
-                effort: None,
-                mode: None,
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await;
-        let made = match made {
-            Ok(made) => made,
-            Err(why) => {
-                self.session_warned(id, "the Operator's new Job for the rest did not start", format!("{why:?}"));
-                return Err("the new Job did not start".to_string());
-            }
-        };
-        let rest = made.id.as_str().to_string();
-        if self.started_linked(id, &rest, &hosting.manifest_id, None).await.is_err() {
-            return Err("the new Job was not tied to the quiet one".to_string());
-        }
-        let mut brief = format!("Job {id}, \"{title}\", went quiet with work left, and the Operator started what is left as this Job. What Fleet saw:\n\n{seen}");
-        if let Some(branch) = hosting.lease_branch {
-            brief.push_str(&format!("\n\nIts work is committed on branch `{branch}`. Take what you need from it."));
-        }
-        brief.push_str("\n\nDo what is left, then call all_done.");
-        let sent = Arc::clone(self)
-            .send_session_message(ipc::SendSessionMessage { session_id: made.id.clone(), text: brief, attachments: Vec::new(), mentions: Vec::new() })
-            .await;
-        if sent.is_err() {
-            return Err("the new Job was not briefed".to_string());
-        }
-        self.fleet_note(id, format!("The Operator started what is left of this Job as \"Rest of {title}\".")).await;
-        let _ = self.published_hosted(id).await;
-        Ok(())
     }
 
     /// A Job gone quiet goes on his Needs you list with the Operator's read.

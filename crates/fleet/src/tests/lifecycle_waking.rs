@@ -91,7 +91,7 @@ async fn a_job_waiting_on_an_approval_is_woken_by_it() {
     assert!(record(&rig, &id).await.workflow_waiting_on.is_empty(), "and says nothing once it is approved");
     let woken = sent(&rig, "That ends");
     assert!(woken.contains(WAKE), "{woken}");
-    assert_eq!(told(&rig, "Write the summary."), 0, "the next step's words are not sent");
+    assert_eq!(told(&rig, "Write the summary."), 1, "the next step's words went once, with the workflow's groups, and not again on the step");
 
     rig.fleet.timeline().settled().await;
     assert!(rig.fleet.lifecycle_seen(id.as_str(), "pr", "812", Observed::Forge(ForgeFact::Approved)).await.is_none(), "a repeat moves nothing");

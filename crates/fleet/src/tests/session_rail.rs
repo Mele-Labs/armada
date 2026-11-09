@@ -189,6 +189,7 @@ pub(super) fn plan(id: &SessionId) -> RecordPlan {
         }],
         sketch: None,
         walk: None,
+        ask_again: false,
         session_id: Some(id.clone()),
     }
 }

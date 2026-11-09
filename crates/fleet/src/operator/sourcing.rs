@@ -399,7 +399,6 @@ where
             (Arrived::Note, Way::NewJob, _, _) => made.job = Some(self.operator_started_note(manifest, last, arrival).await.ok_or("the Job did not start")?),
             (Arrived::Note, Way::ExistingJob, Some(into), _) => self.operator_told_note(manifest, last, arrival, into).await?,
             (Arrived::Ended | Arrived::Merged, Way::ExistingJob, Some(into), _) => self.operator_told_ending(arrival, ruling, into).await?,
-            (Arrived::Ended | Arrived::Merged, Way::NewJob, _, _) => made.job = Some(self.operator_started_next(arrival, ruling).await.ok_or("the Job did not start")?),
             (Arrived::Ended | Arrived::Merged, Way::File, _, _) => made.issue = Some(self.operator_filed_next(arrival, ruling).await.ok_or("the issue was not filed")?),
             (Arrived::Error, Way::File, _, _) => made.issue = Some(self.operator_filed_error(manifest, arrival).await.ok_or("the issue was not filed")?),
             (Arrived::Error, Way::NewJob, _, _) => made.job = Some(self.operator_started_error(manifest, arrival).await.ok_or("the Job did not start")?),

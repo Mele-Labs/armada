@@ -20,6 +20,7 @@ import { attachmentsOf, linkedOf, type Session } from "@armada/screens/src/draft
 import { searchFiles } from "../commands";
 import { documentAnswerOf } from "../session-thread-rows";
 import { DocumentBody } from "../session-view/DocumentLayer";
+import { SubagentThread, useSubagentRead } from "../session-subagent";
 import { JobBrowserPane } from "../job-browser/JobBrowserPane";
 import { browserTabIds, reportTabs, useJobBrowser } from "../job-browser/store";
 import { shellsOf, useJobShell, useShownShells } from "../job-shell";
@@ -497,6 +498,19 @@ export function DraftBody({ jobId, tab }: { jobId: string; tab: Tab }) {
 }
 
 /** A page the Job wrote, read in its own tab with the answers under it while it waits on him: Approve and Send back, as on its card in the thread. */
+/** A subagent's thread in a tab of the Job, as the reading sheet draws it. `page` is the subagent's id. */
+export function SubagentTabBody({ session, tab }: { session: Session; tab: Tab }) {
+  const draft = useSessionsDraft();
+  const one = attachmentsOf(session, "subagent").find((it) => it.id === tab.page);
+  const thread = useSubagentRead(session.id, one, draft?.subagent);
+  if (one === undefined) return null;
+  return (
+    <div className="job-pane__subagent">
+      <SubagentThread sessionId={session.id} one={one} thread={thread} />
+    </div>
+  );
+}
+
 export function DocumentTabBody({ session, tab }: { session: Session; tab: Tab }) {
   const draft = useSessionsDraft();
   const page = tab.page;

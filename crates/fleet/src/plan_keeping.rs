@@ -2,11 +2,13 @@
 //! into it, and what the record carries is read back, under the lock the caller already holds.
 //! `docs/concepts/session.md`, *The plan*. The rules are `plan_record`'s.
 
+use std::collections::BTreeMap;
+
 use ipc::{FileTouch, Instant, PlanLandsInState, ReportedTask, TouchAct, TouchBy};
 use store::{AttachmentState, Holder, KeptAttachment, KeptTouch, Store, WriteError};
 
 use crate::file_touching::WINDOW;
-use crate::plan_record::{commit_named, edit_seen, listed, PlanPull};
+use crate::plan_record::{commit_named, edit_seen, group_named, listed, PlanPull};
 use crate::session_host::linking::GROUP;
 
 /// The agent's task list, heard. Whether a task of the plan moved, so the row is worth publishing.
@@ -21,9 +23,10 @@ pub(crate) fn tasks_heard(store: &mut Store, id: &str, list: &[ReportedTask], no
     Ok(moved)
 }
 
-/// A file touched at `path`, from the repository's root: kept for the Field, and marks the groups of
-/// the plan whose paths hold it as worked. `by` is the subagent's type and call, absent for the
-/// Session's own. Whether the row would show it: a touch that is new, or a plan that moved.
+/// A file touched at `path`, from the repository's root: kept for the Field, and marks the group of the
+/// plan its subagent named as worked, else the groups whose paths hold it. `by` is the subagent's type
+/// and call, absent for the Session's own. Whether the row would show it: a touch that is new, or a plan
+/// that moved.
 pub(crate) fn touch_kept(
     store: &mut Store,
     id: &str,
@@ -32,17 +35,41 @@ pub(crate) fn touch_kept(
     act: &str,
     now: &str,
 ) -> Result<bool, WriteError> {
+    let call = by.as_ref().map(|(_, call)| call.clone());
     let new = store.keep_session_touch(
         id,
         &KeptTouch { by, path: path.to_string(), act: act.to_string(), at: now.to_string() },
         WINDOW,
     )?;
     let Some(mut plan) = store.session_plan(id)? else { return Ok(new) };
-    let seen = edit_seen(&mut plan, path, now);
+    let group = match call {
+        Some(call) => group_of_subagent(store, id, &call)?,
+        None => None,
+    };
+    let seen = edit_seen(&mut plan, path, group.as_deref(), now);
     if seen.moved {
         store.keep_session_plan_progress(id, &plan)?;
     }
     Ok(new || seen.shown)
+}
+
+/// A `subagent` row's detail with the plan group its brief named made the plan's group id, or taken
+/// off where the Session has no plan or no group of it is named so.
+pub(crate) fn group_resolved(store: &Store, id: &str, mut detail: BTreeMap<String, String>) -> Result<BTreeMap<String, String>, WriteError> {
+    let Some(named) = detail.remove(GROUP) else { return Ok(detail) };
+    if let Some(group) = store.session_plan(id)?.and_then(|plan| group_named(&plan, &named)) {
+        detail.insert(GROUP.to_string(), group);
+    }
+    Ok(detail)
+}
+
+/// The plan group the subagent started by `call` named, as its `subagent` row keeps it.
+fn group_of_subagent(store: &Store, id: &str, call: &str) -> Result<Option<String>, WriteError> {
+    let rows = store.attachments_of(&Holder::session(id))?;
+    let row = rows.into_iter().find(|one| {
+        one.kind == "subagent" && (one.target == call || one.detail.get("call").is_some_and(|started| started == call))
+    });
+    Ok(row.and_then(|mut one| one.detail.remove(GROUP)))
 }
 
 /// A commit heard, its short hash and first line: a task it names is completed on it. Whether the plan
