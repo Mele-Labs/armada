@@ -18,7 +18,7 @@ const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
 const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
 
-const BASE = {
+export const BASE = {
   manifestId: OWNER,
   cwd: ROOT,
   work: {
@@ -50,7 +50,7 @@ const said = (id: string, at: string, text: string) =>
     text,
   }) as const;
 
-const question = (
+export const question = (
   call: string,
   text: string,
   header: string,
@@ -291,6 +291,26 @@ const storeSize: Session = {
   ],
 };
 
+export const operatorJobs: readonly Session[] = [
+  deaths,
+  filters,
+  tests,
+  slotPool,
+  legend,
+  console_,
+  home,
+  buildTimes,
+  stepTimes,
+  doctorStore,
+  storeSize,
+];
+
+/** The Jobs' store, each mount opening on the Operator's default layout with nothing kept from a walk before. */
+export function operatorSessions(jobs: readonly Session[]) {
+  if (typeof window !== "undefined") operatorPanes.forget();
+  return sessionsStore(jobs, [], new Map(), []);
+}
+
 const job = (session: Session) => ({
   session: session.id,
   title: session.title!,
@@ -313,7 +333,32 @@ const seed: OperatorSeed = {
     file: "decide",
   },
   pause: 80,
+  switched: [
+    {
+      on: true,
+      at: ago(100),
+    },
+    {
+      on: false,
+      at: ago(25 * 3600),
+    },
+  ],
   log: [
+    {
+      id: "log-sent",
+      at: ago(8),
+      by: "you",
+      from: dispatched,
+      item: "Show a placeholder in an empty lane",
+      did: "existing",
+      why: "",
+      names: [
+        {
+          ...job(legend),
+          as: "existing",
+        },
+      ],
+    },
     {
       id: "log-bug",
       at: ago(12),
@@ -374,6 +419,15 @@ const seed: OperatorSeed = {
       ways: [
         "Raise to me",
       ],
+    },
+    {
+      id: "log-console",
+      at: ago(26 * 3600),
+      from: from(console_),
+      item: "Keep the bays in one row?",
+      did: "answered",
+      what: "Keep one row",
+      why: "Its recommended option, and nothing you see changes",
     },
     {
       id: "log-answer",
@@ -644,28 +698,7 @@ function scenario(name: string, says: string): Scenario {
     },
     draft: {
       operator: seed,
-      sessions: () => {
-        // Each mount opens on the Operator's default layout, with nothing kept from a walk before.
-        if (typeof window !== "undefined") operatorPanes.forget();
-        return sessionsStore(
-          [
-            deaths,
-            filters,
-            tests,
-            slotPool,
-            legend,
-            console_,
-            home,
-            buildTimes,
-            stepTimes,
-            doctorStore,
-            storeSize,
-          ],
-          [],
-          new Map(),
-          [],
-        );
-      },
+      sessions: () => operatorSessions(operatorJobs),
     },
   };
 }

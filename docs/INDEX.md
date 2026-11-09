@@ -359,6 +359,17 @@ approximations.
   and under 5 ms in debug on the CPU side, 39 MB headless and 73 MB as a real window, against about 1.0 GB
   for the Electron Bridge's main window; no thread to open yet, and vsync, present and the OS input path
   not reachable without a window on screen.
+- [`spikes/native-jobs-inventory/list-needs-palette.md`](spikes/native-jobs-inventory/list-needs-palette.md)
+  — what Electron Bridge's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge draw today,
+  as the spec the native Jobs screens match.
+- [`spikes/native-jobs-inventory/job-view.md`](spikes/native-jobs-inventory/job-view.md)
+  — what Electron Bridge's open Job draws today, its head, tab bar, thread rows, cards and composer,
+  as the spec the native Job view matches.
+- [`spikes/native-jobs-inventory/field-layer.md`](spikes/native-jobs-inventory/field-layer.md)
+  — what the Job view's Field layer draws today, its plan bar, replay slider and lens card,
+  kept for its port after switch day.
+- [`spikes/native-jobs-inventory/thread-fold-diff.md`](spikes/native-jobs-inventory/thread-fold-diff.md)
+  — where Fleet's thread fold differed from Electron's, row by row, and what was kept as Electron does it.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

@@ -1571,7 +1571,10 @@ The board the Operator page is drawn from: `now`, `next`, `suggestions`, `done` 
   `id` is `error:<fingerprint>:<local day>`; an error with an id already waiting, out on a call or in the Log answers `repeated: true` and arrives no more.
   It leads `next` ahead of every waiting item that is not an error, as a `report`.
   The types are in `packages/protocol/src/operator-errors.ts`.
-- **`operator.board_changed` carries nothing.** Bridge reads the board again.
+- **`switched` is the last twenty moves of the master switch**, newest first: `[{ on, at }]` with `at` in RFC 3339, left out while there are none.
+  Fleet keeps one when the `operator` setting changes value, whether by a save or a hand edit of settings.json, and none for a save of the value it already had (`operator_switches`, `20261109T1200Z-operator.switches.sql`).
+  A Bridge without the field reads every board.
+- **`operator.board_changed` carries nothing.** Bridge reads the board again, and Fleet tells it so when the switch moves.
 - **`kind` is closed at five**: a plan is a `start`, and an issue, a review request, a red main, a Later item, a note, an error, a Job's end and a pull request's merge are each a `report`.
   Bridge renders `outcome` and never branches on it.
 - **`TalkToOperator.about` names a board item or a Needs you item**, and the line keeps it. **`OperatorSaid.moved`** is the item the call put first because the person asked.

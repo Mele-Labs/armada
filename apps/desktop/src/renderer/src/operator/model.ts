@@ -99,6 +99,19 @@ export type OperatorLogRow = {
   changed?: string;
   /** The Manifest it arose in, which the title row's picker narrows the Log to. */
   repository?: string;
+  /** Who did it. Absent, the Operator. */
+  by?: "you" | "operator";
+  /** The outcome's own words after its kind: the answer given, `to <Job>`, `with <Job>`. */
+  what?: string;
+  /** What the item was, which names it in the row's sentence. */
+  about?: "question" | "stall" | "report" | "start" | "note";
+};
+
+/** The person switching the Operator on or off, a line across the Log. */
+export type OperatorSwitch = {
+  on: boolean;
+  /** ISO time. */
+  at: string;
 };
 
 /** One item that has not started, in the Operator's order. */
@@ -312,6 +325,8 @@ export type OperatorSeed = {
     at: number;
   };
   log: readonly OperatorLogRow[];
+  /** Each time the person switched it on or off, newest first. */
+  switched?: readonly OperatorSwitch[];
   line: readonly OperatorLineRow[];
   orders: readonly StandingOrder[];
   reads: readonly OperatorRead[];

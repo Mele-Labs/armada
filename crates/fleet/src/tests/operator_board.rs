@@ -270,3 +270,41 @@ async fn an_item_the_answer_names_to_be_taken_first_goes_first_and_one_it_was_no
     let asked = board.call.asked_of(true);
     assert!(asked[0].contains("question:second") && asked[0].contains("waits its turn") && asked[0].contains("Being ruled now: question:first"), "{}", asked[0]);
 }
+
+#[tokio::test]
+async fn each_change_of_the_operators_switch_is_kept_once_and_a_save_that_changes_nothing_keeps_none() {
+    let rig = rig_placing(None);
+    let switch = |on: bool| ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operator".to_string(), Some(ipc::SettingValue::Bool(on)))]) };
+    let save = |on: bool| {
+        let fleet = Arc::clone(&rig.fleet);
+        async move { api::Settings::save_settings(fleet.as_ref(), switch(on)).await.expect("saved") }
+    };
+    assert!(rig.fleet.operator_board_wire().await.expect("read").switched.is_empty(), "none before the first move");
+
+    // Saved off while it is off, which is what it ships as.
+    save(false).await;
+    assert!(rig.fleet.operator_board_wire().await.expect("read").switched.is_empty(), "same value");
+    save(true).await;
+    save(true).await;
+    save(false).await;
+
+    let board = rig.fleet.operator_board_wire().await.expect("read");
+    assert_eq!(board.switched.iter().map(|one| one.on).collect::<Vec<_>>(), [false, true], "newest first, one per change");
+    assert!(board.switched.iter().all(|one| one.at.contains('T')), "{:?}", board.switched);
+}
+
+#[tokio::test]
+async fn the_board_serves_the_last_twenty_moves_of_the_switch_newest_first() {
+    let rig = rig_placing(None);
+    {
+        let mut store = rig.fleet.store().lock().await;
+        for n in 0..25 {
+            store.add_operator_switch(&store::KeptSwitch { on: n % 2 == 0, at: format!("2026-11-09T10:{n:02}:00.000Z") }).expect("kept");
+        }
+    }
+    let board = rig.fleet.operator_board_wire().await.expect("read");
+    assert_eq!(board.switched.len(), 20);
+    assert_eq!(board.switched[0].at, "2026-11-09T10:24:00.000Z");
+    assert_eq!(board.switched[19].at, "2026-11-09T10:05:00.000Z");
+    assert!(board.switched[0].on && !board.switched[1].on, "{:?}", &board.switched[..2]);
+}
