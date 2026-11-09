@@ -87,6 +87,8 @@ enum SubagentRow {
 }
 
 mod ledger;
+/// The state a Jobs-list row draws, on `SessionRecord::mark`.
+mod marking;
 mod shown;
 mod wire;
 
