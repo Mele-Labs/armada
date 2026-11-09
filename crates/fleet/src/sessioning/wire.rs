@@ -176,5 +176,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         workflow_copy: None,
         in_flight: Vec::new(),
         mark: None,
+        viewed_at: None,
     }
 }

@@ -30,17 +30,9 @@ export type JobLamp = "needs" | "failed" | "running" | "done" | "idle";
 /** The group a list files the row under. */
 export type JobGroup = "needs" | "working" | "held" | "done";
 
-/** One reading of a row: its state, lamp and group. */
-export type JobReading = {
+/** How a Job's row reads: its state, lamp and group. */
+export type JobMark = {
   state: JobState;
   lamp: JobLamp;
   group: JobGroup;
-};
-
-/**
- * How a Job's row reads. `once_read` is set only where `state` is `replied`: what the row reads as once the person has read the
- * reply, which only the client knows, so both are sent.
- */
-export type JobMark = JobReading & {
-  once_read?: JobReading;
 };

@@ -178,19 +178,23 @@ where
         self.message_reach_of(caller, &to.to).await
     }
 
+    /// Fleet's own sends reach a Job here, and none of them is the person in it.
     async fn send_session_message(
         self: Arc<Self>,
         sent: SendSessionMessage,
     ) -> Result<SessionRecord, Refusal> {
-        self.send_session_message_aiming(sent, None).await
+        let terminal = self.terminal_session(sent.session_id.as_str()).await?;
+        self.mod_message_sent(terminal, sent, None).await
     }
 
+    /// The route a client's message takes: the person writing to the Job is him in it.
     async fn send_session_message_aiming(
         self: Arc<Self>,
         sent: SendSessionMessage,
         aim: Option<ipc::ModAim>,
     ) -> Result<SessionRecord, Refusal> {
         let terminal = self.terminal_session(sent.session_id.as_str()).await?;
+        self.visit_kept(sent.session_id.as_str()).await;
         self.mod_message_sent(terminal, sent, aim).await
     }
 
@@ -258,6 +262,8 @@ where
         said: ipc::AnswerWaiting,
     ) -> Result<SessionRecord, Refusal> {
         let answer = self.person_answer_of(&said).await;
+        // Reached only by a client's route: an answer from a card anywhere is him in the Job.
+        self.visit_kept(said.session_id.as_str()).await;
         let settled = Arc::clone(&self).settle_waiting(said).await?;
         if let Some(row) = answer {
             self.person_answer_kept(row).await;
@@ -473,6 +479,10 @@ where
             let _ = self.store().lock().await.pass_over_stop(&id, stop);
         }
         self.published_hosted(&id).await
+    }
+
+    async fn view_session(&self, asked: ipc::ViewSession) -> Result<SessionRecord, Refusal> {
+        self.session_viewed(asked).await
     }
 
     async fn pause_session(&self, asked: ipc::PauseSession) -> Result<SessionRecord, Refusal> {

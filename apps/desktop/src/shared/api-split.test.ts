@@ -628,6 +628,7 @@ type OldBridgeApi = {
   stopSession: (sessionId: string) => Promise<SessionActed>;
   retryHandoff: (sessionId: string) => Promise<SessionActed>;
   startAgain: (sessionId: string) => Promise<SessionActed>;
+  viewSession: (sessionId: string, on: boolean) => Promise<SessionActed>;
   pauseSession: (sessionId: string) => Promise<SessionActed>;
   resumeSession: (sessionId: string) => Promise<SessionActed>;
   setSessionAutoLand: (sessionId: string, on: boolean) => Promise<SessionActed>;
@@ -1079,6 +1080,7 @@ const OLD_CHANNELS = {
   stopSession: "bridge:stop-session",
   retryHandoff: "bridge:retry-handoff",
   startAgain: "bridge:start-again",
+  viewSession: "bridge:view-session",
   pauseSession: "bridge:pause-session",
   resumeSession: "bridge:resume-session",
   setSessionAutoLand: "bridge:set-session-auto-land",

@@ -17,16 +17,21 @@ Bridge's half is `packages/protocol/src/job-thread.ts`, written by hand.
 
 ## Items and head
 
-An item is one of `row`, `calls`, `subagent`, `checks`, `fleet_turn`, `sketch`, `file`, `document`, `change` or `not_started`.
+An item is one of `row`, `calls`, `subagent`, `checks`, `fleet_turn`, `sketch`, `file`, `document`, `change`, `not_started`, `plan` or `judged`.
 **An item carries what a row is and how it stands, and no sentence written for a screen.**
 A sentence Fleet wrote itself, a notice or the two of a Fleet act, passes through as it is.
-The `head` is what stands over the thread: the `asked` call, the `open_call`, the `lapsed` questions, the `fleet_acts` and the `trail`.
+The `head` is what stands over the thread: the `asked` call, the `open_call`, the `lapsed` questions, the `fleet_acts`, the `trail`, and the `plan` and `sketch` drawn after the last item while they wait on the person.
 
-**The fold is by row order alone.**
+**The fold is by row order alone, and Electron Bridge's fold is the spec, item for item**: `itemsOf` and the rows its host hands it.
+What Electron works out from the record, such as what the plan says or an ask's offers, stays on the record; the thread says where a card stands and how.
 A tool row carries no call id and no result row, so a run of calls is the tool rows that came one after another, and any other row ends it.
-A waiting `ask` is the head's `asked` and no item, and a `browser_reminder` is dropped.
-Every other row that does not fold stays a typed `row` item, so a settled ask and a window question reach the client with their wire row.
-A `plan` and a `delivery` row stay too; Electron Bridge leaves them out of its thread, and the native screen decides.
+A settled `ask` and a `window_ask` join the run as their own rows, where Electron folds a line of its own words.
+The calls no screen draws (the agent's task list, tool loading and `show_window`) are dropped before the fold.
+A waiting `ask` is the head's `asked` and no item; a `browser_reminder`, a `plan` row, a `delivery` row and a `linked` row that `replaces` are dropped.
+**A Fleet notice folds with the work after it unless it is kept**: one the agent disputed, and the last Fleet turn while the Job waits on the person.
+The newest sketch put to him and not answered is the head's `sketch`, and its latest card is no item.
+An approved plan is a `plan` item after the item of the last row drawn before its `plan` row, and only where that item is a `row`.
+A Judge's finished reading is a `judged` item after the last row written by then.
 
 An item is held by its `id`, which is its first row's id.
 A card ends a run of calls, so a `show_sketch` the ledger holds, a `show_file` the ledger holds and a document revision are items of their own.

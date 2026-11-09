@@ -256,6 +256,8 @@ export type SessionsApi = {
   retryHandoff: (sessionId: string) => Promise<SessionActed>;
   /** Sends again the turns a Job's process would not start for. */
   startAgain: (sessionId: string) => Promise<SessionActed>;
+  /** `view_session`: the Job came on screen in a visible window (`on`), or left it, so Fleet knows when he was last in it. */
+  viewSession: (sessionId: string, on: boolean) => Promise<SessionActed>;
   /** Stops the turn, commits the work to the Session's branch and gives its slot back. The row stays, marked paused. */
   pauseSession: (sessionId: string) => Promise<SessionActed>;
   /** Auto land on or off for a hosted Session. Fleet keeps the flag first, so a forge's refusal leaves it set and comes back as a refusal. */
@@ -543,6 +545,7 @@ export const SESSIONS_CHANNELS = {
   stopSession: "bridge:stop-session",
   retryHandoff: "bridge:retry-handoff",
   startAgain: "bridge:start-again",
+  viewSession: "bridge:view-session",
   pauseSession: "bridge:pause-session",
   resumeSession: "bridge:resume-session",
   setSessionAutoLand: "bridge:set-session-auto-land",
