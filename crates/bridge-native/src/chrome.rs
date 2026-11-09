@@ -2,38 +2,16 @@
 //!
 //! The window is frameless, so this row is what moves it: a press and drag moves the window and a
 //! double press zooms it, as the title bar did. The traffic lights sit over its start, so what it
-//! draws begins after Electron's gutter.
+//! draws begins after Electron's gutter. What it holds is the [`titlebar`](crate::titlebar) entity,
+//! which a screen mounts once and finds again on every frame.
 
-use gpui::{div, prelude::*, svg, MouseButton, Role, Stateful, Div};
+use gpui::{AnyElement, App, IntoElement, Window};
 
-use crate::assets::MARK;
-use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::titlebar::TitleBar;
 
-/// The title row, 44px, with Armada's mark after the traffic lights. Its places, search and Fleet
-/// controls come with the title bar's own step.
-pub fn title_row(look: &Look) -> Stateful<Div> {
-    let mark = look.length(token::SPACE_4) + look.length(token::SPACE_1);
-    div()
-        .id("title-row")
-        .flex_none()
-        .flex()
-        .items_center()
-        .h(look.length(token::H_TITLE_BAR))
-        .px(look.length(token::SPACE_3))
-        .on_mouse_down(MouseButton::Left, |event, window, _cx| {
-            if event.click_count == 2 {
-                window.titlebar_double_click();
-            } else {
-                window.start_window_move();
-            }
-        })
-        .child(
-            // `padding-inline-start: calc(var(--space-12) * 2)` clears the traffic lights.
-            div().pl(look.length(token::SPACE_12) * 2.).child(labelled(
-                div().id("mark").child(svg().path(MARK).size(mark).text_color(look.color(token::FG_DEFAULT))),
-                Role::Image,
-                "Armada",
-            )),
-        )
+/// The title row with what stands under it: the Keep and Revert bar and the Fleet notice. The end
+/// region keeps an empty Job slot for the open Job's Layout control and view icons, which the Jobs
+/// screens fill with `TitleBar::fill_job_slot`.
+pub fn title_row(window: &mut Window, cx: &mut App) -> AnyElement {
+    window.use_keyed_state("title-bar", cx, |_, cx| TitleBar::new(cx)).into_any_element()
 }

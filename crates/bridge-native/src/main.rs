@@ -34,6 +34,7 @@ mod menu;
 mod mock;
 mod revert;
 mod runtime_file;
+mod titlebar;
 mod transport;
 mod walk;
 
@@ -101,6 +102,7 @@ pub fn init_app(cx: &mut App) {
     look::init(cx);
     walk::window::bind(cx);
     jobs::bind(cx);
+    titlebar::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }

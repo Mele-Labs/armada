@@ -16,6 +16,7 @@ pub mod capture;
 pub mod check;
 pub mod fleet;
 pub mod stage;
+pub mod title_bar;
 pub mod window;
 
 /// What a step does when it is reached, before its target is ringed.
@@ -32,6 +33,12 @@ pub enum Verb {
     RightPress(&'static str),
     /// The pointer brought to rest on the target.
     Hover,
+    /// The title bar moves to a named scene of its mock scenario (`titlebar/scenes.rs`), then the
+    /// target is ringed. A scene changes data and presses nothing.
+    Scene(&'static str),
+    /// A press on another element, `(role, name)`, before the target is ringed: for an act whose
+    /// own button is gone once it is pressed.
+    PressOn(&'static str, &'static str),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -62,6 +69,14 @@ pub struct Walk {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Jobs,
+}
+
+const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
+}
+
+const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
+    Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
@@ -106,6 +121,13 @@ pub static WALKS: &[Walk] = &[
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
+    },
+    Walk {
+        name: "title-bar",
+        title: "Title bar",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::STEPS,
     },
     Walk {
         name: "jobs-lamps",
