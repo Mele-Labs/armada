@@ -26,6 +26,7 @@ import {
 } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
+import { placeOfDraft } from "./changes";
 import { CodeRefs } from "./code-refs";
 import { YourReview } from "./comments";
 import {
@@ -537,6 +538,18 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         <div className="pr-review-tab-view__review">
           <YourReview
             pr={pr}
+            onGo={(one) => {
+              const line = placeOfDraft(one);
+              reviewTab.go(
+                pr.key,
+                one.path,
+                line === undefined
+                  ? {}
+                  : {
+                      line,
+                    },
+              );
+            }}
             {...(unmarked
               ? {
                   caution: "Some findings are not marked. Submit again to send the review.",

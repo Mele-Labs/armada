@@ -21,7 +21,7 @@ import type { useSendFindings } from "./acts";
 import { useSessionsDraft } from "../sessions-draft";
 import { changesOf, ownerOf, placeOfDraft } from "./changes";
 import type { Draft, ReviewPr, Verdict } from "./model";
-import { indexOfPlace } from "./patch";
+import { indexOfPlace, linesOfPatch } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { BareChanges, ThemeBlock } from "./themes";
 import { isExplained } from "./tools";
@@ -93,26 +93,52 @@ export function CommentsView({
  * One comment waiting on Submit: the file and line it is on, with that line's code, and his words. **A press goes to it in the
  * diff**, opening the change again where its diff was put away.
  */
-function PendingComment({ pr, draft }: { pr: ReviewPr; draft: Draft }) {
+function PendingComment({
+  pr,
+  draft,
+  onGo,
+}: {
+  pr: ReviewPr;
+  draft: Draft;
+  onGo: ((draft: Draft) => void) | undefined;
+}) {
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const place = placeOfDraft(draft);
   const where = place === undefined ? draft.path : `${draft.path}:${place.line}`;
   const patch = work.patches[draft.path];
-  const lines = patch?.state === "read" ? patch.lines : [];
+  // A change's own patch, or else the file as the whole pull request's files have it, which is all the Review tab reads.
+  const whole =
+    work.every.state === "read"
+      ? work.every.files.find((one) => one.path === draft.path)?.patch
+      : undefined;
+  const lines =
+    patch?.state === "read"
+      ? patch.lines
+      : whole === undefined
+        ? []
+        : linesOfPatch(draft.path, whole);
   const code = place === undefined ? undefined : lines[indexOfPlace(lines, place)]?.text;
   const card = () => document.querySelector<HTMLElement>(`.pr-reader [data-draft="${draft.id}"]`);
   const goTo = () => {
     if (card() === null) {
-      const owner = ownerOf(changesOf(pr, work), draft.path, place);
-      if (owner !== undefined) store.toggleOpen(pr.key, owner.id);
+      if (onGo !== undefined) onGo(draft);
+      else {
+        const owner = ownerOf(changesOf(pr, work), draft.path, place);
+        if (owner !== undefined) store.toggleOpen(pr.key, owner.id);
+      }
     }
-    window.requestAnimationFrame(() => {
-      card()?.scrollIntoView({
-        block: "center",
+    // A host that reads another file first draws it a frame later.
+    const reach = (tries: number) =>
+      window.requestAnimationFrame(() => {
+        const one = card();
+        if (one === null) return void (tries > 0 && reach(tries - 1));
+        one.scrollIntoView({
+          block: "center",
+        });
+        one.focus();
       });
-      card()?.focus();
-    });
+    reach(2);
   };
   return (
     <button
@@ -134,7 +160,16 @@ function PendingComment({ pr, draft }: { pr: ReviewPr; draft: Draft }) {
  * His pending review and Submit. `caution` is a line said on the first Submit, which then sends nothing: the second sends. The
  * Review tab passes one while findings are unmarked.
  */
-export function YourReview({ pr, caution }: { pr: ReviewPr; caution?: string }) {
+export function YourReview({
+  pr,
+  caution,
+  onGo,
+}: {
+  pr: ReviewPr;
+  caution?: string;
+  /** Brings a pending comment's file into view, where the host draws one file at a time. */
+  onGo?: (draft: Draft) => void;
+}) {
   const store = useReviewStore()!;
   const { work: all } = useReviews();
   const work = all[pr.key] ?? NO_WORK;
@@ -179,7 +214,7 @@ export function YourReview({ pr, caution }: { pr: ReviewPr; caution?: string }) 
         <ul className="pr-yours__drafts" aria-label="Pending comments">
           {work.drafts.map((one) => (
             <li key={one.id} className="pr-yours__draft">
-              <PendingComment pr={pr} draft={one} />
+              <PendingComment pr={pr} draft={one} onGo={onGo} />
               <Tooltip label="Remove from the review">
                 <Button
                   variant="ghost"

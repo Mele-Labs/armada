@@ -1442,7 +1442,7 @@
    file changes. */
 .pr-review-tab-view__head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto var(--h-control);
+  grid-template-columns: auto minmax(0, 1fr) auto var(--h-control);
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-3);
@@ -1456,10 +1456,16 @@
   align-items: center;
   gap: var(--space-1);
 }
+/* A row of their own under the file's place and path, so a long list of tools never takes the path's width. */
 .pr-review-tab-view__tools {
-  display: inline-flex;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+.pr-review-tab-view__tools:empty {
+  display: none;
 }
 .pr-review-tab-view__tools [data-run="running"] svg {
   animation: pr-review-spin var(--duration-pulse) linear infinite;
