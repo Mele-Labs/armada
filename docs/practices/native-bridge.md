@@ -78,6 +78,16 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 | Tests | Only through `armada check test <name>` or `--changed` |
 | Formatting | Never `rustfmt` or `cargo fmt` |
 
+## What gpui cannot match
+
+**A screen is drawn as Electron draws it, and these are the known gaps.**
+Say them in the brief of any walk that puts the two side by side.
+
+| Gap | Where it shows | Why |
+|---|---|---|
+| No letter-spacing | The Jobs list's group heads, set at 0.18em in Electron | gpui's text style has no tracking |
+| No weight 600 in Plex Mono | The same heads, which ask for 600 | `packages/tokens/fonts` ships Mono at 400 and 500, and a browser fakes the bold where gpui does not |
+
 ## The overlap rule
 
 **An Electron feature that lands gets a task in the matching step of the build order in [Native Bridge](../concepts/native-bridge.md).**
