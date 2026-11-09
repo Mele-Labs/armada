@@ -278,11 +278,13 @@ Only the main window reloads; another window keeps its page until it is opened a
 **Launchd runs both jobs through `builds/current`.**
 A tree's `target/` and `out/` are rebuilt in place by the next restart, and a worktree under `.armada/` is deleted when its branch lands, so neither can be run again later.
 The first restart onto kept builds reopens Bridge, because its job still names a tree.
-**A revert flips `Armada.app` with the links but does not reopen the native Bridge**: `armada build revert` boots Fleet and Bridge only, so the native app runs the build it was opened on until its next reopen.
+**A revert or a swap reopens the native Bridge where the two builds' `native` hashes differ**, as it reopens Bridge: `armada build revert` boots `com.armada.fleet.native` after Fleet, from `builds/current`.
+It is left open where they match, where the build moved to keeps no native app, and where the job was never written (`scripts/restart` writes it).
+A swap back from a Fleet that did not answer leaves it as it is, as it leaves Bridge.
 
 **`armada build revert` swaps onto the previous build**, and is run as `builds/previous/armada build revert`, so a broken build never runs its own undo.
 It refuses before changing anything when no previous build is kept, or when Fleet's plist does not name `builds/current/armada`.
-Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' main, preload or Electron differ.
+Otherwise it copies the store to `Armada/backups/armada-<stamp>.db` with `sqlite3 .backup`, flips the two links, boots Fleet out and back in, waits up to a minute for a new Fleet to answer `/health`, and reboots Bridge only where the two builds' main, preload or Electron differ, and the native Bridge only where their `native` hashes do.
 A second revert swaps back.
 **The app menu's "Revert to the build before…" and the palette's row start it too**, from Bridge's main process, so they work with the page blank.
 Both ask with a native dialog, and where Fleet does not answer they run `builds/previous/armada build revert` themselves (`apps/desktop/src/main/revert-asked.ts`).

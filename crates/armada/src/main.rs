@@ -222,6 +222,9 @@ fn build_reverted() -> ExitCode {
                 true => println!("Bridge reopened on it"),
                 false => println!("Bridge holds the same build, so it was left open"),
             }
+            if reverted.native_reopened {
+                println!("The native Bridge reopened on it");
+            }
             if let Some(copy) = reverted.store_copy {
                 println!("The store as it stood before: {}", copy.display());
             }
