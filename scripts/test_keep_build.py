@@ -17,6 +17,8 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEEP = os.path.join(HERE, "scripts", "keep-build")
 NATIVE_APP = os.path.join(HERE, "scripts", "native-app")
 LOCK = "aaaaaaaaaaaaaaaa"
+# A native Bridge is signed ad hoc as it is kept, and only a Mac has codesign: CI runs this on Linux.
+SIGNS = unittest.skipUnless(shutil.which("codesign"), "the native bundle is signed, and only a Mac can")
 
 
 def parse(text):
@@ -178,6 +180,7 @@ class KeepBuild(unittest.TestCase):
         os.chmod(path, 0o755)
         return path
 
+    @SIGNS
     def test_the_native_bridge_is_kept_as_armada_app(self):
         snapshot = self.make(native=self.native_binary())
         self.assertEqual(sorted(os.listdir(snapshot)),
@@ -188,6 +191,7 @@ class KeepBuild(unittest.TestCase):
         self.assertTrue(os.access(os.path.join(app, "MacOS", "Armada"), os.X_OK))
         self.assertEqual(self.read(app, "Resources", "AppIcon.icns"), "icon one\n")
 
+    @SIGNS
     def test_the_native_bridges_plist_names_it_apart_from_electrons(self):
         snapshot = self.make(native=self.native_binary())
         with open(os.path.join(snapshot, "Armada.app", "Contents", "Info.plist"), "rb") as f:
@@ -199,6 +203,7 @@ class KeepBuild(unittest.TestCase):
         self.assertEqual(info["LSMinimumSystemVersion"], "12.0")
         self.assertNotIn(info["CFBundleIdentifier"], ("com.github.Electron", "dev.armada.bridge"))
 
+    @SIGNS
     def test_the_native_bridge_is_signed_ad_hoc_and_the_signature_holds_after_the_rename(self):
         snapshot = self.make(native=self.native_binary())
         app = os.path.join(snapshot, "Armada.app")
@@ -212,6 +217,7 @@ class KeepBuild(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(snapshot, "Armada.app")))
         self.assertNotIn("native", self.toml(snapshot)[0])
 
+    @SIGNS
     def test_the_native_key_follows_the_binary_and_the_icon(self):
         first = self.toml(self.make(native=self.native_binary()))[0]["native"]
         self.assertRegex(first, r"^[0-9a-f]{16}$")
