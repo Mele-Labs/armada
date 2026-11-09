@@ -27,7 +27,7 @@ Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull r
 
 **The native Bridge's tests run in `native`, on `macos-15`, for a change that reaches `crates/bridge-native`.**
 gpui builds on no Linux runner, so no other job runs them.
-`plan.py` reads the key `crates/bridge-native:test` from `armada covers` into its `native` output, which `native` waits on, and `ci` needs `native`.
+`plan.py` reads the native workspace's `test` key from `armada covers` into its `native` output, which `native` waits on, and `ci` needs `native`.
 The job is skipped for any other change and `ci` reads a skipped job as a pass, so only a change to the crate waits on it.
 A pull request runs it as well as the queue, because a native test that fails in the queue takes the entries behind it.
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.
