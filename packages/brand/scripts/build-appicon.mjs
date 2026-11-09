@@ -252,4 +252,6 @@ for (const [master, dir] of [
   }
 }
 
-console.log("\nNow: iconutil -c icns packages/brand/macos/AppIcon.iconset and packages/brand/macos/ClassicIcon.iconset");
+console.log(
+  "\nNow: iconutil -c icns packages/brand/macos/AppIcon.iconset and packages/brand/macos/ClassicIcon.iconset",
+);

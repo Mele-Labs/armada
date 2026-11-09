@@ -16,13 +16,13 @@ colour, and it is the only custom glyph Armada owns.
 
 ## Colour
 
-| Token          | Value                 | Use                                            |
-| -------------- | --------------------- | ---------------------------------------------- |
-| Ink            | `#E4E9EF`             | The mark on dark grounds                       |
-| Ink, dark      | `#0F1419`             | The mark on light grounds                      |
-| Accent         | `#4A9EDB`             | Rules, meta text, the app icon's pool of light |
-| App body, dark | `#1A2330` → `#0C1116` | The macOS icon body, top to bottom             |
-| App body, Classic | `#2B3036` → `#121518` | Armada Classic's icon body, top to bottom |
+| Token             | Value                 | Use                                            |
+| ----------------- | --------------------- | ---------------------------------------------- |
+| Ink               | `#E4E9EF`             | The mark on dark grounds                       |
+| Ink, dark         | `#0F1419`             | The mark on light grounds                      |
+| Accent            | `#4A9EDB`             | Rules, meta text, the app icon's pool of light |
+| App body, dark    | `#1A2330` → `#0C1116` | The macOS icon body, top to bottom             |
+| App body, Classic | `#2B3036` → `#121518` | Armada Classic's icon body, top to bottom      |
 
 The mark is monotone. It is never given a gradient, a shadow, an outline, or a
 second colour, with one exception: `ArmadaMarkDuo` holds the two trailing hulls
