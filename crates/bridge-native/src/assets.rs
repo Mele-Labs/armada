@@ -15,12 +15,18 @@ pub fn icon_path(name: &str) -> SharedString {
     format!("icons/{name}.svg").into()
 }
 
-/// The whole lucide set, 1,830 glyphs, and nothing else. A path it has no file for is `None`
+/// Armada's mark, as the title bar draws it (`packages/brand`'s `ArmadaMark`).
+pub const MARK: &str = "brand/armada-mark.svg";
+
+/// The whole lucide set, 1,830 glyphs, and Armada's mark. A path it has no file for is `None`
 /// rather than an error, so one missing glyph is a gap in a row and not a failure in the log.
 pub struct Assets;
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+        if path == MARK {
+            return Ok(Some(Cow::Borrowed(include_bytes!("../../../packages/brand/svg/armada-mark.svg"))));
+        }
         Ok(AllAssets.load(path).unwrap_or(None))
     }
 

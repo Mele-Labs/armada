@@ -252,8 +252,7 @@ impl Render for JobsList {
 }
 
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
-/// the left, the open Job's room in the middle, and the right column's panel. The title bar above them
-/// is its own later step.
+/// the left, the open Job's room in the middle, and the right column's panel, under the title row.
 pub struct JobsScreen {
     pub list: Entity<JobsList>,
 }
@@ -276,12 +275,20 @@ impl Render for JobsScreen {
         div()
             .size_full()
             .flex()
-            .gap(look.length(token::GAP_PANEL))
-            .p(look.length(token::SPACE_3))
+            .flex_col()
             .bg(look.color(token::BG_BASE))
-            .child(panel(look).w(column * 6.).child(self.list.clone()))
-            .child(div().flex_1())
-            .child(panel(look).w(column * 5.75))
+            .child(crate::chrome::title_row(look))
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .gap(look.length(token::GAP_PANEL))
+                    .p(look.length(token::SPACE_3))
+                    .child(panel(look).w(column * 6.).child(self.list.clone()))
+                    .child(div().flex_1())
+                    .child(panel(look).w(column * 5.75)),
+            )
     }
 }
 

@@ -14,6 +14,7 @@
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
 
 mod assets;
+mod chrome;
 mod deep_link;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
@@ -47,7 +48,7 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use gpui::{
-    div, prelude::*, px, size, App, Bounds, Context, Entity, TitlebarOptions, Window, WindowBounds,
+    div, point, prelude::*, px, size, App, Bounds, Context, Entity, TitlebarOptions, Window, WindowBounds,
     WindowOptions,
 };
 use gpui_platform::application;
@@ -160,7 +161,13 @@ fn main() -> ExitCode {
         let bounds = Bounds::centered(None, size(px(1100.), px(760.)), cx);
         let options = |title: String| WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
-            titlebar: Some(TitlebarOptions { title: Some(title.into()), ..Default::default() }),
+            // Frameless, as Electron's `titleBarStyle: "hiddenInset"`: the app draws its own title row, and the
+            // traffic lights sit where Electron puts them, 16 down a 44px row (`apps/desktop/src/main/index.ts`).
+            titlebar: Some(TitlebarOptions {
+                title: Some(title.into()),
+                appears_transparent: true,
+                traffic_light_position: Some(point(px(18.), px(16.))),
+            }),
             ..Default::default()
         };
         let opened = match mode {

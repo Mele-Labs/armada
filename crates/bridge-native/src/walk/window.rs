@@ -11,14 +11,14 @@ use gpui::{
 };
 use gpui_component::input::{Input, InputEvent, InputState};
 
-use super::bar::{button, Weight};
+use super::bar::{button, chord, icon_button, Weight};
 use super::fleet::{NoteOn, WalkFleet};
 use super::stage::{find, perform, Stage};
 use super::Walk;
 use crate::labels::{label_root, labelled};
 use crate::look::{token, ActiveLook};
 
-actions!(walk, [Next, Back, Approve, TakeNote, CancelNote]);
+actions!(walk, [Next, Back, Reload, Approve, TakeNote, CancelNote]);
 
 /// The bar's keys. **Electron's walk bar binds these in `CaptureBar.tsx` (`QUEUE_KEYS`)**, not in
 /// the action registry, so they are restated here until the registry carries them.
@@ -27,6 +27,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("alt-cmd-right", Next, Some("walk")),
         KeyBinding::new("alt-cmd-left", Back, Some("walk")),
         KeyBinding::new("cmd-enter", Approve, Some("walk")),
+        KeyBinding::new("cmd-r", Reload, Some("walk")),
         KeyBinding::new("alt-cmd-c", TakeNote, Some("walk")),
         KeyBinding::new("escape", CancelNote, Some("walk-note")),
     ]);
@@ -122,6 +123,13 @@ impl WalkWindow {
         }
     }
 
+    /// Play the step on screen again from a fresh screen.
+    fn reload(&mut self, _: &Reload, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.playing {
+            self.play_to(self.at, true, window, cx);
+        }
+    }
+
     fn approve(&mut self, _: &Approve, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(fleet) = self.fleet.clone() else {
             self.said = Some(Said { text: "Not sent: no Job opened this walk".into(), fault: false });
@@ -197,75 +205,96 @@ impl WalkWindow {
     }
 
     fn render_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let approve = approve_button(cx);
         let look = cx.look();
         let steps = self.walk.steps;
         let step = steps[self.at];
         let first = self.at == 0;
         let last = self.at + 1 == steps.len();
         let said = self.said.clone();
-        let top = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .h(look.length(token::H_ROW_HEADER))
-            .px(look.length(token::SPACE_4))
-            .bg(look.color(token::BG_SUNKEN))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(labelled(
-                div()
-                    .id("walk-name")
-                    .text_size(look.length(token::TEXT_SM))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(self.walk.title),
-                Role::Heading,
-                self.walk.title,
-            ))
-            .child(div().flex_1())
-            .children(said.map(|said| {
+        // Electron's walk bar (`CaptureBar.tsx`, `WalkBar`): two rows of 44px, each padded 12 with 8 between.
+        let row = || {
+            div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::SPACE_8) + look.length(token::SPACE_2) + look.length(token::SPACE_1))
+                .px(look.length(token::SPACE_3))
+                .border_b(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+        };
+        // The bar is the window's top, so it clears the traffic lights and a press on its empty part
+        // moves the window, as the title row does.
+        let drag = |id: &'static str| {
+            div().id(id).h_full().on_mouse_down(gpui::MouseButton::Left, |event, window, _cx| {
+                if event.click_count == 2 {
+                    window.titlebar_double_click();
+                } else {
+                    window.start_window_move();
+                }
+            })
+        };
+        let top = row()
+            .child(drag("walk-lights").flex_none().w(look.length(token::SPACE_12) * 2. - look.length(token::SPACE_3)))
+            .child(drag("walk-room").flex_1().min_w_0().flex().items_center().children(said.map(|said| {
                 labelled(
                     div()
                         .id("walk-said")
+                        .truncate()
                         .text_size(look.length(token::TEXT_SM))
                         .text_color(look.color(if said.fault { token::ERROR } else { token::FG_MUTED }))
                         .child(said.text.clone()),
                     Role::Status,
                     said.text,
                 )
-            }))
-            .child(button("walk-note", "Note", Some("⌥⌘C"), Weight::Quiet, self.note.is_none(), cx, cx.listener(|this, _, window, cx| this.take_note(&TakeNote, window, cx))))
-            .child(button("walk-approve", "Approve", Some("⌘↵"), Weight::Primary, true, cx, cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))));
-        let line = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .h(look.length(token::H_ROW))
-            .px(look.length(token::SPACE_4))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
+            })))
+            .child(icon_button("walk-reload", "refresh-cw", "Reload", Some("⌘R"), Weight::Quiet, !self.playing, cx, cx.listener(|this, _, window, cx| this.reload(&Reload, window, cx))))
+            .child(icon_button(
+                "walk-note",
+                "crosshair",
+                if self.note.is_some() { "Capturing" } else { "Capture" },
+                Some("⌥⌘C"),
+                if self.note.is_some() { Weight::Primary } else { Weight::Quiet },
+                true,
+                cx,
+                cx.listener(|this, _, window, cx| {
+                    if this.note.is_some() {
+                        this.cancel_note(&CancelNote, window, cx)
+                    } else {
+                        this.take_note(&TakeNote, window, cx)
+                    }
+                }),
+            ))
+            .child(
+                // Approve keeps one width, `calc(var(--space-8) * 6)`, so nothing beside it moves.
+                div().flex_none().w(look.length(token::SPACE_8) * 6.).child(approve),
+            );
+        let line = row()
+            .child(icon_button("walk-back", "chevron-left", "Replay to the step before", Some("⌥⌘←"), Weight::Quiet, !first && !self.playing, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
             .child(
                 div()
-                    .w(look.length(token::SPACE_12))
                     .flex_none()
-                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
-                    .text_size(look.length(token::TEXT_XS))
+                    .min_w(look.length(token::SPACE_8) + look.length(token::SPACE_4))
+                    .flex()
+                    .justify_center()
+                    .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::FG_MUTED))
                     .child(format!("{} of {}", self.at + 1, steps.len())),
             )
+            .child(icon_button("walk-next", "chevron-right", "Act on the ringed target and go on", Some("⌥⌘→"), Weight::Primary, !last && !self.playing, cx, cx.listener(|this, _, window, cx| this.next(&Next, window, cx))))
             .child(labelled(
                 div()
                     .id("walk-step")
                     .flex_1()
+                    .min_w_0()
                     .truncate()
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(step.say),
                 Role::Status,
                 step.say,
-            ))
-            .child(button("walk-back", "Back", Some("⌥⌘←"), Weight::Quiet, !first && !self.playing, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
-            .child(button("walk-next", "Next", Some("⌥⌘→"), Weight::Quiet, !last && !self.playing, cx, cx.listener(|this, _, window, cx| this.next(&Next, window, cx))));
+            ));
         let note = self.note.as_ref().map(|(input, _)| {
             let input = input.clone();
             div()
@@ -292,8 +321,44 @@ impl WalkWindow {
                 })))
                 .child(button("walk-note-cancel", "Cancel", Some("esc"), Weight::Quiet, true, cx, cx.listener(|this, _, window, cx| this.cancel_note(&CancelNote, window, cx))))
         });
-        labelled(div().id("walk-bar").flex().flex_col().flex_none().child(top).child(line).children(note), Role::Toolbar, "Walk")
+        labelled(
+            div().id("walk-bar").flex().flex_col().flex_none().bg(look.color(token::BG_SUNKEN)).child(top).child(line).children(note),
+            Role::Toolbar,
+            format!("Walk {}", self.walk.title),
+        )
     }
+}
+
+/// Approve as Electron's walk bar draws it: a secondary button filling its slot, the word and a
+/// check centred, and the ⌘↵ chord.
+fn approve_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
+    let look = cx.look();
+    labelled(
+        div()
+            .id("walk-approve")
+            .w_full()
+            .h(look.length(token::H_CONTROL_SM))
+            .flex()
+            .items_center()
+            .justify_center()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_RAISED))
+            .text_size(look.length(token::TEXT_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .child("Approve")
+            .child(gpui::svg().path(crate::assets::icon_path("check")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT)))
+            .child(chord("⌘↵", cx))
+            .on_click(cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))),
+        Role::Button,
+        "Approve",
+    )
 }
 
 impl Render for WalkWindow {
@@ -309,6 +374,7 @@ impl Render for WalkWindow {
                 .track_focus(&self.focus)
                 .on_action(cx.listener(Self::next))
                 .on_action(cx.listener(Self::back))
+                .on_action(cx.listener(Self::reload))
                 .on_action(cx.listener(Self::approve))
                 .on_action(cx.listener(Self::take_note))
                 .on_action(cx.listener(Self::cancel_note))

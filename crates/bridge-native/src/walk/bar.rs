@@ -1,8 +1,9 @@
 //! The pieces the walk bar is drawn from. Every value is a token; every control has a role and a
 //! name.
 
-use gpui::{div, prelude::*, App, ClickEvent, FontWeight, Hsla, Role, SharedString, Window};
+use gpui::{div, prelude::*, svg, App, ClickEvent, FontWeight, Hsla, Role, SharedString, Window};
 
+use crate::assets::icon_path;
 use crate::labels::{labelled, Labelled};
 use crate::look::{token, ActiveLook};
 
@@ -64,4 +65,64 @@ pub fn button(
         body.opacity(0.5)
     };
     labelled(body, Role::Button, label)
+}
+
+/// A square icon button at the small control height, as Electron's `Button iconOnly size="sm"`: ghost,
+/// or `Primary` filled with the accent. `tip` is its tooltip and its name, with `keys` after it.
+pub fn icon_button(
+    id: &'static str,
+    icon: &'static str,
+    tip: &'static str,
+    keys: Option<&'static str>,
+    weight: Weight,
+    on: bool,
+    cx: &App,
+    press: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> Labelled {
+    let look = cx.look();
+    let side = look.length(token::H_CONTROL_SM);
+    let (ground, hover, ink) = match weight {
+        Weight::Primary => (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT)),
+        Weight::Quiet => (gpui::transparent_black(), look.color(token::BG_HOVER), look.color(token::FG_MUTED)),
+    };
+    let said: SharedString = match keys {
+        Some(keys) => format!("{tip}  {keys}").into(),
+        None => tip.into(),
+    };
+    let body = div()
+        .id(id)
+        .size(side)
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(look.length(token::RADIUS_MD))
+        .bg(ground)
+        .child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(ink))
+        .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx));
+    let body = if on {
+        body.cursor_pointer().hover(move |style| style.bg(hover)).on_click(press)
+    } else {
+        body.opacity(0.5)
+    };
+    labelled(body, Role::Button, tip)
+}
+
+/// A key chord drawn as Electron's `KbdChord`: mono, in a sunken box with a hairline.
+pub fn chord(keys: &'static str, cx: &App) -> gpui::Div {
+    let look = cx.look();
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .h(look.length(token::H_KBD))
+        .px(look.length(token::SPACE_1))
+        .rounded(look.length(token::RADIUS_SM))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .bg(look.color(token::BG_SUNKEN))
+        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+        .text_size(look.length(token::TEXT_2XS))
+        .text_color(look.color(token::FG_MUTED))
+        .child(keys)
 }
