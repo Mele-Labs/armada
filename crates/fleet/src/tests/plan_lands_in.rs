@@ -2,7 +2,7 @@
 //! pull request Fleet has seen is read onto every group that shares the label.**
 //! `docs/concepts/session/the-plan.md`.
 
-use ipc::{PlanGroupInput, PlanLandsInPr, PlanLandsInState, PlanTaskInput};
+use ipc::{PlanGate, PlanGroupInput, PlanLandsInPr, PlanLandsInState, PlanTaskInput};
 use store::KeptPlan;
 
 use crate::plan_record::{bind_lands_in, recorded, wire, PlanPull};
@@ -19,6 +19,7 @@ fn group(title: &str, lands_in: Option<&str>) -> PlanGroupInput {
         gives: None,
         lands_in: lands_in.map(String::from),
         own_job: false,
+        gate: Default::default(),
         tasks: vec![PlanTaskInput { id: None, title: format!("Do {title}") }],
     }
 }
@@ -102,4 +103,15 @@ fn a_group_that_goes_to_its_own_job_says_so_on_the_wire_until_the_plan_is_record
     let plain = [group("Store", None), group("Fleet", Some("PR 2"))];
     let third = recorded(Some(&second), &plain, None, None, false, "You get it.".into(), NOW);
     assert_eq!(marks(&third), [false, false], "the new recording's, as the label is");
+}
+
+#[test]
+fn each_groups_gate_reaches_the_wire_as_the_agent_named_it_and_a_new_recording_replaces_it() {
+    let gated = |title: &str, gate: PlanGate| PlanGroupInput { gate, ..group(title, None) };
+    let first = kept(&[gated("Fix", PlanGate::PlanApproved), group("Tidy", None), gated("Deliver", PlanGate::Merged)]);
+    let gates = |plan: &KeptPlan| wire(plan).groups.iter().map(|one| one.gate).collect::<Vec<_>>();
+    assert_eq!(gates(&first), [PlanGate::PlanApproved, PlanGate::None, PlanGate::Merged]);
+    let again = [gated("Fix", PlanGate::ChecksGreen), group("Tidy", None), gated("Deliver", PlanGate::Merged)];
+    let second = recorded(Some(&first), &again, None, None, false, "You get it.".into(), NOW);
+    assert_eq!(gates(&second), [PlanGate::ChecksGreen, PlanGate::None, PlanGate::Merged]);
 }

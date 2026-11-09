@@ -601,7 +601,7 @@ export const sJobLayouts: Scenario = {
     askTab = panesOf(peek(HOLDS).root)
       .flatMap((one) => one.tabs)
       .find((one) => one.kind === "custom")!.id;
-    seedBuilt(askTab, ASK_MOD);
+    seedBuilt(HOLDS, askTab, ASK_MOD);
     mods = [
       {
         name: ASK_MOD,

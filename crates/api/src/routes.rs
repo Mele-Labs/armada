@@ -47,7 +47,7 @@ use crate::rehearsing::{
     undo_checkout_run,
 };
 use crate::repositories::{
-    add_repository, checkout_diff, clone_repository, create_project, get_merge_lines, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -85,6 +85,9 @@ pub use served::{Route, SERVED};
 pub fn router<D: Daemon>(served: Served<D>) -> Router {
     let refusing_a_page =
         from_fn_with_state(served.run_id().clone(), crate::callers::refuse_a_page);
+    // Over the listener and not the door's copy: what the door offers a Job is the inventory's
+    // `agent_access`, and this refuses the same routes reached around it.
+    let refusing_a_job = from_fn_with_state(served.clone(), crate::callers::refuse_a_job::<D>);
     let waiting = served
         .waiting_on()
         .map(|over| (over, served.run_id().clone()));
@@ -98,7 +101,7 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
         )),
         None => app,
     };
-    app.layer(refusing_a_page)
+    app.layer(refusing_a_job).layer(refusing_a_page)
 }
 
 /// The HTTP surface and the Drone's endpoint: every route but the door.
@@ -626,6 +629,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::hosted_sessions::get_session::<D>),
         )
         .route(
+            "/sessions/thread",
+            get(crate::hosted_sessions::get_job_thread::<D>),
+        )
+        .route(
             "/sessions/subagent",
             get(crate::hosted_sessions::get_session_subagent::<D>),
         )
@@ -640,6 +647,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/ask/terminal",
             post(crate::hosted_sessions::ask_from_terminal::<D>),
+        )
+        .route(
+            "/sessions/message_reach",
+            post(crate::hosted_sessions::message_reach::<D>),
         )
         .route(
             "/sessions/held",
@@ -678,6 +689,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/commit", post(crate::kit::commit_to_repository::<D>))
         .route("/repositories/create", post(create_project::<D>))
         .route("/merge_lines", get(get_merge_lines::<D>))
+        .route("/merge_lines/view", get(get_merge_line_view::<D>))
         .route("/merge_lines/checkout_diff", get(checkout_diff::<D>))
         .route("/timeline", get(get_fleet_timeline::<D>))
         .route("/slot_history", get(get_slot_history::<D>))

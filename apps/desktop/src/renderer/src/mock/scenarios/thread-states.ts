@@ -247,6 +247,79 @@ const ours: Session = {
   ],
 };
 
+/** An Agent call whose subagent is still running, as Fleet sends it. */
+const handed = (
+  id: string,
+  minutes: number,
+  type: string,
+  task: string,
+  latest: string,
+): SessionRow => ({
+  id,
+  at: ago(minutes),
+  kind: "tool",
+  text: `Agent ${task}`,
+  subagent: {
+    id: `sa-${id}`,
+    agent_type: type,
+    task,
+    latest,
+    state: "running",
+    since: ago(minutes),
+  },
+});
+
+/** A Job that handed three pieces to subagents and waits on them, one already back. */
+const fanned: Session = {
+  ...job("st15", "Theme audit", [
+    you("st15a", ago(12), "Audit every surface for colours that are not tokens."),
+    agent(
+      "st15b",
+      ago(11),
+      "Three areas, so three subagents: the Cockpit, the Job panes and the settings pages. Each reports the hard-coded colours it finds.",
+    ),
+    {
+      id: "st15c",
+      at: ago(10),
+      kind: "tool",
+      text: "Agent Audit the settings pages for raw colours",
+      subagent: {
+        id: "sa-st15c",
+        agent_type: "armada:explorer",
+        task: "Audit the settings pages for raw colours",
+        latest: "Grep #[0-9a-f]{6} in apps/desktop/src/renderer/src/settings",
+        state: "finished",
+        since: ago(10),
+        ended: ago(4),
+      },
+    },
+    handed(
+      "st15d",
+      10,
+      "armada:explorer",
+      "Audit the Cockpit for raw colours",
+      "Read apps/desktop/src/renderer/src/cockpit/deck/console-bridge.css",
+    ),
+    handed(
+      "st15e",
+      9,
+      "armada:explorer",
+      "Audit the Job panes for raw colours",
+      "Grep rgb( in apps/desktop/src/renderer/src/job-panes",
+    ),
+    handed(
+      "st15f",
+      2,
+      "bridge-engineer",
+      "Swap the settings pages' raw colours for tokens",
+      "Edit apps/desktop/src/renderer/src/settings/settings.css",
+    ),
+  ]),
+  turn: {
+    state: "working",
+  },
+};
+
 /** The Job that started it, there for its line to name. */
 const operator = job("st-operator", "Temporary Operator", []);
 
@@ -396,6 +469,7 @@ const base = videoScriptScenario(
     walked,
     asks,
     ours,
+    fanned,
     chain,
     slotted,
     longCode,

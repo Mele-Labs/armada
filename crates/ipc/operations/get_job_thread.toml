@@ -1,0 +1,8 @@
+[operations.get_job_thread]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A Job's thread as a screen draws it, folded by Fleet: the newest whole items, or the ones before an item a client holds"
+notes = """
+`GET /sessions/thread?session_id=&before=&limit=`. `JobThread`: the `head` (the call the Job waits on, the open call, lapsed questions, Fleet's acts and the trail), the `items` oldest first, and `older`. The fold is by row order alone, because a tool row carries no call id and no result row: a run of calls is the tool rows that came one after another, and any other row, a card included, ends it. **The window never cuts an item.** Fleet folds the whole thread and then takes whole items: the newest `limit`, `THREAD_ITEMS_SERVED` (200) when absent and at most `THREAD_ITEMS_MOST` (1000), before the item that holds `before`. `before` is an item's id or the id of any row folded into one, so a cursor survives a fold that moved. `older` is the first returned item's id, absent where `items` starts the thread. A `before` no item holds is refused `fleet.thread_item_unknown`, 422. Hosted and terminal Jobs both. The Job is then followed: Fleet publishes `job_thread.tail` for it, and `job_thread.changed` for a change far back, until it ends or the 32 Jobs most recently read have moved on. A client that missed either reads this again on the resync after a `Missed`. Does not change `get_session`.
+"""

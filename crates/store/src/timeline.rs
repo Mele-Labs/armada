@@ -133,6 +133,27 @@ impl Store {
         events.reverse();
         Ok(TimelineWindow { events, cut })
     }
+
+    /// A Session's entries of these `kinds`, oldest first. **Read off `timeline_events_by_subject`**, so it
+    /// costs the Session's own entries of the kinds and not the timeline.
+    pub fn session_timeline(&self, session_id: &str, kinds: &[&str]) -> Result<Vec<KeptTimeline>, WriteError> {
+        let failed = |why| WriteError::Database(fault("reading what the timeline kept of a job")(why));
+        let marks = vec!["?"; kinds.len()].join(", ");
+        let mut read = self
+            .conn
+            .prepare(&format!(
+                "SELECT seq, at, kind, subject_kind, subject_id, subject_url, title, repo, tone, says,
+                        detail, items, live, over, service, service_name, to_id
+                 FROM timeline_events
+                 WHERE subject_kind = 'session' AND subject_id = ? AND kind IN ({marks})
+                 ORDER BY at, seq"
+            ))
+            .map_err(failed)?;
+        let arguments = std::iter::once(session_id).chain(kinds.iter().copied());
+        read.query_map(rusqlite::params_from_iter(arguments), kept)
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(failed)
+    }
 }
 
 fn kept(row: &Row<'_>) -> rusqlite::Result<KeptTimeline> {

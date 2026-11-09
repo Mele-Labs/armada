@@ -61,7 +61,9 @@ pub(crate) struct LedgerReads {
     later: Vec<store::KeptLater>,
     /// The names of its live watches, the oldest first.
     watching: Vec<String>,
-    /// What of its lifecycles keeps it open.
+    /// What its lifecycles hold that no end state has taken, as End job lists it.
+    flying: Vec<crate::lifecycles::ending::Flying>,
+    /// What of `flying` keeps it open.
     holding: Vec<crate::lifecycles::ending::Flying>,
     /// The stop it was told about and the stop passed over.
     stop: store::KeptStop,
@@ -335,6 +337,7 @@ where
                 if terminal {
                     self.hosts().terminals().turn_began(&id);
                     store.clear_done(&id).map_err(fault)?;
+                    store.clear_session_gate_hold(&id).map_err(fault)?;
                     store.clear_turn_end(&id).map_err(fault)?;
                 }
                 changed = true;
@@ -406,9 +409,9 @@ where
                         _ => "edit",
                     };
                     // Named from the worktree's root, as a hosted session's are: the Field asks a diff by it.
-                    let worktree = self.worktree_of(&session.cwd);
                     let home = &self.host().home;
                     for path in &paths {
+                        let worktree = self.worktree_of_touch(&session.cwd, path);
                         let Some(path) = crate::file_touching::rooted(&worktree, &session.cwd, home, path) else { continue };
                         changed |= crate::plan_keeping::touch_kept(&mut store, &id, by.clone(), &path, act, &now)
                             .map_err(fault)?;

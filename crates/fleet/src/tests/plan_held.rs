@@ -29,6 +29,7 @@ fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
             gives: None,
             lands_in: None,
             own_job: false,
+            gate: Default::default(),
             tasks: vec![PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,

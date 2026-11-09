@@ -111,6 +111,7 @@ enum WhenText<'a> {
     Enters { enters: EntersText<'a> },
     StepStarts { step_starts: &'a str },
     StepEnds { step_ends: &'a str },
+    GateCloses { gate_closes: &'a str },
     Job { job: &'a str },
 }
 
@@ -294,6 +295,7 @@ pub(super) fn rule(rule: &LifecycleRule) -> Result<String, String> {
             RuleWhen::Enters { lifecycle, state } => WhenText::Enters { enters: EntersText { lifecycle, state } },
             RuleWhen::StepStarts { step } => WhenText::StepStarts { step_starts: step },
             RuleWhen::StepEnds { step } => WhenText::StepEnds { step_ends: step },
+            RuleWhen::GateCloses { gate } => WhenText::GateCloses { gate_closes: gate },
             RuleWhen::Job { event } => WhenText::Job { job: event },
         },
         conditions: rule

@@ -85,6 +85,8 @@ mod builds_run;
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
 mod base_moves;
+mod gate_checks;
+mod gate_holding;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
@@ -149,6 +151,8 @@ pub(crate) mod main_hub;
 /// A possible `armada.yml` per workspace, from Scan, and the Write that ends it.
 pub mod manifest_proposal;
 pub mod merge_lines;
+/// The merge line as a screen draws it, read once for every client: `get_merge_line_view`.
+mod merge_line_view;
 mod act_failing;
 mod model_downshift;
 mod model_downshifting;
@@ -170,6 +174,10 @@ pub mod mods;
 pub mod mint;
 /// What Fleet saw happen, kept for the Cockpit's timeline. Since 23.82.
 pub mod timeline;
+/// A Job's thread folded once for every client: `get_job_thread` and `job_thread.tail`.
+mod thread_view;
+/// The threads a client read, held so a change reaches it as a tail.
+pub mod thread_keeping;
 /// Who held one slot and what was checked out in it, for the Cockpit's Bay pane.
 mod bay_history;
 /// The lines of code a pinned note's spot was drawn from, found by the words on screen.
@@ -257,6 +265,7 @@ mod pull_refreshing;
 mod session_issues;
 /// What a Job holds, standing in the states of its lifecycles, and the readers that say where.
 pub mod lifecycles;
+pub mod gate_keeping;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.

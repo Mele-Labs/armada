@@ -643,10 +643,11 @@ async fn every_way_he_chooses_is_recorded_as_a_pick() {
     assert_eq!(kept, ["auto_land", "keep_local", "open_pr"], "newest first");
 }
 
-/// Job `a` tells `to`, with `SendMessage`, to "please review". `a` is the first process the stand-in starts.
+/// Job `a`, which started `to`, tells it with `SendMessage` to "please review". `a` is the first process the stand-in starts.
 /// `rows` is how many messages `to`'s thread holds before it: a held Job's turns are not on it.
 async fn a_job_writes_to(rig: &Rig, to: &SessionId, rows: usize) -> SessionId {
     let a = rig.start().await;
+    rig.started_from(&a, to).await;
     rig.send(&a, "hello a").await;
     rig.stand_in.init(0);
     rig.stand_in.says(

@@ -134,6 +134,7 @@ import type {
   PullRequestPress,
   PullRequestWrite,
   SessionActed,
+  SessionsRead,
   TerminalChange,
 } from "../shared/api/sessions";
 import { openSessionFile, readSessionArtifact, readSteps, titleOfWindow } from "./session-file";
@@ -261,6 +262,8 @@ export class SessionsHost {
   /** Told every list after it changes, with when the first read answered, or `null` before it has. Set once by main. */
   private listed: (sessions: readonly SessionRecord[], readAt: number | null) => void = () => {};
   private readAt: number | null = null;
+  /** When Fleet last answered the list whole, `null` for one remembered from disk or held through a failed read. */
+  private listedAt: number | null = null;
   /** Where a Job's shell opening or ending goes: main's, set once. */
   private terminalChanged: (change: TerminalChange, terminal: JobTerminal) => void = () => {};
   private browserAsked: (request: BrowserRequest) => void = () => {};
@@ -306,6 +309,7 @@ export class SessionsHost {
     if (answer.ok !== true) {
       // **A list already held stays when the next read fails**, as the pool's does (`holding.ts`): a read that times out
       // on a busy machine must not empty every Session out of the window and put them all back a moment later.
+      this.listedAt = null;
       if (this.sessions !== null) return;
       this.publish({
         sessions: {
@@ -317,11 +321,9 @@ export class SessionsHost {
     }
     this.sessions = (answer.body as SessionList).sessions;
     this.readAt ??= this.now();
+    this.listedAt = this.now();
     this.publish({
-      sessions: {
-        state: "read",
-        sessions: this.sessions,
-      },
+      sessions: this.listing(),
     });
     this.listed(this.sessions, this.readAt);
     // Before the threads are read, since a thread read marks its window rows as met.
@@ -1090,13 +1092,23 @@ export class SessionsHost {
     } catch {}
   }
 
+  /** The list as published, with when Fleet answered it whole where it did: events folded into that list keep it. */
+  private listing(): SessionsRead {
+    return {
+      state: "read",
+      sessions: this.sessions ?? [],
+      ...(this.listedAt === null
+        ? {}
+        : {
+            listedAt: this.listedAt,
+          }),
+    };
+  }
+
   private fold(record: SessionRecord): void {
     this.sessions = withSession(this.sessions ?? [], record);
     this.publish({
-      sessions: {
-        state: "read",
-        sessions: this.sessions,
-      },
+      sessions: this.listing(),
     });
     this.listed(this.sessions, this.readAt);
   }
@@ -2084,6 +2096,7 @@ export class SessionsHost {
   close(): void {
     this.sessions = null;
     this.readAt = null;
+    this.listedAt = null;
     this.threads = {};
     this.watches = {};
     this.heardWatches.clear();

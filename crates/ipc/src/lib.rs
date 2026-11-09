@@ -105,6 +105,10 @@ mod holding;
 /// write goes through. `docs/concepts/session.md`.
 mod hosted_sessions;
 mod ids;
+/// A Job's thread as a screen draws it, folded by Fleet: `get_job_thread` and `job_thread.tail`.
+mod job_thread;
+/// The merge line as a screen draws it, read by Fleet: `get_merge_line_view` and `merge_line_view.changed`.
+mod merge_line_view;
 /// The Cockpit's flight controls a person arranged in Kit, and a shell action run from one.
 mod flight_controls;
 /// Pieces made into a package, read, and added to the person's own Kit.
@@ -307,7 +311,7 @@ pub use piece_saving::{
     LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught, WorkspaceToSave,
 };
 pub use lifecycles::{
-    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
     LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
     PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
     RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
@@ -401,13 +405,20 @@ pub use hosted_sessions::{
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, TagKind, TakeHeld, TerminalAsk,
-    TerminalAsked, TuneSession,
+    TerminalAsked, TuneSession, MessageReach, MessageTo,
 };
 pub use session_mcp::{
     ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
     SessionMcpServer,
 };
 pub use session_quick::SessionQuick;
+pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews};
+pub use job_thread::{
+    against_of_detail, file_call_of, kept_from, revisions_of_detail, scene_of_detail, sketch_call_of, SketchCall,
+    CardSettled, ChangedValue, FleetAct, FleetActKind, FleetActState, JobThread, JobThreadChanged, JobThreadRead, JobThreadTail, Lapsed,
+    OpenCall, ThreadAsk, ThreadDocument, ThreadHead, ThreadItem, ThreadSketch, ThreadTrail, TrailBay, TrailOpened,
+    THREAD_ITEMS_MOST, THREAD_ITEMS_SERVED, THREAD_TAIL_MOST,
+};
 pub use session_notes::{
     Candidate, NoteCrop, NoteElement, NotePlace, NoteSent, NoteState, NoteTake, NoteWalk,
     NotesSent, SendSessionNote, SendSessionNotes, SessionNote,
@@ -693,7 +704,7 @@ pub use session_activity::{
 };
 pub use session_delivery::{DeliveryChoice, DeliveryPicked, DeliveryPickedFrom, StartHeld};
 pub use session_plan::{
-    ApprovePlan, CheckedPlan, FileTouch, PlanChangeLine, PlanChanges, PlanGroupInput, PlanMark,
+    ApprovePlan, CheckedPlan, FileTouch, GateChecks, GateClose, GateHeld, PlanChangeLine, PlanChanges, PlanGate, PlanGroupInput, PlanMark,
     PlanHold, PlanHoldWhy, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanSketchInput, PlanTaskInput,
     PlanTaskState, RecordPlan, SendPlanChanges, SessionPlan, SessionPlanGroup, SessionPlanTask,
     TaskStale, TouchAct, TouchBy, FIRST_PULL_REQUEST, MOST_LANDS_IN_CHARS, MOST_MARKS, TASK_LIST_IS_THE_PLAN,

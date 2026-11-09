@@ -171,7 +171,11 @@ export type RuleTarget = {
   in_state?: string;
 };
 
-/** The moment a rule is for. `job`'s `event` is `started`, `pull_request_opened`, `landed` or `ended`. */
+/**
+ * The moment a rule is for. `job`'s `event` is `started`, `pull_request_opened`, `landed` or `ended`.
+ * `gate_closes`' `gate` is `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`,
+ * `checks_green` or `merged`.
+ */
 export type RuleWhen =
   | {
       kind: "enters";
@@ -185,6 +189,10 @@ export type RuleWhen =
   | {
       kind: "step_ends";
       step: string;
+    }
+  | {
+      kind: "gate_closes";
+      gate: string;
     }
   | {
       kind: "job";
@@ -391,6 +399,17 @@ export type HeldInstance = {
    * its plan group ends this way, and no field says so**: it is the ended ticket that a `job` instance of the Job lists among its `links`.
    */
   ended_at?: string;
+};
+
+/** One thing a Job holds that no end state has taken and ending the Job has not ended: what End job lists. Carried on `SessionRecord.in_flight`. */
+export type InFlight = {
+  lifecycle: string;
+  /** What its source calls it: `ARM-41`, `812`, a Job's id. */
+  key: string;
+  /** What a person reads for it: the ticket's key, `PR #812`, the Job's title. */
+  label: string;
+  /** Where it stands: its lifecycle's label for the state it is In, the word its source used where it is Unmapped, and empty where it is Unread. */
+  state: string;
 };
 
 /** One change of standing, kept when a read found the instance somewhere else. `source` is `tracker`, `forge`, `watch` or `fleet`. */

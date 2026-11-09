@@ -130,14 +130,7 @@ A terminal job's mod reports a prompt going in as `turn_started`, which is the s
 The mod's first-message note tells the agent to clear `waiting_for`, then call `all_done` only when nothing is owed and none of its background work is running.
 **`all_done` is refused while a follow-up is open** (*Follow-ups kept for Later*).
 
-**A question asked with nothing written to him since his message is sent back once** (`unanswered.rs`).
-He reads only what the agent writes, never its reasoning.
-From his message, typed or chosen on one of the job's questions, until the agent writes him anything at all, the job owes him a reply.
-Fleet does not read what was written: a status line, a lone line or a paragraph all answer.
-The first `AskUserQuestion` while it does is refused with: "Not asked: since his last message you have written him nothing, and he reads only what you write, never your reasoning.
-Write your answer to his message, then ask this question again."
-The door waits up to two seconds for the stream to reach the question first, so an answer written just before it counts.
-The refusal settles the debt, so the question asked again is put to him.
+**A question is never refused for want of words before it.** Fleet checks nothing about what the agent wrote since his message; the question check was deleted on 6 Nov 2026.
 Fleet sends nothing at a turn's end, and does not read a reply's words for a done or a walk the agent did not call: it takes a job's word only through `all_done` and `show_window`.
 Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw the question alone and wrote "you never answered me or explained".
 

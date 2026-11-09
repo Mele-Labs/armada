@@ -105,7 +105,7 @@ test("pressing the draft's row opens a tab named for the draft beside the thread
   const row = needsYou(jobWith({}));
   expect(row, "the draft is listed in Needs you").toBeDefined();
   row!.onOpen();
-  expect(draftTabs().map(labelOf)).toEqual([
+  expect(draftTabs().map((tab) => labelOf(JOB, tab))).toEqual([
     TITLE,
   ]);
   const pane = holderOf(peek(JOB), "draft")!;

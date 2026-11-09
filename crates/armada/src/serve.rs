@@ -385,8 +385,12 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::lifecycles::keep_the_lifecycles(Arc::clone(&fleet));
             // What happens to a Job, handed to the rules it started with.
             fleet::lifecycles::keep_the_rules(Arc::clone(&fleet));
+            // The gates its plan names, kept as Fleet sees each close.
+            fleet::gate_keeping::keep_the_gates(Arc::clone(&fleet));
             // A run's state, told to Bridge after each of its servers' own facts.
             fleet::app_runs::keep_the_runs(Arc::clone(&fleet));
+            // The threads clients read are followed, and a change to one is told as a tail.
+            fleet::thread_keeping::keep_the_threads(Arc::clone(&fleet));
             // A Session dispatched to wait on another starts when the condition it named is met.
             fleet::after_following::keep_the_waiting(Arc::clone(&fleet));
             // Main and the open pull requests, on the merge notice's interval but not

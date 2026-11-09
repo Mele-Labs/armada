@@ -27,6 +27,7 @@ mod fleet_outages;
 /// What a session Fleet hosts keeps beside its ledger row, and its thread.
 mod hosted_sessions;
 mod session_checks;
+mod session_gates;
 mod stop_nudges;
 mod session_build;
 mod session_plan;
@@ -235,6 +236,7 @@ pub use projects::{
 pub use session_init::KeptInit;
 pub use session_waiting::{KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
+pub use session_gates::{KeptGate, KeptGateChecks, KeptGateHold, CHECKS_GREEN, PLAN_APPROVED};
 pub use test_map::{StaleTest, TestsReaching};
 pub use model_downshift::KeptDownshift;
 pub use autopilot::{KeptAutopilot, KeptPick};

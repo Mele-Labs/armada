@@ -276,6 +276,7 @@ pub(super) async fn plan_recorded(rig: &Rig, id: &SessionId) {
             gives: None,
             lands_in: None,
             own_job: false,
+            gate: Default::default(),
             tasks: vec![ipc::PlanTaskInput { id: None, title: "Add the table".into() }],
         }],
         sketch: None,
