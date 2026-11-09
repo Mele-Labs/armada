@@ -11,3 +11,10 @@
     size = "12px"
     status = "Specified"
     notes = "Specified 27 Oct 2026 on the walk `workflowsManaged`, which the owner walked and approved (`.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`). Drawn at 14px, stroke 2. The step is the person's attestation on the plan, which is what a stamp performs."
+
+[[icons.stamp.usage]]
+  means = "A plan group's Plan approved gate, closed when you approve the plan"
+  group = "Plan gates"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Drawn at 12px in a --space-6 box at the end of a chunk's row in Now. Tooltip `Gate, open`, `Gate, the Job is held on you` (pulsing in the Needs you hue) or `Gate, closed by Fleet`. The Approve plan step's mark, on the gate that step became."

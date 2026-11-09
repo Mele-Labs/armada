@@ -47,3 +47,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 23 Oct 2026 for the walk `teach-mods`, tooltip `Words`. A chain is what a Jira key becomes when it is taught. Leads the Mods row as the palette leads a theme. Borrowed and not minted: the owner may rule otherwise."
+
+[[icons.link.usage]]
+  means = "A plan group's Jobs ended gate, closed when every Job it started has merged or ended"
+  group = "Plan gates"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Drawn at 12px in a --space-6 box at the end of a chunk's row in Now. Tooltip `Gate, open`, `Gate, the Job is held on you` (pulsing in the Needs you hue) or `Gate, closed by Fleet`. Something upstream unfinished, the Queued reason's meaning, here the Jobs this one started."

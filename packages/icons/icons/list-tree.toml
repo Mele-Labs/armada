@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "The approved Blueprint's press that swaps its Now view for the whole plan, every group and task, and back. Never a file tree, which is `folder` and `folder-open`, and never the Outline, which is `list-ordered`."
   notes = "Proposed 26 Oct 2026 with the Job's story column, walked as `job-story`. Tooltip `Whole blueprint`, with ⌥N."
+
+[[icons.list-tree.usage]]
+  means = "The Plan press in Now on a Job in panes: opens the whole plan as the Job's Plan tab beside Thread"
+  group = "Plan gates"
+  size = "16px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Plan`, key ⌥N. The reservation's press, opening the whole plan in a tab rather than swapping Now's view. `list-checks` is refused: it is never a plan."

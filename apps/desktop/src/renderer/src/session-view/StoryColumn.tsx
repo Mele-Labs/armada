@@ -13,7 +13,7 @@
 // workflow name at the head, which opens the picker; ↑ ↓ Home End move between the rows of a zone; ← → move the toggle when it has the focus.
 
 import { Fragment, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
-import { ListChecks, ListTree, PencilRuler, SkipForward } from "lucide-react";
+import { ListTree, PencilRuler, SkipForward } from "lucide-react";
 import { Button, TaskMark, Tooltip, sessionGlyphOf, type LedgerEntry } from "@armada/components";
 import { useLayout } from "@armada/shell";
 import {
@@ -483,7 +483,7 @@ export function StoryColumn({
             aria-label="Plan"
             onClick={() => focusBesideThread(id, "plan")}
           >
-            <ListChecks size={16} strokeWidth={2} aria-hidden />
+            <ListTree size={16} strokeWidth={2} aria-hidden />
           </Button>
         </Tooltip>
       ) : byGates ? null : (

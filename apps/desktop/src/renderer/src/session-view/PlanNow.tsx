@@ -3,9 +3,9 @@
 
 import { useState, type ReactNode } from "react";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
-  CircleCheck,
   CircleDashed,
   CircleDot,
   Drone,
@@ -44,7 +44,7 @@ export const GATE_GLYPH: Record<GateKind, LucideIcon> = {
 };
 
 const STATE_GLYPH: Record<StretchState, LucideIcon> = {
-  done: CircleCheck,
+  done: Check,
   now: CircleDot,
   next: CircleDashed,
 };
