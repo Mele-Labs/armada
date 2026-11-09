@@ -6,6 +6,7 @@
 
 import hashlib
 import os
+import plistlib
 import re
 import shutil
 import subprocess
@@ -90,6 +91,7 @@ class KeepBuild(unittest.TestCase):
         self.write(os.path.join(s, "node_modules", ".cache", "armada-bridge", "Armada.app",
                                 "Contents", "MacOS", "Armada"), "armada electron\n", mode=0o755)
         self.write(os.path.join(s, "pnpm-lock.yaml"), "lock one\n")
+        self.write(os.path.join(s, "packages", "brand", "macos", "AppIcon.icns"), "icon one\n")
         self.write(os.path.join(s, "scripts", "bridge-launch"), "#!/bin/sh\nexec \"$@\"\n", mode=0o755)
         self.git("init", "-q")
         self.git("add", "-A")
@@ -110,8 +112,8 @@ class KeepBuild(unittest.TestCase):
             env["PATH"] = f"{path}:{env['PATH']}"
         return subprocess.run([self.keep, *args], env=env, capture_output=True, text=True)
 
-    def make(self, source="main", protocol="proto1", binary=None):
-        done = self.run_keep("make", self.src, binary or self.armada, source, protocol)
+    def make(self, source="main", protocol="proto1", binary=None, native=None):
+        done = self.run_keep("make", self.src, binary or self.armada, source, protocol, *([native] if native else []))
         self.assertEqual(done.returncode, 0, done.stderr)
         return done.stdout.strip()
 
@@ -164,6 +166,72 @@ class KeepBuild(unittest.TestCase):
                          os.path.join(self.modules, self.lock_of("lock one\n"), "apps", "desktop", "node_modules"))
         self.assertTrue(os.path.isfile(os.path.join(self.modules, self.lock_of("lock one\n"),
                                                     "node_modules", ".pnpm", "x", "index.js")))
+
+    def native_binary(self, name="native", source="/usr/bin/true"):
+        """A real, signed Mach-O to stand in for the cargo binary, since the bundle is signed."""
+        path = os.path.join(self.tmp, name)
+        shutil.copyfile(source, path)
+        os.chmod(path, 0o755)
+        return path
+
+    def test_the_native_bridge_is_kept_as_armada_app(self):
+        snapshot = self.make(native=self.native_binary())
+        self.assertEqual(sorted(os.listdir(snapshot)),
+                         ["Armada.app", "armada", "bridge", "bridge-launch", "build.toml", "launch-bridge"])
+        app = os.path.join(snapshot, "Armada.app", "Contents")
+        self.assertEqual(sorted(os.listdir(app)), ["Info.plist", "MacOS", "Resources", "_CodeSignature"])
+        self.assertEqual(os.listdir(os.path.join(app, "MacOS")), ["Armada"])
+        self.assertTrue(os.access(os.path.join(app, "MacOS", "Armada"), os.X_OK))
+        self.assertEqual(self.read(app, "Resources", "AppIcon.icns"), "icon one\n")
+
+    def test_the_native_bridges_plist_names_it_apart_from_electrons(self):
+        snapshot = self.make(native=self.native_binary())
+        with open(os.path.join(snapshot, "Armada.app", "Contents", "Info.plist"), "rb") as f:
+            info = plistlib.load(f)
+        self.assertEqual(info["CFBundleName"], "Armada")
+        self.assertEqual(info["CFBundleDisplayName"], "Armada")
+        self.assertEqual(info["CFBundleExecutable"], "Armada")
+        self.assertEqual(info["CFBundleIconFile"], "AppIcon")
+        self.assertEqual(info["LSMinimumSystemVersion"], "12.0")
+        self.assertNotIn(info["CFBundleIdentifier"], ("com.github.Electron", "dev.armada.bridge"))
+
+    def test_the_native_bridge_is_signed_ad_hoc_and_the_signature_holds_after_the_rename(self):
+        snapshot = self.make(native=self.native_binary())
+        app = os.path.join(snapshot, "Armada.app")
+        verified = subprocess.run(["codesign", "--verify", "--strict", app], capture_output=True, text=True)
+        self.assertEqual(verified.returncode, 0, verified.stderr)
+        shown = subprocess.run(["codesign", "-dv", app], capture_output=True, text=True)
+        self.assertIn("Signature=adhoc", shown.stderr)
+
+    def test_a_build_without_a_native_binary_has_no_app_and_no_native_key(self):
+        snapshot = self.make()
+        self.assertFalse(os.path.exists(os.path.join(snapshot, "Armada.app")))
+        self.assertNotIn("native", self.toml(snapshot)[0])
+
+    def test_the_native_key_follows_the_binary_and_the_icon(self):
+        first = self.toml(self.make(native=self.native_binary()))[0]["native"]
+        self.assertRegex(first, r"^[0-9a-f]{16}$")
+        self.commit()
+        self.assertEqual(self.toml(self.make(native=self.native_binary()))[0]["native"], first)
+        other = self.native_binary("other", "/usr/bin/false")
+        self.commit()
+        changed = self.toml(self.make(native=other))[0]["native"]
+        self.assertNotEqual(changed, first)
+        self.write(os.path.join(self.src, "packages", "brand", "macos", "AppIcon.icns"), "icon two\n")
+        self.commit()
+        self.assertNotIn(self.toml(self.make(native=other))[0]["native"], (first, changed))
+
+    def test_a_native_binary_that_is_not_there_stops_the_keep(self):
+        done = self.run_keep("make", self.src, self.armada, "main", "proto1", os.path.join(self.tmp, "nope"))
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("is not a file", done.stderr)
+        self.assertFalse(os.path.exists(self.builds) and [n for n in os.listdir(self.builds) if not n.startswith(".")])
+
+    def test_the_brand_icon_missing_stops_the_keep_of_a_native_bridge(self):
+        os.remove(os.path.join(self.src, "packages", "brand", "macos", "AppIcon.icns"))
+        done = self.run_keep("make", self.src, self.armada, "main", "proto1", self.native_binary())
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("AppIcon.icns is missing", done.stderr)
 
     def test_make_touches_no_link(self):
         self.make()

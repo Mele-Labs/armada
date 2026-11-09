@@ -9,6 +9,9 @@
 //!
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
 //! leave a window on someone's screen.
+//!
+//! `ARMADA_BRIDGE_QUIT_MARK` names a file the app writes when it quits after its window opened. `scripts/restart`
+//! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
 
 mod assets;
 mod fleet;
@@ -179,6 +182,15 @@ fn main() -> ExitCode {
             log::Note::warn("the window did not open").field("why", why.to_string()).emit();
             cx.quit();
             return;
+        }
+        // A quit the person meant leaves this mark, so `scripts/bridge-launch` can tell it from a crash
+        // or a kill and have launchd reopen the app only then. Not written when the window did not open.
+        if let Some(mark) = std::env::var_os("ARMADA_BRIDGE_QUIT_MARK") {
+            cx.on_app_quit(move |_| {
+                let _ = std::fs::write(&mark, "");
+                std::future::ready(())
+            })
+            .detach();
         }
         cx.on_window_closed(|cx, _window| {
             if cx.windows().is_empty() {

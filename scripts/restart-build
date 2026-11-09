@@ -51,9 +51,9 @@ LIMIT = 200
 HEADINGS = [
     (re.compile(r"^\x1b\[1mFast-forwarding main"), "fetching_main"),
     (re.compile(r"^\x1b\[1m(?:Installing|Building) armada from"), "building_fleet"),
-    (re.compile(r"^\x1b\[1mBuilding Bridge"), "building_bridge"),
+    (re.compile(r"^\x1b\[1mBuilding (?:the native )?Bridge"), "building_bridge"),
     (re.compile(r"^\x1b\[1m(?:Snapshot of the database|Stopping the Fleet in|Booting )"), "restarting_fleet"),
-    (re.compile(r"^\x1b\[1m(?:Quitting the running Bridge|Reopening Bridge from)"), "reopening_bridge"),
+    (re.compile(r"^\x1b\[1m(?:Quitting the running Bridge|Reopening (?:the native )?Bridge from)"), "reopening_bridge"),
 ]
 # What a second run, after the stale build script is cleaned, does not step back to.
 BEFORE_BRIDGE = ("fetching_main", "building_fleet")
