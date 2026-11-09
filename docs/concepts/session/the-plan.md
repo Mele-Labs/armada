@@ -14,14 +14,25 @@ Fleet refuses a plan with every reason at once and says to call `record_plan` ag
 The agent gets back the version and each id Fleet gave.
 
 **A group names the gate that ends it: a fact Fleet sees for itself, never the agent's word** (owner, 8 Nov 2026).
-`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, or `none`.
+`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, `jobs_ended` (every Job this Job started has merged or ended), or `none`.
 Absent is `none`, and groups with no gate between them are one stretch.
 A word not on the list is refused with the list, rather than dropped.
 Each group carries its gate on the wire and in `session_plan_groups.gate`; recording the plan again replaces it.
 **A gate closes once, on a fact Fleet saw, and stays closed** (`crates/fleet/src/gate_keeping.rs`).
 Fleet keeps a `session_gates` row when it sees the fact, and never works it out again: the rail placed a Job afresh on every draw, so a fact that dropped out moved it backwards.
-His approval of a plan version closes every `plan_approved` gate for that version, and a version recorded again is his to approve again.
-Any other fact closes the first open gate of its kind in plan order, and no other: the merge of a pull request the Job holds, his approval of a page's newest revision or of a sketch, and his Approve once every walk shown stands approved.
+His approval of a plan closes every `plan_approved` gate for the version that asked for it, and a version recorded again stands on that approval: it draws no card, raises no item and reopens no gate, unless the agent passes `ask_again: true` on `record_plan`, which puts that version to him as the first was (owner, 8 Nov 2026).
+Any other fact closes the first open gate of its kind in plan order, and no other: the merge of a pull request the Job holds, his approval of a page's newest revision or of a sketch, and his Approve once every walk shown with no `group` stands approved.
+**A walk shown for a group is that group's part** (owner, 8 Nov 2026).
+`show_window` takes an optional `group`, a plan group's id, and the `window` row keeps it.
+A group gated on `walk_approved` closes when every walk shown for it since the plan was first recorded stands approved, so a feature Job has one stop for each part he would see.
+A replaced or taken-back walk waits on nothing, as it does for the walks of no group.
+`group` is refused with the ids the plan has when the current plan has no such group, or says the Job has no plan.
+**A new walk for a group opens its gate again** (owner, 8 Nov 2026).
+The close row is not edited or deleted: the gate reads its newest close against when a walk was last shown for the group (`session_gate_walks`), and a walk shown after the close opens it.
+Approving that walk writes a new close row, numbered by its `version`, and the group's `gate_closed` is the newest.
+An open gate holds `all_done` and raises its Needs you item again, as it did the first time.
+A reopened gate's close tells the rules `gate_closes` again and does not end or start steps a second time.
+A skip is his word, and a walk shown after it reopens nothing.
 Only facts from after the plan was first recorded count.
 Each gate is watched on its own, so a merge closes its gate while an earlier one is open.
 A group keeps its close through a recording that keeps its id and its gate.
@@ -70,7 +81,8 @@ Until one is bound a group reads only its label.
 An id the old version never held is not an id.
 The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps it, and the plan names it.
 
-**A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** It is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.
+**A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** Once he has approved a plan, a version recorded after it is not pending unless the agent passed `ask_again: true`: it keeps the earlier `approved_at`, the receipt says it `stands`, and the agent goes on.
+A pending plan is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.
 Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and the Job rules say to keep it (`docs/contracts/agent-prompt.md`, 5f).
 **The item is raised when it can be answered: only a window he can see or still owes holds it** (`plan_holds`, `planning.rs`).
 **A pending plan waits while any of the Job's walks waits for his Approve**, closed window or not, and arrives once he approves them.

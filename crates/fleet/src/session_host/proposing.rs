@@ -159,7 +159,7 @@ fn named(held: &std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>, id: Op
 
 /// What the agent is told of the workflow it follows. `changed` is a person's change to a Session
 /// that was already working, and not the first turn's account of where it stands.
-fn workflow_words(
+pub(crate) fn workflow_words(
     held: &std::collections::BTreeMap<WorkflowId, ResolvedWorkflow>,
     workflow: Option<&str>,
     changed: bool,
@@ -170,13 +170,33 @@ fn workflow_words(
         });
     };
     let found = held.get(&WorkflowId::carried(Ulid::carried(id)))?;
-    let steps: Vec<&str> = found.steps().iter().map(|step| step.label()).collect();
     let verb = if changed { "now follows" } else { "follows" };
-    Some(format!(
-        "Fleet: this Job {verb} the {} workflow. Its steps, in order: {}.",
-        found.name(),
-        steps.join(" -> ")
-    ))
+    Some(format!("Fleet: this Job {verb} the {} workflow. {}", found.name(), workflow_groups(found)))
+}
+
+/// The groups of `found`, as the agent is told to record its plan with them: each step's id, label and
+/// gate, and its instructions. **Every telling of a workflow ends with this**, whether the Job starts on
+/// it, is moved to it or has the steps of its own copy changed.
+pub(crate) fn workflow_groups(found: &ResolvedWorkflow) -> String {
+    let mut words =
+        String::from("Record your plan with these groups, in this order, each with its id and gate, and your own tasks under them:");
+    for (place, step) in found.steps().iter().enumerate() {
+        words.push_str(&format!(
+            "\n{}. {}, \"{}\", gate {}",
+            place + 1,
+            step.id().as_str(),
+            step.label(),
+            step.gate().word()
+        ));
+        if let Some(told) = step.instructions() {
+            let told = told.split_whitespace().collect::<Vec<_>>().join(" ");
+            if !told.is_empty() {
+                words.push_str(": ");
+                words.push_str(&told);
+            }
+        }
+    }
+    words
 }
 
 impl<H, V, W> Fleet<H, V, W>

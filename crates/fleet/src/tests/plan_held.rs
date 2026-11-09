@@ -34,6 +34,7 @@ fn plan(id: &SessionId, walk: Option<&str>) -> RecordPlan {
         }],
         sketch: None,
         walk: walk.map(String::from),
+        ask_again: false,
         session_id: Some(id.clone()),
     }
 }

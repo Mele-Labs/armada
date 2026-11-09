@@ -17,7 +17,7 @@ adds what gpui needs on top.
 | Wire | `crates/ipc` types, linked directly. Never a hand-copied DTO: the protocol ID covers `ipc`, and a copy drifts silently |
 | Logic | What Bridge shows is worked out in Fleet as a view. A screen draws a view; it does not derive one. Missing logic is a Fleet change, so Pocket gets it too |
 | Web pages | Documents, sketch mocks, walks of web pages and the Browser tool render in embedded Chrome (CEF) |
-| Look | `packages/tokens` values, read through the crate's generated tokens. No colour, spacing or font literal in a view |
+| Look | Each screen matches its Electron screen: same layout, controls, states and keys. Never a redesign. Values are `packages/tokens`, read through the crate's generated tokens. No colour, spacing or font literal in a view |
 | Accessibility | Full VoiceOver. Every element a person can press, read or focus carries a role and a name |
 
 ## Read the pinned source, not your memory

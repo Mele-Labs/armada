@@ -20,7 +20,12 @@ checks:
     places: 3
 "#;
 
-const FEATURE: &str = include_str!("../../../../../.armada/workflows/feature.json");
+/// A workflow shaped like the `feature` Armada once shipped: one sweeping step before the one that delivers.
+const FEATURE: &str = "version: 1\nworkflow_id: feature\nname: feature\nsteps:\n\
+    - id: propose\n  label: Propose\n  delivers: false\n  advance_gate: auto\n\
+    - id: refine\n  label: Refine\n  retry_limit: 2\n  delivers: false\n  advance_gate: auto\n  \
+    mechanical_checks: [{ type: every_manifest_check }, { type: diff_nonempty }]\n\
+    - id: deliver\n  label: Deliver\n  delivers: true\n  advance_gate: human_always\n";
 
 fn manifest() -> Manifest {
     Manifest::parse(&named("armada.yml"), DECLARED).expect("the fixture manifest")
