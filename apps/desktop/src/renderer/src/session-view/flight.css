@@ -60,6 +60,16 @@
   color: var(--fg-muted);
   font-size: var(--text-2xs);
 }
+/* The registry's subagent glyph, `split`, in the running hue while it works. */
+.sv-flight__agent-mark {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--status-running);
+}
+.sv-flight__agent code {
+  color: var(--fg-default);
+}
 .sv-flight__flow .sv-flow .armada-select:hover {
   border-color: var(--border-default);
 }
@@ -307,4 +317,14 @@
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
   font-size: var(--text-2xs);
+}
+/* The registry's subagent glyph, `split`, in the running hue while it works. */
+.sv-flight__agent-mark {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--status-running);
+}
+.sv-flight__agent code {
+  color: var(--fg-default);
 }
