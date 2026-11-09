@@ -52,6 +52,9 @@ The owner's own description, and the shape everything is measured against:
 None of the first row is in the repository yet.
 Today's [Project](concepts/project.md) is a task list across repositories.
 
+The core Bridge is being rebuilt natively beside the Electron Bridge, decided 8 Nov 2026.
+See [Native Bridge](concepts/native-bridge.md).
+
 **A project's settings override Fleet's defaults key by key.**
 A project sets only what it changes, and Fleet's default fills the rest, as Kit and a Manifest work today.
 A new default reaches every project, so Bridge has to show where each value came from.
