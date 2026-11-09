@@ -1,14 +1,22 @@
-// The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. With no tool tab
-// open it runs Risks from its head, steps between files with Previous and Next beside the file's place, counts the findings marked
-// as they are marked, and starts a review from lines picked in its gutter. A path and line named in a finding opens those lines in
-// place, with Jump; t opens Go to file; the submit bar says once that findings are unmarked; and Ask, docked under the panes,
-// takes a question. Over the `pr-review-by-file` scenario.
+// The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. Opening it asks, then
+// runs the tools that have not run on this commit. Previous and Next step through the files with findings or comments, and a file
+// Go to file reaches outside them says it is not counted. It counts the findings marked as they are marked, starts a review from
+// lines picked in its gutter, and opens the lines a finding names in place, with Jump. The submit bar says once that findings are
+// unmarked. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits under no line.
+// Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
 
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 
 const list = region("Pull requests");
 const reader = region("Pull request #2417");
-const toolsPane = inside(reader, region("Empty pane"));
+const commentsPane = inside(reader, region("Pane: Comments"));
+const comments = inside(
+  reader,
+  region("Comments", {
+    exact: true,
+  }),
+);
+const conversation = inside(comments, region("Conversation"));
 const reviewTab = inside(
   reader,
   tab("Review", {
@@ -36,49 +44,45 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "A pull request of eight files, asked of him",
   },
 
-  // 1. Review, with no tool tab open.
+  // 1. Opening Review runs the tools that have not run, asking first.
+  {
+    look: commentsPane,
+    say: "To the right of the main pane, Comments alone. Every tool runs from Review",
+  },
   {
     press: reviewTab,
     say: "Review is a tab of the main pane, after Files",
   },
   {
-    look: toolsPane,
-    say: "No tool tab is open",
+    look: role("dialog", /^Risks, Possible bugs/),
+    say: "Opening it runs every tool that has not run on this commit. It asks first, as every run does",
+  },
+  {
+    press: inside(role("dialog", /^Risks, Possible bugs/), button("Run")),
+    say: "Run",
   },
 
-  // 2. Risks, run from Review's head.
-  {
-    hover: inside(head, button("Run Risks")),
-    say: "Each tool has a button in the head. Its glyph is its state: not run",
-  },
-  {
-    press: inside(head, button("Run Risks")),
-    say: "Run Risks",
-  },
-  {
-    press: inside(role("dialog", "Risks"), button("Run")),
-    say: "It asks first, as every run does",
-  },
+  // 2. The tools, each a button in Review's head.
   {
     hover: inside(head, button("Run Risks again")),
-    say: "Done, with when and on which commit",
+    say: "Each tool has a button in the head. Its glyph is its state: done, with when and on which commit",
   },
   {
     look: inside(findings, role("article", /Two refunds can pass the same check/)),
     say: "Its findings land beside their lines, with no Risks tab open",
   },
 
-  // 3. Previous and Next, beside where the file is.
+  // 3. Previous and Next, through the files with findings or comments.
   {
-    look: inside(files, text("file 1 of 8")),
-    say: "Previous and Next sit either side of where the file is, files with findings first",
+    look: inside(files, text("file 1 of 4")),
+    say: "Previous and Next step through the four files with findings or comments, of the eight changed. Files with findings come first",
   },
   {
     press: inside(files, button("Next file")),
     say: "Next",
   },
   {
-    look: inside(files, text("file 2 of 8")),
+    look: inside(files, text("file 2 of 4")),
     say: "The next file",
   },
   {
@@ -172,32 +176,48 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Jump",
   },
   {
-    look: inside(files, text("file 2 of 8")),
+    look: inside(files, text("file 2 of 4")),
     say: "Review reads that file, at those lines",
   },
   {
     look: inside(findings, text("Line 6 is not in the diff.")),
     say: "A finding on a line the diff does not hold says so",
   },
+  {
+    press: inside(files, button("Next file")),
+    say: "Next",
+  },
+  {
+    look: inside(files, text("file 3 of 4")),
+    say: "A file with no findings but a thread on a line counts too",
+  },
 
-  // Go to file.
+  // Go to file, to one that is not counted.
   {
     key: "t",
     on: reviewTab,
-    say: "t opens Go to file",
+    say: "t opens Go to file, which finds any changed file",
   },
   {
-    type: "refcon",
+    type: "routes",
     into: inside(goTo, role("textbox", "File")),
-    say: "A few letters of the file",
+    say: "A few letters of a file with no findings or comments",
   },
   {
-    press: inside(goTo, role("option", "app/controllers/refunds_controller.rb")),
+    press: inside(goTo, role("option", "config/routes.rb")),
     say: "The file they rank first",
   },
   {
-    look: inside(files, text("file 3 of 8")),
-    say: "Review reads it",
+    hover: inside(files, text("Not counted")),
+    say: "Review reads it, and says it is not one of the four. Previous and Next pass it",
+  },
+  {
+    press: inside(files, button("Next file")),
+    say: "Next goes back to the first of the four",
+  },
+  {
+    look: inside(files, text("file 1 of 4")),
+    say: "The first file",
   },
 
   // 6. The submit bar.
@@ -222,7 +242,52 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Two findings are unmarked, so it says so once and waits for a second press",
   },
 
-  // 7. Ask, docked under the panes.
+  // 7. An explanation, run from the head.
+  {
+    hover: inside(head, button("Run User Impact")),
+    say: "The explanations have buttons in the head too, with the same glyphs",
+  },
+  {
+    press: inside(head, button("Run User Impact")),
+    say: "Run User Impact",
+  },
+  {
+    press: inside(role("dialog", "User Impact"), button("Run")),
+    say: "It asks first",
+  },
+  {
+    look: inside(reader, region("Pane: User Impact")),
+    say: "When it is done, its write-up opens in a tab of its own, beside Comments",
+  },
+  {
+    hover: inside(head, button("Open User Impact")),
+    say: "Done. A press opens its tab again",
+  },
+
+  // 8. Comments, with what sits under no line.
+  {
+    press: inside(
+      reader,
+      tab("Comments", {
+        exact: true,
+      }),
+    ),
+    say: "Comments",
+  },
+  {
+    look: conversation,
+    say: "Conversation comes first: what was said on the pull request under no line",
+  },
+  {
+    look: inside(conversation, role("list", "Threads on whole files")),
+    say: "And the threads on a whole file. A press goes to the file in Files",
+  },
+  {
+    look: inside(comments, role("list", "Open threads")),
+    say: "The threads on lines follow",
+  },
+
+  // 9. Ask, docked under the panes.
   {
     look: askPane,
     say: "Ask is a tab of its own, docked under the panes and as wide as them",

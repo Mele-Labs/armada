@@ -10,7 +10,7 @@ const reader = (number: number) => region(`Pull request #${number}`);
 const yours = region("Your review");
 const review = (number: number) => inside(reader(number), region("Pane: Review"));
 const lists = inside(list, button("List"));
-const plus = inside(inside(reader(1899), region("Empty pane")), button("Add tab"));
+const plus = inside(inside(reader(1899), region("Pane: Comments")), button("Add tab"));
 
 const prReviewStaysOpen = walk("pr-review", [
   {

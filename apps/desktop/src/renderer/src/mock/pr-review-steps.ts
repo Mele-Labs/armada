@@ -16,9 +16,9 @@ const finding = (title: string) => role("article", `Finding: ${title}`);
 const results = (name: string) => region(`${name} results`);
 const asked = (words: RegExp) =>
   inside(inside(region("Questions asked"), role("list", "Asked")), role("listitem", words));
-/** The pane the tools open in, named by the tab in front of it, or empty before any opened. */
+/** The pane the tools open in, named by the tab in front of it, which is Comments before any opened. */
 const toolsPane = (number: number, front?: string) =>
-  inside(reader(number), region(front === undefined ? "Empty pane" : `Pane: ${front}`));
+  inside(reader(number), region(`Pane: ${front ?? "Comments"}`));
 const plus = (number: number, front?: string) =>
   inside(toolsPane(number, front), button("Add tab"));
 /** A tool or explanation by its number, as + lists them: the four explanations, then Armada's tools, then the repository's and the Kit's. */
@@ -270,7 +270,7 @@ export const theExplanation: Step[] = [
   },
   {
     look: toolsPane(1899),
-    say: "Nothing has run on this one, so the tools pane is empty",
+    say: "Nothing has run on this one, so the pane on the right holds Comments alone",
   },
   {
     press: plus(1899),

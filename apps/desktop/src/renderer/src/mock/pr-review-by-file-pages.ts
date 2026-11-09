@@ -1,7 +1,8 @@
 // One pull request for the Review tab to read: eight changed files, Risks findings on lines of two of them, one finding on a line the
-// diff does not hold, and findings whose words name other changed files by path and line. Invented, as every fixture here is.
+// diff does not hold, and findings whose words name other changed files by path and line. A thread on a line of a third file, one on
+// the whole of a fourth, and two entries of general conversation. Invented, as every fixture here is.
 
-import { build, checks, commits } from "./pr-review-pages";
+import { build, checks, commits, minutesAgo } from "./pr-review-pages";
 
 const ISSUER = "app/services/refund_issuer.rb";
 const PAYMENT = "app/models/payment.rb";
@@ -20,7 +21,70 @@ export const refunds = build({
   body: "## Problem\n\nA refund was a new charge in reverse, so it could reach the card after the payment it undid had been disputed.\n\n## Change\n\nA refund now goes back against the payment it came from, never more than is left of it. A gateway timeout leaves the refund pending and a job tries it again.\n\n## Testing\n\nRefund part of a payment from its page, then try to refund more than is left.",
   checks: "passed",
   review: "none",
-  conversation: [],
+  conversation: [
+    {
+      kind: "comment",
+      id: "IC_2417_1",
+      author: "odile",
+      at: minutesAgo(90),
+      body: "The gateway's sandbox answers refunds in about four seconds, so the timeout path is the one to read.",
+    },
+    {
+      kind: "review",
+      id: "PRR_2417_1",
+      author: "tamsin",
+      at: minutesAgo(60),
+      verdict: "commented",
+      body: "Read the issuer and the cap. Does a refund job need its own queue, or can it share the mailers'?",
+    },
+  ],
+  threads: [
+    {
+      id: "redirect",
+      change: "endpoint",
+      match: "RefundIssuer.new(payment)",
+      comments: [
+        [
+          "tamsin",
+          58,
+          "Should a pending refund say so here, rather than Refund requested?",
+        ],
+      ],
+    },
+    {
+      id: "retry-file",
+      change: "retry",
+      comments: [
+        [
+          "tamsin",
+          55,
+          "Five attempts with polynomial waits is about twenty minutes. Is that long enough for the gateway's outages?",
+        ],
+      ],
+    },
+  ],
+  accounts: {
+    "user-impact": {
+      shape: "change",
+      rows: [
+        {
+          what: "Refunding part of a payment",
+          before: "The refund was charged to the card as a new payment in reverse.",
+          after: "The refund goes back against the payment it came from.",
+        },
+        {
+          what: "Refunding more than is left",
+          before: "The refund went through.",
+          after: "The form says the amount is too large, and nothing is refunded.",
+        },
+        {
+          what: "The gateway timing out",
+          before: "The refund was lost, with an error page.",
+          after: "The page says the refund was requested, and a job tries it again.",
+        },
+      ],
+    },
+  },
   answers: [
     {
       when: "retry|twice|again",
