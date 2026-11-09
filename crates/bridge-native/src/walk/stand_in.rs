@@ -68,8 +68,7 @@ fn scene(name: &str) -> Option<Fill> {
     Some(match name {
         "ring-normal" => fill(126_000, 63, "normal", Some(breakdown()), offered()),
         "ring-warning" => fill(168_000, 84, "warning", Some(breakdown()), offered()),
-        "ring-danger" => fill(191_000, 96, "danger", Some(breakdown()), offered()),
-        "ring-off" => fill(126_000, 63, "normal", Some(breakdown()), Some(CompactOffer::Off { why: CompactOff::Ended })),
+        "ring-danger" => fill(191_000, 96, "danger", Some(breakdown()), Some(CompactOffer::Off { why: CompactOff::NotListening })),
         "ring-refused" => Fill { refused: Some("Compact not sent: the agent is not taking messages".into()), ..fill(126_000, 63, "normal", Some(breakdown()), offered()) },
         "ring-popover" => fill(126_000, 63, "normal", None, offered()),
         "ring-tip" => fill(126_000, 63, "normal", None, None),
@@ -85,12 +84,16 @@ impl Global for Live {}
 pub struct JobHeadStandIn {
     screen: AnyView,
     fill: Option<Fill>,
+    /// Counts the scenes that start the ring over, so a card or tip a scene left open does not carry on.
+    epoch: u32,
+    /// The scene starts with the pointer on the ring, so the card is open.
+    opened: bool,
 }
 
 impl JobHeadStandIn {
     pub fn new(screen: AnyView, cx: &mut Context<Self>) -> JobHeadStandIn {
         cx.set_global(Live(cx.entity().downgrade()));
-        JobHeadStandIn { screen, fill: None }
+        JobHeadStandIn { screen, fill: None, epoch: 0, opened: false }
     }
 }
 
@@ -99,10 +102,25 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     let next = scene(name).ok_or_else(|| format!("no ring scene named {name}"))?;
     let held: Entity<JobHeadStandIn> = cx.try_global::<Live>().and_then(|live| live.0.upgrade()).ok_or("no stand-in for the Job head is drawn yet")?;
     held.update(cx, |stand_in, cx| {
+        // A refused Compact goes on from the press before it; every other scene is a jump.
+        if name != "ring-refused" {
+            stand_in.epoch += 1;
+        }
+        stand_in.opened = matches!(name, "ring-warning" | "ring-danger" | "ring-tip");
         stand_in.fill = Some(next);
         cx.notify();
     });
     Ok(())
+}
+
+/// The strip's and the clashes' scenes are drawn without the stand-in.
+pub fn hide(cx: &mut App) {
+    if let Some(held) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        held.update(cx, |stand_in: &mut JobHeadStandIn, cx| {
+            stand_in.fill = None;
+            cx.notify();
+        });
+    }
 }
 
 impl Render for JobHeadStandIn {
@@ -113,6 +131,8 @@ impl Render for JobHeadStandIn {
             .try_global::<LabelBook>()
             .and_then(|book| book.find(window.window_handle().window_id(), gpui::Role::Splitter, "Resize the Jobs list"))
             .map(|handle| handle.bounds.origin.x + handle.bounds.size.width + look.length(token::SPACE_2));
+        let epoch = self.epoch;
+        let opened = self.opened;
         let ring = self.fill.clone().zip(from).map(|(fill, left)| {
             let hold: Rc<dyn Fn(CompactHow, &mut Window, &mut App)> = Rc::new(|_, _, _| {});
             div()
@@ -132,7 +152,10 @@ impl Render for JobHeadStandIn {
                         .border(look.length(token::BORDER_WIDTH))
                         .border_color(look.color(token::BORDER_DEFAULT))
                         .bg(look.color(token::BG_RAISED))
-                        .child(ContextRing::new(SharedString::from(JOB), Some(fill)).on_compact(hold)),
+                        .child({
+                            let ring = ContextRing::new(SharedString::from(format!("{JOB}-{epoch}")), Some(fill)).on_compact(hold);
+                            if opened { ring.opened() } else { ring }
+                        }),
                     Role::Group,
                     "Job head",
                 ))

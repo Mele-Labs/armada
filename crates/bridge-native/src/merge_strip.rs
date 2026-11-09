@@ -31,7 +31,6 @@ use ipc::{
     HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, StandingCall, StandingCallKind,
 };
 
-use crate::generated::actions::act;
 use crate::inspect::{self, Fact, Spec, State, Width};
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -222,6 +221,7 @@ impl MergeStrip {
     }
 
     /// New data, as Fleet's last answer made it. A main that turned red brings its row into view.
+    #[allow(dead_code)]
     pub fn set(&mut self, data: Strip, cx: &mut Context<Self>) {
         let was_red: Vec<bool> = self.data.lines.iter().map(|line| matches!(line.view.main, Some(MainView::Red { .. }))).collect();
         self.data = data;
@@ -248,6 +248,23 @@ impl MergeStrip {
         self.row = 0;
         self.keys_were = None;
         self.fixing = None;
+    }
+
+    /// A walk's scene: new data with nothing open, on the row of a main that is red.
+    pub fn jump(&mut self, data: Strip, cx: &mut Context<Self>) {
+        self.reset(data);
+        let shown = self.shown();
+        let red = shown.iter().position(|at| matches!(self.data.lines[*at].view.main, Some(MainView::Red { .. })));
+        self.row = red.unwrap_or(0);
+        cx.notify();
+    }
+
+    /// A walk's scene that comes with main's card open, as a hover leaves it.
+    pub fn show_main(&mut self, cx: &mut Context<Self>) {
+        if let Some(line) = self.shown().into_iter().find(|at| matches!(self.data.lines[*at].view.main, Some(MainView::Red { .. }))) {
+            self.card = Some(Card::Main(line));
+            cx.notify();
+        }
     }
 
     /// The lines the strip draws: on All with several and a Job or pull request selected, only that
@@ -541,7 +558,13 @@ fn lamp(look: &Look, ink: Hsla, filled: bool) -> gpui::Div {
 
 /// The wash and the pulse of a chip a call stands for.
 fn calling_wash(look: &Look) -> gpui::Div {
-    div().absolute().inset_0().rounded_full().bg(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.06))
+    div()
+        .absolute()
+        .inset_0()
+        .rounded_full()
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.6))
+        .bg(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.14))
 }
 
 fn pulse(dot: gpui::Div, id: SharedString, look: &Look) -> AnyElement {
@@ -776,7 +799,7 @@ impl MergeStrip {
         let at = point(from.origin.x, from.origin.y - look.length(token::SPACE_1));
         let name: SharedString = match &card {
             Card::Main(_) => "main".into(),
-            Card::Chip(line, number) => format!("Pull request #{number}{}", self.data.lines.get(*line).map_or(String::new(), |_| String::new())).into(),
+            Card::Chip(_, number) => format!("Pull request #{number}").into(),
         };
         Some(
             deferred(
@@ -923,7 +946,7 @@ impl MergeStrip {
             state: Some(State { glyph: Some(if red { "circle-x" } else { "circle-check" }), said: if red { "Red" } else { "Green" }.into(), ink }),
             edge: Some(ink),
             width: Width::Wide,
-            keys: vec![("Enter", "Keep open")],
+            keys: if self.pinned { vec![("Esc", "Close")] } else { vec![("Enter", "Keep open")] },
         };
         let mut body: Vec<AnyElement> = Vec::new();
         if let Some(MainView::Red { failed, also, merge, taken_by, checking, .. }) = &one.view.main {
@@ -1033,7 +1056,7 @@ impl MergeStrip {
                     small(look)
                         .flex()
                         .gap(look.length(token::SPACE_3))
-                        .child(div().flex_none().w(look.length(token::SPACE_12)).text_color(look.color(token::FG_MUTED)).child(term))
+                        .child(div().flex_none().w(look.length(token::SPACE_12) * 1.5).text_color(look.color(token::FG_MUTED)).child(term))
                         .child(div().min_w_0().child(value))
                 })),
             )
@@ -1042,7 +1065,7 @@ impl MergeStrip {
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_3))
-                    .child(div().flex_none().w(look.length(token::SPACE_12)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child("Fixing"))
+                    .child(div().flex_none().w(look.length(token::SPACE_12) * 1.5).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child("Fixing"))
                     .child(
                         div()
                             .flex()
@@ -1099,7 +1122,7 @@ fn checkout_section(held: &HeldCheckout, look: &Look) -> AnyElement {
 }
 
 impl Render for MergeStrip {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let shown = self.shown();
         if shown.is_empty() && !self.data.loading {
@@ -1116,8 +1139,6 @@ impl Render for MergeStrip {
         } else {
             self.row_of(shown[0], false, cx)
         };
-        let key = act("deck_panel").map(|row| row.shortcut).unwrap_or_default();
-        let _ = (key, window);
         let merge = labelled(
             no_drag(
                 div()
@@ -1191,6 +1212,3 @@ impl Render for MergeStrip {
         .into_any_element()
     }
 }
-
-#[allow(dead_code)]
-fn _kept(_: &Card) {}

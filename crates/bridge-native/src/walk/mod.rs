@@ -52,6 +52,9 @@ pub enum Verb {
     /// The merge strip, the context ring or the write-clash marks move to a named scene
     /// (`strip_marks.rs`). A scene changes data and presses nothing.
     Marks(&'static str),
+    /// The Jobs list's scope picked as a person picks it, from the keys: press the scope button, ↓ to
+    /// Paused, Enter. One step for the three, since the list is on the same screen.
+    PausedScope,
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.

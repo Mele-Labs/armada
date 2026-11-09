@@ -110,8 +110,8 @@ impl Spec {
                 .rounded(look.length(token::RADIUS_MD))
                 .bg(state.ink.opacity(0.14))
                 .text_color(state.ink)
-                .children(state.glyph.map(|name| glyph(name, look.length(token::SPACE_4), state.ink)))
-                .child(state.said)
+                .children(state.glyph.map(|name| div().flex_none().child(glyph(name, look.length(token::SPACE_4), state.ink))))
+                .child(div().flex_1().min_w_0().child(state.said))
         });
         let keys = (!self.keys.is_empty()).then(|| {
             small(look)

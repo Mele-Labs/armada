@@ -40,20 +40,16 @@ fn pair() -> AllWriteClashes {
     all(vec![clash(FOUNDATION, NOTICES, &["crates/bridge-native/src/jobs.rs", "crates/ipc/src/clashes.rs"])])
 }
 
-/// Every kind at once, on three rows. A Job in two clashes, one with another Job and one with a main
+/// Every kind at once, on four rows. A Job in two clashes, one with another Job and one with a main
 /// that moved, wears one mark and a card; the other Job of the pair wears a button; a Job against a
 /// main alone wears a picture, since there is nothing of main to open.
 fn states() -> AllWriteClashes {
     all(vec![
         clash(FOUNDATION, NOTICES, &["crates/bridge-native/src/jobs.rs", "crates/ipc/src/clashes.rs"]),
         clash(FOUNDATION, MAIN, &["crates/bridge-native/src/jobs.rs"]),
+        clash(FOUNDATION, POCKET, &["crates/bridge-native/src/main.rs"]),
         clash(("mock-04", "Audit the docs index"), MAIN, &["docs/INDEX.md", "docs/OPEN.md", "docs/scope.md", "docs/concepts/fleet.md"]),
     ])
-}
-
-/// A Job whose changes conflict with a paused Job's: the same mark, and the paused Job keeps its own.
-fn paused() -> AllWriteClashes {
-    all(vec![clash(FOUNDATION, POCKET, &["crates/bridge-native/src/main.rs"])])
 }
 
 /// Start a walk with nothing clashing.
@@ -82,7 +78,6 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     let next = match name {
         "clash-pair" => pair(),
         "clash-states" => states(),
-        "clash-paused" => paused(),
         "clash-none" => none(),
         other => return Err(format!("no clash scene named {other}")),
     };

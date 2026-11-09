@@ -117,7 +117,38 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
-        Verb::Marks(name) => super::strip_marks::apply(name, cx).map_err(Missed),
+        Verb::Marks(name) => {
+            // A scene is a jump: the keys go back to the screen first, so a chip or a card the scene
+            // takes away does not leave them on nothing.
+            window.focus(&focus.keys, cx);
+            // The pointer goes to a corner no scene draws in, so a card or tip it rested on is not the scene's.
+            let corner = point(gpui::px(1.), gpui::px(1.));
+            window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: corner, pressed_button: None, modifiers: Modifiers::default() }), cx);
+            super::strip_marks::apply(name, cx).map_err(Missed)
+        }
+        Verb::PausedScope => {
+            let role = role_named("button").expect("a button is a role");
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, "Active"))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed("no button named \"Active\"".into()))?;
+            press(MouseButton::Left, at, window, cx);
+            // The menu is drawn, and holds the keys, before each key is sent, as a person's second press would find it.
+            window.defer(cx, |window, cx| {
+                window.draw(cx).clear(cx);
+                if let Ok(down) = Keystroke::parse("down") {
+                    window.dispatch_keystroke(down, cx);
+                }
+                window.defer(cx, |window, cx| {
+                    window.draw(cx).clear(cx);
+                    if let Ok(enter) = Keystroke::parse("enter") {
+                        window.dispatch_keystroke(enter, cx);
+                    }
+                });
+            });
+            Ok(())
+        }
         Verb::Answer(name) => {
             let screen = crate::dispatch::screen::live(cx).ok_or_else(|| Missed("no dispatch screen is drawn yet".into()))?;
             screen.update(cx, |screen, cx| screen.scene(name, window, cx)).map_err(Missed)

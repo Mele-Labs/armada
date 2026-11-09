@@ -4,7 +4,6 @@
 
 use ipc::{HubPullCi, HubPullRequest, HubQueueState, HubReview};
 
-use crate::generated::vocabulary::rendering;
 use crate::look::{token, Token};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,21 +69,6 @@ pub fn is_queued(pull: &HubPullRequest) -> bool {
 }
 
 pub const MERGE_BY_HAND: &str = "Needs merging by hand";
-
-/// The state's mark in the card, from the registry: `queued` is `LAND_STATE.waiting`, `running`
-/// `LAND_STATE.gating`, `failing` `CHECK_OUTCOME.failed`, `ready` `CHECK_OUTCOME.passed`, `blocked`
-/// `QUEUED_REASON.blocked_by_dependency`, and `open` has none.
-pub fn mark_of(state: PullState) -> Option<&'static str> {
-    let (vocabulary, variant) = match state {
-        PullState::Queued => ("land_state", "waiting"),
-        PullState::Running => ("land_state", "gating"),
-        PullState::Failing => ("check_outcome", "failed"),
-        PullState::Ready => ("check_outcome", "passed"),
-        PullState::Blocked => ("queued_reason", "blocked_by_dependency"),
-        PullState::Open => return None,
-    };
-    rendering(vocabulary, variant).and_then(|one| one.glyph)
-}
 
 /// The dot's colour for a state: `deck.css` `.deck-chip__dot[data-state]`. Queued and open take the
 /// quiet default.

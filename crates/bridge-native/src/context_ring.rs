@@ -29,7 +29,7 @@ use ipc::{CompactHow, CompactOff, CompactOffer, ContextBreakdown, ContextKind, R
 use crate::inspect::{self, Fact, Spec, State, Width};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::titlebar::parts::{card, glyph, mono, small, Btn, Weight};
+use crate::titlebar::parts::{card, glyph, mono, Btn, Weight};
 
 /// What a Job head hands the ring: how full the window is, what fills it where that is known, and
 /// Compact. `None` from [`Fill::of`] is a Job with no window to fill, which draws nothing.
@@ -73,16 +73,24 @@ pub struct ContextRing {
     id: SharedString,
     fill: Option<Fill>,
     on_compact: Option<OnCompact>,
+    opened: bool,
 }
 
 impl ContextRing {
     /// The ring of the Job `id`. The id keeps its open card and its pending Compact between frames.
     pub fn new(id: impl Into<SharedString>, fill: Option<Fill>) -> ContextRing {
-        ContextRing { id: id.into(), fill, on_compact: None }
+        ContextRing { id: id.into(), fill, on_compact: None, opened: false }
     }
 
     pub fn on_compact(mut self, on_compact: OnCompact) -> ContextRing {
         self.on_compact = Some(on_compact);
+        self
+    }
+
+    /// A ring that is first drawn with the pointer resting on it, so its card is open: for a walk that
+    /// jumps to a state, and a screen that restores one.
+    pub fn opened(mut self) -> ContextRing {
+        self.opened = true;
         self
     }
 }
@@ -90,7 +98,12 @@ impl ContextRing {
 impl RenderOnce for ContextRing {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
-        let figure = window.use_keyed_state((ElementId::from("context-ring"), self.id), cx, move |_, cx| Figure::new(id, cx));
+        let opened = self.opened;
+        let figure = window.use_keyed_state((ElementId::from("context-ring"), self.id), cx, move |_, cx| {
+            let mut figure = Figure::new(id, cx);
+            figure.show_open = opened;
+            figure
+        });
         figure.update(cx, |figure, cx| figure.set(self.fill, self.on_compact, window, cx));
         figure
     }
@@ -138,6 +151,8 @@ pub struct Figure {
     pending: bool,
     refusal: Option<SharedString>,
     popup_focus: FocusHandle,
+    /// Open the card or the tip on the first fill, as a pointer resting on the ring would.
+    show_open: bool,
     keys_were: Option<FocusHandle>,
     _leaving: Option<Task<()>>,
     ring_at: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -156,6 +171,7 @@ impl Figure {
             pending: false,
             refusal: None,
             popup_focus: cx.focus_handle(),
+            show_open: false,
             keys_were: None,
             _leaving: None,
             ring_at: Rc::default(),
@@ -172,7 +188,7 @@ impl Figure {
         }
         if let Some(new) = &fill {
             // A form with no card to hold the keys puts them back where they were.
-            if self.open.is_some() && self.fill.as_ref().map(form_of) != Some(form_of(new)) {
+            if self.open.is_some() && self.fill.as_ref().is_some_and(|old| form_of(old) != form_of(new)) {
                 self.shut(window, cx);
             }
             let old = self.fill.as_ref();
@@ -190,6 +206,12 @@ impl Figure {
             }
         } else {
             self.shut(window, cx);
+        }
+        if let Some(new) = fill.as_ref().filter(|_| std::mem::take(&mut self.show_open)) {
+            match form_of(new) {
+                Form::Tip => self.hover = Some(Hover::Ring),
+                _ => self.open = Some(Open::Hover),
+            }
         }
         self.fill = fill;
         cx.notify();
@@ -473,8 +495,6 @@ impl Figure {
             Some(how) if !self.pending => body.on_click(cx.listener(move |this, _, window, cx| this.compact_pressed(how, window, cx))),
             _ => body,
         };
-        let name = if self.pending { "Compacting".to_string() } else { "Compact".to_string() };
-        let _ = name;
         labelled(body, Role::Button, "Compact").into_any_element()
     }
 
@@ -708,9 +728,4 @@ impl Render for Figure {
         };
         div().relative().flex_none().child(trigger).children(popup).children(tip).into_any_element()
     }
-}
-
-#[allow(dead_code)]
-fn _small(look: &Look) -> gpui::Div {
-    small(look)
 }

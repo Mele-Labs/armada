@@ -13,10 +13,10 @@ use super::{marks, press_on, step, Step, Verb};
 const CALLING: &str = "#3381 Checkout page loads twice · armada/checkout-twice · ci failed · Job: Checkout page loads twice";
 const RUNNING: &str = "#3392 Quiet the write-clash notices · armada/quiet-clashes · In the merge queue, running its checks, place 2 · Job: Quiet the write-clash notices";
 const READY: &str = "#3388 Fix the merge line freshness chip · armada/merge-line-chip · ci passed · Job: Fix the merge line freshness chip";
-const RED: &str = "Main is red in armada";
+const RED: &str = "Main is red in armada, checkout 3 commits behind main";
 const PAIR: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/ipc/src/clashes.rs";
-const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main";
-const PAUSED: &str = "Conflicts with Pocket sign-in on the phone · crates/bridge-native/src/main.rs";
+const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main, Pocket sign-in on the phone";
+const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
 pub static STEPS: [Step; 30] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
@@ -24,10 +24,11 @@ pub static STEPS: [Step; 30] = [
     step("A press selects the pull request, and the chip says so in the same frame", Verb::Press, "button", READY),
     marks("A call nobody holds pulses the chip it is about", "strip-calling", "button", CALLING),
     marks("A forge that stopped answering dims main's lamp and an unplugged glyph says since when", "strip-quiet", "img", "Main is green"),
-    marks("Main red: the light says where", "strip-red", "button", RED),
+    marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
     press_on("Dispatch a new Job is pending in the same frame", "button", "Dispatch a new Job", "button", "Dispatch a new Job"),
     step("Esc puts the card away and the keys go back where they were", Verb::Key("escape"), "button", RED),
+    marks("A Job that took the red main shows on the card in place of the button", "strip-red-taken", "region", "main"),
     marks("Until Fleet answers, the line is placeholder chips", "strip-loading", "region", "Merge queue"),
     marks("On All the strip stacks one row for each repository and shows one; a main turning red brings its row in", "strip-all", "button", "Main is red in sample-api"),
     step("Q puts the keys on the strip", Verb::Key("q"), "region", "Merge queue"),
@@ -37,22 +38,24 @@ pub static STEPS: [Step; 30] = [
     press_on("Compact is pending in the same frame", "button", "Compact", "button", "Compact"),
     marks("A Compact that was refused is put back, with the reason", "ring-refused", "alert", "Compact not sent: the agent is not taking messages"),
     marks("From 80 the ring and the card's top edge turn amber", "ring-warning", "button", "Context 84%"),
-    marks("From 95 they turn red", "ring-danger", "button", "Context 96%"),
-    marks("Compact off is disabled and says why on hover", "ring-off", "button", "Compact"),
+    marks("From 95 they turn red, and Compact is off with a reason", "ring-danger", "button", "Compact"),
     step("The reason is the tooltip", Verb::Hover, "button", "Compact"),
     marks("With no breakdown the ring opens a small popover instead", "ring-popover", "button", "Context 63%"),
     step("A press opens the fill in words and Compact", Verb::Press, "button", "Context 63%"),
     marks("With neither, the ring is a picture and its tooltip carries the tokens", "ring-tip", "img", "Context 63%"),
     marks("A write clash marks both rows of the pair, in the Conflicts column", "clash-pair", "button", PAIR),
     step("Hover names the other Job and the files that collide", Verb::Hover, "button", PAIR),
-    step("A press opens the other Job, and the row it sits on stays as it was", Verb::Press, "row", "Quiet the write-clash notices"),
-    marks("A Job in two clashes wears one mark; against main alone the mark is a picture, with nothing of main to open", "clash-states", "img", SEVERAL),
+    press_on("A press opens the other Job, and the row it sits on stays as it was", "button", PAIR, "row", "Quiet the write-clash notices"),
+    marks("A Job in several clashes wears one mark; against main alone the mark is a picture, with nothing of main to open", "clash-states", "img", SEVERAL),
     step("Hover lists each holder under one heading", Verb::Hover, "img", SEVERAL),
-    marks("Against a paused Job it is the same mark, and a press opens that Job", "clash-paused", "button", PAUSED),
+    step("The Paused scope: a paused Job keeps its mark beside the Paused mark, and the mark names the Job it clashes with", Verb::PausedScope, "button", PAUSED),
 ];
 
 /// Move to a named scene: the strip, the clashes or the ring.
 pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
+    if !name.starts_with("ring-") {
+        super::stand_in::hide(cx);
+    }
     if name.starts_with("strip-") {
         crate::merge_strip::apply(name, cx)
     } else if name.starts_with("clash-") {

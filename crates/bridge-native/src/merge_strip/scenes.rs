@@ -156,28 +156,17 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     let data = match name {
         "strip-rest" => rest(),
         "strip-loading" => Strip { loading: true, ..Strip::default() },
-        "strip-related" => Strip { related: vec![3384, 3366], ..rest() },
         "strip-calling" => Strip {
             calls: calls(&[("pull:3381", "pull", "Checks failed on #3381"), ("pull:3366", "pull", "Merge #3366 by hand")]),
             ..rest()
         },
         "strip-quiet" => Strip { lines: vec![line(armada(GREEN, "", 900, Some(7 * 60)))], ..rest() },
-        "strip-checkout" => Strip { lines: vec![line(armada(GREEN, CHECKOUT, 40, None))], calls: calls(&[("checkout:/Users/nick/Development/armada", "checkout", "3 commits behind main")]), ..rest() },
         "strip-red" => Strip {
-            lines: vec![line(armada(&red(""), "", 40, None))],
+            lines: vec![line(armada(&red(""), CHECKOUT, 40, None))],
             calls: calls(&[("main:/Users/nick/Development/armada", "main", "Main is red")]),
             ..rest()
         },
         "strip-red-taken" => Strip { lines: vec![line(armada(&red(r#","taken_by":{"id":"mock-06","title":"Quiet the write-clash notices"}"#), "", 40, None))], ..rest() },
-        "strip-red-held" => Strip {
-            lines: vec![line(armada(
-                &red(r#","checking":[{"commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","pull_request":{"number":3391}},{"commit":"4be1c07a52d9e8f6a3b2c1d0e9f8a7b6c5d4e3f2"}]"#),
-                "",
-                40,
-                None,
-            ))],
-            ..rest()
-        },
         "strip-all" => {
             let mut lines = vec![line(armada(GREEN, "", 40, None))];
             lines.extend(others());
@@ -185,6 +174,11 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         }
         other => return Err(format!("no merge strip scene named {other}")),
     };
-    strip.update(cx, |strip: &mut MergeStrip, cx| strip.set(data, cx));
+    strip.update(cx, |strip: &mut MergeStrip, cx| {
+        strip.jump(data, cx);
+        if name == "strip-red-taken" {
+            strip.show_main(cx);
+        }
+    });
     Ok(())
 }
