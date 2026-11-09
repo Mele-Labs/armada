@@ -346,6 +346,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::window_closed::<D>),
         )
         .route(
+            "/sessions/window/open",
+            post(crate::sessions::open_native_walk::<D>),
+        )
+        .route(
             "/sessions/window/sign_in",
             post(crate::sessions::take_window_sign_in::<D>),
         )

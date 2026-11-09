@@ -614,6 +614,13 @@ pub(crate) fn uncommitted_change_of(in_repo: &str, path: &str) -> Result<String,
     Ok(String::from_utf8_lossy(&run.stdout).into_owned())
 }
 
+/// When the commit at `HEAD` was made, in seconds since the epoch.
+pub(crate) fn head_committed_at(in_repo: &str) -> Option<i64> {
+    let repo = Repository::open(in_repo).ok()?;
+    let commit = repo.head().ok()?.peel_to_commit().ok()?;
+    Some(commit.time().seconds())
+}
+
 /// What a path holds in the working tree of the checkout.
 pub(crate) enum Working {
     /// Nothing is there: a deletion, where the tree has the path.

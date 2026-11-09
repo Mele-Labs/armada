@@ -246,6 +246,8 @@ mod review_tools;
 mod review_walk_runs;
 /// A pull request's change held up for a walk: a bay, a server, and giving them back.
 mod review_walks;
+/// A native Bridge screen a Job shows, run from its own slot while the walk is open.
+mod native_walks;
 /// Where a pull request's change runs, and the places Fleet remembers.
 mod walk_places;
 mod pull_request_notes;

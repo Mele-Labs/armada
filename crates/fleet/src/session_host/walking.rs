@@ -158,6 +158,8 @@ where
     /// End the newest walk on `url` that is still open, whether `url` is its page or one of its
     /// takes: its row gets `ended_at` and is published again. Where none is open, nothing happens.
     pub(crate) async fn walk_ended(&self, session: &str, url: &str) {
+        // A native walk's app is the walk's: it goes when the walk does.
+        self.native_walks().stopped_for_walk(session, url);
         let Ok(rows) = self.rows_of(session).await else {
             return;
         };
