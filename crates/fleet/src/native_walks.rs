@@ -23,6 +23,21 @@ pub(crate) const PREFIX: &str = "armada://walk/";
 /// Where the slot's build is, from the slot.
 const BINARY: &str = "crates/bridge-native/target/debug/bridge-native";
 
+/// What cargo wrote beside the build: every source it read, as `<build>: <source> <source> ...`.
+const SOURCES: &str = "crates/bridge-native/target/debug/bridge-native.d";
+
+/// Whether a source the build made at `made` read has changed or gone since, by cargo's own list.
+/// **Not HEAD's commit time**: a commit moves no source, so `cargo build` leaves an up-to-date
+/// build as old as it was and a refusal on it could not be cleared. No list says nothing.
+fn outdated(slot: &Path, made: std::time::SystemTime) -> bool {
+    let Ok(listed) = std::fs::read_to_string(slot.join(SOURCES)) else { return false };
+    let Some((_, sources)) = listed.lines().next().and_then(|line| line.split_once(": ")) else { return false };
+    // A space inside a path is written `\ `.
+    sources.replace("\\ ", "\0").split(' ').filter(|source| !source.is_empty()).any(|source| {
+        std::fs::metadata(source.replace('\0', " ")).and_then(|meta| meta.modified()).map_or(true, |changed| changed > made)
+    })
+}
+
 /// The app the walk runs as, beside the build: macOS names the menu bar and the Dock from the
 /// bundle a process runs from, so a bare binary said "bridge-native" there.
 const BUNDLE: &str = "crates/bridge-native/target/debug/walk/Armada.app";
@@ -228,12 +243,11 @@ where
         let binary = Path::new(&slot).join(BINARY);
         let build_first = || self.hosted_refusal(NOT_BUILT, &format!("Build the walk first: cargo build in crates/bridge-native in {slot}"));
         let made = std::fs::metadata(&binary).and_then(|meta| meta.modified()).map_err(|_| build_first())?;
-        let committed = {
-            let (vcs, slot) = (std::sync::Arc::clone(self.vcs()), slot.clone());
-            tokio::task::spawn_blocking(move || vcs.head_committed_at(&slot)).await.ok().flatten()
+        let outdated = {
+            let slot = std::path::PathBuf::from(&slot);
+            tokio::task::spawn_blocking(move || outdated(&slot, made)).await.unwrap_or(false)
         };
-        let built = made.duration_since(std::time::UNIX_EPOCH).map(|since| since.as_secs() as i64).unwrap_or(0);
-        if committed.is_some_and(|committed| built < committed) {
+        if outdated {
             return Err(build_first());
         }
         let port = self.host().port.to_string();

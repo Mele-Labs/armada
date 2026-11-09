@@ -106,9 +106,6 @@ pub struct FakeVcs {
     /// what keeps this fake's `Default` and the domain type's lack of one both
     /// intact.
     base_on_the_remote: Mutex<Option<BaseOnTheRemote>>,
-    /// When the commit at `HEAD` of each checkout was made, in seconds since the epoch. Absent is
-    /// unreadable, which is what a path no test named is.
-    head_times: Mutex<BTreeMap<String, i64>>,
     /// What fetching the base from the remote came to. **Its own field**, for
     /// [`base_on_the_remote`](FakeVcs::base_on_the_remote)'s reason. Absent is
     /// `Local`: a repository with no remote, which is what every test that does
@@ -533,9 +530,6 @@ impl Delivery for FakeVcs {
         delivery.pulled.clone()
     }
 
-    fn head_committed_at(&self, in_repo: &str) -> Option<i64> {
-        self.head_times.lock().expect("not poisoned").get(in_repo).copied()
-    }
 
     fn uncommitted_change_of(&self, in_repo: &str, path: &str) -> Result<String, String> {
         self.delivered
