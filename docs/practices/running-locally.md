@@ -224,7 +224,7 @@ outlive the job that asked for it.
 
 **It builds and opens the native Bridge too.**
 `cargo build --release --manifest-path crates/bridge-native/Cargo.toml` runs when `crates/bridge-native/`, `crates/ipc/`, `crates/core-model/` or `packages/tokens/` moved since the last build, or the last build was for another protocol.
-The stamp sits beside the binary, in `crates/bridge-native/target/release/.armada-restart-stamp`, and holds the protocol the build was made for.
+The stamp sits beside the binary, as `.armada-restart-stamp` in the build's `target/release/`, and holds the protocol the build was made for.
 A build that fails stops the restart before Fleet is stopped.
 It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
 The job runs `builds/current/bridge-launch` on the app's binary, so launchd reopens it when it stops without a quit.

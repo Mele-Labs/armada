@@ -11,7 +11,7 @@ A windowless Chrome has no NSView, so VoiceOver sees nothing of the page until t
 Mouse, keys, scrolling and focus reach the page only as calls Bridge makes, which the spike showed working for one click, two characters and one wheel turn.
 
 Measured on 9 Nov 2026 on an Apple M5 Pro, 18 cores, 48 GB, macOS 27.0.1, arm64.
-The spike is `crates/bridge-native/examples/cef_spike/` on the branch `spike/native-bridge-chrome`, kept off `main` because it speaks unsafe.
+The spike is `spike/native-bridge-chrome:crates/bridge-native/examples/cef_spike/`, on its own branch and kept off `main` because it speaks unsafe.
 It is a crate of its own that links the same gpui pins as Bridge; `cef` is in no `Cargo.toml` that Bridge builds.
 `run.sh <scratch dir>` rebuilds it, lays out the app, runs it with no window and drives the page over CDP.
 All timings are a debug build of gpui with the spike's own code at opt-level 3.

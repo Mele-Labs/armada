@@ -14,7 +14,7 @@ Load average was 1.7 to 2.1 for the native runs, and 12 to 19 when Electron was 
 
 ## How it was taken
 
-`crates/bridge-native/examples/feel.rs`, on the branch `spike/native-bridge-feel` because it copies parts of `main.rs` that would drift, is an example binary, not a test, because gpui's Mac platform must be made on the main thread and the test harness runs tests on another.
+`spike/native-bridge-feel:crates/bridge-native/examples/feel.rs`, on its own branch because it copies parts of `main.rs` that would drift, is an example binary, not a test, because gpui's Mac platform must be made on the main thread and the test harness runs tests on another.
 It re-declares the crate's modules from `src/` and carries copies of `Shell` and `init_app` from `main.rs`, so a change to those must be mirrored there.
 Nothing in the shipped binary depends on it.
 `cargo build --example feel` (add `--release`), then `feel <measure>`: `job_switch_14`, `job_switch_200`, `frame_14`, `frame_200`, `typing`, `process`, `window`.
