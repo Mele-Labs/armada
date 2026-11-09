@@ -149,10 +149,12 @@ where
             return self.published_hosted(id).await;
         }
         let skipped = choice == SKIP;
+        // A walk gate that opened again takes a row of its own beside the one it closed on before.
+        let rows = self.store().lock().await.session_gates(id).unwrap_or_default();
         let kept = KeptGate {
             group_id: group.id.clone(),
             gate: gate.clone(),
-            version: if gate == PLAN_APPROVED { plan.version } else { 0 },
+            version: KeptGate::next_version(&rows, &group.id, &gate, plan.asked_version),
             closed_at: self.timeline().now(),
             fact: if skipped { "You skipped this group" } else { "You approved it in Needs you" }.to_string(),
             source: format!("needs-you:{}", group.id),

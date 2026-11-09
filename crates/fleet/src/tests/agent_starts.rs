@@ -487,6 +487,7 @@ pub(super) fn two_groups(agent: &SessionId) -> RecordPlan {
         ],
         sketch: None,
         walk: None,
+        ask_again: false,
         session_id: Some(agent.clone()),
     }
 }

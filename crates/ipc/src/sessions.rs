@@ -443,6 +443,11 @@ pub struct ShowWindow {
     /// 400 characters, trimmed; longer is refused. Absent, or blank: none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub brief: Option<String>,
+    /// The id of the plan group this walk is the part of, so his Approve closes that group's
+    /// `walk_approved` gate alone. Refused where the current plan has no such group. Absent, or
+    /// blank: the walk belongs to no group.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 /// The addresses a session signs in with. **Its `Debug` says how many and nothing else**, so a

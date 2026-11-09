@@ -5,7 +5,10 @@
 //! afresh on every draw, so a fact that dropped out moved it backwards (spike 43). **Each gate is
 //! watched on its own**, whatever the gates before it say, so a merge is kept while an earlier gate is
 //! open. A fact closes one gate of its kind, the first open one in plan order, and no other; the
-//! plan's approval closes every `plan_approved` gate of the version approved.
+//! plan's approval closes every `plan_approved` gate of the version that asked for it. **A walk shown
+//! for a group is that group's alone**: his Approve of every walk shown for it closes its
+//! `walk_approved` gate, and a walk shown for it after the close opens it again until that one is
+//! approved, which writes a new row beside the old.
 //!
 //! **No loop of its own**: it hears the row changes the rules' tap hears, for a Job whose plan has an
 //! open gate, and reads the store only when something a gate reads moved.
@@ -17,7 +20,7 @@ use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{Event, PlanGate, SessionRecord, SessionRow, SessionVoice, DOCUMENT_SETTLED_AT};
-use store::{Holder, KeptAttachment, KeptGate, KeptPlan, PLAN_APPROVED};
+use store::{Holder, KeptAttachment, KeptGate, KeptPlan};
 use tokio::sync::{mpsc, Notify};
 use tokio::task::JoinHandle;
 
@@ -32,10 +35,33 @@ pub(crate) struct Seen {
     pub gate: PlanGate,
     /// What it is, such as `pr:3360`, so it closes one gate of its kind and no other.
     pub source: String,
+    /// The plan group a walk was shown for, when it was shown for one: the fact closes that group's
+    /// `walk_approved` gate and no other.
+    pub group: Option<String>,
     pub at: String,
     /// One line, as a person reads it.
     pub fact: String,
     pub commit: Option<String>,
+}
+
+/// The fact that his Approve stands on every one of `shown`, the walks of one group or of no group: a
+/// window a newer one of its page replaced or one taken back waits on nothing, and his last Approve is it.
+fn walk_fact(rows: &[SessionRow], dismissed: &[String], shown: &[&str], group: Option<&str>) -> Option<Seen> {
+    let waiting = shown
+        .iter()
+        .any(|url| !replaced(rows, url) && !dismissed.contains(&format!("walk:{url}")) && walk_approval(rows, url).is_none());
+    if waiting {
+        return None;
+    }
+    let (url, at) = shown.iter().filter_map(|url| walk_approval(rows, url).map(|at| (*url, at))).max_by_key(|(_, at)| *at)?;
+    Some(Seen {
+        gate: PlanGate::WalkApproved,
+        source: format!("walk:{}", at.as_str()),
+        group: group.map(str::to_string),
+        at: at.as_str().to_string(),
+        fact: format!("You approved the walk of {url}"),
+        commit: None,
+    })
 }
 
 /// Every fact on the Job a gate can close on: his approval of the plan, of every walk shown, of a
@@ -53,34 +79,34 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
     if let Some(at) = &plan.approved_at {
         seen.push(Seen {
             gate: PlanGate::PlanApproved,
-            source: format!("plan:v{}", plan.version),
+            source: format!("plan:v{}", plan.asked_version),
+            group: None,
             at: at.clone(),
-            fact: format!("You approved plan v{}", plan.version),
+            fact: format!("You approved plan v{}", plan.asked_version),
             commit: None,
         });
     }
-    // Every walk shown since stands approved, a window a newer one of its page replaced or one taken back
-    // waiting on nothing: his last Approve is the fact.
-    let shown: Vec<&str> = rows
-        .iter()
-        .filter_map(|row| match row {
-            SessionRow::Window { url, at, .. } if at.as_str() >= since.as_str() => Some(url.as_str()),
-            _ => None,
-        })
-        .collect();
-    let waiting = shown
-        .iter()
-        .any(|url| !replaced(rows, url) && !dismissed.contains(&format!("walk:{url}")) && walk_approval(rows, url).is_none());
-    if !waiting {
-        if let Some((url, at)) = shown.iter().filter_map(|url| walk_approval(rows, url).map(|at| (*url, at))).max_by_key(|(_, at)| *at) {
-            seen.push(Seen {
-                gate: PlanGate::WalkApproved,
-                source: format!("walk:{}", at.as_str()),
-                at: at.as_str().to_string(),
-                fact: format!("You approved the walk of {url}"),
-                commit: None,
-            });
+    // The walks shown with no group stand together, as they always have. The walks shown for a group
+    // stand for that group alone.
+    let shown_for = |group: Option<&str>| -> Vec<&str> {
+        rows.iter()
+            .filter_map(|row| match row {
+                SessionRow::Window { url, at, group: of, .. } if at.as_str() >= since.as_str() && of.as_deref() == group => Some(url.as_str()),
+                _ => None,
+            })
+            .collect()
+    };
+    seen.extend(walk_fact(rows, dismissed, &shown_for(None), None));
+    let mut groups: Vec<&str> = Vec::new();
+    for row in rows {
+        if let SessionRow::Window { group: Some(group), at, .. } = row {
+            if at.as_str() >= since.as_str() && !groups.contains(&group.as_str()) {
+                groups.push(group.as_str());
+            }
         }
+    }
+    for group in groups {
+        seen.extend(walk_fact(rows, dismissed, &shown_for(Some(group)), Some(group)));
     }
     for row in rows {
         if let SessionRow::Message { id, at, from: SessionVoice::You, text, .. } = row {
@@ -90,6 +116,7 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
                 seen.push(Seen {
                     gate: PlanGate::SketchApproved,
                     source: format!("sketch:{id}"),
+                    group: None,
                     at: at.as_str().to_string(),
                     fact: format!("You approved the sketch {title}"),
                     commit: None,
@@ -106,6 +133,7 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
                 seen.push(Seen {
                     gate: PlanGate::DocumentApproved,
                     source: format!("document:{}@{revision}", one.target),
+                    group: None,
                     at,
                     fact: format!("You approved {title}, revision {revision}"),
                     commit: None,
@@ -116,6 +144,7 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
             seen.push(Seen {
                 gate: PlanGate::Merged,
                 source: format!("pr:{}", one.target),
+                group: None,
                 at: one.changed_at.clone(),
                 fact: format!("Pull request #{} merged", one.target),
                 commit: None,
@@ -126,21 +155,22 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
 }
 
 /// The gates `seen` closes now, that `kept` has not. The plan's approval closes each group gated on it
-/// for the version approved; any other fact, oldest first, closes the first open gate of its kind in plan
-/// order, and a fact a row already names closes nothing more.
+/// for the version that asked; a walk shown for a group closes that group's walk gate, again when it
+/// was approved after the newest close; any other fact, oldest first, closes the first open gate of its
+/// kind in plan order, and a fact a row already names closes nothing more.
 pub(crate) fn closing(plan: &KeptPlan, kept: &[KeptGate], seen: &[Seen]) -> Vec<KeptGate> {
     let mut closed: Vec<KeptGate> = Vec::new();
     let is_closed = |closed: &[KeptGate], group: &str, gate: &str| {
-        kept.iter().chain(closed).any(|one| one.closes(group, gate, plan.version))
+        kept.iter().chain(closed).any(|one| one.closes(group, gate, plan.asked_version))
     };
     let mut facts: Vec<&Seen> = seen.iter().collect();
     facts.sort_by(|a, b| a.at.cmp(&b.at));
     for fact in facts {
         let word = fact.gate.word();
-        let row = |group: &str| KeptGate {
+        let row = |closed: &[KeptGate], group: &str| KeptGate {
             group_id: group.to_string(),
             gate: word.to_string(),
-            version: if word == PLAN_APPROVED { plan.version } else { 0 },
+            version: KeptGate::next_version(&kept.iter().chain(closed).cloned().collect::<Vec<_>>(), group, word, plan.asked_version),
             closed_at: fact.at.clone(),
             fact: fact.fact.clone(),
             source: fact.source.clone(),
@@ -152,8 +182,21 @@ pub(crate) fn closing(plan: &KeptPlan, kept: &[KeptGate], seen: &[Seen]) -> Vec<
         if fact.gate == PlanGate::PlanApproved {
             for group in gated {
                 if !is_closed(&closed, &group.id, word) {
-                    closed.push(row(&group.id));
+                    closed.push(row(&closed, &group.id));
                 }
+            }
+            continue;
+        }
+        if let (PlanGate::WalkApproved, Some(group)) = (fact.gate, &fact.group) {
+            // A walk shown for the group: its approval closes the group's gate again when it came after
+            // the newest close, and a skip is his word and ends the matter.
+            let named = plan.groups.iter().any(|one| one.id == *group && one.gate.as_deref() == Some(word));
+            let stands = kept
+                .iter()
+                .chain(&closed)
+                .any(|one| one.group_id == *group && one.gate == word && (one.skipped || one.closed_at >= fact.at));
+            if named && !stands {
+                closed.push(row(&closed, group));
             }
             continue;
         }
@@ -161,7 +204,7 @@ pub(crate) fn closing(plan: &KeptPlan, kept: &[KeptGate], seen: &[Seen]) -> Vec<
             continue;
         }
         if let Some(group) = gated.into_iter().find(|group| !is_closed(&closed, &group.id, word)) {
-            closed.push(row(&group.id));
+            closed.push(row(&closed, &group.id));
         }
     }
     closed
@@ -180,6 +223,8 @@ fn look_of(record: &SessionRecord) -> u64 {
     let mut hash = DefaultHasher::new();
     if let Some(plan) = &record.plan {
         (plan.version, plan.approved).hash(&mut hash);
+        // A gate that opened again is a change of look, though nothing else moved.
+        plan.groups.iter().map(|group| group.gate_closed.is_some()).collect::<Vec<_>>().hash(&mut hash);
     }
     for one in &record.attachments {
         (&one.kind, &one.target, one.state == ipc::AttachmentState::Standing, &one.detail).hash(&mut hash);

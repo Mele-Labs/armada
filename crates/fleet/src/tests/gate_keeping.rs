@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use api::Sessions;
 use ipc::{
-    ApprovePlan, AttachmentReport, PlanGate, PlanGroupInput, SessionFact, SessionId, SessionRecord, SessionReport,
+    ApprovePlan, AttachmentReport, PlanGate, PlanGroupInput, RecordPlan, SessionFact, SessionId, SessionRecord, SessionReport,
+    ShowWindow, WaitingSource,
 };
 use store::{KeptGate, KeptPlan};
 
@@ -32,7 +33,7 @@ async fn merged(rig: &Rig, id: &SessionId, number: &str, state: &str) {
 }
 
 #[tokio::test]
-async fn the_plans_approval_closes_its_gate_for_that_version_and_a_new_version_asks_it_again() {
+async fn a_version_after_his_approval_keeps_the_gate_closed_and_asks_again_only_when_the_agent_asks() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
     let first = [gated(None, "Find the cause", PlanGate::PlanApproved), gated(None, "Deliver", PlanGate::Merged)];
@@ -45,12 +46,28 @@ async fn the_plans_approval_closes_its_gate_for_that_version_and_a_new_version_a
     assert_eq!(closes(&read(&rig, &id).await), [("g1".into(), Some("You approved plan v1".into())), ("g2".into(), None)]);
     assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "a close is kept once");
 
+    // No `ask_again`: v2 stands on his approval, so the gate stays closed and nothing waits on him.
     let again = [gated(Some("g1"), "Find the cause", PlanGate::PlanApproved), gated(Some("g2"), "Deliver", PlanGate::Merged)];
     let record = recorded(&rig, plan(&id, again.to_vec())).await;
-    assert_eq!(closes(&record), [("g1".into(), None), ("g2".into(), None)], "v2 is his to approve again");
-    Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 2 }).await.unwrap();
+    assert_eq!(closes(&record), [("g1".into(), Some("You approved plan v1".into())), ("g2".into(), None)], "v2 reopens nothing");
+    let held = record.plan.as_ref().expect("a plan");
+    assert!(held.approved, "a version that stands reads as approved, so Bridge draws no Approve");
+    assert!(!record.waiting_for.iter().any(|one| one.source == WaitingSource::Plan), "v2 is not waiting on him");
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "and writes no second row");
+
+    // `ask_again`: v3 is exactly what a new version was before: pending, its gate open, a new row when approved.
+    let ask = RecordPlan { ask_again: true, ..plan(&id, again.to_vec()) };
+    let record = recorded(&rig, ask).await;
+    assert_eq!(closes(&record), [("g1".into(), None), ("g2".into(), None)], "v3 is his to approve again");
+    assert!(!record.plan.as_ref().expect("a plan").approved);
+    assert!(record.waiting_for.iter().any(|one| one.source == WaitingSource::Plan), "and it waits on him");
+    Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 3 }).await.unwrap();
     rig.fleet.gates_kept(id.as_str()).await;
-    assert_eq!(closes(&read(&rig, &id).await)[0].1.as_deref(), Some("You approved plan v2"));
+    assert_eq!(closes(&read(&rig, &id).await)[0].1.as_deref(), Some("You approved plan v3"));
+
+    // And v4, recorded without asking, stands on v3's approval.
+    let record = recorded(&rig, plan(&id, again.to_vec())).await;
+    assert_eq!(closes(&record)[0].1.as_deref(), Some("You approved plan v3"));
 }
 
 #[tokio::test]
@@ -78,7 +95,7 @@ fn kept(groups: &[PlanGroupInput]) -> KeptPlan {
 }
 
 fn seen(gate: PlanGate, source: &str, at: &str) -> Seen {
-    Seen { gate, source: source.into(), at: at.into(), fact: format!("{source} at {at}"), commit: None }
+    Seen { gate, source: source.into(), group: None, at: at.into(), fact: format!("{source} at {at}"), commit: None }
 }
 
 #[test]
@@ -139,4 +156,120 @@ fn a_sketch_he_approved_before_there_was_a_plan_closes_nothing_and_one_after_doe
     let facts = crate::gate_keeping::facts_seen(&plan, &after, &[], &[]);
     assert_eq!(facts.iter().map(|one| (one.source.as_str(), one.fact.as_str())).collect::<Vec<_>>(), [("sketch:m2", "You approved the sketch The flow")]);
     assert_eq!(closing(&plan, &[], &facts).len(), 1);
+}
+
+const BROWSER: &str = "http://localhost:5391/?walk=browser-tab";
+const PROMPT: &str = "http://localhost:5391/?walk=permissions-prompt";
+
+async fn walk(rig: &Rig, id: &SessionId, url: &str, group: Option<&str>) {
+    let show = ShowWindow { url: url.into(), session_id: Some(id.clone()), group: group.map(str::to_string), ..Default::default() };
+    Arc::clone(&rig.fleet).show_window(None, show).await.expect("shown");
+}
+
+async fn approve(rig: &Rig, id: &SessionId, url: &str) {
+    // The clock reads milliseconds: let the next row land after the last.
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    rig.send(id, &format!("Approved: {url}")).await;
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+}
+
+async fn two_parts(rig: &Rig) -> SessionId {
+    let id = running(rig).await;
+    let parts = [gated(None, "Browser tab", PlanGate::WalkApproved), gated(None, "Permissions prompt", PlanGate::WalkApproved)];
+    recorded(rig, plan(&id, parts.to_vec())).await;
+    id
+}
+
+fn closed_groups(record: &SessionRecord) -> Vec<bool> {
+    record.plan.as_ref().expect("a plan").groups.iter().map(|group| group.gate_closed.is_some()).collect()
+}
+
+#[tokio::test]
+async fn approving_the_walk_of_one_part_closes_that_groups_gate_while_the_other_part_still_waits() {
+    let rig = rig_placing(None);
+    let id = two_parts(&rig).await;
+    walk(&rig, &id, BROWSER, Some("g1")).await;
+    walk(&rig, &id, PROMPT, Some("g2")).await;
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "nothing is approved yet");
+
+    approve(&rig, &id, BROWSER).await;
+    let closed = rig.fleet.gates_kept(id.as_str()).await;
+    assert_eq!(closed.iter().map(|one| one.group_id.as_str()).collect::<Vec<_>>(), ["g1"]);
+    assert_eq!(closed_groups(&read(&rig, &id).await), [true, false], "the permissions prompt still waits");
+
+    approve(&rig, &id, PROMPT).await;
+    let closed = rig.fleet.gates_kept(id.as_str()).await;
+    assert_eq!(closed.iter().map(|one| one.group_id.as_str()).collect::<Vec<_>>(), ["g2"]);
+    assert_eq!(closed_groups(&read(&rig, &id).await), [true, true]);
+}
+
+#[tokio::test]
+async fn a_group_the_plan_does_not_have_is_refused_with_the_ids_it_does() {
+    let rig = rig_placing(None);
+    let id = two_parts(&rig).await;
+    let show = ShowWindow { url: BROWSER.into(), session_id: Some(id.clone()), group: Some("nope".into()), ..Default::default() };
+    let refused = Arc::clone(&rig.fleet).show_window(None, show).await.expect_err("refused");
+    let said = refused.error().message.clone();
+    assert!(said.contains("`nope`") && said.contains("`g1`") && said.contains("`g2`"), "{said}");
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty());
+}
+
+#[tokio::test]
+async fn walks_shown_with_no_group_still_close_the_first_open_walk_gate_once_every_one_is_approved() {
+    let rig = rig_placing(None);
+    let id = two_parts(&rig).await;
+    walk(&rig, &id, BROWSER, None).await;
+    walk(&rig, &id, PROMPT, None).await;
+    approve(&rig, &id, BROWSER).await;
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "one walk still waits");
+    approve(&rig, &id, PROMPT).await;
+    let closed = rig.fleet.gates_kept(id.as_str()).await;
+    assert_eq!(closed.iter().map(|one| one.group_id.as_str()).collect::<Vec<_>>(), ["g1"], "the first open gate, as before");
+}
+
+#[tokio::test]
+async fn a_new_walk_for_a_group_opens_its_gate_again_and_its_approval_writes_a_new_row_beside_the_old() {
+    let rig = rig_placing(None);
+    let id = two_parts(&rig).await;
+    walk(&rig, &id, BROWSER, Some("g1")).await;
+    approve(&rig, &id, BROWSER).await;
+    let first = rig.fleet.gates_kept(id.as_str()).await;
+    assert_eq!(first.len(), 1);
+    assert_eq!(closed_groups(&read(&rig, &id).await), [true, false]);
+
+    // The look changed: the agent shows a new walk for the same part.
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    let newer = "http://localhost:5391/?walk=browser-tab-again";
+    walk(&rig, &id, newer, Some("g1")).await;
+    assert_eq!(closed_groups(&read(&rig, &id).await), [false, false], "the gate is open again");
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty(), "and the old approval closes nothing");
+
+    approve(&rig, &id, newer).await;
+    let again = rig.fleet.gates_kept(id.as_str()).await;
+    assert_eq!(again.iter().map(|one| (one.group_id.as_str(), one.version)).collect::<Vec<_>>(), [("g1", 1)]);
+    assert_eq!(closed_groups(&read(&rig, &id).await), [true, false]);
+
+    let rows = rig.fleet.store().lock().await.session_gates(id.as_str()).unwrap();
+    assert_eq!(rows.len(), 2, "the old row stands beside the new one");
+    assert_eq!(rows[0], first[0], "and is not edited");
+}
+
+#[test]
+fn a_walk_gate_closed_again_tells_the_rules_the_gate_closed_and_ends_no_step_twice() {
+    let plan = kept(&[gated(None, "Browser tab", PlanGate::WalkApproved), gated(None, "Tests", PlanGate::None)]);
+    let row = |version: u32| KeptGate {
+        group_id: "g1".into(),
+        gate: "walk_approved".into(),
+        version,
+        closed_at: "2026-11-08T11:00:00.000Z".into(),
+        fact: "f".into(),
+        source: format!("walk:{version}"),
+        commit: None,
+        already_red: Vec::new(),
+        skipped: false,
+    };
+    let first = crate::lifecycles::ruling::gate_moments(&plan.groups, &row(0));
+    let again = crate::lifecycles::ruling::gate_moments(&plan.groups, &row(1));
+    assert!(first.len() > 1, "the first close ends the stretch, closes the gate and starts the next");
+    assert_eq!(again.len(), 1, "a close again says only that the gate closed");
 }

@@ -171,10 +171,15 @@ pub(crate) fn workflow_words(
     };
     let found = held.get(&WorkflowId::carried(Ulid::carried(id)))?;
     let verb = if changed { "now follows" } else { "follows" };
-    let mut words = format!(
-        "Fleet: this Job {verb} the {} workflow. Record your plan with these groups, in this order, each with its id and gate, and your own tasks under them:",
-        found.name()
-    );
+    Some(format!("Fleet: this Job {verb} the {} workflow. {}", found.name(), workflow_groups(found)))
+}
+
+/// The groups of `found`, as the agent is told to record its plan with them: each step's id, label and
+/// gate, and its instructions. **Every telling of a workflow ends with this**, whether the Job starts on
+/// it, is moved to it or has the steps of its own copy changed.
+pub(crate) fn workflow_groups(found: &ResolvedWorkflow) -> String {
+    let mut words =
+        String::from("Record your plan with these groups, in this order, each with its id and gate, and your own tasks under them:");
     for (place, step) in found.steps().iter().enumerate() {
         words.push_str(&format!(
             "\n{}. {}, \"{}\", gate {}",
@@ -191,7 +196,7 @@ pub(crate) fn workflow_words(
             }
         }
     }
-    Some(words)
+    words
 }
 
 impl<H, V, W> Fleet<H, V, W>

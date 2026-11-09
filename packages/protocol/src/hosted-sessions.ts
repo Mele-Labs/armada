@@ -692,6 +692,8 @@ export type SessionRow =
       origins?: string[];
       /** The Job's line or two on what changed and what to look at. Kept when the walk ends; absent on a row written before it. */
       brief?: string;
+      /** The plan group the walk is the part of, when the Job named one. Kept when the walk ends. */
+      group?: string;
       ended_at?: string;
     }
   /**

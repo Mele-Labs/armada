@@ -31,7 +31,7 @@ pub(super) fn group(id: Option<&str>, title: &str, agent: &str, paths: &[&str], 
 }
 
 pub(super) fn plan(session: &SessionId, groups: Vec<PlanGroupInput>) -> RecordPlan {
-    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, session_id: Some(session.clone()) }
+    RecordPlan { summary: "You get a plan.".into(), groups, sketch: None, walk: None, ask_again: false, session_id: Some(session.clone()) }
 }
 
 /// Two groups: the store's and Fleet's.
@@ -220,7 +220,7 @@ async fn an_approval_tells_the_agent_its_task_list_is_the_plans_tasks_word_for_w
 
     // The plain approval says it too: here, on a plan the agent recorded again.
     let again = plan(&id, vec![group(Some("g1"), "Store", "rust-engineer", &["crates/store"], &[(Some("t1"), "Add the tables, revised")])]);
-    recorded(&rig, again).await;
+    recorded(&rig, RecordPlan { ask_again: true, ..again }).await;
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 2 }).await.unwrap();
     eventually(|| async { told(&rig, "approved plan v2") == 1 }).await;
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("approved plan v2")).cloned().unwrap();
@@ -238,7 +238,7 @@ async fn a_plan_recorded_again_is_pending_again_and_nothing_blocked_while_it_was
     let edit = rig.gate(&id, "Edit", r#"{"file_path":"crates/store/a.rs"}"#).await;
     assert!(!matches!(edit, ipc::GateAnswer::Hold { ref held } if held.reason.contains("plan")), "{edit:?}");
     Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.unwrap();
-    let again = recorded(&rig, first(&id)).await;
+    let again = recorded(&rig, RecordPlan { ask_again: true, ..first(&id) }).await;
     let plan = again.plan.unwrap();
     assert_eq!((plan.version, plan.approved), (2, false));
     assert!(again.waiting_for.iter().any(|one| one.id == "plan:2"));

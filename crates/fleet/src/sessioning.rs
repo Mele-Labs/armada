@@ -77,6 +77,7 @@ pub(crate) struct LedgerReads {
 
 /// A report that names nothing it can be kept against. A 422.
 const SESSION_UNNAMED: &str = "fleet.session_unnamed";
+const WINDOW_GROUP_UNKNOWN: &str = "fleet.window_group_unknown";
 
 /// A hosted agent's subagent, by its attachment's target: started by a call, with the attachment's detail, or settled.
 enum SubagentRow {
@@ -618,13 +619,21 @@ where
             .or_else(|| show.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.ledger_unnamed("a job to show it for"))?;
+        let group = show.group.as_deref().map(str::trim).filter(|group| !group.is_empty()).map(str::to_string);
         let harness = {
             let store = self.store().lock().await;
-            store
+            let harness = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| self.ledger_unnamed("a job Fleet knows"))?
-                .harness
+                .harness;
+            if let Some(group) = &group {
+                let plan = store.session_plan(&id).map_err(|why| self.ledger_fault(why))?;
+                if let Some(why) = shown::group_unknown(plan.as_ref(), group) {
+                    return Err(self.hosted_refusal(WINDOW_GROUP_UNKNOWN, &why));
+                }
+            }
+            harness
         };
         let title = show
             .title
@@ -665,17 +674,27 @@ where
         }
         // Held before the row goes out, which is what Bridge opens the window on and asks for it by.
         self.window_sign_ins().hold(&id, &url, sign_in);
+        let at = self.instant();
+        // Kept before the row goes out, so the group's gate reads open when the walk reaches Bridge.
+        if let Some(group) = &group {
+            self.store()
+                .lock()
+                .await
+                .keep_session_gate_walk(&id, group, at.as_str())
+                .map_err(|why| self.ledger_fault(why))?;
+        }
         self.row_put(
             &id,
             ipc::SessionRow::Window {
                 id: self.row_id(&id),
-                at: self.instant(),
+                at,
                 title,
                 url,
                 variations,
                 steps,
                 origins,
                 brief,
+                group,
                 ended_at: None,
             },
         )

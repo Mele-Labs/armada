@@ -985,6 +985,8 @@ export type ShowWindow = {
   sign_in?: string[];
   /** The Job's line or two on what changed and what to look at, drawn on the walk's tab. At most 400 characters; longer is refused. */
   brief?: string;
+  /** The id of the plan group this walk is the part of, so his Approve closes that group's `walk_approved` gate alone. Refused where the current plan has no such group. */
+  group?: string;
 };
 
 /** `POST /sessions/window/sign_in`: Bridge, opening a window, asks for the sign-in addresses held for it. */
