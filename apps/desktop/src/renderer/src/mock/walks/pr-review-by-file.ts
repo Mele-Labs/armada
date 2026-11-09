@@ -1,9 +1,10 @@
 // The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. Opening it asks, then
-// runs the tools that have not run on this commit. Previous and Next step through the files with findings or comments, and a file
-// Go to file reaches outside them says it is not counted. It counts the findings marked as they are marked, starts a review from
-// lines picked in its gutter, and opens the lines a finding names in place, with Jump. The submit bar says once that findings are
-// unmarked. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits under no line.
-// Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
+// runs the tools that have not run on this commit. Previous and Next step through the files with findings or open threads, and a
+// file Go to file reaches outside them says it is not counted. The forge's threads hang under their lines. It counts the findings
+// marked as they are marked, starts a review from lines picked in its gutter, and opens the lines a finding names in place, with
+// Jump. The submit bar says once that findings are unmarked. An explanation runs from the head and opens in a tab beside Comments,
+// whose Conversation holds what sits under no line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file`
+// scenario.
 
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 
@@ -75,7 +76,7 @@ const prReviewByFile = walk("pr-review-by-file", [
   // 3. Previous and Next, through the files with findings or comments.
   {
     look: inside(files, text("file 1 of 4")),
-    say: "Previous and Next step through the four files with findings or comments, of the eight changed. Files with findings come first",
+    say: "Previous and Next step through the four files with findings or open threads, of the eight changed. Files with findings come first",
   },
   {
     press: inside(files, button("Next file")),
@@ -189,7 +190,14 @@ const prReviewByFile = walk("pr-review-by-file", [
   },
   {
     look: inside(files, text("file 3 of 4")),
-    say: "A file with no findings but a thread on a line counts too",
+    say: "A file with no findings but an open thread counts too",
+  },
+  {
+    look: inside(
+      reviewPane,
+      role("article", /^Thread on app\/controllers\/refunds_controller\.rb:\d+ by tamsin/),
+    ),
+    say: "The thread hangs under its line, with Reply and Resolve",
   },
 
   // Go to file, to one that is not counted.
@@ -199,17 +207,24 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "t opens Go to file, which finds any changed file",
   },
   {
-    type: "routes",
+    type: "spec",
     into: inside(goTo, role("textbox", "File")),
-    say: "A few letters of a file with no findings or comments",
+    say: "A few letters of a file with no findings, whose one thread is resolved",
   },
   {
-    press: inside(goTo, role("option", "config/routes.rb")),
+    press: inside(goTo, role("option", "spec/services/refund_issuer_spec.rb")),
     say: "The file they rank first",
   },
   {
     hover: inside(files, text("Not counted")),
-    say: "Review reads it, and says it is not one of the four. Previous and Next pass it",
+    say: "Review reads it, and says it is not one of the four. Only an open thread counts, so Previous and Next pass it",
+  },
+  {
+    look: inside(
+      reviewPane,
+      role("article", /^Thread on spec\/services\/refund_issuer_spec\.rb:\d+ by tamsin/),
+    ),
+    say: "Its resolved thread is drawn folded under its line",
   },
   {
     press: inside(files, button("Next file")),

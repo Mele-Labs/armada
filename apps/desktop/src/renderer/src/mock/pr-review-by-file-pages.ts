@@ -1,6 +1,6 @@
 // One pull request for the Review tab to read: eight changed files, Risks findings on lines of two of them, one finding on a line the
-// diff does not hold, and findings whose words name other changed files by path and line. A thread on a line of a third file, one on
-// the whole of a fourth, and two entries of general conversation. Invented, as every fixture here is.
+// diff does not hold, and findings whose words name other changed files by path and line. An open thread on a line of a third file,
+// one on the whole of a fourth, a resolved one on the spec, and two entries of general conversation. Invented, as every fixture here is.
 
 import { build, checks, commits, minutesAgo } from "./pr-review-pages";
 
@@ -48,6 +48,24 @@ export const refunds = build({
           "tamsin",
           58,
           "Should a pending refund say so here, rather than Refund requested?",
+        ],
+      ],
+    },
+    {
+      id: "cap-spec",
+      change: "spec",
+      match: "refuses more than is left",
+      resolved: true,
+      comments: [
+        [
+          "tamsin",
+          57,
+          "Could this also cover a refund of exactly what is left?",
+        ],
+        [
+          "odile",
+          50,
+          "Added a case for the exact amount.",
         ],
       ],
     },
