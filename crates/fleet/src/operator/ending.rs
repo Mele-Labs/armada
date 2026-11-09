@@ -101,12 +101,12 @@ fn ways(open: &[Filed], files: bool) -> Vec<Way> {
     if files {
         ways.push(Way::File);
     }
-    ways.extend([Way::ExistingJob, Way::NewJob, Way::Raise, Way::Noted]);
+    ways.extend([Way::ExistingJob, Way::Raise, Way::Noted]);
     ways
 }
 
 impl Ended {
-    /// Told to a live Job it ties to, started as the next piece, filed, linked, raised or noted.
+    /// Told to a live Job it ties to, filed, linked, raised or noted.
     pub fn arrival(&self) -> Arrival {
         let mut words = format!("Job \"{}\" ended.", self.title);
         if let Some(summary) = self.summary.as_deref().filter(|one| !one.trim().is_empty()) {
