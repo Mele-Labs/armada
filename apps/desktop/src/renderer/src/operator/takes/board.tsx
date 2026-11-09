@@ -1,8 +1,8 @@
 // The board take: the Operator's work as lanes in the order it flows: Now, the card it is on, then Up next, Needs you and Done. A card keeps its place on the board as it moves, and slides from where it was to where it went. Discussion stays the panel's own.
 
-import { Children, useLayoutEffect, useRef, useState } from "react";
-import type { DragEvent, KeyboardEvent, ReactNode } from "react";
-import { Bot, Check, Clock, LoaderCircle, MessagesSquare, Pause } from "lucide-react";
+import { Children, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { CSSProperties, DragEvent, KeyboardEvent, ReactNode } from "react";
+import { Bot, Check, Clock, Eye, EyeOff, LoaderCircle, MessagesSquare, Pause } from "lucide-react";
 import { Button, SplitButton, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 
 import { JobChip } from "../../job-chip";
@@ -400,6 +400,66 @@ function RaiseActs({
 
 const SPIN = <LoaderCircle size={12} strokeWidth={2} aria-hidden />;
 
+type LaneId = "now" | "work" | "you" | "done";
+
+const LANES: readonly LaneId[] = [
+  "now",
+  "work",
+  "you",
+  "done",
+];
+
+const LANE_NAME: Readonly<Record<LaneId, string>> = {
+  now: "Now",
+  work: "Up next",
+  you: "Needs you",
+  done: "Done",
+};
+
+// Needs you holds the presses, so it gets the wider share.
+const LANE_SHARE: Readonly<Record<LaneId, string>> = {
+  now: "minmax(0, 1fr)",
+  work: "minmax(0, 1fr)",
+  you: "minmax(0, 1.3fr)",
+  done: "minmax(0, 1fr)",
+};
+
+// The lanes he hid, kept on this machine as the board's layout is.
+const HIDDEN_KEY = "armada.operator.board.hidden";
+const hiding = new Set<() => void>();
+let hiddenNow: ReadonlySet<LaneId> = new Set(
+  (() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(HIDDEN_KEY) ?? "[]") as LaneId[];
+    } catch {
+      return [];
+    }
+  })(),
+);
+
+function setHidden(lane: LaneId, hidden: boolean): void {
+  const next = new Set(hiddenNow);
+  if (hidden) next.add(lane);
+  else next.delete(lane);
+  hiddenNow = next;
+  window.localStorage.setItem(
+    HIDDEN_KEY,
+    JSON.stringify([
+      ...next,
+    ]),
+  );
+  for (const one of hiding) one();
+}
+
+const useHiddenLanes = (): ReadonlySet<LaneId> =>
+  useSyncExternalStore(
+    (listen) => {
+      hiding.add(listen);
+      return () => hiding.delete(listen);
+    },
+    () => hiddenNow,
+  );
+
 function Lane({
   name,
   hue,
@@ -408,12 +468,13 @@ function Lane({
   onDrop,
 }: {
   name: string;
-  hue: "now" | "work" | "you" | "done";
+  hue: LaneId;
   /** What an empty lane says, in a quiet slot a card's size, so the lane reads as empty and not as missing. */
   empty: string;
   children: ReactNode;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
 }) {
+  if (useHiddenLanes().has(hue)) return null;
   return (
     <section
       className="armada-board__lane"
@@ -439,6 +500,19 @@ function Lane({
       }
     >
       <h3 className="armada-board__band">{name}</h3>
+      <span className="armada-board__hide">
+        <Tooltip label={`Hide ${name}`}>
+          <Button
+            size="sm"
+            variant="ghost"
+            iconOnly
+            aria-label={`Hide the ${name} lane`}
+            onClick={() => setHidden(hue, true)}
+          >
+            <EyeOff size={12} strokeWidth={2} aria-hidden />
+          </Button>
+        </Tooltip>
+      </span>
       <ol className="armada-board__cards">
         {Children.toArray(children).length === 0 ? (
           <li className="armada-board__empty">{empty}</li>
@@ -452,6 +526,7 @@ function Lane({
 
 function Queue({ store }: { store: OperatorStore }) {
   const { state, act } = store;
+  const hidden = useHiddenLanes();
   const slide = useSlide();
   const turns = state.turns ?? [];
   const open = turns.filter((one) => one.done === undefined);
@@ -606,9 +681,35 @@ function Queue({ store }: { store: OperatorStore }) {
     );
   };
 
+  const shown = LANES.filter((one) => !hidden.has(one));
+  const below = shown.filter((one) => one !== "now");
+  // The lanes left close up: Now over the rest on a narrow board, all in one row on a wide one.
+  const columns = {
+    "--board-wide": shown.map((one) => LANE_SHARE[one]).join(" ") || "minmax(0, 1fr)",
+    "--board-narrow": below.map((one) => LANE_SHARE[one]).join(" ") || "minmax(0, 1fr)",
+    "--board-rows": shown.includes("now") && below.length > 0 ? "auto 1fr" : "1fr",
+  } as CSSProperties;
+
   return (
     <div className="armada-board__room">
-      <div className="armada-board" ref={slide}>
+      {hidden.size === 0 ? null : (
+        <div className="armada-board__hidden">
+          {LANES.filter((one) => hidden.has(one)).map((one) => (
+            <Tooltip key={one} label={`Show ${LANE_NAME[one]}`}>
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Show the ${LANE_NAME[one]} lane`}
+                onClick={() => setHidden(one, false)}
+              >
+                <Eye size={12} strokeWidth={2} aria-hidden />
+                {LANE_NAME[one]}
+              </Button>
+            </Tooltip>
+          ))}
+        </div>
+      )}
+      <div className="armada-board" ref={slide} style={columns}>
         <Lane name="Now" hue="now" empty="Nothing in progress">
           {onIt === undefined ? null : upNext(onIt, true)}
         </Lane>

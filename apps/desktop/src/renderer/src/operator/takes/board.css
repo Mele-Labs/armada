@@ -12,43 +12,55 @@
 
 .armada-board {
   display: grid;
-  /* Needs you holds the presses, so it gets the wider share. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
-  grid-template-rows: auto 1fr;
-  grid-template-areas:
-    "now now now"
-    "work you done";
+  /* The columns are the lanes he has not hidden (`board.tsx`): Now over the rest on a narrow board. */
+  grid-template-columns: var(--board-narrow);
+  grid-template-rows: var(--board-rows);
   flex: 1;
   gap: var(--space-3);
   padding: var(--space-3);
 }
 
+.armada-board__lane[data-lane="now"] {
+  grid-column: 1 / -1;
+}
+
 @container (min-width: 60rem) {
   .armada-board {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-columns: var(--board-wide);
     grid-template-rows: 1fr;
-    grid-template-areas: "now work you done";
+  }
+
+  .armada-board__lane[data-lane="now"] {
+    grid-column: auto;
   }
 }
 
-.armada-board__lane[data-lane="now"] {
-  grid-area: now;
+/* The lanes he hid, each a press that brings it back. */
+.armada-board__hidden {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) 0;
 }
 
-.armada-board__lane[data-lane="work"] {
-  grid-area: work;
+/* Hide sits in the lane's corner, shown where the lane is pointed at or holds focus. */
+.armada-board__hide {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease);
 }
 
-.armada-board__lane[data-lane="you"] {
-  grid-area: you;
-}
-
-.armada-board__lane[data-lane="done"] {
-  grid-area: done;
+.armada-board__lane:hover .armada-board__hide,
+.armada-board__lane:focus-within .armada-board__hide {
+  opacity: 1;
 }
 
 .armada-board__lane {
   --hue: var(--fg-subtle);
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -268,6 +280,33 @@
 
 .armada-board__act .armada-split-button__action {
   min-width: 0;
+}
+
+/* A card's press is tinted in its lane's hue and rounded as the card's controls are, so the Operator's pick reads as the lane's. */
+.armada-board__act .armada-split-button__control,
+.armada-board__act > .armada-button[data-variant="secondary"] {
+  border-color: color-mix(in srgb, var(--hue) 45%, var(--border-default));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--hue) 14%, var(--bg-raised));
+  color: var(--fg-default);
+}
+
+.armada-board__act .armada-split-button__action {
+  border-radius: calc(var(--radius-md) - var(--border-width)) 0 0
+    calc(var(--radius-md) - var(--border-width));
+  color: var(--fg-default);
+}
+
+.armada-board__act .armada-split-button__caret {
+  border-left-color: color-mix(in srgb, var(--hue) 45%, var(--border-default));
+  border-radius: 0 calc(var(--radius-md) - var(--border-width))
+    calc(var(--radius-md) - var(--border-width)) 0;
+}
+
+.armada-board__act .armada-split-button__action:hover:not(:disabled),
+.armada-board__act .armada-split-button__caret:hover:not(:disabled),
+.armada-board__act > .armada-button[data-variant="secondary"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--hue) 24%, var(--bg-raised));
 }
 
 /* What came of a card: a callout in the hue of how it ended, its kind in caps over what. */
