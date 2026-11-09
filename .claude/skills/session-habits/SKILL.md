@@ -70,6 +70,14 @@ the owner's corrections on top of it.
   the bar (4 Oct). Controls repeated down a list sit in fixed columns, kept
   where a row lacks one (`docs/contracts/design-system/spacing-and-shape.md`;
   23 Oct, asked twice).
+- **A brief for a screen carries the Cockpit bar** (23 Oct, 26 Oct, 9 Nov:
+  three times he found an agent's page monotone). Colour that says what a
+  thing is and what state it is in: state hue on frames and edges, a coloured
+  glyph for each row's kind and state, chips with fill, header bands with
+  weight. Depth by lightness steps, hairlines and shadow. The only no's are
+  gradients on a control, glows, grain and sheen. Never write "restraint",
+  "flat" or "monochrome" into a brief. The bar is in
+  `docs/contracts/design-system/the-product.md`.
 - **When an agent's report says it skipped a step a doc requires**, send it
   back before relaying the report (7 Oct).
 

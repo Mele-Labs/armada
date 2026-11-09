@@ -34,7 +34,12 @@
    and every value there aliases its Job counterpart so the mapping is
    declared rather than inferred. Read the file rather than a list; this
    rule used to enumerate the cases and went stale twice. Anything the
-   file does not declare stays neutral. See Below Job level under Tokens.
+   file does not declare takes no status hue. See Below Job level under Tokens.
+   **Kind takes hue as freely as state does.** Colour says what a thing is
+   as well as what state it is in, so a glance tells kinds apart (the
+   owner, 9 Nov 2026). Rows of several kinds declare a hue for each in a
+   kind file of their own, as `tokens/tools.css` and `tokens/kinds.css`
+   do, aliasing no status.
    **Outside status and accent, these hue families exist.** `--operator` marks
    the Operator's own chrome and nothing else. `--you` marks the owner's own
    messages in a Session thread and nothing else. The **tool families** in
@@ -46,8 +51,9 @@
    kinds under Tokens. Depth's light and glass never take a
    status hue.
 4. **Dark is primary.** Design dark first. Light exists but is secondary. Light is `packages/tokens/src/light.css`; every other theme is described in `docs/concepts/themes.md`.
-5. **Icons: lucide-react only**, used sparingly. A dashboard dense with
-   icons reads as noise.
+5. **Icons: lucide-react only.** A row's kind and its state each draw a
+   glyph in their own hue, so rows tell apart at a glance. An icon that
+   names nothing reads as noise.
 6. **React Flow (`@xyflow/react`) is the one sanctioned graph surface.** It
    draws a [Studio](../../concepts/studio.md)'s whiteboard, a Job's workflow
    canvas and the sketch beside a dispatch prompt, and nothing else takes
