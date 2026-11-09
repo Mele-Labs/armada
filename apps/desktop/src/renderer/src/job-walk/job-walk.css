@@ -200,7 +200,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-6);
-  max-width: 640px;
+  max-width: calc(var(--space-8) * 20);
 }
 
 .job-walk__native-title {
