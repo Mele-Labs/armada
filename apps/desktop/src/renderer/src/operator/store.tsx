@@ -19,6 +19,8 @@ export type OperatorState = OperatorSeed & {
   messages: readonly OperatorMessage[];
   /** The Waiting on you row being discussed: its card is in the conversation, and words go to it. */
   open?: string;
+  /** His words it is answering now: Discussion draws the thread's working mark until the answer is in. */
+  thinking?: string;
 };
 
 export type Act =
@@ -66,6 +68,10 @@ export type Act =
     }
   | {
       kind: "clear";
+    }
+  | {
+      /** The mock's answer to the words it is thinking over, a moment after they were sent. */
+      kind: "answer";
     }
   | {
       kind: "raise";
@@ -478,12 +484,19 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           asked,
         ],
       };
-      // It is discussing this with you, so it answers you ahead of its list.
-      if (state.open !== undefined) return answeredOnItem(heard, state.open, words);
+      // It is discussing this with you, so it answers you ahead of its list: thinking first, as a call takes a moment.
+      if (state.open !== undefined)
+        return {
+          ...heard,
+          thinking: words,
+        };
       const turns = openTurns(state);
       // Words that set the order are acted on at once: they cannot wait in the list they change.
       if (turns.length === 0 || scriptFor(state, words)?.puts !== undefined)
-        return answered(heard, words);
+        return {
+          ...heard,
+          thinking: words,
+        };
       return {
         ...heard,
         turns: [
@@ -496,6 +509,13 @@ function reduce(state: OperatorState, act: Act): OperatorState {
           ...doneTurns(state),
         ],
       };
+    }
+    case "answer": {
+      const { thinking: words, ...rest } = state;
+      if (words === undefined) return state;
+      return rest.open !== undefined
+        ? answeredOnItem(rest, rest.open, words)
+        : answered(rest, words);
     }
     case "turn": {
       const [done, ...rest] = openTurns(state);
@@ -815,6 +835,8 @@ export type OperatorStore = {
 
 const Held = createContext<OperatorStore | null>(null);
 
+const THINKING_MS = 2500;
+
 /** The Operator's state for this window, where the scenario seeds one. Without a seed nothing of the Operator is drawn. */
 export function OperatorFrom({
   seed,
@@ -839,6 +861,20 @@ function Seeded({ seed, children }: { seed: OperatorSeed; children: ReactNode })
     );
   }, [
     seed,
+  ]);
+  // A call takes a moment, so the mock answers a beat after his words, with the working mark between.
+  useEffect(() => {
+    if (state.thinking === undefined) return;
+    const answer = setTimeout(
+      () =>
+        act({
+          kind: "answer",
+        }),
+      THINKING_MS,
+    );
+    return () => clearTimeout(answer);
+  }, [
+    state.thinking,
   ]);
   const store = useMemo(
     () => ({

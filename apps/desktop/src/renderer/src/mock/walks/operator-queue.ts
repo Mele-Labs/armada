@@ -63,7 +63,8 @@ export const operatorQueue = walk("operator-queue", [
     say: "Send it",
   },
   {
-    look: doctor,
+    // The row's line, which only its answer puts there: the row itself was on the list before.
+    look: inside(doctor, text(/^You asked for this first/)),
     say: "It acts right away: the row is next, and it cleared what was holding it. It can do that because Delegate is On",
   },
   {

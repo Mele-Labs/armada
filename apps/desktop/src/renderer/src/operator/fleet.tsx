@@ -292,6 +292,8 @@ type Kept = {
   said: readonly OperatorMessage[];
   /** Cards he settled here, kept in Done after the item leaves its Job's list. */
   settled: readonly OperatorRaise[];
+  /** His last words while Fleet's call on them runs: Discussion draws the working mark. */
+  thinking?: string;
   /** Suggestions no Job holds that he pressed and Fleet has not answered: their outcome arrives in the board's Done. */
   pressing: readonly string[];
 };
@@ -468,6 +470,11 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
         : {
             open: kept.open,
           }),
+      ...(kept.thinking === undefined
+        ? {}
+        : {
+            thinking: kept.thinking,
+          }),
     };
   }, [
     board,
@@ -506,8 +513,23 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
             at: new Date().toISOString(),
           },
         ],
+        thinking: words,
       }));
-      void window.armada.talkToOperator(words, about).then((answered) => {
+      // The working mark stays until what it said is drawn, or its refusal.
+      const answeredNow = () =>
+        setKept(({ thinking, ...was }) =>
+          thinking === words
+            ? was
+            : {
+                ...was,
+                ...(thinking === undefined
+                  ? {}
+                  : {
+                      thinking,
+                    }),
+              },
+        );
+      void window.armada.talkToOperator(words, about).then(async (answered) => {
         const offers = answered.ok ? answered.said.job : undefined;
         // Fleet keeps the words it said, not the Job it offered, so the offer is held here under them.
         if (offers !== undefined && offers.trim() !== "")
@@ -527,7 +549,10 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
               },
             ],
           }));
-        if (answered.ok) return readTalk();
+        if (answered.ok) {
+          await readTalk();
+          return answeredNow();
+        }
         setKept((was) => ({
           ...was,
           said: [
@@ -540,6 +565,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
             },
           ],
         }));
+        answeredNow();
       });
     },
     [

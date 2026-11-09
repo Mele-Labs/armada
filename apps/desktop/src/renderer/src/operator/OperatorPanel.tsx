@@ -1618,6 +1618,7 @@ function Talk({ store }: { store: OperatorStore }) {
                   lead: leading.map((one) => <Fragment key={one.key}>{one.node}</Fragment>),
                 })}
             inline={after}
+            working={state.thinking !== undefined}
             onAnswer={() => undefined}
             onOpenSession={openJob}
           />
