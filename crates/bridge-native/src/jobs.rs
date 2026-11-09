@@ -533,6 +533,20 @@ impl JobsList {
         &self.focus
     }
 
+    /// Open a Job from outside the list, as a press on its row does: the keys land on it and its card
+    /// closes. A Job the list does not hold is not opened. Returns whether it was.
+    pub fn open_job(&mut self, id: &str, cx: &mut Context<Self>) -> bool {
+        if !self.jobs.iter().any(|one| one.id.as_str() == id) {
+            return false;
+        }
+        let id: SharedString = id.to_string().into();
+        self.focused = Some(id.clone());
+        self.opened = Some(id);
+        self.card = None;
+        cx.notify();
+        true
+    }
+
     pub fn within(&self) -> &FocusHandle {
         &self.within
     }
@@ -1505,6 +1519,20 @@ mod tests {
 
     fn titles(lines: &[Line]) -> Vec<String> {
         lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.title.to_string()), Line::Project(_) => None }).collect()
+    }
+
+    #[gpui::test]
+    fn a_job_opened_from_outside_is_the_one_the_keys_are_on(cx: &mut gpui::TestAppContext) {
+        let all = jobs();
+        let live = all.iter().find(|job| job.state == ipc::SessionState::Live).expect("a live Job").id.as_str().to_string();
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        assert!(list.update(cx, |list, cx| list.open_job(&live, cx)));
+        list.read_with(cx, |list, _| {
+            assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(live.as_str()));
+            assert_eq!(list.focused, list.opened);
+        });
+        assert!(!list.update(cx, |list, cx| list.open_job("no-such-job", cx)), "a Job the list does not hold is not opened");
+        list.read_with(cx, |list, _| assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(live.as_str())));
     }
 
     #[test]

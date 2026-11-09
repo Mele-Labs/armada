@@ -16,7 +16,7 @@ use tokio::time::{sleep, Instant};
 
 use ipc::{
     Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, SessionList, SessionRecord,
-    StreamMessage,
+    SettingsList, StandingCalls, StreamMessage,
 };
 
 use crate::frames::{self, Messages};
@@ -74,6 +74,12 @@ pub enum Signal {
     /// `GET /fleet/build`, on connect and every [`BUILD_WATCH`] after.
     Build(FleetBuildReport),
     BuildFailed(String),
+    /// `GET /calls`, once per connection; `calls.changed` carries the list after that.
+    Calls(StandingCalls),
+    CallsFailed(String),
+    /// `GET /settings`, once per connection; `settings.changed` carries the list after that.
+    Settings(SettingsList),
+    SettingsFailed(String),
     Stream(StreamMessage),
 }
 
@@ -220,6 +226,8 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_jobs(tx.clone(), fleet.port));
                     tokio::spawn(fetch_preferences(tx.clone(), fleet.port));
                     tokio::spawn(fetch_mods(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_calls(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_settings(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -302,6 +310,24 @@ async fn fetch_preferences(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<Preferences>(port, "/preferences", "preferences").await {
         Ok(preferences) => Signal::Preferences(preferences),
         Err(why) => Signal::PreferencesFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /calls`, once per connection, retried as the Jobs are.
+async fn fetch_calls(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<StandingCalls>(port, "/calls", "calls").await {
+        Ok(calls) => Signal::Calls(calls),
+        Err(why) => Signal::CallsFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /settings`, once per connection, retried as the Jobs are.
+async fn fetch_settings(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<SettingsList>(port, "/settings", "settings").await {
+        Ok(settings) => Signal::Settings(settings),
+        Err(why) => Signal::SettingsFailed(why),
     };
     let _ = tx.send(signal).await;
 }

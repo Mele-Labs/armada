@@ -6,9 +6,12 @@
 
 use std::collections::BTreeMap;
 
-use gpui::{Context, Task};
+use gpui::{Context, EventEmitter, Task};
 
-use ipc::{Cursor, Event, FleetBuildReport, Instant, ModKind, ModSummary, SessionRecord, StreamMessage};
+use ipc::{
+    CallArrival, Cursor, Event, FleetBuildReport, Instant, ModKind, ModSummary, SessionRecord, SettingValue, SettingsList,
+    StandingCalls, StreamMessage,
+};
 
 use crate::link::{self, LinkState, Signal};
 use crate::log::Note;
@@ -28,6 +31,13 @@ pub struct Held {
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
     /// commonest reason Fleet does not answer. `None` until the first read, and where this Fleet serves none.
     pub build: Option<FleetBuildReport>,
+    /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
+    /// first reading cannot be mistaken for a count that stands.
+    pub calls: Option<StandingCalls>,
+    /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
+    pub notifications: bool,
+    /// News since the last time it was taken: a thing that began to wait on him. Told once.
+    arrived: Vec<CallArrival>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -44,6 +54,9 @@ impl Held {
             key_bindings: None,
             mods: None,
             build: None,
+            calls: None,
+            notifications: true,
+            arrived: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
         }
@@ -74,6 +87,21 @@ impl Held {
             LinkState::Connected => self.port,
             _ => None,
         }
+    }
+
+    /// The Dock count: the calls still to be opened, one for each owner. `None` until Fleet has answered.
+    pub fn dock_count(&self) -> Option<usize> {
+        self.calls.as_ref().map(|calls| calls.unopened().len())
+    }
+
+    /// The news folded since the last take, oldest first.
+    pub fn take_arrived(&mut self) -> Vec<CallArrival> {
+        std::mem::take(&mut self.arrived)
+    }
+
+    fn set_settings(&mut self, list: &SettingsList) {
+        let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
+        self.notifications = switch != Some(&SettingValue::Bool(false));
     }
 
     fn listed(&mut self, mods: Vec<ModSummary>) {
@@ -128,6 +156,10 @@ impl Held {
                         self.sheets.remove(&checked.name);
                     }
                 },
+                Signal::Calls(calls) => self.calls = Some(calls),
+                Signal::CallsFailed(why) => lines.push(Note::warn("calls could not be read").field("why", why)),
+                Signal::Settings(list) => self.set_settings(&list),
+                Signal::SettingsFailed(why) => lines.push(Note::warn("settings could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -149,6 +181,12 @@ impl Held {
                         }
                         // The list arrives whole and replaces the one held.
                         Event::ModsChanged(list) => self.listed(list.mods),
+                        // The calls arrive whole; the news rides with them and is told once.
+                        Event::CallsChanged(changed) => {
+                            self.calls = Some(StandingCalls { calls: changed.calls });
+                            self.arrived.extend(changed.arrived);
+                        }
+                        Event::SettingsChanged(list) => self.set_settings(&list),
                         _ => {}
                     }
                 }
@@ -186,6 +224,11 @@ fn describe(state: &LinkState) -> Note {
         LinkState::Connected => Note::info("connected to Fleet"),
     }
 }
+
+/// What began to wait on him, since the last time this was said. Said once for each batch of events.
+pub struct Arrived(pub Vec<CallArrival>);
+
+impl EventEmitter<Arrived> for FleetConnection {}
 
 pub struct FleetConnection {
     held: Held,
@@ -232,7 +275,11 @@ impl FleetConnection {
                 }
                 let folded = this.update(cx, |this, cx| {
                     let lines = this.held.fold(batch);
+                    let arrived = this.held.take_arrived();
                     cx.notify();
+                    if !arrived.is_empty() {
+                        cx.emit(Arrived(arrived));
+                    }
                     lines
                 });
                 match folded {
@@ -371,6 +418,73 @@ mod tests {
         let lines = held.fold(vec![Signal::State(LinkState::Unreachable("gone".into())), Signal::BuildFailed("Fleet answered 500".into())]);
         assert_eq!(held.build, Some(report));
         assert_eq!(lines.iter().filter(|line| line.msg() == "the build could not be read").count(), 1);
+    }
+
+    fn calls(opened: &[bool]) -> ipc::StandingCalls {
+        let rows: Vec<String> = opened
+            .iter()
+            .enumerate()
+            .map(|(at, opened)| {
+                format!(
+                    r#"{{"key":"session:s{at}:item","owner":"session:s{at}","kind":"job","session_id":"s{at}","title":"T","text":"x","since":"2026-11-09T10:0{at}:00.000Z","tone":"waiting","opened":{opened}}}"#
+                )
+            })
+            .collect();
+        ipc::decode("calls", format!(r#"{{"calls":[{}]}}"#, rows.join(",")).as_bytes()).expect("calls")
+    }
+
+    fn changed(wire_calls: &str, arrived: &str) -> Signal {
+        let wire = format!(
+            r#"{{"message":"event","cursor":1,"event":{{"kind":"calls.changed","calls":{wire_calls},"arrived":{arrived}}}}}"#
+        );
+        Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+    }
+
+    #[test]
+    fn the_dock_count_waits_for_fleet_and_then_counts_the_unopened_once_for_each_owner() {
+        let mut held = Held::new();
+        assert_eq!(held.dock_count(), None, "nothing is badged before Fleet has answered");
+        held.fold(vec![Signal::Calls(ipc::StandingCalls::default())]);
+        assert_eq!(held.dock_count(), Some(0), "an empty answer is a count of none");
+        held.fold(vec![Signal::Calls(calls(&[false, true, false]))]);
+        assert_eq!(held.dock_count(), Some(2));
+    }
+
+    #[test]
+    fn calls_changed_replaces_the_calls_and_hands_over_its_news_once() {
+        let mut held = Held::new();
+        let arrival = r#"{"session_id":"s0","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}"#;
+        held.fold(vec![changed("[]", &format!("[{arrival}]"))]);
+        assert_eq!(held.dock_count(), Some(0));
+        let news = held.take_arrived();
+        assert_eq!(news.len(), 1);
+        assert_eq!(news[0].title, "Fix it");
+        assert!(held.take_arrived().is_empty(), "news is told once");
+        held.fold(vec![changed("[]", "[]")]);
+        assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn a_read_of_calls_carries_no_news() {
+        let mut held = Held::new();
+        held.fold(vec![Signal::Calls(calls(&[false]))]);
+        assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn notifications_are_on_until_the_settings_say_false() {
+        let list = |value: &str| -> SettingsList {
+            let wire = format!(
+                r#"{{"path":"/x","refused":null,"settings":[{{"key":"features.notifications","group":"Features","section":"s","title":"t","description":"d","tip":null,"kind":{{"kind":"boolean"}},"default":true,"value":{value},"saved":null,"applies":"live","pending_restart":false,"overridden_by_env":null}}]}}"#
+            );
+            ipc::decode("settings", wire.as_bytes()).expect("settings")
+        };
+        let mut held = Held::new();
+        assert!(held.notifications, "on before Fleet has answered, as Electron reads it");
+        held.fold(vec![Signal::Settings(list("false"))]);
+        assert!(!held.notifications);
+        held.fold(vec![Signal::Settings(list("true"))]);
+        assert!(held.notifications);
     }
 
     #[test]
