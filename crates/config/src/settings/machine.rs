@@ -183,7 +183,7 @@ pub(super) const FEATURES: &[Entry] = &[
         key: OPERATOR_DISPATCH.0,
         section: Section::Features,
         title: "Operator dispatches",
-        description: "Starts, holds and merges Jobs as the Operator rules, and starts what is left of a quiet Job. Suggest puts each on Needs you for one press. Off, each ruling is only in its Log.",
+        description: "Starts, holds and merges Jobs as the Operator rules. Suggest puts each on Needs you for one press. Off, each ruling is only in its Log.",
         kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
         shipped: Shipped::Text("off"),
         applies: Applies::Live,

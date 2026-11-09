@@ -144,8 +144,6 @@ pub trait Acting: Send + Sync {
     fn merge(&self, ending: &str, into: &str, shared: &[String]);
     /// Both carry on, each told the other's plan group and the paths they share.
     fn keep_in_touch(&self, one: &str, other: &str, shared: &[String]);
-    /// What is left of a Job gone quiet starts as a Job of its own, briefed with `seen`.
-    fn start_rest(&self, _session: &str, _seen: &str) {}
     /// A Job gone quiet goes to the person, with the call's `read`.
     fn raise(&self, _session: &str, _read: &str) {}
     /// `session` goes at `place` in Waiting to start, now if it waits there and else as it joins.
@@ -493,7 +491,6 @@ impl Operator {
         }
         if arrival.arrived.is_stall() {
             match ruling.way {
-                Way::NewJob => self.acting.start_rest(session, &arrival.words),
                 Way::Raise => self.acting.raise(session, &ruling.because),
                 _ => {}
             }
