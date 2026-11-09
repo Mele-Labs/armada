@@ -11,6 +11,7 @@ import {
   Clock,
   CornerUpRight,
   DoorOpen,
+  FileSearch,
   GitMerge,
   GripVertical,
   Hand,
@@ -31,6 +32,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   Button,
+  JobCard,
   DropdownMenu,
   Input,
   SessionComposer,
@@ -46,7 +48,7 @@ import {
   type ThreadCard,
 } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
-import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
+import type { DrawnSketch, Session } from "@armada/screens/src/draft/sessions";
 import { jobIdOf } from "@armada/shell";
 
 import { searchFiles } from "../commands";
@@ -68,6 +70,7 @@ import {
 } from "../job-panes/tree";
 import { useNumbered } from "../numbered";
 import { hostedCommands } from "../session-runner";
+import { ChildJob } from "../session-view/ChildJob";
 import { SketchSheet } from "../sessions";
 import { useSessions, useSessionsDraft } from "../sessions-draft";
 import {
@@ -75,6 +78,7 @@ import {
   POSITION_DOES,
   POSITION_SAID,
   ROLES,
+  offerTitle,
   orderSaid,
   outcomeOf,
   turnLine,
@@ -543,7 +547,7 @@ function Log({ store }: { store: OperatorStore }) {
                   </span>
                 </li>
               ) : (
-                <LogRow key={entry.row.id} row={entry.row} />
+                <LogRow key={entry.row.id} row={entry.row} store={store} />
               ),
             )}
           </ol>
@@ -553,8 +557,8 @@ function Log({ store }: { store: OperatorStore }) {
   );
 }
 
-/** One row: its time, the Operator's mark on its own rows, the sentence, the words it was about, why, and Open Job. */
-function LogRow({ row }: { row: OperatorLogRow }) {
+/** One row: its time, the glyph of what was done, and a card with its kind, the sentence, the words it was about, why, Overrule and Open Job. */
+function LogRow({ row, store }: { row: OperatorLogRow; store: OperatorStore }) {
   const job =
     row.from.kind === "job"
       ? row.from.job
@@ -578,16 +582,43 @@ function LogRow({ row }: { row: OperatorLogRow }) {
             {kind === "you" ? null : <Bot size={12} strokeWidth={2.25} aria-hidden />}
             {KIND_SAID[kind]}
           </span>
-          {open === undefined ? null : (
-            <Button
-              size="sm"
-              variant="secondary"
-              aria-label={`Open Job: ${open.title}`}
-              onClick={() => openJob(open.session)}
-            >
-              Open Job
-            </Button>
-          )}
+          <span className="armada-operator__log-acts">
+            {row.ways === undefined || row.ways.length === 0 ? null : (
+              <DropdownMenu
+                triggerLabel="Overrule"
+                triggerAriaLabel={`Overrule: ${row.item}`}
+                align="end"
+                portal
+                entries={row.ways.map((way) => ({
+                  kind: "item" as const,
+                  id: way,
+                  label: way,
+                  ...(row.changed === way
+                    ? {
+                        selected: true,
+                      }
+                    : {}),
+                }))}
+                onSelect={(way) =>
+                  store.act({
+                    kind: "change",
+                    log: row.id,
+                    way,
+                  })
+                }
+              />
+            )}
+            {open === undefined ? null : (
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label={`Open Job: ${open.title}`}
+                onClick={() => openJob(open.session)}
+              >
+                Open Job
+              </Button>
+            )}
+          </span>
         </div>
         <span className="armada-operator__log-said">{sentenceOf(row, job)}</span>
         {quote === undefined ? null : <span className="armada-operator__log-quote">“{quote}”</span>}
@@ -1317,6 +1348,63 @@ function OrderProposed({
   );
 }
 
+/** A Job the Operator offered to read the code: its brief, and Dispatch into a repository, or Leave it. */
+function OfferedJob({
+  offer,
+  onSettle,
+}: {
+  offer: NonNullable<OperatorMessage["offer"]>;
+  onSettle: (repository: string | null) => void;
+}) {
+  const title = offerTitle(offer.brief);
+  const only = offer.in.length === 1 ? offer.in[0] : undefined;
+  return (
+    <span className="armada-operator__offer" role="group" aria-label={`Job offered: ${title}`}>
+      <span className="armada-operator__offer-kind">
+        <FileSearch size={12} strokeWidth={2} aria-hidden />
+        Job offered
+      </span>
+      <span className="armada-operator__offer-brief">{offer.brief}</span>
+      {offer.left === true ? (
+        <span className="armada-operator__does">Left</span>
+      ) : (
+        <span className="armada-operator__offer-acts">
+          {offer.in.length === 0 ? (
+            <span className="armada-operator__does">
+              No repository is served here to start it in
+            </span>
+          ) : only !== undefined ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              aria-label={`Dispatch in ${only}: ${title}`}
+              onClick={() => onSettle(only)}
+            >
+              Dispatch
+            </Button>
+          ) : (
+            <DropdownMenu
+              triggerLabel="Dispatch"
+              triggerAriaLabel={`Dispatch: ${title}`}
+              align="start"
+              portal
+              entries={offer.in.map((one) => ({
+                kind: "item" as const,
+                id: one,
+                label: `In ${one}`,
+              }))}
+              onSelect={(one) => onSettle(one)}
+            />
+          )}
+          <Button size="sm" variant="secondary" onClick={() => onSettle(null)}>
+            Leave it
+          </Button>
+        </span>
+      )}
+    </span>
+  );
+}
+
 const NONE_YET: readonly OperatorTurn[] = [];
 const READING = "The Operator is reading this";
 const QUEUED = "Queued. The Operator gets to it in turn";
@@ -1413,7 +1501,7 @@ function threadRows(store: OperatorStore): SessionThreadRow[] {
 }
 
 /** What Discussion draws between its words: where an item came up or was settled, a Job it started, an order it proposed. */
-function threadCards(store: OperatorStore): ThreadCard[] {
+function threadCards(store: OperatorStore, sessions: readonly Session[]): ThreadCard[] {
   const { act } = store;
   return store.state.messages.flatMap((message, index): ThreadCard[] => {
     const at = atOf(message, index);
@@ -1426,24 +1514,41 @@ function threadCards(store: OperatorStore): ThreadCard[] {
       });
     if (message.opens !== undefined) {
       const opens = message.opens;
+      const child = sessions.find((one) => one.id === opens.session);
+      // The Job it started as a Job's thread draws one it started: the shared card, live from the Job's record once it is read.
       cards.push({
         key: `${message.id}:opens`,
         at,
-        node: (
-          <span className="armada-operator__marker armada-operator__started">
-            <span className="armada-operator__marker-item">{message.text}</span>
-            <Button
-              size="sm"
-              variant="secondary"
-              aria-label={`Open Job: ${opens.title}`}
-              onClick={() => openJob(opens.session)}
-            >
-              Open Job
-            </Button>
-          </span>
-        ),
+        node:
+          child === undefined ? (
+            <JobCard
+              title={opens.title}
+              state="working"
+              said="Starting"
+              onOpen={() => openJob(opens.session)}
+            />
+          ) : (
+            <ChildJob child={child} manifestId={child.manifestId} onOpen={openJob} />
+          ),
       });
     }
+    if (message.offer !== undefined && message.opens === undefined)
+      cards.push({
+        key: `${message.id}:offer`,
+        at,
+        node: (
+          <OfferedJob
+            offer={message.offer}
+            onSettle={(repository) =>
+              act({
+                kind: "offer",
+                message: message.id,
+                repository,
+              })
+            }
+          />
+        ),
+      });
     if (message.order !== undefined) {
       const order = message.order;
       cards.push({
@@ -1489,7 +1594,7 @@ function Talk({ store }: { store: OperatorStore }) {
   const off = !state.on;
   const rows = threadRows(store);
   const first = rows[0]?.at;
-  const cards = threadCards(store);
+  const cards = threadCards(store, sessions);
   const leading = cards.filter((one) => first === undefined || (one.at ?? "") < first);
   const after = cards.filter((one) => !leading.includes(one));
   return (
@@ -1540,6 +1645,7 @@ function Talk({ store }: { store: OperatorStore }) {
                   lead: leading.map((one) => <Fragment key={one.key}>{one.node}</Fragment>),
                 })}
             inline={after}
+            working={state.thinking !== undefined}
             onAnswer={() => undefined}
             onOpenSession={openJob}
           />

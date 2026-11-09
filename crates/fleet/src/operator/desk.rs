@@ -124,6 +124,16 @@ where
         })
     }
 
+    fn jobs_read(&self, live: &[LiveJob]) -> Done<'_, Vec<super::talking::JobRead>> {
+        let ids: Vec<String> = live.iter().map(|one| one.session_id.clone()).collect();
+        Box::pin(async move {
+            match self.fleet.upgrade() {
+                Some(fleet) => fleet.operator_jobs_read(&ids).await,
+                None => Vec::new(),
+            }
+        })
+    }
+
     fn board_changed(&self) {
         if let Some(fleet) = self.fleet.upgrade() {
             fleet.events().publish(ipc::Event::OperatorBoardChanged(ipc::operator_board::OperatorBoardChanged {}));
