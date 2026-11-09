@@ -1,0 +1,42 @@
+[package]
+name = "bridge-native"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.90"
+license = "MIT"
+publish = false
+
+# Outside the root workspace on purpose (the root `exclude`): gpui pulls hundreds of
+# crates and Linux system libraries, and every Linux CI job and the whole-workspace
+# test map would build them. Its own lockfile is committed beside this file.
+[workspace]
+
+# The workspace's own `forbid`, restated here because the root's table does not reach a crate
+# outside it. The gate reads `[lints] workspace = true` as "this crate forbids unsafe".
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[lints]
+workspace = true
+
+[dependencies]
+gpui = { package = "gpui-pre", version = "=0.3.11" }
+# Picks the macOS platform for `application()`; gpui-pre itself carries none. `runtime_shaders`
+# compiles the Metal shaders when the app starts instead of at build time, because a Mac with only
+# the Command Line Tools has no `metal` compiler and the build stops at gpui-pre-apple without it.
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["runtime_shaders"] }
+gpui-component = "=0.9.0"
+# The wire, linked and never copied: the protocol ID covers this crate.
+ipc = { path = "../ipc" }
+# Fleet's wire is HTTP/1 and one WebSocket on loopback. hyper's bare client adds no
+# header of its own, and Fleet refuses `Origin`; this is Pocket's approach, on a
+# runtime of its own that gpui never sees.
+tokio = { version = "1", features = ["rt", "macros", "net", "io-util", "time", "sync"] }
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+# The channel from that runtime to a gpui task, which gpui itself already links.
+async-channel = "2"
+# `ps -o lstart=` is local time; Fleet's age is read from it.
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }

@@ -5,6 +5,9 @@
 [workspace]
 resolver = "2"
 members = ["xtask", "crates/*"]
+# gpui pulls hundreds of crates and Linux system libraries, which every Linux CI job and the
+# whole-workspace test map would build. The native Bridge has a workspace and a lockfile of its own.
+exclude = ["crates/bridge-native"]
 
 [workspace.package]
 edition = "2021"
