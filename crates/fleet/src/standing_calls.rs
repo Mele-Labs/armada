@@ -64,6 +64,66 @@ fn stopped_said(reason: StopReason) -> &'static str {
     }
 }
 
+/// What a Job's mark says, as `jobStateOf` words it. **Four states have words Fleet does not hold** (a limit's
+/// reset in the client's clock, what a Job waits to start after, the task a Job runs, who woke a turn), and
+/// say their state plainly.
+fn said_of(record: &SessionRecord, state: JobState) -> String {
+    let stopped = |stopped: &ipc::SessionStopped| {
+        let repair = match stopped.repair {
+            Some(ipc::StopRepair::Running) => Some("Repair Job running"),
+            Some(ipc::StopRepair::Failed) => Some("Repair Job failed"),
+            Some(ipc::StopRepair::Held) => Some("No repair Job: Fleet is unhealthy"),
+            None => None,
+        };
+        let restart = match stopped.restart {
+            ipc::StopRestart::Queued => Some("Restart queued"),
+            ipc::StopRestart::Running => Some("Restarting"),
+            ipc::StopRestart::Failed => Some("Restart failed"),
+            ipc::StopRestart::None => None,
+        };
+        match repair.or(restart) {
+            Some(more) => format!("{} · {more}", stopped_said(stopped.reason)),
+            None => stopped_said(stopped.reason).to_string(),
+        }
+    };
+    let failing = || record.attachments.iter().find(|one| one.kind == crate::pull_requesting::PR && one.state != ipc::AttachmentState::GivenBack && one.state != ipc::AttachmentState::Spent && one.detail.get("state").map(String::as_str) != Some("merged") && one.detail.get("checks").map(String::as_str) == Some("failed"));
+    match state {
+        JobState::Blank => "Blank: no slot, no branch".into(),
+        JobState::Working => "Working".into(),
+        JobState::Running => "Running".into(),
+        JobState::Subagent => "Subagent working".into(),
+        JobState::Stuck => "Stuck".into(),
+        JobState::Stopped | JobState::StoppedAsks => record.stopped.as_ref().map(stopped).unwrap_or_default(),
+        JobState::Waiting => "Waiting on you".into(),
+        JobState::Replied => "Unread reply".into(),
+        JobState::Done => "Done".into(),
+        JobState::Failing => format!("Checks failed on #{}", failing().map(|one| one.target.as_str()).unwrap_or_default()),
+        JobState::Idle => "Idle".into(),
+        JobState::Quiet => "Not reachable".into(),
+        JobState::Ended => "Ended".into(),
+        JobState::Limited => "Held".into(),
+        JobState::After => "Starts after another Job".into(),
+        JobState::Draft => "Not started".into(),
+        JobState::Held => record
+            .held_open_by
+            .iter()
+            .map(|one| match one {
+                ipc::HeldOpenBy::Watch { name } => format!("Held open by {name}"),
+                ipc::HeldOpenBy::Job { name } => format!("Waiting on {name}"),
+                ipc::HeldOpenBy::PullRequest { number, on } => match on {
+                    ipc::PullRequestWait::Queue => format!("#{number} in the merge queue"),
+                    ipc::PullRequestWait::Checks { auto_merge: true } => format!("#{number} to auto-merge once Checks pass"),
+                    ipc::PullRequestWait::Checks { auto_merge: false } => format!("Checks running on #{number}"),
+                    ipc::PullRequestWait::AutoMerge => format!("#{number} to auto-merge"),
+                },
+            })
+            .collect::<Vec<_>>()
+            .join(" · "),
+        JobState::Paused => "Paused".into(),
+        JobState::Unstarted => format!("Failed to start: {}", record.hosted.as_ref().and_then(|one| one.start_failed.as_ref()).map(|one| one.cause.as_str()).unwrap_or_default()),
+    }
+}
+
 /// What a Job's row said when it was last published, as far as a call reads it.
 struct Job {
     title: Option<String>,
@@ -80,6 +140,10 @@ struct Job {
     items: Vec<WaitingItem>,
     state: Option<JobState>,
     stopped: Option<(StopReason, Instant)>,
+    /// The Cockpit files the Job under needs-him: its row asks, or a pull request of its own alarms it.
+    needs: bool,
+    /// What its mark says, as `jobStateOf` words it.
+    said: String,
     /// The pull requests it holds, as the ledger's `pr` rows name them: the number and the branch.
     pulls: Vec<(u64, String)>,
     /// When anything but the agent last said something to it: his words, a Poke, another Job's.
@@ -104,6 +168,8 @@ impl Job {
             items: if ended { Vec::new() } else { record.waiting_for.clone() },
             state: record.mark.map(|mark| mark.state),
             stopped: record.stopped.as_ref().map(|stopped| (stopped.reason, stopped.at.clone())),
+            needs: record.mark.is_some_and(|mark| crate::sessioning::marking::needs_him(record, mark.state)),
+            said: record.mark.map(|mark| said_of(record, mark.state)).unwrap_or_default(),
             pulls: record
                 .attachments
                 .iter()
@@ -119,11 +185,10 @@ impl Job {
         self.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).unwrap_or(id).to_string()
     }
 
-    /// He is waited on in the Job itself: a question, a permission, a plan or a start card. Seeing its call
-    /// is not enough, so it stays unopened until it does not ask. **A Job Fleet gave up restarting is left
-    /// out**: its call is unopened until he has been in it.
+    /// He is waited on in the Job itself: a question, a permission, a plan, a start card, or a Job Fleet gave
+    /// up restarting. Seeing its call is not enough, so it stays unopened until it does not ask: `needing`.
     fn asking(&self) -> bool {
-        !self.paused && (matches!(self.state, Some(JobState::Waiting | JobState::Unstarted)) || self.start_card.is_some())
+        !self.paused && (matches!(self.state, Some(JobState::Waiting | JobState::StoppedAsks | JobState::Unstarted)) || self.start_card.is_some())
     }
 
     /// `waitingOf`'s own items: the start that failed, which has no item on the wire, then the wire's.
@@ -223,7 +288,12 @@ impl Keeper {
         } else {
             self.stopped.remove(&id);
         }
-        self.waiting.insert(id.clone(), waits.into_iter().map(|(item, _, _)| item).collect());
+        // What a paused Job held when it was parked stays read, so Resume does not tell it.
+        let mut seen: HashSet<String> = waits.into_iter().map(|(item, _, _)| item).collect();
+        if job.paused {
+            seen.extend(self.waiting.remove(&id).unwrap_or_default());
+        }
+        self.waiting.insert(id.clone(), seen);
         self.jobs.insert(id, job);
     }
 
@@ -273,15 +343,17 @@ impl Keeper {
 
     /// `callsFromWaiting` for one Job, and its stopped call.
     fn job_calls(&self, id: &str, job: &Job, here: bool, now: i64, calls: &mut Vec<StandingCall>) {
-        // A paused Job is parked by him: nothing it waits on calls until he resumes it.
-        if !job.live || job.dead || job.paused {
+        if !job.live || job.dead {
             return;
         }
         // The last instant he was in it: now while it is on screen. He sending it a word is a visit Fleet keeps too.
         let touched = if here { now } else { job.viewed_at.unwrap_or(0) };
         let asking = job.asking();
         let opened = |since: &Instant| !asking && (here || job.viewed_at.is_some_and(|at| at >= millis(since)));
-        for item in job.waits() {
+        let before = calls.len();
+        // A paused Job is parked by him: nothing it waits on calls until he resumes it.
+        let items = if job.paused { Vec::new() } else { job.waits() };
+        for item in items {
             if job.working && !holds_the_turn(item.source) {
                 continue;
             }
@@ -301,18 +373,21 @@ impl Keeper {
                 since: item.since,
             });
         }
-        // A Job Fleet gave up restarting is a call whether or not it raised an item, as its row's mark is.
-        if let (Some(JobState::StoppedAsks), Some((reason, at))) = (job.state, job.stopped.as_ref()) {
+        // A Job that needs him is a call whether or not it raised an item that is still unseen: its row's mark, which
+        // a visit does not take off the list while it asks. The key carries the turn, so the next one is a new call.
+        // A Job held on its start card asks the same, though it is paused.
+        if calls.len() == before && (job.needs || job.start_card.is_some()) {
+            let since = job.last_turn_at.clone().unwrap_or_else(never);
             calls.push(StandingCall {
                 key: format!("session:{id}:needs:{}", job.last_turn_at.as_ref().map(Instant::as_str).unwrap_or("")),
                 owner: format!("session:{id}"),
                 kind: StandingCallKind::Job,
                 session_id: Some(ipc::SessionId::carried(id)),
                 title: job.name(id),
-                text: stopped_said(*reason).into(),
+                text: job.said.clone(),
                 tone: CallTone::Waiting,
-                opened: here || job.viewed_at.is_some_and(|seen| seen >= millis(at)),
-                since: at.clone(),
+                opened: opened(&since),
+                since,
             });
         }
     }
@@ -329,8 +404,31 @@ impl Keeper {
                     self.line_call(calls, format!("main:{}", view.root), StandingCallKind::Main, "main is red".into(), text, owner, since.as_ref(), at);
                 }
             }
+            // A held checkout is told here and answered on the merge queue's checkout light.
+            if let Some(held) = &view.checkout {
+                let commits = |count: u32| format!("{count} {}", if count == 1 { "commit" } else { "commits" });
+                let text = if !held.clashing.is_empty() {
+                    "Uncommitted changes main also changed".to_string()
+                } else if !held.uncommitted.is_empty() {
+                    "Uncommitted changes".to_string()
+                } else if held.ahead > 0 {
+                    format!("{} not on {}", commits(held.ahead), held.base)
+                } else if let Some(on) = &held.on {
+                    format!("On {on}")
+                } else {
+                    String::new()
+                };
+                self.line_call(calls, format!("checkout:{}", view.root), StandingCallKind::Checkout, format!("{} behind {}", commits(held.behind), held.base), text, None, None, never());
+            }
             for pull in &view.pulls {
                 let failing = pull.ci == Some(ipc::HubPullCi::Failed) || pull.queue.as_ref().is_some_and(|queue| queue.state == ipc::HubQueueState::Unmergeable);
+                // A form edit the forge would not auto-merge waits for a person.
+                if !failing && pull.merge_by_hand {
+                    let updated = self.lines.lines.iter().flat_map(|line| &line.pulls).find(|one| one.number == pull.number).and_then(|one| one.updated_at.as_ref());
+                    let owner = self.pull_owner(pull.number, None);
+                    self.line_call(calls, format!("pull:{}", pull.number), StandingCallKind::Pull, format!("armada.yml edit #{}", pull.number), "Needs merging by hand".into(), owner, updated, updated.cloned().unwrap_or_else(never));
+                    continue;
+                }
                 if !failing {
                     continue;
                 }

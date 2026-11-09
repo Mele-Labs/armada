@@ -192,9 +192,14 @@ enum Phase {
 /// A failure nobody has touched for this many minutes is old news, and drawn quiet.
 const QUIET_AFTER_MINUTES: i64 = 15;
 
-/// The row's lamp and group for `state`: `sessionMark`, then the row in `shipOf`, then `toneOf`,
-/// `lampOf` and `groupOf`.
-fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobMark {
+/// Whether the Job needs him, as the Cockpit's ship reads it (`phase` is `needs`): its row asks, or a
+/// failing pull request of its own alarms on an idle Job. The call it raises is `standing_calls`'.
+pub(crate) fn needs_him(record: &SessionRecord, state: JobState) -> bool {
+    tone_and_phase(record, state).1 == Phase::Needs
+}
+
+/// The row's own tone, and the phase `shipOf` files the Job under.
+fn tone_and_phase(record: &SessionRecord, state: JobState) -> (Tone, Phase) {
     let bucket = bucket_of(state);
     let dead = matches!(state, JobState::Ended | JobState::Quiet);
     // A paused Job is calm: nothing is asked of him.
@@ -223,6 +228,14 @@ fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobM
             Phase::Done
         }
     };
+    (tone, phase)
+}
+
+/// The row's lamp and group for `state`: `sessionMark`, then the row in `shipOf`, then `toneOf`,
+/// `lampOf` and `groupOf`.
+fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobMark {
+    let bucket = bucket_of(state);
+    let (tone, phase) = tone_and_phase(record, state);
     let idle_minutes = record
         .last_turn_at
         .as_ref()

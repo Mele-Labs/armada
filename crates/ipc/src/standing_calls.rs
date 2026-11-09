@@ -15,12 +15,14 @@ use crate::SessionId;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StandingCallKind {
-    /// Something a Job waits on him for, or a Job Fleet gave up restarting.
+    /// Something a Job waits on him for, or the Job's row itself where it needs him and no item does.
     Job,
     /// A repository's main reads red and nobody is on it.
     Main,
-    /// A pull request of his whose checks failed or that cannot merge, and nobody is on it.
+    /// A pull request of his whose checks failed or that cannot merge, or an `armada.yml` edit the forge would not auto-merge, and nobody is on it.
     Pull,
+    /// A served checkout Fleet holds back from catching up with its base.
+    Checkout,
 }
 
 /// How hard it holds. **Blocked** is a Job's turn held on him (a question, a permission, a plan,
@@ -35,7 +37,7 @@ pub enum CallTone {
 /// One call on the person.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StandingCall {
-    /// Electron's own: `session:<id>:<item>`, `session:<id>:needs:<turn>`, `main:<root>`, `pull:<number>`.
+    /// Electron's own: `session:<id>:<item>`, `session:<id>:needs:<turn>`, `main:<root>`, `checkout:<root>`, `pull:<number>`.
     pub key: String,
     /// Whom it is from, as `callOwnerOf` says it: `session:<id>` for a Job or for the Job already
     /// on a failure, else the key. **One badge for each owner.**
@@ -50,7 +52,7 @@ pub struct StandingCall {
     pub since: Instant,
     pub tone: CallTone,
     /// He has seen it: a Job call when he has been in the Job since it began or has it on screen
-    /// and it is not asking him, a main or pull request call when `open_call` said so.
+    /// and it is not asking him, a main, checkout or pull request call when `open_call` said so.
     pub opened: bool,
 }
 
@@ -100,7 +102,7 @@ pub struct CallsChanged {
     pub arrived: Vec<CallArrival>,
 }
 
-/// `open_call`: he opened a main or pull request call.
+/// `open_call`: he opened a main, checkout or pull request call.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenStandingCall {
     pub key: String,

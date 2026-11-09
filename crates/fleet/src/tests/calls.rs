@@ -168,16 +168,17 @@ async fn a_job_held_on_its_start_card_is_news_as_not_started() {
 }
 
 #[tokio::test]
-async fn turning_stopped_for_good_arrives_as_stopped_and_is_a_call_until_he_has_been_in_the_job() {
+async fn turning_stopped_for_good_arrives_as_stopped_and_stays_a_call_he_has_not_opened_after_a_visit() {
     let rig = rig_placing(None);
     let mut record = marked(row(&rig).await, JobState::Working);
     let mut keeper = seeded(&record);
     keeper.changed(&nowhere, now());
 
     record = marked(record, JobState::StoppedAsks);
+    record.last_turn_at = Some(at(10));
     record.stopped = Some(SessionStopped {
         reason: StopReason::ProcessGone,
-        at: at(10),
+        at: at(12),
         tasks: Vec::new(),
         said: None,
         restart: StopRestart::Failed,
@@ -190,17 +191,74 @@ async fn turning_stopped_for_good_arrives_as_stopped_and_is_a_call_until_he_has_
     assert_eq!(told.arrived, [arrival(&record, "Stopped: process ended", CallTone::Waiting, CallArrivalKind::Stopped)]);
     assert_eq!(told.calls.len(), 1);
     assert_eq!(told.calls[0].kind, StandingCallKind::Job);
+    assert_eq!(told.calls[0].key, format!("session:{}:needs:{}", record.id.as_str(), at(10).as_str()));
+    assert_eq!(told.calls[0].text, "Stopped: process ended · Restart failed");
     assert_eq!(told.calls[0].since, at(10));
     assert!(!told.calls[0].opened);
 
     keeper.hear(&record);
     assert_eq!(keeper.changed(&nowhere, now()), None, "it is told once");
 
+    // A Job that asks him is never opened by a visit: `needingOf`.
     record.viewed_at = Some(at(30));
     keeper.hear(&record);
-    let seen = keeper.changed(&nowhere, now()).expect("he has been in it");
-    assert!(seen.arrived.is_empty());
-    assert!(seen.calls[0].opened, "unopened until visited");
+    assert_eq!(keeper.changed(&nowhere, now()), None);
+    assert!(!keeper.standing(&nowhere, now())[0].opened);
+}
+
+#[tokio::test]
+async fn a_job_that_needs_him_without_asking_is_a_call_until_he_has_been_in_it() {
+    let rig = rig_placing(None);
+    let mut record = marked(row(&rig).await, JobState::Done);
+    record.last_turn_at = Some(at(4));
+    let key = format!("session:{}:needs:{}", record.id.as_str(), at(4).as_str());
+
+    let unseen = seeded(&record).standing(&nowhere, now());
+    assert_eq!((unseen.len(), unseen[0].key.as_str(), unseen[0].text.as_str(), unseen[0].since.clone(), unseen[0].opened), (1, key.as_str(), "Done", at(4), false));
+
+    record.viewed_at = Some(at(5));
+    let seen = seeded(&record).standing(&nowhere, now());
+    assert!(seen[0].opened, "he has been in it since the turn ended");
+
+    // The turn working on is no call at all.
+    record.hosted.as_mut().expect("hosted").turn = SessionTurn::Working { woken_by: None };
+    let working = seeded(&marked(record, JobState::Working)).standing(&nowhere, now());
+    assert!(working.is_empty(), "{working:?}");
+}
+
+#[tokio::test]
+async fn a_job_that_asks_stays_a_call_after_he_has_seen_its_item_and_a_paused_one_raises_nothing() {
+    let rig = rig_placing(None);
+    let mut record = marked(row(&rig).await, JobState::Waiting);
+    record.viewed_at = Some(at(5));
+    record.waiting_for = vec![item("ask:1", "Which clock?", WaitingSource::AskCard, 3)];
+    let calls = seeded(&record).standing(&nowhere, now());
+    assert_eq!(calls.len(), 1, "{calls:?}");
+    assert!(calls[0].key.contains(":needs:") && !calls[0].opened && calls[0].text == "Waiting on you", "the item was seen in the Job; the Job's row still asks: {calls:?}");
+
+    record = marked(record, JobState::Paused);
+    record.hosted.as_mut().expect("hosted").paused = Some(SessionPaused { at: at(0), resuming: false });
+    assert!(seeded(&record).standing(&nowhere, now()).is_empty());
+}
+
+#[tokio::test]
+async fn an_item_a_job_held_before_it_was_paused_is_not_told_on_resume() {
+    let rig = rig_placing(None);
+    let mut record = row(&rig).await;
+    record.waiting_for = vec![item("ask:1", "Which clock?", WaitingSource::AskCard, 1)];
+    let mut keeper = seeded(&record);
+
+    // Fleet lists nothing for a paused Job.
+    record.hosted.as_mut().expect("hosted").paused = Some(SessionPaused { at: at(0), resuming: false });
+    record.waiting_for.clear();
+    keeper.hear(&record);
+    keeper.changed(&nowhere, now());
+
+    record.hosted.as_mut().expect("hosted").paused = None;
+    record.waiting_for = vec![item("ask:1", "Which clock?", WaitingSource::AskCard, 1)];
+    keeper.hear(&record);
+    let resumed = keeper.changed(&nowhere, now()).expect("the call is back");
+    assert!(resumed.arrived.is_empty(), "{resumed:?}");
 }
 
 #[tokio::test]
@@ -435,11 +493,14 @@ async fn a_job_that_asks_him_is_told_once_and_a_visit_takes_its_call_off_the_lis
     assert_eq!(standing.calls[0].owner, format!("session:{}", id.as_str()));
     assert!(!standing.calls[0].opened);
 
-    // In the Job he saw it there: the call leaves the list, and nothing is told again.
+    // In the Job he saw the item there, so it leaves the list; the Job still asks him, so its row's own call
+    // takes its place and stays unopened. Nothing is told again.
     rig.fleet.view_session(ViewSession { session_id: id.clone(), on: true }).await.expect("on screen");
-    eventually(|| async { told.lock().unwrap().last().is_some_and(|last| last.calls.is_empty()) }).await;
+    let row_call = |told: &Arc<Mutex<Vec<ipc::CallsChanged>>>| told.lock().unwrap().last().is_some_and(|last| last.calls.len() == 1 && last.calls[0].key.contains(":needs:"));
+    eventually(|| async { row_call(&told) }).await;
     assert_eq!(arrivals(&told).len(), 1, "a visit is no news");
-    assert!(rig.fleet.get_calls().await.expect("the calls").calls.is_empty());
+    let after = rig.fleet.get_calls().await.expect("the calls");
+    assert!(after.calls.len() == 1 && !after.calls[0].opened, "{after:?}");
 }
 
 #[tokio::test]
@@ -448,4 +509,53 @@ async fn open_call_on_a_jobs_key_is_a_success_that_opens_nothing() {
     let id: SessionId = rig.start().await;
     let answered = rig.fleet.open_call(OpenStandingCall { key: format!("session:{}:replied:1", id.as_str()) }).await.expect("a no-op success");
     assert!(answered.calls.is_empty());
+}
+
+#[tokio::test]
+async fn a_held_checkout_and_a_pull_request_to_merge_by_hand_are_calls_nobody_is_on() {
+    let rig = rig_placing(None);
+    let record = row(&rig).await;
+    let mut keeper = seeded(&record);
+    let mut line = red_main("/r", 7, "x");
+    line.main = None;
+    line.checkout = Some(ipc::HeldCheckout {
+        base: "main".into(),
+        on: None,
+        uncommitted: vec!["a.rs".into()],
+        clashing: Vec::new(),
+        behind: 880,
+        ahead: 0,
+        pull_request: None,
+    });
+    line.pulls = vec![ipc::HubPullRequest {
+        number: 4,
+        title: "Edit".into(),
+        branch: "armada-yml".into(),
+        url: "https://forge/4".into(),
+        author: None,
+        ci: Some(ipc::HubPullCi::Passed),
+        queue: None,
+        opened_at: None,
+        updated_at: None,
+        draft: false,
+        mergeable: None,
+        review: None,
+        additions: None,
+        deletions: None,
+        owner: None,
+        merge_by_hand: true,
+        mine: true,
+    }];
+    keeper.lines = lines(vec![line]);
+    let calls = keeper.standing(&nowhere, now());
+    let shown: Vec<_> = calls.iter().map(|one| (one.key.as_str(), one.kind, one.title.as_str(), one.text.as_str())).collect();
+    assert_eq!(
+        shown,
+        [
+            ("checkout:/r", StandingCallKind::Checkout, "880 commits behind main", "Uncommitted changes"),
+            ("pull:4", StandingCallKind::Pull, "armada.yml edit #4", "Needs merging by hand"),
+        ]
+    );
+    keeper.open("checkout:/r", &nowhere, now());
+    assert!(keeper.standing(&nowhere, now()).iter().any(|one| one.key == "checkout:/r" && one.opened));
 }
