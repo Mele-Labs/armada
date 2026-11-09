@@ -69,7 +69,10 @@ test("the plan is a list named Plan with one row a chunk, and the live one is th
   const rows = page.getByRole("listitem");
   await expect.element(rows).toHaveLength(3);
   await expect.element(rows.nth(0)).toHaveTextContent("Plan the work");
-  await expect.element(rows.nth(1)).toHaveTextContent("Build the rows · Wire the gates");
+  // A chunk of two groups names each on a line of its own.
+  await expect.element(rows.nth(1)).toHaveTextContent("Build the rows");
+  await expect.element(rows.nth(1)).toHaveTextContent("Wire the gates");
+  expect(rows.nth(1).element().textContent).not.toContain("·");
   await expect.element(rows.nth(2)).toHaveTextContent("Land it");
   expect(rows.nth(0).element().getAttribute("aria-current")).toBeNull();
   expect(rows.nth(1).element().getAttribute("aria-current")).toBe("step");
