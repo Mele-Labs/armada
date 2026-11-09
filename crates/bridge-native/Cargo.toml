@@ -22,11 +22,13 @@ unsafe_code = "forbid"
 workspace = true
 
 [dependencies]
-gpui = { package = "gpui-pre", version = "=0.3.11" }
+gpui = { package = "gpui-pre", version = "=0.3.11", features = ["test-support"] }
 # Picks the macOS platform for `application()`; gpui-pre itself carries none. `runtime_shaders`
 # compiles the Metal shaders when the app starts instead of at build time, because a Mac with only
 # the Command Line Tools has no `metal` compiler and the build stops at gpui-pre-apple without it.
-gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["runtime_shaders"] }
+# `font-kit` is the macOS text system: without it gpui draws no text at all, and says so only in a
+# log line. `test-support` is the headless context the walk check plays in.
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["runtime_shaders", "font-kit", "test-support"] }
 gpui-component = "=0.9.0"
 # The lucide SVGs the icon registry names, all 1,830. gpui-component already links this exact version.
 gpui-kit-assets = "=0.9.0"
@@ -46,6 +48,10 @@ async-channel = "2"
 # `ps -o lstart=` is local time; Fleet's age is read from it.
 chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
+# `open_window` answers anyhow's error, which gpui already links.
+anyhow = "1"
+# A walk check writes each step as a PNG; gpui already links this version.
+image = { version = "0.25", default-features = false, features = ["png"] }
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 
