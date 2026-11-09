@@ -23,9 +23,8 @@ import {
 } from "@armada/components";
 import type { RepositorySummary } from "@armada/protocol";
 import type { DrawnSketch } from "@armada/screens/src/draft/sessions";
-import { askToCloseOperator, jobIdOf } from "@armada/shell";
+import { jobIdOf } from "@armada/shell";
 
-import { select } from "../cockpit/deck/store";
 import { searchFiles } from "../commands";
 import { JobChip } from "../job-chip";
 import { usePlanUsage } from "../plan-usage";
@@ -70,6 +69,7 @@ import type {
   OperatorTurn,
 } from "./model";
 import { takeNamed } from "./takes/take";
+import { JobOver, openJobOver } from "./overlay";
 import { useOperator } from "./store";
 import type { OperatorStore } from "./store";
 import "./operator.css";
@@ -110,6 +110,7 @@ export function OperatorPanel({ picked }: { picked: RepositorySummary | null }) 
             },
           }}
         />
+        <JobOver state={store.state} />
       </div>
     </Picked.Provider>
   );
@@ -179,14 +180,8 @@ function Body({ tab, store }: { tab: Tab; store: OperatorStore }): ReactNode {
   }
 }
 
-/** Opens a Job from a chip: the Job takes the stage and the dock steps aside for it. */
-const openJob = (id: string) => {
-  select({
-    kind: "session",
-    key: `session:${id}`,
-  });
-  askToCloseOperator();
-};
+/** Opens a Job from a chip or a row: over the Operator, which stays as it was behind it. */
+const openJob = openJobOver;
 
 /** A Job a row names, as the Job chip that opens it. */
 function NamedJob({ job }: { job: OperatorJob }) {

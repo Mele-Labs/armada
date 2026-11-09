@@ -4,13 +4,12 @@ import { Children, useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { Bot, Check, Clock, LoaderCircle, MessagesSquare, Pause } from "lucide-react";
 import { Button, SplitButton, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
-import { askToCloseOperator } from "@armada/shell";
 
-import { select } from "../../cockpit/deck/store";
 import { JobChip } from "../../job-chip";
 import { operatorPanes } from "../../job-panes/store";
 import { activate, addTab, holderOf, panesOf } from "../../job-panes/tree";
 import { outcomeOf, turnLine, turnTag } from "../model";
+import { openJobOver } from "../overlay";
 import type { OperatorRaise, OperatorTurn } from "../model";
 import type { OperatorStore } from "../store";
 import type { OperatorTake } from "./take";
@@ -18,13 +17,8 @@ import "./board.css";
 
 const OPERATOR = "operator";
 
-export const openJob = (id: string) => {
-  select({
-    kind: "session",
-    key: `session:${id}`,
-  });
-  askToCloseOperator();
-};
+/** A card's Job opens over the Operator (`../overlay.tsx`), which stays as it was behind it. */
+export const openJob = openJobOver;
 
 /** One of the Operator's tabs in front, opened in the first pane where none holds it. */
 function showTab(kind: "op-talk" | "op-permissions") {

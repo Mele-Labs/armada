@@ -18,7 +18,7 @@ const OWNER = repository().manifest!.id;
 const ROOT = repository().root;
 const ago = (seconds: number) => new Date(Date.now() - seconds * 1000).toISOString();
 
-const BASE = {
+export const BASE = {
   manifestId: OWNER,
   cwd: ROOT,
   work: {
@@ -50,7 +50,7 @@ const said = (id: string, at: string, text: string) =>
     text,
   }) as const;
 
-const question = (
+export const question = (
   call: string,
   text: string,
   header: string,
@@ -290,6 +290,26 @@ const storeSize: Session = {
     },
   ],
 };
+
+export const operatorJobs: readonly Session[] = [
+  deaths,
+  filters,
+  tests,
+  slotPool,
+  legend,
+  console_,
+  home,
+  buildTimes,
+  stepTimes,
+  doctorStore,
+  storeSize,
+];
+
+/** The Jobs' store, each mount opening on the Operator's default layout with nothing kept from a walk before. */
+export function operatorSessions(jobs: readonly Session[]) {
+  if (typeof window !== "undefined") operatorPanes.forget();
+  return sessionsStore(jobs, [], new Map(), []);
+}
 
 const job = (session: Session) => ({
   session: session.id,
@@ -678,28 +698,7 @@ function scenario(name: string, says: string): Scenario {
     },
     draft: {
       operator: seed,
-      sessions: () => {
-        // Each mount opens on the Operator's default layout, with nothing kept from a walk before.
-        if (typeof window !== "undefined") operatorPanes.forget();
-        return sessionsStore(
-          [
-            deaths,
-            filters,
-            tests,
-            slotPool,
-            legend,
-            console_,
-            home,
-            buildTimes,
-            stepTimes,
-            doctorStore,
-            storeSize,
-          ],
-          [],
-          new Map(),
-          [],
-        );
-      },
+      sessions: () => operatorSessions(operatorJobs),
     },
   };
 }

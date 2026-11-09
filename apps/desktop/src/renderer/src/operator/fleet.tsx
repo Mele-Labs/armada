@@ -33,8 +33,7 @@ import type {
 } from "./model";
 import { OperatorHeld } from "./store";
 import type { Act, OperatorState } from "./store";
-import { openJobWalk } from "../job-walk/open";
-import { openJob } from "./takes/board";
+import { openJobOver as openJob, openJobWalkOver } from "./overlay";
 
 const KIND_TAG: Readonly<Record<OperatorBoardKind, string>> = {
   start: "New Job",
@@ -116,13 +115,14 @@ const DID: Readonly<Record<string, OperatorDid>> = {
 };
 
 /** What a settled item was, as the Log's sentence names it. */
-const ABOUT: Readonly<Record<OperatorBoardSettled["kind"], NonNullable<OperatorLogRow["about"]>>> = {
-  start: "start",
-  question: "question",
-  card: "question",
-  stall: "stall",
-  report: "report",
-};
+const ABOUT: Readonly<Record<OperatorBoardSettled["kind"], NonNullable<OperatorLogRow["about"]>>> =
+  {
+    start: "start",
+    question: "question",
+    card: "question",
+    stall: "stall",
+    report: "report",
+  };
 
 /** One of the Log's rows that settled something, as the board's Done serves it. */
 function logOf(one: OperatorBoardSettled, sessions: readonly Session[]): OperatorLogRow {
@@ -647,7 +647,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
               ?.waitingFor?.find((each) => each.id === item)?.act?.target;
             return walk === undefined
               ? openJob(raise.job.session)
-              : openJobWalk(raise.job.session, walk);
+              : openJobWalkOver(raise.job.session, walk);
           }
           const choice = sessions
             .find((each) => each.id === session)
