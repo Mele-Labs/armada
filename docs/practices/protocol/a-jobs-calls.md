@@ -4,6 +4,8 @@
 
 Since 9 Nov 2026. Fleet reads which things call the person, which of them he has not opened, and what began to wait on him since, and the native Bridge and Pocket read it instead of working it out.
 Electron Bridge works it out in TypeScript, in the renderer for the calls and the Dock count and in the main process for the banner and the sound, and keeps doing so for now.
+The native app reads this instead and tells him itself (`crates/bridge-native/src/notify.rs`): the banner with its sound, and the Dock count.
+**While it runs, Electron main writes no banner, sound or badge**: `main/native-takeover.ts` looks for the native bundle id, `dev.armada.bridge.native`, among the running apps every three seconds and returns the badge when that app quits.
 **Additive only**: two operations, one event and the types they carry; no field on an existing type.
 The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
 The Rust half is `crates/ipc/src/standing_calls.rs`; the reading is `crates/fleet/src/standing_calls.rs`, which hears every `session.changed` and `merge_line_view.changed`.
