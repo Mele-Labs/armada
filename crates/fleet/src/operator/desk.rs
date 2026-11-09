@@ -134,6 +134,14 @@ where
         })
     }
 
+    fn to_read(&self, live: &[LiveJob], needs: &[super::NeedsYou]) -> Done<'_, Option<super::ToRead>> {
+        let (live, needs) = (live.to_vec(), needs.to_vec());
+        Box::pin(async move {
+            let fleet = self.fleet.upgrade()?;
+            Some(fleet.operator_to_read(&live, &needs).await)
+        })
+    }
+
     fn board_changed(&self) {
         if let Some(fleet) = self.fleet.upgrade() {
             fleet.events().publish(ipc::Event::OperatorBoardChanged(ipc::operator_board::OperatorBoardChanged {}));

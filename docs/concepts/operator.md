@@ -1,6 +1,8 @@
 # Operator
 
-**What it is:** One decider per machine. Every piece of work that reaches Fleet is handed to it first, and it names one way for each, with one fresh model call that holds no tools.
+**What it is:** One decider per machine.
+Every piece of work that reaches Fleet is handed to it first, and it names one way for each, with one fresh model call that holds no tools.
+A message in its box is the one call that may read, with Read, Grep and Glob only.
 
 ---
 
@@ -23,8 +25,10 @@ One fresh call names one way from the ways it was offered, and ends.
 Fleet then does it, or refuses it, and the ruling goes in the Log signed by the Operator.
 
 **No Operator Job runs.**
-So nothing holds a slot, a branch or a tool for it, and nothing it reads can make it do work.
+So nothing holds a slot or a branch for it, and a ruling's call holds no tool at all.
+A message in the box is put to a call that holds the three read tools, Read, Grep and Glob, and nothing else, so what it reads cannot make it do work either.
 Why: `../scope.md` records an agent that holds a conversation as the wrong tool for orchestrating agents, and a live agent grows its context while a fresh call costs the same each time.
+On 9 Nov the owner found that the box could not answer what he asked without reading a Job's thread, the issues or the code, so a message may read and a ruling may not.
 
 **There is one per machine.**
 Order and usage are shared across repositories, so a ruling is made over every repository's live Jobs at once.
@@ -168,6 +172,15 @@ A Job that has ended, or has no title, is not offered.
 The model answers one line of JSON naming a Job or none, and an id it names that was not offered is no match.
 **If anything fails, the words are not a match**: a message that opens on a wh-word and ends in a question mark skips the call, and the call is given up after twenty seconds.
 The measure is `../spikes/thought-routing-by-model.md`: 3 of 19 real reads routed at once, none disagreeing with the proposer's model, in about 70 ms against its 0.9 to 4.4 seconds.
+
+**A message that is a question is answered by a call that reads.**
+It is a scout's process on the `models.operator` model: `--restricted`, a strict MCP config naming no server, and the three read tools allowed with every other tool denied.
+Fleet gives no tool of its own.
+For each message Fleet writes a folder of plain text under its runtime home, never in a repository: a file for each live Job, with its title, plan, open tasks, what waits on the person in full and the last 40 messages of its thread, and a file of the open issues.
+The call reads that folder and the checkouts of the repositories Fleet hosts, read only, and Fleet removes the folder when it answers.
+It takes at most 16 turns and 150 seconds, and one that outlasts that is interrupted and fails like any call here: said back to the person, nothing kept.
+A ruling is not read this way, and neither is a message while the Operator is paused.
+`crates/fleet/src/operator/looking.rs` and `reading.rs`.
 
 **It reads across repositories.**
 The work a thought belongs to is often in another repository, and one Operator serves the machine.

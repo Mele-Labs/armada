@@ -205,3 +205,44 @@ fn a_content_search_names_the_files_it_showed_lines_of() {
         "a search of one file names it by where it searched"
     );
 }
+
+/// **A scout may read the folders it is given beside its own, and each one is
+/// read only**: the tools are the same three, and a relative folder is refused.
+#[test]
+fn a_scout_given_other_folders_may_read_them_and_holds_no_more_tools() {
+    let launch = HeadlessAgent::at("/usr/local/bin/agent")
+        .render_scout(
+            &scouting()
+                .also_reading(&["/repos/other/".to_string(), "/repos/third".to_string()])
+                .expect("absolute folders")
+                .capped_at(12),
+        )
+        .expect("renders");
+    let args = launch.args();
+    let added: Vec<&str> = args
+        .iter()
+        .enumerate()
+        .filter(|(_, arg)| *arg == "--add-dir")
+        .map(|(at, _)| args[at + 1].as_str())
+        .collect();
+    assert_eq!(added, vec!["/repos/other", "/repos/third"]);
+    assert_eq!(value_after(args, "--max-turns").as_deref(), Some("12"));
+    assert_eq!(
+        value_after(args, "--tools"),
+        Some("Read,Grep,Glob".to_string())
+    );
+    assert_eq!(
+        value_after(args, "--allowedTools"),
+        Some("Read,Grep,Glob".to_string())
+    );
+    assert!(args.iter().any(|arg| arg == "--restricted"));
+    assert!(args.iter().any(|arg| arg == "--strict-mcp-config"));
+    assert!(scouting().also_reading(&["other".to_string()]).is_err());
+}
+
+#[test]
+fn a_scout_with_no_other_folder_and_no_cap_carries_neither_flag() {
+    let launch = launch();
+    assert!(!launch.args().iter().any(|arg| arg == "--add-dir"));
+    assert!(!launch.args().iter().any(|arg| arg == "--max-turns"));
+}
