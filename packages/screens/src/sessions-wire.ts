@@ -1323,6 +1323,8 @@ export function rowsOfThread(
         });
         break;
       case "linked":
+        // A hand off told to the parent: the row that started the Job it replaced stands for both, and opens this one.
+        if (row.replaces !== undefined) break;
         out.push({
           id: row.id,
           at,

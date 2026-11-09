@@ -1662,3 +1662,16 @@ Bridge's half is `group` on `ShowWindow` in `packages/protocol/src/sessions.ts`,
 **A version that stands is already approved.** `SessionPlan.approved` and `approved_at` read as the earlier approval's, so Bridge draws no Approve on that card; one that asked again reads `approved: false` as every new version did before.
 **A gate can open again.** `SessionPlanGroup.gate_closed` goes absent once a walk is shown for the group after the close, and comes back with a new close when that walk is approved.
 **Skew.** An older Fleet drops `group` and `ask_again` from a call, and Bridge reads a `window` row with none as a walk of no group.
+
+## A hand off told to a parent: `SessionRow::Linked.replaces`
+
+Since 6 Nov 2026. `docs/concepts/session/a-handed-off-job.md`.
+**Additive only**: one field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
+
+Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.
