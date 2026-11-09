@@ -15,7 +15,7 @@ use chrono::Local;
 use tokio::time::{sleep, Instant};
 
 use ipc::{
-    Event, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, SessionList, SessionRecord,
+    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, SessionList, SessionRecord,
     StreamMessage,
 };
 
@@ -37,6 +37,11 @@ const BACKOFF_FIRST: Duration = Duration::from_secs(1);
 const BACKOFF_CAP: Duration = Duration::from_secs(10);
 
 const JOBS_TRIES: u32 = 3;
+
+/// How often the build is read while a connection stands. No event says the build moved: a fetch in
+/// Fleet moves its position, and a restart moves the build with the socket down
+/// (`apps/desktop/src/main/fleet-build.ts`).
+const BUILD_WATCH: Duration = Duration::from_secs(60);
 
 /// Where the connection stands. Never leaves stale state reading as live.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -66,6 +71,9 @@ pub enum Signal {
     /// Fleet's check of one theme mod, with the `changed_at` of the row it was asked for. Bridge
     /// draws the sheet Fleet checked and no other.
     ModChecked { checked: ModChecked, changed_at: Option<ipc::Instant> },
+    /// `GET /fleet/build`, on connect and every [`BUILD_WATCH`] after.
+    Build(FleetBuildReport),
+    BuildFailed(String),
     Stream(StreamMessage),
 }
 
@@ -193,6 +201,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
     // not speak ends the connection rather than reading on.
     let mut text = first;
     let mut jobs_asked = false;
+    let mut _build_watch: Option<AbortOnDrop> = None;
     // What has been sent to Fleet to check, by mod and the `changed_at` it was asked at.
     let mut asked: HashMap<String, Option<ipc::Instant>> = HashMap::new();
     loop {
@@ -211,6 +220,8 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_jobs(tx.clone(), fleet.port));
                     tokio::spawn(fetch_preferences(tx.clone(), fleet.port));
                     tokio::spawn(fetch_mods(tx.clone(), fleet.port));
+                    // Stops with this connection: the guard aborts the task when `follow` returns.
+                    _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
                 if let StreamMessage::Event(delivered) = &message {
                     if let Event::ModsChanged(list) = &delivered.event {
@@ -259,6 +270,31 @@ async fn fetch_jobs(tx: Sender<Signal>, port: u16) {
         }
     }
     let _ = tx.send(Signal::JobsFailed(last)).await;
+}
+
+/// Ends a task with the scope that holds it.
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// `GET /fleet/build` now and every [`BUILD_WATCH`], for as long as the connection that started it stands.
+/// A read that failed says so and leaves the report held: the commonest cause is a restart under
+/// way, and the item going dark in the middle of one would say it had finished.
+async fn watch_build(tx: Sender<Signal>, port: u16) {
+    loop {
+        let signal = match read_with_retries::<FleetBuildReport>(port, "/fleet/build", "build report").await {
+            Ok(report) => Signal::Build(report),
+            Err(why) => Signal::BuildFailed(why),
+        };
+        if tx.send(signal).await.is_err() {
+            return;
+        }
+        sleep(BUILD_WATCH).await;
+    }
 }
 
 /// `GET /preferences`, once per connection, retried as the Jobs are.

@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 
 use gpui::{Context, Task};
 
-use ipc::{Cursor, Event, Instant, ModKind, ModSummary, SessionRecord, StreamMessage};
+use ipc::{Cursor, Event, FleetBuildReport, Instant, ModKind, ModSummary, SessionRecord, StreamMessage};
 
 use crate::link::{self, LinkState, Signal};
 use crate::log::Note;
@@ -25,6 +25,11 @@ pub struct Held {
     pub key_bindings: Option<String>,
     /// The mods on this machine, as Fleet last listed them. `None` until the first list.
     pub mods: Option<Vec<ModSummary>>,
+    /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
+    /// commonest reason Fleet does not answer. `None` until the first read, and where this Fleet serves none.
+    pub build: Option<FleetBuildReport>,
+    /// The port of the Fleet last connected to, so a command goes where the events come from.
+    port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
     sheets: BTreeMap<String, (Option<Instant>, String)>,
 }
@@ -38,6 +43,8 @@ impl Held {
             theme: None,
             key_bindings: None,
             mods: None,
+            build: None,
+            port: None,
             sheets: BTreeMap::new(),
         }
     }
@@ -61,6 +68,14 @@ impl Held {
             .collect()
     }
 
+    /// The port Fleet answers on while it is connected, or `None`: a command asked then has nobody to ask.
+    pub fn port(&self) -> Option<u16> {
+        match self.state {
+            LinkState::Connected => self.port,
+            _ => None,
+        }
+    }
+
     fn listed(&mut self, mods: Vec<ModSummary>) {
         self.sheets.retain(|name, _| mods.iter().any(|row| &row.name == name));
         self.mods = Some(mods);
@@ -74,6 +89,9 @@ impl Held {
         for signal in batch {
             match signal {
                 Signal::State(state) => {
+                    if let LinkState::Connecting { port, .. } = &state {
+                        self.port = Some(*port);
+                    }
                     if state != self.state {
                         lines.push(describe(&state));
                         self.state = state;
@@ -110,6 +128,8 @@ impl Held {
                         self.sheets.remove(&checked.name);
                     }
                 },
+                Signal::Build(report) => self.build = Some(report),
+                Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
                     resyncs += 1;
                     self.cursor = Some(resync.cursor);
@@ -177,6 +197,16 @@ impl FleetConnection {
     /// What Fleet has said, folded. Read it in an `observe` handler; it moves once per batch.
     pub fn held(&self) -> &Held {
         &self.held
+    }
+
+    /// A revert has been asked and Fleet took it: the report says so until the next read, as Electron's
+    /// `FleetBuilds.revert` marks it, so the menu's item goes off at once. The old failure is gone.
+    pub fn mark_reverting(&mut self, cx: &mut Context<Self>) {
+        if let Some(build) = self.held.build.as_mut() {
+            build.reverting = true;
+            build.failed = None;
+            cx.notify();
+        }
     }
 
     pub fn new(cx: &mut Context<Self>) -> Self {
@@ -331,5 +361,27 @@ mod tests {
         }]);
         assert!(held.theme_sheets().is_empty());
         assert_eq!(lines[0].get("mod"), Some(&FieldValue::Str("dusk".into())));
+    }
+
+    #[test]
+    fn the_build_report_is_held_through_a_drop_and_a_failed_read_leaves_it() {
+        let mut held = Held::new();
+        let report = ipc::decode::<FleetBuildReport>("build", br#"{"on":"main"}"#).expect("a report");
+        held.fold(vec![Signal::Build(report.clone())]);
+        let lines = held.fold(vec![Signal::State(LinkState::Unreachable("gone".into())), Signal::BuildFailed("Fleet answered 500".into())]);
+        assert_eq!(held.build, Some(report));
+        assert_eq!(lines.iter().filter(|line| line.msg() == "the build could not be read").count(), 1);
+    }
+
+    #[test]
+    fn a_command_has_a_port_only_while_fleet_is_connected() {
+        let mut held = Held::new();
+        assert_eq!(held.port(), None);
+        held.fold(vec![Signal::State(LinkState::Connecting { port: 4100, pid: 7 })]);
+        assert_eq!(held.port(), None, "connecting is not connected");
+        held.fold(vec![Signal::State(LinkState::Connected)]);
+        assert_eq!(held.port(), Some(4100));
+        held.fold(vec![Signal::State(LinkState::Starting)]);
+        assert_eq!(held.port(), None);
     }
 }

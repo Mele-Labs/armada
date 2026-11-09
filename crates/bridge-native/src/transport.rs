@@ -56,6 +56,16 @@ pub async fn get(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
 
 /// POST `body`, JSON already encoded, to `path`; the status and the bytes, nothing interpreted.
 pub async fn post(port: u16, path: &str, body: String) -> Result<(u16, Vec<u8>), String> {
+    send_post(port, path, Some(body)).await
+}
+
+/// POST to `path` with no body and no `content-type`, as a route that takes none is asked
+/// (`POST /fleet/build/revert`).
+pub async fn post_bare(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
+    send_post(port, path, None).await
+}
+
+async fn send_post(port: u16, path: &str, body: Option<String>) -> Result<(u16, Vec<u8>), String> {
     let io = TokioIo::new(connect(port).await?);
     let (mut sender, connection) =
         hyper::client::conn::http1::handshake(io).await.map_err(|why| why.to_string())?;
@@ -64,10 +74,12 @@ pub async fn post(port: u16, path: &str, body: String) -> Result<(u16, Vec<u8>),
         .method("POST")
         .uri(path)
         .header(HOST, format!("127.0.0.1:{port}"))
-        .header(CALLER.0, CALLER.1)
-        .header(CONTENT_TYPE, "application/json")
-        .body(Full::new(Bytes::from(body)))
-        .map_err(|why| why.to_string())?;
+        .header(CALLER.0, CALLER.1);
+    let request = match body {
+        Some(body) => request.header(CONTENT_TYPE, "application/json").body(Full::new(Bytes::from(body))),
+        None => request.body(Full::new(Bytes::new())),
+    }
+    .map_err(|why| why.to_string())?;
     let read = async {
         let response = sender.send_request(request).await.map_err(|why| why.to_string())?;
         let status = response.status().as_u16();

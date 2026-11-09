@@ -14,6 +14,10 @@
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
 
 mod assets;
+mod deep_link;
+// No screen opens a file yet; the first one that does calls it.
+#[allow(dead_code)]
+mod editor;
 mod fleet;
 mod frames;
 mod jobs;
@@ -24,7 +28,9 @@ mod log;
 // A screen reads only some of what `look` offers so far.
 #[allow(dead_code)]
 mod look;
+mod menu;
 mod mock;
+mod revert;
 mod runtime_file;
 mod transport;
 mod walk;
@@ -51,6 +57,7 @@ use jobs::{JobsList, JobsScreen};
 use keymap::KeymapController;
 use labels::label_root;
 use look::{ActiveLook, LookController};
+use menu::MenuController;
 use walk::fleet::WalkFleet;
 use walk::window::WalkWindow;
 
@@ -86,12 +93,13 @@ pub fn init_app(cx: &mut App) {
     look::init(cx);
     walk::window::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
+    menu::install(cx);
 }
 
 /// The window's root on a live Fleet or on mock data.
 struct Shell {
     screen: Entity<JobsScreen>,
-    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>)>,
+    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>)>,
 }
 
 impl Render for Shell {
@@ -128,8 +136,27 @@ fn main() -> ExitCode {
         };
     }
 
-    application().with_assets(assets::Assets).run(move |cx: &mut App| {
+    let app = application().with_assets(assets::Assets);
+    // macOS hands links over before the app is ready and on its own thread of control, so they cross a
+    // channel to a task that reads them where the app can be reached. Nothing registers the scheme with
+    // the OS, so none arrives unless something hands this app one (`deep_link.rs`).
+    let (links, arrived) = async_channel::unbounded::<String>();
+    app.on_open_urls(move |addresses| {
+        for address in addresses {
+            let _ = links.try_send(address);
+        }
+    });
+    app.run(move |cx: &mut App| {
         init_app(cx);
+        cx.spawn(async move |cx| {
+            while let Ok(address) = arrived.recv().await {
+                match deep_link::arrive(&address) {
+                    Some(link) => cx.update(|cx| deep_link::deliver(&link, cx)),
+                    None => log::Note::info("an address this app does not open was handed to it").field("address", address).emit(),
+                }
+            }
+        })
+        .detach();
         let bounds = Bounds::centered(None, size(px(1100.), px(760.)), cx);
         let options = |title: String| WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -142,11 +169,13 @@ fn main() -> ExitCode {
                     let fleet = cx.new(FleetConnection::new);
                     let look = cx.new(|cx| LookController::new(&fleet, window, cx));
                     let keys = cx.new(|cx| KeymapController::new(&fleet, cx));
+                    let menu = cx.new(|cx| MenuController::new(&fleet, cx));
+                    MenuController::handle_revert(&menu, cx);
                     let jobs = cx.new(|cx| JobsList::live(&fleet, cx));
                     let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
                     let screen = cx.new(|_| JobsScreen { list: jobs });
-                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys)) })
+                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu)) })
                 })
                 .map(|_| ()),
             Mode::Mock(scenario) => match mock::jobs(&scenario) {
