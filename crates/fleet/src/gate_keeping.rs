@@ -20,14 +20,16 @@ use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{Event, PlanGate, SessionRecord, SessionRow, SessionVoice, DOCUMENT_SETTLED_AT};
-use store::{Holder, KeptAttachment, KeptGate, KeptPlan};
+use store::{Holder, KeptAttachment, KeptGate, KeptPlan, SessionState, Store};
 use tokio::sync::{mpsc, Notify};
 use tokio::task::JoinHandle;
 
 use crate::daemon::Fleet;
 use crate::session_host::document_answers::approved_on_newest;
 use crate::session_host::sketching::APPROVED as SKETCH_APPROVED;
+use crate::session_host::replacing::REPLACED_BY;
 use crate::session_host::walking::{replaced, walk_approval};
+use crate::started_jobs::STARTED_TO;
 
 /// One fact a gate can close on.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,6 +44,50 @@ pub(crate) struct Seen {
     /// One line, as a person reads it.
     pub fact: String,
     pub commit: Option<String>,
+}
+
+/// A Job this Job started, as `jobs_ended` reads it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Started {
+    /// What the Job is called, for the fact's line.
+    pub name: String,
+    /// When it started, as the parent's `started_to` row has it.
+    pub since: String,
+    /// When it merged or ended, whichever was first. Absent while it is live and unmerged.
+    pub done_at: Option<String>,
+}
+
+/// The Jobs `held`, a starter's attachments, names as started, each with when it was done. **A Job
+/// handed on for context is followed to its successor**, whose work is the work that was started.
+pub(crate) fn started_of(store: &Store, held: &[KeptAttachment]) -> Vec<Started> {
+    let mut started: Vec<Started> = Vec::new();
+    for link in held.iter().filter(|one| one.kind == STARTED_TO && one.state != store::AttachmentState::GivenBack) {
+        let (mut id, mut visited) = (link.target.clone(), vec![link.target.clone()]);
+        let mut done_at = None;
+        let mut name = id.clone();
+        loop {
+            let Ok(Some(session)) = store.session(&id) else { break };
+            let attached = store.attachments_of(&Holder::session(&id)).unwrap_or_default();
+            name = session.title.clone().unwrap_or_else(|| id.clone());
+            let merged = attached.iter().filter(|one| one.kind == "pr" && crate::build_record::merged(one)).map(|one| one.changed_at.clone()).min();
+            let ended = (session.state == SessionState::Ended).then(|| session.ended_at.clone().unwrap_or_else(|| session.last_seen_at.clone()));
+            let next = attached.iter().find(|one| one.kind == REPLACED_BY).map(|one| one.target.clone());
+            match next.filter(|next| !visited.contains(next)) {
+                Some(next) if merged.is_none() => {
+                    visited.push(next.clone());
+                    id = next;
+                }
+                _ => {
+                    done_at = [merged, ended].into_iter().flatten().min();
+                    break;
+                }
+            }
+        }
+        if !started.iter().any(|one| one.name == name && one.since == link.since) {
+            started.push(Started { name, since: link.since.clone(), done_at });
+        }
+    }
+    started
 }
 
 /// The fact that his Approve stands on every one of `shown`, the walks of one group or of no group: a
@@ -65,9 +111,10 @@ fn walk_fact(rows: &[SessionRow], dismissed: &[String], shown: &[&str], group: O
 }
 
 /// Every fact on the Job a gate can close on: his approval of the plan, of every walk shown, of a
-/// sketch and of a page's newest revision, and a pull request's merge. **Only what happened once the
-/// plan was first recorded** (`since`): a walk he approved before there was a plan is not its gate's.
-pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttachment], dismissed: &[String]) -> Vec<Seen> {
+/// sketch and of a page's newest revision, a pull request's merge, and the end of the last of the Jobs
+/// it started. **Only what happened once the plan was first recorded** (`since`): a walk he approved
+/// before there was a plan is not its gate's.
+pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttachment], dismissed: &[String], started: &[Started]) -> Vec<Seen> {
     let since = rows
         .iter()
         .find_map(|row| match row {
@@ -150,6 +197,18 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
                 commit: None,
             });
         }
+    }
+    // The Jobs started once the plan was recorded: when every one is done, the last to finish is the fact.
+    let started: Vec<&Started> = started.iter().filter(|one| one.since.as_str() >= since.as_str()).collect();
+    let last = started.iter().map(|one| one.done_at.as_deref()).collect::<Option<Vec<_>>>().and_then(|all| all.into_iter().max());
+    if let Some(at) = last {
+        let mut names: Vec<&str> = started.iter().map(|one| one.name.as_str()).collect();
+        names.sort_unstable();
+        let fact = match names.join(", ") {
+            named if named.len() <= 80 => format!("Every Job it started has ended: {named}"),
+            _ => "Every Job it started has ended".to_string(),
+        };
+        seen.push(Seen { gate: PlanGate::JobsEnded, source: format!("jobs:{}@{at}", started.len()), group: None, at: at.to_string(), fact, commit: None });
     }
     seen
 }
@@ -254,6 +313,16 @@ where
     let last: Mutex<HashMap<String, u64>> = Mutex::new(HashMap::new());
     fleet.events().tap(move |event| {
         let Event::SessionChanged(record) = event else { return };
+        // A Job that ended or merged is news to the one that started it: its `jobs_ended` gate reads it,
+        // and nothing on the parent's own row moved.
+        if let Some(parent) = crate::lifecycles::taking_on::started_by(&record.attachments) {
+            let done = record.state == ipc::SessionState::Ended || crate::lifecycles::taking_on::landed(&record.attachments);
+            let key = format!("child:{}", record.id.as_str());
+            let changed = last.lock().map(|mut held| held.insert(key, u64::from(done)) != Some(u64::from(done))).unwrap_or(true);
+            if done && changed {
+                let _ = tell.send(parent.to_string());
+            }
+        }
         if !waits_on_a_gate(record) {
             return;
         }
@@ -321,7 +390,12 @@ where
             let held = store.attachments_of(&Holder::session(id)).unwrap_or_default();
             let dismissed = store.dismissed_waiting(id).unwrap_or_default();
             let kept = store.session_gates(id).unwrap_or_default();
-            let closing = closing(&plan, &kept, &facts_seen(&plan, &rows, &held, &dismissed));
+            let started = if plan.groups.iter().any(|group| group.gate.as_deref() == Some(PlanGate::JobsEnded.word())) {
+                started_of(&store, &held)
+            } else {
+                Vec::new()
+            };
+            let closing = closing(&plan, &kept, &facts_seen(&plan, &rows, &held, &dismissed, &started));
             closing.into_iter().filter(|gate| store.close_session_gate(id, gate).unwrap_or(false)).collect::<Vec<_>>()
         };
         if !closed.is_empty() {

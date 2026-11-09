@@ -12,19 +12,21 @@ pub enum StepGate {
     DocumentApproved,
     ChecksGreen,
     Merged,
+    JobsEnded,
     #[default]
     None,
 }
 
 impl StepGate {
     /// Every gate, in the order the plan lists them.
-    pub const ALL: [StepGate; 7] = [
+    pub const ALL: [StepGate; 8] = [
         StepGate::PlanApproved,
         StepGate::WalkApproved,
         StepGate::SketchApproved,
         StepGate::DocumentApproved,
         StepGate::ChecksGreen,
         StepGate::Merged,
+        StepGate::JobsEnded,
         StepGate::None,
     ];
 
@@ -37,6 +39,7 @@ impl StepGate {
             StepGate::DocumentApproved => "document_approved",
             StepGate::ChecksGreen => "checks_green",
             StepGate::Merged => "merged",
+            StepGate::JobsEnded => "jobs_ended",
             StepGate::None => "none",
         }
     }

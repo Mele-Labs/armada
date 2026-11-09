@@ -247,7 +247,7 @@ notes = """
 type = "enum"
 concern = "Gating"
 parent = "steps[]"
-purpose = "The plan gate this step's group ends on: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `none`. Optional, and absent means `none`."
+purpose = "The plan gate this step's group ends on: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged`, `jobs_ended` or `none`. Optional, and absent means `none`."
 notes = """
 **Distinct from `advance_gate`**, which is the old rail's: that one says which tier decides whether the step advances. This one names the fact Fleet sees for itself that ends the step's group in the Job's plan (`ipc::PlanGate`, #3360). A step's `id` is the plan group's `id`, so a rule's `step_starts: <id>` matches the group the agent records.
 

@@ -47,6 +47,7 @@ fn phrase(gate: &str) -> Option<&'static str> {
 /// close it. **Derived on every read and never kept**, so it goes when the gate closes or the hold clears.
 /// A merge waits on its pull request while one is open, and Checks while a run has begun: those close
 /// themselves.
+/// `jobs_ended` is never his: each child Job's own needs show on its own row, so `phrase` has no words for it.
 pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, nothing_runs: bool) -> Option<WaitingItem> {
     let hold = plan.held.as_ref().filter(|_| nothing_runs)?;
     let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;

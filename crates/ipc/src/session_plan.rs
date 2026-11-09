@@ -113,19 +113,22 @@ pub enum PlanGate {
     ChecksGreen,
     /// The Job's pull request merged.
     Merged,
+    /// Every Job this Job started has merged or ended.
+    JobsEnded,
     #[default]
     None,
 }
 
 impl PlanGate {
     /// Every gate, in the order the list is written to an agent.
-    pub const ALL: [PlanGate; 7] = [
+    pub const ALL: [PlanGate; 8] = [
         PlanGate::PlanApproved,
         PlanGate::WalkApproved,
         PlanGate::SketchApproved,
         PlanGate::DocumentApproved,
         PlanGate::ChecksGreen,
         PlanGate::Merged,
+        PlanGate::JobsEnded,
         PlanGate::None,
     ];
 
@@ -142,6 +145,7 @@ impl PlanGate {
             PlanGate::DocumentApproved => "document_approved",
             PlanGate::ChecksGreen => "checks_green",
             PlanGate::Merged => "merged",
+            PlanGate::JobsEnded => "jobs_ended",
             PlanGate::None => "none",
         }
     }

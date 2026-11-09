@@ -119,6 +119,7 @@ const PLAN_GATE_CARRIED: &[(&str, StepGate)] = &[
     ("document_approved", StepGate::DocumentApproved),
     ("checks_green", StepGate::ChecksGreen),
     ("merged", StepGate::Merged),
+    ("jobs_ended", StepGate::JobsEnded),
     ("none", StepGate::None),
 ];
 /// The same words as a list, for a refusal to print.
@@ -129,6 +130,7 @@ pub(crate) const PLAN_GATE_LEGAL: &[&str] = &[
     "document_approved",
     "checks_green",
     "merged",
+    "jobs_ended",
     "none",
 ];
 

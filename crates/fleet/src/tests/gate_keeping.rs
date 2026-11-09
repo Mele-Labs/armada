@@ -151,9 +151,9 @@ fn a_sketch_he_approved_before_there_was_a_plan_closes_nothing_and_one_after_doe
     };
     let recorded = SessionRow::Plan { id: "p1".into(), at: Instant::carried("2026-11-08T10:00:00.000Z"), version: 1 };
     let before = [approved("m1", "2026-11-08T09:00:00.000Z"), recorded.clone()];
-    assert!(crate::gate_keeping::facts_seen(&plan, &before, &[], &[]).is_empty());
+    assert!(crate::gate_keeping::facts_seen(&plan, &before, &[], &[], &[]).is_empty());
     let after = [recorded, approved("m2", "2026-11-08T11:00:00.000Z")];
-    let facts = crate::gate_keeping::facts_seen(&plan, &after, &[], &[]);
+    let facts = crate::gate_keeping::facts_seen(&plan, &after, &[], &[], &[]);
     assert_eq!(facts.iter().map(|one| (one.source.as_str(), one.fact.as_str())).collect::<Vec<_>>(), [("sketch:m2", "You approved the sketch The flow")]);
     assert_eq!(closing(&plan, &[], &facts).len(), 1);
 }
@@ -272,4 +272,61 @@ fn a_walk_gate_closed_again_tells_the_rules_the_gate_closed_and_ends_no_step_twi
     let again = crate::lifecycles::ruling::gate_moments(&plan.groups, &row(1));
     assert!(first.len() > 1, "the first close ends the stretch, closes the gate and starts the next");
     assert_eq!(again.len(), 1, "a close again says only that the gate closed");
+}
+
+/// The agent's own connection is pid 1000, as `started_jobs`'s rig places it.
+fn a_rig_with_children() -> super::agent_starts::Rig {
+    let peers = crate::tests::peer::Placing::nothing();
+    peers.holding(1000, 50999, 12345);
+    super::agent_starts::rig(Some(peers))
+}
+
+async fn child_of(rig: &super::agent_starts::Rig, title: &str) -> SessionId {
+    let start = super::agent_starts::begins(rig, title, "Read crates/reader.");
+    Arc::clone(&rig.fleet).start_another_session(super::agent_starts::caller(), start).await.expect("held").session_id
+}
+
+async fn withdrawn(rig: &super::agent_starts::Rig, child: &SessionId) {
+    let command = ipc::StartedCommand { session_id: child.clone(), act: ipc::StartedAct::Withdraw, why: None, condition: None, base: None };
+    let answers = Arc::clone(&rig.fleet).command_started_sessions(super::agent_starts::caller(), vec![command]).await.expect("placed");
+    answers[0].as_ref().expect("withdrawn");
+}
+
+#[tokio::test]
+async fn a_jobs_ended_group_stays_open_while_a_started_job_is_live_and_closes_when_the_last_one_ends() {
+    let rig = a_rig_with_children();
+    let agent = rig.an_agent().await;
+    let groups = [gated(None, "Wait for the children", PlanGate::JobsEnded)];
+    rig.fleet.record_plan(None, plan(&agent, groups.to_vec()), false).await.expect("recorded");
+    assert!(rig.fleet.gates_kept(agent.as_str()).await.is_empty(), "no Job started: nothing has ended");
+
+    let first = child_of(&rig, "Reader").await;
+    let second = child_of(&rig, "Writer").await;
+    assert!(rig.fleet.gates_kept(agent.as_str()).await.is_empty(), "both are live");
+
+    withdrawn(&rig, &first).await;
+    assert!(rig.fleet.gates_kept(agent.as_str()).await.is_empty(), "one is live still");
+    assert_eq!(closes(&read_agent(&rig, &agent).await)[0].1, None);
+
+    withdrawn(&rig, &second).await;
+    let closed = rig.fleet.gates_kept(agent.as_str()).await;
+    assert_eq!(closed.iter().map(|one| one.group_id.as_str()).collect::<Vec<_>>(), ["g1"]);
+    assert_eq!(closes(&read_agent(&rig, &agent).await)[0].1.as_deref(), Some("Every Job it started has ended: Reader, Writer"));
+    assert!(rig.fleet.gates_kept(agent.as_str()).await.is_empty(), "a close is kept once");
+}
+
+async fn read_agent(rig: &super::agent_starts::Rig, id: &SessionId) -> SessionRecord {
+    rig.record(id).await
+}
+
+#[tokio::test]
+async fn a_jobs_ended_gate_raises_no_needs_you_item_and_still_holds_all_done() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    super::session_plan::recorded(&rig, plan(&id, vec![gated(None, "Wait for the children", PlanGate::JobsEnded)])).await;
+
+    let held = rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: Some("It shipped.".into()) }).await.expect("held");
+    assert!(held.done_since.is_none(), "the call is held while the gate is open");
+    assert_eq!(held.plan.as_ref().and_then(|plan| plan.held.as_ref()).map(|on| on.group.as_str()), Some("g1"));
+    assert!(held.waiting_for.iter().all(|one| one.source != WaitingSource::Gate), "it is not his to approve: {:?}", held.waiting_for);
 }

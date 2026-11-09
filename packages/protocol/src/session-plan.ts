@@ -94,6 +94,7 @@ export type PlanGate =
   | "document_approved"
   | "checks_green"
   | "merged"
+  | "jobs_ended"
   | "none";
 
 /** Where a group lands. Every group that shares a `label` reads the same `pull_request`. */

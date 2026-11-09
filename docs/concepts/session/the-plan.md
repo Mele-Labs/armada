@@ -14,7 +14,7 @@ Fleet refuses a plan with every reason at once and says to call `record_plan` ag
 The agent gets back the version and each id Fleet gave.
 
 **A group names the gate that ends it: a fact Fleet sees for itself, never the agent's word** (owner, 8 Nov 2026).
-`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, or `none`.
+`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, `jobs_ended` (every Job this Job started has merged or ended), or `none`.
 Absent is `none`, and groups with no gate between them are one stretch.
 A word not on the list is refused with the list, rather than dropped.
 Each group carries its gate on the wire and in `session_plan_groups.gate`; recording the plan again replaces it.
