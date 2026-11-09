@@ -26,7 +26,7 @@ use super::Walk;
 use crate::labels::{label_root, labelled, Drawn, LabelBook};
 use crate::look::{token, ActiveLook};
 
-actions!(walk, [Next, Back, Reload, Approve, TakeNote, CancelNote]);
+actions!(walk, [Next, Back, Reload, Approve, TakeNote, CancelNote, OpenTakes]);
 
 /// The bar's keys. **Electron's walk bar binds these in `CaptureBar.tsx` (`QUEUE_KEYS`)**, not in
 /// the action registry, so they are restated here until the registry carries them.
@@ -37,6 +37,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("cmd-enter", Approve, Some("walk")),
         KeyBinding::new("cmd-r", Reload, Some("walk")),
         KeyBinding::new("alt-cmd-a", TakeNote, Some("walk")),
+        KeyBinding::new("alt-cmd-t", OpenTakes, Some("walk")),
         KeyBinding::new("escape", CancelNote, Some("walk-note")),
         KeyBinding::new("escape", CancelNote, Some("walk")),
     ]);
@@ -70,10 +71,43 @@ struct Capturing {
     note: Option<(Entity<TextareaState>, Subscription)>,
 }
 
+/// One take of a walk with variations: what the bar calls it, and the walk it plays.
+pub struct Take {
+    pub name: SharedString,
+    pub walk: &'static Walk,
+}
+
+/// The takes the command line named, each `(name, walk)`; one naming no walk here is left out
+/// and said in the log, so the rest still walk.
+pub fn takes_of(named: &[(String, String)]) -> Vec<Take> {
+    named
+        .iter()
+        .filter_map(|(name, walk)| match super::named(walk) {
+            Some(walk) => Some(Take { name: name.clone().into(), walk }),
+            None => {
+                crate::log::Note::warn("no walk by that name for a take").field("walk", walk.as_str()).emit();
+                None
+            }
+        })
+        .collect()
+}
+
+/// A take's letter, as Electron's bar gives it (`variationLetter`): A, B, C.
+fn letter(at: usize) -> String {
+    char::from(b'A' + (at % 26) as u8).to_string()
+}
+
+/// The ids the takes menu answers to: a menu entry's id lives as long as the app.
+const TAKE: [&str; 12] = ["take-1", "take-2", "take-3", "take-4", "take-5", "take-6", "take-7", "take-8", "take-9", "take-10", "take-11", "take-12"];
+
 /// A note written and not sent yet.
 #[derive(Clone)]
 struct HeldNote {
     said: String,
+    /// The take, walk and length it was written on: a switch of take leaves it naming its own.
+    take: Option<super::fleet::Taken>,
+    walk: &'static str,
+    of: u32,
     step: u32,
     role: String,
     name: String,
@@ -88,6 +122,10 @@ const REMOVE: [&str; 12] =
 
 pub struct WalkWindow {
     walk: &'static Walk,
+    /// The walk's takes, and the one on screen. Empty: one walk.
+    takes: Vec<Take>,
+    take: usize,
+    takes_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     stage: Option<Stage>,
     /// The step on screen, from 0.
     at: usize,
@@ -111,10 +149,13 @@ pub struct WalkWindow {
 }
 
 impl WalkWindow {
-    pub fn new(walk: &'static Walk, fleet: Option<WalkFleet>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(walk: &'static Walk, fleet: Option<WalkFleet>, takes: Vec<Take>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut this =
             WalkWindow {
             walk,
+            take: takes.iter().position(|take| std::ptr::eq(take.walk, walk)).unwrap_or(0),
+            takes,
+            takes_at: Rc::default(),
             stage: None,
             at: 0,
             playing: false,
@@ -221,7 +262,8 @@ impl WalkWindow {
     /// Approve, leaving any held notes held.
     fn approve_only(&mut self, cx: &mut Context<Self>) {
         let Some(fleet) = self.fleet_or_say(cx) else { return };
-        self.send(cx, "Approved", |_| {}, |_| {}, move || fleet.approve());
+        let take = self.taken();
+        self.send(cx, "Approved", |_| {}, |_| {}, move || fleet.approve(take.as_ref()));
     }
 
     /// Every held note as one turn, each with the window's picture, its area outlined and
@@ -234,7 +276,6 @@ impl WalkWindow {
             [rgba.r, rgba.g, rgba.b, rgba.a].map(|part| (part * 255.).round() as u8)
         };
         let (ink, on_ink) = (bytes(token::ACCENT), bytes(token::TEXT_ON_ACCENT));
-        let (walk, of) = (self.walk.name, self.walk.steps.len() as u32);
         if self.sending || self.held.is_empty() {
             return;
         }
@@ -246,6 +287,7 @@ impl WalkWindow {
         self.said = Some(Said { text: if held.len() == 1 { "Sending the note".into() } else { "Sending the notes".into() }, fault: false });
         cx.notify();
         let done = if and_approve { "Notes sent and approved" } else { "Notes sent" };
+        let take = self.taken();
         let sent = |this: &mut Self| this.sending = false;
         let refused = move |this: &mut Self| {
             this.sending = false;
@@ -258,19 +300,106 @@ impl WalkWindow {
                 .map(|(at, note)| super::fleet::NoteOn {
                     picture: note.picture.and_then(|(picture, scale)| ringed(&picture, note.ring, scale, at + 1, ink, on_ink)),
                     said: note.said,
-                    walk,
+                    take: note.take,
+                    walk: note.walk,
                     step: note.step,
-                    of,
+                    of: note.of,
                     role: note.role,
                     name: note.name,
                 })
                 .collect();
             fleet.notes(notes)?;
             if and_approve {
-                fleet.approve()?;
+                fleet.approve(take.as_ref())?;
             }
             Ok(())
         });
+    }
+
+    /// The take on screen, as Approve and a note name it. `None` for a walk with no takes.
+    fn taken(&self) -> Option<super::fleet::Taken> {
+        self.takes.get(self.take).map(|take| (letter(self.take), take.name.to_string()))
+    }
+
+    /// Put another take on screen, from its first step, as Electron's bar swaps the page.
+    fn pick_take(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(take) = self.takes.get(at) else { return };
+        if at == self.take {
+            return;
+        }
+        self.take = at;
+        self.walk = take.walk;
+        self.capture = None;
+        self.said = None;
+        self.at = 0;
+        self.play_to(0, true, window, cx);
+    }
+
+    /// ⌥⌘T, or a press on the takes: the menu of takes under its trigger, the one on screen ticked.
+    fn open_takes(&mut self, _: &OpenTakes, window: &mut Window, cx: &mut Context<Self>) {
+        if self.takes.len() < 2 || self.menu.is_some() {
+            return;
+        }
+        let Some(bounds) = self.takes_at.get() else { return };
+        let entries = self
+            .takes
+            .iter()
+            .enumerate()
+            .take(TAKE.len())
+            .map(|(at, take)| Entry::Choice { id: TAKE[at], label: format!("{} {}", letter(at), take.name).into(), on: at == self.take })
+            .collect();
+        let at = point(bounds.origin.x, bounds.origin.y + bounds.size.height + cx.look().length(token::SPACE_1));
+        let menu = cx.new(|cx| Dropdown::new("Takes", entries, at, Anchor::TopLeft, false, cx));
+        let picked = cx.subscribe_in(&menu, window, |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id, .. } = picked;
+            this.menu = None;
+            this.give_keys_back(window, cx);
+            if let Some(at) = TAKE.iter().position(|one| one == id) {
+                this.pick_take(at, window, cx);
+            }
+            cx.notify();
+        });
+        let dismissed = cx.subscribe_in(&menu, window, |this, _, _: &DismissEvent, window, cx| {
+            this.menu = None;
+            this.give_keys_back(window, cx);
+            cx.notify();
+        });
+        self.keys_were = window.focused(cx).or(self.keys_were.take());
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.menu = Some((menu, picked, dismissed));
+        cx.notify();
+    }
+
+    /// The takes' trigger, as Electron's `TakesMenu`: the letter and name on screen and a caret.
+    fn takes_trigger(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let take = self.takes.get(self.take).filter(|_| self.takes.len() > 1)?;
+        let look = cx.look();
+        let named = format!("{} {}", letter(self.take), take.name);
+        let takes_at = Rc::clone(&self.takes_at);
+        Some(labelled(
+            div()
+                .id("walk-takes")
+                .relative()
+                .flex_none()
+                .h(look.length(token::H_CONTROL_SM))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .text_size(look.length(token::TEXT_SM))
+                .text_color(look.color(token::FG_DEFAULT))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .child(canvas(move |bounds, _, _| takes_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .child(named.clone())
+                .child(gpui::svg().path(crate::assets::icon_path("chevron-down")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)))
+                .tooltip(|window, cx| gpui_component::tooltip::Tooltip::new("Takes  ⌥⌘T").build(window, cx))
+                .on_click(cx.listener(|this, _, window, cx| this.open_takes(&OpenTakes, window, cx))),
+            Role::Button,
+            format!("Takes, {named}"),
+        ))
     }
 
     /// The menu beside Send notes: send and approve, approve alone, or take a held note back.
@@ -427,7 +556,7 @@ impl WalkWindow {
                 ),
             ),
         };
-        self.held.push(HeldNote { said, step: self.at as u32 + 1, role, name, ring: held.bounds(), picture: capture.picture.map(|(picture, scale)| (std::sync::Arc::new(picture), scale)) });
+        self.held.push(HeldNote { said, take: self.taken(), walk: self.walk.name, of: self.walk.steps.len() as u32, step: self.at as u32 + 1, role, name, ring: held.bounds(), picture: capture.picture.map(|(picture, scale)| (std::sync::Arc::new(picture), scale)) });
         self.said = Some(Said { text: format!("Note {} held", self.held.len()).into(), fault: false });
         cx.notify();
     }
@@ -472,10 +601,11 @@ impl WalkWindow {
     }
 
     fn render_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let takes = self.takes_trigger(cx);
         let approve = if self.sending {
             sending_button(cx).into_any_element()
         } else if self.held.is_empty() {
-            approve_button(cx).into_any_element()
+            approve_button(self.takes.get(self.take).map(|take| take.name.clone()), cx).into_any_element()
         } else {
             self.send_notes_button(cx).into_any_element()
         };
@@ -510,6 +640,7 @@ impl WalkWindow {
         };
         let top = row()
             .child(drag("walk-lights").flex_none().w(look.length(token::SPACE_12) * 2. - look.length(token::SPACE_3)))
+            .children(takes)
             .child(drag("walk-room").flex_1().min_w_0().flex().items_center().children(said.map(|said| {
                 labelled(
                     div()
@@ -536,8 +667,9 @@ impl WalkWindow {
                 }),
             ))
             .child(
-                // Approve keeps one width, `calc(var(--space-8) * 6)`, so nothing beside it moves.
-                div().flex_none().w(look.length(token::SPACE_8) * 6.).child(approve),
+                // Approve keeps one width, `calc(var(--space-8) * 6)`, so nothing beside it moves; wider
+                // for a walk with takes, as it names the one on screen.
+                div().flex_none().w(look.length(token::SPACE_8) * if self.takes.is_empty() { 6. } else { 8. }).child(approve),
             );
         let line = row()
             .child(icon_button("walk-back", "chevron-left", "Replay to the step before", Some("⌥⌘←"), Weight::Quiet, !first && !self.playing, cx, cx.listener(|this, _, window, cx| this.back(&Back, window, cx))))
@@ -660,9 +792,13 @@ fn sending_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
 }
 
 /// Approve as Electron's walk bar draws it: a secondary button filling its slot, the word and a
-/// check centred, and the ⌘↵ chord.
-fn approve_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
+/// check centred, and the ⌘↵ chord. With takes it names the one on screen, which Electron's does not.
+fn approve_button(take: Option<SharedString>, cx: &mut Context<WalkWindow>) -> impl IntoElement {
     let look = cx.look();
+    let said: SharedString = match take {
+        Some(take) => format!("Approve {take}").into(),
+        None => "Approve".into(),
+    };
     labelled(
         div()
             .id("walk-approve")
@@ -682,12 +818,12 @@ fn approve_button(cx: &mut Context<WalkWindow>) -> impl IntoElement {
             .text_color(look.color(token::FG_DEFAULT))
             .cursor_pointer()
             .hover(|style| style.bg(look.color(token::BG_HOVER)))
-            .child("Approve")
+            .child(div().min_w_0().truncate().child(said.clone()))
             .child(gpui::svg().path(crate::assets::icon_path("check")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_DEFAULT)))
             .child(chord("⌘↵", cx))
             .on_click(cx.listener(|this, _, window, cx| this.approve(&Approve, window, cx))),
         Role::Button,
-        "Approve",
+        said,
     )
 }
 
@@ -710,6 +846,7 @@ impl Render for WalkWindow {
                 .on_action(cx.listener(Self::approve))
                 .on_action(cx.listener(Self::take_note))
                 .on_action(cx.listener(Self::cancel_note))
+                .on_action(cx.listener(Self::open_takes))
                 .relative()
                 .size_full()
                 .flex()

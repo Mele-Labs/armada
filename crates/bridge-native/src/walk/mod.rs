@@ -69,7 +69,8 @@ const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static 
 }
 
 /// Every walk this build can play, by name.
-pub static WALKS: &[Walk] = &[Walk {
+pub static WALKS: &[Walk] = &[
+    Walk {
     name: "jobs-list",
     title: "Jobs list",
     screen: Screen::Jobs,
@@ -105,7 +106,18 @@ pub static WALKS: &[Walk] = &[Walk {
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
-}];
+    },
+    Walk {
+        name: "jobs-lamps",
+        title: "Jobs list: a tinted hull",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &[
+            step("Each Job's surface takes a faint wash of its lamp's colour", Verb::Look, "row", "Quiet the write-clash notices"),
+            step("A Job waiting on you pulses amber", Verb::Look, "img", "Waiting on you"),
+        ],
+    },
+];
 
 pub fn named(name: &str) -> Option<&'static Walk> {
     WALKS.iter().find(|walk| walk.name == name)

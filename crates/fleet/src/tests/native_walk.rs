@@ -77,8 +77,9 @@ async fn show_window_takes_a_native_walk_address_and_refuses_what_only_a_web_pag
     let step: Vec<WalkStep> = ipc::decode("a step", br#"[{"say":"Look","look":{"role":"button","name":"Add"}}]"#).expect("a step");
     let steps = said(rig.fleet.show_window(None, ShowWindow { steps: step, ..shown(&id, OTHER) }).await);
     assert!(steps.contains("a native walk's steps live in its walk file in crates/bridge-native"), "{steps}");
-    let take = ipc::WindowTake { name: "A".into(), url: OTHER.into() };
-    assert!(rig.fleet.show_window(None, ShowWindow { variations: vec![take], ..shown(&id, OTHER) }).await.is_err());
+    let page = ipc::WindowTake { name: "A".into(), url: "http://localhost:5173/x".into() };
+    let web = said(rig.fleet.show_window(None, ShowWindow { variations: vec![page], ..shown(&id, OTHER) }).await);
+    assert!(web.contains("a native walk's address on every variation of a native walk"), "{web}");
     assert!(rig.fleet.show_window(None, ShowWindow { origins: vec!["https://login.example.com".into()], ..shown(&id, OTHER) }).await.is_err());
     assert!(rig.fleet.show_window(None, ShowWindow { sign_in: ipc::SignIn(vec![OTHER.into()]), ..shown(&id, OTHER) }).await.is_err());
     for bad in ["armada://walk/", "armada://walk/Sidebar", "armada://walk/a_b", "armada://walk/a/b"] {
@@ -166,6 +167,19 @@ async fn two_presses_start_one_app_from_the_slot_with_the_walk_the_job_the_addre
         "started in the slot, with the arguments the app reads: {line:?}"
     );
     assert!(running(&rig, &id, URL));
+}
+
+#[tokio::test]
+async fn a_native_walks_variations_are_other_native_walks_and_the_app_starts_with_each_as_a_take() {
+    let (rig, id) = in_its_slot(&Placing::nothing()).await;
+    let takes = vec![ipc::WindowTake { name: "Sidebar".into(), url: URL.into() }, ipc::WindowTake { name: "Footer".into(), url: OTHER.into() }];
+    rig.fleet.show_window(None, ShowWindow { variations: takes, ..shown(&id, URL) }).await.expect("takes of one walk");
+    built(&rig);
+
+    opened(&rig, &id, URL, 1).await;
+
+    let line = starts(&rig);
+    assert!(line[0].contains(&format!("--url {URL} --fleet-port {} --take Sidebar=sidebar --take Footer=footer", rig.fleet.host().port)), "{line:?}");
 }
 
 #[tokio::test]

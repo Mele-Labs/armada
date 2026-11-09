@@ -61,7 +61,12 @@ pub(super) fn takes_shown(url: &str, named: Vec<ipc::WindowTake>) -> Result<Vec<
     if takes.iter().any(|one| one.name.is_empty()) {
         return Err("a name on every variation");
     }
-    if takes.iter().any(|one| !shows_a_page(&one.url)) {
+    // A native walk's takes are other native walks: each is a screen the app swaps to.
+    if crate::native_walks::walk_name(url).is_some() {
+        if takes.iter().any(|one| crate::native_walks::walk_name(&one.url).is_none()) {
+            return Err("a native walk's address on every variation of a native walk");
+        }
+    } else if takes.iter().any(|one| !shows_a_page(&one.url)) {
         return Err("an `http` or `https` address on every variation");
     }
     if takes.first().is_some_and(|first| first.url != url) {

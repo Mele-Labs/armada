@@ -169,6 +169,9 @@ fn hue_of(state: JobState) -> crate::look::Token {
     }
 }
 
+/// How strongly a row's ground takes its lamp's colour; a Job waiting on you pulses from this to twice it.
+const HULL: f32 = 0.06;
+
 fn lamp_of(lamp: JobLamp) -> crate::look::Token {
     match lamp {
         JobLamp::Needs => token::STATUS_AWAITING_REVIEW,
@@ -887,6 +890,7 @@ impl JobsList {
         });
         let tagged = issue.is_some() || pr.is_some();
         let under = tagged || flow.is_some() || now.is_some();
+        let lamp_ink = look.color(lamp);
         let marks = div()
             .flex_none()
             .flex()
@@ -928,7 +932,7 @@ impl JobsList {
             .flex_col()
             .gap(look.length(token::SPACE_1))
             .py(pad)
-            .pl(look.length(token::SPACE_4))
+            .pl(look.length(token::SPACE_3))
             .pr(look.length(token::SPACE_3))
             .rounded(radius)
             .border(look.length(token::BORDER_WIDTH))
@@ -940,20 +944,12 @@ impl JobsList {
                 let tint = look.color(token::STATUS_AWAITING_REVIEW);
                 strip.child(div().absolute().inset_0().rounded(radius).with_animation(
                     SharedString::from(format!("needs-{}", row.id)),
-                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.06, 0.14)),
+                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(HULL, HULL * 2.)),
                     move |tinted, at| tinted.bg(tint.opacity(at)),
                 ))
             })
-            .child(
-                div()
-                    .absolute()
-                    .top(pad)
-                    .bottom(pad)
-                    .left(look.length(token::SPACE_1))
-                    .w(look.length(token::SPACE_1))
-                    .rounded_full()
-                    .bg(look.color(lamp)),
-            )
+            // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
+            .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
             .child(
                 div()
                     .flex()
@@ -994,6 +990,7 @@ impl JobsList {
                         .children(now),
                 )
             })
+            .cursor_pointer()
             .on_hover(cx.listener(move |this, hovered: &bool, window, cx| this.hovered(hover_on.clone(), *hovered, window, cx)))
             .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                 this.focused = Some(menu_on.clone());
