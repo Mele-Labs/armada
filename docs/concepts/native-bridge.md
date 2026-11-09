@@ -1,0 +1,132 @@
+# Native Bridge
+
+**What it is:** The core Bridge rebuilt natively in Rust on gpui, in `crates/bridge-native/`, beside the Electron Bridge, which stays until the owner picks the switch day.
+
+---
+
+**Kind:** Surface.
+
+The Electron Bridge is described in [Bridge](bridge.md).
+How a Job works on the native one is `../practices/native-bridge.md`.
+
+## Why native
+
+Decided 8 Nov 2026.
+The comparison page "Should Bridge leave Electron" said "not yet": opening a thread was mostly React drawing, and #3356 cut per-update redraws from 2,211 to 561.
+The owner chose native anyway, for three goals at once.
+
+| Goal | Meaning |
+|---|---|
+| Feel | The UI answers instantly |
+| Load | A lighter weight on the Mac |
+| Ownership | The stack is Armada's own |
+
+## The seven decisions
+
+### 1. gpui
+
+**The native Bridge is built on gpui-component and its pinned weekly gpui snapshot, gpui-pre.**
+If gpui-component's one maintainer stops, the build pins Zed's own gpui.
+
+### 2. Electron is frozen
+
+**Electron takes fixes and small features that help the owner daily.**
+Bigger features go native.
+Each Electron feature that lands during the overlap gets a task in the matching native group of the plan.
+
+### 3. A native mod kit, after switch day
+
+**Code mods, such as tabs and instruments, are sandboxed WebAssembly written in Rust.**
+Themes do not wait for the kit.
+Every theme in the app today works from the foundation: the catalogue in `packages/tokens/themes`, the built-in light and dark, and theme mods such as Dusk.
+Light and dark follow macOS.
+Job track, the owner's tab mod, waits for the kit.
+
+### 4. Walks and annotations
+
+**A note aims at a picture of the app plus labelled elements, each a role and a name.**
+A walk steps through labelled elements.
+The same labels are what VoiceOver reads and what tests find.
+A native screen is walked in its own native window on mock data, with a walk bar.
+
+### 5. Chrome for all web content
+
+**Chrome (CEF) is embedded for all web content: documents, sketch mocks, walks of web pages and the Browser tool.**
+One Armada Chrome profile keeps sign-ins, and the owner's own Chrome is never touched.
+If Chrome cannot be drawn inside the gpui window, it sits in a borderless window glued over its pane.
+
+### 6. Order
+
+**Jobs come first, then Operator, Projects and the Job tools.**
+The full order is in the plan.
+
+### 7. Switch day
+
+**The owner picks the switch day once the native app does everything he uses daily.**
+Both his Macs switch together, the work Mac included.
+Electron is renamed Armada Classic, given a muted icon and kept installed for two weeks.
+Then the Electron app is deleted from the repo, and the packages Pocket uses stay.
+
+## How the build looks and behaves
+
+| Area | Rule |
+|---|---|
+| Look | Same tokens. Each screen's layout may be reworked |
+| Each screen | A hi-fi HTML mock he walks, then the gpui build he walks again before it lands |
+| Window | One window, as today. One Job shows at a time |
+| Speed | A long thread opens, and a Job switch lands, in under 50 ms |
+| Jobs list | Grouped by project, Needs you first in each group |
+| Ended Jobs | Leave the list. The palette finds them |
+| Thread | A run of tool calls folds into one line that opens on a press |
+| Start | The app opens where he left off |
+| Accessibility | Full VoiceOver |
+
+**The speed figures tune the build and gate nothing.**
+They are measured against Electron, where a thread's first paint takes 132 to 239 ms today.
+
+**He usually has more than ten Jobs live.**
+He switches from the list, from palette search and from Needs you.
+
+## Notifying
+
+**Needs you lives inside the Jobs list and on the Operator board.**
+A banner and sound fire only when a Job needs him or stops.
+From the day the native Jobs screens land, only the native app notifies, sounds and badges the dock.
+
+## Logic lives in Fleet
+
+**Logic that Bridge works out in TypeScript today moves into Fleet as views.**
+The native app and Pocket, which stays web, share those views.
+
+## Using it while it is built
+
+**He uses the native app for real work as each screen lands.**
+Refresh preview rebuilds it with Fleet and Electron.
+
+## What ships before switch day
+
+Everything he uses daily:
+
+- Jobs list, thread, and the full composer: drafts, attachments, tags, voice, fork, slash commands.
+- Plan and draft approval, Needs you, the command palette and keys.
+- Dispatch sheet, merge queue strip, usage rings, Fleet build switcher, context ring, write-clash marks.
+- Documents, sketches and walks.
+- The Job panes Plan, Changes, Files, Checks, Subagents, Log, Ledger, Judge and the pull request panes.
+- A native diff viewer with comments.
+- Operator, board and Talk, as a panel or a screen chosen from mock takes.
+- Projects, every Settings section, Kit, Reviews, Issues, Usage with Time, Account with phone pairing.
+- Terminal, several per Job, the Request pane and the Browser tool.
+
+## What waits for after switch day
+
+- The mod kit.
+- The Cockpit's map, activity, bays, cleanup grid and flight tiles, and the battlefield, as mods.
+- Autopilot, the timeline HUD, Doctor, Lessons, Studios, Workflows, Logbook, Guides and the Mods page.
+- The seldom-opened Job panes: Spine, Workflow, Now, Done, Open and Deferred.
+
+## Open questions
+
+- **[native-operator-form]** Is the native Operator a panel or a screen?
+  The choice is made from mock takes, which the owner walks before the gpui build starts.
+- **[native-chrome-in-window]** Can Chrome be drawn inside the gpui window?
+  If it cannot, it sits in a borderless window glued over its pane.
