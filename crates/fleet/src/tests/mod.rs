@@ -228,6 +228,7 @@ mod usage_following;
 mod turn_usage;
 mod session_notes;
 mod terminal_session;
+mod thread_keeping;
 mod thread_view;
 mod walk_question;
 mod walk_steps;

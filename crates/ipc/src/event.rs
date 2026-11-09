@@ -37,7 +37,7 @@ use crate::watches::WatchList;
 use crate::bug_reports::BugReports;
 use crate::job_copy::KeepDraftsChanged;
 use crate::lifecycles::JobLifecycles;
-use crate::job_thread::JobThreadTail;
+use crate::job_thread::{JobThreadChanged, JobThreadTail};
 use crate::sessions::SessionRecord;
 use crate::studio::{Studio, StudioDeleted, StudioJobActed};
 use crate::terminals::JobTerminal;
@@ -212,6 +212,9 @@ pub enum Event {
     // What changed in a Job's thread as Fleet folds it: the items from `from` to the end, and the head.
     #[serde(rename = "job_thread.tail")]
     JobThreadTail(JobThreadTail),
+    // A change reached back further than a tail carries: a client that holds the item reads its window again.
+    #[serde(rename = "job_thread.changed")]
+    JobThreadChanged(JobThreadChanged),
     // A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed in a repository, with the repository alone.
     #[serde(rename = "keep_drafts.changed")]
     KeepDraftsChanged(KeepDraftsChanged),

@@ -70,7 +70,10 @@ The mark costs one id, and only a client that holds the item pays a read for it.
 
 A client that missed an event reads `get_job_thread` again on the resync after `Missed`, because a tail applied to a thread it does not hold would be wrong.
 Both events are published on the same stream as `session.row`.
-**This makes the unbounded sink neither better nor worse**: it adds an event per change to a Job a client read, where Bridge already took `session.row` for the same change.
-A tail is the changed items and not the thread, and the cap keeps it from growing with the thread.
+**This makes the unbounded sink slightly worse, and bounds how much worse.**
+Each change to a held Job adds one event beside the `session.row` it came from.
+Fleet publishes only for the 32 Jobs read most recently.
+A tail carries the items from the first that changed and the head, and the cap keeps that to 200 items, so it does not grow with the thread.
+The sink is still unbounded from the application side, so a client that fell behind is not pushed back on; the recovery is the resync after `Missed`, where it reads `get_job_thread` again.
 A Bridge from before this does not call the operation and ignores both events.
 A Fleet from before it refuses `/sessions/thread` as an unknown route.

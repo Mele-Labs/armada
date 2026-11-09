@@ -106,6 +106,18 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What changed in a Job's thread as Fleet folds it, from the first item that differs.
+    Route {
+        operation: "job_thread.tail",
+        method: "GET",
+        path: "/events",
+    },
+    // A change too far back in a Job's thread for a tail: a client that holds the item reads its window again.
+    Route {
+        operation: "job_thread.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A rule or a lifecycle a Job kept for every Job was begun, approved or dismissed, with its repository alone.
     Route {
         operation: "keep_drafts.changed",

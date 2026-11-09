@@ -176,6 +176,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/one",
     },
     Route {
+        operation: "get_job_thread",
+        method: "GET",
+        path: "/sessions/thread",
+    },
+    Route {
         operation: "get_session_subagent",
         method: "GET",
         path: "/sessions/subagent",

@@ -26,6 +26,11 @@ pub const THREAD_ITEMS_SERVED: u32 = 200;
 /// The most items one read answers; a larger `limit` is served this many.
 pub const THREAD_ITEMS_MOST: u32 = 1000;
 
+/// The most items from the end of a thread a change may reach for `job_thread.tail` to carry it. **A change
+/// further back is only marked** (`job_thread.changed`): an old ask answered, or a long-finished Check gaining
+/// a row, must not push a whole long thread to every client.
+pub const THREAD_TAIL_MOST: usize = 200;
+
 /// `get_job_thread`: the newest items of a Job's thread, or the ones before an item a client holds.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobThreadRead {
@@ -59,8 +64,10 @@ pub struct JobThread {
 /// replaced by id (an ask answered, a Check run ended, a tool call's subagent settled), re-folds the
 /// thread, and `from` is the first item the client held that differs. A client that does not hold
 /// `from` holds only items after it, so it replaces everything it holds with `items`. `from` absent
-/// is `items` after the last item, and with `items` empty it is the head alone changing. A client
-/// that missed one reads `get_job_thread` again on the resync after a `Missed`.
+/// is `items` after the last item, and with `items` empty it is the head alone changing. **A change
+/// more than [`THREAD_TAIL_MOST`] items back is [`JobThreadChanged`] and not a tail**, except an
+/// append, which is always a tail. A client that missed one reads `get_job_thread` again on the
+/// resync after a `Missed`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct JobThreadTail {
     pub session_id: SessionId,
@@ -69,6 +76,17 @@ pub struct JobThreadTail {
     #[serde(default)]
     pub items: Vec<ThreadItem>,
     pub head: ThreadHead,
+}
+
+/// `job_thread.changed`: a change reached back further than [`THREAD_TAIL_MOST`] items from the end of a
+/// thread, so Fleet sends the mark and not the tail. **A client that holds an item at or after `from`
+/// reads its window again with `get_job_thread`**, which is every client that holds the end of the
+/// thread; one that holds none ignores it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobThreadChanged {
+    pub session_id: SessionId,
+    /// The first item that changed, one the client held before the change.
+    pub from: String,
 }
 
 /// What stands over the whole thread rather than in it.

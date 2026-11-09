@@ -15,7 +15,7 @@ fn at(minute: u32) -> Instant {
     Instant::carried(format!("2026-11-03T10:{minute:02}:00.000Z"))
 }
 
-fn record(fields: &str) -> SessionRecord {
+pub(super) fn record(fields: &str) -> SessionRecord {
     let more = if fields.is_empty() { String::new() } else { format!(",{fields}") };
     let text = format!(
         r#"{{"id":"s1","harness":"hosted","origin":"bridge","cwd":"/w","state":"live","started_at":"2026-11-03T09:00:00.000Z","last_seen_at":"2026-11-03T09:00:00.000Z","usage":{{}},"attachments":[]{more}}}"#
@@ -23,11 +23,11 @@ fn record(fields: &str) -> SessionRecord {
     ipc::decode("a record", text.as_bytes()).expect("a record")
 }
 
-fn thread(rows: Vec<SessionRow>) -> SessionThread {
+pub(super) fn thread(rows: Vec<SessionRow>) -> SessionThread {
     SessionThread { session: record(""), rows }
 }
 
-fn tool(id: &str, minute: u32, text: &str) -> SessionRow {
+pub(super) fn tool(id: &str, minute: u32, text: &str) -> SessionRow {
     SessionRow::Tool { id: id.into(), at: at(minute), text: text.into(), subagent: None }
 }
 
@@ -50,11 +50,11 @@ fn message(id: &str, minute: u32, from: SessionVoice, text: &str, notice: Option
     }
 }
 
-fn agent(id: &str, minute: u32, text: &str) -> SessionRow {
+pub(super) fn agent(id: &str, minute: u32, text: &str) -> SessionRow {
     message(id, minute, SessionVoice::Agent, text, None)
 }
 
-fn you(id: &str, minute: u32, text: &str) -> SessionRow {
+pub(super) fn you(id: &str, minute: u32, text: &str) -> SessionRow {
     message(id, minute, SessionVoice::You, text, None)
 }
 
@@ -99,7 +99,7 @@ fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
         .collect()
 }
 
-fn ids(items: &[ThreadItem]) -> Vec<&str> {
+pub(super) fn ids(items: &[ThreadItem]) -> Vec<&str> {
     items.iter().map(ThreadItem::id).collect()
 }
 
