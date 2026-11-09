@@ -182,7 +182,7 @@ describe("a pull request's panes", () => {
     next: 2,
   });
 
-  test("a pull request opens on Default: Overview, Files, Review, Checks and Commits as one pane, an empty tools pane, Comments, and Ask under them all", async () => {
+  test("a pull request opens on Default: Overview, Files, Review, Checks and Commits as one pane, Comments, and Ask under them all", async () => {
     const s = await start();
     expect(kinds(s.prPanes.peek("pr1"), (x) => s.panesOf(x.root))).toEqual([
       [
@@ -192,7 +192,6 @@ describe("a pull request's panes", () => {
         "pr-checks",
         "pr-commits",
       ],
-      [],
       [
         "pr-comments",
       ],
