@@ -7,8 +7,30 @@ The Job view (head, thread, composer) is another file; this one only says where 
 Paths are relative to the repository root.
 `DK` is `apps/desktop/src/renderer/src/cockpit/deck`.
 `PC` is `packages/components/src`.
-Pixel values are the default set in `packages/tokens/src/spacing.css`: `--space-1` 4, `-2` 8, `-3` 12, `-4` 16, `-6` 24, `-8` 32, `-12` 48; `--h-control` 24, `--h-control-sm` 20.
-`packages/tokens/src/spacing-sets.css` and `packages/tokens/takes.css` hold other density sets, so a value can differ per set.
+Density follows his `spacing.density` setting (Compact, Default, Roomy).
+Default is `packages/tokens/src/spacing.css`; Compact and Roomy are `packages/tokens/src/spacing-sets.css` (`:root[data-spacing="compact"]` line 5, `"roomy"` line 26).
+Every pixel value below is Default's, resolved from the token named beside it.
+The native app implements all three sets; this table is the whole difference, and type sizes, hairlines, radii and the title row do not move.
+
+| Token | Compact | Default | Roomy |
+|---|---|---|---|
+| `--space-1` | 3px | 4px | 5px |
+| `--space-2` | 6px | 8px | 10px |
+| `--space-3` | 9px | 12px | 15px |
+| `--space-4` | 12px | 16px | 20px |
+| `--space-6` | 18px | 24px | 30px |
+| `--space-8` | 24px | 32px | 40px |
+| `--space-12` | 36px | 48px | 60px |
+| `--h-row`, `--h-row-header`, `--h-menu-item` | 24px | 28px | 32px |
+| `--h-control` | 24px | 28px | 32px |
+| `--h-control-sm` | 20px | 24px | 28px |
+| `--pad-card` | 16px | 16px | 24px |
+
+Constant in every set: `--h-badge` 20px, `--h-row-unit` 36px, `--h-kbd` 20px, `--border-width` 1px, `--radius-sm` 3px, `--radius-md` 6px, `--radius-lg` 8px (`spacing.css`).
+Type ladder (`typography.css`): `--text-2xs` 12px / `--leading-2xs` 16px, `--text-xs` 13 / 18, `--text-sm` 14 / 20, `--text-base` 15 / 22, `--text-lg` 18 / 28.
+Weights: `--weight-medium` 500, `--weight-heading` 600.
+`--tracking-caps` 0.04em (`typography.css:32`).
+Durations (`motion.css`): `--duration-press` 90ms, `--duration-fast` 120ms, `--duration-base` 180ms, `--duration-sheet` 220ms, `--duration-pulse` 1600ms, `--duration-decay` 45s.
 
 ## 0. Which list the "Jobs" tab draws
 
@@ -17,11 +39,18 @@ Pixel values are the default set in `packages/tokens/src/spacing.css`: `--space-
 | Two surfaces are named "Jobs" in `DECK_TABS`; both are hidden and both map to the Cockpit tab | `packages/shell/src/surfaces.ts` (`SURFACE`, `DECK_TABS`, `drawnTabs`), `apps/desktop/src/renderer/src/App.tsx:~266` (hidden list), `:~630` (`goTo`) |
 | The Jobs list is the Cockpit's left column, `section[aria-label="Jobs"]` | `DK/Deck.tsx:~771` |
 | The deck is a 3-column grid: Jobs list, centre stage, right bays. Left column width is `--deck-left`, default `calc(var(--space-12) * 6)` = 288px | `DK/deck.css:56`, `:65` |
-| No calls panel exists. A call is the pulsing row, the Calls HUD, the Needs you card in the Job thread, the toast and the Dock badge | `DK/Deck.tsx`, `DK/ConsoleCalls.tsx`, `NeedsYouPanel.tsx`, section 5 |
+| No calls panel exists. A call is the pulsing row, the Calls HUD, the Needs you card in the Job thread, the toast and the Dock badge | `DK/Deck.tsx`, `DK/ConsoleCalls.tsx` (the Calls HUD, out of scope: it goes with the Cockpit console after switch day), `NeedsYouPanel.tsx`, section 5 |
 
-QUESTION: Both "Jobs" tabs in `DECK_TABS` are hidden today; confirm the native app has one Jobs list (the Cockpit's left column) and no separate Jobs page.
+There is one Jobs list: the Cockpit's left column.
+Both Jobs tabs in `DECK_TABS` are hidden, and there is no separate Jobs page.
 
 ## 1. Jobs list
+
+**Data source.**
+The row's lamp, status glyph state and group come from `SessionRecord.mark {state, lamp, group, once_read}` (PR #3374, `crates/ipc/src/job_mark.rs`).
+For the native app that replaces `order.ts` `toneOf`, `lampOf` and `groupOf`, and `jobStateOf`.
+The glyph for each state is Electron's `MARK` table in `packages/components/src/compositions/SessionFrame/SessionFrame.tsx:87` (table in 1.4).
+`crates/ipc/src/job_mark.rs` is not in this checkout, so the tone/lamp/group rules below are today's Electron code and are the reference until that file lands.
 
 ### 1.1 Where it lives
 
@@ -59,14 +88,17 @@ QUESTION: Both "Jobs" tabs in `DECK_TABS` are hidden today; confirm the native a
 
 | Region | Size and type | CSS |
 |---|---|---|
-| Header band | min-height `--h-row-header` = `--deck-band` = `--h-control-sm` (20px); padding `0 var(--space-3)`; gap `--space-3` | `DK/deck.css:12`, `:18`, `:182-189` |
-| Band name "Jobs" | `.deck-band__name`, depth.css band type role | `PC/depth.css` (type roles ~150-230) |
-| Rows list | `--deck-line` = `--h-control`; `--row-min` = `--deck-line`; `--row-pad` = `0 var(--space-3)`; `--row-radius` = `--radius-md` (6px); padding `--space-1`; flex column; `overflow-y: auto` | `DK/deck.css:316-330` |
-| Rows list under flight-strip skin | padding `--space-2`; gap `--space-3` | `DK/console-bridge.css` list block |
-| Repository plate | `.deck-list__head`: min-height `--space-6`, padding `0 --space-2`, bottom hairline `--border-subtle`, size `--cb-code`, tracking `0.18em`, colour `--fg-muted`, no fill | `console-bridge.css` |
-| Row (strip) | min-height `calc(var(--space-6) + var(--space-3))` = 36px; padding-inline `--space-3` start, `--space-2` end; 1px `--border-subtle` border; radius 0; fill `--bg-sunken`; hover/cursor fill `--bg-hover` | `console-bridge.css` |
-| Lamp bar | `::before`, absolute, inset `0 auto 0 0`, width `--space-1` (4px), colour `--lamp-ink` | `console-bridge.css` |
-| Child strip | min-height `calc(var(--space-6) + var(--space-2))` = 32px; square rail, 2px borders | `console-bridge.css` |
+| Header band, base rule | `.deck-band`: min-height `--h-row-header` = `--deck-band` = `--h-control-sm` (24px); padding `0 var(--space-3)` (12px); gap `--space-3`; mono, `--text-xs` 13px / 18px, weight 600, `--tracking-caps` 0.04em, uppercase, colour `--fg-muted`; the Filter and the panel key sit at the right (`margin-left: auto`) | `DK/deck.css:12`, `:18`, `:182-198` |
+| Header band, as drawn | On a Cockpit panel the band is a chip, not a header row: absolute, `inset-block-start` and `inset-inline-end` `--space-1` (4px), padding `0 --space-1`, gap `--space-1`, `min-height: 0`, radius `--glass-radius-control` (= `--radius-md`), fill `--deck-hole`, 1px ring `--glass-edge`, `opacity: 0` and `1` on panel `:hover` or `:focus-within` over `--duration-fast` | `DK/deck.css:208-243` |
+| Band name "Jobs" | not drawn: a 1px clipped box that still names the band (`.deck-band__name`) | `DK/deck.css:229-238` |
+| Chip lane | `.deck-list__rows` gets `margin-top: calc(var(--space-1) * 2 + var(--h-control-sm))` (32px) so the chip lies clear of rows; `console-bridge.css:986-989` sets `margin: 0` on `.deck-left > .deck-list > .deck-list__rows` and by selector weight wins, so the lane is 0 in the flight-strip look | `DK/deck.css:244-246`, `DK/console-bridge.css:986-989` |
+| Rows list, base | `--deck-line` = `--h-control` (28px); `--row-min` = `--deck-line` (the "28px" in the comment above it is the base rule's, overridden by the strip below, so that comment is stale for this list); `--row-pad` = `0 var(--space-3)`; `--row-radius` = `--radius-md` (6px); padding `--space-1`; flex column; `overflow-y: auto` | `DK/deck.css:316-330` |
+| Rows list, flight-strip skin (the spec) | margin 0; padding `--space-2` (8px); gap `--space-3` (12px) between plates | `DK/console-bridge.css:985-990` |
+| Repository plate | `.deck-list__head`: min-height `--space-6` (24px), margin-bottom `--space-1`, padding `0 --space-2`, bottom hairline `--border-subtle`, no fill, no radius, no shadow, colour `--fg-muted`, size `--cb-code` = `calc(var(--text-2xs) * 0.8)` = 9.6px, tracking `0.18em` (literal); family, weight, case and line-height come from the base rule: `--font-mono`, 600, uppercase, `--leading-xs` 18px | `DK/console-bridge.css:1006-1017` over `DK/deck.css:390-404` |
+| Group gap | `.deck-list__group` gap `--space-1`; a second plate has `margin-top: --space-3`; no divider between items | `DK/console-bridge.css:~996-1004` |
+| Row (strip) | min-height `calc(var(--space-6) + var(--space-3))` = 36px; padding-inline `--space-3` start, `--space-2` end; 1px `--border-subtle` border; radius 0; fill `--bg-sunken`; hover, `data-hover` and `data-cursor` fill `--bg-hover`; selected: border `--accent`, fill `--accent-muted`; queued: dashed border, no lamp bar; focus ring `--focus-ring` offset `--focus-ring-offset` (2px) | `DK/console-bridge.css:1021-1090` |
+| Lamp bar | `::before`, absolute, `z-index: 1`, inset `0 auto 0 0`, width `--space-1` (4px), colour `--lamp-ink`: idle `--border-strong`, running `--cb-cyan` (`--status-running`), failed `--status-completed-failed`, done `--status-completed-success`, needs `--cb-amber` (`--status-awaiting-review`) | `DK/console-bridge.css:1024-1074`, tokens `:13-14` |
+| Child strip | min-height `calc(var(--space-6) + var(--space-2))` = 32px; the item's `::before` is a square rail with a 2px inline-start and block-end border in `--border-default`; `.deck-list__rail` is 2px inline-start in `--border-default` | `DK/console-bridge.css:1076-1092` |
 | ListCard grid | columns `minmax(0,1fr) auto auto`, areas `"title at marks"`; with a tag or lines under it: `minmax(0,1fr) auto`, areas `"title marks" "tag at" "lines at"`; column-gap `--space-2` | `ListCard.css:1-30` |
 
 Text on a row:
@@ -77,7 +109,7 @@ Text on a row:
 | Chips (issue, PR, workflow) | `--size-meta` = `--text-2xs` 12px | normal | `--font-mono`, tabular | normal | as typed |
 | Time (`.armada-list-card__at`) | `--size-meta` 12px | normal | sans, tabular | normal | as typed; colour `--fg-subtle` |
 | Lines under title | `--size-meta` 12px | normal | sans | normal | colour `--fg-muted` |
-| Repository plate | `--cb-code` | stencil | mono | 0.18em | as typed |
+| Repository plate | `--cb-code` 9.6px / `--leading-xs` 18px | 600 | `--font-mono` | 0.18em | uppercase |
 
 Marks column: each `.armada-list-card__mark` is `--space-4` (16px) wide; the wide status mark is `calc(var(--space-4) * 2 + var(--space-1))` = 36px; gap `--space-1`.
 Marks hold the clash, tools, reported and earlier slots (empty places, buttons drawn over them from `Deck.tsx`), then the status.
@@ -244,10 +276,14 @@ Source of truth: `crates/core-model/domain/actions.toml`, read by `isPressed`; d
 
 Calls come from `useItems("command-central")`; `incomingOf` (`store.ts:526`) and `callOwnerOf` (`store.ts:578`) pick one call per Job.
 
-QUESTION: Row height under the flight-strip skin is 36px (`console-bridge.css`), while `deck.css:316` still comments "28px"; confirm the native list copies the 36px strip, not the 28px hairline row.
-QUESTION: `console-bridge.css` is the Cockpit theme (mission-control). Confirm the native Jobs list draws the flight-strip skin (lamp bar, square corners, plate headings) and not `depth.css`'s rounded hairline rows.
-QUESTION: `--h-control` is 24px in `spacing.css` but other density sets in `spacing-sets.css` give 32 and other values; confirm which set the native app matches.
-QUESTION: The `h` key (open earlier Job) is hard-coded in `Deck.tsx` and not in the registry; confirm it should be bound natively.
+`console-bridge.css` is imported unconditionally by `DK/Deck.tsx:164` and applies through `:root:root`.
+The flight-strip skin (36px rows, lamp bar, square corners, plate headings) is today's look and is the spec.
+The "28px" in the comment above `.deck-list__rows` at `DK/deck.css:316` (`--deck-line: var(--h-control)`, `--row-min`) is stale: it describes the hairline row the strip replaces.
+Density follows `spacing.density` (see the table at the top); the strip's min-height is `--space-6 + --space-3`: 27px Compact, 36px Default, 45px Roomy.
+The `h` key on a row opens its earlier Job, and it is bound today (`Deck.tsx:669`).
+It is in the spec even though it is not in `actions.toml`; its source comment says it waits on the look.
+
+QUESTION: `deck.css:244-246` gives `.deck-list__rows` a `margin-top` of 32px to clear the hover chip, and `console-bridge.css:986-989` sets `margin: 0` on the same element; by selector weight the second wins, so the chip lies over the first plate or row when it shows. A screenshot of the real Bridge would confirm; the native build needs to know whether to reserve that lane.
 
 ## 2. Needs you
 
@@ -280,12 +316,53 @@ The list-side pulse is in 1.4; the Calls HUD and Dock are in section 5.
 
 | Property | Value | File |
 |---|---|---|
-| Hue | `--hue: var(--step-waiting)`; `data-kind="end"` uses `--step-advanced`; `"failed"` uses `--status-completed-failed`; `"waiting"` uses `--status-handed-in` | `NeedsYouPanel.css:1-20` |
+| Hue | `--hue: var(--step-waiting)`; `data-kind="end"` uses `--step-advanced`; `"failed"` uses `--status-completed-failed`; `"waiting"` uses `--status-handed-in` | `NeedsYouPanel.css:3-30` |
 | Band, body, composer | one hue, no gap, so they read as one object | comment `NeedsYouPanel.css:1` |
-| Row text, eyebrows | `.armada-session-ledger__row`, `__eyebrow` | `SessionLedger.css` |
-| Reason text of a failed handoff | `--text-xs` / `--leading-xs`, `--fg-muted` | `NeedsYouPanel.css` |
+| Reason text of a failed handoff | `--text-xs` 13px / `--leading-xs` 18px, `--fg-muted` | `NeedsYouPanel.css:79-85` |
 
-QUESTION: Exact pixel sizes of the band, rows and eyebrow type live in `NeedsYouPanel.css` lines 100-426 and `SessionLedger.css` and were not all transcribed; confirm whether the native team reads those files for exact sizes or wants them listed here.
+Sizes, all Default-set values (`NeedsYouPanel.css` unless a file is named):
+
+| Part | Value | Line |
+|---|---|---|
+| Panel box | `position: absolute; inset-block-end: 100%; inset-inline: 0; z-index: 2; flex column`; `pointer-events: none` on the box and `auto` on its children | 3-14, 95-97 |
+| Band | `height: var(--h-badge)` 20px; flex; fill `--hue`; ink `--fg-inverse`; `overflow: hidden`; top corners `--radius-md` 6px folded, `--radius-lg` 8px open, over `--duration-sheet` 220ms | 100-113 |
+| Band in the Job pane (the look) | top corners `--glass-radius-chip` (= `--radius-md`) in both states | `PC/depth.css:865-868` |
+| Trigger and restart key | flex, centred; gap `--space-2` 8px; padding `0 --space-3` 12px; no border; trigger `flex: 1`, `min-width: 0`; `aria-disabled` cursor default | 114-137 |
+| Restart key | `flex: none`; fill `--accent`, hover `--accent-hover`; `--text-xs` 13px, weight 500 | 138-150 |
+| Band label "Needs you" | `--text-2xs` 12px / `--leading-2xs` 16px; weight 600; tracking `--tracking-caps` 0.04em; uppercase | 159-166 |
+| Band glyph marks | inline-flex, gap `--space-1` 4px; each mark 12px | 167-171 |
+| Fold chevron | `margin-inline-start: auto`; rotates 180deg when open over `--duration-sheet` | 172-181 |
+| Reveal | grid rows `0fr` folded to `1fr` open over `--duration-sheet` 220ms; `visibility` flips at the end of the close | 183-199 |
+| Body | flex column, gap `--space-3` 12px; padding `--space-2 --space-3` (8px 12px); side borders 1px `--hue`, no top or bottom border; fill `--bg-raised`; `max-height: calc(var(--thread-h, 55vh) * 0.95 - var(--h-badge))`; scrolls; opacity 0 folded, 1 open (`--duration-base` 180ms after `--duration-press` 90ms) | 207-228 |
+| Body in the Job pane (the look) | fill `color-mix(in srgb, var(--fg-default) 8%, var(--glass-field))` | `PC/depth.css:869-871` |
+| Thread dimmer | `.armada-session-thread__stage::after`: inset `-8px -12px 0` (`--space-2`, `--space-3`), `z-index: 1`, `color-mix(--bg-base 50%, transparent)`, opacity 1 while the panel is open, a press folds it | 229-246 |
+| List and detail entry | rise `--space-2` 8px and fade over `--duration-base` | 248-259 |
+| List | flex column; gap `--space-4` 16px between groups; `padding-block-end: --space-3` 12px | 261-266 |
+| Detail | flex column; `align-items: flex-start`; gap `--space-2` 8px | 268-274 |
+| Second press beside a row | `align-self: center; margin-inline-end: --space-2` | 276-280 |
+| Head (Back and thumbs) | flex, space-between, `align-self: stretch` | 282-288 |
+| Thumbs | flex, gap `--space-1` 4px, `margin-inline-end: --space-2`; each thumb button `--space-6` 24px square, glyph 12px | 290-298, 353-358 |
+| Operator options | grid, columns `calc(var(--space-12) * 2)` 96px and `calc(var(--space-12) + var(--space-2))` 56px; gap `--space-1`; `margin-inline-end: --space-2` | 300-310 |
+| Start act | `inline-size: calc(var(--space-12) * 2)` 96px, right-aligned; the button weight 600; Starting: gap `--space-1`, `--fg-muted`, 13px, weight 600, its glyph spins over `--duration-pulse` 1600ms (stops under reduced motion) | 312-351 |
+| Open question | `.armada-question-deck__answers` `min-height: calc(var(--space-6) * 5)` 120px, `overflow-y: auto`, padding `--space-1`, margin `-1 * --space-1` | 404-411 |
+| Reduced motion | every transition in this block is `none`; the list and detail entry animations are `none` | 413-426 |
+
+Rows and eyebrows inside the panel come from `SessionLedger.css`:
+
+| Part | Value | Line |
+|---|---|---|
+| Group | flex column; gap `--space-2` 8px | 19-24 |
+| Eyebrow (base rule) | margin 0; `--fg-muted`; `--text-2xs` 12px / `--leading-2xs` 16px; weight 600; `--tracking-caps` 0.04em; uppercase | 25-34 |
+| Eyebrow (the look, which wins) | `--font-display` (= `--font-sans`); `--text-head` (= `--text-xs`) 13px / `--leading-head` 16px; `--weight-head` 600; `--tracking-head` 0.12em; uppercase | `PC/depth.css:22-30`, tokens `packages/tokens/takes.css:22,27,32` |
+| Rows list | flex column; gap `--space-2` 8px; no margin, padding or marker | 35-42 |
+| Row | flex, wraps, `min-width: 0`; 1px `--border-subtle` border; radius `--radius-md` 6px; fill `--bg-raised`; `--text-xs` 13px / 18px; on arrival it fades from `--status-running` at `--row-tint-recent` over `--duration-decay` 45s; hover: border `--border-strong`, fill `--bg-hover` | 67-88, 181-183 |
+| Open button (the row's press) | flex 1; centred; gap `--space-2` 8px; padding `--space-2 --space-3` (8px 12px); no border; radius inherited; `font: inherit`; focus ring `--focus-ring` offset `--focus-ring-offset` 2px | 89-109 |
+| Row text | flex 1; one line with ellipsis | 110-115 |
+| Offer row (a restart Fleet offers) | text padding `--space-2 --space-3`, wraps anywhere; key padding `--space-1 --space-2`, radius 6px, fill `--accent` (hover `--accent-hover`), weight 500, gap `--space-2` | 503-540 |
+| Row marks | 12px glyph in `.armada-session-mark` (`role="img"`) | `NeedsYouPanel.tsx:442` |
+| Release and dismiss | shown only while the row is hovered or holds focus | 549-564 |
+
+Hue by kind (`NeedsYouPanel.css:3-30`): default `--step-waiting`; `end` `--step-advanced`; `failed` `--status-completed-failed`; `waiting` `--status-handed-in`.
 
 ### 2.3 Controls
 
@@ -356,8 +433,9 @@ Wire: `WaitingItem`, `WaitingSource`, `WaitingAct`, `SessionStanding` in `packag
 `CALL_WORD` in 1.4 maps `source` to a word.
 `BLOCKED` sources for sound: `ask_card`, `permission`, `window_ask`, `plan`, `slot_choice`, `delivery`, `task_done`, `browser_ask` (`session-attention.ts:19`).
 
-QUESTION: `NeedsYouPanel.tsx` doc comment (`:148`) lists "walk" among what the review sheet holds, but `JobReviewSheet.tsx` builds only plan, sketch, document and draft; walks are Job tabs (no walk in the sheet). Confirm walks stay out of the native sheet and are `Walks` rows here.
-QUESTION: A reply row lets a reply box open inline (`LedgerRows`, `replying`); its sizes and behaviour live in `SessionLedger.tsx:~900-1200` and belong to the Job view inventory. Confirm that file owns it.
+Walks are Job tabs and are not in the review sheet; the code is the truth.
+The doc comment at `NeedsYouPanel.tsx:148` that lists "walk" among the sheet's items is stale: `JobReviewSheet.tsx` builds only `plan`, `sketch`, `document` and `draft` items, and a walk is a `Walks` row in this panel.
+The reply box inside a ledger row (`LedgerRows`, `replying`, `SessionLedger.tsx:~900-1200`) belongs to the Job view inventory, `docs/spikes/native-jobs-inventory/job-view.md`.
 
 ## 3. Review sheet
 
@@ -454,7 +532,7 @@ Sheet is a dialog; list is `role="group"` `aria-label="Waiting on you"`; items a
 Props: `open`, `job`, `items`, `keep` (draft key), `onPrimary`, `onSendBack`, `onSelect`, `onClose`, `floor`.
 Host builds each from a `LedgerEntry` plus parts (`plan`, `drafts`, sketch and document attachments via `attachmentsOf`).
 
-QUESTION: The sheet bodies (plan card, sketch, document, draft row) are other components; confirm the Job view inventory covers `SketchBody`, `DocumentBody` and `DraftRow`.
+The sheet bodies (plan card, `SketchBody`, `DocumentBody`, `DraftRow`) belong to the Job view inventory, `docs/spikes/native-jobs-inventory/job-view.md`.
 
 ## 4. Command palette for Jobs
 
@@ -472,15 +550,60 @@ QUESTION: The sheet bodies (plan card, sketch, document, draft row) are other co
 Palette is `role="dialog"` `aria-label="Command palette"`, with a `role="combobox"` input and `role="listbox"` list (`id="armada-palette-list"`); each row `role="option"`.
 Default placeholder `Search actions, jobs and settings`; the input aria-label is the placeholder (or the step title in a step flow).
 An empty result is `role="alert"`.
-Sizes live in `CommandPalette.css` (not transcribed).
-Row: glyph, label, then kind flush right via `KIND`, then meta.
+Row: glyph, label (title, then subtitle), kind flush right via `KIND`, then meta.
 A Job row's meta (`metaOfJob`): `repo` and `state` when present.
 
-| Section label | Holds |
+Section headings, in order (`Palette.tsx:523-607`): the open page (titled with the page, only if it has rows), then the focused thing (`on`, else `Nothing focused`), `Navigation`, `Commands` (only if a mod brings some), `Run in the checkout`, `Repositories`, `Jobs`, `Pull requests`, `Issues`, `Tasks`, `Settings`.
+With the setting *Palette opens with* = `Pinned and recent` the empty query shows `Pinned` then `Recent` (`Palette.tsx:~895-920`); `This page first` shows the whole list headed by the page; `Everything` shows the whole list without the page's rows.
+A word he gave a row, typed whole, puts that row first, under no heading.
+
+Sizes, Default set.
+Where `depth.css` restates a rule under `:root[data-look="new"]` (forced on) it wins, and both are given.
+The base rules are `PC/primitives/CommandPalette/CommandPalette.css` (`CP`), the look is `PC/depth.css:938-1028`.
+
+| Part | Base (`CP`) | The look (wins) |
+|---|---|---|
+| Layer | fixed, inset 0, `z-index: var(--z-palette)` 90, flex centred, `align-items: flex-start`, `padding-top: 20vh`, fill `--scrim`, fades in over `--duration-base` (CP:27-41) | |
+| Box | width 100%, `max-width: calc(var(--palette-width) * 1.2)` = 672px (`--palette-width` 560px, `spacing.css:354`), `max-height: var(--palette-max-height)` 400px, radius `--radius-lg` 8px, fill `--bg-overlay`, border 1px `--border-default`, shadow `--shadow-overlay`, `overflow: hidden`, enters over `--duration-base` rising 8px from 0.98 scale (CP:56-69) | border colour `rgb(255 255 255 / 0.12)`; shadow `--shadow-overlay` plus `--glass-highlight` (inset 1px, `--fg-default` at 24%); enters over 120ms rising `--space-1` 4px; no animation under reduced motion (depth.css:953-966, 1024-1028) |
+| Anchored (opened from the title bar's field, or dragged) | `position: absolute`, `width: min(var(--palette-wide), calc(100vw - var(--space-6)))` (672px or the window minus 24px), `translate: -50% 0`, no top padding (CP:259-268) | |
+| Field row | flex, 1px bottom rule `--border-subtle` (CP:72-77) | rule `--head-rule` (= `--border-subtle`) (depth.css:967) |
+| Input | `height: var(--h-control)` 28px, padding `0 --space-3` 12px, no border or radius, transparent, `--font-sans`, `--text-lg` 18px / `--leading-lg` 28px, placeholder `--fg-subtle`, no focus outline (CP:93-118) | `height: var(--space-12)` 48px, padding `0 --space-4` 16px, 18px (depth.css:973-977) |
+| Command chip before the input (`__of`) | height `--space-6` 24px, `margin-left: --space-3`, padding `0 --space-2`, radius `--radius-sm` 3px, fill `--fg-default` at 10%, `--text-sm` 14px, no wrap; the input after it has `padding-left: --space-2` (CP:79-109) | `margin-left: --space-4` 16px (depth.css:970) |
+| List | flex 1, `min-height: 0`, scrolls, padding `--space-1 0` (CP:120-125) | padding `--space-1 --space-2 --space-2` = 4px 8px 8px (depth.css:978) |
+| Section heading | height `--h-row-header` 28px, padding `0 --space-3`, `--fg-subtle`, `--text-2xs` 12px / 16px (CP:127-135) | height `calc(var(--space-8) - var(--space-1))` 28px, padding `0 --space-2` 8px, `--font-mono`, 12px, weight 600, tracking `--tracking-caps` 0.04em, uppercase (depth.css:981-989) |
+| Step head (a second step) | min-height `--h-row-header`, padding `0 --space-3`, `--fg-default`, `--text-xs` 13px / 18px, weight 500, ellipsis (CP:138-151) | |
+| Row | flex, centred, gap `--space-2` 8px, `height: var(--h-menu-item)` 28px, padding `0 --space-3` 12px, `--font-sans`, `--text-sm` 14px, `--fg-default`, background transition `--duration-fast` (CP:153-164) | `height: var(--palette-row)` = `--space-8` 32px (24 Compact, 40 Roomy; deliberately a spacing step, not a control height), padding `0 --space-2` 8px, radius `--radius-md` 6px (depth.css:956, 990-996) |
+| Stacked row (a dispatch row carrying chips) | `height: auto`, `min-height: --h-menu-item`, `padding-block: --space-2`, `align-items: flex-start`; glyph and kind take `--leading-sm` 20px height; the label stacks with gap `--space-1` (CP:327-349) | `min-height: var(--palette-row)`, `padding-block: --space-2` (depth.css:998-1002) |
+| Row, hover | | fill `--bg-step` (depth.css:1003-1005) |
+| Row, active (under the cursor) | fill `--bg-hover` (CP:166) | one neutral rounded fill, `--fg-default` at 10%; no bar, no accent (depth.css:1008-1011) |
+| Row, dormant (nothing answers it) | `--fg-subtle`, `cursor: default`; a `__dormant` note at its end, 12px / 16px `--fg-subtle` (CP:179-182, 241-246) | active or hover fill `--bg-step`; glyph `--fg-subtle` (depth.css:1013-1019) |
+| Row, danger | label and glyph `--status-completed-failed`, no fill; the matched span is underlined 1px, offset `--space-1 / 2` (CP:173-175, 234-239) | |
+| Row, trailing (what was typed, offered as work) | sticky bottom 0, top border 1px `--border-subtle`, fill `--bg-overlay`; the dispatch glyph is `--accent`; the typed words `--fg-default`, weight 500 (CP:305-323) | transparent, no top border (depth.css:1020-1023) |
+| Glyph | `width: var(--armada-glyph)` = `--space-4` 16px, `--fg-muted`, centred, flex none (CP:22, 184-191) | |
+| Label | flex row, baseline, gap `--space-3` 12px, flex 1, ellipsis (CP:199-205, 418-424); title `flex: none`, ellipsis (CP:426-433) | |
+| Subtitle | `--fg-subtle`, `--text-xs` 13px, inline-flex gap `--space-2`, ellipsis (CP:435-450) | |
+| Match | label drops to `--fg-muted`, the matched span stays `--fg-default`; dormant: `--fg-muted` span (CP:215-232) | |
+| Kind column | flex none, `width: calc(var(--space-12) * 2)` 96px, right-aligned, `--fg-subtle`, `--text-xs` 13px, no wrap; while a quick key is revealed (`data-revealing`) the word blurs `--space-1` 4px and drops to 60% opacity over `--duration-fast`; `.armada-palette__quick` is absolute over the column (CP:452-483) | |
+| Chips (dispatch row) | height `--space-6` 24px, padding `0 --space-2`, 1px `--border-default`, radius `--radius-sm`, fill `--bg-raised`, `--font-mono`, 12px / 16px, weight 500; open: border `--accent`; glyph `--fg-muted`; wrap gap `--space-1` (CP:352-392) | |
+| Empty (`role="alert"`) | padding `--space-3` 12px, `--fg-muted`, `--text-sm` 14px / 20px, `text-wrap: pretty` (CP:248-255) | |
+| Foot (key legend) | flex, wrap, `justify-content: flex-end`, gap `--space-2 --space-4` (8px 16px), padding `--space-2 --space-3` (8px 12px), top border 1px `--border-subtle`, `--fg-subtle`, `--font-sans`, `--text-xs` 13px / 18px; each item inline-flex, gap `--space-1` (CP:395-413) | |
+| Drag | the sections, foot and act panel title show `cursor: grab`; moving shows `grabbing` and no text selection; snap guides are 1px `--accent` lines through the window's middle (CP:271-301) | |
+| Stacking | a dialog scrim over the palette is `--z-palette + 1` (CP:580-582) | |
+
+The row's kind and quick-key behaviours are `row-meta.tsx` (59 lines); the ⌘K panel is `actions-panel.tsx`.
+
+⌘K act panel (`.armada-palette__actions`, CP:486-572):
+
+| Part | Value |
 |---|---|
-| `Pinned and recent` | pinned and recently used rows, of every kind |
-| `This page first` | rows of the current page |
-| `Everything` | the rest |
+| Box | absolute; `right: --space-2` 8px; `bottom: calc(var(--space-8) + var(--space-1))` 36px; flex column; `width: calc(var(--palette-width) / 1.6)` 350px; `max-height: calc(100% - var(--space-12) - var(--space-8) - var(--space-2))` (100% minus 88px); 1px `--border-default` border; radius `--radius-lg`; fill `--bg-overlay`; shadow `--shadow-overlay` |
+| Title | padding `--space-2 --space-3 --space-1`, `--text-xs` 13px, `--fg-subtle`, ellipsis |
+| List | flex 1, scrolls, padding `0 --space-1 --space-1`; rows are the palette rows above; a row's chord is a `Kbd` with `margin-left: auto` |
+| Held value | `max-width: 50%`, `margin-left: auto`, `--text-xs`, `--fg-subtle`, ellipsis |
+| Refusal | `padding-right: --space-3`, `--status-escalated`, `--text-xs`, no wrap |
+| Foot | flex, centred, top border 1px `--border-subtle`; its field is `height: var(--h-menu-item)` 28px, padding `0 --space-3`, `--text-sm`, no border, transparent, placeholder `--fg-subtle` |
+| Rule between groups | 1px high, margin `--space-1 --space-2`, `--border-subtle` |
+| With the panel open | the list's `min-height` is `calc(var(--h-menu-item) * 11 + var(--space-4))` = 324px |
 
 `KIND` text by id prefix: `session:` `Job`; `pull:` `Pull request`; `issue:` `Issue`; `task:` `Task`; `cmd:` `Command`; `nav:` `Page`; `set:` `Setting`; `run:` `Check`; `repo:` `Repository`; `tab:` `Filter`.
 
@@ -525,15 +648,28 @@ Other rows have their own acts (`Dispatch`, `Tick`, `Run`, `Set alias`, `Remove 
 
 ### 4.6 Strings
 
-`Command palette`, `Search actions, jobs and settings`, `Pinned and recent`, `This page first`, `Everything`, `All repositories`, the `KIND` words, and the act labels in 4.3.
+`Command palette`, `Search actions, jobs and settings`, the section headings in 4.2 (`Navigation`, `Commands`, `Run in the checkout`, `Repositories`, `Jobs`, `Pull requests`, `Issues`, `Tasks`, `Settings`, `Pinned`, `Recent`, `Nothing focused`), the setting's values (`Pinned and recent`, `This page first`, `Everything`), `All repositories`, the `KIND` words, and the act labels in 4.3 and 4.3's other rows (`Open in Reviews`, `Open on the forge`, `Start a Job on it`, `Dispatch`, `Tick`, `Run`, `Set alias`, `Remove alias`, `Record hotkey`, `Remove hotkey`).
 
 ### 4.7 Data
 
 `PaletteSession` (`id`, `title`, `repo`, `state`, `paused`, `pull`, `without`), `PaletteEntry`, `PaletteAction` (`id`, `label`, `icon`, `shortcut`, `apart`, `stays`, `destructive`), `PaletteMeta` (`repo`, `state`).
 
-QUESTION: The brief names "Open ↵, Pause or Resume ⌘P, Fork ⌥⌘F, Copy Job id ⇧⌘C, Pin or Unpin ⇧⌘F, Stop ⌘⌫"; the code also has `Open pull request ⇧⌘P` and `Merge pull request ⇧⌘M` for a Job with a pull request. Confirm all are in scope.
-QUESTION: `docs/contracts/design-system/keyboard-and-command-palette.md` was grepped, not read whole; the contract's act table may differ from `Palette.tsx` (for example on `Stop` confirmation text). Confirm which is the authority.
-QUESTION: Palette pixel sizes live in `CommandPalette.css` and were not transcribed.
+Every palette act in the code is in scope, including `Open pull request ⇧⌘P` and `Merge pull request ⇧⌘M` for a Job with a pull request.
+Where the contract's act table (`docs/contracts/design-system/keyboard-and-command-palette.md:535-547`) differs from `Palette.tsx`, the code is the authority.
+The act lists for Job, Job holding a pull request, Pull request, Issue, Task and Command match the contract row for row.
+The differences:
+
+| Contract says | Code does | Where |
+|---|---|---|
+| "Any other row: Set alias and Record hotkey only" | every row that is not `dormant` also gets `Set alias` (set apart, takes a word), `Remove alias` (only once an alias is set, palette stays up), `Record hotkey` (takes a chord) and `Remove hotkey` (only once a hotkey is set, stays up); a Job, Pull request, Issue, Task and Command get them after their own acts | `Palette.tsx:1217-1275` (`actionsOf`) |
+| the table lists no alias or hotkey act for any row kind | a `destructive` entry (a Job's `Stop` is the act, the entry is the row) has no `Record hotkey` or `Remove hotkey`; a `dormant` row has none of the four | `Palette.tsx:1217-1275` |
+| "A Job's act that nothing answers is left out" | filtered by the Job's `without` list, matched on act id | `Palette.tsx:1400` |
+| Pin acts are `Pin ⇧⌘F` | the label flips to `Unpin` when the id is already pinned; both are set apart and stay up | `Palette.tsx:1324-1340` |
+| no separator information | `apart` (a rule above the act) is set on `Open pull request`, `Copy Job id`, `Pin`/`Unpin`, `Stop`, `Start a Job on it`, `Set alias` | `Palette.tsx:1318-1440` |
+| no glyphs named | Job: `Pause`/`Play`, `GitFork`, `GitPullRequest`, `GitMerge`, `Copy`, `Ban`; Pull request: `GitPullRequest`, `ExternalLink`, `Plus`; `Open`, `Dispatch`, `Tick`, `Run` glyphs per file | `Palette.tsx:1342-1480` |
+
+The contract's "Pinned and recent", "This page first" and "Everything" are the values of the setting *Palette opens with* (`PALETTE_OPENS`, `Palette.tsx:~138`); the code's section headings are in 4.2.
+Palette sizes are in 4.2.
 
 ## 5. Notification banner, sound, Dock badge, toast
 
@@ -606,7 +742,8 @@ Interface sounds (`Move`, `Press`) are synthesised in the renderer behind `featu
 | Stands | `ALERT_MS` 15000ms; at most `MOST` 3, the oldest drops when a fourth comes | `CallAlerts.tsx` |
 | Cleared | when the Cockpit comes forward, and when its call no longer stands | same |
 | Press | removes it and calls `onShow(key)`, which brings the call forward on the Cockpit | same |
-| Look | fixed, bottom right, inset `--space-6` (24px) alone; `--bg-overlay`, `--border-default`, `--radius-md`, shadow, no blur; `role="status"`; a dot (`--armada-dot`) before the text | `Toast.css:1-105`, `Toast.tsx:31` |
+| Look | region fixed bottom right, `right` and `bottom` `--space-6` 24px, `z-index: --z-toast` 80, column, gap `--space-2` 8px (`Toast.css:~99-110`); toast: flex, centred, gap `--space-3` 12px, `max-width: --w-toast` 420px, padding `--space-3` 12px, radius `--radius-md` 6px, fill `--bg-overlay`, 1px `--border-default`, `--shadow-overlay`, `--fg-default`, `--text-sm` 14px / 20px; enters over `--duration-base` rising `--space-2`; `role="status"`; the whole text is one button (`onPress`), underlined on hover; this toast has no status dot and no action | `Toast.css:19-110`, `Toast.tsx:29-50` |
+| Press goes to | `goTo(SURFACE.overview)` then `lands.bring(key)` | `App.tsx:1285` |
 
 ### 5.6 Strings
 
@@ -619,6 +756,25 @@ Calls tile: `Calls`.
 
 `Told` (`sessionId`, `title`, `body`, `tone`), `Tone` (`blocked | waiting`), `Alert` (`key`, `keys`, `sentence`), `Held`, `Item`, `WaitingItem` (`id`, `text`, `since`, `source`), `SessionRecord.waiting_for`.
 
-QUESTION: The native app needs the same "which Jobs he has been in" (`visited`) state the Dock count reads from the renderer; confirm whether Fleet or the native client owns it.
-QUESTION: The Calls HUD (`ConsoleCalls.tsx`) was located but its layout and row sizes were not inventoried here; confirm whether it belongs to this file or to the Cockpit console inventory.
-QUESTION: The Cockpit tab pip (`Tabs.css:149`) draws on a pending call; its exact size and colour were not transcribed.
+"Which Jobs he has been in" is `apps/desktop/src/renderer/src/cockpit/viewed.ts`, and it moves to a Fleet view; Fleet will serve it to the native app.
+Today's behaviour, which the Fleet view has to reproduce:
+
+| Aspect | Today |
+|---|---|
+| Store | `localStorage` key `armada.bridge.session-viewed`, a map of Job id to a time in ms; another window's writes arrive on the `storage` event |
+| Use | the Cockpit raises a call for a Job's waiting item only if he has not been in that Job since the item began waiting (`touchedAt` in `waiting.ts`) |
+| In now | a Job open on the Sessions page or in its walk window, with the window visible, reads as viewed "now" (`viewedAt` returns `Date.now()`) until he leaves, and its time is stamped again when he does (`markViewed`, `useViewing`) |
+| At the machine | `viewingNow` also needs input within `AWAY_MS` = 60 000ms |
+| Reset | `forgetViewed()` clears the map |
+
+The count the Dock shows is separate: it reads the deck store's `held` (calls answered) and `visited` (calls opened) sets through `incomingOf` (`DK/store.ts:526`), both held in the window and not persisted.
+The Calls HUD (`ConsoleCalls.tsx`, the Calls tile in `ConsoleBays.tsx`) goes with the Cockpit console after switch day and is out of scope for the native Jobs screens.
+Cockpit tab pip (`PC/primitives/Tabs/Tabs.css:149-158`, `Tabs.tsx:132-135`):
+
+| Part | Value |
+|---|---|
+| Shape | `.armada-tabs__alert`: `inline-block`, `width` and `height` `var(--space-2)` 8px, `border-radius: 50%`, `margin-left: --space-2` 8px, `vertical-align: middle` |
+| Colour | `--status-escalated`, the needs-you hue; never a figure |
+| Name | `role="img"`, aria-label and tooltip `A call is waiting` (`TabBar.tsx:16`) |
+| Shown when | the tab is `cockpit`, `waiting` is true and the current place is not `cockpit` (`TabBar.tsx:178`) |
+
