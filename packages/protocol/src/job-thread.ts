@@ -123,25 +123,71 @@ export type TrailOpened = {
 /** One thing a thread draws. */
 export type ThreadItem =
   /** A row drawn as it came. **Never a `tool` or a `check` row**, which fold, a waiting `ask`, or a `browser_reminder`. */
-  | { kind: "row"; row: SessionRow }
+  | {
+      kind: "row";
+      row: SessionRow;
+    }
   /** Tool calls that ran one after another, without a subagent. `names` are the tools it holds, each once, in the order first called. */
-  | { kind: "calls"; id: string; names: string[]; rows: SessionRow[] }
+  | {
+      kind: "calls";
+      id: string;
+      names: string[];
+      rows: SessionRow[];
+    }
   /** A call that started a subagent, alone. */
-  | { kind: "subagent"; id: string; at: string; subagent: ToolSubagent }
+  | {
+      kind: "subagent";
+      id: string;
+      at: string;
+      subagent: ToolSubagent;
+    }
   /** Runs of one Check that sat side by side: `check` rows of one `name` only. */
-  | { kind: "checks"; id: string; rows: SessionRow[] }
+  | {
+      kind: "checks";
+      id: string;
+      rows: SessionRow[];
+    }
   /** A turn Fleet started: its notice, then the agent's tool rows and messages. Its last agent message is the next item. `handled` is the agent having done anything after it. */
-  | { kind: "fleet_turn"; id: string; notice: SessionRow; rows: SessionRow[]; handled: boolean }
+  | {
+      kind: "fleet_turn";
+      id: string;
+      notice: SessionRow;
+      rows: SessionRow[];
+      handled: boolean;
+    }
   /** A `show_sketch` call whose sketch the ledger holds. */
-  | ({ kind: "sketch" } & ThreadSketch)
+  | ({
+      kind: "sketch";
+    } & ThreadSketch)
   /** A `show_file` call whose file the ledger holds, opened by the ledger's own path. */
-  | { kind: "file"; id: string; at: string; path: string; name: string }
+  | {
+      kind: "file";
+      id: string;
+      at: string;
+      path: string;
+      name: string;
+    }
   /** A document revision the Job kept, placed at when it was kept. */
-  | ({ kind: "document" } & ThreadDocument)
+  | ({
+      kind: "document";
+    } & ThreadDocument)
   /** The person changed a value of the Job, read from the timeline. */
-  | { kind: "change"; id: string; at: string; what: ChangedValue; from: string; to: string }
+  | {
+      kind: "change";
+      id: string;
+      at: string;
+      what: ChangedValue;
+      from: string;
+      to: string;
+    }
   /** The Job's agent never started. */
-  | { kind: "not_started"; id: string; at: string; cause: string; log?: string[] };
+  | {
+      kind: "not_started";
+      id: string;
+      at: string;
+      cause: string;
+      log?: string[];
+    };
 
 /** A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the ledger's kept scene draws alike. */
 export type ThreadSketch = {
