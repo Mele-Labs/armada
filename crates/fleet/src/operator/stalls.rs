@@ -73,14 +73,10 @@ impl Stall {
         }
     }
 
-    /// A stop with nothing left has nothing to start; a red pull request always has its
-    /// checks left.
+    /// **A quiet Job is only raised to the person.** Its stop was a guess while a subagent still
+    /// ran, so no Job is started for what it left (9 Nov 2026).
     fn ways(&self) -> Vec<Way> {
-        let stopped = matches!(self.quiet, Quiet::Stopped { .. });
-        if stopped && self.left.is_empty() {
-            return vec![Way::Raise];
-        }
-        vec![Way::NewJob, Way::Raise]
+        vec![Way::Raise]
     }
 }
 
