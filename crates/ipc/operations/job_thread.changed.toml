@@ -1,0 +1,8 @@
+[operations."job_thread.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A change reached back too far in a Job's thread for a tail: read the window again"
+notes = """
+Carries `JobThreadChanged`: `session_id` and `from`, the first item that changed, one the client held. Published instead of `job_thread.tail` when that item is more than `THREAD_TAIL_MOST` (200) items from the end of the thread, because an old ask answered, or a long-finished Check gaining a row, must not push a whole long thread to every client. **A client that holds an item at or after `from` reads its window again with `get_job_thread`**, which is every client that holds the end of the thread; one that holds none ignores it. The head comes with that read. Fleet's own held thread is already the new one. A Bridge that missed one reads `get_job_thread` again on the resync that follows a `Missed`.
+"""

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use api::{Broadcaster, Queries};
-use ipc::{Event, MergeLine, MergeLineHub, MergeLines};
+use ipc::{Event, MergeLine, MergeLineHub, MergeLineViews, MergeLines};
 use tokio::task::JoinHandle;
 
 use crate::timeline::{Between, Timeline};
@@ -84,6 +84,17 @@ pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
     with_hubs(MergeLines::default(), &roots, hubs)
 }
 
+/// The repositories Fleet serves, as `list_repositories` answers them.
+async fn repositories_of<D: Queries>(daemon: &D) -> Vec<ipc::RepositorySummary> {
+    daemon.list_repositories().await.map(|list| list.repositories).unwrap_or_default()
+}
+
+/// `get_merge_line_view`: the lines of [`answer`] as a screen draws them.
+pub async fn view<D: Queries>(daemon: &D) -> MergeLineViews {
+    let lines = answer(daemon).await;
+    crate::merge_line_view::views(&lines, &repositories_of(daemon).await)
+}
+
 /// Fold the hubs every [`EVERY`] and publish `merge_lines.changed` when they moved.
 ///
 /// **At most one event a read, and only on a change.** Every forge visit moves
@@ -91,6 +102,10 @@ pub async fn answer<D: Queries>(daemon: &D) -> MergeLines {
 /// repository a minute; a Bridge that did not hear it would show a read time
 /// older than the reading. It adds no queue of its own; the shared drop-oldest
 /// backlog is still the only one.
+///
+/// **`merge_line_view.changed` is published on the same tick, whole**, when the lines read for a
+/// screen differ from the last sent: a pull request moving, main's colour, and a repository's name
+/// moving as the served list changes. A tick that moves nothing publishes nothing.
 ///
 /// **What a change was is entered on the timeline**: the list is carried whole,
 /// so a pull request opening, its checks, its place in the queue, its merge and
@@ -106,6 +121,7 @@ where
 {
     tokio::spawn(async move {
         let mut last: Option<MergeLines> = None;
+        let mut last_view: Option<MergeLineViews> = None;
         let mut between = Between::default();
         let mut ticker = tokio::time::interval(every);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -124,6 +140,11 @@ where
             if last.as_ref().is_some_and(|last| *last != now) {
                 events.publish(Event::MergeLinesChanged(now.clone()));
             }
+            let seen = crate::merge_line_view::views(&now, &repositories_of(daemon.as_ref()).await);
+            if last_view.as_ref().is_some_and(|last| *last != seen) {
+                events.publish(Event::MergeLineViewChanged(seen.clone()));
+            }
+            last_view = Some(seen);
             last = Some(now);
         }
     })
