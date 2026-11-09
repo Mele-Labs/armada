@@ -170,6 +170,8 @@ pub struct Hosts {
     page_reads: page_replies::Reads,
     /// The quick bar's answers to each Job's last message, and the lines he sends often.
     pub(crate) quick: quick::Kept,
+    /// The Jobs' threads a client read, folded, so a change to one is told as `job_thread.tail`.
+    pub(crate) threads: Arc<crate::thread_keeping::Held>,
 }
 
 /// One waiting item claimed while its answer or removal is delivered, let go when dropped. **Why
@@ -207,6 +209,7 @@ impl Hosts {
             settling: Arc::default(),
             page_reads: page_replies::Reads::default(),
             quick: quick::Kept::default(),
+            threads: Arc::default(),
         }
     }
 

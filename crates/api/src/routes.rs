@@ -629,6 +629,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             get(crate::hosted_sessions::get_session::<D>),
         )
         .route(
+            "/sessions/thread",
+            get(crate::hosted_sessions::get_job_thread::<D>),
+        )
+        .route(
             "/sessions/subagent",
             get(crate::hosted_sessions::get_session_subagent::<D>),
         )

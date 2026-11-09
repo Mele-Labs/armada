@@ -596,6 +596,10 @@ where
         })
     }
 
+    async fn get_job_thread(self: Arc<Self>, read: ipc::JobThreadRead) -> Result<ipc::JobThread, Refusal> {
+        self.job_thread_served(read).await
+    }
+
     async fn get_session_subagent(
         &self,
         id: SessionId,
