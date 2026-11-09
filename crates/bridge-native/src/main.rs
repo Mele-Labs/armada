@@ -4,11 +4,25 @@
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
 //! leave a window on someone's screen.
 
+// No screen is drawn yet, so most of what `assets`, `keymap` and `look` offer is not called.
+#[allow(dead_code)]
+mod assets;
 mod fleet;
 mod frames;
+#[allow(dead_code)]
+mod keymap;
 mod link;
+mod log;
+#[allow(dead_code)]
+mod look;
 mod runtime_file;
 mod transport;
+
+/// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
+mod generated {
+    pub mod actions;
+    pub mod vocabulary;
+}
 
 use std::time::Duration;
 
@@ -19,10 +33,15 @@ use gpui::{
 use gpui_platform::application;
 
 use fleet::FleetConnection;
+use keymap::KeymapController;
+use look::LookController;
 
-/// The window's root. It holds the connection so the connection lives as long as the window.
+/// The window's root. It holds the connection, and what follows the connection, so each lives as
+/// long as the window.
 struct Shell {
     _fleet: Entity<FleetConnection>,
+    _look: Entity<LookController>,
+    _keymap: Entity<KeymapController>,
 }
 
 impl Render for Shell {
@@ -32,8 +51,9 @@ impl Render for Shell {
 }
 
 fn main() {
-    application().run(|cx: &mut App| {
+    application().with_assets(assets::Assets).run(|cx: &mut App| {
         gpui_component::init(cx);
+        look::init(cx);
 
         cx.on_window_closed(|cx, _window| {
             if cx.windows().is_empty() {
@@ -52,9 +72,11 @@ fn main() {
                 }),
                 ..Default::default()
             },
-            |_, cx| {
+            |window, cx| {
                 let fleet = cx.new(FleetConnection::new);
-                cx.new(|_| Shell { _fleet: fleet })
+                let look = cx.new(|cx| LookController::new(&fleet, window, cx));
+                let keymap = cx.new(|cx| KeymapController::new(&fleet, cx));
+                cx.new(|_| Shell { _fleet: fleet, _look: look, _keymap: keymap })
             },
         )
         .expect("the window opens");
