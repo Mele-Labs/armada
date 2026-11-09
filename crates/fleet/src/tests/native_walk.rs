@@ -5,7 +5,7 @@
 use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 
-use api::{HostedSessions, Sessions};
+use api::Sessions;
 use ipc::{OpenNativeWalk, SessionId, ShowWindow, WalkStep, WindowClosed, WithdrawWindow};
 
 use super::session_gate::in_its_slot;
