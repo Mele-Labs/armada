@@ -73,6 +73,7 @@ in Armada Decisions.
 | Process | Language | Lifetime | Started by |
 | --- | --- | --- | --- |
 | Bridge | TypeScript / Electron | While the app is open | The user |
+| Native Bridge | Rust / gpui, `crates/bridge-native/` | While the app is open | The user |
 | Fleet | Rust | Survives Bridge close. Ends on reboot or force-kill | The user, by hand, until the Ship milestone puts it under launchd |
 | Drone | Claude Code CLI, headless | One Job | Fleet, after human approval |
 | Operator | One model call with no tools, decided in Fleet | One per machine, one fresh call per arrival | Fleet, when it hands an arrival over |
@@ -157,6 +158,10 @@ see what they are. The recorded pain was the surface, not the engine.
 A fixed-width terminal pane cannot hold a diff, an evidence bundle or a
 design doc, and it was measurably slow and freeze-prone. Electron's runtime
 overhead is the accepted cost of multi-Drone visualization.
+
+**A native Bridge is being built beside the Electron one.**
+It replaces Electron on the switch day the owner picks.
+The rationale above records why Electron was chosen over a TUI; [Native Bridge](../concepts/native-bridge.md) owns the move to gpui.
 
 **Review and reply are one loop, not two.** Reviewing and deciding is a
 back-and-forth exercise and feedback has to reach the Drone, so a design

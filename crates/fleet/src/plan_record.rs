@@ -14,7 +14,7 @@
 
 use ipc::{
     Instant, PlanChanges, PlanGroupInput, PlanLandsIn, PlanLandsInPr, PlanLandsInState, PlanMoved, PlanRemoved, PlanRenamed, PlanSketch, PlanTaskState,
-    FIRST_PULL_REQUEST, PlanGate, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo,
+    FIRST_PULL_REQUEST, GateChecks, GateHeld, GateClose, PlanGate, ReportedTask, ReportedTaskStatus, SessionPlan, SessionPlanGroup, SessionPlanTask, SessionTodo,
 };
 use store::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask};
 
@@ -175,6 +175,12 @@ pub(crate) fn recorded(
             // The agent's word per group is read beside the plan, and set by its caller.
             seen: false,
             gate: (!group.gate.is_none()).then(|| group.gate.word().to_string()),
+            // As the store reads it: a gate kept with its id and its kind keeps its close, and a plan's
+            // approval is asked again.
+            closed: old
+                .and_then(|old| old.closed.clone())
+                .filter(|closed| group.gate != PlanGate::PlanApproved && closed.gate == group.gate.word()),
+            checks: None,
             paths: group.paths.clone(),
             issue: group.issue.clone(),
             worked_at: old.and_then(|old| old.worked_at.clone()),
@@ -209,6 +215,7 @@ pub(crate) fn recorded(
         next_group,
         next_task,
         calls,
+        held: None,
         groups: kept_groups,
     }
 }
@@ -527,6 +534,19 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
                 },
                 own_job: group.own_job,
                 gate: group.gate.as_deref().map(PlanGate::from_word).unwrap_or_default(),
+                gate_closed: group.closed.as_ref().map(|closed| GateClose {
+                    at: Instant::carried(&closed.closed_at),
+                    fact: closed.fact.clone(),
+                    commit: closed.commit.clone(),
+                    already_red: closed.already_red.clone(),
+                    skipped: closed.skipped,
+                }),
+                gate_checks: group.checks.as_ref().map(|run| GateChecks {
+                    commit: run.commit.clone(),
+                    state: run.state.clone(),
+                    failed: run.failed.clone(),
+                    already_red: run.already_red.clone(),
+                }),
                 tasks: group
                     .tasks
                     .iter()
@@ -558,5 +578,9 @@ pub(crate) fn wire(plan: &KeptPlan) -> SessionPlan {
         }),
         sketch: plan.sketch.as_ref().map(|(id, title)| PlanSketch { id: id.clone(), title: title.clone() }),
         held_by: Vec::new(),
+        held: plan.held.as_ref().and_then(|held| {
+            let group = plan.groups.iter().find(|group| group.gate.is_some() && group.closed.is_none())?;
+            Some(GateHeld { group: group.id.clone(), since: Instant::carried(&held.since) })
+        }),
     }
 }

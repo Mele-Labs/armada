@@ -288,6 +288,8 @@ fn pending_plan() -> ipc::SessionPlan {
             lands_in: ipc::PlanLandsIn::default(),
             own_job: false,
             gate: Default::default(),
+            gate_closed: None,
+            gate_checks: None,
             tasks: vec![ipc::SessionPlanTask {
                 id: "t1".to_string(),
                 text: "Rotate at midnight".to_string(),
@@ -302,6 +304,7 @@ fn pending_plan() -> ipc::SessionPlan {
         changes: None,
         sketch: None,
         held_by: Vec::new(),
+        held: None,
     }
 }
 
@@ -436,6 +439,22 @@ async fn all_done_answers_that_it_is_done() {
     assert_eq!(
         said,
         r#"{"session_id":"session-1","done":true,"done_since":"2026-10-13T09:00:00.000Z"}"#
+    );
+}
+
+#[tokio::test]
+async fn all_done_says_which_gate_held_it() {
+    let mut plan = pending_plan();
+    plan.groups[0].gate = ipc::PlanGate::Merged;
+    plan.held = Some(ipc::GateHeld { group: "g1".to_string(), since: at() });
+    let daemon = FakeDaemon::new(Broadcaster::new());
+    *daemon.session_row.lock().expect("session row") = Some(SessionRecord { plan: Some(plan), done_since: None, ..long_lived() });
+    let app = router(Served::by(daemon, run_id(), Broadcaster::new()));
+    let said = through_the_door(&app, "all_done", "{}").await;
+    assert!(said.len() < MOST_A_RECEIPT_MAY_WEIGH, "{} bytes: {said}", said.len());
+    assert_eq!(
+        said,
+        r#"{"session_id":"session-1","done":false,"held":"on the gate of \"Rotate\" (merged). Fleet finishes the Job when it closes."}"#
     );
 }
 

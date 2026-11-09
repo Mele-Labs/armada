@@ -85,6 +85,8 @@ mod builds_run;
 mod time_reading;
 /// What a repository runs in its checkout when the base moves there.
 mod base_moves;
+mod gate_checks;
+mod gate_holding;
 /// How long a Check may run.
 mod budget;
 /// The served checkout caught up whenever main moves.
@@ -257,6 +259,7 @@ mod pull_refreshing;
 mod session_issues;
 /// What a Job holds, standing in the states of its lifecycles, and the readers that say where.
 pub mod lifecycles;
+pub mod gate_keeping;
 /// The web links a Session's person and agent write, kept on its ledger.
 mod session_links;
 /// Reading a Link in: the source, fetched by Fleet. `#1293`.

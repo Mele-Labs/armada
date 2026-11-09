@@ -761,6 +761,16 @@ pub enum WaitingSource {
     /// woken**. A free-text answer is refused. Gone when `end_browser_ask` names it, when Fleet
     /// restarts, and when no client holds `/events` open.
     BrowserAsk,
+    /// Fleet: the Job's `all_done` is held at a gate nothing in the Job can close, and the person can.
+    /// Derived on every read, never kept: id `gate:<group id>`, text `"<group title>" waits on <what>`,
+    /// an `answer` act whose `target` is the Job's own id, and exactly two options, `Approve` (choice 0)
+    /// and `Skip this group` (choice 1), labels only. Listed while a hold stands, nothing in the Job
+    /// runs, and the first open gate is one the person can close: an approval of any kind, a merge no
+    /// queued pull request is on the way to, or Checks no run has begun. `Approve` on a `plan_approved`
+    /// gate approves the plan; on any other it closes the gate by his word. `Skip this group` closes it
+    /// as skipped. Neither sends the agent a word of its own, since the close tells it. Words alone go
+    /// to the agent as a message. Gone when the gate closes or the hold clears. Dismissing it is refused.
+    Gate,
 }
 
 /// What a Session is doing, read from what happened and never from what the agent said. One answer,

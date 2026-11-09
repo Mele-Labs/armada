@@ -231,3 +231,15 @@ fn a_rule_over_held_tickets_leaves_the_one_the_job_handed_on_and_the_job_link_st
     let planned = plan(&[rule(follows)], &defaults, &landed, &parent, &mut RanOnce::new());
     assert_eq!(planned.len(), 1, "a rule that follows the Job link still finds the ticket it handed on");
 }
+
+#[test]
+fn a_gate_closing_sets_off_the_rules_for_its_kind_and_for_no_other() {
+    use crate::rule::Gate;
+    let closed = Occurrence::gate_closed(Gate::Merged, "gate:g2:merged:0:closes:g2");
+    assert!(closed.is(&When::GateCloses(Gate::Merged)));
+    assert!(!closed.is(&When::GateCloses(Gate::ChecksGreen)));
+    assert!(!closed.is(&When::StepEnds(step("g2"))), "a gate closing is no step ending");
+    assert_ne!(closed.key(), Occurrence::gate_closed(Gate::ChecksGreen, "gate:g2:merged:0:closes:g2").key());
+    assert_eq!(Gate::ALL.iter().map(|gate| Gate::from_wire(gate.as_wire())).collect::<Vec<_>>(), Gate::ALL.iter().copied().map(Some).collect::<Vec<_>>());
+    assert_eq!(Gate::from_wire("none"), None);
+}

@@ -69,10 +69,11 @@ where
                 return Ok(build_heard(store, &session.id, &Observed::Committed, now)? | named);
             }
             SessionFact::Pushed { branch } => {
-                self.road_noted(session, TimelineKind::SessionPushed, "Pushed", branch, now);
+                self.road_noted(session, TimelineKind::SessionPushed, "Pushed", branch.clone(), now);
                 if self.operator_on() {
                     self.operator_seat().moved(&session.id, crate::operator::Moved::Pushed);
                 }
+                self.gate_check_asked(store, session, branch);
                 Observed::Committed
             }
             _ => return Ok(false),
