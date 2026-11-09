@@ -109,6 +109,7 @@ where
     async fn settings_adopted(&self, saved: Saved) -> SettingsList {
         let settings = self.machine_settings();
         let was_on = self.models_on();
+        let operator_was_on = self.operator_on();
         if let Err(why) = keep_last_good(settings.path(), &saved) {
             let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "the last good copy of settings.json was not kept")
                 .with_field("why", FieldValue::Str(why.to_string()));
@@ -124,6 +125,7 @@ where
         self.relimited(&resolved).await;
         self.downshift_settings_moved(&resolved).await;
         self.models_switched_off(&was_on).await;
+        self.operator_switched(operator_was_on).await;
         let list = settings.listed();
         self.publish(Event::SettingsChanged(list.clone()));
         list

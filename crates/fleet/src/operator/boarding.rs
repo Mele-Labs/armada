@@ -7,9 +7,9 @@
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use core_model::Timestamp;
+use core_model::{Component, Envelope, FieldValue, Level, Timestamp};
 use ipc::operator_board::{
-    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorDecider, OperatorPaused,
+    MoveOnOperatorBoard, OperatorBoard, OperatorBoardChanged, OperatorBoardItem, OperatorBoardKind, OperatorBoardOption, OperatorBoardSettled, OperatorBoardSuggestion, OperatorBoardSwitch, OperatorDecider, OperatorPaused,
 };
 use store::KeptRuling;
 
@@ -18,6 +18,8 @@ use crate::daemon::Fleet;
 
 /// How many rulings the board keeps.
 const DONE_SHOWN: u32 = 20;
+/// How many moves of the master switch the board keeps.
+const SWITCHED_SHOWN: u32 = 20;
 /// The most a ruling's "what" says.
 const WHAT_SHOWN: usize = 60;
 const BOARD_ITEM_UNKNOWN: &str = "fleet.operator_board_item_unknown";
@@ -195,6 +197,23 @@ where
         self.events().publish(ipc::Event::OperatorBoardChanged(OperatorBoardChanged {}));
     }
 
+    /// The master switch was possibly moved by a save or a hand edit: keep the moment where it differs
+    /// from `was_on`, and tell Bridge to read the board again. A save that left it alone keeps nothing.
+    pub(crate) async fn operator_switched(&self, was_on: bool) {
+        let on = self.operator_on();
+        if on == was_on {
+            return;
+        }
+        let kept = self.store().lock().await.add_operator_switch(&store::KeptSwitch { on, at: self.now().as_str().to_string() });
+        if let Err(why) = kept {
+            let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a move of the Operator's switch was not kept")
+                .with_field("why", FieldValue::Str(why.to_string()));
+            crate::transcript::note_aloud(&envelope);
+            return;
+        }
+        self.operator_board_changed();
+    }
+
     /// `get_operator_board`: read now.
     pub(crate) async fn operator_board_wire(&self) -> Result<OperatorBoard, Refusal> {
         let queued = self.operator_seat().operator().map(|operator| operator.queued()).unwrap_or_default();
@@ -207,7 +226,7 @@ where
             title: first_line(&one.subject),
             id: one.id,
         };
-        let (suggestions, done) = {
+        let (suggestions, done, switched) = {
             let store = self.store().lock().await;
             let suggestions = store
                 .operator_suggestions_of("")
@@ -237,10 +256,16 @@ where
                     because: row.because.trim().to_string(),
                 })
                 .collect();
-            (suggestions, done)
+            let switched = store
+                .operator_switches(SWITCHED_SHOWN)
+                .map_err(|why| self.ledger_fault(why))?
+                .into_iter()
+                .map(|one| OperatorBoardSwitch { on: one.on, at: one.at })
+                .collect();
+            (suggestions, done, switched)
         };
         let paused = if self.operator_on() { self.operator_paused().await } else { None }.map(|paused| OperatorPaused { week: paused.week, at: paused.at });
-        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done, paused })
+        Ok(OperatorBoard { on: self.operator_on(), now: queued.now.map(&item), next: queued.next.into_iter().map(item).collect(), suggestions, done, paused, switched })
     }
 
     /// `move_on_operator_board`: one press. **404** where `id`, or the `before` it goes ahead of,

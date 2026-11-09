@@ -97,6 +97,7 @@ mod autopilot_decisions;
 /// The Operator's Log of rulings. `armada-ehhu`.
 mod operator_rulings;
 mod operator_orders;
+mod operator_switches;
 mod operator_suggestions;
 /// The pairs of Jobs the Operator keeps in touch. `armada-ehhu`.
 mod operator_in_touch;
@@ -243,6 +244,7 @@ pub use autopilot::{KeptAutopilot, KeptPick};
 pub use autopilot_decisions::KeptDecision;
 pub use operator_rulings::KeptRuling;
 pub use operator_orders::{KeptOrder, KeptTalk};
+pub use operator_switches::KeptSwitch;
 pub use operator_suggestions::KeptSuggestion;
 pub use slot_line::KeptInLine;
 pub use limits::SavedLimits;
