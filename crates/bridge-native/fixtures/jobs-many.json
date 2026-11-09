@@ -2,6 +2,7 @@
  "sessions": [
   {
    "id": "mock-01",
+   "mark": { "state": "waiting", "lamp": "needs", "group": "needs" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",
@@ -16,6 +17,7 @@
   },
   {
    "id": "mock-02",
+   "mark": { "state": "working", "lamp": "running", "group": "working" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",
@@ -56,6 +58,7 @@
   },
   {
    "id": "mock-03",
+   "mark": { "state": "subagent", "lamp": "running", "group": "working" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",
@@ -79,6 +82,7 @@
   },
   {
    "id": "mock-04",
+   "mark": { "state": "idle", "lamp": "idle", "group": "done" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",
@@ -93,6 +97,7 @@
   },
   {
    "id": "mock-05",
+   "mark": { "state": "paused", "lamp": "idle", "group": "held" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",
@@ -118,6 +123,7 @@
   },
   {
    "id": "mock-06",
+   "mark": { "state": "held", "lamp": "idle", "group": "held" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",
@@ -132,6 +138,7 @@
   },
   {
    "id": "mock-07",
+   "mark": { "state": "failing", "lamp": "failed", "group": "needs" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-web",
@@ -146,6 +153,7 @@
   },
   {
    "id": "mock-08",
+   "mark": { "state": "replied", "lamp": "idle", "group": "done" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-web",
@@ -160,6 +168,7 @@
   },
   {
    "id": "mock-09",
+   "mark": { "state": "running", "lamp": "running", "group": "working" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-web",
@@ -174,6 +183,7 @@
   },
   {
    "id": "mock-10",
+   "mark": { "state": "stuck", "lamp": "needs", "group": "needs" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-web",
@@ -188,6 +198,7 @@
   },
   {
    "id": "mock-11",
+   "mark": { "state": "limited", "lamp": "idle", "group": "held" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-api",
@@ -202,6 +213,7 @@
   },
   {
    "id": "mock-12",
+   "mark": { "state": "quiet", "lamp": "idle", "group": "done" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-api",
@@ -216,6 +228,7 @@
   },
   {
    "id": "mock-13",
+   "mark": { "state": "draft", "lamp": "idle", "group": "working" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-api",
@@ -230,6 +243,7 @@
   },
   {
    "id": "mock-14",
+   "mark": { "state": "done", "lamp": "done", "group": "done" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "sample-api",
@@ -244,6 +258,7 @@
   },
   {
    "id": "mock-15",
+   "mark": { "state": "ended", "lamp": "idle", "group": "done" },
    "harness": "claude-code",
    "origin": "bridge",
    "manifest_id": "armada",

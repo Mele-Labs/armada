@@ -3,8 +3,8 @@
 //! under it. A right press opens the row's menu, a pause on a row opens its card, and the Filter
 //! narrows the list by scope and by search.
 //!
-//! A Job's lamp and state glyph are not drawn yet: Fleet works them out as the Job's mark (#3374),
-//! and copying the TypeScript rules here would make a second vocabulary.
+//! A Job's lamp, state glyph and group come from Fleet as its mark (`SessionRecord::mark`), so
+//! the rules that read them are not copied here. Only the glyph and the words for each state are.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -12,12 +12,12 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use gpui::{
-    actions, anchored, canvas, deferred, div, point, prelude::*, svg, App, Bounds, Context, Anchor, DismissEvent, Entity, Focusable,
+    actions, anchored, pulsating_between, Animation, AnimationExt, canvas, deferred, div, point, prelude::*, svg, App, Bounds, Context, Anchor, DismissEvent, Entity, Focusable,
     FocusHandle, FontWeight, KeyBinding, MouseButton, Pixels, Point, Role, SharedString, ScrollHandle, Subscription, Task,
     Window,
 };
 use gpui_component::input::{InputEvent, InputState};
-use ipc::{SessionRecord, SessionState};
+use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
@@ -83,6 +83,75 @@ struct Row {
     branch: Option<SharedString>,
     pr: Option<SharedString>,
     last: Option<SharedString>,
+    mark: Option<JobMark>,
+}
+
+/// A state's glyph and the words its tooltip says, as Electron's row draws them
+/// (`SessionFrame.tsx`, `MARK`; `session-state.ts`, `jobStateOf`).
+fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
+    let (glyph, said) = match state {
+        JobState::Working => ("circle-dot", "Working"),
+        JobState::Running => ("square-terminal", "Running"),
+        JobState::Subagent => ("split", "Subagent working"),
+        JobState::Waiting | JobState::StoppedAsks => (if state == JobState::Waiting { "eye" } else { "octagon-alert" }, "Waiting on you"),
+        JobState::Done => ("power", "Done"),
+        JobState::Stuck => ("clock", "Stuck"),
+        JobState::Failing => return ("shield-x", pr.map_or("Checks failed".into(), |pr| format!("Checks failed on {pr}").into())),
+        JobState::Unstarted => ("x", "Not started"),
+        JobState::Stopped => ("square", "Stopped"),
+        JobState::Held => ("radar", "Held"),
+        JobState::Limited => ("battery-low", "Held for the usage limit"),
+        JobState::After => ("link", "Starts after another Job"),
+        JobState::Draft => ("message-square-dashed", "Reading the request"),
+        JobState::Blank => ("circle-dashed", "Blank: no slot, no branch"),
+        JobState::Idle => ("check", "Idle"),
+        JobState::Replied => ("reply", "Unread reply"),
+        JobState::Quiet => ("unplug", "Not reachable"),
+        JobState::Ended => ("unplug", "Ended"),
+        JobState::Paused => ("circle-pause", "Paused"),
+    };
+    (glyph, said.into())
+}
+
+/// The hue a state's glyph takes: one per bucket (`SessionFrame.css`, `data-bucket`).
+fn hue_of(state: JobState) -> crate::look::Token {
+    match state {
+        JobState::Waiting | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
+            token::STATUS_AWAITING_REVIEW
+        }
+        JobState::Working | JobState::Running | JobState::Subagent => token::STATUS_RUNNING,
+        JobState::Held | JobState::Limited | JobState::After | JobState::Stopped => token::STATUS_HANDED_IN,
+        JobState::Draft | JobState::Blank => token::STATUS_NOT_STARTED,
+        _ => token::FG_MUTED,
+    }
+}
+
+fn lamp_of(lamp: JobLamp) -> crate::look::Token {
+    match lamp {
+        JobLamp::Needs => token::STATUS_AWAITING_REVIEW,
+        JobLamp::Failed => token::STATUS_COMPLETED_FAILED,
+        JobLamp::Running => token::STATUS_RUNNING,
+        JobLamp::Done => token::STATUS_COMPLETED_SUCCESS,
+        JobLamp::Idle => token::BORDER_STRONG,
+    }
+}
+
+/// Where a Job the person has not placed stands: by group, Needs you first, then the loudest
+/// first inside it (`order.ts`, `GROUPS` and `LOUD`).
+fn standing_of(job: &SessionRecord) -> (u8, u8) {
+    let Some(mark) = job.mark else { return (4, 2) };
+    let group = match mark.group {
+        JobGroup::Needs => 0,
+        JobGroup::Working => 1,
+        JobGroup::Held => 2,
+        JobGroup::Done => 3,
+    };
+    let loud = match mark.lamp {
+        JobLamp::Failed => 0,
+        JobLamp::Needs => 1,
+        _ => 2,
+    };
+    (group, loud)
 }
 
 /// One line of the list: a project's name over its Jobs, or a Job.
@@ -142,17 +211,17 @@ fn matches(job: &SessionRecord, query: &str) -> bool {
 /// draws a head only when more than one repository is listed (`cockpit/deck/bands.ts`).
 fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
+    let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     let live = |job: &&SessionRecord| job.state == SessionState::Live;
-    let placed = |job: &&SessionRecord| order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX);
+    let placed = |job: &&SessionRecord| (order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX), standing_of(job));
     let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).collect();
     lives.sort_by_key(placed);
     let mut ended: Vec<&SessionRecord> = jobs.iter().filter(|job| job.state == SessionState::Ended).collect();
     ended.sort_by(|a, b| b.ended_at.as_ref().map(|at| at.as_str()).cmp(&a.ended_at.as_ref().map(|at| at.as_str())));
     let picked: Vec<&SessionRecord> = match scope {
-        Scope::Active => lives.into_iter().filter(|job| !paused(job)).collect(),
+        Scope::Active => lives.into_iter().filter(|job| !paused(job) && !quiet(job)).collect(),
         Scope::Paused => lives.into_iter().filter(|job| paused(job)).collect(),
-        // A quiet Job is one whose mod stopped answering, which Fleet's mark says. Until it does, none.
-        Scope::Quiet => Vec::new(),
+        Scope::Quiet => lives.into_iter().filter(|job| quiet(job)).collect(),
         Scope::Ended => ended,
         Scope::All => lives.into_iter().chain(ended).collect(),
     };
@@ -167,6 +236,8 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
             None => projects.push((project, vec![job])),
         }
     }
+    // Groups stand in the order Fleet lists Jobs, so a state change never moves one.
+    projects.sort_by_key(|(name, _)| jobs.iter().position(|job| project_of(job) == *name));
     let headed = projects.len() > 1;
     let mut lines = Vec::new();
     for (project, held) in projects {
@@ -186,6 +257,7 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
             branch: attached(job, "branch").map(|branch| branch.to_string().into()),
             pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
             last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
+            mark: job.mark,
         };
         fn under<'a>(
             parent: &str,
@@ -301,6 +373,7 @@ impl JobsList {
             let jobs = fleet.read(cx).held().jobs.clone();
             if jobs != this.jobs {
                 this.jobs = jobs;
+                this.place_new();
                 this.relist(cx);
             }
         });
@@ -343,9 +416,26 @@ impl JobsList {
             fleet,
             _watch: watch,
         };
+        this.place_new();
         this.lines = this.lines_now();
         this.focused = this.first_row();
         this
+    }
+
+    /// Put each live Job the order has not met at its end, in the standing order it is drawn in,
+    /// so no later change of state moves it (`store.ts`, a new one is added at the end).
+    fn place_new(&mut self) {
+        let fresh: Vec<String> = lines_of(&self.jobs, Scope::All, "", &self.order)
+            .into_iter()
+            .filter_map(|line| match line {
+                Line::Job(one) if !one.ended && !self.order.iter().any(|id| *id == *one.id) => Some(one.id.to_string()),
+                _ => None,
+            })
+            .collect();
+        if !fresh.is_empty() {
+            self.order.extend(fresh);
+            self.keep();
+        }
     }
 
     pub fn focus_handle(&self) -> &FocusHandle {
@@ -526,7 +616,9 @@ impl JobsList {
             window.focus(&this.focus, cx);
             cx.notify();
         });
-        menu.update(cx, |menu, cx| window.focus(&menu.focus_handle(cx), cx));
+        // After the press is through: the list takes focus on a mouse down, after the row opened this.
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
         self.menu = Some(Open { menu, _picked: picked, _dismissed: dismissed });
         cx.notify();
     }
@@ -642,8 +734,14 @@ impl JobsList {
         };
         let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let ink = if row.paused || row.ended { token::FG_MUTED } else { token::FG_DEFAULT };
-        // An ended Job's lamp is done's; the rest wait on Fleet's mark.
-        let lamp = if row.ended { token::STATUS_COMPLETED_SUCCESS } else { token::BORDER_STRONG };
+        let lamp = match row.mark {
+            Some(mark) => lamp_of(mark.lamp),
+            None if row.ended => token::STATUS_COMPLETED_SUCCESS,
+            None => token::BORDER_STRONG,
+        };
+        // Needs him, and not the Job open now: the row's tint breathes (`ListCard.css`).
+        let needs = row.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs) && !opened;
+        let state = row.mark.filter(|_| !row.paused).map(|mark| (glyph_of(mark.state, row.pr.as_deref()), hue_of(mark.state)));
         let rail = look.length(token::BORDER_WIDTH) * 2.;
         let indent = look.length(token::SPACE_4) * row.depth as f32;
         let tall = if row.depth > 0 { token::SPACE_2 } else { token::SPACE_3 };
@@ -668,6 +766,14 @@ impl JobsList {
             .bg(ground)
             .when(!opened, |strip| strip.hover(|style| style.bg(look.color(token::BG_HOVER))))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().size_full())
+            .when(needs, |strip| {
+                let tint = look.color(token::STATUS_AWAITING_REVIEW);
+                strip.child(div().absolute().inset_0().with_animation(
+                    SharedString::from(format!("needs-{}", row.id)),
+                    Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.06, 0.14)),
+                    move |tinted, at| tinted.bg(tint.opacity(at)),
+                ))
+            })
             .child(div().absolute().top_0().bottom_0().left_0().w(look.length(token::SPACE_1)).bg(look.color(lamp)))
             .children(linked.clone().map(|said| {
                 div()
@@ -688,8 +794,18 @@ impl JobsList {
                     .child(row.title.clone()),
             )
             .child(
-                // The wide status slot: the paused mark now, the state glyph once Fleet sends the mark.
-                div().flex_none().flex().justify_end().w(look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1)).when(row.paused, |slot| {
+                // The wide status slot: the paused mark in place of the state's glyph.
+                div().flex_none().flex().justify_end().w(look.length(token::SPACE_4) * 2. + look.length(token::SPACE_1)).children(state.map(|((glyph, said), hue)| {
+                    let tip = said.clone();
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("state-{}", row.id)))
+                            .child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_4)).text_color(look.color(hue)))
+                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx)),
+                        Role::Image,
+                        said,
+                    )
+                })).when(row.paused, |slot| {
                     slot.child(labelled(
                         div()
                             .id(SharedString::from(format!("paused-{}", row.id)))
@@ -1056,6 +1172,24 @@ mod tests {
         assert_eq!(titles(&lines_of(&all, Scope::Active, "", &[id]))[0], second);
         let found = titles(&lines_of(&all, Scope::Active, &second[..6].to_uppercase(), &[]));
         assert!(found.contains(&second) && found.iter().all(|title| title.to_lowercase().contains(&second[..6].to_lowercase())));
+    }
+
+    #[test]
+    fn jobs_not_yet_placed_stand_needs_first_and_the_loudest_first() {
+        let lines = lines_of(&jobs(), Scope::Active, "", &[]);
+        let web: Vec<_> = titles(&lines).into_iter().filter(|title| ["Checkout", "Flaky", "Upgrade", "Dark"].iter().any(|word| title.starts_with(word))).collect();
+        assert_eq!(web, ["Checkout page loads twice", "Flaky login test", "Upgrade the router", "Dark mode for the settings page"]);
+        // A placed Job keeps its place whatever its state.
+        let dark = jobs().into_iter().find(|job| job.title.as_deref() == Some("Dark mode for the settings page")).expect("listed");
+        let placed = titles(&lines_of(&jobs(), Scope::Active, "", &[dark.id.as_str().to_string()]));
+        assert_eq!(placed.iter().find(|title| web.contains(title)).map(String::as_str), Some("Dark mode for the settings page"));
+    }
+
+    #[test]
+    fn a_quiet_job_leaves_active_for_the_quiet_scope() {
+        let quiet = titles(&lines_of(&jobs(), Scope::Quiet, "", &[]));
+        assert_eq!(quiet, ["Retry webhooks on a 503"]);
+        assert!(!titles(&lines_of(&jobs(), Scope::Active, "", &[])).contains(&quiet[0]));
     }
 
     #[test]

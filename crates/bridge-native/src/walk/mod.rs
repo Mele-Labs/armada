@@ -76,6 +76,7 @@ pub static WALKS: &[Walk] = &[Walk {
     scenario: "jobs-many",
     steps: &[
         step("Live Jobs, grouped by project", Verb::Look, "heading", "armada"),
+        step("Each glyph says the Job's state, and a Job that needs you breathes amber", Verb::Look, "img", "Waiting on you"),
         step("J or ↓ moves down the list", Verb::Key("j"), "row", "Native Bridge foundation"),
         step("K or ↑ moves back up", Verb::Key("k"), "row", "Fix the merge line freshness chip"),
         step("Enter opens the focused Job", Verb::Key("enter"), "row", "Fix the merge line freshness chip"),
@@ -90,7 +91,7 @@ pub static WALKS: &[Walk] = &[Walk {
         step("Rest the pointer on a Job and its card opens beside it", Verb::Hover, "row", "Native Bridge foundation"),
         step("A right press opens the Job's menu", Verb::RightPress("Audit the docs index"), "menuitem", "Pause"),
         step("Esc shuts it", Verb::Key("escape"), "row", "Audit the docs index"),
-        step("⌥↓ moves the Job down past its neighbour", Verb::Key("alt-down"), "row", "Audit the docs index"),
+        step("⌥↑ moves the Job up past its neighbour", Verb::Key("alt-up"), "row", "Audit the docs index"),
         step("Shift+F10 opens the menu from the keys", Verb::Key("shift-f10"), "menuitem", "Close"),
         step("Esc shuts it again", Verb::Key("escape"), "row", "Audit the docs index"),
         step("/ opens the Filter, the search field taking the keys", Verb::Key("/"), "searchbox", "Search Jobs"),
