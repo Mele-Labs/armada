@@ -19,3 +19,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 15 Oct 2026 for the walk `checkoutHeldBack`. Tooltip `Auto-merge on`, beside the pull request's chip in Your checkout. The pull request card and panel draw the same mark for the same state. A state, not the merge act."
+
+[[icons.git-merge.usage]]
+  means = "A plan group's Merged gate, closed when its pull request merges into main"
+  group = "Plan gates"
+  size = "12px"
+  status = "Specified"
+  notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Drawn at 12px, unframed, at the end of the last group's line in a chunk's row in Now, and leading the gate line that heads a finished chunk in Done. Tooltip `Ends when <what the gate waits for>`, `Gate, the Job is held on you` (pulsing in the Needs you hue) or `Gate, closed by Fleet`. A state the gate waits for, never the merge act."
