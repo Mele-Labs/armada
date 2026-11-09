@@ -3057,6 +3057,47 @@ export const RevisionClosesWhatDidNotChange: Story = {
   },
 };
 
+/** A closed group says where it stands as one mark for the whole group, and wears no subagent type: the changed group below it is the one that names its agent. */
+export const RevisionQuietGroupWearsOneMark: Story = {
+  args: {
+    rows: LIVE_ROWS,
+    approval: REVISED_PLAN,
+  },
+  play: async ({ canvas }) => {
+    const card = canvas.getByRole("article", {
+      name: "Plan to approve",
+    });
+    // Two done tasks sit behind this row, and it draws the one mark.
+    const quiet = within(card).getByRole("button", {
+      name: "Warm a bay before it is leased",
+    });
+    const marks = within(quiet).getAllByRole("img");
+    await expect(marks).toHaveLength(1);
+    await expect(marks[0]).toHaveAccessibleName("Done");
+    await expect(
+      within(quiet).queryByRole("img", {
+        name: /Subagent type/,
+      }),
+    ).toBeNull();
+    await expect(
+      within(card).queryByRole("img", {
+        name: "Subagent type rust-engineer",
+      }),
+    ).toBeNull();
+    await expect(
+      within(card).queryByRole("img", {
+        name: "Subagent type protocol-engineer",
+      }),
+    ).toBeNull();
+    // The group that changed is open and still names its agent.
+    await expect(
+      within(card).getByRole("img", {
+        name: "Subagent type bridge-engineer",
+      }),
+    ).toBeVisible();
+  },
+};
+
 /** U opens every closed group and closes them all again, from the card or from a control on it. */
 export const UOpensAndClosesTheClosedGroups: Story = {
   args: {

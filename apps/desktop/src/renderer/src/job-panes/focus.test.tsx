@@ -2,7 +2,7 @@
 
 import { beforeEach, expect, test } from "vitest";
 
-import { focusKind } from "./focus";
+import { focusBesideThread, focusKind } from "./focus";
 import { forgetPanes, jobOpens, peek, rearrange } from "./store";
 import { addTab, holderOf, panesOf } from "./tree";
 
@@ -33,4 +33,37 @@ test("a Terminal tab behind another comes to the front, and the key opens no sec
   focusKind(JOB, "terminal");
   expect(holderOf(peek(JOB), "terminal")!.active).toBe(terminal!.id);
   expect(terminals()).toHaveLength(1);
+});
+
+const plans = () =>
+  panesOf(peek(JOB).root)
+    .flatMap((one) => one.tabs)
+    .filter((one) => one.kind === "plan");
+
+test("a view with no tab opens as a tab of the thread's pane, in front", () => {
+  expect(holderOf(peek(JOB), "plan")).toBeUndefined();
+  focusBesideThread(JOB, "plan");
+  const thread = holderOf(peek(JOB), "thread")!;
+  expect(plans()).toHaveLength(1);
+  expect(holderOf(peek(JOB), "plan")!.id).toBe(thread.id);
+  expect(thread.tabs.find((one) => one.id === thread.active)?.kind).toBe("plan");
+  expect(peek(JOB).focus).toBe(thread.id);
+});
+
+test("a view whose tab is open elsewhere is focused where it is, and no second opens", () => {
+  const thread = holderOf(peek(JOB), "thread")!;
+  // The Plan tab sits in the Now pane, behind a Changes tab that is its pane's front.
+  const now = holderOf(peek(JOB), "now")!;
+  rearrange(JOB, (arrangement) => addTab(arrangement, now.id, "plan"));
+  rearrange(JOB, (arrangement) => addTab(arrangement, now.id, "changes"));
+  const [plan] = plans();
+  expect(holderOf(peek(JOB), "plan")!.id).toBe(now.id);
+  expect(holderOf(peek(JOB), "plan")!.active).not.toBe(plan!.id);
+
+  focusBesideThread(JOB, "plan");
+  expect(plans()).toHaveLength(1);
+  expect(holderOf(peek(JOB), "plan")!.id).toBe(now.id);
+  expect(holderOf(peek(JOB), "plan")!.active).toBe(plan!.id);
+  expect(peek(JOB).focus).toBe(now.id);
+  expect(holderOf(peek(JOB), "thread")!.tabs).toEqual(thread.tabs);
 });
