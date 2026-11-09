@@ -401,6 +401,17 @@ export type HeldInstance = {
   ended_at?: string;
 };
 
+/** One thing a Job holds that no end state has taken and ending the Job has not ended: what End job lists. Carried on `SessionRecord.in_flight`. */
+export type InFlight = {
+  lifecycle: string;
+  /** What its source calls it: `ARM-41`, `812`, a Job's id. */
+  key: string;
+  /** What a person reads for it: the ticket's key, `PR #812`, the Job's title. */
+  label: string;
+  /** Where it stands: its lifecycle's label for the state it is In, the word its source used where it is Unmapped, and empty where it is Unread. */
+  state: string;
+};
+
 /** One change of standing, kept when a read found the instance somewhere else. `source` is `tracker`, `forge`, `watch` or `fleet`. */
 export type InstanceMove = {
   lifecycle: string;

@@ -117,6 +117,11 @@ pub fn lifecycle(lifecycle: &Lifecycle) -> ipc::LifecycleDefinition {
     }
 }
 
+/// What End job lists for one instance a Job holds.
+pub fn in_flight(flying: &super::ending::Flying) -> ipc::InFlight {
+    ipc::InFlight { lifecycle: flying.lifecycle.clone(), key: flying.key.clone(), label: flying.label.clone(), state: flying.state.clone() }
+}
+
 /// Where an instance stands.
 pub fn standing(standing: &Standing) -> ipc::InstanceStanding {
     match standing {
