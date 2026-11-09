@@ -7,7 +7,7 @@
 **Kind:** Surface.
 
 The Electron Bridge is described in [Bridge](bridge.md).
-How a Job works on the native one is `../practices/native-bridge.md`.
+How a Job works on the native one is in [the native Bridge practice](../practices/native-bridge.md).
 
 ## Why native
 
@@ -32,7 +32,7 @@ If gpui-component's one maintainer stops, the build pins Zed's own gpui.
 
 **Electron takes fixes and small features that help the owner daily.**
 Bigger features go native.
-Each Electron feature that lands during the overlap gets a task in the matching native group of the plan.
+Each Electron feature that lands during the overlap gets a task in the matching step of the build order below.
 
 ### 3. A native mod kit, after switch day
 
@@ -58,7 +58,20 @@ If Chrome cannot be drawn inside the gpui window, it sits in a borderless window
 ### 6. Order
 
 **Jobs come first, then Operator, Projects and the Job tools.**
-The full order is in the plan.
+Each step is its own Job, and at most two run at once.
+
+| Step | What it gives |
+|---|---|
+| Foundation | A native window on Fleet listing Jobs in his theme, the native walk window on mock data, the Chrome test and the speed check |
+| Fleet views | Thread rows, lanes and the merge line worked out in Fleet, beside the foundation |
+| Jobs screens | The Jobs list, thread, composer, approvals and Needs you |
+| Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
+| Web pages in Chrome | Documents, sketches, walks of web pages and notes |
+| Job panes | Plan, Changes, Files, Checks, Subagents, Log, Ledger, Judge, the pull request panes and the native diff |
+| Operator and Projects | The Operator board and Talk, and Projects |
+| Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account |
+| Job tools | Terminal, the Request pane and the Browser tool |
+| Switch-over | VoiceOver pass, the signed app on both Macs, the Electron fallback |
 
 ### 7. Switch day
 

@@ -1,7 +1,7 @@
 # Native Bridge practices
 
 How a Job works on `crates/bridge-native/`, the native Bridge.
-What it is and why it exists is `../concepts/native-bridge.md`.
+What it is and why it exists is in [Native Bridge](../concepts/native-bridge.md).
 
 ## Who does the work
 
@@ -63,7 +63,7 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 
 ## The overlap rule
 
-**An Electron feature that lands gets a task in the matching native group of the plan.**
+**An Electron feature that lands gets a task in the matching step of the build order in [Native Bridge](../concepts/native-bridge.md).**
 Electron takes only fixes and small features that help the owner daily.
 
 ## Targets
