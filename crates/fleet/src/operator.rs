@@ -35,9 +35,11 @@ mod erroring;
 mod handing;
 mod hearing;
 mod holding;
+mod looking;
 mod orders;
 mod placing;
 mod questions;
+mod reading;
 mod ruling;
 mod seat;
 pub(crate) mod shortlist;
@@ -62,6 +64,7 @@ pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
 pub use boarding::{OnBoard, Unknown};
 use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
+pub use looking::{Blind, Folder, Looking, ReadingScout, ToRead};
 pub use acting::FleetActing;
 pub(crate) use answering::answers;
 #[cfg(test)]
@@ -127,6 +130,11 @@ pub trait Desk: Send + Sync {
     /// The open tasks and last words of the newest of `live`, which a message to the box is handed.
     fn jobs_read(&self, _live: &[LiveJob]) -> Done<'_, Vec<talking::JobRead>> {
         Box::pin(async { Vec::new() })
+    }
+    /// What a message to the box may read, and where its folder is made. `None` where this desk keeps
+    /// nothing to read: the message is put to the call that holds no tools.
+    fn to_read(&self, _live: &[LiveJob], _needs: &[NeedsYou]) -> Done<'_, Option<ToRead>> {
+        Box::pin(async { None })
     }
     /// The board changed: an arrival came, went into a call, was ruled, or was reordered.
     fn board_changed(&self) {}
@@ -306,14 +314,23 @@ struct Queue {
 /// The Operator of this machine.
 pub struct Operator {
     call: Arc<dyn Calling>,
+    /// What a message to the box is put to. A ruling is never: it goes to `call`.
+    looking: Arc<dyn Looking>,
     desk: Arc<dyn Desk>,
     acting: Arc<dyn Acting>,
     queue: Mutex<Queue>,
 }
 
 impl Operator {
+    /// An Operator whose messages are put to `call` too, which reads nothing.
     pub fn new(call: Arc<dyn Calling>, desk: Arc<dyn Desk>, acting: Arc<dyn Acting>) -> Arc<Operator> {
-        Arc::new(Operator { call, desk, acting, queue: Mutex::new(Queue::default()) })
+        let looking = Arc::new(Blind(Arc::clone(&call)));
+        Operator::new_looking(call, looking, desk, acting)
+    }
+
+    /// An Operator that rules through `call` and puts a message to `looking`, which may read.
+    pub fn new_looking(call: Arc<dyn Calling>, looking: Arc<dyn Looking>, desk: Arc<dyn Desk>, acting: Arc<dyn Acting>) -> Arc<Operator> {
+        Arc::new(Operator { call, looking, desk, acting, queue: Mutex::new(Queue::default()) })
     }
 
     /// Rule on `arrival`, waiting at most `within`. **Never fails**: an item with no ruling in

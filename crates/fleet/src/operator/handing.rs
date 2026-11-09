@@ -16,7 +16,7 @@ use store::KeptPlan;
 
 use super::candidates::shared_paths;
 use super::desk::held_of;
-use super::{Arrival, Arrived, Calling, FleetActing, FleetDesk, KeptStarted, Moved, Operator, Ruled, Source, Way, FIRST_WRITE_WAIT, NEEDS_YOU_WAIT};
+use super::{Arrival, Arrived, Calling, FleetActing, FleetDesk, Blind, KeptStarted, Looking, Moved, Operator, ReadingScout, Ruled, Source, Way, FIRST_WRITE_WAIT, NEEDS_YOU_WAIT};
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -40,16 +40,17 @@ where
                 return;
             }
         };
-        let fleet = Arc::downgrade(self);
-        let model = move || Model::named(&fleet.upgrade()?.machine_settings().now().get(keys::MODELS_OPERATOR)).ok();
-        let call = Arc::new(KeptStarted::new(proposing.client, model, proposing.environment, proposing.budget));
+        let model_now = |fleet: std::sync::Weak<Self>| move || Model::named(&fleet.upgrade()?.machine_settings().now().get(keys::MODELS_OPERATOR)).ok();
+        let call = Arc::new(KeptStarted::new(proposing.client, model_now(Arc::downgrade(self)), proposing.environment, proposing.budget));
+        // A message to the box reads; a ruling does not.
+        let looking = Arc::new(ReadingScout::new(self.scouts().host(), model_now(Arc::downgrade(self))));
         let fleet = Arc::clone(self);
-        tokio::spawn(async move { fleet.operator_kept(call).await });
+        tokio::spawn(async move { fleet.operator_kept(call, looking).await });
     }
 
-    /// Seat an Operator making its calls through `call`, kept started while the switch is on.
-    pub(crate) async fn operator_kept(self: &Arc<Self>, call: Arc<KeptStarted>) {
-        if self.operator_seated_with(call.clone()) {
+    /// Seat an Operator ruling through `call`, kept started while the switch is on, and putting a message to `looking`.
+    pub(crate) async fn operator_kept(self: &Arc<Self>, call: Arc<KeptStarted>, looking: Arc<dyn Looking>) {
+        if self.operator_seated_looking(call.clone(), looking) {
             self.operator_seat().keep(call);
             self.operator_kept_in_step().await;
         }
@@ -79,13 +80,18 @@ where
 
     /// Seat an Operator making its calls through `call`. `false` where one is already seated.
     pub(crate) fn operator_seated_with(self: &Arc<Self>, call: Arc<dyn Calling>) -> bool {
+        self.operator_seated_looking(Arc::clone(&call), Arc::new(Blind(call)))
+    }
+
+    /// Seat an Operator ruling through `call` and putting a message to `looking`. `false` where one is already seated.
+    pub(crate) fn operator_seated_looking(self: &Arc<Self>, call: Arc<dyn Calling>, looking: Arc<dyn Looking>) -> bool {
         let fleet = Arc::downgrade(self);
         let desk = FleetDesk::on(self, move |why| {
             if let Some(fleet) = fleet.upgrade() {
                 fleet.operator_warned("the Operator's Log was not kept or read", why);
             }
         });
-        self.operator_seat().seat(Operator::new(call, Arc::new(desk), Arc::new(FleetActing::on(self))))
+        self.operator_seat().seat(Operator::new_looking(call, looking, Arc::new(desk), Arc::new(FleetActing::on(self))))
     }
 
     /// A Job's start, handed to the Operator with `words`, what it was asked.
