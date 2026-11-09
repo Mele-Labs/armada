@@ -236,3 +236,42 @@ button.sv-chunk__row:hover {
     animation: none;
   }
 }
+
+/* ---- The walk's second take, `?take=clean`: the thread's grammar. One ink for what is read, no frames, two left edges, the thread's line height. Removed or adopted before landing. ---- */
+.sv-chunks[data-take="clean"] .sv-chunk__row {
+  line-height: var(--leading-sm);
+}
+.sv-chunks[data-take="clean"] .sv-chunk[data-state="now"] > .sv-chunk__row {
+  background: none;
+}
+.sv-chunks[data-take="clean"] .sv-chunk__gate,
+.sv-chunks[data-take="clean"] .sv-chunk[data-gate] .sv-chunk__gate {
+  border-color: transparent;
+  color: var(--fg-subtle);
+}
+.sv-chunks[data-take="clean"] .sv-chunk[data-gate="failed"] .sv-chunk__gate {
+  color: var(--step-failed);
+}
+.sv-chunks[data-take="clean"] .sv-chunk[data-lamp="needs"] .sv-chunk__gate {
+  border-color: transparent;
+  color: var(--status-awaiting-review);
+}
+.sv-chunks[data-take="clean"] .sv-chunk__doing .sv-beat__label {
+  font-weight: var(--weight-body);
+}
+/* Every glyph under the live chunk stands in one 16px column on its name's edge, so every line's words start at one place. */
+.sv-chunks[data-take="clean"] .sv-chunk__helper {
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+}
+.sv-chunks[data-take="clean"] .sv-chunk__drone {
+  justify-content: center;
+}
+.sv-chunks[data-take="clean"] .sv-chunk__tasks {
+  display: inline-grid;
+  grid-template-columns: var(--space-4) auto;
+  justify-items: center;
+  column-gap: var(--space-2);
+  margin-inline-start: 0;
+  padding-inline: 0 var(--space-1);
+  color: var(--fg-subtle);
+}

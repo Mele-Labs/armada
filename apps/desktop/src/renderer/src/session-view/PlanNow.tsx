@@ -63,6 +63,20 @@ type GateRead = {
   red: readonly string[];
 };
 
+// The walk's second take, `?take=clean`: only the live or an opened chunk says its gate; the rest say it in the glyph's tooltip. Removed before landing.
+const CLEAN = new URLSearchParams(window.location.search).get("take") === "clean";
+
+/** What an open gate ends its chunk on, after "Ends when". */
+const GATE_ENDS: Record<GateKind, string> = {
+  plan_approved: "you approve the plan",
+  walk_approved: "you approve the walk",
+  sketch_approved: "you approve the sketch",
+  document_approved: "you approve the document",
+  checks_green: "Checks pass at the pushed commit",
+  merged: "it merges into main",
+  jobs_ended: "every Job it started has merged or ended",
+};
+
 /** What a gate says: the fact Fleet saw close it; while open, its Checks at the pushed commit, or what it waits for. */
 const readGate = (gate: StretchGate, state: StretchState): GateRead => {
   const closed = gate.closed;
@@ -72,7 +86,9 @@ const readGate = (gate: StretchGate, state: StretchState): GateRead => {
       closed !== undefined
         ? closed.fact
         : checks === undefined
-          ? `Waits for: ${GATE_SAID[gate.kind]}`
+          ? CLEAN
+            ? `Ends when ${GATE_ENDS[gate.kind]}`
+            : `Waits for: ${GATE_SAID[gate.kind]}`
           : checks.state === "running"
             ? `Checks running at ${checks.commit}`
             : `Checks failed at ${checks.commit}`,
@@ -89,7 +105,9 @@ const readGate = (gate: StretchGate, state: StretchState): GateRead => {
         ? "Gate, closed by Fleet"
         : gate.held !== undefined
           ? "Gate, the Job is held on you"
-          : "Gate, open",
+          : CLEAN
+            ? `Ends when ${GATE_ENDS[gate.kind]}`
+            : "Gate, open",
     failed: checks?.state === "red" ? (checks.failed ?? []) : [],
     red: closed?.already_red ?? checks?.already_red ?? [],
   };
@@ -185,7 +203,7 @@ export function PlanChunks<G extends WorkGroup>({
       return next;
     });
   return (
-    <ol className="sv-chunks" aria-label="Plan">
+    <ol className="sv-chunks" aria-label="Plan" data-take={CLEAN ? "clean" : undefined}>
       {stretches.map((stretch) => {
         const State = STATE_GLYPH[stretch.state];
         const gate = stretch.gate;
@@ -204,7 +222,7 @@ export function PlanChunks<G extends WorkGroup>({
             </Tooltip>
             <span className="sv-chunk__name">{stretch.name}</span>
             {/* When it closed, or how long it has held the Job on him, stands after the gate's line, so a narrow pane never squeezes the chunk's name. */}
-            {read === undefined || gate === undefined ? null : (
+            {read === undefined || gate === undefined || (CLEAN && !live && !opened) ? null : (
               <span className="sv-chunk__said">
                 <span className="sv-chunk__fact">{read.said}</span>
                 {gate.closed !== undefined ? (
