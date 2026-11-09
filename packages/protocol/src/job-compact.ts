@@ -8,4 +8,12 @@ export type CompactHow = "terminal" | "message";
 export type CompactOff = "ended" | "not_listening" | "terminal_not_listed" | "agent_not_listed";
 
 /** Compact offered, or off with the reason. */
-export type CompactOffer = { state: "offered"; how: CompactHow } | { state: "off"; why: CompactOff };
+export type CompactOffer =
+  | {
+      state: "offered";
+      how: CompactHow;
+    }
+  | {
+      state: "off";
+      why: CompactOff;
+    };

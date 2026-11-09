@@ -25,7 +25,9 @@ A plan window is banded where Fleet takes the reading, before it is compared wit
 A Job's context is banded off its two figures when the record is built, so every `session.changed` carries it.
 
 **Compact** is `offeredOf` in `cockpit/deck/session-tiles.ts`, check for check: an ended Job is off first; a hosted Job is offered as a `message` when its agent listed `compact` and is `agent_not_listed` otherwise; a terminal Job is `not_listening` unless its mod is, then offered as a `terminal` command when the mod listed `compact` and `terminal_not_listed` otherwise.
-Two departures. Electron also asks whether the window can send a command at all, which only a client knows. A hosted Job reads its own list of commands, where Electron reads the first list any Job has; Fleet gives a Job whose process has not started the last list any Job read, so the two agree wherever a list exists.
+Two departures.
+Electron also asks whether the window can send a command at all, which only a client knows.
+A hosted Job reads its own list of commands, where Electron reads the first list any Job has; Fleet gives a Job whose process has not started the last list any Job read, so the two agree wherever a list exists.
 
 **The build switcher** is `FleetBuildSection` in `FleetBuild.tsx`.
 `aligned` is a position that is known with none ahead and none behind, so a position that cannot be counted is not aligned.
