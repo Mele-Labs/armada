@@ -15,7 +15,7 @@ pub const PORT_RANGE_BASE: Integer = Integer("limits.portRangeBase");
 pub const PORT_BLOCK_GRANULE: Integer = Integer("limits.portBlockGranule");
 pub const WATCHES_AT_ONCE: Integer = Integer("limits.watchesAtOnce");
 pub const WATCHES_PER_JOB: Integer = Integer("limits.watchesPerJob");
-pub const OPERATOR_DAILY_CALLS: Integer = Integer("limits.operatorDailyCalls");
+pub const OPERATOR_PLAN_PAUSE: Integer = Integer("limits.operatorPlanPause");
 
 pub(super) const LIMITS: &[Entry] = &[
     // **Two, and the ceiling is not what bounds it.** Spike 012 ran five Drones
@@ -181,18 +181,17 @@ pub(super) const LIMITS: &[Entry] = &[
         env: None,
         tip: None,
     },
-    // **A hundred, chosen and not measured.** The replay of 4 Nov counted 38 calls a working day
-    // and 57 on the busiest, before turn ends, permission cards and stalls are counted; a hundred
-    // is the page's own estimate once they are. Past it everything passes as it did before.
+    // **Eighty, as the plan's step down is.** The share of the week's plan the Operator leaves
+    // alone: past it the Operator makes no call, so the week's last of the plan goes to Jobs.
     Entry {
-        key: OPERATOR_DAILY_CALLS.0,
+        key: OPERATOR_PLAN_PAUSE.0,
         section: Section::Limits,
-        title: "Operator calls a day",
-        description: "How many calls the Operator makes in a day. Past it, it makes none until the next day and everything passes on as if it were off.",
-        kind: Kind::Integer { min: 0, max: 10_000, unit: "calls" },
-        shipped: Shipped::Integer(100),
+        title: "Pause the Operator at",
+        description: "How much of the weekly plan window must be used before the Operator makes no more calls until the window resets. Everything that needed a call goes to you.",
+        kind: Kind::Integer { min: 0, max: 100, unit: "percent" },
+        shipped: Shipped::Integer(80),
         applies: Applies::Live,
-        row: Some("operator-daily-call-ceiling"),
+        row: Some("operator-plan-pause"),
         env: None,
         tip: None,
     },

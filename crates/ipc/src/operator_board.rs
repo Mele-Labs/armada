@@ -97,6 +97,16 @@ pub struct OperatorBoard {
     pub suggestions: Vec<OperatorBoardSuggestion>,
     #[serde(default)]
     pub done: Vec<OperatorBoardSettled>,
+    /// Present only while the week's plan is used to the share where the Operator pauses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paused: Option<OperatorPaused>,
+}
+
+/// The week's plan used and the share where the Operator pauses, both in percent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorPaused {
+    pub week: u32,
+    pub at: u32,
 }
 
 /// `move_on_operator_board`: `id` goes before `before` in `next`, or last where `before` is absent.

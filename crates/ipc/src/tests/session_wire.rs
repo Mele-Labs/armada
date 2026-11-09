@@ -66,6 +66,7 @@ pub(super) fn a_record() -> SessionRecord {
         workflow_waiting_on: Vec::new(),
         workflow_copy: None,
         in_flight: Vec::new(),
+        mark: None,
     }
 }
 

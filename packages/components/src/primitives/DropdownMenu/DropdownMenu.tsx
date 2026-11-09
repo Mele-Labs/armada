@@ -59,6 +59,8 @@ export type DropdownMenuEntry =
        * drone's `Writing layout.ts`. The label is cut short before it is.
        */
       detail?: string;
+      /** What choosing the item does, a line under its label in `--fg-muted`, as a permission's levels say theirs. The row grows to hold it. */
+      description?: string;
       /** Finished, and still choosable: `--fg-subtle`, as a finished drone on a Job's Field. */
       muted?: boolean;
       /** The act's state, on its glyph: `on` is a switch that is on, `running` is a thing that is running, which pulses. `data-state`. */
@@ -686,10 +688,22 @@ export function DropdownMenu({
                     ) : hasIcons ? (
                       <span className="armada-dropdown-menu__icon" aria-hidden />
                     ) : null}
-                    <span className="armada-dropdown-menu__text">
-                      {entry.label}
-                      <Count of={entry.count} />
-                    </span>
+                    {entry.description === undefined ? (
+                      <span className="armada-dropdown-menu__text">
+                        {entry.label}
+                        <Count of={entry.count} />
+                      </span>
+                    ) : (
+                      <span className="armada-dropdown-menu__text" data-described>
+                        <span>
+                          {entry.label}
+                          <Count of={entry.count} />
+                        </span>
+                        <span className="armada-dropdown-menu__description">
+                          {entry.description}
+                        </span>
+                      </span>
+                    )}
                     {entry.detail === undefined ? null : (
                       <span className="armada-dropdown-menu__detail">{entry.detail}</span>
                     )}

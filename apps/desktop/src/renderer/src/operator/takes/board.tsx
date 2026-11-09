@@ -2,7 +2,7 @@
 
 import { Children, useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
-import { Bot, Check, Clock, LoaderCircle, MessagesSquare } from "lucide-react";
+import { Bot, Check, Clock, LoaderCircle, MessagesSquare, Pause } from "lucide-react";
 import { Button, SplitButton, Tooltip, timeSaid, useTimeFormat } from "@armada/components";
 import { askToCloseOperator } from "@armada/shell";
 
@@ -26,16 +26,19 @@ export const openJob = (id: string) => {
   askToCloseOperator();
 };
 
-/** Discussion in front, so an item brought up there is seen. */
-function showTalk() {
+/** One of the Operator's tabs in front, opened in the first pane where none holds it. */
+function showTab(kind: "op-talk" | "op-permissions") {
   operatorPanes.rearrange(OPERATOR, (now) => {
-    const pane = holderOf(now, "op-talk");
-    const tab = pane?.tabs.find((one) => one.kind === "op-talk");
+    const pane = holderOf(now, kind);
+    const tab = pane?.tabs.find((one) => one.kind === kind);
     if (tab !== undefined) return activate(now, tab.id);
     const first = panesOf(now.root)[0];
-    return first === undefined ? now : addTab(now, first.id, "op-talk");
+    return first === undefined ? now : addTab(now, first.id, kind);
   });
 }
+
+/** Discussion in front, so an item brought up there is seen. */
+const showTalk = () => showTab("op-talk");
 
 /**
  * Each card slides from where it was drawn last to where it is now, across lanes too, since it is found by its id. Only a
@@ -628,6 +631,21 @@ function Queue({ store }: { store: OperatorStore }) {
           {next.map((one) => upNext(one, false))}
         </Lane>
         <Lane name="Needs you" hue="you" empty="Nothing needs you">
+          {state.paused === undefined ? null : (
+            <Card
+              id="operator-paused"
+              tag="Paused"
+              title="The Operator is paused"
+              line={`The week's plan is at ${Math.round(state.paused.week)}%, past the ${state.paused.at}% set in Permissions. Everything comes to you as today.`}
+              glyph={<Pause size={12} strokeWidth={2} aria-hidden />}
+              said="Paused past its share of the week"
+              act={
+                <Button size="sm" variant="secondary" onClick={() => showTab("op-permissions")}>
+                  Open Permissions
+                </Button>
+              }
+            />
+          )}
           {waiting.map((one) => {
             const discussing = state.open === one.id;
             return (

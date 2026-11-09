@@ -320,6 +320,7 @@ where
             .and_then(|kept| ipc::decode("a context breakdown", kept.as_bytes()).ok());
         record.loadout_summary = crate::loadout_keeping::summary(reads.loadout);
         let reply_owed_since = reads.waiting.reply_owed_since();
+        let (checks_running, spoken) = reads.waiting.thread_facts();
         let waited = self.waiting_from(reads.waiting, session, &record.attachments);
         record.waiting_for = waited.items;
         // A call held at a gate only the person can close is his to settle.
@@ -429,6 +430,8 @@ where
                 record.last_heard_at = self.now().epoch_millis().map(|now| wire_instant(&crate::clock::rfc3339_utc(now - quiet)));
             }
         }
+        let thread = super::marking::Thread { lapsed, checks_running, spoken };
+        record.mark = Some(super::marking::mark_of(&record, &thread, self.now().epoch_millis()));
         record
     }
 

@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::annotations::{filed_done, is_note_id, marked_done, note_read, sent_to, unsent, NoteRead, NotMarked};
+use ipc::annotations::{filed_done, is_note_id, marked_done, note_read, resent_to, sent_to, unsent, NoteRead, NotMarked};
 use ipc::{AnnotationMarked, MarkAnnotationDone, SessionNote};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -163,9 +163,10 @@ where
 
     /// The note `note` of repository `manifest`, which the Operator started or told Job `job` on,
     /// marked sent to it as Bridge's own send leaves a note, and kept as an artifact on the Job.
-    pub(crate) async fn note_given_by_operator(&self, manifest: &str, note: &str, job: &str, title: &str) {
+    /// **A note the person sent to another Job is taken from it** where `moved`.
+    pub(crate) async fn note_given_by_operator(&self, manifest: &str, note: &str, job: &str, title: &str, moved: bool) {
         let (at, to, called) = (self.now().as_str().to_string(), job.to_string(), title.to_string());
-        let Some(bytes) = self.note_rewritten(manifest, note, move |bytes| sent_to(bytes, &to, &called, &at)).await else {
+        let Some(bytes) = self.note_rewritten(manifest, note, move |bytes| if moved { resent_to(bytes, &to, &called, &at) } else { sent_to(bytes, &to, &called, &at) }).await else {
             return;
         };
         if let Ok(read) = note_read(&bytes) {
