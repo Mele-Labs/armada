@@ -1,6 +1,6 @@
 // What opening the Review tab runs: the tools and explanations of the head row that a repository runs by default, the ask that
 // lists them with a box each, and the same boxes in System, Repository. **The default is kept per repository on this machine**,
-// under the manifest's id, in Bridge's storage: Fleet has no setting for it. With none kept it is every tool that finds things, no
+// under the manifest's id, in Bridge's storage: Fleet has no setting for it. With none kept it is every tool, Tour among them, no
 // explanation, and asking first. A run kept for this commit is never run again by opening.
 
 import { useEffect, useState } from "react";
@@ -23,11 +23,19 @@ import {
 import type { AgentRun, PrWork, ReviewPr, ToolDef } from "./model";
 import { openWhenDone } from "./panes";
 import { useReviewStore, useReviews, type ReviewStore } from "./store";
-import { isWalk, tilesOf, toolsOf } from "./tools";
+import { isTour, isWalk, tilesOf, toolsOf } from "./tools";
 
-/** The head row's tools and explanations, in the order + lists them. The Walk is left out: it finds a place before it runs. */
-export const headTools = (defs: readonly ToolDef[]): readonly ToolDef[] =>
-  tilesOf(defs).filter((one) => one.agent && !isWalk(one));
+/**
+ * The head row's tools and explanations: the Tour first, as the one Review steps by, then the rest in the order + lists them. The Walk
+ * is left out: it finds a place before it runs.
+ */
+export const headTools = (defs: readonly ToolDef[]): readonly ToolDef[] => {
+  const tiles = tilesOf(defs).filter((one) => one.agent && !isWalk(one));
+  return [
+    ...tiles.filter(isTour),
+    ...tiles.filter((one) => !isTour(one)),
+  ];
+};
 
 export const runOf = (work: PrWork, tool: ToolDef): AgentRun | undefined =>
   tool.kind === "explanation" ? work.explains[tool.id] : work.runs[tool.id];
@@ -82,7 +90,7 @@ const keepOpening = (manifestId: string, change: Partial<Opening>) =>
 const builtIn = (tools: readonly ToolDef[]) =>
   tools.filter((one) => one.kind === "tool").map((one) => one.id);
 
-/** The ids opening Review runs for a repository: what was kept for it, else every tool that finds things. */
+/** The ids opening Review runs for a repository: what was kept for it, else every tool, Tour among them. */
 export function defaultsOf(manifestId: string, tools: readonly ToolDef[]): readonly string[] {
   return openingOf(manifestId).run ?? builtIn(tools);
 }

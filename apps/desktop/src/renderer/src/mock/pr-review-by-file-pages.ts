@@ -1,6 +1,7 @@
 // One pull request for the Review tab to read: eight changed files, Risks findings on lines of two of them, one finding on a line the
 // diff does not hold, and findings whose words name other changed files by path and line. An open thread on a line of a third file,
-// one on the whole of a fourth, a resolved one on the spec, and two entries of general conversation. Invented, as every fixture here is.
+// one on the whole of a fourth, a resolved one on the spec, and two entries of general conversation. A tour of five stops holds all
+// but the finding off the diff. Invented, as every fixture here is.
 
 import { build, checks, commits, minutesAgo } from "./pr-review-pages";
 
@@ -325,6 +326,44 @@ export const refunds = build({
     },
   ],
   results: {
+    // Tour's stops, in the order to read them: a stop's title is a line on what that piece does, and its words the lines it is.
+    tour: [
+      {
+        change: "endpoint",
+        title: "The payment's page asks the issuer for a refund",
+        body: "",
+        match: "RefundIssuer.new(payment).issue",
+        through: "render :new",
+      },
+      {
+        change: "issue",
+        title: "The issuer refunds against the original charge",
+        body: "",
+        match: "def issue(amount_cents)",
+        through: "RefundRetryJob.perform_later",
+      },
+      {
+        change: "refundable",
+        title: "The payment caps a refund at what is left",
+        body: "",
+        match: "def refundable_amount",
+        through: "amount_cents <= refundable_amount",
+      },
+      {
+        change: "retry",
+        title: "A job settles a refund the gateway timed out on",
+        body: "",
+        match: "class RefundRetryJob",
+        through: ".settle(refund)",
+      },
+      {
+        change: "spec",
+        title: "The spec covers the charge and the cap",
+        body: "",
+        match: "refunds against the original charge",
+        through: "raise_error(Refund::TooLarge)",
+      },
+    ],
     risks: [
       {
         change: "issue",

@@ -1,8 +1,10 @@
-// The Review tab: one changed file at a time, with each finding pinned in a margin beside the lines it is about. **The finding in
-// focus is tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims, and
-// its tie goes grey. The forge's threads hang under their lines, a resolved one folded, and one on the whole file sits over the diff.
-// **Previous and Next step through the files that need him**, those with findings or open threads; Go to file reaches the rest,
-// which say they are not counted. Opening it runs the repository's default tools that have not run on this commit, asking first
+// The Review tab: one stop of the change at a time, with each finding pinned in a margin beside the lines it is about. **The finding
+// in focus is tied to its lines** by a leader and a wash in its tool's hue; one he has marked Expected, Not valid or Commented dims,
+// and its tie goes grey. The forge's threads hang under their lines, a resolved one folded, and one on the whole file sits over the
+// diff. **Previous and Next step through Tour's stops** once it has run, each its lines and a few around them, or its whole file, and
+// then a stop for each file whose findings or open threads no stop holds (`stopsOf`). Before Tour has run, or where it failed, they
+// step through the files that need him, those with findings or open threads. Go to file reaches the rest, which say they are not
+// counted, or not on the tour. No count of answered findings: each card shows its own. Opening it runs the repository's default tools that have not run on this commit, asking first
 // (`opening-run.tsx`), and its head runs any tool or explanation again. A tool's findings land here with no tool tab open; an
 // explanation opens its tab when done. A press in the gutter picks a line, Shift and a press picks the run to it, and the box under
 // the run starts a review or adds to it. The bar at the foot holds his pending review and Submit.
@@ -46,6 +48,8 @@ import {
   orderOf,
   pathOf,
   reviewTab,
+  stopOf,
+  stopsOf,
   useGoTo,
   useReviewTabState,
   type FindingMark,
@@ -54,7 +58,7 @@ import { ranked } from "./fuzzy";
 import { DraftCard, FindingCard, LineComposer } from "./lines";
 import type { Finding, ReviewPr, ToolDef } from "./model";
 import { openKind, openToolTab, openWhenDone } from "./panes";
-import { indexOfPlace, linesOfPatch, placeOfLine } from "./patch";
+import { indexOfPlace, linesOfPatch, placeOfLine, sliceAround } from "./patch";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { isWalk, onlyTools, toolsOf } from "./tools";
 
@@ -78,10 +82,12 @@ const MARKS: readonly {
   },
 ];
 
-const KEYS: readonly (readonly [
+const keysOf = (
+  touring: boolean,
+): readonly (readonly [
   keys: readonly string[],
   does: string,
-])[] = [
+])[] => [
   [
     [
       "j",
@@ -94,7 +100,7 @@ const KEYS: readonly (readonly [
       "]",
       "[",
     ],
-    "Next and previous file",
+    touring ? "Next and previous stop" : "Next and previous file",
   ],
   [
     [
@@ -156,17 +162,32 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
       work,
     ],
   );
-  const path = pathOf(pr, state.path, files);
-  const every = work.every;
-  const patch = every.state === "read" ? every.files.find((one) => one.path === path) : undefined;
-  const lines = useMemo(
-    () => (path === undefined || patch?.patch === undefined ? [] : linesOfPatch(path, patch.patch)),
+  // Once Tour has run, Review steps by its stops and draws a stop's lines, or its whole file; before, by the files that need him.
+  const stops = useMemo(
+    () => stopsOf(pr, work),
     [
-      path,
-      patch,
+      pr,
+      work,
     ],
   );
-  const here = findings.filter((one) => one.at.path === path);
+  const tour = stops === undefined ? undefined : stopOf(state, stops);
+  const stop = tour === undefined ? undefined : stops?.[tour.at];
+  const cut = stop?.place !== undefined && tour?.whole === false ? stop.place : undefined;
+  const path = stops === undefined ? pathOf(pr, state.path, files) : (stop?.path ?? state.path);
+  const every = work.every;
+  const patch = every.state === "read" ? every.files.find((one) => one.path === path) : undefined;
+  const lines = useMemo(() => {
+    if (path === undefined || patch?.patch === undefined) return [];
+    const all = linesOfPatch(path, patch.patch);
+    return cut === undefined ? all : sliceAround(all, cut);
+  }, [
+    path,
+    patch,
+    cut,
+  ]);
+  const here = findings.filter((one) =>
+    stop !== undefined && cut !== undefined ? stop.findings.includes(one.id) : one.at.path === path,
+  );
   const tied = useMemo(
     () =>
       new Map(
@@ -187,13 +208,20 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const markOfTool = (finding: Finding) =>
     tools.find((def) => def.id === finding.tool)?.mark ?? "custom";
   const focused = here.find((one) => one.id === state.finding);
-  const marked = findings.filter((one) => state.marks[one.id] !== undefined).length;
-  const unmarked = marked < findings.length;
+  const unmarked = findings.some((one) => state.marks[one.id] === undefined);
   const pick = state.pick;
   const drafts = work.drafts.filter(
     (one) => one.path === path && one.line !== undefined && one.thread === undefined,
   );
-  const threads = work.threads.filter((one) => one.path === path);
+  // A stop draws the threads on its lines, and one on the whole file where it holds it.
+  const threads = work.threads.filter(
+    (one) =>
+      one.path === path &&
+      (stop === undefined ||
+        cut === undefined ||
+        one.line !== undefined ||
+        stop.threads.includes(one.id)),
+  );
   const onFile = threads.filter((one) => one.line === undefined);
 
   // ---- The margin: each card at its line, pushed down past the one above it ----
@@ -447,46 +475,98 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   return (
     <div ref={root} className="pr-review-tab-view" tabIndex={-1}>
       <header className="pr-review-tab-view__head">
-        <span className="pr-review-tab-view__steps" role="group" aria-label="Files">
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-label="Previous file"
-            disabled={at <= 0}
-            onClick={() => toFile(files[at - 1])}
-          >
-            Previous
-          </Button>
-          {at < 0 && path !== undefined ? (
-            <Tooltip label="No findings or open threads on this file, so Previous and Next pass it">
-              <span className="pr-review-tab-view__of">Not counted</span>
-            </Tooltip>
-          ) : (
-            <span className="pr-review-tab-view__of">
-              {files.length === 0 ? "" : `file ${at + 1} of ${files.length}`}
-            </span>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-label="Next file"
-            disabled={at >= files.length - 1}
-            onClick={() => toFile(files[at + 1])}
-          >
-            Next
-          </Button>
+        {stops === undefined || tour === undefined ? (
+          <span className="pr-review-tab-view__steps" role="group" aria-label="Files">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="Previous file"
+              disabled={at <= 0}
+              onClick={() => toFile(files[at - 1])}
+            >
+              Previous
+            </Button>
+            {at < 0 && path !== undefined ? (
+              <Tooltip label="No findings or open threads on this file, so Previous and Next pass it">
+                <span className="pr-review-tab-view__of">Not counted</span>
+              </Tooltip>
+            ) : (
+              <span className="pr-review-tab-view__of">
+                {files.length === 0 ? "" : `file ${at + 1} of ${files.length}`}
+              </span>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="Next file"
+              disabled={at >= files.length - 1}
+              onClick={() => toFile(files[at + 1])}
+            >
+              Next
+            </Button>
+          </span>
+        ) : (
+          <span className="pr-review-tab-view__steps" role="group" aria-label="Stops">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="Previous stop"
+              disabled={tour.at <= 0}
+              onClick={() => reviewTab.toStop(pr.key, tour.at - 1)}
+            >
+              Previous
+            </Button>
+            {tour.at < 0 ? (
+              <Tooltip label="No stop of the tour is on this file, so Previous and Next pass it">
+                <span className="pr-review-tab-view__of">Not on the tour</span>
+              </Tooltip>
+            ) : (
+              <span className="pr-review-tab-view__of">{`Stop ${tour.at + 1} of ${stops.length}`}</span>
+            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label="Next stop"
+              disabled={tour.at >= stops.length - 1}
+              onClick={() => reviewTab.toStop(pr.key, tour.at + 1)}
+            >
+              Next
+            </Button>
+          </span>
+        )}
+        <span className="pr-review-tab-view__title" title={stop?.title}>
+          {stop?.title ?? ""}
         </span>
         <span className="pr-review-tab-view__path" title={path}>
           {path ?? ""}
         </span>
-        {/* Drawn empty where there are no findings, so the columns after it stay where they are. */}
-        {findings.length === 0 ? (
-          <span className="pr-review-tab-view__marked" />
+        {/* Drawn empty off a tour, so the columns after it stay where they are. */}
+        {stop === undefined || tour === undefined ? (
+          <span className="pr-review-tab-view__whole" />
         ) : (
-          <Tooltip label="Findings marked Expected, Not valid or Commented, across every file">
-            <span className="pr-review-tab-view__marked">
-              {`${marked} of ${findings.length} findings marked`}
-            </span>
+          <Tooltip
+            label={
+              stop.place === undefined
+                ? "This stop is the whole file"
+                : "Draw the whole file, not only this stop's lines"
+            }
+          >
+            <Button
+              className="pr-review-tab-view__whole"
+              variant="secondary"
+              size="sm"
+              aria-pressed={tour.whole || stop.place === undefined}
+              disabled={stop.place === undefined}
+              onClick={() =>
+                tour.whole
+                  ? reviewTab.toStop(pr.key, tour.at)
+                  : reviewTab.change(pr.key, {
+                      whole: true,
+                    })
+              }
+            >
+              Whole file
+            </Button>
           </Tooltip>
         )}
         <RunTools pr={pr} />
@@ -509,7 +589,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
       </header>
       {state.keys ? (
         <dl className="pr-review-tab-view__keys" aria-label="Keys">
-          {KEYS.map(([keys, does]) => (
+          {keysOf(stops !== undefined).map(([keys, does]) => (
             <div key={does} className="pr-review-tab-view__key">
               <dt>
                 {keys.map((one) => (
@@ -637,7 +717,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             }}
             {...(unmarked
               ? {
-                  caution: "Some findings are not marked. Submit again to send the review.",
+                  caution: "Some findings have no answer yet. Submit again to send the review.",
                 }
               : {})}
           />

@@ -1,10 +1,10 @@
-// The Review tab, which reads a pull request one file at a time with the findings pinned beside their lines. Opening it asks which
-// tools to run, ticked from the repository's default, and keeps a new default, which System, Repository shows with Ask before
-// running. Previous and Next step through the files with findings or open threads, and a file Go to file reaches outside them says
-// it is not counted. The forge's threads hang under their lines. It counts the findings marked as they are marked, starts a review
-// from lines picked in its gutter, and opens the lines a finding names in place, with Jump. The submit bar says once that findings
-// are unmarked. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits under no
-// line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
+// The Review tab, which reads a pull request with the findings pinned beside their lines. Opening it asks which tools to run, Tour
+// first and ticked, from the repository's default, and keeps a new default, which System, Repository shows with Ask before running.
+// Once Tour has run, Previous and Next step through its stops, each its lines with the findings and threads on them, and the last
+// gathers what no stop holds; a file Go to file reaches off the tour says so. Each finding keeps its own answer on its card. It starts
+// a review from lines picked in its gutter, and opens the lines a finding names in place, with Jump. The submit bar says once that
+// findings have no answer. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits
+// under no line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
 
 import { button, inside, place, region, role, tab, text, toSystemPage, walk } from "../walk";
 
@@ -27,7 +27,7 @@ const reviewTab = inside(
 const reviewPane = inside(reader, region("Pane: Review"));
 const askPane = inside(reader, region("Pane: Ask"));
 const head = inside(reviewPane, role("group", "Tools"));
-const files = inside(reviewPane, role("group", "Files"));
+const stops = inside(reviewPane, role("group", "Stops"));
 const findings = inside(reviewPane, role("complementary", "Findings"));
 const marks = (title: string) => inside(findings, role("group", `Mark ${title}`));
 const gutter = (line: RegExp) => inside(reviewPane, button(line));
@@ -58,7 +58,11 @@ const prReviewByFile = walk("pr-review-by-file", [
   },
   {
     look: inside(opening, role("list", "Tools to run")),
-    say: "Opening it asks what to run. Every tool and explanation of the head has a box, ticked from this repository's default: the four tools",
+    say: "Opening it asks what to run. Every tool and explanation of the head has a box, ticked from this repository's default: Tour and the four tools",
+  },
+  {
+    look: inside(opening, role("checkbox", "Tour")),
+    say: "Tour is first, and ticked. Review steps through the change by its stops",
   },
   {
     press: inside(opening, role("checkbox", "Test gaps")),
@@ -66,7 +70,7 @@ const prReviewByFile = walk("pr-review-by-file", [
   },
   {
     press: inside(opening, role("checkbox", "Use these for fernhill/tally from now on")),
-    say: "And keeps the three as this repository's default, for the next pull request he opens here",
+    say: "And keeps the four as this repository's default, for the next pull request he opens here",
   },
   {
     press: inside(opening, button("Run")),
@@ -75,54 +79,69 @@ const prReviewByFile = walk("pr-review-by-file", [
   ...toSystemPage("Repository", "The default is kept in System, Repository, under Run on opening"),
   {
     look: tallyDefaults,
-    say: "fernhill/tally runs three, with Test gaps unticked. Ask before running is on: Don't ask again in the ask turns it off, and this turns it back on",
+    say: "fernhill/tally runs four, with Test gaps unticked. Ask before running is on: Don't ask again in the ask turns it off, and this turns it back on",
   },
   {
     press: place("Reviews"),
     say: "Back to the pull request, where the ticked tools are running",
   },
 
-  // 2. The tools, each a button in Review's head.
+  // 2. The tools, each a button in Review's head, Tour first.
   {
-    hover: inside(head, button("Run Risks again")),
-    say: "Each tool has a button in the head. Its glyph is its state: done, with when and on which commit",
+    hover: inside(head, button("Run Tour again")),
+    say: "Each tool has a button in the head, Tour first. Its glyph is its state: done, with when and on which commit",
   },
   {
     hover: inside(head, button("Run Test gaps")),
     say: "Test gaps was unticked, so it has not run",
   },
-  {
-    look: inside(findings, role("article", /Two refunds can pass the same check/)),
-    say: "Its findings land beside their lines, with no Risks tab open",
-  },
 
-  // 3. Previous and Next, through the files with findings or comments.
+  // 3. Previous and Next, through Tour's stops.
   {
-    look: inside(files, text("file 1 of 4")),
-    say: "Previous and Next step through the four files with findings or open threads, of the eight changed. Files with findings come first",
+    look: inside(stops, text("Stop 1 of 6")),
+    say: "Previous and Next step through Tour's stops: five in the order to read the change, then one for what they leave out",
   },
   {
-    press: inside(files, button("Next file")),
+    look: inside(reviewPane, text("The payment's page asks the issuer for a refund")),
+    say: "Beside the count, what this stop does, then its file",
+  },
+  {
+    look: inside(
+      reviewPane,
+      role("article", /^Thread on app\/controllers\/refunds_controller\.rb:\d+ by tamsin/),
+    ),
+    say: "The stop draws its lines and a few around them. Its open thread hangs under its line, with Reply and Resolve",
+  },
+  {
+    press: inside(stops, button("Next stop")),
     say: "Next",
   },
   {
-    look: inside(files, text("file 2 of 4")),
-    say: "The next file",
+    look: inside(stops, text("Stop 2 of 6")),
+    say: "The issuer, the next piece to read",
   },
   {
-    press: inside(files, button("Previous file")),
-    say: "Previous, back to the first",
+    look: inside(findings, role("article", /Two refunds can pass the same check/)),
+    say: "The stop's findings sit beside its lines, with no Risks tab open",
+  },
+  {
+    press: inside(reviewPane, button("Whole file")),
+    say: "Whole file draws the rest of the file around the stop",
+  },
+  {
+    look: gutter(/^Comment on line 1: class RefundIssuer/),
+    say: "The lines above the stop",
+  },
+  {
+    press: inside(reviewPane, button("Whole file")),
+    say: "And back to the stop's lines",
   },
 
-  // 4. The findings marked, counted as they are marked.
-  {
-    hover: inside(reviewPane, text("0 of 4 findings marked")),
-    say: "How many findings are marked, across every file. It is the one count Review keeps",
-  },
+  // 4. Each finding answered on its own card.
   {
     key: "j",
     on: reviewTab,
-    say: "j brings the first finding into focus, tied to its lines",
+    say: "j brings the stop's first finding into focus, tied to its lines",
   },
   {
     key: "j",
@@ -131,11 +150,11 @@ const prReviewByFile = walk("pr-review-by-file", [
   },
   {
     press: inside(marks("Two refunds can pass the same check"), button("Expected")),
-    say: "Expected puts the first away, dimmed",
+    say: "Expected puts the first away",
   },
   {
-    look: inside(reviewPane, text("1 of 4 findings marked")),
-    say: "The count moves",
+    look: inside(marks("Two refunds can pass the same check"), button("Expected")),
+    say: "The card keeps its own answer: Expected stays pressed, and the card dims",
   },
   {
     press: inside(
@@ -143,10 +162,6 @@ const prReviewByFile = walk("pr-review-by-file", [
       button("Not valid"),
     ),
     say: "Not valid puts the second away",
-  },
-  {
-    look: inside(reviewPane, text("2 of 4 findings marked")),
-    say: "And again",
   },
 
   // 5. A range of lines, a review started, and a second comment added to it.
@@ -200,47 +215,33 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Jump",
   },
   {
-    look: inside(files, text("file 2 of 4")),
-    say: "Review reads that file, at those lines",
+    look: inside(stops, text("Stop 3 of 6")),
+    say: "Review goes to the stop that holds those lines: the payment's cap",
   },
   {
-    look: inside(findings, text("Line 6 is not in the diff.")),
-    say: "A finding on a line the diff does not hold says so",
+    look: inside(findings, role("article", /refundable_amount counts only succeeded refunds/)),
+    say: "With its finding beside them",
   },
   {
-    press: inside(files, button("Next file")),
+    press: inside(stops, button("Next stop")),
     say: "Next",
   },
   {
-    look: inside(files, text("file 3 of 4")),
-    say: "A file with no findings but an open thread counts too",
+    look: inside(stops, text("Stop 4 of 6")),
+    say: "The retry job",
   },
   {
-    look: inside(
-      reviewPane,
-      role("article", /^Thread on app\/controllers\/refunds_controller\.rb:\d+ by tamsin/),
-    ),
-    say: "The thread hangs under its line, with Reply and Resolve",
+    look: inside(reviewPane, role("article", /^Thread on app\/jobs\/refund_retry_job\.rb/)),
+    say: "A thread on the whole file sits over the stop's lines",
   },
-
-  // Go to file, to one that is not counted.
   {
-    key: "t",
+    key: "]",
     on: reviewTab,
-    say: "t opens Go to file, which finds any changed file",
+    say: "] steps to the next stop too",
   },
   {
-    type: "spec",
-    into: inside(goTo, role("textbox", "File")),
-    say: "A few letters of a file with no findings, whose one thread is resolved",
-  },
-  {
-    press: inside(goTo, role("option", "spec/services/refund_issuer_spec.rb")),
-    say: "The file they rank first",
-  },
-  {
-    hover: inside(files, text("Not counted")),
-    say: "Review reads it, and says it is not one of the four. Only an open thread counts, so Previous and Next pass it",
+    look: inside(stops, text("Stop 5 of 6")),
+    say: "The spec, the last stop of the tour",
   },
   {
     look: inside(
@@ -250,12 +251,44 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Its resolved thread is drawn folded under its line",
   },
   {
-    press: inside(files, button("Next file")),
-    say: "Next goes back to the first of the four",
+    press: inside(stops, button("Next stop")),
+    say: "Next",
   },
   {
-    look: inside(files, text("file 1 of 4")),
-    say: "The first file",
+    look: inside(reviewPane, text("Also in app/models/payment.rb")),
+    say: "Stop 6 gathers what no stop of the tour holds: a finding on the payment",
+  },
+  {
+    look: inside(findings, text("Line 6 is not in the diff.")),
+    say: "On a line the diff does not hold, which it says",
+  },
+
+  // Go to file, to one no stop is on.
+  {
+    key: "t",
+    on: reviewTab,
+    say: "t opens Go to file, which finds any changed file",
+  },
+  {
+    type: "routes",
+    into: inside(goTo, role("textbox", "File")),
+    say: "A few letters of a file no stop is on",
+  },
+  {
+    press: inside(goTo, role("option", "config/routes.rb")),
+    say: "The file they rank first",
+  },
+  {
+    hover: inside(stops, text("Not on the tour")),
+    say: "Review reads it whole, and says it is not on the tour, so Previous and Next pass it",
+  },
+  {
+    press: inside(stops, button("Next stop")),
+    say: "Next goes to the first stop",
+  },
+  {
+    look: inside(stops, text("Stop 1 of 6")),
+    say: "The first stop",
   },
 
   // 6. The submit bar.
@@ -281,7 +314,7 @@ const prReviewByFile = walk("pr-review-by-file", [
   },
   {
     look: inside(yours, role("alert")),
-    say: "Two findings are unmarked, so it says so once and waits for a second press",
+    say: "Two findings have no answer yet, so it says so once and waits for a second press",
   },
 
   // 7. An explanation, run from the head.

@@ -137,6 +137,21 @@ export type ReviewSeed = {
   };
 };
 
+/**
+ * Tour, as Armada would carry it: the stops Review steps through, in the order to read them. **Fleet does not serve it yet**, since the
+ * wire has no tour, so only the scenarios that walk a tour hand it to the mock.
+ */
+export const TOUR_DEF: ToolDef = {
+  id: "tour",
+  kind: "tool",
+  name: "Tour",
+  source: "armada",
+  mark: "custom",
+  agent: true,
+  checks:
+    "The pieces of the change in the order to read them, 3 to 10 stops, each a line on what that piece does and the lines it is. Lockfiles, generated files and pure renames are left out.",
+};
+
 /** The set Armada carries, as its own place serves it: Comments is not here, since Bridge draws it. */
 export const ARMADA_DEFS: readonly ToolDef[] = [
   {

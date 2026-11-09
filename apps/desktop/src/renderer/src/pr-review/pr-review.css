@@ -1423,9 +1423,11 @@
 }
 /* Previous, where it is in the order and Next, the path, what is marked, the tools and the keys: fixed columns, so nothing moves as the
    file changes. */
+/* Steps, the stop's title, the path, Whole file and the keys, each in a column of its own: off a tour the title and Whole file are
+   drawn empty, so nothing moves. */
 .pr-review-tab-view__head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto var(--h-control);
+  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto var(--h-control);
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-3);
@@ -1458,6 +1460,15 @@
     animation: none;
   }
 }
+.pr-review-tab-view__title {
+  min-width: 0;
+  max-width: 48ch;
+  overflow: hidden;
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pr-review-tab-view__path {
   min-width: 0;
   overflow: hidden;
@@ -1467,14 +1478,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pr-review-tab-view__of,
-.pr-review-tab-view__marked {
+.pr-review-tab-view__of {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* Wide enough for "file 10 of 12" and "Not counted", so Next stays where it is as the file changes. */
+/* Wide enough for "file 10 of 12", "Stop 10 of 12" and "Not on the tour", so Next stays where it is as the place changes. */
 .pr-review-tab-view__of {
-  min-width: 13ch;
+  min-width: 15ch;
   text-align: center;
 }
 .pr-review-tab-view__keys {

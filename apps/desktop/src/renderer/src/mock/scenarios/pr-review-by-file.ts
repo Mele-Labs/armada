@@ -1,7 +1,7 @@
 // The review surface with one more pull request asked of him, written for the Review tab: eight changed files, Risks findings on
 // lines of two of them, one on a line the diff does not hold, and findings naming other changed files
-// (`../pr-review-by-file-pages.ts`). fernhill/tally is one of Fleet's repositories too, so System, Repository draws its Run on
-// opening. The walk `pr-review-by-file` plays it.
+// (`../pr-review-by-file-pages.ts`), and Tour, which Fleet does not serve yet, to step through its stops. fernhill/tally is one of
+// Fleet's repositories too, so System, Repository draws its Run on opening. The walk `pr-review-by-file` plays it.
 
 import type { RepositorySummary } from "@armada/protocol";
 import { repository } from "@armada/screens/src/fixtures/repository";
@@ -9,6 +9,7 @@ import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Scenario } from "../moment";
 import { refunds } from "../pr-review-by-file-pages";
 import { reviewSeed } from "../pr-review-pages";
+import { TOUR_DEF } from "../review-seed";
 import { s262PrReview as base } from "./pr-review";
 
 const seed = reviewSeed();
@@ -50,6 +51,13 @@ export const sPrReviewByFile: Scenario = {
         refunds.pr,
         ...seed.prs,
       ],
+      tools: {
+        ...seed.tools,
+        armada: [
+          TOUR_DEF,
+          ...seed.tools.armada,
+        ],
+      },
       results: {
         ...seed.results,
         [refunds.pr.key]: refunds.results,

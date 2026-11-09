@@ -39,7 +39,7 @@ async function openThePullRequest() {
     .click();
 }
 
-/** Opening Review asks which tools to run. Run, and Review steps from the first file with findings, as the walk does. */
+/** Opening Review asks which tools to run. Run, and Review steps by Tour's stops, Next to the issuer's, as the walk does. */
 async function runTheTools() {
   await page
     .getByRole("dialog", {
@@ -50,7 +50,13 @@ async function runTheTools() {
       exact: true,
     })
     .click();
-  await expect.element(reviewPane().getByText("file 1 of 4")).toBeVisible();
+  await expect.element(reviewPane().getByText("Stop 1 of 6")).toBeVisible();
+  await reviewPane()
+    .getByRole("button", {
+      name: "Next stop",
+    })
+    .click();
+  await expect.element(reviewPane().getByText("Stop 2 of 6")).toBeVisible();
 }
 
 async function comment(line: number, words: string) {
