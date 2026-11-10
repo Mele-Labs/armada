@@ -1,0 +1,18 @@
+[operations.get_needs_you]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What a Job waits on the person for, grouped once by Fleet: ordered sections of rows, each with its glyph, what pressing it does and how it is put away, and whether the band has a list to open"
+notes = """
+`GET /sessions/needs_you?session_id=`. Answers 200 with `NeedsYou` `{ session_id, sections[], fold, review_in_band, glyphs[] }`, read off the same `waiting_for` the record carries, after the person's dismissals. It is not carried on `SessionRecord`: a row of every list and every `SessionChanged` would grow by a second copy of each item. A Bridge that draws the band reads it again when the Job changes.
+
+**`sections`** are in the order the band draws them, each `{ kind, label, rows[] }` and none empty: `questions` (Questions), `to_review` (To review), `walks` (Walks), `commands` (Commands), `pull_requests` (PRs), `restart` (Restart) and `done` (Done). **Every `waiting_for` source is one row of exactly one section**, so nothing is dropped; the rule per source is the table in `crates/fleet/src/session_host/needs_you.rs` and in `docs/concepts/session/waiting-on-the-person.md`. A row is `{ id, source, text, since, glyph, act, dismiss }`, oldest first within its section.
+
+**`glyph`** is `{ kind, said }`, the mark and its tooltip. **`act`** is what the press does, tagged by `kind`: `open_plan`, `open_sketch { title }`, `open_document { path }`, `open_draft { row }`, `walk { url }`, `answer { options[], other }`, `reply`, `run { command }`, `steps { steps[], command? }`, `approve_pr { target }`, `open_job { id }`, `message`, `restart { label, build, adopt, command }` or `none`. **`dismiss`** is `none` (answered, never dismissed), `plain`, `skip` (named Skip; the agent is told nothing), `reason` (a reason may go with it, and the agent is sent it) or `not_a_question` (`dismiss_waiting` with `misread`). A row marked anything but `none` is one `dismiss_waiting` accepts.
+
+**`fold`** is false when nothing is in Questions, Walks, Commands or PRs: only pages to review, a restart key or a done are owed, so there is no list to open. **`review_in_band`** is true when more than one page is owed or a Document is the only thing owed; false, a lone plan, sketch or draft stays on the thread's card and `glyphs` leaves the review marks out. **`glyphs`** are the marks on the band's head, in order.
+
+**The Job** is the one the connection places when Fleet hosts it, else `session_id`; a call that places none is a 422 `fleet.session_waiting_unnamed`, and a Job Fleet does not know a 422 for the same.
+
+`agent_access` is `No`: the band is the person's.
+"""

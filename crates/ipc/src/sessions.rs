@@ -670,6 +670,18 @@ pub struct WithdrawSketch {
     pub session_id: Option<SessionId>,
 }
 
+/// `withdraw_document`: a session takes back a Document it wrote under `.armada/documents/`, so it leaves the
+/// person's Needs you list and stops asking. The file stays. A new revision written later asks again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WithdrawDocument {
+    /// The page: its path as the Needs you item names it (`document:<path>` reads the same), or the part of it
+    /// the Job knows, such as `.armada/documents/lease.html` or `lease.html`, or the page's title.
+    pub path: String,
+    /// Which session withdraws it. **Read only where the connection places no hosted session**, as `ShowWindow`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
 /// Who put an item on the list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1138,6 +1150,17 @@ pub struct DismissWaiting {
 pub struct ConfirmWaiting {
     pub session_id: SessionId,
     pub item_id: String,
+}
+
+/// `done_waiting`: the person did what an agent's item asked of him. The item closes as a dismissed one does,
+/// and the Job is sent one turn, `Done: <item text>` and the note on the next line.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DoneWaiting {
+    pub session_id: SessionId,
+    pub item_id: String,
+    /// What he found or did, such as `2 remain`. Left out or blank, the turn is the line alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 /// `reopen_waiting`: the person lets an item he closed wait again.

@@ -1741,3 +1741,30 @@ Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `p
 A row with `edited_at` reads on a Bridge that does not know it as an unedited one.
 
 **The event stream.** Untouched in kind: the edited row is one `session.row`, as any row put again by id is. The open risk below is neither better nor worse.
+
+## A Job's Needs you worked out once: `get_needs_you`, `done_waiting` and `withdraw_document`
+
+Since 10 Nov 2026. `docs/concepts/session/waiting-on-the-person.md`.
+**Three operations, one route each, and the types they carry**: no event kind and no field on an existing type. `NeedsYou` is not carried on `SessionRecord`, so no list and no `session.changed` grows.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `NeedsYou`, `NeedsYouSection`, `NeedsYouRow`, `NeedsYouGlyph`, `NeedsYouAct`, `WithdrawDocument` and `DoneWaiting` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+Electron draws nothing from it: it is frozen.
+The native Bridge reads it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_needs_you` (`GET /sessions/needs_you?session_id=`, `agent_access = "No"`) | Bridge reads | `NeedsYou` `{ session_id, sections[], fold, review_in_band, glyphs[] }`; a section is `{ kind, label, rows[] }`, `kind` one of `questions`, `to_do`, `to_review`, `walks`, `commands`, `pull_requests`, `restart`, `done`, none empty; a row is `{ id, source, text, since, glyph, act, dismiss }` |
+| `NeedsYouGlyph` | Fleet writes | `{ kind, said }`: `kind` one of `question`, `reply`, `read_from_reply`, `walk`, `answer`, `pull_request`, `run`, `message`, `steps`, `waiting`, `linked_job`, `operator`, `todo`, `plan`, `sketch`, `draft`, `document`, `restart`, `done`; `said` its tooltip |
+| `NeedsYouAct` | Fleet writes | Tagged by `kind`: `open_plan`, `open_sketch { title }`, `open_document { path }`, `open_draft { row }`, `walk { url }`, `answer { options[], other }`, `reply`, `run { command }`, `steps { steps[], command? }`, `approve_pr { target }`, `open_job { id }`, `message`, `restart { label, build, adopt, command }`, `done { steps? }`, `none` |
+| `NeedsYouRow.dismiss` | Fleet writes | `none`, `plain`, `skip`, `reason` or `not_a_question`. Not `none` means `dismiss_waiting` takes the item; `not_a_question` is sent with `misread` |
+| `done_waiting` (`POST /sessions/waiting/done`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `DoneWaiting` `{ session_id, item_id, note? }`; answered with the `SessionRecord`. The item closes as a dismissed one does and the Job is sent `Done: <text>` and the note |
+| `withdraw_document` (`POST /sessions/withdraw_document`, `agent_access = "Yes"`) | The agent sends | `WithdrawDocument` `{ path, session_id? }`; answered with the `SessionRecord`, through the door a receipt `{ session_id, withdrawn }` |
+
+**Refused with nothing changed**: `done_waiting` 409 `fleet.session_waiting_unheld` for an item nothing holds, 422 `fleet.session_waiting_empty` for one the agent did not state; `withdraw_document` 422 `fleet.document_withdraw_not_held` for a page the Job holds no Document at (another Job's included), 422 `fleet.document_withdraw_ambiguous` for a name that fits two, 422 `fleet.document_withdraw_unnamed` where nothing places a Job; `get_needs_you` 422 `fleet.session_waiting_unnamed`.
+**Every `waiting_for` source is one row of one section**, by the table in `crates/fleet/src/session_host/needs_you.rs`, which a test holds to the one in the concept doc.
+`dismiss_waited` reads the same `refused_dismissal` that marks a row `none`, so a row offering a dismissal is one Fleet takes.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
+The view is read, not pushed, so a Bridge that draws it reads it again on `session.changed`.
+The open risk below is neither better nor worse.

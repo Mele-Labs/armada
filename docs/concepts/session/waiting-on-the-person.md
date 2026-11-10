@@ -86,6 +86,53 @@ So does a reply of his in the thread that a model call reads as approving the pa
 `answer_waiting` on it is refused.
 A new revision asks again and lifts the dismissal; the same bytes written again ask nothing.
 
+**The job takes a Document back with `withdraw_document`** (`path`, `session_id`) when he has moved past it.
+`path` is the page's path as its item names it, the end of it (`lease.html`) or its title.
+It writes the dismissal `dismiss_waiting` writes for `document:<path>`, so the item leaves the list, the card stops asking and the plan held behind the page is no longer held by it.
+The file is not deleted, the job is told nothing, and a new revision asks again.
+A page the job holds no Document at is refused, as is a name that fits two, and another job's page is not this job's.
+
+**Fleet groups the list once, so every Bridge draws the same band** (`get_needs_you`, `GET /sessions/needs_you?session_id=`).
+A Bridge draws it and derives nothing from `waiting_for`: it is not carried on the record, which would give every list a second copy of each item, so a Bridge reads it again when the Job changes.
+Every item is one row of exactly one section, and a row says its glyph, what pressing it does (`act`) and how it is put away (`dismiss`).
+The sections are in the order the band draws them: Questions, To do, To review, Walks, Commands, PRs, Restart and Done, none drawn empty.
+**To do is a thing the agent asked him to do**, such as "Restart the Mac, then check the rows and tell me how many remain": an agent item with no choices and no answer asked, and no walk, command or pull request to press.
+Its act is Done, with a note box (`2 remain`), and `done_waiting` closes it as a dismissed item is closed and sends the job one turn, `Done: <text>` and the note under it.
+Only an item the agent stated is done: a page is approved, a call dismissed.
+`fold` is false when only review pages, a restart key or a done are owed, so there is no list to open.
+`review_in_band` is the sheet's rule: more than one page owed, or a Document the only thing owed; a lone plan, sketch or draft stays on the thread's card.
+A restart (`scripts/preview --restart`, `scripts/restart --main`) is the band's key in Restart, except Fleet's own offer of one, which may be skipped and is listed under Commands.
+`dismiss` is `none` for what is answered and never dismissed, `plain`, `skip` for what only drops, `reason` where a reason goes to the agent, and `not_a_question` for a sentence read from a reply.
+Where it is not `none`, `dismiss_waiting` takes the item.
+The rule per source, held to the code by a test (`crates/fleet/src/session_host/needs_you.rs`):
+
+| Source | Section | Dismiss |
+|---|---|---|
+| `agent` | by act: to do unless it asks or runs | reason |
+| `ask_card` | questions | none: its card answers it |
+| `walk` | walks | plain |
+| `permission` | questions | none: its card answers it |
+| `window_ask` | questions | none: its card answers it |
+| `draft` | to_review | reason |
+| `sketch` | to_review | plain |
+| `document` | to_review | plain |
+| `first_message` | questions | none: Start answers it |
+| `replied` | by act: a pull request to open is plain, any other is a sentence | not_a_question |
+| `done` | done | plain |
+| `plan` | to_review | plain |
+| `slot_choice` | questions | none: Fleet refuses it |
+| `delivery` | questions | none: Fleet refuses it |
+| `words_address` | questions | plain |
+| `fleet_call` | questions | plain |
+| `task_done` | questions | none: Fleet refuses it |
+| `watch_not_ours` | questions | plain |
+| `held_child` | questions | none: Fleet refuses it |
+| `preview_offer` | by act: commands | skip |
+| `rule_act` | questions | skip |
+| `operator_suggestion` | questions | skip |
+| `browser_ask` | questions | plain |
+| `gate` | questions | none: Fleet refuses it |
+
 **Every end a step waits on the person for raises an item, read off what the job showed and never off its `waiting_for`.**
 `rail_ends.rs` names, for each end, who ends it: the job, the merge, or the person through the item of one source, in a match with no fallback, so an end added with no wait does not build.
 
@@ -161,7 +208,7 @@ Otherwise `sent` is removed and the note stays `open`, so Bridge lists it under 
 Both close paths do this, a hosted close and a terminal job's end, and each rewrite is written through a rename and moves the note's artifact.
 That artifact's `session.changed` is Bridge's word that a note file changed: main tells the annotation layer, which reads its notes again.
 
-**An agent that calls `show_window`, `withdraw_window`, `withdraw_sketch`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long job, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good.
+**An agent that calls `show_window`, `withdraw_window`, `withdraw_sketch`, `withdraw_document`, `ask_in_window`, `waiting_for` or `all_done` through the door is answered a receipt, not the row.** The row grows with every attachment (36 to 62 KB for a long job, 10 KB at the median, measured 7 to 13 Oct), and an agent keeps each answer in its context for good.
 The receipt is `session_id` and what the act set: `window` (with `title` and the `takes` names), `asked` (the question's `window_ask:<row>`), `waiting_for` (the agent's items as Fleet kept them, `id` and `text`) with `fleet` beside it (Fleet's own items, `id`, `kind` and `text`, read-only to the agent and never counted as its own, so its count matches Bridge's), or `done` and `done_since`.
 It weighs the same on the first call and the thousandth.
 Bridge's routes and the mod's hook, which are not the door, are answered the row.

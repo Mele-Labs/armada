@@ -234,6 +234,15 @@ pub trait Sessions: Send + Sync + 'static {
         withdraw: ipc::WithdrawSketch,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `withdraw_document` — a session takes back a Document it wrote, so he is not asked to answer it. `caller` places
+    /// a hosted session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`] for a page this session holds no
+    /// Document at, or a call that places no session.
+    fn withdraw_document(
+        &self,
+        caller: Option<crate::Caller>,
+        withdraw: ipc::WithdrawDocument,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `show_sketch` — a session draws the person a diagram, kept on its ledger. `caller` places a
     /// hosted session as `show_window`'s does. Answers with the row. [`Refusal::Unacceptable`]
     /// with every rule the scene breaks, or for a call that places no session.
@@ -531,6 +540,14 @@ pub trait Sessions: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         session_id: Option<ipc::SessionId>,
     ) -> impl Future<Output = Result<ipc::ClosedWaitingList, Refusal>> + Send;
+
+    /// `get_needs_you` — what the Job waits on the person for, grouped into the sections the band draws. `caller` places a
+    /// hosted session as `waiting_for`'s does. [`Refusal::Unacceptable`] for a call that places no session.
+    fn get_needs_you(
+        &self,
+        caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> impl Future<Output = Result<ipc::NeedsYou, Refusal>> + Send;
 
     /// `all_done` — the agent says it has nothing left to work on. `caller` places a hosted session as
     /// `waiting_for`'s does. Answers with the row. [`Refusal::Unacceptable`] for a call that places no session.

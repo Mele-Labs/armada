@@ -241,6 +241,26 @@ pub(crate) async fn withdraw_sketch<D: Sessions>(
     }
 }
 
+/// A session takes back a Document it wrote. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a page this
+/// session holds no Document at, or a call that places no session. **The session is placed by the connection.**
+pub(crate) async fn withdraw_document<D: Sessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let withdraw: ipc::WithdrawDocument = match ipc::decode_body("a document to withdraw", &body) {
+        Ok(withdraw) => withdraw,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().withdraw_document(crate::acting::asking(), withdraw.clone()).await {
+        Ok(record) if door.is_some() => {
+            answer(StatusCode::OK, &Receipt::document_withdrawn(&record, &withdraw), served.run_id())
+        }
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// A session draws the person a diagram. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a scene that breaks a
 /// rule, naming each, or a call that places no session. **The session is placed by the connection**, as `show_window`'s is.
 pub(crate) async fn show_sketch<D: Sessions>(
@@ -557,6 +577,29 @@ pub(crate) async fn list_closed_waiting<D: Sessions>(
         .map(|id| ipc::SessionId::carried(id.trim()));
     match served.daemon().list_closed_waiting(crate::acting::asking(), named).await {
         Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, read only where the connection places no session.
+#[derive(Deserialize)]
+pub(crate) struct ForNeedsYou {
+    #[serde(default)]
+    session_id: Option<String>,
+}
+
+/// What a session waits on the person for, grouped into the sections the band draws. 200; 422 for a call that places no
+/// session, or one Fleet holds none of. **The session is placed by the connection**, as `list_closed_waiting`'s is.
+pub(crate) async fn get_needs_you<D: Sessions>(
+    State(served): State<Served<D>>,
+    Query(asked): Query<ForNeedsYou>,
+) -> Response {
+    let named = asked
+        .session_id
+        .filter(|id| !id.trim().is_empty())
+        .map(|id| ipc::SessionId::carried(id.trim()));
+    match served.daemon().get_needs_you(crate::acting::asking(), named).await {
+        Ok(view) => answer(StatusCode::OK, &view, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

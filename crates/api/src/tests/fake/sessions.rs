@@ -466,6 +466,19 @@ impl Sessions for FakeDaemon {
         .await
     }
 
+    async fn withdraw_document(
+        &self,
+        _caller: Option<crate::Caller>,
+        withdraw: ipc::WithdrawDocument,
+    ) -> Result<SessionRecord, Refusal> {
+        self.report_session(SessionReport {
+            harness: String::new(),
+            session_id: withdraw.session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            fact: ipc::SessionFact::TurnCompleted { said: None },
+        })
+        .await
+    }
+
     async fn show_sketch(
         &self,
         _caller: Option<crate::Caller>,
@@ -760,6 +773,20 @@ impl Sessions for FakeDaemon {
         Ok(ipc::ClosedWaitingList {
             session_id: session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
             closed: Vec::new(),
+        })
+    }
+
+    async fn get_needs_you(
+        &self,
+        _caller: Option<crate::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::NeedsYou, Refusal> {
+        Ok(ipc::NeedsYou {
+            session_id: session_id.unwrap_or_else(|| ipc::SessionId::carried("session")),
+            sections: Vec::new(),
+            fold: false,
+            review_in_band: false,
+            glyphs: Vec::new(),
         })
     }
 
