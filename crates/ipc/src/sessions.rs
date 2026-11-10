@@ -899,6 +899,14 @@ pub struct SessionStopped {
     pub down: Option<FleetAway>,
 }
 
+/// The repair Fleet is running on a Job, whatever state the Job is in. `said` is Fleet's own words for what
+/// broke, such as `a command hung`, so no client spells them. `docs/concepts/session/what-a-job-is-doing.md`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionRepairing {
+    pub said: String,
+    pub since: Instant,
+}
+
 /// One thing a session is waiting on the person for.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaitingItem {
@@ -1463,6 +1471,9 @@ pub struct SessionRecord {
     /// Why it stopped, with `standing` `stopped`. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped: Option<SessionStopped>,
+    /// The repair Fleet is running on it now, in any state. Absent while none runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repairing: Option<SessionRepairing>,
     /// When Fleet tells it to carry on, while a stop nothing excuses has not been told about. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_told_by: Option<Instant>,

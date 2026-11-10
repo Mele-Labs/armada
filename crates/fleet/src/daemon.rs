@@ -96,6 +96,9 @@ pub struct Fleet<H, V, W> {
     /// Every scout running, and the host that starts one. Outside `slots`:
     /// a scout takes no place under the concurrency cap. See [`crate::scout`].
     scouts: crate::scout::Scouts,
+    /// Every repair running beside a broken Job, and the host that starts one. No session row and no
+    /// place under the cap. See [`crate::repair`].
+    repairs: crate::repair::Repairs,
     /// Everything that happened, entered as it did, for the Cockpit's timeline. Minted here: it
     /// holds the queue the writer reads. See [`mod@crate::timeline`].
     timeline: crate::timeline::Timeline,

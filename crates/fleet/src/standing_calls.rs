@@ -68,11 +68,24 @@ fn stopped_said(reason: StopReason) -> &'static str {
 /// reset in the client's clock, what a Job waits to start after, the task a Job runs, who woke a turn), and
 /// say their state plainly.
 fn said_of(record: &SessionRecord, state: JobState) -> String {
+    let said = said_without_repair(record, state);
+    // Any state: the repair under way is one more clause on the line, in Fleet's own words.
+    match &record.repairing {
+        Some(repairing) => format!("{said} · Repairing: {}", repairing.said),
+        None => said,
+    }
+}
+
+fn said_without_repair(record: &SessionRecord, state: JobState) -> String {
     let stopped = |stopped: &ipc::SessionStopped| {
+        // The repairing clause says it, so a running repair adds nothing here and a failed restart is not read beside it.
+        if stopped.repair == Some(ipc::StopRepair::Running) && record.repairing.is_some() {
+            return stopped_said(stopped.reason).to_string();
+        }
         let repair = match stopped.repair {
             Some(ipc::StopRepair::Running) => Some("Repair Job running"),
-            Some(ipc::StopRepair::Failed) => Some("Repair Job failed"),
-            Some(ipc::StopRepair::Held) => Some("No repair Job: Fleet is unhealthy"),
+            Some(ipc::StopRepair::Failed) => Some("Not repaired"),
+            Some(ipc::StopRepair::Held) => Some("No repair: Fleet is unhealthy"),
             None => None,
         };
         let restart = match stopped.restart {

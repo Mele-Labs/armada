@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use api::HostedSessions;
 use ipc::{
     Attachment, AttachmentState, CallArrival, CallArrivalKind, CallTone, Event, Instant, JobGroup, JobLamp, JobMark, JobState, MainMerge,
-    MainRedJob, MainView, MergeLineView, MergeLineViews, OpenStandingCall, SessionId, SessionPaused, SessionRecord, SessionStopped, SessionTurn,
+    MainRedJob, MainView, MergeLineView, MergeLineViews, OpenStandingCall, SessionId, SessionPaused, SessionRecord, SessionRepairing, SessionStopped, SessionTurn,
     StandingCallKind, StandingCalls, StopReason, StopRestart, ViewSession, WaitingItem, WaitingSource,
 };
 
@@ -166,6 +166,40 @@ async fn a_job_held_on_its_start_card_is_news_as_not_started() {
     keeper.hear(&record);
     let told = keeper.changed(&nowhere, now()).expect("the start card");
     assert_eq!(told.arrived, [arrival(&record, "Not started", CallTone::Blocked, CallArrivalKind::Needs)]);
+}
+
+/// A stopped Job that asks him, with the repair as given, and the words its call carries.
+async fn stopped_call_text(repair: Option<ipc::StopRepair>, repairing: Option<SessionRepairing>) -> String {
+    let rig = rig_placing(None);
+    let mut record = marked(row(&rig).await, JobState::Working);
+    let mut keeper = seeded(&record);
+    keeper.changed(&nowhere, now());
+    record = marked(record, JobState::StoppedAsks);
+    record.last_turn_at = Some(at(10));
+    record.stopped = Some(SessionStopped {
+        reason: StopReason::ProcessGone,
+        at: at(12),
+        tasks: Vec::new(),
+        said: None,
+        restart: StopRestart::Failed,
+        repair,
+        gave_up: true,
+        down: None,
+    });
+    record.repairing = repairing;
+    keeper.hear(&record);
+    keeper.changed(&nowhere, now()).expect("it stopped").calls.remove(0).text
+}
+
+#[tokio::test]
+async fn a_repair_under_way_is_one_clause_on_the_line_and_replaces_the_repair_job_words() {
+    let running = Some(SessionRepairing { said: "its process died twice".into(), since: at(13) });
+    assert_eq!(
+        stopped_call_text(Some(ipc::StopRepair::Running), running).await,
+        "Stopped: process ended · Repairing: its process died twice"
+    );
+    assert_eq!(stopped_call_text(Some(ipc::StopRepair::Failed), None).await, "Stopped: process ended · Not repaired");
+    assert_eq!(stopped_call_text(Some(ipc::StopRepair::Held), None).await, "Stopped: process ended · No repair: Fleet is unhealthy");
 }
 
 #[tokio::test]

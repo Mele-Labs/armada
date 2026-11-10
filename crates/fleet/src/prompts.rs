@@ -67,6 +67,7 @@ fn shipped_texts() -> Vec<(Words, String)> {
         ),
     ]
     .into_iter()
+    .chain(crate::repair::shipped_texts())
     .chain(
         judge::judge()
             .into_iter()

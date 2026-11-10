@@ -244,6 +244,8 @@ export type SessionRecord = {
   held_open_by?: HeldOpenBy[];
   /** Why it stopped, with `standing` `stopped`. Absent otherwise. */
   stopped?: SessionStopped;
+  /** The repair Fleet is running on it now, in any state. Absent while none runs. */
+  repairing?: SessionRepairing;
   /** When Fleet tells it to carry on, while a stop nothing excuses has not been told about. Absent otherwise. */
   stop_told_by?: string;
   /** When the turn running now began. Absent between turns. */
@@ -493,6 +495,12 @@ export type SessionStopped = {
     from: string;
     to: string;
   };
+};
+
+/** The repair Fleet is running on a Job, in any state. `said` is Fleet's own words for what broke: no client spells them. `crates/ipc/src/sessions.rs`. */
+export type SessionRepairing = {
+  said: string;
+  since: string;
 };
 
 /** One thing, not the person, that keeps a Session open: a fact, never a sentence. `crates/ipc/src/sessions.rs`. */

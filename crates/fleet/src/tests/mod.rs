@@ -208,6 +208,7 @@ mod reply_asks;
 mod reply_asks_model;
 mod tell_refusal;
 mod session_standing;
+mod repairing;
 mod session_stops;
 pub(crate) mod slot_leases;
 mod slot_reclaim;
