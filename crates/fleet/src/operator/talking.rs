@@ -106,6 +106,8 @@ pub struct MergedPull {
     pub job: String,
     pub number: String,
     pub title: String,
+    /// When its attachment last changed, which for a merged one is when it merged. An RFC 3339 instant.
+    pub at: String,
 }
 
 /// The newest of the day's ended Jobs the box is shown.
@@ -473,7 +475,7 @@ pub(super) fn moved_since(store: &store::Store, since: &str) -> (Vec<EndedJob>, 
             let spent = pull.state == store::AttachmentState::Spent;
             if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= since {
                 let title = pull.detail.get("title").cloned().unwrap_or_default();
-                merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
+                merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title, at: pull.changed_at.clone() }));
             }
         }
     }
