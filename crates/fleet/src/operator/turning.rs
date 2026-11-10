@@ -332,8 +332,12 @@ where
     }
 
     /// A red main nobody is on joins Your turn, with the pick Start a fix, and one that is fixed or
-    /// green leaves it. Called with what main's CI just did.
+    /// green leaves it. Called with what main's CI just did. **Main turning red or green moves the
+    /// head's pills, so the page is announced changed here, once, whether or not an item came of it.**
     pub(crate) async fn red_offered(self: &Arc<Self>, changes: &[MainChanged]) {
+        if !changes.is_empty() {
+            self.operator_page_changed();
+        }
         for changed in changes {
             match changed.change {
                 MainChange::WentRed | MainChange::BackToRed => self.red_item_offered(&changed.now).await,
