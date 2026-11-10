@@ -1,5 +1,5 @@
 //! A step's `gate`: the plan gate its group ends on. Absent is `none`, and a word outside the
-//! seven is refused naming them.
+//! eight is refused naming them.
 
 use core_model::StepGate;
 

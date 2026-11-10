@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{Event, PlanGate, SessionRecord, SessionRow, SessionVoice, DOCUMENT_SETTLED_AT};
-use store::{Holder, KeptAttachment, KeptGate, KeptPlan, SessionState, Store};
+use store::{Holder, KeptApproval, KeptAttachment, KeptGate, KeptPlan, SessionState, Store};
 use tokio::sync::{mpsc, Notify};
 use tokio::task::JoinHandle;
 
@@ -122,10 +122,17 @@ fn walk_fact(rows: &[SessionRow], dismissed: &[String], shown: &[&str], group: O
 }
 
 /// Every fact on the Job a gate can close on: his approval of the plan, of every walk shown, of a
-/// sketch and of a page's newest revision, a pull request's merge, and the end of the last of the Jobs
-/// it started. **Only what happened once the plan was first recorded** (`since`): a walk he approved
+/// sketch, of a page's newest revision and of an item the agent raised asking for it, a pull request's
+/// merge, and the end of the last of the Jobs it started. **Only what happened once the plan was first recorded** (`since`): a walk he approved
 /// before there was a plan is not its gate's.
-pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttachment], dismissed: &[String], started: &[Started]) -> Vec<Seen> {
+pub(crate) fn facts_seen(
+    plan: &KeptPlan,
+    rows: &[SessionRow],
+    held: &[KeptAttachment],
+    dismissed: &[String],
+    started: &[Started],
+    approvals: &[KeptApproval],
+) -> Vec<Seen> {
     let since = rows
         .iter()
         .find_map(|row| match row {
@@ -208,6 +215,17 @@ pub(crate) fn facts_seen(plan: &KeptPlan, rows: &[SessionRow], held: &[KeptAttac
                 commit: None,
             });
         }
+    }
+    // Kept only for his own Approve of an item asking for it, so nothing else here can close the gate.
+    for one in approvals.iter().filter(|one| one.at >= since) {
+        seen.push(Seen {
+            gate: PlanGate::YouApproved,
+            source: format!("approval:{}@{}", one.item_id, one.at),
+            group: None,
+            at: one.at.clone(),
+            fact: format!("You approved \"{}\"", one.text),
+            commit: None,
+        });
     }
     // The Jobs started once the plan was recorded: when every one is done, the last to finish is the fact.
     let started: Vec<&Started> = started.iter().filter(|one| one.since.as_str() >= since.as_str()).collect();
@@ -406,7 +424,8 @@ where
             } else {
                 Vec::new()
             };
-            let closing = closing(&plan, &kept, &facts_seen(&plan, &rows, &held, &dismissed, &started));
+            let approvals = store.waiting_approvals(id).unwrap_or_default();
+            let closing = closing(&plan, &kept, &facts_seen(&plan, &rows, &held, &dismissed, &started, &approvals));
             closing.into_iter().filter(|gate| store.close_session_gate(id, gate).unwrap_or(false)).collect::<Vec<_>>()
         };
         if !closed.is_empty() {

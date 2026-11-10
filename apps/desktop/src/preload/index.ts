@@ -7,7 +7,6 @@ import { attachmentsPreload } from "./attachments";
 import { filesPreload } from "./files";
 import { requestsPreload } from "./requests";
 import { logbookPreload } from "./logbook";
-import { operatorPreload } from "./operator";
 import { teachingPreload } from "./teaching";
 import { jobBrowserPreload } from "./job-browser";
 import { jobWalkPreload } from "./job-walk";
@@ -682,7 +681,6 @@ const api: BridgeApi = {
   ...filesPreload,
   ...requestsPreload,
   ...logbookPreload,
-  ...operatorPreload,
   ...teachingPreload,
   ...jobBrowserPreload,
   ...jobWalkPreload,

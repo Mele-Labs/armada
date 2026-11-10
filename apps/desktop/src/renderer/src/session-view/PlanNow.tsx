@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleDashed,
+  CircleCheck,
   CircleDot,
   Drone,
   Footprints,
@@ -37,6 +38,7 @@ export const GATE_GLYPH: Record<GateKind, LucideIcon> = {
   walk_approved: Footprints,
   sketch_approved: PencilRuler,
   document_approved: NotebookPen,
+  you_approved: CircleCheck,
   checks_green: ShieldCheck,
   merged: GitMerge,
   // The Jobs tab's glyph: the Jobs this one started.

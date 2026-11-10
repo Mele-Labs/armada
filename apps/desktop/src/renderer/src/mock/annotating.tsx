@@ -54,26 +54,7 @@ const note = (
   ...extra,
 });
 
-/** One note on the Jobs list, so the bar is up for the Operator's walk to show its start act named Dispatch. */
-const operatorNote = (): Annotation[] => [
-  note(
-    "20261104-101500-aaaa",
-    "The legend is cut off at this width",
-    'section[aria-label="Jobs"]',
-    "section",
-    "Cockpit",
-    "apps/desktop/src/renderer/src/cockpit/deck/Deck.tsx",
-    {
-      x: 300,
-      y: 120,
-      width: 900,
-      height: 200,
-    },
-  ),
-];
-
 const NOTES: Record<string, () => Annotation[]> = {
-  "operator-full": operatorNote,
   // The layer is mounted and off, as Bridge under `pnpm dev` runs it: ⇧⌘D is Debug Bridge.
   "debug-bridge-draft": () => [],
   // Off too: Report from a right press is what turns it on.
@@ -393,12 +374,6 @@ const LAYER_OFF = new Set([
   "debug-bridge-draft",
   "report-from-right-click",
   "job-start-card-everywhere",
-  "operator-full",
-]);
-
-/** Scenarios where the Operator rules every start, so the layer's start act is Dispatch: the press may delegate or hold. */
-const DISPATCHES = new Set([
-  "operator-full",
 ]);
 
 /** Whether the mock page draws this scenario's own layer, and so leaves the dev server's off. */
@@ -422,14 +397,7 @@ export function mountAnnotating(scenario: string): () => void {
   root.render(
     <StrictMode>
       <WiredSessions>
-        <Layer
-          sink={sinkOf(notes())}
-          {...(DISPATCHES.has(scenario)
-            ? {
-                startLabel: "Dispatch",
-              }
-            : {})}
-        />
+        <Layer sink={sinkOf(notes())} />
       </WiredSessions>
     </StrictMode>,
   );

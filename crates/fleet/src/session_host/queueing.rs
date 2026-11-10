@@ -60,6 +60,7 @@ pub(crate) struct SlotCall {
 pub(crate) fn slot_choice_item(call: SlotCall) -> WaitingItem {
     let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
     WaitingItem {
+        approves: false,
         id: SLOT_CHOICE_ITEM.to_string(),
         text: String::from("Every slot is in use"),
         since: call.since,

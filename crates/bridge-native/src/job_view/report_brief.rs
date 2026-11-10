@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn the_last_messages_are_six_and_the_last_tool_calls_five_oldest_first() {
         let mut items: Vec<ThreadItem> = (0..8).map(|n| message(&format!("m{n}"), if n % 2 == 0 { SessionVoice::You } else { SessionVoice::Agent }, &format!("say {n}"))).collect();
-        let tool = |n: u32| SessionRow::Tool { id: format!("t{n}"), at: Instant::carried("2026-11-10T09:01:00.000Z"), text: format!("Read file {n}"), subagent: None };
+        let tool = |n: u32| SessionRow::Tool { id: format!("t{n}"), at: Instant::carried("2026-11-10T09:01:00.000Z"), text: format!("Read file {n}"), description: None, subagent: None };
         items.push(ThreadItem::Calls { id: "c".into(), names: vec!["Read".into()], rows: (0..7).map(tool).collect() });
         let brief = report_brief("Words", &record(), &items, &from());
         let messages = brief.split("Last messages, oldest first:\n").nth(1).unwrap().split("\n\n").next().unwrap();

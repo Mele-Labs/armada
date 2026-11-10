@@ -159,7 +159,7 @@ async fn an_item_for_him_or_a_live_watch_excuses_a_stop() {
             None,
             SetWaitingFor {
                 session_id: Some(id.clone()),
-                items: vec![WaitingInput { id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+                items: vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }],
             },
         )
         .await

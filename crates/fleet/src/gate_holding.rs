@@ -37,6 +37,7 @@ fn phrase(gate: &str) -> Option<&'static str> {
         "walk_approved" => "your approval of every walk shown",
         "sketch_approved" => "your approval of a sketch",
         "document_approved" => "your approval of a page",
+        "you_approved" => "your approval",
         CHECKS_GREEN => "Checks at a pushed commit",
         "merged" => "the pull request's merge",
         _ => return None,
@@ -60,6 +61,7 @@ pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, n
     let waits_on = phrase(gate).filter(|_| yours)?;
     let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
     Some(WaitingItem {
+        approves: false,
         id: format!("{ITEM}{}", group.id),
         text: format!("\"{}\" waits on {waits_on}", group.title),
         since: Instant::carried(&hold.since),

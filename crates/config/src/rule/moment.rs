@@ -14,7 +14,7 @@ use super::{the_one, yes};
 const WHEN_KEYS: &[&str] = &["step_starts", "step_ends", "gate_closes", "job", "enters"];
 const WHEN_WANTED: &str = "one of `step_starts`, `step_ends`, `gate_closes`, `job` or `enters`";
 const ENTERS_KEYS: &[&str] = &["lifecycle", "state"];
-const GATES: &[&str] = &["plan_approved", "walk_approved", "sketch_approved", "document_approved", "checks_green", "merged", "jobs_ended"];
+const GATES: &[&str] = &["plan_approved", "walk_approved", "sketch_approved", "document_approved", "you_approved", "checks_green", "merged", "jobs_ended"];
 const JOB_EVENTS: &[&str] = &["started", "pull_request_opened", "landed", "ended"];
 
 const CONDITION_KEYS: &[&str] = &["every", "any", "no", "job"];

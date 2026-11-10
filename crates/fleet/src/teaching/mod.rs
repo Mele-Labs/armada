@@ -124,7 +124,7 @@ const RULE_BLOCK: &str =
      `when` is one of `{\"kind\": \"enters\", \"lifecycle\": L, \"state\": S}` (an instance of lifecycle L \
      enters state S), `{\"kind\": \"step_starts\", \"step\": T}`, `{\"kind\": \"step_ends\", \"step\": T}`, \
      `{\"kind\": \"gate_closes\", \"gate\": G}` (a gate of the Job's plan closes) with G one of `plan_approved`, \
-     `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `jobs_ended`, or \
+     `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green`, `merged` or `jobs_ended`, or \
      `{\"kind\": \"job\", \"event\": E}` with E one of `started`, `pull_request_opened`, `landed` or `ended`.\n\
      Instances are picked by `among`: `{\"kind\": \"entered\"}` (the one that entered the state), \
      `{\"kind\": \"linked_from\", \"lifecycle\": L}` (what the entered one came from, such as the tickets of \
