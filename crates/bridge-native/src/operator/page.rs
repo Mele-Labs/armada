@@ -182,6 +182,19 @@ impl OperatorPageView {
         }
     }
 
+    /// The owner's Fleet, where the page reads from it; `None` on the walk's.
+    pub fn fleet(&self) -> Option<&Entity<FleetConnection>> {
+        match &self.wire {
+            Wire::Live(fleet) => Some(fleet),
+            Wire::Mock(_) => None,
+        }
+    }
+
+    /// Whether Fleet's page has been read once: before it, Your turn is not known to be empty.
+    pub fn is_read(&self) -> bool {
+        self.page.is_some()
+    }
+
     pub fn items(&self) -> &[OperatorTurnItem] {
         self.page.as_ref().map_or(&[], |page| page.turn.as_slice())
     }
@@ -635,7 +648,7 @@ impl OperatorPageView {
     // -- the walk's scenes -------------------------------------------------------------------------
 
     /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), a new item joins
-    /// the queue (`arrives`), or it is switched off (`off`). Two scenes only scroll the page, where a
+    /// the queue (`arrives`), three join at once (`raised`), or it is switched off (`off`). Two scenes only scroll the page, where a
     /// step looks at what a short window holds below the open card: `rest` to the rows under it, `top`
     /// back to the card.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
@@ -665,6 +678,11 @@ impl OperatorPageView {
                 self.set_page(page, cx);
                 // The step looks at the row that joined, at the queue's end.
                 self.main_scroll.scroll_to_bottom();
+            }
+            "raised" => {
+                mock.raised();
+                let page = mock.page.clone();
+                self.set_page(page, cx);
             }
             "off" => {
                 mock.switch(false);

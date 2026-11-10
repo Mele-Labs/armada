@@ -1256,7 +1256,7 @@ impl TitleBar {
         ))
     }
 
-    /// The end region: the Job slot, the rings, the Operator, the Fleet dot and the Menu.
+    /// The end region: the Job slot, the rings, the toasts' bell, the Operator, the Fleet dot and the Menu.
     fn end(&self, narrow: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let ring = Self::focus_ring(look);
         let operator = {
@@ -1322,6 +1322,7 @@ impl TitleBar {
             // Empty, it takes no room: a flex child with nothing in it and no gap of its own.
             .children(self.job.clone())
             .children(self.meter(look, cx))
+            .children(cx.try_global::<crate::toasts::BellSlot>().map(|bell| bell.0.clone()))
             .when(!narrow, |end| end.child(operator))
             .child(self.dot(look, cx))
             .child(menu)

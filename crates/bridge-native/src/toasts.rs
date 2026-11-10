@@ -5,29 +5,16 @@
 //! This is the shelf: which toasts are drawn and which have stepped into history. It knows nothing
 //! of the wire beyond the item, so a mock and the Operator page's `Arrived` feed it the same way.
 
-use ipc::operator_page::{OperatorTurnItem, OperatorTurnKind};
+use ipc::operator_page::OperatorTurnItem;
 
-/// How hard a toast asks: its edge, whether it sounds, and whether it holds its place in the stack.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Urgency {
-    /// Holds its place and sounds.
-    Urgent,
-    /// His to decide.
-    Decision,
-    /// What the Operator would do itself, waiting on his word.
-    GoAhead,
-}
+mod view;
 
-/// Read here until Fleet serves `urgency` on `OperatorTurnItem`, which replaces this.
-pub fn urgency_of(item: &OperatorTurnItem) -> Urgency {
-    if crate::operator::face::is_red_main(item) {
-        return Urgency::Urgent;
-    }
-    match item.kind {
-        OperatorTurnKind::Decision => Urgency::Decision,
-        OperatorTurnKind::GoAhead => Urgency::GoAhead,
-    }
-}
+pub use view::{bind, BellSlot, Toasts};
+
+/// How hard a toast asks, as Fleet serves it: its edge, whether it sounds, and whether it holds its
+/// place in the stack. Urgent holds its place and sounds; Decision is his to decide; GoAhead is what the
+/// Operator would do itself, waiting on his word.
+pub use ipc::operator_page::OperatorUrgency as Urgency;
 
 /// How a toast left the stack.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -36,6 +23,8 @@ pub enum Ended {
     Settled,
     /// He closed it; the item still waits in Your turn.
     Closed,
+    /// He put it Later: last in Your turn for the rest of the day.
+    Later,
 }
 
 #[derive(Clone, Debug)]
@@ -55,12 +44,21 @@ pub struct Shelf {
 }
 
 impl Shelf {
+    /// The history kept from an earlier sitting, oldest first.
+    pub fn kept(toasts: Vec<Toast>) -> Shelf {
+        Shelf { toasts }
+    }
+
+    pub fn is_open(&self, id: &str) -> bool {
+        self.toasts.iter().any(|toast| toast.item.id == id && toast.ended.is_none())
+    }
+
     /// New items raise a toast each; one already raised is not raised again.
     pub fn raise(&mut self, items: &[OperatorTurnItem]) -> Vec<&Toast> {
         let from = self.toasts.len();
         for item in items {
             if self.toasts.iter().all(|toast| toast.item.id != item.id) {
-                self.toasts.push(Toast { urgency: urgency_of(item), item: item.clone(), ended: None });
+                self.toasts.push(Toast { urgency: item.urgency, item: item.clone(), ended: None });
             }
         }
         self.toasts[from..].iter().collect()
@@ -109,6 +107,7 @@ impl Shelf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ipc::operator_page::OperatorTurnKind;
 
     fn item(id: &str, kind: OperatorTurnKind) -> OperatorTurnItem {
         ipc::decode(

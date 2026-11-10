@@ -36,6 +36,7 @@ pub struct OperatorScreen {
     pub page: Entity<OperatorPageView>,
     pub front: Front,
     pub within: FocusHandle,
+    toasts: Entity<crate::toasts::Toasts>,
     _subs: Vec<gpui::Subscription>,
 }
 
@@ -94,7 +95,8 @@ impl OperatorScreen {
                 }
             }
         })));
-        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), _subs: subs };
+        let toasts = crate::toasts::Toasts::mount(&page, cx.entity().downgrade(), window, cx);
+        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), toasts, _subs: subs };
         this.show_places(cx);
         if front == Front::Operator {
             let keys = this.page.read(cx).focus.clone();
@@ -181,6 +183,6 @@ impl Render for OperatorScreen {
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().child(self.page.clone())).into_any_element()
             }
         };
-        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown)
+        div().id(SharedString::from("operator-screen")).track_focus(&self.within).size_full().child(shown).child(self.toasts.clone())
     }
 }

@@ -49,7 +49,7 @@ fn round(look: &Look) -> Pixels {
     look.length(token::RADIUS_LG) * 1.5
 }
 
-fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> Div {
+pub(crate) fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> Div {
     div()
         .flex_none()
         .flex()
@@ -65,19 +65,19 @@ fn chip(word: impl Into<SharedString>, hue: Hsla, ground: Hsla, look: &Look) -> 
         .child(word.into())
 }
 
-fn kind_chip(kind: Kind, look: &Look) -> Div {
+pub(crate) fn kind_chip(kind: Kind, look: &Look) -> Div {
     chip(kind.word, look.color(kind.hue), look.color(kind.ground), look)
 }
 
 /// A press on the page: the pick filled in the Operator's hue, the rest outlined, Later and Ask bare.
 #[derive(Clone, Copy, PartialEq)]
-enum Weight {
+pub(crate) enum Weight {
     Pick,
     Plain,
     Bare,
 }
 
-fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static str>, key: Option<SharedString>, weight: Weight, look: &Look) -> Stateful<Div> {
+pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static str>, key: Option<SharedString>, weight: Weight, look: &Look) -> Stateful<Div> {
     let id: SharedString = id.into();
     let (ground, hover, ink, edge) = match weight {
         Weight::Pick => (look.color(token::OPERATOR), look.color(token::OPERATOR), look.color(token::FG_INVERSE), look.color(token::OPERATOR)),
