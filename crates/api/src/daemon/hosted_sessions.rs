@@ -220,6 +220,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         dismiss: ipc::DismissWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `convert_draft_to_document`: the person turns an open draft into a Document in the job's worktree.
+    /// [`Refusal::NotFound`] for a draft the job has no row for, [`Refusal::IllegalMove`] for one already
+    /// settled and for a job with no worktree, [`Refusal::Unacceptable`] for a proposal's draft.
+    fn convert_draft_to_document(
+        self: Arc<Self>,
+        convert: ipc::ConvertDraftToDocument,
+    ) -> impl Future<Output = Result<ipc::DraftDocument, Refusal>> + Send;
+
     /// `reopen_waiting`: the person lets an item he closed wait again. [`Refusal::IllegalMove`] where no
     /// closed item has that id, [`Refusal::Unacceptable`] where it would not wait again.
     fn reopen_waiting(

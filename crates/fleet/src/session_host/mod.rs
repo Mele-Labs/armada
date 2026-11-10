@@ -29,6 +29,8 @@ pub(crate) mod dispute_review;
 pub(crate) mod dispute_reading;
 pub(crate) mod ending;
 pub(crate) mod asking_in_window;
+pub(crate) mod draft_document;
+pub(crate) mod draft_page;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
 pub(crate) mod merge_waits;

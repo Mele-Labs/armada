@@ -1,0 +1,18 @@
+[operations.convert_draft_to_document]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Turn a draft a job proposed into a Document the person reads and notes"
+notes = """
+`POST /sessions/draft/document`, body `ConvertDraftToDocument`: `session_id` and `draft_id`, the `draft:<row id>` of the open draft item (the bare row id reads the same). Answered with `DraftDocument`: `name`, the page's name without `.html`; `path`, the page in the job's worktree, which is its `target` on the job's record; and `told`, whether the job was sent its turn.
+
+**The page.** Fleet writes `.armada/documents/<name>.html` in the job's worktree, `<name>` being the draft's title in lower case with each run of anything but letters and digits as one `-`. A name that is taken takes `-2`, `-3` and so on, and a page is never overwritten. The page has one `<title>` and one `<h1>` of the draft's title, then the draft's text as the page's body: `#` and `##` become `<h2>`, deeper headings `<h3>`, and paragraphs, lists, block quotes, fenced code, inline code, emphasis, links and simple tables follow. A leading heading that repeats the title is left out. Text that is not markdown reads as paragraphs. **Everything is escaped**, a raw tag is shown as text, an image is its alt text, and a link keeps only an `http`, `https`, `mailto`, `#` or relative address. The page links `armada-kit.css` and carries no script, style or image.
+
+**The draft settles `withdrawn`**, as `withdraw_draft` settles it, so its item leaves Needs you. The page is kept as Fleet keeps an agent's own write: a revision on the job's record, and a Document item for the person to read.
+
+**The job is sent a turn** as Fleet's own word: `The owner turned your draft "<title>" into the Document .armada/documents/<name>.html. Revise it there as a Document from now on, and don't propose it as a draft again.` A job that is paused or has ended is told nothing and `told` is false.
+
+**Refused**, with nothing written: a job Fleet does not host, 422 `fleet.no_such_session`; a draft the job has no row for, 404 `fleet.draft_convert_unknown`; a draft already approved, sent back or withdrawn, 409 `fleet.draft_convert_settled`; a draft that proposes a workflow, rule or lifecycle change, 422 `fleet.draft_convert_proposal`, since it has no page to be; and a job that holds no worktree, 409 `fleet.draft_convert_no_worktree`.
+
+`agent_access` is `No`: the person decides a draft should have been a Document; the agent is told after.
+"""
