@@ -1076,3 +1076,27 @@ export const ARestartBesideACallListsTheCall: Story = {
     ).toHaveLength(1);
   },
 };
+
+/** A band whose every item is its own key has nothing to open onto: no chevron's button state, and no body to reveal. */
+export const RestartsAloneHaveNothingToOpen: Story = {
+  render: () => (
+    <Frame
+      rows={[
+        restartRow("agent"),
+      ]}
+      startOpen
+    />
+  ),
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("button", {
+        name: "Refresh preview",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", {
+        name: "Needs you",
+      }),
+    ).not.toHaveAttribute("aria-expanded", "true");
+  },
+};
