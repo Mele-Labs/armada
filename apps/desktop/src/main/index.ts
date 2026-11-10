@@ -89,7 +89,6 @@ import { handleTerritory } from "./territory-channels";
 import { handleBayHistory } from "./bay-history-channels";
 import { handleSessionSystem } from "./session-system-channels";
 import { handleLogbook } from "./logbook-channels";
-import { handleOperator } from "./operator-channels";
 import { handleUsageSummary } from "./usage-summary-channels";
 import { handleUsageTime } from "./usage-time-channels";
 import { handleDebugReport } from "./debug-report-channels";
@@ -348,10 +347,6 @@ function createWindow(): BrowserWindow {
   rememberWindow(window);
   bridgeWindows.add(window);
   window.on("ready-to-show", () => window.show());
-  // Fleet decides whether he was away, and rewrites the Operator page's top line when he was.
-  const inFront = (): void => connection?.operator.inFront();
-  window.on("focus", inFront);
-  window.on("show", inFront);
 
   // History from the OS: macOS's swipe gesture, and the browser keys on Windows and Linux.
   const step = (to: "back" | "forward"): void => {
@@ -1268,10 +1263,6 @@ void app.whenReady().then(() => {
     connection: () => connection,
   });
   handleLogbook({
-    ipc: ipcMain,
-    connection: () => connection,
-  });
-  handleOperator({
     ipc: ipcMain,
     connection: () => connection,
   });

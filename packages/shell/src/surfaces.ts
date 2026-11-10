@@ -5,7 +5,7 @@
 //
 // **A digit is a place in the Cockpit window's tab bar**: `⌘1` to `⌘7` go to the tabs the bar draws, left to right, each drawn
 // tab taking the next digit. A tab a layout or a missing source leaves off takes none and the digits behind it close up, so at most
-// they are Operator, Cockpit, Studios, Logbook, Reviews, Issues and System. Settings is `⌘,`. Every other destination is reached from
+// they are Cockpit, Studios, Logbook, Reviews, Issues and System. Settings is `⌘,`. Every other destination is reached from
 // a System entry, the title bar's menu, a link on the deck or the palette by name, and takes no key.
 
 import { useEffect, useRef } from "react";
@@ -13,7 +13,6 @@ import {
   ArrowRightLeft,
   BookOpen,
   ChartNoAxesColumn,
-  Bot,
   Box,
   Briefcase,
   FileCog,
@@ -40,7 +39,6 @@ import type { PaletteSurface } from "./Palette";
 
 /** The ids Bridge routes on. Here, so a typo cannot be a dead row. */
 export const SURFACE = {
-  operator: "operator",
   overview: "overview",
   manifest: "manifest",
   worktrees: "worktrees",
@@ -97,19 +95,6 @@ function digitOf(id: SurfaceId): string | undefined {
  * not have to learn a second.
  */
 export const SURFACES: readonly PaletteSurface[] = [
-  {
-    id: SURFACE.operator,
-    label: "Operator",
-    get shortcut() {
-      return digitOf(SURFACE.operator);
-    },
-    aliases: [
-      "triage",
-      "queue",
-    ],
-    // `bot` is the Operator's glyph wherever it stands for itself.
-    icon: Bot,
-  },
   {
     id: SURFACE.overview,
     label: "Cockpit",
@@ -418,11 +403,6 @@ export const SURFACES: readonly PaletteSurface[] = [
  */
 export const DECK_TABS = [
   {
-    id: "operator",
-    label: "Operator",
-    surface: SURFACE.operator,
-  },
-  {
     id: "cockpit",
     label: "Cockpit",
     surface: SURFACE.overview,
@@ -500,7 +480,6 @@ export const SYSTEM_PAGES: readonly {
 
 /** The places a layout may name: the tabs that are a surface, then the pages under System the layout reaches. The old Jobs tab is never drawn (`App.tsx`), so it is not one. */
 export const PLACES: readonly string[] = [
-  SURFACE.operator,
   SURFACE.overview,
   SURFACE.sessions,
   SURFACE.kit,

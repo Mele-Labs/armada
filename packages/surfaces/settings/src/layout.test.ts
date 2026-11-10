@@ -44,7 +44,8 @@ describe("the registry file both sides check", () => {
         ordered: spec.ordered,
         firstable: spec.firstable,
       });
-      expect(shipped.entries).toEqual(
+      // The file names the Operator's place for the native Bridge, which draws it. This Bridge does not.
+      expect(shipped.entries.filter((one) => one.id !== "operator")).toEqual(
         spec.entries.map((one) => ({
           id: one.id,
           hideable: one.hideable,

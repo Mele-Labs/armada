@@ -45,12 +45,19 @@ struct Drawn {
     id: String,
     at: Instant,
     text: String,
+    description: Option<String>,
     subagent: Option<ToolSubagent>,
 }
 
 impl Drawn {
     fn row(&self) -> SessionRow {
-        SessionRow::Tool { id: self.id.clone(), at: self.at.clone(), text: self.text.clone(), subagent: self.subagent.clone() }
+        SessionRow::Tool {
+            id: self.id.clone(),
+            at: self.at.clone(),
+            text: self.text.clone(),
+            description: self.description.clone(),
+            subagent: self.subagent.clone(),
+        }
     }
 }
 
@@ -81,13 +88,19 @@ impl CallRows {
     }
 
     /// The agent's own call was drawn as row `id`: the row to put, where the call started a subagent.
-    pub(crate) fn drawn(&mut self, call: &str, id: &str, at: &Instant, text: &str) -> Option<SessionRow> {
+    pub(crate) fn drawn(&mut self, call: &str, id: &str, at: &Instant, text: &str, description: Option<&str>) -> Option<SessionRow> {
         let one = self.calls.iter_mut().find(|one| one.call == call)?;
         let subagent = one.early.take();
         if subagent.is_some() {
             one.put_at = Some(std::time::Instant::now());
         }
-        let drawn = Drawn { id: id.to_string(), at: at.clone(), text: text.to_string(), subagent };
+        let drawn = Drawn {
+            id: id.to_string(),
+            at: at.clone(),
+            text: text.to_string(),
+            description: description.map(str::to_string),
+            subagent,
+        };
         let row = drawn.row();
         one.row = Some(drawn);
         Some(row)
@@ -213,12 +226,12 @@ impl CallRows {
 /// `row`, settled, where it is a call whose subagent `pick` names and is still running.
 fn settled_row(row: SessionRow, pick: impl Fn(&str) -> bool, state: ToolSubagentState, ended: &Instant) -> Option<SessionRow> {
     match row {
-        SessionRow::Tool { id, at, text, subagent: Some(mut subagent) }
+        SessionRow::Tool { id, at, text, description, subagent: Some(mut subagent) }
             if subagent.state == ToolSubagentState::Running && pick(&subagent.id) =>
         {
             subagent.state = state;
             subagent.ended = Some(ended.clone());
-            Some(SessionRow::Tool { id, at, text, subagent: Some(subagent) })
+            Some(SessionRow::Tool { id, at, text, description, subagent: Some(subagent) })
         }
         _ => None,
     }
@@ -358,7 +371,7 @@ mod tests {
         let at = Instant::carried("2026-10-29T13:48:29Z");
         let mut rows = CallRows::default();
         rows.spawned("toolu_50", false);
-        rows.drawn("toolu_50", "r1", &at, "Agent Make the thread resizable");
+        rows.drawn("toolu_50", "r1", &at, "Agent Make the thread resizable", None);
         rows.started("toolu_50", running(&at));
 
         let later = std::time::Instant::now() + LATEST_EVERY * 2;

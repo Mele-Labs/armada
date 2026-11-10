@@ -27,7 +27,6 @@ import type { DashboardTab } from "@armada/overview";
 import type { BridgeApi } from "../../shared/api";
 import type { BridgeState } from "../../shared/bridge";
 import { viewsOf } from "./merge-line";
-import { useOperator } from "./operator/store";
 import { stateOf } from "./session-state";
 import { useSessions } from "./sessions-draft";
 import { lineOf } from "./session-activity";
@@ -152,14 +151,13 @@ function StartSession({
   children?: ReactNode;
 }) {
   const dispatching = useDispatching();
-  const label = useOperator() === null ? "Start a Job" : "Dispatch";
   return (
     <Button
       variant="primary"
       disabled={dispatching === undefined}
       onClick={() => (dispatching?.startDraft(brief, root), onDone())}
     >
-      {children ?? label}
+      {children ?? "Dispatch"}
     </Button>
   );
 }

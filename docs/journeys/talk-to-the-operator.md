@@ -9,8 +9,9 @@
 **Concepts touched:** [Operator](../concepts/operator.md).
 
 **What is built.**
-Fleet's side is real, and the Electron Bridge has a box for it in the Operator's panel.
+Fleet's side is real.
 The goal is one chat, on its own page or in a pane from anywhere, in the native Bridge, and it is not built.
+The Electron Bridge no longer shows the Operator.
 This journey says what Fleet does with the words, and leaves the look to [Operator](../concepts/operator.md).
 
 ## Flow

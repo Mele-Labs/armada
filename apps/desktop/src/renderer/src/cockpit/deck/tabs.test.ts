@@ -1,4 +1,4 @@
-// The Cockpit window's tabs, the Operator's first, and the pages under System: which surface each reaches, which tab a surface
+// The Cockpit window's tabs, and the pages under System: which surface each reaches, which tab a surface
 // is under, and what ⌘1 to ⌘8 and ⌘, reach. In node: nothing here needs a document.
 
 import { describe, expect, it } from "vitest";
@@ -20,10 +20,6 @@ describe("the tabs", () => {
         tab.surface,
       ]),
     ).toEqual([
-      [
-        "operator",
-        SURFACE.operator,
-      ],
       [
         "cockpit",
         SURFACE.overview,
@@ -64,7 +60,6 @@ describe("the tabs", () => {
   });
 
   it("puts every surface under one tab, and System holds the five pages its sidebar replaced", () => {
-    expect(deckTabOf(SURFACE.operator)).toBe("operator");
     expect(deckTabOf(SURFACE.overview)).toBe("cockpit");
     expect(deckTabOf(SURFACE.jobs)).toBe("jobs");
     expect(deckTabOf(SURFACE.sessions)).toBe("sessions");
@@ -106,7 +101,6 @@ describe("⌘1 to ⌘9", () => {
 
   it("open the drawn tabs in the order the bar draws them, System last", () => {
     expect(drawnTabs(OLD_JOBS).map((tab) => tab.id)).toEqual([
-      "operator",
       "cockpit",
       "sessions",
       "studios",
@@ -129,7 +123,6 @@ describe("⌘1 to ⌘9", () => {
         9,
       ].map((digit) => surfaceOfDigit(digit, OLD_JOBS)),
     ).toEqual([
-      SURFACE.operator,
       SURFACE.overview,
       SURFACE.sessions,
       SURFACE.studios,
@@ -138,6 +131,7 @@ describe("⌘1 to ⌘9", () => {
       SURFACE.issues,
       SURFACE.projects,
       SURFACE.kit,
+      undefined,
     ]);
   });
 
@@ -155,10 +149,8 @@ describe("⌘1 to ⌘9", () => {
         2,
         3,
         4,
-        5,
       ].map((digit) => surfaceOfDigit(digit, flight)),
     ).toEqual([
-      SURFACE.operator,
       SURFACE.overview,
       SURFACE.studios,
       SURFACE.logbook,
@@ -177,10 +169,8 @@ describe("⌘1 to ⌘9", () => {
         5,
         6,
         7,
-        8,
       ].map((digit) => surfaceOfDigit(digit, noStudios)),
     ).toEqual([
-      SURFACE.operator,
       SURFACE.overview,
       SURFACE.sessions,
       SURFACE.logbook,
@@ -221,7 +211,6 @@ describe("⌘1 to ⌘9", () => {
     // Before the app says, only the old Jobs tab is off.
     expect(
       placed(
-        SURFACE.operator,
         SURFACE.overview,
         SURFACE.sessions,
         SURFACE.studios,
@@ -232,36 +221,32 @@ describe("⌘1 to ⌘9", () => {
       ),
     ).toEqual([
       [
-        SURFACE.operator,
+        SURFACE.overview,
         "⌘1",
       ],
       [
-        SURFACE.overview,
+        SURFACE.sessions,
         "⌘2",
       ],
       [
-        SURFACE.sessions,
+        SURFACE.studios,
         "⌘3",
       ],
       [
-        SURFACE.studios,
+        SURFACE.logbook,
         "⌘4",
       ],
       [
-        SURFACE.logbook,
+        SURFACE.reviews,
         "⌘5",
       ],
       [
-        SURFACE.reviews,
+        SURFACE.issues,
         "⌘6",
       ],
       [
-        SURFACE.issues,
-        "⌘7",
-      ],
-      [
         SURFACE.projects,
-        "⌘8",
+        "⌘7",
       ],
     ]);
     expect(keyed().map(([id]) => id)).not.toContain(SURFACE.jobs);

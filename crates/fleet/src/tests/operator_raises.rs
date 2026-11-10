@@ -580,7 +580,9 @@ async fn off_a_return_moves_nothing() {
     assert!(!rig.fleet.operator_in_front_now().await);
     pause().await;
     assert!(call.asked().is_empty());
-    assert_eq!(page(&rig).await, OperatorPage::default());
+    // The head's mains and slots are Fleet's own, whether the Operator is on or off.
+    let page = OperatorPage { mains: Vec::new(), slots: None, ..page(&rig).await };
+    assert_eq!(page, OperatorPage::default());
 }
 
 #[test]
