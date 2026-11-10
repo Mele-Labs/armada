@@ -5044,6 +5044,10 @@ describe("what Fleet saw of a Job and did for it", () => {
           repair: "running",
           said: "tool not found",
         },
+        repairing: {
+          said: "its process died twice",
+          since: "2026-11-03T10:01:00.000Z",
+        },
       }),
       [],
       beside(),
@@ -5064,9 +5068,32 @@ describe("what Fleet saw of a Job and did for it", () => {
     ).toEqual([
       [
         "under_way",
-        "Repair Job running",
+        "Repairing: its process died twice",
       ],
     ]);
+    expect(one.repairing).toEqual({
+      said: "its process died twice",
+      since: "2026-11-03T10:01:00.000Z",
+    });
+  });
+
+  it("a repair on a Job that is not stopped is on the Job and in Now, and none runs, none is", () => {
+    const stuck = sessionOfRecord(
+      record("a", {
+        standing: "stuck",
+        repairing: {
+          said: "a command hung",
+          since: "2026-11-03T10:01:00.000Z",
+        },
+      }),
+      [],
+      beside(),
+    );
+    expect(stuck.repairing?.said).toBe("a command hung");
+    expect(stuck.fleetActs?.map((act) => act.said)).toEqual([
+      "Repairing: a command hung",
+    ]);
+    expect(sessionOfRecord(record("a"), [], beside()).repairing).toBeUndefined();
   });
 
   it("each of Fleet's words is an act that is over, and nothing the agent said is", () => {

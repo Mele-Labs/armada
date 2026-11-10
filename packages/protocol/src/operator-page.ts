@@ -70,6 +70,8 @@ export type OperatorLanded = {
   job: string;
   number: string;
   title: string;
+  /** RFC 3339. When it merged. */
+  at: string;
 };
 
 /** One thing the Operator did on its own since he last looked. */
@@ -125,14 +127,53 @@ export type OperatorLearned = {
   at: string;
 };
 
+/** One hold that stands over paths: only the Job it names writes under them, until it pushes or ends. */
+export type OperatorHold = {
+  /** The order's number, which `remove_operator_order` and the chat's `lift` name. */
+  id: number;
+  /** The repository it holds in. */
+  manifest_id: string;
+  repository?: string;
+  /** The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`. */
+  said: string;
+  /** RFC 3339. */
+  at: string;
+};
+
 /** Since he last looked, and what stands. A section with nothing in it is absent. */
 export type OperatorDigest = {
   landed?: OperatorLanded[];
   handled: OperatorHandled;
   running?: OperatorRunning[];
   coming_up?: OperatorComingUp[];
-  /** The rules, across projects. */
+  /** The rules, across projects. Rules only: a hold is not one. */
   learned?: OperatorLearned[];
+  /** The holds that stand, beside Learned. */
+  holds?: OperatorHold[];
+};
+
+/** How a repository's main stands on CI, as `main_ci_state` of the merge line has it. A red a newer commit's run is still on is `red`. */
+export type OperatorMainState = "green" | "red" | "running" | "nothing_ran";
+
+/** One repository's main, as the head draws it: a pill, red when main is red. */
+export type OperatorMain = {
+  manifest_id: string;
+  /** The repository's name, as `OperatorTurnItem` gives it. */
+  repository: string;
+  /** Absent where Fleet has not read main yet. */
+  state?: OperatorMainState;
+  /** The commit the state was decided from, whole: the red's own on a red. Absent with `state`. */
+  commit?: string;
+  /** RFC 3339. When main first read red, kept while it stays red. `red` only. */
+  since?: string;
+};
+
+/** The slots in use across every repository's pool. */
+export type OperatorSlots = {
+  /** Held by a Job, a process or work stranded in it, or under a take or a release. */
+  used: number;
+  /** Every slot of every pool, free, unmade or closed ones too. */
+  total: number;
 };
 
 /** `operator_page` (`GET /operator/page`): the whole page. */
@@ -148,6 +189,10 @@ export type OperatorPage = {
   /** Your turn, in the order he left it, with what he put Later last. */
   turn: OperatorTurnItem[];
   digest: OperatorDigest;
+  /** Each repository Fleet serves, first first. Absent when none. */
+  mains?: OperatorMain[];
+  /** Absent where no pool is read. */
+  slots?: OperatorSlots;
 };
 
 /** `operator_answer` (`POST /operator/page/answer`): one press on an item. */

@@ -31,6 +31,8 @@ where
     /// A turn began: keep it open until it ends or its process is found dead. A store that will
     /// not keep it fails nothing, as with [`Self::kept_restart`].
     pub(crate) async fn turn_opened(&self, id: &str, at: &str) {
+        // A repair still running is for a stop this turn ends.
+        self.repairs().stop(id);
         let mut store = self.store().lock().await;
         let _ = store.turn_opened(id, at);
         let _ = store.clear_repair(id);
@@ -79,6 +81,10 @@ where
     /// Start again the Jobs whose turn was open when their process was lost with Fleet down.
     /// **Called once at boot**, after the loops that move Jobs are running.
     pub async fn open_turns_started(self: &Arc<Self>) {
+        // A repair does not outlive the Fleet that read it, so one left open is over, and its slot is back.
+        self.open_repair_slots_given_back().await;
+        let at = self.now().as_str().to_string();
+        let _ = self.store().lock().await.end_open_repairs(&at);
         let rows = self.store().lock().await.open_turns().unwrap_or_default();
         let mut started_one = false;
         for row in rows {

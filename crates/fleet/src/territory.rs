@@ -147,6 +147,8 @@ where
             .iter()
             .filter_map(|slot| {
                 let (kind, id) = match &slot.held {
+                    // A running repair holds a slot under an id no Session has.
+                    SlotHolding::HostedSession { .. } if self.repairs().holds(slot) => return None,
                     SlotHolding::HostedSession { session_id, .. } => (SlotHolderKind::Session, session_id.clone()),
                     _ => return None,
                 };

@@ -825,7 +825,83 @@ describe("a Job that stopped says so", () => {
       }),
     );
     expect(held.state).toBe("stopped_asks");
-    expect(held.said).toContain("No repair Job: Fleet is unhealthy");
+    expect(held.said).toContain("No repair: Fleet is unhealthy");
+  });
+});
+
+describe("a repair Fleet runs is one clause on the card, in any state", () => {
+  const repairing = {
+    said: "a command hung",
+    since: TURN_ENDED,
+  };
+
+  test("a stuck Job reads Stuck, then Repairing and what broke", () => {
+    const stuck = stateOf(
+      session({
+        standing: "stuck",
+        repairing,
+      }),
+    );
+    expect(stuck.state).toBe("stuck");
+    expect(stuck.said).toBe("Stuck · Repairing: a command hung");
+  });
+
+  test("a stopped Job's Repairing line replaces Repair Job running and the failed restart", () => {
+    const stopped = stateOf(
+      session({
+        standing: "stopped",
+        stopped: {
+          reason: "process_gone",
+          at: TURN_ENDED,
+          restart: "failed",
+          repair: "running",
+        },
+        repairing: {
+          said: "its process died twice",
+          since: TURN_ENDED,
+        },
+      }),
+    );
+    expect(stopped.state).toBe("stopped");
+    expect(stopped.said).toBe("Stopped: process ended · Repairing: its process died twice");
+  });
+
+  test("an ended Job with a repair on its pull request says so too", () => {
+    expect(
+      stateOf(
+        session({
+          dead: "ended",
+          repairing: {
+            said: "checks failed on #7",
+            since: TURN_ENDED,
+          },
+        }),
+      ).said,
+    ).toBe("Ended · Repairing: checks failed on #7");
+  });
+
+  test("no repair, no clause; a repair that failed reads Not repaired", () => {
+    expect(
+      stateOf(
+        session({
+          standing: "stuck",
+        }),
+      ).said,
+    ).toBe("Stuck");
+    expect(
+      stateOf(
+        session({
+          standing: "stopped",
+          stopped: {
+            reason: "process_gone",
+            at: TURN_ENDED,
+            restart: "failed",
+            repair: "failed",
+            gaveUp: true,
+          },
+        }),
+      ).said,
+    ).toBe("Stopped: process ended · Not repaired");
   });
 });
 

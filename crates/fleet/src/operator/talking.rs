@@ -13,7 +13,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{Actor, Timestamp};
-use ipc::operator_positions::OperatorRole;
+use ipc::operator_page::OperatorRule;
 use ipc::operator_talk::{OperatorCite, OperatorHoldUntil, OperatorOrderForm, OperatorSaid, OperatorTalk, OperatorTalkLine, ProposedOperatorOrder};
 use ipc::SessionId;
 use store::KeptTalk;
@@ -23,7 +23,7 @@ use super::desk::started_by_chain;
 use super::looking::Folder;
 use super::orders::{checked, said_of, OPERATOR_OFF};
 use super::boarding::Queued;
-use super::{Arrived, InLine, LiveJob, Logged, Operator, Outcome, Paused};
+use super::{InLine, LiveJob, Logged, Operator, Outcome, Paused};
 use crate::daemon::Fleet;
 
 const OPERATOR_PAUSED: &str = "fleet.operator_paused";
@@ -45,11 +45,7 @@ const SAID_READABLE: usize = super::reading::THREAD_MESSAGES;
 const LINE_CHARS: usize = 400;
 
 /// Every form an order can take, listed where his words fit none.
-pub const FORMS: [&str; 3] = [
-    "Turn a role off for a repository: Dispatch, Delegate or File, for today or until you remove it.",
-    "Hold paths until a Job pushes or ends.",
-    "Always raise one kind of thing: bug reports, new issues, red mains, notes or errors.",
-];
+pub const FORMS: [&str; 1] = ["Hold paths until a Job pushes or ends."];
 
 /// One row of the Log, as a call reads it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -88,6 +84,24 @@ pub struct HeldJob {
     pub needs: String,
 }
 
+/// A rule the Operator keeps: an act it does without asking.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RuleRead {
+    /// The order's number, which `forget` names.
+    pub id: i64,
+    pub said: String,
+    /// The repository it holds in. `None` holds in every repository.
+    pub repository: Option<String>,
+}
+
+/// A hold that stands over paths.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HoldRead {
+    /// The order's number, which `lift` names.
+    pub id: i64,
+    pub said: String,
+}
+
 /// A Job that ended since the local day began.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EndedJob {
@@ -106,6 +120,8 @@ pub struct MergedPull {
     pub job: String,
     pub number: String,
     pub title: String,
+    /// When its attachment last changed, which for a merged one is when it merged. An RFC 3339 instant.
+    pub at: String,
 }
 
 /// The newest of the day's ended Jobs the box is shown.
@@ -156,6 +172,10 @@ pub struct Board {
     pub needs_you: Vec<NeedsYou>,
     /// What is in Your turn, in the order he left it.
     pub turn: Vec<TurnRead>,
+    /// The rules it keeps, which `forget` may name.
+    pub rules: Vec<RuleRead>,
+    /// The holds that stand, which `lift` may name.
+    pub holds: Vec<HoldRead>,
     /// The Operator's own suggestions no Job holds, still waiting on a press, oldest first.
     pub suggestions: Vec<SuggestionRead>,
     /// The live Jobs' tasks and last words: filled in by a message, which is the only call that reads them.
@@ -195,6 +215,10 @@ pub struct Talked {
     pub call: String,
     /// The board item he asked to have taken first, one the call was shown as waiting its turn.
     pub first: Option<String>,
+    /// The rule he asked it to forget, one the call was shown.
+    pub forget: Option<i64>,
+    /// The hold he asked to have lifted, one the call was shown.
+    pub lift: Option<i64>,
 }
 
 /// Why a message came back with nothing.
@@ -230,17 +254,18 @@ const FORMS_AND_BLOCK: &str = "\
 Below, the list headed On the board has what is being ruled and what waits its turn, each with an id. Where the \
 person asks for an item that waits to be taken first or sooner, name its id in first.
 
-The person may ask for a standing order. You cannot make one stand: name its form, and Fleet shows it \
+The person may ask for a hold on paths. You cannot make one stand: name its form, and Fleet shows it \
 to the person, who confirms it. These are the only forms:
 
-    role_off <dispatch, delegate or file> in <repository id> today
-    role_off <dispatch, delegate or file> in <repository id>
     hold <paths, separated by commas> until <the id of a live Job> pushes
     hold <paths, separated by commas> until <the id of a live Job> ends
-    always_raise <note, error, report, issue or red_main>
 
-Name a form only where the person asked for an order. Where he asked for one that fits none of them, \
+Name a form only where the person asked for a hold. Where he asked for an order that fits none of them, \
 write no_form.
+
+The person may ask you to forget a rule you keep, or to lift a hold that stands. You do both at once, by the \
+id shown under Rules you keep or Holds that stand. A rule you keep is never forgotten, and a hold never lifted, \
+unless he asked.
 
 Answer with nothing but this block, with said last:
 
@@ -248,6 +273,8 @@ Answer with nothing but this block, with said last:
     job: <a one-line brief for a Job to read the code, or none>
     start: <the id of a Job held, only where the person told you to start it, or none>
     order: <one form, no_form, or none>
+    forget: <the id of a rule you keep, only where the person asked you to forget it, or none>
+    lift: <the id of a hold that stands, only where the person asked to have it lifted, or none>
     first: <the id of an item that waits its turn, only where the person asked for it to be taken first, or none>
     said: <your answer to the person>
 
@@ -299,6 +326,14 @@ and your journal of this week and last week, named journal-<year>-W<week>.md, wh
     out.push_str("\nYour suggestions, waiting on the person to press Do it or Skip:\n");
     for one in &board.suggestions {
         out.push_str(&format!("  {}: {}\n", one.id, one.text));
+    }
+    out.push_str("\nRules you keep, which do an act without asking:\n");
+    for one in &board.rules {
+        out.push_str(&format!("  Rule {}: {}, in {}\n", one.id, one.said, one.repository.as_deref().unwrap_or("every repository")));
+    }
+    out.push_str("\nHolds that stand:\n");
+    for one in &board.holds {
+        out.push_str(&format!("  Hold {}: {}\n", one.id, one.said));
     }
     out.push_str("\nMarked Stopped:\n");
     for one in &board.stopped {
@@ -408,49 +443,35 @@ fn read_talked(answer: &str, call: String, board: &Board, live: &[LiveJob]) -> O
     let (order, no_form) = match field("order") {
         None => (None, false),
         Some("no_form") => (None, true),
-        Some(form) => match form_read(form, board, live).filter(|form| checked(form, &board.repositories, live).is_ok()) {
+        Some(form) => match form_read(form, live).filter(|form| checked(form, live).is_ok()) {
             Some(form) => {
-                let words = said_of(&form, &board.repositories, live);
+                let words = said_of(&form, live);
                 (Some((form, words)), false)
             }
             None => (None, true),
         },
     };
     let first = field("first").filter(|id| board.queue.next.iter().any(|one| one.id == *id && !one.taken)).map(str::to_string);
-    Some(Talked { said, cites, job: field("job").map(str::to_string), start, order, no_form, call, first })
+    // Only an id it was shown, of the kind it was shown: a rule's to forget and a hold's to lift.
+    let numbered = |key: &str, shown: &dyn Fn(i64) -> bool| field(key).and_then(|id| id.trim().parse::<i64>().ok()).filter(|id| shown(*id));
+    let forget = numbered("forget", &|id| board.rules.iter().any(|one| one.id == id));
+    let lift = numbered("lift", &|id| board.holds.iter().any(|one| one.id == id));
+    Some(Talked { said, cites, job: field("job").map(str::to_string), start, order, no_form, call, first, forget, lift })
 }
 
 /// The form a call named.
-fn form_read(form: &str, board: &Board, live: &[LiveJob]) -> Option<OperatorOrderForm> {
-    if let Some(rest) = form.strip_prefix("role_off ") {
-        let (role, rest) = rest.split_once(" in ")?;
-        let role = match role.trim() {
-            "dispatch" => OperatorRole::Dispatch,
-            "delegate" => OperatorRole::Delegate,
-            "file" => OperatorRole::File,
-            _ => return None,
-        };
-        let (repository, today) = match rest.trim().strip_suffix(" today") {
-            Some(repository) => (repository.trim(), true),
-            None => (rest.trim(), false),
-        };
-        let manifest_id = board.repositories.iter().find(|one| one.id == repository || one.name == repository)?.id.clone();
-        return Some(OperatorOrderForm::RoleOff { role, manifest_id, today });
-    }
-    if let Some(rest) = form.strip_prefix("hold ") {
-        let (paths, rest) = rest.rsplit_once(" until ")?;
-        let (job, event) = rest.trim().rsplit_once(' ')?;
-        let until = match event {
-            "pushes" => OperatorHoldUntil::Pushes,
-            "ends" => OperatorHoldUntil::Ends,
-            _ => return None,
-        };
-        let held = live.iter().find(|one| one.session_id == job)?;
-        let paths = paths.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect();
-        return Some(OperatorOrderForm::HoldPaths { manifest_id: held.manifest_id.clone(), paths, job: SessionId::carried(job), until });
-    }
-    let what = form.strip_prefix("always_raise ")?.trim();
-    Arrived::taken_from_word(what).map(|arrived| OperatorOrderForm::AlwaysRaise { what: arrived.word().to_string() })
+fn form_read(form: &str, live: &[LiveJob]) -> Option<OperatorOrderForm> {
+    let rest = form.strip_prefix("hold ")?;
+    let (paths, rest) = rest.rsplit_once(" until ")?;
+    let (job, event) = rest.trim().rsplit_once(' ')?;
+    let until = match event {
+        "pushes" => OperatorHoldUntil::Pushes,
+        "ends" => OperatorHoldUntil::Ends,
+        _ => return None,
+    };
+    let held = live.iter().find(|one| one.session_id == job)?;
+    let paths = paths.split(',').map(|one| one.trim().to_string()).filter(|one| !one.is_empty()).collect();
+    Some(OperatorOrderForm::HoldPaths { manifest_id: held.manifest_id.clone(), paths, job: SessionId::carried(job), until })
 }
 
 /// The Jobs that ended and the pull requests hosted Jobs held that merged at or after `since`, each newest first.
@@ -473,7 +494,7 @@ pub(super) fn moved_since(store: &store::Store, since: &str) -> (Vec<EndedJob>, 
             let spent = pull.state == store::AttachmentState::Spent;
             if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= since {
                 let title = pull.detail.get("title").cloned().unwrap_or_default();
-                merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
+                merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title, at: pull.changed_at.clone() }));
             }
         }
     }
@@ -519,9 +540,9 @@ impl Operator {
 
     /// `form` as it may stand, with Fleet's words for it.
     pub async fn order_checked(self: &Arc<Self>, form: &OperatorOrderForm) -> Result<String, String> {
-        let (board, live) = self.board_and_live().await;
-        checked(form, &board.repositories, &live)?;
-        Ok(said_of(form, &board.repositories, &live))
+        let live = self.desk.live().await;
+        checked(form, &live)?;
+        Ok(said_of(form, &live))
     }
 }
 
@@ -538,6 +559,7 @@ where
     /// What the box may answer from, read now.
     pub(crate) async fn operator_board(&self) -> Board {
         let day_began = crate::clock::rfc3339_utc(crate::clock::local_day_began(self.now().epoch_millis().unwrap_or(0)).await);
+        let holds = self.operator_orders_wire().await.orders.into_iter().map(|one| HoldRead { id: one.id, said: one.said }).collect();
         let store = self.store().lock().await;
         let log = store
             .operator_rulings(LOG_SHOWN)
@@ -570,7 +592,15 @@ where
         }
         let (ended, merged) = moved_since(&store, &day_began);
         let turn = self.turn_read(&store);
+        let kept = store.operator_orders().unwrap_or_default();
         drop(store);
+        let rules = kept
+            .iter()
+            .filter_map(|one| {
+                let OperatorRule::PickRule { manifest_id, .. } = OperatorRule::read(&one.form)?;
+                Some(RuleRead { id: one.n, said: one.said.clone(), repository: manifest_id.as_deref().and_then(|id| self.board_repository(id)) })
+            })
+            .collect();
         let repositories = self
             .repositories()
             .hosted()
@@ -580,7 +610,7 @@ where
                 Repository { id: one.manifest().id().as_str().to_string(), name }
             })
             .collect();
-        Board { log, needs_you, turn, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
+        Board { log, needs_you, turn, rules, holds, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
     }
 
     /// The open tasks and last words of the newest of `ids`, up to [`JOBS_DETAILED`] Jobs. Read from the
@@ -637,6 +667,8 @@ where
             None => None,
         };
         let moved = talked.first.clone().filter(|id| operator.put_first(id).is_ok());
+        let forgot = self.talk_forgot(talked.forget).await;
+        let lifted = self.talk_lifted(talked.lift).await;
         Ok(OperatorSaid {
             said: talked.said,
             cites: talked
@@ -649,7 +681,30 @@ where
             order: talked.order.map(|(form, said)| ProposedOperatorOrder { form, said }),
             forms: if talked.no_form { FORMS.iter().map(|one| (*one).to_string()).collect() } else { Vec::new() },
             moved,
+            forgot,
+            lifted,
         })
+    }
+
+    /// He told the box to forget a rule: it is gone at once, so the item asks again, and the journal says so.
+    /// `None` where no rule stands under that number now.
+    async fn talk_forgot(self: &Arc<Self>, id: Option<i64>) -> Option<i64> {
+        let id = id?;
+        let kept = self.store().lock().await.operator_orders().ok()?.into_iter().find(|one| one.n == id && OperatorRule::read(&one.form).is_some())?;
+        self.order_dropped(id).await.ok()?;
+        self.operator_journaled(&format!("Forgot a rule on his word: {}", kept.said)).await;
+        self.operator_page_changed();
+        Some(id)
+    }
+
+    /// He told the box to lift a hold: its Jobs write again at once. `None` where no hold stands under that number now.
+    async fn talk_lifted(self: &Arc<Self>, id: Option<i64>) -> Option<i64> {
+        let id = id?;
+        if !self.hold_lifted_by_word(id).await {
+            return None;
+        }
+        self.operator_page_changed();
+        Some(id)
     }
 
     async fn talk_kept(&self, words: &str, about: Option<&str>, talked: &Talked, at: &Timestamp) {

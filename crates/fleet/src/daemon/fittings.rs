@@ -312,6 +312,7 @@ where
         let scouts = crate::scout::Scouts::hosted_by(Arc::new(
             crate::scout::ScoutHost::on_this_machine(&fittings.host, width),
         ));
+        let repairs = crate::repair::Repairs::hosted_by(Arc::new(crate::repair::RepairHost::on_this_machine(&fittings.host, width)));
         let shipped_tuning = fittings.shipped_tuning();
         let tuning = shipped_tuning.overlaid_by(&settings_now);
         let timeline = crate::timeline::Timeline::new(Arc::clone(&fittings.clock));
@@ -373,6 +374,7 @@ where
             window_sign_ins: Default::default(),
             job_browser: Default::default(),
             scouts,
+            repairs,
             timeline,
             rule_acts: Default::default(),
             operator: Default::default(),
@@ -424,6 +426,12 @@ where
         self
     }
 
+    /// The same Fleet with its repairs started by `host` — a stand-in agent in a test.
+    pub fn repairing_on(mut self, host: crate::repair::RepairHost) -> Fleet<H, V, W> {
+        self.repairs = crate::repair::Repairs::hosted_by(Arc::new(host));
+        self
+    }
+
     /// The same Fleet with its hosted sessions' processes started by
     /// `processes`, and ended after `quiet` — a stand-in agent in a test.
     pub fn hosting_sessions_on(
@@ -453,5 +461,9 @@ where
 
     pub(crate) fn scouts(&self) -> &crate::scout::Scouts {
         &self.scouts
+    }
+
+    pub(crate) fn repairs(&self) -> &crate::repair::Repairs {
+        &self.repairs
     }
 }

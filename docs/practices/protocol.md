@@ -202,6 +202,7 @@ WebSocket event stream, read this first.
 | [The merge line, read by Fleet](protocol/the-merge-line-fleet-reads.md) |
 | [A Job's in-flight list: `SessionRecord.in_flight`](protocol/a-jobs-in-flight-list.md) |
 | [A Job's row mark: `SessionRecord.mark`](protocol/a-jobs-row-mark.md) |
+| [The repair under way, on a Job's card: `SessionRecord.repairing`](protocol/a-jobs-repairing-line.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
 | [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |
@@ -1546,7 +1547,7 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 ## What the Operator would do: `operator_suggestion` and `operator_read`
 
-A role of the Operator's at Suggest keeps what On would have done, and it reaches Bridge in two shapes, neither of them a new route.
+An act the Operator would take, with no kept rule to cover it, is kept as a suggestion, and it reaches Bridge in two shapes, neither of them a new route.
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
   Dismissing it is Skip.
@@ -1556,16 +1557,22 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
   `OperatorRead` in `packages/protocol/src/sessions.ts` is its type.
 
 A suggestion on a report with no Job behind it, or on a note the person left on Bridge, has no list to stand on. It is kept in the store for the panel.
-A note's is kept at any position short of Off, and no route presses it yet: the panel Job owns that.
+A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
 
-## Talking to the Operator: `talk_to_operator`, `operator_talk` and the standing orders
+## Talking to the Operator: `talk_to_operator`, `operator_talk` and the holds
 
-The box at the foot of the Operator panel, and the orders it turns words into. None of these is an agent's: each is the person's own.
+The box at the foot of the Operator panel, and the holds it turns words into. None of these is an agent's: each is the person's own.
 
 - **`talk_to_operator`** answers `OperatorSaid`, and `operator_talk` reads the conversation back, since Fleet keeps it so the next call can be handed it.
 - **`OperatorSaid.order` stands for nothing** until `confirm_operator_order` sends its `form` back. That press is the only way an order stands.
-- **`OperatorOrderForm` is a closed set**, `role_off`, `hold_paths` and `always_raise`, because an order is a rule Fleet enforces and never prose a call reads.
-  A form this build does not know reads as none in the store, so it stands for nothing.
+- **`OperatorOrderForm` is a closed set of one**, `hold_paths`, because an order is a rule Fleet enforces and never prose a call reads.
+  A form this build does not know, `role_off` and `always_raise` among them, reads as none in the store, so it stands for nothing.
+  The TypeScript mirror keeps the two old forms until the Electron Bridge that draws them is torn down.
+- **`OperatorSaid.forgot` and `OperatorSaid.lifted`** are the ids of a rule forgotten and a hold lifted on his words.
+  Each is carried out at once, with no confirm, and only for an id the box was handed: the rules and holds that stand are in each question.
+  A forgotten rule leaves Learned and the item it covered asks again.
+  A lift is a `hold_lifted` row of the Log that says it was lifted on his word.
+- **`remove_operator_order` on a rule** forgets it and publishes `operator.page_changed`, as a lift does.
 - **`operator_orders` lets go** of an order for a day gone by and a hold its Job has released as it reads, so what it answers is what is in force.
 
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.
@@ -1740,3 +1747,30 @@ Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `p
 A row with `edited_at` reads on a Bridge that does not know it as an unedited one.
 
 **The event stream.** Untouched in kind: the edited row is one `session.row`, as any row put again by id is. The open risk below is neither better nor worse.
+
+## A Job's Needs you worked out once: `get_needs_you`, `done_waiting` and `withdraw_document`
+
+Since 10 Nov 2026. `docs/concepts/session/waiting-on-the-person.md`.
+**Three operations, one route each, and the types they carry**: no event kind and no field on an existing type. `NeedsYou` is not carried on `SessionRecord`, so no list and no `session.changed` grows.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `NeedsYou`, `NeedsYouSection`, `NeedsYouRow`, `NeedsYouGlyph`, `NeedsYouAct`, `WithdrawDocument` and `DoneWaiting` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+Electron draws nothing from it: it is frozen.
+The native Bridge reads it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_needs_you` (`GET /sessions/needs_you?session_id=`, `agent_access = "No"`) | Bridge reads | `NeedsYou` `{ session_id, sections[], fold, review_in_band, glyphs[] }`; a section is `{ kind, label, rows[] }`, `kind` one of `questions`, `to_do`, `to_review`, `walks`, `commands`, `pull_requests`, `restart`, `done`, none empty; a row is `{ id, source, text, since, glyph, act, dismiss }` |
+| `NeedsYouGlyph` | Fleet writes | `{ kind, said }`: `kind` one of `question`, `reply`, `read_from_reply`, `walk`, `answer`, `pull_request`, `run`, `message`, `steps`, `waiting`, `linked_job`, `operator`, `todo`, `plan`, `sketch`, `draft`, `document`, `restart`, `done`; `said` its tooltip |
+| `NeedsYouAct` | Fleet writes | Tagged by `kind`: `open_plan`, `open_sketch { title }`, `open_document { path }`, `open_draft { row }`, `walk { url }`, `answer { options[], other }`, `reply`, `run { command }`, `steps { steps[], command? }`, `approve_pr { target }`, `open_job { id }`, `message`, `restart { label, build, adopt, command }`, `done { steps? }`, `none` |
+| `NeedsYouRow.dismiss` | Fleet writes | `none`, `plain`, `skip`, `reason` or `not_a_question`. Not `none` means `dismiss_waiting` takes the item; `not_a_question` is sent with `misread` |
+| `done_waiting` (`POST /sessions/waiting/done`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `DoneWaiting` `{ session_id, item_id, note? }`; answered with the `SessionRecord`. The item closes as a dismissed one does and the Job is sent `Done: <text>` and the note |
+| `withdraw_document` (`POST /sessions/withdraw_document`, `agent_access = "Yes"`) | The agent sends | `WithdrawDocument` `{ path, session_id? }`; answered with the `SessionRecord`, through the door a receipt `{ session_id, withdrawn }` |
+
+**Refused with nothing changed**: `done_waiting` 409 `fleet.session_waiting_unheld` for an item nothing holds, 422 `fleet.session_waiting_empty` for one the agent did not state; `withdraw_document` 422 `fleet.document_withdraw_not_held` for a page the Job holds no Document at (another Job's included), 422 `fleet.document_withdraw_ambiguous` for a name that fits two, 422 `fleet.document_withdraw_unnamed` where nothing places a Job; `get_needs_you` 422 `fleet.session_waiting_unnamed`.
+**Every `waiting_for` source is one row of one section**, by the table in `crates/fleet/src/session_host/needs_you.rs`, which a test holds to the one in the concept doc.
+`dismiss_waited` reads the same `refused_dismissal` that marks a row `none`, so a row offering a dismissal is one Fleet takes.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
+The view is read, not pushed, so a Bridge that draws it reads it again on `session.changed`.
+The open risk below is neither better nor worse.

@@ -10,10 +10,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use core_model::Timestamp;
-use fleet::operator::{carried, Acted, Acting, Answering, Arrival, Board, Calling, Desk, Done, Filed, LiveJob, LogRead, Logged, Operator, Order, Orders, Repository, Ruling, Way};
+use fleet::operator::{carried, Acted, Acting, Answering, Arrival, Board, Calling, Desk, Done, Filed, HoldRead, LiveJob, LogRead, Logged, Operator, Repository, RuleRead, Ruling, Way};
 use fleet::CallFailed;
-use ipc::operator_positions::{OperatorPosition, OperatorRole};
-use ipc::operator_talk::OperatorOrderForm;
 
 pub const REPOSITORY: &str = "01ARMADAREPOSITORY";
 pub const NOW: &str = "2026-11-03T15:30:00.000Z";
@@ -118,9 +116,9 @@ pub struct FakeFleet {
     live: Vec<LiveJob>,
     log: Mutex<Vec<Logged>>,
     sourced: Mutex<Vec<Sourced>>,
-    stands: Mutex<Vec<(OperatorRole, OperatorPosition)>>,
     suggested: Mutex<Vec<(String, Way)>>,
-    orders: Mutex<Orders>,
+    rules: Mutex<Vec<RuleRead>>,
+    holds: Mutex<Vec<HoldRead>>,
     log_read: Mutex<Vec<LogRead>>,
 }
 
@@ -139,9 +137,9 @@ impl FakeFleet {
             live,
             log: Mutex::new(Vec::new()),
             sourced: Mutex::new(Vec::new()),
-            stands: Mutex::new(Vec::new()),
             suggested: Mutex::new(Vec::new()),
-            orders: Mutex::new(Orders::default()),
+            rules: Mutex::new(Vec::new()),
+            holds: Mutex::new(Vec::new()),
             log_read: Mutex::new(Vec::new()),
         })
     }
@@ -151,19 +149,13 @@ impl FakeFleet {
         self.log_read.lock().expect("not poisoned").push(row);
     }
 
-    /// The person pressed: `form` stands, as `fleet`'s `operator_order_confirmed` keeps it.
-    pub fn order_stands(&self, form: OperatorOrderForm) {
-        let mut orders = self.orders.lock().expect("not poisoned");
-        let id = orders.0.len() as i64 + 1;
-        orders.0.push(Order { id, form, until: None });
+    /// What the box is shown of what the Operator keeps: its rules and the holds that stand.
+    pub fn keeps(&self, rules: Vec<RuleRead>, holds: Vec<HoldRead>) {
+        *self.rules.lock().expect("not poisoned") = rules;
+        *self.holds.lock().expect("not poisoned") = holds;
     }
 
-    /// Where `role` stands from here on. The others stand On.
-    pub fn role_stands(&self, role: OperatorRole, position: OperatorPosition) {
-        self.stands.lock().expect("not poisoned").push((role, position));
-    }
-
-    /// What a role at Suggest would do: the arrival and the way.
+    /// What the Operator asked before doing: the arrival and the way.
     pub fn suggested(&self) -> Vec<(String, Way)> {
         self.suggested.lock().expect("not poisoned").clone()
     }
@@ -188,15 +180,13 @@ impl Desk for FakeFleet {
         Box::pin(async move { self.live.clone() })
     }
 
-    fn orders(&self) -> Done<'_, Orders> {
-        Box::pin(async move { self.orders.lock().expect("not poisoned").clone() })
-    }
-
     fn board(&self) -> Done<'_, Board> {
         Box::pin(async move {
             Board {
                 log: self.log_read.lock().expect("not poisoned").clone(),
                 repositories: vec![Repository { id: REPOSITORY.to_string(), name: "armada".to_string() }],
+                rules: self.rules.lock().expect("not poisoned").clone(),
+                holds: self.holds.lock().expect("not poisoned").clone(),
                 ..Board::default()
             }
         })
@@ -209,14 +199,6 @@ impl Desk for FakeFleet {
 }
 
 impl Acting for FakeFleet {
-    fn position(&self, role: Option<OperatorRole>, manifest: &str) -> OperatorPosition {
-        if role.is_some_and(|role| self.orders.lock().expect("not poisoned").role_off(role, manifest, &Timestamp::from_rfc3339(NOW))) {
-            return OperatorPosition::ReadOnly;
-        }
-        let stands = self.stands.lock().expect("not poisoned");
-        role.and_then(|role| stands.iter().rev().find(|(one, _)| *one == role).map(|(_, position)| *position)).unwrap_or(OperatorPosition::Decide)
-    }
-
     fn suggest(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
         self.suggested.lock().expect("not poisoned").push((arrival.id.clone(), ruling.way));
         carried()

@@ -13,7 +13,7 @@ Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, fiel
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`: `on`, `top`, `looked_at`, `on_it`, `turn`, `digest` |
+| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`: `on`, `top`, `looked_at`, `on_it`, `turn`, `digest`, `mains`, `slots` |
 | `operator_answer` (`POST /operator/page/answer`) | Bridge writes | `OperatorAnswerPress` `{ id, answer, then? }`, answered with `OperatorAnswered` `{ open?, started?, filed?, handed_to?, page }` |
 | `operator_later` (`POST /operator/page/later`) | Bridge writes | `OperatorLater` `{ id }`, answered with `OperatorPage` |
 | `operator_turn_order` (`POST /operator/page/order`) | Bridge writes | `OperatorTurnOrder` `{ ids }`, answered with `OperatorPage` |
@@ -30,9 +30,11 @@ An `OperatorTurnItem` is what a card needs, with no second vocabulary beside the
 `read` is the `OperatorRead` `{ read, pick }`, the shape a question's `operator_read` already has. It is absent where no call read the item, and an empty `pick` is none.
 `session_id` and `job` name the Job whose list holds the item, both absent on a go-ahead no Job holds and on a red main. `manifest_id` and `repository` are present where the item has a repository.
 `raised_at` is when it joined the queue, and `later_until` is set while it waits at the end.
-`keeps` says Always here and Always are offered: for a go-ahead and a red main, which Fleet can do by itself, and not for a decision.
+`keeps` says Always here and Always are offered: for a go-ahead, which Fleet can do by itself, and not for a decision.
 
 A red main nobody is on is an item: a `go_ahead` with no Job, its `item.id` `red:<repository>:<commit>`, its one option `Start a fix`.
+Every act the Operator would take is a go-ahead, so a note, an error or a report ruled to start, send or file is one, asked once.
+Where a rule he kept covers the act, it is done as it is raised and is never an item.
 
 **`then`** is on a go-ahead to file an issue only.
 Each `OperatorThenOffer` is `just_file`, `file_and_start` or, **only where a live Job already works on the same files**, `file_and_hand` with `hand_to` `{ session_id, job }`.
@@ -48,8 +50,27 @@ Where the review call fails, or the week's plan is paused, the item is still que
 `top` is the page's one line, rewritten each time he comes back, and absent before the first.
 `looked_at` is when he last looked, which the digest counts from.
 `on_it` is `{ reading, since }`, present while the Operator is reading something to review.
-`digest` has `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; and `learned`, the Always and Always here rules across projects, each with its repository where it holds in one.
+`digest` has `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; `learned`, the Always and Always here rules across projects, each with its repository where it holds in one; and `holds`, the holds that stand, each `{ id, manifest_id, repository?, said, at }`.
+`learned` is rules only.
+A hold's `id` is what `remove_operator_order` and the chat's lift name.
 A digest section with nothing in it is absent from the JSON, except `handled`.
+Each `landed` row is `{ session_id, job, number, title, at }`, with `at` the time the pull request merged.
+
+## The head
+
+`mains` is one `OperatorMain` for each repository Fleet serves, first first, which the head draws as a pill: red when main is red, plain when it is not.
+Each is `{ manifest_id, repository, state?, commit?, since? }`.
+`repository` is the name an item gives.
+`state` is `green`, `red`, `running` or `nothing_ran`, as the merge line's `main_ci_state` has it, and a red that a newer commit's run is still on is `red`.
+`commit` is whole: the commit the state was decided from, and the red's own on a red.
+`since` is `red` only, when main first read red.
+`state` and `commit` are absent where Fleet has not read that main yet.
+It is read from what main's CI already kept, the row that makes a red main a queue item, so the page makes no call and adds no poll.
+
+`slots` is `{ used, total }` across every pool, read from the list Cleanup draws, which a keeper holds in memory.
+`used` counts the slots a Job or a process holds, work stranded in one, and a take or a release under way.
+`total` counts every slot, free, unmade or closed ones too.
+It is absent where no pool is read.
 
 ## A press
 
@@ -58,10 +79,12 @@ A digest section with nothing in it is absent from the JSON, except `handled`.
 On a question or a card with options, the option the Operator picked is answered on the Job's list.
 **An item Fleet cannot perform itself**, such as a walk to open or a pull request, is left to Bridge: `open` is its `WaitingAct`, and the item stays in Your turn until its Job's list drops it.
 **Always here** and **Always** do the pick and keep it as a rule, for that item's repository or for every one.
-A rule is kept only for a go-ahead and a red main.
-From then on that thing, arriving while the Operator is on, is done with no press and is in `handled`.
+A rule is kept only for a go-ahead.
+From then on that thing, arriving while the Operator is on, is done as it is raised, with no press.
+It is in `handled` as `By a rule: <the rule's words>`, and the Log row it leaves is signed by the Operator and says by which rule.
+The repository's rules are read first, then every repository's.
 A rule is not applied while the Operator is off.
-**No** drops the item. On the Operator's own go-ahead it is a Skip.
+**No** drops the item, for this time only. On the Operator's own go-ahead it is a Skip.
 Later is `operator_later` and Ask is Bridge opening the chat with `talk_to_operator` carrying `about: "turn:<n>"`, so neither is an `OperatorAnswer`.
 
 | Status | Error | Where |
@@ -85,7 +108,8 @@ A time in front that comes before Fleet is connected is owed: Electron sends it 
 
 ## The event stream
 
-`operator.page_changed` is sent when an item joins Your turn or settles, when the order, a Later or a rule moves, when `top` or `on_it` changes, and when `operator_in_front` moves the top line.
+`operator.page_changed` is sent when an item joins Your turn or settles, when the order, a Later or a rule moves, when `top` or `on_it` changes, when `operator_in_front` moves the top line, and when a repository's main turns red or green, once for each reading that changed it.
+**It is not sent when the slot count moves**: slots move with every lease and every release, and Bridge reads `slots` with the page whenever it reads the page.
 **It carries nothing** beyond the stream's cursor: Bridge reads `operator_page` again, and a new item is what raises its toast.
 It is not sent for the digest's other sections, which are read.
 A client that missed one reads the page again on reconnecting.

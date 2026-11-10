@@ -157,14 +157,15 @@ pub(super) fn fleet_acts_of(rows: &[SessionRow], record: &ipc::SessionRecord) ->
             _ => None,
         })
         .collect();
-    if let Some(stopped) = record.stopped.as_ref().filter(|stopped| stopped.repair == Some(ipc::StopRepair::Running)) {
+    if let Some((start, words)) = repairing_of(rows) {
+        acts.retain(|act| act.id != start.0);
         acts.push(FleetAct {
             id: String::from("repair"),
-            at: stopped.at.clone(),
+            at: start.1,
             state: FleetActState::UnderWay,
             kind: FleetActKind::Restart,
-            said: String::from("Repair Job running"),
-            why: Some(String::from("The restart failed")),
+            said: format!("Repairing: {words}"),
+            why: None,
             until: None,
         });
     }
@@ -180,6 +181,23 @@ pub(super) fn fleet_acts_of(rows: &[SessionRow], record: &ipc::SessionRecord) ->
         });
     }
     acts
+}
+
+/// The repair under way, from Fleet's own notes: the latest start note with no end note after it, as
+/// the id and time of that note and what broke in its words. **Read from the notes and not from the
+/// record**, which carries no repair of any kind but a dead Job's.
+fn repairing_of(rows: &[SessionRow]) -> Option<((String, Instant), String)> {
+    rows.iter().rev().find_map(|row| match row {
+        SessionRow::Message { id, at, from: SessionVoice::Session { title, .. }, text, .. } if title == "Fleet" => {
+            let line = text.lines().next().unwrap_or("");
+            if line.starts_with(crate::repair::REPAIRED) || line.starts_with(crate::repair::NOT_REPAIRED) {
+                Some(None)
+            } else {
+                line.strip_prefix(crate::repair::STARTED).map(|words| Some(((id.clone(), at.clone()), words.to_string())))
+            }
+        }
+        _ => None,
+    })?
 }
 
 /// Where the work has been, off the ledger rows including the ones the ledger drops: a slot no longer

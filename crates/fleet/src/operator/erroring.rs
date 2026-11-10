@@ -1,7 +1,7 @@
 //! An error Bridge showed the person, handed to the Operator and done as ruled. **One error is one
 //! item**: its id is the error's fingerprint and the local day, so the same error is not handed again
 //! while it waits, is out on a call or is in the Log that day. It goes first in the Operator's queue,
-//! and goes through the role positions as a bug report does.
+//! and is asked about as a bug report is: a go-ahead, unless a rule he kept covers it.
 
 use std::sync::Arc;
 

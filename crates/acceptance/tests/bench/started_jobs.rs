@@ -106,6 +106,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         later: Vec::new(),
         held_open_by: Vec::new(),
         stopped: None,
+        repairing: None,
         stop_told_by: None,
         turn_since: None,
         last_heard_at: None,

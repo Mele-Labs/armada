@@ -1251,6 +1251,11 @@ export type Session = {
   heldOpenBy?: readonly HeldOpenBy[];
   /** Why it is not running, where it stopped without being parked. Absent for a Job that runs, rests or was paused. */
   stopped?: Stopped;
+  /** The repair Fleet is running on it, in any state: Fleet's own words for what broke, and since when as ISO. Absent while none runs. */
+  repairing?: {
+    said: string;
+    since: string;
+  };
   /** When the running turn began, as ISO. */
   turnSince?: string;
   /** The last time Fleet heard anything from the running turn, as ISO. A turn silent for long is `stuck`. */

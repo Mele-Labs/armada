@@ -307,6 +307,7 @@ mod scoping;
 /// Each Job's own scratch folder, which the slot guard reads as a slot.
 mod scratch;
 /// The read-only agent a person starts from a Studio. `#1292`.
+pub mod repair;
 pub mod scout;
 mod scouting;
 pub mod seeding;
