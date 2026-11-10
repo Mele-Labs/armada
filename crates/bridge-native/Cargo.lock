@@ -649,6 +649,7 @@ dependencies = [
  "gpui-component",
  "gpui-kit-assets",
  "gpui-pre",
+ "gpui-pre-apple",
  "gpui-pre-platform",
  "http-body-util",
  "hyper",

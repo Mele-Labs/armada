@@ -72,6 +72,11 @@ objc2-foundation = "0.3"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSResponder"] }
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNUserNotificationCenter"] }
 
+[dev-dependencies]
+# The Mac's own text system for a layout test in gpui's test context: a test runs off the main thread,
+# where the Mac platform will not start. gpui already links this exact version.
+gpui-apple = { package = "gpui-pre-apple", version = "=0.3.11" }
+
 [build-dependencies]
 # The fonts in `packages/tokens/fonts` are WOFF2; gpui's text system takes TrueType, so the build
 # unpacks them. Pure Rust.

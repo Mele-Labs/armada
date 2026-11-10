@@ -11,6 +11,8 @@
 //! The Job slot in the end region is empty and takes no room until the Jobs screens fill it with
 //! the open Job's Layout control and view icons ([`TitleBar::fill_job_slot`]).
 
+#[cfg(test)]
+mod centred;
 mod face;
 mod fleet_down;
 pub mod parts;
@@ -162,6 +164,8 @@ struct Anchors {
     menu: Rc<Cell<Option<Bounds<Pixels>>>>,
     row: Rc<Cell<Option<Bounds<Pixels>>>>,
     centre: Rc<Cell<Option<Bounds<Pixels>>>>,
+    start: Rc<Cell<Option<Bounds<Pixels>>>>,
+    end: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
 /// Where the title row was drawn last frame, for what sits below it to start under it.
@@ -764,7 +768,8 @@ impl TitleBar {
                 .id("repository")
                 .relative()
                 .flex_initial()
-                .min_w_0()
+                // Its floor keeps the glyph, a few letters of the name and the chevron inside the border.
+                .min_w(look.length(token::SPACE_3) * 2. + glyph_side + look.length(token::SPACE_1) + look.length(token::SPACE_12) + look.length(token::SPACE_2) + look.length(token::SPACE_3))
                 .max_w(look.length(token::W_MENU))
                 .h(look.length(token::H_CONTROL_LG))
                 .flex()
@@ -795,9 +800,12 @@ impl TitleBar {
                         .items_center()
                         .child(glyph("layers", glyph_side, look.color(token::ACCENT))),
                 )
-                .child(div().flex_none().child(name))
+                // Short of room the members truncate, then the name, and the chevron stays inside the border.
+                .overflow_hidden()
+                .child(div().min_w(look.length(token::SPACE_12)).truncate().child(name))
                 .children(members.map(|said| {
-                    div().min_w_0().truncate().ml(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_BODY))).text_color(look.color(token::FG_MUTED)).child(said)
+                    // Many times the name's give: the members go before the name starts to truncate.
+                    div().flex_shrink(100.).min_w_0().truncate().ml(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_BODY))).text_color(look.color(token::FG_MUTED)).child(said)
                 }))
                 .child(div().flex_none().ml(look.length(token::SPACE_2)).child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))))
                 .on_click(cx.listener(|this, _, window, cx| this.repository_pressed(window, cx)))),
@@ -810,7 +818,11 @@ impl TitleBar {
                 no_drag(
                     div()
                         .id("scoped-settings")
-                        .flex_none()
+                        // It gives way with the project's name, so short of room both truncate and neither vanishes.
+                        .flex_shrink(1.)
+                        // Its floor is the glyph alone.
+                        .min_w(look.length(token::SPACE_3) * 2. + glyph_side)
+                        .overflow_hidden()
                         .h(look.length(token::H_CONTROL_LG))
                         .px(look.length(token::SPACE_3))
                         .flex()
@@ -829,7 +841,7 @@ impl TitleBar {
                         .focus_visible(move |style| style.border_color(ring))
                         .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
                         .child(glyph("sliders-horizontal", glyph_side, look.color(token::FG_MUTED)))
-                        .child(div().whitespace_nowrap().child(said.clone()))
+                        .child(div().min_w_0().truncate().child(said.clone()))
                         .on_click(cx.listener(|this, _, _, cx| {
                             let asked = this.settings_here();
                             cx.emit(asked);
@@ -839,14 +851,21 @@ impl TitleBar {
                 said,
             )
         };
+        let start_at = Rc::clone(&self.at.start);
         div()
-            // `minmax(max-content, 1fr)`: the region keeps what it holds and takes a share of what is left.
-            .flex_grow(1.)
-            .flex_shrink_0()
+            // `minmax(floor, 1fr)`: the start and the end take equal shares from nothing, so the centre sits
+            // on the window's middle whatever the picker reads. Short of room the start yields first, the
+            // project's name truncating, and it never draws under the centre.
+            .relative()
+            .flex_1()
+            .min_w_0()
+            .overflow_hidden()
             .flex()
             .items_center()
-            // `padding-inline-start: calc(var(--space-12) * 2)` clears the traffic lights.
-            .pl(look.length(token::SPACE_12) * 2.)
+            .child(canvas(move |bounds, _, _| start_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            // `padding-inline-start: calc(var(--space-12) * 2)` clears the traffic lights. A spacer and not padding: a
+            // box sized from nothing still keeps its padding, which would make the start's share wider than the end's.
+            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.))
             .child(labelled(
                 div().id("mark").flex_none().child(glyph_mark(mark, look.color(token::FG_DEFAULT))),
                 Role::Image,
@@ -938,7 +957,7 @@ impl TitleBar {
             return self
                 .search_field(look, cx)
                 .relative()
-                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
                 .into_any_element();
         }
         // The room above and below a place, which is also the room at the notch's side.
@@ -986,7 +1005,7 @@ impl TitleBar {
             .rounded_b(radius)
             .bg(ground)
             .shadow(look.shadows(token::SHADOW_CARD))
-            .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+            .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .child(flare(true).left(-radius))
             .child(flare(false).right(-radius))
             .child(self.places_strip(gap, radius, look, cx))
@@ -1285,13 +1304,16 @@ impl TitleBar {
             Role::Button,
             "Menu",
         );
+        let end_at = Rc::clone(&self.at.end);
         div()
-            .flex_grow(1.)
-            .flex_shrink_0()
+            // `minmax(max-content, 1fr)`: the same share as the start, and never less than what it holds.
+            .relative()
+            .flex_1()
             .flex()
             .items_center()
             .justify_end()
             .gap(look.length(token::SPACE_4))
+            .child(canvas(move |bounds, _, _| end_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             // Empty, it takes no room: a flex child with nothing in it and no gap of its own.
             .children(self.job.clone())
             .children(self.meter(look, cx))
@@ -1338,7 +1360,7 @@ impl Render for TitleBar {
             .flex()
             .items_center()
             .h(look.length(token::H_TITLE_BAR))
-            .child(canvas(move |bounds, _, _| row_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+            .child(canvas(move |bounds, _, _| row_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .px(look.length(token::SPACE_3))
             .gap(look.length(token::SPACE_4))
             .on_mouse_down(gpui::MouseButton::Left, |event, window, _cx| {
