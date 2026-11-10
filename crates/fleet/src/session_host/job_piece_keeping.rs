@@ -35,7 +35,7 @@ fn piece_of(kind: LifecyclePieceKind, path: &str, text: &str, scope: &PieceScope
             let held = config::parse_rule(Path::new(path), text).map_err(|why| why.to_string())?;
             Ok(LifecyclePiece::Rule { rule: ipc::LifecycleRule { scope: scope.clone(), ..wire::rule(&held) } })
         }
-        LifecyclePieceKind::Workspace | LifecyclePieceKind::Autonomy => Err(String::from("only a rule or a lifecycle is kept from a Job")),
+        LifecyclePieceKind::Autonomy => Err(String::from("only a rule or a lifecycle is kept from a Job")),
     }
 }
 

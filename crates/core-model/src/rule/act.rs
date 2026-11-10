@@ -79,7 +79,7 @@ pub enum TrackerWrite {
     /// Assign to someone, by the tracker's own name for them.
     Assign { to: Words },
     /// Move to a state of the ticket's lifecycle. **The state, and not the tracker's word for it**:
-    /// the word is the Workspace's to say, and the doing looks it up.
+    /// the word is the Project's to say, and the doing looks it up.
     Move { to: StateId },
     Close,
 }

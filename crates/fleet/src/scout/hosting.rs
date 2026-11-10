@@ -29,17 +29,17 @@ use crate::drone::{environment, HostPaths};
 use crate::judging::CallFailed;
 
 /// How long a stopped scout has to end its turn before its group is ended.
-const GRACE: Duration = Duration::from_secs(10);
+pub(crate) const GRACE: Duration = Duration::from_secs(10);
 
 /// The server file a scout is started against, beside a Drone's own.
 const SERVERS_FILE: &str = "scout-mcp.json";
 
 /// How much of the agent's own complaint a failure carries.
-const COMPLAINT: u64 = 2048;
+pub(crate) const COMPLAINT: u64 = 2048;
 
 /// One turn, as the harness reads it: a JSON object on a line of its own.
 #[derive(serde::Serialize)]
-struct Turn {
+pub(crate) struct Turn {
     #[serde(rename = "type")]
     kind: &'static str,
     message: Message,
@@ -52,7 +52,7 @@ struct Message {
 }
 
 impl Turn {
-    fn of(prompt: &str) -> Turn {
+    pub(crate) fn of(prompt: &str) -> Turn {
         Turn {
             kind: "user",
             message: Message {

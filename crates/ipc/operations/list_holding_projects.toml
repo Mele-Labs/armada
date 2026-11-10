@@ -1,0 +1,12 @@
+[operations.list_holding_projects]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "The projects whose members include one repository, each without rows, and the project files Fleet could not read"
+notes = """
+`GET /projects/holding?manifest_id=`, the repository Fleet started in where absent. `docs/practices/protocol/projects.md`. Answers 200 with `Projects`, the shape `list_projects` answers: each `Project` is `{ id, name, rows, members, place, unread? }` with `rows` empty, `loose` is empty, and `left_out` is every project file Fleet could not read, whichever repository it was for, since a file that will not read names none. The projects are those whose file reads and lists the repository, whole or by a folder, in the order of their ids.
+
+It replaces `list_repository_workspaces`, which answered the same Workspaces under their old shape. Rows are not read, so no tracker or forge is asked.
+
+422 `fleet.unacceptable_proposal` where Fleet serves no repository by that id, the sentence naming the ones it does.
+"""

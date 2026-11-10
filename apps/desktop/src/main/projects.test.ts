@@ -7,6 +7,8 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { Projects } from "@armada/protocol";
+
 import { ProjectsHost } from "./projects";
 
 const servers: Server[] = [];
@@ -14,15 +16,20 @@ afterEach(() => {
   while (servers.length > 0) servers.pop()?.close();
 });
 
-const PROJECTS = {
+const PROJECTS: Projects = {
   projects: [
     {
       id: "p1",
       name: "Pocket launch",
       rows: [],
+      members: [],
+      place: {
+        place: "this_mac",
+      },
     },
   ],
   loose: [],
+  left_out: [],
 };
 
 /** A Fleet answering every request with `status` and `body`, remembering what was asked and what each request carried. */
@@ -64,7 +71,7 @@ describe("his projects", () => {
       await host.add({
         name: "Pocket launch",
       }),
-      await host.rename("p1", {
+      await host.edit("p1", {
         name: "Launch",
       }),
       await host.delete("p1"),
@@ -124,7 +131,7 @@ describe("his projects", () => {
     expect(fleet.asked).toEqual([
       "GET /projects",
       'POST /projects {"name":"Pocket launch"}',
-      'POST /projects/project/p1/rename {"name":"Launch"}',
+      'POST /projects/project/p1/edit {"name":"Launch"}',
       "POST /projects/project/p1/delete",
       'POST /projects/tasks {"manifest_id":"armada","project":"p1","title":"Pair a phone"}',
       'POST /projects/tasks {"manifest_id":"site","title":"Loose"}',

@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use api::{HostedSessions, Refusal, Sessions};
 use core_model::Timestamp;
-use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorLater, OperatorPage, OperatorThen, OperatorTurnItem, OperatorTurnKind, OperatorTurnOrder};
+use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorLater, OperatorPage, OperatorThen, OperatorTurnItem, OperatorTurnKind, OperatorTurnOrder, OperatorUrgency};
 use ipc::{OperatorRead, SessionId, SetWaitingFor, WaitingAct, WaitingActKind, WaitingInput, WaitingOption};
 use store::{KeptSuggestion, KeptTouch};
 
@@ -516,6 +516,45 @@ async fn a_red_main_nobody_is_on_joins_the_queue_and_yes_starts_a_fix_at_once_wi
     assert!(answered.page.turn.is_empty(), "a Job is on it, so it is no longer waiting");
     let again = rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect_err("settled");
     assert_eq!(again.status(), 404);
+}
+
+#[tokio::test]
+async fn a_red_main_reads_urgent() {
+    let rig = rig_placing(None);
+    seated(&rig, &[Some("item: 1\nread: A test fails on main.\npick: Start a fix\n\njournal: Reviewed a red main.")]).await;
+    let commit = "c".repeat(40);
+    red_main(&rig, &commit).await;
+    let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
+
+    rig.fleet.red_offered(&[MainChanged { change: MainChange::WentRed, now: main }]).await;
+
+    let one = queued_as(&rig, &format!("red:{}:{commit}", manifest(&rig).as_str())).await;
+    assert_eq!(one.urgency, OperatorUrgency::Urgent);
+}
+
+#[tokio::test]
+async fn a_decision_reads_decision() {
+    let rig = rig_placing(None);
+    seated(&rig, &[Some(&review("It asks to approve the plan.", "Yes"))]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    let job = rig.start_titled(Some("Build the pane")).await;
+
+    waiting(&rig, &job, vec![question("plan", "Approve the plan?", &["Yes", "No"])]).await;
+
+    let one = queued(&rig, &job, "plan").await;
+    assert_eq!((one.kind, one.urgency), (OperatorTurnKind::Decision, OperatorUrgency::Decision));
+}
+
+#[tokio::test]
+async fn a_go_ahead_reads_go_ahead() {
+    let rig = filing().await;
+    assert!(rig.fleet.operator_seated_with(Replies::saying(&[Some(FILE_PICK)])));
+    file_go_ahead(&rig, "n-1", TEXT).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+
+    let one = queued_as(&rig, &format!("suggestion:{}", rig.fleet.store().lock().await.operator_suggestions_of("").expect("read")[0].n)).await;
+
+    assert_eq!((one.kind, one.urgency), (OperatorTurnKind::GoAhead, OperatorUrgency::GoAhead));
 }
 
 #[tokio::test]

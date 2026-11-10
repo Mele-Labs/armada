@@ -957,7 +957,7 @@ export function createProjectsStore(source: ProjectsSource, pulls: PullsServed =
         ),
       });
       void queue(() =>
-        source.renameProject(projectId, {
+        source.editProject(projectId, {
           name,
         }),
       );

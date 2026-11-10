@@ -22,6 +22,7 @@ pub(super) const BRIEF: &str = "after @The agent lands its PR, let the Field exp
 
 pub(super) fn brief_after(rig: &Rig, on: &SessionId, condition: StartCondition, base: StartBase) -> StartSession {
     StartSession {
+        project: None,
         manifest_id: rig.manifest.clone(),
         title: None,
         model: None,

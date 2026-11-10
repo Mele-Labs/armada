@@ -98,10 +98,50 @@ pub(crate) fn where_kept(kit: &Path, held: Option<&KeptPlace>) -> (RunPlace, Whe
     (place, at)
 }
 
+/// A place a person chose, checked: the folder `synced` writes under and the form `cloud` takes.
+/// **Shared by every place a person chooses**, a repository's runs and a project's file alike, so
+/// the two cannot come to disagree about what a valid choice is.
+pub(crate) struct Chosen {
+    pub(crate) folder: Option<String>,
+    pub(crate) cloud: Option<cloud::Target>,
+}
+
+/// `place` as asked, or the sentence that says what is wrong with it. `Repository` is accepted
+/// here and means `this_mac`, as [`where_kept`] reads it; a caller that refuses it says so first.
+pub(crate) fn place_chosen(place: RunPlace, synced_folder: Option<&str>, asked: Option<&ipc::RunCloud>) -> Result<Chosen, String> {
+    match place {
+        RunPlace::Cloud => {
+            let Some(asked) = asked else {
+                return Err(String::from("a cloud place needs where: Armada's store or a bucket address"));
+            };
+            Ok(Chosen { folder: None, cloud: Some(cloud::Target::of(asked)?) })
+        }
+        RunPlace::Synced => match synced_folder.map(str::trim).filter(|one| !one.is_empty()) {
+            Some(folder) if Path::new(folder).is_dir() => Ok(Chosen { folder: Some(folder.to_string()), cloud: None }),
+            Some(folder) => Err(format!("{folder} is not a folder")),
+            None => Err(String::from("a synced place needs the folder they sync")),
+        },
+        RunPlace::ThisMac | RunPlace::Repository => Ok(Chosen { folder: None, cloud: None }),
+    }
+}
+
 /// The object a person's own `armada.yml` for a repository is, under a bucket's prefix: the same
 /// layout as `manifests/<key>.yml` under a folder.
 pub(crate) fn manifest_object(root: &str) -> String {
     format!("{MANIFESTS}/{}.yml", key_of(root))
+}
+
+/// The folder inside Kit's, a synced folder, or a bucket's prefix that holds a file for each project.
+pub(crate) const PROJECTS: &str = "projects";
+
+/// A project's file under `base`: `projects/<id>.yml`.
+pub(crate) fn project_file(base: &Path, id: &str) -> PathBuf {
+    base.join(PROJECTS).join(format!("{id}.yml"))
+}
+
+/// A project's object under a bucket's prefix: the same layout as the file.
+pub(crate) fn project_object(id: &str) -> String {
+    format!("{PROJECTS}/{id}.yml")
 }
 
 /// A repository's file in `folder` under `base`: `runs`, or another kept in the same layout.

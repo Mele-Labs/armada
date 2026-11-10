@@ -224,3 +224,27 @@
 .armada-dialog__kbd {
   margin-right: calc(-1 * var(--space-1));
 }
+
+/* Which control `Enter` fires, read off the layer: a dialog with a field to type
+ * in sends on `Enter`, so the key moves from Cancel to Confirm. The list is
+ * `COLLECTED_IN` in `Dialog.tsx`; change both together. */
+.armada-dialog:not(
+    :has(
+      textarea,
+      input[type="text"],
+      input[type="search"],
+      input:not([type]),
+      [contenteditable="true"]
+    )
+  )
+  .armada-dialog__kbd[data-when="collects"],
+.armada-dialog:has(
+    textarea,
+    input[type="text"],
+    input[type="search"],
+    input:not([type]),
+    [contenteditable="true"]
+  )
+  .armada-dialog__kbd[data-unless="collects"] {
+  display: none;
+}

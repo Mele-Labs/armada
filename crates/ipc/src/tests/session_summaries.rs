@@ -77,6 +77,7 @@ fn session(attachments: Vec<Attachment>) -> SessionRecord {
         later: Vec::new(),
         held_open_by: Vec::new(),
         stopped: None,
+        repairing: None,
         stop_told_by: None,
         turn_since: None,
         last_heard_at: None,
@@ -124,6 +125,7 @@ fn a_summary_holds_what_is_standing_and_none_of_the_history() {
 #[test]
 fn a_hosted_sessions_turn_is_working_or_idle() {
     let hosted = |turn| HostedFacts {
+        project: None,
         turn,
         asked: None,
         model: None,

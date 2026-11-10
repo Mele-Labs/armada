@@ -383,6 +383,7 @@ where
         };
         let first = kept.missing.first().map_or("", |one| one.trim().trim_end_matches('.'));
         let start = StartSession {
+            project: None,
             manifest_id: own,
             title: Some(format!("Build workflow support: {first}")),
             model: None,
@@ -467,6 +468,7 @@ where
             )));
         };
         let start = StartSession {
+            project: None,
             manifest_id: own,
             title: Some(format!("Land workflow {id} in Armada")),
             model: None,

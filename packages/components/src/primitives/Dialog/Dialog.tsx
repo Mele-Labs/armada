@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Ban, Signpost } from "lucide-react";
 
 import { useMarking, type Mark } from "../../marking";
@@ -144,17 +144,13 @@ export function Dialog({
   // same dialog as far as this rule is concerned. A flag would have to be set
   // on each of them and could be forgotten on the fourth, where a dialog that
   // asks for a sentence and then refuses `Enter` is a dead control.
-  // Held in state rather than read at press time, because the kbd is drawn on
-  // whichever control the key fires and a render needs the answer too. No
-  // dependency list: it runs after every render and sets a boolean, so an
-  // unchanged answer costs nothing and a field that appears is picked up.
+  // **Never held in state.** The key handler asks the layer at press time and
+  // `Dialog.css` picks the drawn kbd with `:has()`. A state set after every
+  // render made this dialog the one React blamed for a loop above it
+  // (armada-21wq).
   const scrimmed = useMarking(SCRIMMED);
-  const [collects, setCollects] = useState(false);
-  useEffect(() => {
-    setCollects(
-      open && confirmLabel !== undefined && layer.current?.querySelector(COLLECTED_IN) != null,
-    );
-  });
+  const collects = () =>
+    confirmLabel !== undefined && layer.current?.querySelector(COLLECTED_IN) != null;
 
   useEffect(() => {
     if (!open) return;
@@ -167,7 +163,7 @@ export function Dialog({
       // is Cancel — so nothing is bound here and the focused button answers
       // the press itself. **The exception is a dialog that collects**: there
       // the field is the confirmation and `Enter` sends what was typed.
-      if (event.key === "Enter" && collects) {
+      if (event.key === "Enter" && collects()) {
         event.preventDefault();
         if (!confirmDisabled) onConfirm?.();
       }
@@ -179,7 +175,7 @@ export function Dialog({
     onCancel,
     onConfirm,
     confirmDisabled,
-    collects,
+    confirmLabel,
   ]);
 
   if (!open) return null;
@@ -255,8 +251,8 @@ export function Dialog({
                 Enter" is the shortcut read as part of the name. The glyph
                 (`↵`), not the word — `Kbd`'s own precedent for `⌘` is a plain
                 Unicode character standing in for a key. */}
-            {collects || initialFocus === "confirm" || confirmLabel === undefined ? null : (
-              <Kbd className="armada-dialog__kbd" aria-hidden="true">
+            {initialFocus === "confirm" || confirmLabel === undefined ? null : (
+              <Kbd className="armada-dialog__kbd" data-unless="collects" aria-hidden="true">
                 ↵
               </Kbd>
             )}
@@ -274,11 +270,13 @@ export function Dialog({
               onClick={onConfirm}
             >
               {confirmLabel}
-              {collects || initialFocus === "confirm" ? (
-                <Kbd className="armada-dialog__kbd" aria-hidden="true">
-                  ↵
-                </Kbd>
-              ) : null}
+              <Kbd
+                className="armada-dialog__kbd"
+                data-when={initialFocus === "confirm" ? undefined : "collects"}
+                aria-hidden="true"
+              >
+                ↵
+              </Kbd>
             </button>
           )}
         </div>

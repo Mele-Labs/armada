@@ -1,5 +1,5 @@
-//! Autonomy defaults are a piece of their own kind: read off a file, scoped to a Workspace or a
-//! repository, and the repository's laid over its Workspace's.
+//! Autonomy defaults are a piece of their own kind: read off a file, scoped to a Project or a
+//! repository, and the repository's laid over its Project's.
 
 use std::path::{Path, PathBuf};
 
@@ -7,15 +7,15 @@ use core_model::rule::{ActKind, Autonomy, AutonomyId};
 use core_model::{ManifestId, Ulid};
 
 use crate::piece::Written;
-use crate::{parse_autonomy, Autonomies, Workspaces};
+use crate::{parse_autonomy, Autonomies, ProjectPlace, ProjectWritten, Projects};
 
 fn repository(id: &str) -> ManifestId {
     ManifestId::carried(Ulid::carried(id))
 }
 
-fn my_store() -> Workspaces {
-    let file = "version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - store-web\n  - store-api\n";
-    Workspaces::of([Written::in_repository(PathBuf::from("store-web/.armada/workspaces/my-store.yml"), file.into())])
+fn my_store() -> Projects {
+    let file = "version: 2\nproject_id: my-store\nname: My store\nmembers:\n  - repository: store-web\n  - repository: store-api\n";
+    Projects::of([ProjectWritten::new(ProjectPlace::ThisMac, PathBuf::from("kit/projects/my-store.yml"), file.into())], Vec::new())
 }
 
 fn file(id: &str, scope: Option<&str>, defaults: &str) -> String {
@@ -61,19 +61,19 @@ fn a_kind_nobody_has_and_a_word_nobody_means_are_each_refused_and_so_is_a_file_t
 }
 
 #[test]
-fn the_repository_s_defaults_are_laid_over_its_workspace_s_and_both_over_every_repository_s() {
+fn the_repository_s_defaults_are_laid_over_its_project_s_and_both_over_every_repository_s() {
     let applying = applying(
         "store-web",
         vec![
             in_kit("everywhere.yml", file("everywhere", None, "  tracker_write: asks\n  forge_write: asks\n  start_job: off\n")),
-            in_kit("workspace.yml", file("workspace", Some("my-store"), "  tracker_write: acts\n  forge_write: acts\n")),
+            in_kit("project.yml", file("workspace", Some("my-store"), "  tracker_write: acts\n  forge_write: acts\n")),
             in_repository("store-web", "repository.yml", file("repository", Some("store-web"), "  forge_write: off\n")),
             in_repository("store-api", "another.yml", file("another", Some("store-api"), "  start_job: acts\n")),
         ],
     );
     let laid = applying.defaults();
     assert_eq!(laid.get(ActKind::ForgeWrite), Some(Autonomy::Off), "the repository's word wins");
-    assert_eq!(laid.get(ActKind::TrackerWrite), Some(Autonomy::Acts), "the Workspace's wins over every repository's");
+    assert_eq!(laid.get(ActKind::TrackerWrite), Some(Autonomy::Acts), "the Project's wins over every repository's");
     assert_eq!(laid.get(ActKind::StartJob), Some(Autonomy::Off), "another repository's file is not this one's");
     assert_eq!(laid.get(ActKind::Draft), None);
 }
@@ -95,12 +95,15 @@ fn the_same_id_is_chosen_between_as_every_piece_is_and_a_file_that_will_not_read
 }
 
 #[test]
-fn a_repository_in_two_workspaces_that_set_a_kind_differently_takes_the_one_that_asks_more() {
-    let workspace = |id: &str, repositories: &str| {
-        let text = format!("version: 1\nworkspace_id: {id}\nname: {id}\nrepositories:\n{repositories}");
-        Written::in_kit(PathBuf::from("kit/workspaces").join(format!("{id}.yml")), text)
+fn a_repository_in_two_projects_that_set_a_kind_differently_takes_the_one_that_asks_more() {
+    let project = |id: &str, members: &str| {
+        let text = format!("version: 2\nproject_id: {id}\nname: {id}\nmembers:\n{members}");
+        ProjectWritten::new(ProjectPlace::ThisMac, PathBuf::from("kit/projects").join(format!("{id}.yml")), text)
     };
-    let workspaces = Workspaces::of([workspace("platform", "  - api\n  - web\n"), workspace("mobile", "  - api\n  - ios\n")]);
+    let workspaces = Projects::of(
+        [project("platform", "  - repository: api\n  - repository: web\n"), project("mobile", "  - repository: api\n  - repository: ios\n")],
+        Vec::new(),
+    );
     // The later id is Platform's, so choosing by id would give Platform's word on every kind.
     let written = vec![
         in_kit("mobile.yml", file("mobile_defaults", Some("mobile"), "  forge_write: asks\n  tracker_write: off\n  start_job: off\n")),
@@ -110,7 +113,7 @@ fn a_repository_in_two_workspaces_that_set_a_kind_differently_takes_the_one_that
     let laid = Autonomies::applying_to(&repository("api"), &workspaces, written).defaults();
     assert_eq!(laid.get(ActKind::ForgeWrite), Some(Autonomy::Asks), "Asks over Acts");
     assert_eq!(laid.get(ActKind::TrackerWrite), Some(Autonomy::Off), "Off over Asks");
-    assert_eq!(laid.get(ActKind::Draft), Some(Autonomy::Acts), "a kind one Workspace sets is that Workspace's");
+    assert_eq!(laid.get(ActKind::Draft), Some(Autonomy::Acts), "a kind one Project sets is that Project's");
     assert_eq!(laid.get(ActKind::StartJob), Some(Autonomy::Acts), "the repository's word still wins over both");
 }
 

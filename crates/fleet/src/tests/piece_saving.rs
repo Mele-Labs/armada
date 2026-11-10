@@ -1,4 +1,4 @@
-//! Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit: the file the
+//! Saving and deleting one lifecycle, rule or autonomy default in Kit: the file the
 //! writer makes is read back by the piece's own parser as the piece it was made from, a piece that
 //! does not parse writes nothing, and a piece is found by what its file declares. `crate::piece_saving`.
 
@@ -6,10 +6,9 @@ use std::path::{Path, PathBuf};
 
 use api::Refusal;
 use core_model::rule::Rule;
-use core_model::{Lifecycle, ManifestId, Ulid, Workspace};
+use core_model::Lifecycle;
 use ipc::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceKind, PieceScope, SaveLifecyclePiece,
-    WorkspaceToSave,
 };
 
 use super::session_host::{rig_placing, Rig};
@@ -130,8 +129,6 @@ do:
   - run_command: { command: \"cargo test -- --nocapture # all\" }
 ";
 
-const WORKSPACE: &str = "version: 1\nworkspace_id: my-store\nname: 'My store: web and api'\nrepositories:\n  - store-web\n  - store-api\n";
-
 const AUTONOMY: &str = "version: 1\nautonomy_id: mine\nscope: my-store\ndefaults:\n  tracker_write: acts\n  forge_write: asks\n  run_command: off\n";
 
 fn kit_folder(rig: &Rig, folder: &str) -> PathBuf {
@@ -157,16 +154,6 @@ fn rule_of(text: &str) -> (Rule, LifecyclePiece) {
     let read = config::parse_rule(Path::new("fixture.yml"), text).expect("the parser's own fixture loads");
     let piece = LifecyclePiece::Rule { rule: wire::rule(&read) };
     (read, piece)
-}
-
-fn workspace_of(text: &str) -> (Workspace, LifecyclePiece) {
-    let read = config::parse_workspace(Path::new("fixture.yml"), text).expect("the parser's own fixture loads");
-    let workspace = WorkspaceToSave {
-        id: read.id().as_str().to_string(),
-        name: read.title().as_str().to_string(),
-        repositories: read.repositories().iter().map(ipc::ManifestId::from).collect(),
-    };
-    (read, LifecyclePiece::Workspace { workspace })
 }
 
 fn autonomy_of(text: &str) -> (config::AutonomyPiece, LifecyclePiece) {
@@ -207,10 +194,6 @@ async fn the_parsers_own_fixtures_come_back_the_same_through_the_writer() {
         let again = config::parse_rule(Path::new(&saved.file), &written).unwrap_or_else(|why| panic!("{why}\n{written}"));
         assert_eq!(again, read, "{written}");
     }
-    let (read, piece) = workspace_of(WORKSPACE);
-    let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
-    let written = std::fs::read_to_string(&saved.file).expect("a file");
-    assert_eq!(config::parse_workspace(Path::new(&saved.file), &written).expect("reads"), read, "{written}");
     let (read, piece) = autonomy_of(AUTONOMY);
     let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
     let written = std::fs::read_to_string(&saved.file).expect("a file");
@@ -286,10 +269,7 @@ async fn a_piece_that_does_not_parse_is_refused_with_every_fault_and_writes_noth
     let none = AutonomyToSave { id: "mine".to_string(), scope: PieceScope::Everywhere, defaults: Default::default() };
     let (code, _) = refused_with(rig.fleet.lifecycle_piece_saved(saving(LifecyclePiece::Autonomy { autonomy: none }, false)).expect_err("refused"));
     assert_eq!(code, PIECE_UNFIT, "a layer that sets nothing is a file someone expected to do something");
-    let blank = WorkspaceToSave { id: "  ".to_string(), name: "My store".to_string(), repositories: Vec::new() };
-    let (code, _) = refused_with(rig.fleet.lifecycle_piece_saved(saving(LifecyclePiece::Workspace { workspace: blank }, false)).expect_err("refused"));
-    assert_eq!(code, PIECE_UNFIT);
-    assert!(!kit_folder(&rig, "autonomy").exists() && !kit_folder(&rig, "workspaces").exists());
+    assert!(!kit_folder(&rig, "autonomy").exists());
 }
 
 /// **A file is the piece it declares, whatever it is called.** The file that holds the identity is
@@ -351,9 +331,6 @@ async fn a_scope_that_is_not_fit_for_a_file_name_is_made_fit() {
     let (_, piece) = rule_of(&NUDGE.replace("name: Nudge", "name: Nudge\nscope: 'a/../b c'"));
     let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
     assert_eq!(PathBuf::from(&saved.file), kit_folder(&rig, "rules").join("nudge.a----b-c.yml"));
-    let (_, piece) = workspace_of(&WORKSPACE.replace("my-store", "../../escape"));
-    let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
-    assert_eq!(PathBuf::from(&saved.file).parent(), Some(kit_folder(&rig, "workspaces").as_path()));
 }
 
 /// Two files that declare one piece leave both out of every read; the save that replaces one leaves
@@ -361,10 +338,10 @@ async fn a_scope_that_is_not_fit_for_a_file_name_is_made_fit() {
 #[tokio::test]
 async fn a_save_that_replaces_one_of_two_files_for_a_piece_removes_the_other() {
     let rig = rig_placing(None);
-    let folder = kit_folder(&rig, "workspaces");
-    plant(&folder.join("a.yml"), WORKSPACE);
-    plant(&folder.join("b.yml"), WORKSPACE);
-    let (_, piece) = workspace_of(WORKSPACE);
+    let folder = kit_folder(&rig, "autonomy");
+    plant(&folder.join("a.yml"), AUTONOMY);
+    plant(&folder.join("b.yml"), AUTONOMY);
+    let (_, piece) = autonomy_of(AUTONOMY);
     let saved = rig.fleet.lifecycle_piece_saved(saving(piece, true)).expect("replaced");
     assert_eq!(PathBuf::from(&saved.file), folder.join("a.yml"));
     assert!(!folder.join("b.yml").exists());
@@ -394,24 +371,4 @@ async fn a_delete_removes_the_file_that_declares_the_piece_and_no_other() {
     assert!(!folder.join("tickets-for-everyone.yml").exists());
     assert!(folder.join("ticket.my-store.yml").exists(), "the piece within a scope is another piece");
     assert!(in_the_repository.exists(), "nothing outside Kit's folder is touched");
-}
-
-#[tokio::test]
-async fn a_workspace_has_no_scope_to_delete_it_by() {
-    let rig = rig_placing(None);
-    plant(&kit_folder(&rig, "workspaces").join("my-store.yml"), WORKSPACE);
-    let scoped = PieceScope::Within { id: "ignored".to_string() };
-    let deleted = rig.fleet.lifecycle_piece_deleted(deleting(LifecyclePieceKind::Workspace, "my-store", scoped)).expect("deleted");
-    assert_eq!(deleted.scope, PieceScope::Everywhere);
-    assert!(!kit_folder(&rig, "workspaces").join("my-store.yml").exists());
-}
-
-#[tokio::test]
-async fn the_repository_ids_of_a_workspace_survive_the_trip() {
-    let rig = rig_placing(None);
-    let (read, piece) = workspace_of(WORKSPACE);
-    let saved = rig.fleet.lifecycle_piece_saved(saving(piece, false)).expect("saved");
-    let again = config::parse_workspace(Path::new(&saved.file), &std::fs::read_to_string(&saved.file).expect("a file")).expect("reads");
-    assert_eq!(again.repositories(), [ManifestId::carried(Ulid::carried("store-web")), ManifestId::carried(Ulid::carried("store-api"))]);
-    assert_eq!(again, read);
 }

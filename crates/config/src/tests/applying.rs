@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use core_model::{Lifecycle, LifecycleId, ManifestId, PieceSource, Ulid};
 
 use crate::piece::Written;
-use crate::{Lifecycles, Rank, Reach, Workspaces};
+use crate::{Lifecycles, Rank, Reach, ProjectPlace, ProjectWritten, Projects};
 
 fn repository(id: &str) -> ManifestId {
     ManifestId::carried(Ulid::carried(id))
@@ -38,9 +38,9 @@ fn running_words(applying: &Lifecycles) -> String {
     format!("{:?}", ticket.states()[0].read())
 }
 
-fn my_store() -> Workspaces {
-    let file = "version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - store-web\n  - store-api\n";
-    Workspaces::of([Written::in_repository(PathBuf::from("store-web/.armada/workspaces/my-store.yml"), file.into())])
+fn my_store() -> Projects {
+    let file = "version: 2\nproject_id: my-store\nname: My store\nmembers:\n  - repository: store-web\n  - repository: store-api\n";
+    Projects::of([ProjectWritten::new(ProjectPlace::ThisMac, PathBuf::from("kit/projects/my-store.yml"), file.into())], Vec::new())
 }
 
 fn applying(to: &str, written: Vec<Written>) -> Lifecycles {
@@ -59,13 +59,13 @@ fn a_repository_with_no_files_runs_the_four_armada_carries_and_nothing_else() {
 }
 
 #[test]
-fn a_lifecycle_scoped_to_a_workspace_applies_in_each_of_its_repositories_and_in_no_other() {
+fn a_lifecycle_scoped_to_a_project_applies_in_each_of_its_repositories_and_in_no_other() {
     let written = || vec![in_kit("tickets.yml", ticket(Some("my-store"), "Code Review"))];
     for member in ["store-web", "store-api"] {
         assert!(running_words(&applying(member, written())).contains("Code Review"), "{member}");
     }
     let outside = applying("back-office", written());
-    assert_eq!(outside.get(&id("ticket")), Some(&Lifecycle::ticket()), "the Workspace does not reach it");
+    assert_eq!(outside.get(&id("ticket")), Some(&Lifecycle::ticket()), "the Project does not reach it");
     assert_eq!(outside.files().len(), 4, "a lifecycle that applies nowhere here is not listed");
 }
 
@@ -78,13 +78,13 @@ fn a_lifecycle_scoped_to_one_repository_applies_there_alone() {
 
 #[test]
 fn the_narrower_scope_wins_whichever_place_kept_it() {
-    // The repository's own file for the repository outranks Kit's for the Workspace, which outranks
+    // The repository's own file for the repository outranks Kit's for the Project, which outranks
     // Kit's for everywhere, which outranks what Armada carries.
     let applying = applying(
         "store-web",
         vec![
             in_kit("everywhere.yml", ticket(None, "Everywhere")),
-            in_kit("workspace.yml", ticket(Some("my-store"), "Workspace")),
+            in_kit("project.yml", ticket(Some("my-store"), "Project")),
             in_repository("store-web", "repository.yml", ticket(Some("store-web"), "Repository")),
         ],
     );
@@ -103,7 +103,7 @@ fn the_narrower_scope_wins_whichever_place_kept_it() {
     assert_eq!(
         tickets,
         [
-            (Reach::Workspace, PieceSource::Kit),
+            (Reach::Project, PieceSource::Kit),
             (Reach::Everywhere, PieceSource::Kit),
             (Reach::Everywhere, PieceSource::Armada)
         ]
@@ -174,18 +174,18 @@ fn a_file_that_does_not_parse_is_left_out_for_every_repository_and_says_why() {
     }
 }
 
-/// A file read from the home of `my-store`, the repository the Workspace is committed to.
+/// A file read from `store-web`, another member of `my-store`.
 fn from_the_home(file: &str, text: String) -> Written {
     let workspace = core_model::ScopeId::new("my-store").expect("a scope");
     Written::in_home_of(workspace, PathBuf::from("store-web/.armada/lifecycles").join(file), text)
 }
 
 #[test]
-fn a_member_takes_from_the_home_only_what_is_scoped_to_the_workspace() {
+fn a_member_takes_from_a_fellow_member_only_what_is_scoped_to_the_project() {
     let from_home = |scope: Option<&str>| applying("store-api", vec![from_the_home("tickets.yml", ticket(scope, "Home"))]);
     let shared = from_home(Some("my-store"));
     assert!(running_words(&shared).contains("Home"));
-    for stays_the_homes in [None, Some("store-web"), Some("store-api"), Some("another-workspace")] {
+    for stays_the_homes in [None, Some("store-web"), Some("store-api"), Some("another-project")] {
         let applying = from_home(stays_the_homes);
         assert_eq!(applying.get(&id("ticket")), Some(&Lifecycle::ticket()), "{stays_the_homes:?}");
         assert_eq!(applying.files().len(), 4, "{stays_the_homes:?} is not listed, as nothing here applies");

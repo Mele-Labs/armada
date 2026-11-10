@@ -409,6 +409,22 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// The person did what an agent's item asked of him. 200 with the row; 409 where nothing holds the item, 422 for an item the
+/// agent did not state.
+pub(crate) async fn done_waiting<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let done: ipc::DoneWaiting = match ipc::decode_body("that a thing a job waits on is done", &body) {
+        Ok(done) => done,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().done_waiting(done).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person turns a draft into a Document. 200 with the page's name and path; 404 for a draft the job has
 /// none of, 409 for one settled or a job with no worktree, 422 for a proposal's draft.
 pub(crate) async fn convert_draft_to_document<D: HostedSessions>(

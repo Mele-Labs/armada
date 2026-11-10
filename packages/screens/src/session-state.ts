@@ -72,9 +72,9 @@ export const repairSaid = (stopped: Stopped): string | undefined =>
   stopped.repair === "running"
     ? "Repair Job running"
     : stopped.repair === "failed"
-      ? "Repair Job failed"
+      ? "Not repaired"
       : stopped.repair === "held"
-        ? "No repair Job: Fleet is unhealthy"
+        ? "No repair: Fleet is unhealthy"
         : undefined;
 
 /** Why a Job stopped, as the first line of Now and the mark's tooltip say it. The tasks it left open are named in Now. */
@@ -99,8 +99,28 @@ export function stoppedSaid(stopped: Stopped): string {
   }
 }
 
-/** Parked by him: nothing is asked of him, whatever it was waiting on, until he resumes it. An ended or unreachable Job reads as that. */
+/**
+ * The line a Job's card reads: its state's words and, while Fleet runs a repair on it, `Repairing: <what broke>` after them, in any state.
+ * What broke is Fleet's own wording (`Session.repairing`), never spelt here.
+ */
 export function jobStateOf(
+  session: Session,
+  readSince: (session: Session) => boolean,
+): {
+  state: SessionState;
+  said: string;
+} {
+  const read = stateWithoutRepair(session, readSince);
+  return session.repairing === undefined
+    ? read
+    : {
+        state: read.state,
+        said: `${read.said} · Repairing: ${session.repairing.said}`,
+      };
+}
+
+/** Parked by him: nothing is asked of him, whatever it was waiting on, until he resumes it. An ended or unreachable Job reads as that. */
+function stateWithoutRepair(
   session: Session,
   readSince: (session: Session) => boolean,
 ): {
@@ -130,7 +150,11 @@ export function jobStateOf(
     };
   // Not running, and not parked: it ended its turn with nothing running, its process ended, Fleet was down, or he stopped it. It raises no item: this mark and its call reach him, as stuck does.
   if (session.stopped !== undefined) {
-    const restart = repairSaid(session.stopped) ?? restartSaid(session.stopped);
+    // A repair under way is said once, as the clause `jobStateOf` adds: a failed restart is not read beside it.
+    const repairingNow = session.repairing !== undefined && session.stopped.repair === "running";
+    const restart = repairingNow
+      ? undefined
+      : (repairSaid(session.stopped) ?? restartSaid(session.stopped));
     return {
       // Amber only once Fleet has given up on bringing it back: while a nudge or a restart is coming, nothing is asked of him.
       state: session.stopped.gaveUp === true ? "stopped_asks" : "stopped",

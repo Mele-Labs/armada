@@ -137,6 +137,7 @@ where
     async fn forked_for_red(&self, served: &Served, old: &str, number: u64) -> Option<String> {
         let fork = |at: Option<String>| {
             self.start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(served.manifest().id().as_str()),
                 title: Some(format!("Fix main after #{number}")),
                 model: None,

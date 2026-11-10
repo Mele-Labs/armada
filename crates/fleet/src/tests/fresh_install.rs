@@ -78,6 +78,7 @@ async fn a_job_in_a_bare_repository(app: &TempDir) -> (Rig, ipc::SessionId, Rout
         .expect("added");
     let id = Arc::clone(&rig.fleet)
         .start_session(ipc::StartSession {
+            project: None,
             manifest_id: ipc::ManifestId::carried(added.implicit_id()),
             title: None,
             model: None,

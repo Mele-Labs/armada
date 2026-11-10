@@ -53,6 +53,7 @@ mod time_format;
 mod time_summary;
 mod mods;
 mod preferences;
+mod projects;
 mod settings;
 /// The one DTO on this seam a peer *writes*, and what it refuses.
 mod protocol_id;
@@ -101,7 +102,6 @@ mod terminal_wire;
 mod workflow_changes;
 mod operator_board;
 mod operator_errors;
-mod operator_positions;
 mod operator_talk;
 mod workflows_off;
 mod autopilot_boxes;

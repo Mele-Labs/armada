@@ -10,9 +10,10 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::{
-    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning, OperatorSlots,
-    OperatorTurnItem, OperatorTurnKind,
+    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning,
+    OperatorSlots, OperatorTurnItem, OperatorTurnKind, OperatorUrgency,
 };
+use ipc::operator_talk::OperatorOrderForm;
 use ipc::{Instant, MainCiState, OperatorRead, SessionId, SlotHolding};
 use store::KeptTurn;
 
@@ -23,6 +24,17 @@ use super::turning::RED;
 use crate::daemon::Fleet;
 
 const DAY: i64 = 86_400_000;
+
+/// How soon `row` wants him: a red main is urgent, else its kind. No stopped Job is queued today, so none reads urgent.
+fn urgency_of(row: &KeptTurn) -> OperatorUrgency {
+    if row.item.starts_with(RED) {
+        OperatorUrgency::Urgent
+    } else if row.go_ahead {
+        OperatorUrgency::GoAhead
+    } else {
+        OperatorUrgency::Decision
+    }
+}
 /// How many of the Log's rows the digest reads before keeping those since he looked.
 const HANDLED_READ: u32 = 60;
 
@@ -57,6 +69,8 @@ where
         if on {
             self.red_turns_swept().await;
         }
+        // A hold its Job has released is let go as the orders are read, so the page lists none that is over.
+        self.operator_orders_wire().await;
         let now = self.now();
         let live = match self.operator_seat().operator().filter(|_| on) {
             Some(operator) => operator.live_jobs().await,
@@ -142,6 +156,7 @@ where
         let shown = OperatorTurnItem {
             id: format!("turn:{}", row.n),
             kind: if row.go_ahead { OperatorTurnKind::GoAhead } else { OperatorTurnKind::Decision },
+            urgency: urgency_of(row),
             session_id: Some(row.session.as_str()).filter(|id| !id.is_empty()).map(SessionId::carried),
             job: row.job.clone(),
             manifest_id: Some(row.manifest_id.clone()).filter(|id| !id.is_empty()),
@@ -200,7 +215,17 @@ where
                 Some(OperatorLearned { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
             })
             .collect();
-        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned }
+        let holds = store
+            .operator_orders()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|one| {
+                let OperatorOrderForm::HoldPaths { manifest_id, .. } = OperatorOrderForm::read(&one.form)?;
+                let repository = self.board_repository(&manifest_id);
+                Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
+            })
+            .collect();
+        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds }
     }
 
     /// This week's journal, where anything is written in it.

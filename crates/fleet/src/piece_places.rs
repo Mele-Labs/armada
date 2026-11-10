@@ -1,23 +1,21 @@
-//! The lifecycles, rules and Workspaces a repository has, read from the places a piece is kept. A
-//! Workspace here is a set of repositories, and not the Manifest's monorepo unit (`workspaces`).
+//! The lifecycles, rules and autonomy defaults a repository has, read from the places a piece is
+//! kept. A Project scopes them, and is held as `crate::project_files` reads it.
 //!
 //! **Read when asked, never cached**, as the review tools are: a piece is a small file a person
 //! edits, and a Job started afterwards reads it again, so what was saved is what the next Job
 //! freezes. A Job already running keeps the copy it started with and is not touched here.
 //!
-//! The three folders are Kit's on this Mac, `lifecycles`, `rules` and `workspaces`, and the same
-//! names under each repository's `.armada/`. **The files of every repository Fleet serves are read for the
-//! Workspaces**, because one that spans several is committed to a single repository, its home, and
-//! the others read it from there. They read from there what is scoped to it too: a repository that
-//! belongs to a Workspace is also handed the lifecycle files its home holds, and `config` keeps
-//! only those scoped to that Workspace. What merges, and which of two with one id wins, is `config`'s.
+//! The folders are Kit's on this Mac, `lifecycles`, `rules` and `autonomy`, and the same names under
+//! each repository's `.armada/`. **A repository that belongs to a Project also reads what its fellow
+//! members hold**: it is handed the files of each member's `.armada/<kind>/`, and `config` keeps only
+//! those scoped to that Project. What merges, and which of two with one id wins, is `config`'s.
 
 use std::path::{Path, PathBuf};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use config::{Autonomies, Lifecycles, PieceWritten, Rules, Workspaces};
-use core_model::{Lifecycle, ManifestId, ScopeId};
+use config::{Autonomies, Lifecycles, PieceWritten, Projects, Rules};
+use core_model::{Lifecycle, ManifestId};
 use store::{KeptCopy, KeptPiece, PieceKind};
 
 use crate::adrift::Adrift;
@@ -28,8 +26,6 @@ use crate::repositories::Served;
 pub(crate) const LIFECYCLES: &str = "lifecycles";
 /// The folder lifecycle rules are kept in, in the same two places.
 pub(crate) const RULES: &str = "rules";
-/// The folder Workspaces are kept in, in the same two places.
-pub(crate) const WORKSPACES: &str = "workspaces";
 /// The folder autonomy defaults are kept in, in the same two places.
 pub(crate) const AUTONOMY: &str = "autonomy";
 /// What a piece file may be written as, the same set a workflow's is.
@@ -73,15 +69,6 @@ where
         PathBuf::from(&self.host().kit_home).join(kind)
     }
 
-    /// Every Workspace this Fleet can see: Kit's, and each served repository's own committed.
-    pub fn workspaces_read(&self) -> Workspaces {
-        let mut written = files_in(&self.kit_pieces(WORKSPACES), PieceWritten::in_kit);
-        for one in self.repositories().hosted() {
-            written.extend(files_in(&in_repository(one.root(), WORKSPACES), PieceWritten::in_repository));
-        }
-        Workspaces::of(written)
-    }
-
     /// The lifecycles that apply to one repository: the four Armada carries, Kit's and the
     /// repository's own, narrowest scope first. **Nothing is frozen here**; a Job copies what this
     /// answers when it starts.
@@ -92,13 +79,13 @@ where
                 held: self.held_manifests(),
             })
         })?;
-        let workspaces = self.workspaces_read();
-        let written = self.pieces_written(&served, &workspaces, LIFECYCLES);
-        Ok(Lifecycles::applying_to(served.manifest().id(), &workspaces, self.built_in_lifecycles(Some(repository.as_str())), written))
+        let projects = self.projects_held();
+        let written = self.pieces_written(&served, &projects, LIFECYCLES);
+        Ok(Lifecycles::applying_to(served.manifest().id(), &projects, self.built_in_lifecycles(Some(repository.as_str())), written))
     }
 
     /// The rules that apply to one repository: Kit's and the repository's own, narrowest scope
-    /// first, and those a Workspace's home scopes to it. **Armada carries none**, so with no file
+    /// first, and those a fellow member's `.armada/` scopes to its Project. **Armada carries none**, so with no file
     /// nothing applies and no Job is handed a rule. A rule naming a lifecycle or a state the
     /// repository's lifecycles lack is set aside with the sentence. Nothing is frozen here.
     pub fn rules_applying_to(&self, repository: &ManifestId) -> Result<Rules, Refusal> {
@@ -109,14 +96,14 @@ where
                 held: self.held_manifests(),
             })
         })?;
-        let workspaces = self.workspaces_read();
-        let written = self.pieces_written(&served, &workspaces, RULES);
+        let projects = self.projects_held();
+        let written = self.pieces_written(&served, &projects, RULES);
         let running: Vec<&Lifecycle> = lifecycles.running().collect();
-        Ok(Rules::applying_to(served.manifest().id(), &workspaces, &running, written))
+        Ok(Rules::applying_to(served.manifest().id(), &projects, &running, written))
     }
 
     /// The autonomy defaults that apply to one repository: Kit's and the repository's own, and those
-    /// a Workspace's home scopes to it, the narrower laid over the wider.
+    /// a fellow member's `.armada/` scopes to its Project, the narrower laid over the wider.
     pub fn autonomy_applying_to(&self, repository: &ManifestId) -> Result<Autonomies, Refusal> {
         let served = self.repositories().serving(repository.as_str()).ok_or_else(|| {
             self.refusal(Adrift::NoSuchManifest {
@@ -124,9 +111,9 @@ where
                 held: self.held_manifests(),
             })
         })?;
-        let workspaces = self.workspaces_read();
-        let written = self.pieces_written(&served, &workspaces, AUTONOMY);
-        Ok(Autonomies::applying_to(served.manifest().id(), &workspaces, written))
+        let projects = self.projects_held();
+        let written = self.pieces_written(&served, &projects, AUTONOMY);
+        Ok(Autonomies::applying_to(served.manifest().id(), &projects, written))
     }
 
     /// What a Job in `repository` freezes when it starts: the text of each lifecycle file and each
@@ -140,15 +127,15 @@ where
                 held: self.held_manifests(),
             })
         })?;
-        let workspaces = self.workspaces_read();
+        let projects = self.projects_held();
         let id = served.manifest().id();
         let text_of = |written: &[PieceWritten], path: &Path| {
             written.iter().find(|one| one.path() == path).map(|one| one.text().to_string()).unwrap_or_default()
         };
         let mut pieces = Vec::new();
 
-        let written = self.pieces_written(&served, &workspaces, LIFECYCLES);
-        let lifecycles = Lifecycles::applying_to(id, &workspaces, self.built_in_lifecycles(Some(repository)), written.clone());
+        let written = self.pieces_written(&served, &projects, LIFECYCLES);
+        let lifecycles = Lifecycles::applying_to(id, &projects, self.built_in_lifecycles(Some(repository)), written.clone());
         for file in lifecycles.files().iter().filter(|file| file.overridden_by().is_none()) {
             let Some(path) = file.path() else { continue };
             pieces.push(KeptPiece {
@@ -159,9 +146,9 @@ where
             });
         }
 
-        let written = self.pieces_written(&served, &workspaces, RULES);
+        let written = self.pieces_written(&served, &projects, RULES);
         let running: Vec<&Lifecycle> = lifecycles.running().collect();
-        let rules = Rules::applying_to(id, &workspaces, &running, written.clone());
+        let rules = Rules::applying_to(id, &projects, &running, written.clone());
         for file in rules.files().iter().filter(|file| file.overridden_by().is_none()) {
             pieces.push(KeptPiece {
                 kind: PieceKind::Rule,
@@ -171,8 +158,8 @@ where
             });
         }
 
-        let written = self.pieces_written(&served, &workspaces, AUTONOMY);
-        let autonomy = Autonomies::applying_to(id, &workspaces, written)
+        let written = self.pieces_written(&served, &projects, AUTONOMY);
+        let autonomy = Autonomies::applying_to(id, &projects, written)
             .defaults()
             .iter()
             .map(|(kind, autonomy)| (kind.as_wire().to_string(), autonomy.as_wire().to_string()))
@@ -180,29 +167,24 @@ where
         Ok(KeptCopy { pieces, autonomy })
     }
 
-    /// The files of one kind of piece `served` reads: Kit's, its own, and its Workspaces' homes'.
-    fn pieces_written(&self, served: &Served, workspaces: &Workspaces, kind: &str) -> Vec<PieceWritten> {
+    /// The files of one kind of piece `served` reads: Kit's, its own, and those of each member
+    /// repository of the Projects that hold it. **A member's own folder is read once** however many
+    /// Projects it shares with `served`, handed to each as that Project's.
+    fn pieces_written(&self, served: &Served, projects: &Projects, kind: &str) -> Vec<PieceWritten> {
         let mut written = files_in(&self.kit_pieces(kind), PieceWritten::in_kit);
         written.extend(files_in(&in_repository(served.root(), kind), PieceWritten::in_repository));
-        for workspace in workspaces.holding(served.manifest().id()) {
-            let Some(home) = self.home_of(workspaces, workspace.id()) else { continue };
-            // A repository's own folder is read above, and is no less its own for being the home.
-            if home != served.root() {
-                let folder = in_repository(&home, kind);
-                written.extend(files_in(&folder, |path, text| PieceWritten::in_home_of(workspace.id().clone(), path, text)));
+        let hosted = self.repositories().hosted();
+        for project in projects.holding(served.manifest().id()) {
+            for member in project.repositories() {
+                let Some(fellow) = hosted.iter().find(|one| one.manifest().id() == member) else { continue };
+                // A repository's own folder is read above, and is no less its own for being a member.
+                if fellow.root() == served.root() {
+                    continue;
+                }
+                let folder = in_repository(fellow.root(), kind);
+                written.extend(files_in(&folder, |path, text| PieceWritten::in_home_of(project.id().clone(), path, text)));
             }
         }
         written
-    }
-
-    /// The root of the repository a Workspace is committed to, where it is: the served one whose
-    /// `.armada/workspaces/` holds the file that runs.
-    fn home_of(&self, workspaces: &Workspaces, id: &ScopeId) -> Option<String> {
-        let kept = workspaces.kept_at(id)?.parent()?;
-        self.repositories()
-            .hosted()
-            .into_iter()
-            .find(|one| in_repository(one.root(), WORKSPACES) == kept)
-            .map(|one| one.root().to_string())
     }
 }

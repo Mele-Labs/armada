@@ -37,6 +37,7 @@ where
         title: String,
     ) -> Result<Result<(SessionId, JobTree), String>, Refusal> {
         let start = StartSession {
+            project: None,
             manifest_id: ManifestId::carried(served.manifest().id().as_str()),
             title: Some(title),
             model: None,

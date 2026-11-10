@@ -47,6 +47,7 @@ async fn waiting_on(rig: &Rig, parent: &SessionId, title: &str, on: &SessionId, 
 /// A Job on a start card of its own, with no process and nothing to do with the parent, for another to wait on.
 async fn a_job_with_no_process(rig: &Rig) -> SessionId {
     let start = StartSession {
+        project: None,
         manifest_id: rig.manifest.clone(),
         title: Some("The other".into()),
         model: None,

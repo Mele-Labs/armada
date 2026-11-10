@@ -160,6 +160,7 @@ where
         };
         let made = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: manifest,
                 title: Some(words.title.clone()),
                 model: None,
@@ -214,6 +215,7 @@ where
         };
         let made = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(&hosting.manifest_id),
                 title: Some(words.title.clone()),
                 model: None,

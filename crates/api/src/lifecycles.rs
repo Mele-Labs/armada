@@ -1,4 +1,4 @@
-//! Workspaces, lifecycles and rules over the router: what applies to a repository, what a Job
+//! Lifecycles and rules over the router: what applies to a repository, what a Job
 //! holds, and saving or deleting one piece in Kit.
 
 use axum::body::Bytes;
@@ -11,25 +11,6 @@ use crate::answers::{answer, refused, undecodable};
 use crate::daemon::Lifecycles;
 use crate::scoped::InManifest;
 use crate::served::Served;
-
-/// The Workspaces that hold one repository.
-pub(crate) async fn list_repository_workspaces<D: Lifecycles>(
-    State(served): State<Served<D>>,
-    Query(scope): Query<InManifest>,
-) -> Response {
-    match served.daemon().list_repository_workspaces(scope.manifest()).await {
-        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
-
-/// Every Workspace, whichever repositories it holds.
-pub(crate) async fn list_workspaces<D: Lifecycles>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().list_workspaces().await {
-        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
-        Err(refusal) => refused(refusal),
-    }
-}
 
 /// The lifecycles that apply to one repository.
 pub(crate) async fn list_lifecycles<D: Lifecycles>(

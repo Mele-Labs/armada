@@ -54,6 +54,8 @@ pub(super) struct Doing<'a> {
     pub(super) session: &'a str,
     pub(super) item: &'a WaitingItem,
     pub(super) pick: &'a str,
+    /// The words of the rule that does it, where a rule does and he pressed nothing.
+    pub(super) rule: Option<&'a str>,
 }
 
 /// The rule's pick for `what`, as the store keeps it: a go-ahead to file keeps its Then.
@@ -153,7 +155,7 @@ where
             return Ok(Done { started: Some(job), ..Done::default() });
         }
         if let Some(n) = suggestion_number(id) {
-            return self.suggestion_settled(doing.session, n, true, then.map(|then| (then, hand_to))).await.map_err(|refused| Fault::NotDone(refused.error().message.clone()));
+            return self.suggestion_settled(doing.session, n, true, then.map(|then| (then, hand_to)), doing.rule).await.map_err(|refused| Fault::NotDone(refused.error().message.clone()));
         }
         if let Some(choice) = choice_of(doing.item, doing.pick) {
             let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None };
@@ -189,7 +191,8 @@ where
                 continue;
             };
             let then = then_of_pick(&pick);
-            let doing = Doing { session: &one.session, item: &one.item, pick: "" };
+            let said = rule_said(&what, &pick);
+            let doing = Doing { session: &one.session, item: &one.item, pick: "", rule: Some(&said) };
             match self.turn_performed(&doing, then).await {
                 Ok(_) => {
                     let at = self.now();
@@ -200,7 +203,7 @@ where
                         job: one.job.clone(),
                         go_ahead: true,
                         body: ipc::operator_page::item_kept(&one.item),
-                        pick: Some(rule_said(&what, &pick)),
+                        pick: Some(said.clone()),
                         raised_at: at.as_str().to_string(),
                         answer: Some("rule".to_string()),
                         settled_at: Some(at.as_str().to_string()),
@@ -209,7 +212,7 @@ where
                     if let Err(why) = self.store().lock().await.add_operator_turn(&row) {
                         self.operator_warned("an item a rule did was not kept", why);
                     }
-                    self.operator_journaled(&format!("By a rule, {}: {}", rule_said(&what, &pick), one.item.text)).await;
+                    self.operator_journaled(&format!("By a rule, {said}: {}", one.item.text)).await;
                     ruled = true;
                 }
                 Err(Fault::NotOffered(why) | Fault::NotDone(why)) => {
@@ -242,7 +245,7 @@ where
         let mut done = Done::default();
         if press.answer == OperatorAnswer::No {
             if let Some(n) = suggestion_number(&row.item) {
-                self.suggestion_settled(&row.session, n, false, None).await?;
+                self.suggestion_settled(&row.session, n, false, None, None).await?;
             }
             self.settled_by_press(&row, answer_word, &item, &done).await;
         } else {
@@ -256,7 +259,7 @@ where
                 // Where it offers Thens and he and the Operator named none: just file it.
                 what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
             });
-            let doing = Doing { session: &row.session, item: &item, pick: row.pick.as_deref().unwrap_or_default() };
+            let doing = Doing { session: &row.session, item: &item, pick: row.pick.as_deref().unwrap_or_default(), rule: None };
             done = self.turn_performed(&doing, then).await.map_err(|fault| match fault {
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),
@@ -346,7 +349,8 @@ where
         }
     }
 
-    async fn red_item_offered(self: &Arc<Self>, main: &store::MainCi) {
+    /// Queued once for each red commit, however many times it is offered, and done by a rule where one covers it.
+    pub(crate) async fn red_item_offered(self: &Arc<Self>, main: &store::MainCi) {
         if !self.operator_on() || main.held() || self.taking(main).await.is_some() {
             return;
         }

@@ -10,7 +10,9 @@ import type {
   WorkspaceRow,
   WorkspacesPick,
 } from "@armada/components";
-import type { RepositorySummary, WorkspaceOfRepositories } from "@armada/protocol";
+import type { RepositorySummary } from "@armada/protocol";
+
+import type { WorkspaceOfRepositories } from "./workspace-of-project";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import { missing } from "./lifecycle-editing/fleet-pieces";

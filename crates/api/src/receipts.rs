@@ -205,6 +205,10 @@ impl<'a> Receipt<'a> {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.title.trim() })
     }
 
+    pub(crate) fn document_withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawDocument) -> Self {
+        Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.path.trim() })
+    }
+
     pub(crate) fn draft_withdrawn(record: &'a SessionRecord, withdraw: &'a ipc::WithdrawDraft) -> Self {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.draft.trim() })
     }

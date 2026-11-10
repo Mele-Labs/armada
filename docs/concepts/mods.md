@@ -394,7 +394,7 @@ A server's own requests, such as `ping`, are not answered.
 A write takes a call's `transport` and that transport's keys, **and no `map`**: its answer is not read, and it succeeded when a program exits 0, an HTTP request is answered below 400, or an MCP tool does not say `isError`.
 A write over `http` is a `POST` (the default), `PUT` or `PATCH`, and takes a `body` as a `POST` does.
 Without a section the mod cannot make that write, and a rule's act that needs it is kept as not carried, with the reason, and raises nothing.
-A close with no `[close]` is a `[move]` to the word the Workspace's ticket lifecycle gives Closed, and with neither it is not carried.
+A close with no `[close]` is a `[move]` to the word the project's ticket lifecycle gives Closed, and with neither it is not carried.
 **A try never runs a write**: it would change the tracker, so the file is checked and nothing more.
 
 Every read call has a `map`, a `jq` filter turning the answer into a list of issues under Armada's own names.

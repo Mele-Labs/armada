@@ -40,8 +40,13 @@ const task = (id: string, title: string, state: "open" | "done" | "asked" = "ope
     state,
   }) as const;
 const SEED = (): Projects => ({
+  left_out: [],
   projects: [
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "p1",
       name: "Pocket launch",
       rows: [
@@ -252,8 +257,13 @@ const row = (id: string, title: string, manifest_id: string, more: Record<string
 
 /** A task with two subtasks and a pull request linked in site, one with one subtask, and one in site with none. */
 const MANY = (): Projects => ({
+  left_out: [],
   projects: [
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "p1",
       name: "Pocket launch",
       rows: [

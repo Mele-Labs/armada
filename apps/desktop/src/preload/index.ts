@@ -80,7 +80,6 @@ import type {
   ActFailed,
   AgentSignIn,
   AutopilotDecisions,
-  AllWorkspaces,
   BugReport,
   ChangeJobCopy,
   ChangeSessionSteps,
@@ -101,14 +100,14 @@ import type {
   RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
-  RepositoryWorkspaces,
   ProjectRowRef,
   LinkProjectIssue,
   LinkTaskJob,
   LinkTaskPull,
   MoveProjectRow,
   MoveProjectTaskRepository,
-  NameProject,
+  EditProject,
+  NewProject,
   NewProjectIssue,
   NewProjectTask,
   ProjectTask,
@@ -722,10 +721,8 @@ const api: BridgeApi = {
   },
   reportBridgeError: (error: ReportBridgeError): Promise<OperatorErrorSent> =>
     ipcRenderer.invoke(CHANNELS.reportBridgeError, error),
-  listRepositoryWorkspaces: (manifestId: string): Promise<LifecyclesActed<RepositoryWorkspaces>> =>
-    ipcRenderer.invoke(CHANNELS.listRepositoryWorkspaces, manifestId),
-  listWorkspaces: (): Promise<LifecyclesActed<AllWorkspaces>> =>
-    ipcRenderer.invoke(CHANNELS.listWorkspaces),
+  listHoldingProjects: (manifestId: string): Promise<LifecyclesActed<Projects>> =>
+    ipcRenderer.invoke(CHANNELS.listHoldingProjects, manifestId),
   listLifecycles: (manifestId: string): Promise<LifecyclesActed<RepositoryLifecycles>> =>
     ipcRenderer.invoke(CHANNELS.listLifecycles, manifestId),
   listLifecycleRules: (manifestId: string): Promise<LifecyclesActed<RepositoryLifecycleRules>> =>
@@ -769,10 +766,10 @@ const api: BridgeApi = {
     };
   },
   listProjects: (): Promise<ProjectsActed> => ipcRenderer.invoke(CHANNELS.listProjects),
-  addProject: (body: NameProject): Promise<ProjectsActed> =>
+  addProject: (body: NewProject): Promise<ProjectsActed> =>
     ipcRenderer.invoke(CHANNELS.addProject, body),
-  renameProject: (project: string, body: NameProject): Promise<ProjectsActed> =>
-    ipcRenderer.invoke(CHANNELS.renameProject, project, body),
+  editProject: (project: string, body: EditProject): Promise<ProjectsActed> =>
+    ipcRenderer.invoke(CHANNELS.editProject, project, body),
   deleteProject: (project: string): Promise<ProjectsActed> =>
     ipcRenderer.invoke(CHANNELS.deleteProject, project),
   addProjectTask: (body: NewProjectTask): Promise<ProjectsActed> =>

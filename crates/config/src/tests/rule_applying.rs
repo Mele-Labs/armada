@@ -7,7 +7,7 @@ use core_model::rule::RuleId;
 use core_model::{Lifecycle, ManifestId, PieceSource, Ulid};
 
 use crate::piece::Written;
-use crate::{Rank, Reach, Rules, Workspaces};
+use crate::{Rank, Reach, Rules, ProjectPlace, ProjectWritten, Projects};
 
 fn repository(id: &str) -> ManifestId {
     ManifestId::carried(Ulid::carried(id))
@@ -33,9 +33,9 @@ fn in_repository(root: &str, file: &str, text: String) -> Written {
     Written::in_repository(PathBuf::from(root).join(".armada/rules").join(file), text)
 }
 
-fn my_store() -> Workspaces {
-    let file = "version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - store-web\n  - store-api\n";
-    Workspaces::of([Written::in_repository(PathBuf::from("store-web/.armada/workspaces/my-store.yml"), file.into())])
+fn my_store() -> Projects {
+    let file = "version: 2\nproject_id: my-store\nname: My store\nmembers:\n  - repository: store-web\n  - repository: store-api\n";
+    Projects::of([ProjectWritten::new(ProjectPlace::ThisMac, PathBuf::from("kit/projects/my-store.yml"), file.into())], Vec::new())
 }
 
 fn applying(to: &str, written: Vec<Written>) -> Rules {
@@ -62,7 +62,7 @@ fn the_narrower_scope_wins_whichever_place_kept_it_and_the_losers_are_listed() {
         "store-web",
         vec![
             in_kit("everywhere.yml", moves_tickets(None, "todo")),
-            in_kit("workspace.yml", moves_tickets(Some("my-store"), "in_progress")),
+            in_kit("project.yml", moves_tickets(Some("my-store"), "in_progress")),
             in_repository("store-web", "repository.yml", moves_tickets(Some("store-web"), "closed")),
         ],
     );
@@ -73,7 +73,7 @@ fn the_narrower_scope_wins_whichever_place_kept_it_and_the_losers_are_listed() {
         reach_and_place,
         [
             (Reach::Repository, PieceSource::Repository),
-            (Reach::Workspace, PieceSource::Kit),
+            (Reach::Project, PieceSource::Kit),
             (Reach::Everywhere, PieceSource::Kit)
         ]
     );
@@ -83,12 +83,12 @@ fn the_narrower_scope_wins_whichever_place_kept_it_and_the_losers_are_listed() {
 }
 
 #[test]
-fn a_rule_scoped_to_a_workspace_applies_in_each_of_its_repositories_and_in_no_other() {
+fn a_rule_scoped_to_a_project_applies_in_each_of_its_repositories_and_in_no_other() {
     let written = || vec![in_kit("moves.yml", moves_tickets(Some("my-store"), "in_progress"))];
     for member in ["store-web", "store-api"] {
         assert_eq!(applying(member, written()).files().len(), 1, "{member}");
     }
-    assert!(applying("back-office", written()).files().is_empty(), "the Workspace does not reach it");
+    assert!(applying("back-office", written()).files().is_empty(), "the Project does not reach it");
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn at_one_scope_yours_wins_over_the_repositorys_and_the_one_it_hides_is_listed()
 }
 
 #[test]
-fn a_member_reads_the_rules_its_workspace_home_scopes_to_it() {
+fn a_member_reads_the_rules_its_fellow_member_scopes_to_it() {
     let home = |scope: &str| {
         Written::in_home_of(
             core_model::ScopeId::new("my-store").expect("a scope"),

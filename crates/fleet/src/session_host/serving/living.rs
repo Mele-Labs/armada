@@ -49,6 +49,7 @@ where
                 cause: failed.cause.clone(),
                 log: failed.log.clone(),
             }),
+            project: hosting.project,
         }
     }
 

@@ -23,6 +23,9 @@ const DOCUMENT_NOT_OPEN: &str = "fleet.document_not_open";
 const DOCUMENT_REVISED: &str = "fleet.document_revised";
 const DOCUMENT_ANSWER_EMPTY: &str = "fleet.document_answer_empty";
 const DOCUMENT_ANSWER_UNNAMED: &str = "fleet.document_answer_unnamed";
+const DOCUMENT_WITHDRAW_UNNAMED: &str = "fleet.document_withdraw_unnamed";
+const DOCUMENT_WITHDRAW_NOT_HELD: &str = "fleet.document_withdraw_not_held";
+const DOCUMENT_WITHDRAW_AMBIGUOUS: &str = "fleet.document_withdraw_ambiguous";
 
 /// The person's message for each answer to a document. Words with an approval go on a line after it.
 pub(crate) fn approved(title: &str, revision: &str, words: Option<&str>) -> String {
@@ -94,6 +97,24 @@ pub(crate) fn document_items<'a>(
             create_refused: None,
             operator_read: None,
         })
+}
+
+/// The paths of the documents `named` names: a path as its item has it, with or without `document:`, the end of one
+/// (`.armada/documents/lease.html`, `lease.html`), or a title. The most exact reading that finds any is the one used.
+fn named_pages(held: &[ipc::Attachment], named: &str) -> Vec<String> {
+    let key = named.strip_prefix(DOCUMENT_ITEM_PREFIX).unwrap_or(named).trim_start_matches("./");
+    let by = |fits: &dyn Fn(&ipc::Attachment) -> bool| -> Vec<String> {
+        held.iter().filter(|one| fits(one)).map(|one| one.target.clone()).collect()
+    };
+    let whole = by(&|one| one.target == key);
+    if !whole.is_empty() {
+        return whole;
+    }
+    let ending = by(&|one| !key.is_empty() && one.target.ends_with(&format!("/{key}")));
+    if !ending.is_empty() {
+        return ending;
+    }
+    by(&|one| one.detail.get("title").is_some_and(|title| title == key))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -194,6 +215,60 @@ where
             Some(plan) => self.plan_approved(ipc::ApprovePlan { session_id, version: plan.version }).await,
             None => Ok(record),
         }
+    }
+
+    /// `withdraw_document`: the Job takes back a page it wrote, so it leaves his Needs you list and stops holding the
+    /// plan. **The dismissal his own dismiss writes**, so a new revision lifts it, and no message goes to the Job that
+    /// made the call. The file is left as it is.
+    pub(crate) async fn document_withdrawn(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawDocument,
+    ) -> Result<SessionRecord, Refusal> {
+        let named = withdraw.path.trim().to_string();
+        let id = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| withdraw.session_id.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(DOCUMENT_WITHDRAW_UNNAMED, "a job to withdraw it for"))?;
+        let held = self.documents_held(&id).await?;
+        let paths = named_pages(&held, &named);
+        let path = match paths.as_slice() {
+            [one] => one.clone(),
+            [] => {
+                return Err(self.hosted_refusal(
+                    DOCUMENT_WITHDRAW_NOT_HELD,
+                    &format!("this job holds no Document `{named}`. Name its path under .armada/documents/, its file name or its title"),
+                ))
+            }
+            several => {
+                return Err(self.hosted_refusal(
+                    DOCUMENT_WITHDRAW_AMBIGUOUS,
+                    &format!("`{named}` names {} Documents: {}. Name one by its whole path", several.len(), several.join(", ")),
+                ))
+            }
+        };
+        self.store()
+            .lock()
+            .await
+            .dismiss_waiting(&id, &format!("{DOCUMENT_ITEM_PREFIX}{path}"))
+            .map_err(|why| self.ledger_fault(why))?;
+        self.published_hosted(&id).await
+    }
+
+    /// Every document the Job holds.
+    async fn documents_held(&self, id: &str) -> Result<Vec<ipc::Attachment>, Refusal> {
+        let store = self.store().lock().await;
+        let session = store
+            .session(id)
+            .map_err(|why| self.ledger_fault(why))?
+            .ok_or_else(|| self.hosted_refusal(DOCUMENT_ANSWER_UNNAMED, "a job Fleet knows"))?;
+        Ok(self
+            .ledger_row(&store, &session)?
+            .attachments
+            .into_iter()
+            .filter(|one| one.kind == "artifact" && is_document(&one.detail))
+            .collect())
     }
 
     /// The Job's harness, and the document it holds at `path`.

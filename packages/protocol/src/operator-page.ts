@@ -7,6 +7,9 @@ import type { OperatorRead, WaitingAct, WaitingItem } from "./sessions";
 /** Whose act an item is: `decision` is his to decide, `go_ahead` is what the Operator would do itself, waiting on his word. */
 export type OperatorTurnKind = "decision" | "go_ahead";
 
+/** How soon an item wants him, decided by Fleet: `urgent` is a red main, `decision` his to decide, `go_ahead` what the Operator would do itself. */
+export type OperatorUrgency = "urgent" | "decision" | "go_ahead";
+
 /** His press on an item. Later is `operator_later`, and Ask is the chat opened with `talk_to_operator` carrying the item. */
 export type OperatorAnswer = "yes" | "always_here" | "always" | "no";
 
@@ -33,6 +36,8 @@ export type OperatorTurnItem = {
   /** `turn:<n>`, the id every act on the page names. */
   id: string;
   kind: OperatorTurnKind;
+  /** How soon it wants him: `urgent` on a red main, else `decision` or `go_ahead` as its kind. */
+  urgency: OperatorUrgency;
   /** The Job whose list holds it. Absent on a go-ahead no Job holds and on a red main. */
   session_id?: string;
   /** That Job's title. */
@@ -127,14 +132,29 @@ export type OperatorLearned = {
   at: string;
 };
 
+/** One hold that stands over paths: only the Job it names writes under them, until it pushes or ends. */
+export type OperatorHold = {
+  /** The order's number, which `remove_operator_order` and the chat's `lift` name. */
+  id: number;
+  /** The repository it holds in. */
+  manifest_id: string;
+  repository?: string;
+  /** The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`. */
+  said: string;
+  /** RFC 3339. */
+  at: string;
+};
+
 /** Since he last looked, and what stands. A section with nothing in it is absent. */
 export type OperatorDigest = {
   landed?: OperatorLanded[];
   handled: OperatorHandled;
   running?: OperatorRunning[];
   coming_up?: OperatorComingUp[];
-  /** The rules, across projects. */
+  /** The rules, across projects. Rules only: a hold is not one. */
   learned?: OperatorLearned[];
+  /** The holds that stand, beside Learned. */
+  holds?: OperatorHold[];
 };
 
 /** How a repository's main stands on CI, as `main_ci_state` of the merge line has it. A red a newer commit's run is still on is `red`. */
