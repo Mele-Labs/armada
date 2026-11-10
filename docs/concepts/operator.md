@@ -41,6 +41,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Reviews what needs you and raises it with its read and a pick | Partly. The read and pick exist, and the item is left in a list |
 | One chat, on its own page or in a pane from anywhere | Partly. A box in the Electron Bridge |
 | A short draggable list of what it is on and what is next | Not built |
+| On its own page, the Log and what it learned in each project | Partly. The Log is built in the Electron Bridge |
 | Toasts in the native Bridge | Not built |
 
 ## How it is shaped
@@ -217,19 +218,20 @@ Whatever needs the person, the Operator reviews first and raises with its read a
 A first act in a project is asked once, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
 
 **The chat is the one place to talk to it.**
-It is its own page and a pane from anywhere, and the short list beside it holds what it is on and what is next, in an order the person drags.
+Its own page holds the chat, the short list of what it is on and what is next in an order the person drags, the Log, and what it learned in each project, where each Yes, Always here and Always it holds can be changed.
+The pane opened from a Job holds the chat and the short list.
 It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.
+The Electron Bridge keeps today's Operator page unchanged until the native one has these, decided 10 Nov: no new interface goes into Electron.
 
 ## What goes
 
-**These go as the steps above land.**
+**These go from the native Bridge's Operator, and from the Electron one only when it is replaced.**
 Why: they made the Operator a board to read and levels to tune, where the person wants one agent that watches and answers.
 
 | Goes | What it is today | Replaced by |
 |---|---|---|
 | The Queue board | The panel's list of what is waiting and what is next | The short draggable list |
-| The Log page | The page that reads the Log of rulings | The journal and the briefing |
-| The Permissions tab | A tab setting each role's position | Asks |
+| The Permissions tab | A tab setting each role's position | Asks, and the page of what it learned in each project |
 | Read-only, Suggest, Decide | A position for each role, per repository | Asks |
 | Standing orders | `role_off`, `hold` and `always_raise`, confirmed in the box | Asks, and what it learns |
 | Suggestion cards with Do it and Skip | A ruling at Suggest waits on one press | A raise with a read and a pick |
