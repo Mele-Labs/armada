@@ -8,7 +8,7 @@ pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
 pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
-pub static STEPS: [Step; 50] = [
+pub static STEPS: [Step; 53] = [
     step("The bar at rest: the repository, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
     step("The Places stand in a notch at the centre: the place the window is in is brighter, and the search is an icon and its key beside it", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
@@ -43,6 +43,9 @@ pub static STEPS: [Step; 50] = [
     step("Esc shuts the panel and the keys go back to where they were", Verb::Key("escape"), "button", "Fleet — Running"),
     scene("A build the person has not kept yet is held in a bar above the screen", "build-trying", "region", "Trying"),
     press_on("Keep tells each Job to land; the bar goes", "button", "Keep", "button", "Fleet — Running"),
+    scene("Swapping onto the snapshot: the window is dimmed and takes no presses, with the seconds on one banner", "build-swapping", "status", "Swapping to the build"),
+    scene("A Fleet that swapped back leaves its line, with Dismiss", "build-swapped-back", "alert", "Swapped back"),
+    press_on("Dismiss puts the line away", "button", "Dismiss", "button", "Fleet — Running"),
     scene("Below 900px the row keeps the rings, the dot and the menu", "narrow-window", "button", "Menu"),
     step("The menu lists what the row gave up: repositories, Search, Dispatch, the Operator", Verb::Press, "button", "Menu"),
     press_on("Choosing Search leaves the menu and the keys go back", "menuitem", "Search", "button", "Menu"),

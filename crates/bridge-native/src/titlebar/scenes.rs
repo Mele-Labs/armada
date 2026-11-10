@@ -111,6 +111,24 @@ fn reverting() -> Build {
     )
 }
 
+fn swapping() -> Build {
+    build(
+        format!(r#"{{"on":"preview","commit":"c04d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d","position":{{"ahead":5,"behind":2}},{RUNNING},{PREVIOUS},"swapping":true}}"#),
+        false,
+        &[],
+    )
+}
+
+fn swapped_back() -> Build {
+    build(
+        format!(
+            r#"{{"on":"main","commit":"9f3c2a1b7d0e4c5a8b6f1d2e3a4b5c6d7e8f9a0b","position":{{"ahead":0,"behind":0}},{RUNNING},{PREVIOUS},"failed":"Swapped back, since the new Fleet did not answer: No new Fleet answered in 90 s"}}"#
+        ),
+        true,
+        &[],
+    )
+}
+
 fn limits(five: (u32, Band, &str), week: (u32, Band, &str)) -> Usage {
     Usage::Limits(vec![Limit::five_hour(five.0, five.1, five.2), Limit::weekly(week.0, week.1, week.2)])
 }
@@ -213,6 +231,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-drones" => |face| face.build = Some(drones()),
         "build-failed" => |face| face.build = Some(failed()),
         "build-reverting" => |face| face.build = Some(reverting()),
+        "build-swapping" => |face| face.build = Some(swapping()),
+        "build-swapped-back" => |face| face.build = Some(swapped_back()),
         "signed-out" => |face| face.signed_in = false,
         "signed-in" => |face| face.signed_in = true,
         "fleet-running" => |face| face.fleet = fleet(connected(), Power::Live),
@@ -237,7 +257,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     let bar = live(cx).ok_or("no title bar is drawn yet")?;
     bar.update(cx, |bar: &mut TitleBar, cx| {
         change(&mut bar.face);
-        cx.notify();
+        bar.faced(cx);
     });
     Ok(())
 }

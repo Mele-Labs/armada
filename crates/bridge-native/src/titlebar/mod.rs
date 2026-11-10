@@ -15,6 +15,7 @@ mod face;
 mod fleet_down;
 pub mod parts;
 pub mod scenes;
+mod swap_hold;
 mod switcher;
 mod usage;
 
@@ -74,6 +75,8 @@ pub enum Asked {
     Refresh,
     /// Teach, from the menu a right press on a thing offers; the target is what the menu's heading names.
     Teach(&'static str),
+    /// The interface's press sound: the snapshot turned ready.
+    Chime,
 }
 
 impl EventEmitter<Asked> for TitleBar {}
@@ -195,6 +198,12 @@ pub struct TitleBar {
     /// A window width the bar draws at in place of the window's own: a walk's way of narrowing it.
     pub width: Option<Pixels>,
     _asked: Subscription,
+    // The window held through a swap, and what the chime needs to know of the snapshot (`swap_hold.rs`).
+    swap_since: Option<std::time::Instant>,
+    swap_dismissed: Option<String>,
+    snapshot_was: Option<Option<ipc::SnapshotState>>,
+    _swap_tick: Option<Task<()>>,
+    _swap_keys: Option<Subscription>,
 }
 
 /// The one bar of the window, for the keys that work from anywhere.
@@ -268,6 +277,11 @@ impl TitleBar {
             details_open: false,
             width: None,
             _asked: asked,
+            swap_since: None,
+            swap_dismissed: None,
+            snapshot_was: None,
+            _swap_tick: None,
+            _swap_keys: None,
         }
     }
 
@@ -282,6 +296,11 @@ impl TitleBar {
         self.over_card = false;
         self.keys_were = None;
         self.width = None;
+        self.swap_since = None;
+        self.swap_dismissed = None;
+        self.snapshot_was = None;
+        self._swap_tick = None;
+        self._swap_keys = None;
     }
 
     /// Whether the window is narrower than the row can lay out: the start, the centre and the
@@ -308,14 +327,14 @@ impl TitleBar {
         if let Some(build) = self.face.build.as_mut() {
             build.report.failed = Some(why.to_string());
         }
-        cx.notify();
+        self.faced(cx);
     }
 
     /// Change the face for an optimistic answer, keeping the one it replaces.
     fn answer(&mut self, change: impl FnOnce(&mut Face), cx: &mut Context<Self>) {
         self.before = Some(self.face.clone());
         change(&mut self.face);
-        cx.notify();
+        self.faced(cx);
     }
 
     // -- keys and focus ----------------------------------------------------------------------
@@ -1360,6 +1379,7 @@ impl Render for TitleBar {
             .children(self.popover(look, window, cx))
             .children(self.dialog_layer(look, viewport, cx))
             .children(self.toast(look, viewport, cx))
+            .children(self.swap_layer(look, viewport, cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
     }
 }
