@@ -24,22 +24,22 @@ export const operatorRaises = walk("operator-raises", [
   },
   {
     look: inside(discussion, text(/^Good morning/)),
-    say: "The briefing: what moved since last night, and what waits on you",
+    say: "The briefing: one line on what matters first, then what moved since last night, what waits on you with its pick, and what it is on",
   },
   {
-    look: inside(discussion, text(/^Quick dispatch needs you/)),
+    look: inside(discussion, text(/^Quick dispatch$/)),
     say: "Each thing that needs you gets its own line. It read the Job first: what it is, what it makes of it, and what it would pick",
   },
   {
-    look: inside(discussion, text(/^Rework the Map legend needs you/)),
+    look: inside(discussion, text(/^Rework the Map legend$/)),
     say: "A walk gets the same: what the walk shows you, and its pick",
   },
   {
-    look: inside(discussion, text(/^Store reports its size needs you/)),
+    look: inside(discussion, text(/^Store reports its size$/)),
     say: "When the read fails, or the week's plan has it paused, the item is still raised, just with no read",
   },
   {
-    look: inside(discussion, text(/^Time each build step needs you/)),
+    look: inside(discussion, text(/^Time each build step$/)),
     say: "Something it raised earlier that you have since answered says it's settled. The native Bridge will draw each of these as a card with its acts",
   },
 ]);
