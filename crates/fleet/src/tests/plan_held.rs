@@ -595,3 +595,53 @@ fn a_pages_card_is_gone_with_its_file_and_with_his_dismissal() {
     std::fs::remove_file(&file).expect("the Job deletes the page");
     assert_eq!(cards(&[]), 0, "a deleted page is none");
 }
+
+/// **A walk the plan names holds it only while its window is in front of him.** A plan was held for good by a walk the Job had
+/// withdrawn, with nothing of it left in Needs you. A walk never shown still holds: the Job owes it.
+#[tokio::test]
+async fn a_named_walk_the_job_withdrew_holds_nothing_until_it_is_shown_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, Some(ONE)).await;
+    assert!(call(&rig, &id).await.is_none(), "the walk he has not approved holds the plan");
+
+    withdraw(&rig, &id, ONE).await.expect("withdrawn");
+    assert!(walks(&read(&rig, &id).await).is_empty(), "the walk left his Needs you list");
+    assert!(call(&rig, &id).await.is_some(), "so the plan is put to him");
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert!(call(&rig, &id).await.is_none(), "shown again, it holds again");
+}
+
+#[tokio::test]
+async fn a_named_walk_he_dismissed_holds_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, Some(ONE)).await;
+    assert!(call(&rig, &id).await.is_none());
+
+    let item = format!("walk:{ONE}");
+    Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: item, reason: None, misread: false })
+        .await
+        .expect("dismissed");
+    assert!(call(&rig, &id).await.is_some(), "a walk that is no card of his does not hold the plan");
+}
+
+#[tokio::test]
+async fn a_named_walk_a_newer_window_of_its_page_replaced_holds_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, Some(ONE)).await;
+    assert!(call(&rig, &id).await.is_none());
+
+    later().await;
+    page(&rig, &id, "http://localhost:5174/one").await;
+    assert!(call(&rig, &id).await.is_none(), "the newer window of the page is the walk now, and it waits");
+    let holds = read(&rig, &id).await.plan.expect("a plan").held_by;
+    assert!(holds.iter().all(|one| one.url != ONE), "{holds:?}");
+}
