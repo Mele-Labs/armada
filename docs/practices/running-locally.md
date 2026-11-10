@@ -454,6 +454,11 @@ error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths re
 to the package, so a changed file also matches by its tail, and Rollup's `file: path`
 under an import it cannot resolve), drops every merged
 branch that changed one, and the table says `skipped (does not build: <files>)`.
+A branch can break the build in a file it never touched, by removing what that file still uses.
+When no merged branch changed a file the errors name, the rustc errors are read for what is missing instead.
+A module file the errors say is not found (`file not found for module`, and the paths in its `create file` help) is blamed on a merged branch that deleted it.
+An item a crate path no longer has (`unresolved import`, `cannot find <kind> ... in crate`, `no ... named ... found for enum`) is blamed on a merged branch that removed the name from that crate's `crates/<dir>` and added it nowhere in it.
+The table says `skipped (does not build: removed <thing> that <file> still uses)`.
 It stops when a restart takes, or when a failure names no branch still merged; that
 failure stands as it was.
 Each round drops at least one branch, so it ends.

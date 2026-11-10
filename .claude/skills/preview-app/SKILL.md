@@ -107,9 +107,11 @@ and a read of `scripts/preview` to find why a branch was missing.
 **A branch the restart cannot take is dropped by the refresh itself.**
 When `--restart` fails, the branches behind it are left out and it goes again
 until it builds: a branch with a breaking migration `origin/main` lacks
-(`skipped (breaking migration <name> is not on main)`), and one that changed a
-file the compiler errors name (`skipped (does not build: <files>)`). The work is
-not lost, it is not in this preview.
+(`skipped (breaking migration <name> is not on main)`), one that changed a
+file the compiler errors name (`skipped (does not build: <files>)`), and one that
+removed a module file or a crate item the errors say is missing and a file it did
+not change still uses (`skipped (does not build: removed <thing> that <file> still
+uses)`). The work is not lost, it is not in this preview.
 With no merged branch behind a failure it fails as before. A failure Bridge
 shows starts with its cause: the compiler's first error and its file, or the
 migration and its branch.

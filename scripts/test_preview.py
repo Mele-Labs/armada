@@ -99,7 +99,10 @@ class Preview(unittest.TestCase):
         """Cut `name` from `base`, commit `edits` on it, return to main."""
         self.git("checkout", "-q", "-b", name, base)
         for path, text in edits.items():
-            self.write(path, text)
+            if text is None:
+                os.remove(os.path.join(self.repo, path))
+            else:
+                self.write(path, text)
         self.commit(f"{name}: work")
         self.git("checkout", "-q", "main")
 
@@ -469,6 +472,96 @@ class Preview(unittest.TestCase):
         done = self.preview_restart(script)
         self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 2)
+
+    def rust_failure(self, errors, broken):
+        """A restart script that prints `errors` and fails while the shell test `broken` (on the
+        tree it is told to build, `$2`) holds, and records each run."""
+        runs = os.path.join(self.dir, "restart-runs")
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho run >> "{runs}"\nif {broken}; then\ncat >&2 <<\'EOF\'\n{errors}\nEOF\n'
+                    f'echo "error: could not compile" >&2; exit 101\nfi\n')
+        os.chmod(script, 0o755)
+        return script, runs
+
+    MISSING_MODULE = """error[E0583]: file not found for module `operator_positions`
+   --> crates/ipc/src/lib.rs:153:1
+    |
+153 | pub mod operator_positions;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: to create the module `operator_positions`, create file "crates/ipc/src/operator_positions.rs" or "crates/ipc/src/operator_positions/mod.rs"
+"""
+
+    UNRESOLVED = """error[E0432]: unresolved import `config::WorkspaceFile`
+  --> crates/fleet/src/lifecycles/serving.rs:14:5
+   |
+14 | use config::WorkspaceFile;
+   |     ^^^^^^^^^^^^^^^^^^^^^ no `WorkspaceFile` in the root
+
+error[E0425]: cannot find function `parse_workspace` in crate `config`
+  --> crates/fleet/src/lifecycles/serving.rs:40:21
+
+error[E0599]: no variant, associated function, or constant named `Workspace` found for enum `config::Reach` in the current scope
+  --> crates/fleet/src/lifecycles/serving.rs:52:30
+"""
+
+    def test_a_branch_that_deleted_a_module_file_still_declared_is_left_out(self):
+        self.write("crates/ipc/src/lib.rs", "pub mod operator_positions;\n")
+        self.write("crates/ipc/src/operator_positions.rs", "pub struct P;\n")
+        self.commit("main: ipc")
+        self.branch("feat/delete", {"crates/ipc/src/operator_positions.rs": None})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/delete", "feat/good")
+        script, runs = self.rust_failure(
+            self.MISSING_MODULE, '[ ! -f "$2/crates/ipc/src/operator_positions.rs" ]')
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("skipped (does not build: removed crates/ipc/src/operator_positions.rs "
+                      "that crates/ipc/src/lib.rs still uses)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "crates/ipc/src/operator_positions.rs")))
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_a_branch_that_removed_an_item_another_crate_imports_is_left_out(self):
+        self.write("crates/config/src/lib.rs", "pub struct WorkspaceFile;\npub struct Other;\n")
+        self.write("crates/fleet/src/lifecycles/serving.rs", "use config::WorkspaceFile;\n")
+        self.commit("main: config")
+        self.branch("feat/rename", {"crates/config/src/lib.rs": "pub struct Other;\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/rename", "feat/good")
+        script, runs = self.rust_failure(
+            self.UNRESOLVED, '! grep -q WorkspaceFile "$2/crates/config/src/lib.rs"')
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("skipped (does not build: removed WorkspaceFile "
+                      "that crates/fleet/src/lifecycles/serving.rs still uses)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_a_branch_that_removed_a_name_and_added_it_elsewhere_in_the_crate_is_not_blamed(self):
+        self.write("crates/config/src/lib.rs", "pub struct WorkspaceFile;\n")
+        self.commit("main: config")
+        self.branch("feat/move", {"crates/config/src/lib.rs": "mod files;\n",
+                                  "crates/config/src/files.rs": "pub struct WorkspaceFile;\n"})
+        self.hold("feat/move")
+        script, runs = self.rust_failure(self.UNRESOLVED, "true")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 1)
+        self.assertNotIn("does not build", done.stdout)
+
+    def test_a_failure_naming_nothing_a_branch_removed_is_reported(self):
+        self.write("crates/config/src/lib.rs", "pub struct Gone;\n")
+        self.write("crates/ipc/src/lib.rs", "pub mod kept;\n")
+        self.commit("main: config")
+        self.branch("feat/other", {"crates/config/src/lib.rs": "pub struct Other;\n"})
+        self.hold("feat/other")
+        script, runs = self.rust_failure(self.UNRESOLVED + self.MISSING_MODULE, "true")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 1)
+        self.assertNotIn("does not build", done.stdout)
 
     def guarded_restart(self):
         """A restart script whose migration guard refuses while `mig.sql` is in the tree, and
