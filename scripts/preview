@@ -40,10 +40,13 @@ MIGRATIONS = "crates/store/migrations"
 OLD_MIGRATIONS = "crates/store/src/migrations.rs"
 # `preview` itself and `main` are never in flight.
 NEVER = ("main", "preview")
-# What `git clean` keeps: the build directories, the Bridge build stamp
-# `scripts/restart` compares sources against, and the notes the owner pins from
-# the Bridge he runs here, which the annotation layer writes under the checkout.
-KEEP = ("/target", "node_modules", "/apps/desktop/out", "/.armada/annotations")
+# What `git clean` keeps: the build directories, the Bridge, native Bridge and
+# phone app build stamps `scripts/restart` compares sources against, the test
+# list Fleet's build script writes (a recompile of Fleet when it goes), and the
+# notes the owner pins from the Bridge he runs here, which the annotation layer
+# writes under the checkout.
+KEEP = ("/target", "node_modules", "/apps/desktop/out", "/crates/bridge-native/target",
+        "/apps/pocket/dist", "/crates/fleet/src/tests/mods.inc", "/.armada/annotations")
 
 
 def git(cwd, *args, check=True):

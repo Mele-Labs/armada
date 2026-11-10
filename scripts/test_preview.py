@@ -250,7 +250,10 @@ class Preview(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.wt, "g.txt")))
         os.makedirs(os.path.join(self.wt, "target"))
         os.makedirs(os.path.join(self.wt, "node_modules"))
-        for stray in ("target/warm", "node_modules/warm", "stray.txt"):
+        # Each holds a stamp or a generated file the next restart compares or rewrites.
+        kept = ("crates/bridge-native/target/stamp", "apps/pocket/dist/stamp", "crates/fleet/src/tests/mods.inc")
+        for stray in ("target/warm", "node_modules/warm", "stray.txt", *kept):
+            os.makedirs(os.path.dirname(os.path.join(self.wt, stray)), exist_ok=True)
             with open(os.path.join(self.wt, stray), "w") as f:
                 f.write("x")
 
@@ -264,6 +267,8 @@ class Preview(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.wt, "target", "warm")))
         self.assertTrue(os.path.exists(os.path.join(self.wt, "node_modules", "warm")))
         self.assertFalse(os.path.exists(os.path.join(self.wt, "stray.txt")))
+        for path in kept:
+            self.assertTrue(os.path.exists(os.path.join(self.wt, path)), path)
 
     def test_a_note_pinned_on_the_preview_survives_a_rebuild(self):
         self.hold()
