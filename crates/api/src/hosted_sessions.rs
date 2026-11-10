@@ -116,6 +116,21 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
     }
 }
 
+/// **202**, as a message is: the edit is taken, and the reply is the thread's.
+pub(crate) async fn edit_session_message<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let edit: ipc::EditSessionMessage = match ipc::decode_body("an edit to a message", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().edit_session_message(edit).await {
+        Ok(record) => answer(StatusCode::ACCEPTED, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// **202**, as a message is: the note is taken, with the lines it was handed, and the reply is the
 /// thread's.
 pub(crate) async fn send_session_note<D: HostedSessions>(
@@ -390,6 +405,22 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     };
     match served.shared().dismiss_waiting(dismiss).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The person turns a draft into a Document. 200 with the page's name and path; 404 for a draft the job has
+/// none of, 409 for one settled or a job with no worktree, 422 for a proposal's draft.
+pub(crate) async fn convert_draft_to_document<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let convert: ipc::ConvertDraftToDocument = match ipc::decode_body("a draft to turn into a document", &body) {
+        Ok(convert) => convert,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().convert_draft_to_document(convert).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

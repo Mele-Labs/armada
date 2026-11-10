@@ -341,9 +341,8 @@ const PIECES: readonly {
 }[] = [
   {
     name: "Composer",
-    count: 10,
+    count: 9,
     places: [
-      "Operator panel",
       "Judge tab",
       "Pull request explain",
       "Report box",

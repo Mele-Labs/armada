@@ -196,6 +196,7 @@ pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
 
 fn item(id: String, text: &str, since: &str, source: WaitingSource) -> WaitingItem {
     WaitingItem {
+        approves: false,
         id,
         text: text.to_string(),
         since: Instant::carried(since),

@@ -55,6 +55,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn edit_session_message(self: Arc<Self>, _edit: ipc::EditSessionMessage) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn send_session_note(self: Arc<Self>, _note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {
         Err(nothing_hosted())
     }
@@ -142,6 +146,13 @@ impl HostedSessions for FakeDaemon {
         self: Arc<Self>,
         _dismiss: ipc::DismissWaiting,
     ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn convert_draft_to_document(
+        self: Arc<Self>,
+        _convert: ipc::ConvertDraftToDocument,
+    ) -> Result<ipc::DraftDocument, Refusal> {
         Err(nothing_hosted())
     }
 

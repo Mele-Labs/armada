@@ -223,7 +223,10 @@ separate launchd job for the same reason Fleet's is one: the window has to
 outlive the job that asked for it.
 
 **It builds and opens the native Bridge too.**
-`cargo build --release --manifest-path crates/bridge-native/Cargo.toml` runs when `crates/bridge-native/`, `crates/ipc/`, `crates/core-model/` or `packages/tokens/` moved since the last build, or the last build was for another protocol.
+`cargo build --release --manifest-path crates/bridge-native/Cargo.toml` runs when `crates/bridge-native/`, `crates/ipc/`, `crates/core-model/`, `packages/tokens/` or the root `Cargo.toml` moved since the last build, or the last build was for another protocol.
+The root `Cargo.toml` is watched because `ipc` and `core-model` take their lints and edition from it.
+That one command runs with `CARGO_PROFILE_RELEASE_INCREMENTAL=true`, so a native change rebuilds in seconds.
+The app CI ships is built with plain `--release`, and `crates/bridge-native/Cargo.toml` has no profile for it.
 The stamp sits beside the binary, as `.armada-restart-stamp` in the build's `target/release/`, and holds the protocol the build was made for.
 A build that fails stops the restart before Fleet is stopped.
 It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
@@ -415,17 +418,20 @@ leaves its slot, whether it merged or was abandoned. Use it, and land from the b
 
 | Each run | |
 |---|---|
-| Resets `preview` | After a fetch, to the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
+| Starts `preview` from | After a fetch, the newer of local `main` and `origin/main`: a checkout that has not pulled still previews what has landed. Local `main` wins only where it is ahead of the remote |
 | Orders the branches | Oldest commit first, so a branch's place does not move when another is added |
-| Merges one | `git merge --no-ff --no-edit` |
-| A conflict | The merge is aborted and the branch is reported with the files. It is never resolved, with one exception below |
+| Merges one | `git merge-tree --write-tree` onto the last merge commit, then `git commit-tree` with both parents. The worktree is not touched |
+| A conflict | The branch is skipped and reported with the files. It is never resolved, with one exception below |
 | A migration name taken twice | The later branch is skipped, though git merged it cleanly, and the table says which name and whose it was. Different names merge |
 | A merge that does not build | Only with `--restart`, see below |
 | Writes | The table to stdout and `.armada/preview/PREVIEW.txt`, untracked |
 
-**The worktree is `.armada/preview/`, kept and reused** the way a worktree slot is: made on first use, reset and cleaned between runs
-with `target/`, `node_modules/` and Bridge's build output kept, so
+**The worktree is `.armada/preview/`, kept and reused** the way a worktree slot is: made on first use, moved and cleaned between runs
+with `target/`, `node_modules/`, Bridge's build output, the native Bridge's `target/`, the phone app's `dist/` and Fleet's generated `crates/fleet/src/tests/mods.inc` kept, so
 builds stay warm.
+The merge commits are built first, without the worktree, and the worktree then lands on the last of them in one step.
+Git rewrites only the files whose content differs from the last preview, so a file an in-flight branch changes keeps its mtime when nothing in it moved.
+The builds that compare mtimes against a stamp therefore have nothing to restart for.
 
 **`--watch` never restarts Fleet.** It merges again when a branch head or `main`
 changes. Moving Fleet and Bridge is `--restart`, which cannot be combined with
@@ -448,6 +454,11 @@ error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths re
 to the package, so a changed file also matches by its tail, and Rollup's `file: path`
 under an import it cannot resolve), drops every merged
 branch that changed one, and the table says `skipped (does not build: <files>)`.
+A branch can break the build in a file it never touched, by removing what that file still uses.
+When no merged branch changed a file the errors name, the rustc errors are read for what is missing instead.
+A module file the errors say is not found (`file not found for module`, and the paths in its `create file` help) is blamed on a merged branch that deleted it.
+An item a crate path no longer has (`unresolved import`, `cannot find <kind> ... in crate`, `no ... named ... found for enum`) is blamed on a merged branch that removed the name from that crate's `crates/<dir>` and added it nowhere in it.
+The table says `skipped (does not build: removed <thing> that <file> still uses)`.
 It stops when a restart takes, or when a failure names no branch still merged; that
 failure stands as it was.
 Each round drops at least one branch, so it ends.
@@ -470,6 +481,13 @@ sees `.armada/preview` in `Armada/restart-source` and runs
 so the preview is merged again onto the latest `main`. To go back to `main`
 alone, run `scripts/restart --main`.
 
+**`scripts/preview --restart` pulls the main checkout before anything else.**
+The scripts a refresh runs, `scripts/preview`, `scripts/restart` and `scripts/restart-build`, are the main checkout's, and nothing else pulls it on this path.
+When the checkout is on `main` it is fast-forwarded to `origin/main`, and if it moved the script runs again from what was pulled, once.
+On another branch, or where it cannot fast-forward, it prints a `preview: warning:` line and runs the scripts as they are.
+That never fails the refresh.
+`--dry-run` pulls nothing and says it would, and `--watch` and a plain `scripts/preview` never pull.
+
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
 with git alone, and a stub Fleet. CI runs it as `preview_test` when
 `scripts/preview`, `scripts/restart` or `scripts/restart-build` changes.
@@ -482,7 +500,7 @@ Fleet runs on, Main or Preview, and one button follows it:
 
 | Selected | Button | Runs |
 |---|---|---|
-| Preview | `Refresh preview` | `scripts/preview --restart` |
+| Preview | `Refresh preview` | `scripts/preview --restart`, after the main checkout is fast-forwarded when it is on `main` |
 | Main | `Update to main` | `scripts/restart --main`: the checkout is fast-forwarded to `origin/main`, then Fleet and Bridge are built from it |
 | Main, level with `origin/main` | `Update to main`, disabled, `On latest main` | nothing |
 
@@ -512,7 +530,10 @@ compiler's first error of the last run with its file, else the last thing a
 script said other than preview's `restart exited N`, which names no cause.
 **A `libsqlite3-sys`
 build failure is run once more after `cargo clean -p libsqlite3-sys`** in the tree
-that was built. `main` is refused from a checkout that is not on `main`, which
+that was built.
+**A failure whose log names rustc's incremental cache is run once more after `crates/bridge-native/target/release/incremental` is removed** from that tree.
+The log is matched for `incremental compilation`, `dep graph` or `dep-graph`, and `unstable fingerprints`.
+`main` is refused from a checkout that is not on `main`, which
 `scripts/restart` would otherwise build from whatever it holds.
 
 **Fleet counts the position, and fetches on its own time.** `get_fleet_build`

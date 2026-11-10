@@ -77,6 +77,15 @@ impl Writing {
         self.his_unstarted = true;
     }
 
+    /// The person edited a message: where it is the last he sent, the words the account is read from.
+    pub(crate) fn person_edited(&mut self, row: &str, words: &str) {
+        if let Some((last, said)) = &mut self.his {
+            if last == row {
+                *said = words.to_string();
+            }
+        }
+    }
+
     /// A call of the Session's own, as `now` words.
     pub(crate) fn call_seen(&mut self, now: &str) {
         if self.calls.last().map(String::as_str) != Some(now) {

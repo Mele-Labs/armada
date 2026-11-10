@@ -109,6 +109,8 @@ pub enum PlanGate {
     SketchApproved,
     /// The person approved the newest revision of a page under the Job's documents.
     DocumentApproved,
+    /// The person pressed Approve on a waiting item the Job raised with `approves`.
+    YouApproved,
     /// Checks Fleet ran itself are green at the commit the Job pushed.
     ChecksGreen,
     /// The Job's pull request merged.
@@ -121,11 +123,12 @@ pub enum PlanGate {
 
 impl PlanGate {
     /// Every gate, in the order the list is written to an agent.
-    pub const ALL: [PlanGate; 8] = [
+    pub const ALL: [PlanGate; 9] = [
         PlanGate::PlanApproved,
         PlanGate::WalkApproved,
         PlanGate::SketchApproved,
         PlanGate::DocumentApproved,
+        PlanGate::YouApproved,
         PlanGate::ChecksGreen,
         PlanGate::Merged,
         PlanGate::JobsEnded,
@@ -143,6 +146,7 @@ impl PlanGate {
             PlanGate::WalkApproved => "walk_approved",
             PlanGate::SketchApproved => "sketch_approved",
             PlanGate::DocumentApproved => "document_approved",
+            PlanGate::YouApproved => "you_approved",
             PlanGate::ChecksGreen => "checks_green",
             PlanGate::Merged => "merged",
             PlanGate::JobsEnded => "jobs_ended",

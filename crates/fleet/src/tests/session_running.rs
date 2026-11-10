@@ -311,6 +311,7 @@ async fn waits_to_run(rig: &Rig, command: &str) -> Vec<ipc::WaitingItem> {
             SetWaitingFor {
                 session_id: Some(rig.session.clone()),
                 items: vec![WaitingInput {
+                    approves: false,
                     id: "r1".into(),
                     text: "Run it".into(),
                     act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into() }),
@@ -359,6 +360,7 @@ async fn a_clean_run_of_a_step_command_leaves_the_item_with_steps_standing() {
             SetWaitingFor {
                 session_id: Some(rig.session.clone()),
                 items: vec![WaitingInput {
+                    approves: false,
                     id: "r1".into(),
                     text: "Set it up".into(),
                     act: Some(WaitingAct { kind: WaitingActKind::Run, target: "echo built".into() }),

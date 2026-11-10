@@ -609,9 +609,9 @@ native_stale() {
     native_why="no build stamp there"
   elif [[ "$(cat "$native_stamp")" != "$(tree_protocol)" ]]; then
     native_why="it was built for another protocol than $(tree_protocol)"
-  elif [[ -n "$(find "$native_dir" "$src/crates/ipc" "$src/crates/core-model" "$src/packages/tokens" -type f \
+  elif [[ -n "$(find "$native_dir" "$src/Cargo.toml" "$src/crates/ipc" "$src/crates/core-model" "$src/packages/tokens" -type f \
       -not -path '*/node_modules/*' -not -path "$native_dir/target/*" -newer "$native_stamp" -print 2>/dev/null | head -n 1)" ]]; then
-    native_why="crates/bridge-native, crates/ipc, crates/core-model or packages/tokens moved since its last build"
+    native_why="crates/bridge-native, crates/ipc, crates/core-model, packages/tokens or the root Cargo.toml moved since its last build"
   else
     return 1
   fi
@@ -809,7 +809,9 @@ if native_present; then
     say "Building the native Bridge — $native_why"
     mkdir -p "$native_dir/target/release"
     tree_protocol >"$native_pending"
-    (cd "$src" && cargo build --release --manifest-path crates/bridge-native/Cargo.toml --target-dir crates/bridge-native/target)
+    # Incremental keeps a native change to seconds; the shipped app is built by CI with plain --release.
+    # A profile in its Cargo.toml would reach CI too, so the switch is set for this one command.
+    (cd "$src" && CARGO_PROFILE_RELEASE_INCREMENTAL=true cargo build --release --manifest-path crates/bridge-native/Cargo.toml --target-dir crates/bridge-native/target)
     [[ -f "$native_binary" ]] || fail "cargo built the native Bridge but $native_binary is not there"
     mv -f "$native_pending" "$native_stamp"
   else

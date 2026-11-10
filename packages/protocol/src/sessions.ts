@@ -583,6 +583,8 @@ export type WaitingItem = {
   source: WaitingSource;
   act?: WaitingAct;
   options?: WaitingOption[];
+  /** The agent raised it to ask him to approve a result; Fleet gives it Approve and Ask for changes, and his Approve closes a `you_approved` gate. Absent when it is not one. */
+  approves?: boolean;
   /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
   steps?: string[];
   place?: WindowPlace;
@@ -904,6 +906,27 @@ export type DismissWaiting = {
 export type ConfirmWaiting = {
   session_id: string;
   item_id: string;
+};
+
+/**
+ * `POST /sessions/draft/document`: the person turns an open draft into a Document. `draft_id` is the draft item's `draft:<row id>`.
+ * Fleet writes `.armada/documents/<name>.html` in the Job's worktree, withdraws the draft, keeps the page as it keeps an agent's own
+ * write, and sends the Job a turn to revise it there. Fleet refuses 404 `fleet.draft_convert_unknown`, 409 `fleet.draft_convert_settled`,
+ * 422 `fleet.draft_convert_proposal` for a draft that proposes a change, and 409 `fleet.draft_convert_no_worktree`. Since 10 Nov 2026.
+ */
+export type ConvertDraftToDocument = {
+  session_id: string;
+  draft_id: string;
+};
+
+/**
+ * The page a draft became: `name` without `.html`, `path` in the Job's worktree (the `target` of its `artifact` attachment, which opens it),
+ * and `told`, false where the Job was paused (its turn is kept for its Resume) or had ended (told nothing). Since 10 Nov 2026.
+ */
+export type DraftDocument = {
+  name: string;
+  path: string;
+  told: boolean;
 };
 
 /**

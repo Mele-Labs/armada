@@ -92,6 +92,7 @@ export type PlanGate =
   | "walk_approved"
   | "sketch_approved"
   | "document_approved"
+  | "you_approved"
   | "checks_green"
   | "merged"
   | "jobs_ended"

@@ -1091,8 +1091,8 @@ async fn a_merge_of_another_authors_pull_request_is_not_told() {
 async fn auto_merge_takes_nothing_off_the_sessions_kept_wait_and_tells_it_once() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
-    let other = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let item = |id: &str, text: &str| WaitingInput { approves: false, id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
+    let other = |id: &str, text: &str| WaitingInput { approves: false, id: id.into(), text: text.into(), act: None, options: Vec::new(), steps: Vec::new() };
     rig.fleet
         .set_waiting(None, SetWaitingFor { items: vec![item("merge", "Merge #7 when ci is green"), other("restart", "Restart Fleet onto #7")], session_id: Some(SessionId::carried(&session)) })
         .await
@@ -1117,7 +1117,7 @@ async fn auto_merge_takes_nothing_off_the_sessions_kept_wait_and_tells_it_once()
 async fn a_pull_request_the_queue_holds_takes_nothing_off_and_says_nothing() {
     let rig = a_rig();
     let session = rig.a_hosted_session_on(7).await;
-    let item = |id: &str, text: &str| WaitingInput { id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
+    let item = |id: &str, text: &str| WaitingInput { approves: false, id: id.into(), text: text.into(), act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::ApprovePr, target: "#7".into() }), options: Vec::new(), steps: Vec::new() };
     rig.fleet
         .set_waiting(None, SetWaitingFor { items: vec![item("queue", "Merge #7 once ci is green")], session_id: Some(SessionId::carried(&session)) })
         .await
@@ -1139,6 +1139,7 @@ async fn a_merge_wait_written_while_the_pull_request_auto_merges_is_refused() {
     let session = rig.a_hosted_session_on(7).await;
     let id = SessionId::carried(&session);
     let input = |item: &str, text: &str, act: Option<(ipc::WaitingActKind, &str)>| WaitingInput {
+        approves: false,
         id: item.into(),
         text: text.into(),
         act: act.map(|(kind, target)| ipc::WaitingAct { kind, target: target.into() }),

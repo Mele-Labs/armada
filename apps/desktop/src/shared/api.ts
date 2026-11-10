@@ -52,7 +52,6 @@ import type { OnboardingApi } from "./api/onboarding";
 import type { RequestsApi } from "./api/requests";
 import type { SharingApi } from "./api/sharing";
 import type { LogbookApi } from "./api/logbook";
-import type { OperatorApi } from "./api/operator";
 import type { TeachingApi } from "./api/teaching";
 import type { JobBrowserApi } from "./api/job-browser";
 import type { JobWalkApi } from "./api/job-walk";
@@ -100,7 +99,6 @@ export type BridgeApi = CoreApi<BridgeState> &
   RequestsApi &
   SharingApi &
   LogbookApi &
-  OperatorApi &
   TeachingApi &
   JobBrowserApi &
   JobWalkApi &

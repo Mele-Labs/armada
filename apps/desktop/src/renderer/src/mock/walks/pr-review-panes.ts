@@ -124,7 +124,12 @@ const prReviewPanes = walk("pr-review-panes", [
     say: "To read, reply and resolve it here",
   },
   {
-    press: inside(comments, button("Reply")),
+    press: inside(
+      inside(comments, role("article", /^Thread on .+ by devon$/)),
+      button("Reply", {
+        exact: true,
+      }),
+    ),
     say: "Reply",
   },
   {

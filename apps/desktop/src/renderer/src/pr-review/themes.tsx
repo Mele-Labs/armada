@@ -23,7 +23,9 @@ import { CodeRefs } from "./code-refs";
 import { DraftCard, FindingCard, LineComposer, ThreadCard } from "./lines";
 import { TOOL_MARK } from "./marks";
 import type { Change, Draft, Finding, ReviewPr, Theme, Thread } from "./model";
+import { fixFor } from "./fix";
 import { placeOfLine } from "./patch";
+import { suggestionOf } from "./runs";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
 import { toolsOf } from "./tools";
 
@@ -442,6 +444,13 @@ function FindingBlock({
   send: Send;
 }) {
   const store = useReviewStore()!;
+  const reviews = useReviews();
+  const work = reviews.work[pr.key] ?? NO_WORK;
+  // A fix taken as a suggestion opens the comment box under the card, on the finding's lines.
+  const [suggesting, setSuggesting] = useState<string | undefined>(undefined);
+  const fix = fixFor(store, pr, work, finding, (after) => setSuggesting(suggestionOf(after)));
+  const { at } = finding;
+  const pending = work.drafts.length;
   return (
     <CodeRefs pr={pr}>
       <FindingCard
@@ -454,7 +463,36 @@ function FindingBlock({
             finding,
           ])
         }
+        {...(fix === undefined
+          ? {}
+          : {
+              fix,
+            })}
       />
+      {suggesting === undefined ? null : (
+        <LineComposer
+          key={suggesting}
+          keep={`pr-review:${pr.key}:finding:${finding.id}:suggestion`}
+          label="Comment"
+          action={pending === 0 ? "Start a review" : `Add to review (${pending})`}
+          initial={suggesting}
+          onAdd={(body) => {
+            store.addDraft(pr.key, {
+              path: at.path,
+              line: at.end,
+              side: at.side,
+              ...(at.end > at.start
+                ? {
+                    startLine: at.start,
+                  }
+                : {}),
+              body,
+            });
+            setSuggesting(undefined);
+          }}
+          onCancel={() => setSuggesting(undefined)}
+        />
+      )}
     </CodeRefs>
   );
 }

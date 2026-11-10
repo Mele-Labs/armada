@@ -81,6 +81,7 @@ fn approve(n: u32, url: &str) -> SessionRow {
         tags: Vec::new(),
         notice: None,
         queued: false,
+        edited_at: None,
     }
 }
 

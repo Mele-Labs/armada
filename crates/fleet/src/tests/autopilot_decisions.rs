@@ -31,6 +31,7 @@ pub(super) const SURE_OF_THE_FIRST: &str = "choice: 1\nsure: yes\nbecause: it is
 
 pub(super) fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
     KeptWaiting {
+        approves: false,
         item_id: id.into(),
         text: text.into(),
         since: OLD.into(),
@@ -297,6 +298,7 @@ fn a_permission_is_a_read_or_a_write_and_only_where_fleet_can_read_all_of_it() {
         kind: None,
     };
     let item = |card: &ipc::CallInFlight| ipc::WaitingItem {
+        approves: false,
         id: "perm:c1".into(),
         text: format!("{} {}", card.tool, card.detail),
         since: ipc::Instant::carried(OLD),
@@ -440,6 +442,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         ipc::WaitingSource::RuleAct,
     ] {
         let one = ipc::WaitingItem {
+            approves: false,
             id: "a".into(),
             text: "Which colour?".into(),
             since: ipc::Instant::carried(OLD),
@@ -457,6 +460,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         assert_eq!(sorted(&one, None), None, "{source:?}");
     }
     let errand = ipc::WaitingItem {
+        approves: false,
         id: "a".into(),
         text: "Merge once ci is green".into(),
         since: ipc::Instant::carried(OLD),

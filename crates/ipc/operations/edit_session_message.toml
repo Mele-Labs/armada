@@ -1,0 +1,18 @@
+[operations.edit_session_message]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "New words for a message the person sent to a hosted Job. Where Fleet still holds the turn it changes in place; where the agent has been sent it already, the row says edited and the agent is told what changed"
+notes = """
+`POST /sessions/message/edit`, body `EditSessionMessage`: `session_id`, `row_id` (a `message` row of the thread whose `from` is `you`) and `text`. **202**, answered with the `SessionRecord`: the reply is the thread's, one `session.row` at a time. Since 10 Nov 2026.
+
+**A turn Fleet still holds changes in place.** One held behind the proposal's reading, one whose process would not start, or one kept for the Resume of a paused Job is replaced, on the thread and in what Fleet holds, so the agent reads only the new words. The row is not marked edited and nothing is sent. A held turn is told from the row's id; the held first turn of a Job on its start card has no row, and is edited on the card.
+
+**Any other is a correction.** A message Fleet has written to the agent's input is not taken back. The row is put again by id with the new words and `edited_at`, and the agent is sent a turn of Fleet's: "The owner edited a message they sent earlier.", `Before:` and the old words quoted, `Now:` and the new words quoted, and "Act on the new version where it changes anything." That turn is the agent's only; the thread shows the edited row and no row of Fleet's. It waits behind the turns held for a proposal, and a paused Job keeps it for the Resume as it keeps any turn.
+
+**Words the same as the row's are no change**, and answered as one with nothing sent. Words are trimmed as a message's are.
+
+Refused with nothing changed: 422 `fleet.no_such_session` for a Job Fleet does not know; 422 `fleet.session_row_unknown` for a row the thread does not hold, or one that is not a message; 422 `fleet.session_row_not_his` for a message that is not the person's (the agent's, another Job's, Fleet's); 422 `fleet.session_message_empty` for no words; 409 `fleet.session_closed` for an ended Job; 422 `fleet.session_command_refused` for a terminal Job, whose process Fleet does not host.
+
+Publishes `session.row` and `session.changed`. `agent_access` is `No`, as `send_session_message`'s is.
+"""

@@ -448,6 +448,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::dismiss_waiting::<D>),
         )
         .route(
+            "/sessions/draft/document",
+            post(crate::hosted_sessions::convert_draft_to_document::<D>),
+        )
+        .route(
             "/sessions/waiting/reopen",
             post(crate::hosted_sessions::reopen_waiting::<D>),
         )
@@ -536,6 +540,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
                     crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
                 ),
             ),
+        )
+        .route(
+            "/sessions/message/edit",
+            post(crate::hosted_sessions::edit_session_message::<D>),
         )
         .route(
             "/sessions/note",

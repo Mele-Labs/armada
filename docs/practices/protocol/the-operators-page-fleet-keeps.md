@@ -5,7 +5,8 @@
 Since 10 Nov 2026. Fleet reviews each Needs you item and queues it in Your turn with the Operator's read and pick, keeps what Since you last looked counts, and serves both as one page.
 Bridge draws it.
 **Additive only**: five operations, one event and the types they carry; no field on an existing type.
-Electron draws nothing of the page and shows the Operator's talk as it did. It sends `operator_in_front` and nothing else of this.
+Electron has shown no Operator since 10 Nov and sends none of this.
+The native Bridge sends `operator_in_front`.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 The Rust half is `crates/ipc/src/operator_page.rs`; Fleet's is `crates/fleet/src/operator/` (`raising.rs` queues, `paging.rs` serves, `turning.rs` acts, `thening.rs` offers the Thens, `briefing.rs` keeps when he looked).
 Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, field for field.

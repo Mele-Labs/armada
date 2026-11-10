@@ -38,6 +38,7 @@ pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = 
         let option = |label: &str| WaitingOption { label: label.to_string(), description: None };
         let id = format!("{SUGGESTION}{}", one.n);
         WaitingItem {
+            approves: false,
             act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone() }),
             id,
             text: one.text.clone(),
