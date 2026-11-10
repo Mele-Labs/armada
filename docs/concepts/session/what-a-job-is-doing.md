@@ -65,13 +65,43 @@ Kept in `stop_nudges` (one row a Job).
 It raises no item.
 A process that dies in a turn is started again once ([What a restart does to a job](a-job-fleet-hosts.md)).
 One that dies again, with `session_open_turn` showing the restart spent, ends no turn, so no turn's end says it: the ledger reads it `stopped`, `process_gone`, or `fleet_down` where its open turn overlapped a stretch in `fleet_outages`.
-Fleet then starts a repair Job in the same repository, nested under it, with no start card, one at a time and never for a repair Job (`repairs_started`).
-If a probe of `get_health` fails, a new Job would fail the same way, so it starts none and the row says so.
-The row reads amber with `gave_up` only once Fleet has run out: its repair Job ended or said it is done with the Job still dead, Fleet is unhealthy, or the dead Job is itself a repair Job.
-A live agent that stopped again reads amber too: its process is fine, so a repair Job would have nothing to fix.
+Fleet then starts a hidden repair beside it (`repairs_started`, `repair_started`).
+A repair is an agent process Fleet hosts, with no session row, no place in the Jobs list and no start card.
+It runs one turn in the Job's own checkout, with the edit and run tools a hosted Job has, and ends by itself.
+Fleet starts one dead Job's repair at a time, and never two for one Job.
+If a probe of `get_health` fails, a new agent would fail the same way, so Fleet starts none and the row says so.
+Fleet's note in the thread says what broke when it starts, such as `Repair: its process died twice`, and the Now panel reads `Repairing: its process died twice` until a `Repaired: ` or `Not repaired: ` note follows.
+What is kept is in `job_repairs` (id, the Job, the kind of break, when it started and ended, the outcome and the sentence it said), and `stop_nudges.repair_job` names the one the row reads.
+
+**Fleet reads how a repair ended, and the agent does not announce it.**
+Its brief ends with one rule: the first line of its final message starts `REPAIRED: ` or `NOT REPAIRED: `, then one sentence.
+`REPAIRED` writes `Repaired: <sentence>` in the thread.
+For a quiet stop, a hung command, a dead process or a broken checkout it then wakes the Job once, `Fleet: a repair <did what>. Carry on.`
+`NOT REPAIRED`, a final message with neither marker, a process that would not finish its turn, or twenty minutes (`REPAIR_LIMIT`, unmeasured; an interrupt, then its process group) write `Not repaired: <sentence or why>` and wake nobody.
+The row reads amber with `gave_up` only once Fleet has run out: its repair ended without `REPAIRED` with the Job still dead, or Fleet is unhealthy.
+A Job's next turn beginning, or the Job ending, stops a repair still running, and the note says the Job moved on first.
+A Fleet that starts finds a repair left open and ends it as abandoned.
+A live agent that stopped again reads amber too: its process is fine, so a dead-process repair would have nothing to fix.
 A turn beginning clears the repair, so a later death gets its own.
 
-**Fleet's own acts stand in Now, Open and Done**, read from what is kept: each word and note of Fleet's in the thread is over, the nudge coming and the repair running are read off the row.
+**A repair is suited to what broke.**
+Each kind has its own brief, an overridable prompt under Repairs in Settings (`prompts.repairQuiet`, `repairHung`, `repairDied`, `repairCheckout`, `repairRedPull`, `repairStranded`), whose wording is [contract 5i](../../contracts/agent-prompt/5i-the-repair-briefs.md).
+The Job's id and title, its branch, its checkout and what Fleet saw go last, after the rules.
+
+| Break | What it does | Triggered |
+|---|---|---|
+| Quiet: it stopped twice with nothing asked, its agent alive | Reads the Job's transcript and plan, and reports the next step, what it waits on, or that its work has landed | Not yet |
+| Hung: a turn running with nothing heard for `STUCK_AFTER` | Finds the command that hung in the Job's process tree and stops it | Not yet |
+| Died: its process died and the restart is spent | Finds why from its log and what its process last said, and fixes what stopped it | Yes, `repairs_started` |
+| Checkout: conflict markers, a half finished merge, missing dependencies or a binary | Finishes the merge, resolves the markers, reinstalls what is missing, on the Job's own branch | Not yet |
+| RedPull: a pull request's checks failed or it conflicts, and its Job ended or stopped | On the pull request's branch, fixes the check or merges the base in, and pushes it | Not yet |
+| Stranded: a slot whose holder is gone, left with changes | Pushes the leftovers to a branch and scraps nothing | Not yet |
+
+`repair_started` is the one call a trigger makes.
+It checks health, takes the Job's slot as the checkout (the repository's own checkout, with a rule to change nothing in it, for a Job that holds none), and for a pull request whose Job ended it leases a slot on the pull request's branch and gives it back after.
+The Operator's triggers for the other five are the next group.
+
+**Fleet's own acts stand in Now, Open and Done**, read from what is kept: each word and note of Fleet's in the thread is over, the nudge coming is read off the row, and the repair running is read off Fleet's notes, a start note with no end note after it.
 Background model reads write no row, so they are none of these.
 
 **Stuck is its own bound**, `STUCK_AFTER` in `session_host/standing.rs`, ten minutes of nothing heard from a running turn.

@@ -261,6 +261,12 @@ impl Repairs {
         self.running.lock().expect("the repairs are not held across a panic").remove(job);
     }
 
+    /// Whether a repair is running for `job`.
+    #[cfg(test)]
+    pub(crate) fn running_for(&self, job: &str) -> bool {
+        self.running.lock().expect("the repairs are not held across a panic").contains_key(job)
+    }
+
     /// Whether any repair is running: Fleet starts one at a time for a dead Job.
     pub(crate) fn running_any(&self) -> bool {
         !self.running.lock().expect("the repairs are not held across a panic").is_empty()
