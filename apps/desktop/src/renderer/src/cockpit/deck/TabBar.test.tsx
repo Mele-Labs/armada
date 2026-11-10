@@ -51,7 +51,6 @@ test("The tab bar maps each tab to its surface", () => {
       ...bar.querySelectorAll('[role="tab"]'),
     ].map((one) => one.textContent),
   ).toEqual([
-    "Operator",
     "Cockpit",
     "Jobs",
     "Jobs",
@@ -170,7 +169,6 @@ test("Cmd+1..9 open the drawn tabs in the bar's order, a tab left off takes no d
   ])
     cmd(digit);
   expect(went).toEqual([
-    SURFACE.operator,
     SURFACE.overview,
     SURFACE.sessions,
     SURFACE.studios,
@@ -203,7 +201,6 @@ test("Cmd+1..9 open the drawn tabs in the bar's order, a tab left off takes no d
   ])
     cmd(digit);
   expect(went).toEqual([
-    SURFACE.operator,
     SURFACE.overview,
     SURFACE.studios,
     SURFACE.logbook,
