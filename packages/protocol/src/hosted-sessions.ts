@@ -117,6 +117,16 @@ export type SendSessionMessage = {
   aim?: ModAim;
 };
 
+/**
+ * `POST /sessions/message/edit`. Answered 202 with the `SessionRecord`. `row_id` is a `message` row whose `from` is `you`.
+ * A turn Fleet still holds changes in place; one the agent has been sent is corrected: the row gets `edited_at` and the agent is told what changed.
+ */
+export type EditSessionMessage = {
+  session_id: string;
+  row_id: string;
+  text: string;
+};
+
 /** `POST /sessions/ask/answer`. `call` is the ask's own `CallInFlight.call`. */
 export type AnswerSessionAsk = {
   session_id: string;
@@ -517,6 +527,8 @@ export type SessionRow =
       notice?: string;
       /** The person's words, held by the agent's CLI until the call its turn waits on returns. Absent once the agent has read them. */
       queued?: true;
+      /** When the person edited these words after the agent had been sent them (`edit_session_message`): the row carries the new words, and the thread marks it edited. Absent on a message never edited. */
+      edited_at?: string;
     }
   /**
    * Words that went to another Job. Written only in the old threads the Helm Job kept, and nowhere

@@ -47,6 +47,7 @@ import {
   linesOfFinding,
   orderOf,
   pathOf,
+  placeOfPick,
   reviewTab,
   stopOf,
   stopsOf,
@@ -55,10 +56,12 @@ import {
   type FindingMark,
 } from "./review-tab-state";
 import { ranked } from "./fuzzy";
-import { DraftCard, FindingCard, LineComposer } from "./lines";
+import { fixFor } from "./fix";
+import { DraftCard, FindingCard, LineComposer, type FixAsk } from "./lines";
 import type { Finding, ReviewPr, ToolDef } from "./model";
 import { openKind, openToolTab, openWhenDone } from "./panes";
 import { indexOfPlace, linesOfPatch, placeOfLine, sliceAround } from "./patch";
+import { suggestionOf } from "./runs";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { isWalk, onlyTools, toolsOf } from "./tools";
 
@@ -205,6 +208,23 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   const stacked = [
     ...here,
   ].sort((a, b) => (tied.get(a.id)?.[0] ?? -1) - (tied.get(b.id)?.[0] ?? -1));
+  /** Opens the comment box on a finding's lines, holding `body` where it starts with words: a fix as a suggestion. */
+  const commentOn = (id: string, body?: string) => {
+    const at = tied.get(id) ?? [];
+    if (at.length === 0) return;
+    reviewTab.change(pr.key, {
+      finding: id,
+      pick: {
+        from: at[0]!,
+        to: at.at(-1)!,
+        ...(body === undefined
+          ? {}
+          : {
+              body,
+            }),
+      },
+    });
+  };
   const markOfTool = (finding: Finding) =>
     tools.find((def) => def.id === finding.tool)?.mark ?? "custom";
   const focused = here.find((one) => one.id === state.finding);
@@ -331,7 +351,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   };
   const addDraft = (body: string) => {
     if (pick === undefined || path === undefined) return;
-    const at = placeOfLine(lines, pick.to);
+    const at = placeOfPick(lines, pick);
     store.addDraft(pr.key, {
       path,
       ...(at === undefined
@@ -339,6 +359,11 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         : {
             line: at.line,
             side: at.side,
+          }),
+      ...(at?.startLine === undefined
+        ? {}
+        : {
+            startLine: at.startLine,
           }),
       body,
     });
@@ -376,8 +401,11 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         ))}
         {writing ? (
           <LineComposer
-            keep={`pr-review:${pr.key}:review-tab:${path}:${pick.from}-${pick.to}`}
+            // A suggestion is a box of its own, so it opens holding the fix whatever was being written on these lines.
+            key={pick.body ?? ""}
+            keep={`pr-review:${pr.key}:review-tab:${path}:${pick.from}-${pick.to}${pick.body === undefined ? "" : ":suggestion"}`}
             label="Comment"
+            initial={pick.body ?? ""}
             action={pending === 0 ? "Start a review" : `Add to review (${pending})`}
             {...(pending === 0
               ? {
@@ -475,6 +503,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   return (
     <div ref={root} className="pr-review-tab-view" tabIndex={-1}>
       <header className="pr-review-tab-view__head">
+        <RunTools pr={pr} />
         {stops === undefined || tour === undefined ? (
           <span className="pr-review-tab-view__steps" role="group" aria-label="Files">
             <Button
@@ -537,9 +566,6 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         <span className="pr-review-tab-view__title" title={stop?.title}>
           {stop?.title ?? ""}
         </span>
-        <span className="pr-review-tab-view__path" title={path}>
-          {path ?? ""}
-        </span>
         {/* Drawn empty off a tour, so the columns after it stay where they are. */}
         {stop === undefined || tour === undefined ? (
           <span className="pr-review-tab-view__whole" />
@@ -569,7 +595,6 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             </Button>
           </Tooltip>
         )}
-        <RunTools pr={pr} />
         <Tooltip label="Keys">
           <Button
             variant="ghost"
@@ -607,6 +632,11 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             className="pr-review-tab-view__diff"
             data-tool={focused === undefined ? undefined : markOfTool(focused)}
           >
+            {path === undefined ? null : (
+              <span className="pr-review-tab-view__path" title={path}>
+                {path}
+              </span>
+            )}
             {file === undefined ? (
               <p className="pr-review-tab-view__said">{none}</p>
             ) : every.state !== "read" ? (
@@ -673,17 +703,16 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
                   cards.current.set(one.id, element);
                   watch.current?.observe(element);
                 }}
-                onComment={() => {
-                  const at = tied.get(one.id) ?? [];
-                  if (at.length === 0) return;
-                  reviewTab.change(pr.key, {
-                    finding: one.id,
-                    pick: {
-                      from: at[0]!,
-                      to: at.at(-1)!,
-                    },
-                  });
-                }}
+                onComment={() => commentOn(one.id)}
+                fix={fixFor(
+                  store,
+                  pr,
+                  work,
+                  one,
+                  (tied.get(one.id) ?? []).length === 0
+                    ? undefined
+                    : (after) => commentOn(one.id, suggestionOf(after)),
+                )}
               />
             ))}
             {anchorAt === undefined ? null : (
@@ -822,6 +851,7 @@ function MarginCard({
   placed,
   hold,
   onComment,
+  fix,
 }: {
   pr: ReviewPr;
   finding: Finding;
@@ -833,6 +863,7 @@ function MarginCard({
   placed: Placed | undefined;
   hold: (element: HTMLDivElement | null) => void;
   onComment: () => void;
+  fix: FixAsk | undefined;
 }) {
   const top = placed?.top ?? 0;
   return (
@@ -873,6 +904,11 @@ function MarginCard({
               finding,
             ])
           }
+          {...(fix === undefined
+            ? {}
+            : {
+                fix,
+              })}
         >
           {away ? (
             <p className="pr-review-tab-view__away">{`Line ${finding.at.start} is not in the diff.`}</p>

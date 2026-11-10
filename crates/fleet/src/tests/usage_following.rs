@@ -144,7 +144,7 @@ async fn the_size_nudge_waits_for_a_quiet_moment_and_is_sent_once() {
     let id = SessionId::carried(&session);
     let wait = |items: Vec<WaitingInput>| SetWaitingFor { session_id: Some(id.clone()), items };
     fleet
-        .waiting_for(None, wait(vec![WaitingInput { id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }]))
+        .waiting_for(None, wait(vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick the name".into(), act: None, options: Vec::new(), steps: Vec::new() }]))
         .await
         .expect("kept");
 

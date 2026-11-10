@@ -457,6 +457,7 @@ async fn a_live_jobs_open_tasks_and_last_words_are_handed_to_the_call_and_bounde
                 tags: Vec::new(),
                 notice: None,
                 queued: false,
+                edited_at: None,
             };
             store.keep_session_row(job.as_str(), row.id(), &ipc::encode(&row).expect("a row")).expect("kept");
         }

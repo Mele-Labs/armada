@@ -136,12 +136,17 @@ pub struct PullReviewThread {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PullReviewComment {
-    /// A new thread on a line of the diff.
+    /// A new thread on a line of the diff, or on the lines `start_line` to `line` of it.
     Line {
         path: String,
+        /// The last line of the range, or the only line.
         line: u64,
         side: DiffSide,
         body: String,
+        /// The first line of a range on `side`, before `line`. Absent is one line, and so is a
+        /// `start_line` equal to `line`, which Fleet sends as one.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        start_line: Option<u64>,
     },
     /// A new thread on a file as a whole.
     File { path: String, body: String },

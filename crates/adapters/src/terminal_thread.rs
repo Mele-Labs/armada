@@ -551,6 +551,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     tags: Vec::new(),
                     notice: None,
                     queued: false,
+                    edited_at: None,
                 });
             }
             DroneEvent::Called { tool, detail, .. } if !person => {

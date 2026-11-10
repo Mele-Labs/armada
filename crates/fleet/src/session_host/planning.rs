@@ -44,6 +44,7 @@ pub(crate) const NOT_YET_TOLD: &str =
 /// The call a recorded plan makes of the person until he approves it: id `plan:<version>`.
 pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem {
     WaitingItem {
+        approves: false,
         id: format!("plan:{version}"),
         text: String::from(PLAN_TO_APPROVE),
         since: Instant::carried(since),

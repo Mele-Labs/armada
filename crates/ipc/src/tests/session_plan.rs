@@ -211,7 +211,7 @@ fn a_group_names_the_gate_that_ends_it_and_a_word_no_gate_has_is_refused_rather_
         assert_eq!(plan.checked().unwrap().groups[0].gate, gate, "checking keeps it");
     }
     let why = read("checks").expect_err("a word no gate has").to_string();
-    assert!(why.contains("checks_green") && why.contains("document_approved"), "the refusal names the gates there are: {why}");
+    assert!(why.contains("checks_green") && why.contains("document_approved") && why.contains("you_approved"), "the refusal names the gates there are: {why}");
 
     let absent: PlanGroupInput =
         crate::decode("a group", br#"{"title":"Fleet","agent":"rust-engineer","tasks":[{"title":"Serve it"}]}"#).unwrap();

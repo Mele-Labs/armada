@@ -518,6 +518,7 @@ impl JobView {
                             tags: mentions,
                             notice: None,
                             queued: false,
+                            edited_at: None,
                         },
                     });
                     held.version += 1;

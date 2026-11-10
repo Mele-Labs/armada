@@ -5,7 +5,7 @@
 import { useSyncExternalStore } from "react";
 import type { DiffSide, ReviewPlace } from "@armada/protocol";
 
-import { CONTEXT, counted } from "./patch";
+import { CONTEXT, counted, placeOfLine } from "./patch";
 import type { DiffLine } from "@armada/components";
 import type { Finding, PrWork, ReviewPr } from "./model";
 import { TOUR_RUN, tourOf } from "./runs";
@@ -36,6 +36,8 @@ export type ReviewTabState = {
     | {
         from: number;
         to: number;
+        /** What the box starts with: a fix, as a suggestion. Absent starts it empty. */
+        body?: string;
       }
     | undefined;
   marks: Readonly<Record<string, FindingMark>>;
@@ -156,6 +158,39 @@ export const reviewTab = {
     told();
   },
 };
+
+/**
+ * Where a comment on the picked lines goes: the last picked line, and the first picked line on its side where that is before it.
+ * A pick across both sides keeps only the side of its last line, as the forge's range is on one side.
+ */
+export function placeOfPick(
+  lines: readonly DiffLine[],
+  pick: {
+    from: number;
+    to: number;
+  },
+):
+  | {
+      line: number;
+      side: DiffSide;
+      startLine?: number;
+    }
+  | undefined {
+  const at = placeOfLine(lines, pick.to);
+  if (at === undefined) return undefined;
+  const numbered = counted(lines);
+  // A context line has a number on both sides, so it starts a range on either.
+  for (let index = pick.from; index < pick.to; index += 1) {
+    const one = numbered[index];
+    const line = at.side === "right" ? one?.now : one?.old;
+    if (line !== undefined && line < at.line)
+      return {
+        ...at,
+        startLine: line,
+      };
+  }
+  return at;
+}
 
 /** The lines of `lines` a finding is about, by their place in the drawn diff. None where the diff does not hold them. */
 export function linesOfFinding(lines: readonly DiffLine[], finding: Finding): number[] {

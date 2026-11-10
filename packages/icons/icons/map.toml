@@ -1,0 +1,7 @@
+[icons.map]
+  means = "A folded map"
+  group = "Review"
+  size = "16px"
+  status = "Proposed"
+  reserved = "The review tool Tour, on its button and its tab. Never a location or an address, which is `map-pin`, and never the Cockpit's map."
+  notes = "Proposed 10 Nov 2026 for the walk `pr-review-by-file`: the tool Tour, the change in the order a reader follows it. Tooltip `Tour`. Refused: `route`, reserved to the test map; `waypoints`, the graph view; `signpost`, the neutral confirm; `footprints`, a walk."

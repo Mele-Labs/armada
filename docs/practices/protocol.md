@@ -147,6 +147,7 @@ WebSocket event stream, read this first.
 | [A Job's window: origins and a sign-in](protocol/a-jobs-window-origins-and-a-sign-in.md) |
 | [The Reviews tab: the lists waiting on a person, a page's threads and a review's comments](protocol/the-reviews-tab-the-lists-waiting-on-a-person-a-pages-threads-and-a.md) |
 | [The Reviews tab: agent runs and review tools](protocol/the-reviews-tab-agent-runs-and-review-tools.md) |
+| [A comment on several lines, and a fix for a finding](protocol/a-comment-on-several-lines-and-a-fix-for-a-finding.md) |
 | [A Job's running Check: its log live, and a stop](protocol/a-jobs-running-check-its-log-live-and-a-stop.md) |
 | [A Job's reach past its slots: the folder answers](protocol/a-jobs-reach-past-its-slots-the-folder-answers.md) |
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |
@@ -1021,6 +1022,7 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 | --- | --- | --- |
 | `ConfirmWaiting` (`POST /sessions/waiting/confirm`) | Bridge writes, Fleet reads | `session_id` and `item_id`; answered with the Session's record |
 | `WaitingItem.confirmed` | Fleet writes, Bridge reads | `true` on a `replied` item whose text is in `reply_confirmed`; sent only as `true` |
+| `WaitingItem.approves` | the agent writes, Fleet reads and writes, Bridge reads | `true` on an item the agent raised to ask him to approve a result; sent only as `true`, absent means false. Fleet gives it exactly two options, Approve then Ask for changes, and his Approve closes a `you_approved` gate |
 
 **Only an item Fleet read from a reply takes it**: on a `replied` item Fleet keeps its text in `reply_confirmed` and the item stays; on any other source the confirm is refused and the item stands unconfirmed.
 
@@ -1607,7 +1609,7 @@ Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
+| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
 | `SessionPlanGroup.gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | The gate as the agent named it. Absent is `none` |
 
 **Why it is a field and not a word read beside the body**, as `seen` is: the gate is what Fleet will record against, so it rides the wire type and a decoder refuses a word it does not know.
@@ -1667,7 +1669,7 @@ Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/sr
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green` or `merged`. Never `none` |
+| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green` or `merged`. Never `none` |
 
 **A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
 **Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.
@@ -1700,3 +1702,42 @@ Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, fi
 | `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
 
 Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.
+
+## A draft turned into a Document: `convert_draft_to_document`
+
+Since 10 Nov 2026. `docs/concepts/session/proposing-a-draft.md`.
+**One operation, one route and two types**: no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `ConvertDraftToDocument` and `DraftDocument` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `convert_draft_to_document` (`POST /sessions/draft/document`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ConvertDraftToDocument` `{ session_id, draft_id }`, `draft_id` the `draft:<row id>` or the bare row id; answered with `DraftDocument` `{ name, path, told }`: the page's name without `.html`, its path in the Job's worktree (the `target` of its `artifact` attachment) and whether the Job was sent its turn |
+| Refusals | Fleet writes | 404 `fleet.draft_convert_unknown` for a draft the Job has no row for; 409 `fleet.draft_convert_settled`; 422 `fleet.draft_convert_proposal` for a draft that proposes a change; 409 `fleet.draft_convert_no_worktree`; 500 `fleet.draft_convert_unwritten`. Nothing is written for a refusal |
+
+**What Fleet does.** It writes `.armada/documents/<slug>.html` (never over a page that is there), settles the draft `withdrawn` with no words, keeps the page as the Job's own write is kept, and sends the Job one turn in Fleet's words.
+A paused Job holds no slot, so it is refused with `fleet.draft_convert_no_worktree`.
+One paused between that check and the send has the turn kept for its Resume, as a person's turn is, and one that has ended is sent nothing; `told` is false for both.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event: the draft settling and the page's kept row publish `session.changed`, as they do for any other settling. The open risk below is neither better nor worse.
+
+## An edit to a sent message: `edit_session_message` and `SessionRow::Message.edited_at`
+
+Since 10 Nov 2026. `docs/concepts/session/editing-a-sent-message.md`.
+**One operation, one route and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field. Electron draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `edit_session_message` (`POST /sessions/message/edit`, `agent_access = "No"`) | Bridge sends, Fleet answers 202 | `EditSessionMessage` `{ session_id, row_id, text }`; answered with the `SessionRecord` |
+| `message` row `edited_at` (`session.row`) | Fleet writes, Bridge reads | When the words were changed after the agent had been sent them. Absent on a message never edited, on a message changed while Fleet still held its turn, and on every row kept before it |
+
+**Refused with nothing changed**: 422 `fleet.session_row_unknown` for a row the thread does not hold or that is not a message; 422 `fleet.session_row_not_his` for a message that is not the person's; 422 `fleet.session_message_empty`; 409 `fleet.session_closed` for an ended Job; 422 `fleet.session_command_refused` for a terminal Job; 422 `fleet.no_such_session`.
+**Words the same as the row's are a no-op that succeeds.**
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with `edited_at` reads on a Bridge that does not know it as an unedited one.
+
+**The event stream.** Untouched in kind: the edited row is one `session.row`, as any row put again by id is. The open risk below is neither better nor worse.
