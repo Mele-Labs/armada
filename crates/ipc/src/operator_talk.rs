@@ -140,9 +140,78 @@ pub struct OperatorTalkLine {
     /// On the Operator's own line raising a Needs you item: the item, its read and its pick.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub raise: Option<OperatorRaise>,
-    /// The Operator's briefing, the first time that day Bridge came to the front.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub briefing: bool,
+    /// On the Operator's briefing, the first time that day Bridge came to the front: what it held.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub briefing: Option<OperatorBriefing>,
+}
+
+/// The Operator's briefing of the day, as data a card draws from. Fleet assembles it from what it
+/// holds; only `top` comes from a call.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorBriefing {
+    /// What moved since the last briefing, or since the local day before began where there was none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub since: Vec<BriefedChange>,
+    /// The raises still waiting on him, each naming its raise line by the Job and the item.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub waiting: Vec<BriefedWaiting>,
+    /// What the Operator has in hand: what it is ruling and what waits its turn, a line each.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub on: Vec<String>,
+    /// The call's one line on what matters most today. Absent where no call answered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top: Option<String>,
+}
+
+/// What a briefing says moved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BriefedKind {
+    Merged,
+    Ended,
+}
+
+/// One Job that ended, or one pull request of a Job that merged.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BriefedChange {
+    pub kind: BriefedKind,
+    pub session_id: SessionId,
+    /// The Job's title.
+    pub job: String,
+    /// On `merged`: the pull request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull: Option<BriefedPull>,
+    /// On `ended`: what its agent said it achieved, where it said.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub said: Option<String>,
+}
+
+/// A pull request that merged.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BriefedPull {
+    pub number: String,
+    pub title: String,
+}
+
+/// A raise still waiting, as its line's `raise` names it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BriefedWaiting {
+    /// Absent on a suggestion no Job holds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    pub item_id: String,
+}
+
+impl OperatorBriefing {
+    /// The briefing as the store keeps it.
+    pub fn kept(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+
+    /// What the store kept. `None` where it does not read.
+    pub fn read(text: &str) -> Option<OperatorBriefing> {
+        serde_json::from_str(text).ok()
+    }
 }
 
 /// One Needs you item the Operator raised to the person in its conversation: what a card for it needs.

@@ -6,5 +6,5 @@ description = "Bridge's window came to the front, which the Operator's briefing 
 notes = """
 `POST /operator/front`, no body, answered at once with `OperatorInFront`: `briefing` is true where this is the first time this local day and a briefing is on its way. Bridge sends it whenever its window gains focus or is shown, however often.
 
-**Fleet decides the day.** The briefing is kept as a line of the conversation with `briefing: true`, and the newest one's instant is the day last briefed, so a restart does not brief twice. It is made only while the Operator is on and not paused for the week's plan. A briefing whose call fails keeps nothing, and the next `operator_in_front` that day tries again. It arrives as `operator.talk_changed`.
+**Fleet decides the day.** The briefing is kept as a line of the conversation with `briefing`, and the newest one's instant is the day last briefed, so a restart does not brief twice. It is made only while the Operator is on. **Fleet assembles it from what it holds**, and a reading call is asked only for its `top` line: while the Operator is paused for the week's plan, or where the call fails, the briefing goes out without it. It arrives as `operator.talk_changed`.
 """

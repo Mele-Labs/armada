@@ -171,19 +171,22 @@ fn sentence(text: &str) -> String {
     }
 }
 
-/// The line a raise is in the conversation: a plain sentence that reads alone, which Bridge shows as it is.
+/// The line a raise is in the conversation, as markdown that reads alone: Electron shows it as it is.
 pub(crate) fn raise_text(job: Option<&str>, item: &WaitingItem, read: Option<&OperatorRead>) -> String {
-    let mut out = match job {
-        Some(title) => format!("{title} needs you: {}", sentence(&item.text)),
-        None => format!("My suggestion needs you: {}", sentence(&item.text)),
-    };
+    let mut out = format!("**{}** needs you: {}", job.unwrap_or("My suggestion"), sentence(&item.text));
     if let Some(read) = read {
-        out.push_str(&format!(" {}", sentence(&read.read)));
+        out.push_str(&format!("\n{}", sentence(&read.read)));
         if !read.pick.is_empty() {
-            out.push_str(&format!(" I'd pick: {}", sentence(&read.pick)));
+            out.push_str(&format!("\nPick: **{}**", read.pick.trim().trim_end_matches('.')));
         }
     }
     out
+}
+
+/// The last line a settled raise is served with: when its item left the list, as this machine's clock shows it.
+pub(crate) fn settled_text(settled_at: &str, offset_secs: i64) -> String {
+    let at = crate::clock::reading_at(core_model::Timestamp::from_rfc3339(settled_at).epoch_millis().unwrap_or(0), offset_secs);
+    format!("Settled at {:02}:{:02}.", at.hour, at.minute)
 }
 
 impl Operator {

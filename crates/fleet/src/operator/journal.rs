@@ -13,7 +13,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use crate::clock::LocalReading;
 use crate::daemon::Fleet;
 
-const WEEKDAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+pub(super) const WEEKDAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const WEEK: i64 = 7 * 86_400_000;
 
 /// The file of the week `at` falls in, as `2026-W46.md`.

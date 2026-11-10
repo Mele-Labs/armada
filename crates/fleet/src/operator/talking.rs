@@ -14,7 +14,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{Actor, Timestamp};
 use ipc::operator_positions::OperatorRole;
-use ipc::operator_talk::{OperatorCite, OperatorHoldUntil, OperatorOrderForm, OperatorSaid, OperatorTalk, OperatorTalkLine, ProposedOperatorOrder};
+use ipc::operator_talk::{OperatorBriefing, OperatorCite, OperatorHoldUntil, OperatorOrderForm, OperatorSaid, OperatorTalk, OperatorTalkLine, ProposedOperatorOrder};
 use ipc::SessionId;
 use store::KeptTalk;
 
@@ -451,6 +451,34 @@ fn form_read(form: &str, board: &Board, live: &[LiveJob]) -> Option<OperatorOrde
     Arrived::taken_from_word(what).map(|arrived| OperatorOrderForm::AlwaysRaise { what: arrived.word().to_string() })
 }
 
+/// The Jobs that ended and the pull requests hosted Jobs held that merged at or after `since`, each newest first.
+pub(super) fn moved_since(store: &store::Store, since: &str) -> (Vec<EndedJob>, Vec<MergedPull>) {
+    let ended = store
+        .sessions_ended_since(since, ENDED_SHOWN)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|session| EndedJob {
+            summary: store.done_summary(&session.id).ok().flatten(),
+            started_by: started_by_chain(store, &session.id),
+            title: session.title.unwrap_or_else(|| session.id.clone()),
+            session_id: session.id,
+        })
+        .collect();
+    let mut merged: Vec<(String, MergedPull)> = Vec::new();
+    for hosting in store.hostings().unwrap_or_default() {
+        let job = store.session(&hosting.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| hosting.session_id.clone());
+        for pull in store.attachments_of(&store::Holder::session(&hosting.session_id)).unwrap_or_default() {
+            let spent = pull.state == store::AttachmentState::Spent;
+            if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= since {
+                let title = pull.detail.get("title").cloned().unwrap_or_default();
+                merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
+            }
+        }
+    }
+    merged.sort_by(|a, b| b.0.cmp(&a.0));
+    (ended, merged.into_iter().map(|(_, one)| one).take(MERGED_SHOWN).collect())
+}
+
 impl Operator {
     /// What Fleet holds that a message or an order is read against.
     pub(super) async fn board_and_live(&self) -> (Board, Vec<LiveJob>) {
@@ -545,30 +573,7 @@ where
                 stopped.push(StoppedJob { session_id: session.id.clone(), title, tasks: mark.tasks });
             }
         }
-        let ended = store
-            .sessions_ended_since(&day_began, ENDED_SHOWN)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|session| EndedJob {
-                summary: store.done_summary(&session.id).ok().flatten(),
-                started_by: started_by_chain(&store, &session.id),
-                title: session.title.unwrap_or_else(|| session.id.clone()),
-                session_id: session.id,
-            })
-            .collect();
-        let mut merged: Vec<(String, MergedPull)> = Vec::new();
-        for hosting in store.hostings().unwrap_or_default() {
-            let job = store.session(&hosting.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| hosting.session_id.clone());
-            for pull in store.attachments_of(&store::Holder::session(&hosting.session_id)).unwrap_or_default() {
-                let spent = pull.state == store::AttachmentState::Spent;
-                if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= day_began.as_str() {
-                    let title = pull.detail.get("title").cloned().unwrap_or_default();
-                    merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
-                }
-            }
-        }
-        merged.sort_by(|a, b| b.0.cmp(&a.0));
-        let merged: Vec<MergedPull> = merged.into_iter().map(|(_, one)| one).take(MERGED_SHOWN).collect();
+        let (ended, merged) = moved_since(&store, &day_began);
         drop(store);
         let repositories = self
             .repositories()
@@ -613,10 +618,18 @@ where
     /// `operator_talk`: the conversation so far, the raises and the briefings among it.
     pub(crate) async fn operator_talk_wire(&self) -> Result<OperatorTalk, Refusal> {
         let kept = self.store().lock().await.operator_talk(LINES_SERVED).map_err(|why| self.ledger_fault(why))?;
+        let offset = crate::clock::local_offset_secs(self.now().epoch_millis().unwrap_or(0)).await;
         Ok(OperatorTalk {
             lines: kept
                 .into_iter()
-                .map(|one| OperatorTalkLine { raise: super::raising::raise_on_wire(&one), briefing: one.briefing, from_person: one.from_person, text: one.text, at: one.at, about: one.about })
+                .map(|one| {
+                    let text = match &one.settled_at {
+                        Some(at) if one.raise.is_some() => format!("{}\n{}", one.text, super::raising::settled_text(at, offset)),
+                        _ => one.text.clone(),
+                    };
+                    let briefing = one.briefed.as_deref().and_then(OperatorBriefing::read).or_else(|| one.briefing.then(OperatorBriefing::default));
+                    OperatorTalkLine { raise: super::raising::raise_on_wire(&one), briefing, from_person: one.from_person, text, at: one.at, about: one.about }
+                })
                 .collect(),
         })
     }

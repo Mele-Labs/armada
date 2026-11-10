@@ -69,6 +69,8 @@ pub use desk::FleetDesk;
 pub use hearing::keep_the_ends_told;
 pub use raising::keep_the_raises;
 #[cfg(test)]
+pub(crate) use briefing::briefing_text;
+#[cfg(test)]
 pub(crate) use raising::ToRaise;
 pub use orders::{Order, Orders};
 pub(crate) use seat::Seat;

@@ -4,14 +4,14 @@
 
 Since 10 Nov 2026. Fleet reviews each Needs you item and raises it to the person as a line of the Operator's conversation, with its read and a pick, and briefs him the first time each local day that Bridge's window comes to the front.
 **Additive only**: two fields on a line, one new operation and one new event, and nothing Electron reads changes shape.
-Electron shows a raise and a briefing as ordinary Operator lines, from `text`; a native Bridge draws a card per kind from `raise`.
+Electron shows a raise and a briefing as ordinary Operator lines, from `text`; a native Bridge draws a card per kind from `raise`, and the briefing from `briefing`.
 The Rust half is `crates/ipc/src/operator_talk.rs`; Bridge's half is `packages/protocol/src/operator-talk.ts`, written by hand, field for field, which now holds `OperatorTalk` too.
 The protocol ID moves with both, and there is no number to take.
 
 | Where | Side | Carries |
 | --- | --- | --- |
 | `OperatorTalkLine.raise` | Fleet writes, Bridge reads | `OperatorRaise`: `session_id` and `job`, the Job's id and title, both absent on a suggestion no Job holds; `item`, the `WaitingItem` as it was raised; `read`, the `OperatorRead` `{ read, pick }` where a call read it, with an empty `pick` where it named an option not offered; `settled_at` once the item left the list |
-| `OperatorTalkLine.briefing` | Fleet writes, Bridge reads | `true` on the day's briefing, absent otherwise |
+| `OperatorTalkLine.briefing` | Fleet writes, Bridge reads | `OperatorBriefing` on the day's briefing, absent otherwise: `since`, each `BriefedChange` `{ kind: merged \| ended, session_id, job, pull?: { number, title }, said? }`; `waiting`, each `{ session_id?, item_id }` naming an open raise line; `on`, a line per thing the Operator has in hand; `top`, the call's one line |
 | `operator_in_front` (`POST /operator/front`) | Bridge sends | No body. Answered at once with `OperatorInFront` `{ briefing }`, true where a briefing is on its way |
 | `operator.talk_changed` | Fleet writes, Bridge reads | Nothing. A line was kept, or a raise settled: Bridge reads `operator_talk` again |
 
@@ -20,8 +20,9 @@ The protocol ID moves with both, and there is no number to take.
 A raise is what a card needs, with no new act vocabulary.
 Its kind is `item.source`, the thing is `item.text`, the acts are `item.act` and `item.options`, and the Operator's read and pick are `read`.
 `OperatorRead` is the shape a question's `operator_read` already has, reused rather than a second one.
-`text` is a plain sentence that reads alone, `<Job> needs you: <item>. <read> I'd pick: <pick>.`, or with no read only its first half.
-Its words are made in one function, `raise_text` in `crates/fleet/src/operator/raising.rs`, and will be tuned after the owner walks it.
+`text` is markdown that reads alone: `**<Job>** needs you: <item>.`, then the read on a line of its own and `Pick: **<pick>**`, or with no read only the first line.
+A settled raise is served with a last line, `Settled at 08:05.`, in local time.
+Its words are made in one function, `raise_text` in `crates/fleet/src/operator/raising.rs`.
 
 ## When Fleet raises and settles
 
@@ -42,8 +43,11 @@ A message to the Operator is still handed only the last twenty lines that are no
 ## The briefing
 
 Fleet decides whether a time in front is the day's first, by the local day of the newest briefing kept, so a restart does not brief twice.
-It briefs only while the Operator is on and not paused, one briefing out at a time.
-A briefing whose call fails keeps nothing, and the next `operator_in_front` that day tries again.
+It briefs only while the Operator is on, one briefing out at a time.
+**Fleet assembles it from what it holds**: the Jobs that ended and the pull requests that merged since the last briefing, or since the local day before began, the raises still open with their picks, and the Operator's queue.
+A reading call is asked only for `top`, one line on what matters most today; paused for the week's plan, or where that call fails, the briefing goes out without it.
+**The briefing is its data.** Where it is drawn is being decided with the owner, so its `text` only says it is ready, `Your briefing for Tuesday 10 November is ready.`
+`OperatorBriefing` is a struct of defaulted fields so it can grow, with running Jobs, stopped Jobs, a red main or the week's plan, without moving what is there.
 Electron sends it when its window gains focus or is shown, and once Fleet connects where a time in front came while it was not.
 
 ## The journal of the week

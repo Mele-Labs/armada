@@ -1,7 +1,7 @@
 //! The Operator raising each Needs you item to the person in its conversation, on a real Fleet: once
 //! per item, with the read and the pick its review call made, settled when the item leaves the list,
-//! and raised with no read where no call could read it. The briefing of the day, once a day, and the
-//! journal of the week every call is handed.
+//! and raised with no read where no call could read it. The briefing of the day, once a day and
+//! whatever its call came to, and the journal of the week every call is handed.
 
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -9,13 +9,13 @@ use std::time::Duration;
 
 use api::{HostedSessions, Sessions};
 use core_model::Timestamp;
-use ipc::operator_talk::OperatorTalkLine;
+use ipc::operator_talk::{BriefedKind, BriefedWaiting, OperatorTalkLine};
 use ipc::{OperatorRead, SessionId, SetWaitingFor, WaitingAct, WaitingActKind, WaitingInput, WaitingOption};
 
 use super::operator_sources::switched;
 use super::session_host::{eventually, rig_fitted, rig_placing, Rig};
 use crate::clock::Clock;
-use crate::operator::{keep_the_raises, Answering, Calling};
+use crate::operator::{briefing_text, keep_the_raises, Answering, Calling};
 use crate::CallFailed;
 
 /// A call that answers with each of its replies in turn, `None` failing, and keeps what it was asked.
@@ -130,8 +130,8 @@ async fn a_new_item_on_a_live_job_is_raised_once_with_the_read_and_pick_its_revi
     assert_eq!(raise.read, Some(OperatorRead { read: "It asks to approve the plan, which covers the pane only.".into(), pick: "Yes".into() }));
     assert_eq!(raise.job.as_deref(), Some("Build the pane"));
     assert_eq!(raise.item.options.len(), 2, "the item as it was raised, with its acts");
-    assert!(!line.from_person && !line.briefing && raise.settled_at.is_none());
-    assert_eq!(line.text, "Build the pane needs you: Approve the plan? It asks to approve the plan, which covers the pane only. I'd pick: Yes.");
+    assert!(!line.from_person && line.briefing.is_none() && raise.settled_at.is_none());
+    assert_eq!(line.text, "**Build the pane** needs you: Approve the plan?\nIt asks to approve the plan, which covers the pane only.\nPick: **Yes**");
     let asked = call.asked();
     assert_eq!(asked.len(), 1);
     assert!(asked[0].contains("Item 1: Job") && asked[0].contains("Approve the plan?") && asked[0].contains("\"Yes\", \"No\""), "{}", asked[0]);
@@ -163,6 +163,8 @@ async fn an_item_leaving_the_list_marks_its_raise_settled_and_the_journal_keeps_
         async move { fleet.operator_talk_wire().await.expect("read").lines.iter().any(|one| one.raise.as_ref().is_some_and(|raise| raise.settled_at.is_some())) }
     })
     .await;
+    let settled = raises_of(&rig, &job, "plan").await.remove(0);
+    assert!(settled.text.starts_with("**Build the pane** needs you: Approve the plan?\n") && settled.text.rsplit('\n').next().is_some_and(|last| last.starts_with("Settled at ") && last.len() == "Settled at 08:05.".len()), "{}", settled.text);
     rig.fleet.operator_talked("anything else?", None).await.expect("answered");
     let written = journal(&rig).await;
     assert!(written.contains("Raised: Build the pane: Approve the plan?. Read: It asks to approve the plan.. Pick: Yes"), "{written}");
@@ -204,7 +206,7 @@ async fn a_failed_or_unreadable_review_still_raises_the_item_with_no_read() {
     waiting(&rig, &job, vec![question("plan", "Approve the plan", &["Yes", "No"])]).await;
     let failed = raised(&rig, &job, "plan").await;
     assert_eq!(failed.raise.expect("a raise").read, None);
-    assert_eq!(failed.text, "Build the pane needs you: Approve the plan.");
+    assert_eq!(failed.text, "**Build the pane** needs you: Approve the plan.");
 
     waiting(&rig, &job, vec![question("plan", "Approve the plan", &["Yes", "No"]), question("merge", "Merge it?", &["Yes", "No"])]).await;
     let unreadable = raised(&rig, &job, "merge").await;
@@ -222,7 +224,7 @@ async fn a_pick_naming_an_option_not_offered_is_dropped_and_the_read_stays() {
 
     let line = raised(&rig, &job, "merge").await;
     assert_eq!(line.raise.expect("a raise").read, Some(OperatorRead { read: "It is safe to merge.".into(), pick: String::new() }));
-    assert_eq!(line.text, "Build the pane needs you: Merge it? It is safe to merge.");
+    assert_eq!(line.text, "**Build the pane** needs you: Merge it?\nIt is safe to merge.");
 }
 
 #[tokio::test]
@@ -247,40 +249,46 @@ async fn a_message_is_handed_his_conversation_and_the_raises_still_open_but_not_
     assert!(talk.contains("journal-<year>-W<week>.md"), "the question names the journal");
 }
 
+/// The briefings kept so far, oldest first.
+async fn briefings(rig: &Rig) -> Vec<OperatorTalkLine> {
+    lines(rig).await.into_iter().filter(|one| one.briefing.is_some()).collect()
+}
+
 #[tokio::test]
-async fn only_the_first_time_in_front_each_local_day_briefs_and_a_failed_briefing_tries_again() {
+async fn only_the_first_time_in_front_each_local_day_briefs_and_it_goes_out_when_its_call_fails() {
     let clock = Arc::new(AtomicI64::new(millis("2026-11-10T12:00:00.000Z")));
     let held = Arc::clone(&clock);
     let rig = rig_fitted(move |fittings| fittings.clock = Arc::new(Moved(held)));
-    let briefing = "journal: Briefed him on the pane.\nbriefing: The pane Job waits on your plan approval.\nNothing else moved.";
-    let call = seated(&rig, &[None, Some(briefing), Some(briefing)]).await;
-    let briefings = || {
-        let fleet = Arc::clone(&rig.fleet);
-        async move { fleet.operator_talk_wire().await.expect("read").lines.into_iter().filter(|one| one.briefing).collect::<Vec<_>>() }
-    };
+    let top = "journal: Briefed him on the pane.\ntop: The pane's plan is the one to look at first.";
+    // The review fails, so the plan is raised with no pick; the first briefing's call fails; the next day's answers.
+    let call = seated(&rig, &[None, None, Some(top)]).await;
+    keep_the_raises(Arc::clone(&rig.fleet)).await;
+    let job = rig.start_titled(Some("Build the pane")).await;
+    waiting(&rig, &job, vec![question("plan", "Approve the plan?", &["Yes", "No"])]).await;
+    raised(&rig, &job, "plan").await;
+    let done = rig.start_titled(Some("Tail-first thread loading")).await;
+    rig.fleet.store().lock().await.keep_done(done.as_str(), "2026-11-10T11:00:00.000Z", Some("Threads load from their end.")).expect("kept");
+    Arc::clone(&rig.fleet).close_session(ipc::CloseSession { session_id: done.clone() }).await.expect("closed");
 
     assert!(Arc::clone(&rig.fleet).operator_in_front().await.expect("answered").briefing, "the day's first");
     let fleet = Arc::clone(&rig.fleet);
     eventually(|| {
         let fleet = Arc::clone(&fleet);
-        async move { Arc::clone(&fleet).operator_in_front().await.expect("answered").briefing }
+        async move { fleet.operator_talk_wire().await.expect("read").lines.iter().any(|one| one.briefing.is_some()) }
     })
     .await;
-    let fleet = Arc::clone(&rig.fleet);
-    eventually(|| {
-        let fleet = Arc::clone(&fleet);
-        async move { fleet.operator_talk_wire().await.expect("read").lines.iter().any(|one| one.briefing) }
-    })
-    .await;
-    assert_eq!(call.asked().len(), 2, "the failed briefing kept nothing, and the next time in front tried again");
-    let kept = briefings().await;
-    assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].text, "The pane Job waits on your plan approval.\nNothing else moved.");
-    assert!(call.asked()[1].contains("You have not briefed him before."), "{}", call.asked()[1]);
-    assert!(journal(&rig).await.contains("Briefed him: The pane Job waits on your plan approval."));
+    let first = briefings(&rig).await.remove(0);
+    assert!(first.text.starts_with("Your briefing for ") && first.text.ends_with(" is ready."), "{}", first.text);
+    let held = first.briefing.expect("a briefing");
+    assert_eq!(held.top, None, "its call failed, and it went out without the top line");
+    assert_eq!(held.since.len(), 1);
+    assert_eq!((held.since[0].kind, held.since[0].said.as_deref()), (BriefedKind::Ended, Some("Threads load from their end.")));
+    assert_eq!(held.waiting, vec![BriefedWaiting { session_id: Some(job.clone()), item_id: "plan".into() }]);
+    assert_eq!(call.asked().len(), 2, "the review and the briefing's top line");
 
     assert!(!Arc::clone(&rig.fleet).operator_in_front().await.expect("answered").briefing, "the same day again");
     pause().await;
+    assert_eq!(briefings(&rig).await.len(), 1);
     assert_eq!(call.asked().len(), 2);
 
     clock.fetch_add(24 * 3_600_000, Ordering::SeqCst);
@@ -288,16 +296,27 @@ async fn only_the_first_time_in_front_each_local_day_briefs_and_a_failed_briefin
     let fleet = Arc::clone(&rig.fleet);
     eventually(|| {
         let fleet = Arc::clone(&fleet);
-        async move { fleet.operator_talk_wire().await.expect("read").lines.iter().filter(|one| one.briefing).count() == 2 }
+        async move { fleet.operator_talk_wire().await.expect("read").lines.iter().filter(|one| one.briefing.is_some()).count() == 2 }
     })
     .await;
-    assert!(call.asked()[2].contains("You last briefed him at 2026-11-10T12:"), "{}", call.asked()[2]);
+    let second = briefings(&rig).await.remove(1);
+    let second = second.briefing.expect("a briefing");
+    assert_eq!(second.top.as_deref(), Some("The pane's plan is the one to look at first."));
+    assert!(second.since.is_empty(), "nothing moved since the first");
+    assert_eq!(second.waiting.len(), 1);
+    assert!(call.asked()[2].contains("Waiting on you:\n- Build the pane: Approve the plan?"), "{}", call.asked()[2]);
+    assert!(journal(&rig).await.contains("Briefed him: The pane's plan is the one to look at first."));
+}
+
+#[test]
+fn a_briefings_line_only_says_it_is_ready_for_the_day() {
+    assert_eq!(briefing_text(&crate::clock::reading_at(millis("2026-11-10T12:00:00.000Z"), 0)), "Your briefing for Tuesday 10 November is ready.");
 }
 
 #[tokio::test]
 async fn off_never_briefs() {
     let rig = rig_placing(None);
-    let call = Replies::saying(&[Some("briefing: hello")]);
+    let call = Replies::saying(&[Some("top: hello")]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     assert!(!Arc::clone(&rig.fleet).operator_in_front().await.expect("answered").briefing);
     pause().await;

@@ -40,9 +40,11 @@ pub struct KeptTalk {
     pub settled_at: Option<String>,
     /// The Operator's briefing of the day.
     pub briefing: bool,
+    /// What the briefing held: `ipc::operator_talk::OperatorBriefing`, as JSON.
+    pub briefed: Option<String>,
 }
 
-const TALK_COLUMNS: &str = "n, from_person, text, call, at, about, raised, raise_session, raise_item, settled_at, briefing";
+const TALK_COLUMNS: &str = "n, from_person, text, call, at, about, raised, raise_session, raise_item, settled_at, briefing, briefed";
 
 fn talk_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTalk> {
     Ok(KeptTalk {
@@ -57,6 +59,7 @@ fn talk_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTalk> {
         raise_item: row.get(8)?,
         settled_at: row.get(9)?,
         briefing: row.get(10)?,
+        briefed: row.get(11)?,
     })
 }
 
@@ -104,9 +107,9 @@ impl Store {
     pub fn add_operator_talk(&mut self, one: &KeptTalk) -> Result<(), WriteError> {
         self.conn
             .execute(
-                "INSERT INTO operator_talk (from_person, text, call, at, about, raised, raise_session, raise_item, settled_at, briefing) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![one.from_person, one.text, one.call, one.at, one.about, one.raise, one.raise_session, one.raise_item, one.settled_at, one.briefing],
+                "INSERT INTO operator_talk (from_person, text, call, at, about, raised, raise_session, raise_item, settled_at, briefing, briefed) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                params![one.from_person, one.text, one.call, one.at, one.about, one.raise, one.raise_session, one.raise_item, one.settled_at, one.briefing, one.briefed],
             )
             .map(|_| ())
             .map_err(failed("keeping a message to the Operator"))
