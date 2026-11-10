@@ -88,6 +88,20 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
     }
 }
 
+/// What a suggestion is about, so one raised again for it is a repeat: its repository, kind of arrival
+/// and way, and its subject, trimmed, single-spaced and lower-cased. **A file on an end or a merge is
+/// about its `what`**, the next piece of work, since its subject there is the pull request and each
+/// merge is a new one naming the same work.
+fn same_thing(one: &KeptSuggestion) -> [String; 4] {
+    let ending_file = one.way == Way::File.word() && Arrived::from_word(&one.arrived).is_some_and(Arrived::is_ending);
+    let about = match &one.what {
+        Some(what) if ending_file && !what.trim().is_empty() => what,
+        _ => &one.subject,
+    };
+    let said = about.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), said]
+}
+
 /// What a ruling on an end or a merge would start or file.
 fn what_of(ruling: &Ruling) -> &str {
     ruling.what.as_deref().unwrap_or_default()
@@ -145,7 +159,8 @@ where
 {
     /// `ruling` kept for one press, and the Job's list drawn again. The board is told too, which lists
     /// the ones no Job holds.
-    pub(super) async fn operator_suggested(&self, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
+    /// **Nothing is kept for a repeat** of one standing, skipped or done: `Some` says which, for its Log row.
+    pub(super) async fn operator_suggested(&self, arrival: &Arrival, ruling: &Ruling) -> Result<Option<String>, String> {
         let raised_at = self.now().as_str().to_string();
         {
             let mut store = self.store().lock().await;
@@ -174,13 +189,17 @@ where
                 text: said(arrival, ruling, &title),
                 raised_at,
             };
+            let earlier = store.operator_suggestions_like(&kept).map_err(|_| "the suggestion was not kept".to_string())?;
+            if let Some(first) = earlier.iter().find(|first| same_thing(first) == same_thing(&kept)) {
+                return Ok(Some(format!("a repeat of the suggestion kept for {}", first.arrival)));
+            }
             if store.keep_operator_suggestion(&kept).is_err() {
                 return Err("the suggestion was not kept".to_string());
             }
         }
         self.operator_board_changed();
         let _ = self.published_hosted(&arrival.session_id).await;
-        Ok(())
+        Ok(None)
     }
 
     /// Whether choice `choice` is Do it, or Skip. Anything else is refused.

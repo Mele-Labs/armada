@@ -40,6 +40,39 @@ async function pick(number: number, name: string) {
     })
     .click();
 }
+/** The Review tab's pane, and a line of its file by the gutter's name for it. */
+const reviewPane = (number: number) =>
+  reader(number).getByRole("region", {
+    name: "Pane: Review",
+  });
+const gutter = (number: number, words: RegExp) =>
+  reviewPane(number).getByRole("button", {
+    name: new RegExp(`^Comment on line \\d+: ${words.source}`),
+  });
+async function openReview(number: number) {
+  await reader(number)
+    .getByRole("tab", {
+      name: "Review",
+      exact: true,
+    })
+    .click();
+  // Opening Review asks which tools to run; Cancel runs none, as the tab did before it asked.
+  await page
+    .getByRole("dialog", {
+      name: "Run on opening",
+    })
+    .getByRole("button", {
+      name: "Cancel",
+    })
+    .click();
+}
+async function reviewChanges(number: number) {
+  await reviewPane(number)
+    .getByRole("button", {
+      name: "Submit review",
+    })
+    .click();
+}
 const row = (number: number) =>
   list().getByRole("button", {
     name: new RegExp(`^#${number} `),
@@ -118,7 +151,7 @@ test("the tab lists the four lists as the forge answered them", async () => {
   await expect.element(row(1899)).not.toBeInTheDocument();
 });
 
-test("a review goes out as one call with its line comment placed, and then it is recorded", async () => {
+test("a review goes out as one call with its line comments placed, and then it is recorded", async () => {
   const app = await reviews();
   const wrote: WritePullRequest[] = [];
   const write = app.api.writeReview;
@@ -128,70 +161,31 @@ test("a review goes out as one call with its line comment placed, and then it is
   };
 
   await open(1899);
-  await expect.element(reader(1899)).toBeVisible();
-  // The changes are in the explanation, which an agent reads once he has said it may run.
-  await pick(1899, "How it works");
-  // The tab holds the Run: opening it spends nothing while the setting asks first.
-  await reader(1899)
-    .getByRole("button", {
-      name: "Run",
-      exact: true,
-    })
-    .click();
-  await expect
-    .element(
-      reader(1899).getByRole("region", {
-        name: "Theme: Fleet keeps the last read",
-      }),
-    )
-    .toBeVisible();
-  await reader(1899)
-    .getByRole("tab", {
-      name: "Review",
-      exact: true,
-    })
-    .click();
-  // How it works is open in the tools pane beside it, with the same changes: the comment is written in Review's.
-  const review = reader(1899).getByRole("region", {
-    name: "Pane: Review",
-  });
-  const serve = review.getByRole("article", {
-    name: "Change: Serve it while it is fresh",
-  });
-  const form = review.getByRole("form", {
-    name: "Comment",
-  });
-  const addComment = async (words: string) => {
-    await review
+  await openReview(1899);
+  const comment = async (words: RegExp, body: string, add: string) => {
+    await gutter(1899, words).click();
+    await reviewPane(1899)
       .getByRole("textbox", {
         name: "Comment",
       })
-      .fill(words);
-    await form
+      .fill(body);
+    await reviewPane(1899)
       .getByRole("button", {
-        name: "Add to review",
+        name: add,
       })
       .click();
   };
-
-  // A line of the hunk, and then the change itself.
-  await serve
-    .getByRole("button", {
-      name: "Show diff",
-    })
-    .click();
-  await serve
-    .getByRole("button", {
-      name: /Comment on \+ let mut held = self\.held\.lock/,
-    })
-    .click();
-  await addComment("Take the lock after the call.");
-  await serve
-    .getByRole("button", {
-      name: "Comment on Serve it while it is fresh",
-    })
-    .click();
-  await addComment("This whole method wants a test.");
+  await comment(
+    /let mut held = self\.held\.lock/,
+    "Take the lock after the call.",
+    "Start a review",
+  );
+  await comment(
+    /if let Some\(one\) = held\.as_ref\(\)/,
+    "This branch wants a test.",
+    "Add to review (1)",
+  );
+  await reviewChanges(1899);
   await expect
     .element(
       yours().getByRole("list", {
@@ -246,7 +240,7 @@ test("a review goes out as one call with its line comment placed, and then it is
     body: "The lock goes after the call.",
   });
   expect(sent.commit).toBeTruthy();
-  // A line is a place in a file, not an index into the drawn lines; the change's own comment is on its file.
+  // A line is a place in a file, not an index into the drawn lines.
   expect(sent.comments).toEqual([
     {
       kind: "line",
@@ -256,9 +250,11 @@ test("a review goes out as one call with its line comment placed, and then it is
       body: "Take the lock after the call.",
     },
     {
-      kind: "file",
+      kind: "line",
       path: expect.stringContaining("/"),
-      body: "This whole method wants a test.",
+      line: 32,
+      side: "right",
+      body: "This branch wants a test.",
     },
   ]);
 });
@@ -270,12 +266,8 @@ test("a review the forge refuses keeps the comment and the summary, and says why
   );
 
   await open(1899);
-  await reader(1899)
-    .getByRole("tab", {
-      name: "Review",
-      exact: true,
-    })
-    .click();
+  await openReview(1899);
+  await reviewChanges(1899);
   await yours()
     .getByRole("textbox", {
       name: "Summary",
@@ -457,15 +449,12 @@ test("a pull request opened by its link has a row above whichever list is chosen
   await expect.element(reader(1905)).toBeVisible();
 });
 
-test("Review, a tab beside Commits, shows his review, with Comment, Approve and Request changes", async () => {
+test("Review, a tab after Files, holds his review under Submit review, with Comment, Approve and Request changes", async () => {
   await reviews();
   await open(1899);
-  await reader(1899)
-    .getByRole("tab", {
-      name: "Review",
-      exact: true,
-    })
-    .click();
+  await openReview(1899);
+  await expect.element(yours()).not.toBeInTheDocument();
+  await reviewChanges(1899);
   await expect
     .element(
       yours().getByRole("tab", {
@@ -489,66 +478,43 @@ test("Review, a tab beside Commits, shows his review, with Comment, Approve and 
     .toBeVisible();
 });
 
-test("a pending comment says the file, line and code it is on, and a press goes to it in the diff", async () => {
+test("a pending comment says the file, line and code it is on, and a press goes to it in its file", async () => {
   await reviews();
   await open(1899);
-  await reader(1899)
-    .getByRole("tab", {
-      name: "Review",
-      exact: true,
-    })
-    .click();
-  await reader(1899)
-    .getByRole("button", {
-      name: /^Comment on \+ let mut held = self\.held\.lock/,
-    })
-    .click();
-  await reader(1899)
+  await openReview(1899);
+  await gutter(1899, /let mut held = self\.held\.lock/).click();
+  await reviewPane(1899)
     .getByRole("textbox", {
       name: "Comment",
     })
     .fill("Take the lock after the call.");
-  await reader(1899)
-    .getByRole("form", {
-      name: "Comment",
-    })
+  await reviewPane(1899)
     .getByRole("button", {
-      name: "Add to review",
+      name: "Start a review",
     })
     .click();
-  await expect
-    .element(
-      reader(1899).getByRole("tab", {
-        name: "Review",
-        exact: true,
-      }),
-    )
-    .toBeVisible();
+  await reviewChanges(1899);
 
   const pending = yours().getByRole("button", {
     name: /^Go to your comment on .+:31$/,
   });
   await expect.element(pending).toHaveTextContent("let mut held = self.held.lock");
-  const card = reader(1899).getByRole("article", {
+  const card = reviewPane(1899).getByRole("article", {
     name: "Pending comment",
   });
-  const change = reader(1899)
-    .getByRole("article", {
-      name: /^Change: /,
-    })
-    .filter({
-      has: page.getByRole("article", {
-        name: "Pending comment",
-      }),
-    });
-  await change
+  await expect.element(card).toBeVisible();
+  // Another file, where the comment is not drawn, and the press reads its file again.
+  const at = reviewPane(1899).getByText(/^file \d+ of \d+$/);
+  const was = at.element().textContent ?? "";
+  await reviewPane(1899)
     .getByRole("button", {
-      name: "Hide diff",
+      name: was.startsWith("file 1 ") ? "Next file" : "Previous file",
     })
     .click();
   await expect.element(card).not.toBeInTheDocument();
 
   await pending.click();
+  await expect.element(at).toHaveTextContent(was);
   await expect.element(card).toHaveFocus();
 });
 
@@ -649,16 +615,17 @@ test(
       )
       .toBeVisible();
     const rows = menuRows();
-    expect(rows.slice(0, 6)).toEqual([
+    expect(rows.slice(0, 7)).toEqual([
       "Overview",
       "Files",
+      "Review",
       "Checks",
       "Commits",
-      "Review",
       "Comments",
+      "Ask",
     ]);
     // The explanations come first, then the tools; the first nine carry the key that opens them.
-    expect(rows.slice(6, 9).map((one) => one.replace(/Armada's tool$/, ""))).toEqual([
+    expect(rows.slice(7, 10).map((one) => one.replace(/Armada's tool$/, ""))).toEqual([
       "How it works1",
       "User Impact2",
       "How to Test3",
@@ -734,46 +701,6 @@ test(
     await expect
       .element(reader(1899).getByText("Running this uses tokens."))
       .not.toBeInTheDocument();
-  },
-  SLOW,
-);
-
-test(
-  "an empty tools pane lists the tools, and a row opens its tool's tab",
-  async () => {
-    await reviews();
-    await open(1899);
-    const tools = reader(1899).getByRole("list", {
-      name: "Tools",
-    });
-    await expect.element(tools).toBeVisible();
-    await expect
-      .element(
-        tools.getByRole("button", {
-          name: "Risks",
-        }),
-      )
-      .toBeVisible();
-    await expect
-      .element(
-        reader(1899).getByRole("button", {
-          name: "Add a tool",
-        }),
-      )
-      .toBeVisible();
-    await tools
-      .getByRole("button", {
-        name: "Risks",
-      })
-      .click();
-    await expect
-      .element(
-        reader(1899).getByRole("tab", {
-          name: "Risks",
-          exact: true,
-        }),
-      )
-      .toBeVisible();
   },
   SLOW,
 );

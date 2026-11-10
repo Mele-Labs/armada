@@ -4,6 +4,7 @@
 // (`list_review_tools`); a later place keeps the earlier tool's position and says whose it replaced.
 
 import type { PrWork, ReviewSnapshot, ToolDef } from "./model";
+import { TOUR_TOOL } from "./runs";
 
 /** A name as the file that holds it is called: lower case, words joined by a dash. */
 export const idOfName = (name: string): string =>
@@ -46,6 +47,9 @@ export const onlyExplanations = (defs: readonly ToolDef[]): readonly ToolDef[] =
 
 /** The Walk: its press finds where the change runs before it writes, so it does not start a run on its own. */
 export const isWalk = (tool: ToolDef): boolean => tool.mark === "walk";
+
+/** The Tour: the stops Review steps through, rather than findings. */
+export const isTour = (tool: ToolDef): boolean => tool.kind === "tool" && tool.id === TOUR_TOOL;
 
 /** How it works has been read, so a result can sit under its themes. */
 export const isExplained = (work: PrWork): boolean =>

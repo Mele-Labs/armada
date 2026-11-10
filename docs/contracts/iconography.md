@@ -446,6 +446,10 @@ Dispatch, Kill, Redirect, Redispatch, Pilot, Freeze dispatch) is
 badge state (`check`, `ban`, `power`, `terminal`) under group `Job state`;
 the rest are under group `Action`.
 
+**A second exception, by the owner on 9 Nov 2026:** a review tool's secondary
+button in the head of a pull request's Review tab keeps its run-state glyph
+(not run, running, done, failed), because the glyph is the tool's state.
+
 ---
 
 ## Everywhere else

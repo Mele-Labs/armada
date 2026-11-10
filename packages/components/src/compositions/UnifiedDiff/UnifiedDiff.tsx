@@ -114,8 +114,20 @@ export type UnifiedDiffProps = {
     label: string;
     /** What the button is called for a screen reader or a walk: the line it is on, since `label` is the same on every line. */
     name?: (file: DiffFile, index: number) => string;
-    press: (file: DiffFile, index: number) => void;
+    /** `shift` is a press with Shift held, which a host that takes a run of lines reads as the run's other end. */
+    press: (
+      file: DiffFile,
+      index: number,
+      held: {
+        shift: boolean;
+      },
+    ) => void;
   };
+  /**
+   * What a line is marked as, by its host: lines picked for a comment, or the lines a note beside the diff is about. Drawn as a
+   * wash and a leading edge in `--diff-mark-hue`, which the host sets; `quiet` draws them in the border's grey. Absent marks none.
+   */
+  markOf?: (file: DiffFile, index: number) => "picked" | "tied" | "quiet" | undefined;
 };
 
 /** What a drifted file says. `ChangedFiles`' wording, not a second one. */
@@ -129,6 +141,7 @@ export function UnifiedDiff({
   onCopied,
   under,
   onLine,
+  markOf,
   bare = false,
 }: UnifiedDiffProps) {
   const copy = useCallback(
@@ -203,6 +216,7 @@ export function UnifiedDiff({
                   data-kind={line.kind}
                   data-collides={line.collides === undefined ? undefined : ""}
                   data-diff-line={i}
+                  data-mark={markOf?.(file, i)}
                   key={i}
                 >
                   {onLine === undefined || line.kind === "hunk" ? null : (
@@ -211,7 +225,11 @@ export function UnifiedDiff({
                         type="button"
                         className="armada-diff__gutter"
                         aria-label={onLine.name?.(file, i) ?? onLine.label}
-                        onClick={() => onLine.press(file, i)}
+                        onClick={(event) =>
+                          onLine.press(file, i, {
+                            shift: event.shiftKey,
+                          })
+                        }
                       >
                         <MessageSquare size={12} strokeWidth={2} aria-hidden />
                       </button>

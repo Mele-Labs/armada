@@ -163,6 +163,12 @@ pub trait Acting: Send + Sync {
     fn suggest(&self, _arrival: &Arrival, _ruling: &Ruling) -> Acted<'_> {
         carried()
     }
+    /// `suggest`, but one that repeats a suggestion kept before, standing, skipped or done, is not kept
+    /// and says which it repeats: `Some` with the Log's reason.
+    fn suggest_once(&self, arrival: &Arrival, ruling: &Ruling) -> Done<'_, Result<Option<String>, String>> {
+        let kept = self.suggest(arrival, ruling);
+        Box::pin(async move { kept.await.map(|()| None) })
+    }
     /// Nothing live touches `session`: a Job held on its start card starts, as his press would.
     fn go_ahead(&self, session: &str) -> Acted<'_>;
     /// A live Job's plan covers `session`'s work, or `group` of its plan: the words go to `into`,
@@ -528,6 +534,7 @@ impl Operator {
             match self.act(&arrival, ruling).await {
                 Ok(Carried::Done) => {}
                 Ok(Carried::Proposed) => row_outcome = Some(Outcome::Proposed(ruling.way)),
+                Ok(Carried::Repeat(of)) => ruled = Ruled::Ruled(Ruling::alone(Way::Noted, of)),
                 Ok(Carried::Withheld) => row_outcome = Some(Outcome::ReadOnly),
                 Err(why) => ruled = Ruled::PassedOn(PassedOn::Undone(why)),
             }
@@ -552,7 +559,7 @@ impl Operator {
             // raise is already a row on his list. One he sent to a Job himself is moved as any ruling is,
             // and left where it is.
             OperatorPosition::Decide if arrival.arrived == Arrived::Note && !arrival.is_sent_note() && !matches!(ruling.way, Way::Raise | Way::Leave) => {
-                self.acting.suggest(arrival, ruling).await.map(|()| Carried::Proposed)
+                self.acting.suggest_once(arrival, ruling).await.map(Carried::kept)
             }
             OperatorPosition::Decide => self.acted(arrival, ruling).await.map(|()| Carried::Done),
             OperatorPosition::Suggest => match ruling.way {
@@ -560,7 +567,7 @@ impl Operator {
                 Way::Raise => self.acted(arrival, ruling).await.map(|()| Carried::Done),
                 // A start's own card is the press, and a recorded plan is already going ahead.
                 Way::NewJob if matches!(arrival.arrived, Arrived::Start | Arrived::Plan) => Ok(Carried::Proposed),
-                _ => self.acting.suggest(arrival, ruling).await.map(|()| Carried::Proposed),
+                _ => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
             },
         }
     }
@@ -614,6 +621,15 @@ enum Carried {
     Proposed,
     /// Its role stands at Read-only by now, so nothing was done.
     Withheld,
+    /// It repeated a suggestion kept before, so none was kept. Noted in the Log, saying which.
+    Repeat(String),
+}
+
+impl Carried {
+    /// A suggestion as it came out: kept to wait on a press, or a repeat that was not.
+    fn kept(repeat: Option<String>) -> Carried {
+        repeat.map_or(Carried::Proposed, Carried::Repeat)
+    }
 }
 
 /// The role a way falls to. **A link writes nothing and a red main has Autopilot's own switch**, so

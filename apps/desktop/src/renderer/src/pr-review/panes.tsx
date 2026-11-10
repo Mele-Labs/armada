@@ -1,14 +1,13 @@
 // The open pull request's area: its tabs in the panes a Job's are drawn in, of the pull requests' own family (`job-panes/store.ts`),
-// so a layout made here never moves a Job's. Overview, Files, Checks, Commits and Review are tabs; each tool and each explanation
+// so a layout made here never moves a Job's. Overview, Files, Review, Checks and Commits are tabs; each tool and each explanation
 // is a tab of its own, opened from + or by its number, and **runs when it is opened and has not run**, asking first as every act that
-// spends does. Comments lists the threads, and a press on one brings Files forward at its line.
+// spends does. Comments lists the threads, and a press on one brings Files forward at its line. Review reads one file at a time with
+// the findings beside their lines, runs the tools from its head and holds the submit bar (`review-tab-view.tsx`). Ask is his
+// questions and their answers, with the box he asks in.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { LoaderCircle, SquarePlus } from "lucide-react";
+import { SquarePlus } from "lucide-react";
 import {
-  Button,
-  Kbd,
-  PrMark,
   PrChecks,
   PrCommits,
   PullRequestFilesView,
@@ -35,15 +34,15 @@ import {
 import { patchesOf } from "../shared-panel/pull-request-patches";
 
 import { useSendFindings } from "./acts";
-import { CommentsView } from "./comments";
 import { CommentsPane, ThreadHere } from "./comments-pane";
-import { Chosen } from "./explain";
+import { AskView, Chosen } from "./explain";
 import { AddTool } from "./flight";
+import { GoToFile, ReviewTabView } from "./review-tab-view";
 import { HidesMark, SOURCE_MARK, TOOL_MARK } from "./marks";
 import type { ReviewPr, Thread, ToolDef } from "./model";
 import { indexOfPlace } from "./patch";
 import { Overview } from "./reader";
-import { KeptMark, ToolResults } from "./results";
+import { ToolResults } from "./results";
 import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 import { isWalk, tilesOf, toolsOf } from "./tools";
 import { WalkView } from "./walk";
@@ -52,10 +51,11 @@ import { WalkView } from "./walk";
 const OFFERED: readonly TabKind[] = [
   "pr-overview",
   "pr-files",
+  "pr-review",
   "pr-checks",
   "pr-commits",
-  "pr-review",
   "pr-comments",
+  "pr-ask",
 ];
 
 const WHOSE = {
@@ -75,10 +75,11 @@ const whenceOf = (tool: ToolDef): string => {
 const tabsOf = (arrangement: Arrangement): Tab[] =>
   panesOf(arrangement.root).flatMap((pane) => pane.tabs);
 
-/** Where a tool's tab opens: the pane that holds tools, else an empty one, as the tools pane is before any tool is opened. */
+/** Where a tool's tab opens: the pane that holds tools, else an empty one, else the one that holds Comments. */
 export const toolsPaneOf = (arrangement: Arrangement): Pane | undefined =>
   holderOf(arrangement, "pr-tool") ??
-  panesOf(arrangement.root).find((one) => one.tabs.length === 0);
+  panesOf(arrangement.root).find((one) => one.tabs.length === 0) ??
+  holderOf(arrangement, "pr-comments");
 
 /** A kind's tab comes to the front where one is open, else opens in `paneId`, or in the main pane, or by the arrival rule. */
 export function openKind(key: string, kind: TabKind, paneId?: string): void {
@@ -101,6 +102,19 @@ export function openToolTab(key: string, tool: ToolDef, paneId?: string): void {
   if (into !== undefined)
     return prPanes.look(key, (now) => addTab(now, into, "pr-tool", tool.name, tool.id));
   prPanes.rearrange(key, (now) => arrive(now, "pr-tool", tool.name, tool.id), undefined, true);
+}
+
+/** Explanations run from Review's head, by pull request, whose tabs open when their runs are done. */
+const dueToOpen = new Map<string, Set<string>>();
+
+export function openWhenDone(key: string, tool: ToolDef): void {
+  dueToOpen.set(
+    key,
+    new Set([
+      ...(dueToOpen.get(key) ?? []),
+      tool.id,
+    ]),
+  );
 }
 
 /**
@@ -305,66 +319,6 @@ function ToolBody({
   );
 }
 
-/** What a pull request's pane with no tab draws: every explanation and tool, as + lists them, and Add a tool under them. A row opens its tool's tab here. */
-function ToolList({
-  pr,
-  tools,
-  onPress,
-  onAdd,
-}: {
-  pr: ReviewPr;
-  tools: readonly ToolDef[];
-  onPress: (tool: ToolDef) => void;
-  onAdd: () => void;
-}) {
-  const work = useReviews().work[pr.key] ?? NO_WORK;
-  return (
-    <div className="job-pane__scroll pr-tool-list">
-      <ul className="pr-tool-list__rows" aria-label="Tools">
-        {tools.map((tool, at) => {
-          const run = tool.kind === "explanation" ? work.explains[tool.id] : work.runs[tool.id];
-          const { Glyph } = TOOL_MARK[tool.mark];
-          return (
-            <li key={tool.id}>
-              <button
-                type="button"
-                className="pr-tool-list__row"
-                data-tool={tool.mark}
-                aria-label={tool.name}
-                onClick={() => onPress(tool)}
-              >
-                <span className="pr-tool-list__glyph">
-                  <Glyph size={16} strokeWidth={2} aria-hidden />
-                </span>
-                <span className="pr-tool-list__name">{tool.name}</span>
-                <span className="pr-tool-list__hides">
-                  <HidesMark tool={tool} />
-                </span>
-                <span className="pr-tool-list__key">
-                  {at < 9 ? <Kbd aria-hidden="true">{at + 1}</Kbd> : null}
-                </span>
-                <span className="pr-tool-list__mark">
-                  {run?.state === "running" ? (
-                    <PrMark Glyph={LoaderCircle} said="Running" tone="running" />
-                  ) : (
-                    <KeptMark run={run} head={pr.head} />
-                  )}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="pr-tool-list__add">
-        <Button variant="ghost" size="sm" onClick={onAdd}>
-          <SquarePlus size={16} strokeWidth={2} aria-hidden />
-          Add a tool
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 /** The pull request's panes. `controls` is where its Layout control stands, in the reader's head. */
 export function PrPanes({
   pr,
@@ -414,6 +368,21 @@ export function PrPanes({
     };
     window.addEventListener("keydown", down);
     return () => window.removeEventListener("keydown", down);
+  });
+
+  // An explanation run from Review's head opens its tab once it is done; one that failed shows so on its button.
+  useEffect(() => {
+    const due = dueToOpen.get(pr.key);
+    if (due === undefined) return;
+    for (const id of [
+      ...due,
+    ]) {
+      const run = work.explains[id];
+      if (run === undefined || run.state === "idle" || run.state === "running") continue;
+      due.delete(id);
+      const tool = tools.find((one) => one.id === id);
+      if (run.state === "done" && tool !== undefined) openToolTab(pr.key, tool);
+    }
   });
 
   const go = (thread: Thread) => {
@@ -511,11 +480,9 @@ export function PrPanes({
           </div>
         );
       case "pr-review":
-        return (
-          <div className="job-pane__scroll">
-            <CommentsView pr={pr} send={send} />
-          </div>
-        );
+        return <ReviewTabView pr={pr} send={send} />;
+      case "pr-ask":
+        return <AskView pr={pr} />;
       case "pr-comments":
         return (
           <div className="job-pane__scroll">
@@ -540,14 +507,6 @@ export function PrPanes({
           entries,
           onSelect: choose,
         }}
-        empty={(pane) => (
-          <ToolList
-            pr={pr}
-            tools={tools}
-            onPress={(tool) => press(tool, pane.id)}
-            onAdd={() => setAdding(true)}
-          />
-        )}
         glyphOf={(tab) => {
           if (tab.kind !== "pr-tool") return undefined;
           const tool = tools.find((one) => one.id === tab.page);
@@ -555,6 +514,16 @@ export function PrPanes({
         }}
       />
       <AddTool open={adding} pr={pr} onClose={() => setAdding(false)} />
+      <GoToFile
+        pr={pr}
+        onFiles={(path) => {
+          setJump({
+            path,
+            thread: "",
+          });
+          openKind(pr.key, "pr-files");
+        }}
+      />
     </>
   );
 }

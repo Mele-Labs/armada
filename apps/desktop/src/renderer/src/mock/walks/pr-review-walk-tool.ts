@@ -44,8 +44,8 @@ const fromThePullRequest: Step[] = [
     say: "A pull request with a preview deployed",
   },
   {
-    press: inside(inside(reader(1907), region("Empty pane")), button("Add tab")),
-    say: "The tools pane's + lists the tools",
+    press: inside(inside(reader(1907), region("Pane: Comments")), button("Add tab")),
+    say: "The + of the pane on the right lists the tools",
   },
   {
     look: pick("Walk"),

@@ -26,6 +26,7 @@ import {
   ListChecks,
   MessageSquare,
   MessageSquareText,
+  MessagesSquare,
   NotebookPen,
   PanelTop,
   Scale,
@@ -185,6 +186,10 @@ export const KINDS: Readonly<
   "pr-comments": {
     label: "Comments",
     Glyph: MessageSquare,
+  },
+  "pr-ask": {
+    label: "Ask",
+    Glyph: MessagesSquare,
   },
   "op-talk": {
     label: "Discussion",
