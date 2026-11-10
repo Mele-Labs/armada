@@ -878,13 +878,20 @@ test("a file read after the lists name a newer commit, before the page does, dro
   ]);
 });
 
-test("Submit posts the drafts as one review: a reply, a line, a file, and the commit he read", async () => {
+test("Submit posts the drafts as one review: a reply, a line, a range, a file, and the commit he read", async () => {
   const { store, calls, key } = await opened();
   store.addDraft(key, {
     path: "a.rs",
     line: 12,
     side: "right",
     body: "Take the lock after the call",
+  });
+  store.addDraft(key, {
+    path: "a.rs",
+    line: 20,
+    startLine: 17,
+    side: "right",
+    body: "These four lines are one call",
   });
   store.addDraft(key, {
     path: "a.rs",
@@ -920,6 +927,14 @@ test("Submit posts the drafts as one review: a reply, a line, a file, and the co
         {
           kind: "line",
           path: "a.rs",
+          line: 20,
+          side: "right",
+          body: "These four lines are one call",
+          start_line: 17,
+        },
+        {
+          kind: "line",
+          path: "a.rs",
           line: 4,
           side: "left",
           body: "This went",
@@ -947,7 +962,7 @@ test("Submit posts the drafts as one review: a reply, a line, a file, and the co
   ).toEqual([
     [
       "request_changes",
-      4,
+      5,
     ],
   ]);
   expect(work.submitting).toBe(false);

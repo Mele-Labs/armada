@@ -17,6 +17,7 @@ import {
   sendsOn,
 } from "@armada/components";
 
+import { rangeOfDraft } from "./changes";
 import type { Draft, Finding, Thread, ToolMark } from "./model";
 import { ArmadaMark, SeverityMark, TOOL_MARK } from "./marks";
 
@@ -98,11 +99,13 @@ export function LineComposer({
 // ---- His words, not yet posted ---------------------------------------------------------------------------
 
 export function DraftCard({ draft, onRemove }: { draft: Draft; onRemove: () => void }) {
+  const range = rangeOfDraft(draft);
   return (
     <article className="pr-draft" aria-label="Pending comment" data-draft={draft.id} tabIndex={-1}>
       <header className="pr-card__head">
         <PrMark Glyph={SquareDashed} said="Pending, posted with the review" />
         <b className="pr-card__who">You</b>
+        {range === undefined ? null : <span className="pr-card__lines">{range}</span>}
         <span className="pr-card__act">
           <Tooltip label="Remove from the review">
             <Button

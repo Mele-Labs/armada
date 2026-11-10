@@ -93,7 +93,10 @@ export type Thread = PullReviewThread;
 export type Draft = {
   id: string;
   path: string;
+  /** The last line of a range, or the only line. */
   line?: number;
+  /** The first line of a range on `side`, before `line`. Absent is one line. */
+  startLine?: number;
   side?: DiffSide;
   body: string;
   thread?: string;

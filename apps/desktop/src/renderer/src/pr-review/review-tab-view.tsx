@@ -47,6 +47,7 @@ import {
   linesOfFinding,
   orderOf,
   pathOf,
+  placeOfPick,
   reviewTab,
   stopOf,
   stopsOf,
@@ -331,7 +332,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   };
   const addDraft = (body: string) => {
     if (pick === undefined || path === undefined) return;
-    const at = placeOfLine(lines, pick.to);
+    const at = placeOfPick(lines, pick);
     store.addDraft(pr.key, {
       path,
       ...(at === undefined
@@ -339,6 +340,11 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         : {
             line: at.line,
             side: at.side,
+          }),
+      ...(at?.startLine === undefined
+        ? {}
+        : {
+            startLine: at.startLine,
           }),
       body,
     });

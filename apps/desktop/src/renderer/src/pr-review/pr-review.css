@@ -322,6 +322,10 @@
   color: var(--fg-muted);
   font-size: var(--text-2xs);
 }
+.pr-card__lines {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .pr-card__act {
   display: inline-flex;
   margin-left: auto;

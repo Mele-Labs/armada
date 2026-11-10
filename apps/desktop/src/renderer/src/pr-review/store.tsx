@@ -764,6 +764,11 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
                 line: one.line,
                 side: one.side,
                 body: one.body,
+                ...(one.startLine !== undefined && one.startLine < one.line
+                  ? {
+                      start_line: one.startLine,
+                    }
+                  : {}),
               }
             : {
                 kind: "file",
