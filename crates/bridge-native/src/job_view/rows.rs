@@ -159,6 +159,21 @@ impl JobView {
     pub(super) fn render_entry(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let nothing = || div().h(gpui::px(0.)).into_any_element();
         let Some(id) = self.shown.clone() else { return nothing() };
+        // A picture his message carried is read the first time its row is drawn.
+        let wanted = match (self.pages.get(&id), self.thread(&id, cx)) {
+            (Some(page), Some(held)) => match ix.checked_sub(page.lead).and_then(|at| held.items.get(at)) {
+                Some(ThreadItem::Row { row: SessionRow::Message { files, .. } | SessionRow::Sent { files, .. } })
+                    if files.iter().any(super::pictures::is_picture) =>
+                {
+                    Some(files.clone())
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some(files) = wanted {
+            self.want_pictures(&id, &files, window, cx);
+        }
         let (Some(page), Some(held)) = (self.pages.get(&id), self.thread(&id, cx)) else { return nothing() };
         let look = cx.look();
         let working = self.working(&id, cx);
@@ -401,7 +416,7 @@ impl JobView {
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], None, true, false, false, None, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], None, true, false, false, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -480,6 +495,7 @@ impl JobView {
         page: &Page,
         id: &str,
         text: &str,
+        files: &[ipc::SentFile],
         chips: &[String],
         at: Option<&ipc::Instant>,
         sending: bool,
@@ -556,6 +572,19 @@ impl JobView {
                 ))
             })
             .children(at.map(|at| self.stamp(at, look, now, false, cx)));
+        // What the message was sent with, under its words inside the bubble (`Sent`): each picture drawn, the
+        // other files and the tags the words did not place as chips.
+        let sent = (!files.is_empty() || !chips.is_empty()).then(|| {
+            div()
+                .flex()
+                .flex_wrap()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .children(files.iter().map(|file| {
+                    self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(&file.name, look).into_any_element())
+                }))
+                .children(chips.iter().map(|chip| self.chip(chip, look).into_any_element()))
+        });
         let editing = editable.then(|| self.edit_box(id, look, cx)).flatten();
         let open = editing.is_some();
         let words = match editing {
@@ -603,20 +632,11 @@ impl JobView {
                                 .gap(look.length(token::SPACE_2))
                                 .when(open, |words| words.border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::FOCUS_RING)))
                                 .child(words)
-                                .children(debug),
+                                .children(debug)
+                                .children(sent),
                             Role::Group,
                             "Message words",
                         ))
-                        .when(!chips.is_empty(), |column| {
-                            column.child(
-                                div()
-                                    .flex()
-                                    .flex_wrap()
-                                    .justify_end()
-                                    .gap(look.length(token::SPACE_2))
-                                    .children(chips.iter().map(|chip| self.chip(chip, look))),
-                            )
-                        })
                         .child(band),
                 ),
             Role::Region,
@@ -722,10 +742,9 @@ impl JobView {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
-                let chips: Vec<String> =
-                    files.iter().map(|file| file.name.clone()).chain(tags.iter().map(|tag| tag.title.clone())).collect();
+                let chips: Vec<String> = tags.iter().map(|tag| tag.title.clone()).collect();
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, &chips, Some(at), false, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, &chips, Some(at), false, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {

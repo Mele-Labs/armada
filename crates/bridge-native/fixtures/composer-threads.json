@@ -3796,7 +3796,14 @@
       "from": {
        "kind": "you"
       },
-      "text": "Check that the docs index lists every page."
+      "text": "Check that the docs index lists every page.",
+      "files": [
+       {
+        "id": "pasted-1",
+        "name": "Pasted file.png",
+        "media_type": "image/png"
+       }
+      ]
      }
     },
     {

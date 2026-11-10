@@ -589,6 +589,10 @@ impl JobView {
             None => {
                 // Mock data: Fleet's row for these words arrives at once.
                 let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+                // His pictures are drawn from what he sent, as there is no Fleet to read them back from.
+                for one in files.iter().filter(|one| one.preview.is_some()) {
+                    self.sent_picture(&id, &format!("file-{}", one.key), &one.media_type, &one.bytes, cx);
+                }
                 if let Some(held) = self.mock.get_mut(id.as_str()) {
                     held.items.push(ThreadItem::Row {
                         row: SessionRow::Message {

@@ -134,9 +134,8 @@ impl JobView {
                 .into_any_element()
             }
             SessionRow::Sent { id, at, text, target, files, tags } => {
-                let chips: Vec<String> =
-                    files.iter().map(|file| file.name.clone()).chain(tags.iter().map(|tag| tag.title.clone())).collect();
-                let you = self.you(ix, page, id, text, &chips, Some(at), false, false, false, None, look, now, cx);
+                let chips: Vec<String> = tags.iter().map(|tag| tag.title.clone()).collect();
+                let you = self.you(ix, page, id, text, files, &chips, Some(at), false, false, false, None, look, now, cx);
                 let chip = div()
                     .flex()
                     .items_center()

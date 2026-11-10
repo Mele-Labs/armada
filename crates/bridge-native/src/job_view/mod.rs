@@ -30,6 +30,7 @@ mod lines;
 mod menus;
 mod offer;
 mod perm;
+mod pictures;
 mod pinned;
 mod plan;
 mod plan_edit;
@@ -262,6 +263,8 @@ pub struct JobView {
     /// The review sheet's focus stops, and where its rows were drawn.
     review_focus: review::Focuses,
     review_rows: review::Rows,
+    /// The pictures his messages carried, and the one open over the window.
+    pictures: pictures::Pictures,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -352,6 +355,7 @@ impl JobView {
             confirm_stops: [cx.focus_handle(), cx.focus_handle()],
             review_focus: review::Focuses::new(cx),
             review_rows: Rc::new(RefCell::new(HashMap::new())),
+            pictures: pictures::Pictures::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -752,6 +756,7 @@ impl Render for JobView {
             .children(self.render_review(&id, window, cx))
             .children(self.render_report(window, cx))
             .children(self.render_sketch(window, cx))
+            .children(self.render_picture(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

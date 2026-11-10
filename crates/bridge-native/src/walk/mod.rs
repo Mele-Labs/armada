@@ -639,6 +639,21 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "pictures",
+        title: "A picture he sent, in his bubble",
+        screen: Screen::Jobs,
+        scenario: "job-view-composer",
+        steps: &[
+            step("A Job whose first message carried a picture: it is read from Fleet and drawn under the words", Verb::Press, "row", "Audit the docs index"),
+            step("Inside the bubble, at most 192 by 144, keeping its shape", Verb::Fits("group", "Message words"), "button", "Pasted file.png"),
+            step("A press opens it over the window", Verb::Press, "button", "Pasted file.png"),
+            step("Fitted to the window, never larger than it is", Verb::Look, "dialog", "Pasted file.png"),
+            step("Esc shuts it, and the keys go back to the picture", Verb::Key("escape"), "button", "Pasted file.png"),
+            step("Enter opens it again from the keys", Verb::Key("enter"), "dialog", "Pasted file.png"),
+            step("Close shuts it too", Verb::Gone, "button", "Close"),
+        ],
+    },
+    Walk {
         name: "needs-plan",
         title: "Needs you lists the plan waiting on him",
         screen: Screen::Jobs,
