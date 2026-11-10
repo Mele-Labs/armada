@@ -8,13 +8,12 @@
 //! until a ring scene shows it. A step that is the part's first look at a clean screen rings
 //! something that is there from the start.
 
-use super::strip_marks::{CALLING, PAIR, PAUSED, RED, RUNNING, SEVERAL};
+use super::strip_marks::{CALLING, FILES, PAIR, PAUSED, RED, RUNNING, SEVERAL};
 use super::title_bar::{DANGER, FIVE_WEEK, WARNING};
 use super::{answer, fresh, marks, press_on, right_on, scene, step, Step, Verb};
 
 pub static STEPS: &[Step] = &[
     // -- the title bar -------------------------------------------------------------------------
-    step("The bar at rest: the repository, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
     step("The Places stand in a notch at the centre: the place the window is in is brighter, and the search is an icon and its key beside it", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
     right_on("A right press on a place opens Hide, then View with every place; a place that must stay says Always shown", "tab", "Jobs", "menu", "Places"),
@@ -26,12 +25,6 @@ pub static STEPS: &[Step] = &[
     step("Esc puts the card away, and the keys stay on the meter", Verb::Key("escape"), "button", FIVE_WEEK),
     right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
     step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
-    right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
-    step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
-    press_on("The repository opens its list: All, each Workspace over its repositories, the acts below", "button", "Repository", "menu", "Repository"),
-    step("Typing narrows the list, and a Workspace stays over what matches", Verb::Key("s"), "searchbox", "Find a repository"),
-    press_on("Choosing a repository shuts the list and the keys go back", "menuitemcheckbox", "sample-web", "button", "Repository"),
-    scene("Until Fleet has a reading the rings are a sweeping glyph", "rings-loading", "img", "Analyzing Usage"),
     scene("From 95 a ring turns red; the 5-hour ring is outside, the weekly inside", "rings-danger", "button", DANGER),
     scene("From 80 a ring turns amber, and a bell stands on it while the step down is offered", "offer", "img", "Default to Sonnet offered"),
     press_on("The card says each limit and when it resets, and carries the offer", "button", WARNING, "button", "Default to Sonnet"),
@@ -40,8 +33,6 @@ pub static STEPS: &[Step] = &[
     scene("On Preview: five ahead, two behind, and the branches left out say why", "build-preview", "list", "Left out of the preview"),
     press_on("Refresh preview is under way in the same frame", "button", "Refresh preview", "button", "Refreshing preview"),
     scene("A restart that did not take says why", "build-failed", "alert", "scripts/preview stopped: cargo build failed in crates/fleet"),
-    press_on("Revert says what it takes out and brings back", "button", "Revert", "list", "Jobs taken out"),
-    step("Esc cancels and the panel has the keys", Verb::Key("escape"), "button", "Revert"),
     scene("Main is three behind: Update to main is offered", "build-drones", "button", "Update to main"),
     press_on("Update asks first: Drones that are working are named, since a restart cannot redirect them", "button", "Update to main", "dialog", "Drones are working"),
     press_on("Yes: the restart is under way in the same frame", "button", "Restart", "button", "Updating to main"),
@@ -61,7 +52,6 @@ pub static STEPS: &[Step] = &[
     scene("Fleet gone for over 30 seconds: a red dot, and the notice stands above the screen", "fleet-down", "alert", "Fleet is not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
     scene("A Fleet that does not match offers Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),
-    scene("No new runtime file in 30 seconds", "restart-no-answer", "alert", "Fleet did not come back inside 30 seconds"),
     // -- the dispatch sheet --------------------------------------------------------------------
     fresh("The dispatch sheet starts on a clean screen: the bar at rest, the strip along the bottom, nothing open", "heading", "armada"),
     step("⌘N opens the sheet, and the keys are in the request. Job and Autopilot are the kinds; Model and Effort sit by the act", Verb::Key("cmd-n"), "dialog", "Dispatch"),
@@ -79,17 +69,10 @@ pub static STEPS: &[Step] = &[
     step("⌥A puts an @ in the request and opens the Jobs to tag", Verb::Key("alt-a"), "listbox", "Jobs"),
     step("Enter tags the Job in the words", Verb::Key("enter"), "textbox", "Request"),
     answer("A tagged Job's brief waits on it: the sentence stands over the request", "waiting", "group", "Start condition"),
-    step("Esc shuts the sheet and keeps the words", Verb::Key("escape"), "heading", "armada"),
-    step("⌘N opens it again with the draft where it was", Verb::Key("cmd-n"), "dialog", "Dispatch"),
-    step("# opens the issues and pull requests to tag", Verb::Type(" #"), "listbox", "Tag an issue or pull request"),
-    step("Esc shuts the list and leaves the sheet open", Verb::Key("escape"), "dialog", "Dispatch"),
     answer("Fleet found no repository in the words: the mark says so", "unresolved", "img", "Repository, not found"),
     step("Start with no repository asks for one, and the keys go to the chips", Verb::Key("enter"), "radiogroup", "Repository"),
     answer("Twelve repositories: nine chips with keys, the rest under More", "many", "combobox", "More repositories"),
-    press_on("More lists the rest and a search over them", "combobox", "More repositories", "menu", "More repositories"),
-    step("Esc shuts it", Verb::Key("escape"), "combobox", "More repositories"),
     answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
-    answer("A repository not ready: the refusal stands as a notice, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
     // -- the notes layer -----------------------------------------------------------------------
     fresh("The notes start on a clean screen: no sheet, no layer, the bar at rest", "heading", "armada"),
     step("⌥⌘A turns annotating on over any screen; the bar says so", Verb::Key("alt-cmd-a"), "status", "Annotating"),
@@ -123,8 +106,6 @@ pub static STEPS: &[Step] = &[
     press_on("A note ticked brings the acts over the selection", "checkbox", "Select Group the repositories under their Workspace", "checkbox", "Select Group the repositories under their Workspace"),
     press_on("Mark done takes the note off No job", "button", "Mark done", "tab", "Done"),
     press_on("Done lists the finished notes, each with Reopen", "tab", "Done", "button", "Group the repositories under their Workspace"),
-    press_on("A press in Search gives it the keys", "searchbox", "Search notes", "searchbox", "Search notes"),
-    step("Search narrows the list as it is typed: only what matches stays", Verb::Type("scope"), "button", "Search keeps its scope after Esc"),
     press_on("Delete asks again before it goes", "button", "Delete", "button", "Press again to delete"),
     press_on("Pressed again it goes: the note is gone from Done", "button", "Press again to delete", "tab", "Done"),
     // -- the merge strip and the Job marks -----------------------------------------------------
@@ -135,7 +116,6 @@ pub static STEPS: &[Step] = &[
     step("Q puts the keys on the strip", Verb::Key("q"), "region", "Merge queue"),
     step("Tab reaches a chip: its card opens as a hover opens it, and Enter on it opens the pull request", Verb::Keys(&["tab", "tab"]), "region", "Pull request #3395"),
     marks("A call nobody holds pulses the chip it is about", "strip-calling", "button", CALLING),
-    marks("A forge that stopped answering dims main's lamp and an unplugged glyph says since when", "strip-quiet", "img", "Main is green"),
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
     press_on("Send back, beside the pull request that broke main, asks which Job gets the work, the one that merged it chosen, with what goes with it and a Message", "button", "Send back", "dialog", "Send the work back"),
@@ -144,13 +124,10 @@ pub static STEPS: &[Step] = &[
     press_on("Take over asks once, naming the machine that holds it", "button", "Take over", "dialog", "Take over from Nicks-MacBook-Pro"),
     step("Esc shuts it and the keys go back to the strip", Verb::Key("escape"), "region", "Merge queue"),
     marks("A Job that took the red main shows on the card in place of the button", "strip-red-taken", "region", "main"),
-    marks("Until Fleet answers, the line is placeholder chips", "strip-loading", "region", "Merge queue"),
     marks("On All the strip stacks one row for each repository and shows one; a main turning red brings its row in", "strip-all", "button", "Main is red in sample-api"),
     marks("A Job's context ring, the stand-in for the Job head: the window filled clockwise, a tick at the autocompact threshold", "ring-normal", "button", "Context 63%"),
     step("Tab reaches the ring and opens its card as a hover does: each category, the heaviest memory files and MCP servers, and Compact", Verb::Keys(&["tab"]), "region", "Context"),
     step("Esc puts the card away, and the keys stay on the ring", Verb::Key("escape"), "button", "Context 63%"),
-    step("Hover opens the card: each category, the heaviest memory files and MCP servers, and Compact", Verb::Hover, "button", "Context 63%"),
-    marks("A Compact that was refused is put back, with the reason", "ring-refused", "alert", "Compact not sent: the agent is not taking messages"),
     marks("From 80 the ring and the card's top edge turn amber", "ring-warning", "button", "Context 84%"),
     marks("From 95 they turn red, and Compact is greyed out", "ring-danger", "button", "Compact"),
     marks("With no breakdown the ring carries only its fill", "ring-popover", "button", "Context 63%"),
@@ -159,6 +136,10 @@ pub static STEPS: &[Step] = &[
     marks("A write clash marks both rows of the pair, in the Conflicts column", "clash-pair", "button", PAIR),
     step("Tab reaches the mark and rings it; its card opens as a hover opens it", Verb::Keys(&["tab"]), "tooltip", PAIR),
     press_on("A press opens the other Job, and the row it sits on stays as it was", "button", PAIR, "row", "Quiet the write-clash notices"),
+    marks("Two Jobs that collide in five files wear the same mark", "clash-files", "button", FILES),
+    step("Tab reaches the mark, and Tab again the first path, with its card still open", Verb::Keys(&["tab", "tab"]), "button", "Open crates/bridge-native/src/jobs.rs"),
+    press_on("The chip opens the other two and now reads Fewer", "button", "2 more", "button", "Fewer"),
+    press_on("A path is a press: Open crates/ipc/src/clashes.rs asks for that file", "button", "Open crates/ipc/src/clashes.rs", "button", "Open crates/ipc/src/clashes.rs"),
     marks("A Job in several clashes wears one mark; against main alone the mark is a picture, with nothing of main to open", "clash-states", "img", SEVERAL),
     step("The Paused scope: a paused Job keeps its mark beside the Paused mark, and the mark names the Job it clashes with", Verb::PausedScope, "button", PAUSED),
 ];

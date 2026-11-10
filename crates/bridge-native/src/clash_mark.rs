@@ -322,12 +322,14 @@ fn one_card(one: &Conflict, key: &str, first: &FocusHandle, look: &Look) -> gpui
 /// Several clashes on one mark: a heading, then each other holder with its files.
 fn many_card(conflicts: &[Conflict], key: &str, look: &Look) -> gpui::Div {
     card_of(look).child(small(look).text_color(look.color(token::FG_MUTED)).child("Conflicts with")).children(conflicts.iter().map(|one| {
-        div().flex().flex_col().gap(look.length(token::SPACE_1)).child(one.with.label.clone()).child(ClashPaths {
-            id: format!("{key}:{}", one.with.id).into(),
-            label: one.with.label.clone().into(),
-            paths: one.paths.clone(),
-            first: None,
-        })
+        div().flex().flex_col().gap(look.length(token::SPACE_1)).pb(look.length(token::SPACE_1)).child(one.with.label.clone()).child(
+            div().pl(look.length(token::SPACE_3)).child(ClashPaths {
+                id: format!("{key}:{}", one.with.id).into(),
+                label: one.with.label.clone().into(),
+                paths: one.paths.clone(),
+                first: None,
+            }),
+        )
     }))
 }
 
