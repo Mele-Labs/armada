@@ -1,5 +1,5 @@
 //! A tracker's own status taught as one Ticket state from the menu on a ticket: written to the Ticket
-//! Kit keeps for the repository's Workspace, taken off any other state, put in the copy of every live
+//! Kit keeps for the repository's Project, taken off any other state, put in the copy of every live
 //! Job there, and read again at once. `crate::piece_saving::teaching`.
 
 use std::path::{Path, PathBuf};
@@ -28,10 +28,11 @@ fn kit(rig: &Rig, folder: &str) -> PathBuf {
     PathBuf::from(&rig.fleet.host().kit_home).join(folder)
 }
 
-/// A Workspace in Kit, `my-store`, holding the rig's repository.
-fn in_a_workspace(rig: &Rig) {
-    let text = format!("version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - {}\n", rig.manifest.as_str());
-    plant(&kit(rig, "workspaces").join("my-store.yml"), &text);
+/// A Project in Kit, `my-store`, holding the rig's repository, read.
+async fn in_a_project(rig: &Rig) {
+    let text = crate::tests::projects_kept::text("my-store", "My store", &[rig.manifest.as_str()]);
+    plant(&kit(rig, "projects").join("my-store.yml"), &text);
+    rig.fleet.projects_reload().await;
 }
 
 fn teaching(rig: &Rig, state: &str) -> TeachTicketWord {
@@ -65,16 +66,16 @@ async fn ticket_moves(rig: &Rig, job: &SessionId) -> Vec<(String, String, String
 }
 
 #[tokio::test]
-async fn teaching_a_status_writes_it_on_the_state_in_the_ticket_kit_keeps_for_the_workspace() {
+async fn teaching_a_status_writes_it_on_the_state_in_the_ticket_kit_keeps_for_the_project() {
     let rig = rig_placing(None);
-    in_a_workspace(&rig);
+    in_a_project(&rig).await;
     assert!(matches!(ticket_of(&rig).standing_of(&Observed::Tracker(WORD)), Standing::Unmapped(_)), "unmapped before");
 
     let taught = rig.fleet.ticket_word_taught(teaching(&rig, "in_review")).await.expect("taught");
 
-    assert_eq!(taught.saved.scope, PieceScope::Within { id: "my-store".to_string() }, "the Workspace's, not the repository's");
+    assert_eq!(taught.saved.scope, PieceScope::Within { id: "my-store".to_string() }, "the Project's, not the repository's");
     assert!(taught.saved.file.starts_with(&kit(&rig, "lifecycles").display().to_string()), "{}", taught.saved.file);
-    assert!(!taught.saved.replaced, "Kit held no Ticket for the Workspace");
+    assert!(!taught.saved.replaced, "Kit held no Ticket for the Project");
     assert_eq!(ticket_of(&rig).standing_of(&Observed::Tracker(WORD)), Standing::In(state("in_review")));
     assert_eq!(
         ticket_of(&rig).standing_of(&Observed::Tracker("closed")),
@@ -86,7 +87,7 @@ async fn teaching_a_status_writes_it_on_the_state_in_the_ticket_kit_keeps_for_th
 #[tokio::test]
 async fn teaching_a_status_takes_it_off_the_state_that_listed_it() {
     let rig = rig_placing(None);
-    in_a_workspace(&rig);
+    in_a_project(&rig).await;
     let file = kit(&rig, "lifecycles").join("tickets.yml");
     plant(
         &file,
@@ -98,7 +99,7 @@ async fn teaching_a_status_takes_it_off_the_state_that_listed_it() {
 
     let taught = rig.fleet.ticket_word_taught(teaching(&rig, "in_review")).await.expect("taught");
 
-    assert!(taught.saved.replaced, "Kit's own file for the Workspace is the one edited");
+    assert!(taught.saved.replaced, "Kit's own file for the Project is the one edited");
     assert_eq!(taught.saved.file, file.display().to_string());
     let ticket = ticket_of(&rig);
     assert_eq!(ticket.standing_of(&Observed::Tracker(WORD)), Standing::In(state("in_review")));
@@ -109,7 +110,7 @@ async fn teaching_a_status_takes_it_off_the_state_that_listed_it() {
 #[tokio::test]
 async fn teaching_a_state_the_ticket_lacks_or_a_blank_word_writes_nothing() {
     let rig = rig_placing(None);
-    in_a_workspace(&rig);
+    in_a_project(&rig).await;
 
     let unknown = rig.fleet.ticket_word_taught(teaching(&rig, "shipped")).await.expect_err("refused");
     let mut blank = teaching(&rig, "in_review");
@@ -132,7 +133,7 @@ async fn teaching_a_state_the_ticket_lacks_or_a_blank_word_writes_nothing() {
 #[tokio::test]
 async fn a_live_jobs_copy_takes_the_word_and_its_unmapped_ticket_reads_in_review_at_once() {
     let rig = rig_placing(None);
-    in_a_workspace(&rig);
+    in_a_project(&rig).await;
     let job = rig.start().await;
     let at = rig.fleet.now().as_str().to_string();
     rig.fleet.store().lock().await.take_on_lifecycle_instance(job.as_str(), "ticket", "ARM-41", &[], &at).expect("taken on");
@@ -157,11 +158,11 @@ async fn a_live_jobs_copy_takes_the_word_and_its_unmapped_ticket_reads_in_review
 }
 
 #[tokio::test]
-async fn a_job_in_a_repository_outside_the_workspace_keeps_its_ticket_as_it_was() {
+async fn a_job_in_a_repository_outside_the_project_keeps_its_ticket_as_it_was() {
     let rig = rig_placing(None);
     let home = TempDir::new();
     let second = a_second_repository(&rig.fleet, &home);
-    in_a_workspace(&rig);
+    in_a_project(&rig).await;
     let outside = Arc::clone(&rig.fleet)
         .start_session(ipc::StartSession {
             manifest_id: second.clone(),

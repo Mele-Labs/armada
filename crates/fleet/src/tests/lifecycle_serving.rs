@@ -61,9 +61,10 @@ fn ticket(scope: Option<&str>, word: &str) -> String {
     )
 }
 
-fn my_store(holding: &[&Served]) -> String {
-    let listed: String = holding.iter().map(|one| format!("  - {}\n", one.manifest().id().as_str())).collect();
-    format!("version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n{listed}")
+/// `my-store` kept in Kit and read, holding `holding`.
+async fn my_store(fleet: &Fixture, home: &TempDir, holding: &[&Served]) {
+    let ids: Vec<&str> = holding.iter().map(|one| one.manifest().id().as_str()).collect();
+    crate::tests::projects_kept::planted(fleet, home, "my-store", "My store", &ids).await;
 }
 
 fn moves_tickets(scope: Option<&str>, to: &str, autonomy: Option<&str>) -> String {
@@ -75,67 +76,63 @@ fn moves_tickets(scope: Option<&str>, to: &str, autonomy: Option<&str>) -> Strin
 }
 
 #[tokio::test]
-async fn a_member_is_told_the_workspace_and_the_repository_it_is_read_from() {
+async fn a_member_is_told_the_project_that_holds_it_and_where_it_is_kept() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (web, api, back_office) = (first(&fleet), another(&fleet, &home, "store-api"), another(&fleet, &home, "back-office"));
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
+    my_store(&fleet, &home, &[&web, &api]).await;
 
     let seen = fleet.list_repository_workspaces(named(&api)).await.expect("read");
     assert_eq!(seen.manifest_id, wire_id(&api));
     let [store] = seen.workspaces.as_slice() else { panic!("one: {:?}", seen.workspaces) };
-    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "repository"));
+    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "kit"));
     assert_eq!(store.repositories, [wire_id(&web), wire_id(&api)], "in the order the file lists them");
-    assert_eq!(store.home, Some(wire_id(&web)), "the member reads it from the repository that commits it");
+    assert_eq!(store.home, None, "a project is kept in no repository");
     assert!(store.path.ends_with("my-store.yml") && store.overridden_by.is_none() && store.hides.is_none());
 
     let outside = fleet.list_repository_workspaces(named(&back_office)).await.expect("read");
     assert!(outside.workspaces.is_empty(), "{:?}", outside.workspaces);
     let at_home = fleet.list_repository_workspaces(named(&web)).await.expect("read");
     assert_eq!(at_home.workspaces.len(), 1);
-    assert_eq!(at_home.workspaces[0].home, Some(wire_id(&web)));
+    assert_eq!(at_home.workspaces[0].home, None);
 }
 
 #[tokio::test]
-async fn yours_in_kit_runs_over_the_repositorys_workspace_and_a_broken_file_is_named_with_its_sentence() {
+async fn two_files_of_one_project_are_both_left_out_and_a_broken_one_is_named_with_its_sentence() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
-    write(kit(&home, "workspaces", "my-store.yml"), &my_store(&[&web]));
-    write(kit(&home, "workspaces", "broken.yml"), "not: a workspace\n");
+    my_store(&fleet, &home, &[&web, &api]).await;
+    write(kit(&home, "projects", "copy.yml"), &crate::tests::projects_kept::text("my-store", "My store", &[web.manifest().id().as_str()]));
+    write(kit(&home, "projects", "broken.yml"), "not: a project\n");
+    fleet.projects_reload().await;
 
     let seen = fleet.list_repository_workspaces(named(&web)).await.expect("read");
-    let (mine, theirs) = {
-        let by = |source: &str| seen.workspaces.iter().find(|one| one.source == source).unwrap_or_else(|| panic!("no {source}: {:?}", seen.workspaces));
-        (by("kit"), by("repository"))
-    };
-    assert_eq!(seen.workspaces.len(), 2);
-    assert_eq!((mine.home.as_ref(), mine.overridden_by.as_deref(), mine.hides.as_deref()), (None, None, Some("repository")));
-    assert_eq!(theirs.home, Some(wire_id(&web)));
-    assert_eq!(theirs.overridden_by.as_deref(), Some("kit"));
-
-    let [left] = seen.left_out.as_slice() else { panic!("one set aside: {:?}", seen.left_out) };
-    assert!(left.source == "kit" && left.path.ends_with("broken.yml") && !left.said.is_empty(), "{left:?}");
+    assert!(seen.workspaces.is_empty(), "neither is guessed to be the one: {:?}", seen.workspaces);
+    let mut left: Vec<&str> = seen.left_out.iter().map(|one| one.path.rsplit('/').next().unwrap_or_default()).collect();
+    left.sort_unstable();
+    assert_eq!(left, ["broken.yml", "copy.yml", "my-store.yml"]);
+    assert!(seen.left_out.iter().all(|one| one.source == "kit" && !one.said.is_empty()), "{:?}", seen.left_out);
 }
 
 #[tokio::test]
-async fn every_workspace_is_listed_once_whichever_repository_holds_it_and_a_broken_file_is_named() {
+async fn every_project_is_listed_once_whichever_place_keeps_it_and_a_broken_file_is_named() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
-    write(kit(&home, "workspaces", "back-office.yml"), &format!("version: 1\nworkspace_id: back-office\nname: Back office\nrepositories:\n  - {}\n", api.manifest().id().as_str()));
-    write(kit(&home, "workspaces", "broken.yml"), "not: a workspace\n");
+    my_store(&fleet, &home, &[&web, &api]).await;
+    crate::tests::projects_kept::planted(&fleet, &home, "back-office", "Back office", &[api.manifest().id().as_str()]).await;
+    write(kit(&home, "projects", "broken.yml"), "not: a project\n");
+    fleet.projects_reload().await;
 
     let seen = fleet.list_workspaces().await.expect("read");
     let [office, store] = seen.workspaces.as_slice() else { panic!("two, by name: {:?}", seen.workspaces) };
     assert_eq!((office.id.as_str(), office.name.as_str(), office.source.as_str()), ("back-office", "Back office", "kit"));
     assert_eq!((office.home.as_ref(), office.overridden_by.as_deref(), office.hides.as_deref()), (None, None, None));
     assert!(office.path.ends_with("back-office.yml"), "{}", office.path);
-    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "repository"));
+    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "kit"));
     assert_eq!(store.repositories, [wire_id(&web), wire_id(&api)]);
-    assert_eq!(store.home, Some(wire_id(&web)), "the repository that commits it");
+    assert_eq!(store.home, None);
     assert!(store.path.ends_with("my-store.yml"), "{}", store.path);
 
     let [left] = seen.left_out.as_slice() else { panic!("one set aside: {:?}", seen.left_out) };
@@ -175,15 +172,15 @@ async fn the_lifecycles_that_apply_say_where_each_was_kept_and_which_one_runs() 
 }
 
 #[tokio::test]
-async fn a_lifecycle_scoped_to_a_workspace_says_so_and_a_member_reads_it_from_the_home() {
+async fn a_lifecycle_scoped_to_a_project_says_so_and_a_member_reads_it_from_a_fellow_member() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
+    my_store(&fleet, &home, &[&web, &api]).await;
     write(armada(web.root(), "lifecycles", "shared.yml"), &ticket(Some("my-store"), "Shared"));
 
     let read = fleet.list_lifecycles(named(&api)).await.expect("read");
-    let shared = read.lifecycles.iter().find(|one| one.kept.rank.home).expect("listed as the home's");
+    let shared = read.lifecycles.iter().find(|one| one.kept.rank.home).expect("listed as a fellow member's");
     assert_eq!(shared.lifecycle.scope, ipc::PieceScope::Within { id: "my-store".to_string() });
     assert_eq!(shared.kept.rank.reach, "workspace");
     assert!(shared.kept.path.as_deref().is_some_and(|path| path.starts_with(web.root())));
@@ -280,7 +277,7 @@ async fn the_autonomy_defaults_are_served_layer_by_layer_with_where_each_was_kep
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (web, api, back_office) = (first(&fleet), another(&fleet, &home, "store-api"), another(&fleet, &home, "back-office"));
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&web, &api]));
+    my_store(&fleet, &home, &[&web, &api]).await;
     let (store_scope, web_scope) = (PieceScope::Within { id: "my-store".to_string() }, PieceScope::Within { id: web.manifest().id().as_str().to_string() });
     saved_layer(&fleet, "base", PieceScope::Everywhere, &[("tracker_write", "acts"), ("run_command", "off")]).await;
     saved_layer(&fleet, "store", store_scope, &[("forge_write", "asks")]).await;

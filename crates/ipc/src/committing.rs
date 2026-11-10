@@ -26,7 +26,7 @@ pub struct CommitToRepository {
     pub overwrite: bool,
     /// Take the piece out of the repository instead of copying it in: the file on the base branch
     /// that declares it is deleted by the same kind of Job, with a pull request. Only the
-    /// Workspace, lifecycle, rule and autonomy kinds can be removed.
+    /// lifecycle, rule and autonomy kinds can be removed.
     #[serde(default)]
     pub remove: bool,
 }
@@ -73,9 +73,6 @@ pub enum PieceToCommit {
         #[serde(default = "everywhere")]
         scope: PieceScope,
     },
-    /// A Workspace (a set of repositories) from Kit's `~/.armada/workspaces/`, copied into
-    /// `.armada/workspaces/`. Its id is its identity, so it has no scope.
-    Workspace { id: String },
     /// A layer of autonomy defaults from Kit's `~/.armada/autonomy/`, copied into
     /// `.armada/autonomy/`.
     Autonomy {

@@ -122,28 +122,28 @@ async fn post(app: &Router, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
     (status, bytes.to_vec())
 }
 
-fn workspace_to_save(id: &str) -> String {
-    format!(r#"{{"piece":{{"kind":"workspace","workspace":{{"id":"{id}","name":"My store","repositories":["01ABC"]}}}}}}"#)
+fn piece_to_save(id: &str) -> String {
+    format!(r#"{{"piece":{{"kind":"autonomy","autonomy":{{"id":"{id}","defaults":{{"forge_write":"asks"}}}}}}}}"#)
 }
 
 #[tokio::test]
 async fn a_piece_saved_reaches_the_daemon_whole_and_is_answered_with_the_file_written() {
-    let (status, bytes) = post(&wired(), "/lifecycles/pieces/save", &workspace_to_save("my-store")).await;
+    let (status, bytes) = post(&wired(), "/lifecycles/pieces/save", &piece_to_save("my-store")).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     let saved: LifecyclePieceSaved = ipc::decode("a save", &bytes).expect("reads");
-    assert_eq!((saved.kind, saved.id.as_str(), saved.scope, saved.replaced), (LifecyclePieceKind::Workspace, "my-store", PieceScope::Everywhere, false));
+    assert_eq!((saved.kind, saved.id.as_str(), saved.scope, saved.replaced), (LifecyclePieceKind::Autonomy, "my-store", PieceScope::Everywhere, false));
     assert_eq!(saved.file, "/kit/my-store.yml");
 }
 
 #[tokio::test]
 async fn replacing_a_piece_is_refused_unless_the_save_says_overwrite() {
     let app = wired();
-    let (status, bytes) = post(&app, "/lifecycles/pieces/save", &workspace_to_save(THE_KEPT_PIECE)).await;
+    let (status, bytes) = post(&app, "/lifecycles/pieces/save", &piece_to_save(THE_KEPT_PIECE)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     let error: WireError = ipc::decode("an error", &bytes).expect("an error body");
     assert_eq!(error.code, "fleet.piece_exists");
 
-    let said = format!(r#"{{"overwrite":true,{}"#, &workspace_to_save(THE_KEPT_PIECE)[1..]);
+    let said = format!(r#"{{"overwrite":true,{}"#, &piece_to_save(THE_KEPT_PIECE)[1..]);
     let (status, bytes) = post(&app, "/lifecycles/pieces/save", &said).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     let saved: LifecyclePieceSaved = ipc::decode("a save", &bytes).expect("reads");

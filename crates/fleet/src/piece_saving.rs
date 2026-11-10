@@ -1,4 +1,4 @@
-//! `save_lifecycle_piece` and `delete_lifecycle_piece`: one Workspace, lifecycle, rule or autonomy
+//! `save_lifecycle_piece` and `delete_lifecycle_piece`: one lifecycle, rule or autonomy
 //! default, written in Kit's folder for it or taken out of it. The repository's own copy is
 //! `commit_to_repository`'s, which goes by a Job and a pull request. `teach_ticket_word` writes the
 //! Ticket through the same save ([`teaching`]).
@@ -45,7 +45,7 @@ pub(crate) const PIECE_UNWRITABLE: &str = "fleet.piece_unwritable";
 
 /// Write `text` to `<path>.writing` and rename it over `path`, so a read sees the old file or the
 /// new and never half of one. The staged name has no extension a read takes.
-fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
+pub(crate) fn write_over(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(folder) = path.parent() {
         std::fs::create_dir_all(folder)?;
     }
@@ -60,7 +60,6 @@ pub(crate) fn written_as(piece: &LifecyclePiece) -> (LifecyclePieceKind, Result<
     match piece {
         LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, text::lifecycle(lifecycle)),
         LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, text::rule(rule)),
-        LifecyclePiece::Workspace { workspace } => (LifecyclePieceKind::Workspace, text::workspace(workspace)),
         LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, text::autonomy(autonomy)),
     }
 }

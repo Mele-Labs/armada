@@ -1,4 +1,4 @@
-//! Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit, which is where
+//! Saving and deleting one lifecycle, rule or autonomy default in Kit, which is where
 //! Bridge's Workflows page keeps what a person edits. The reads are `lifecycles`.
 //!
 //! **The DTOs a read answers are the input.** Bridge sends back what it was sent, changed, and
@@ -6,8 +6,8 @@
 //! no client holds a second copy of the file format.
 //!
 //! **A piece is (kind, id, scope), and not its id alone.** `ticket` for every repository and
-//! `ticket` within one repository are two files that rank against each other. A Workspace has no
-//! scope: its id is its identity.
+//! `ticket` within one repository are two files that rank against each other. **A Project is not a
+//! piece**: it is kept on this Mac, in a synced folder or in the cloud, never in a repository.
 
 use std::collections::BTreeMap;
 
@@ -20,13 +20,12 @@ fn everywhere() -> PieceScope {
     PieceScope::Everywhere
 }
 
-/// The four kinds of piece a person keeps in Kit's folders.
+/// The three kinds of piece a person keeps in Kit's folders.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LifecyclePieceKind {
     Lifecycle,
     Rule,
-    Workspace,
     Autonomy,
 }
 
@@ -35,19 +34,9 @@ impl LifecyclePieceKind {
         match self {
             LifecyclePieceKind::Lifecycle => "lifecycle",
             LifecyclePieceKind::Rule => "rule",
-            LifecyclePieceKind::Workspace => "workspace",
             LifecyclePieceKind::Autonomy => "autonomy",
         }
     }
-}
-
-/// A Workspace as it is saved: a set of repositories under one id.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkspaceToSave {
-    pub id: String,
-    pub name: String,
-    /// The repositories, in the order the file should list them.
-    pub repositories: Vec<ManifestId>,
 }
 
 /// A layer of autonomy defaults as it is saved.
@@ -67,7 +56,6 @@ pub struct AutonomyToSave {
 pub enum LifecyclePiece {
     Lifecycle { lifecycle: LifecycleDefinition },
     Rule { rule: LifecycleRule },
-    Workspace { workspace: WorkspaceToSave },
     Autonomy { autonomy: AutonomyToSave },
 }
 
@@ -86,7 +74,6 @@ pub struct SaveLifecyclePiece {
 pub struct LifecyclePieceSaved {
     pub kind: LifecyclePieceKind,
     pub id: String,
-    /// `everywhere` for a Workspace, which has none.
     pub scope: PieceScope,
     /// The file as written, absolute.
     pub file: String,
@@ -96,7 +83,7 @@ pub struct LifecyclePieceSaved {
 
 /// `teach_ticket_word`'s body. `POST /lifecycles/ticket/teach`: a tracker's own status read as one
 /// state of the Ticket, put on that state in the Ticket lifecycle Kit keeps for the repository's
-/// Workspace and in the copy every live Job there froze, and taken off any other state.
+/// Project and in the copy every live Job there froze, and taken off any other state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TeachTicketWord {
     /// The repository the ticket was read in.
@@ -121,7 +108,7 @@ pub struct TicketWordTaught {
 pub struct DeleteLifecyclePiece {
     pub kind: LifecyclePieceKind,
     pub id: String,
-    /// Absent is everywhere. Ignored for a Workspace.
+    /// Absent is everywhere.
     #[serde(default = "everywhere")]
     pub scope: PieceScope,
 }

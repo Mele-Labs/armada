@@ -1,7 +1,7 @@
-//! A repository's lifecycles and the Workspaces (sets of repositories) that scope them, read from
+//! A repository's lifecycles and the Projects (sets of repositories) that scope them, read from
 //! Kit's folder and each repository's own `.armada/`. The merge is `config`'s; what is proved here
-//! is that the right folders are read, and that a Workspace committed to one repository is seen
-//! from the others.
+//! is that the right folders are read, and that what one member of a Project holds for the Project
+//! is seen from the others.
 
 use std::path::{Path, PathBuf};
 
@@ -12,6 +12,7 @@ use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 use crate::daemon::Fleet;
 use crate::repositories::{Located, Served};
 use crate::tests::daemon::a_fleet;
+use crate::tests::projects_kept::planted;
 use crate::tests::tmp::TempDir;
 
 type Fixture = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
@@ -26,11 +27,6 @@ fn ticket(scope: Option<&str>, word: &str) -> String {
     format!(
         "version: 1\nlifecycle_id: ticket\nname: Ticket\n{scope}states:\n  - {{ id: in_review, label: In review, read: {{ tracker: [{word}] }} }}\n  - {{ id: closed, label: Closed, read: {{ tracker: [Done] }} }}\nends: [closed]\n"
     )
-}
-
-fn my_store(holding: &[&ManifestId]) -> String {
-    let listed: String = holding.iter().map(|one| format!("  - {}\n", one.as_str())).collect();
-    format!("version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n{listed}")
 }
 
 fn kit(home: &TempDir, kind: &str, file: &str) -> PathBuf {
@@ -73,7 +69,7 @@ async fn a_repository_with_no_piece_files_runs_exactly_what_armada_carries() {
     ran.sort_unstable();
     assert_eq!(ran, ["deploy", "job", "pr", "ticket"]);
     assert!(applying.left_out().is_empty());
-    assert_eq!(fleet.workspaces_read().files().len(), 0);
+    assert_eq!(fleet.projects_held().files().len(), 0);
 }
 
 #[tokio::test]
@@ -96,22 +92,21 @@ async fn yours_in_kit_runs_over_the_repositorys_and_both_are_listed_from_their_o
 }
 
 #[tokio::test]
-async fn a_workspace_committed_to_one_repository_scopes_a_lifecycle_in_the_others() {
+async fn a_project_scopes_a_lifecycle_in_each_of_its_repositories_and_in_no_other() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let (web, api, back_office) = (first(&fleet), another(&fleet, &home, "store-api"), another(&fleet, &home, "back-office"));
-    // The Workspace is committed to store-web alone. Kit scopes a ticket lifecycle to it.
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&id_of(&web), &id_of(&api)]));
+    planted(&fleet, &home, "my-store", "My store", &[id_of(&web).as_str(), id_of(&api).as_str()]).await;
     write(kit(&home, "lifecycles", "tickets.yml"), &ticket(Some("my-store"), "Code Review"));
 
     for member in [&web, &api] {
         let applying = fleet.lifecycles_applying_to(&id_of(member)).expect("read");
         assert!(ticket_words(&applying).contains("Code Review"), "{}", member.root());
         let ticket = applying.files().iter().find(|file| file.lifecycle().id().as_str() == "ticket").expect("a ticket");
-        assert_eq!(ticket.rank().reach, Reach::Workspace);
+        assert_eq!(ticket.rank().reach, Reach::Project);
     }
     let outside = fleet.lifecycles_applying_to(&id_of(&back_office)).expect("read");
-    assert!(!ticket_words(&outside).contains("Code Review"), "the Workspace does not hold it");
+    assert!(!ticket_words(&outside).contains("Code Review"), "the Project does not hold it");
 }
 
 #[tokio::test]
@@ -119,7 +114,7 @@ async fn a_file_that_does_not_fit_is_named_and_the_others_stand() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     write(kit(&home, "lifecycles", "broken.yml"), "version: 1\nlifecycle_id: ticket\n");
-    write(kit(&home, "workspaces", "also-broken.yml"), "not: a workspace\n");
+    write(kit(&home, "projects", "also-broken.yml"), "not: a project\n");
     write(kit(&home, "lifecycles", "notes.txt"), "not a piece file at all\n");
 
     let applying = fleet.lifecycles_applying_to(&id_of(&first(&fleet))).expect("read");
@@ -127,8 +122,8 @@ async fn a_file_that_does_not_fit_is_named_and_the_others_stand() {
     let left = &applying.left_out()[0];
     assert!(left.path().ends_with("broken.yml") && left.source() == PieceSource::Kit);
     assert_eq!(applying.running().count(), 4);
-    let workspaces = fleet.workspaces_read();
-    assert!(workspaces.left_out().iter().any(|one| one.path().ends_with("also-broken.yml")));
+    let projects = fleet.projects_reload().await;
+    assert!(projects.left_out().iter().any(|one| one.path().ends_with("also-broken.yml")));
 }
 
 #[tokio::test]
@@ -139,13 +134,13 @@ async fn a_repository_nobody_serves_is_refused() {
     assert!(fleet.lifecycles_applying_to(&nobody).is_err());
 }
 
-/// store-web is the home of `my-store`, which holds it and store-api. The home commits a ticket
-/// scoped to the Workspace, one scoped to itself, one that applies everywhere and one scoped to a
-/// Workspace of someone else's, each with words of its own so a test can tell which ran.
-fn a_workspace_with_a_home(home: &TempDir) -> (Fixture, Served, Served, Served) {
+/// `my-store` holds store-web and store-api, kept in Kit. Each member can commit a ticket scoped to
+/// the Project, one scoped to itself, one that applies everywhere and one scoped to a Project of
+/// someone else's, each with words of its own so a test can tell which ran.
+async fn a_project_of_two(home: &TempDir) -> (Fixture, Served, Served, Served) {
     let fleet = a_fleet(home, FakeWorkProduct::changed(&[]));
     let (web, api, back_office) = (first(&fleet), another(&fleet, home, "store-api"), another(&fleet, home, "back-office"));
-    write(armada(web.root(), "workspaces", "my-store.yml"), &my_store(&[&id_of(&web), &id_of(&api)]));
+    planted(&fleet, home, "my-store", "My store", &[id_of(&web).as_str(), id_of(&api).as_str()]).await;
     (fleet, web, api, back_office)
 }
 
@@ -154,16 +149,16 @@ fn ticket_file(name: &str) -> String {
 }
 
 #[tokio::test]
-async fn a_member_sees_the_lifecycle_its_home_scopes_to_the_workspace() {
+async fn a_member_sees_the_lifecycle_its_fellow_member_scopes_to_the_project() {
     let home = TempDir::new();
-    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    let (fleet, web, api, _) = a_project_of_two(&home).await;
     write(armada(web.root(), "lifecycles", &ticket_file("shared")), &ticket(Some("my-store"), "Shared"));
 
     let applying = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
     assert!(ticket_words(&applying).contains("Shared"));
-    let file = applying.files().iter().find(|file| file.rank().home).expect("listed as the home's");
-    assert!(file.path().is_some_and(|path| path.starts_with(web.root())), "read from the home, not copied");
-    assert_eq!(file.rank().reach, Reach::Workspace);
+    let file = applying.files().iter().find(|file| file.rank().home).expect("listed as a fellow member's");
+    assert!(file.path().is_some_and(|path| path.starts_with(web.root())), "read from the fellow member, not copied");
+    assert_eq!(file.rank().reach, Reach::Project);
 
     // And the home sees it as its own file, once, with no second copy read from itself.
     let at_home = fleet.lifecycles_applying_to(&id_of(&web)).expect("read");
@@ -172,11 +167,11 @@ async fn a_member_sees_the_lifecycle_its_home_scopes_to_the_workspace() {
 }
 
 #[tokio::test]
-async fn a_member_does_not_see_what_its_home_keeps_for_itself_or_for_another_workspace() {
+async fn a_member_does_not_see_what_its_fellow_member_keeps_for_itself_or_for_another_project() {
     let home = TempDir::new();
-    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    let (fleet, web, api, _) = a_project_of_two(&home).await;
     write(armada(web.root(), "lifecycles", &ticket_file("itself")), &ticket(Some(id_of(&web).as_str()), "Itself"));
-    write(armada(web.root(), "lifecycles", &ticket_file("elsewhere")), &ticket(Some("another-workspace"), "Elsewhere"));
+    write(armada(web.root(), "lifecycles", &ticket_file("elsewhere")), &ticket(Some("another-project"), "Elsewhere"));
     write(armada(web.root(), "lifecycles", &ticket_file("everywhere")), &ticket(None, "Everywhere"));
 
     let at_home = fleet.lifecycles_applying_to(&id_of(&web)).expect("read");
@@ -192,9 +187,9 @@ async fn a_member_does_not_see_what_its_home_keeps_for_itself_or_for_another_wor
 }
 
 #[tokio::test]
-async fn a_repository_outside_the_workspace_sees_nothing_of_its_homes() {
+async fn a_repository_outside_the_project_sees_nothing_of_its_members() {
     let home = TempDir::new();
-    let (fleet, web, _, back_office) = a_workspace_with_a_home(&home);
+    let (fleet, web, _, back_office) = a_project_of_two(&home).await;
     write(armada(web.root(), "lifecycles", &ticket_file("shared")), &ticket(Some("my-store"), "Shared"));
     write(armada(web.root(), "lifecycles", &ticket_file("itself")), &ticket(Some(id_of(&web).as_str()), "Itself"));
 
@@ -205,9 +200,9 @@ async fn a_repository_outside_the_workspace_sees_nothing_of_its_homes() {
 }
 
 #[tokio::test]
-async fn at_one_scope_the_homes_copy_is_the_one_a_member_sees_and_yours_still_wins() {
+async fn at_one_scope_the_fellow_members_copy_is_the_one_a_member_sees_and_yours_still_wins() {
     let home = TempDir::new();
-    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    let (fleet, web, api, _) = a_project_of_two(&home).await;
     write(armada(web.root(), "lifecycles", &ticket_file("tickets")), &ticket(Some("my-store"), "Home"));
     write(armada(api.root(), "lifecycles", &ticket_file("tickets")), &ticket(Some("my-store"), "Own"));
     let applying = fleet.lifecycles_applying_to(&id_of(&api)).expect("read");
@@ -239,14 +234,14 @@ async fn a_repository_with_no_rule_files_has_no_rules_and_a_job_started_in_it_is
 }
 
 #[tokio::test]
-async fn yours_in_kit_runs_over_the_repositorys_rule_and_a_members_reads_its_homes() {
+async fn yours_in_kit_runs_over_the_repositorys_rule_and_a_member_reads_its_fellows() {
     let home = TempDir::new();
-    let (fleet, web, api, _) = a_workspace_with_a_home(&home);
+    let (fleet, web, api, _) = a_project_of_two(&home).await;
     write(armada(web.root(), "rules", "moves.yml"), &moves_tickets(Some("my-store"), "closed"));
 
     let member = fleet.rules_applying_to(&id_of(&api)).expect("read");
     let [shared] = member.files() else { panic!("the home's, once: {:?}", member.files()) };
-    assert!(shared.rank().home && shared.path().starts_with(web.root()), "read from the home, not copied");
+    assert!(shared.rank().home && shared.path().starts_with(web.root()), "read from the fellow member, not copied");
 
     write(kit(&home, "rules", "moves.yml"), &moves_tickets(Some("my-store"), "in_progress"));
     let mine = fleet.rules_applying_to(&id_of(&api)).expect("read");

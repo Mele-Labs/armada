@@ -97,7 +97,7 @@ pub use workflow::{
     WorkflowHead,
 };
 pub use project::{
-    parse_project, parse_workspace_v1, ProjectError, ProjectFile, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects,
+    parse_project, parse_workspace_v1, project_text, ProjectError, ProjectFile, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects,
 };
 pub use writing::piece_text;
 

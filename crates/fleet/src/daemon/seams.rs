@@ -171,6 +171,9 @@ where
     pub(crate) fn searched(&self) -> &crate::teaching::Searched {
         &self.searched
     }
+    pub(crate) fn project_files(&self) -> &crate::project_files::Held {
+        &self.project_files
+    }
     pub(crate) fn logbook_distils(&self) -> &crate::logbook::Distils {
         &self.logbook
     }

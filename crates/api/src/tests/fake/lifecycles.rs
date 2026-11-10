@@ -121,7 +121,6 @@ impl Lifecycles for FakeDaemon {
         let (kind, id, scope) = match save.piece {
             LifecyclePiece::Lifecycle { lifecycle } => (LifecyclePieceKind::Lifecycle, lifecycle.id, lifecycle.scope),
             LifecyclePiece::Rule { rule } => (LifecyclePieceKind::Rule, rule.id, rule.scope),
-            LifecyclePiece::Workspace { workspace } => (LifecyclePieceKind::Workspace, workspace.id, PieceScope::Everywhere),
             LifecyclePiece::Autonomy { autonomy } => (LifecyclePieceKind::Autonomy, autonomy.id, autonomy.scope),
         };
         let kept = id == THE_KEPT_PIECE;

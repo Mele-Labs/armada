@@ -11,7 +11,7 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Lifecycles, Refusal};
-use config::WorkspaceFile;
+use config::{ProjectFile, ProjectLeftOut};
 use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
 use ipc::{
     AllWorkspaces, AppliedLifecycle, AppliedRule, AutonomyLayer, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
@@ -24,7 +24,6 @@ use super::holding::rebuilt;
 use super::keeping::{JOB, PULL_REQUEST};
 use super::wire;
 use crate::daemon::Fleet;
-use crate::piece_places::WORKSPACES;
 use crate::session_host::NO_SUCH_SESSION;
 
 const UNPLACED: &str = "fleet.job_lifecycles_unplaced";
@@ -209,32 +208,32 @@ where
             ))),
         }
     }
+}
 
-    /// The repository, if any, whose `.armada/workspaces/` is `folder`.
-    fn workspaces_kept_in(&self, folder: &Path) -> Option<ManifestId> {
-        self.repositories()
-            .hosted()
-            .into_iter()
-            .find(|one| Path::new(one.root()).join(".armada").join(WORKSPACES) == folder)
-            .map(|one| ManifestId::from(one.manifest().id()))
+/// One Project file as Bridge reads a Workspace for now, shared by the read of one repository and
+/// the read of all. **The wire keeps its old names until the next change renames them**: a Project
+/// is Kit's by the wire's word and has no home repository.
+fn project_on_the_wire(file: &ProjectFile) -> WorkspaceOfRepositories {
+    WorkspaceOfRepositories {
+        id: file.project().id().as_str().to_string(),
+        name: file.project().name().as_str().to_string(),
+        repositories: file.project().repositories().into_iter().map(ManifestId::from).collect(),
+        home: None,
+        source: wire::place(PieceSource::Kit),
+        path: file.path().to_string_lossy().into_owned(),
+        overridden_by: None,
+        hides: None,
     }
+}
 
-    /// One Workspace file as Bridge reads it, shared by the read of one repository and the read of all.
-    fn workspace_on_the_wire(&self, file: &WorkspaceFile) -> WorkspaceOfRepositories {
-        WorkspaceOfRepositories {
-            id: file.workspace().id().as_str().to_string(),
-            name: file.workspace().title().as_str().to_string(),
-            repositories: file.workspace().repositories().iter().map(ManifestId::from).collect(),
-            home: match file.source() {
-                PieceSource::Repository => file.path().parent().and_then(|folder| self.workspaces_kept_in(folder)),
-                _ => None,
-            },
-            source: wire::place(file.source()),
-            path: file.path().to_string_lossy().into_owned(),
-            overridden_by: file.overridden_by().map(wire::place),
-            hides: file.hides().map(wire::place),
-        }
-    }
+fn projects_left_out(left: &[ProjectLeftOut]) -> Vec<ipc::PieceLeftOut> {
+    left.iter()
+        .map(|one| ipc::PieceLeftOut {
+            source: wire::place(PieceSource::Kit),
+            path: one.path().to_string_lossy().into_owned(),
+            said: one.said().to_string(),
+        })
+        .collect()
 }
 
 impl<H, V, W> Lifecycles for Fleet<H, V, W>
@@ -249,26 +248,21 @@ where
 {
     async fn list_repository_workspaces(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryWorkspaces, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
-        let workspaces = self.workspaces_read();
-        let holding: Vec<_> = workspaces.holding(served.manifest().id()).into_iter().map(|one| one.id().clone()).collect();
-        let listed = workspaces
-            .files()
-            .iter()
-            .filter(|file| holding.contains(file.workspace().id()))
-            .map(|file| self.workspace_on_the_wire(file))
-            .collect();
+        let projects = self.projects_held();
+        let holding: Vec<_> = projects.holding(served.manifest().id()).into_iter().map(|one| one.id().clone()).collect();
+        let listed = projects.files().iter().filter(|file| holding.contains(file.project().id())).map(project_on_the_wire).collect();
         Ok(RepositoryWorkspaces {
             manifest_id: ManifestId::from(served.manifest().id()),
             workspaces: listed,
-            left_out: wire::left_out(workspaces.left_out()),
+            left_out: projects_left_out(projects.left_out()),
         })
     }
 
     async fn list_workspaces(&self) -> Result<AllWorkspaces, Refusal> {
-        let workspaces = self.workspaces_read();
-        let mut listed: Vec<_> = workspaces.files().iter().map(|file| self.workspace_on_the_wire(file)).collect();
+        let projects = self.projects_held();
+        let mut listed: Vec<_> = projects.files().iter().map(project_on_the_wire).collect();
         listed.sort_by(|a, b| a.name.cmp(&b.name));
-        Ok(AllWorkspaces { workspaces: listed, left_out: wire::left_out(workspaces.left_out()) })
+        Ok(AllWorkspaces { workspaces: listed, left_out: projects_left_out(projects.left_out()) })
     }
 
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {

@@ -97,6 +97,8 @@ mod session_import;
 mod session_limit;
 mod peer;
 mod piece_places;
+mod project_migration;
+mod projects_kept;
 mod ports;
 mod preferences;
 mod process;

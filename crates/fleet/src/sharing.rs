@@ -143,11 +143,10 @@ where
                 }
                 PieceToCommit::Lifecycle { .. }
                 | PieceToCommit::LifecycleRule { .. }
-                | PieceToCommit::Workspace { .. }
                 | PieceToCommit::Autonomy { .. } => {
                     return Err(self.share_refusal(
                         REFUSED,
-                        String::from("Share does not carry Workspaces, lifecycles, rules or autonomy defaults yet."),
+                        String::from("Share does not carry lifecycles, rules or autonomy defaults yet."),
                     ))
                 }
             }

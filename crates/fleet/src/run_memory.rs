@@ -437,25 +437,13 @@ where
     pub(crate) async fn run_memory_place_set(&self, chosen: RunMemoryPlace) -> Result<RunMemoryPlace, Refusal> {
         let root = self.run_repository(&chosen.repository)?;
         let refused = |code: &str, said: String| Refusal::Unacceptable(WireError::raised(code, said, self.run_id()));
-        let mut cloud = None;
-        let folder = match chosen.place {
-            RunPlace::Cloud => {
-                let Some(asked) = &chosen.cloud else {
-                    return Err(refused(PLACE_REFUSED, String::from("a cloud place needs where: Armada's store or a bucket address")));
-                };
-                let target = cloud::Target::of(asked).map_err(|why| refused(PLACE_REFUSED, why))?;
-                // The old place stays unless the new one answers now.
-                self.cloud_read(&root, &target).await.map_err(|fault| refused(fault.code(), fault.said().to_string()))?;
-                cloud = Some(target);
-                None
-            }
-            RunPlace::Synced => match chosen.synced_folder.as_deref().map(str::trim).filter(|one| !one.is_empty()) {
-                Some(folder) if Path::new(folder).is_dir() => Some(folder.to_string()),
-                Some(folder) => return Err(refused(PLACE_REFUSED, format!("{folder} is not a folder"))),
-                None => return Err(refused(PLACE_REFUSED, String::from("a synced place needs the folder they sync"))),
-            },
-            RunPlace::ThisMac | RunPlace::Repository => None,
-        };
+        let picked = places::place_chosen(chosen.place, chosen.synced_folder.as_deref(), chosen.cloud.as_ref())
+            .map_err(|why| refused(PLACE_REFUSED, why))?;
+        if let Some(target) = &picked.cloud {
+            // The old place stays unless the new one answers now.
+            self.cloud_read(&root, target).await.map_err(|fault| refused(fault.code(), fault.said().to_string()))?;
+        }
+        let (folder, cloud) = (picked.folder, picked.cloud);
         self.run_memory_started(&root).await?;
         self.store()
             .lock()

@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use config::{Autonomies, PieceWritten, Workspaces};
+use config::{Autonomies, PieceWritten, ProjectPlace, ProjectWritten, Projects};
 use core_model::rule::{AutonomyDefaults, Course, Occurrence, RanOnce};
 use core_model::{HeldInstances, ManifestId, Moved, Observed, ReadingState, Ulid};
 use fleet::lifecycles::holding::{read_instance, Transition};
@@ -36,9 +36,9 @@ do:
   - start_watch: { recipe: qa-deploy, values: { sha: abc }, deploy: web }
 ";
 
-fn my_store() -> Workspaces {
-    let file = "version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - store-web\n";
-    Workspaces::of([PieceWritten::in_repository(PathBuf::from("store-web/.armada/workspaces/my-store.yml"), file.into())])
+fn my_store() -> Projects {
+    let file = "version: 2\nproject_id: my-store\nname: My store\nmembers:\n  - repository: store-web\n";
+    Projects::of([ProjectWritten::new(ProjectPlace::ThisMac, PathBuf::from("kit/projects/my-store.yml"), file.into())], Vec::new())
 }
 
 fn defaults_of(files: Vec<PieceWritten>) -> AutonomyDefaults {

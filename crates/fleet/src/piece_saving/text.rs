@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use ipc::{
     AutonomyToSave, LifecycleDefinition, LifecycleRule, PieceScope, RuleAct, RuleAmong, RuleCondition, RuleTarget,
-    RuleWhen, StateReadFrom, WorkspaceToSave,
+    RuleWhen, StateReadFrom,
 };
 use serde::Serialize;
 
@@ -315,23 +315,6 @@ pub(super) fn rule(rule: &LifecycleRule) -> Result<String, String> {
         does: rule.does.iter().map(|doing| act_of(&doing.what)).collect(),
         autonomy: rule.autonomy.as_deref(),
         on_failure: FailureText { retries: rule.on_failure.retries, then: &rule.on_failure.then },
-    })
-}
-
-#[derive(Serialize)]
-struct WorkspaceText<'a> {
-    version: u8,
-    workspace_id: &'a str,
-    name: &'a str,
-    repositories: Vec<&'a str>,
-}
-
-pub(super) fn workspace(workspace: &WorkspaceToSave) -> Result<String, String> {
-    config::piece_text(&WorkspaceText {
-        version: VERSION,
-        workspace_id: &workspace.id,
-        name: &workspace.name,
-        repositories: workspace.repositories.iter().map(|one| one.as_str()).collect(),
     })
 }
 

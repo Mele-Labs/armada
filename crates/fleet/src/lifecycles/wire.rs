@@ -26,7 +26,7 @@ pub fn place(place: PieceSource) -> String {
 fn reach(reach: Reach) -> String {
     match reach {
         Reach::Everywhere => "everywhere",
-        Reach::Workspace => "workspace",
+        Reach::Project => "workspace",
         Reach::Repository => "repository",
     }
     .to_string()

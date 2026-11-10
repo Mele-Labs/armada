@@ -379,8 +379,17 @@ where
             pulled.insert(manifest, read);
         }
         let wire = |rows: Vec<KeptProjectRow>| rows.into_iter().map(|row| row_on_the_wire(row, &said, &pulled)).collect();
+        // **The file is the truth for a name**, and the store's is the last it saw, shown where the file cannot be read.
+        let held = self.projects_held();
+        let named = |id: &str, kept: String| {
+            core_model::ScopeId::new(id).ok().and_then(|scope| held.get(&scope).map(|one| one.name().as_str().to_string())).unwrap_or(kept)
+        };
         ipc::Projects {
-            projects: kept.projects.into_iter().map(|project| Project { id: project.id, name: project.name, rows: wire(project.rows) }).collect(),
+            projects: kept
+                .projects
+                .into_iter()
+                .map(|project| Project { name: named(&project.id, project.name), id: project.id, rows: wire(project.rows) })
+                .collect(),
             loose: wire(kept.loose),
         }
     }
@@ -391,12 +400,24 @@ where
     where
         F: FnOnce(&mut Store, &KeptProjects) -> Result<(), Refusal> + Send,
     {
+        self.projects_written_reading(write, false).await
+    }
+
+    /// [`Fleet::projects_written`], reading every project's file again before the answer where `reading`:
+    /// a write of a project itself, and not of a row in it.
+    async fn projects_written_reading<F>(&self, write: F, reading: bool) -> Result<ipc::Projects, Refusal>
+    where
+        F: FnOnce(&mut Store, &KeptProjects) -> Result<(), Refusal> + Send,
+    {
         let kept = {
             let mut store = self.store().lock().await;
             let before = store.projects().map_err(|why| self.ledger_fault(why))?;
             write(&mut store, &before)?;
             store.projects().map_err(|why| self.ledger_fault(why))?
         };
+        if reading {
+            self.projects_reload().await;
+        }
         let projects = self.projects_on_the_wire(kept).await;
         self.publish(ipc::Event::ProjectsChanged(projects.clone()));
         Ok(projects)
@@ -436,27 +457,49 @@ where
             return Err(self.blank("a project needs a name"));
         }
         let (id, at) = (self.minted(), self.now());
-        self.projects_written(|store, _| store.add_project(&id, &name, at.as_str()).map_err(|why| self.ledger_fault(why))).await
+        // A new project is made empty, on this Mac: its file first, so the row never stands without one.
+        let made = core_model::ScopeId::new(&id)
+            .ok()
+            .zip(core_model::Title::new(&name).ok())
+            .and_then(|(scope, title)| core_model::Project::declared(scope, title, Vec::new()).ok())
+            .ok_or_else(|| self.blank("a project needs a name"))?;
+        self.project_stored(&made).await?;
+        self.projects_written_reading(|store, _| store.add_project(&id, &name, at.as_str()).map_err(|why| self.ledger_fault(why)), true).await
     }
 
     async fn rename_project(&self, project: String, name: NameProject) -> Result<ipc::Projects, Refusal> {
         let name = name.name.trim().to_string();
-        self.projects_written(|store, kept| {
-            self.project_in(kept, &project)?;
-            if name.is_empty() {
-                return Err(self.blank("a project needs a name"));
-            }
-            store.rename_project(&project, &name).map(drop).map_err(|why| self.ledger_fault(why))
-        })
-        .await
+        {
+            let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+            self.project_in(&kept, &project)?;
+        }
+        if name.is_empty() {
+            return Err(self.blank("a project needs a name"));
+        }
+        // The file and the store are written together. **A file that will not read is not written
+        // over**, so a project whose place cannot be read keeps the name it had.
+        let held = core_model::ScopeId::new(&project).ok().and_then(|scope| self.projects_held().get(&scope).cloned());
+        let renamed = held.and_then(|one| {
+            let title = core_model::Title::new(&name).ok()?;
+            core_model::Project::declared(one.id().clone(), title, one.members().to_vec()).ok()
+        });
+        let Some(renamed) = renamed else {
+            return Err(Refusal::Fault(self.project_refusal(
+                crate::project_files::UNWRITABLE,
+                format!("The file of project {project} did not read, so it is not written over and the name stays"),
+            )));
+        };
+        self.project_stored(&renamed).await?;
+        self.projects_written_reading(|store, _| store.rename_project(&project, &name).map(drop).map_err(|why| self.ledger_fault(why)), true).await
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
-        self.projects_written(|store, kept| {
-            self.project_in(kept, &project)?;
-            store.delete_project(&project).map(drop).map_err(|why| self.ledger_fault(why))
-        })
-        .await
+        {
+            let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+            self.project_in(&kept, &project)?;
+        }
+        self.project_file_removed(&project).await?;
+        self.projects_written_reading(|store, _| store.delete_project(&project).map(drop).map_err(|why| self.ledger_fault(why)), true).await
     }
 
     async fn add_project_task(&self, task: NewProjectTask) -> Result<ipc::Projects, Refusal> {

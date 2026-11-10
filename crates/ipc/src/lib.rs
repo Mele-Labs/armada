@@ -44,7 +44,7 @@ mod disputes;
 mod bug_reports;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
-/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+/// Saving and deleting one lifecycle, rule or autonomy default in Kit.
 mod piece_saving;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
@@ -322,7 +322,7 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
-    LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught, WorkspaceToSave,
+    LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught,
 };
 pub use lifecycles::{
     ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,

@@ -158,6 +158,30 @@ fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Optio
     }
 }
 
+/// `project` as the text of its version 2 file. A Project with no members is written `members: []`.
+pub fn project_text(project: &Project) -> Result<String, String> {
+    use serde_yaml_ng::{Mapping, Value};
+    let text = |written: &str| Value::String(written.to_string());
+    let members = project
+        .members()
+        .iter()
+        .map(|member| {
+            let mut one = Mapping::new();
+            one.insert(text("repository"), text(member.repository().as_str()));
+            if let Some(folder) = member.folder_of() {
+                one.insert(text("folder"), text(folder.as_str()));
+            }
+            Value::Mapping(one)
+        })
+        .collect();
+    let mut top = Mapping::new();
+    top.insert(text("version"), Value::Number(2.into()));
+    top.insert(text("project_id"), text(project.id().as_str()));
+    top.insert(text("name"), text(project.name().as_str()));
+    top.insert(text("members"), Value::Sequence(members));
+    crate::piece_text(&Value::Mapping(top))
+}
+
 /// One Project file as text, the place it was read from and where.
 #[derive(Debug, Clone)]
 pub struct ProjectWritten {

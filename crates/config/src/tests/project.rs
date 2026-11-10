@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use core_model::{Folder, ManifestId, Member, Ulid};
 
-use crate::{parse_project, parse_workspace_v1, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects};
+use crate::{parse_project, project_text, parse_workspace_v1, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects};
 
 fn text(id: &str, name: &str, members: &[&str]) -> String {
     let listed: String = members.iter().map(|one| format!("  - repository: {one}\n")).collect();
@@ -136,4 +136,14 @@ fn a_file_that_does_not_fit_is_left_out_with_the_reason_and_the_others_stand() {
     assert!(left.contains(&(PathBuf::from("projects/gone.yml"), ProjectPlace::Cloud)), "{left:?}");
     let broken = projects.left_out().iter().find(|one| one.path().ends_with("broken.yml")).expect("broken is listed");
     assert!(broken.said().contains("name"), "{}", broken.said());
+}
+
+#[test]
+fn a_project_is_written_as_the_file_that_reads_back_to_it() {
+    let file = "version: 2\nproject_id: shop\nname: Shop\nmembers:\n  - repository: mono\n    folder: apps/api\n  - repository: web\n";
+    let read = parse_project(Path::new("shop.yml"), file).expect("a Project");
+    let written = project_text(&read).expect("text");
+    assert_eq!(parse_project(Path::new("shop.yml"), &written).expect("read back"), read);
+    let empty = parse_project(Path::new("new.yml"), &text("new", "New", &[])).expect("an empty Project");
+    assert_eq!(parse_project(Path::new("new.yml"), &project_text(&empty).expect("text")).expect("read back"), empty);
 }

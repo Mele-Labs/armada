@@ -45,7 +45,7 @@ impl Target {
     }
 
     /// What Fleet's record keeps, to read back with [`Target::kept`].
-    pub(super) fn text(&self) -> String {
+    pub(crate) fn text(&self) -> String {
         match self {
             Target::Store => STORE_WORD.to_string(),
             Target::Bucket(_, text) => text.clone(),

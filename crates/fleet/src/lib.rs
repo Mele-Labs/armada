@@ -247,6 +247,8 @@ mod review_searches;
 mod issue_queries;
 /// A repository's projects: tasks a person wrote and issues he linked, kept on this Mac.
 mod projects;
+/// His projects as files, kept where he chose for each, and the migration that makes them.
+mod project_files;
 mod project_holds;
 /// The review tools and explanations a repository has, and writing one.
 mod review_tools;
@@ -397,7 +399,7 @@ mod workflow_changes;
 /// The lifecycles a repository has and the Workspaces (sets of repositories) that scope them, read
 /// from the places a piece is kept.
 mod piece_places;
-/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+/// Saving and deleting one lifecycle, rule or autonomy default in Kit.
 mod piece_saving;
 pub mod workspaces;
 
