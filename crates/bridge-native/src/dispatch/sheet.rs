@@ -327,6 +327,12 @@ impl DispatchSheet {
 
     // -- kinds ----------------------------------------------------------------------------------
 
+    /// A repository chosen for the sheet from elsewhere, as a row's Auto Pilot chooses its own.
+    pub(super) fn pick_repository(&mut self, name: &str, cx: &mut Context<Self>) {
+        self.face.pick(name);
+        cx.notify();
+    }
+
     pub(super) fn set_kind(&mut self, kind: Kind, window: &mut Window, cx: &mut Context<Self>) {
         if self.kind == kind || !self.face.kinds.contains(&kind) {
             return;

@@ -885,6 +885,7 @@ impl JobsList {
         let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let job = id.clone();
         let title = row.title.clone();
+        let repository = row.project.to_string();
         let picked = cx.subscribe(&menu, move |this, _, picked: &Picked, cx| {
             let Picked::Entry { id: act, .. } = picked;
             let port = this.port(cx);
@@ -894,7 +895,7 @@ impl JobsList {
                 "pause" => send(port, "/sessions/pause", encoded(ipc::encode(&ipc::PauseSession { session_id })), cx),
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
-                "autopilot" => crate::dispatch::screen::open_autopilot(cx),
+                "autopilot" => crate::dispatch::screen::open_autopilot(Some(repository.clone()), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => send(
                     port,
@@ -1265,14 +1266,19 @@ impl JobsList {
             })
             // The drop line, before or after the row under the pointer (`deck.css` `[data-drop]`).
             .children(drop_here.map(|after| {
-                div()
-                    .absolute()
-                    .left(indent)
-                    .right_0()
-                    .h(line_edge)
-                    .rounded(look.length(token::RADIUS_SM))
-                    .bg(look.color(token::ACCENT))
-                    .map(|bar| if after { bar.bottom(-gap_half) } else { bar.top(-gap_half) })
+                labelled(
+                    div()
+                        .id("drop-line")
+                        .absolute()
+                        .left(indent)
+                        .right_0()
+                        .h(line_edge)
+                        .rounded(look.length(token::RADIUS_SM))
+                        .bg(look.color(token::ACCENT))
+                        .map(|bar| if after { bar.bottom(-gap_half) } else { bar.top(-gap_half) }),
+                    Role::Image,
+                    "Lands here",
+                )
             }))
             .when(row.depth > 0, |row_line| {
                 // The elbow from the Job above to the middle of this one's first line.
@@ -1618,6 +1624,9 @@ const SPLIT_ARRIVES: f32 = 0.62;
 const SPLIT_RESET: f32 = 0.5;
 const SPLIT_LEAST: f32 = 0.12;
 const PANE_LEAST: f32 = 160.;
+/// The least the thread keeps beside a Judge, in columns: the box's words and its controls, which
+/// wrap to a second row there. The right column gives up its room, down to `PANE_LEAST`, first.
+const THREAD_LEAST: f32 = 7.5;
 
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
 /// the left, the open Job's room in the middle, and the right column's panel, under the title row.
@@ -1762,7 +1771,7 @@ impl JobsScreen {
             return;
         }
         let gap = f32::from(look.length(token::GAP_PANEL));
-        let low = (room * SPLIT_LEAST).max(PANE_LEAST + gap + f32::from(look.length(token::SPACE_12)) * RIGHT) / room;
+        let low = (room * SPLIT_LEAST).max(f32::from(look.length(token::SPACE_12)) * THREAD_LEAST + gap + PANE_LEAST) / room;
         let high = 1. - (room * SPLIT_LEAST).max(PANE_LEAST) / room;
         let Some(job) = self.view.read(cx).shown_id() else { return };
         if low <= high {
@@ -1835,7 +1844,8 @@ impl JobsScreen {
 
     /// `l` puts the keys in the list (`deck_panel`'s first slot), `c` on the first Job that needs
     /// him, `a` and `d` open the dispatch sheet, and `/` the list's search, from anywhere on the deck.
-    /// The bays, the queue and the flight controls are not drawn, so `b`, `q` and `f` reach nothing.
+    /// The bays, the queue, the flight controls, the timeline and the Field are not drawn, so `b`,
+    /// `q`, `f`, `t` and `e` reach nothing.
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("deck_panel") && act.slot == 0 {
             let focus = self.list.read(cx).focus_handle().clone();
@@ -1843,7 +1853,7 @@ impl JobsScreen {
         } else if act.is("deck_panel") && act.slot == 2 {
             self.list.update(cx, |list, cx| list.to_first_needing(window, cx));
         } else if act.is("deck_panel") && act.slot == 5 {
-            crate::dispatch::screen::open_autopilot(cx);
+            crate::dispatch::screen::open_autopilot(None, cx);
         } else if act.is("deck_panel") && act.slot == 6 {
             crate::dispatch::screen::open_dispatch(cx);
         } else if act.is("deck_search") {
@@ -1991,10 +2001,15 @@ impl Render for JobsScreen {
                                     .min_w_0()
                                     .flex()
                                     .gap(look.length(token::GAP_PANEL))
-                                    .when(judged, |job| job.flex_grow(split * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)))
+                                    .when(judged, |job| {
+                                        job.flex_grow(split * 100.)
+                                            .flex_shrink(1.)
+                                            .flex_basis(gpui::px(0.))
+                                            .min_w(column * THREAD_LEAST + look.length(token::GAP_PANEL) + gpui::px(PANE_LEAST))
+                                    })
                                     .when(!judged, |job| job.flex_1())
-                                    .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
-                                    .child(div().h_full().flex_none().w(column * RIGHT).child(self.side.clone())),
+                                    .child(panel(look).flex_1().min_w_0().when(judged, |thread| thread.min_w(column * THREAD_LEAST)).overflow_hidden().child(self.view.clone()))
+                                    .child(div().h_full().w(column * RIGHT).when(judged, |side| side.flex_shrink(1.).min_w(gpui::px(PANE_LEAST))).when(!judged, |side| side.flex_none()).child(self.side.clone())),
                             )
                             .children(judged.then(|| {
                                 div()

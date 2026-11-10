@@ -62,6 +62,8 @@ pub struct Drawn {
     pub role: Role,
     pub name: SharedString,
     pub bounds: Bounds<Pixels>,
+    /// The part of it a scrolled or clipped parent lets show: what a walk rings.
+    pub shown: Bounds<Pixels>,
 }
 
 /// What each window drew with a label, as of its last frame. Cleared by the window's
@@ -150,7 +152,8 @@ impl Element for Labelled {
         if self.root {
             page.clear();
         } else {
-            page.push(Drawn { role: self.role, name: self.name.clone(), bounds });
+            let shown = bounds.intersect(&window.content_mask().bounds);
+            page.push(Drawn { role: self.role, name: self.name.clone(), bounds, shown });
         }
         self.child.prepaint(window, cx);
     }

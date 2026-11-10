@@ -231,11 +231,20 @@ fn read_body(open: &Open, said: &str) -> ReadTeaching {
         words: if open.source.kind == TeachingSourceKind::Words { open.source.text.clone() } else { String::new() },
         message: String::new(),
         said: said.to_string(),
-        repository: (!open.everywhere).then(|| open.root.clone()).flatten(),
+        repository: place_of(open).0,
         reach: reach_of(open.everywhere),
-        session_id: Some(open.job.to_string()),
+        session_id: place_of(open).1,
         source: Some(open.source.clone()),
     }
+}
+
+/// Where a teaching was given: the repository and the Job. Bridge's own interface was taught in
+/// neither, as Electron's `placeOf` sends it.
+fn place_of(open: &Open) -> (Option<String>, Option<String>) {
+    if matches!(open.source.kind, TeachingSourceKind::Panel | TeachingSourceKind::Row | TeachingSourceKind::TitleBar) {
+        return (None, None);
+    }
+    ((!open.everywhere).then(|| open.root.clone()).flatten(), Some(open.job.to_string()))
 }
 
 /// `save_teaching`'s body: the proposal as it was shown, and where it was taught.
@@ -246,8 +255,8 @@ fn save_body(open: &Open, proposal: &TeachingProposal) -> SaveTeaching {
     SaveTeaching {
         proposal,
         reach: reach_of(open.everywhere),
-        repository: (!open.everywhere).then(|| open.root.clone()).flatten(),
-        session_id: Some(open.job.to_string()),
+        repository: place_of(open).0,
+        session_id: place_of(open).1,
         cite: Some(format!("Teach, {}", source_name(open.source.kind).to_lowercase())),
         source: Some(open.source.clone()),
     }

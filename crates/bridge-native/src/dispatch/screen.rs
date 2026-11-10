@@ -121,11 +121,17 @@ pub fn open_dispatch(cx: &mut App) {
     reach(cx, move |this, window, cx| this.open_sheet("", window, cx));
 }
 
-/// Auto Pilot on a Job's row: the sheet opens on Autopilot, the draft as it stands.
-pub fn open_autopilot(cx: &mut App) {
+/// Auto Pilot on a Job's row: the sheet opens on Autopilot with the row's repository chosen, as
+/// Electron picks the row's repository before Autopilot (`Deck.tsx` `onAutopilot`).
+pub fn open_autopilot(repository: Option<String>, cx: &mut App) {
     reach(cx, move |this, window, cx| {
         this.open_sheet("", window, cx);
-        this.sheet.update(cx, |sheet, cx| sheet.set_kind(super::face::Kind::Autopilot, window, cx));
+        this.sheet.update(cx, |sheet, cx| {
+            sheet.set_kind(super::face::Kind::Autopilot, window, cx);
+            if let Some(repository) = &repository {
+                sheet.pick_repository(repository, cx);
+            }
+        });
     });
 }
 

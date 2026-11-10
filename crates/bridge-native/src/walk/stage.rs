@@ -228,7 +228,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to scroll")))?;
             window.dispatch_event(
                 PlatformInput::Scroll(gpui::ScrollEvent {
-                    position: drawn.bounds.center(),
+                    // The part a person can point at: a long list's middle can be under its pane's clip.
+                    position: drawn.shown.center(),
                     delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-(by as f32)))),
                     modifiers: Modifiers::default(),
                     touch_phase: gpui::TouchPhase::Moved,

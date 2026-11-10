@@ -545,7 +545,7 @@ impl Dropdown {
 }
 
 impl Render for Dropdown {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let (shown, nothing) = self.visible();
         let mut entries: Vec<gpui::AnyElement> = Vec::new();
         for at in shown {
@@ -583,9 +583,10 @@ impl Render for Dropdown {
                         .capture_key_down(cx.listener(Self::on_key))
                         .on_mouse_down_out(cx.listener(|_, _, _, cx| cx.emit(DismissEvent)))
                         .occlude()
-                        // Room for a detail after a name; and a menu with a filter field is a long one.
+                        // Room for a detail after a name. A menu with a filter field is a long one, so it
+                        // scrolls under the field; any other runs its length, kept inside the window.
                         .w(look.length(token::W_MENU) + if detailed { look.length(token::SPACE_12) } else { px(0.) })
-                        .max_h(look.length(token::PALETTE_MAX_HEIGHT) + if self.searching() { look.length(token::SPACE_12) } else { px(0.) })
+                        .max_h(if self.searching() { look.length(token::PALETTE_MAX_HEIGHT) + look.length(token::SPACE_12) } else { window.viewport_size().height - look.length(token::SPACE_1) * 2. })
                         .overflow_y_scroll()
                         .flex()
                         .flex_col()

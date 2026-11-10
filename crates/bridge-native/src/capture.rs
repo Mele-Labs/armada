@@ -591,7 +591,8 @@ mod tests {
     use gpui::{point, px, size};
 
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
-        Drawn { role, name: name.to_string().into(), bounds: Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) } }
+        let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };
+        Drawn { role, name: name.to_string().into(), bounds, shown: bounds }
     }
 
     #[test]

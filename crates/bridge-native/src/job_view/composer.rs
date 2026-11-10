@@ -1235,8 +1235,10 @@ impl JobView {
         } else {
             self.box_words(look, cx)
         };
+        // On a narrow thread the row wraps rather than cut its last controls off.
         let bar = div()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_2))

@@ -167,7 +167,9 @@ impl JobView {
         if shown.waiting {
             column = column.child(self.waiting_band(id, &record.held_open_by, look, cx));
         }
-        Some(column.into_any_element())
+        // The bands stand in the box's column, as Electron's sit in the Needs you panel over it.
+        let outer = self.column(look) + super::bleed(look) * 2.;
+        Some(div().flex_none().flex().justify_center().px(look.length(token::SPACE_4)).child(column.max_w(outer)).into_any_element())
     }
 
     /// The bar every band draws: a trigger, and the cross of those that can be put away.

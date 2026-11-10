@@ -216,8 +216,14 @@ fn facts(record: &SessionRecord, from: &ReportFrom) -> Vec<String> {
     .collect::<Vec<_>>();
     add("Model", Some(model.join(", ")));
     add("Context", record.usage.context_tokens.zip(record.usage.context_window).map(|(tokens, window)| format!("{} of {} tokens", kb(tokens), kb(window))));
+    // The Job that started this one goes by its title, as the record's `started.by` names it.
+    let starter = record.started.as_ref().and_then(|started| started.by.as_ref());
     for one in drawn(record) {
         if let Some((label, value)) = attachment_line(one) {
+            let value = match starter {
+                Some(by) if one.kind == "started_by" && by.id.as_str() == one.target && !by.title.is_empty() => by.title.clone(),
+                _ => value,
+            };
             add(label, Some(value));
         }
     }

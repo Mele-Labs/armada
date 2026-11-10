@@ -835,12 +835,13 @@ impl Render for WalkWindow {
                         .child(canvas(move |bounds, _, _| stage_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
                 )
                 .children(ring.map(|drawn| {
+                    let shown = drawn.shown;
                     div()
                         .absolute()
-                        .left(drawn.bounds.origin.x - gap)
-                        .top(drawn.bounds.origin.y - gap)
-                        .w(drawn.bounds.size.width + gap * 2.)
-                        .h(drawn.bounds.size.height + gap * 2.)
+                        .left(shown.origin.x - gap)
+                        .top(shown.origin.y - gap)
+                        .w(shown.size.width + gap * 2.)
+                        .h(shown.size.height + gap * 2.)
                         .rounded(look.length(token::RADIUS_SM))
                         .border(look.length(token::FOCUS_RING_WIDTH))
                         .border_color(look.color(token::ACCENT))
