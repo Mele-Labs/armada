@@ -688,6 +688,7 @@ impl OperatorPageView {
                 labelled(
                     div()
                         .id(SharedString::from(format!("{name}-whole")))
+                        .self_start()
                         .mt(look.length(token::SPACE_1))
                         .text_size(look.length(token::TEXT_XS))
                         .text_color(look.color(token::ACCENT))
@@ -705,6 +706,8 @@ impl OperatorPageView {
                 )
             });
             div()
+                .flex()
+                .flex_col()
                 .px(look.length(token::SPACE_3))
                 .pt(look.length(token::SPACE_1))
                 .pb(look.length(token::SPACE_2))
