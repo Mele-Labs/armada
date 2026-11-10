@@ -32,6 +32,8 @@ pub(super) enum Answer {
     SetAside,
     /// A plan approval in flight.
     Going,
+    /// A Judge asked for and not yet reading; it holds the id of the reading that stood when it was pressed.
+    Judging(Option<String>),
 }
 
 /// Which of a card's boxes is open.
@@ -57,6 +59,8 @@ pub(super) struct CardState {
     pub opened: HashSet<String>,
     /// The card the thread keys act on: the one last pressed, else the newest.
     pub target: Option<String>,
+    /// How the person settled a Judge's note, before Fleet's reading says so, by `reading/note`.
+    pub judged: HashMap<String, ipc::JudgeNoteHow>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

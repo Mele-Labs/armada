@@ -19,6 +19,7 @@ mod deck;
 mod callchip;
 mod dock;
 mod fork;
+mod judge;
 mod keys;
 mod lines;
 mod menus;
@@ -255,6 +256,8 @@ pub struct JobView {
     bar: bar::Bar,
     /// Words selected in the thread and the bar over them.
     fork: fork::Fork,
+    /// The Judge's box on a plan, while it is open.
+    judge: Option<judge::Open>,
     confirm_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -314,6 +317,7 @@ impl JobView {
             confirm: None,
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
+            judge: None,
             confirm_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -450,6 +454,9 @@ impl JobView {
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
         for id in ids {
             self.sync(&id, cx);
+        }
+        if let Some(id) = self.shown.clone() {
+            self.judge_read(&id, cx);
         }
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {

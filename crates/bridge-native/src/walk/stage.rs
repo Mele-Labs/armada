@@ -48,9 +48,9 @@ pub struct Missed(pub String);
 /// The element a step aims at, as the window last drew it.
 pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
     let role = role_named(step.target.role).ok_or_else(|| Missed(format!("no role named {}", step.target.role)))?;
+    // The last one drawn: an element the list measured off screen comes first in the book.
     cx.try_global::<LabelBook>()
-        .and_then(|book| book.find(window.window_handle().window_id(), role, step.target.name))
-        .cloned()
+        .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == step.target.name).cloned())
         .ok_or_else(|| {
             let seen: Vec<String> = cx.try_global::<LabelBook>().map(|b| b.drawn(window.window_handle().window_id()).iter().filter(|d| d.role == role).map(|d| d.name.to_string()).collect()).unwrap_or_default();
             Missed(format!("no {} named \"{}\"; drawn: {:?}", step.target.role, step.target.name, seen))

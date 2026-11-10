@@ -643,8 +643,8 @@
      "at": "2026-11-09T13:47:29Z",
      "artifact": {
       "kind": "plan",
-      "id": "p1",
-      "title": "Plan v1"
+      "id": "2",
+      "title": "Plan v2"
      },
      "clean": false
     },

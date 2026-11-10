@@ -77,6 +77,16 @@ pub(super) struct Cards {
     stale: RefCell<std::collections::BTreeSet<String>>,
     /// The focus and the edges of the rows a person can reach by key, by row key.
     spots: RefCell<std::collections::HashMap<String, Spot>>,
+    /// The Judge's notes not yet acted on, in the order the plan drew them this frame.
+    findings: RefCell<Vec<Found>>,
+}
+
+/// A Judge's note drawn and waiting: its row, and which note of which reading it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Found {
+    pub key: String,
+    pub reading: String,
+    pub note: String,
 }
 
 /// A row a key reaches: its focus handle, kept between draws, and where it was last drawn.
@@ -144,7 +154,27 @@ impl Cards {
         for spot in spots.values() {
             spot.seen.set(false);
         }
+        self.findings.borrow_mut().clear();
         lost
+    }
+
+    /// A note waiting was drawn: the keys that run down the notes find it in this order.
+    pub fn found(&self, one: Found) {
+        self.findings.borrow_mut().push(one);
+    }
+
+    pub fn found_all(&self) -> Vec<Found> {
+        self.findings.borrow().clone()
+    }
+
+    /// Which of the drawn notes holds focus, by its place in the order.
+    pub fn found_focused(&self, window: &Window) -> Option<usize> {
+        let spots = self.spots.borrow();
+        self.findings.borrow().iter().position(|one| spots.get(&one.key).is_some_and(|spot| spot.focus.is_focused(window)))
+    }
+
+    pub fn spot_of(&self, key: &str) -> Option<Spot> {
+        self.spots.borrow().get(key).cloned()
     }
 
     /// The block of words drawn under both points, by the id of its row: what a selection lies in.
