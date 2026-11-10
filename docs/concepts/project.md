@@ -62,7 +62,7 @@ The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
 
 A lifecycle, a rule or an autonomy piece names a project in its `scope:`.
 A piece scoped to a project is read from Kit and from every member repository's `.armada/<kind>/`.
-[Protocol](../practices/protocol.md), *Workspaces, lifecycles and rules, read*, says how each is served.
+[Protocol](../practices/protocol.md), *Lifecycles and rules, read*, says how each is served.
 
 ## Dispatching tasks
 

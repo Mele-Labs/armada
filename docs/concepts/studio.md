@@ -36,7 +36,7 @@ flowchart LR
 > **Rule.** A Studio belongs to one repository.
 > Why: it is driven through a Job on your words, and a Job answers for one repository.
 
-> **Rule.** The Studios list names each Studio and when it was last touched, and names no Workspace.
+> **Rule.** The Studios list names each Studio and when it was last touched, and names no project.
 
 > **Rule.** On All repositories the Studios page lists every repository's Studios, one panel for each repository with its name as the head, and asks which repository to open only at the act that needs one.
 > With one repository picked it is that repository's panel alone.
