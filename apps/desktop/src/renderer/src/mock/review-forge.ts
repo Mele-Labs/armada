@@ -19,7 +19,7 @@ import {
   type ReviewRun,
   type ReviewTool,
   type ReviewTools,
-  type WalkPlace,
+  type StartReviewRun,
   type WritePullRequest,
 } from "@armada/protocol";
 
@@ -33,6 +33,7 @@ import {
   accountResult,
   answerResult,
   findingsResult,
+  fixResult,
   themesOf,
   tourResult,
 } from "./review-run-fixtures";
@@ -268,13 +269,11 @@ export function createMockForge(seed: ReviewSeed): MockForge {
     runs.set(`${pr.manifestId}#${pr.number}`, kept);
   }
 
-  /** What a run comes to: the fixture of its pull request, in the shape its kind has. */
-  const resultOf = (
-    pr: MockPr,
-    kind: ReviewRun["kind"],
-    name: string,
-    place: WalkPlace | undefined,
-  ): ReviewResult => {
+  /** What a run comes to: the fixture of its pull request, in the shape its kind has. None is a fix no fixture wrote. */
+  const resultOf = (pr: MockPr, start: StartReviewRun): ReviewResult | undefined => {
+    const { kind, name, place } = start;
+    if (kind === "fix")
+      return start.finding === undefined ? undefined : fixResult(pr, start.finding);
     if (kind === "ask") return answerResult(pr, name);
     if (kind === "tool" && name === "walk" && place !== undefined) {
       const walk = seed.walks[pr.key];
@@ -672,12 +671,13 @@ export function createMockForge(seed: ReviewSeed): MockForge {
       }, 0);
       globalThis.setTimeout(() => {
         run.finished_at = new Date().toISOString();
-        if (reason === undefined) {
+        const result = reason === undefined ? resultOf(one.pr, start) : undefined;
+        if (result !== undefined) {
           run.state = "done";
-          run.result = resultOf(one.pr, start.kind, start.name, start.place);
+          run.result = result;
         } else {
           run.state = "failed";
-          run.failed = reason;
+          run.failed = reason ?? "The agent wrote no fix for these lines";
         }
         told(run);
       }, AGENT_MS);

@@ -878,13 +878,20 @@ test("a file read after the lists name a newer commit, before the page does, dro
   ]);
 });
 
-test("Submit posts the drafts as one review: a reply, a line, a file, and the commit he read", async () => {
+test("Submit posts the drafts as one review: a reply, a line, a range, a file, and the commit he read", async () => {
   const { store, calls, key } = await opened();
   store.addDraft(key, {
     path: "a.rs",
     line: 12,
     side: "right",
     body: "Take the lock after the call",
+  });
+  store.addDraft(key, {
+    path: "a.rs",
+    line: 20,
+    startLine: 17,
+    side: "right",
+    body: "These four lines are one call",
   });
   store.addDraft(key, {
     path: "a.rs",
@@ -920,6 +927,14 @@ test("Submit posts the drafts as one review: a reply, a line, a file, and the co
         {
           kind: "line",
           path: "a.rs",
+          line: 20,
+          side: "right",
+          body: "These four lines are one call",
+          start_line: 17,
+        },
+        {
+          kind: "line",
+          path: "a.rs",
           line: 4,
           side: "left",
           body: "This went",
@@ -947,7 +962,7 @@ test("Submit posts the drafts as one review: a reply, a line, a file, and the co
   ).toEqual([
     [
       "request_changes",
-      4,
+      5,
     ],
   ]);
   expect(work.submitting).toBe(false);
@@ -1447,6 +1462,91 @@ test("a run Fleet would not start is failed in Fleet's words", async () => {
   expect(store.get().work[key]!.runs["risks"]).toMatchObject({
     state: "failed",
     said: "No definition has that name",
+  });
+});
+
+const FINDING = {
+  id: "tool:risks:0",
+  tool: "risks",
+  at: place(8, 10),
+  severity: "high" as const,
+  title: "Two refunds can pass the same check",
+  body: "Both read the balance before either writes.",
+  dismissed: false,
+  sent: false,
+};
+const FIX_NAME = "a.rs:8-10 Two refunds can pass the same check";
+
+test("a fix is a run of its own per finding, on the head's lines only, held under its name with what it wrote", async () => {
+  const { store, calls, key } = await opened();
+  store.fix(key, FINDING, false);
+  expect(store.get().work[key]!.fixes[FIX_NAME]?.state).toBe("running");
+  // Pressed again while it is going, nothing starts; a finding on the base's lines has no fix.
+  store.fix(key, FINDING, false);
+  store.fix(
+    key,
+    {
+      ...FINDING,
+      at: place(3, 3, {
+        side: "left",
+      }),
+    },
+    false,
+  );
+  await settle();
+  expect(calls.starts).toEqual([
+    {
+      number: 1,
+      kind: "fix",
+      name: FIX_NAME,
+      finding: {
+        title: FINDING.title,
+        body: FINDING.body,
+        severity: "high",
+        at: place(8, 10),
+      },
+    },
+  ]);
+  const written = {
+    shape: "fix" as const,
+    at: place(8, 10),
+    before: "check\n\ncreate",
+    after: "lock do\n  check\n  create\nend",
+    why: "Checks and creates under one lock.",
+  };
+  calls.emit(
+    run({
+      kind: "fix",
+      name: FIX_NAME,
+      result: written,
+    }),
+  );
+  const work = store.get().work[key]!;
+  expect(work.fixes[FIX_NAME]?.state).toBe("done");
+  expect(work.wire[`fix:${FIX_NAME}`]?.result).toEqual(written);
+  // A fix is no question: nothing is asked.
+  expect(work.asks).toEqual([]);
+});
+
+test("a fix Fleet would not write is failed in Fleet's words, and the next press asks again", async () => {
+  const starts: StartReviewRun[] = [];
+  const { store, key } = await opened({
+    startRun: async (_id, start) => {
+      starts.push(start);
+      return said("The agent wrote no lines");
+    },
+  });
+  store.fix(key, FINDING, false);
+  await settle();
+  expect(store.get().work[key]!.fixes[FIX_NAME]).toMatchObject({
+    state: "failed",
+    said: "The agent wrote no lines",
+  });
+  store.fix(key, FINDING, false);
+  await settle();
+  expect(starts.at(-1)).toMatchObject({
+    kind: "fix",
+    again: true,
   });
 });
 

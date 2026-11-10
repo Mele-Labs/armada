@@ -71,6 +71,7 @@ const EMPTY: PrWork = {
   view: "explanation",
   runs: {},
   runsRead: false,
+  fixes: {},
   opened: [],
   drafts: [],
   threads: [],
@@ -764,6 +765,11 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
                 line: one.line,
                 side: one.side,
                 body: one.body,
+                ...(one.startLine !== undefined && one.startLine < one.line
+                  ? {
+                      start_line: one.startLine,
+                    }
+                  : {}),
               }
             : {
                 kind: "file",

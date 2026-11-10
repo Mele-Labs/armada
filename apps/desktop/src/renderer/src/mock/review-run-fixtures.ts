@@ -1,10 +1,10 @@
 // What the mock Fleet's agent says, as the wire says it: the fixtures of a mock pull request (`review-seed.ts`) converted into the
 // shapes of `ReviewResult`, with each place computed from the lines of the hunk the fixture drew.
 
-import type { ReviewPlace, ReviewResult } from "@armada/protocol";
+import type { ReviewFinding, ReviewPlace, ReviewResult } from "@armada/protocol";
 
 import type { Account, Change, Hunk } from "../pr-review/model";
-import { placeOfLine } from "../pr-review/patch";
+import { counted, placeOfLine } from "../pr-review/patch";
 import type { FindingSeed, MockPr } from "./review-seed";
 
 /** The lines a hunk covers on the head's side, or on the base's where it only removes. */
@@ -169,3 +169,58 @@ export const answerResult = (pr: MockPr, words: string): ReviewResult => ({
   shape: "text",
   body: pr.answers.find((one) => new RegExp(one.when, "i").test(words))?.body ?? "",
 });
+
+/** The lines an invented fix replaces a finding's with, and why, by the finding's title. */
+const FIXES: Readonly<
+  Record<
+    string,
+    {
+      after: string;
+      why: string;
+    }
+  >
+> = {
+  "Two refunds can pass the same check": {
+    after: [
+      "    refund = @payment.with_lock do",
+      "      raise Refund::TooLarge unless @payment.refundable?(amount_cents)",
+      "",
+      '      @payment.refunds.create!(amount_cents: amount_cents, state: "pending")',
+      "    end",
+    ].join("\n"),
+    why: "Checks and creates the refund under the payment's row lock, so two requests cannot both pass the check.",
+  },
+};
+
+/** The head's lines at a place, as the pull request's patch holds them: the page and the fix read the same text. */
+function headLines(pr: MockPr, at: ReviewPlace): string {
+  const held = new Map<number, string>();
+  for (const hunk of pr.explanation.themes.flatMap((theme) =>
+    theme.changes.flatMap((change) => change.hunks),
+  )) {
+    if (hunk.path !== at.path) continue;
+    counted(hunk.lines).forEach((one, index) => {
+      if (one.now !== undefined && one.now >= at.start && one.now <= at.end)
+        held.set(one.now, hunk.lines[index]!.text.slice(1));
+    });
+  }
+  return [
+    ...held.entries(),
+  ]
+    .sort(([a], [b]) => a - b)
+    .map(([, text]) => text)
+    .join("\n");
+}
+
+/** What a fix comes to: the finding's lines from the patch, and the fixture's lines for them. None where no fixture is written. */
+export function fixResult(pr: MockPr, finding: ReviewFinding): ReviewResult | undefined {
+  const fix = FIXES[finding.title];
+  if (fix === undefined) return undefined;
+  return {
+    shape: "fix",
+    at: finding.at,
+    before: headLines(pr, finding.at),
+    after: fix.after,
+    why: fix.why,
+  };
+}

@@ -322,6 +322,10 @@
   color: var(--fg-muted);
   font-size: var(--text-2xs);
 }
+.pr-card__lines {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .pr-card__act {
   display: inline-flex;
   margin-left: auto;
@@ -364,6 +368,40 @@
 }
 .pr-thread > .pr-draft {
   margin: var(--space-2) var(--space-3);
+}
+
+/* A finding's fix: why on one line, the lines before and after in the diff's own hues, and the presses under them. */
+.pr-fix {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.pr-fix > .pr-run__failed {
+  padding: 0;
+}
+.pr-fix__why {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg-default);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pr-fix__bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.pr-fix__bar [data-run="running"] svg {
+  color: var(--status-running);
+  animation: pr-review-spin var(--duration-pulse) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pr-fix__bar [data-run="running"] svg {
+    animation: none;
+  }
 }
 
 /* His own, not posted: his hue, and a dashed edge, which is what unposted looks like. */
@@ -1118,6 +1156,7 @@
 [data-tool="why"] {
   --tool-hue: var(--accent);
 }
+[data-tool="tour"],
 [data-tool="custom"] {
   --tool-hue: var(--status-handed-in);
 }

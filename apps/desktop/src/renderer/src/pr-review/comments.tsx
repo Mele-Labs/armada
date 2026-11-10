@@ -19,7 +19,7 @@ import {
 
 import type { useSendFindings } from "./acts";
 import { useSessionsDraft } from "../sessions-draft";
-import { changesOf, ownerOf, placeOfDraft } from "./changes";
+import { changesOf, ownerOf, placeOfDraft, rangeOfDraft } from "./changes";
 import type { Draft, ReviewPr, Verdict } from "./model";
 import { indexOfPlace, linesOfPatch } from "./patch";
 import { NO_WORK, useReviewStore, useReviews } from "./store";
@@ -105,7 +105,13 @@ function PendingComment({
   const store = useReviewStore()!;
   const work = useReviews().work[pr.key] ?? NO_WORK;
   const place = placeOfDraft(draft);
-  const where = place === undefined ? draft.path : `${draft.path}:${place.line}`;
+  const range = rangeOfDraft(draft);
+  const where =
+    place === undefined
+      ? draft.path
+      : range === undefined
+        ? `${draft.path}:${place.line}`
+        : `${draft.path}, ${range.toLowerCase()}`;
   const patch = work.patches[draft.path];
   // A change's own patch, or else the file as the whole pull request's files have it, which is all the Review tab reads.
   const whole =
