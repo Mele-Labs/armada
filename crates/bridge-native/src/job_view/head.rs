@@ -1108,6 +1108,29 @@ impl JobView {
             });
             div().flex().items_center().gap(look.length(token::SPACE_2)).children(mod_mark).children(tools_mark)
         };
+        let aa = labelled(
+            div()
+                .id("aa")
+                .track_focus(&self.composer.aa)
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(look.length(token::H_CONTROL))
+                .rounded(look.length(token::RADIUS_MD))
+                .text_size(look.length(token::TEXT_XS))
+                .font_weight(gpui::FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .text_color(look.color(token::FG_SUBTLE))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
+                .aria_expanded(self.composer.popup.is_some())
+                .child("Aa")
+                .tooltip(tip("Thread look".into()))
+                .on_click(cx.listener(|this, _, window, cx| this.open_aa(window, cx))),
+            Role::Button,
+            "Thread look",
+        );
         Some(
             div()
                 .flex_none()
@@ -1117,6 +1140,7 @@ impl JobView {
                 .min_h(look.length(token::H_CONTROL_SM))
                 .mt(look.length(token::SPACE_2))
                 .px(look.length(token::SPACE_2))
+                .child(aa)
                 .children(acts)
                 .child(div().flex_1())
                 .child(marks)

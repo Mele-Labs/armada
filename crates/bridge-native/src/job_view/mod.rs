@@ -10,6 +10,7 @@
 //! person is in another Job, so a switch is a swap of what is drawn and nothing is read or measured
 //! again. A page is made on the first visit.
 
+mod aa;
 mod calls;
 mod composer;
 mod head;
@@ -457,6 +458,12 @@ impl Render for JobView {
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
+        // Aa moved how the thread reads (or Fleet's look arrived, or refused a change): measure every list again.
+        let drawn = self.composer.quick.thread();
+        if self.composer.thread_drawn != Some(drawn) {
+            self.composer.thread_drawn = Some(drawn);
+            self.pages.values().for_each(|page| page.list.remeasure());
+        }
         let loaded = self.thread(&id, cx).is_some() && self.pages.get(&id).is_some_and(|page| page.version.is_some());
         let body = if loaded {
             let state = self.pages[&id].list.clone();

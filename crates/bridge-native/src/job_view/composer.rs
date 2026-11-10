@@ -208,6 +208,10 @@ pub(super) struct Composer {
     pub boxes: HashMap<SharedString, JobBox>,
     pub popup: Option<Popup>,
     pub quick: Quick,
+    /// The Aa button's focus, where keys return when its panel is put away.
+    pub aa: FocusHandle,
+    /// The thread look the rows were last measured for.
+    pub thread_drawn: Option<super::quick::Thread>,
     pub talk: super::talk::Talk,
     /// The ⌘ key is down, so Send draws its key.
     cmd: bool,
@@ -248,6 +252,8 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
         boxes: HashMap::new(),
         popup: None,
         quick: Quick::default(),
+        aa: cx.focus_handle().tab_stop(true),
+        thread_drawn: None,
         talk: super::talk::Talk::default(),
         cmd: false,
     };
@@ -379,6 +385,17 @@ impl JobView {
             input.focus(window, cx);
         });
         self.typed_now(cx);
+    }
+
+    /// A line half typed outside the box (the Aa panel's new quick reply) survives the panel closing, and the run.
+    pub(super) fn keep_text(&mut self, key: &str, text: String, cx: &mut Context<Self>) {
+        if self.composer.drafts.set(key, Kept { text, tags: Vec::new() }) {
+            self.keep_soon(cx);
+        }
+    }
+
+    pub(super) fn kept_text(&self, key: &str) -> String {
+        self.composer.drafts.get(key).text
     }
 
     /// The box takes `kept` and the caret goes to its end, where Talk's words join.
@@ -756,6 +773,18 @@ impl JobView {
             }
         });
         self.open_popup(menu, back, vec![picked], window, cx);
+    }
+
+    /// Open the Aa panel upward from its button.
+    pub(super) fn open_aa(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(at) = drawn(window, cx, Role::Button, "Thread look").map(|bounds| bounds.origin) else { return };
+        self.want_look(cx);
+        let job = self.shown.clone();
+        let view = cx.entity();
+        let held = (self.composer.quick.panel().agent_name, self.kept_text("thread-look:new-line"), self.composer.quick.mock_whisper());
+        let panel = cx.new(|cx| super::aa::Aa::new(view, job, at, held, window, cx));
+        let back = Some(self.composer.aa.clone());
+        self.open_popup(panel, back, Vec::new(), window, cx);
     }
 
     pub(super) fn open_tune(&mut self, window: &mut Window, cx: &mut Context<Self>) {

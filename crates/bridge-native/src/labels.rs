@@ -38,6 +38,11 @@ pub fn role_named(word: &str) -> Option<Role> {
         "img" => Role::Image,
         "group" => Role::Group,
         "dialog" => Role::Dialog,
+        "switch" => Role::Switch,
+        "combobox" => Role::ComboBox,
+        "listbox" => Role::ListBox,
+        "option" => Role::ListBoxOption,
+        "progressbar" => Role::ProgressIndicator,
         "separator" => Role::Splitter,
         _ => return None,
     })

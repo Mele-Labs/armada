@@ -7,7 +7,8 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::time::Duration;
 
 const RELEASE: &str = "b5454";
 const MODEL: &str = "ggml-base.en-q5_1.bin";
@@ -15,6 +16,8 @@ const FRAMEWORK_IN_ZIP: &str = "build-apple/whisper.xcframework/macos-arm64_x86_
 const LIBRARY_URL: &str = "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-b5454-xcframework.zip";
 const LIBRARY_SHA: &str = "e57f8c48933000acabc13bb913fbe82805d483a2deff692cc6738836bd92393b";
 const MODEL_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en-q5_1.bin";
+const LIBRARY_BYTES: u64 = 65_816_082;
+const MODEL_BYTES: u64 = 59_721_011;
 const MODEL_SHA: &str = "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f";
 
 fn dir() -> Option<PathBuf> {
@@ -36,12 +39,34 @@ pub fn paths() -> Option<(String, String)> {
 
 static RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// What has come down so far, as thousandths of both files together.
+static PROGRESS: AtomicU32 = AtomicU32::new(0);
+
+/// Whisper on this Mac: not here, coming down (0 to 1), or here.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum State {
+    Absent,
+    Installing(f32),
+    Installed,
+}
+
+pub fn state() -> State {
+    if RUNNING.load(Ordering::SeqCst) {
+        State::Installing(PROGRESS.load(Ordering::Relaxed) as f32 / 1000.)
+    } else if paths().is_some() {
+        State::Installed
+    } else {
+        State::Absent
+    }
+}
+
 /// Starts the install, or joins the one under way. It runs off the main thread and keeps nothing
 /// to report: the next press finds Whisper there, or does not.
 pub fn install() {
     if paths().is_some() || RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }
+    PROGRESS.store(0, Ordering::Relaxed);
     std::thread::spawn(|| {
         if let Some(dir) = dir() {
             if fetch(&dir).is_err() {
@@ -56,8 +81,8 @@ pub fn install() {
 fn fetch(dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|why| why.to_string())?;
     let zip = dir.join("whisper.zip");
-    download(LIBRARY_URL, &zip, LIBRARY_SHA)?;
-    download(MODEL_URL, &dir.join(MODEL), MODEL_SHA)?;
+    download(LIBRARY_URL, &zip, LIBRARY_SHA, 0, LIBRARY_BYTES)?;
+    download(MODEL_URL, &dir.join(MODEL), MODEL_SHA, LIBRARY_BYTES, MODEL_BYTES)?;
     let staging = dir.join("unpacking");
     let _ = std::fs::remove_dir_all(&staging);
     // `unzip` keeps the framework's symlinks, and takes one slice of a zip that holds every Apple platform.
@@ -80,8 +105,18 @@ fn fetch(dir: &Path) -> Result<(), String> {
     std::fs::write(dir.join("installed.json"), mark()).map_err(|why| why.to_string())
 }
 
-fn download(url: &str, file: &Path, sha256: &str) -> Result<(), String> {
-    let status = Command::new("/usr/bin/curl").args(["-fsSL", "-o"]).arg(file).arg(url).status().map_err(|why| why.to_string())?;
+/// Fetches `url` into `file`, telling `PROGRESS` as it grows. `before` is what the earlier file
+/// brought, so the bar is one for both. Held under 1 until unpacked: a full bar is installed.
+fn download(url: &str, file: &Path, sha256: &str, before: u64, bytes: u64) -> Result<(), String> {
+    let mut child = Command::new("/usr/bin/curl").args(["-fsSL", "-o"]).arg(file).arg(url).spawn().map_err(|why| why.to_string())?;
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|why| why.to_string())? {
+            break status;
+        }
+        let here = std::fs::metadata(file).map_or(0, |one| one.len().min(bytes));
+        PROGRESS.store(progress_of(before + here), Ordering::Relaxed);
+        std::thread::sleep(Duration::from_millis(200));
+    };
     if !status.success() {
         return Err("download".into());
     }
@@ -94,8 +129,20 @@ fn download(url: &str, file: &Path, sha256: &str) -> Result<(), String> {
     }
 }
 
+/// Thousandths of both files, never the last of them.
+fn progress_of(done: u64) -> u32 {
+    ((done * 1000 / (LIBRARY_BYTES + MODEL_BYTES)) as u32).min(990)
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_bar_is_one_for_both_files_and_never_full_before_it_is_unpacked() {
+        assert_eq!(super::progress_of(0), 0);
+        assert_eq!(super::progress_of(super::LIBRARY_BYTES), 524);
+        assert_eq!(super::progress_of(super::LIBRARY_BYTES + super::MODEL_BYTES), 990);
+    }
+
     #[test]
     fn the_marker_names_this_release_and_model() {
         assert_eq!(super::mark(), r#"{"release":"b5454","model":"ggml-base.en-q5_1.bin"}"#);
