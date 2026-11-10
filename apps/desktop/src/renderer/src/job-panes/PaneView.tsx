@@ -530,7 +530,7 @@ function TabButton({
 }
 
 /** A tab's name as a field in the tab: Enter keeps what was typed, Escape leaves the name as it was. */
-function RenameField({
+export function RenameField({
   label,
   onDone,
   onCancel,
@@ -546,16 +546,19 @@ function RenameField({
     settled.current = true;
     answer();
   };
+  // Once, on mount: an inline ref runs again on every render, and each Fleet update of the Job would select what was typed so the next key replaced it.
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    field.current?.focus();
+    field.current?.select();
+  }, []);
   return (
     <input
       className="job-pane__rename"
       aria-label={`Rename ${label}`}
       defaultValue={label}
       spellCheck={false}
-      ref={(field) => {
-        field?.focus();
-        field?.select();
-      }}
+      ref={field}
       onKeyDown={(event) => {
         event.stopPropagation();
         if (event.key === "Enter") {

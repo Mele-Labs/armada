@@ -51,10 +51,6 @@ on purpose and makes the gate name what was waiting.
 - **[manifest-check-timeout-raise-or-lower]** May a per-Check timeout field raise the configured bound, or may it only lower it?
 - **[manifest-kit-merge-rules]** What are the Kit→Manifest merge rules for Skills, MCP and Sub agents? No merge strategy exists in the Configuration Settings registry for any of the three.
 
-## docs/concepts/native-bridge.md
-
-- **[native-operator-form]** Is the native Operator a panel or a screen? The choice is made from mock takes, which the owner walks before the gpui build starts.
-
 ## docs/concepts/retro.md
 
 - **[retro-rewrite]** Whether a person can ask for a failed retro to be written again. Nothing offers it.

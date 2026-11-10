@@ -683,7 +683,7 @@ where
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
             items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
-            items.extend(super::document_answers::document_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
+            items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.
@@ -754,7 +754,7 @@ where
             // The done and a reply that asks are read off the turn, so a Session whose agent never
             // called a tool still reaches the person. Not when it already asked through one, while
             // the sentence readers are off: in force they read the reply whatever is listed, and a
-            // repeat of a listed item is folded below.
+            // repeat of a listed command is folded below.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
                 matches!(
                     one.source,
@@ -769,6 +769,8 @@ where
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
+            // A command the agent listed is not raised again by the fenced block of its reply.
+            items = super::dedup::without_a_command_listed(items);
             // A sentence read from the reply near one he marked Not a question is left off, once the
             // model is loaded.
             if !misreads.is_empty() && items.iter().any(|one| one.source == WaitingSource::Replied) {

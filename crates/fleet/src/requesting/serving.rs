@@ -9,9 +9,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{Refusal, Requests};
+use api::{Refusal, Requests, RunsAsked};
 use ipc::{
-    DeleteRequestEnvironment, RequestBy, RequestEnvironment, RequestSaved, RequestSent, RequestVariable, Requests as RequestsRead,
+    DeleteRequestEnvironment, RequestBy, RequestEnvironment, RequestRun, RequestRuns, RequestSaved, RequestSent, RequestVariable, Requests as RequestsRead,
     SaveRequestCollection, SaveRequestEnvironment, RequestsSent, SaveRequestToCollection, SendRequest, SendRequests, ServerPhase,
     SessionId, SessionRow, WireError, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
@@ -171,7 +171,7 @@ where
             (RequestBy::Agent, Some(job), Some(id)) if self.thread_open(job).await => Some((self.scratch_of(job), id)),
             _ => None,
         };
-        let done = tokio::task::spawn_blocking(move || {
+        let mut done = tokio::task::spawn_blocking(move || {
             if let Some(file) = send.body_file.take() {
                 send.body = Some(read_body(&file, &places, REQUEST_BODY_CAP).map_err(Unsent::Refused)?);
             }
@@ -187,6 +187,9 @@ where
             Unsent::Refused(why) => Refusal::Unacceptable(WireError::raised(REQUEST_REFUSED, why, self.run_id())),
             Unsent::Unkept(why) => Refusal::Fault(WireError::raised(SECRET_UNKEPT, why, self.run_id())),
         })?;
+        if let Some(why) = self.run_kept(root.as_deref(), job.as_deref(), &done).await {
+            done.noted(&why);
+        }
         if let (Some(job), Some(id)) = (job, id) {
             self.request_kept(&job, id, &done).await;
         }
@@ -231,6 +234,27 @@ where
     ) -> Result<RequestsRead, Refusal> {
         let (root, job) = self.requests_placed(caller, repository.as_deref(), session_id.as_ref()).await?;
         self.requests_answer(&root, job.as_deref()).await
+    }
+
+    async fn list_request_runs(
+        &self,
+        caller: Option<api::Caller>,
+        asked: RunsAsked,
+    ) -> Result<RequestRuns, Refusal> {
+        let (root, _) = self.requests_placed(caller, asked.repository.as_deref(), asked.session_id.as_ref()).await?;
+        self.request_runs_page(&root, &asked).await
+    }
+
+    async fn get_request_run(
+        &self,
+        caller: Option<api::Caller>,
+        reader: RequestBy,
+        repository: Option<String>,
+        session_id: Option<SessionId>,
+        id: String,
+    ) -> Result<RequestRun, Refusal> {
+        let (root, _) = self.requests_placed(caller, repository.as_deref(), session_id.as_ref()).await?;
+        self.request_run_whole(&root, &id, reader).await
     }
 
     async fn save_request_collection(

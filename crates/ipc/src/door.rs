@@ -633,6 +633,30 @@ fn describe_in(operation: &str, name: &str) -> String {
         ("get_requests", "repository") => String::from(
             "A repository root, as `list_repositories` names it. Absent, your Job's repository",
         ),
+        ("list_request_runs" | "get_request_run", "session_id") => String::from(
+            "Your Job's id, only where you run in a terminal. A Job Armada hosts is known by its \
+             connection and needs none",
+        ),
+        ("list_request_runs" | "get_request_run", "repository") => String::from(
+            "A repository root, as `list_repositories` names it. Absent, your Job's repository",
+        ),
+        ("list_request_runs", "collection") => String::from(
+            "The id of the request's collection, as `get_requests` lists it. A name is not looked up",
+        ),
+        ("list_request_runs", "request") => String::from(
+            "The request's own id, as `get_requests` lists it. A name is not looked up",
+        ),
+        ("list_request_runs", "by") => String::from(
+            "`owner` for the person's sends or `agent` for a Job's. Absent is both",
+        ),
+        ("list_request_runs", "status") => String::from(
+            "`2xx`, `3xx`, `4xx`, `5xx`, or `failed` for a run nothing answered. Absent is every run",
+        ),
+        ("list_request_runs", "before") => String::from(
+            "A run's `id`: only runs older than it, which is how the next page is read from `next`",
+        ),
+        ("list_request_runs", "limit") => String::from("How many runs to list. Absent is 50; at most 200"),
+        ("get_request_run", "id") => String::from("The run, as `list_request_runs` names it"),
         ("read_terminal", "terminal") => String::from(
             "The terminal to read: an ID such as `t2`, as the person hands it to you or `list_terminals` \
              names it. Absent, the one you last typed into or read, else the Job's first open one",

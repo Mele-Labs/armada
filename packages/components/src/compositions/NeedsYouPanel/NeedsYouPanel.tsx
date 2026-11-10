@@ -253,7 +253,13 @@ export function NeedsYouPanel({
     label: group.label,
     rows: rows.filter((row) => acts(row) && group.holds(row)),
   })).filter((group) => group.rows.length > 0);
-  const restarts = rows.filter(banded);
+  // One command is one key, whichever items ask for it: the agent's own and a sentence read from its reply say the same restart.
+  const restarts = rows
+    .filter(banded)
+    .filter(
+      (row, at, all) =>
+        all.findIndex((one) => one.restart?.command === row.restart?.command) === at,
+    );
   const things: Thing[] = [
     ...questions,
     ...actions.flatMap((group) =>

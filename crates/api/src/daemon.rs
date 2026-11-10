@@ -69,7 +69,7 @@ pub use pull_request_panel::PullRequestPanel;
 pub use pull_requests::PullRequests;
 pub use queries::Queries;
 pub use rehearsing::Rehearsing;
-pub use requests::Requests;
+pub use requests::{Requests, RunsAsked};
 pub use retros::Retros;
 pub use sessions::Sessions;
 pub use settings::Settings;

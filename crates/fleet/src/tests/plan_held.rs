@@ -529,15 +529,119 @@ fn document(target: &str, detail: &[(&str, &str)]) -> ipc::Attachment {
 /// **A page put to him holds the plan until he answers it**, and a page the Job never asked holds nothing.
 #[test]
 fn a_page_put_to_him_holds_a_pending_plan_until_he_settles_it() {
-    const PAGE: &str = "/r/.armada/documents/lease.html";
-    let held = |page: ipc::Attachment| crate::session_host::planning::plan_holds("2026-01-02T00:00:00Z", None, &[page], &[], &[]);
+    let folder = crate::tests::tmp::TempDir::new();
+    let file = folder.path().join("lease.html");
+    std::fs::write(&file, "<html></html>").expect("a page");
+    let page = file.to_string_lossy().into_owned();
+    let page = page.as_str();
+    let held = |attached: ipc::Attachment| crate::session_host::planning::plan_holds("2026-01-02T00:00:00Z", None, &[attached], &[], &[]);
 
-    let open = held(document(PAGE, &[("asked", "true")]));
-    assert_eq!(open.held_by, [ipc::PlanHold { url: PAGE.into(), why: ipc::PlanHoldWhy::Unapproved }]);
+    let open = held(document(page, &[("asked", "true")]));
+    assert_eq!(open.held_by, [ipc::PlanHold { url: page.into(), why: ipc::PlanHoldWhy::Unapproved }]);
 
-    let answered = held(document(PAGE, &[("asked", "true"), ("settled", "approved"), ("settled_at", "2026-01-03T00:00:00Z")]));
+    let answered = held(document(page, &[("asked", "true"), ("settled", "approved"), ("settled_at", "2026-01-03T00:00:00Z")]));
     assert!(answered.held_by.is_empty(), "{:?}", answered.held_by);
     assert_eq!(answered.since, ipc::Instant::carried("2026-01-03T00:00:00Z"), "his answer is when it became askable");
 
-    assert!(held(document(PAGE, &[])).held_by.is_empty(), "a page never asked holds nothing");
+    assert!(held(document(page, &[])).held_by.is_empty(), "a page never asked holds nothing");
+}
+
+/// **A page holds the plan only while it is in front of him.** The Operator Job's plan v6 was held for good by a page the
+/// design had moved past: the Job deleted the file, and nothing else could clear a hold that was no card of his.
+#[test]
+fn a_page_whose_file_is_gone_holds_nothing_and_the_plan_is_asked() {
+    let folder = crate::tests::tmp::TempDir::new();
+    let page = folder.path().join("operator-suggestion-wording.html");
+    std::fs::write(&page, "<html></html>").expect("a page");
+    let page = page.to_string_lossy().into_owned();
+    let holds = || crate::session_host::planning::plan_holds("2026-01-02T00:00:00Z", None, &[document(&page, &[("asked", "true")])], &[], &[]);
+
+    assert!(crate::session_host::planning::plan_called("s", 6, &holds()).is_none(), "a page he can still answer holds the plan");
+
+    std::fs::remove_file(&page).expect("the Job deletes the page");
+    let asked = crate::session_host::planning::plan_called("s", 6, &holds()).expect("the plan is asked once nothing is in front of him");
+    assert_eq!(asked.id, "plan:6");
+}
+
+/// A page he dismissed is no card of his, so it cannot hold the plan either.
+#[test]
+fn a_page_he_dismissed_holds_nothing_and_the_plan_is_asked() {
+    let folder = crate::tests::tmp::TempDir::new();
+    let page = folder.path().join("lease.html");
+    std::fs::write(&page, "<html></html>").expect("a page");
+    let page = page.to_string_lossy().into_owned();
+    let held = |dismissed: &[String]| {
+        crate::session_host::planning::plan_holds("2026-01-02T00:00:00Z", None, &[document(&page, &[("asked", "true")])], &[], dismissed)
+    };
+
+    assert!(!held(&[]).held_by.is_empty());
+    let dismissed = [format!("document:{page}")];
+    let asked = crate::session_host::planning::plan_called("s", 3, &held(&dismissed)).expect("asked once the page is dismissed");
+    assert_eq!(asked.id, "plan:3");
+}
+
+/// A page's own card is read by the test that holds the plan, so it leaves Needs you when its file is deleted or he dismisses it.
+#[test]
+fn a_pages_card_is_gone_with_its_file_and_with_his_dismissal() {
+    let folder = crate::tests::tmp::TempDir::new();
+    let file = folder.path().join("wording.html");
+    std::fs::write(&file, "<html></html>").expect("a page");
+    let page = file.to_string_lossy().into_owned();
+    let attached = [document(&page, &[("asked", "true")])];
+    let cards = |dismissed: &[String]| crate::session_host::document_answers::document_items(&attached, "s", dismissed).count();
+
+    assert_eq!(cards(&[]), 1, "a page he can still answer is a card");
+    assert_eq!(cards(&[format!("document:{page}")]), 0, "a dismissed page is none");
+    std::fs::remove_file(&file).expect("the Job deletes the page");
+    assert_eq!(cards(&[]), 0, "a deleted page is none");
+}
+
+/// **A walk the plan names holds it only while its window is in front of him.** A plan was held for good by a walk the Job had
+/// withdrawn, with nothing of it left in Needs you. A walk never shown still holds: the Job owes it.
+#[tokio::test]
+async fn a_named_walk_the_job_withdrew_holds_nothing_until_it_is_shown_again() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, Some(ONE)).await;
+    assert!(call(&rig, &id).await.is_none(), "the walk he has not approved holds the plan");
+
+    withdraw(&rig, &id, ONE).await.expect("withdrawn");
+    assert!(walks(&read(&rig, &id).await).is_empty(), "the walk left his Needs you list");
+    assert!(call(&rig, &id).await.is_some(), "so the plan is put to him");
+
+    later().await;
+    page(&rig, &id, ONE).await;
+    assert!(call(&rig, &id).await.is_none(), "shown again, it holds again");
+}
+
+#[tokio::test]
+async fn a_named_walk_he_dismissed_holds_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, Some(ONE)).await;
+    assert!(call(&rig, &id).await.is_none());
+
+    let item = format!("walk:{ONE}");
+    Arc::clone(&rig.fleet)
+        .dismiss_waiting(DismissWaiting { session_id: id.clone(), item_id: item, reason: None, misread: false })
+        .await
+        .expect("dismissed");
+    assert!(call(&rig, &id).await.is_some(), "a walk that is no card of his does not hold the plan");
+}
+
+#[tokio::test]
+async fn a_named_walk_a_newer_window_of_its_page_replaced_holds_nothing() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    page(&rig, &id, ONE).await;
+    record(&rig, &id, Some(ONE)).await;
+    assert!(call(&rig, &id).await.is_none());
+
+    later().await;
+    page(&rig, &id, "http://localhost:5174/one").await;
+    assert!(call(&rig, &id).await.is_none(), "the newer window of the page is the walk now, and it waits");
+    let holds = read(&rig, &id).await.plan.expect("a plan").held_by;
+    assert!(holds.iter().all(|one| one.url != ONE), "{holds:?}");
 }

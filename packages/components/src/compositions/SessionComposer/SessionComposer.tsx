@@ -109,6 +109,8 @@ export type ComposerNumbered = {
 /** How many rows `#` offers at once, and how long a typed number rests before it is looked up. */
 const NUMBERED_ROWS = 6;
 const LOOKUP_MS = 150;
+/** How long letters typed after `@` rest before files are asked for. Fleet answers from memory, so this only spares a request per keystroke; a bare `@` does not rest. */
+const FILE_REST_MS = 40;
 
 /** What each kind is called, on the glyph that leads a `#` row. */
 const KIND_SAID: Record<ComposerTag["kind"], string> = {
@@ -647,9 +649,9 @@ export function SessionComposer({
   }, [
     wanted,
   ]);
-  // `@` and something after it asks for files once it has rested. The last answer stays until the next
+  // `@` asks for files at once, and what follows it once it has rested. The last answer stays until the next
   // arrives, so the list does not close between keystrokes, and one that comes back late is dropped.
-  const fileQuery = token?.trigger === "@" && token.query !== "" ? token.query : undefined;
+  const fileQuery = token?.trigger === "@" ? token.query : undefined;
   const [foundFiles, setFoundFiles] = useState<readonly string[]>([]);
   const finder = useRef(searchFiles);
   finder.current = searchFiles;
@@ -660,11 +662,13 @@ export function SessionComposer({
       return;
     }
     let live = true;
-    const timer = window.setTimeout(() => {
+    const send = () => {
       void ask(fileQuery).then((found) => {
         if (live) setFoundFiles(found);
       });
-    }, LOOKUP_MS);
+    };
+    if (fileQuery === "") send();
+    const timer = fileQuery === "" ? undefined : window.setTimeout(send, FILE_REST_MS);
     return () => {
       live = false;
       window.clearTimeout(timer);

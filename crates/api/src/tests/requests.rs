@@ -84,3 +84,37 @@ async fn the_collection_and_environment_routes_answer() {
         assert_eq!(status, StatusCode::NOT_FOUND, "{retired} is retired");
     }
 }
+
+#[tokio::test]
+async fn the_run_reads_reach_the_daemon_with_the_door_and_the_filters_they_name() {
+    let app = wired();
+    let uri = "/requests/runs?collection=users&request=me&by=agent&status=4xx&before=9&limit=5";
+    let (status, body) = call(&app, "GET", uri, "", Some(BRIDGE)).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let runs: ipc::RequestRuns = ipc::decode("runs", &body).expect("decodes");
+    let [run] = &runs.runs[..] else { panic!("one run: {runs:?}") };
+    assert_eq!(run.url, "users/me?by=Some(Agent)&status=Some(\"4xx\")&before=Some(\"9\")&limit=Some(5)");
+    for (caller, by) in [(Some(BRIDGE), ipc::RequestBy::Owner), (None, ipc::RequestBy::Agent)] {
+        let (status, body) = call(&app, "GET", "/requests/runs/one?id=7", "", caller).await;
+        assert_eq!(status, StatusCode::OK);
+        let run: ipc::RequestRun = ipc::decode("run", &body).expect("decodes");
+        assert_eq!((run.id.as_str(), run.by), ("7", by), "read through the door the caller came by");
+    }
+}
+
+#[tokio::test]
+async fn a_run_read_that_names_nothing_or_a_spelling_that_is_none_is_refused_before_the_daemon() {
+    let app = wired();
+    for uri in [
+        "/requests/runs",
+        "/requests/runs?collection=users",
+        "/requests/runs?collection=users&request=me&by=everyone",
+        "/requests/runs?collection=users&request=me&status=6xx",
+        "/requests/runs?collection=users&request=me&limit=many",
+        "/requests/runs/one",
+    ] {
+        let (status, body) = call(&app, "GET", uri, "", Some(BRIDGE)).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{uri}");
+        assert!(String::from_utf8_lossy(&body).contains("api.request_run_refused"), "{uri}");
+    }
+}

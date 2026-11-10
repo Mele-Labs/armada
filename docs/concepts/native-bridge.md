@@ -72,7 +72,7 @@ Each step is its own Job, and at most two run at once.
 | Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
 | Web pages in Chrome | Documents, sketches, walks of web pages and notes |
 | Job panes | Plan, Changes, Files, Checks, Subagents, Log, Ledger, Judge, the pull request panes and the native diff |
-| Operator and Projects | The Operator board and Talk, and Projects |
+| Operator and Projects | The Operator's page (Your turn and its digest), its chat and toasts, and Projects |
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account |
 | Job tools | Terminal, the Request pane and the Browser tool |
 | Switch-over | VoiceOver pass, the signed app on both Macs, the Electron fallback |
@@ -108,7 +108,7 @@ He switches from the list, from palette search and from Needs you.
 
 ## Notifying
 
-**Needs you lives inside the Jobs list and on the Operator board.**
+**Needs you lives inside the Jobs list, and the Operator raises what needs him through toasts.**
 A banner and sound fire only when a Job needs him or stops.
 From the day the native Jobs screens land, only the native app notifies, sounds and badges the dock.
 
@@ -132,7 +132,7 @@ Everything he uses daily:
 - Documents, sketches and walks.
 - The Job panes Plan, Changes, Files, Checks, Subagents, Log, Ledger, Judge and the pull request panes.
 - A native diff viewer with comments.
-- Operator, board and Talk, as a panel or a screen chosen from mock takes.
+- The Operator's page, Your turn beside its digest, with its chat on Ask and as a pane from a Job, and toasts.
 - Projects, every Settings section, Kit, Reviews, Issues, Usage with Time, Account with phone pairing.
 - Terminal, several per Job, the Request pane and the Browser tool.
 
@@ -143,8 +143,3 @@ Everything he uses daily:
 - The Job view's Field layer, with its plan bar, replay slider and lens card, which comes with the Cockpit map.
 - Autopilot, the timeline HUD, Doctor, Lessons, Studios, Workflows, Logbook, Guides and the Mods page.
 - The seldom-opened Job panes: Spine, Workflow, Now, Done, Open and Deferred.
-
-## Open questions
-
-- **[native-operator-form]** Is the native Operator a panel or a screen?
-  The choice is made from mock takes, which the owner walks before the gpui build starts.

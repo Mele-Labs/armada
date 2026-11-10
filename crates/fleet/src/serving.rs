@@ -433,8 +433,8 @@ where
     }
 
     /// Paths under the checkout narrowed against typed text, for Bridge's `@`
-    /// mention popup. `crate::files::search` is the walk; this only names the
-    /// root it walks and cannot refuse.
+    /// mention popup. `crate::files::search` answers from a kept listing; this
+    /// only names the root and cannot refuse.
     async fn search_files(
         &self,
         query: String,
@@ -443,7 +443,7 @@ where
         let served = self.served_named(manifest_id.as_ref())?;
         let root = std::path::Path::new(served.root());
         Ok(ipc::FilesFound {
-            paths: crate::files::search(root, &query),
+            paths: crate::files::search(root, &query).await,
         })
     }
 

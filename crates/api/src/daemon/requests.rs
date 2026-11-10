@@ -6,11 +6,29 @@
 use std::future::Future;
 
 use ipc::{
-    DeleteRequestEnvironment, RequestBy, RequestSaved, RequestSent, Requests as RequestsRead, SaveRequestCollection,
-    RequestsSent, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SendRequests, SessionId,
+    DeleteRequestEnvironment, RequestBy, RequestRun, RequestRunStatus, RequestRuns, RequestSaved, RequestSent,
+    Requests as RequestsRead, SaveRequestCollection, RequestsSent, SaveRequestEnvironment, SaveRequestToCollection,
+    SendRequest, SendRequests, SessionId,
 };
 
 use crate::daemon::Refusal;
+
+/// What `list_request_runs` is asked, as the route read it: nothing here is checked yet beyond
+/// the spelling of `by` and `status`.
+#[derive(Clone, Debug, Default)]
+pub struct RunsAsked {
+    pub repository: Option<String>,
+    pub session_id: Option<SessionId>,
+    /// The collection's id.
+    pub collection: String,
+    /// The request's own id.
+    pub request: String,
+    pub by: Option<RequestBy>,
+    pub status: Option<RequestRunStatus>,
+    /// A run's id: only older runs.
+    pub before: Option<String>,
+    pub limit: Option<usize>,
+}
 
 pub trait Requests: Send + Sync + 'static {
     /// `send_request` — send it and answer how it went. `caller` places a hosted Job as
@@ -74,4 +92,23 @@ pub trait Requests: Send + Sync + 'static {
         caller: Option<crate::Caller>,
         save: SaveRequestToCollection,
     ) -> impl Future<Output = Result<RequestSaved, Refusal>> + Send;
+
+    /// `list_request_runs` — one saved request's runs, newest first.
+    fn list_request_runs(
+        &self,
+        caller: Option<crate::Caller>,
+        asked: RunsAsked,
+    ) -> impl Future<Output = Result<RequestRuns, Refusal>> + Send;
+
+    /// `get_request_run` — one run in full. A run of another repository is not found. `reader` is
+    /// the door the read came through: an agent's is answered as an agent's own send is, with no
+    /// `set-cookie` and a shorter body.
+    fn get_request_run(
+        &self,
+        caller: Option<crate::Caller>,
+        reader: RequestBy,
+        repository: Option<String>,
+        session_id: Option<SessionId>,
+        id: String,
+    ) -> impl Future<Output = Result<RequestRun, Refusal>> + Send;
 }
