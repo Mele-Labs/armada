@@ -99,7 +99,10 @@ class Preview(unittest.TestCase):
         """Cut `name` from `base`, commit `edits` on it, return to main."""
         self.git("checkout", "-q", "-b", name, base)
         for path, text in edits.items():
-            self.write(path, text)
+            if text is None:
+                os.remove(os.path.join(self.repo, path))
+            else:
+                self.write(path, text)
         self.commit(f"{name}: work")
         self.git("checkout", "-q", "main")
 
@@ -250,7 +253,10 @@ class Preview(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.wt, "g.txt")))
         os.makedirs(os.path.join(self.wt, "target"))
         os.makedirs(os.path.join(self.wt, "node_modules"))
-        for stray in ("target/warm", "node_modules/warm", "stray.txt"):
+        # Each holds a stamp or a generated file the next restart compares or rewrites.
+        kept = ("crates/bridge-native/target/stamp", "apps/pocket/dist/stamp", "crates/fleet/src/tests/mods.inc")
+        for stray in ("target/warm", "node_modules/warm", "stray.txt", *kept):
+            os.makedirs(os.path.dirname(os.path.join(self.wt, stray)), exist_ok=True)
             with open(os.path.join(self.wt, stray), "w") as f:
                 f.write("x")
 
@@ -264,6 +270,47 @@ class Preview(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.wt, "target", "warm")))
         self.assertTrue(os.path.exists(os.path.join(self.wt, "node_modules", "warm")))
         self.assertFalse(os.path.exists(os.path.join(self.wt, "stray.txt")))
+        for path in kept:
+            self.assertTrue(os.path.exists(os.path.join(self.wt, path)), path)
+
+    def mtime(self, path):
+        return os.stat(os.path.join(self.wt, path)).st_mtime_ns
+
+    def test_a_file_a_branch_changes_keeps_its_mtime_when_the_next_pass_leaves_it_as_it_was(self):
+        self.branch("feat/same", {"same.txt": "same\n"})
+        self.branch("feat/edit", {"edit.txt": "v1\n"})
+        self.hold("feat/same", "feat/edit")
+        self.run_preview()
+        before = {p: self.mtime(p) for p in ("same.txt", "edit.txt", "a.txt")}
+        time.sleep(0.05)
+
+        self.write("m.txt", "moved\n")
+        self.commit("main: moved")
+        self.git("checkout", "-q", "feat/edit")
+        self.write("edit.txt", "v2\n")
+        self.commit("feat/edit: more")
+        self.git("checkout", "-q", "main")
+        self.run_preview()
+
+        self.assertEqual(self.mtime("same.txt"), before["same.txt"])
+        self.assertEqual(self.mtime("a.txt"), before["a.txt"])
+        self.assertNotEqual(self.mtime("edit.txt"), before["edit.txt"])
+        with open(os.path.join(self.wt, "edit.txt")) as f:
+            self.assertEqual(f.read(), "v2\n")
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "m.txt")))
+        self.assertEqual(self.merged_in_order(), ["feat/same", "feat/edit"])
+
+    def test_a_conflicting_branch_names_every_conflicted_file_and_leaves_the_worktree_clean(self):
+        self.write("b.txt", "one\ntwo\nthree\n")
+        self.commit("main: b")
+        self.branch("feat/one", {"a.txt": "one\nONE\nthree\n", "b.txt": "one\nONE\nthree\n"})
+        self.branch("feat/two", {"a.txt": "one\nTWO\nthree\n", "b.txt": "one\nTWO\nthree\n", "t.txt": "t\n"})
+        self.hold("feat/one", "feat/two")
+        said = self.run_preview()
+        self.assertRegex(said, r"feat/two\s+skipped \(conflict: a.txt, b.txt\)")
+        self.assertFalse(os.path.exists(os.path.join(self.wt, "t.txt")))
+        self.assertEqual(subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+                                        cwd=self.wt, capture_output=True, text=True).stdout, "")
 
     def test_a_note_pinned_on_the_preview_survives_a_rebuild(self):
         self.hold()
@@ -425,6 +472,96 @@ class Preview(unittest.TestCase):
         done = self.preview_restart(script)
         self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
         self.assertEqual(self.count(runs), 2)
+
+    def rust_failure(self, errors, broken):
+        """A restart script that prints `errors` and fails while the shell test `broken` (on the
+        tree it is told to build, `$2`) holds, and records each run."""
+        runs = os.path.join(self.dir, "restart-runs")
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho run >> "{runs}"\nif {broken}; then\ncat >&2 <<\'EOF\'\n{errors}\nEOF\n'
+                    f'echo "error: could not compile" >&2; exit 101\nfi\n')
+        os.chmod(script, 0o755)
+        return script, runs
+
+    MISSING_MODULE = """error[E0583]: file not found for module `operator_positions`
+   --> crates/ipc/src/lib.rs:153:1
+    |
+153 | pub mod operator_positions;
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: to create the module `operator_positions`, create file "crates/ipc/src/operator_positions.rs" or "crates/ipc/src/operator_positions/mod.rs"
+"""
+
+    UNRESOLVED = """error[E0432]: unresolved import `config::WorkspaceFile`
+  --> crates/fleet/src/lifecycles/serving.rs:14:5
+   |
+14 | use config::WorkspaceFile;
+   |     ^^^^^^^^^^^^^^^^^^^^^ no `WorkspaceFile` in the root
+
+error[E0425]: cannot find function `parse_workspace` in crate `config`
+  --> crates/fleet/src/lifecycles/serving.rs:40:21
+
+error[E0599]: no variant, associated function, or constant named `Workspace` found for enum `config::Reach` in the current scope
+  --> crates/fleet/src/lifecycles/serving.rs:52:30
+"""
+
+    def test_a_branch_that_deleted_a_module_file_still_declared_is_left_out(self):
+        self.write("crates/ipc/src/lib.rs", "pub mod operator_positions;\n")
+        self.write("crates/ipc/src/operator_positions.rs", "pub struct P;\n")
+        self.commit("main: ipc")
+        self.branch("feat/delete", {"crates/ipc/src/operator_positions.rs": None})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/delete", "feat/good")
+        script, runs = self.rust_failure(
+            self.MISSING_MODULE, '[ ! -f "$2/crates/ipc/src/operator_positions.rs" ]')
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("skipped (does not build: removed crates/ipc/src/operator_positions.rs "
+                      "that crates/ipc/src/lib.rs still uses)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "crates/ipc/src/operator_positions.rs")))
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_a_branch_that_removed_an_item_another_crate_imports_is_left_out(self):
+        self.write("crates/config/src/lib.rs", "pub struct WorkspaceFile;\npub struct Other;\n")
+        self.write("crates/fleet/src/lifecycles/serving.rs", "use config::WorkspaceFile;\n")
+        self.commit("main: config")
+        self.branch("feat/rename", {"crates/config/src/lib.rs": "pub struct Other;\n"})
+        self.branch("feat/good", {"good.txt": "g\n"})
+        self.hold("feat/rename", "feat/good")
+        script, runs = self.rust_failure(
+            self.UNRESOLVED, '! grep -q WorkspaceFile "$2/crates/config/src/lib.rs"')
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 2)
+        self.assertIn("skipped (does not build: removed WorkspaceFile "
+                      "that crates/fleet/src/lifecycles/serving.rs still uses)", done.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "good.txt")))
+
+    def test_a_branch_that_removed_a_name_and_added_it_elsewhere_in_the_crate_is_not_blamed(self):
+        self.write("crates/config/src/lib.rs", "pub struct WorkspaceFile;\n")
+        self.commit("main: config")
+        self.branch("feat/move", {"crates/config/src/lib.rs": "mod files;\n",
+                                  "crates/config/src/files.rs": "pub struct WorkspaceFile;\n"})
+        self.hold("feat/move")
+        script, runs = self.rust_failure(self.UNRESOLVED, "true")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 1)
+        self.assertNotIn("does not build", done.stdout)
+
+    def test_a_failure_naming_nothing_a_branch_removed_is_reported(self):
+        self.write("crates/config/src/lib.rs", "pub struct Gone;\n")
+        self.write("crates/ipc/src/lib.rs", "pub mod kept;\n")
+        self.commit("main: config")
+        self.branch("feat/other", {"crates/config/src/lib.rs": "pub struct Other;\n"})
+        self.hold("feat/other")
+        script, runs = self.rust_failure(self.UNRESOLVED + self.MISSING_MODULE, "true")
+        done = self.preview_restart(script)
+        self.assertEqual(done.returncode, 101, done.stdout + done.stderr)
+        self.assertEqual(self.count(runs), 1)
+        self.assertNotIn("does not build", done.stdout)
 
     def guarded_restart(self):
         """A restart script whose migration guard refuses while `mig.sql` is in the tree, and
@@ -851,6 +988,43 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("would keep no native Bridge", said)
         self.assertNotIn("Armada.app", said)
 
+    def native_cargo(self):
+        """A cargo that records the incremental switch of a native build and leaves the binary."""
+        record = os.path.join(self.dir, "native-cargo-env")
+        with open(os.path.join(self.bin, "cargo"), "w") as f:
+            f.write("#!/bin/sh\n"
+                    'case "$*" in *bridge-native*) echo "${CARGO_PROFILE_RELEASE_INCREMENTAL-unset} $*" > "' + record + '"\n'
+                    '  mkdir -p crates/bridge-native/target/release; touch crates/bridge-native/target/release/bridge-native ;;\n'
+                    "esac\nexit 0\n")
+        return record
+
+    def test_the_native_bridge_is_built_optimised_and_incremental(self):
+        record = self.native_cargo()
+        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
+        open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
+        os.makedirs(os.path.join(self.tree, "apps", "desktop", "codegen"))
+        with open(os.path.join(self.tree, "apps", "desktop", "codegen", "protocol-id.mjs"), "w") as f:
+            f.write('console.log("wire1")\n')
+        self.fleet({})
+        # `--keep-only` stops at keeping the build, which the scratch root has no script for.
+        code, said = self.restart("--keep-only")
+        with open(record) as f:
+            seen = f.read()
+        self.assertTrue(seen.startswith("true "), seen)
+        self.assertIn("--release", seen)
+
+    def test_a_root_cargo_toml_is_a_reason_to_rebuild_the_native_bridge(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native()
+        root = os.path.join(self.tree, "Cargo.toml")
+        open(root, "w").close()
+        later = time.time() + 120
+        os.utime(root, (later, later))
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would build the native Bridge from", said)
+        self.assertIn("the root Cargo.toml", said)
+
     def test_a_native_bridge_never_built_is_built(self):
         self.fleet({"j1": "escalated"})
         os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
@@ -1272,6 +1446,45 @@ class RestartBuild(unittest.TestCase):
         self.assertEqual(self.build("preview", script=script), 1)
         self.assertEqual(self.runs(), ["--restart", "--restart"])
         self.assertEqual(self.status(), "failed\npreview\n\nerror: failed to run custom build command for libsqlite3-sys\n")
+
+    def incremental_dir(self):
+        """The native app's incremental cache in the preview's tree, with a file in it."""
+        path = os.path.join(self.root, ".armada", "preview", "crates", "bridge-native", "target", "release", "incremental")
+        os.makedirs(path)
+        with open(os.path.join(path, "dep-graph.bin"), "w") as f:
+            f.write("half written")
+        return path
+
+    def test_a_broken_incremental_cache_is_removed_and_the_build_tried_once_more(self):
+        cache = self.incremental_dir()
+        marker = os.path.join(self.dir, "first")
+        script = (f'if [ ! -f "{marker}" ]; then touch "{marker}"; '
+                  'echo "error: internal compiler error: Found unstable fingerprints for type_of(x)" >&2; exit 101; fi')
+        self.assertEqual(self.build("preview", script=script), 0)
+        self.assertEqual(self.runs(), ["--restart", "--restart"])
+        self.assertFalse(os.path.exists(cache))
+        self.assertFalse(os.path.exists(self.cleaned))
+        self.assertIsNone(self.status())
+
+    def test_each_wording_of_a_broken_incremental_cache_is_matched(self):
+        for said in ("error: internal compiler error: encountered incremental compilation error with typeck(x)",
+                     "warning: could not load dep-graph from `/t/dep-graph.bin`: truncated",
+                     "error: failed to load the dep graph"):
+            with self.subTest(said=said):
+                self.assertTrue(RESTART_BUILD_MODULE.INCREMENTAL.search(said))
+
+    def test_the_incremental_retry_is_once_and_a_second_failure_is_reported(self):
+        self.incremental_dir()
+        script = 'echo "error: internal compiler error: Found unstable fingerprints for x" >&2; exit 101'
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.runs(), ["--restart", "--restart"])
+
+    def test_a_failure_that_says_nothing_of_the_incremental_cache_leaves_it_alone(self):
+        cache = self.incremental_dir()
+        script = 'echo "error[E0432]: unresolved import" >&2; exit 101'
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.runs(), ["--restart"])
+        self.assertTrue(os.path.exists(cache))
 
     def stages_seen(self, which, headings, plain=(), **kwargs):
         """The stages the status file shows, in order, as a stub prints `headings` bold and `plain` unbold.

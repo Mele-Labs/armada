@@ -63,6 +63,8 @@ pub(crate) struct Held {
     pub ahead: Option<String>,
     /// What the agent reads in place of `text`, where Fleet adds to the words: a pinned note's.
     pub instead: Option<String>,
+    /// The thread's row for the person's words, so an edit finds the turn it is for while it waits.
+    pub row: Option<String>,
 }
 
 /// What a Session's runtime keeps while its proposal is being read and its held turns are sent.

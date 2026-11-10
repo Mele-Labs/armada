@@ -93,6 +93,11 @@ restart again. The owner's Fleet stays up, because the build fails before Fleet
 is stopped. Confirmed twice on 6 and 7 Oct 2026. A slot freshly cloned from
 the seed hits the same error in `armada check test`; clean it there too (8 Oct).
 
+**A failure that names rustc's incremental cache is the preview's native app, not the code.**
+The preview builds that app with an incremental cache, and a refresh killed in the middle can leave one rustc cannot read.
+Remove `.armada/preview/crates/bridge-native/target/release/incremental` and run the restart again.
+`scripts/restart-build` does this itself, once, when the log says `incremental compilation`, `dep graph` or `dep-graph`, or `unstable fingerprints`.
+
 **The preview merges slot branches only.** A branch in a plain worktree under
 `.claude/worktrees/` is not in it, and nothing says so. With every slot held,
 `git worktree remove` it, `armada worktree add`, then
@@ -102,9 +107,11 @@ and a read of `scripts/preview` to find why a branch was missing.
 **A branch the restart cannot take is dropped by the refresh itself.**
 When `--restart` fails, the branches behind it are left out and it goes again
 until it builds: a branch with a breaking migration `origin/main` lacks
-(`skipped (breaking migration <name> is not on main)`), and one that changed a
-file the compiler errors name (`skipped (does not build: <files>)`). The work is
-not lost, it is not in this preview.
+(`skipped (breaking migration <name> is not on main)`), one that changed a
+file the compiler errors name (`skipped (does not build: <files>)`), and one that
+removed a module file or a crate item the errors say is missing and a file it did
+not change still uses (`skipped (does not build: removed <thing> that <file> still
+uses)`). The work is not lost, it is not in this preview.
 With no merged branch behind a failure it fails as before. A failure Bridge
 shows starts with its cause: the compiler's first error and its file, or the
 migration and its branch.
@@ -120,7 +127,7 @@ request from the clean commit instead. Confirmed 8 Oct 2026 (#2025).
 Preview / Main Select and one button that follows it: `Refresh preview` is
 `scripts/preview --restart`, `Update to main` is `scripts/restart --main`.
 Bridge asks before `--adopt`, listing the working Jobs. It runs
-`scripts/restart-build`, which retries a stale `libsqlite3-sys` once itself.
+`scripts/restart-build`, which retries a stale `libsqlite3-sys`, or a broken native incremental cache, once itself.
 `docs/practices/running-locally.md`, *Restarting from Bridge*.
 
 **To ask him to restart, put the exact command in `waiting_for` as a `run`
