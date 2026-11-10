@@ -21,6 +21,7 @@ use gpui::{
 pub fn role_named(word: &str) -> Option<Role> {
     Some(match word {
         "button" => Role::Button,
+        "dialog" => Role::Dialog,
         "row" => Role::Row,
         "list" => Role::List,
         "listitem" => Role::ListItem,

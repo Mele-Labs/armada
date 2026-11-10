@@ -15,6 +15,7 @@ mod calls;
 mod cards;
 mod deck;
 mod dock;
+mod keys;
 mod lines;
 mod perm;
 mod plan;
@@ -25,6 +26,7 @@ mod runs;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
@@ -51,10 +53,10 @@ actions!(job_view, [PageUp, PageDown, ToStart, ToEnd]);
 /// focused scroller on these (`SessionThread.tsx`, A1.5).
 pub fn bind(cx: &mut App) {
     cx.bind_keys([
-        KeyBinding::new("pageup", PageUp, Some("thread")),
-        KeyBinding::new("pagedown", PageDown, Some("thread")),
-        KeyBinding::new("home", ToStart, Some("thread")),
-        KeyBinding::new("end", ToEnd, Some("thread")),
+        KeyBinding::new("pageup", PageUp, Some("thread_scroll")),
+        KeyBinding::new("pagedown", PageDown, Some("thread_scroll")),
+        KeyBinding::new("home", ToStart, Some("thread_scroll")),
+        KeyBinding::new("end", ToEnd, Some("thread_scroll")),
     ]);
 }
 
@@ -97,6 +99,8 @@ struct Page {
     cards: acts::CardState,
     /// What the Needs you panel remembers of this Job.
     dock: dock::DockState,
+    /// The cards here that wait, and what the four thread keys do to each.
+    keys: Rc<keys::Cards>,
 }
 
 impl Page {
@@ -104,7 +108,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default() }
+        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), keys: Rc::default() }
     }
 }
 
@@ -212,6 +216,9 @@ pub struct JobView {
     pop: Option<pop::Pop>,
     /// The Needs you panel, so its keys work once focus is in it.
     dock_focus: FocusHandle,
+    /// The dialog a thread key opens to ask which card it goes to.
+    confirm: Option<keys::Confirm>,
+    confirm_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -267,6 +274,8 @@ impl JobView {
             focus: cx.focus_handle(),
             pop: None,
             dock_focus: cx.focus_handle(),
+            confirm: None,
+            confirm_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
     }
@@ -561,7 +570,10 @@ impl JobView {
 
     fn on_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) {
         // ⌘Enter sends from the box too (`send_message`).
-        if act.is("send_message") && self.composer.read(cx).focus_handle(cx).contains_focused(window, cx) {
+        let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
+        if let Some(which) = thread_key {
+            self.thread_key(which, window, cx);
+        } else if act.is("send_message") && self.composer.read(cx).focus_handle(cx).contains_focused(window, cx) {
             self.send(window, cx);
         } else {
             cx.propagate();
@@ -900,17 +912,21 @@ impl JobView {
 
 impl Render for JobView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let look = cx.look();
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
+        if self.pages.get(&id).is_some_and(|page| page.keys.take_changed()) {
+            // A card came or went: the cards draw once more, so the chip shows on the target.
+            cx.notify();
+        }
+        let look = cx.look();
         let loaded = self.thread(&id, cx).is_some() && self.pages.get(&id).is_some_and(|page| page.version.is_some());
         let body = if loaded {
             let state = self.pages[&id].list.clone();
             labelled(
                 div()
                     .id("thread")
-                    .key_context("thread")
+                    .key_context("thread_scroll")
                     .track_focus(&self.focus)
                     .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| {
                         if !this.focus.contains_focused(window, cx) {
@@ -940,12 +956,15 @@ impl Render for JobView {
             .size_full()
             .flex()
             .flex_col()
+            .relative()
+            .key_context("thread")
             .on_action(cx.listener(Self::on_act))
             .child(head)
             .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)))
             .children(self.render_needs(&id, cx))
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
+            .children(self.render_confirm(cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {
@@ -976,11 +995,11 @@ mod tests {
 
     #[test]
     fn what_stands_over_the_thread_is_drawn_after_its_items_in_electrons_order() {
-        let head = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}},"lapsed":{{"id":"l","questions":[]}}}}"#);
+        let head = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}}}}"#);
         let (head, items) = thread(&you("a", "hi"), &head);
         let pending = [Pending { key: 1, text: "x".into(), seen: 0 }];
         let extras = extras_of(&head, &items, &pending, true);
-        assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Lapsed, Extra::Pending(0), Extra::Working]);
+        assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Pending(0), Extra::Working]);
     }
 
     #[test]

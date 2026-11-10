@@ -360,6 +360,6 @@ impl JobView {
 
     /// Whether the thread keys act on this card now.
     pub(super) fn is_target(&self, key: &str) -> bool {
-        self.shown.as_ref().and_then(|id| self.pages.get(id)).is_some_and(|page| page.cards.target.as_deref() == Some(key))
+        self.shown.as_ref().and_then(|id| self.pages.get(id)).is_some_and(|page| page.keys.target_of(page.cards.target.as_deref()).as_deref() == Some(key))
     }
 }

@@ -98,6 +98,27 @@ impl JobView {
             None => "Permission",
         };
         let allows_once = call.offers.is_empty() || call.offers.contains(&CallAnswer::AllowOnce);
+        if let Some(page) = self.pages.get(id) {
+            let (job, call_id) = (id.clone(), call.call.clone());
+            let (job2, call_id2) = (id.clone(), call.call.clone());
+            let refuses = call.offers.is_empty() || call.offers.contains(&CallAnswer::Refuse);
+            page.keys.set(
+                &format!("question:{}", call.call),
+                Some(super::keys::Card {
+                    at: usize::MAX / 2,
+                    kind: word.to_string(),
+                    title: first_line(&ask.command).to_string(),
+                    yes: allows_once.then(|| -> (String, super::keys::Run) {
+                        ("Allow once".into(), std::rc::Rc::new(move |this, window, cx| this.permit(&job, &call_id, CallAnswer::AllowOnce, None, None, window, cx)))
+                    }),
+                    change: None,
+                    send_back: None,
+                    no: refuses.then(|| -> (String, super::keys::Run) {
+                        (if call.offers.is_empty() { "Deny".into() } else { offer_words(CallAnswer::Refuse, call.reaches.is_some()).0.to_string() }, std::rc::Rc::new(move |this, window, cx| this.permit(&job2, &call_id2, CallAnswer::Refuse, None, None, window, cx)))
+                    }),
+                }),
+            );
+        }
         let command_text = div().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(ask.command.clone()));
         let command = if allows_once {
             let (job, call_id) = (id.clone(), call.call.clone());

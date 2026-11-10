@@ -13,6 +13,8 @@ use ipc::{
     SessionId, SketchHow, ThreadDocument, ThreadSketch,
 };
 
+use std::rc::Rc;
+
 use super::acts::{button, refusal, Answer, Mode, Tone};
 use super::pop::NUMBERED;
 use super::rows::{glyph, mono, tip, Size};
@@ -670,7 +672,9 @@ impl JobView {
             body = body.child(refusal(look, &key, why.clone()));
         }
         if open {
-            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, target, page, look, cx));
+            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, page, look, cx));
+        } else {
+            page.keys.set(&key, None);
         }
         let name = format!("{}: {title}", eyebrow_word);
         let aim = key.clone();
@@ -703,8 +707,9 @@ impl JobView {
         kind: DraftKind,
         mode: Mode,
         text: &str,
+        title: &str,
         target: bool,
-        _page: &Page,
+        page: &Page,
         look: &Look,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -724,6 +729,61 @@ impl JobView {
             let (job, item) = (job.clone(), item.clone());
             move |reason: Option<String>| encoded(&DismissWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.clone(), reason, misread: false })
         };
+        {
+            let editing = mode == Mode::Edit;
+            let noting = mode == Mode::Note;
+            let (approve_word, fix_word) = ("Approve", "Approve with fixes");
+            let word_out = word_withdraw;
+            let (k1, k2, k3, k4, k5) = (key.to_string(), key.to_string(), key.to_string(), key.to_string(), key.to_string());
+            let (answer1, answer2, out1, out2) = (answer_body.clone(), answer_body.clone(), withdraw.clone(), withdraw.clone());
+            let (edit_text, original) = (text.to_string(), text.to_string());
+            let yes: Option<(String, super::keys::Run)> = if editing {
+                (!fixed.trim().is_empty()).then(|| {
+                    (
+                        fix_word.to_string(),
+                        Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                            let words = this.typed_in(&k1, Mode::Edit, cx);
+                            if words == original {
+                                this.settle(ix, k1.clone(), Answer::Approved, "/sessions/waiting/answer", answer1(Some(0), None, None), window, cx);
+                            } else {
+                                this.settle(ix, k1.clone(), Answer::Fixed(words.clone()), "/sessions/waiting/answer", answer1(None, None, Some(words)), window, cx);
+                            }
+                        }) as super::keys::Run,
+                    )
+                })
+            } else if noting {
+                None
+            } else {
+                Some((
+                    approve_word.to_string(),
+                    Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                        this.settle(ix, k2.clone(), Answer::Approved, "/sessions/waiting/answer", answer2(Some(0), None, None), window, cx)
+                    }) as super::keys::Run,
+                ))
+            };
+            let change: Option<(String, super::keys::Run)> = (!noting && kind != DraftKind::Workflow && !editing).then(|| {
+                ("Edit".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_box(ix, &k3, Mode::Edit, &edit_text, window, cx)) as super::keys::Run)
+            });
+            let send_back: Option<(String, super::keys::Run)> = (!editing && !noting && kind != DraftKind::Workflow).then(|| {
+                ("Note".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_box(ix, &k4, Mode::Note, "", window, cx)) as super::keys::Run)
+            });
+            let no: Option<(String, super::keys::Run)> = (!editing).then(|| {
+                let _ = &out2;
+                (
+                    word_out.to_string(),
+                    Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
+                        let reason = if noting { Some(this.typed_in(&k5, Mode::Note, cx).trim().to_string()).filter(|text| !text.is_empty()) } else { None };
+                        let answer = if kind == DraftKind::Workflow { Answer::Dismissed } else { Answer::Withdrawn };
+                        this.settle(ix, k5.clone(), answer, "/sessions/waiting/dismiss", out1(reason), window, cx)
+                    }) as super::keys::Run,
+                )
+            });
+            let kind_word = match kind {
+                DraftKind::Workflow => "Workflow",
+                _ => "Draft",
+            };
+            page.keys.set(key, Some(super::keys::Card { at: ix, kind: kind_word.into(), title: title.to_string(), yes, change, send_back, no }));
+        }
         let key_s = key.to_string();
         let row = div().flex().items_center().gap(look.length(token::SPACE_2));
         let button_at = |name: &'static str, tone: Tone, chip: Option<&'static str>, on: bool| {

@@ -181,6 +181,10 @@ impl JobView {
         let look = cx.look();
         let (things, review) = self.things(id, cx);
         if things.is_empty() && review.is_empty() {
+            if let Some(page) = self.pages.get(id) {
+                page.keys.mark("question:");
+                page.keys.sweep();
+            }
             return None;
         }
         let open = self.needs_up(id, cx);
@@ -242,7 +246,14 @@ impl JobView {
             .text_color(look.color(token::FG_INVERSE))
             .overflow_hidden()
             .child(trigger);
+        let keys = self.pages.get(id).map(|page| page.keys.clone());
+        if let Some(keys) = &keys {
+            keys.mark("question:");
+        }
         let panel = open.then(|| self.render_panel(id, &things, &review, look, cx));
+        if let Some(keys) = &keys {
+            keys.sweep();
+        }
         Some(
             div()
                 .relative()

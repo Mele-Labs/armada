@@ -13,7 +13,11 @@ use ipc::{
     ThreadPlan,
 };
 
+use std::rc::Rc;
+
 use super::acts::{button, refusal, Answer, Mode, Tone};
+use super::dock::first_line;
+use super::keys::{Card, Run};
 use super::rows::{eyebrow, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
@@ -126,6 +130,33 @@ impl JobView {
                 this.settle(ix, approve_key.clone(), Answer::Approved, "/sessions/plan/approve", encoded(&ApprovePlan { session_id, version }), window, cx);
             }
         };
+        {
+            let (suggest_key, aside_key) = (key.clone(), key.clone());
+            let version = card.version;
+            let title = record.map(|plan| first_line(&plan.summary).to_string()).filter(|line| !line.is_empty()).unwrap_or_else(|| format!("version {version}"));
+            let approve_run = approve.clone();
+            page.keys.set(
+                &key,
+                (!approved && !aside).then(|| Card {
+                    at: ix,
+                    kind: "Plan".into(),
+                    title,
+                    yes: Some(("Approve".into(), Rc::new(move |this, window, cx| approve_run(this, window, cx)))),
+                    change: record.and_then(|plan| plan.groups.first()).map(|_| -> (String, Run) {
+                        ("Suggest".into(), Rc::new(move |this, window, cx| this.open_box(ix, &suggest_key, Mode::Note, "", window, cx)))
+                    }),
+                    send_back: Some((
+                        "Not yet".into(),
+                        Rc::new(move |this, window, cx| {
+                            let session_id = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
+                            let body = encoded(&DismissWaiting { session_id, item_id: format!("plan:{version}"), reason: None, misread: false });
+                            this.settle(ix, aside_key.clone(), Answer::SetAside, "/sessions/waiting/dismiss", body, window, cx);
+                        }),
+                    )),
+                    no: None,
+                }),
+            );
+        }
         let head_approve = (folded && !approved && !aside).then(|| {
             let approve = approve.clone();
             labelled(

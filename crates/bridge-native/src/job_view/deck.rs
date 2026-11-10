@@ -9,7 +9,10 @@ use ipc::{
 };
 
 use super::acts::{button, kbd, refusal, Mode, Tone};
+use std::rc::Rc;
+
 use super::dock::Thing;
+use super::keys::{Card, Run};
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
@@ -38,6 +41,11 @@ pub(super) enum Source {
 
 fn name_of(question: &AskedQuestion) -> &str {
     if question.header.trim().is_empty() { &question.question } else { &question.header }
+}
+
+fn question_title(question: &AskedQuestion) -> String {
+    let header = question.header.trim();
+    if header.is_empty() { question.question.clone() } else { format!("{header}: {}", question.question) }
 }
 
 impl JobView {
@@ -185,6 +193,25 @@ impl JobView {
                 "Skip",
             )
         });
+        if let Some(page) = self.pages.get(id) {
+            let (answer_id, answer_key, answer_source, answer_answers) = (id.clone(), key.to_string(), source.clone(), answers.clone());
+            let (other_key, skip_id, skip_source) = (key.to_string(), id.clone(), source.clone());
+            let sending = deck.sending;
+            page.keys.set(
+                &format!("question:{key}"),
+                Some(Card {
+                    at: usize::MAX / 2,
+                    kind: "Question".into(),
+                    title: question_title(question),
+                    yes: (last && all_chosen && !sending).then(|| -> (String, Run) {
+                        ("Answer".into(), Rc::new(move |this, window, cx| this.deck_answer(&answer_id, &answer_key, &answer_source, answer_answers.clone(), window, cx)))
+                    }),
+                    change: (!no_other).then(|| -> (String, Run) { ("Other".into(), Rc::new(move |this, window, cx| this.deck_other(&other_key, front, total, multi, window, cx))) }),
+                    send_back: None,
+                    no: can_skip.then(|| -> (String, Run) { ("Skip".into(), Rc::new(move |this, window, cx| this.deck_skip(&skip_id, &skip_source, window, cx))) }),
+                }),
+            );
+        }
         let footer = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if last { go } else { next }).children(skip).children(steps);
         let typed_box = other_on.then(|| self.box_of(&format!("dock:{key}:{front}"), Mode::Note, "Other", look, cx)).flatten();
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&format!("question:{key}")).cloned());
