@@ -1093,6 +1093,9 @@ impl Palette {
 
 // ---- drawing ---------------------------------------------------------------------------------
 
+/// The list is taller than Electron's 400 px by this much, as the owner asked for a roomier palette.
+const LIST_GROWS: f32 = 1.15;
+
 fn glyph(look: &Look, name: &'static str, ink: gpui::Hsla) -> gpui::Svg {
     svg().path(icon_path(name)).flex_none().size(look.length(token::SPACE_4)).text_color(ink)
 }
@@ -1288,7 +1291,7 @@ impl Palette {
             .right(look.length(token::SPACE_2))
             .bottom(look.length(token::SPACE_8) + look.length(token::SPACE_1))
             .w(look.length(token::PALETTE_WIDTH) / 1.6)
-            .max_h(look.length(token::PALETTE_MAX_HEIGHT))
+            .max_h(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS + look.length(token::SPACE_12) - look.length(token::SPACE_2))
             .flex()
             .flex_col()
             .rounded(look.length(token::RADIUS_LG))
@@ -1483,7 +1486,7 @@ impl Render for Palette {
                     div()
                         .id("palette-list")
                         .flex_none()
-                        .h(look.length(token::PALETTE_MAX_HEIGHT))
+                        .h(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS)
                         .p(look.length(token::SPACE_2))
                         .child(body),
                     Role::ListBox,

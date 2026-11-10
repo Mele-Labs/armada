@@ -1045,7 +1045,8 @@ impl JobView {
                     .child(format!("r{}", card.revision)),
             )
             .child(self.stamp(&card.at, look, now, true, cx));
-        div().flex().flex_col().gap(look.length(token::SPACE_3)).min_h(look.length(token::H_ROW_UNIT) * 8.).child(band).child(glass(look, false)).into_any_element()
+        // The page itself is a web page, which the native app draws in its embedded browser; the card is the band.
+        div().flex().flex_col().gap(look.length(token::SPACE_3)).child(band).into_any_element()
     }
 
     /// The shape of a body that has not arrived: four lines at 40%, full, 85% and 60%.
