@@ -83,6 +83,8 @@ pub(super) struct Editor {
     emoji: Entity<TextareaState>,
     name: Entity<TextareaState>,
     back: Option<FocusHandle>,
+    /// Remove, Cancel and Save, which Tab goes round with the two fields.
+    stops: [FocusHandle; 3],
     _enter: Vec<Subscription>,
 }
 
@@ -271,7 +273,7 @@ impl JobView {
         let from = edit.as_ref().map_or_else(|| "Add response".to_string(), |one| format!("Edit {}", one.name));
         let first = emoji.clone();
         self.bar.held = Some(row.to_string());
-        self.bar.editor = Some(Editor { id: edit.map(|one| one.id), from, emoji, name, back, _enter: enter.into() });
+        self.bar.editor = Some(Editor { id: edit.map(|one| one.id), from, emoji, name, back, stops: [cx.focus_handle(), cx.focus_handle(), cx.focus_handle()], _enter: enter.into() });
         first.update(cx, |area, cx| area.focus(window, cx));
         cx.notify();
     }
@@ -318,7 +320,7 @@ impl JobView {
     }
 
     /// The editor a response's menu opens, over the Job's area.
-    pub(super) fn render_editor(&self, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_editor(&self, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let editor = self.bar.editor.as_ref()?;
         let look = cx.look();
         let field = |name: &'static str, area: &Entity<TextareaState>| {
@@ -342,11 +344,12 @@ impl JobView {
         };
         let removable = editor.id.is_some() && self.bar.responses.len() > 1;
         let title = editor.from.clone();
-        Some(
+        // The scrim is the whole window's, as Electron's body portal is.
+        Some(gpui::deferred(gpui::anchored().anchor(gpui::Anchor::TopLeft).position(gpui::point(gpui::px(0.), gpui::px(0.))).child(
             div()
                 .id("response-editor-scrim")
-                .absolute()
-                .inset_0()
+                .w(window.viewport_size().width)
+                .h(window.viewport_size().height)
                 .flex()
                 .items_center()
                 .justify_center()
@@ -356,6 +359,15 @@ impl JobView {
                     if event.keystroke.key == "escape" {
                         cx.stop_propagation();
                         this.close_editor(window, cx);
+                    } else if event.keystroke.key == "tab" {
+                        // Tab goes round the dialog: its two fields, then Remove where drawn, Cancel and Save.
+                        if let Some(editor) = this.bar.editor.as_ref() {
+                            let removable = editor.id.is_some() && this.bar.responses.len() > 1;
+                            let mut order = vec![gpui::Focusable::focus_handle(editor.emoji.read(cx), cx), gpui::Focusable::focus_handle(editor.name.read(cx), cx)];
+                            order.extend(removable.then(|| editor.stops[0].clone()));
+                            order.extend([editor.stops[1].clone(), editor.stops[2].clone()]);
+                            super::pop::trap_tab(&order, event.keystroke.modifiers.shift, window, cx);
+                        }
                     }
                 }))
                 .child(labelled(
@@ -383,19 +395,18 @@ impl JobView {
                                 .gap(look.length(token::SPACE_2))
                                 .children(removable.then(|| {
                                     labelled(
-                                        button(&look, "response-remove", "Remove", Tone::Ghost, false, None, true).on_click(cx.listener(|this, _, window, cx| this.remove_in_editor(window, cx))),
+                                        button(&look, "response-remove", "Remove", Tone::Ghost, false, None, true).track_focus(&editor.stops[0]).on_click(cx.listener(|this, _, window, cx| this.remove_in_editor(window, cx))),
                                         Role::Button,
                                         "Remove",
                                     )
                                 }))
-                                .child(labelled(button(&look, "response-cancel", "Cancel", Tone::Ghost, false, None, true).on_click(cx.listener(|this, _, window, cx| this.close_editor(window, cx))), Role::Button, "Cancel"))
-                                .child(labelled(button(&look, "response-save", "Save", Tone::Primary, false, None, true).on_click(cx.listener(|this, _, window, cx| this.save_editor(window, cx))), Role::Button, "Save")),
+                                .child(labelled(button(&look, "response-cancel", "Cancel", Tone::Ghost, false, None, true).track_focus(&editor.stops[1]).on_click(cx.listener(|this, _, window, cx| this.close_editor(window, cx))), Role::Button, "Cancel"))
+                                .child(labelled(button(&look, "response-save", "Save", Tone::Primary, false, None, true).track_focus(&editor.stops[2]).on_click(cx.listener(|this, _, window, cx| this.save_editor(window, cx))), Role::Button, "Save")),
                         ),
                     Role::Dialog,
                     title,
                 ))
-                .into_any_element(),
-        )
+        )).with_priority(3).into_any_element())
     }
 }
 

@@ -264,6 +264,8 @@ pub struct JobView {
     teach_said: Option<SharedString>,
     teach_clock: u64,
     confirm_focus: FocusHandle,
+    /// The confirm dialog's two buttons, which Tab goes round with its body.
+    confirm_stops: [FocusHandle; 2],
     _subscriptions: Vec<Subscription>,
 }
 
@@ -327,6 +329,7 @@ impl JobView {
             teach_said: None,
             teach_clock: 0,
             confirm_focus: cx.focus_handle(),
+            confirm_stops: [cx.focus_handle(), cx.focus_handle()],
             _subscriptions: subscriptions,
         }
     }
@@ -1021,6 +1024,17 @@ impl Render for JobView {
             // The focused row scrolled out of the list: focus goes to the thread, so keys still reach it.
             window.focus(&self.focus, cx);
         }
+        // Focus in a waiting card makes it the target; the Needs you panel keeps the one it answered last; focus
+        // anywhere else gives the target back to the newest card.
+        let dock_holds = self.dock_focus.contains_focused(window, cx);
+        if let Some(page) = self.pages.get_mut(&id) {
+            let held = page.keys.focused_card(window, cx);
+            if held.is_some() && page.cards.target != held {
+                page.cards.target = held;
+            } else if held.is_none() && !dock_holds && page.cards.target.is_some() {
+                page.cards.target = None;
+            }
+        }
         if self.pages.get(&id).is_some_and(|page| page.keys.take_changed()) {
             // A card came or went: the cards draw once more, so the chip shows on the target.
             cx.notify();
@@ -1075,8 +1089,8 @@ impl Render for JobView {
             .children(self.render_needs(&id, cx))
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
-            .children(self.render_confirm(cx))
-            .children(self.render_editor(cx))
+            .children(self.render_confirm(window, cx))
+            .children(self.render_editor(window, cx))
             .children(self.render_fork_bar(cx))
             .children(self.render_teach(cx))
             .child(canvas(

@@ -76,6 +76,8 @@ pub(super) struct Open {
     job: SharedString,
     key: String,
     area: Entity<TextareaState>,
+    /// The box's two buttons, which Tab goes round with the box.
+    stops: [gpui::FocusHandle; 2],
     _enter: Subscription,
 }
 
@@ -228,6 +230,14 @@ impl JobView {
                     cx.stop_propagation();
                     if event.keystroke.key == "escape" {
                         this.close_judge(ix, &close_key, true, window, cx);
+                    } else if event.keystroke.key == "tab" {
+                        // Tab goes round the box: its field, Read the notes where it is drawn, then Judge.
+                        if let Some(open) = this.judge.as_ref() {
+                            let mut order = vec![gpui::Focusable::focus_handle(open.area.read(cx), cx)];
+                            order.extend(noted.then(|| open.stops[0].clone()));
+                            order.push(open.stops[1].clone());
+                            super::pop::trap_tab(&order, event.keystroke.modifiers.shift, window, cx);
+                        }
                     }
                 }))
                 .on_mouse_down_out(cx.listener(move |this, event: &MouseDownEvent, window, cx| {
@@ -246,7 +256,7 @@ impl JobView {
                         .gap(look.length(token::SPACE_2))
                         .children(noted.then(|| {
                             labelled(
-                                button(look, SharedString::from(format!("judge-notes:{key}")), "Read the notes", Tone::Ghost, false, None, true).on_click(cx.listener(
+                                button(look, SharedString::from(format!("judge-notes:{key}")), "Read the notes", Tone::Ghost, false, None, true).track_focus(&open.stops[0]).on_click(cx.listener(
                                     move |this, _, window, cx| {
                                         this.close_judge(ix, &notes_key, false, window, cx);
                                         this.show_notes(window, cx);
@@ -257,7 +267,7 @@ impl JobView {
                             )
                         }))
                         .child(labelled(
-                            button(look, SharedString::from(format!("judge-run:{key}")), "Judge", Tone::Primary, false, None, true).on_click(cx.listener(move |this, _, window, cx| this.run_judge(version, window, cx))),
+                            button(look, SharedString::from(format!("judge-run:{key}")), "Judge", Tone::Primary, false, None, true).track_focus(&open.stops[1]).on_click(cx.listener(move |this, _, window, cx| this.run_judge(version, window, cx))),
                             Role::Button,
                             "Judge",
                         )),
@@ -303,7 +313,7 @@ impl JobView {
                 this.run_judge(version, window, cx);
             }
         });
-        self.judge = Some(Open { job, key: key.to_string(), area: area.clone(), _enter: enter });
+        self.judge = Some(Open { job, key: key.to_string(), area: area.clone(), stops: [cx.focus_handle(), cx.focus_handle()], _enter: enter });
         area.update(cx, |area, cx| area.focus(window, cx));
         self.card_changed(ix, cx);
     }

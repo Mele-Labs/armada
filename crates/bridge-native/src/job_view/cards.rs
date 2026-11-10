@@ -713,9 +713,16 @@ impl JobView {
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(if target && open { token::ACCENT } else { token::BORDER_DEFAULT }))
             .bg(look.color(token::BG_RAISED))
-            .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                this.aim(&aim);
-                cx.notify();
+            .on_mouse_down(MouseButton::Left, cx.listener({
+                let focus = spot.focus.clone();
+                move |this, _, window, cx| {
+                    this.aim(&aim);
+                    // A box inside the card takes the press first; the card takes it when nothing in it did.
+                    if !focus.contains_focused(window, cx) {
+                        window.focus(&focus, cx);
+                    }
+                    cx.notify();
+                }
             }))
             .child(body);
         let card = self.menu_on(card, &spot, "Draft", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("words", text.to_string(), Some(at.clone())), cx);

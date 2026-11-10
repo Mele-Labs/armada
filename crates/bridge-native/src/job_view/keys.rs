@@ -9,7 +9,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, KeyDownEvent, Role, SharedString, Window};
+use gpui::{anchored, deferred, div, prelude::*, Anchor, AnyElement, Context, FocusHandle, KeyDownEvent, Role, SharedString, Window};
 
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
@@ -173,6 +173,15 @@ impl Cards {
         self.findings.borrow().iter().position(|one| spots.get(&one.key).is_some_and(|spot| spot.focus.is_focused(window)))
     }
 
+    /// The waiting card that holds focus, or has something inside it that does: a card draws its root under
+    /// one of these names.
+    pub fn focused_card(&self, window: &Window, cx: &gpui::App) -> Option<String> {
+        let spots = self.spots.borrow();
+        self.cards.borrow().keys().find(|key| {
+            [format!("card:{key}"), format!("plan-card:{key}")].iter().any(|name| spots.get(name).is_some_and(|spot| spot.focus.contains_focused(window, cx)))
+        }).cloned()
+    }
+
     pub fn spot_of(&self, key: &str) -> Option<Spot> {
         self.spots.borrow().get(key).cloned()
     }
@@ -229,12 +238,14 @@ impl JobView {
         self.pages.get(id).map(|page| page.keys.clone())
     }
 
-    /// The card a key acts on: the one pressed last while the thread or the panel holds focus, else
-    /// the newest.
+    /// The card a key acts on: the one that holds focus, else the newest.
     fn key_target(&self, id: &str, window: &Window, cx: &gpui::App) -> Option<String> {
         let cards = self.cards_of(id)?;
-        let inside = self.focus.contains_focused(window, cx) || self.dock_focus.contains_focused(window, cx);
-        let aimed = self.pages.get(id).and_then(|page| page.cards.target.clone()).filter(|_| inside);
+        // A card with focus in it is the target; the Needs you panel keeps the one answered last; anywhere else it is the newest.
+        if let Some(held) = self.pages.get(id).and_then(|page| page.keys.focused_card(window, cx)) {
+            return Some(held);
+        }
+        let aimed = self.pages.get(id).and_then(|page| page.cards.target.clone()).filter(|_| self.dock_focus.contains_focused(window, cx));
         cards.target_of(aimed.as_deref())
     }
 
@@ -303,6 +314,12 @@ impl JobView {
                 self.close_confirm(window, cx);
             }
             "enter" => self.confirm_now(window, cx),
+            "tab" => {
+                // Tab goes round the dialog: its list, Cancel, then the verb.
+                let order = [self.confirm_focus.clone(), self.confirm_stops[0].clone(), self.confirm_stops[1].clone()];
+                super::pop::trap_tab(&order, event.keystroke.modifiers.shift, window, cx);
+                return;
+            }
             "up" => confirm.picked = confirm.picked.saturating_sub(1),
             "down" => confirm.picked = (confirm.picked + 1).min(confirm.rows.len().saturating_sub(1)),
             digit if digit.len() == 1 && digit.chars().all(|c| c.is_ascii_digit()) && !event.keystroke.modifiers.alt => {
@@ -317,7 +334,7 @@ impl JobView {
         cx.notify();
     }
 
-    pub(super) fn render_confirm(&self, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_confirm(&self, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let confirm = self.confirm.as_ref()?;
         let look = cx.look();
         let verb = self.shown.as_ref().and_then(|id| self.cards_of(id)).and_then(|cards| cards.get(&confirm.rows.get(confirm.picked)?.0)).and_then(|card| card.act(confirm.which).map(|(verb, _)| verb.clone())).unwrap_or_default();
@@ -351,11 +368,12 @@ impl JobView {
             )
         });
         let title = format!("{verb} which?");
+        // The scrim is the whole window's, as Electron's body portal is, not the Job's room alone.
         let dialog =
             div()
                 .id("thread-confirm-scrim")
-                .absolute()
-                .inset_0()
+                .w(window.viewport_size().width)
+                .h(window.viewport_size().height)
                 .flex()
                 .items_center()
                 .justify_center()
@@ -386,14 +404,14 @@ impl JobView {
                                 .justify_end()
                                 .gap(look.length(token::SPACE_2))
                                 .child(labelled(
-                                    button(look, "confirm-cancel", "Cancel", Tone::Ghost, false, None, true).on_click(cx.listener(|this, _, window, cx| {
+                                    button(look, "confirm-cancel", "Cancel", Tone::Ghost, false, None, true).track_focus(&self.confirm_stops[0]).on_click(cx.listener(|this, _, window, cx| {
                                         this.close_confirm(window, cx);
                                     })),
                                     Role::Button,
                                     "Cancel",
                                 ))
                                 .child(labelled(
-                                    button(look, "confirm-go", &verb, Tone::Primary, false, None, true).on_click(cx.listener(|this, _, window, cx| this.confirm_now(window, cx))),
+                                    button(look, "confirm-go", &verb, Tone::Primary, false, None, true).track_focus(&self.confirm_stops[1]).on_click(cx.listener(|this, _, window, cx| this.confirm_now(window, cx))),
                                     Role::Button,
                                     verb.clone(),
                                 )),
@@ -401,7 +419,7 @@ impl JobView {
                     Role::Dialog,
                     title,
                 ));
-        Some(dialog.into_any_element())
+        Some(deferred(anchored().anchor(Anchor::TopLeft).position(gpui::point(gpui::px(0.), gpui::px(0.))).child(dialog)).with_priority(3).into_any_element())
     }
 }
 
