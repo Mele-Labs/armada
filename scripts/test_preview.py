@@ -20,6 +20,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PREVIEW = os.path.join(HERE, "scripts", "preview")
@@ -345,6 +346,82 @@ class Preview(unittest.TestCase):
                 self.assertEqual(f.read().split(), ["--from", os.path.realpath(self.wt), "--adopt"])
         finally:
             del os.environ["ARMADA_PREVIEW_RESTART"]
+
+    def behind_an_origin(self):
+        """`main` a commit behind an origin whose `scripts/preview` is the newer one: it prints a marker and its arguments."""
+        self.write("scripts/preview", "print('old script')\n")
+        self.commit("main: the old script")
+        origin = os.path.join(self.dir, "origin.git")
+        subprocess.run(["git", "init", "-q", "--bare", origin], check=True)
+        self.git("remote", "add", "origin", origin)
+        self.git("push", "-q", "origin", "main")
+        self.write("scripts/preview",
+                   "import os, sys\nprint('new script ran', sys.argv[1:], os.environ.get('ARMADA_PREVIEW_PULLED'))\n")
+        self.commit("main: the fixed script")
+        self.git("push", "-q", "origin", "main")
+        self.git("reset", "-q", "--hard", "HEAD~1")
+        return self.git("rev-parse", "origin/main")
+
+    def restart_stub(self):
+        """A restart script that records it ran; `--restart` runs it in place of the real one."""
+        record = os.path.join(self.dir, "restart-ran")
+        script = os.path.join(self.dir, "restart")
+        with open(script, "w") as f:
+            f.write(f'#!/bin/sh\necho ran > "{record}"\n')
+        os.chmod(script, 0o755)
+        patch = unittest.mock.patch.dict(os.environ, {"ARMADA_PREVIEW_RESTART": script})
+        patch.start()
+        self.addCleanup(patch.stop)
+        return record
+
+    def test_a_restart_pulls_a_main_checkout_behind_origin_and_runs_the_script_it_pulled(self):
+        landed = self.behind_an_origin()
+        self.hold()
+        said = self.run_preview("--restart", "--keep-only")
+        self.assertEqual(self.git("rev-parse", "HEAD"), landed)
+        self.assertIn("new script ran ['--restart', '--keep-only'] 1", said)
+
+    def test_a_restart_from_a_checkout_on_another_branch_leaves_it_and_warns(self):
+        self.behind_an_origin()
+        self.git("checkout", "-q", "-b", "side")
+        before = self.git("rev-parse", "HEAD")
+        record = self.restart_stub()
+        self.hold()
+        said = self.run_preview("--restart")
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
+        self.assertRegex(said, r"preview: warning: .*side")
+        self.assertNotIn("new script ran", said)
+        self.assertTrue(os.path.exists(record), "the refresh went on")
+
+    def test_a_restart_from_a_diverged_main_warns_and_goes_on(self):
+        self.behind_an_origin()
+        self.write("local.txt", "local\n")
+        self.commit("main: local only")
+        before = self.git("rev-parse", "HEAD")
+        record = self.restart_stub()
+        self.hold()
+        said = self.run_preview("--restart")
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
+        self.assertRegex(said, r"preview: warning: .*fast-forward")
+        self.assertNotIn("new script ran", said)
+        self.assertTrue(os.path.exists(record), "the refresh went on")
+
+    def test_a_dry_run_pulls_nothing_and_says_it_would(self):
+        self.behind_an_origin()
+        before = self.git("rev-parse", "HEAD")
+        self.restart_stub()
+        self.hold()
+        said = self.run_preview("--restart", "--dry-run")
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
+        self.assertRegex(said, r"preview: .*would .*fast-forward")
+        self.assertNotIn("new script ran", said)
+
+    def test_a_plain_preview_and_a_watch_pull_nothing(self):
+        self.behind_an_origin()
+        before = self.git("rev-parse", "HEAD")
+        self.hold()
+        self.run_preview()
+        self.assertEqual(self.git("rev-parse", "HEAD"), before)
 
     def test_a_picked_file_names_the_branches_and_an_empty_one_is_main_alone(self):
         for name in ("feat/a", "feat/b"):
