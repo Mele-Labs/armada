@@ -4,7 +4,7 @@
 
 use std::collections::{BTreeSet, HashMap};
 
-use gpui::{App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, SharedString, Subscription, Task, Window};
+use gpui::{App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{SessionId, WaitingAct};
 
@@ -43,6 +43,9 @@ pub enum Opened {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Arrived(pub Vec<OperatorTurnItem>);
 
+/// The digest's tab stops: each tile's head, and the links under them.
+pub const STOPS: [&str; 7] = ["Landed", "What I handled", "Running", "Coming up", "Learned", "The whole Log", "Every rule"];
+
 impl EventEmitter<Opened> for OperatorPageView {}
 impl EventEmitter<Arrived> for OperatorPageView {}
 
@@ -69,6 +72,21 @@ pub struct OperatorPageView {
     pub focus: FocusHandle,
     /// The pane from a Job: the chat and a short list.
     pub(super) pane: bool,
+    /// Every time on the page read as its age, after a press on one: they flip together, as the thread's do.
+    pub(super) aged: bool,
+    /// The clock the page reads its times against: the walk's 13:05, else this Mac's.
+    pub(super) clock_now: Option<chrono::DateTime<chrono::Local>>,
+    /// Switch on pressed, and Fleet has not answered; or why it refused.
+    pub(super) switching: bool,
+    pub(super) switch_refused: Option<SharedString>,
+    /// The digest's tiles and links, each a tab stop that Enter presses, by name.
+    pub(super) stops: HashMap<&'static str, FocusHandle>,
+    /// Tiles drawing every row, past the first few.
+    pub(super) whole: BTreeSet<&'static str>,
+    /// Every rule, on a sheet over the page, with the row the arrows are on. `None` while it is shut.
+    pub(super) rules: Option<usize>,
+    pub(super) rules_focus: FocusHandle,
+    pub(super) main_scroll: ScrollHandle,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
     seen: Option<BTreeSet<String>>,
     read_at: u64,
@@ -103,6 +121,15 @@ impl OperatorPageView {
             folded: HashMap::new(),
             focus: cx.focus_handle(),
             pane,
+            aged: false,
+            clock_now: None,
+            switching: false,
+            switch_refused: None,
+            stops: STOPS.iter().map(|name| (*name, cx.focus_handle())).collect(),
+            whole: BTreeSet::new(),
+            rules: None,
+            rules_focus: cx.focus_handle(),
+            main_scroll: ScrollHandle::new(),
             seen: None,
             read_at: 0,
             reading: false,
@@ -136,6 +163,7 @@ impl OperatorPageView {
         let (day, back) = scenes::when();
         this.day = Some(day);
         this.back_at = Some(back);
+        this.clock_now = Some(scenes::now());
         this.read(cx);
         this
     }
@@ -212,22 +240,141 @@ impl OperatorPageView {
         if self.chat_has_keys(window, cx) {
             return cx.propagate();
         }
+        // The sheet over the page takes the arrows and Enter, and no key reaches Your turn behind it.
+        if self.rules.is_some() {
+            match act.id {
+                "call_move_focus" => self.step_rule(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
+                id if id.starts_with("call_") => {}
+                _ => cx.propagate(),
+            }
+            return;
+        }
         match act.id {
             // The registry's slots are j, k, ↓, ↑: even slots go down.
             "call_move_focus" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
-            "call_yes" | "call_send" => self.answer(OperatorAnswer::Yes, window, cx),
+            "call_yes" => self.answer(OperatorAnswer::Yes, window, cx),
+            "call_always_here" => self.answer(OperatorAnswer::AlwaysHere, window, cx),
+            "call_always" => self.answer(OperatorAnswer::Always, window, cx),
             "call_dismiss" => self.answer(OperatorAnswer::No, window, cx),
+            "call_send" => self.enter(window, cx),
+            "call_send_changes" => self.send_changes(cx),
             "call_later" => self.later(cx),
             "call_ask" => self.ask(window, cx),
             // ⌥↑ then ⌥↓.
             "call_reorder" => self.shove(if act.slot == 0 { -1 } else { 1 }, cx),
-            "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, window, cx),
+            "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, cx),
             _ => cx.propagate(),
         }
     }
 
     fn chat_has_keys(&self, window: &Window, cx: &App) -> bool {
         self.chat.as_ref().is_some_and(|chat| chat.read(cx).focus_handle(cx).contains_focused(window, cx))
+    }
+
+    /// Enter: the tile or link Tab reached, where one has the keys; Yes where the page has them.
+    fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(name) = self.stops.iter().find(|(_, keys)| keys.is_focused(window)).map(|(name, _)| *name) {
+            return self.press_stop(name, window, cx);
+        }
+        if self.focus.is_focused(window) {
+            self.answer(OperatorAnswer::Yes, window, cx);
+        }
+    }
+
+    /// A tile's head folds or opens it; a link does what it says.
+    pub fn press_stop(&mut self, name: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        match name {
+            "The whole Log" => {
+                if let Some(log) = self.page.as_ref().and_then(|page| page.digest.handled.log.clone()) {
+                    cx.emit(Opened::Log(log.path));
+                }
+            }
+            "Every rule" => self.open_rules(window, cx),
+            tile => {
+                let open = self.folded.get(tile).copied().unwrap_or(super::view::opens_unpressed(tile));
+                self.folded.insert(tile, !open);
+                cx.notify();
+            }
+        }
+    }
+
+    /// Send changes, on a plan: its Job, where the plan takes changes. Nothing is answered.
+    pub fn send_changes(&mut self, cx: &mut Context<Self>) {
+        let Some(turn) = self.open_item().filter(|turn| face::sends_changes(turn)) else { return };
+        if let Some(job) = turn.session_id.clone() {
+            cx.emit(Opened::Job(job));
+        }
+    }
+
+    /// A press on a time: every time on the page reads the other way.
+    pub fn flip_stamps(&mut self, cx: &mut Context<Self>) {
+        self.aged = !self.aged;
+        cx.notify();
+    }
+
+    /// Switch on, where the page says the Operator is off: the setting Electron's Permissions tab saves.
+    /// The page reads on at once, and goes back with why if Fleet refuses.
+    pub fn switch_on(&mut self, cx: &mut Context<Self>) {
+        if self.switching {
+            return;
+        }
+        self.switching = true;
+        self.switch_refused = None;
+        if let Some(page) = self.page.as_mut() {
+            page.on = true;
+        }
+        cx.notify();
+        let task = self.wire.switch(true, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let saved = task.await;
+            let _ = this.update(cx, |this, cx| {
+                this.switching = false;
+                match saved {
+                    Ok(()) => this.read(cx),
+                    Err(why) => {
+                        if let Some(page) = this.page.as_mut() {
+                            page.on = false;
+                        }
+                        this.switch_refused = Some(why.into());
+                        cx.notify();
+                    }
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    // -- every rule --------------------------------------------------------------------------------
+
+    /// Every rule, in the sheet's order: everywhere first, then each project by name.
+    pub fn rules_in_order(&self) -> Vec<&ipc::operator_page::OperatorLearned> {
+        let mut rules: Vec<_> = self.page.as_ref().map_or(Vec::new(), |page| page.digest.learned.iter().collect());
+        rules.sort_by(|a, b| (a.repository.is_some(), a.repository.as_deref()).cmp(&(b.repository.is_some(), b.repository.as_deref())));
+        rules
+    }
+
+    pub fn open_rules(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.rules = Some(0);
+        window.focus(&self.rules_focus, cx);
+        cx.notify();
+    }
+
+    /// Esc on the sheet: shut, and the keys back on the link that opened it.
+    pub fn close_rules(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.rules = None;
+        match self.stops.get("Every rule") {
+            Some(keys) => window.focus(keys, cx),
+            None => window.focus(&self.focus, cx),
+        }
+        cx.notify();
+    }
+
+    fn step_rule(&mut self, by: isize, cx: &mut Context<Self>) {
+        let count = self.rules_in_order().len();
+        if let Some(at) = self.rules.as_mut() {
+            *at = (*at as isize + by).clamp(0, count.saturating_sub(1) as isize) as usize;
+            cx.notify();
+        }
     }
 
     /// Open the next or the previous item.
@@ -249,20 +396,12 @@ impl OperatorPageView {
         }
     }
 
-    /// A digit: on a go-ahead to file, the Then in that place; elsewhere the answer in that place.
-    pub fn digit(&mut self, digit: usize, window: &mut Window, cx: &mut Context<Self>) {
+    /// A digit: on a go-ahead to file, the Then in that place. Each answer has a letter of its own.
+    pub fn digit(&mut self, digit: usize, cx: &mut Context<Self>) {
         let Some(turn) = self.open_item().cloned() else { return };
-        let Some(at) = digit.checked_sub(1) else { return };
-        if !turn.then.is_empty() {
-            if let Some(offer) = turn.then.get(at) {
-                self.then.insert(turn.id.clone(), offer.then);
-                cx.notify();
-            }
-            return;
-        }
-        if let Some(answer) = face::answers_of(&turn).get(at).copied() {
-            self.answer(answer, window, cx);
-        }
+        let Some(offer) = digit.checked_sub(1).and_then(|at| turn.then.get(at)) else { return };
+        self.then.insert(turn.id.clone(), offer.then);
+        cx.notify();
     }
 
     pub fn pick_then(&mut self, id: &str, then: OperatorThen, cx: &mut Context<Self>) {
@@ -496,6 +635,14 @@ impl OperatorPageView {
                 mock.arrives();
                 let page = mock.page.clone();
                 self.set_page(page, cx);
+                // The step looks at the row that joined, at the queue's end.
+                self.main_scroll.scroll_to_bottom();
+            }
+            "off" => {
+                mock.switch(false);
+                let page = mock.page.clone();
+                self.done.clear();
+                self.set_page(page, cx);
             }
             other => return Err(format!("no Operator scene named {other}")),
         }
@@ -517,7 +664,8 @@ fn said_of(turn: &OperatorTurnItem, answer: OperatorAnswer, answered: &OperatorA
         (Some(filed), None, None) => format!("Filed {filed}"),
         (None, _, Some(_)) => "Started a Job".to_string(),
         (None, _, None) if answered.open.is_some() => "Opened".to_string(),
-        (None, _, None) => face::pick_of(turn).map_or("Yes".to_string(), |pick| pick.to_string()),
+        // Fleet settled it with the pick and gives nothing more back.
+        (None, _, None) => format!("Answered {}", face::pick_of(turn).map_or("Yes".to_string(), |pick| pick.to_string())),
     };
     match answer {
         OperatorAnswer::AlwaysHere => said.push_str(". Kept for this project"),
@@ -576,7 +724,7 @@ mod tests {
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"), "the next item opens");
         page.read_with(cx, |page, _| {
             assert_eq!(page.done.iter().map(|done| done.id.as_str()).collect::<Vec<_>>(), ["turn:1"]);
-            assert_eq!(page.done[0].said.as_deref(), Some("Approve"), "what came of it, once Fleet answered");
+            assert_eq!(page.done[0].said.as_deref(), Some("Answered Approve"), "what came of it, once Fleet answered");
             assert!(page.pending.is_empty());
         });
         assert!(!ids(&page, cx).contains(&"turn:1".to_string()));
@@ -670,6 +818,126 @@ mod tests {
         cx.update(|_, cx| page.update(cx, |page, cx| page.in_front(cx)));
         cx.run_until_parked();
         assert_eq!(page.update(cx, |page, _| page.mock_fleet().map_or(0, |mock| mock.fronted)), before + 1);
+    }
+
+    fn opened(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> (Rc<RefCell<Vec<Opened>>>, Subscription) {
+        let told: Rc<RefCell<Vec<Opened>>> = Rc::default();
+        let heard = told.clone();
+        let keep = cx.update(|_, cx| cx.subscribe(page, move |_, opened: &Opened, _| heard.borrow_mut().push(opened.clone())));
+        (told, keep)
+    }
+
+    #[gpui::test]
+    fn h_shift_a_and_d_answer_a_kept_go_ahead(cx: &mut TestAppContext) {
+        for (keys, answer) in [("h", OperatorAnswer::AlwaysHere), ("shift-a", OperatorAnswer::Always), ("d", OperatorAnswer::No)] {
+            let (page, cx) = open(cx);
+            cx.simulate_keystrokes("j");
+            cx.simulate_keystrokes(keys);
+            assert_eq!(pressed(&page, cx).iter().map(|press| (press.id.as_str(), press.answer)).collect::<Vec<_>>(), [("turn:2", answer)], "{keys}");
+        }
+    }
+
+    #[gpui::test]
+    fn a_plan_offers_no_no(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.simulate_keystrokes("d h");
+        assert!(pressed(&page, cx).is_empty(), "a plan takes Approve or Send changes");
+    }
+
+    #[gpui::test]
+    fn c_sends_changes_in_the_plans_job_and_answers_nothing(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let (told, _keep) = opened(&page, cx);
+        let job = page.read_with(cx, |page, _| page.open_item().and_then(|turn| turn.session_id.clone())).expect("the plan has its Job");
+        cx.simulate_keystrokes("c");
+        assert_eq!(*told.borrow(), [Opened::Job(job)]);
+        assert!(pressed(&page, cx).is_empty());
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"), "the plan stays open");
+    }
+
+    #[gpui::test]
+    fn typing_in_the_chat_presses_and_moves_nothing(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.simulate_keystrokes("/");
+        cx.simulate_keystrokes("a l j k h d c 2 alt-up alt-down");
+        assert!(pressed(&page, cx).is_empty());
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4"]);
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
+        assert!(page.read_with(cx, |page, _| page.then.is_empty()), "a digit in the box picks no Then");
+    }
+
+    #[gpui::test]
+    fn a_digit_picks_only_a_then(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.simulate_keystrokes("2");
+        assert!(page.read_with(cx, |page, _| page.then.is_empty()), "a plan has no Then");
+        assert!(pressed(&page, cx).is_empty());
+    }
+
+    #[gpui::test]
+    fn switch_on_reads_on_at_once_and_a_refusal_puts_it_back_with_why(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("off", cx)).expect("the scene plays");
+        assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| !page.on && page.turn.is_empty())));
+
+        page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.refuse_switch = Some("Fleet could not save the setting".into())));
+        page.update(cx, |page, cx| page.switch_on(cx));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert!(page.page.as_ref().is_some_and(|page| !page.on), "back off");
+            assert_eq!(page.switch_refused.as_deref(), Some("Fleet could not save the setting"));
+            assert!(!page.switching);
+        });
+
+        page.update(cx, |page, cx| page.switch_on(cx));
+        assert!(page.read_with(cx, |page, _| page.page.as_ref().is_some_and(|page| page.on)), "on before Fleet answers");
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert!(page.switch_refused.is_none());
+            assert!(!page.items().is_empty(), "Fleet's turn is read again");
+        });
+    }
+
+    #[gpui::test]
+    fn a_press_on_a_time_flips_every_time(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        assert!(!page.read_with(cx, |page, _| page.aged));
+        page.update(cx, |page, cx| page.flip_stamps(cx));
+        assert!(page.read_with(cx, |page, _| page.aged));
+        page.update(cx, |page, cx| page.flip_stamps(cx));
+        assert!(!page.read_with(cx, |page, _| page.aged));
+    }
+
+    #[gpui::test]
+    fn enter_on_a_tile_head_opens_and_folds_it(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let keys = page.read_with(cx, |page, _| page.stops.get("Landed").cloned()).expect("Landed is a tab stop");
+        cx.update(|window, cx| window.focus(&keys, cx));
+        cx.simulate_keystrokes("enter");
+        assert_eq!(page.read_with(cx, |page, _| page.folded.get("Landed").copied()), Some(true), "open");
+        assert!(pressed(&page, cx).is_empty(), "Enter on a tile is not Yes");
+        cx.simulate_keystrokes("enter");
+        assert_eq!(page.read_with(cx, |page, _| page.folded.get("Landed").copied()), Some(false), "folded");
+    }
+
+    #[gpui::test]
+    fn every_rule_lists_everywhere_first_and_esc_gives_the_keys_back_to_its_link(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let order: Vec<Option<String>> = page.read_with(cx, |page, _| page.rules_in_order().iter().map(|rule| rule.repository.clone()).collect());
+        assert_eq!(order, [None, None, Some("armada".into()), Some("armada".into()), Some("storefront".into()), Some("storefront".into())]);
+
+        let link = page.read_with(cx, |page, _| page.stops.get("Every rule").cloned()).expect("Every rule is a tab stop");
+        cx.update(|window, cx| window.focus(&link, cx));
+        cx.simulate_keystrokes("enter");
+        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(0));
+        cx.simulate_keystrokes("down down up");
+        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1));
+        cx.simulate_keystrokes("a l alt-up");
+        assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4"]);
+        cx.simulate_keystrokes("escape");
+        assert_eq!(page.read_with(cx, |page, _| page.rules), None);
+        cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
     }
 
     #[gpui::test]

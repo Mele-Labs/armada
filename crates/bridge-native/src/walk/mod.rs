@@ -68,6 +68,16 @@ pub enum Verb {
     Typed(&'static str),
     /// A drag across the target's inner area, to hold a box rather than the element.
     Drag,
+    /// The row of this name pressed and carried over the target's top edge, the button still held:
+    /// the picture shows the lifted row and where it would land.
+    Lift(&'static str),
+    /// The held button let go where the pointer stands, ending a `Lift`.
+    Release,
+    /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
+    /// side, or the step fails. For a thing that must wrap rather than run past its column.
+    Fits(&'static str, &'static str),
+    /// Nothing of this role and name is drawn; the target is.
+    Absent(&'static str, &'static str),
     /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
     /// or a state of the sheet's face. A scene changes data and presses nothing.
     Answer(&'static str),

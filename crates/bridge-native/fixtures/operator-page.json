@@ -1,6 +1,6 @@
 {
  "on": true,
- "top": "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.",
+ "top": "Since you left, the red main's fix is up as #3414, waiting on ci. **Quick dispatch's plan** is still the one two Jobs wait on.",
  "looked_at": "2026-11-11T12:10:00-05:00",
  "on_it": { "reading": "Store reports its size, for its review", "since": "2026-11-11T13:02:00-05:00" },
  "turn": [
@@ -30,7 +30,7 @@
    "repository": "armada",
    "item": {
     "id": "note:41",
-    "text": "File your note: the slot meter flickers when a Job ends",
+    "text": "the slot meter flickers when a Job ends",
     "since": "2026-11-11T11:52:00-05:00",
     "source": "agent"
    },
@@ -90,12 +90,20 @@
  "digest": {
   "landed": [
    { "session_id": "mock-05", "job": "Slot pool controls", "number": "3413", "title": "Slot meter shows free slots" },
-   { "session_id": "mock-06", "job": "Tail-first thread loading", "number": "3411", "title": "Tail-first thread loading" }
+   { "session_id": "mock-06", "job": "Tail-first thread loading", "number": "3411", "title": "Tail-first thread loading" },
+   { "session_id": "mock-10", "job": "Sentence case labels", "number": "3409", "title": "Every label in Bridge and Pocket is sentence case" },
+   { "session_id": "mock-11", "job": "Walk window takes", "number": "3406", "title": "Walk window keeps each take" },
+   { "session_id": "mock-12", "job": "Store reports its size", "number": "3404", "title": "Store reports its size on the Settings page" },
+   { "session_id": "mock-13", "job": "Merge strip freshness", "number": "3401", "title": "Merge strip says how fresh each line is" }
   ],
   "handled": {
    "acts": [
     { "at": "2026-11-11T12:47:00-05:00", "title": "The build switcher report", "outcome": "Linked: the build switcher report to #3390" },
-    { "at": "2026-11-11T12:20:00-05:00", "title": "Fix desktop_unit after #412", "outcome": "Started: Fix desktop_unit after #412" }
+    { "at": "2026-11-11T12:33:00-05:00", "title": "Map legend follow-up", "outcome": "Passed on" },
+    { "at": "2026-11-11T12:20:00-05:00", "title": "Fix desktop_unit after #412", "outcome": "Started" },
+    { "at": "2026-11-11T12:18:00-05:00", "title": "Sentence case labels", "outcome": "Ended: every label in Bridge and Pocket is sentence case" },
+    { "at": "2026-11-11T12:15:00-05:00", "title": "Fleet's orphans test", "outcome": "Raised: the orphans test fails once in five runs" },
+    { "at": "2026-11-11T12:12:00-05:00", "title": "Walk window takes", "outcome": "Merged: #3406 Walk window keeps each take" }
    ],
    "log": { "week": "2026-W46", "path": "/Users/user/.armada/operator/journal/2026-W46.md" }
   },
@@ -109,7 +117,11 @@
   ],
   "learned": [
    { "id": 1, "manifest_id": "armada", "repository": "armada", "said": "File your notes without asking", "at": "2026-11-10T16:00:00-05:00" },
-   { "id": 2, "manifest_id": "storefront", "repository": "storefront", "said": "A red main's fix waits for you", "at": "2026-11-10T17:00:00-05:00" }
+   { "id": 2, "manifest_id": "storefront", "repository": "storefront", "said": "A red main's fix waits for you", "at": "2026-11-10T17:00:00-05:00" },
+   { "id": 3, "said": "Start a fix when main is red", "at": "2026-11-09T10:30:00-05:00" },
+   { "id": 4, "manifest_id": "armada", "repository": "armada", "said": "Hand a note to the Job on its files", "at": "2026-11-08T15:10:00-05:00" },
+   { "id": 5, "said": "Link a report to the open issue it names", "at": "2026-11-07T09:45:00-05:00" },
+   { "id": 6, "manifest_id": "storefront", "repository": "storefront", "said": "Approve a pull request whose ci is green", "at": "2026-11-06T11:20:00-05:00" }
   ]
  }
 }

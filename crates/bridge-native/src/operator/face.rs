@@ -57,14 +57,33 @@ pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
     }
 }
 
-/// The card's title: the Job's, or the item's own words where no Job holds it.
-pub fn title_of(turn: &OperatorTurnItem) -> SharedString {
-    turn.job.clone().unwrap_or_else(|| turn.item.text.clone()).into()
+/// A go-ahead to file his note as an issue: the one item that offers Thens.
+fn files(turn: &OperatorTurnItem) -> bool {
+    !turn.then.is_empty()
 }
 
-/// What the card says it asks, under the title: the item's words where the title is the Job's.
+/// An item's name in the list: the Job's, or the item's own words where no Job holds it.
+pub fn title_of(turn: &OperatorTurnItem) -> SharedString {
+    match &turn.job {
+        Some(job) => job.clone().into(),
+        None if files(turn) => format!("File your note: {}", turn.item.text).into(),
+        None => turn.item.text.clone().into(),
+    }
+}
+
+/// The open card's title, which says what it asks where the list's name is his note.
+pub fn card_title(turn: &OperatorTurnItem) -> SharedString {
+    if turn.job.is_none() && files(turn) { "File your note as an issue".into() } else { title_of(turn) }
+}
+
+/// What the card says it asks, under the title: the item's words where the title is the Job's, and
+/// his note with when he left it on a go-ahead to file.
 pub fn asks_of(turn: &OperatorTurnItem) -> Option<SharedString> {
-    turn.job.as_ref().map(|_| turn.item.text.clone().into())
+    match &turn.job {
+        Some(_) => Some(turn.item.text.clone().into()),
+        None if files(turn) => Some(format!("Your note from {}: \"{}\"", clock(&turn.item.since), turn.item.text).into()),
+        None => None,
+    }
 }
 
 /// The Operator's pick, where it read one: an empty `pick` is none.
@@ -72,13 +91,29 @@ pub fn pick_of(turn: &OperatorTurnItem) -> Option<SharedString> {
     turn.read.as_ref().map(|read| read.pick.trim()).filter(|pick| !pick.is_empty()).map(|pick| SharedString::from(pick.to_string()))
 }
 
-/// The answers drawn on the open item, in order: Always here and Always only where Fleet keeps a rule.
+/// The answers drawn on the open item, in order, as the approved sketch offers them: a go-ahead Fleet can
+/// keep a rule for takes Yes, Always here, Always and No; anything else takes its pick alone.
 pub fn answers_of(turn: &OperatorTurnItem) -> Vec<OperatorAnswer> {
     if turn.keeps {
         vec![OperatorAnswer::Yes, OperatorAnswer::AlwaysHere, OperatorAnswer::Always, OperatorAnswer::No]
     } else {
-        vec![OperatorAnswer::Yes, OperatorAnswer::No]
+        vec![OperatorAnswer::Yes]
     }
+}
+
+/// Each answer's key, as the registry binds it in the call scope: none is a digit, which picks a Then.
+pub fn answer_key(answer: OperatorAnswer) -> &'static str {
+    match answer {
+        OperatorAnswer::Yes => "A",
+        OperatorAnswer::AlwaysHere => "H",
+        OperatorAnswer::Always => "⇧A",
+        OperatorAnswer::No => "D",
+    }
+}
+
+/// A plan is approved here, and changes to it are sent from its Job, where it is: Send changes opens that Job.
+pub fn sends_changes(turn: &OperatorTurnItem) -> bool {
+    turn.item.source == WaitingSource::Plan && turn.session_id.is_some()
 }
 
 pub fn answer_word(answer: OperatorAnswer) -> &'static str {
@@ -108,7 +143,7 @@ pub fn clock(at: &Instant) -> SharedString {
     local(at).map(|at| at.format("%H:%M").to_string()).unwrap_or_default().into()
 }
 
-/// `Tuesday 11 November`.
+/// `Wednesday 11 November`.
 pub fn day(at: &DateTime<Local>) -> SharedString {
     at.format("%A %-d %B").to_string().into()
 }
@@ -137,9 +172,11 @@ mod tests {
     const RED: &str = r#"{"id":"turn:2","kind":"go_ahead","item":{"id":"red:storefront:abc","text":"storefront main is red","since":"2026-11-11T12:00:00Z","source":"agent"},"raised_at":"2026-11-11T12:00:00Z","keeps":true}"#;
 
     #[test]
-    fn a_decision_offers_yes_and_no_and_a_kept_go_ahead_offers_always_too() {
-        assert_eq!(answers_of(&turn(PLAN)), vec![OperatorAnswer::Yes, OperatorAnswer::No]);
-        assert_eq!(answers_of(&turn(RED)).len(), 4);
+    fn a_decision_offers_its_pick_alone_and_a_kept_go_ahead_offers_always_and_no_too() {
+        assert_eq!(answers_of(&turn(PLAN)), vec![OperatorAnswer::Yes]);
+        assert_eq!(answers_of(&turn(RED)), vec![OperatorAnswer::Yes, OperatorAnswer::AlwaysHere, OperatorAnswer::Always, OperatorAnswer::No]);
+        assert!(sends_changes(&turn(PLAN)));
+        assert!(!sends_changes(&turn(RED)));
     }
 
     #[test]

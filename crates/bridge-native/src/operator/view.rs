@@ -123,9 +123,14 @@ impl OperatorPageView {
     // -- the head ----------------------------------------------------------------------------------
 
     fn head(&self, look: &Look, cx: &App) -> impl IntoElement {
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let pill = |id: &'static str| {
             div()
                 .id(id)
+                // Tab reaches each pill, and its tooltip says what it reads.
+                .focusable()
+                .tab_stop(true)
+                .focus_visible(move |style| style.border_color(ring))
                 .flex_none()
                 .flex()
                 .items_center()
@@ -223,9 +228,9 @@ impl OperatorPageView {
                     .text_size(look.length(token::TEXT_SM))
                     .line_height(look.length(token::LEADING_SM))
                     .child(glyph("bot", look.length(token::SPACE_4), look.color(token::OPERATOR)))
-                    .child(div().flex_1().min_w_0().child(top.clone())),
+                    .child(div().flex_1().min_w_0().child(emphasised(&top, look))),
                 Role::Status,
-                "Top line",
+                top.replace("**", ""),
             )
             .into_any_element(),
         )
@@ -256,7 +261,7 @@ impl OperatorPageView {
             .when(dots.len() > 1, |head| head.child(div().flex().gap(look.length(token::SPACE_1) * 1.5).children(dots)))
     }
 
-    fn on_it(&self, page: &OperatorPage, look: &Look, cx: &App) -> Option<AnyElement> {
+    fn on_it(&self, page: &OperatorPage, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let on_it = page.on_it.as_ref()?;
         Some(
             labelled(
@@ -281,7 +286,16 @@ impl OperatorPageView {
                             .truncate()
                             .child(div().flex().gap(look.length(token::SPACE_1)).child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("On it:")).child(format!("reading {}", on_it.reading))),
                     )
-                    .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(format!("since {}", face::clock(&on_it.since)))),
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_1))
+                            .text_size(look.length(token::TEXT_XS))
+                            .text_color(look.color(token::FG_SUBTLE))
+                            .child("since")
+                            .child(self.stamp(&on_it.since, look, cx)),
+                    ),
                 Role::Status,
                 "On it",
             )
@@ -291,7 +305,7 @@ impl OperatorPageView {
 
     fn card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
-        let title = face::title_of(turn);
+        let title = face::card_title(turn);
         let pick = face::pick_of(turn);
         let has_then = !turn.then.is_empty();
         let head = div()
@@ -361,7 +375,7 @@ impl OperatorPageView {
                 (Some(pick), OperatorTurnKind::Decision) if yes => pick.clone(),
                 _ => face::answer_word(answer).into(),
             };
-            let key: Option<SharedString> = if yes { Some("A".into()) } else if has_then { None } else { Some((at + 1).to_string().into()) };
+            let key: Option<SharedString> = Some(face::answer_key(answer).into());
             let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
                 .tooltip(tip(match answer {
                     OperatorAnswer::Yes => "Do my pick",
@@ -372,6 +386,15 @@ impl OperatorPageView {
                 .on_click(cx.listener(move |this, _, window, cx| this.answer(answer, window, cx)));
             labelled(button, Role::Button, label).into_any_element()
         });
+        let changes = face::sends_changes(turn).then(|| {
+            labelled(
+                press("turn-changes", "Send changes".into(), None, Some("C".into()), Weight::Plain, look)
+                    .tooltip(tip("Open the plan in its Job to suggest changes"))
+                    .on_click(cx.listener(|this, _, _, cx| this.send_changes(cx))),
+                Role::Button,
+                "Send changes",
+            )
+        });
         let acts = div()
             .flex()
             .items_center()
@@ -381,7 +404,10 @@ impl OperatorPageView {
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_OVERLAY))
+            // The card clips its children square: its ground keeps inside the rounded corner itself.
+            .rounded_b(round(look) - look.length(token::BORDER_WIDTH))
             .children(answers)
+            .children(changes)
             .child(div().flex_1())
             .child(labelled(
                 press("turn-later", "Later".into(), None, Some("L".into()), Weight::Bare, look)
@@ -498,12 +524,13 @@ impl OperatorPageView {
         .into_any_element()
     }
 
-    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn turn_row(&self, at: usize, turn: &OperatorTurnItem, open: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let kind = face::kind_of(turn);
         let title = face::title_of(turn);
         let id = turn.id.clone();
         let drop_id = turn.id.clone();
-        let sub = match (face::pick_of(turn), turn.later_until.is_some()) {
+        let sub = match (face::pick_of(turn), turn.later_until.is_some() && !open) {
+            _ if open => Some("Open above".to_string()),
             (Some(pick), true) => Some(format!("Later today. My pick: {pick}")),
             (Some(pick), false) => Some(format!("My pick: {pick}")),
             (None, true) => Some("Later today".to_string()),
@@ -511,6 +538,7 @@ impl OperatorPageView {
         };
         labelled(
             row_frame(SharedString::from(format!("turn-row-{at}")), look)
+                .when(open, |row| row.text_color(look.color(token::OPERATOR)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))))
                 .cursor_pointer()
                 .hover(|style| style.bg(cx.look().color(token::BG_HOVER)))
                 .on_click(cx.listener(move |this, _, _, cx| this.open_id(&id, cx)))
@@ -540,7 +568,8 @@ impl OperatorPageView {
     fn rest(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let open = self.open.as_deref();
         let mut rows: Vec<AnyElement> = self.done.iter().map(|done| self.done_row(done, look, cx)).collect();
-        rows.extend(self.items().iter().enumerate().filter(|(_, turn)| Some(turn.id.as_str()) != open).map(|(at, turn)| self.turn_row(at, turn, look, cx)));
+        // The open item keeps its place in the list, marked, so a move or a drag shows where it went.
+        rows.extend(self.items().iter().enumerate().map(|(at, turn)| self.turn_row(at, turn, Some(turn.id.as_str()) == open, look, cx)));
         if rows.is_empty() {
             return None;
         }
@@ -555,7 +584,11 @@ impl OperatorPageView {
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_DEFAULT))
                     .overflow_hidden()
-                    .children(rows),
+                    // A rule between rows, never under the last: a border there runs square past the corner.
+                    .children(rows.into_iter().enumerate().flat_map(|(at, row)| {
+                        let rule = (at > 0).then(|| div().flex_none().h(look.length(token::BORDER_WIDTH)).bg(look.color(token::BORDER_SUBTLE)).into_any_element());
+                        rule.into_iter().chain(std::iter::once(row))
+                    })),
                 Role::List,
                 "The rest of Your turn",
             )
@@ -565,35 +598,108 @@ impl OperatorPageView {
 
     // -- the digest --------------------------------------------------------------------------------
 
-    fn tile(&self, name: &'static str, mark: &'static str, hue: Token, aside: Option<String>, rows: Vec<(String, String, Option<Opened>)>, link: Option<(&'static str, Opened)>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        // As the chosen side column opens them: what it handled and what it learned.
-        let open = self.folded.get(name).copied().unwrap_or(matches!(name, "What I handled" | "Learned"));
+    /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the page.
+    fn stamp(&self, at: &ipc::Instant, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        let (on_clock, ago) = (crate::job_view::clock(at.as_str(), now), crate::job_view::age(at.as_str(), now));
+        let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
+        let Some(shown) = shown else { return gpui::Empty.into_any_element() };
+        labelled(
+            div()
+                .id(SharedString::from(format!("stamp:{}", at.as_str())))
+                .flex_none()
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_SUBTLE))
+                .cursor_pointer()
+                .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    cx.stop_propagation();
+                    this.flip_stamps(cx);
+                }))
+                .tooltip(tip(other.unwrap_or_default()))
+                .child(shown.clone()),
+            Role::Button,
+            format!("Time {shown}"),
+        )
+        .into_any_element()
+    }
+
+    /// A link under a tile's rows: a tab stop Enter presses.
+    fn link(&self, said: &'static str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        let keys = self.stops.get(said).cloned();
+        labelled(
+            div()
+                .id(SharedString::from(format!("link-{said}")))
+                .when_some(keys, |link, keys| link.track_focus(&keys))
+                .focusable()
+                .tab_stop(true)
+                .mt(look.length(token::SPACE_1))
+                .px(look.length(token::SPACE_1))
+                .ml(-look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(gpui::transparent_black())
+                .focus_visible(move |style| style.border_color(ring))
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::ACCENT))
+                .cursor_pointer()
+                .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
+                .on_click(cx.listener(move |this, _, window, cx| this.press_stop(said, window, cx)))
+                .child(said),
+            Role::Link,
+            said,
+        )
+        .into_any_element()
+    }
+
+    fn tile(&self, name: &'static str, mark: &'static str, hue: Token, aside: Option<String>, rows: Vec<Row>, link: Option<&'static str>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let open = self.folded.get(name).copied().unwrap_or(opens_unpressed(name));
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let body = open.then(|| {
-            let rows = rows.into_iter().enumerate().map(|(at, (text, right, opened))| {
-                let row = div()
+            // The first few, one line each: the rest are a press away, or in the Log.
+            let more = rows.len() > FEW && link.is_none();
+            let whole = self.whole.contains(name);
+            let shown = if whole || !(more || link.is_some()) { rows.len() } else { FEW.min(rows.len()) };
+            let rows = rows.into_iter().take(shown).enumerate().map(|(at, row)| {
+                let text = row.text;
+                let line = div()
                     .id(SharedString::from(format!("{name}-{at}")))
                     .flex()
+                    .items_center()
                     .gap(look.length(token::SPACE_2))
                     .py(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_XS))
-                    .child(div().flex_1().min_w_0().child(text.clone()))
-                    .child(div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(right))
-                    .when_some(opened, |row, opened| row.cursor_pointer().on_click(cx.listener(move |_, _, _, cx| cx.emit(opened.clone()))));
-                labelled(row, Role::ListItem, text).into_any_element()
+                    .tooltip(tip(text.clone()))
+                    .child(div().flex_1().min_w_0().truncate().child(text.clone()))
+                    .child(match row.side {
+                        Side::None => gpui::Empty.into_any_element(),
+                        Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
+                        Side::At(at) => self.stamp(&at, look, cx),
+                    })
+                    .when_some(row.opened, |line, opened| line.cursor_pointer().on_click(cx.listener(move |_, _, _, cx| cx.emit(opened.clone()))));
+                labelled(line, Role::ListItem, text).into_any_element()
             });
-            let link = link.map(|(said, opened)| {
+            let link = link.map(|said| self.link(said, look, cx));
+            let toggle = more.then(|| {
+                let said = if whole { "Show fewer" } else { "Show all" };
                 labelled(
                     div()
-                        .id(SharedString::from(format!("{name}-link")))
-                        .py(look.length(token::SPACE_1))
+                        .id(SharedString::from(format!("{name}-whole")))
+                        .mt(look.length(token::SPACE_1))
                         .text_size(look.length(token::TEXT_XS))
                         .text_color(look.color(token::ACCENT))
                         .cursor_pointer()
                         .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
-                        .on_click(cx.listener(move |_, _, _, cx| cx.emit(opened.clone())))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            if !this.whole.remove(name) {
+                                this.whole.insert(name);
+                            }
+                            cx.notify();
+                        }))
                         .child(said),
-                    Role::Link,
-                    said,
+                    Role::Button,
+                    format!("{said} {name}"),
                 )
             });
             div()
@@ -603,22 +709,28 @@ impl OperatorPageView {
                 .border_t(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .children(rows)
+                .children(toggle)
                 .children(link)
         });
         let no_aside = aside.is_none();
+        let keys = self.stops.get(name).cloned();
         let head = labelled(
             div()
                 .id(SharedString::from(format!("tile-{name}")))
+                .when_some(keys, |head, keys| head.track_focus(&keys))
+                .focusable()
+                .tab_stop(true)
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .px(look.length(token::SPACE_3))
                 .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_LG) * 1.25)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(gpui::transparent_black())
+                .focus_visible(move |style| style.border_color(ring))
                 .cursor_pointer()
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.folded.insert(name, !open);
-                    cx.notify();
-                }))
+                .on_click(cx.listener(move |this, _, window, cx| this.press_stop(name, window, cx)))
                 .child(glyph(mark, look.length(token::SPACE_4), look.color(hue)))
                 .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_size(look.length(token::TEXT_SM)).child(name))
                 .children(aside.map(|aside| div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(aside)))
@@ -642,20 +754,22 @@ impl OperatorPageView {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| (format!("#{} {}", one.number, one.title), String::new(), Some(Opened::Job(one.session_id.clone())))).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())) }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
-            let rows = digest.handled.acts.iter().map(|act| (act.outcome.clone(), face::clock(&act.at).to_string(), None)).collect();
-            let link = digest.handled.log.as_ref().map(|log| ("The whole Log", Opened::Log(log.path.clone())));
-            tiles.push(self.tile("What I handled", "bot", token::OPERATOR, None, rows, link, look, cx));
+            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), side: Side::At(act.at.clone()), opened: None }).collect();
+            // Off, nothing new is handled: what is here it did before it was switched off.
+            let aside = (!page.on).then(|| "while it was on".to_string());
+            let link = digest.handled.log.as_ref().map(|_| "The whole Log");
+            tiles.push(self.tile("What I handled", "bot", token::OPERATOR, aside, rows, link, look, cx));
         }
         if !digest.running.is_empty() {
-            let rows = digest.running.iter().map(|one| (one.title.clone(), one.repository.clone().unwrap_or_default(), Some(Opened::Job(one.session_id.clone())))).collect();
+            let rows = digest.running.iter().map(|one| Row { text: one.title.clone(), side: Side::Text(one.repository.clone().unwrap_or_default()), opened: Some(Opened::Job(one.session_id.clone())) }).collect();
             tiles.push(self.tile("Running", "activity", token::STATUS_RUNNING, None, rows, None, look, cx));
         }
         if !digest.coming_up.is_empty() {
-            let rows = digest.coming_up.iter().map(|one| (format!("{}: waits on {}", one.title, one.needs), String::new(), Some(Opened::Job(one.session_id.clone())))).collect();
+            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())) }).collect();
             tiles.push(self.tile("Coming up", "clock", token::STATUS_NOT_STARTED, None, rows, None, look, cx));
         }
         if !digest.learned.is_empty() {
@@ -666,12 +780,8 @@ impl OperatorPageView {
                     places.push(place);
                 }
             }
-            let rows = digest
-                .learned
-                .iter()
-                .map(|rule| (format!("{}: {}", rule.repository.as_deref().unwrap_or("Everywhere"), rule.said), day_month(&rule.at), None))
-                .collect();
-            tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, None, look, cx));
+            let rows = digest.learned.iter().map(|rule| Row { text: rule_said(rule), side: Side::At(rule.at.clone()), opened: None }).collect();
+            tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
         }
         let since = page.looked_at.as_ref().map_or("Since you last looked".to_string(), |at| format!("Since you last looked, at {}", face::clock(at)));
         labelled(
@@ -777,8 +887,6 @@ fn row_frame(id: SharedString, look: &Look) -> Stateful<Div> {
         .px(look.length(token::SPACE_4))
         .py(look.length(token::SPACE_2))
         .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_3))
-        .border_b(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(token::BORDER_SUBTLE))
         .text_size(look.length(token::TEXT_SM))
 }
 
@@ -793,9 +901,54 @@ fn side(look: &Look) -> Div {
         .bg(look.color(token::BG_SUNKEN))
 }
 
-/// `10 Nov`.
-fn day_month(at: &ipc::Instant) -> String {
-    chrono::DateTime::parse_from_rfc3339(at.as_str()).map(|at| at.with_timezone(&chrono::Local).format("%-d %b").to_string()).unwrap_or_default()
+/// The top line, what the Operator wrote between `**` in its hue and weight: the thing the line is about.
+fn emphasised(top: &str, look: &Look) -> gpui::StyledText {
+    let (mut said, mut marks) = (String::new(), Vec::new());
+    for (at, part) in top.split("**").enumerate() {
+        if at % 2 == 1 {
+            let style = gpui::HighlightStyle { font_weight: Some(FontWeight(look.number(token::WEIGHT_HEADING))), color: Some(look.color(token::OPERATOR)), ..Default::default() };
+            marks.push((said.len()..said.len() + part.len(), style));
+        }
+        said.push_str(part);
+    }
+    gpui::StyledText::new(said).with_highlights(marks)
+}
+
+/// A tile's rows past these are a press away, or in the Log.
+const FEW: usize = 4;
+
+/// Tiles the chosen side column draws open: what it handled and what it learned.
+pub(super) fn opens_unpressed(name: &str) -> bool {
+    matches!(name, "What I handled" | "Learned")
+}
+
+/// One row of a tile: its words, what stands at its right, and where a press on it goes.
+pub(super) struct Row {
+    text: String,
+    side: Side,
+    opened: Option<Opened>,
+}
+
+pub(super) enum Side {
+    None,
+    Text(String),
+    At(ipc::Instant),
+}
+
+/// A handled act as the Log writes it, `Kind: what`. Where Fleet's outcome is the kind alone (`Started`,
+/// `Passed on`), the what is the act's title, which Fleet sends beside it.
+pub(super) fn handled_said(act: &ipc::operator_page::OperatorHandledAct) -> String {
+    match (act.outcome.contains(':'), act.title.trim()) {
+        (false, title) if !title.is_empty() => format!("{}: {title}", act.outcome),
+        _ => act.outcome.clone(),
+    }
+}
+
+/// A rule as the sketch writes it: where it holds, then the rule, its first letter small after the colon.
+pub(super) fn rule_said(rule: &ipc::operator_page::OperatorLearned) -> String {
+    let mut said = rule.said.chars();
+    let small: String = said.next().map(|first| first.to_lowercase().chain(said).collect()).unwrap_or_default();
+    format!("{}: {small}", rule.repository.as_deref().unwrap_or("everywhere"))
 }
 
 /// The week's share as the title bar's rings read it, on a live Fleet.
@@ -835,9 +988,10 @@ impl Render for OperatorPageView {
             return root.child(self.skeleton(look)).into_any_element();
         };
         let open = self.open_item().map(|turn| self.card(turn, look, cx));
-        let off = (!page.on).then(|| div().text_color(look.color(token::FG_MUTED)).child("The Operator is off"));
+        let off = (!page.on).then(|| self.off(look, cx));
         let main = div()
             .id("operator-main")
+            .track_scroll(&self.main_scroll)
             .flex_1()
             .min_w_0()
             .h_full()
@@ -845,7 +999,9 @@ impl Render for OperatorPageView {
             .flex()
             .flex_col()
             .px(look.length(token::SPACE_6))
-            .py(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+            .pt(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+            // Room under the last row, so it never sits on the window's edge.
+            .pb(look.length(token::SPACE_12))
             // Held at its own height, so a long queue scrolls instead of squeezing the bars above it.
             .child(
                 div()
@@ -863,8 +1019,213 @@ impl Render for OperatorPageView {
             Some(chat) => div().size_full().child(chat.clone()).into_any_element(),
             None => self.digest(page, look, cx).into_any_element(),
         };
-        root.children(self.top_line(page, look))
+        let sheet = self.rules.map(|at| self.rules_sheet(at, look, cx));
+        root.relative()
+            .children(self.top_line(page, look))
             .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(aside)))
+            .children(sheet)
             .into_any_element()
+    }
+}
+
+impl OperatorPageView {
+    /// Where the page says the Operator is off: what that means, and the switch Electron's Permissions tab has.
+    fn off(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let switch = if self.switching {
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .text_color(look.color(token::FG_MUTED))
+                .child(spinner("switch-spin", look.length(token::SPACE_4), look.color(token::OPERATOR), cx))
+                .child("Switching on")
+                .into_any_element()
+        } else {
+            labelled(
+                press("operator-switch", "Switch on".into(), Some("power"), None, Weight::Pick, look)
+                    .tooltip(tip("The Operator reads what comes in and queues what needs you here"))
+                    .on_click(cx.listener(|this, _, _, cx| this.switch_on(cx))),
+                Role::Button,
+                "Switch the Operator on",
+            )
+            .into_any_element()
+        };
+        let refused = self.switch_refused.clone().map(|why| {
+            labelled(
+                div().id("switch-refused").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(format!("Not switched on: {why}")),
+                Role::Alert,
+                format!("Not switched on: {why}"),
+            )
+        });
+        labelled(
+            div()
+                .id("operator-off")
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .p(look.length(token::SPACE_4))
+                .rounded(round(look))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::OPERATOR_EDGE))
+                .bg(look.color(token::OPERATOR_FAINT))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .child(glyph("bot", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("The Operator is off"))
+                                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Everything comes to you as it did, and nothing is queued here.")),
+                        )
+                        .child(switch),
+                )
+                .children(refused),
+            Role::Region,
+            "The Operator is off",
+        )
+        .into_any_element()
+    }
+
+    /// Every rule, on a sheet over the page: everywhere first, then each project. The arrows move
+    /// through them and Esc shuts it.
+    fn rules_sheet(&self, at: usize, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let rules = self.rules_in_order();
+        let mut body: Vec<AnyElement> = Vec::new();
+        let mut place: Option<Option<&str>> = None;
+        for (n, rule) in rules.iter().enumerate() {
+            let here = rule.repository.as_deref();
+            if place != Some(here) {
+                place = Some(here);
+                let said = here.map_or("Everywhere".to_string(), |repository| repository.to_string());
+                body.push(
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("rules-scope-{n}")))
+                            .pt(look.length(if n == 0 { token::SPACE_1 } else { token::SPACE_4 }))
+                            .pb(look.length(token::SPACE_1))
+                            .text_size(look.length(token::TEXT_2XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_SUBTLE))
+                            .child(said.clone()),
+                        Role::Heading,
+                        said,
+                    )
+                    .into_any_element(),
+                );
+            }
+            let on = n == at;
+            body.push(
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("rule-{}", rule.id)))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .h(look.length(token::H_CONTROL_LG))
+                        .px(look.length(token::SPACE_3))
+                        .rounded(look.length(token::RADIUS_LG))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(if on { look.color(token::OPERATOR_EDGE) } else { gpui::transparent_black() })
+                        .when(on, |row| row.bg(look.color(token::OPERATOR_FAINT)))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.rules = Some(n);
+                            cx.notify();
+                        }))
+                        .child(div().flex_1().min_w_0().truncate().child(rule.said.clone()))
+                        .child(self.stamp(&rule.at, look, cx)),
+                    Role::ListItem,
+                    rule.said.clone(),
+                )
+                .into_any_element(),
+            );
+        }
+        let close = labelled(
+            press("rules-close", "Close".into(), None, Some("Esc".into()), Weight::Bare, look).on_click(cx.listener(|this, _, window, cx| this.close_rules(window, cx))),
+            Role::Button,
+            "Close",
+        );
+        let panel = div()
+            .id("rules-panel")
+            .occlude()
+            .w(look.length(token::SPACE_12) * 12.)
+            .max_h(gpui::relative(0.8))
+            .flex()
+            .flex_col()
+            .rounded(round(look))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_OVERLAY))
+            .shadow(look.shadows(token::SHADOW_OVERLAY))
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .px(look.length(token::SPACE_4))
+                    .py(look.length(token::SPACE_3))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .child(glyph("scroll-text", look.length(token::SPACE_4), look.color(token::OPERATOR)))
+                    .child(labelled(
+                        div().id("rules-title").flex_1().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Every rule"),
+                        Role::Heading,
+                        "Every rule",
+                    ))
+                    .child(close),
+            )
+            .child(div().id("rules-list").flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2)).children(body));
+        labelled(
+            div()
+                .id("rules-sheet")
+                .track_focus(&self.rules_focus)
+                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" {
+                        cx.stop_propagation();
+                        this.close_rules(window, cx);
+                    }
+                }))
+                .absolute()
+                .inset_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(look.color(token::SCRIM))
+                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close_rules(window, cx)))
+                .child(panel.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())),
+            Role::Dialog,
+            "Every rule",
+        )
+        .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_bare_outcome_says_what_it_was_about() {
+        let act = |outcome: &str, title: &str| ipc::operator_page::OperatorHandledAct { at: ipc::Instant::carried("2026-11-11T12:20:00-05:00"), title: title.into(), outcome: outcome.into() };
+        assert_eq!(handled_said(&act("Started", "Fix desktop_unit after #412")), "Started: Fix desktop_unit after #412");
+        assert_eq!(handled_said(&act("Linked: the report to #3398", "Build switcher")), "Linked: the report to #3398");
+        assert_eq!(handled_said(&act("Passed on", "")), "Passed on");
+    }
+
+    #[test]
+    fn a_rule_reads_where_it_holds_then_the_rule_in_small() {
+        let rule = |repository: Option<&str>| ipc::operator_page::OperatorLearned {
+            id: 1,
+            manifest_id: None,
+            repository: repository.map(String::from),
+            said: "Start a fix when main is red".into(),
+            at: ipc::Instant::carried("2026-11-09T10:30:00-05:00"),
+        };
+        assert_eq!(rule_said(&rule(None)), "everywhere: start a fix when main is red");
+        assert_eq!(rule_said(&rule(Some("armada"))), "armada: start a fix when main is red");
     }
 }

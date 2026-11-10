@@ -27,14 +27,14 @@ use crate::look::{token, ActiveLook, Look, Token};
 const COLUMN: f32 = 20.;
 
 /// A time in the owner's clock, with the day when it is not today (`Stamp`, A1.11).
-fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
+pub(crate) fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
     let then = DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Local);
     let time = then.format("%H:%M:%S").to_string();
     Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })
 }
 
 /// A time as how long ago it was: `<1m ago`, `5m ago`, `3h ago`, `2d ago`.
-fn age(at: &str, now: DateTime<Local>) -> Option<String> {
+pub(crate) fn age(at: &str, now: DateTime<Local>) -> Option<String> {
     let then = DateTime::parse_from_rfc3339(at).ok()?;
     let minutes = (now.with_timezone(&chrono::Utc) - then.with_timezone(&chrono::Utc)).num_minutes();
     Some(match minutes {

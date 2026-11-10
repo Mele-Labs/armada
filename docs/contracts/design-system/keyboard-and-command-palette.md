@@ -97,7 +97,7 @@ a modifier.
 j / k / ↓ / ↑  move focus          (list only)
 Enter          open the focused job. Acts on nothing   (list only)
 o              open. The same act, named so the palette can display it   (list only)
-c              copy debug info
+c              copy debug info   (list and detail)
 N              add a note           (open studio only)
 V              add a link           (open studio only)
 S              add a sketch         (open studio only)
@@ -157,6 +157,9 @@ a              yes   (call only)
 /              ask the Operator   (call only)
 j / k / ↓ / ↑  move between calls   (call only)
 ⌥↑ ⌥↓          move the call up or down   (call only)
+h              always here   (call only)
+⇧a             always   (call only)
+c              send changes   (call only)
 e              Edit the entry   (logbook only)
 l              Lock or unlock the entry   (logbook only)
 f              Forget the entry   (logbook only)   (confirms)
@@ -179,6 +182,7 @@ never on a call Fleet raises about a state. On a Job's question they answer with
 a palette row yet: each is read from the Cockpit's own sheet.
 On the Operator's page the item open in Your turn is the call in front.
 There `a` says Yes to the Operator's pick, `/` asks the Operator about the item, the arrows, `j` and `k` open the next or the previous item, and `⌥↑ ⌥↓` move it.
+`h` and `⇧a` say Yes and keep it as a rule, here or everywhere, where Fleet keeps one; `d` says No, and `c` opens a plan to send changes.
 
 **The Logbook page has a scope of its own, `logbook`.** Its three keys act on the selected
 entry: `e` edits its text in place, `l` locks it against rewriting or lets go, and `f` forgets it

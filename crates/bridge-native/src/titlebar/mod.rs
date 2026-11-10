@@ -1063,7 +1063,7 @@ impl TitleBar {
                     .rounded(round)
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(gpui::transparent_black())
-                    .font_family(mono(look))
+                    .font_family(sans(look))
                     .text_size(look.length(token::TEXT_2XS))
                     .text_color(ink)
                     .when(here, |tab| {

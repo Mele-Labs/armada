@@ -101,6 +101,22 @@ impl Wire {
         self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Bare("/operator/front"), "OperatorInFront", cx))
     }
 
+    /// `POST /settings/save` with `features.operator`, the switch Electron's Permissions tab saves.
+    pub fn switch(&mut self, on: bool, cx: &App) -> Task<Result<(), String>> {
+        if let Wire::Mock(mock) = self {
+            if let Some(why) = mock.refuse_switch.take() {
+                return Task::ready(Err(why));
+            }
+            mock.switch(on);
+            return Task::ready(Ok(()));
+        }
+        let changes = [("features.operator".to_string(), Some(ipc::SettingValue::Bool(on)))].into_iter().collect();
+        let said = body(&ipc::SaveSettings { changes });
+        let Some(port) = self.port(cx) else { return Self::unreachable() };
+        let saved = request::<ipc::SettingsList>(port, Ask::Post("/settings/save", said), "SettingsList", cx);
+        cx.background_spawn(async move { saved.await.map(|_| ()) })
+    }
+
     /// `GET /operator/talk`.
     pub fn talk(&mut self, cx: &App) -> Task<Result<OperatorTalk, String>> {
         if let Wire::Mock(mock) = self {

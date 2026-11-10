@@ -19,6 +19,8 @@ pub struct MockFleet {
     pub heard: Vec<(String, Option<String>)>,
     /// Every press, as the routes were asked, for a test to read.
     pub pressed: Vec<OperatorAnswerPress>,
+    /// Why the next switch is refused, where a test wants it refused.
+    pub refuse_switch: Option<String>,
 }
 
 pub fn page() -> OperatorPage {
@@ -34,14 +36,19 @@ pub fn standing() -> Standing {
     Standing { mains: vec![("storefront".into(), true), ("armada".into(), false)], week: Some(62), slots: Some((7, 10)) }
 }
 
+/// 13:05 on the sketch's day, the clock the walk's times are read against.
+pub fn now() -> chrono::DateTime<chrono::Local> {
+    chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").map(|at| at.with_timezone(&chrono::Local)).unwrap_or_else(|_| chrono::Local::now())
+}
+
 /// The date and the time he came back, as the sketch has them.
 pub fn when() -> (SharedString, SharedString) {
-    ("Tuesday 11 November".into(), "13:05".into())
+    ("Wednesday 11 November".into(), "13:05".into())
 }
 
 impl MockFleet {
     pub fn new() -> MockFleet {
-        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new() }
+        MockFleet { page: page(), talk: talk(), fronted: 0, heard: Vec::new(), pressed: Vec::new(), refuse_switch: None }
     }
 
     fn take(&mut self, id: &str) -> Option<OperatorTurnItem> {
@@ -91,6 +98,18 @@ impl MockFleet {
         }
         self.page.turn.append(&mut rest);
         self.page.clone()
+    }
+
+    /// What saving `features.operator` does: off, nothing is queued and nothing is being read.
+    pub fn switch(&mut self, on: bool) {
+        self.page.on = on;
+        if !on {
+            self.page.turn.clear();
+            self.page.on_it = None;
+            self.page.top = None;
+        } else if self.page.turn.is_empty() {
+            self.page = page();
+        }
     }
 
     /// The Operator answers the words it was sent last.
