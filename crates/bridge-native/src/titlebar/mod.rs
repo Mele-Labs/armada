@@ -180,6 +180,13 @@ pub struct TitleBar {
     dialog_focus: FocusHandle,
     /// The keys of each place of the strip, kept by its id.
     place_focus: Vec<(&'static str, FocusHandle)>,
+    /// The plan meter's keys: they open its card as a hover does.
+    meter_focus: FocusHandle,
+    /// The card the keys opened, which they shut as they leave.
+    meter_by_keys: bool,
+    /// Esc shut the card while the keys stayed on the meter: it does not open again until they leave.
+    meter_quiet: bool,
+    _meter_focus: [Subscription; 2],
     at: Anchors,
     /// The face as it was before the last optimistic change, for [`TitleBar::refused`].
     before: Option<Face>,
@@ -226,7 +233,7 @@ pub fn live(cx: &App) -> Option<Entity<TitleBar>> {
 }
 
 impl TitleBar {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let face = cx.try_global::<scenes::Opening>().map_or_else(Face::bare, |opening| opening.0.clone());
         cx.set_global(Live(cx.entity().downgrade()));
         let at = Anchors::default();
@@ -237,6 +244,9 @@ impl TitleBar {
                 (sink.0)(asked, cx);
             }
         });
+        let meter_focus = cx.focus_handle().tab_stop(true);
+        let arrived = cx.on_focus_in(&meter_focus, window, |this, window, cx| this.meter_focused(true, window, cx));
+        let left = cx.on_focus_out(&meter_focus, window, |this, _, window, cx| this.meter_focused(false, window, cx));
         TitleBar {
             face,
             job: None,
@@ -249,6 +259,10 @@ impl TitleBar {
             popup_focus: cx.focus_handle(),
             dialog_focus: cx.focus_handle(),
             place_focus: Vec::new(),
+            meter_focus,
+            meter_by_keys: false,
+            meter_quiet: false,
+            _meter_focus: [arrived, left],
             at,
             before: None,
             details_open: false,
@@ -320,6 +334,7 @@ impl TitleBar {
     }
 
     fn shut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.meter_by_keys = false;
         self.popup = None;
         self.over_card = false;
         self.menu = None;
@@ -387,8 +402,28 @@ impl TitleBar {
         }
     }
 
+    /// The keys arrived on the meter or left it: from the keyboard the card opens as a hover opens it, and
+    /// goes as the keys go.
+    fn meter_focused(&mut self, arrived: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if arrived {
+            if window.last_input_was_keyboard() && !self.meter_quiet && self.popup.is_none() && self.dialog.is_none() && self.menu.is_none() {
+                self.meter_by_keys = true;
+                self.meter_hovered(true, window, cx);
+            }
+        } else {
+            self.meter_quiet = false;
+            if self.meter_by_keys && self.popup == Some(Popup::Usage { pinned: false }) && !self.over_card {
+                self.meter_by_keys = false;
+                self.popup = None;
+                self.keys_were = None;
+                cx.notify();
+            }
+        }
+    }
+
     /// A press on the meter pins its card open, or shuts a pinned one.
     fn meter_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.meter_by_keys = false;
         if self.popup == Some(Popup::Usage { pinned: true }) {
             self.shut(window, cx);
         } else {

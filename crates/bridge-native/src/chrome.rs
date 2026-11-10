@@ -13,5 +13,5 @@ use crate::titlebar::TitleBar;
 /// region keeps an empty Job slot for the open Job's Layout control and view icons, which the Jobs
 /// screens fill with `TitleBar::fill_job_slot`.
 pub fn title_row(window: &mut Window, cx: &mut App) -> AnyElement {
-    window.use_keyed_state("title-bar", cx, |_, cx| TitleBar::new(cx)).into_any_element()
+    window.use_keyed_state("title-bar", cx, |window, cx| TitleBar::new(window, cx)).into_any_element()
 }

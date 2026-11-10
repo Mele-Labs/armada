@@ -22,7 +22,7 @@ use std::time::Duration;
 
 use gpui::{
     anchored, canvas, deferred, div, point, prelude::*, px, Anchor, App, Bounds, Context, ElementId, Empty, FocusHandle, FontWeight, Hsla,
-    PathBuilder, Pixels, Point, Role, SharedString, Task, Window,
+    PathBuilder, Pixels, Point, Role, SharedString, Subscription, Task, Window,
 };
 use ipc::{CompactHow, CompactOff, CompactOffer, ContextBreakdown, ContextKind, RingBand, SessionUsage};
 
@@ -99,8 +99,8 @@ impl RenderOnce for ContextRing {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let id = self.id.clone();
         let opened = self.opened;
-        let figure = window.use_keyed_state((ElementId::from("context-ring"), self.id), cx, move |_, cx| {
-            let mut figure = Figure::new(id, cx);
+        let figure = window.use_keyed_state((ElementId::from("context-ring"), self.id), cx, move |window, cx| {
+            let mut figure = Figure::new(id, window, cx);
             figure.show_open = opened;
             figure
         });
@@ -151,6 +151,13 @@ pub struct Figure {
     pending: bool,
     refusal: Option<SharedString>,
     popup_focus: FocusHandle,
+    /// The ring's own keys: they open its card as a hover does.
+    ring_focus: FocusHandle,
+    /// The card the keys opened, which they shut as they leave.
+    by_keys: bool,
+    /// Esc shut the card while the keys stayed on the ring: it does not open again until they leave.
+    quiet: bool,
+    _ring_focus: [Subscription; 2],
     /// Open the card or the tip on the first fill, as a pointer resting on the ring would.
     show_open: bool,
     keys_were: Option<FocusHandle>,
@@ -160,8 +167,15 @@ pub struct Figure {
 }
 
 impl Figure {
-    fn new(id: SharedString, cx: &mut Context<Self>) -> Figure {
+    fn new(id: SharedString, window: &mut Window, cx: &mut Context<Self>) -> Figure {
+        let ring_focus = cx.focus_handle().tab_stop(true);
+        let arrived = cx.on_focus_in(&ring_focus, window, |this, window, cx| this.ring_focused(true, window, cx));
+        let left = cx.on_focus_out(&ring_focus, window, |this, _, window, cx| this.ring_focused(false, window, cx));
         Figure {
+            ring_focus,
+            by_keys: false,
+            quiet: false,
+            _ring_focus: [arrived, left],
             id,
             fill: None,
             on_compact: None,
@@ -230,6 +244,7 @@ impl Figure {
     }
 
     fn shut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.by_keys = false;
         self.open = None;
         self.hover = None;
         self.over_card = false;
@@ -282,6 +297,7 @@ impl Figure {
         if form == Form::Tip {
             return;
         }
+        self.by_keys = false;
         if self.open == Some(Open::Pinned) {
             self.shut(window, cx);
         } else {
@@ -304,7 +320,28 @@ impl Figure {
 
     fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.open.is_some() {
+            self.by_keys = false;
             self.shut(window, cx);
+        }
+    }
+
+    /// The keys arrived on the ring or left it: from the keyboard the card opens as a hover opens it, and
+    /// goes as the keys go.
+    fn ring_focused(&mut self, arrived: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let card = self.fill.as_ref().is_some_and(|fill| form_of(fill) == Form::Card);
+        if arrived {
+            if card && window.last_input_was_keyboard() && !self.quiet && self.open.is_none() {
+                self.by_keys = true;
+                self.ring_hovered(true, Form::Card, window, cx);
+            }
+        } else {
+            self.quiet = false;
+            if self.by_keys && self.open == Some(Open::Hover) && !self.over_card {
+                self.by_keys = false;
+                self.open = None;
+                self.keys_were = None;
+                cx.notify();
+            }
         }
     }
 }
@@ -668,9 +705,16 @@ impl Render for Figure {
             _ => labelled(
                 face(div().id(id))
                     .cursor_pointer()
-                    .focusable()
-                    .tab_stop(true)
+                    .track_focus(&self.ring_focus)
                     .focus_visible(move |style| style.border_color(ring_ink))
+                    // Esc puts a card the keys opened away, and the keys stay on the ring.
+                    .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                        if event.keystroke.key == "escape" && this.open == Some(Open::Hover) {
+                            this.quiet = true;
+                            this.escape(window, cx);
+                            cx.stop_propagation();
+                        }
+                    }))
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
                     .on_hover(cx.listener(move |this, over: &bool, window, cx| this.ring_hovered(*over, form, window, cx)))
                     .on_click(cx.listener(move |this, _, window, cx| this.ring_pressed(form, window, cx))),

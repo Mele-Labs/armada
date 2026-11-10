@@ -129,10 +129,18 @@ impl TitleBar {
                             .border(look.length(token::BORDER_WIDTH))
                             .border_color(gpui::transparent_black())
                             .cursor_pointer()
-                            .focusable()
-                            .tab_stop(true)
+                            .track_focus(&self.meter_focus)
                             .focus_visible(move |style| style.border_color(ring_ink))
                             .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                            // Esc puts a card the keys opened away, and the keys stay on the meter.
+                            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                                if event.keystroke.key == "escape" && this.popup == Some(super::Popup::Usage { pinned: false }) {
+                                    this.meter_quiet = true;
+                                    this.meter_by_keys = false;
+                                    this.shut(window, cx);
+                                    cx.stop_propagation();
+                                }
+                            }))
                             .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
                             .child(div().flex_none().size(side).child(rings(track, drawn)))
                             .children(bell.map(|said| {

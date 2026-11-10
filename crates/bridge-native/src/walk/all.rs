@@ -9,7 +9,7 @@
 //! something that is there from the start.
 
 use super::strip_marks::{CALLING, PAIR, PAUSED, RED, RUNNING, SEVERAL};
-use super::title_bar::{DANGER, WARNING};
+use super::title_bar::{DANGER, FIVE_WEEK, WARNING};
 use super::{answer, fresh, marks, press_on, right_on, scene, step, Step, Verb};
 
 pub static STEPS: &[Step] = &[
@@ -22,6 +22,8 @@ pub static STEPS: &[Step] = &[
     step("A press on a place puts the keys on it", Verb::Press, "tab", "Jobs"),
     step("Shift+F10 opens the same menu under the place that has the keys", Verb::Key("shift-f10"), "menu", "Places"),
     step("Esc shuts it", Verb::Key("escape"), "tab", "Jobs"),
+    step("Tab goes on from the place to the plan meter, and its card opens as a hover opens it", Verb::Keys(&["tab", "tab"]), "region", "Plan limits"),
+    step("Esc puts the card away, and the keys stay on the meter", Verb::Key("escape"), "button", FIVE_WEEK),
     right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
     step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
     right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
@@ -131,6 +133,8 @@ pub static STEPS: &[Step] = &[
     marks("Until Fleet answers, the line is placeholder chips", "strip-loading", "region", "Merge queue"),
     marks("On All the strip stacks one row for each repository and shows one; a main turning red brings its row in", "strip-all", "button", "Main is red in sample-api"),
     marks("A Job's context ring, the stand-in for the Job head: the window filled clockwise, a tick at the autocompact threshold", "ring-normal", "button", "Context 63%"),
+    step("Tab reaches the ring and opens its card as a hover does: each category, the heaviest memory files and MCP servers, and Compact", Verb::Keys(&["tab"]), "region", "Context"),
+    step("Esc puts the card away, and the keys stay on the ring", Verb::Key("escape"), "button", "Context 63%"),
     step("Hover opens the card: each category, the heaviest memory files and MCP servers, and Compact", Verb::Hover, "button", "Context 63%"),
     marks("A Compact that was refused is put back, with the reason", "ring-refused", "alert", "Compact not sent: the agent is not taking messages"),
     marks("From 80 the ring and the card's top edge turn amber", "ring-warning", "button", "Context 84%"),
