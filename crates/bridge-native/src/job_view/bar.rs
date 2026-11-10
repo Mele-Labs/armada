@@ -10,35 +10,15 @@ use gpui_component::input::{InputEvent, Textarea, TextareaState};
 
 use super::acts::{button, Tone};
 use super::composer::Kept;
+use super::quick::{Response, MAX_RESPONSES};
 use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::dropdown::Entry;
 use crate::labels::labelled;
-use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
 /// How long Copy reads "Copied" after a press.
 const COPIED_FOR: Duration = Duration::from_millis(1500);
-/// How many responses the bar holds.
-const MAX_RESPONSES: usize = 6;
-
-/// One quick response: an emoji and a name. `ask` puts the quote in the box and sends nothing.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct Response {
-    pub id: String,
-    pub emoji: String,
-    pub name: String,
-    pub ask: bool,
-}
-
-/// The responses a person starts with (`DEFAULT_RESPONSES`).
-fn defaults() -> Vec<Response> {
-    [("pick", "\u{2705}", "Pick this", false), ("yes", "\u{1F44D}", "Yes to this", false), ("no", "\u{1F44E}", "No to this", false), ("ask", "\u{2753}", "Ask about this", true)]
-        .into_iter()
-        .map(|(id, emoji, name, ask)| Response { id: id.into(), emoji: emoji.into(), name: name.into(), ask })
-        .collect()
-}
-
 /// The words of a message as plain text: formatting dropped, a line's words joined by spaces.
 pub(super) fn plain_of(text: &str) -> String {
     let mut out = String::new();
@@ -106,39 +86,6 @@ pub(super) fn marked_in(items: &[ipc::ThreadItem], id: &str, plain: &str) -> Opt
     marked
 }
 
-/// The setting the responses are kept in: the thread's look, which holds them among its other fields.
-const LOOK_KEY: &str = "thread.look";
-
-fn wire_of(responses: &[Response]) -> ipc::SettingValue {
-    use ipc::SettingValue::{List, Map, Text};
-    List(
-        responses
-            .iter()
-            .map(|one| {
-                Map([("id", &one.id), ("emoji", &one.emoji), ("name", &one.name)].into_iter().map(|(key, value)| (key.to_string(), Text(value.clone()))).chain([("kind".to_string(), Text(if one.ask { "ask" } else { "send" }.to_string()))]).collect())
-            })
-            .collect(),
-    )
-}
-
-/// The responses a saved look holds: absent, or one that does not fit, is the defaults' (`lookFrom`).
-fn responses_in(look: &std::collections::BTreeMap<String, ipc::SettingValue>) -> Option<Vec<Response>> {
-    use ipc::SettingValue::{List, Map, Text};
-    let List(list) = look.get("responses")? else { return None };
-    let found: Option<Vec<Response>> = list
-        .iter()
-        .map(|one| {
-            let Map(fields) = one else { return None };
-            let text = |key: &str| match fields.get(key) {
-                Some(Text(text)) => Some(text.clone()),
-                _ => None,
-            };
-            Some(Response { id: text("id")?, emoji: text("emoji")?, name: text("name")?, ask: text("kind")? == "ask" })
-        })
-        .collect();
-    found.filter(|found| !found.is_empty())
-}
-
 /// The message a response sends: the words quoted, a blank line, then the emoji.
 pub(super) fn response_message(line: &str, emoji: &str) -> String {
     format!("> {line}\n\n{emoji}")
@@ -156,12 +103,8 @@ pub(super) struct Editor {
     _enter: Vec<Subscription>,
 }
 
-/// What the bars of the thread share: the responses, which message was just copied and which holds a menu.
+/// What the bars of the thread share: which message was just copied and which holds a menu.
 pub(super) struct Bar {
-    responses: Vec<Response>,
-    /// The thread's look as Fleet keeps it (`thread.look`), read once so a save puts back what it did not change.
-    look: Option<std::collections::BTreeMap<String, ipc::SettingValue>>,
-    reading: bool,
     copied: Option<String>,
     held: Option<String>,
     editor: Option<Editor>,
@@ -170,7 +113,7 @@ pub(super) struct Bar {
 
 impl Bar {
     pub fn new() -> Self {
-        Bar { responses: defaults(), look: None, reading: false, copied: None, held: None, editor: None, next: 0 }
+        Bar { copied: None, held: None, editor: None, next: 0 }
     }
 }
 
@@ -244,8 +187,9 @@ impl JobView {
         let plain = plain_of(text);
         let marked = self.shown.as_ref().and_then(|job| self.thread(job, cx)).and_then(|held| marked_in(&held.items, id, &plain));
         let responses: Vec<AnyElement> = if live {
-            self.bar
-                .responses
+            self.composer
+                .quick
+                .responses()
                 .iter()
                 .map(|response| {
                     let key = format!("response:{id}:{}", response.id);
@@ -257,7 +201,7 @@ impl JobView {
                         cx.listener(move |this, _, window, cx| this.respond(&plain, &response, window, cx))
                     };
                     let button = ghost(key, &spot, response.name.clone().into(), mark).when(pressed, |button| button.bg(look.color(token::ACCENT_FAINT))).aria_toggled(if pressed { gpui::Toggled::True } else { gpui::Toggled::False }).on_click(press);
-                    let (count, chosen, row) = (self.bar.responses.len(), response.clone(), id.to_string());
+                    let (count, chosen, row) = (self.composer.quick.responses().len(), response.clone(), id.to_string());
                     let button = self.menu_on(
                         button,
                         &spot,
@@ -308,62 +252,14 @@ impl JobView {
         }
     }
 
-    /// Read the responses Fleet keeps, once, when it can be reached.
-    pub(super) fn responses_read(&mut self, cx: &mut Context<Self>) {
-        if self.bar.reading || self.bar.look.is_some() {
+    /// The responses changed: they are kept in the thread's look beside the Aa panel's own, one copy and one write.
+    fn responses_set(&mut self, list: Vec<Response>, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.composer.quick.loaded() {
             return;
         }
-        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else { return };
-        self.bar.reading = true;
-        cx.spawn(async move |this, cx| {
-            let answer = cx
-                .background_executor()
-                .spawn(async move {
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    let (status, bytes) = runtime.block_on(crate::transport::get(port, "/settings"))?;
-                    if status != 200 {
-                        return Err(format!("Fleet answered {status}"));
-                    }
-                    ipc::decode::<ipc::SettingsList>("settings", &bytes).map_err(|why| why.to_string())
-                })
-                .await;
-            let _ = this.update(cx, |this, cx| {
-                this.bar.reading = false;
-                let Ok(list) = answer else { return };
-                let look = match list.settings.into_iter().find(|one| one.key == LOOK_KEY).map(|one| one.value) {
-                    Some(ipc::SettingValue::Map(look)) => look,
-                    _ => Default::default(),
-                };
-                if let Some(responses) = responses_in(&look) {
-                    this.bar.responses = responses;
-                }
-                this.bar.look = Some(look);
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    /// The responses changed: Fleet keeps them in the thread's look, saved a beat later as Electron does.
-    fn responses_changed(&mut self, cx: &mut Context<Self>) {
-        let Some(mut look) = self.bar.look.clone() else { return };
-        look.insert("responses".to_string(), wire_of(&self.bar.responses));
-        self.bar.look = Some(look.clone());
-        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else { return };
-        let body = ipc::encode(&ipc::SaveSettings { changes: [(LOOK_KEY.to_string(), Some(ipc::SettingValue::Map(look)))].into_iter().collect() }).map_err(|why| format!("{why:?}"));
-        cx.background_executor()
-            .spawn(async move {
-                let sent = body.and_then(|body| {
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    runtime.block_on(crate::transport::post(port, "/settings/save", body))
-                });
-                match sent {
-                    Ok((200..=299, _)) => {}
-                    Ok((status, _)) => Note::warn("the quick responses were not kept").field("status", status as i64).emit(),
-                    Err(why) => Note::warn("the quick responses were not kept").field("why", why).emit(),
-                }
-            })
-            .detach();
+        let was = self.composer.quick.look.clone();
+        self.composer.quick.set_responses(list);
+        self.write_look(was, window, cx);
     }
 
     /// A pick from a response's menu: edit it, add another, or take it away.
@@ -372,9 +268,10 @@ impl JobView {
             "edit" => self.open_editor(row, Some(response.clone()), window, cx),
             "add" => self.open_editor(row, None, window, cx),
             "remove" => {
-                if self.bar.responses.len() > 1 {
-                    self.bar.responses.retain(|one| one.id != response.id);
-                    self.responses_changed(cx);
+                let mut list = self.composer.quick.responses();
+                if list.len() > 1 {
+                    list.retain(|one| one.id != response.id);
+                    self.responses_set(list, window, cx);
                     cx.notify();
                 }
             }
@@ -420,36 +317,38 @@ impl JobView {
         if emoji.is_empty() || name.is_empty() {
             return;
         }
+        let mut list = self.composer.quick.responses();
         match editor.id.clone() {
             Some(id) => {
-                if let Some(one) = self.bar.responses.iter_mut().find(|one| one.id == id) {
+                if let Some(one) = list.iter_mut().find(|one| one.id == id) {
                     one.emoji = emoji;
                     one.name = name;
                 }
             }
             None => {
-                if self.bar.responses.len() < MAX_RESPONSES {
+                if list.len() < MAX_RESPONSES {
                     // A number no response holds, so a saved one is never taken twice.
                     let id = loop {
                         self.bar.next += 1;
                         let id = format!("response:{}", self.bar.next);
-                        if !self.bar.responses.iter().any(|one| one.id == id) {
+                        if !list.iter().any(|one| one.id == id) {
                             break id;
                         }
                     };
-                    self.bar.responses.push(Response { id, emoji, name, ask: false });
+                    list.push(Response { id, emoji, name, ask: false });
                 }
             }
         }
-        self.responses_changed(cx);
+        self.responses_set(list, window, cx);
         self.close_editor(window, cx);
     }
 
     fn remove_in_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(id) = self.bar.editor.as_ref().and_then(|editor| editor.id.clone()) {
-            if self.bar.responses.len() > 1 {
-                self.bar.responses.retain(|one| one.id != id);
-                self.responses_changed(cx);
+            let mut list = self.composer.quick.responses();
+            if list.len() > 1 {
+                list.retain(|one| one.id != id);
+                self.responses_set(list, window, cx);
             }
         }
         self.close_editor(window, cx);
@@ -478,7 +377,7 @@ impl JobView {
                 name,
             )
         };
-        let removable = editor.id.is_some() && self.bar.responses.len() > 1;
+        let removable = editor.id.is_some() && self.composer.quick.responses().len() > 1;
         let title = editor.from.clone();
         // The scrim is the whole window's, as Electron's body portal is.
         Some(gpui::deferred(gpui::anchored().anchor(gpui::Anchor::TopLeft).position(gpui::point(gpui::px(0.), gpui::px(0.))).child(
@@ -498,7 +397,7 @@ impl JobView {
                     } else if event.keystroke.key == "tab" {
                         // Tab goes round the dialog: its two fields, then Remove where drawn, Cancel and Save.
                         if let Some(editor) = this.bar.editor.as_ref() {
-                            let removable = editor.id.is_some() && this.bar.responses.len() > 1;
+                            let removable = editor.id.is_some() && this.composer.quick.responses().len() > 1;
                             let mut order = vec![gpui::Focusable::focus_handle(editor.emoji.read(cx), cx), gpui::Focusable::focus_handle(editor.name.read(cx), cx)];
                             order.extend(removable.then(|| editor.stops[0].clone()));
                             order.extend([editor.stops[1].clone(), editor.stops[2].clone()]);
@@ -584,7 +483,7 @@ mod tests {
 
     #[test]
     fn the_defaults_are_the_four_the_owner_asked_for() {
-        let names: Vec<_> = defaults().into_iter().map(|one| one.name).collect();
+        let names: Vec<_> = Response::defaults().into_iter().map(|one| one.name).collect();
         assert_eq!(names, ["Pick this", "Yes to this", "No to this", "Ask about this"]);
     }
 
@@ -597,11 +496,10 @@ mod tests {
 
     #[test]
     fn responses_survive_a_round_trip_through_the_saved_look() {
-        let mut kept = defaults();
+        let mut kept = Response::defaults();
         kept[1].name = "Looks right".into();
-        let ipc::SettingValue::List(wired) = wire_of(&kept) else { panic!("a list") };
-        let look = [("responses".to_string(), ipc::SettingValue::List(wired))].into_iter().collect();
-        assert_eq!(responses_in(&look), Some(kept));
-        assert_eq!(responses_in(&Default::default()), None);
+        let mut quick = super::super::quick::Quick::default();
+        quick.set_responses(kept.clone());
+        assert_eq!(quick.responses(), kept);
     }
 }
