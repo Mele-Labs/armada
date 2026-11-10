@@ -750,6 +750,22 @@ impl JobsList {
         }
     }
 
+    /// `p` while the rows have the keys pauses or resumes the row under them (`pauseForP`).
+    pub(crate) fn pause_key(&mut self, event: &gpui::KeyDownEvent, window: &Window, cx: &mut Context<Self>) -> bool {
+        if event.keystroke.key != "p" || event.keystroke.modifiers.modified() || !self.focus.is_focused(window) {
+            return false;
+        }
+        let Some(row) = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).filter(|row| !row.ended) else { return false };
+        let session_id = ipc::SessionId::carried(row.id.to_string());
+        let body = if row.paused {
+            ("/sessions/resume", ipc::encode(&ipc::ResumeSession { session_id }))
+        } else {
+            ("/sessions/pause", ipc::encode(&ipc::PauseSession { session_id }))
+        };
+        send(self.port(cx), body.0, body.1.map_err(|why| format!("{why:?}")), cx);
+        true
+    }
+
     fn on_row_menu(&mut self, _: &RowMenu, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.focused.clone() else { return };
         let Some(bounds) = self.bounds.borrow().get(&id).copied() else { return };
@@ -1424,6 +1440,22 @@ impl Render for DeckHandle {
     }
 }
 
+/// The line between the Job and its Judge, being dragged.
+struct SplitHandle;
+
+impl Render for SplitHandle {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        gpui::Empty
+    }
+}
+
+/// Where the Judge's split arrives (`tree.ts` `arrive`), where a double press puts it back
+/// (`resizeSplit(.., 0.5)`), the least share a side keeps (`RATIO_MIN`) and the least a pane needs (`MIN_PANE_W`).
+const SPLIT_ARRIVES: f32 = 0.62;
+const SPLIT_RESET: f32 = 0.5;
+const SPLIT_LEAST: f32 = 0.12;
+const PANE_LEAST: f32 = 160.;
+
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
 /// the left, the open Job's room in the middle, and the right column's panel, under the title row.
 /// A handle on the list's inner edge drags it wider or narrower, as Electron's `DockHandle` does.
@@ -1438,6 +1470,10 @@ pub struct JobsScreen {
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
+    /// The Job's share of the room it splits with its Judge, and the width of that room as last drawn.
+    split: f32,
+    split_room: Rc<std::cell::Cell<f32>>,
+    split_handle: FocusHandle,
     /// The whole screen's, which holds the list and the handle beside it.
     within: FocusHandle,
     remember: bool,
@@ -1484,7 +1520,17 @@ impl JobsScreen {
                 }
             });
         })));
-        JobsScreen { list, view, side, judge, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
+        JobsScreen {
+            list,
+            view,
+            side,
+            judge,
+            left,
+            handle: cx.focus_handle(),
+            split: SPLIT_ARRIVES,
+            split_room: Rc::new(std::cell::Cell::new(0.)),
+            split_handle: cx.focus_handle(),
+            within: cx.focus_handle(), remember, palette }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1520,6 +1566,75 @@ impl JobsScreen {
             }
         }
         cx.notify();
+    }
+
+    /// The Job's share, kept so each side has its panes' room or `SPLIT_LEAST` of the whole, the
+    /// larger; the Job's side holds the right column as well as its pane.
+    fn resplit(&mut self, to: f32, cx: &mut Context<Self>) {
+        let look = cx.look();
+        let room = self.split_room.get();
+        if room <= 0. {
+            return;
+        }
+        let gap = f32::from(look.length(token::GAP_PANEL));
+        let low = (room * SPLIT_LEAST).max(PANE_LEAST + gap + f32::from(look.length(token::SPACE_12)) * RIGHT) / room;
+        let high = 1. - (room * SPLIT_LEAST).max(PANE_LEAST) / room;
+        self.split = if low <= high { to.clamp(low, high) } else { self.split };
+        cx.notify();
+    }
+
+    /// The line between the Job and its Judge (`JobPanes.tsx`, a quiet `DockHandle`): it shows on
+    /// hover, focus or drag; ← and → move it, Home and End take it to either end, a double press halves the room.
+    fn render_split_handle(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let line = look.color(token::BORDER_DEFAULT);
+        let focused = self.split_handle.is_focused(window);
+        labelled(
+            div()
+                .id("split-handle")
+                .track_focus(&self.split_handle)
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .left(-look.length(token::GAP_PANEL) / 2. - look.length(token::SPACE_1))
+                .w(look.length(token::SPACE_2))
+                .flex()
+                .justify_center()
+                .cursor(gpui::CursorStyle::ResizeLeftRight)
+                .child(
+                    div()
+                        .h_full()
+                        .w(look.length(token::BORDER_WIDTH) * 2.)
+                        .rounded_full()
+                        .when(focused, |mark| mark.bg(line))
+                        .group_hover("split-handle", move |style| style.bg(line)),
+                )
+                .group("split-handle")
+                .on_drag(SplitHandle, |_, _, _, cx| cx.new(|_| SplitHandle))
+                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| {
+                    window.focus(&this.split_handle, cx);
+                    cx.notify();
+                }))
+                .on_click(cx.listener(|this, event: &gpui::ClickEvent, _, cx| {
+                    if event.click_count() == 2 {
+                        this.resplit(SPLIT_RESET, cx);
+                    }
+                }))
+                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
+                    let step = HANDLE_STEP / this.split_room.get().max(1.);
+                    let to = match event.keystroke.key.as_str() {
+                        "left" => this.split - step,
+                        "right" => this.split + step,
+                        "home" => 0.,
+                        "end" => 1.,
+                        _ => return,
+                    };
+                    cx.stop_propagation();
+                    this.resplit(to, cx);
+                })),
+            Role::Splitter,
+            "Resize the panes",
+        )
     }
 
     /// `l` puts the keys in the list (`deck_panel`'s first slot), and `/` in its search from
@@ -1615,13 +1730,20 @@ impl Render for JobsScreen {
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
         let judged = self.view.read(cx).judge_pane_open();
+        let split_handle = judged.then(|| self.render_split_handle(window, cx));
+        let room = Rc::clone(&self.split_room);
+        let look = cx.look();
         div()
             .key_context("deck")
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
             // A chord the person gave a palette row runs that row from anywhere on the screen; Tab reaches every tab stop.
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx)) || crate::keymap::traverse(event, window, cx) {
+                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx))
+                    || this.list.update(cx, |list, cx| list.pause_key(event, window, cx))
+                    || this.view.update(cx, |view, cx| view.tile_key(event, window, cx))
+                    || crate::keymap::traverse(event, window, cx)
+                {
                     cx.stop_propagation();
                 }
             }))
@@ -1645,25 +1767,42 @@ impl Render for JobsScreen {
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
                     .child(
-                        // The Job's panes, and its Judge split off on the right of them at Electron's 0.62.
+                        // The Job's panes, and its Judge split off on the right of them: it arrives at Electron's 0.62.
                         div()
+                            .id("job-split")
+                            .relative()
                             .h_full()
                             .flex_1()
                             .min_w_0()
                             .flex()
                             .gap(look.length(token::GAP_PANEL))
+                            .child(canvas(move |bounds, _, _| room.set(f32::from(bounds.size.width)), |_, _, _, _| {}).absolute().size_full())
+                            .on_drag_move(cx.listener(|this, event: &gpui::DragMoveEvent<SplitHandle>, _, cx| {
+                                let room = f32::from(event.bounds.size.width).max(1.);
+                                this.resplit(f32::from(event.event.position.x - event.bounds.origin.x) / room, cx);
+                            }))
                             .child(
                                 div()
                                     .h_full()
                                     .min_w_0()
                                     .flex()
                                     .gap(look.length(token::GAP_PANEL))
-                                    .when(judged, |job| job.flex_grow(62.).flex_shrink(1.).flex_basis(gpui::px(0.)))
+                                    .when(judged, |job| job.flex_grow(self.split * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)))
                                     .when(!judged, |job| job.flex_1())
                                     .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
                                     .child(div().h_full().flex_none().w(column * RIGHT).child(self.side.clone())),
                             )
-                            .children(judged.then(|| div().h_full().min_w_0().flex_grow(38.).flex_shrink(1.).flex_basis(gpui::px(0.)).child(self.judge.clone()))),
+                            .children(judged.then(|| {
+                                div()
+                                    .relative()
+                                    .h_full()
+                                    .min_w_0()
+                                    .flex_grow((1. - self.split) * 100.)
+                                    .flex_shrink(1.)
+                                    .flex_basis(gpui::px(0.))
+                                    .child(self.judge.clone())
+                                    .children(split_handle)
+                            })),
                     ),
             )
             .child(crate::merge_strip::strip(window, cx))

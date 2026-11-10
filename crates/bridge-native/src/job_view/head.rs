@@ -123,6 +123,15 @@ pub(super) fn below_left(bounds: Bounds<Pixels>) -> Point<Pixels> {
 
 /// A quiet icon button, `--h-control` square, as the toolbelt and the head draw them.
 pub(super) fn icon_button(look: &Look, id: &'static str, icon: &'static str, tip_said: SharedString, lit: bool, off: bool) -> Stateful<gpui::Div> {
+    icon_frame(look, id, icon, lit, off).tooltip(tip(tip_said))
+}
+
+/// A toolbelt act's button: an icon button whose tooltip wears the act's key.
+pub(super) fn act_button(look: &Look, id: &'static str, icon: &'static str, act: &str, tip_said: SharedString, lit: bool, off: bool) -> Stateful<gpui::Div> {
+    icon_frame(look, id, icon, lit, off).tooltip(keyed_tip(act, tip_said))
+}
+
+fn icon_frame(look: &Look, id: &'static str, icon: &'static str, lit: bool, off: bool) -> Stateful<gpui::Div> {
     let ink = if lit { look.color(token::FG_DEFAULT) } else { look.color(token::FG_SUBTLE) };
     div()
         .id(id)
@@ -138,7 +147,6 @@ pub(super) fn icon_button(look: &Look, id: &'static str, icon: &'static str, tip
             button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
         })
         .child(svg().path(icon_path(icon)).size(look.length(token::SPACE_4)).text_color(if lit { look.color(token::ACCENT) } else { ink }))
-        .tooltip(tip(tip_said))
 }
 
 fn item(id: &'static str, label: impl Into<SharedString>, icon: &'static str) -> Entry {
@@ -1053,7 +1061,7 @@ impl JobView {
             let land_tip: SharedString =
                 if overlay.and_then(|overlay| overlay.auto_land).is_some() && sending(job.auto_land, land) { "Sending".into() } else if land { "Auto land on".into() } else { "Auto land off".into() };
             labelled(
-                icon_button(look, "act-land", "plane-landing", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
+                act_button(look, "act-land", "plane-landing", "land", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
                 Role::Button,
                 "Auto land",
             )
@@ -1063,7 +1071,7 @@ impl JobView {
             let pause_name: SharedString = if paused { "Resume".into() } else { "Pause".into() };
             let pause_tip: SharedString = if sending(paused_was, paused) { "Sending".into() } else if paused { "Paused".into() } else { "Pause".into() };
             labelled(
-                icon_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, pause_tip, paused, false).on_click(cx.listener(
+                act_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, "pause", pause_tip, paused, false).on_click(cx.listener(
                     move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
                 )),
                 Role::Button,
@@ -1074,7 +1082,7 @@ impl JobView {
             let holds = !self.holds(id, cx).is_empty();
             let release_tip: SharedString = if holds { "Release or hand over everything the Job holds".into() } else { "The Job holds nothing".into() };
             labelled(
-                icon_button(look, "act-release", "unplug", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
+                act_button(look, "act-release", "unplug", "release", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
                 Role::Button,
                 "Release everything the Job holds",
             )
@@ -1182,5 +1190,45 @@ impl JobView {
                 .child(marks)
                 .into_any_element(),
         )
+    }
+}
+
+/// The toolbelt's keys, as Electron's flight controls wear them (`flight-order.ts`): ⌥⇧6 Auto land,
+/// ⌥⇧7 Judge, ⌥⇧8 Report, ⌥⇧9 Release, and `p` Pause. ⌥⇧1 to ⌥⇧5 are the Job head's views.
+const TILE_KEYS: [(&str, &str); 5] = [("land", "alt-shift-6"), ("judge", "alt-shift-7"), ("report", "alt-shift-8"), ("release", "alt-shift-9"), ("pause", "p")];
+
+/// A toolbelt act's tooltip, with the key it wears beside the sentence, as Electron's `Tooltip shortcut`.
+pub(super) fn keyed_tip(act: &str, said: SharedString) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
+    let key = TILE_KEYS.iter().find(|(one, _)| *one == act).and_then(|(_, key)| gpui::Keystroke::parse(key).ok());
+    move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx)
+}
+
+impl JobView {
+    /// A press of a toolbelt act's key, from anywhere on the deck but a text box, where ⌥⇧ types a
+    /// character, and not while a dialog or menu is over the Job.
+    pub fn tile_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(id) = self.shown.clone() else { return false };
+        if self.reporting.is_some() || self.head.confirm.is_some() || self.composer.popup.is_some() {
+            return false;
+        }
+        if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {
+            return false;
+        }
+        let keys = &event.keystroke;
+        let bare = !keys.modifiers.modified();
+        let chord = keys.modifiers.alt && keys.modifiers.shift && !keys.modifiers.platform && !keys.modifiers.control;
+        let hosted = self.record(&id, cx).is_some_and(|job| job.hosted.is_some()) && !self.closed(&id, cx);
+        match (chord, bare, keys.key.as_str()) {
+            (true, _, "6") if hosted => self.head_act("land", window, cx),
+            (true, _, "7") => self.open_judge_pane(window, cx),
+            (true, _, "8") if self.record(&id, cx).is_some_and(|record| self.report_manifest(record, cx).is_some()) => self.toggle_report(window, cx),
+            (true, _, "9") if hosted && !self.holds(&id, cx).is_empty() => self.head_act("release", window, cx),
+            (_, true, "p") if hosted => {
+                let paused = self.paused(&id, cx);
+                self.head_act(if paused { "resume" } else { "pause" }, window, cx);
+            }
+            _ => return false,
+        }
+        true
     }
 }

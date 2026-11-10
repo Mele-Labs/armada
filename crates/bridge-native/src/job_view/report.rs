@@ -11,7 +11,7 @@ use gpui::{anchored, deferred, div, point, prelude::*, Anchor, AnyElement, Conte
 use ipc::{SendSessionMessage, SendSessionMessageBody, SessionRecord, SessionTag, StartSession};
 
 use super::composer::{encoded_files, Kept};
-use super::head::icon_button;
+use super::head::act_button;
 use super::offer::mention_of;
 use super::report_brief::{report_brief, ReportFrom};
 use super::rows::{glyph, Size};
@@ -47,7 +47,7 @@ impl JobView {
     }
 
     /// The Manifest a report of `record` starts its Job on, where one is known.
-    fn report_manifest(&self, record: &SessionRecord, cx: &gpui::App) -> Option<ipc::ManifestId> {
+    pub(super) fn report_manifest(&self, record: &SessionRecord, cx: &gpui::App) -> Option<ipc::ManifestId> {
         let records = self.list.read(cx).records();
         records.iter().filter_map(|job| job.manifest_id.as_ref()).find(|id| id.as_str().eq_ignore_ascii_case(ARMADA)).cloned().or_else(|| record.manifest_id.clone())
     }
@@ -59,7 +59,7 @@ impl JobView {
         let tip: SharedString = if known { "Report an issue with the Job".into() } else { "The repository is not known".into() };
         let open = self.reporting.is_some();
         labelled(
-            icon_button(look, "act-report", "bug", tip, open, !known).when(known, |button| button.on_click(cx.listener(|this, _, window, cx| this.toggle_report(window, cx)))),
+            act_button(look, "act-report", "bug", "report", tip, open, !known).when(known, |button| button.on_click(cx.listener(|this, _, window, cx| this.toggle_report(window, cx)))),
             Role::Button,
             "Report issue with job",
         )

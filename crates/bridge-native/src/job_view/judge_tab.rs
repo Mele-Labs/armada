@@ -11,7 +11,7 @@ use ipc::{AskJudge, JudgeArtifact, JudgeKind, JudgeReading, JudgeState, SessionI
 
 use super::acts::{Answer, SHEET};
 use super::judge::{how_of, press_of, Pinned, Press};
-use super::rows::{glyph, tip, Size};
+use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -96,7 +96,7 @@ impl JobView {
                 .rounded(look.length(token::RADIUS_MD))
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip(said))
+                .tooltip(super::head::keyed_tip("judge", said.into()))
                 .child(mark)
                 .children((state == Press::Unread).then(|| {
                     div()
