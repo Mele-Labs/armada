@@ -11,8 +11,12 @@ use gpui::{
     Role, SharedString, Transformation, Window,
 };
 use gpui_component::text::TextView;
-use ipc::{PlanCardState, SessionCheckState, SessionRow, SessionVoice, ThreadItem};
+use ipc::{SessionCheckState, SessionRow, SessionVoice, ThreadItem};
 
+use std::rc::Rc;
+
+use super::acts::refusal;
+use super::menus::notice_entries;
 use super::{Extra, JobView, Page};
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -246,9 +250,13 @@ impl JobView {
     ) -> AnyElement {
         let open = page.opened.contains(&key);
         let name = SharedString::from(key.clone());
+        let spot = page.keys.spot(&key, cx);
         let line = labelled(
             div()
                 .id(name)
+                .track_focus(&spot.focus)
+                .focus_visible(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                .rounded(look.length(token::RADIUS_SM))
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
@@ -640,7 +648,7 @@ impl JobView {
     }
 
     /// The messages, from the person, the agent and another Job (A2).
-    pub(super) fn message(&self, row: &SessionRow, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn message(&self, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
             SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, .. } => {
                 if let Some(act) = act_of(text) {
@@ -651,7 +659,7 @@ impl JobView {
                 self.you(id, text, &chips, Some(at), false, *queued, look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, look, now, cx),
-            SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
                 let band = div()
                     .flex()
                     .items_center()
@@ -681,32 +689,48 @@ impl JobView {
                             .child(title.clone()),
                     )
                     .child(self.stamp(at, look, now, true, cx));
+                let band_spot = self.spot(page, &format!("from:{id}"), cx);
                 let band = if sender == "fleet" {
-                    band.into_any_element()
+                    labelled(band.id(SharedString::from(format!("from:{id}"))).track_focus(&band_spot.focus), Role::Button, format!("Fleet notice {title}")).into_any_element()
                 } else {
                     self.opens(sender, format!("from:{id}"), format!("Open Job {title}"), cx, band)
                 };
-                labelled(
-                    div()
-                        .id(SharedString::from(format!("from-card:{id}")))
-                        .flex()
-                        .flex_col()
-                        .overflow_hidden()
-                        .rounded(look.length(token::RADIUS_MD))
-                        .border(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::ACCENT))
-                        .bg(look.color(token::BG_RAISED))
-                        .child(band)
-                        .child(
-                            div()
-                                .px(look.length(token::SPACE_3))
-                                .py(look.length(token::SPACE_2))
-                                .child(self.prose(format!("from:{id}"), text, look)),
-                        ),
-                    Role::Region,
-                    format!("Message from {title}"),
-                )
-                .into_any_element()
+                let card_spot = self.spot(page, &format!("from-card:{id}"), cx);
+                let said = page.cards.said.get(&format!("notice:{id}")).cloned();
+                let card = div()
+                    .id(SharedString::from(format!("from-card:{id}")))
+                    .flex()
+                    .flex_col()
+                    .overflow_hidden()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::ACCENT))
+                    .bg(look.color(token::BG_RAISED))
+                    .child(band)
+                    .child(
+                        div()
+                            .px(look.length(token::SPACE_3))
+                            .py(look.length(token::SPACE_2))
+                            .child(self.prose(format!("from:{id}"), text, look)),
+                    )
+                    .children(said.map(|why| refusal(look, &format!("notice:{id}"), why)));
+                let card = if sender == "fleet" {
+                    self.menu_on(
+                        card,
+                        &card_spot,
+                        "Fleet notice",
+                        band_spot.focus.clone(),
+                        Rc::new({
+                            let word = notice.clone();
+                            move || notice_entries(word.as_deref())
+                        }),
+                        self.notice_pick(&format!("notice:{id}"), text.clone(), Some(at.clone()), notice.clone()),
+                        cx,
+                    )
+                } else {
+                    card
+                };
+                labelled(card, Role::Region, format!("Message from {title}")).into_any_element()
             }
             _ => return None,
         })

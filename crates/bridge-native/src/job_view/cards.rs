@@ -16,6 +16,7 @@ use ipc::{
 use std::rc::Rc;
 
 use super::acts::{button, refusal, Answer, Mode, Tone};
+use super::menus::teach_entries;
 use super::pop::NUMBERED;
 use super::rows::{glyph, mono, tip, Size};
 use super::{JobView, Page};
@@ -397,6 +398,7 @@ impl JobView {
                                     entries,
                                     event.position,
                                     false,
+                                    None,
                                     move |this, id, _, cx| {
                                         let n = NUMBERED.iter().position(|one| *one == id).map_or(revisions, |at| at + 1);
                                         if let Some(page) = this.shown.clone().and_then(|job| this.pages.get_mut(&job)) {
@@ -678,24 +680,23 @@ impl JobView {
         }
         let name = format!("{}: {title}", eyebrow_word);
         let aim = key.clone();
-        labelled(
-            div()
-                .id(SharedString::from(format!("card:{key}")))
-                .w_full()
-                .p(look.length(token::PAD_CARD))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(if target && open { token::ACCENT } else { token::BORDER_DEFAULT }))
-                .bg(look.color(token::BG_RAISED))
-                .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
-                    this.aim(&aim);
-                    cx.notify();
-                }))
-                .child(body),
-            Role::Article,
-            name,
-        )
-        .into_any_element()
+        let spot = self.spot(page, &format!("card:{key}"), cx);
+        let card = div()
+            .id(SharedString::from(format!("card:{key}")))
+            .track_focus(&spot.focus)
+            .w_full()
+            .p(look.length(token::PAD_CARD))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if target && open { token::ACCENT } else { token::BORDER_DEFAULT }))
+            .bg(look.color(token::BG_RAISED))
+            .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, _, cx| {
+                this.aim(&aim);
+                cx.notify();
+            }))
+            .child(body);
+        let card = self.menu_on(card, &spot, "Draft", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("words", text.to_string(), Some(at.clone())), cx);
+        labelled(card, Role::Article, name).into_any_element()
     }
 
     #[allow(clippy::too_many_arguments)]

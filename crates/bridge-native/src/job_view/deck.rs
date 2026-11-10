@@ -1,7 +1,7 @@
 //! The question deck (`job-view.md`, B4.4): one question at a time, its options numbered, Other
 //! last, and Answer, Next and Skip under them.
 
-use gpui::{div, prelude::*, AnyElement, AppContext as _, Context, FontWeight, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use gpui_component::input::TextareaState;
 use ipc::{
     AnswerSessionAsk, AnswerWaiting, AskedQuestion, CallAnswer, DismissWaiting, QuestionAnswer, SendSessionMessage, SendSessionMessageBody,

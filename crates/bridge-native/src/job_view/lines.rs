@@ -1,10 +1,13 @@
 //! The rows that are one line or one bar: slots, commands, started and waiting Jobs, a change of a
 //! value (`job-view.md`, A7). `records.rs` holds the rows that carry a body.
 
+use std::rc::Rc;
+
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{LinkedEvent, SessionRow, WaiterEvent};
 
+use super::menus::teach_entries;
 use super::rows::{eyebrow, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
@@ -24,7 +27,7 @@ impl JobView {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         match row {
-            SessionRow::Message { .. } => self.message(row, look, now, cx),
+            SessionRow::Message { .. } => self.message(row, page, look, now, cx),
             SessionRow::Ran { .. }
             | SessionRow::Requested { .. }
             | SessionRow::Saved { .. }
@@ -43,13 +46,27 @@ impl JobView {
 
     fn line(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
-            SessionRow::Tool { id, text, .. } | SessionRow::Command { id, text, .. } => div()
+            SessionRow::Tool { id, text, .. } => div()
                 .id(SharedString::from(format!("command:{id}")))
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_SM))
                 .text_color(look.color(token::FG_MUTED))
                 .child(text.clone())
                 .into_any_element(),
+            SessionRow::Command { id, at, text } => {
+                let spot = self.spot(page, &format!("command:{id}"), cx);
+                let command = div()
+                    .id(SharedString::from(format!("command:{id}")))
+                    .track_focus(&spot.focus)
+                    .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+                    .rounded(look.length(token::RADIUS_SM))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(text.clone());
+                let command = self.menu_on(command, &spot, "Command", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("command", text.clone(), Some(at.clone())), cx);
+                labelled(command, Role::ListItem, text.clone()).into_any_element()
+            }
             SessionRow::Compaction { id, text, .. } => {
                 let head = vec![
                     glyph(look, "layers", Size::Small, look.color(token::FG_MUTED)).into_any_element(),

@@ -75,6 +75,17 @@ pub(super) struct Cards {
     changed: Cell<bool>,
     /// Cards a draw has not yet written again: a draw that does not reach them drops them.
     stale: RefCell<std::collections::BTreeSet<String>>,
+    /// The focus and the edges of the rows a person can reach by key, by row key.
+    spots: RefCell<std::collections::HashMap<String, Spot>>,
+}
+
+/// A row a key reaches: its focus handle, kept between draws, and where it was last drawn.
+#[derive(Clone)]
+pub(super) struct Spot {
+    pub focus: FocusHandle,
+    pub bounds: Rc<Cell<gpui::Bounds<gpui::Pixels>>>,
+    /// Drawn in the frame that is now being drawn: a row the list scrolled away is not.
+    seen: Rc<Cell<bool>>,
 }
 
 impl Cards {
@@ -110,6 +121,30 @@ impl Cards {
                 }
             }
         }
+    }
+
+    /// The focus handle and the drawn edges of the row `key`, made on its first draw.
+    pub fn spot(&self, key: &str, cx: &gpui::App) -> Spot {
+        let spot = self
+            .spots
+            .borrow_mut()
+            .entry(key.to_string())
+            .or_insert_with(|| Spot { focus: cx.focus_handle().tab_stop(true), bounds: Rc::default(), seen: Rc::default() })
+            .clone();
+        spot.seen.set(true);
+        spot
+    }
+
+    /// Start a frame: say whether the focused row was left undrawn by the last one, then forget what was drawn.
+    /// Keys and actions travel from the focused element, so a focus on a row the list scrolled away would
+    /// leave them with nowhere to go.
+    pub fn begin_frame(&self, window: &Window) -> bool {
+        let spots = self.spots.borrow();
+        let lost = spots.values().any(|spot| spot.focus.is_focused(window) && !spot.seen.get());
+        for spot in spots.values() {
+            spot.seen.set(false);
+        }
+        lost
     }
 
     pub fn take_changed(&self) -> bool {

@@ -284,7 +284,7 @@
        "title": "Fleet"
       },
       "text": "The branch is 3 commits behind main. Merge main in before you push.\nThe slot is clean.",
-      "notice": "slot_behind"
+      "notice": "behind_base"
      },
      "rows": [
       {

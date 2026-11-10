@@ -33,6 +33,8 @@ pub enum Verb {
     /// A press on the element of this role and name, before the target is ringed: the target is what the
     /// press shows, so the button itself is gone by then.
     Open(&'static str, &'static str),
+    /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
+    RightOpen(&'static str, &'static str),
     /// The pointer brought to rest on the target.
     Hover,
     /// A press in the middle of the target, then these words typed into whatever it focused.
@@ -156,7 +158,14 @@ pub static WALKS: &[Walk] = &[
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("A right press on a command offers Teach", Verb::RightOpen("listitem", "/reload-plugins"), "menuitem", "Teach"),
+            step("Esc shuts the menu", Verb::Key("escape"), "listitem", "/reload-plugins"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("A Fleet turn is one dim row", Verb::Look, "region", "Fleet turn"),
+            step("A right press on it offers Teach and the three mutes", Verb::RightOpen("region", "Fleet turn"), "menuitem", "For repo"),
+            step("Esc shuts the menu and the row has focus again", Verb::Key("escape"), "button", "Fleet turn"),
+            step("Shift+F10 opens the same menu under the row", Verb::Key("shift-f10"), "menuitem", "For 1 hour"),
+            step("Esc shuts it and the row has focus again", Verb::Key("escape"), "button", "Fleet turn"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("End goes back to the newest row", Verb::Key("end"), "region", "Thread"),
             step("Subagents running are one card at the foot; the list opens behind it", Verb::Open("button", "1 subagent running"), "row", "Subagent Read the chip's stories"),

@@ -105,6 +105,16 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, drawn.bounds.center(), window, cx);
             Ok(())
         }
+        Verb::RightOpen(role, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
+                .cloned()
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
+            press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
         Verb::Hover => {
             let at = find(step, window, cx)?.bounds.center();
             window.dispatch_event(

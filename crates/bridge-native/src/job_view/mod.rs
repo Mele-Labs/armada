@@ -17,6 +17,7 @@ mod deck;
 mod dock;
 mod keys;
 mod lines;
+mod menus;
 mod perm;
 mod plan;
 mod pinned;
@@ -950,6 +951,10 @@ impl Render for JobView {
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
+        if self.pages.get(&id).is_some_and(|page| page.keys.begin_frame(window)) {
+            // The focused row scrolled out of the list: focus goes to the thread, so keys still reach it.
+            window.focus(&self.focus, cx);
+        }
         if self.pages.get(&id).is_some_and(|page| page.keys.take_changed()) {
             // A card came or went: the cards draw once more, so the chip shows on the target.
             cx.notify();

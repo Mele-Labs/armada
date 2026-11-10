@@ -9,7 +9,7 @@ use super::acts::refusal;
 use super::rows::{elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 
 const STOP_KEY: &str = "stop";
 

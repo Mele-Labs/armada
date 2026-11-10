@@ -1,11 +1,15 @@
 //! The items that group rows: runs of calls, subagents, Check runs and Fleet turns (`job-view.md`,
 //! A3 to A6).
 
+use std::rc::Rc;
+
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{SessionCheckState, SessionRow, ToolSubagent, ToolSubagentState};
 
+use super::acts::refusal;
 use super::calls;
+use super::menus::{notice_entries, teach_entries};
 use super::rows::{check_look, elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
@@ -35,6 +39,26 @@ impl JobView {
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn checks(
+        &self,
+        ix: usize,
+        id: &str,
+        rows: &[SessionRow],
+        page: &Page,
+        look: &Look,
+        now: DateTime<Local>,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let item = self.checks_item(ix, id, rows, page, look, now, cx);
+        let Some(SessionRow::Check { name, target, state, at, .. }) = rows.iter().rev().find(|row| matches!(row, SessionRow::Check { .. })) else { return item };
+        let spot = self.spot(page, &format!("check-item:{id}"), cx);
+        let (_, _, word) = check_look(*state);
+        let text = [name.as_str(), target.as_deref().unwrap_or(""), word].join(" ").split_whitespace().collect::<Vec<_>>().join(" ");
+        let wrap = div().id(SharedString::from(format!("check-item:{id}"))).track_focus(&spot.focus).child(item);
+        self.menu_on(wrap, &spot, "Check", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("check", text, Some(at.clone())), cx).into_any_element()
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn checks_item(
         &self,
         ix: usize,
         id: &str,
@@ -261,7 +285,7 @@ impl JobView {
         look: &Look,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let SessionRow::Message { text, .. } = notice else { return div().into_any_element() };
+        let SessionRow::Message { text, at, notice: word, .. } = notice else { return div().into_any_element() };
         let mut head = vec![
             div()
                 .id(SharedString::from(format!("fleet-mark:{id}")))
@@ -301,15 +325,27 @@ impl JobView {
                 _ => div().into_any_element(),
             }))
             .into_any_element();
-        labelled(
-            div()
-                .id(SharedString::from(format!("fleet-turn:{id}")))
-                .text_color(look.color(token::FG_SUBTLE))
-                .child(self.fold(ix, format!("fleet-turn-fold:{id}"), "Fleet turn".into(), head, Some(body), page, look, cx)),
-            Role::Region,
-            "Fleet turn",
-        )
-        .into_any_element()
+        let fold_key = format!("fleet-turn-fold:{id}");
+        let spot = self.spot(page, &format!("fleet-turn:{id}"), cx);
+        let back = self.spot(page, &fold_key, cx).focus;
+        let said = page.cards.said.get(&format!("notice:{id}")).cloned();
+        let word = word.clone();
+        let entries_of = word.clone();
+        let region = div()
+            .id(SharedString::from(format!("fleet-turn:{id}")))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(self.fold(ix, fold_key, "Fleet turn".into(), head, Some(body), page, look, cx))
+            .children(said.map(|why| refusal(look, &format!("notice:{id}"), why)));
+        let region = self.menu_on(
+            region,
+            &spot,
+            "Fleet notice",
+            back,
+            Rc::new(move || notice_entries(entries_of.as_deref())),
+            self.notice_pick(&format!("notice:{id}"), text.clone(), Some(at.clone()), word),
+            cx,
+        );
+        labelled(region, Role::Region, "Fleet turn").into_any_element()
     }
 }
 
