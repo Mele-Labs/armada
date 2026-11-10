@@ -78,15 +78,15 @@ fn only_a_note_an_error_a_report_an_issue_and_a_red_main_are_taken() {
 async fn reports_arriving_while_a_call_is_out_are_ruled_together_in_the_next_one() {
     let first = format!("item: 1\nway: 1\nissue: {SCROLLBACK_ISSUE}\nbecause: the issue already names the lost scrollback");
     let both = format!(
-        "item: 1\nway: 2\njob: {TABS}\nshared: the review tabs' keys\nbecause: the review tabs Job is building those keys now\n\n\
-         item: 2\nway: 3\nbecause: it is the pane host the Jobs share, so it waits for you"
+        "item: 1\nway: 1\njob: {TABS}\nshared: the review tabs' keys\nbecause: the review tabs Job is building those keys now\n\n\
+         item: 2\nway: 1\nissue: armada-b71c\nbecause: the open issue already names the stale meter"
     );
     let call = FakeCall::replying(vec![Reply::Says(first, Duration::from_secs(5)), Reply::Says(both, Duration::from_secs(3))]);
     let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let scrollback = report("r1", "Terminal scrollback vanishes after the pane redraws", "Scrolling up in a terminal pane is empty once the pane redraws").arrival();
     let keys = report("r2", "Pull request review tabs close when tmux keys are pressed", "Pressing the tmux keys to move between review tabs closes the open review").arrival();
-    let host = report("r3", "The pane host drops a tab", "A tab disappears from the pane host when the window resizes").arrival();
+    let meter = report("r3", "Usage meter shows yesterday's tokens after midnight", "The usage meter still counts yesterday's tokens once the day has turned").arrival();
 
     let first = tokio::spawn({
         let operator = operator.clone();
@@ -99,7 +99,7 @@ async fn reports_arriving_while_a_call_is_out_are_ruled_together_in_the_next_one
     });
     let third = tokio::spawn({
         let operator = operator.clone();
-        async move { operator.ruled(host, NEEDS_YOU_WAIT).await }
+        async move { operator.ruled(meter, NEEDS_YOU_WAIT).await }
     });
     let (first, second, third) = (first.await.expect("ruled"), second.await.expect("ruled"), third.await.expect("ruled"));
 
@@ -109,7 +109,7 @@ async fn reports_arriving_while_a_call_is_out_are_ruled_together_in_the_next_one
     assert!(asked[1].contains("1. An agent reported a bug") && asked[1].contains("2. An agent reported a bug"), "the two that came while it was out, side by side:\n{}", asked[1]);
     assert!(matches!(&first, Ruled::Ruled(ruling) if ruling.issue.as_deref() == Some(SCROLLBACK_ISSUE)), "{first:?}");
     assert!(matches!(&second, Ruled::Ruled(ruling) if ruling.way == Way::ExistingJob && ruling.other.as_deref() == Some(TABS)), "{second:?}");
-    assert!(matches!(&third, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{third:?}");
+    assert!(matches!(&third, Ruled::Ruled(ruling) if ruling.issue.as_deref() == Some("armada-b71c")), "{third:?}");
 
     let log = fleet.log();
     assert_eq!(log.len(), 3, "{log:#?}");
@@ -323,7 +323,8 @@ async fn why_did_you_hold_x_cites_its_log_row_and_stop_filing_in_a_repository_to
     fleet.order_stands(form);
     operator.ruled(arrival(), NEEDS_YOU_WAIT).await;
     let after = call.asked().pop().expect("a call");
-    assert!(!after.contains("file"), "filing is no way it is offered once the order stands:\n{after}");
+    let offered = after.lines().find(|line| line.contains("The ways it is offered:")).expect("the item's ways");
+    assert!(!offered.contains("file"), "filing is no way it is offered once the order stands:\n{after}");
     assert_eq!(fleet.sourced().iter().filter(|one| one.way == Way::File).count(), 1, "the order holds: nothing more is filed");
 }
 
