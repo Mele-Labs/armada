@@ -1,8 +1,9 @@
 // The Review tab, which reads a pull request with the findings pinned beside their lines. Opening it asks which tools to run, Tour
 // first and ticked, from the repository's default, and keeps a new default, which System, Repository shows with Ask before running.
 // Once Tour has run, Previous and Next step through its stops, each its lines with the findings and threads on them, and the last
-// gathers what no stop holds; a file Go to file reaches off the tour says so. Each finding keeps its own answer on its card. It starts
-// a review from lines picked in its gutter, and opens the lines a finding names in place, with Jump. The submit bar says once that
+// gathers what no stop holds; a file Go to file reaches off the tour says so. Each finding keeps its own answer on its card, and a fix
+// asked for one goes to the review as a suggestion on its lines. It starts a review from lines picked in its gutter, and opens the
+// lines a finding names in place, with Jump. The submit bar says once that
 // findings have no answer. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits
 // under no line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
 
@@ -30,6 +31,8 @@ const head = inside(reviewPane, role("group", "Tools"));
 const stops = inside(reviewPane, role("group", "Stops"));
 const findings = inside(reviewPane, role("complementary", "Findings"));
 const marks = (title: string) => inside(findings, role("group", `Mark ${title}`));
+const RACE = "Two refunds can pass the same check";
+const fix = inside(findings, region(`Fix for ${RACE}`));
 const gutter = (line: RegExp) => inside(reviewPane, button(line));
 const yours = inside(reviewPane, region("Your review"));
 const PEEKED = "app/models/payment.rb:17-19";
@@ -94,6 +97,19 @@ const prReviewByFile = walk("pr-review-by-file", [
   {
     hover: inside(head, button("Run Test gaps")),
     say: "Test gaps was unticked, so it has not run",
+  },
+  {
+    press: inside(reviewPane, button("Add tab")),
+    say: "+ lists the tools, each with its mark",
+  },
+  {
+    look: role("menuitem", "Tour"),
+    say: "Tour's mark is a folded map",
+  },
+  {
+    key: "Escape",
+    on: role("menu"),
+    say: "Esc closes the menu",
   },
 
   // 3. Previous and Next, through Tour's stops.
@@ -164,7 +180,37 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Not valid puts the second away",
   },
 
-  // 5. A range of lines, a review started, and a second comment added to it.
+  // 5. A fix for a finding, added to the review as a suggestion.
+  {
+    press: inside(findings, button(`Ask for a fix: ${RACE}`)),
+    say: "Ask for a fix, on the first finding",
+  },
+  {
+    press: inside(role("dialog", "Ask for a fix"), button("Run")),
+    say: "It asks first",
+  },
+  {
+    look: inside(fix, role("group", "app/services/refund_issuer.rb")),
+    say: "Why, on one line. Then lines 8 to 10 as they are, in red, and as the fix writes them, in green",
+  },
+  {
+    press: inside(fix, button("Add as suggestion")),
+    say: "Add as suggestion",
+  },
+  {
+    look: inside(reviewPane, role("textbox", "Comment")),
+    say: "The comment box opens under lines 8 to 10, holding the fix as a suggestion. Words can go above it",
+  },
+  {
+    press: inside(reviewPane, button("Start a review")),
+    say: "Start a review",
+  },
+  {
+    look: inside(reviewPane, text("Lines 8 to 10")),
+    say: "Pending, under its lines, on the range the finding names",
+  },
+
+  // 6. A range of lines picked in the gutter, and a second comment added to the review.
   {
     press: gutter(/^Comment on line 8: raise Refund::TooLarge/),
     say: "A press in the gutter picks a line",
@@ -180,12 +226,12 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "His comment, under the lines",
   },
   {
-    press: inside(reviewPane, button("Start a review")),
-    say: "Start a review",
+    press: inside(reviewPane, button("Add to review (1)")),
+    say: "Add to review, with the suggestion already pending",
   },
   {
     look: inside(reviewPane, role("article", "Pending comment")),
-    say: "Pending, under its lines",
+    say: "Pending, under its lines. Its head reads Lines 8 to 10",
   },
   {
     press: gutter(/^Comment on line 15: Gateway\.refund/),
@@ -197,8 +243,8 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "A second comment",
   },
   {
-    press: inside(reviewPane, button("Add to review (1)")),
-    say: "Add to review, with the one already pending",
+    press: inside(reviewPane, button("Add to review (2)")),
+    say: "Add to review, with the two already pending",
   },
 
   // A path and line in a finding.
@@ -291,18 +337,18 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "The first stop",
   },
 
-  // 6. The submit bar.
+  // 7. The submit bar.
   {
     hover: inside(reviewPane, button("Submit review")),
     say: "Submit review, at the foot: comment, approve or request changes on GitHub",
   },
   {
     press: inside(reviewPane, button("Submit review")),
-    say: "It opens his review under the file: the two comments, a summary, and the button that sends it",
+    say: "It opens his review under the file: the three comments, a summary, and the button that sends it",
   },
   {
     look: inside(yours, role("list", "Pending comments")),
-    say: "The two pending comments",
+    say: "The three pending comments",
   },
   {
     press: inside(yours, tab("Approve")),
@@ -317,7 +363,7 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Two findings have no answer yet, so it says so once and waits for a second press",
   },
 
-  // 7. An explanation, run from the head.
+  // 8. An explanation, run from the head.
   {
     hover: inside(head, button("Run User Impact")),
     say: "The explanations have buttons in the head too, with the same glyphs",
@@ -339,7 +385,7 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Done. A press opens its tab again",
   },
 
-  // 8. Comments, with what sits under no line.
+  // 9. Comments, with what sits under no line.
   {
     press: inside(
       reader,
@@ -362,7 +408,7 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "The threads on lines follow",
   },
 
-  // 9. Ask, docked under the panes.
+  // 10. Ask, docked under the panes.
   {
     look: askPane,
     say: "Ask is a tab of its own, docked under the panes and as wide as them",
