@@ -113,7 +113,7 @@ when open, because it holds the Operator's panel, which is about whatever is
 on screen rather than one Job, and draws nothing at all when closed. The title
 row's own dock button is the one way back at every width, since no edge strip is
 drawn at any; below the breakpoint it opens the dock as a sheet.
-The Operator's panel is `armada-ehhu.10`, and until it lands the dock draws nothing.
+The Electron Bridge mounts no dock, since it no longer shows the Operator (decided 10 Nov).
 
 > **Rule.** The dock is a layer over the content and never a column in it,
 > and Bridge opens with it shut. Opening it changes nothing about the width of

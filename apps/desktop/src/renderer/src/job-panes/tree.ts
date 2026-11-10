@@ -46,18 +46,9 @@ export const PR_TAB_KINDS = [
 export const RENAMED_PR_KINDS: Readonly<Record<string, (typeof PR_TAB_KINDS)[number]>> = {
   "pr-focus": "pr-review",
 };
-/** The Operator's tabs, in its dock: Talk, its conversation over the Job composer, its Queue, its Log, what waits to start and its Permissions. */
-export const OPERATOR_TAB_KINDS = [
-  "op-talk",
-  "op-queue",
-  "op-log",
-  "op-waiting",
-  "op-permissions",
-] as const;
 export const TAB_KINDS = [
   ...JOB_TAB_KINDS,
   ...PR_TAB_KINDS,
-  ...OPERATOR_TAB_KINDS,
 ] as const;
 export type TabKind = (typeof TAB_KINDS)[number];
 

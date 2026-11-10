@@ -18,11 +18,9 @@ import {
   type RefObject,
 } from "react";
 import {
-  Bot,
   ChevronDown,
   ChevronUp,
   CircleDashed,
-  Clock,
   Filter as FilterGlyph,
   GitMerge,
   Link,
@@ -45,7 +43,6 @@ import {
   EarlierMark,
   HandoffMark,
   ListCard,
-  ListCardMark,
   PausedMark,
   Tooltip,
   keyFor,
@@ -56,7 +53,7 @@ import {
   type Mark,
 } from "@armada/components";
 import type { RepositorySummary, WorktreeSlot } from "@armada/protocol";
-import { SURFACE, askToOpenOperator, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
+import { SURFACE, jobIdOf, manifestLabel, useLayout } from "@armada/shell";
 
 import type { Item } from "../../Dashboard";
 import { clashingOf, useWriteClashes } from "../../clashes";
@@ -166,9 +163,6 @@ import { ConsoleBays, ConsoleRack } from "./ConsoleBays";
 import { InstrumentMounts } from "./instrument-mount";
 import { TimelineHud, toggleTimeline, useTimelineLamp } from "./ConsoleTimeline";
 import { Standby } from "./Standby";
-import { waitSaid } from "../../operator/model";
-import { useOperator } from "../../operator/store";
-import { TieMark } from "../../operator/marks";
 import { powering, usePowerOn } from "../boot";
 
 /** The slots the pool serves, narrowed to the picked repository as the ship's are. */
@@ -203,39 +197,6 @@ function Phase({ subject, builds }: { subject: Subject; builds: ReadonlyMap<stri
 }
 
 /** An idea saved to start later, a row of the list: dashed, with its repository and model. ↵ (a click with no pointer) or its play press starts it, never a mouse click on its words; Remove lets it go. */
-/** What the Operator raised with no Job to stand on, as a row that pulses as a Job's does, first in the list. Its press opens the panel. */
-function OperatorRaisesRow() {
-  const operator = useOperator();
-  if (operator?.state.raisesPulse !== "row" || (operator.state.raises?.length ?? 0) === 0)
-    return null;
-  return (
-    <li className="deck-list__item">
-      <ListCard
-        className="deck-row"
-        needs
-        data-lamp="needs"
-        data-tone="ask"
-        aria-label="Operator"
-        onClick={() => askToOpenOperator()}
-        title="Operator"
-        marks={
-          <ListCardMark>
-            <Tooltip label="The Operator raised something with no Job">
-              <span
-                className="deck-row__kind"
-                role="img"
-                aria-label="The Operator raised something with no Job"
-              >
-                <Bot size={14} aria-hidden="true" />
-              </span>
-            </Tooltip>
-          </ListCardMark>
-        }
-      />
-    </li>
-  );
-}
-
 export function QueuedRow({ idea }: { idea: QueuedIdea }) {
   const draft = useSessionsDraft();
   const cursor = useDeck((deck) => deck.cursor);
@@ -465,7 +426,6 @@ function List({
   // A live Session is picked up by its row and put down among those under its heading.
   const movable = movableIn(subjects);
   const { dragging, grab, swallowed } = useReorder(onMove);
-  const operator = useOperator();
   // The fields a row draws are the person's (`row-view.tsx`): its columns, and where the clash mark sits among them.
   const earlier = subjects.some((one) => one.earlier !== undefined);
   // The mark of a Job whose agent came up without some tools has a column of its own, kept for every row while one has it.
@@ -488,29 +448,6 @@ function List({
     (one) => one.kind === "session" && reportedOf(one.id) !== undefined,
   );
   const columns = columnsOf(view, earlier, tooled, reported);
-  // A question the Operator is still reading: the row draws its glyph and does not pulse until it is ruled.
-  const reading = new Set(
-    (operator?.state.reads ?? []).flatMap((one) =>
-      one.state === "reading"
-        ? [
-            one.session,
-          ]
-        : [],
-    ),
-  );
-  // A Job the Operator held from a dispatch: its glyph says what it waits for, rather than the done mark of an idle turn.
-  const held = new Map(
-    (operator?.state.line ?? []).flatMap((one) =>
-      one.session === undefined
-        ? []
-        : [
-            [
-              one.session,
-              `Held until ${waitSaid(one.waits)}`,
-            ] as const,
-          ],
-    ),
-  );
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
     // What a search matched in the Session, in place of its age.
@@ -524,9 +461,7 @@ function List({
     // The row stands for the earlier Job too: it is open when that one is.
     const here =
       selected === one.key || (one.earlier !== undefined && selected === `session:${one.earlier}`);
-    const read = one.kind === "session" && reading.has(one.id);
-    const holds = one.kind === "session" ? held.get(one.id) : undefined;
-    const needs = one.kind === "session" && toneOf(one) === "ask" && !here && !read;
+    const needs = one.kind === "session" && toneOf(one) === "ask" && !here;
     // What the row says of how it stands: a handoff or a pause, else its phase, then its state mark.
     const state = (
       <>
@@ -539,26 +474,10 @@ function List({
         )}
         {pausedIds.has(one.id) ? null : (
           <MarkGlyph
-            mark={
-              read
-                ? {
-                    ...one.mark,
-                    Glyph: Bot,
-                    said: "The Operator is reading its question",
-                    tone: "calm",
-                  }
-                : holds !== undefined
-                  ? {
-                      ...one.mark,
-                      Glyph: Clock,
-                      said: holds,
-                      tone: "calm",
-                    }
-                  : {
-                      ...one.mark,
-                      tone: toneOf(one),
-                    }
-            }
+            mark={{
+              ...one.mark,
+              tone: toneOf(one),
+            }}
             size={one.reply === true ? 12 : 16}
           />
         )}
@@ -634,18 +553,17 @@ function List({
             className="deck-row"
             data-row={one.key}
             data-calling={
-              read ||
-              ((call === undefined ||
+              (call === undefined ||
                 (call.waiting !== undefined && creatingSlot(call.waiting.item))) &&
-                !needs)
+              !needs
                 ? undefined
                 : ""
             }
             needs={needs}
-            data-lamp={read ? "idle" : lampOf(one)}
+            data-lamp={lampOf(one)}
             data-linked={one.linked?.depth !== undefined || undefined}
             data-reply={one.reply}
-            data-tone={read ? "calm" : toneOf(one)}
+            data-tone={toneOf(one)}
             data-past={one.past}
             data-paused={pausedIds.has(one.id) || undefined}
             selected={here}
@@ -697,9 +615,6 @@ function List({
                     </span>
                   </Tooltip>
                 )}
-                {one.kind === "session" ? (
-                  <TieMark session={one.id} className="deck-row__link" />
-                ) : null}
                 {one.title}
               </span>
             }
@@ -797,7 +712,6 @@ function List({
           } as CSSProperties
         }
       >
-        <OperatorRaisesRow />
         {banding === undefined
           ? [
               ...queuedIn(ideas, picked).map((idea) => (

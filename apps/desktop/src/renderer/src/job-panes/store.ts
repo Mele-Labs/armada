@@ -10,7 +10,6 @@ import { forgetKept, readKept, writeKept } from "@armada/components";
 
 import {
   JOB_TAB_KINDS,
-  OPERATOR_TAB_KINDS,
   PR_TAB_KINDS,
   RENAMED_PR_KINDS,
   activate,
@@ -88,23 +87,6 @@ const prArrangement = (): Arrangement =>
     },
     b: [
       "pr-ask",
-    ],
-  });
-
-/** The Operator's, the owner's own arrangement: Discussion with Permissions as tabs in the left third, and the Queue with the Log and
-    Waiting to start as tabs in the rest. */
-const operatorArrangement = (): Arrangement =>
-  build({
-    dir: "row",
-    ratio: 0.34,
-    a: [
-      "op-talk",
-      "op-permissions",
-    ],
-    b: [
-      "op-queue",
-      "op-log",
-      "op-waiting",
     ],
   });
 
@@ -352,7 +334,7 @@ export type JobPanes = {
 
 type FamilySpec = {
   /** Which family, as the Layout control names it. */
-  name: "job" | "pr" | "operator";
+  name: "job" | "pr";
   /** The key its layouts are kept under, and the prefix of each owner's own. */
   shared: string;
   owner: string;
@@ -942,16 +924,6 @@ export const prPanes: PaneFamily = createPaneFamily({
   renamed: RENAMED_PR_KINDS,
 });
 
-/** The Operator's panes in its dock, one owner, kept apart from the Jobs' and the pull requests'. */
-export const operatorPanes: PaneFamily = createPaneFamily({
-  name: "operator",
-  shared: "operator-panes:shared",
-  owner: "operator-panes:",
-  kinds: OPERATOR_TAB_KINDS,
-  arrangement: operatorArrangement,
-  forAllLabel: "The Operator opens on",
-});
-
 /** The family the panes drawn here belong to: a Job's, unless a pull request's area says otherwise. */
 export const PaneFamilyContext = createContext<PaneFamily>(jobPanes);
 export const usePaneFamily = (): PaneFamily => useContext(PaneFamilyContext);
@@ -962,7 +934,6 @@ export function forgetPanes(): void {
   forgetKept(ASK_GIVEN);
   jobPanes.forget();
   prPanes.forget();
-  operatorPanes.forget();
 }
 
 export const {
