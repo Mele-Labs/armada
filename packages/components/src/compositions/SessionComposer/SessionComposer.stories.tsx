@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { ContextFigure } from "../SessionFrame/ContextFigure";
 import { SessionComposer, seedDraft } from "./SessionComposer";
@@ -282,6 +282,76 @@ export const AtFiles: Story = {
       files: [],
       tags: [],
     });
+  },
+};
+
+/** `@` alone asks for files at once, so the popup opens already filled instead of empty until a letter is typed. */
+export const BareAtOffersFiles: Story = {
+  args: {
+    searchFiles: fn(async (query: string) =>
+      [
+        "docs/practices/bridge.md",
+        "README.md",
+      ].filter((path) => path.toLowerCase().includes(query.toLowerCase())),
+    ),
+  },
+  play: async ({ canvas, args }) => {
+    const field = canvas.getByRole("textbox", {
+      name: "Message",
+    });
+    await userEvent.type(field, "@");
+    await canvas.findByRole("option", {
+      name: /README\.md/,
+    });
+    await expect(args.searchFiles).toHaveBeenCalledWith("");
+  },
+};
+
+/**
+ * An answer that arrives after a newer query was asked is dropped: the files for `se` stay, even though
+ * the slower answer for `s` lands last.
+ */
+export const LateFilesAreDropped: Story = {
+  args: {
+    searchFiles: fn(async (_query: string): Promise<readonly string[]> => []),
+  },
+  play: async ({ canvas, args }) => {
+    const asked = args.searchFiles as ReturnType<typeof fn>;
+    let release: (paths: readonly string[]) => void = () => undefined;
+    const late = new Promise<readonly string[]>((resolve) => {
+      release = resolve;
+    });
+    asked.mockImplementation(async (query: string) =>
+      query === "s"
+        ? late
+        : [
+            "docs/newer.md",
+          ],
+    );
+    const field = canvas.getByRole("textbox", {
+      name: "Message",
+    });
+    await userEvent.type(field, "@s");
+    await waitFor(() => expect(asked).toHaveBeenCalledWith("s"));
+    await userEvent.keyboard("e");
+    await waitFor(() => expect(asked).toHaveBeenCalledWith("se"));
+    await canvas.findByRole("option", {
+      name: /newer\.md/,
+    });
+    release([
+      "docs/older.md",
+    ]);
+    await new Promise((resume) => setTimeout(resume, 100));
+    await expect(
+      canvas.queryByRole("option", {
+        name: /older\.md/,
+      }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("option", {
+        name: /newer\.md/,
+      }),
+    ).toBeInTheDocument();
   },
 };
 
