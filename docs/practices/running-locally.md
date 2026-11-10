@@ -454,6 +454,11 @@ error, `path.ts(12,5)` or `path.ts:12:5` from `pnpm build`, which print paths re
 to the package, so a changed file also matches by its tail, and Rollup's `file: path`
 under an import it cannot resolve), drops every merged
 branch that changed one, and the table says `skipped (does not build: <files>)`.
+A branch can break the build in a file it never touched, by removing what that file still uses.
+When no merged branch changed a file the errors name, the rustc errors are read for what is missing instead.
+A module file the errors say is not found (`file not found for module`, and the paths in its `create file` help) is blamed on a merged branch that deleted it.
+An item a crate path no longer has (`unresolved import`, `cannot find <kind> ... in crate`, `no ... named ... found for enum`) is blamed on a merged branch that removed the name from that crate's `crates/<dir>` and added it nowhere in it.
+The table says `skipped (does not build: removed <thing> that <file> still uses)`.
 It stops when a restart takes, or when a failure names no branch still merged; that
 failure stands as it was.
 Each round drops at least one branch, so it ends.
@@ -476,6 +481,13 @@ sees `.armada/preview` in `Armada/restart-source` and runs
 so the preview is merged again onto the latest `main`. To go back to `main`
 alone, run `scripts/restart --main`.
 
+**`scripts/preview --restart` pulls the main checkout before anything else.**
+The scripts a refresh runs, `scripts/preview`, `scripts/restart` and `scripts/restart-build`, are the main checkout's, and nothing else pulls it on this path.
+When the checkout is on `main` it is fast-forwarded to `origin/main`, and if it moved the script runs again from what was pulled, once.
+On another branch, or where it cannot fast-forward, it prints a `preview: warning:` line and runs the scripts as they are.
+That never fails the refresh.
+`--dry-run` pulls nothing and says it would, and `--watch` and a plain `scripts/preview` never pull.
+
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
 with git alone, and a stub Fleet. CI runs it as `preview_test` when
 `scripts/preview`, `scripts/restart` or `scripts/restart-build` changes.
@@ -488,7 +500,7 @@ Fleet runs on, Main or Preview, and one button follows it:
 
 | Selected | Button | Runs |
 |---|---|---|
-| Preview | `Refresh preview` | `scripts/preview --restart` |
+| Preview | `Refresh preview` | `scripts/preview --restart`, after the main checkout is fast-forwarded when it is on `main` |
 | Main | `Update to main` | `scripts/restart --main`: the checkout is fast-forwarded to `origin/main`, then Fleet and Bridge are built from it |
 | Main, level with `origin/main` | `Update to main`, disabled, `On latest main` | nothing |
 

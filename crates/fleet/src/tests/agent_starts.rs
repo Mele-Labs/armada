@@ -599,7 +599,7 @@ async fn the_parent_is_not_told_when_a_linked_session_needs_the_owner_but_still_
     let held = Arc::clone(&rig.fleet).start_another_session(caller(), handing(&rig, "g1")).await.expect("held");
     let child = held.session_id.as_str().to_string();
 
-    let question = WaitingInput { id: "q1".into(), text: "Sort by name or by version?".into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let question = WaitingInput { approves: false, id: "q1".into(), text: "Sort by name or by version?".into(), act: None, options: Vec::new(), steps: Vec::new() };
     rig.fleet.waiting_for(None, SetWaitingFor { items: vec![question], session_id: Some(held.session_id.clone()) }).await.expect("set");
     // Ended is told after the need, so by the time its row stands the need has been seen and passed over.
     let attached = SessionFact::Attached { attachment: ipc::AttachmentReport { kind: "pr".into(), target: "2412".into(), detail: Default::default() } };

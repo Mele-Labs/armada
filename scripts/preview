@@ -22,10 +22,16 @@
 # A failed `--restart` drops the branches its output names: the migration
 # guard's `leave out <branch>: <why>` lines, else the branches that changed a
 # file the compiler errors name (git merges branches cut before a deletion
-# without a word). The rest are merged again and `scripts/restart` run again.
+# without a word), else the branches that removed a module file or a crate item
+# the Rust errors say is missing, in a file they did not touch. The rest are
+# merged again and `scripts/restart` run again.
 # A failure that names no branch still merged is reported as it is. Before each
 # restart, `Armada/preview-left-out` records the commit and why each was skipped, and
 # `Armada/preview-held` the main commit the preview stands on and the branches merged into it.
+#
+# **`--restart` pulls the main checkout first**, when it is on `main`, and runs the
+# script it pulled, so a merged fix to these scripts runs on the next refresh. On any
+# other branch, or where it cannot fast-forward, it warns and runs them as they are.
 #
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, `ARMADA_PREVIEW_RESTART` the restart script `--restart` runs, and
@@ -79,6 +85,35 @@ def repo_root():
     if common.returncode != 0:
         sys.exit("preview: not inside a git repository")
     return os.path.dirname(common.stdout.strip())
+
+
+def pull_main(root, dry_run):
+    """Bring the main checkout, whose scripts a refresh runs, up to `origin/main`, and
+    run the script it pulled. Nothing here fails the refresh: a checkout on another
+    branch or one that cannot fast-forward warns and the scripts run as they are.
+    The marker keeps it to one pull a run."""
+    if os.environ.get("ARMADA_PREVIEW_PULLED"):
+        return
+    on = out(root, "branch", "--show-current")
+    if on != "main":
+        print(f"preview: warning: the checkout at {root} is on {on or 'no branch'}, not main, "
+              "so these scripts are as it last had them", flush=True)
+        return
+    if dry_run:
+        print("preview: would fast-forward main to origin/main first, to run the latest scripts", flush=True)
+        return
+    before = out(root, "rev-parse", "HEAD")
+    done = git(root, "pull", "--ff-only", "--quiet", "origin", "main", check=False)
+    if done.returncode != 0:
+        print("preview: warning: main cannot fast-forward to origin/main (it has diverged, a local change "
+              "is in the way, or origin did not answer), so these scripts are as it last had them", flush=True)
+        return
+    script = os.path.join(root, "scripts", "preview")
+    if out(root, "rev-parse", "HEAD") == before or not os.path.isfile(script):
+        return
+    print("preview: fast-forwarded main to origin/main; running the scripts it pulled", flush=True)
+    os.environ["ARMADA_PREVIEW_PULLED"] = "1"
+    os.execv(sys.executable, [sys.executable, script, *sys.argv[1:]])
 
 
 def reinstall_armada(root):
@@ -354,9 +389,15 @@ SCRIPT_AT = re.compile(r"([^\s()'\"]+\.(?:[cm]?[jt]sx?|vue|css))(?:\(\d+,\d+\)|:
 ROLLUP_FILE = re.compile(r"^file: (\S+?\.(?:[cm]?[jt]sx?|vue|css))(?::\d+:\d+)?\s*$")
 
 
+def relative(path, wt):
+    """`path` as the repo-relative path it names inside the worktree `wt`."""
+    for prefix in (p + "/" for p in {wt, os.path.realpath(wt)}):
+        path = path.removeprefix(prefix)
+    return path.removeprefix("./")
+
+
 def error_paths(output, wt):
     """The repo-relative files the compiler errors in `output` name."""
-    prefixes = tuple(p + "/" for p in {wt, os.path.realpath(wt)})
     kind, found = None, []
     for line in ANSI.sub("", output).splitlines():
         if m := DIAGNOSTIC.match(line):
@@ -370,9 +411,7 @@ def error_paths(output, wt):
             found += SCRIPT_AT.findall(line)
     paths = []
     for path in found:
-        for prefix in prefixes:
-            path = path.removeprefix(prefix)
-        path = path.removeprefix("./")
+        path = relative(path, wt)
         if path and not path.startswith(("/", "..")) and path not in paths:
             paths.append(path)
     return paths
@@ -394,6 +433,75 @@ def does_not_build(root, base, rows, output, wt):
             files += [path] if path in touched else sorted(f for f in touched if f.endswith("/" + path))
         if files:
             culprits[branch] = files
+    return culprits
+
+
+# What rustc says is gone, by name: a module file it looked for, an item a crate path no longer has.
+MISSING_MODULE = re.compile(r"^error\[E0583\]: file not found for module `(\w+)`")
+CREATE_FILE = re.compile(r'create file "([^"]+)"')
+UNRESOLVED_IMPORT = re.compile(r"^error\[E0432\]: unresolved imports? (.+)$")
+NOT_IN_CRATE = re.compile(r"^error(?:\[\w+\])?: cannot find [^`]+ `(\w+)` in crate `(\w+)`")
+NO_ITEM = re.compile(r"^error(?:\[\w+\])?: no .*?named `(\w+)` found for \w+ `(\w+)::[^`]*`")
+
+
+def missing(output, wt):
+    """What the Rust errors in `output` say is missing: ([paths a module could be, erroring file],
+    [item name, crate directory name, erroring file])."""
+    blocks = []
+    for line in ANSI.sub("", output).splitlines():
+        if DIAGNOSTIC.match(line):
+            blocks.append([line, None, []])
+        elif blocks and blocks[-1][1] is None and (m := RUSTC_AT.match(line)):
+            blocks[-1][1] = relative(m.group(1), wt)
+        elif blocks and "create file" in line:
+            blocks[-1][2] += [relative(p, wt) for p in re.findall(r'"([^"]+\.rs)"', line)]
+    files, items = [], []
+    for header, at, created in blocks:
+        if not at:
+            continue
+        if m := MISSING_MODULE.match(header):
+            here = os.path.dirname(at)
+            files.append(([f"{here}/{m.group(1)}.rs", f"{here}/{m.group(1)}/mod.rs"] + created, at))
+        elif m := UNRESOLVED_IMPORT.match(header):
+            for path in re.findall(r"`(\w+(?:::\w+)+)`", m.group(1)):
+                parts = path.split("::")
+                items.append((parts[-1], parts[0].replace("_", "-"), at))
+        elif m := (NOT_IN_CRATE.match(header) or NO_ITEM.match(header)):
+            crate = m.group(2)
+            items.append((m.group(1), crate.replace("_", "-"), at))
+    return files, items
+
+
+def removed_item(root, base, branch, crate, name):
+    """Whether `branch` took `name` out of `crates/<crate>` and put it nowhere in that crate."""
+    word = re.compile(rf"\b{re.escape(name)}\b")
+    removed = added = False
+    for line in out(root, "diff", "-U0", f"{base}...{branch}", "--", f"crates/{crate}").splitlines():
+        if line.startswith(("---", "+++")):
+            continue
+        if line.startswith("-") and word.search(line):
+            removed = True
+        elif line.startswith("+") and word.search(line):
+            added = True
+    return removed and not added
+
+
+def removed_by(root, base, rows, output, wt):
+    """{branch: [what]} for the merged branches that removed a file or an item the Rust errors
+    in `output` name and something still uses."""
+    files, items = missing(output, wt)
+    items = [i for i in items if git(root, "cat-file", "-e", f"{base}:crates/{i[1]}", check=False).returncode == 0]
+    culprits = {}
+    for branch, what, _ in rows:
+        if what != "merged":
+            continue
+        deleted = set(out(root, "diff", "--name-only", "--diff-filter=D", f"{base}...{branch}").splitlines())
+        found = [f"removed {next(p for p in paths if p in deleted)} that {at} still uses"
+                 for paths, at in files if deleted.intersection(paths)]
+        found += [f"removed {name} that {at} still uses"
+                  for name, crate, at in items if removed_item(root, base, branch, crate, name)]
+        if found:
+            culprits[branch] = list(dict.fromkeys(found))
     return culprits
 
 
@@ -432,14 +540,18 @@ def write_held(root, wt, base, rows, name="preview-held"):
 
 def cannot_take(root, base, rows, output, wt):
     """{branch: why} for the merged branches this restart's output says it cannot take: the
-    ones the migration guard names, else the ones the compiler errors name."""
+    ones the migration guard names, else the ones that changed a file the compiler errors name,
+    else the ones that removed what the Rust errors say is missing."""
     merged = {branch for branch, what, _ in rows if what == "merged"}
     guarded = {m.group(1): m.group(2) for m in map(LEAVE_OUT.match, output.splitlines()) if m}
     named = {branch: why for branch, why in guarded.items() if branch in merged}
     if named:
         return named
-    return {branch: "does not build: " + ", ".join(files)
-            for branch, files in does_not_build(root, base, rows, output, wt).items()}
+    culprits = does_not_build(root, base, rows, output, wt)
+    if culprits:
+        return {branch: "does not build: " + ", ".join(files) for branch, files in culprits.items()}
+    return {branch: "does not build: " + "; ".join(what[:3]) + (f"; and {len(what) - 3} more" if len(what) > 3 else "")
+            for branch, what in removed_by(root, base, rows, output, wt).items()}
 
 
 def restart(root, wt, dry_run, adopt, keep_only=False):
@@ -507,6 +619,8 @@ def main():
         except FileNotFoundError:
             only = set()
     root = repo_root()
+    if args.restart:
+        pull_main(root, args.dry_run)
 
     wt, base, rows = merge_pass(root, only, skip)
     if args.watch is not None:

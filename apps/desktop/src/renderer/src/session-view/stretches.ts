@@ -79,6 +79,7 @@ export const GATE_ENDS: Record<GateKind, string> = {
   walk_approved: "you approve the walk",
   sketch_approved: "you approve the sketch",
   document_approved: "you approve the document",
+  you_approved: "you approve",
   checks_green: "Checks pass at the pushed commit",
   merged: "it merges into main",
   jobs_ended: "every Job it started has merged or ended",

@@ -16,6 +16,7 @@ use crate::session_host::waiting::merged;
 
 fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
     KeptWaiting {
+        approves: false,
         item_id: id.into(),
         text: format!("text of {id}"),
         since: "2026-10-09T00:00:00Z".into(),
@@ -118,6 +119,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
         items: items
             .iter()
             .map(|(item, text)| WaitingInput {
+                approves: false,
                 id: (*item).into(),
                 text: (*text).into(),
                 act: Some(WaitingAct {
@@ -347,7 +349,7 @@ fn said(id: &ipc::SessionId, item: &str, text: &str) -> SetWaitingFor {
     let act = WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5187/?walk=filesAsATree".into() };
     SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { id: item.into(), text: text.into(), act: Some(act), options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { approves: false, id: item.into(), text: text.into(), act: Some(act), options: Vec::new(), steps: Vec::new() }],
     }
 }
 
@@ -391,6 +393,7 @@ async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clea
     let url = "http://localhost:5201/?walk=delivery-question";
     show(&rig, &id, url).await;
     let kept = KeptWaiting {
+        approves: false,
         item_id: "walk-delivery-question".into(),
         text: "Walk the delivery question (window open, 4 steps), then say land it or what to change.".into(),
         since: "2026-10-19T17:59:35Z".into(),
@@ -683,6 +686,7 @@ fn answer_item(id: &ipc::SessionId, item: &str, text: &str, labels: &[&str]) -> 
     SetWaitingFor {
         session_id: Some(id.clone()),
         items: vec![WaitingInput {
+            approves: false,
             id: item.into(),
             text: text.into(),
             act: Some(WaitingAct { kind: WaitingActKind::Answer, target: String::new() }),
@@ -722,6 +726,7 @@ async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed()
     let rig = rig_placing(None);
     let id = rig.start().await;
     let item = |item_id: &str, labels: &[&str]| KeptWaiting {
+        approves: false,
         item_id: item_id.into(),
         text: format!("text of {item_id}"),
         since: "2026-10-09T00:00:00Z".into(),

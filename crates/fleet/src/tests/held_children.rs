@@ -85,6 +85,7 @@ async fn an_agents_own_item_for_a_held_child_is_left_off_the_parents_list() {
     let agent = rig.an_agent().await;
     let held = rig.started_with(FIRST).await;
     let item = |id: &str, text: &str, target: &str| WaitingInput {
+        approves: false,
         id: id.into(),
         text: text.into(),
         act: Some(WaitingAct { kind: WaitingActKind::Message, target: target.into() }),

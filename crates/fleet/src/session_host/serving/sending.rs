@@ -1,7 +1,7 @@
 //! Writing a turn to a hosted session: ahead of a running one, or after it has been started.
 
 use super::*;
-use super::super::start_card::FirstTurn;
+use super::super::start_card::{job_turn, FirstTurn};
 use crate::session_links::LinkedBy;
 
 /// How long a person's send waits for its turn to be delivered before it answers and leaves the rest
@@ -93,6 +93,29 @@ where
         if !news && self.dispute_reviews_on() {
             let _ = self.store().lock().await.keep_fleet_notice(&notice);
         }
+        Ok(true)
+    }
+
+    /// [`Self::fleet_word`] for a word the Job has to hear whenever it can. **A paused Job's is on the thread
+    /// and kept for its Resume**, as a person's turn is, and goes as its next turn once it holds a slot
+    /// again. `Ok(false)` until then, since it is not told yet; an ended Job is told nothing.
+    pub(super) async fn fleet_word_kept_for_resume(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
+        if self.terminal_session(session).await?.is_some() {
+            return self.fleet_word(session, text, false, None).await;
+        }
+        let (held, hosting) = self.session_and_hosting(session).await?;
+        if held.state == store::SessionState::Ended || hosting.paused_at.is_none() {
+            return self.fleet_word(session, text, false, None).await;
+        }
+        let from = SessionVoice::Session { id: FLEET_NAME.to_lowercase(), title: FLEET_NAME.to_string() };
+        let row = self.written_row(session, &Written::Message(from), text.trim(), &[], &[]);
+        self.row_put(session, row).await;
+        let turn = job_turn(text, text.to_string());
+        // Read under the lock a Resume clears the pause in: a Resume that came in meanwhile finds the turn sent.
+        if self.turn_kept_while_paused(session, &turn).await? {
+            return Ok(false);
+        }
+        self.deliver_turn(session, turn).await?;
         Ok(true)
     }
 
