@@ -57,6 +57,8 @@ anyhow = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
 # A note's picture goes to Fleet as base64; gpui already links this version.
 base64 = "0.22"
+# The sketch pad's picture is drawn as SVG and rasterised. 0.46.0 is the build gpui already links with text on, so nothing new downloads.
+resvg = "=0.46.0"
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 

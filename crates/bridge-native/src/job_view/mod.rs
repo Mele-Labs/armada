@@ -40,6 +40,7 @@ mod review;
 mod rows;
 mod judge_tab;
 mod report;
+mod sketch_pad;
 mod report_brief;
 mod side;
 pub use judge_tab::JobJudge;
@@ -235,6 +236,9 @@ pub struct JobView {
     judge: Option<judge::Open>,
     /// The Report dialog, while it is open over the Job.
     reporting: Option<report::Report>,
+    /// The Draw sketch sheet is up, over the Job's pad.
+    sketch_open: bool,
+    pad: Option<sketch_pad::Pad>,
     /// The Teach panel, while it is open, Fleet's refusal of its last call, and the count that tells its answers apart.
     teach: Option<teach::Open>,
     teach_said: Option<SharedString>,
@@ -313,6 +317,8 @@ impl JobView {
             fork: fork::Fork::default(),
             judge: None,
             reporting: None,
+            sketch_open: false,
+            pad: None,
             teach: None,
             teach_said: None,
             teach_clock: 0,
@@ -707,6 +713,7 @@ impl Render for JobView {
             .children(self.render_teach(cx))
             .children(self.render_review(&id, window, cx))
             .children(self.render_report(window, cx))
+            .children(self.render_sketch(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

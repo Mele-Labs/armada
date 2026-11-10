@@ -144,6 +144,13 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::CmdPress => {
+            let at = find(step, window, cx)?.bounds.center();
+            let modifiers = Modifiers { platform: true, ..Modifiers::default() };
+            window.dispatch_event(PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1, first_mouse: false }), cx);
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers, click_count: 1 }), cx);
+            Ok(())
+        }
         Verb::Gone => {
             // The first drawn, which is the head's where the thread draws a twin below it.
             let role = role_named(step.target.role).ok_or_else(|| Missed(format!("no role named {}", step.target.role)))?;

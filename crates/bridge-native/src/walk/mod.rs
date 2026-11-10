@@ -30,6 +30,8 @@ pub enum Verb {
     Look,
     /// A press in the middle of the target.
     Press,
+    /// A press in the middle of the target with ⌘ held, which adds it to what is picked.
+    CmdPress,
     /// A press in the middle of the target, which is gone once it is pressed: the step is reached
     /// when the target is no longer drawn.
     Gone,
@@ -680,6 +682,19 @@ pub static WALKS: &[Walk] = &[
             step("⇧⌘F pins and the panel stays", Verb::Key("shift-cmd-f"), "menuitem", "Unpin"),
             step("Esc shuts the panel", Verb::Key("escape"), "option", "Fix the merge line freshness chips"),
             step("Esc shuts the palette; the list is as it was and the keys are back where they were", Verb::Key("escape"), "textbox", "Message"),
+            step("The pencil-ruler under the box opens a sheet to draw a sketch on", Verb::Open("button", "Draw sketch"), "dialog", "Draw a sketch"),
+            step("Add a box puts one in the middle of the pad", Verb::Open("button", "Add a box"), "group", "An empty box"),
+            step("Words go in it", Verb::Type("The list"), "textbox", "The words in this box"),
+            step("Another finds room beside it", Verb::Open("button", "Add a box"), "group", "An empty box"),
+            step("And holds its own words", Verb::Type("The thread"), "textbox", "The words in this box"),
+            step("A press picks a box; Join and Remove hover over it, Join waiting for a second", Verb::Press, "group", "Box: The list"),
+            step("\u{2318} and a press picks the second too", Verb::CmdPress, "group", "Box: The thread"),
+            step("Join draws an arrow from the first to the second", Verb::Press, "button", "Join"),
+            step("Draw puts the pen down", Verb::Open("button", "Draw"), "group", "Where the pen draws"),
+            step("A drag draws by hand, and Undo takes the last line back", Verb::Select("group", "Where the pen draws"), "button", "Undo"),
+            step("Fit puts the whole drawing in view", Verb::Open("button", "Fit"), "group", "Sketch for the message"),
+            step("Attach sketch puts it in the box's tray as a chip, and the pad starts again", Verb::Open("button", "Attach sketch"), "listitem", "The list"),
+            step("Enter sends it with the message, as a picture", Verb::Key("enter"), "region", "Your message"),
             step("A Job with its plan approved: Now holds the group at work and the open tasks; a finished task is not listed", Verb::Press, "row", "Native Bridge foundation"),
             step("Open holds the groups still to come", Verb::Look, "button", "Plan group: Draw the thread"),
             step("A press unfolds a group to its tasks", Verb::Open("button", "Plan group: Draw the thread"), "button", "Plan group: Draw the thread"),

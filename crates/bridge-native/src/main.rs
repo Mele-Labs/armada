@@ -47,6 +47,8 @@ mod notify;
 mod palette;
 mod revert;
 mod runtime_file;
+mod sketch;
+mod sketch_png;
 mod titlebar;
 mod transport;
 mod voice;

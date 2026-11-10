@@ -170,6 +170,8 @@ fn preview_of(media_type: &str, bytes: &[u8]) -> Option<Arc<Image>> {
 #[derive(Default)]
 pub(super) struct JobBox {
     pub files: Vec<Attached>,
+    /// Sketches drawn for this message and waiting to go.
+    pub drawn: Vec<crate::sketch::DrawnSketch>,
     pub mode: Option<SessionMode>,
     pub model: Option<Option<String>>,
     pub effort: Option<Option<String>>,
@@ -225,6 +227,11 @@ impl Composer {
 
     pub fn files_of(&self, id: &str) -> &[Attached] {
         self.boxes.get(id).map_or(&[], |one| one.files.as_slice())
+    }
+
+    /// The box holds something besides words: a file, or a sketch waiting to go.
+    pub fn holds(&self, id: &str) -> bool {
+        self.boxes.get(id).is_some_and(|one| !one.files.is_empty() || !one.drawn.is_empty())
     }
 }
 
@@ -440,7 +447,7 @@ impl JobView {
             return;
         }
         let kept = self.kept(cx);
-        if kept.text.trim().is_empty() && self.composer.files_of(&id).is_empty() {
+        if kept.text.trim().is_empty() && !self.composer.holds(&id) {
             return;
         }
         if self.paused(&id, cx) {
@@ -469,12 +476,16 @@ impl JobView {
     /// The words are in the thread this frame; Fleet's row replaces them when it arrives, and a
     /// refusal puts them back with Fleet's reason. `line` is a quick line sent beside the draft.
     fn deliver(&mut self, id: SharedString, line: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
-        let (kept, files) = match &line {
-            Some(text) => (Kept { text: text.clone(), tags: Vec::new() }, Vec::new()),
-            None => (self.kept(cx), std::mem::take(&mut self.composer.box_of(&id).files)),
+        let (kept, files, drawn) = match &line {
+            Some(text) => (Kept { text: text.clone(), tags: Vec::new() }, Vec::new(), Vec::new()),
+            None => {
+                let kept = self.kept(cx);
+                let held = self.composer.box_of(&id);
+                (kept, std::mem::take(&mut held.files), std::mem::take(&mut held.drawn))
+            }
         };
         let text = kept.text.trim().to_string();
-        if text.is_empty() && files.is_empty() {
+        if text.is_empty() && files.is_empty() && drawn.is_empty() {
             return;
         }
         self.composer.next_key += 1;
@@ -495,12 +506,17 @@ impl JobView {
                 page.pending.push(Pending { key, text: text.clone(), seen });
                 let job = id.clone();
                 let sent_files = files.clone();
+                let sent_drawn = drawn.clone();
                 let message = SendSessionMessage { session_id: Self::session_id(&id), text: text.clone(), attachments: Vec::new(), mentions };
                 cx.spawn_in(window, async move |this, cx| {
-                    let uploads = cx.background_executor().spawn(async move { encoded_files(sent_files) }).await;
+                    // A sketch goes as its picture, drawn off the main thread with the files' bytes (`uploadOfSketch`).
+                    let uploads = cx
+                        .background_executor()
+                        .spawn(async move { encoded_files(sent_files).into_iter().chain(sent_drawn.iter().map(crate::sketch_png::upload)).collect::<Vec<_>>() })
+                        .await;
                     let _ = this.update_in(cx, |this, window, cx| {
                         let body = SendSessionMessageBody { message: SendSessionMessage { attachments: uploads, ..message }, aim: None };
-                        let back = (kept, files, line.is_some());
+                        let back = (kept, files, drawn, line.is_some());
                         let done: Done = Box::new(move |this, answer, window, cx| {
                             if let Err(why) = answer {
                                 this.refused(&job, key, back, why.into(), window, cx);
@@ -524,6 +540,7 @@ impl JobView {
                             files: files
                                 .iter()
                                 .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
+                                .chain(drawn.iter().map(|one| SentFile { id: one.id.clone(), name: format!("{}.png", one.title), media_type: "image/png".into() }))
                                 .collect(),
                             tags: mentions,
                             notice: None,
@@ -543,14 +560,16 @@ impl JobView {
 
     /// Fleet refused the words: they go back in the box unless something was typed since, with their
     /// chips and files, and its reason stands over the box.
-    fn refused(&mut self, id: &SharedString, key: u64, back: (Kept, Vec<Attached>, bool), why: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let (kept, files, was_line) = back;
+    fn refused(&mut self, id: &SharedString, key: u64, back: (Kept, Vec<Attached>, Vec<crate::sketch::DrawnSketch>, bool), why: SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let (kept, files, drawn, was_line) = back;
         if let Some(page) = self.pages.get_mut(id) {
             page.pending.retain(|one| one.key != key);
             page.refused = Some(why);
         }
         if !was_line {
-            self.composer.box_of(id).files.splice(0..0, files);
+            let held = self.composer.box_of(id);
+            held.files.splice(0..0, files);
+            held.drawn.splice(0..0, drawn);
             if self.shown.as_ref() == Some(id) {
                 if self.composer.input.read(cx).value().is_empty() {
                     self.set_box(&kept, window, cx);
@@ -980,7 +999,7 @@ impl JobView {
 
     pub(super) fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let files = self.composer.files_of(id);
-        if files.is_empty() {
+        if !self.composer.holds(id) {
             return None;
         }
         let tiles = files.iter().map(|one| {
@@ -1050,7 +1069,8 @@ impl JobView {
                     .px(look.length(token::SPACE_4))
                     .pt(look.length(token::SPACE_3))
                     .overflow_x_scroll()
-                    .children(tiles),
+                    .children(tiles)
+                    .children(self.drawn_tiles(id, look, cx)),
                 Role::Group,
                 "Attached",
             )
@@ -1063,7 +1083,7 @@ impl JobView {
         let look = cx.look();
         let refused = self.pages.get(id).and_then(|page| page.refused.clone());
         let kept_empty = self.composer.input.read(cx).value().trim().is_empty();
-        let nothing = kept_empty && self.composer.files_of(id).is_empty();
+        let nothing = kept_empty && !self.composer.holds(id);
         let focused = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let (mode, ..) = self.tuning(id, cx);
         let mode_said: SharedString = match mode {
@@ -1128,6 +1148,7 @@ impl JobView {
             .child(mode_button)
             .child(tune_button)
             .child(attach)
+            .child(self.sketch_button(look, cx))
             .child(div().flex_1())
             .child(div().id("context-figure").flex_none())
             .child(self.render_talk(look, cx))
