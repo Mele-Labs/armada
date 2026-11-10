@@ -1472,7 +1472,7 @@
    drawn empty, so nothing moves. */
 .pr-review-tab-view__head {
   display: grid;
-  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr) auto var(--h-control);
+  grid-template-columns: auto minmax(0, 1fr) auto var(--h-control);
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-1) var(--space-3);
@@ -1486,10 +1486,10 @@
   align-items: center;
   gap: var(--space-1);
 }
-/* A row of their own under the file's place and path, so a long list of tools never takes the path's width. */
+/* A row of their own above the file's place, so a long list of tools never takes the title's width. */
 .pr-review-tab-view__tools {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 1;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
@@ -1507,19 +1507,22 @@
 }
 .pr-review-tab-view__title {
   min-width: 0;
-  max-width: 48ch;
   overflow: hidden;
   color: var(--fg-default);
   font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* An eyebrow on the file's card. */
 .pr-review-tab-view__path {
+  display: block;
   min-width: 0;
+  margin-bottom: var(--space-1);
   overflow: hidden;
-  color: var(--fg-default);
+  color: var(--fg-muted);
   font-family: var(--font-mono);
-  font-weight: var(--weight-medium);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
