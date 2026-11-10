@@ -34,12 +34,12 @@ const start = vi.fn(
   async (_tag?: unknown, _root?: string, _request?: string, _tuning?: unknown) => "01SESSION",
 );
 const send = vi.fn();
-const searchFiles = vi.fn(async (query: string, _manifestId?: string) =>
+const filesNamed = async (query: string, _manifestId?: string) =>
   [
     "apps/desktop/src/renderer/src/sessions.tsx",
     "README.md",
-  ].filter((one) => one.toLowerCase().includes(query.toLowerCase())),
-);
+  ].filter((one) => one.toLowerCase().includes(query.toLowerCase()));
+const searchFiles = vi.fn(filesNamed);
 const NO_SESSIONS: Session[] = [];
 const draft = {
   get: () => NO_SESSIONS,
@@ -105,7 +105,8 @@ beforeEach(() => {
   forgetAllKept();
   start.mockClear();
   send.mockClear();
-  searchFiles.mockClear();
+  searchFiles.mockReset();
+  searchFiles.mockImplementation(filesNamed);
   (
     window as unknown as {
       armada: unknown;
@@ -156,6 +157,85 @@ test("with a repository chosen, @ offers its matching files and choosing one wri
     .toBeVisible();
   await userEvent.keyboard("{Enter}");
   await expect.element(request).toHaveValue("look at @apps/desktop/src/renderer/src/sessions.tsx ");
+});
+
+test("a bare @ asks for files at once, so the popup opens already filled", async () => {
+  mount([
+    armada,
+  ]);
+  await expect.poll(() => held).toBeDefined();
+  held?.openNew(armada.root);
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Request",
+      }),
+    )
+    .toHaveFocus();
+  await userEvent.keyboard("look at @");
+  await expect.poll(() => searchFiles.mock.calls.some(([query]) => query === "")).toBe(true);
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: /README\.md/,
+      }),
+    )
+    .toBeVisible();
+});
+
+test("a file answer that arrives after a newer query was asked is dropped", async () => {
+  let release: (paths: string[]) => void = () => undefined;
+  const late = new Promise<string[]>((resolve) => {
+    release = resolve;
+  });
+  searchFiles.mockImplementation(async (query: string) =>
+    query === "s"
+      ? late
+      : [
+          "docs/newer.md",
+        ],
+  );
+  mount([
+    armada,
+  ]);
+  await expect.poll(() => held).toBeDefined();
+  held?.openNew(armada.root);
+  await expect
+    .element(
+      page.getByRole("textbox", {
+        name: "Request",
+      }),
+    )
+    .toHaveFocus();
+  await userEvent.keyboard("look at @s");
+  await expect.poll(() => searchFiles.mock.calls.some(([query]) => query === "s")).toBe(true);
+  await userEvent.keyboard("e");
+  await expect.poll(() => searchFiles.mock.calls.some(([query]) => query === "se")).toBe(true);
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: /newer\.md/,
+      }),
+    )
+    .toBeVisible();
+  release([
+    "docs/older.md",
+  ]);
+  await new Promise((resume) => setTimeout(resume, 100));
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: /older\.md/,
+      }),
+    )
+    .not.toBeInTheDocument();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: /newer\.md/,
+      }),
+    )
+    .toBeVisible();
 });
 
 test("a repository with no Manifest is named by its implicit id, so @ still offers its files", async () => {
