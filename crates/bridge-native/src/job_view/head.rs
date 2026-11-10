@@ -806,7 +806,7 @@ impl JobView {
                 .line_height(look.length(token::LEADING_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(title.to_uppercase())
+                .child(title.clone())
                 .tooltip(tip(title.clone()))
                 .into_any_element(),
         };
