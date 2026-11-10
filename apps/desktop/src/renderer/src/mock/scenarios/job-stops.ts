@@ -1,4 +1,4 @@
-// What Bridge says about a Job that is working, waiting or stopped, and what Fleet is doing for it. Thirteen Jobs: a turn over with a command or a subagent still going, five stopped (nudged and stopped again, tasks open, a repair Job on one, no repair while Fleet is unhealthy, its
+// What Bridge says about a Job that is working, waiting or stopped, and what Fleet is doing for it. Twelve Jobs: a turn over with a command or a subagent still going, five stopped (nudged and stopped again, tasks open, a repair on one, no repair while Fleet is unhealthy, its
 // process ended, Fleet was down), one at work on a call, one stuck on a call it has not come back from, one held open by its pull request, one paused, and
 // one idle whose process Fleet let go. Fleet's own acts stand in Now while they run, in Open while they are to come, and in Done once they are over.
 // Draft fields only: nothing in Fleet carries them yet. The walk `jobStops` plays it.
@@ -142,7 +142,7 @@ const retry: Session = {
   ],
 };
 
-// 2. Its process ended and the restart failed, so Fleet started a repair Job. Nothing is asked of him.
+// 2. Its process ended and the restart failed, so Fleet is repairing it. Nothing is asked of him.
 const phone: Session = {
   ...BASE,
   id: "js-phone",
@@ -189,28 +189,7 @@ const phone: Session = {
   ],
 };
 
-// The repair Job Fleet started for it, at work.
-const repairing: Session = {
-  ...BASE,
-  id: "js-repair",
-  title: "Repair: Tell the phone what holds a Job",
-  turn: {
-    state: "working",
-  },
-  standing: "working",
-  lastTurnAt: ago(1),
-  rows: [
-    said("js-r-a", "14:23:00", "The agent came up without its tools. Reading the restart's log."),
-  ],
-  attachments: [
-    {
-      kind: "started_by",
-      id: "js-phone",
-    },
-  ],
-};
-
-// Its process ended, the restart failed, and Fleet is unhealthy, so it started no repair Job. This one reaches him.
+// Its process ended, the restart failed, and Fleet is unhealthy, so it started no repair. This one reaches him.
 const unhealthy: Session = {
   ...BASE,
   id: "js-unhealthy",
@@ -584,7 +563,7 @@ const audit: Session = {
 
 const base = holding(
   "jobStops",
-  "Thirteen Jobs: five stopped for their reasons, one with a repair Job at work, two that reach him, one at work on a call, one running a command, one on a subagent, one stuck on a call, one held by its pull request, one paused, one idle; with what Fleet did for each",
+  "Twelve Jobs: five stopped for their reasons, one with a repair at work, two that reach him, one at work on a call, one running a command, one on a subagent, one stuck on a call, one held by its pull request, one paused, one idle; with what Fleet did for each",
 );
 
 export const jobStops: Scenario = {
@@ -600,7 +579,6 @@ export const jobStops: Scenario = {
           audit,
           unhealthy,
           phone,
-          repairing,
           retry,
           everything,
           command,
