@@ -62,10 +62,12 @@ const GLYPH: Record<Row["glyph"], LucideIcon> = {
   terminal: Terminal,
 };
 
-/** How many file and numbered rows are offered at once, and how long a typed query rests before it is asked. */
+/** How many file and numbered rows are offered at once, and how long a typed number rests before it is looked up. */
 const FILE_ROWS = 5;
 const NUMBERED_ROWS = 6;
 const REST_MS = 150;
+/** How long letters typed after `@` rest before files are asked for. Fleet answers from memory, so this only spares a request per keystroke; a bare `@` does not rest. */
+const FILE_REST_MS = 40;
 
 const isNumber = (id: string): boolean => /^\d+$/.test(id);
 
@@ -265,15 +267,17 @@ export function useAtMenu(
   }
 
   const fileQuery =
-    mention?.trigger === "@" && mention.query.trim() !== "" ? mention.query : undefined;
+    mention?.trigger === "@" && (mention.query === "" || mention.query.trim() !== "")
+      ? mention.query
+      : undefined;
   useEffect(() => {
     const ask = reads.current.searchFiles;
     if (fileQuery === undefined || ask === undefined) return setFiles([]);
+    // A newer query ends this effect, so an answer that comes back after it is dropped.
     let live = true;
-    const timer = window.setTimeout(
-      () => void ask(fileQuery).then((paths) => live && setFiles(paths)),
-      REST_MS,
-    );
+    const send = () => void ask(fileQuery).then((paths) => live && setFiles(paths));
+    if (fileQuery === "") send();
+    const timer = fileQuery === "" ? undefined : window.setTimeout(send, FILE_REST_MS);
     return () => {
       live = false;
       window.clearTimeout(timer);

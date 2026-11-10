@@ -1,0 +1,12 @@
+[operations.get_request_run]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "One run of a saved request in full, as list_request_runs lists it: the request exactly as sent (method, address, headers and body, every {{name}} filled but a secret, which stays {{name}}) and what came back (status, milliseconds, size, content type, headers, body and any error). Through your door the body is cut at 32 KiB and no set-cookie header is answered"
+notes = """
+Since 10 Nov 2026. `GET /requests/runs/one?repository=&session_id=&id=`. `repository` and `session_id` place the repository as `list_request_runs` does. `id` is a run's `id`, required. A 404 `fleet.no_such_request_run` where the repository keeps no such run, which includes one that was dropped past the newest 200 of its request, or that belongs to another repository. A 422 `api.request_run_refused` where `id` is missing, and a 422 `fleet.request_run_refused` where it is none of Fleet's.
+
+Answers `RequestRun` `{ id, at, by, job?, collection, request, environment?, sent, answer }`. `sent` is `{ method, url, headers, body? }`. `answer` is `{ status?, ms, headers, body, truncated, bytes, content_type?, error? }`: `bytes` is what the answer weighed as it came and `truncated` says `body` is less, which it is where the answer ran past 256 KiB. Through the agent's door `body` is cut at 32 KiB, with `truncated` saying so, and no `set-cookie` header is answered, whoever sent the run, as `send_request` drops it for an agent.
+
+**A secret is `{{name}}` in every field.**
+"""

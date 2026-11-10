@@ -195,6 +195,8 @@ mod requester;
 mod requests;
 /// `send_requests`: one template sent for each body file and each value, answered a line each.
 mod requests_batch;
+/// A saved request's runs, kept after the Job that sent them ends.
+mod request_runs;
 /// A Judge on demand: a read-only call on one artifact of a Job, answered with notes.
 mod judge;
 /// What an agent says about one pull request, and the review tools it is asked with.
@@ -548,6 +550,9 @@ pub use rehearsal::{
 };
 pub use rehearsal::{
     CheckoutVerify, StartCheckoutVerify, VerifyGroup, VerifyStep, VerifyStepState,
+};
+pub use request_runs::{
+    RequestRun, RequestRunAnswer, RequestRunJob, RequestRunSent, RequestRunStatus, RequestRunSummary, RequestRuns,
 };
 pub use requests_batch::{RequestLine, RequestTemplate, RequestVary, RequestsSent, SendRequests};
 pub use requests::{

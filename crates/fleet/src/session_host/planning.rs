@@ -24,7 +24,7 @@ use crate::rail;
 use crate::rail_keeping::rail_read;
 use crate::session_host::asking::answers_a_question;
 use crate::session_issues::ISSUE;
-use crate::session_host::document_answers::is_document;
+use crate::session_host::document_answers::{in_front_of_him, is_document};
 use crate::session_host::walking;
 use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
 
@@ -68,14 +68,16 @@ pub(crate) struct Holds {
     pub since: Instant,
 }
 
-/// The windows that hold a pending plan back. **Only a window he can see or still owes holds it.**
-/// One a newer window of its page replaced, or whose walk item he dismissed, holds nothing. Every
+/// The windows and pages that hold a pending plan back. **Only a window or page he can see or still owes
+/// holds it.** One a newer window of its page replaced, or whose walk item he dismissed, holds nothing,
+/// and neither does a page he dismissed or the Job deleted (`in_front_of_him`), the test its card makes. Every
 /// other window he has not approved since it was last shown holds it. **An Approve stands until the
 /// page is shown again**: a file write marks every window changed, and the Job goes on writing after
 /// he approves, so a window he approved holds nothing however it was marked since. One he has not
 /// approved and was changed waits to be shown again.
-/// A walk the plan names holds it until he approves it. **A window he answered with words, not an
-/// Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to them, and
+/// A walk the plan names holds it until he approves it, **unless it was shown and is no longer in front
+/// of him**: dismissed, withdrawn or replaced as a window's is. One never shown still holds, the Job owes it.
+/// **A window he answered with words, not an Approve, before the plan was recorded holds nothing**: the plan is the Job's answer to them, and
 /// showing the window again after the recording makes it hold again. His answer to one of the Job's
 /// questions is not such words: it answers the question, not the walk.
 pub(crate) fn plan_holds(
@@ -130,17 +132,27 @@ pub(crate) fn plan_holds(
         }
         match page.detail.get(DOCUMENT_SETTLED_AT) {
             Some(settled) if page.detail.contains_key(DOCUMENT_SETTLED) => since = since.max(Instant::carried(settled)),
-            _ => held_by.push(PlanHold { url: page.target.clone(), why: PlanHoldWhy::Unapproved }),
+            _ if in_front_of_him(page, dismissed) => held_by.push(PlanHold { url: page.target.clone(), why: PlanHoldWhy::Unapproved }),
+            _ => {}
         }
     }
     if let Some(walk) = walk {
         match walking::walk_approval(rows, walk) {
             Some(approved) => since = since.max(approved.clone()),
             None if held_by.iter().any(|one| one.url == walk) => {}
+            // Shown and then dismissed or withdrawn, or replaced by a newer window of its page: no card of his holds it.
+            None if walking::walk_shown_at(rows, walk).is_some() && !walk_in_front_of_him(rows, walk, dismissed) => {}
             None => held_by.push(PlanHold { url: walk.to_string(), why: PlanHoldWhy::Walk }),
         }
     }
     Holds { held_by, since }
+}
+
+/// Whether the window `walk` names, shown, is still one he can see or owes: its walk item not dismissed (a withdrawal
+/// dismisses it) and no newer window of its page replaced it. Closing it is not leaving it, as the walk item stays.
+fn walk_in_front_of_him(rows: &[SessionRow], walk: &str, dismissed: &[String]) -> bool {
+    let window = walking::window_of(rows, walk).unwrap_or(walk);
+    !dismissed.contains(&format!("walk:{window}")) && !walking::replaced(rows, window)
 }
 
 /// Whether he wrote to the Job, other than an Approve or an answer to one of its questions, after

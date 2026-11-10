@@ -7,7 +7,7 @@
 **Kind:** Concept.
 
 Since 19 Oct 2026; collections and environments since 21 Oct 2026.
-The wire is `docs/practices/protocol.md`, *Requests*, and the seven operations in `crates/ipc/operations/`: `get_requests`, `save_request_collection`, `save_request_environment`, `delete_request_environment`, `save_request_to_collection`, `send_request` and `send_requests`.
+The wire is `docs/practices/protocol.md`, *Requests*, and the nine operations in `crates/ipc/operations/`: `get_requests`, `save_request_collection`, `save_request_environment`, `delete_request_environment`, `save_request_to_collection`, `send_request`, `send_requests`, `list_request_runs` and `get_request_run`.
 Bridge's panel is `apps/desktop/src/renderer/src/shared-panel/requests.tsx`.
 
 ## Who uses it
@@ -107,6 +107,21 @@ Where both files name the same collection by `id`, or the same environment by `n
 An agent that saves into the repository's collection gets a copy of it as the person's own, which then hides the original.
 Commit to repository and Share carry a secret's name and never its value (`docs/concepts/kit.md`, *Commit to repository* and *Share*).
 Commit to repository copies the chosen collections by `id` and environments by `name` into the branch's `.armada/requests.toml`, and Share makes them one `requests` piece, added into the colleague's own file with each secret named and not set.
+
+## Runs
+
+> **Rule.** Every send of a saved request is kept as a run, whoever sent it, and a run outlives the Job.
+> Why: a request's history answers whether it passed yesterday, and the thread that held the row is gone when the Job ends.
+
+A run is the request as sent, with every `{{name}}` filled but a secret's, and the answer: status, time, size, content type, headers, body and any error.
+A secret shows as `{{name}}` in a run, as it does everywhere else.
+Fleet keeps a request's newest 200 runs, and the oldest goes when a new one comes.
+A request of its own method and address keeps none, and neither does a `send_requests` batch.
+
+| Who reads | Reads |
+|---|---|
+| The person | The list, filtered by who sent it and by status, and one run whole |
+| A Job's agent | The same through `list_request_runs` and `get_request_run`, with no `set-cookie` and a body cut at 32 KiB |
 
 ## In a thread
 

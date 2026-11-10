@@ -229,6 +229,20 @@ An empty array on the wire is the same as an omitted one, so the mirror marks ea
 The block tells the best three candidates, the tabs of `selected` and no button, and the nearest three of the component chain.
 No candidate is no line, so a note nothing matched does not say so; the answer still carries all five, which Bridge shows.
 
+**A saved request keeps its runs**, since 10 Nov 2026.
+Every send of a saved request through `send_request` is kept as a run, the owner's from Bridge and an agent's, whether or not anything answered.
+It is kept in `request_runs` in Fleet's store under the repository and the collection's and request's own ids, so it is written with no Job's thread open and read after the Job has ended.
+**A request keeps its newest 200**, `store::RUNS_KEPT`, chosen and not measured, and the write that goes past drops the oldest in the same transaction.
+A request's own method and address, a send refused before it went and a `send_requests` batch keep none, since a batch's template names no saved request.
+A run holds the request as sent (method, address, headers and body, every `{{name}}` filled but a secret's) and the answer (status, milliseconds, headers, body cut at 256 KiB whatever `pick` and `body_inline` asked of the reply, the bytes it weighed, and any error).
+**A secret is `{{name}}` in every field of a run**, hidden before the run is written, as the thread's row is.
+The agent's door answers a run as it answers its own send: no `set-cookie`, whoever sent it, and a body cut at 32 KiB.
+A run is read inside one repository, so another repository's run id is a 404.
+A store that will not keep a run does not fail the send: the answer's `note` says the run was not kept.
+`job` is named from the ledger as it stands, and from the title kept with the run where the ledger no longer has the Job.
+The ids of a run are opaque to a caller and rise with each run kept.
+The protocol ID moves with the files named at the head of this section and there is no number to take: `armada need` has nothing to order.
+
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 Were a pair to meet anyway, a Fleet without the route answers 404, which Bridge words as a send that failed.
 
@@ -786,6 +800,8 @@ Bridge's half is `packages/protocol/src/requests.ts` and the `requested` and `sa
 | `save_request_to_collection` (`POST /requests/collections/request`, `Yes`) | An agent sends | `SaveRequestToCollection` `{ session_id?, collection, request }`, `collection` an id or a name and `request` a `RequestToSave` `{ name, method, url, headers[], body? }`; answers `RequestSaved` `{ collection_id, request_id }` |
 | `send_request` (`POST /requests/send`, `Yes`) | Bridge or an agent sends, Fleet answers 200 | `SendRequest` `{ session_id?, repository?, saved? \| method, url, collection?, environment?, headers[], body? \| body_file? }`, `saved` being `{ collection, request }`; answers `RequestSent` `{ url, status?, ms, headers[], body, truncated, error?, note?, saved? }`, `saved` a `RequestBodySaved` `{ path, bytes, truncated }` on an agent's send alone. 422 `fleet.request_refused`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
 | `send_requests` (`POST /requests/send_many`, `Yes`) | An agent sends one template for each body file and each value, Fleet answers 200 | `SendRequests` `{ session_id?, repository?, environment?, template { method, url, headers[], collection? }, body_files[], vary? { name, values[] }, concurrency?, stop_after? }`; answers `RequestsSent` `{ folder, lines[], note? }`, each line `{ name, status?, ms, saved?, error?, skipped? }`. 422 `fleet.request_refused` or `fleet.requests_unplaced`, 500 `fleet.request_secret_unkept` or `fleet.request_unsent` |
+| `list_request_runs` (`GET /requests/runs?repository=&session_id=&collection=&request=&by=&status=&before=&limit=`, `Yes`) | Bridge or an agent reads | `RequestRuns` `{ runs[], next? }`, each run a `RequestRunSummary` `{ id, at, by, job?, method, url, status?, ms, error?, summary }`, `job` a `RequestRunJob` `{ id, title? }`. `collection` and `request` are ids, required. `by` is `owner` or `agent`, `status` is `2xx`, `3xx`, `4xx`, `5xx` or `failed`, `limit` is 50 and at most 200, `before` is a run's `id`. 422 `fleet.requests_unplaced`, `api.request_run_refused` or `fleet.request_run_refused` |
+| `get_request_run` (`GET /requests/runs/one?repository=&session_id=&id=`, `Yes`) | Bridge or an agent reads one run | `RequestRun` `{ id, at, by, job?, collection, request, environment?, sent { method, url, headers[], body? }, answer { status?, ms, headers[], body, truncated, bytes, content_type?, error? } }`. 404 `fleet.no_such_request_run`, 422 `api.request_run_refused` or `fleet.request_run_refused` |
 | `SessionRow::Requested` (`kind: "requested"`) | Fleet writes, Bridge reads | `{ id, at, by, method, url, environment?, headers?, body?, status?, ms, error?, response, truncated? }`, `by` one of `owner`, `agent`; `cookie_host` and `kept_header` are gone |
 | `SessionRow::Saved` (`kind: "saved"`) | Fleet writes, Bridge reads | `{ id, at, name, collection, collection_id, request }`, `request` the saved request's id |
 
@@ -826,6 +842,7 @@ Were a pair to meet anyway, a Fleet without the routes answers 404, which Bridge
 **The event stream.** A `requested` or `saved` row is published as `session.row` like any other, and nothing new.
 The open risk below is unchanged by this rewrite: a `requested` row still carries up to 16 KiB of answer and 64 KiB of request body, and a `saved` row is small.
 The saved body goes to a file and never to the stream, so it leaves the risk where it was.
+A run is written to the store and not published, so the two reads add nothing to the stream and leave the open risk where it was.
 
 ## One file a Job wrote, as its change: `get_session_file_change`
 

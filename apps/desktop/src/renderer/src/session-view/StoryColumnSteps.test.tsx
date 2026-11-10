@@ -722,7 +722,6 @@ test("with an approved plan, an item Fleet matched to a plan task draws no row o
     },
   });
   expect(subjects(host)).toEqual([
-    "Read the retention setting",
     "Document the retention",
   ]);
   // The plan's own row says it, once.
@@ -731,7 +730,7 @@ test("with an approved plan, an item Fleet matched to a plan task draws no row o
   const walk = zone(host, "Walk");
   expect(walk.contains(agentList(host))).toBe(true);
   expect(walk.textContent!.indexOf("Live work")).toBeLessThan(
-    walk.textContent!.indexOf("Read the retention setting"),
+    walk.textContent!.indexOf("Document the retention"),
   );
   expect(host.querySelectorAll("ul.sv-agent-tasks")).toHaveLength(1);
 });
@@ -777,7 +776,6 @@ test("with no plan, the whole list draws under the current step", () => {
     },
   });
   expect(subjects(host)).toEqual([
-    "Read the retention setting",
     "Name the live task",
     "Document the retention",
   ]);
@@ -795,13 +793,12 @@ test("with no workflow, the list draws under the rows of Now, ahead of the plan'
     },
   });
   expect(subjects(host)).toEqual([
-    "Read the retention setting",
     "Document the retention",
   ]);
   const now = zone(host, "Now");
   const beats = now.querySelector('ul[aria-label="Now"]')!;
   expect(beats.nextElementSibling).toBe(agentList(host));
-  expect(now.textContent!.indexOf("Read the retention setting")).toBeLessThan(
+  expect(now.textContent!.indexOf("Document the retention")).toBeLessThan(
     now.textContent!.indexOf("Live work"),
   );
 });
@@ -850,7 +847,7 @@ test("with the turn idle the list still draws, and the task being done does not 
   expect(doing(running)!.hasAttribute("data-pulsing")).toBe(true);
 });
 
-test("with no list reported, the build record's tasks draw in its place", () => {
+test("with no list reported, the build record's open and working tasks draw in its place, and a done one does not", () => {
   const tasks: AgentTask[] = [
     {
       id: "a",
@@ -886,7 +883,6 @@ test("with no list reported, the build record's tasks draw in its place", () => 
       },
     });
     expect(subjects(host)).toEqual([
-      "Read the runner",
       "Rename the files",
       "Update the tests",
     ]);
@@ -895,7 +891,6 @@ test("with no list reported, the build record's tasks draw in its place", () => 
         ...agentList(host).querySelectorAll(".armada-task-mark"),
       ].map((one) => one.getAttribute("data-state")),
     ).toEqual([
-      "done",
       "working",
       "open",
     ]);
