@@ -22,7 +22,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
 use crate::fleet::FleetConnection;
-use crate::job_view::{JobSide, JobView};
+use crate::job_view::{JobJudge, JobSide, JobView};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -1433,6 +1433,8 @@ pub struct JobsScreen {
     view: Entity<JobView>,
     /// The open Job's right column: Open, Done and Deferred over Now.
     side: Entity<JobSide>,
+    /// The open Job's Judge pane, on the right of everything while it is open.
+    judge: Entity<JobJudge>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
@@ -1453,6 +1455,17 @@ impl JobsScreen {
         let remember = list.read(cx).remember;
         let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
         let side = cx.new(|cx| JobSide::new(view.clone(), cx));
+        let judge = cx.new(|cx| JobJudge::new(view.clone(), cx));
+        // The pane comes and goes with the view's state, so the deck draws again when it does.
+        let mut judged = false;
+        cx.observe(&view, move |_, view, cx| {
+            let now = view.read(cx).judge_pane_open();
+            if now != judged {
+                judged = now;
+                cx.notify();
+            }
+        })
+        .detach();
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
@@ -1471,7 +1484,7 @@ impl JobsScreen {
                 }
             });
         })));
-        JobsScreen { list, view, side, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
+        JobsScreen { list, view, side, judge, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1601,6 +1614,7 @@ impl Render for JobsScreen {
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
+        let judged = self.view.read(cx).judge_pane_open();
         div()
             .key_context("deck")
             .track_focus(&self.within)
@@ -1630,8 +1644,27 @@ impl Render for JobsScreen {
                         this.resize(Some(to), window, cx);
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
-                    .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
-                    .child(div().h_full().flex_none().w(column * RIGHT).child(self.side.clone())),
+                    .child(
+                        // The Job's panes, and its Judge split off on the right of them at Electron's 0.62.
+                        div()
+                            .h_full()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .gap(look.length(token::GAP_PANEL))
+                            .child(
+                                div()
+                                    .h_full()
+                                    .min_w_0()
+                                    .flex()
+                                    .gap(look.length(token::GAP_PANEL))
+                                    .when(judged, |job| job.flex_grow(62.).flex_shrink(1.).flex_basis(gpui::px(0.)))
+                                    .when(!judged, |job| job.flex_1())
+                                    .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
+                                    .child(div().h_full().flex_none().w(column * RIGHT).child(self.side.clone())),
+                            )
+                            .children(judged.then(|| div().h_full().min_w_0().flex_grow(38.).flex_shrink(1.).flex_basis(gpui::px(0.)).child(self.judge.clone()))),
+                    ),
             )
             .child(crate::merge_strip::strip(window, cx))
             .child(self.palette.clone())

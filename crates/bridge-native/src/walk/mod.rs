@@ -686,6 +686,12 @@ pub static WALKS: &[Walk] = &[
             step("Done holds the groups finished", Verb::Open("tab", "Job column: Done"), "button", "Plan group: Read the Jobs from Fleet"),
             step("Deferred holds what the agent kept for later: Remind, Deferred and Not deferred on each", Verb::Open("tab", "Job column: Deferred"), "button", "Not deferred"),
             step("Ask for an update sends the update ask to the Job", Verb::Look, "button", "Ask for an update"),
+            step("Judge in the toolbelt opens the Judge on the right of the Job, with the last reading's notes", Verb::Open("button", "Judge"), "list", "Notes from the judge"),
+            step("The notes scroll above the box", Verb::Wheel("list", "Notes from the judge", 600), "group", "Finding: Nothing tests the list with more than one repository"),
+            step("Send to Job sends a note as your message; it reads as sent", Verb::Open("button", "Send to Job"), "group", "Finding sent: Nothing tests the list with more than one repository"),
+            step("The box asks what to verify", Verb::Type("nothing else moves the focus"), "textbox", "Verify that"),
+            step("Judge asks again: the pane shows what was asked, and the reading's shape while it reads", Verb::Open("button", "Ask the Judge"), "status", "Judge reading"),
+            step("The tab's × shuts the Judge, and the keys go back to the message box", Verb::Gone, "button", "Close Judge"),
         ],
     },
 ];

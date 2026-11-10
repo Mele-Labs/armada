@@ -330,6 +330,33 @@
    "manifest_id": "armada",
    "cwd": "/repos/armada",
    "title": "Native Bridge foundation",
+   "judge_readings": [
+    {
+     "id": "reading-whole",
+     "artifact": {
+      "kind": "job",
+      "id": "mock-02",
+      "title": "Native Bridge foundation"
+     },
+     "prompt": "the list keeps its place when a Job ends",
+     "state": "done",
+     "asked_at": "2026-11-09T15:02:00Z",
+     "finished_at": "2026-11-09T15:04:10Z",
+     "read": false,
+     "notes": [
+      {
+       "id": "w1",
+       "claim": "A Job that ends while focused moves the focus to the top of the list",
+       "where": "crates/bridge-native/src/jobs.rs:640"
+      },
+      {
+       "id": "w2",
+       "claim": "Nothing tests the list with more than one repository",
+       "where": "crates/bridge-native/src/jobs.rs"
+      }
+     ]
+    }
+   ],
    "activity": {
     "now": "Editing jobs.rs",
     "todos": [

@@ -38,7 +38,9 @@ mod teach;
 mod records;
 mod review;
 mod rows;
+mod judge_tab;
 mod side;
+pub use judge_tab::JobJudge;
 pub use side::JobSide;
 mod runs;
 mod talk;
@@ -130,6 +132,8 @@ struct Page {
     /// His marks on the plan, not sent yet, and the field open on it.
     plan_edit: plan_edit::EditState,
     side: side::SideState,
+    /// The whole Job's Judge pane, while it is open.
+    judge: Option<judge_tab::JudgePane>,
 }
 
 impl Page {
@@ -137,7 +141,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default() }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None }
     }
 }
 

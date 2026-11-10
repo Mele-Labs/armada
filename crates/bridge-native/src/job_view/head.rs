@@ -1047,41 +1047,51 @@ impl JobView {
         let pending = self.fleet.is_some();
         let overlay = self.head.overlays.get(id.as_str());
         let sending = |was: bool, now: bool| pending && was != now;
-        let acts = (hosted && live).then(|| {
+        // Land, Pause and Release act on a hosted Job that is live; the Judge reads any Job.
+        let hosted_acts = hosted && live;
+        let land_act = hosted_acts.then(|| {
             let land_tip: SharedString =
                 if overlay.and_then(|overlay| overlay.auto_land).is_some() && sending(job.auto_land, land) { "Sending".into() } else if land { "Auto land on".into() } else { "Auto land off".into() };
+            labelled(
+                icon_button(look, "act-land", "plane-landing", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
+                Role::Button,
+                "Auto land",
+            )
+        });
+        let pause_act = hosted_acts.then(|| {
             let paused_was = job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
             let pause_name: SharedString = if paused { "Resume".into() } else { "Pause".into() };
             let pause_tip: SharedString = if sending(paused_was, paused) { "Sending".into() } else if paused { "Paused".into() } else { "Pause".into() };
+            labelled(
+                icon_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, pause_tip, paused, false).on_click(cx.listener(
+                    move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
+                )),
+                Role::Button,
+                pause_name,
+            )
+        });
+        let release_act = hosted_acts.then(|| {
             let holds = !self.holds(id, cx).is_empty();
             let release_tip: SharedString = if holds { "Release or hand over everything the Job holds".into() } else { "The Job holds nothing".into() };
             labelled(
-                div()
-                    .id("job-acts")
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_1))
-                    .child(labelled(
-                        icon_button(look, "act-land", "plane-landing", land_tip, land, false).on_click(cx.listener(|this, _, window, cx| this.head_act("land", window, cx))),
-                        Role::Button,
-                        "Auto land",
-                    ))
-                    .child(labelled(
-                        icon_button(look, "act-pause", if paused { "play" } else { "circle-pause" }, pause_tip, paused, false).on_click(cx.listener(
-                            move |this, _, window, cx| this.head_act(if paused { "resume" } else { "pause" }, window, cx),
-                        )),
-                        Role::Button,
-                        pause_name,
-                    ))
-                    .child(labelled(
-                        icon_button(look, "act-release", "unplug", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
-                        Role::Button,
-                        "Release everything the Job holds",
-                    )),
-                Role::Toolbar,
-                "Job acts",
+                icon_button(look, "act-release", "unplug", release_tip, false, !holds).on_click(cx.listener(|this, _, window, cx| this.head_act("release", window, cx))),
+                Role::Button,
+                "Release everything the Job holds",
             )
         });
+        let acts = Some(labelled(
+            div()
+                .id("job-acts")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .children(land_act)
+                .children(pause_act)
+                .child(self.judge_act(id, &look, cx))
+                .children(release_act),
+            Role::Toolbar,
+            "Job acts",
+        ));
         // The context ring after the acts, as `SessionFrame`'s tools order it. Compact goes as a line, as a
         // quick line does: the native app types into no terminal, so Fleet refuses what it cannot deliver.
         let ring = crate::context_ring::Fill::of(&job.usage, job.context_breakdown.as_ref(), job.compact).map(|fill| {

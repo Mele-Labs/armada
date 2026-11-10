@@ -45,7 +45,7 @@ pub(super) fn plan_reading(record: &SessionRecord, version: u32) -> Option<&Judg
 
 /// What the Judge's press shows, from the last reading.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Press {
+pub(super) enum Press {
     Idle,
     Reading,
     /// Done, with notes not yet opened and some still waiting.
@@ -55,7 +55,7 @@ enum Press {
     Failed,
 }
 
-fn press_of(reading: Option<&JudgeReading>, judging: bool, waiting: impl Fn(&JudgeNote) -> bool) -> Press {
+pub(super) fn press_of(reading: Option<&JudgeReading>, judging: bool, waiting: impl Fn(&JudgeNote) -> bool) -> Press {
     if judging {
         return Press::Reading;
     }
@@ -96,6 +96,11 @@ impl<'a> Pinned<'a> {
         Some(Self { ix, key, reading, known })
     }
 
+    /// The notes of a reading of the whole Job: every one stands as a note on the whole.
+    pub fn whole_job(ix: usize, key: &'a str, reading: &'a JudgeReading) -> Option<Self> {
+        (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new() })
+    }
+
     /// Notes about the plan as a whole, or about a part the plan no longer holds.
     pub fn whole(&self) -> Vec<&'a JudgeNote> {
         self.reading.notes.iter().filter(|note| note.about.as_deref().is_none_or(|about| !self.known.contains(about))).collect()
@@ -108,7 +113,7 @@ impl<'a> Pinned<'a> {
 }
 
 /// How the person settled a note: Fleet's record says, else what was pressed here.
-fn how_of(page: &Page, reading: &JudgeReading, note: &JudgeNote) -> Option<JudgeNoteHow> {
+pub(super) fn how_of(page: &Page, reading: &JudgeReading, note: &JudgeNote) -> Option<JudgeNoteHow> {
     note.settled.as_ref().map(|settled| settled.how).or_else(|| page.cards.judged.get(&format!("{}/{}", reading.id, note.id)).copied())
 }
 
@@ -484,8 +489,9 @@ impl JobView {
     /// The reading's notes are read once the Job's page is open and has them.
     pub(super) fn judge_read(&mut self, job: &SharedString, cx: &mut Context<Self>) {
         let Some(record) = self.record(job, cx) else { return };
-        let Some(plan) = record.plan.as_ref() else { return };
-        let Some(reading) = plan_reading(record, plan.version) else { return };
+        // The whole Job's notes are read once its Judge pane draws them.
+        let whole = self.pages.get(job).is_some_and(|page| page.judge.is_some()).then(|| super::judge_tab::whole_reading(record, job)).flatten();
+        let Some(reading) = whole.or_else(|| record.plan.as_ref().and_then(|plan| plan_reading(record, plan.version))) else { return };
         if reading.state != JudgeState::Done || reading.read || reading.notes.is_empty() {
             return;
         }
