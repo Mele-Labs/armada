@@ -83,14 +83,47 @@ use notify::Notifier;
 use walk::fleet::WalkFleet;
 use walk::window::WalkWindow;
 
+/// What `--help` prints, and what an unread command line prints before it exits.
+const USAGE: &str = "\
+usage: bridge-native [--mock <scenario>]
+       bridge-native --walk <name> [--check] [--shots <dir>] [--width <points>] [--take <name>=<walk>]...
+                     [--job <id> --url <url> --fleet-port <port>]
+
+With no flags it opens on the Fleet this Mac runs.
+  --mock <scenario>   open on a mock scenario's data instead
+  --walk <name>       open the walk of that name in its own window
+  --check             play the walk with no window on screen; exit 0 when it plays to its end
+  --shots <dir>       with --check, keep a picture of each step in <dir>
+  --width <points>    the walk's window width
+  --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
+  --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
+  -h, --help          print this and exit
+";
+
+/// The flags the command line reads that take a value, and those that stand alone.
+const VALUED: [&str; 8] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--width", "--take", "--mock"];
+const BARE: [&str; 1] = ["--check"];
+
 /// What the command line asked for.
 enum Mode {
+    Help,
     Live,
     Mock(String),
     Walk { name: String, check: bool, shots: Option<PathBuf>, width: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
 
 fn mode_of(args: &[String]) -> Result<Mode, String> {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        return Ok(Mode::Help);
+    }
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        if VALUED.contains(&arg.as_str()) {
+            rest.next();
+        } else if !BARE.contains(&arg.as_str()) {
+            return Err(format!("{arg} is not a flag this app reads"));
+        }
+    }
     let value = |flag: &str| args.iter().position(|arg| arg == flag).map(|at| args.get(at + 1).cloned().ok_or(format!("{flag} needs a value")));
     if let Some(name) = value("--walk").transpose()? {
         let fleet = match (value("--job").transpose()?, value("--url").transpose()?, value("--fleet-port").transpose()?) {
@@ -150,10 +183,14 @@ fn main() -> ExitCode {
     let mode = match mode_of(&args) {
         Ok(mode) => mode,
         Err(why) => {
-            log::Note::warn("the command line did not read").field("why", why).emit();
+            eprintln!("{why}\n\n{USAGE}");
             return ExitCode::from(2);
         }
     };
+    if let Mode::Help = mode {
+        print!("{USAGE}");
+        return ExitCode::SUCCESS;
+    }
     if let Mode::Walk { name, check: true, shots, width, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
@@ -205,6 +242,8 @@ fn main() -> ExitCode {
             ..Default::default()
         };
         let opened = match mode {
+            // Printed and gone before the app starts.
+            Mode::Help => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     let fleet = cx.new(FleetConnection::new);
@@ -297,5 +336,14 @@ mod tests {
 
         let bad: Vec<String> = ["--walk", "jobs-list", "--take", "Pennant"].map(String::from).to_vec();
         assert!(mode_of(&bad).is_err(), "a take with no walk");
+    }
+
+    #[test]
+    fn help_is_read_anywhere_and_an_unknown_flag_is_refused() {
+        let args = |line: &[&str]| line.iter().map(|arg| arg.to_string()).collect::<Vec<_>>();
+        assert!(matches!(mode_of(&args(&["--help"])), Ok(Mode::Help)));
+        assert!(matches!(mode_of(&args(&["--walk", "jobs-list", "-h"])), Ok(Mode::Help)));
+        assert_eq!(mode_of(&args(&["--walks", "jobs-list"])).err().as_deref(), Some("--walks is not a flag this app reads"));
+        assert!(mode_of(&args(&["--walk", "jobs-list", "--check", "--width", "800"])).is_ok(), "a value is not read as a flag");
     }
 }
