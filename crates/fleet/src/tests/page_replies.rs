@@ -110,7 +110,7 @@ async fn a_reply_that_goes_ahead_settles_the_page_and_approves_the_plan_without_
     let detail = &the_document(&record, &path).unwrap().detail;
     assert_eq!(detail.get("settled").map(String::as_str), Some("approved"), "{detail:?}");
     assert!(!page_waits(&record, &path), "{:?}", waits(&record));
-    assert_eq!(document_items(&record.attachments, id.as_str()).count(), 0);
+    assert_eq!(document_items(&record.attachments, id.as_str(), &[]).count(), 0);
     let plan = plan_of(&rig, &id).await;
     assert!(plan.approved && plan.approved_at.is_some(), "approved with the page: {plan:?}");
     assert_eq!(sent(&rig.rows(&id).await).pop().as_deref(), Some(REPLY), "the card sent nothing");

@@ -683,7 +683,7 @@ where
             // Every sketch shown and not answered, until he approves it, sends it back or dismisses it.
             items.extend(super::sketching::sketch_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
-            items.extend(super::document_answers::document_items(attachments, &session.id).filter(|one| !dismissed.contains(&one.id)));
+            items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
             // A left-out branch it holds moved: Refresh preview or Skip, never the agent's to settle.
             items.extend(super::preview_offers::offer_items(&preview_offers, &dismissed));
             // A watch that ended not ours, until he ignores it or asks for a fix.

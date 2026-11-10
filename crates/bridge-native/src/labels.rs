@@ -49,6 +49,9 @@ pub fn role_named(word: &str) -> Option<Role> {
         "progressbar" => Role::ProgressIndicator,
         "separator" => Role::Splitter,
         "alert" => Role::Alert,
+        "tab" => Role::Tab,
+        "tablist" => Role::TabList,
+        "tooltip" => Role::Tooltip,
         _ => return None,
     })
 }

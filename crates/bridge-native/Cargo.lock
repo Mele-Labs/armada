@@ -660,6 +660,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "objc2-user-notifications",
  "serde",
+ "serde_json",
  "tokio",
  "wuff",
 ]

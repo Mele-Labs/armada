@@ -28,7 +28,7 @@ use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::dropdown::{under, Entry};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look, Token};
+use crate::look::{token, ActiveLook, Look};
 
 /// What an item is. The sheet draws a plan, a sketch, a document and a draft and nothing else: a
 /// question, a command and a pull request stay on the Needs you card.
@@ -41,13 +41,13 @@ pub(super) enum Kind {
 }
 
 impl Kind {
-    /// The kind's glyph, the word its tooltip names it by, and its hue (`REVIEW_MARKS`).
-    pub(super) fn mark(self) -> (&'static str, &'static str, Token) {
+    /// The kind's glyph and the word its tooltip names it by (`REVIEW_MARKS`).
+    pub(super) fn mark(self) -> (&'static str, &'static str) {
         match self {
-            Kind::Plan => ("list-todo", "Plan", token::KIND_STEP),
-            Kind::Sketch => ("pencil-ruler", "Sketch", token::TOOL_LOOK),
-            Kind::Draft => ("message-square-text", "Draft", token::TOOL_CHANGE),
-            Kind::Document => ("file-text", "Document", token::STATUS_AWAITING_REVIEW),
+            Kind::Plan => ("list-todo", "Plan"),
+            Kind::Sketch => ("pencil-ruler", "Sketch"),
+            Kind::Draft => ("message-square-text", "Draft"),
+            Kind::Document => ("file-text", "Document"),
         }
     }
 }
@@ -259,11 +259,6 @@ impl JobView {
         !self.review_items(id, cx).is_empty()
     }
 
-    /// The words the Review row lists: each item's kind.
-    pub(super) fn review_kinds(&self, id: &str, cx: &gpui::App) -> Vec<&'static str> {
-        self.review_items(id, cx).iter().map(|item| item.kind.mark().1).collect()
-    }
-
     /// The thread's cards an item answers on, by the key `CardState::answers` holds them under.
     fn card_keys(&self, id: &str, item: &Item, cx: &gpui::App) -> Vec<String> {
         let Some(held) = self.thread(id, cx) else { return Vec::new() };
@@ -472,13 +467,17 @@ impl JobView {
         Some(match item.kind {
             Kind::Plan => {
                 let version = held.head.plan.as_ref()?.version;
-                if how == SketchHow::Approved {
+                let mut marks = self.plan_marks(job);
+                if how == SketchHow::Approved && marks.is_empty() {
                     ("/sessions/plan/approve", encoded(ipc::encode(&ApprovePlan { session_id, version })))
+                } else if how == SketchHow::Approved {
+                    // Approve with what he marked: the marks go in the same press.
+                    ("/sessions/plan/changes", encoded(ipc::encode(&SendPlanChanges { session_id, version, marks, approve: true })))
                 } else {
-                    // The note is about the whole plan and a mark has no place for a whole: it goes with the first group, as the plan card's does.
+                    // His note goes with what he marked. It is about the whole plan and a mark has no place for a whole: it goes with the first group, as the plan card's does.
                     let group = self.record(job, cx)?.plan.as_ref()?.groups.first()?.id.clone();
-                    let mark = PlanMark::Note { id: "note-new-sheet".into(), group, task: None, text: words.unwrap_or_default() };
-                    ("/sessions/plan/changes", encoded(ipc::encode(&SendPlanChanges { session_id, version, marks: vec![mark], approve: false })))
+                    marks.push(PlanMark::Note { id: "note-new-sheet".into(), group, task: None, text: words.unwrap_or_default() });
+                    ("/sessions/plan/changes", encoded(ipc::encode(&SendPlanChanges { session_id, version, marks, approve: false })))
                 }
             }
             Kind::Sketch => {
@@ -530,7 +529,10 @@ impl JobView {
         let keys = self.card_keys(&job, &item, cx);
         let Some(first) = keys.first().cloned() else { return };
         let Some((route, body)) = self.review_request(&job, &item, how, words.clone(), cx) else { return };
-        let answer = if how == SketchHow::Approved { Answer::Approved } else { Answer::SentBack(words.clone().unwrap_or_default()) };
+        if item.kind == Kind::Plan {
+            self.take_marks(&job);
+        }
+        let answer =if how == SketchHow::Approved { Answer::Approved } else { Answer::SentBack(words.clone().unwrap_or_default()) };
         // The sketch pinned after the plan is the same card: it reads the answer as the card does.
         if let Some(page) = self.pages.get_mut(&job) {
             for key in keys.iter().skip(1) {
@@ -625,7 +627,9 @@ impl JobView {
     fn review_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         match event.keystroke.key.as_str() {
             "escape" => {
-                if self.review_noting() {
+                if self.plan_field_open() {
+                    self.field_done(window, cx);
+                } else if self.review_noting() {
                     self.review_leave_note(window, cx);
                 } else {
                     self.close_review(window, cx);
@@ -915,7 +919,7 @@ impl JobView {
     fn review_row(&self, id: &SharedString, item: &Item, review: &ReviewState, look: &Look, cx: &Context<Self>) -> AnyElement {
         let settled = self.review_standing(id, item, cx);
         let on = review.at.as_deref() == Some(item.id.as_str());
-        let (icon, kind_said, hue) = item.kind.mark();
+        let (icon, kind_said) = item.kind.mark();
         let spent = settled.standing != Standing::Open;
         let mark = match settled.standing {
             Standing::Open => None,
@@ -948,7 +952,7 @@ impl JobView {
                     look,
                     icon,
                     Size::Small,
-                    look.color(if spent { token::FG_SUBTLE } else { hue }),
+                    look.color(if spent { token::FG_SUBTLE } else { token::FG_MUTED }),
                 )),
                 Role::Image,
                 kind_said,
@@ -986,7 +990,15 @@ impl JobView {
             Kind::Plan => {
                 let card = held.head.plan.as_ref();
                 match card.and_then(|card| self.record(id, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version).map(|plan| (card, plan))) {
-                    Some((card, plan)) => self.plan_body(SHEET, &card.id, plan, false, None, page, look, cx),
+                    Some((card, plan)) => {
+                        // A plan recorded again reads first as the diff the thread's card draws.
+                        let diff = plan
+                            .changes
+                            .as_ref()
+                            .filter(|changes| plan.version >= 2 && !changes.is_empty())
+                            .map(|changes| self.plan_revision(SHEET, &card.id, plan, changes, page, look, cx));
+                        self.plan_editor(id, plan, diff, look, cx)
+                    }
                     None => self.review_skeleton(look),
                 }
             }
