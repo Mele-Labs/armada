@@ -13,8 +13,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use gpui::{
-    anchored, deferred, div, list, point, prelude::*, px, svg, Anchor, AnyElement, App, ClipboardItem, Context, Entity, FocusHandle, FontWeight, KeyDownEvent,
-    Keystroke, ListAlignment, ListState, MouseButton, Render, Role, SharedString, Subscription, Window,
+    anchored, deferred, div, list, point, prelude::*, px, svg, Anchor, AnyElement, App, ClipboardItem, Context, Entity, FocusHandle, FontWeight, Keystroke, ListAlignment, ListState, MouseButton, Render, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
 use ipc::{AttachmentState, ForkFrom, JobState, ManifestId, PauseSession, ResumeSession, SessionId, SessionRecord, SessionState, StartSession, StopSession};
@@ -119,7 +118,7 @@ impl Entry {
             Some("set") => "Setting",
             Some("run") => "Check",
             Some("repo") => "Repository",
-            _ => "Action",
+            _ => "",
         }
     }
 }
@@ -524,6 +523,8 @@ pub struct Palette {
     open: Option<Open>,
     focus: FocusHandle,
     keeping: Option<gpui::Task<()>>,
+    /// Hears every key while the palette is up.
+    keys: Option<Subscription>,
 }
 
 /// The acts the panel's field narrows to.
@@ -538,7 +539,7 @@ fn panel_acts(panel: &Panel, cx: &App) -> Vec<RowAct> {
 impl Palette {
     pub fn new(list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
         let remember = list.read(cx).remembers();
-        Palette { list, memory: if remember { Memory::read() } else { Memory::default() }, remember, open: None, focus: cx.focus_handle(), keeping: None }
+        Palette { list, memory: if remember { Memory::read() } else { Memory::default() }, remember, open: None, focus: cx.focus_handle(), keeping: None, keys: None }
     }
 
     fn port(&self, cx: &App) -> Option<u16> {
@@ -590,12 +591,23 @@ impl Palette {
         let cursor = lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
         self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on });
         query.update(cx, |query, cx| query.focus(window, cx));
+        let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
+        self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
+            if window.window_handle().window_id() != here {
+                return;
+            }
+            let Some(me) = me.upgrade() else { return };
+            if me.update(cx, |palette, cx| palette.on_keystroke(&event.keystroke, window, cx)) {
+                cx.stop_propagation();
+            }
+        }));
         cx.notify();
     }
 
     /// Shut it and give the keys back to whoever had them.
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(open) = self.open.take() else { return };
+        self.keys = None;
         match open.back_to {
             Some(handle) => window.focus(&handle, cx),
             None => window.focus(&self.focus, cx),
@@ -1028,29 +1040,33 @@ impl Palette {
         true
     }
 
-    fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let key = event.keystroke.key.as_str();
-        let mods = event.keystroke.modifiers;
+    /// A keystroke, before anything else hears it: whether the palette took it. The palette holds every key
+    /// while it is up, so a chord the registry binds, such as ⌘K itself, is read here and not as that act.
+    fn on_keystroke(&mut self, keystroke: &Keystroke, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.open.is_none() {
+            return false;
+        }
+        let key = keystroke.key.as_str();
+        let mods = keystroke.modifiers;
         if self.open.as_ref().is_some_and(|open| open.confirm.is_some()) {
             match key {
                 "escape" => self.escape(window, cx),
                 "enter" => self.enter(window, cx),
                 _ => {}
             }
-            cx.stop_propagation();
-            return;
+            return true;
         }
         let taking_chord = self.open.as_ref().and_then(|open| open.panel.as_ref()).is_some_and(|panel| panel.taking.as_ref().is_some_and(|act| act.takes == Some(Takes::Chord)));
         if taking_chord && key != "escape" {
-            self.take_chord(&event.keystroke, window, cx);
-            cx.stop_propagation();
-            return;
+            if spelled(keystroke).is_some() {
+                self.take_chord(keystroke, window, cx);
+            }
+            return !matches!(key, "shift" | "control" | "alt" | "platform" | "function");
         }
         // ⌘K on a row opens its panel, and on the panel shuts it.
         if mods.platform && !mods.shift && !mods.alt && key == "k" {
             self.toggle_panel(window, cx);
-            cx.stop_propagation();
-            return;
+            return true;
         }
         // The chords run the act on the row under the cursor, with the panel up or shut.
         let target = match self.open.as_ref().and_then(|open| open.panel.as_ref()) {
@@ -1058,11 +1074,10 @@ impl Palette {
             None => self.under_cursor().map(|(_, entry)| entry),
         };
         if let Some(entry) = target {
-            let found = self.acts_of(&entry, cx).into_iter().find(|act| act.chord.is_some_and(|chord| chord != "\u{21b5}" && chord_is(chord, &event.keystroke)));
+            let found = self.acts_of(&entry, cx).into_iter().find(|act| act.chord.is_some_and(|chord| chord != "\u{21b5}" && chord_is(chord, keystroke)));
             if let Some(act) = found {
                 self.run_for(&entry, act, window, cx);
-                cx.stop_propagation();
-                return;
+                return true;
             }
         }
         match key {
@@ -1070,9 +1085,9 @@ impl Palette {
             "down" => self.step(1, cx),
             "up" => self.step(-1, cx),
             "enter" => self.enter(window, cx),
-            _ => return,
+            _ => return false,
         }
-        cx.stop_propagation();
+        true
     }
 }
 
@@ -1121,18 +1136,24 @@ impl Palette {
         let look = cx.look();
         let Some(open) = self.open.as_ref() else { return div().into_any_element() };
         match open.lines.get(ix) {
-            Some(Line::Heading(title)) => div()
-                .h(look.length(token::SPACE_8) - look.length(token::SPACE_1))
-                .flex()
-                .items_center()
-                .px(look.length(token::SPACE_3))
-                .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
-                .text_size(look.length(token::TEXT_2XS))
-                .line_height(look.length(token::LEADING_2XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                .text_color(look.color(token::FG_SUBTLE))
-                .child(title.to_uppercase())
-                .into_any_element(),
+            Some(Line::Heading(title)) => labelled(
+                div()
+                    .id(SharedString::from(format!("palette-heading:{title}")))
+                    .w_full()
+                    .h(look.length(token::SPACE_8) - look.length(token::SPACE_1))
+                    .flex()
+                    .items_center()
+                    .px(look.length(token::SPACE_3))
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::FG_SUBTLE))
+                    .child(title.to_uppercase()),
+                Role::Heading,
+                title.clone(),
+            )
+            .into_any_element(),
             Some(Line::Row(at)) => {
                 let entry = open.entries[*at].clone();
                 self.render_row(ix, &entry, look, cx)
@@ -1163,6 +1184,7 @@ impl Palette {
             look,
             div()
                 .id(SharedString::from(format!("palette-row:{}", entry.id)))
+                .w_full()
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_3))
@@ -1497,7 +1519,6 @@ impl Render for Palette {
                     .id("palette-layer")
                     .track_focus(&self.focus)
                     .key_context("palette")
-                    .capture_key_down(cx.listener(Self::on_key))
                     .w(viewport.width)
                     .h(viewport.height)
                     .flex()

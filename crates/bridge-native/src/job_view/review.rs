@@ -359,7 +359,8 @@ impl JobView {
         if items.is_empty() {
             return;
         }
-        let back_to = window.focused(cx);
+        // The Needs you panel shuts as the sheet opens, so the keys do not go back to it: the thread has them.
+        let back_to = window.focused(cx).filter(|held| !self.dock_focus.contains_focused(window, cx) && *held != self.dock_focus);
         if let Some(dock) = self.dock_mut() {
             dock.open = Some(false);
             dock.detail = None;
