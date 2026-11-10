@@ -348,6 +348,10 @@ function createWindow(): BrowserWindow {
   rememberWindow(window);
   bridgeWindows.add(window);
   window.on("ready-to-show", () => window.show());
+  // The Operator's briefing waits on the day's first time Bridge comes to the front, which Fleet decides.
+  const inFront = (): void => connection?.operator.inFront();
+  window.on("focus", inFront);
+  window.on("show", inFront);
 
   // History from the OS: macOS's swipe gesture, and the browser keys on Windows and Linux.
   const step = (to: "back" | "forward"): void => {

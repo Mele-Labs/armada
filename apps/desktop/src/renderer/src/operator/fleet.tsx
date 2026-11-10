@@ -324,6 +324,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
   const [board, setBoard] = useState<OperatorBoard | null>(null);
   const [repositories, setRepositories] = useState<readonly RepositorySummary[]>([]);
   const [lines, setLines] = useState<OperatorTalk["lines"]>([]);
+  const [talkMoved, setTalkMoved] = useState(0);
   const [kept, setKept] = useState<Kept>({
     marks: [],
     said: [],
@@ -345,6 +346,7 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       if (!on) return;
       setBoard(state.operatorBoard ?? null);
       setRepositories(state.holds.repositories ?? []);
+      setTalkMoved(state.operatorTalkMoved ?? 0);
     };
     void source.state().then(take);
     const off = source.subscribe(take);
@@ -364,10 +366,13 @@ export function OperatorFromFleet({ children }: { children: ReactNode }) {
       said: was.said.filter((one) => one.from === "operator"),
     }));
   }, []);
+  // Read on mount, and again each time Fleet says the talk moved: a raise, a settle or a briefing.
   useEffect(() => {
+    void talkMoved;
     void readTalk();
   }, [
     readTalk,
+    talkMoved,
   ]);
 
   const raises = useMemo(() => {

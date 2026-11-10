@@ -308,6 +308,7 @@ type OldBridgeState = {
   servers: ServerList;
   mergeLines: MergeLines | null;
   operatorBoard: OperatorBoard | null;
+  operatorTalkMoved: number;
   landFollowed: FollowedLandLog;
   checkoutRunSheet: CheckoutRunSheetRead;
   checkoutRunFollowed: CheckoutRunFollowed;
@@ -822,6 +823,7 @@ const OLD_NOTHING_YET: OldBridgeState = {
   },
   mergeLines: null,
   operatorBoard: null,
+  operatorTalkMoved: 0,
   landFollowed: {
     state: "none",
   },
