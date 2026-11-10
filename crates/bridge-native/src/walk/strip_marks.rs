@@ -18,7 +18,7 @@ pub(super) const PAIR: &str = "Conflicts with Quiet the write-clash notices · c
 pub(super) const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main, Pocket sign-in on the phone";
 pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
-pub static STEPS: [Step; 30] = [
+pub static STEPS: [Step; 34] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
     step("A ring says a pull request is open and a filled lamp that a queue holds it; the hue is its checks. Rest the pointer on a chip for its card", Verb::Hover, "button", RUNNING),
     step("A press selects the pull request, and the chip says so in the same frame", Verb::Press, "button", READY),
@@ -27,7 +27,11 @@ pub static STEPS: [Step; 30] = [
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
     press_on("Dispatch a new Job is pending in the same frame", "button", "Dispatch a new Job", "button", "Dispatch a new Job"),
-    step("Esc puts the card away and the keys go back where they were", Verb::Key("escape"), "button", RED),
+    press_on("Send back, beside the pull request that broke main, asks which Job gets the work, the one that merged it chosen, with what goes with it and a Message", "button", "Send back", "dialog", "Send the work back"),
+    step("Esc shuts it and the keys go back to the light", Verb::Key("escape"), "button", RED),
+    marks("Another machine's claim on the red main: who holds it and for how long, and Take over", "strip-red-elsewhere", "region", "main"),
+    press_on("Take over asks once, naming the machine that holds it", "button", "Take over", "dialog", "Take over from Nicks-MacBook-Pro"),
+    step("Esc shuts it and the keys go back to the strip", Verb::Key("escape"), "region", "Merge queue"),
     marks("A Job that took the red main shows on the card in place of the button", "strip-red-taken", "region", "main"),
     marks("Until Fleet answers, the line is placeholder chips", "strip-loading", "region", "Merge queue"),
     marks("On All the strip stacks one row for each repository and shows one; a main turning red brings its row in", "strip-all", "button", "Main is red in sample-api"),

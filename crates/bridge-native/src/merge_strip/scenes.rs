@@ -6,7 +6,7 @@ use chrono::{Duration, SecondsFormat, Utc};
 use gpui::{App, SharedString};
 use ipc::{MergeLineView, StandingCall};
 
-use super::{live, Held, Line, MergeStrip, Opening, Strip, Tone};
+use super::{live, Held, Line, MergeStrip, Opening, Recent, Strip, Tone};
 
 fn ago(seconds: i64) -> String {
     (Utc::now() - Duration::seconds(seconds)).to_rfc3339_opts(SecondsFormat::Secs, true)
@@ -123,7 +123,17 @@ fn others() -> Vec<Line> {
 
 /// The strip at rest: one repository, main green, five in the queue, the rest open.
 pub fn rest() -> Strip {
-    Strip { lines: vec![line(armada(GREEN, "", 40, None))], calls: Vec::new(), on_all: false, selected_root: None, related: Vec::new(), loading: false }
+    Strip { lines: vec![line(armada(GREEN, "", 40, None))], calls: Vec::new(), on_all: false, selected_root: None, related: Vec::new(), loading: false, recent: recent() }
+}
+
+/// The Jobs a red main's work can be sent back to: the one that broke it is not first, so the dialog puts it there.
+fn recent() -> Vec<Recent> {
+    let one = |id: &str, title: &str, branch: &str| Recent { id: id.to_string().into(), title: title.to_string().into(), branch: Some(branch.to_string().into()) };
+    vec![
+        one("mock-06", "Quiet the write-clash notices", "armada/quiet-clashes"),
+        one("mock-02", "Native Bridge foundation", "armada/native-rows"),
+        one("mock-03", "Fix the merge line freshness chip", "armada/fix-merge-line"),
+    ]
 }
 
 /// Start a walk's strip at rest, and the one already open.
@@ -166,6 +176,10 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
             calls: calls(&[("main:/Users/nick/Development/armada", "main", "Main is red")]),
             ..rest()
         },
+        "strip-red-elsewhere" => Strip {
+            lines: vec![line(armada(&red(&format!(r#","elsewhere":{{"machine":"Nicks-MacBook-Pro","holder":{{"kind":"session","id":"a1b2c3d4"}},"since":"{}"}}"#, ago(2 * 3600 + 5 * 60))), "", 40, None))],
+            ..rest()
+        },
         "strip-red-taken" => Strip { lines: vec![line(armada(&red(r#","taken_by":{"id":"mock-06","title":"Quiet the write-clash notices"}"#), "", 40, None))], ..rest() },
         "strip-all" => {
             let mut lines = vec![line(armada(GREEN, "", 40, None))];
@@ -176,7 +190,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     };
     strip.update(cx, |strip: &mut MergeStrip, cx| {
         strip.jump(data, cx);
-        if name == "strip-red-taken" {
+        if name == "strip-red-taken" || name == "strip-red-elsewhere" {
             strip.show_main(cx);
         }
     });

@@ -13,6 +13,7 @@
 //! The strip is one entity the Jobs screen mounts as its last child ([`strip`]); a screen that
 //! draws it with nothing served draws nothing.
 
+mod fix;
 mod scenes;
 mod words;
 
@@ -69,6 +70,14 @@ pub struct Line {
     pub held: Vec<Held>,
 }
 
+/// A Job the red main's work could be sent back to.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Recent {
+    pub id: SharedString,
+    pub title: SharedString,
+    pub branch: Option<SharedString>,
+}
+
 /// What the strip is given.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Strip {
@@ -85,6 +94,8 @@ pub struct Strip {
     pub related: Vec<u64>,
     /// Waiting on Fleet's first answer: placeholder chips draw.
     pub loading: bool,
+    /// The Jobs a red main's work can be sent back to.
+    pub recent: Vec<Recent>,
 }
 
 /// What a press on the strip asks of the rest of the app. The wiring sends these; the walk reads none.
@@ -95,8 +106,12 @@ pub enum Asked {
     /// A pull request, in the side panel.
     OpenPull { root: String, number: u64 },
     OpenJob(SharedString),
-    /// A new Job for the red main of this repository.
-    DispatchFix { root: String },
+    /// A new Job for the red main of this repository, from this brief.
+    DispatchFix { root: String, request: String },
+    /// The red main's work, to a Job as a message.
+    SendBack { root: String, session: SharedString, message: String },
+    /// Replace the claim another machine holds: a new Job from this brief.
+    TakeOver { root: String, request: String },
     /// Fleet reads the pull request from the forge now (the chip menu's Refresh).
     RefreshPull { root: String, number: u64 },
     /// Teach, from the chip's menu; the target is what the menu's heading names.
@@ -186,6 +201,8 @@ pub struct MergeStrip {
     /// The card the keys opened, which they shut again as they leave; one a hover or a press opened is theirs to leave.
     by_keys: Option<Card>,
     menu: Option<ChipMenu>,
+    /// The dialog a red band's act opened (`fix.rs`).
+    fix: Option<fix::FixDialog>,
     _rotate: Task<()>,
     _focus_in: Subscription,
     _focus_out: Subscription,
@@ -238,6 +255,7 @@ impl MergeStrip {
             quiet: None,
             by_keys: None,
             menu: None,
+            fix: None,
             _rotate: rotate,
             _focus_in: focus_in,
             _focus_out: focus_out,
@@ -267,11 +285,15 @@ impl MergeStrip {
         self.data = data;
         self.selected = None;
         self.card = None;
+        self.by_keys = None;
+        self.quiet = None;
+        self.menu = None;
         self.pinned = false;
         self.over_card = false;
         self.row = 0;
         self.keys_were = None;
         self.fixing = None;
+        self.fix = None;
     }
 
     /// A walk's scene: new data with nothing open, on the row of a main that is red.
@@ -523,12 +545,14 @@ impl MergeStrip {
 
     /// Dispatch a new Job for a red main: pending in this frame.
     fn fix_pressed(&mut self, line: usize, cx: &mut Context<Self>) {
-        let Some(root) = self.data.lines.get(line).map(|line| line.view.root.clone()) else { return };
+        let Some(one) = self.data.lines.get(line) else { return };
+        let Some(MainView::Red { failed, merge, .. }) = &one.view.main else { return };
         if self.fixing.is_some() {
             return;
         }
+        let (root, request) = (one.view.root.clone(), fix::brief_of(failed, merge.as_ref()));
         self.fixing = Some(root.clone());
-        cx.emit(Asked::DispatchFix { root });
+        cx.emit(Asked::DispatchFix { root, request });
         cx.notify();
     }
 
@@ -1089,8 +1113,8 @@ impl MergeStrip {
             keys: if self.pinned { vec![("Esc", "Close")] } else { vec![("Enter", "Keep open")] },
         };
         let mut body: Vec<AnyElement> = Vec::new();
-        if let Some(MainView::Red { failed, also, merge, taken_by, checking, .. }) = &one.view.main {
-            body.push(self.red_band(line, failed, also, merge.as_ref(), taken_by.as_ref(), !checking.is_empty(), checking, look, cx));
+        if let Some(MainView::Red { failed, also, merge, taken_by, elsewhere, checking, .. }) = &one.view.main {
+            body.push(self.red_band(line, failed, also, merge.as_ref(), taken_by.as_ref(), elsewhere.as_ref(), !checking.is_empty(), checking, look, cx));
         }
         if let Some(checkout) = &one.view.checkout {
             body.push(checkout_section(checkout, look));
@@ -1128,6 +1152,7 @@ impl MergeStrip {
         also: &[MainRedJob],
         merge: Option<&ipc::MainMerge>,
         taken_by: Option<&ipc::HubSession>,
+        elsewhere: Option<&ipc::FixingElsewhere>,
         held: bool,
         checking: &[ipc::MainChecking],
         look: &Look,
@@ -1144,19 +1169,63 @@ impl MergeStrip {
         } else {
             "Main is red".into()
         };
-        let asks = !held && taken_by.is_none();
+        // The acts draw where nothing makes them moot: not a held red, not a Job on it, and another machine's claim leaves only Take over.
+        let free = !held && taken_by.is_none();
+        let asks = free && elsewhere.is_none();
+        let takes_over = free && elsewhere.is_some();
         let pending = self.fixing.as_ref() == self.data.lines.get(line).map(|line| &line.view.root);
-        let mut rows: Vec<(String, String, Option<Hsla>)> = Vec::new();
+        let text = |value: String| div().min_w_0().child(value).into_any_element();
+        let mut rows: Vec<(String, AnyElement)> = Vec::new();
         for job in std::iter::once(failed).chain(also.iter()) {
-            rows.push((if job.unmapped { "CI job" } else { "Check" }.into(), job.check.clone(), None));
+            rows.push((if job.unmapped { "CI job" } else { "Check" }.into(), text(job.check.clone())));
             if let Some(test) = &job.test {
-                rows.push(("Test".into(), test.clone(), None));
+                rows.push(("Test".into(), text(test.clone())));
             }
         }
         if let Some(merge) = merge {
             let branch = merge.branch.clone().map(|branch| format!(" {branch}")).unwrap_or_default();
-            rows.push(("Broke in".into(), format!("#{}{branch}", merge.number), None));
+            let owner = merge.session.as_ref().map(|session| {
+                let title = session.title.clone().unwrap_or_else(|| session.id.clone());
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(labelled(
+                        div().id("merge-owner-mark").flex_none().child(glyph("square-terminal", look.length(token::SPACE_3), look.color(token::FG_MUTED))).tooltip(tip("Job")),
+                        Role::Image,
+                        "Job",
+                    ))
+                    .child(title)
+            });
+            let send_back = asks.then(|| {
+                let label = if merge.session.is_some() { "Send back" } else { "Send back to…" };
+                labelled(
+                    Btn::new("send-back", label, Weight::Secondary).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.open_fix(line, fix::Which::Back, window, cx))),
+                    Role::Button,
+                    label,
+                )
+            });
+            rows.push((
+                "Broke in".into(),
+                div().flex().flex_wrap().items_center().gap_x(look.length(token::SPACE_3)).gap_y(look.length(token::SPACE_1)).child(format!("#{}{branch}", merge.number)).children(owner).children(send_back).into_any_element(),
+            ));
         }
+        // Another machine's claim: who holds it and for how long, and the one act left, to take it over.
+        let claim = (elsewhere.is_some() && taken_by.is_none()).then(|| {
+            let act = takes_over.then(|| {
+                labelled(
+                    Btn::new("take-over", "Take over", Weight::Ghost)
+                        .draw(look, cx)
+                        .bg(look.color(token::BG_SUNKEN))
+                        .border_color(look.color(token::BORDER_DEFAULT))
+                        .on_click(cx.listener(move |this, _, window, cx| this.open_fix(line, fix::Which::TakeOver, window, cx))),
+                    Role::Button,
+                    "Take over",
+                )
+                .into_any_element()
+            });
+            elsewhere.map(|held| fix::held_by(held, look, act)).unwrap_or_else(|| div().into_any_element())
+        });
         let taken = taken_by.map(|session| session.title.clone().unwrap_or_else(|| session.id.clone()));
         let band = div()
             .flex()
@@ -1181,25 +1250,49 @@ impl MergeStrip {
                             .child(title.clone()),
                     )
                     .when(asks, |head| {
-                        head.child(labelled(
-                            Btn::new("dispatch-fix", "Dispatch a new Job", Weight::Secondary)
-                                .pending(pending)
-                                .draw(look, cx)
-                                .on_click(cx.listener(move |this, _, _, cx| this.fix_pressed(line, cx))),
-                            Role::Button,
-                            "Dispatch a new Job",
-                        ))
+                        head.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(look.length(token::SPACE_2))
+                                .child(labelled(
+                                    Btn::new("dispatch-fix", "Dispatch a new Job", Weight::Secondary)
+                                        .pending(pending)
+                                        .draw(look, cx)
+                                        .on_click(cx.listener(move |this, _, _, cx| this.fix_pressed(line, cx))),
+                                    Role::Button,
+                                    "Dispatch a new Job",
+                                ))
+                                .children(merge.is_none().then(|| {
+                                    labelled(
+                                        Btn::new("send-back-to", "Send back to…", Weight::Secondary)
+                                            .draw(look, cx)
+                                            .on_click(cx.listener(move |this, _, window, cx| this.open_fix(line, fix::Which::Back, window, cx))),
+                                        Role::Button,
+                                        "Send back to…",
+                                    )
+                                })),
+                        )
                     }),
             )
             .child(
-                div().flex().flex_col().gap(look.length(token::BORDER_WIDTH) * 2.).font_family(mono(look)).children(rows.into_iter().map(|(term, value, _)| {
+                div().flex().flex_col().gap(look.length(token::BORDER_WIDTH) * 2.).font_family(mono(look)).children(rows.into_iter().map(|(term, value)| {
                     small(look)
                         .flex()
+                        .items_center()
                         .gap(look.length(token::SPACE_3))
                         .child(div().flex_none().w(look.length(token::SPACE_12) * 1.5).text_color(look.color(token::FG_MUTED)).child(term))
-                        .child(div().min_w_0().child(value))
+                        .child(div().flex_1().min_w_0().child(value))
                 })),
             )
+            .children(claim.map(|claim| {
+                small(look)
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .child(div().flex_none().w(look.length(token::SPACE_12) * 1.5).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child("Fixing"))
+                    .child(div().flex_1().min_w_0().child(claim))
+            }))
             .children(taken.map(|who| {
                 small(look)
                     .flex()
@@ -1356,7 +1449,8 @@ impl Render for MergeStrip {
                         .child(row),
                 )
                 .children(card)
-                .children(self.menu.as_ref().map(|menu| menu.dropdown.clone())),
+                .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
+                .children(self.fix_layer(look, window.viewport_size(), cx)),
             Role::Region,
             "Merge queue",
         )
