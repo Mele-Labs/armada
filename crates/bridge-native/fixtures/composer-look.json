@@ -1,0 +1,19 @@
+{
+ "quickOff": false,
+ "quickOffFor": [],
+ "learn": true,
+ "forgotten": [],
+ "quick": [
+  {
+   "id": "saved:1",
+   "text": "Keep going",
+   "kind": "saved",
+   "pinned": true
+  },
+  {
+   "id": "saved:2",
+   "text": "Run the checks and land it",
+   "kind": "saved"
+  }
+ ]
+}

@@ -1,0 +1,32 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-06",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-09T15:20:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Both pull requests are open. I am waiting on the merge queue and the watch."
+     }
+    }
+   ]
+  }
+ ]
+}

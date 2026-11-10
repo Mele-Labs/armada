@@ -13,13 +13,13 @@ build = "build.rs"
 # test map would build them. Its own lockfile is committed beside this file.
 [workspace]
 
-# The workspace's own `forbid`, restated here because the root's table does not reach a crate
-# outside it. The gate reads `[lints] workspace = true` as "this crate forbids unsafe".
-[workspace.lints.rust]
-unsafe_code = "forbid"
-
-[lints]
-workspace = true
+# **Deliberately not `[lints] workspace = true`.** The root's `forbid` cannot be lifted at a call
+# site, and macOS Dictation is `-[NSApplication sendAction:to:from:]` with `startDictation:`,
+# which objc2-app-kit declares `unsafe` and has no safe form of. So this crate takes `deny`:
+# every unsafe block still fails to compile except the one file `xtask/src/rules_unsafe.rs`
+# names, `src/dictation.rs`, which carries an explicit `#[allow]` and a `SAFETY:` note.
+[lints.rust]
+unsafe_code = "deny"
 
 [dependencies]
 gpui = { package = "gpui-pre", version = "=0.3.11", features = ["test-support"] }
@@ -30,6 +30,8 @@ gpui = { package = "gpui-pre", version = "=0.3.11", features = ["test-support"] 
 # log line. `test-support` is the headless context the walk check plays in.
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["runtime_shaders", "font-kit", "test-support"] }
 gpui-component = "=0.9.0"
+# The window's text selection, which gpui-component draws and reads through: the selected words and clearing them.
+gpui-base = "=0.9.0"
 # The lucide SVGs the icon registry names, all 1,830. gpui-component already links this exact version.
 gpui-kit-assets = "=0.9.0"
 # The wire, linked and never copied: the protocol ID covers this crate.
@@ -56,6 +58,16 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.22"
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
+
+# The Dock badge and the banner's sound. gpui posts a system notification but carries no sound, and its
+# macOS platform already links these exact versions; the features are only what `banner.rs` calls.
+# Dictation, the third Talk voice (`src/dictation.rs`), is one `sendAction` on the shared application, so it
+# shares `objc2` and `objc2-app-kit` and needs only the classes that call names.
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSResponder"] }
+objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNUserNotificationCenter"] }
 
 [build-dependencies]
 # The fonts in `packages/tokens/fonts` are WOFF2; gpui's text system takes TrueType, so the build

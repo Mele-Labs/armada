@@ -56,6 +56,12 @@ class NativeApp(unittest.TestCase):
         with open(os.path.join(app, "Contents", "Resources", "AppIcon.icns")) as f:
             self.assertEqual(f.read(), "other\n")
 
+    def test_the_notification_tones_are_in_resources_as_the_desktop_app_ships_them(self):
+        app = self.make()
+        for tone in ("armada-blocked.wav", "armada-waiting.wav"):
+            with open(os.path.join(HERE, "apps", "desktop", "sounds", tone), "rb") as shipped, open(os.path.join(app, "Contents", "Resources", tone), "rb") as kept:
+                self.assertEqual(kept.read(), shipped.read())
+
     def test_the_plist_names_it_apart_from_electrons(self):
         app = self.make()
         with open(os.path.join(app, "Contents", "Info.plist"), "rb") as f:

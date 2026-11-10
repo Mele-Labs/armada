@@ -244,7 +244,7 @@ const STANDS_IN_FOR_THE_FORGE: &[&str] = &[
 ///
 /// whisper.cpp publishes its built library only as a release on the forge, so the pinned address names it. The address
 /// is a download, checked against its SHA-256, not a forge the product talks to.
-const DOWNLOADS_FROM_THE_FORGE: &[&str] = &["apps/desktop/src/main/whisper-install.ts"];
+const DOWNLOADS_FROM_THE_FORGE: &[&str] = &["apps/desktop/src/main/whisper-install.ts", "crates/bridge-native/src/whisper.rs"];
 
 /// The files that recognise a pull request's link in a thread, which may say `github`, and no other vendor.
 ///

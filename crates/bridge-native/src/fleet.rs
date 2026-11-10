@@ -4,14 +4,72 @@
 //! channel, folds **a whole batch** into [`Held`] and notifies once; the Electron Bridge's slowness
 //! was redraw volume, one per event (#3356).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use gpui::{Context, Task};
+use gpui::{Context, EventEmitter, Task};
 
-use ipc::{Cursor, Event, FleetBuildReport, Instant, ModKind, ModSummary, SessionRecord, StreamMessage};
+use ipc::{
+    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, SessionRecord,
+    SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem,
+};
 
 use crate::link::{self, LinkState, Signal};
 use crate::log::Note;
+
+/// A Job's thread as Fleet last served it, kept current by `job_thread.tail`. Plain data: the folding
+/// is Fleet's, and this only replaces what the tail says changed.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HeldThread {
+    pub head: ThreadHead,
+    /// Oldest first.
+    pub items: Vec<ThreadItem>,
+    /// Older items exist: this is the `before` that reads them.
+    pub older: Option<String>,
+    /// Moves on every change, so a view redraws a thread only when this is not the one it drew.
+    pub version: u64,
+    /// A change reached further back than a tail carries, or a stream gap lost some: read it again.
+    pub stale: bool,
+    /// The first item that changed since a view last took this (`Held::take_dirty`), so it
+    /// measures again from there and no earlier.
+    dirty_from: Option<usize>,
+    /// How many items were put before the first since a view last took this (`Held::take_prepended`),
+    /// so it keeps the place the person is reading.
+    prepended: usize,
+}
+
+impl HeldThread {
+    pub fn from_read(read: JobThread, version: u64) -> Self {
+        HeldThread { head: read.head, items: read.items, older: read.older, version, stale: false, dirty_from: Some(0), prepended: 0 }
+    }
+
+    /// The thread changed from item `at` on: a view measures again from there.
+    pub fn mark_dirty(&mut self, at: usize) {
+        self.dirty_from = Some(self.dirty_from.map_or(at, |held| held.min(at)));
+    }
+
+    /// Older items, read by `before`, go in front of those held.
+    fn older_read(&mut self, read: JobThread) {
+        self.prepended += read.items.len();
+        self.items.splice(0..0, read.items);
+        self.older = read.older;
+        self.dirty_from = Some(0);
+        self.version += 1;
+    }
+
+    /// `items` replace what is held from the item `from` to the end. A client that does not hold
+    /// `from` holds only items after it, so it replaces everything with `items`. No `from` is an append.
+    fn tailed(&mut self, tail: JobThreadTail) {
+        let at = match tail.from {
+            Some(from) => self.items.iter().position(|item| item.id() == from).unwrap_or(0),
+            None => self.items.len(),
+        };
+        self.items.truncate(at);
+        self.dirty_from = Some(self.dirty_from.map_or(at, |held| held.min(at)));
+        self.items.extend(tail.items);
+        self.head = tail.head;
+        self.version += 1;
+    }
+}
 
 /// What Fleet has said, folded. Plain data, so a fold is tested without a window.
 pub struct Held {
@@ -28,10 +86,19 @@ pub struct Held {
     /// The build Fleet runs, as it last reported. **Held across a drop**, since a restart is the
     /// commonest reason Fleet does not answer. `None` until the first read, and where this Fleet serves none.
     pub build: Option<FleetBuildReport>,
+    /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
+    /// first reading cannot be mistaken for a count that stands.
+    pub calls: Option<StandingCalls>,
+    /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
+    pub notifications: bool,
+    /// News since the last time it was taken: a thing that began to wait on him. Told once.
+    arrived: Vec<CallArrival>,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
     sheets: BTreeMap<String, (Option<Instant>, String)>,
+    /// The threads a view has read, by Job id. Fleet sends a tail for each of these and no other.
+    pub threads: BTreeMap<String, HeldThread>,
 }
 
 impl Held {
@@ -44,9 +111,47 @@ impl Held {
             key_bindings: None,
             mods: None,
             build: None,
+            calls: None,
+            notifications: true,
+            arrived: Vec::new(),
             port: None,
             sheets: BTreeMap::new(),
+            threads: BTreeMap::new(),
         }
+    }
+
+    /// A thread read whole replaces the one held.
+    pub fn thread_read(&mut self, read: JobThread) {
+        let id = read.session_id.as_str().to_string();
+        let version = self.threads.get(&id).map_or(1, |held| held.version + 1);
+        self.threads.insert(id, HeldThread::from_read(read, version));
+    }
+
+    /// The Jobs whose threads must be read again, each once.
+    pub fn stale_threads(&self) -> BTreeSet<String> {
+        self.threads.iter().filter(|(_, held)| held.stale).map(|(id, _)| id.clone()).collect()
+    }
+
+    /// The first item of `session`'s thread that changed since this was last asked, and nothing
+    /// changed since after it. A view measures its list from there.
+    pub fn take_dirty(&mut self, session: &str) -> Option<usize> {
+        self.threads.get_mut(session)?.dirty_from.take()
+    }
+
+    /// Older items read for a Job go before the ones held.
+    pub fn thread_older(&mut self, read: JobThread) {
+        if let Some(held) = self.threads.get_mut(read.session_id.as_str()) {
+            held.older_read(read);
+        }
+    }
+
+    /// How many items went before the first since this was last asked.
+    pub fn take_prepended(&mut self, session: &str) -> usize {
+        self.threads.get_mut(session).map_or(0, |held| std::mem::take(&mut held.prepended))
+    }
+
+    fn all_stale(&mut self) {
+        self.threads.values_mut().for_each(|held| held.stale = true);
     }
 
     /// The checked stylesheets of the theme mods that are on and valid, by mod name. A sheet checked
@@ -74,6 +179,21 @@ impl Held {
             LinkState::Connected => self.port,
             _ => None,
         }
+    }
+
+    /// The Dock count: the calls still to be opened, one for each owner. `None` until Fleet has answered.
+    pub fn dock_count(&self) -> Option<usize> {
+        self.calls.as_ref().map(|calls| calls.unopened().len())
+    }
+
+    /// The news folded since the last take, oldest first.
+    pub fn take_arrived(&mut self) -> Vec<CallArrival> {
+        std::mem::take(&mut self.arrived)
+    }
+
+    fn set_settings(&mut self, list: &SettingsList) {
+        let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
+        self.notifications = switch != Some(&SettingValue::Bool(false));
     }
 
     fn listed(&mut self, mods: Vec<ModSummary>) {
@@ -128,13 +248,21 @@ impl Held {
                         self.sheets.remove(&checked.name);
                     }
                 },
+                Signal::Calls(calls) => self.calls = Some(calls),
+                Signal::CallsFailed(why) => lines.push(Note::warn("calls could not be read").field("why", why)),
+                Signal::Settings(list) => self.set_settings(&list),
+                Signal::SettingsFailed(why) => lines.push(Note::warn("settings could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
                     resyncs += 1;
                     self.cursor = Some(resync.cursor);
+                    self.all_stale();
                 }
-                Signal::Stream(StreamMessage::Missed(lost)) => missed += lost.dropped,
+                Signal::Stream(StreamMessage::Missed(lost)) => {
+                    missed += lost.dropped;
+                    self.all_stale();
+                }
                 Signal::Stream(StreamMessage::Event(delivered)) => {
                     events += 1;
                     self.cursor = Some(delivered.cursor);
@@ -149,6 +277,25 @@ impl Held {
                         }
                         // The list arrives whole and replaces the one held.
                         Event::ModsChanged(list) => self.listed(list.mods),
+                        Event::JobThreadTail(tail) => {
+                            if let Some(held) = self.threads.get_mut(tail.session_id.as_str()) {
+                                held.tailed(tail);
+                            }
+                        }
+                        // Further back than a tail carries: a client that holds the item reads again.
+                        Event::JobThreadChanged(changed) => {
+                            if let Some(held) = self.threads.get_mut(changed.session_id.as_str()) {
+                                if held.items.iter().any(|item| item.id() == changed.from) {
+                                    held.stale = true;
+                                }
+                            }
+                        }
+                        // The calls arrive whole; the news rides with them and is told once.
+                        Event::CallsChanged(changed) => {
+                            self.calls = Some(StandingCalls { calls: changed.calls });
+                            self.arrived.extend(changed.arrived);
+                        }
+                        Event::SettingsChanged(list) => self.set_settings(&list),
                         _ => {}
                     }
                 }
@@ -187,8 +334,20 @@ fn describe(state: &LinkState) -> Note {
     }
 }
 
+/// What began to wait on him, since the last time this was said. Said once for each batch of events.
+pub struct Arrived(pub Vec<CallArrival>);
+
+impl EventEmitter<Arrived> for FleetConnection {}
+
 pub struct FleetConnection {
     held: Held,
+    /// The Jobs whose thread is being read now, so one read is not asked twice.
+    reading: BTreeSet<String>,
+    /// The Jobs whose older items are being read now.
+    earlier: BTreeSet<String>,
+    /// The Jobs whose last read failed: not asked again until a view asks with `retry`, or the
+    /// redraw a failure causes would ask for ever.
+    failed: BTreeSet<String>,
     /// Kept, or the drain is cancelled with it.
     _drain: Task<()>,
 }
@@ -199,6 +358,56 @@ impl FleetConnection {
         &self.held
     }
 
+    /// See [`Held::take_dirty`]. No redraw: the view that asks is already drawing.
+    pub fn take_dirty(&mut self, session: &str) -> Option<usize> {
+        self.held.take_dirty(session)
+    }
+
+    /// See [`Held::take_prepended`].
+    pub fn take_prepended(&mut self, session: &str) -> usize {
+        self.held.take_prepended(session)
+    }
+
+    /// Whether older items of this Job's thread are being read.
+    pub fn reading_older(&self, session: &str) -> bool {
+        self.earlier.contains(session)
+    }
+
+    /// Read the items before the first one held (`GET /sessions/thread?before=`) off the main thread and
+    /// put them in front. A read already under way is not asked twice; a refusal is noted.
+    pub fn read_older(&mut self, session: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        let Some(before) = self.held.threads.get(session).and_then(|held| held.older.clone()) else { return };
+        if !self.earlier.insert(session.to_string()) {
+            return;
+        }
+        let id = session.to_string();
+        let path = format!("/sessions/thread?session_id={session}&before={before}");
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                    }
+                    ipc::decode::<JobThread>("JobThread", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.earlier.remove(&id);
+                match answer {
+                    Ok(read) => this.held.thread_older(read),
+                    Err(why) => Note::warn("older items of a Job's thread could not be read").field("job", id.as_str()).field("why", why).emit(),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
     /// A revert has been asked and Fleet took it: the report says so until the next read, as Electron's
     /// `FleetBuilds.revert` marks it, so the menu's item goes off at once. The old failure is gone.
     pub fn mark_reverting(&mut self, cx: &mut Context<Self>) {
@@ -207,6 +416,49 @@ impl FleetConnection {
             build.failed = None;
             cx.notify();
         }
+    }
+
+    /// Read a Job's thread (`GET /sessions/thread`) off the main thread and hold it. Fleet follows the
+    /// Job from this first read and sends its changes as `job_thread.tail`. A read already under
+    /// way is not asked again; a failed one is noted and the view keeps its skeleton, and is asked
+    /// again only with `retry`, which is the person opening the Job.
+    pub fn read_thread(&mut self, session: &str, retry: bool, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        if retry {
+            self.failed.remove(session);
+        } else if self.failed.contains(session) {
+            return;
+        }
+        if !self.reading.insert(session.to_string()) {
+            return;
+        }
+        let id = session.to_string();
+        let path = format!("/sessions/thread?session_id={session}");
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                    }
+                    ipc::decode::<JobThread>("JobThread", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.reading.remove(&id);
+                match answer {
+                    Ok(read) => this.held.thread_read(read),
+                    Err(why) => {
+                        this.failed.insert(id.clone());
+                        Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why).emit();
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     pub fn new(cx: &mut Context<Self>) -> Self {
@@ -232,7 +484,18 @@ impl FleetConnection {
                 }
                 let folded = this.update(cx, |this, cx| {
                     let lines = this.held.fold(batch);
+                    // A change that reached too far back, or a gap in the stream: read those again.
+                    for id in this.held.stale_threads() {
+                        if let Some(held) = this.held.threads.get_mut(&id) {
+                            held.stale = false;
+                        }
+                        this.read_thread(&id, true, cx);
+                    }
+                    let arrived = this.held.take_arrived();
                     cx.notify();
+                    if !arrived.is_empty() {
+                        cx.emit(Arrived(arrived));
+                    }
                     lines
                 });
                 match folded {
@@ -241,7 +504,7 @@ impl FleetConnection {
                 }
             }
         });
-        FleetConnection { held: Held::new(), _drain: drain }
+        FleetConnection { held: Held::new(), reading: BTreeSet::new(), earlier: BTreeSet::new(), failed: BTreeSet::new(), _drain: drain }
     }
 }
 
@@ -373,6 +636,73 @@ mod tests {
         assert_eq!(lines.iter().filter(|line| line.msg() == "the build could not be read").count(), 1);
     }
 
+    fn calls(opened: &[bool]) -> ipc::StandingCalls {
+        let rows: Vec<String> = opened
+            .iter()
+            .enumerate()
+            .map(|(at, opened)| {
+                format!(
+                    r#"{{"key":"session:s{at}:item","owner":"session:s{at}","kind":"job","session_id":"s{at}","title":"T","text":"x","since":"2026-11-09T10:0{at}:00.000Z","tone":"waiting","opened":{opened}}}"#
+                )
+            })
+            .collect();
+        ipc::decode("calls", format!(r#"{{"calls":[{}]}}"#, rows.join(",")).as_bytes()).expect("calls")
+    }
+
+    fn changed(wire_calls: &str, arrived: &str) -> Signal {
+        let wire = format!(
+            r#"{{"message":"event","cursor":1,"event":{{"kind":"calls.changed","calls":{wire_calls},"arrived":{arrived}}}}}"#
+        );
+        Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+    }
+
+    #[test]
+    fn the_dock_count_waits_for_fleet_and_then_counts_the_unopened_once_for_each_owner() {
+        let mut held = Held::new();
+        assert_eq!(held.dock_count(), None, "nothing is badged before Fleet has answered");
+        held.fold(vec![Signal::Calls(ipc::StandingCalls::default())]);
+        assert_eq!(held.dock_count(), Some(0), "an empty answer is a count of none");
+        held.fold(vec![Signal::Calls(calls(&[false, true, false]))]);
+        assert_eq!(held.dock_count(), Some(2));
+    }
+
+    #[test]
+    fn calls_changed_replaces_the_calls_and_hands_over_its_news_once() {
+        let mut held = Held::new();
+        let arrival = r#"{"session_id":"s0","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}"#;
+        held.fold(vec![changed("[]", &format!("[{arrival}]"))]);
+        assert_eq!(held.dock_count(), Some(0));
+        let news = held.take_arrived();
+        assert_eq!(news.len(), 1);
+        assert_eq!(news[0].title, "Fix it");
+        assert!(held.take_arrived().is_empty(), "news is told once");
+        held.fold(vec![changed("[]", "[]")]);
+        assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn a_read_of_calls_carries_no_news() {
+        let mut held = Held::new();
+        held.fold(vec![Signal::Calls(calls(&[false]))]);
+        assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn notifications_are_on_until_the_settings_say_false() {
+        let list = |value: &str| -> SettingsList {
+            let wire = format!(
+                r#"{{"path":"/x","refused":null,"settings":[{{"key":"features.notifications","group":"Features","section":"s","title":"t","description":"d","tip":null,"kind":{{"kind":"boolean"}},"default":true,"value":{value},"saved":null,"applies":"live","pending_restart":false,"overridden_by_env":null}}]}}"#
+            );
+            ipc::decode("settings", wire.as_bytes()).expect("settings")
+        };
+        let mut held = Held::new();
+        assert!(held.notifications, "on before Fleet has answered, as Electron reads it");
+        held.fold(vec![Signal::Settings(list("false"))]);
+        assert!(!held.notifications);
+        held.fold(vec![Signal::Settings(list("true"))]);
+        assert!(held.notifications);
+    }
+
     #[test]
     fn a_command_has_a_port_only_while_fleet_is_connected() {
         let mut held = Held::new();
@@ -383,5 +713,71 @@ mod tests {
         assert_eq!(held.port(), Some(4100));
         held.fold(vec![Signal::State(LinkState::Starting)]);
         assert_eq!(held.port(), None);
+    }
+
+    fn thread(items: &[&str]) -> JobThread {
+        let rows: Vec<String> = items
+            .iter()
+            .map(|id| format!(r#"{{"kind":"row","row":{{"kind":"message","id":"{id}","at":"2026-11-09T10:00:00Z","from":{{"kind":"you"}},"text":"{id}"}}}}"#))
+            .collect();
+        let wire = format!(
+            r#"{{"session_id":"job-1","head":{{"trail":{{"started":"2026-11-09T09:00:00Z"}}}},"items":[{}]}}"#,
+            rows.join(",")
+        );
+        ipc::decode("JobThread", wire.as_bytes()).expect("a thread")
+    }
+
+    fn tail(from: Option<&str>, items: &[&str]) -> Signal {
+        let from = from.map_or(String::new(), |from| format!(r#""from":"{from}","#));
+        let rows: Vec<String> = items
+            .iter()
+            .map(|id| format!(r#"{{"kind":"row","row":{{"kind":"message","id":"{id}","at":"2026-11-09T10:00:00Z","from":{{"kind":"agent"}},"text":"{id}"}}}}"#))
+            .collect();
+        let wire = format!(
+            r#"{{"message":"event","cursor":5,"event":{{"kind":"job_thread.tail","session_id":"job-1",{from}"head":{{"trail":{{"started":"2026-11-09T09:00:00Z"}}}},"items":[{}]}}}}"#,
+            rows.join(",")
+        );
+        Signal::Stream(crate::frames::decode(&wire).expect("a tail"))
+    }
+
+    fn ids(held: &Held) -> Vec<String> {
+        held.threads["job-1"].items.iter().map(|item| item.id().to_string()).collect()
+    }
+
+    #[test]
+    fn a_tail_without_from_appends_and_one_with_from_replaces_to_the_end() {
+        let mut held = Held::new();
+        held.thread_read(thread(&["a", "b", "c"]));
+        held.fold(vec![tail(None, &["d"])]);
+        assert_eq!(ids(&held), ["a", "b", "c", "d"]);
+        held.fold(vec![tail(Some("c"), &["c2", "d2", "e"])]);
+        assert_eq!(ids(&held), ["a", "b", "c2", "d2", "e"]);
+        assert_eq!(held.threads["job-1"].version, 3, "a read and two tails");
+    }
+
+    #[test]
+    fn a_tail_from_an_item_not_held_replaces_everything() {
+        let mut held = Held::new();
+        held.thread_read(thread(&["a", "b"]));
+        held.fold(vec![tail(Some("zzz"), &["x", "y"])]);
+        assert_eq!(ids(&held), ["x", "y"]);
+    }
+
+    #[test]
+    fn a_tail_for_a_thread_nobody_read_is_dropped() {
+        let mut held = Held::new();
+        held.fold(vec![tail(None, &["d"])]);
+        assert!(held.threads.is_empty());
+    }
+
+    #[test]
+    fn a_gap_in_the_stream_marks_every_held_thread_to_be_read_again() {
+        let mut held = Held::new();
+        held.thread_read(thread(&["a"]));
+        assert!(held.stale_threads().is_empty());
+        held.fold(vec![Signal::Stream(StreamMessage::Missed(ipc::Missed { dropped: 2 }))]);
+        assert_eq!(held.stale_threads().into_iter().collect::<Vec<_>>(), ["job-1"]);
+        held.thread_read(thread(&["a", "b"]));
+        assert!(held.stale_threads().is_empty(), "a whole read clears it");
     }
 }
