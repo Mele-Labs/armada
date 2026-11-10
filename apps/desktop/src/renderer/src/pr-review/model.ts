@@ -93,7 +93,10 @@ export type Thread = PullReviewThread;
 export type Draft = {
   id: string;
   path: string;
+  /** The last line of a range, or the only line. */
   line?: number;
+  /** The first line of a range on `side`, before `line`. Absent is one line. */
+  startLine?: number;
   side?: DiffSide;
   body: string;
   thread?: string;
@@ -102,7 +105,7 @@ export type Draft = {
 /** Where a review tool's definition came from, as a workflow's does: Armada's, his Kit's, or the repository's. */
 export type ToolSource = "armada" | "kit" | "repository";
 
-/** What a tool or an explanation is drawn with. Armada's eight have a mark each; one anybody adds takes the clipboard. */
+/** What a tool or an explanation is drawn with. Armada's nine have a mark each; one anybody adds takes the clipboard. */
 export type ToolMark =
   | "risks"
   | "bugs"
@@ -112,6 +115,7 @@ export type ToolMark =
   | "impact"
   | "test"
   | "why"
+  | "tour"
   | "custom";
 
 /** What a definition is for: a tool that finds things, or an explanation that tells him one thing about the pull request. */
@@ -406,6 +410,8 @@ export type PrWork = {
   runs: Readonly<Record<string, AgentRun>>;
   /** Fleet has answered for what is kept: until then an empty `runs` says nothing about what was run. */
   runsRead: boolean;
+  /** The fixes he asked for, by the fix's name at Fleet. What each wrote is its run in `wire`. */
+  fixes: Readonly<Record<string, AgentRun>>;
   /** Changes whose hunks are open. */
   opened: readonly string[];
   drafts: readonly Draft[];

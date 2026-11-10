@@ -115,6 +115,8 @@ pub enum ReviewRunKind {
     /// Natural Search: the person's words, put to every open pull request of the repositories
     /// Fleet serves. Answers matches. Kept under [`crate::SEARCH_RUN_SCOPE`], not under a pull request.
     Search,
+    /// A fix for one finding's lines, asked from its card: answers [`ReviewResult::Fix`].
+    Fix,
 }
 
 /// How far a run has got.
@@ -145,6 +147,13 @@ pub struct StartReviewRun {
     /// written against a place, and Fleet does not guess one (a 422 `fleet.review_walk_needs_a_place`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<WalkPlace>,
+    /// The finding a [`ReviewRunKind::Fix`] fixes, and for nothing else. **Required for it** (a 422
+    /// `fleet.review_fix_needs_a_finding`), and its place must be on the `right` side, the head's
+    /// lines a suggestion replaces (a 422 `fleet.review_fix_on_old_lines`). For a fix, `name` is
+    /// `<path>:<start>-<end> <title>`, which Bridge composes, so two findings of one title are
+    /// two runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finding: Option<ReviewFinding>,
 }
 
 /// A place in the change: a range of lines of a file, on one side of the diff.
@@ -272,6 +281,15 @@ pub enum ReviewResult {
     WebWalk { place: WalkPlace, steps: Vec<WalkStep> },
     /// The tool `walk` for an API: one request a step, what to look for in each response.
     ApiWalk { place: WalkPlace, requests: Vec<ReviewRequest> },
+    /// A fix for a finding's lines. `at` is the finding's place and `before` its lines at the
+    /// run's head, both filled in by Fleet from the checkout and never by the agent; `after` is
+    /// the agent's replacement for exactly those lines, and `why` one line on what it changes.
+    Fix {
+        at: ReviewPlace,
+        before: String,
+        after: String,
+        why: String,
+    },
 }
 
 /// One run about one pull request at one commit, going or kept.

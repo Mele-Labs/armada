@@ -1,6 +1,6 @@
-// What a run of an agent comes to, mapped into the shapes the review surface draws. **Fleet serves a result as one of six
-// shapes** (`review-runs.ts`); this is the one place they meet the explanation's themes, the other explanations' accounts,
-// an answer's text and a tool's findings.
+// What a run of an agent comes to, mapped into the shapes the review surface draws. **Fleet serves a result in the shapes
+// of `review-runs.ts`**; this is the one place they meet the explanation's themes, the other explanations' accounts,
+// an answer's text, a tool's findings and a finding's fix.
 
 import type {
   ReviewFinding,
@@ -10,6 +10,7 @@ import type {
   ReviewTourStop,
   WalkPlace,
 } from "@armada/protocol";
+import type { DiffLine } from "@armada/components";
 
 import type {
   Account,
@@ -34,6 +35,7 @@ const MARKS: Readonly<Record<string, ToolMark>> = {
   "user-impact": "impact",
   "how-to-test": "test",
   why: "why",
+  tour: "tour",
 };
 
 /** A definition Fleet resolved, as the surface holds it. Armada's tools and explanations have a mark each; any other takes the clipboard. */
@@ -205,6 +207,51 @@ export const tourOf = (run: ReviewRun | undefined): readonly TourStop[] | undefi
   run?.state === "done" && run.result?.shape === "tour" && run.result.stops.length > 0
     ? run.result.stops
     : undefined;
+
+/** A fix's name at Fleet: the finding's place and its title, so two findings of one title are two runs. */
+export const fixName = (finding: Pick<Finding, "at" | "title">): string =>
+  `${finding.at.path}:${finding.at.start}-${finding.at.end} ${finding.title}`;
+
+/** What a fix run wrote: the finding's lines at the head, the lines that replace them, and why. */
+export type FixWritten = Extract<
+  ReviewResult,
+  {
+    shape: "fix";
+  }
+>;
+
+export const fixOf = (run: ReviewRun | undefined): FixWritten | undefined =>
+  run?.state === "done" && run.result?.shape === "fix" ? run.result : undefined;
+
+const linesOfText = (text: string): string[] =>
+  text === "" ? [] : text.replace(/\n$/, "").split("\n");
+
+/** A fix as a diff: git's hunk header carries the line numbers, then the lines before as removed and after as added. */
+export function linesOfFix(fix: FixWritten): DiffLine[] {
+  const before = linesOfText(fix.before);
+  const after = linesOfText(fix.after);
+  return [
+    {
+      kind: "hunk",
+      text: `@@ -${fix.at.start},${before.length} +${fix.at.start},${after.length} @@`,
+    },
+    ...before.map(
+      (one): DiffLine => ({
+        kind: "removed",
+        text: `-${one}`,
+      }),
+    ),
+    ...after.map(
+      (one): DiffLine => ({
+        kind: "added",
+        text: `+${one}`,
+      }),
+    ),
+  ];
+}
+
+/** A fix's lines as the forge's suggestion block, which it offers to commit in place of the lines a comment is on. */
+export const suggestionOf = (after: string): string => `\`\`\`suggestion\n${after}\n\`\`\``;
 
 /** The answer to a question, as Markdown. An answer of no words is none. */
 export const answerOf = (result: ReviewResult | undefined): string | undefined =>

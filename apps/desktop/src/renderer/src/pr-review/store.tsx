@@ -71,6 +71,7 @@ const EMPTY: PrWork = {
   view: "explanation",
   runs: {},
   runsRead: false,
+  fixes: {},
   opened: [],
   drafts: [],
   threads: [],
@@ -130,6 +131,22 @@ export type ReviewStore = AgentActs &
     removeDraft: (key: string, id: string) => void;
     /** Resolves a thread, or opens it again, at the forge. Answers whether the forge took it; a refusal is in `refused`. */
     resolve: (key: string, thread: string, resolved: boolean) => Promise<boolean>;
+    /**
+     * Posts a general comment on the pull request at once, apart from his pending review, whose drafts it leaves alone.
+     * Answers the forge's sentence where it refused.
+     */
+    comment: (
+      key: string,
+      body: string,
+    ) => Promise<
+      | {
+          ok: true;
+        }
+      | {
+          ok: false;
+          said: string;
+        }
+    >;
     /**
      * Posts his pending review: the verdict, its summary and every draft, as one review at the commit he read. Answers whether the
      * forge took it. **Nothing is cleared on a refusal**: his drafts stay, and the forge's words are in `refused`.
@@ -746,6 +763,38 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
       });
       return true;
     },
+    comment: async (key, body) => {
+      const pr = prOf(key);
+      if (pr === undefined)
+        return {
+          ok: false,
+          said: "The pull request is not open here.",
+        };
+      // No comments and no commit: the forge takes it as a comment on the pull request, never as a review.
+      const answer = await source.write(pr.manifestId, {
+        pull_request: pr.number,
+        kind: "comment",
+        body: body.trim(),
+      });
+      if (!answer.ok)
+        return {
+          ok: false,
+          said: answer.said,
+        };
+      const page = answer.value;
+      mend(key, {
+        page,
+        body: page.body ?? pr.body,
+        head: page.head ?? pr.head,
+      });
+      if (page.threads !== undefined)
+        change(key, {
+          threads: page.threads,
+        });
+      return {
+        ok: true,
+      };
+    },
     submit: async (key, verdict, body, told) => {
       const pr = prOf(key);
       const current = work(key);
@@ -764,6 +813,11 @@ export function createReviewStore(source: ReviewSource): ReviewStore {
                 line: one.line,
                 side: one.side,
                 body: one.body,
+                ...(one.startLine !== undefined && one.startLine < one.line
+                  ? {
+                      start_line: one.startLine,
+                    }
+                  : {}),
               }
             : {
                 kind: "file",

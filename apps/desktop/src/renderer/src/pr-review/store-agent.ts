@@ -1,18 +1,25 @@
-// **The agent half of the review store: everything an agent does, as runs Fleet keeps.** A quick action, Ask and a review tool
+// **The agent half of the review store: everything an agent does, as runs Fleet keeps.** A quick action, Ask, a tool and a fix
 // start a run (`start_review_run`) and meet its progress and result as `review_run.changed`; what is kept for a pull request is
 // read when it is opened, so a result survives a restart of Bridge or of Fleet. The store (`store.tsx`) reaches it only through
 // `AgentActs`. An agent runs only when he presses, and asks first: `spend` is the one gate. Natural Search (`store-search.ts`)
 // and the Walk (`store-walk.ts`) are the other two halves, and both meet the run through the same `begin` and `apply`.
 
-import type { PullReviewRow, ReviewRun, ReviewTools, WalkPlace } from "@armada/protocol";
+import type {
+  PullReviewRow,
+  ReviewFinding,
+  ReviewRun,
+  ReviewTools,
+  WalkPlace,
+} from "@armada/protocol";
 
-import type { Asked, Finding, PrWork, ReviewPr, ReviewSnapshot, ToolDef } from "./model";
+import type { AgentRun, Asked, Finding, PrWork, ReviewPr, ReviewSnapshot, ToolDef } from "./model";
 import {
   accountOf,
   agentRunOf,
   answerOf,
   explanationOf,
   findingsOf,
+  fixName,
   runKey,
   toolDefOf,
   wordsOf,
@@ -64,7 +71,10 @@ export type AgentActs = {
     name: string,
     again: boolean,
     place?: WalkPlace,
+    finding?: ReviewFinding,
   ) => void;
+  /** Asks for a fix of a finding on the head's lines, or again where one was written or failed. None while one is going. */
+  fix: (key: string, finding: Finding, again: boolean) => void;
   /** A file's patch was read or dropped: the explanation's hunks are cut from it again. */
   patched: (key: string) => void;
 };
@@ -166,6 +176,11 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
           ...found,
         ];
       }
+    } else if (run.kind === "fix") {
+      by.fixes = {
+        ...work(key).fixes,
+        [run.name]: now,
+      };
     } else {
       const body = run.state === "done" ? answerOf(run.result) : undefined;
       const one = askedBy(key, run.name);
@@ -203,6 +218,35 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
     if (rk === HOW_IT_WORKS) cut(key);
   };
 
+  /** A run's state on screen, before Fleet says it: going when it starts, or Fleet's refusal. */
+  const stand = (key: string, kind: ReviewRun["kind"], name: string, run: AgentRun) => {
+    if (kind === "explanation")
+      change(key, {
+        explains: {
+          ...work(key).explains,
+          [name]: run,
+        },
+      });
+    else if (kind === "tool")
+      change(key, {
+        runs: {
+          ...work(key).runs,
+          [name]: run,
+        },
+      });
+    else if (kind === "fix")
+      change(key, {
+        fixes: {
+          ...work(key).fixes,
+          [name]: run,
+        },
+      });
+    else
+      setAsk(key, name, {
+        run,
+      });
+  };
+
   /** Starts a run, or asks for the one kept: going at once on screen, then as Fleet says. A refusal is the run failed, in Fleet's words. */
   const begin = (
     key: string,
@@ -210,31 +254,14 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
     name: string,
     again: boolean,
     place?: WalkPlace,
+    finding?: ReviewFinding,
   ) => {
     const pr = prOf(key);
     if (pr === undefined) return;
-    const going = {
+    stand(key, kind, name, {
       state: "running",
       since: Date.now(),
-    } as const;
-    if (kind === "explanation")
-      change(key, {
-        explains: {
-          ...work(key).explains,
-          [name]: going,
-        },
-      });
-    else if (kind === "tool")
-      change(key, {
-        runs: {
-          ...work(key).runs,
-          [name]: going,
-        },
-      });
-    else
-      setAsk(key, name, {
-        run: going,
-      });
+    });
     void source
       .startRun(pr.manifestId, {
         number: pr.number,
@@ -250,33 +277,20 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
           : {
               place,
             }),
+        ...(finding === undefined
+          ? {}
+          : {
+              finding,
+            }),
       })
       .then((answer) => {
         if (answer.ok) return apply(answer.value);
-        const failed = {
+        stand(key, kind, name, {
           state: "failed",
           said: answer.said,
           at: Date.now(),
           head: pr.head,
-        } as const;
-        if (kind === "explanation")
-          change(key, {
-            explains: {
-              ...work(key).explains,
-              [name]: failed,
-            },
-          });
-        else if (kind === "tool")
-          change(key, {
-            runs: {
-              ...work(key).runs,
-              [name]: failed,
-            },
-          });
-        else
-          setAsk(key, name, {
-            run: failed,
-          });
+        });
       });
   };
 
@@ -463,6 +477,18 @@ export function createAgentActs(source: ReviewSource, hold: StoreHold): AgentAct
       void source.tools(manifestId).then((answer) => {
         toolsReading.delete(manifestId);
         if (answer.ok) holdTools(manifestId, answer.value);
+      });
+    },
+    fix: (key, finding, again) => {
+      if (finding.at.side !== "right") return;
+      const name = fixName(finding);
+      const kept = work(key).fixes[name];
+      if (kept?.state === "running") return;
+      begin(key, "fix", name, again || kept?.state === "failed", undefined, {
+        title: finding.title,
+        body: finding.body,
+        severity: finding.severity,
+        at: finding.at,
       });
     },
     apply,
