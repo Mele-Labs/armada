@@ -1701,3 +1701,21 @@ Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, fi
 | `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
 
 Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.
+
+## A draft turned into a Document: `convert_draft_to_document`
+
+Since 10 Nov 2026. `docs/concepts/session/proposing-a-draft.md`.
+**One operation, one route and two types**: no event kind and no field on an existing type.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `ConvertDraftToDocument` and `DraftDocument` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `convert_draft_to_document` (`POST /sessions/draft/document`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `ConvertDraftToDocument` `{ session_id, draft_id }`, `draft_id` the `draft:<row id>` or the bare row id; answered with `DraftDocument` `{ name, path, told }`: the page's name without `.html`, its path in the Job's worktree (the `target` of its `artifact` attachment) and whether the Job was sent its turn |
+| Refusals | Fleet writes | 404 `fleet.draft_convert_unknown` for a draft the Job has no row for; 409 `fleet.draft_convert_settled`; 422 `fleet.draft_convert_proposal` for a draft that proposes a change; 409 `fleet.draft_convert_no_worktree`; 500 `fleet.draft_convert_unwritten`. Nothing is written for a refusal |
+
+**What Fleet does.** It writes `.armada/documents/<slug>.html` (never over a page that is there), settles the draft `withdrawn` with no words, keeps the page as the Job's own write is kept, and sends the Job one turn in Fleet's words.
+A Job that is paused or has ended is sent nothing, and `told` is false.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event: the draft settling and the page's kept row publish `session.changed`, as they do for any other settling. The open risk below is neither better nor worse.
