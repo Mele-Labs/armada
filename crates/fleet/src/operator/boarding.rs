@@ -198,12 +198,14 @@ where
     }
 
     /// The master switch was possibly moved by a save or a hand edit: keep the moment where it differs
-    /// from `was_on`, and tell Bridge to read the board again. A save that left it alone keeps nothing.
+    /// from `was_on`, and tell Bridge to read the page and the board again: the page empties Your turn
+    /// while off, and the board shows `on` and the moves of the switch. A save that left it alone keeps and tells nothing.
     pub(crate) async fn operator_switched(&self, was_on: bool) {
         let on = self.operator_on();
         if on == was_on {
             return;
         }
+        self.operator_page_changed();
         let kept = self.store().lock().await.add_operator_switch(&store::KeptSwitch { on, at: self.now().as_str().to_string() });
         if let Err(why) = kept {
             let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a move of the Operator's switch was not kept")
