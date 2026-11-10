@@ -15,6 +15,7 @@ mod bar;
 mod calls;
 mod cards;
 mod deck;
+mod callchip;
 mod dock;
 mod fork;
 mod keys;
@@ -1048,7 +1049,7 @@ impl Render for JobView {
             // Selected words need the window's selection layer; the Job's view is where words are selected.
             .child(gpui_base::TextSelectionLayer)
             .child(head)
-            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)))
+            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_callchip(&id, cx)))
             .children(self.render_needs(&id, cx))
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
