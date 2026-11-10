@@ -113,6 +113,7 @@ pub fn init_app(cx: &mut App) {
     titlebar::bind(cx);
     merge_strip::bind(cx);
     annotate::bind(cx);
+    dispatch::screen::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }

@@ -41,7 +41,9 @@ use parts::{glyph, mono, no_drag, sans, tip};
 /// What a press on the bar asks of the rest of the app. The wiring sends these; the walk reads none.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Asked {
-    Search,
+    /// The command palette: ⌘K and the search trigger. **The palette is another Job's work**, so a walk
+    /// ends the step here.
+    Palette,
     Dispatch,
     Operator,
     Settings,
@@ -182,7 +184,7 @@ impl Global for Live {}
 pub fn bind(cx: &mut App) {
     cx.on_action(|key: &Act, cx: &mut App| {
         let asked = match key.id {
-            "command_palette" => Asked::Search,
+            "command_palette" => Asked::Palette,
             "operator" => Asked::Operator,
             "open_settings" => Asked::Settings,
             // Not the bar's: the key goes on to whatever else listens, such as a menu's Esc.
@@ -439,7 +441,7 @@ impl TitleBar {
                 }
             }
             (MenuKind::Account, "manifest") => self.leave_with(Asked::Manifest, window, cx),
-            (MenuKind::Account, "search") => self.leave_with(Asked::Search, window, cx),
+            (MenuKind::Account, "search") => self.leave_with(Asked::Palette, window, cx),
             (MenuKind::Account, "dispatch") => self.leave_with(Asked::Dispatch, window, cx),
             (MenuKind::Account, "operator") => self.leave_with(Asked::Operator, window, cx),
             (MenuKind::Build, "main") => self.change_build(BuildSource::Main, window, cx),
@@ -850,7 +852,7 @@ impl TitleBar {
                 .child(glyph("search", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)))
                 .child(div().flex_1().min_w_0().truncate().child("Search, or describe work to dispatch"))
                 .when(!key.is_empty(), |trigger| trigger.child(parts::kbd(key, look)))
-                .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::Search)))),
+                .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::Palette)))),
             Role::Button,
             "Search, or describe work to dispatch",
         ))

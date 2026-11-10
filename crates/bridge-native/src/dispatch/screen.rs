@@ -8,7 +8,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, App, Bounds, Context, Entity, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
+    canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
     Subscription, WeakEntity, Window,
 };
 use ipc::SessionRecord;
@@ -44,12 +44,42 @@ pub struct DispatchScreen {
 }
 
 /// The screen in front, for a walk to move between scenes.
-struct Live(WeakEntity<DispatchScreen>);
+struct Live(WeakEntity<DispatchScreen>, AnyWindowHandle);
 
 impl Global for Live {}
 
 pub fn live(cx: &App) -> Option<Entity<DispatchScreen>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
+}
+
+/// ⌘N, ⌥A, ⌥⌘A and ⌥⌘S, from any focus: the keys are bound with no context, so a bar popup, a menu or
+/// nothing at all holding the keys does not lose them. Each reaches the screen in front.
+pub fn bind(cx: &mut App) {
+    cx.on_action(|key: &Act, cx: &mut App| {
+        let add = match key.id {
+            "new_job" => "",
+            "dispatch_after" => "@",
+            // Not the screen's: the key goes on to whatever else listens.
+            _ => return cx.propagate(),
+        };
+        reach(cx, move |this, window, cx| this.open_sheet(add, window, cx));
+    });
+    cx.on_action(|_: &Toggle, cx: &mut App| reach(cx, |this, window, cx| this.toggle_layer(window, cx)));
+    cx.on_action(|_: &Shoot, cx: &mut App| reach(cx, |this, window, cx| this.shoot_layer(window, cx)));
+}
+
+/// Run something on the screen in front. A key's handler runs inside a window update, so the work
+/// waits until it is over.
+fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut Context<DispatchScreen>) + 'static) {
+    let Some(live) = cx.try_global::<Live>() else { return };
+    let (me, handle) = (live.0.clone(), live.1);
+    cx.defer(move |cx| {
+        let _ = handle.update(cx, |_, window, cx| {
+            if let Some(me) = me.upgrade() {
+                me.update(cx, |this, cx| run(this, window, cx));
+            }
+        });
+    });
 }
 
 impl DispatchScreen {
@@ -72,12 +102,13 @@ impl DispatchScreen {
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
         }
-        cx.set_global(Live(cx.entity().downgrade()));
-        // What the title bar asks: Search and the narrow menu's Dispatch open the sheet.
+        cx.set_global(Live(cx.entity().downgrade(), window.window_handle()));
+        // What the title bar asks: the narrow menu's Dispatch opens the sheet. Search asks for the palette,
+        // which is another Job's, so nothing here answers it.
         let handle = window.window_handle();
         let me = cx.entity().downgrade();
         cx.set_global(AskedSink(Rc::new(move |asked: &BarAsked, cx: &mut App| {
-            if matches!(asked, BarAsked::Search | BarAsked::Dispatch) {
+            if matches!(asked, BarAsked::Dispatch) {
                 let me = me.clone();
                 let _ = handle.update(cx, move |_, window, cx| {
                     if let Some(me) = me.upgrade() {
@@ -103,25 +134,15 @@ impl DispatchScreen {
         cx.notify();
     }
 
-    fn on_act(&mut self, key: &Act, window: &mut Window, cx: &mut Context<Self>) {
-        match key.id {
-            "new_job" => self.open_sheet("", window, cx),
-            "dispatch_after" => self.open_sheet("@", window, cx),
-            _ => cx.propagate(),
+    fn toggle_layer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(layer) = &self.layer {
+            layer.update(cx, |layer, cx| layer.toggle(window, cx));
         }
     }
 
-    fn toggle(&mut self, _: &Toggle, window: &mut Window, cx: &mut Context<Self>) {
-        match &self.layer {
-            Some(layer) => layer.update(cx, |layer, cx| layer.toggle(window, cx)),
-            None => cx.propagate(),
-        }
-    }
-
-    fn shoot(&mut self, _: &Shoot, window: &mut Window, cx: &mut Context<Self>) {
-        match &self.layer {
-            Some(layer) => layer.update(cx, |layer, cx| layer.shoot(window, cx)),
-            None => cx.propagate(),
+    fn shoot_layer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(layer) = &self.layer {
+            layer.update(cx, |layer, cx| layer.shoot(window, cx));
         }
     }
 
@@ -319,11 +340,7 @@ impl Render for DispatchScreen {
         let sheet = self.sheet.read(cx).is_open().then(|| self.sheet.clone());
         div()
             .id("dispatch-screen")
-            .key_context(annotate::HOST)
             .track_focus(&self.within)
-            .on_action(cx.listener(Self::on_act))
-            .on_action(cx.listener(Self::toggle))
-            .on_action(cx.listener(Self::shoot))
             .relative()
             .size_full()
             .child(self.jobs.clone())

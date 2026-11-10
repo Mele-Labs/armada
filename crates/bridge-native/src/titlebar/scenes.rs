@@ -8,7 +8,7 @@ use gpui::{App, Global, SharedString};
 use ipc::{FleetBuildReport, ModelDownshift};
 
 use super::face::{
-    connection_of, Band, Build, Connection, Doctor, Face, FleetFace, Limit, Link, Outcome, Power, Repository, Restarting, Usage, Workspace,
+    connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Repository, Restarting, Usage, Workspace,
 };
 use super::{live, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
@@ -152,6 +152,9 @@ pub fn rest() -> Face {
         signed_in: true,
         manifest: true,
         downshift: None,
+        places: vec![Place { id: "sessions", label: "Jobs", glyph: "square-terminal", shown: true, hideable: true }],
+        here: Some("sessions"),
+        dropped: Dropped { missed: 0, noted: 0 },
     }
 }
 

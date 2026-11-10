@@ -489,6 +489,32 @@ pub struct Workspace {
     pub members: Vec<usize>,
 }
 
+/// One place in the bar's centre (`DK/TabBar.tsx`, `DECK_TABS`): a screen the window can be in.
+///
+/// **Only the places this app has a screen for are listed**, so the strip holds Jobs today. A place
+/// is added here, and drawn, when its screen lands; `⌘1` to `⌘9` follow whatever is drawn, as the
+/// registry's `deck_tabs` row says.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Place {
+    pub id: &'static str,
+    pub label: &'static str,
+    /// The registry glyph of the surface, drawn before the name.
+    pub glyph: &'static str,
+    /// The person's layout draws it (`rail` region), as the View group ticks.
+    pub shown: bool,
+    /// The layout may hide it. Cockpit and System may not: `Always shown`.
+    pub hideable: bool,
+}
+
+/// Events Fleet dropped before Bridge saw them, and how many of them the person has said they have seen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Dropped {
+    /// Events that will never arrive, as Fleet says.
+    pub missed: u32,
+    /// How many the person has said they have seen.
+    pub noted: u32,
+}
+
 /// Everything the title bar draws, in one place the scenario fills and the wiring will.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Face {
@@ -508,6 +534,12 @@ pub struct Face {
     /// Where the step down stands, with the window's reset said as a stamp. The weekly limit's card
     /// and the notification both read it; absent is none, or settled.
     pub downshift: Option<(ModelDownshift, SharedString)>,
+    /// The places the strip in the centre could draw, in order, and the one the window is in. Empty:
+    /// the centre is the search trigger alone, at its full width.
+    pub places: Vec<Place>,
+    pub here: Option<&'static str>,
+    /// Events Fleet dropped before Bridge saw them (`Standing.tsx`): the alert stands until `noted` catches up.
+    pub dropped: Dropped,
 }
 
 impl Face {
@@ -524,7 +556,22 @@ impl Face {
             signed_in: false,
             manifest: false,
             downshift: None,
+            places: Vec::new(),
+            here: None,
+            dropped: Dropped { missed: 0, noted: 0 },
         }
+    }
+
+    /// The places the strip draws now, in order: the ones the layout has not hidden.
+    pub fn drawn_places(&self) -> impl Iterator<Item = &Place> {
+        self.places.iter().filter(|place| place.shown)
+    }
+
+    /// Whether the layout may hide this place now: not a fixed one, and not the last one drawn, since
+    /// the strip is how a hidden place comes back.
+    pub fn may_hide(&self, id: &str) -> bool {
+        self.places.iter().find(|place| place.id == id).is_some_and(|place| place.hideable)
+            && !(self.drawn_places().count() == 1 && self.drawn_places().any(|place| place.id == id))
     }
 
     /// The picker's trigger: the repository chosen, else `All repositories`, or the reason none is listed.

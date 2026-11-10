@@ -40,18 +40,16 @@ use tools::{Scope, Tools};
 
 actions!(annotate, [Toggle, Shoot]);
 
-/// The key context the screen that hosts the layer sets, so ⌥⌘A reaches it from anywhere on the screen.
-pub const HOST: &str = "annotate-host";
-
 /// Where the layer is kept between openings of the screen: the notes survive a toggle.
 const KEEP_NOTE: &str = "annotate:note";
 
 /// ⌥⌘A and ⌥⌘S. **Electron reads them by key place in the layer itself** (`Layer.tsx:75-91`); the
-/// registry does not list them, so they are restated here until it does. Bound only in a
-/// development build.
+/// registry does not list them, so they are restated here until it does. Bound with no context, so
+/// they work from any focus, and only in a development build. The screen that hosts the layer
+/// answers them (`dispatch::screen::bind`).
 pub fn bind(cx: &mut App) {
     if dev_build() {
-        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, Some(HOST)), KeyBinding::new("alt-cmd-s", Shoot, Some(HOST))]);
+        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
     }
 }
 
