@@ -231,3 +231,75 @@ export type RequestBodySaved = {
   bytes: number;
   truncated: boolean;
 };
+
+/** Which runs a list keeps by how they ended: a status class, or `failed` where nothing answered. */
+export type RequestRunStatus = "2xx" | "3xx" | "4xx" | "5xx" | "failed";
+
+/** The Job a run was sent from. `title` is the Job's now, or its title when it was sent where the ledger no longer names it. */
+export type RequestRunJob = {
+  id: string;
+  title?: string;
+};
+
+/** One run as a list draws it. `summary` is the start of the request's body on one line, empty where it sent none. */
+export type RequestRunSummary = {
+  id: string;
+  at: string;
+  by: RequestBy;
+  job?: RequestRunJob;
+  method: string;
+  url: string;
+  status?: number;
+  ms: number;
+  error?: string;
+  summary: string;
+};
+
+/**
+ * `list_request_runs`: `GET /requests/runs?repository=&session_id=&collection=&request=&by=&status=&before=&limit=`. One
+ * saved request's runs, newest first, kept for every send of it by the owner or a Job's agent and outliving the Job. The
+ * request is named by its collection's id and its own, as `get_requests` lists them. `by` is `owner` or `agent`, `status` a
+ * `RequestRunStatus`, `limit` 50 where absent and at most 200, `before` a run's `id`. `next` is where the following page
+ * begins, absent on the last. A 422 `fleet.requests_unplaced`, `api.request_run_refused` or `fleet.request_run_refused`.
+ */
+export type RequestRuns = {
+  runs: RequestRunSummary[];
+  next?: string;
+};
+
+/** The request exactly as it went: every `{{name}}` filled but a secret's, which stays `{{name}}`. */
+export type RequestRunSent = {
+  method: string;
+  url: string;
+  headers: RequestHeader[];
+  body?: string;
+};
+
+/** What came back. `body` is cut at 256 KiB and `bytes` is what the answer weighed as it came; `content_type` is the header's value. */
+export type RequestRunAnswer = {
+  status?: number;
+  ms: number;
+  headers: RequestHeader[];
+  body: string;
+  truncated: boolean;
+  bytes: number;
+  content_type?: string;
+  error?: string;
+};
+
+/**
+ * `get_request_run`: `GET /requests/runs/one?repository=&session_id=&id=`. One run in full. **A secret is `{{name}}` in every
+ * field.** A 404 `fleet.no_such_request_run` where the repository keeps none, a 422 `api.request_run_refused` or `fleet.request_run_refused`
+ * for an `id` that is missing or none of Fleet's.
+ */
+export type RequestRun = {
+  id: string;
+  at: string;
+  by: RequestBy;
+  job?: RequestRunJob;
+  collection: string;
+  request: string;
+  environment?: string;
+  sent: RequestRunSent;
+  answer: RequestRunAnswer;
+};

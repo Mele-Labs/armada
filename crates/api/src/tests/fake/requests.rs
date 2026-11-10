@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use ipc::{
-    DeleteRequestEnvironment, RequestBy, RequestLine, RequestSaved, RequestSent, RequestToSend, Requests as RequestsRead,
-    RequestsSent, RunPlace, SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest,
-    SendRequests, SessionId,
+    DeleteRequestEnvironment, RequestBy, RequestLine, RequestRun, RequestRunAnswer, RequestRunSent, RequestRunSummary,
+    RequestRuns, RequestSaved, RequestSent, RequestToSend, Requests as RequestsRead, RequestsSent, RunPlace,
+    SaveRequestCollection, SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SendRequests, SessionId,
 };
 
 use super::FakeDaemon;
-use crate::{Caller, Refusal, Requests};
+use crate::{Caller, Refusal, Requests, RunsAsked};
 
 /// An empty read of `repository`, or of `repo` where nothing is named.
 fn empty(repository: Option<String>) -> RequestsRead {
@@ -106,5 +106,65 @@ impl Requests for FakeDaemon {
         save: SaveRequestToCollection,
     ) -> Result<RequestSaved, Refusal> {
         Ok(RequestSaved { collection_id: save.collection, request_id: save.request.name })
+    }
+
+    /// One run, whose address says what was asked so a test reads what arrived through the route.
+    async fn list_request_runs(
+        &self,
+        _caller: Option<Caller>,
+        asked: RunsAsked,
+    ) -> Result<RequestRuns, Refusal> {
+        let url = format!(
+            "{}/{}?by={:?}&status={:?}&before={:?}&limit={:?}",
+            asked.collection,
+            asked.request,
+            asked.by,
+            asked.status.map(ipc::RequestRunStatus::as_wire),
+            asked.before,
+            asked.limit,
+        );
+        let run = RequestRunSummary {
+            id: String::from("1"),
+            at: ipc::Instant::carried("2026-11-10T10:00:00Z"),
+            by: RequestBy::Owner,
+            job: None,
+            method: String::from("GET"),
+            url,
+            status: Some(200),
+            ms: 0,
+            error: None,
+            summary: String::new(),
+        };
+        Ok(RequestRuns { runs: vec![run], next: None })
+    }
+
+    async fn get_request_run(
+        &self,
+        _caller: Option<Caller>,
+        reader: RequestBy,
+        _repository: Option<String>,
+        _session_id: Option<SessionId>,
+        id: String,
+    ) -> Result<RequestRun, Refusal> {
+        Ok(RequestRun {
+            id,
+            at: ipc::Instant::carried("2026-11-10T10:00:00Z"),
+            by: reader,
+            job: None,
+            collection: String::from("users"),
+            request: String::from("me"),
+            environment: None,
+            sent: RequestRunSent { method: String::from("GET"), url: String::new(), headers: Vec::new(), body: None },
+            answer: RequestRunAnswer {
+                status: Some(200),
+                ms: 0,
+                headers: Vec::new(),
+                body: String::new(),
+                truncated: false,
+                bytes: 0,
+                content_type: None,
+                error: None,
+            },
+        })
     }
 }
