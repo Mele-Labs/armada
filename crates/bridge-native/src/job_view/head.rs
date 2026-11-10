@@ -38,7 +38,6 @@ pub fn bind(cx: &mut App) {
 /// What a press has put on the screen that Fleet's record does not say yet.
 #[derive(Clone, Default)]
 pub(super) struct Overlay {
-    pub title: Option<String>,
     pub paused: Option<bool>,
     pub auto_land: Option<bool>,
     pub stopped: bool,
@@ -336,12 +335,7 @@ impl JobView {
     }
 
     pub(super) fn title_of(&self, id: &str, cx: &App) -> Option<SharedString> {
-        self.head
-            .overlays
-            .get(id)
-            .and_then(|overlay| overlay.title.clone())
-            .or_else(|| self.record(id, cx).and_then(|job| job.title.clone()))
-            .map(Into::into)
+        self.record(id, cx).and_then(|job| job.title.clone()).map(Into::into)
     }
 
     /// What the Job holds that Release gives back: its slot, branches and pull requests.
@@ -714,9 +708,19 @@ impl JobView {
         let tab = self.head.tab.clone();
         window.focus(&tab, cx);
         if keep && !said.is_empty() && said != was.as_ref() {
-            self.overlay_mut(&rename.job).title = Some(said.clone());
+            // The list's record takes the title, so the tab, the row, the review sheet and the palette read one.
+            self.list.update(cx, |list, cx| list.retitle(&rename.job, said.clone(), cx));
             let body = ipc::encode(&ipc::RenameSession { session_id: Self::session_id(&rename.job), title: said });
-            self.ask_act(rename.job, "/sessions/rename".into(), body, |overlay| overlay.title = None, window, cx);
+            let job = rename.job;
+            self.head.said.remove(&job);
+            let done: Done = Box::new(move |this, answer, _, cx| {
+                if let Err(why) = answer {
+                    this.list.update(cx, |list, cx| list.untitle(&job, cx));
+                    this.head.said.insert(job, why.into());
+                }
+                cx.notify();
+            });
+            self.post("/sessions/rename".into(), body, window, cx, done);
         }
         cx.notify();
     }

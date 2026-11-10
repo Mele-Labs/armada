@@ -191,7 +191,10 @@ impl JobView {
             .pb(gap)
             .when(roomy, |row| row.pt(room))
             .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * COLUMN).child(drawn));
-        if !page.arrived.contains(&ix) {
+        // The person's own words are drawn whole the frame they are sent: a fade from nothing here made a
+        // send look like it drew nothing, and made Fleet's echo of a pending row blink out and back.
+        let own = matches!(held.items.get(ix), Some(ThreadItem::Row { row: SessionRow::Message { from: SessionVoice::You, .. } }));
+        if !page.arrived.contains(&ix) || own {
             return row.into_any_element();
         }
         // A row that came in after the first draw rises from `space-2` below, from nothing (A1.8).

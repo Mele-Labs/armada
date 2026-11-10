@@ -453,13 +453,18 @@ pub struct JobsList {
     _card_wait: Option<Task<()>>,
     fleet: Option<Entity<FleetConnection>>,
     _watch: Option<Subscription>,
+    /// Titles asked for and not yet answered, by Job id: (the title Fleet last held, the title asked for).
+    /// Every reader of a Job's title reads the record, so the head, the list, the review sheet and the
+    /// palette cannot disagree while Fleet's answer is pending.
+    asked: HashMap<String, (Option<String>, String)>,
 }
 
 impl JobsList {
     /// The list on a live Fleet: it follows the Jobs the connection holds.
     pub fn live(fleet: &Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
         let watch = cx.observe(fleet, |this, fleet, cx| {
-            let jobs = fleet.read(cx).held().jobs.clone();
+            let mut jobs = fleet.read(cx).held().jobs.clone();
+            this.hold_asked_titles(&mut jobs);
             if jobs != this.jobs {
                 this.jobs = jobs;
                 this.place_new();
@@ -507,6 +512,7 @@ impl JobsList {
             _card_wait: None,
             fleet,
             _watch: watch,
+            asked: HashMap::new(),
         };
         this.place_new();
         this.lines = this.lines_now();
@@ -565,6 +571,41 @@ impl JobsList {
             self.card = None;
             cx.notify();
         }
+    }
+
+    /// The title a rename asked for stands on the Job at once. On a live Fleet it stands until Fleet's
+    /// record moves off the old title (its echo, or another rename); on mock data nothing echoes, so the
+    /// record takes it for good, as Fleet's would.
+    pub fn retitle(&mut self, id: &str, title: String, cx: &mut Context<Self>) {
+        let Some(held) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        if self.fleet.is_some() {
+            let was = self.asked.get(id).map_or_else(|| held.title.clone(), |(was, _)| was.clone());
+            self.asked.insert(id.to_string(), (was, title.clone()));
+        }
+        held.title = Some(title);
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// Fleet refused the rename: the title it holds comes back.
+    pub fn untitle(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some((was, _)) = self.asked.remove(id) else { return };
+        if let Some(held) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) {
+            held.title = was;
+        }
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// Put the titles still waiting on Fleet over the records it sent, and let go of those it has answered.
+    fn hold_asked_titles(&mut self, jobs: &mut [SessionRecord]) {
+        self.asked.retain(|id, (was, asked)| match jobs.iter_mut().find(|job| job.id.as_str() == id) {
+            Some(job) if job.title == *was => {
+                job.title = Some(asked.clone());
+                true
+            }
+            _ => false,
+        });
     }
 
     pub fn record(&self, id: &str) -> Option<&SessionRecord> {
