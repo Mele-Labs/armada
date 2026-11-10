@@ -1061,6 +1061,10 @@ where
             .hosts()
             .settling(&id, &item.id)
             .ok_or_else(|| self.settled_already())?;
+        // His approval is his alone: an answer in his place would tell the agent "Approve" with the gate open.
+        if item.approves && by == Answerer::InHisPlace {
+            return Err(self.hosted_refusal(SESSION_WAITING_UNHELD, "an item that asks for his approval is answered by him"));
+        }
         if said.fixed.is_some() && item.source != WaitingSource::Draft {
             return Err(self.hosted_refusal(FIXED_NOT_A_DRAFT, "fixed text is an answer to a draft only"));
         }

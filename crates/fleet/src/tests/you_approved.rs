@@ -100,6 +100,20 @@ async fn ask_for_changes_words_alone_and_a_dismiss_leave_the_gate_open() {
 }
 
 #[tokio::test]
+async fn an_answer_in_his_place_is_refused_on_an_item_that_asks_for_his_approval() {
+    let rig = rig_placing(None);
+    let id = running(&rig).await;
+    recorded(&rig, plan(&id, vec![gated("Design", PlanGate::YouApproved)])).await;
+    waiting(&rig, &id, vec![asking("design", true, &[]), asking("plain", false, &["Yes", "No"])]).await;
+    let said = |item: &str| AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice: Some(0), text: None, mode: None, fixed: None };
+
+    assert!(Arc::clone(&rig.fleet).settle_waiting(said("design")).await.is_err(), "the Operator cannot approve for him");
+    assert_eq!(labels(&read(&rig, &id).await, "design"), ["Approve", "Ask for changes"], "and the item still waits on him");
+    Arc::clone(&rig.fleet).settle_waiting(said("plain")).await.expect("an item that does not ask is still the Operator's to answer");
+    assert!(rig.fleet.gates_kept(id.as_str()).await.is_empty());
+}
+
+#[tokio::test]
 async fn an_approve_on_an_item_that_did_not_ask_or_before_the_plan_closes_nothing() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
