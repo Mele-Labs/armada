@@ -221,7 +221,16 @@ const ask = () => document.querySelector<HTMLElement>('[role="dialog"], [role="a
 const button = (within: HTMLElement, name: string) =>
   [
     ...within.querySelectorAll("button"),
-  ].find((one) => one.textContent?.trim() === name)!;
+  ].find((one) => named(one) === name)!;
+// The button's words without the `aria-hidden` key glyph a dialog draws beside them.
+const named = (one: HTMLElement) =>
+  [
+    ...one.childNodes,
+  ]
+    .filter((node) => !(node instanceof Element && node.getAttribute("aria-hidden") === "true"))
+    .map((node) => node.textContent ?? "")
+    .join("")
+    .trim();
 
 test("a committed shell tile not approved here asks first, showing its command, and runs nothing", async () => {
   const armada = fleet();
