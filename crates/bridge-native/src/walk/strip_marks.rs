@@ -10,13 +10,13 @@ use gpui::App;
 
 use super::{marks, press_on, step, Step, Verb};
 
-const CALLING: &str = "#3381 Checkout page loads twice · armada/checkout-twice · ci failed · Job: Checkout page loads twice";
-const RUNNING: &str = "#3392 Quiet the write-clash notices · armada/quiet-clashes · In the merge queue, running its checks, place 2 · Job: Quiet the write-clash notices";
-const READY: &str = "#3388 Fix the merge line freshness chip · armada/merge-line-chip · ci passed · Job: Fix the merge line freshness chip";
-const RED: &str = "Main is red in armada, checkout 3 commits behind main";
-const PAIR: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/ipc/src/clashes.rs";
-const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main, Pocket sign-in on the phone";
-const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
+pub(super) const CALLING: &str = "#3381 Checkout page loads twice · armada/checkout-twice · ci failed · Job: Checkout page loads twice";
+pub(super) const RUNNING: &str = "#3392 Quiet the write-clash notices · armada/quiet-clashes · In the merge queue, running its checks, place 2 · Job: Quiet the write-clash notices";
+pub(super) const READY: &str = "#3388 Fix the merge line freshness chip · armada/merge-line-chip · ci passed · Job: Fix the merge line freshness chip";
+pub(super) const RED: &str = "Main is red in armada, checkout 3 commits behind main";
+pub(super) const PAIR: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/ipc/src/clashes.rs";
+pub(super) const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main, Pocket sign-in on the phone";
+pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
 pub static STEPS: [Step; 30] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),

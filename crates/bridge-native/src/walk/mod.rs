@@ -11,6 +11,7 @@
 //! check and the window play the same list. Each step aims at a `{role, name}` from
 //! [`crate::labels`], which is what VoiceOver reads too.
 
+pub mod all;
 pub mod bar;
 pub mod check;
 pub mod dispatch;
@@ -55,6 +56,9 @@ pub enum Verb {
     /// The Jobs list's scope picked as a person picks it, from the keys: press the scope button, ↓ to
     /// Paused, Enter. One step for the three, since the list is on the same screen.
     PausedScope,
+    /// The screen is built again from its mock, so a part of a long walk starts from the state its
+    /// first step expects: no popup, sheet or layer open, every scene at rest. The target is ringed.
+    Fresh,
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -88,6 +92,10 @@ pub enum Screen {
     Dispatch,
     /// The Jobs screen with the Job head's stand-in drawn over it, for the walk of the strip and marks.
     Marks,
+    /// Every piece at once, for the walk that plays the others in order: the title bar, the merge
+    /// strip, the dispatch sheet and the notes layer over the Jobs screen, and the Job head's
+    /// stand-in, drawn only while a scene shows the ring.
+    All,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -104,6 +112,10 @@ const fn marks(say: &'static str, name: &'static str, role: &'static str, target
 
 const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
     Step { say, verb: Verb::Answer(name), target: Target { role, name: target } }
+}
+
+const fn fresh(say: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Fresh, target: Target { role, name: target } }
 }
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
@@ -176,6 +188,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &notes::STEPS,
+    },
+    Walk {
+        name: "native-title-bar",
+        title: "Dispatch and the title bar",
+        screen: Screen::All,
+        scenario: "jobs-many",
+        steps: all::STEPS,
     },
     Walk {
         name: "jobs-lamps",

@@ -4,8 +4,8 @@
 use super::{press_on, scene, step, Step, Verb};
 
 const FIVE_WEEK: &str = "5-hour limit 42%, Weekly limit 71%";
-const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
-const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
+pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
+pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
 pub static STEPS: [Step; 44] = [

@@ -21,7 +21,7 @@ use crate::capture::{self, ringed, Capture, CaptureEvent, Held, Words};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use super::fleet::WalkFleet;
 use super::stage::{find, perform, Stage};
-use super::Walk;
+use super::{Verb, Walk};
 use crate::labels::{label_root, labelled};
 use crate::look::{token, ActiveLook};
 
@@ -180,8 +180,27 @@ impl WalkWindow {
         cx.notify();
         self._play = Some(cx.spawn_in(window, async move |this, cx| {
             for at in from..=to {
-                let Ok(Some(focus)) = this.read_with(cx, |this, _| this.stage.as_ref().map(|stage| stage.focus.clone())) else { return };
                 let step = walk.steps[at];
+                if step.verb == Verb::Fresh {
+                    // A part of a long walk starts on a screen built again, with nothing of the last part open.
+                    let rebuilt = this.update_in(cx, |this, window, cx| match Stage::new(walk, window, cx) {
+                        Ok(stage) => {
+                            this.stage = Some(stage);
+                            cx.notify();
+                            Ok(())
+                        }
+                        Err(why) => Err(why),
+                    });
+                    if let Ok(Err(why)) = rebuilt {
+                        let _ = this.update(cx, |this, cx| {
+                            this.said = Some(Said { text: format!("Step {}: {why}", at + 1).into(), fault: true });
+                            this.playing = false;
+                            cx.notify();
+                        });
+                        return;
+                    }
+                }
+                let Ok(Some(focus)) = this.read_with(cx, |this, _| this.stage.as_ref().map(|stage| stage.focus.clone())) else { return };
                 let done = cx.update(|window, cx| {
                     window.draw(cx).clear(cx);
                     perform(&step, &focus, window, cx)

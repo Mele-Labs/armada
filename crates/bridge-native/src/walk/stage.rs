@@ -50,6 +50,21 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
             }
+            Screen::All => {
+                // Every piece at once: the bar and the strip at rest, the dispatch sheet and the notes layer
+                // around the Jobs screen, and the Job head's stand-in with no ring until a scene draws one.
+                crate::titlebar::scenes::begin(cx);
+                super::strip_marks::enter(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let keys = list.read(cx).focus_handle().clone();
+                let jobs = cx.new(|cx| JobsScreen::new(list, cx));
+                let screen = cx.new(|cx| crate::dispatch::DispatchScreen::new(jobs, &records, window, cx));
+                let focus = Focus { keys, within: screen.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                let stood = cx.new(|cx| super::stand_in::JobHeadStandIn::new(screen.into(), cx));
+                Ok(Stage { view: stood.into(), focus })
+            }
             Screen::Marks => {
                 crate::titlebar::scenes::begin(cx);
                 super::strip_marks::enter(cx);
@@ -83,6 +98,8 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
 pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) -> Result<(), Missed> {
     match step.verb {
         Verb::Look => Ok(()),
+        // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
+        Verb::Fresh => Ok(()),
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
             if !focus.within.contains_focused(window, cx) {
