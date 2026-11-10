@@ -9,7 +9,7 @@ fn order(form: &str) -> KeptOrder {
 }
 
 fn talk(from_person: bool, text: &str, call: Option<&str>, at: &str) -> KeptTalk {
-    KeptTalk { from_person, text: text.to_string(), call: call.map(str::to_string), at: at.to_string(), ..KeptTalk::default() }
+    KeptTalk { from_person, text: text.to_string(), call: call.map(str::to_string), at: at.to_string(), about: None }
 }
 
 #[test]
@@ -54,25 +54,4 @@ fn a_message_keeps_the_item_it_was_about() {
 
     let read = store.operator_talk(10).expect("read");
     assert_eq!(read.iter().map(|one| one.about.as_deref()).collect::<Vec<_>>(), vec![Some("question:01JOB:1"), None]);
-}
-
-#[test]
-fn a_raise_stays_open_until_it_is_settled_once_and_is_left_out_of_what_was_said() {
-    let dir = TempDir::new();
-    let mut store = open(&dir);
-    store.add_operator_talk(&talk(true, "what waits?", None, "2026-11-10T09:00:00.000Z")).expect("kept");
-    let raise = KeptTalk { raise: Some("{}".to_string()), raise_session: Some("01JOB".to_string()), raise_item: Some("plan".to_string()), ..talk(false, "The pane needs you.", None, "2026-11-10T09:01:00.000Z") };
-    store.add_operator_talk(&raise).expect("kept");
-    store.add_operator_talk(&KeptTalk { briefing: true, ..talk(false, "Morning.", Some("briefing:1"), "2026-11-10T08:00:00.000Z") }).expect("kept");
-
-    let open = store.operator_raises_open().expect("read");
-    assert_eq!(open.iter().map(|one| one.raise_item.as_deref()).collect::<Vec<_>>(), vec![Some("plan")]);
-    assert_eq!(store.operator_talk_said(10).expect("read").iter().map(|one| one.text.as_str()).collect::<Vec<_>>(), vec!["what waits?", "Morning."]);
-    assert_eq!(store.operator_talk(10).expect("read").len(), 3, "everything is served");
-
-    assert!(store.settle_operator_raise(open[0].n, "2026-11-10T10:00:00.000Z").expect("settled"));
-    assert!(!store.settle_operator_raise(open[0].n, "2026-11-10T11:00:00.000Z").expect("read"), "settled once");
-    assert!(store.operator_raises_open().expect("read").is_empty());
-    assert_eq!(store.operator_talk(10).expect("read")[1].settled_at.as_deref(), Some("2026-11-10T10:00:00.000Z"));
-    assert_eq!(store.operator_briefed_at().expect("read").as_deref(), Some("2026-11-10T08:00:00.000Z"));
 }
