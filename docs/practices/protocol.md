@@ -1701,3 +1701,23 @@ Bridge's half is `packages/protocol/src/hosted-sessions.ts`, written by hand, fi
 | `SessionRow::Linked` (a parent's thread) | Fleet writes, Bridge and Pocket read | Gains `replaces`, absent but on the row that tells a parent its child was handed on: the id of the Job the new one took the place of |
 
 Bridge and Pocket draw no row for it: the row that started the old Job stands for both, and opening it opens the new one.
+
+## An edit to a sent message: `edit_session_message` and `SessionRow::Message.edited_at`
+
+Since 10 Nov 2026. `docs/concepts/session/editing-a-sent-message.md`.
+**One operation, one route and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field. Electron draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `edit_session_message` (`POST /sessions/message/edit`, `agent_access = "No"`) | Bridge sends, Fleet answers 202 | `EditSessionMessage` `{ session_id, row_id, text }`; answered with the `SessionRecord` |
+| `message` row `edited_at` (`session.row`) | Fleet writes, Bridge reads | When the words were changed after the agent had been sent them. Absent on a message never edited, on a message changed while Fleet still held its turn, and on every row kept before it |
+
+**Refused with nothing changed**: 422 `fleet.session_row_unknown` for a row the thread does not hold or that is not a message; 422 `fleet.session_row_not_his` for a message that is not the person's; 422 `fleet.session_message_empty`; 409 `fleet.session_closed` for an ended Job; 422 `fleet.session_command_refused` for a terminal Job; 422 `fleet.no_such_session`.
+**Words the same as the row's are a no-op that succeeds.**
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with `edited_at` reads on a Bridge that does not know it as an unedited one.
+
+**The event stream.** Untouched in kind: the edited row is one `session.row`, as any row put again by id is. The open risk below is neither better nor worse.

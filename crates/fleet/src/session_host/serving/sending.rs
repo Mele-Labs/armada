@@ -115,6 +115,7 @@ where
                 tags: tags.to_vec(),
                 notice: None,
                 queued: false,
+                edited_at: None,
             },
             Written::Noticed(notice) => SessionRow::Message {
                 id: self.row_id(session),
@@ -128,6 +129,7 @@ where
                 tags: tags.to_vec(),
                 notice: Some(notice.word().to_string()),
                 queued: false,
+                edited_at: None,
             },
             Written::Row(row) => row.clone(),
             Written::Ran(ran) => SessionRow::Ran {
@@ -201,6 +203,7 @@ where
                 tags: sent.mentions.clone(),
                 instead: instead.clone(),
                 ahead: ahead.clone(),
+                row: None,
             }),
             _ => None,
         };
@@ -254,6 +257,7 @@ where
             addressed,
             ahead,
             instead,
+            row: Some(row_id.clone()),
         };
         // A Session whose request is still being read starts on the answer, and this turn with it.
         let runtime = self.hosts().of(&id);
@@ -273,20 +277,26 @@ where
             // past `DELIVERY_GRACE` goes on behind the answer: one that fails keeps its turn in
             // `start_failed`, and the thread shows the message already.
             Some(held) if matches!(written, Written::Message(SessionVoice::You)) => {
-                let (fleet, id) = (Arc::clone(&self), id.clone());
-                let mut delivery = tokio::spawn(async move {
-                    let runtime = fleet.hosts().of(&id);
-                    let _in_order = runtime.delivery.lock().await;
-                    if let Err(why) = fleet.deliver_turn(&id, held).await {
-                        fleet.session_warned(&id, "a job's message was not delivered", format!("{why:?}"));
-                    }
-                });
-                let _ = tokio::time::timeout(DELIVERY_GRACE, &mut delivery).await;
+                self.delivered_in_order(&id, held).await;
             }
             Some(held) => self.deliver_turn(&id, held).await?,
             None => {}
         }
         self.published_hosted(&id).await
+    }
+
+    /// [`Self::deliver_turn`] behind the turns being delivered already, answering after
+    /// `DELIVERY_GRACE` however the delivery goes. One that is not done by then finishes behind the answer.
+    pub(crate) async fn delivered_in_order(self: &Arc<Self>, id: &str, held: super::super::proposing::Held) {
+        let (fleet, id) = (Arc::clone(self), id.to_string());
+        let mut delivery = tokio::spawn(async move {
+            let runtime = fleet.hosts().of(&id);
+            let _in_order = runtime.delivery.lock().await;
+            if let Err(why) = fleet.deliver_turn(&id, held).await {
+                fleet.session_warned(&id, "a job's message was not delivered", format!("{why:?}"));
+            }
+        });
+        let _ = tokio::time::timeout(DELIVERY_GRACE, &mut delivery).await;
     }
 
     /// Start the process if it has none, and write the turn to it. A Job whose process would not
@@ -374,6 +384,7 @@ where
             addressed,
             ahead,
             instead,
+            ..
         } = held;
         let mut turn = String::new();
         if let Some(line) = &ahead {

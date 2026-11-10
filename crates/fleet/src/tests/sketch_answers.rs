@@ -244,6 +244,7 @@ fn said(at: &str, from: SessionVoice, text: &str) -> SessionRow {
         tags: Vec::new(),
         notice: None,
         queued: false,
+        edited_at: None,
     }
 }
 

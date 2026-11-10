@@ -413,7 +413,7 @@ pub use holding::{
     SlotReleased, SlotRescued, SlotStranded, SlotVerdict, WorktreeSlot, WorktreesHeld,
 };
 pub use hosted_sessions::{
-    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionTag,
