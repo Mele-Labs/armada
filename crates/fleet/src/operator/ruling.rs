@@ -25,6 +25,9 @@ pub enum Way {
     Link,
     /// A note or an error is filed as a new issue in the repository's beads.
     File,
+    /// A suggestion that repeats one kept before is read and nothing follows: the Log says which it repeats.
+    /// It is never offered to a call.
+    Noted,
     /// A note the person sent to a Job stays where he sent it. Nothing follows and nothing is in Done.
     Leave,
 }
@@ -37,6 +40,7 @@ impl Way {
             Way::Raise => "raise",
             Way::Link => "link",
             Way::File => "file",
+            Way::Noted => "noted",
             Way::Leave => "leave",
         }
     }
@@ -49,13 +53,14 @@ impl Way {
             Way::Raise => "proposed_raise",
             Way::Link => "proposed_link",
             Way::File => "proposed_file",
+            Way::Noted => "proposed_noted",
             Way::Leave => "proposed_leave",
         }
     }
 
     /// The way a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Way> {
-        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Leave].into_iter().find(|way| way.word() == word)
+        [Way::NewJob, Way::ExistingJob, Way::Raise, Way::Link, Way::File, Way::Noted, Way::Leave].into_iter().find(|way| way.word() == word)
     }
 
     pub(super) fn word_shown(self) -> &'static str {
@@ -65,6 +70,7 @@ impl Way {
             Way::Raise => "raise",
             Way::Link => "link to an open issue",
             Way::File => "file a new issue",
+            Way::Noted => "note it",
             Way::Leave => "leave it with the Job he sent it to",
         }
     }

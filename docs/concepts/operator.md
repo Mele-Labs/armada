@@ -150,7 +150,7 @@ Why: an item the Operator never rules on is one the person never sees, so nothin
 
 **Turning the Operator Off is main before the Operator.**
 No call process is kept started, and nothing is handed to it, acted on, or waited for.
-An end and a merge are still noted once while it is off, so none is told when it comes on.
+An end and a merge are still heard once while it is off, so none is told when it comes on.
 
 ## The Log
 
