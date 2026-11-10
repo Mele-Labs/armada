@@ -23,8 +23,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, point, prelude::*, px, Anchor, AnyView, App, Bounds, Context, DismissEvent, Entity,
-    EventEmitter, FocusHandle, FontWeight, Focusable, Global, Pixels, Role, Subscription, Task, WeakEntity, Window,
+    canvas, div, point, prelude::*, px, Anchor, AnyElement, AnyView, App, Bounds, Context, DismissEvent, Entity,
+    EventEmitter, FocusHandle, FontWeight, Focusable, Global, MouseButton, PathBuilder, Pixels, Point, Role, SharedString,
+    Subscription, Task, WeakEntity, Window,
 };
 use ipc::{BuildSource, ModelDownshift};
 
@@ -65,6 +66,14 @@ pub enum Asked {
     RestartFleet,
     Remedy(Remedy),
     CopyDebugInfo,
+    /// Go to a place of the strip (⌘1 to ⌘9, or a press on it), by its id.
+    Place(&'static str),
+    /// The layout shows or hides a place (`TabBar.tsx`'s `show`): the wiring writes the person's own layout.
+    PlaceShown { id: &'static str, shown: bool },
+    /// ⇧⌘R: refresh what the window shows.
+    Refresh,
+    /// Teach, from the menu a right press on a thing offers; the target is what the menu's heading names.
+    Teach(&'static str),
 }
 
 impl EventEmitter<Asked> for TitleBar {}
@@ -102,6 +111,10 @@ enum MenuKind {
     Repository,
     Build,
     Account,
+    /// The places strip's: Hide, then View.
+    Places,
+    /// The one a right press on the bar offers: Teach.
+    Teach,
 }
 
 struct Menu {
@@ -143,6 +156,7 @@ struct Anchors {
     select: Rc<Cell<Option<Bounds<Pixels>>>>,
     menu: Rc<Cell<Option<Bounds<Pixels>>>>,
     row: Rc<Cell<Option<Bounds<Pixels>>>>,
+    centre: Rc<Cell<Option<Bounds<Pixels>>>>,
 }
 
 /// Where the title row was drawn last frame, for what sits below it to start under it.
@@ -164,6 +178,8 @@ pub struct TitleBar {
     keys_were: Option<FocusHandle>,
     popup_focus: FocusHandle,
     dialog_focus: FocusHandle,
+    /// The keys of each place of the strip, kept by its id.
+    place_focus: Vec<(&'static str, FocusHandle)>,
     at: Anchors,
     /// The face as it was before the last optimistic change, for [`TitleBar::refused`].
     before: Option<Face>,
@@ -179,7 +195,7 @@ struct Live(WeakEntity<TitleBar>);
 
 impl Global for Live {}
 
-/// The bar's keys that work from anywhere: ⌘K, ⌘J and ⌘, (`actions.toml`, scope `anywhere`). A
+/// The bar's keys that work from anywhere: ⌘K, ⌘J, ⌘, , ⇧⌘R and ⌘1 to ⌘9 (`actions.toml`, scope `anywhere`). A
 /// screen's own handler runs first; what it does not take reaches here.
 pub fn bind(cx: &mut App) {
     cx.on_action(|key: &Act, cx: &mut App| {
@@ -187,6 +203,14 @@ pub fn bind(cx: &mut App) {
             "command_palette" => Asked::Palette,
             "operator" => Asked::Operator,
             "open_settings" => Asked::Settings,
+            "refresh" => Asked::Refresh,
+            "deck_tabs" => {
+                let Some(n) = key.digit else { return cx.propagate() };
+                if let Some(bar) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+                    bar.update(cx, |bar, cx| bar.go_to_digit(n, cx));
+                }
+                return;
+            }
             // Not the bar's: the key goes on to whatever else listens, such as a menu's Esc.
             _ => return cx.propagate(),
         };
@@ -224,6 +248,7 @@ impl TitleBar {
             keys_were: None,
             popup_focus: cx.focus_handle(),
             dialog_focus: cx.focus_handle(),
+            place_focus: Vec::new(),
             at,
             before: None,
             details_open: false,
@@ -381,17 +406,26 @@ impl TitleBar {
         }
     }
 
-    /// The menu a trigger opens: the entries, under the trigger, with the keys on its first entry
-    /// when `from_keys`.
+    /// The menu a trigger opens: the entries, under the trigger.
     fn open_menu(&mut self, kind: MenuKind, entries: Vec<Entry>, name: &'static str, from: Bounds<Pixels>, end: bool, window: &mut Window, cx: &mut Context<Self>) {
-        self.keep_keys(window, cx);
         let gap = cx.look().length(token::SPACE_1);
         let at = point(if end { from.origin.x + from.size.width } else { from.origin.x }, from.origin.y + from.size.height + gap);
         let corner = if end { Anchor::TopRight } else { Anchor::TopLeft };
-        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, corner, false, cx));
+        self.open_menu_at(kind, entries, name, at, corner, false, window, cx);
+    }
+
+    /// A menu with its corner at `at`: under a trigger, or at the pointer for a right press. The keys go
+    /// on its first entry when `from_keys`, as a menu opened from the keyboard has them.
+    #[allow(clippy::too_many_arguments)]
+    fn open_menu_at(&mut self, kind: MenuKind, entries: Vec<Entry>, name: &'static str, at: Point<Pixels>, corner: Anchor, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.keep_keys(window, cx);
+        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, corner, from_keys, cx));
         let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
-            let Picked::Entry { id, .. } = picked;
-            this.menu = None;
+            let Picked::Entry { id, keep } = picked;
+            // A pick that keeps the menu leaves it where it is, with the keys in it.
+            if !*keep {
+                this.menu = None;
+            }
             this.picked(kind, id, window, cx);
         });
         let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
@@ -449,6 +483,14 @@ impl TitleBar {
             (MenuKind::Account, "account") => self.leave_with(Asked::Account, window, cx),
             (MenuKind::Account, "settings") => self.leave_with(Asked::Settings, window, cx),
             (MenuKind::Account, "doctor") => self.leave_with(Asked::Doctor, window, cx),
+            (MenuKind::Teach, "teach") => self.leave_with(Asked::Teach("Title bar"), window, cx),
+            (MenuKind::Places, id) => {
+                let Some((act, place)) = id.split_once(':') else { return };
+                if act == "hide" {
+                    self.give_keys_back(window, cx);
+                }
+                self.place_shown(place, act == "view" && !self.face.places.iter().any(|one| one.id == place && one.shown), cx);
+            }
             _ => {}
         }
     }
@@ -821,8 +863,286 @@ impl TitleBar {
         entries
     }
 
-    /// The centre: the search trigger at Electron's width, its key drawn from the registry.
-    fn centre(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    /// The search trigger's name. Drawn as an icon and its key beside the places, the key joins the
+    /// name (`TitleBar.tsx`'s `SEARCH_ONLY`); alone, its label is its name.
+    pub fn search_name(with_places: bool) -> String {
+        let key = act("command_palette").map(|row| row.shortcut).unwrap_or_default();
+        match (with_places, key.is_empty()) {
+            (true, false) => format!("Search, or describe work to dispatch ({key})"),
+            _ => "Search, or describe work to dispatch".into(),
+        }
+    }
+
+    /// Where the centre was drawn last frame: the search trigger's field, or the notch around the places.
+    pub fn centre_bounds(&self) -> Option<Bounds<Pixels>> {
+        self.at.centre.get()
+    }
+
+    /// The centre. With no place to draw it is the search trigger at Electron's width; with places it
+    /// is the notch of glass hanging from the window's top edge, the places and then the trigger as an
+    /// icon and its key (`TitleBar.css` 262-350).
+    fn centre(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let at = Rc::clone(&self.at.centre);
+        if self.face.drawn_places().next().is_none() {
+            return self
+                .search_field(look, cx)
+                .relative()
+                .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .into_any_element();
+        }
+        // The room above and below a place, which is also the room at the notch's side.
+        let gap = (look.length(token::H_TITLE_BAR) - look.length(token::H_CONTROL_LG)) / 2.;
+        let radius = look.length(token::RADIUS_LG) * 2.;
+        let ground = look.color(token::BG_GLASS);
+        // The flare: a corner square with a quarter disc cut from its lower outer corner, so the notch runs into the edge.
+        let flare = move |left: bool| {
+            canvas(
+                |_, _, _| {},
+                move |bounds, _, window, _| {
+                    let (l, r, top, bottom) = (bounds.origin.x, bounds.origin.x + bounds.size.width, bounds.origin.y, bounds.origin.y + bounds.size.height);
+                    let radii = point(bounds.size.width, bounds.size.height);
+                    let mut path = PathBuilder::fill();
+                    if left {
+                        path.move_to(point(l, top));
+                        path.line_to(point(r, top));
+                        path.line_to(point(r, bottom));
+                        path.arc_to(radii, px(0.), false, false, point(l, top));
+                    } else {
+                        path.move_to(point(r, top));
+                        path.line_to(point(l, top));
+                        path.line_to(point(l, bottom));
+                        path.arc_to(radii, px(0.), false, true, point(r, top));
+                    }
+                    path.close();
+                    if let Ok(path) = path.build() {
+                        window.paint_path(path, ground);
+                    }
+                },
+            )
+            .absolute()
+            .top_0()
+            .size(radius)
+        };
+        div()
+            .id("centre")
+            .relative()
+            .flex_none()
+            .self_stretch()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .px(gap - look.length(token::BORDER_WIDTH))
+            .rounded_b(radius)
+            .bg(ground)
+            .shadow(look.shadows(token::SHADOW_CARD))
+            .child(canvas(move |bounds, _, _| at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+            .child(flare(true).left(-radius))
+            .child(flare(false).right(-radius))
+            .child(self.places_strip(gap, radius, look, cx))
+            // A hairline parts the places from the search beside them.
+            .child(
+                div()
+                    .flex_none()
+                    .w(look.length(token::BORDER_WIDTH))
+                    .h(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+                    .bg(look.color(token::BORDER_DEFAULT)),
+            )
+            .child(self.search_icon(look, cx))
+            .into_any_element()
+    }
+
+    /// The strip of places, one line: each a glyph and its name, the one the window is in brighter and on
+    /// a faint fill. **Only the places the native app has a screen for are in `face.places`** (Jobs); the
+    /// Cockpit, Operator and the rest of Electron's roster come with their screens.
+    fn places_strip(&self, gap: Pixels, radius: Pixels, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let ring = Self::focus_ring(look);
+        let round = radius - gap;
+        let tabs = self.face.drawn_places().map(|place| {
+            let (id, label, glyph_name) = (place.id, place.label, place.glyph);
+            let here = self.face.here == Some(id);
+            let ink = look.color(if here { token::FG_DEFAULT } else { token::FG_MUTED });
+            let keys = self.place_focus.iter().find(|(one, _)| *one == id).map(|(_, handle)| handle.clone());
+            labelled(
+                div()
+                    .id(SharedString::from(format!("place-{id}")))
+                    .when_some(keys.clone(), |tab, keys| tab.track_focus(&keys))
+                    // Not `no_drag`: a press on a place takes the keys, which `no_drag` keeps from it.
+                    .on_mouse_down(MouseButton::Left, {
+                        let keys = keys.clone();
+                        move |_, window, cx| {
+                            if let Some(keys) = &keys {
+                                window.focus(keys, cx);
+                            }
+                            cx.stop_propagation();
+                        }
+                    })
+                    .flex_none()
+                    .h(look.length(token::H_CONTROL_LG))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_2))
+                    .rounded(round)
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(gpui::transparent_black())
+                    .font_family(mono(look))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .text_color(ink)
+                    .when(here, |tab| {
+                        tab.font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).bg(look.color(token::FG_DEFAULT).opacity(0.08))
+                    })
+                    .cursor_pointer()
+                    .focusable()
+                    .tab_stop(true)
+                    .focus_visible(move |style| style.border_color(ring))
+                    .hover(move |style| style.text_color(look.color(token::FG_DEFAULT)))
+                    .child(glyph(glyph_name, look.length(token::SPACE_4), ink))
+                    .child(label)
+                    .on_click(cx.listener(move |this, _, _, cx| this.place_pressed(id, cx)))
+                    .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                        cx.stop_propagation();
+                        this.open_places_menu(Some(id), event.position, false, window, cx);
+                    }))
+                    .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                        if !Self::asks_for_menu(event) {
+                            return;
+                        }
+                        cx.stop_propagation();
+                        let tab = crate::labels::role_named("tab").and_then(|role| {
+                            cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, label)).map(|drawn| drawn.bounds)
+                        });
+                        let at = tab.map_or_else(Point::default, |tab| point(tab.origin.x + tab.size.width / 2., tab.origin.y + tab.size.height));
+                        this.open_places_menu(Some(id), at, true, window, cx);
+                    })),
+                Role::Tab,
+                label,
+            )
+        });
+        labelled(
+            no_drag(div()
+                .id("places")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .children(tabs)
+                .on_mouse_down(MouseButton::Right, cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                    cx.stop_propagation();
+                    this.open_places_menu(None, event.position, false, window, cx);
+                }))),
+            Role::TabList,
+            "Places",
+        )
+    }
+
+    /// Shift+F10: Electron also takes the ContextMenu key (`TabBar.tsx:149`), which gpui does not
+    /// deliver on macOS, so a menu from the keyboard is Shift+F10 alone.
+    fn asks_for_menu(event: &gpui::KeyDownEvent) -> bool {
+        event.keystroke.key == "f10" && event.keystroke.modifiers.shift && !event.keystroke.modifiers.platform && !event.keystroke.modifiers.alt
+    }
+
+    /// A press on a place, or ⌘ and its number: the window goes there.
+    fn place_pressed(&mut self, id: &'static str, cx: &mut Context<Self>) {
+        self.face.here = Some(id);
+        cx.emit(Asked::Place(id));
+        cx.notify();
+    }
+
+    /// ⌘1 to ⌘9: the place drawn at that number.
+    fn go_to_digit(&mut self, n: u8, cx: &mut Context<Self>) {
+        let id = self.face.drawn_places().nth(usize::from(n).saturating_sub(1)).map(|place| place.id);
+        if let Some(id) = id {
+            self.place_pressed(id, cx);
+        }
+    }
+
+    /// The layout shows or hides a place, at once; the wiring writes the person's own layout.
+    fn place_shown(&mut self, id: &str, shown: bool, cx: &mut Context<Self>) {
+        let Some(place) = self.face.places.iter().position(|one| one.id == id) else { return };
+        let id = self.face.places[place].id;
+        if !shown && !self.face.may_hide(id) {
+            return;
+        }
+        self.answer(|face| face.places[place].shown = shown, cx);
+        cx.emit(Asked::PlaceShown { id, shown });
+    }
+
+    /// The strip's menu: Hide for the place pressed, then View with every place and whether it is drawn.
+    /// A place that may not be hidden is off and says why; a View pick leaves the menu open.
+    fn open_places_menu(&mut self, tab: Option<&'static str>, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog.is_some() || self.menu.is_some() {
+            return;
+        }
+        const ALWAYS: &str = "Always shown";
+        let mut entries = Vec::new();
+        if let Some(place) = tab.and_then(|id| self.face.places.iter().find(|one| one.id == id)) {
+            let free = self.face.may_hide(place.id);
+            let mut hide = Row::new(id_of(format!("hide:{}", place.id)), format!("Hide {}", place.label)).disabled(!free);
+            if !free {
+                hide = hide.detail(ALWAYS);
+            }
+            entries.push(Entry::Row(hide));
+            entries.push(Entry::Rule);
+        }
+        entries.push(Entry::Label("View"));
+        for place in &self.face.places {
+            // A hidden place may always come back; a drawn one goes only where the layout lets it.
+            let free = !place.shown || self.face.may_hide(place.id);
+            let mut row = Row::new(id_of(format!("view:{}", place.id)), place.label).ticked(place.shown).keeps_open().disabled(!free);
+            if !free {
+                row = row.detail(ALWAYS);
+            }
+            entries.push(Entry::Row(row));
+        }
+        self.open_menu_at(MenuKind::Places, entries, "Places", at, Anchor::TopLeft, from_keys, window, cx);
+    }
+
+    /// The menu a right press on the bar offers: its heading and Teach.
+    fn open_teach_menu(&mut self, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog.is_some() || self.menu.is_some() {
+            return;
+        }
+        let entries = vec![Entry::Label("Title bar"), Entry::Row(Row::new("teach", "Teach").icon("graduation-cap"))];
+        self.open_menu_at(MenuKind::Teach, entries, "Title bar", at, Anchor::TopLeft, from_keys, window, cx);
+    }
+
+    /// The trigger beside the places: an icon and its key, with the label hidden and its tooltip naming it.
+    fn search_icon(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let ring = Self::focus_ring(look);
+        let key = act("command_palette").map(|row| row.shortcut).unwrap_or_default();
+        let name = Self::search_name(true);
+        labelled(
+            no_drag(div()
+                .id("search")
+                .flex_none()
+                .h(look.length(token::H_CONTROL_LG))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_3))
+                .px(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(gpui::transparent_black())
+                .text_color(look.color(token::FG_MUTED))
+                .font_family(mono(look))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .cursor_pointer()
+                .focusable()
+                .tab_stop(true)
+                .focus_visible(move |style| style.border_color(ring))
+                .hover(move |style| style.text_color(look.color(token::FG_DEFAULT)))
+                .tooltip(tip(name.clone()))
+                .child(glyph("search", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                .when(!key.is_empty(), |trigger| trigger.child(parts::kbd(key, look)))
+                .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::Palette)))),
+            Role::Button,
+            name,
+        )
+    }
+
+    /// The search trigger alone, at Electron's width, its key drawn from the registry.
+    fn search_field(&self, look: &Look, cx: &Context<Self>) -> gpui::Div {
         let ring = Self::focus_ring(look);
         let key = act("command_palette").map(|row| row.shortcut).unwrap_or_default();
         // `minmax(0, auto)`: the centre gives way first, down to nothing.
@@ -953,6 +1273,12 @@ impl Render for TitleBar {
         let look = cx.look();
         let viewport = window.viewport_size();
         let narrow = self.narrow(window);
+        let has_places = self.face.drawn_places().next().is_some();
+        for place in self.face.drawn_places() {
+            if !self.place_focus.iter().any(|(id, _)| *id == place.id) {
+                self.place_focus.push((place.id, cx.focus_handle()));
+            }
+        }
         let row_at = Rc::clone(&self.at.row);
         let row = div()
             .id("title-row")
@@ -971,8 +1297,22 @@ impl Render for TitleBar {
                     window.start_window_move();
                 }
             })
-            // Narrow, the start and the centre go behind the menu and the end takes the whole row.
-            .when(!narrow, |row| row.child(self.start(look, cx)).child(self.centre(look, cx)))
+            // A right press on the bar, and Shift+F10 in it, offer Teach. A thing inside with its own menu
+            // stops the press first.
+            .on_mouse_down(MouseButton::Right, cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                this.open_teach_menu(event.position, false, window, cx);
+            }))
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                if !Self::asks_for_menu(event) {
+                    return;
+                }
+                let at = this.at.row.get().map_or_else(Point::default, |row| point(row.origin.x + row.size.width / 2., row.origin.y + row.size.height));
+                this.open_teach_menu(at, true, window, cx);
+            }))
+            // Narrow, the start goes behind the menu and the end takes the rest of the row. The places stay:
+            // they are how the window is moved about (`TitleBar.css` 765).
+            .when(!narrow, |row| row.child(self.start(look, cx)))
+            .when(!narrow || has_places, |row| row.child(self.centre(look, cx)))
             .child(self.end(narrow, look, cx));
         div()
             .flex_none()

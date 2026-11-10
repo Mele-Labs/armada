@@ -149,14 +149,23 @@ impl DispatchScreen {
     // -- the strip -----------------------------------------------------------------------------
 
     fn show_strip(&mut self, sent: Sent, window: &mut Window, cx: &mut Context<Self>) {
+        let bar = titlebar::live(cx);
+        let places = bar.as_ref().is_some_and(|bar| bar.read(cx).face.drawn_places().next().is_some());
+        let name = titlebar::TitleBar::search_name(places);
         let search = crate::labels::role_named("button").and_then(|role| {
             cx.try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, "Search, or describe work to dispatch"))
+                .and_then(|book| book.find(window.window_handle().window_id(), role, &name))
                 .map(|drawn| drawn.bounds)
         });
         // The strip is drawn inside this screen, the search is read in the window's own space.
         let origin = self.area.get().map(|area| area.origin).unwrap_or_default();
         let mut place = search.unwrap_or_default();
+        // Beside the places the trigger is an icon: the strip hangs over the whole centre instead, as wide as the field was alone.
+        if let Some(centre) = bar.as_ref().filter(|_| places).and_then(|bar| bar.read(cx).centre_bounds()) {
+            let wide = cx.look().length(token::PALETTE_WIDTH).max(centre.size.width);
+            place.origin.x = centre.origin.x + (centre.size.width - wide) / 2.;
+            place.size.width = wide;
+        }
         place.origin = place.origin - origin;
         let focus = cx.focus_handle();
         self.strip = Some(Strip { sent, place, focus: focus.clone() });

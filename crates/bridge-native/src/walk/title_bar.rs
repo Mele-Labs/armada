@@ -1,15 +1,21 @@
 //! The title bar walk: each step goes straight to a state the bar can be in. The scenes are
 //! `titlebar/scenes.rs`; a step that names one changes the bar's data and nothing else.
 
-use super::{press_on, scene, step, Step, Verb};
+use super::{press_on, right_on, scene, step, Step, Verb};
 
 const FIVE_WEEK: &str = "5-hour limit 42%, Weekly limit 71%";
 pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
 pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
-pub static STEPS: [Step; 44] = [
-    step("The bar at rest: the repository, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
+pub static STEPS: [Step; 50] = [
+    step("The bar at rest: the repository, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
+    step("The Places stand in a notch at the centre: the place the window is in is brighter, and the search is an icon and its key beside it", Verb::Look, "tablist", "Places"),
+    step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
+    right_on("A right press on a place opens Hide, then View with every place; a place that must stay says Always shown", "tab", "Jobs", "menu", "Places"),
+    step("Esc shuts the menu and the keys go back to the place", Verb::Key("escape"), "tab", "Jobs"),
+    right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
+    step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
     press_on("The repository opens its list: All, each Workspace over its repositories, the acts below", "button", "Repository", "menu", "Repository"),
     step("Typing narrows the list, and a Workspace stays over what matches", Verb::Key("s"), "searchbox", "Find a repository"),
     step("Each letter answers at once", Verb::Key("a"), "searchbox", "Find a repository"),

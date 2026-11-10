@@ -10,11 +10,22 @@
 
 use super::strip_marks::{CALLING, PAIR, PAUSED, RED, RUNNING, SEVERAL};
 use super::title_bar::{DANGER, WARNING};
-use super::{answer, fresh, marks, press_on, scene, step, Step, Verb};
+use super::{answer, fresh, marks, press_on, right_on, scene, step, Step, Verb};
 
 pub static STEPS: &[Step] = &[
     // -- the title bar -------------------------------------------------------------------------
-    step("The bar at rest: the repository, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
+    step("The bar at rest: the repository, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
+    step("The Places stand in a notch at the centre: the place the window is in is brighter, and the search is an icon and its key beside it", Verb::Look, "tablist", "Places"),
+    step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
+    right_on("A right press on a place opens Hide, then View with every place; a place that must stay says Always shown", "tab", "Jobs", "menu", "Places"),
+    step("Esc shuts the menu and the keys go back to the place", Verb::Key("escape"), "tab", "Jobs"),
+    step("A press on a place puts the keys on it", Verb::Press, "tab", "Jobs"),
+    step("Shift+F10 opens the same menu under the place that has the keys", Verb::Key("shift-f10"), "menu", "Places"),
+    step("Esc shuts it", Verb::Key("escape"), "tab", "Jobs"),
+    right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
+    step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
+    right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
+    step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
     press_on("The repository opens its list: All, each Workspace over its repositories, the acts below", "button", "Repository", "menu", "Repository"),
     step("Typing narrows the list, and a Workspace stays over what matches", Verb::Key("s"), "searchbox", "Find a repository"),
     press_on("Choosing a repository shuts the list and the keys go back", "menuitemcheckbox", "sample-web", "button", "Repository"),

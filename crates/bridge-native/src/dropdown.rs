@@ -50,11 +50,13 @@ pub struct Row {
     pub disabled: bool,
     /// A gear at the row's end that opens what the row names, saying `Open <name>`.
     pub gear: Option<SharedString>,
+    /// Picking it flips its tick and leaves the menu open, as Electron's View group does.
+    pub keep: bool,
 }
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, accent: false, attention: false, disabled: false, gear: None }
+        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, accent: false, attention: false, disabled: false, gear: None, keep: false }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -95,6 +97,11 @@ impl Row {
 
     pub fn disabled(mut self, disabled: bool) -> Row {
         self.disabled = disabled;
+        self
+    }
+
+    pub fn keeps_open(mut self) -> Row {
+        self.keep = true;
         self
     }
 
@@ -260,6 +267,12 @@ impl Dropdown {
                     return;
                 }
                 let id = row.id;
+                if row.keep {
+                    row.ticked = row.ticked.map(|on| !on);
+                    cx.emit(Picked::Entry { id, keep: true });
+                    cx.notify();
+                    return;
+                }
                 cx.emit(Picked::Entry { id, keep: false });
                 cx.emit(DismissEvent);
             }

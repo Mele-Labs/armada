@@ -35,6 +35,9 @@ pub enum Verb {
     /// A right press on the step's own target, before the target is ringed: the target is
     /// what the press opens, so the press aims at `on`, a row's name.
     RightPress(&'static str),
+    /// A right press on another element, `(role, name)`, before the target is ringed: for a thing
+    /// that is not a row, such as a place of the title bar or a button the bar's own menu sits over.
+    RightPressOn(&'static str, &'static str),
     /// The pointer brought to rest on the target.
     Hover,
     /// The title bar moves to a named scene of its mock scenario (`titlebar/scenes.rs`), then the
@@ -104,6 +107,10 @@ const fn scene(say: &'static str, name: &'static str, role: &'static str, target
 
 const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
     Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+}
+
+const fn right_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
+    Step { say, verb: Verb::RightPressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn marks(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {

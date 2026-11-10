@@ -123,7 +123,23 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
             Ok(())
         }
-        Verb::Scene(name) => crate::titlebar::scenes::apply(name, cx).map_err(Missed),
+        Verb::RightPressOn(role, name) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let at = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, name))
+                .map(|drawn| drawn.bounds.center())
+                .ok_or_else(|| Missed(format!("nothing named \"{name}\" to press")))?;
+            press(MouseButton::Right, at, window, cx);
+            Ok(())
+        }
+        Verb::Scene(name) => {
+            // Narrowing takes the start off the row, and the keys with it if they were there: they go back to the screen.
+            if name == "narrow-window" {
+                window.focus(&focus.keys, cx);
+            }
+            crate::titlebar::scenes::apply(name, cx).map_err(Missed)
+        }
         Verb::PressOn(role, name) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             let at = cx

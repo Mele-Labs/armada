@@ -152,8 +152,8 @@ pub fn rest() -> Face {
         signed_in: true,
         manifest: true,
         downshift: None,
-        places: vec![Place { id: "sessions", label: "Jobs", glyph: "square-terminal", shown: true, hideable: true }],
-        here: Some("sessions"),
+        places: vec![Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true }],
+        here: Some("jobs"),
         dropped: Dropped { missed: 0, noted: 0 },
     }
 }
