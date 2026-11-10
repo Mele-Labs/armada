@@ -374,3 +374,58 @@ impl JobView {
         Some(dialog.into_any_element())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(at: usize, kind: &str, yes: bool) -> Card {
+        let run: Run = Rc::new(|_, _, _| {});
+        Card { at, kind: kind.into(), title: kind.into(), yes: yes.then(|| ("Yes".into(), run)), change: None, send_back: None, no: None }
+    }
+
+    #[test]
+    fn the_newest_card_is_the_target_until_one_is_aimed_at() {
+        let cards = Cards::default();
+        cards.set("plan", Some(card(3, "Plan", true)));
+        cards.set("draft", Some(card(1, "Draft", true)));
+        assert_eq!(cards.target_of(None).as_deref(), Some("plan"));
+        assert_eq!(cards.target_of(Some("draft")).as_deref(), Some("draft"));
+        // A card that no longer waits is not aimed at.
+        assert_eq!(cards.target_of(Some("gone")).as_deref(), Some("plan"));
+    }
+
+    #[test]
+    fn the_cards_with_an_act_come_in_the_order_they_are_drawn() {
+        let cards = Cards::default();
+        cards.set("b", Some(card(5, "B", true)));
+        cards.set("a", Some(card(2, "A", true)));
+        cards.set("c", Some(card(9, "C", false)));
+        let keys: Vec<String> = cards.having(Which::Yes).into_iter().map(|(key, _)| key).collect();
+        assert_eq!(keys, ["a", "b"]);
+    }
+
+    #[test]
+    fn a_draw_that_does_not_write_a_card_again_drops_it() {
+        let cards = Cards::default();
+        cards.set("question:1", Some(card(1, "Question", true)));
+        cards.set("plan", Some(card(2, "Plan", true)));
+        cards.mark("question:");
+        cards.sweep();
+        assert!(cards.get("question:1").is_none());
+        assert!(cards.get("plan").is_some());
+    }
+
+    #[test]
+    fn a_card_that_came_or_went_asks_for_one_more_draw() {
+        let cards = Cards::default();
+        assert!(!cards.take_changed());
+        cards.set("plan", Some(card(1, "Plan", true)));
+        assert!(cards.take_changed());
+        // The same card written again changes nothing.
+        cards.set("plan", Some(card(1, "Plan", true)));
+        assert!(!cards.take_changed());
+        cards.set("plan", None);
+        assert!(cards.take_changed());
+    }
+}

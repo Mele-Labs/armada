@@ -230,11 +230,22 @@ impl JobView {
                 labelled(div().id(SharedString::from(format!("disputed:{id}"))).child(line), Role::Region, "Notice disputed")
                     .into_any_element()
             }
-            SessionRow::WindowAsk { id, .. } => self.card(id, "Question in a window", None, "app-window", look),
+            // The open question is on the window's bar and under Waiting on you, so the thread keeps one line.
+            SessionRow::WindowAsk { id, question, answer, .. } => {
+                let said = match answer {
+                    Some(answer) => format!("Asked in the window: {question} \u{2014} {}", answer.replace('\n', " \u{b7} ")),
+                    None => format!("Asked in the window: {question}"),
+                };
+                quiet_line(id, said, look)
+            }
             SessionRow::Draft { id, at, title, text, before, settled, change } => {
                 self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, page, look, now, cx)
             }
-            SessionRow::Ask { id, ask, .. } => self.card(id, "Ask", Some(&ask.tool), "circle-help", look),
+            // A call that waits is the permission card in the panel; once settled the thread keeps one line.
+            SessionRow::Ask { id, ask, state, .. } => match asked_said(ask, *state) {
+                Some(said) => quiet_line(id, said, look),
+                None => div().into_any_element(),
+            },
             _ => div().into_any_element(),
         }
     }
@@ -316,5 +327,64 @@ impl JobView {
                 )
             })
             .into_any_element()
+    }
+}
+
+/// One muted line of the thread, as a tool row is drawn.
+fn quiet_line(id: &str, said: String, look: &Look) -> AnyElement {
+    div()
+        .id(SharedString::from(format!("line:{id}")))
+        .text_size(look.length(token::TEXT_XS))
+        .line_height(look.length(token::LEADING_SM))
+        .text_color(look.color(token::FG_MUTED))
+        .child(said)
+        .into_any_element()
+}
+
+/// What a settled call says: what was asked, and how it was answered. A call still waiting says nothing.
+pub(super) fn asked_said(ask: &ipc::CallInFlight, state: ipc::SessionAskState) -> Option<String> {
+    use ipc::SessionAskState::*;
+    let how = match state {
+        Waiting => return None,
+        RanUnasked => "ran without asking",
+        AllowedOnce => "allowed once",
+        AllowedAndRemembered => "allowed and remembered",
+        AlwaysAllowed => "always allowed",
+        AlwaysBlocked => "always blocked",
+        AllowedForSession => "allowed for this job",
+        Refused => "refused",
+        Unanswered => "no answer",
+        Kept => "kept for you",
+        SessionGone => "job ended",
+    };
+    let command = ask.whole.clone().unwrap_or_else(|| if ask.detail.is_empty() { ask.tool.clone() } else { ask.detail.clone() });
+    Some(format!("{command}: {how}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ipc::SessionAskState;
+
+    fn call(detail: &str, whole: Option<&str>) -> ipc::CallInFlight {
+        let whole = whole.map_or("null".to_string(), |whole| format!("\"{whole}\""));
+        let wire = format!(
+            r#"{{"call":"c-1","manifest_id":"armada","asked_at":"2026-11-09T14:03:00Z","tool":"Bash","detail":"{detail}","truncated":false,"rule":"ask","offers":[],"whole":{whole}}}"#
+        );
+        ipc::decode("CallInFlight", wire.as_bytes()).expect("a call decodes")
+    }
+
+    #[test]
+    fn a_settled_call_is_one_line_with_what_was_asked_and_how_it_went() {
+        let ask = call("rm -rf target", None);
+        assert_eq!(asked_said(&ask, SessionAskState::AllowedOnce).as_deref(), Some("rm -rf target: allowed once"));
+        assert_eq!(asked_said(&ask, SessionAskState::SessionGone).as_deref(), Some("rm -rf target: job ended"));
+    }
+
+    #[test]
+    fn a_call_that_waits_says_nothing_and_reads_whole_where_it_was_cut() {
+        assert_eq!(asked_said(&call("rm -rf", Some("rm -rf target")), SessionAskState::Waiting), None);
+        assert_eq!(asked_said(&call("rm -rf", Some("rm -rf target")), SessionAskState::Refused).as_deref(), Some("rm -rf target: refused"));
+        assert_eq!(asked_said(&call("", None), SessionAskState::Refused).as_deref(), Some("Bash: refused"));
     }
 }
