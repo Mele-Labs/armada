@@ -24,7 +24,6 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 
 /// The widest the words go, in units of the largest space token (960 px at the default spacing).
-const COLUMN: f32 = 20.;
 
 /// A time in the owner's clock, with the day when it is not today (`Stamp`, A1.11).
 fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
@@ -187,10 +186,10 @@ impl JobView {
             .w_full()
             .flex()
             .justify_center()
-            .px(look.length(token::SPACE_6))
+            .px(look.length(token::SPACE_4) + super::bleed(look))
             .pb(gap)
             .when(roomy, |row| row.pt(room))
-            .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * COLUMN).child(drawn));
+            .child(div().w_full().min_w_0().max_w(self.column(look)).child(drawn));
         // The person's own words are drawn whole the frame they are sent: a fade from nothing here made a
         // send look like it drew nothing, and made Fleet's echo of a pending row blink out and back.
         let own = matches!(held.items.get(ix), Some(ThreadItem::Row { row: SessionRow::Message { from: SessionVoice::You, .. } }));
@@ -549,9 +548,15 @@ impl JobView {
                         .flex_col()
                         .items_end()
                         .gap(look.length(token::SPACE_2))
+                        .min_w_0()
                         .max_w(relative(0.8))
-                        .child(
+                        .child(labelled(
                             div()
+                                .id(SharedString::from(format!("words:{id}")))
+                                // Held to the column, so a long line or list item wraps inside it
+                                // rather than widening the bubble past the thread's edge.
+                                .min_w_0()
+                                .max_w_full()
                                 .px(look.length(token::SPACE_4) + look.length(token::SPACE_1))
                                 .py(look.length(token::SPACE_3))
                                 .rounded(look.length(token::RADIUS_LG))
@@ -561,7 +566,9 @@ impl JobView {
                                 .gap(look.length(token::SPACE_2))
                                 .child(self.block(page, id, self.prose(format!("you:{id}"), said, look), cx))
                                 .children(debug),
-                        )
+                            Role::Group,
+                            "Message words",
+                        ))
                         .when(!chips.is_empty(), |column| {
                             column.child(
                                 div()

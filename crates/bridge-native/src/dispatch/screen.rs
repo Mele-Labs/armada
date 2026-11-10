@@ -79,6 +79,70 @@ pub fn bind(cx: &mut App) {
     cx.on_action(|_: &Shoot, cx: &mut App| reach(cx, |this, window, cx| this.shoot_layer(window, cx)));
 }
 
+/// The palette's start row: the sheet opens holding the words typed, a Job's or Autopilot's (`one-bar.tsx`).
+pub fn start_with(words: String, autopilot: bool, cx: &mut App) {
+    crate::drafts::keep(super::sheet::KEEP_REQUEST, &words, cx);
+    reach(cx, move |this, window, cx| {
+        this.open_sheet("", window, cx);
+        if autopilot {
+            this.sheet.update(cx, |sheet, cx| sheet.set_kind(super::face::Kind::Autopilot, window, cx));
+        }
+    });
+}
+
+/// Mod on a point menu: a Mod Job is started, told what was pressed (`mod-job.ts` `startModJob`).
+pub fn start_mod(pressed: &crate::labels::Drawn, cx: &mut App) {
+    let Some(screen) = live(cx) else { return };
+    let jobs = screen.read(cx).jobs.clone();
+    let list = jobs.read(cx).list.clone();
+    let port = list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().port());
+    let name = crate::point::name_of(pressed);
+    let role = crate::capture::role_word(pressed.role).unwrap_or("element");
+    let note = ipc::SessionNote {
+        said: String::new(),
+        address: "bridge-native://jobs".into(),
+        note_id: None,
+        place: ipc::NotePlace {
+            selector: format!("{role} \"{}\"", pressed.name),
+            element: ipc::NoteElement { tag: role.to_string(), text: pressed.name.to_string(), label: Some(pressed.name.to_string()) },
+            location: "bridge-native://jobs".into(),
+            ..ipc::NotePlace::default()
+        },
+        state: ipc::NoteState::default(),
+        crop: None,
+        job: Vec::new(),
+    };
+    let start = ipc::StartModSession { title: Some(format!("Mod {name}")), model: None, effort: None, aim: None, note: Some(note), said: None, from_job: None, from_tab: None };
+    crate::jobs::send(port, "/mods/session", ipc::encode(&start).map_err(|why| format!("{why:?}")), cx);
+}
+
+/// The deck's `d`: the sheet opens on the draft as it stands.
+pub fn open_dispatch(cx: &mut App) {
+    reach(cx, move |this, window, cx| this.open_sheet("", window, cx));
+}
+
+/// Auto Pilot on a Job's row: the sheet opens on Autopilot, the draft as it stands.
+pub fn open_autopilot(cx: &mut App) {
+    reach(cx, move |this, window, cx| {
+        this.open_sheet("", window, cx);
+        this.sheet.update(cx, |sheet, cx| sheet.set_kind(super::face::Kind::Autopilot, window, cx));
+    });
+}
+
+/// Teach on a Job's row: the Teach box opens on the row's words.
+pub fn teach_row(text: String, cx: &mut App) {
+    reach(cx, move |this, window, cx| this.jobs.update(cx, |jobs, cx| jobs.teach_row(text, window, cx)));
+}
+
+/// Report on a point menu: the annotation layer wakes and begins a note on what is under `at`.
+pub fn report_at(at: gpui::Point<Pixels>, cx: &mut App) {
+    reach(cx, move |this, window, cx| {
+        if let Some(layer) = &this.layer {
+            layer.update(cx, |layer, cx| layer.report_at(at, window, cx));
+        }
+    });
+}
+
 /// Run something on the screen in front. A key's handler runs inside a window update, so the work
 /// waits until it is over.
 fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut Context<DispatchScreen>) + 'static) {

@@ -243,7 +243,8 @@ impl DispatchSheet {
                     .flex()
                     .items_center()
                     .tooltip(tip(format!("Dispatch  {}", keymap::shown("new_job"))))
-                    .child(kbd(keymap::shown("new_job"), look)),
+                    // Electron's sheet draws the bare letter.
+                    .child(kbd("N", look)),
             )
     }
 
@@ -419,22 +420,15 @@ impl DispatchSheet {
                 Role::Button,
                 "Queue for later",
             );
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .child(kbd(keymap::shown("queue_session"), look).opacity(if live { 1. } else { 0.5 }))
-                .child(button)
+            button
         });
         let word = self.face.act(self.kind);
         let said = if self.sending { pending_word(self.kind, word) } else { word };
         let live = !off && !self.queueing && worded && !self.sending;
-        let act_key = if self.kind == Kind::Job { "↵".to_string() } else { keymap::shown("send_message") };
+        // No key beside Queue for later or Start: Electron's sheet shows neither.
         let act = div()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_2))
-            .child(kbd(act_key, look).opacity(if live { 1. } else { 0.5 }))
             .child(labelled(
                 Btn::new("dispatch-act", said, Weight::Primary)
                     .disabled(!live)
@@ -455,6 +449,8 @@ impl DispatchSheet {
             .border_color(look.color(token::BORDER_DEFAULT))
             .bg(look.color(token::BG_RAISED))
             .text_color(look.color(token::FG_MUTED))
+            // The kinds and the acts are in the UI face; the chips and the selects stay mono.
+            .font_family(sans(look))
             .children(tabs)
             .child(div().flex().items_center().gap(look.length(token::SPACE_3)).ml_auto().children(tuning).children(queue).child(act));
         div()
@@ -582,6 +578,7 @@ impl DispatchSheet {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_SUNKEN))
+                .font_family(mono(look))
                 .text_color(look.color(token::FG_DEFAULT))
                 .tooltip(tip(name))
                 .when(!off, |pick| pick.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(press))

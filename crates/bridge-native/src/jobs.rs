@@ -264,6 +264,16 @@ fn matches(job: &SessionRecord, query: &str) -> bool {
 /// sit under its name, projects in the order their first Job comes, and a Job started by another
 /// listed in its project stands right under it. One project draws no name, as Electron's list
 /// draws a head only when more than one repository is listed (`cockpit/deck/bands.ts`).
+/// The list's order with `id` taken out and put back before or after `target`; `None` when either is
+/// not in it.
+fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option<Vec<String>> {
+    let at = placed.iter().position(|one| one == id)?;
+    let lifted = placed.remove(at);
+    let there = placed.iter().position(|one| one == target)?;
+    placed.insert(if after { there + 1 } else { there }, lifted);
+    Some(placed)
+}
+
 fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String]) -> Vec<Line> {
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
@@ -458,12 +468,48 @@ pub struct JobsList {
     /// Every reader of a Job's title reads the record, so the head, the list, the review sheet and the
     /// palette cannot disagree while Fleet's answer is pending.
     asked: HashMap<String, (Option<String>, String)>,
+    /// While a row is dragged: the row under the pointer, and whether it drops after it (`reorder.ts`).
+    drop: Option<(SharedString, bool)>,
+    /// The row being dragged, faded where it stood.
+    lifted: Option<SharedString>,
+}
+
+/// A Job's row while it is dragged to a new place in its project.
+#[derive(Clone)]
+struct DraggedRow {
+    id: SharedString,
+    title: SharedString,
+}
+
+/// What follows the pointer while a row is dragged: the row's title on a card.
+struct RowGhost(SharedString);
+
+impl Render for RowGhost {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        div()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::ACCENT))
+            .bg(look.color(token::BG_RAISED))
+            .shadow(look.shadows(token::SHADOW_OVERLAY))
+            .text_size(look.length(token::TEXT_SM))
+            .text_color(look.color(token::FG_DEFAULT))
+            .opacity(0.9)
+            .child(self.0.clone())
+    }
 }
 
 impl JobsList {
     /// The list on a live Fleet: it follows the Jobs the connection holds.
     pub fn live(fleet: &Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
         let watch = cx.observe(fleet, |this, fleet, cx| {
+            // The title bar's picker lists what Fleet serves; the bar has no Fleet of its own to watch.
+            if let (Some(served), Some(bar)) = (fleet.read(cx).held().repositories.clone(), crate::titlebar::live(cx)) {
+                bar.update(cx, |bar, cx| bar.set_repositories(&served, cx));
+            }
             let mut jobs = fleet.read(cx).held().jobs.clone();
             this.hold_asked_titles(&mut jobs);
             if jobs != this.jobs {
@@ -515,6 +561,8 @@ impl JobsList {
             fleet,
             _watch: watch,
             asked: HashMap::new(),
+            drop: None,
+            lifted: None,
         };
         this.place_new();
         this.lines = this.lines_now();
@@ -639,6 +687,21 @@ impl JobsList {
         lines_of(&self.jobs, self.scope, &self.query, &self.order)
     }
 
+    /// The keys on the first Job that needs him, as the deck's `c` puts them (`keys-model.ts`, the
+    /// `needs` slot). With none, they stay where they are.
+    pub fn to_first_needing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let first = self.lines.iter().enumerate().find_map(|(at, line)| match line {
+            Line::Job(row) if row.mark.is_some_and(|mark| mark.group == JobGroup::Needs) => Some((at, row.id.clone())),
+            _ => None,
+        });
+        if let Some((at, id)) = first {
+            self.focused = Some(id);
+            self.scroll.scroll_to_item(at);
+        }
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
     fn first_row(&self) -> Option<SharedString> {
         self.rows().next().map(|row| row.id.clone())
     }
@@ -730,6 +793,27 @@ impl JobsList {
         self.relist(cx);
     }
 
+    /// A dragged row dropped before or after another of its project's top rows (`Deck.tsx` `onMove`).
+    fn place(&mut self, id: &SharedString, target: &SharedString, after: bool, cx: &mut Context<Self>) {
+        self.drop = None;
+        self.lifted = None;
+        let peer = |id: &SharedString| self.rows().find(|row| &row.id == id).filter(|row| row.depth == 0 && !row.ended).map(|row| row.project.clone());
+        let (Some(from), Some(to)) = (peer(id), peer(target)) else { return cx.notify() };
+        if id == target || from != to {
+            return cx.notify();
+        }
+        let placed: Vec<String> =
+            lines_of(&self.jobs, Scope::All, "", &self.order).iter().filter_map(|line| match line {
+                Line::Job(one) if !one.ended => Some(one.id.to_string()),
+                _ => None,
+            }).collect();
+        let Some(placed) = moved(placed, id, target, after) else { return };
+        self.order = placed;
+        self.focused = Some(id.clone());
+        self.keep();
+        self.relist(cx);
+    }
+
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("move_focus") {
             // The registry's slots are j, k, ↓, ↑: even slots go down.
@@ -786,21 +870,21 @@ impl JobsList {
             return;
         }
         self.card = None;
+        let (pause, label, icon) = if row.paused { ("resume", "Resume", "play") } else { ("pause", "Pause", "circle-pause") };
         let mut entries = vec![
-            if row.paused {
-                Entry::Act { id: "resume", label: "Resume".into(), icon: Some("play"), danger: false }
-            } else {
-                Entry::Act { id: "pause", label: "Pause".into(), icon: Some("circle-pause"), danger: false }
-            },
+            Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: None },
+            Entry::Act { id: "autopilot", label: "Auto Pilot".into(), icon: Some("plane"), danger: false },
             Entry::Act { id: "name", label: "Name it for me".into(), icon: Some("wand-sparkles"), danger: false },
+            Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
             Entry::Act { id: "try", label: "Try it in your app".into(), icon: None, danger: false },
             Entry::Act { id: "close", label: "Close".into(), icon: Some("x"), danger: true },
             Entry::Rule,
         ];
-        // The View group comes after the Job's own acts, as in `RowMenu.tsx`.
+        // The View group comes after the Job's own acts, then Mod and Report, as in `RowMenu.tsx`.
         entries.extend(self.view.entries());
-        let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let job = id.clone();
+        let title = row.title.clone();
         let picked = cx.subscribe(&menu, move |this, _, picked: &Picked, cx| {
             let Picked::Entry { id: act, .. } = picked;
             let port = this.port(cx);
@@ -810,6 +894,8 @@ impl JobsList {
                 "pause" => send(port, "/sessions/pause", encoded(ipc::encode(&ipc::PauseSession { session_id })), cx),
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
+                "autopilot" => crate::dispatch::screen::open_autopilot(cx),
+                "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => send(
                     port,
                     "/fleet/build/pick",
@@ -1037,8 +1123,16 @@ impl JobsList {
                     ))
                 }))
             });
+        // A top row of a live Job is dragged to a new place in its project, as Electron's deck does.
+        let movable = row.depth == 0 && !row.ended;
+        let dragging = cx.has_active_drag();
+        let lifted = dragging && self.lifted.as_ref() == Some(&row.id);
+        let drop_here = self.drop.as_ref().filter(|(at, _)| dragging && *at == row.id).map(|(_, after)| *after);
+        let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
         let strip = div()
             .id(SharedString::from(format!("job-{}", row.id)))
+            .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
+            .when(lifted, |strip| strip.opacity(0.55))
             .relative()
             .flex_1()
             .min_w_0()
@@ -1065,7 +1159,25 @@ impl JobsList {
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
             .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
             // The lamp's edge down the row's left side (`ListCard.css` `border-left`).
-            .child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).rounded_l(radius).bg(lamp_ink))
+            // Painted as the card's own rounded shape clipped to its left edge, so the edge follows the
+            // corners as a CSS `border-left` does instead of a straight bar poking past them.
+            .child({
+                let wide = look.length(token::SPACE_1);
+                canvas(
+                    |_, _, _| {},
+                    move |bounds, _, window, _| {
+                        let edge = gpui::Bounds { origin: bounds.origin, size: gpui::size(wide, bounds.size.height) };
+                        let card = gpui::Bounds { origin: bounds.origin, size: gpui::size(bounds.size.width.min(radius * 2. + wide), bounds.size.height) };
+                        window.with_content_mask(Some(gpui::ContentMask { bounds: edge }), |window| {
+                            window.paint_quad(gpui::fill(card, lamp_ink).corner_radii(radius));
+                        });
+                    },
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+            })
             .child(
                 div()
                     .flex()
@@ -1124,11 +1236,44 @@ impl JobsList {
             Some(said) => format!("{}, {said}", row.title).into(),
             None => row.title.clone(),
         };
+        let (over_id, drop_id) = (row.id.clone(), row.id.clone());
+        let line_edge = look.length(token::BORDER_WIDTH) * 2.;
+        let gap_half = look.length(token::SPACE_1) / 2. + look.length(token::BORDER_WIDTH);
         div()
             .flex_none()
+            .relative()
             .flex()
             .when(after_job, |line| line.mt(look.length(token::SPACE_2)))
             .pl(indent)
+            .when(movable, |line| {
+                line.on_drag_move(cx.listener(move |this, event: &gpui::DragMoveEvent<DraggedRow>, _, cx| {
+                    if !event.bounds.contains(&event.event.position) {
+                        return;
+                    }
+                    let after = event.event.position.y > event.bounds.center().y;
+                    let lifted = event.drag(cx).id.clone();
+                    if this.drop.as_ref() != Some(&(over_id.clone(), after)) || this.lifted.as_ref() != Some(&lifted) {
+                        this.drop = Some((over_id.clone(), after));
+                        this.lifted = Some(lifted);
+                        cx.notify();
+                    }
+                }))
+                .on_drop(cx.listener(move |this, dragged: &DraggedRow, _, cx| {
+                    let after = this.drop.as_ref().filter(|(at, _)| *at == drop_id).is_some_and(|(_, after)| *after);
+                    this.place(&dragged.id, &drop_id, after, cx);
+                }))
+            })
+            // The drop line, before or after the row under the pointer (`deck.css` `[data-drop]`).
+            .children(drop_here.map(|after| {
+                div()
+                    .absolute()
+                    .left(indent)
+                    .right_0()
+                    .h(line_edge)
+                    .rounded(look.length(token::RADIUS_SM))
+                    .bg(look.color(token::ACCENT))
+                    .map(|bar| if after { bar.bottom(-gap_half) } else { bar.top(-gap_half) })
+            }))
             .when(row.depth > 0, |row_line| {
                 // The elbow from the Job above to the middle of this one's first line.
                 row_line.child(
@@ -1170,7 +1315,7 @@ impl JobsList {
                         .line_height(look.length(token::LEADING_XS))
                         .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                         .text_color(look.color(token::FG_MUTED))
-                        .child(name.to_uppercase()),
+                        .child(name.clone()),
                     Role::Heading,
                     name.clone(),
                 )
@@ -1427,6 +1572,24 @@ const CENTRE_FLOOR: f32 = 10.;
 const HANDLE_STEP: f32 = 16.;
 
 /// Where the list's dragged width is kept between runs, in points. No file is the resting width.
+/// Where each Job's Judge split is kept between runs: a Job id and its share, one a line.
+fn splits_file() -> Option<PathBuf> {
+    deck_file().map(|deck| deck.with_file_name("native-judge-splits"))
+}
+
+fn read_splits() -> HashMap<String, f32> {
+    let text = splits_file().and_then(|path| std::fs::read_to_string(path).ok()).unwrap_or_default();
+    text.lines().filter_map(|line| line.split_once(' ')).filter_map(|(job, share)| Some((job.to_string(), share.parse().ok()?))).collect()
+}
+
+fn write_splits(splits: &HashMap<String, f32>) {
+    let Some(path) = splits_file() else { return };
+    let text = splits.iter().map(|(job, share)| format!("{job} {share:.4}")).collect::<Vec<_>>().join("\n");
+    if let Err(why) = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&path, text)) {
+        Note::warn("the Judge's split was not kept").field("why", why.to_string()).emit();
+    }
+}
+
 fn columns_file() -> Option<PathBuf> {
     deck_file().map(|deck| deck.with_file_name("native-deck-columns"))
 }
@@ -1470,8 +1633,9 @@ pub struct JobsScreen {
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
-    /// The Job's share of the room it splits with its Judge, and the width of that room as last drawn.
-    split: f32,
+    /// Each Job's share of the room it splits with its Judge, kept between runs as Electron keeps it
+    /// in the Job's panes, and the width of that room as last drawn.
+    splits: HashMap<String, f32>,
     split_room: Rc<std::cell::Cell<f32>>,
     split_handle: FocusHandle,
     /// The whole screen's, which holds the list and the handle beside it.
@@ -1493,11 +1657,19 @@ impl JobsScreen {
         let side = cx.new(|cx| JobSide::new(view.clone(), cx));
         let judge = cx.new(|cx| JobJudge::new(view.clone(), cx));
         // The pane comes and goes with the view's state, so the deck draws again when it does.
-        let mut judged = false;
-        cx.observe(&view, move |_, view, cx| {
-            let now = view.read(cx).judge_pane_open();
-            if now != judged {
-                judged = now;
+        // A Judge that closes takes its split with it: it arrives at `SPLIT_ARRIVES` again, as in `tree.ts`.
+        let mut judged = None;
+        cx.observe(&view, move |this: &mut Self, view, cx| {
+            let (job, now) = { let view = view.read(cx); (view.shown_id(), view.judge_pane_open()) };
+            if judged.as_ref() == Some(&(job.clone(), true)) && !now {
+                if let Some(job) = &job {
+                    if this.splits.remove(job.as_ref()).is_some() && this.remember {
+                        write_splits(&this.splits);
+                    }
+                }
+            }
+            if judged.as_ref() != Some(&(job.clone(), now)) {
+                judged = Some((job, now));
                 cx.notify();
             }
         })
@@ -1509,7 +1681,15 @@ impl JobsScreen {
         // The bar's search, and ⌘K where no screen took it, open this palette.
         let handle = window.window_handle();
         let opens = palette.downgrade();
+        let fleet_of = list.downgrade();
         cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
+            // The bar's restart onto main or the preview is Fleet's build switch.
+            if let crate::titlebar::Asked::ChangeBuild { build, adopt } = asked {
+                let port = fleet_of.upgrade().and_then(|list| list.read(cx).fleet()).and_then(|fleet| fleet.read(cx).held().port());
+                let body = ipc::encode(&ipc::ChangeFleetBuild { build: *build, adopt: *adopt }).map_err(|why| format!("{why:?}"));
+                send(port, "/fleet/build/change", body, cx);
+                return;
+            }
             if *asked != crate::titlebar::Asked::Palette {
                 return;
             }
@@ -1527,7 +1707,7 @@ impl JobsScreen {
             judge,
             left,
             handle: cx.focus_handle(),
-            split: SPLIT_ARRIVES,
+            splits: if remember { read_splits() } else { HashMap::new() },
             split_room: Rc::new(std::cell::Cell::new(0.)),
             split_handle: cx.focus_handle(),
             within: cx.focus_handle(), remember, palette }
@@ -1568,6 +1748,11 @@ impl JobsScreen {
         cx.notify();
     }
 
+    /// Teach from a list row: the open Job's Teach box, holding what the row said.
+    pub(crate) fn teach_row(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.view.update(cx, |view, cx| view.teach_row(text, window, cx));
+    }
+
     /// The Job's share, kept so each side has its panes' room or `SPLIT_LEAST` of the whole, the
     /// larger; the Job's side holds the right column as well as its pane.
     fn resplit(&mut self, to: f32, cx: &mut Context<Self>) {
@@ -1579,8 +1764,19 @@ impl JobsScreen {
         let gap = f32::from(look.length(token::GAP_PANEL));
         let low = (room * SPLIT_LEAST).max(PANE_LEAST + gap + f32::from(look.length(token::SPACE_12)) * RIGHT) / room;
         let high = 1. - (room * SPLIT_LEAST).max(PANE_LEAST) / room;
-        self.split = if low <= high { to.clamp(low, high) } else { self.split };
+        let Some(job) = self.view.read(cx).shown_id() else { return };
+        if low <= high {
+            self.splits.insert(job.to_string(), to.clamp(low, high));
+            if self.remember {
+                write_splits(&self.splits);
+            }
+        }
         cx.notify();
+    }
+
+    /// The open Job's share of the room beside its Judge.
+    fn split(&self, cx: &App) -> f32 {
+        self.view.read(cx).shown_id().and_then(|job| self.splits.get(job.as_ref()).copied()).unwrap_or(SPLIT_ARRIVES)
     }
 
     /// The line between the Job and its Judge (`JobPanes.tsx`, a quiet `DockHandle`): it shows on
@@ -1623,8 +1819,8 @@ impl JobsScreen {
                 .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
                     let step = HANDLE_STEP / this.split_room.get().max(1.);
                     let to = match event.keystroke.key.as_str() {
-                        "left" => this.split - step,
-                        "right" => this.split + step,
+                        "left" => this.split(cx) - step,
+                        "right" => this.split(cx) + step,
                         "home" => 0.,
                         "end" => 1.,
                         _ => return,
@@ -1637,12 +1833,19 @@ impl JobsScreen {
         )
     }
 
-    /// `l` puts the keys in the list (`deck_panel`'s first slot), and `/` in its search from
-    /// anywhere on the deck; the other panels are not drawn yet.
+    /// `l` puts the keys in the list (`deck_panel`'s first slot), `c` on the first Job that needs
+    /// him, `a` and `d` open the dispatch sheet, and `/` the list's search, from anywhere on the deck.
+    /// The bays, the queue and the flight controls are not drawn, so `b`, `q` and `f` reach nothing.
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("deck_panel") && act.slot == 0 {
             let focus = self.list.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
+        } else if act.is("deck_panel") && act.slot == 2 {
+            self.list.update(cx, |list, cx| list.to_first_needing(window, cx));
+        } else if act.is("deck_panel") && act.slot == 5 {
+            crate::dispatch::screen::open_autopilot(cx);
+        } else if act.is("deck_panel") && act.slot == 6 {
+            crate::dispatch::screen::open_dispatch(cx);
         } else if act.is("deck_search") {
             self.list.update(cx, |list, cx| list.to_search(window, cx));
         } else if act.is("command_palette") {
@@ -1732,6 +1935,7 @@ impl Render for JobsScreen {
         let judged = self.view.read(cx).judge_pane_open();
         let split_handle = judged.then(|| self.render_split_handle(window, cx));
         let room = Rc::clone(&self.split_room);
+        let split = self.split(cx);
         let look = cx.look();
         div()
             .key_context("deck")
@@ -1787,7 +1991,7 @@ impl Render for JobsScreen {
                                     .min_w_0()
                                     .flex()
                                     .gap(look.length(token::GAP_PANEL))
-                                    .when(judged, |job| job.flex_grow(self.split * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)))
+                                    .when(judged, |job| job.flex_grow(split * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)))
                                     .when(!judged, |job| job.flex_1())
                                     .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
                                     .child(div().h_full().flex_none().w(column * RIGHT).child(self.side.clone())),
@@ -1797,7 +2001,7 @@ impl Render for JobsScreen {
                                     .relative()
                                     .h_full()
                                     .min_w_0()
-                                    .flex_grow((1. - self.split) * 100.)
+                                    .flex_grow((1. - split) * 100.)
                                     .flex_shrink(1.)
                                     .flex_basis(gpui::px(0.))
                                     .child(self.judge.clone())
@@ -1812,6 +2016,17 @@ impl Render for JobsScreen {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_dropped_row_stands_before_or_after_the_one_it_was_dropped_on() {
+        let order = |ids: &[&str]| ids.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+        let list = order(&["a", "b", "c", "d"]);
+        assert_eq!(moved(list.clone(), "d", "b", false), Some(order(&["a", "d", "b", "c"])));
+        assert_eq!(moved(list.clone(), "a", "c", true), Some(order(&["b", "c", "a", "d"])));
+        assert_eq!(moved(list.clone(), "b", "d", true), Some(order(&["a", "c", "d", "b"])));
+        assert_eq!(moved(list, "x", "b", false), None);
+    }
+
     use super::*;
 
     fn jobs() -> Vec<SessionRecord> {

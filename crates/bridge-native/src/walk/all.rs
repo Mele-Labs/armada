@@ -14,7 +14,7 @@ use super::{answer, fresh, marks, press_on, right_on, scene, step, Step, Verb};
 
 pub static STEPS: &[Step] = &[
     // -- the title bar -------------------------------------------------------------------------
-    step("The Places stand in a notch at the centre: the place the window is in is brighter, and the search is an icon and its key beside it", Verb::Look, "tablist", "Places"),
+    step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
     right_on("A right press on a place opens Hide, then View with every place; a place that must stay says Always shown", "tab", "Jobs", "menu", "Places"),
     step("Esc shuts the menu and the keys go back to the place", Verb::Key("escape"), "tab", "Jobs"),
@@ -25,7 +25,7 @@ pub static STEPS: &[Step] = &[
     step("Esc puts the card away, and the keys stay on the meter", Verb::Key("escape"), "button", FIVE_WEEK),
     right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
     step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
-    press_on("The repository opens its list: each repository row ends in the glyph of where its Armada configuration is kept, with → or a press on it to open that", "button", "Repository", "menu", "Repository"),
+    press_on("Each repository row ends in the glyph of where its configuration is kept; → or a press opens it", "button", "Repository", "menu", "Repository"),
     step("Esc shuts the list and the keys go back", Verb::Key("escape"), "button", "Repository"),
     scene("From 95 a ring turns red; the 5-hour ring is outside, the weekly inside", "rings-danger", "button", DANGER),
     scene("From 80 a ring turns amber, and a bell stands on it while the step down is offered", "offer", "img", "Default to Sonnet offered"),
@@ -111,14 +111,14 @@ pub static STEPS: &[Step] = &[
     press_on("Pressed again it goes: the note is gone from Done", "button", "Press again to delete", "tab", "Done"),
     // -- the merge strip and the Job marks -----------------------------------------------------
     fresh("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "region", "Merge queue"),
-    step("A ring says a pull request is open and a filled lamp that a queue holds it; the hue is its checks. Rest the pointer on a chip for its card", Verb::Hover, "button", RUNNING),
+    step("A ring is an open pull request, a filled lamp a queued one, the hue its checks; a chip's card opens on hover", Verb::Hover, "button", RUNNING),
     right_on("A right press on a chip opens its menu: the heading names the pull request, then Open in browser, Copy link and Refresh", "button", RUNNING, "menu", "Pull request #3392"),
     step("Esc shuts the menu and the keys go back to the chip", Verb::Key("escape"), "button", RUNNING),
     step("Q puts the keys on the strip", Verb::Key("q"), "region", "Merge queue"),
     step("Tab reaches a chip: its card opens as a hover opens it, and Enter on it opens the pull request", Verb::Keys(&["tab", "tab"]), "region", "Pull request #3395"),
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
-    press_on("Send back, beside the pull request that broke main, asks which Job gets the work, the one that merged it chosen, with what goes with it and a Message", "button", "Send back", "dialog", "Send the work back"),
+    press_on("Send back, beside the pull request that broke main, asks which Job takes the work, the one that merged it chosen", "button", "Send back", "dialog", "Send the work back"),
     step("Esc shuts it and the keys go back to the light", Verb::Key("escape"), "button", RED),
     marks("Another machine's claim on the red main: who holds it and for how long, and Take over", "strip-red-elsewhere", "button", "Take over"),
     press_on("Take over asks once, naming the machine that holds it", "button", "Take over", "dialog", "Take over from Nicks-MacBook-Pro"),
@@ -126,7 +126,7 @@ pub static STEPS: &[Step] = &[
     marks("A Job that took the red main shows on the card in place of the button", "strip-red-taken", "region", "main"),
     marks("On All the strip stacks one row for each repository and shows one; a main turning red brings its row in", "strip-all", "button", "Main is red in sample-api"),
     marks("A Job's context ring, the stand-in for the Job head: the window filled clockwise, a tick at the autocompact threshold", "ring-normal", "button", "Context 63%"),
-    step("Tab reaches the ring and opens its card as a hover does: each category, the heaviest memory files and MCP servers, and Compact", Verb::Keys(&["tab"]), "region", "Context"),
+    step("Tab opens the ring's card as a hover does: each category, the heaviest memory files and MCP servers, and Compact", Verb::Keys(&["tab"]), "region", "Context"),
     step("Esc puts the card away, and the keys stay on the ring", Verb::Key("escape"), "button", "Context 63%"),
     marks("From 95 they turn red, and Compact is greyed out", "ring-danger", "button", "Compact"),
     marks("With no breakdown the ring carries only its fill", "ring-popover", "button", "Context 63%"),

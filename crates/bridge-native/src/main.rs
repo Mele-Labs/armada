@@ -5,7 +5,7 @@
 //! | nothing | The Jobs list on the owner's running Fleet |
 //! | `--mock <scenario>` | The same window on mock data (`mock.rs`), with no Fleet |
 //! | `--walk <name>` | A native walk in its own window with a walk bar (`walk/`). Fleet adds `--job <id> --url <url> --fleet-port <port>` when the owner presses Open, and `--take <name>=<walk>` for each of its variations |
-//! | `--walk <name> --check [--shots <dir>]` | The walk played with no window on screen; exits 1 naming the first step that failed |
+//! | `--walk <name> --check [--shots <dir>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed |
 //!
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
 //! leave a window on someone's screen.
@@ -45,6 +45,7 @@ mod merge_strip;
 mod mock;
 mod notify;
 mod palette;
+mod point;
 mod revert;
 mod runtime_file;
 mod sketch;
@@ -86,7 +87,7 @@ use walk::window::WalkWindow;
 enum Mode {
     Live,
     Mock(String),
-    Walk { name: String, check: bool, shots: Option<PathBuf>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
+    Walk { name: String, check: bool, shots: Option<PathBuf>, width: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
 
 fn mode_of(args: &[String]) -> Result<Mode, String> {
@@ -100,13 +101,14 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
             _ => return Err("--job, --url and --fleet-port come together".into()),
         };
         let shots = value("--shots").transpose()?.map(PathBuf::from);
+        let width = value("--width").transpose()?.map(|wide| wide.parse::<f32>().map_err(|_| format!("--width {wide} is not a number of points"))).transpose()?;
         // `--take <name>=<walk>`, once for each take, in the bar's order.
         let takes = args
             .windows(2)
             .filter(|pair| pair[0] == "--take")
             .map(|pair| pair[1].rsplit_once('=').map(|(name, walk)| (name.to_string(), walk.to_string())).ok_or(format!("--take {} is not <name>=<walk>", pair[1])))
             .collect::<Result<_, _>>()?;
-        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, fleet, takes });
+        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, width, fleet, takes });
     }
     if let Some(scenario) = value("--mock").transpose()? {
         return Ok(Mode::Mock(scenario));
@@ -152,12 +154,12 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    if let Mode::Walk { name, check: true, shots, takes, .. } = &mode {
+    if let Mode::Walk { name, check: true, shots, width, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
             return ExitCode::FAILURE;
         };
-        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone()) {
+        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *width) {
             Ok(()) => {
                 log::Note::info("the walk played to its end").field("walk", walk.name).emit();
                 ExitCode::SUCCESS

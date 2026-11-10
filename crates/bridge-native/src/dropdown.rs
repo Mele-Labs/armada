@@ -174,6 +174,8 @@ pub struct Dropdown {
     focus: FocusHandle,
     /// What has been typed into the menu's filter field, if it has one.
     query: String,
+    /// A menu opened at a point: what was pressed there, for Mod and Report.
+    pointed: Option<Option<crate::labels::Drawn>>,
 }
 
 impl EventEmitter<Picked> for Dropdown {}
@@ -190,11 +192,20 @@ impl Dropdown {
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new() };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None };
         if cursor_first {
             this.cursor = this.first();
         }
         this
+    }
+
+    /// A menu opened at a point: Mod and Report follow its own entries, aimed at what is drawn under `at`.
+    pub fn at_point(mut self, window: &Window, cx: &App) -> Self {
+        let drawn = cx.try_global::<crate::labels::LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+        let whole = gpui::Bounds::new(gpui::point(px(0.), px(0.)), window.viewport_size());
+        self.pointed = Some(crate::capture::element_at(&drawn, self.at, whole));
+        self.entries.extend(crate::point::entries());
+        self
     }
 
     fn first(&self) -> Option<usize> {
@@ -276,6 +287,11 @@ impl Dropdown {
     fn pick(&mut self, at: usize, cx: &mut Context<Self>) {
         let Some(entry) = self.entries.get_mut(at) else { return };
         match entry {
+            Entry::Act { id, .. } if id.starts_with("point-") => {
+                let (id, at, pressed) = (*id, self.at, self.pointed.clone().flatten());
+                cx.emit(DismissEvent);
+                cx.defer(move |cx| crate::point::run(id, at, pressed, cx));
+            }
             Entry::Act { id, .. } | Entry::Choice { id, .. } => {
                 let id = *id;
                 cx.emit(Picked::Entry { id, keep: false });

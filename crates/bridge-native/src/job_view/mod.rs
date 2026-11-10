@@ -21,6 +21,7 @@ mod composer;
 mod deck;
 mod dock;
 mod fork;
+mod format;
 mod head;
 mod judge;
 mod keys;
@@ -217,6 +218,8 @@ pub struct JobView {
     /// The Job fleet was last told is on screen.
     visiting: Option<SharedString>,
     switched: Option<std::time::Instant>,
+    /// How wide the thread was last drawn: the words' column grows with it, as Electron's does with its pane.
+    pane: Option<gpui::Pixels>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
     /// The right column's top pane: Open, Done or Deferred.
@@ -252,7 +255,19 @@ pub struct JobView {
     _subscriptions: Vec<Subscription>,
 }
 
+/// How far cards, code and his bubbles reach past the words either side, so their own words line up with the prose
+/// (`--spacious-bleed`).
+pub(super) fn bleed(look: &Look) -> gpui::Pixels {
+    look.length(token::SPACE_4) + look.length(token::SPACE_1)
+}
+
 impl JobView {
+    /// The words' column, as Electron's `--spacious-column`: 70% of the pane, from 680 to 960 wide.
+    pub(super) fn column(&self, look: &Look) -> gpui::Pixels {
+        let (least, most) = (look.length(token::SPACE_12) * 14. + look.length(token::SPACE_2), look.length(token::SPACE_12) * 20.);
+        self.pane.map_or(most, |pane| gpui::px((f32::from(pane) * 0.7).clamp(f32::from(least), f32::from(most))))
+    }
+
     pub fn new(
         list: Entity<JobsList>,
         mock: Option<HashMap<String, ipc::JobThread>>,
@@ -307,6 +322,7 @@ impl JobView {
             aged: false,
             visiting: None,
             switched: None,
+            pane: None,
             picked: 0,
             zone: side::Zone::default(),
             focus: cx.focus_handle(),
@@ -615,9 +631,9 @@ impl JobView {
                 .size_full()
                 .flex()
                 .justify_center()
-                .px(look.length(token::SPACE_6) + look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_4) + bleed(look))
                 .pt(look.length(token::SPACE_4))
-                .child(div().w_full().max_w(look.length(token::SPACE_12) * 20.).child(body)),
+                .child(div().w_full().max_w(self.column(look)).child(body)),
             Role::Status,
             "Loading",
         )
@@ -656,6 +672,13 @@ impl Render for JobView {
         if self.composer.thread_drawn != Some(drawn) {
             self.composer.thread_drawn = Some(drawn);
             self.pages.values().for_each(|page| page.list.remeasure());
+        }
+        // The column follows the width the thread was last drawn at; a change draws once more at the new one.
+        let pane = head::drawn(window, cx, Role::Region, "Thread").map(|bounds| bounds.size.width);
+        if pane.is_some() && pane != self.pane {
+            self.pane = pane;
+            self.pages.values().for_each(|page| page.list.remeasure());
+            window.request_animation_frame();
         }
         let loaded = self.thread(&id, cx).is_some() && self.pages.get(&id).is_some_and(|page| page.version.is_some());
         let body = if loaded {

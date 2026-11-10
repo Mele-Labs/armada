@@ -402,6 +402,21 @@ impl Layer {
         cx.notify();
     }
 
+    /// Report on a point menu: the layer wakes if it slept, and a note begins on what is under `at`.
+    pub fn report_at(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.on {
+            self.toggle(window, cx);
+        }
+        self.opened = None;
+        self.paste = None;
+        if let Some((capture, _)) = &self.capture {
+            capture.update(cx, |capture, cx| capture.element_at_point(at, window, cx));
+            let focus = capture.read(cx).focus_handle(cx);
+            window.defer(cx, move |window, cx| window.focus(&focus, cx));
+        }
+        cx.notify();
+    }
+
     /// A fresh capture over the screen, with the keys on it.
     fn arm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: true };

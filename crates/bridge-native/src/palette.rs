@@ -110,6 +110,7 @@ impl Entry {
     pub fn kind(&self) -> &'static str {
         match self.id.split(':').next() {
             Some("session") => "Job",
+            Some("act") => "Action",
             Some("pull") => "Pull request",
             Some("issue") => "Issue",
             Some("task") => "Task",
@@ -522,6 +523,10 @@ struct Open {
     confirm: Option<Confirm>,
     back_to: Option<FocusHandle>,
     on: Option<String>,
+    /// The cursor is on the row that starts what was typed, at the foot of the matches.
+    sends: bool,
+    /// ⇥ made that row Autopilot's.
+    autopilot: bool,
 }
 
 /// What an act sends to Fleet.
@@ -604,7 +609,7 @@ impl Palette {
         let lines = lines_of(&entries, "", on.as_deref(), self.memory.opens, &self.memory);
         let state = ListState::new(lines.len(), ListAlignment::Top, px(200.));
         let cursor = lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
-        self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on });
+        self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false, autopilot: false });
         query.update(cx, |query, cx| query.focus(window, cx));
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
         self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
@@ -635,13 +640,14 @@ impl Palette {
         open.lines = lines_of(&open.entries, text, open.on.as_deref(), self.memory.opens, &self.memory);
         open.state.reset(open.lines.len());
         open.cursor = open.lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
+        open.sends = !text.trim().is_empty() && !open.lines.iter().any(|line| matches!(line, Line::Row(_)));
         open.panel = None;
         cx.notify();
     }
 
     /// The entry the cursor is over.
     fn under_cursor(&self) -> Option<(usize, Entry)> {
-        let open = self.open.as_ref()?;
+        let open = self.open.as_ref().filter(|open| !open.sends)?;
         match open.lines.get(open.cursor)? {
             Line::Row(at) => Some((*at, open.entries[*at].clone())),
             Line::Heading(_) => None,
@@ -661,10 +667,26 @@ impl Palette {
             return;
         }
         let rows: Vec<usize> = open.lines.iter().enumerate().filter(|(_, line)| matches!(line, Line::Row(_))).map(|(at, _)| at).collect();
+        let offered = !open.query.read(cx).value().trim().is_empty();
+        // The row that starts what was typed is the last stop, under the matches.
+        if open.sends {
+            if by < 0 && !rows.is_empty() {
+                open.sends = false;
+                open.cursor = *rows.last().unwrap_or(&0);
+                open.state.scroll_to_reveal_item(open.cursor);
+                cx.notify();
+            }
+            return;
+        }
         if rows.is_empty() {
             return;
         }
         let here = rows.iter().position(|at| *at == open.cursor).unwrap_or(0) as isize;
+        if offered && here + by >= rows.len() as isize {
+            open.sends = true;
+            cx.notify();
+            return;
+        }
         open.cursor = rows[(here + by).clamp(0, rows.len() as isize - 1) as usize];
         open.state.scroll_to_reveal_item(open.cursor);
         cx.notify();
@@ -768,11 +790,27 @@ impl Palette {
             }
             return;
         }
+        if open.sends {
+            self.start_typed(window, cx);
+            return;
+        }
         let Some((_, entry)) = self.under_cursor() else { return };
         let default = if entry.id.starts_with("session:") { "open" } else { "run" };
         if let Some(act) = self.acts_of(&entry, cx).into_iter().find(|one| one.id == default) {
             self.run_for(&entry, act, window, cx);
         }
+    }
+
+    /// What was typed goes to the dispatch sheet as its words, a Job's or Autopilot's (`one-bar.tsx` `onDispatch`).
+    fn start_typed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.open.as_ref() else { return };
+        let words = open.query.read(cx).value().trim().to_string();
+        if words.is_empty() {
+            return;
+        }
+        let autopilot = open.autopilot;
+        self.close(window, cx);
+        crate::dispatch::screen::start_with(words, autopilot, cx);
     }
 
     fn run_act(&mut self, act: RowAct, window: &mut Window, cx: &mut Context<Self>) {
@@ -1083,6 +1121,19 @@ impl Palette {
             self.toggle_panel(window, cx);
             return true;
         }
+        // With words typed and no panel up, ⌘↵ starts them from any row and ⇥ turns the row to the other kind.
+        let offered = self.open.as_ref().is_some_and(|open| open.panel.is_none() && !open.query.read(cx).value().trim().is_empty());
+        if offered && mods.platform && !mods.shift && !mods.alt && key == "enter" {
+            self.start_typed(window, cx);
+            return true;
+        }
+        if offered && key == "tab" && !mods.platform && !mods.alt && !mods.control {
+            if let Some(open) = self.open.as_mut() {
+                open.autopilot = !open.autopilot;
+            }
+            cx.notify();
+            return true;
+        }
         // The chords run the act on the row under the cursor, with the panel up or shut.
         let target = match self.open.as_ref().and_then(|open| open.panel.as_ref()) {
             Some(panel) => self.entry_at(panel.entry),
@@ -1108,8 +1159,32 @@ impl Palette {
 
 // ---- drawing ---------------------------------------------------------------------------------
 
+/// The palette's foot (`ResultKeys`, `DispatchKeys`): each key after its word. With words typed, ⌘↵ starts them and
+/// ⇥ turns the start row to the other kind.
+fn foot_keys(offered: bool, sends: bool, autopilot: bool) -> Vec<(&'static str, &'static str)> {
+    if !offered {
+        return vec![("Open", "\u{21b5}"), ("Actions", "\u{2318}K")];
+    }
+    let other = if autopilot { "Job" } else { "Autopilot" };
+    let mut keys = vec![(if sends { "Dispatch" } else { "Open" }, "\u{21b5}"), ("Dispatch", "\u{2318}\u{21b5}"), (other, "\u{21e5}")];
+    if !sends {
+        keys.push(("Actions", "\u{2318}K"));
+    }
+    keys
+}
+
 /// The list is taller than Electron's 400 px by this much, as the owner asked for a roomier palette.
 const LIST_GROWS: f32 = 1.15;
+
+/// The label with the typed span marked by contrast: the rest steps down to muted (`Marked`, `.armada-palette__mark`).
+/// A row found another way, as by its alias, marks nothing.
+fn marked(label: &str, typed: &str, look: &Look) -> gpui::StyledText {
+    let found = (!typed.is_empty()).then(|| label.to_lowercase().find(&typed.to_lowercase())).flatten().filter(|at| label.is_char_boundary(*at) && label.is_char_boundary(*at + typed.len()));
+    let Some(at) = found else { return gpui::StyledText::new(SharedString::from(label.to_string())) };
+    let muted = gpui::HighlightStyle { color: Some(look.color(token::FG_MUTED)), ..Default::default() };
+    let spans = [(0..at, muted), (at + typed.len()..label.len(), muted)].into_iter().filter(|(range, _)| !range.is_empty()).collect::<Vec<_>>();
+    gpui::StyledText::new(SharedString::from(label.to_string())).with_highlights(spans)
+}
 
 fn glyph(look: &Look, name: &'static str, ink: gpui::Hsla) -> gpui::Svg {
     svg().path(icon_path(name)).flex_none().size(look.length(token::SPACE_4)).text_color(ink)
@@ -1183,7 +1258,7 @@ impl Palette {
     fn render_row(&self, ix: usize, entry: &Entry, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(open) = self.open.as_ref() else { return div().into_any_element() };
         let on = open.cursor == ix;
-        let shortcut = self.memory.hotkeys.get(&entry.id).cloned().or_else(|| entry.shortcut.clone());
+        let on = on && !open.sends;
         let state = entry.meta.as_ref().and_then(|meta| meta.state.clone());
         let leading = match (state, entry.icon) {
             (Some((icon, said, hue)), _) => labelled(
@@ -1196,7 +1271,7 @@ impl Palette {
             (None, None) => div().flex_none().size(look.length(token::SPACE_4)).into_any_element(),
         };
         let alias = self.memory.aliases.get(&entry.id).cloned();
-        let repo = entry.meta.as_ref().and_then(|meta| meta.repo.clone());
+        let label = marked(&entry.label, open.query.read(cx).value().trim(), look);
         let id = entry.id.clone();
         let row = on_row(
             look,
@@ -1216,18 +1291,8 @@ impl Palette {
             on,
         )
         .child(leading)
-        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(entry.label.clone())))
+        .child(div().flex_1().min_w_0().truncate().child(label))
         .children(alias.map(|word| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(word))))
-        .children(repo.map(|repo| {
-            div()
-                .flex_none()
-                .max_w(look.length(token::SPACE_12) * 2.)
-                .truncate()
-                .text_size(look.length(token::TEXT_XS))
-                .text_color(look.color(token::FG_SUBTLE))
-                .child(SharedString::from(repo))
-        }))
-        .children(shortcut.map(|chord| kbd(look, &chord)))
         .child(
             div()
                 .flex_none()
@@ -1247,6 +1312,41 @@ impl Palette {
             this.enter(window, cx);
         }));
         labelled(row, Role::ListBoxOption, entry.label.clone()).into_any_element()
+    }
+
+    /// What was typed, offered as the work itself (`DispatchRow`): the accent plus, the words in quotes, the kind.
+    fn render_start(&self, typed: &str, on: bool, autopilot: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let (said, kind) = if autopilot { ("Start Autopilot with", "Autopilot") } else { ("Start a Job with", "Job") };
+        let name = format!("{said} \u{201c}{typed}\u{201d}");
+        let row = div()
+            .id("palette-start")
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .h(look.length(token::SPACE_8))
+            .px(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_MD))
+            .cursor_pointer()
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .text_color(look.color(token::FG_DEFAULT))
+            .when(on, |row| row.bg(look.color(token::BG_HOVER)))
+            .when(!on, |row| row.hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER))))
+            .child(glyph(look, "plus", look.color(token::ACCENT)))
+            .child(div().flex_1().min_w_0().truncate().child({
+                // The words in their quotes are the row's weight (`.armada-palette__words`).
+                let words = gpui::HighlightStyle { font_weight: Some(FontWeight(look.number(token::WEIGHT_MEDIUM))), ..Default::default() };
+                gpui::StyledText::new(SharedString::from(name.clone())).with_highlights([(said.len() + 1..name.len(), words)])
+            }))
+            .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(kind))
+            .on_click(cx.listener(|this, _, window, cx| this.start_typed(window, cx)));
+        div()
+            .flex_none()
+            .border_t(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .child(labelled(row, Role::ListBoxOption, name))
+            .into_any_element()
     }
 
     fn render_panel(&self, panel: &Panel, entry: &Entry, look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -1306,7 +1406,7 @@ impl Palette {
             .right(look.length(token::SPACE_2))
             .bottom(look.length(token::SPACE_8) + look.length(token::SPACE_1))
             .w(look.length(token::PALETTE_WIDTH) / 1.6)
-            .max_h(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS + look.length(token::SPACE_12) - look.length(token::SPACE_2))
+
             .flex()
             .flex_col()
             .rounded(look.length(token::RADIUS_LG))
@@ -1319,7 +1419,7 @@ impl Palette {
                 div()
                     .flex_none()
                     .px(look.length(token::SPACE_3))
-                    .pt(look.length(token::SPACE_3))
+                    .pt(look.length(token::SPACE_2))
                     .pb(look.length(token::SPACE_1))
                     .truncate()
                     .text_size(look.length(token::TEXT_XS))
@@ -1349,7 +1449,7 @@ impl Palette {
                     .id("palette-actions-field")
                     .key_context(crate::keymap::TEXT_BOX)
                     .flex_1()
-                    .h(look.length(token::SPACE_8))
+                    .h(look.length(token::H_MENU_ITEM))
                     .px(look.length(token::SPACE_3))
                     .flex()
                     .items_center()
@@ -1442,7 +1542,9 @@ impl Render for Palette {
         let Some(open) = self.open.as_ref() else { return div().into_any_element() };
         let look = cx.look();
         let viewport = window.viewport_size();
-        let body = if open.lines.is_empty() {
+        let body = if open.lines.is_empty() && !open.query.read(cx).value().trim().is_empty() {
+            div().into_any_element()
+        } else if open.lines.is_empty() {
             labelled(
                 div()
                     .id("palette-empty")
@@ -1467,7 +1569,26 @@ impl Render for Palette {
                 Line::Row(_) => look.length(token::SPACE_8),
             })
             .sum();
-        let tall = (!open.lines.is_empty()).then(|| (lines + look.length(token::SPACE_2) * 2.).min(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS));
+        let typed = open.query.read(cx).value().trim().to_string();
+        let start = (!typed.is_empty()).then(|| self.render_start(&typed, open.sends, open.autopilot, look, cx));
+        // The start row is pinned under the list, so a long list never hides it.
+        let pinned = if start.is_some() { look.length(token::SPACE_8) + look.length(token::BORDER_WIDTH) } else { px(0.) };
+        let tall = (!open.lines.is_empty() || start.is_some()).then(|| (lines + pinned + look.length(token::SPACE_2) * 2.).min(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS));
+        // While a row's acts are open the list keeps eleven rows' room, or the panel's own where it needs more, so
+        // the panel sits inside it under the field, as Electron's `[data-acting]` list does.
+        let acting = open.panel.as_ref().map(|panel| {
+            let acts = panel_acts(panel, cx);
+            let rules = acts.iter().enumerate().filter(|(at, act)| act.apart && *at > 0).count() as f32;
+            let rows = acts.len() as f32;
+            look.length(token::SPACE_8) * (rows + 1.)
+                + (look.length(token::BORDER_WIDTH) + look.length(token::SPACE_2)) * rules
+                + look.length(token::H_MENU_ITEM)
+                + look.length(token::SPACE_2)
+        });
+        let tall = match acting {
+            Some(room) => Some(tall.unwrap_or_default().max(look.length(token::H_MENU_ITEM) * 11. + look.length(token::SPACE_4)).max(room + look.length(token::SPACE_2))),
+            None => tall,
+        };
         let panel = open.panel.as_ref().and_then(|panel| self.entry_at(panel.entry).map(|entry| self.render_panel(panel, &entry, look, cx)));
         let confirm = open.confirm.as_ref().map(|confirm| self.render_confirm(confirm, look, cx));
         let query = open.query.clone();
@@ -1512,8 +1633,11 @@ impl Render for Palette {
                         .id("palette-list")
                         .flex_none()
                         .when_some(tall, |list, tall| list.h(tall))
+                        .flex()
+                        .flex_col()
                         .p(look.length(token::SPACE_2))
-                        .child(body),
+                        .child(div().flex_1().min_h_0().child(body))
+                        .children(start),
                     Role::ListBox,
                     "Results",
                 ))
@@ -1525,15 +1649,15 @@ impl Render for Palette {
                         .justify_end()
                         .gap_x(look.length(token::SPACE_4))
                         .gap_y(look.length(token::SPACE_2))
-                        .px(look.length(token::SPACE_4))
-                        .py(look.length(token::SPACE_3))
+                        .px(look.length(token::SPACE_3))
+                        .py(look.length(token::SPACE_2))
                         .border_t(look.length(token::BORDER_WIDTH))
                         .border_color(look.color(token::BORDER_SUBTLE))
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_SUBTLE))
-                        .children([("\u{21b5}", "Open"), ("\u{2318}K", "Actions"), ("Esc", "Close")].map(|(key, said)| {
-                            div().flex().items_center().gap(look.length(token::SPACE_1)).child(kbd(look, key)).child(said)
+                        .children(foot_keys(!query.read(cx).value().trim().is_empty() && open.panel.is_none(), open.sends, open.autopilot).into_iter().map(|(said, key)| {
+                            div().flex().items_center().gap(look.length(token::SPACE_1)).child(said).child(kbd(look, key))
                         })),
                 )
                 .children(panel)

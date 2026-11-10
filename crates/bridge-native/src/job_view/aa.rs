@@ -550,34 +550,58 @@ fn button(look: &Look, id: impl Into<ElementId>, said: &str, off: bool, primary:
         .child(SharedString::from(said.to_string()))
 }
 
-/// A switch: its track, then its words. Pressing it anywhere turns it.
+/// A switch as Electron's `Switch`: its words, then at the row's end a recessed track with the knob
+/// and ON or OFF in the half the knob leaves. Pressing it anywhere turns it.
 fn switch(look: &Look, id: impl Into<ElementId>, said: &str, on: bool, off: bool) -> Stateful<Div> {
-    let pad = look.length(token::SPACE_1) / 2.;
-    div()
-        .id(id)
+    let edge = look.length(token::BORDER_WIDTH);
+    let tall = look.length(token::H_BADGE) + look.length(token::SPACE_2);
+    let pad = edge * 3.;
+    let knob = tall - pad * 2.;
+    let air = look.length(token::SPACE_2);
+    let word = div()
+        .flex_none()
+        .w(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+        .flex()
+        .justify_center()
+        .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+        .text_size(look.length(token::TEXT_SWITCH))
+        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+        .text_color(if on && !off { look.color(token::FG_INVERSE) } else { look.color(token::FG_MUTED) })
+        .child(if on { "ON" } else { "OFF" });
+    let disc = div()
+        .flex_none()
+        .size(knob)
+        .rounded_full()
+        .border(edge * 2.)
+        .border_color(if on && !off { look.color(token::ACCENT).opacity(0.6) } else { look.color(token::BORDER_STRONG) })
+        .bg(if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) });
+    let lit = on && !off;
+    let track = div()
         .flex_none()
         .flex()
         .items_center()
+        .gap(air)
+        .h(tall)
+        .pl(pad - edge)
+        .pr(pad - edge)
+        .border(edge)
+        .border_color(if off { look.color(token::BORDER_SUBTLE) } else if lit { look.color(token::ACCENT) } else { look.color(token::BORDER_STRONG) })
+        .rounded(tall / 2.)
+        .bg(if lit { look.color(token::ACCENT) } else { look.color(token::BG_SUNKEN) })
+        .map(|track| if on { track.pl(air).child(word).child(disc) } else { track.pr(air).child(disc).child(word) });
+    div()
+        .id(id)
+        .flex()
+        .items_center()
+        .justify_between()
         .gap(look.length(token::SPACE_3))
-        .h(look.length(token::H_CONTROL))
+        .min_h(look.length(token::H_CONTROL))
         .text_size(look.length(token::TEXT_SM))
         .text_color(if off { look.color(token::FG_SUBTLE) } else { look.color(token::FG_DEFAULT) })
         .aria_toggled(if on { Toggled::True } else { Toggled::False })
         .when(!off, |row| row.cursor_pointer().tab_index(0).focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT))))
-        .child(
-            div()
-                .flex_none()
-                .flex()
-                .items_center()
-                .w(look.length(token::SPACE_8))
-                .h(look.length(token::SPACE_4))
-                .p(pad)
-                .rounded_full()
-                .bg(if on { look.color(token::ACCENT) } else { look.color(token::FG_DEFAULT).opacity(0.18) })
-                .when(on, |track| track.justify_end())
-                .child(div().size(look.length(token::SPACE_3)).rounded_full().bg(look.color(token::TEXT_ON_ACCENT))),
-        )
-        .child(SharedString::from(said.to_string()))
+        .child(div().min_w_0().child(SharedString::from(said.to_string())))
+        .child(track)
 }
 
 /// A heading over a group of the panel's controls.
@@ -922,7 +946,7 @@ impl Aa {
                 .into_any_element(),
             None => div().flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(line.text.clone()).into_any_element(),
         };
-        let cell = |content: Option<AnyElement>| div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_2)).flex().justify_center().children(content);
+        let cell = |content: Option<AnyElement>| div().flex_none().children(content);
         let acts = (editing.is_none()).then(|| {
             let text = line.text.clone();
             match line.id.clone() {
@@ -983,12 +1007,34 @@ impl Aa {
             }
         });
         let line_id = line.id.clone();
+        // The acts lie over the row's end and show while it is pointed at or holds the keys, as Electron's.
+        let group = SharedString::from(format!("reply-row:{place}"));
+        let lit = look.color(token::BG_HOVER);
+        let acts = acts.map(|acts| {
+            div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .right(look.length(token::SPACE_1))
+                .flex()
+                .items_center()
+                .pl(look.length(token::SPACE_2))
+                .bg(look.color(token::BG_HOVER))
+                .opacity(0.)
+                .group_hover(group.clone(), |style| style.opacity(1.))
+                .child(acts)
+        });
         div()
             .id(SharedString::from(format!("reply:{place}")))
+            .group(group)
+            .relative()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .min_h(look.length(token::H_CONTROL_LG))
+            .min_h(look.length(token::H_ROW))
+            .px(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_MD))
+            .hover(move |style| style.bg(lit))
             .child(marks)
             .child(body)
             .children(acts)
@@ -1166,8 +1212,8 @@ impl Render for Aa {
             let spacing_key = self.view.read(cx).composer.quick.text_or("spacing", "default");
             let switches = div()
                 .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_6))
+                .flex_col()
+                .gap(look.length(token::SPACE_3))
                 .child(labelled(
                     switch(look, "switch:agent-name", "Show agent name", panel.show_agent_name, false).on_click(cx.listener({
                         let on = panel.show_agent_name;
@@ -1217,7 +1263,7 @@ impl Render for Aa {
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .occlude()
                     .mb(look.length(token::SPACE_2))
-                    .w(look.length(token::SPACE_12) * 12.)
+                    .w(look.length(token::SPACE_12) * 7. + look.length(token::SPACE_4) * 2.)
                     .rounded(look.length(token::RADIUS_LG))
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))

@@ -274,6 +274,11 @@ fn ask(port: u16, route: &'static str, body: Result<String, String>) -> Result<V
 
 impl JobView {
     /// Teach was pressed: the panel opens over the Job, its box holding what was left in it before.
+    /// Teach from a list row, as Electron's `RowMenu` asks: kind `row`, the row's words.
+    pub(crate) fn teach_row(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.teach_open(Teach { kind: "row", text, at: None, ids: Vec::new() }, window, cx);
+    }
+
     pub(super) fn teach_open(&mut self, teach: Teach, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let record = self.record(&job, cx);

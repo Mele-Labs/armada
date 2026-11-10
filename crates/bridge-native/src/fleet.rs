@@ -10,7 +10,7 @@ use gpui::{Context, EventEmitter, Task};
 
 use ipc::{
     CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, SessionRecord,
-    SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem,
+    RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem,
 };
 
 use crate::link::{self, LinkState, Signal};
@@ -89,6 +89,8 @@ pub struct Held {
     /// Every call standing, as Fleet last said. `None` until Fleet has answered once, so an empty
     /// first reading cannot be mistaken for a count that stands.
     pub calls: Option<StandingCalls>,
+    /// Every repository Fleet serves, the one it was started in first. `None` until Fleet has answered.
+    pub repositories: Option<Vec<RepositorySummary>>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -112,6 +114,7 @@ impl Held {
             mods: None,
             build: None,
             calls: None,
+            repositories: None,
             notifications: true,
             arrived: Vec::new(),
             port: None,
@@ -252,6 +255,8 @@ impl Held {
                 Signal::CallsFailed(why) => lines.push(Note::warn("calls could not be read").field("why", why)),
                 Signal::Settings(list) => self.set_settings(&list),
                 Signal::SettingsFailed(why) => lines.push(Note::warn("settings could not be read").field("why", why)),
+                Signal::Repositories(list) => self.repositories = Some(list.repositories),
+                Signal::RepositoriesFailed(why) => lines.push(Note::warn("repositories could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -296,6 +301,7 @@ impl Held {
                             self.arrived.extend(changed.arrived);
                         }
                         Event::SettingsChanged(list) => self.set_settings(&list),
+                        Event::RepositoriesChanged(list) => self.repositories = Some(list.repositories),
                         _ => {}
                     }
                 }
@@ -678,6 +684,19 @@ mod tests {
         assert!(held.take_arrived().is_empty(), "news is told once");
         held.fold(vec![changed("[]", "[]")]);
         assert!(held.take_arrived().is_empty());
+    }
+
+    #[test]
+    fn the_repositories_are_read_on_connect_and_replaced_when_fleet_says_they_changed() {
+        let mut held = Held::new();
+        assert_eq!(held.repositories, None, "nothing is listed before Fleet has answered");
+        let list: ipc::RepositoryList =
+            ipc::decode("repositories", br#"{"repositories":[{"root":"/r/one","records_root":"/x/one"}]}"#).expect("a list");
+        held.fold(vec![Signal::Repositories(list)]);
+        assert_eq!(held.repositories.as_ref().map(|all| all[0].root.as_str()), Some("/r/one"));
+        let wire = r#"{"message":"event","cursor":2,"event":{"kind":"repositories.changed","repositories":[]}}"#;
+        held.fold(vec![Signal::Stream(crate::frames::decode(wire).expect("an event"))]);
+        assert_eq!(held.repositories, Some(Vec::new()));
     }
 
     #[test]

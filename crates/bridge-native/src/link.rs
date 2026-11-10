@@ -15,8 +15,8 @@ use chrono::Local;
 use tokio::time::{sleep, Instant};
 
 use ipc::{
-    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, SessionList, SessionRecord,
-    SettingsList, StandingCalls, StreamMessage,
+    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, ProtocolId, RepositoryList, SessionList,
+    SessionRecord, SettingsList, StandingCalls, StreamMessage,
 };
 
 use crate::frames::{self, Messages};
@@ -80,6 +80,9 @@ pub enum Signal {
     /// `GET /settings`, once per connection; `settings.changed` carries the list after that.
     Settings(SettingsList),
     SettingsFailed(String),
+    /// `GET /repositories`, once per connection; `repositories.changed` carries the list after that.
+    Repositories(RepositoryList),
+    RepositoriesFailed(String),
     Stream(StreamMessage),
 }
 
@@ -228,6 +231,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_mods(tx.clone(), fleet.port));
                     tokio::spawn(fetch_calls(tx.clone(), fleet.port));
                     tokio::spawn(fetch_settings(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_repositories(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -328,6 +332,15 @@ async fn fetch_settings(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<SettingsList>(port, "/settings", "settings").await {
         Ok(settings) => Signal::Settings(settings),
         Err(why) => Signal::SettingsFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /repositories`, once per connection, retried as the Jobs are.
+async fn fetch_repositories(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<RepositoryList>(port, "/repositories", "repository list").await {
+        Ok(list) => Signal::Repositories(list),
+        Err(why) => Signal::RepositoriesFailed(why),
     };
     let _ = tx.send(signal).await;
 }

@@ -192,6 +192,11 @@ impl JobView {
         pad.areas.insert(id.clone(), (area, typed));
         pad.picked = vec![id];
         cx.notify();
+        // Its bar stands over where the box is drawn, which is known once it has been: draw again then.
+        let view = cx.weak_entity();
+        window.on_next_frame(move |_, cx| {
+            let _ = view.update(cx, |_, cx| cx.notify());
+        });
     }
 
     fn pad_act(&mut self, act: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -446,19 +451,9 @@ impl JobView {
         let look = cx.look();
         let viewport = window.viewport_size();
         let margin = look.length(token::SPACE_4);
+        // The sheet's header Close with its key, as Electron's `Sheet` draws it.
         let close = labelled(
-            div()
-                .id("sketch-close")
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL_LG))
-                .rounded(look.length(token::RADIUS_LG))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("Close \u{b7} Esc"))
-                .child(glyph(look, "x", Size::Mark, look.color(token::FG_MUTED)))
+            button(look, "sketch-close", "Close", Tone::Ghost, false, Some("Esc"), true)
                 .on_click(cx.listener(|this, _, window, cx| this.close_sketch(window, cx))),
             Role::Button,
             "Close",

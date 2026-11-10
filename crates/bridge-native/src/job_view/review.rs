@@ -946,8 +946,8 @@ impl JobView {
             .gap(look.length(token::SPACE_3))
             .h(look.length(token::H_ROW_UNIT))
             .px(look.length(token::SPACE_3))
-            .rounded(look.length(token::RADIUS_MD))
-            .border_l(look.length(token::EDGE_ACTIVE))
+            // The chosen item is filled and ringed thin, square, as Electron's focused `[data-on]` item draws.
+            .border(look.length(token::BORDER_WIDTH))
             .border_color(if on { look.color(token::ACCENT) } else { gpui::transparent_black() })
             .when(on, |row| row.bg(look.color(token::SURFACE_ROW_SELECTED)))
             .when(!on, |row| row.hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER))))

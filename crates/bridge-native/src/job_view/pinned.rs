@@ -29,10 +29,10 @@ impl JobView {
         Some(
             div()
                 .w_full()
-                .px(look.length(token::SPACE_6))
+                .px(look.length(token::SPACE_4) + super::bleed(look))
                 .flex()
                 .justify_center()
-                .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * 20.).child(card))
+                .child(div().w_full().min_w_0().max_w(self.column(look)).child(card))
                 .into_any_element(),
         )
     }

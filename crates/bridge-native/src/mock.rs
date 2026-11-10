@@ -26,6 +26,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
         // the second held Job holding its three waits.
         "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
+        // One Job with only its plan waiting on him, as Fleet served it.
+        "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -44,6 +46,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
+        "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;

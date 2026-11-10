@@ -506,7 +506,7 @@ impl JobView {
             return;
         }
         let back = window.focused(cx);
-        let menu = cx.new(|cx| Dropdown::new("Tab actions", entries, at, Anchor::TopLeft, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Tab actions", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let picked = cx.subscribe_in(&menu, window, |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id: act, .. } = picked;
             this.head_act(act, window, cx);
@@ -976,6 +976,28 @@ impl JobView {
             Role::Button,
             "Retry",
         );
+        let fix = labelled(
+            div()
+                .id("handoff-dispatch")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL))
+                .px(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .bg(look.color(token::BG_RAISED))
+                .text_size(look.length(token::TEXT_XS))
+                .text_color(look.color(token::FG_DEFAULT))
+                .cursor_pointer()
+                .child("Dispatch job to fix")
+                .child(div().text_color(look.color(token::FG_SUBTLE)).child("d"))
+                .on_click(cx.listener(|this, _, window, cx| this.dispatch_handoff_fix(window, cx))),
+            Role::Button,
+            "Dispatch job to fix",
+        );
         let band = labelled(
             div()
                 .id("handoff-band")
@@ -1021,7 +1043,8 @@ impl JobView {
                         .border_color(hue)
                         .bg(look.color(token::BG_RAISED))
                         .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(why))
-                        .child(retry),
+                        .child(retry)
+                        .child(fix),
                 )
                 .into_any_element(),
         )
@@ -1034,6 +1057,49 @@ impl JobView {
         self.to_composer(window, cx);
         let body = ipc::encode(&ipc::RetryHandoff { session_id: Self::session_id(&id) });
         self.ask_act(id, "/sessions/handoff/retry".into(), body, |overlay| overlay.retried = false, window, cx);
+    }
+
+    /// Dispatch job to fix (`handoff_dispatch`, `d`): a Job on Armada's own repository, told the failure, and
+    /// opened, as Electron's failure toast dispatches one (`failure-session.ts`).
+    pub(super) fn dispatch_handoff_fix(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some(record) = self.record(&id, cx).cloned() else { return };
+        let Some(manifest_id) = self.report_manifest(&record, cx) else { return };
+        let reason = record.attachments.iter().find(|one| one.kind == "handoff_failed").and_then(|one| one.detail.get("reason").cloned());
+        let mut text = format!("Failed to hand off to new job\n\ncode: handoff_failed\nsession_id: {id}");
+        if let Some(reason) = reason {
+            text.push_str(&format!("\nreason: {reason}"));
+        }
+        let start = ipc::StartSession {
+            manifest_id,
+            title: None,
+            model: None,
+            effort: None,
+            mode: None,
+            fork: None,
+            root: None,
+            request: None,
+            after: None,
+            held: false,
+            project_rows: Vec::new(),
+            on_your_words: None,
+        };
+        let done: Done = Box::new(move |this, answer, window, cx| {
+            let Ok(bytes) = answer else { return };
+            let Ok(started) = ipc::decode::<SessionRecord>("SessionRecord", &bytes) else { return };
+            let fixer = started.id.as_str().to_string();
+            let body = ipc::SendSessionMessageBody {
+                message: ipc::SendSessionMessage { session_id: SessionId::carried(fixer.clone()), text, attachments: Vec::new(), mentions: Vec::new() },
+                aim: None,
+            };
+            let opened: Done = Box::new(move |this, answer, _, cx| {
+                if answer.is_ok() {
+                    this.open_job(fixer, cx);
+                }
+            });
+            this.post("/sessions/message".into(), ipc::encode(&body), window, cx, opened);
+        });
+        self.post("/sessions/start".into(), ipc::encode(&start), window, cx, done);
     }
 
     /// Whether `r` presses Retry: the band is up and has the keys.

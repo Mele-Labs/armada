@@ -314,6 +314,27 @@ impl TitleBar {
         self._swap_keys = None;
     }
 
+    /// The repositories Fleet serves, as the picker lists them: each by its directory's name, `Not set
+    /// up` where no Manifest has loaded. A pick that no longer names one goes back to All.
+    pub fn set_repositories(&mut self, served: &[ipc::RepositorySummary], cx: &mut Context<Self>) {
+        let listed: Vec<face::Repository> = served
+            .iter()
+            .map(|one| {
+                let name = one.manifest.as_ref().map_or_else(|| one.root.rsplit('/').find(|part| !part.is_empty()).unwrap_or(&one.root).to_string(), |manifest| manifest.repository.clone());
+                let kept = self.face.repositories.iter().find(|held| held.name.as_ref() == name).and_then(|held| held.kept.clone());
+                face::Repository { name: name.into(), not_set_up: one.manifest.is_none(), kept }
+            })
+            .collect();
+        let manifest = listed.iter().any(|one| !one.not_set_up);
+        if listed == self.face.repositories && manifest == self.face.manifest {
+            return;
+        }
+        self.face.chosen = self.face.chosen.filter(|&at| at < listed.len());
+        self.face.repositories = listed;
+        self.face.manifest = manifest;
+        cx.notify();
+    }
+
     /// Whether the window is narrower than the row can lay out: the start, the centre and the
     /// Operator button go behind the menu.
     fn narrow(&self, window: &Window) -> bool {
@@ -476,15 +497,24 @@ impl TitleBar {
         let gap = cx.look().length(token::SPACE_1);
         let at = point(if end { from.origin.x + from.size.width } else { from.origin.x }, from.origin.y + from.size.height + gap);
         let corner = if end { Anchor::TopRight } else { Anchor::TopLeft };
-        self.open_menu_at(kind, entries, name, at, corner, false, window, cx);
+        self.open_menu_on(kind, entries, name, at, corner, false, false, window, cx);
     }
 
     /// A menu with its corner at `at`: under a trigger, or at the pointer for a right press. The keys go
     /// on its first entry when `from_keys`, as a menu opened from the keyboard has them.
     #[allow(clippy::too_many_arguments)]
     fn open_menu_at(&mut self, kind: MenuKind, entries: Vec<Entry>, name: &'static str, at: Point<Pixels>, corner: Anchor, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_menu_on(kind, entries, name, at, corner, from_keys, true, window, cx);
+    }
+
+    /// `pointed`: opened at a point, so Mod and Report follow its entries (`point-acts.tsx`).
+    #[allow(clippy::too_many_arguments)]
+    fn open_menu_on(&mut self, kind: MenuKind, entries: Vec<Entry>, name: &'static str, at: Point<Pixels>, corner: Anchor, from_keys: bool, pointed: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.keep_keys(window, cx);
-        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, corner, from_keys, cx));
+        let dropdown = cx.new(|cx| {
+            let menu = Dropdown::new(name, entries, at, corner, from_keys, cx);
+            if pointed { menu.at_point(window, cx) } else { menu }
+        });
         let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, keep } = picked;
             // A pick that keeps the menu leaves it where it is, with the keys in it.

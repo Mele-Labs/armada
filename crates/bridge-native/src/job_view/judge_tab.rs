@@ -52,6 +52,11 @@ impl Render for JobJudge {
 }
 
 impl JobView {
+    /// The open Job's id.
+    pub fn shown_id(&self) -> Option<SharedString> {
+        self.shown.clone()
+    }
+
     /// Whether the open Job has its Judge pane open.
     pub fn judge_pane_open(&self) -> bool {
         self.shown.as_ref().and_then(|id| self.pages.get(id)).is_some_and(|page| page.judge.is_some())

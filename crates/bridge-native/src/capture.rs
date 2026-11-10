@@ -268,6 +268,21 @@ impl Capture {
         cx.notify();
     }
 
+    /// A note on the element under `at`, as a press on it would begin one: what a point menu's Report asks.
+    pub fn element_at_point(&mut self, at: Point<Pixels>, window: &Window, cx: &mut Context<Self>) {
+        if self.held.is_some() {
+            return;
+        }
+        let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+        let Some(found) = self.within.get().and_then(|within| element_at(&drawn, at, within)) else { return };
+        self.hover = None;
+        self.from = None;
+        self.to = None;
+        self.held = Some(Held::Element(found));
+        self.clean = true;
+        cx.notify();
+    }
+
     fn pointer_moved(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         if self.held.is_some() {
             return;

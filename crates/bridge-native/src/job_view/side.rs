@@ -338,7 +338,8 @@ impl JobView {
     fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(job) = self.record(id, cx).cloned() else { return div().into_any_element() };
         let owed = job.waiting_for.iter().filter(|item| item.source != WaitingSource::Done).map(|item| self.owed_row(item, look, cx)).collect::<Vec<_>>();
-        let agent = self.standing_mark(id, cx).map(|(icon, said, hue, _)| beat(look, icon, hue, said));
+        // The lamp row heads the pane; waiting on him it is the dashed circle Electron's Now draws, not the row's eye.
+        let agent = self.standing_mark(id, cx).map(|(icon, said, hue, _)| beat(look, if icon == "eye" { "circle-dashed" } else { icon }, hue, said));
         let working = self.side_groups(id, Stands::Working, look, cx);
         let todos = job.activity.iter().flat_map(|activity| activity.todos.iter()).filter(|todo| todo.state != SessionTodoState::Done).map(|todo| match todo.state {
             SessionTodoState::Doing => beat(look, "circle-dot", token::STEP_RUNNING, todo.text.clone()),
@@ -367,7 +368,7 @@ impl JobView {
                 .child(self.plan_editor(id, &plan, None, true, look, cx))
                 .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(send).child(approve))
         });
-        div().flex().flex_col().children(owed).children(agent).child(working).children(todos).children(drafting).into_any_element()
+        div().flex().flex_col().children(agent).children(owed).child(working).children(todos).children(drafting).into_any_element()
     }
 
     /// One thing waiting on him: a press opens it where it is answered.

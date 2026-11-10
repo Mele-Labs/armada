@@ -776,7 +776,7 @@ impl JobView {
             _ => return,
         };
         let back = window.focused(cx);
-        let menu = cx.new(|cx| Dropdown::new("Quick reply", entries, at, Anchor::TopLeft, from_keys, cx));
+        let menu = cx.new(|cx| Dropdown::new("Quick reply", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             match (*id, line.id.clone()) {

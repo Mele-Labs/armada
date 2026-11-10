@@ -9,8 +9,8 @@ use std::collections::{HashMap, HashSet};
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Window};
-use ipc::{ConfirmWaiting, DismissWaiting, SessionId, Lapsed, ReachesTo, ThreadAsk, WaitingActKind, WaitingItem, WaitingSource};
+use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Window};
+use ipc::{BuildSource, ConfirmWaiting, DismissWaiting, SessionId, Lapsed, ReachesTo, ThreadAsk, WaitingActKind, WaitingItem, WaitingSource};
 
 use super::deck::Deck;
 use super::perm::Perm;
@@ -36,6 +36,55 @@ pub(super) struct DockState {
     /// Sentences read from a reply that the person said are questions, before Fleet's row says so.
     pub confirmed: HashSet<String>,
     pub said: HashMap<String, SharedString>,
+    /// Where each command pressed here stands, by the command: a restart's key and a run item's row.
+    pub runs: HashMap<String, RunMark>,
+}
+
+/// Where a command pressed in the panel stands, as Electron's `RestartKey` marks it.
+#[derive(Clone)]
+pub(super) enum RunMark {
+    Running,
+    Passed,
+    Failed(SharedString),
+}
+
+impl RunMark {
+    /// Its glyph and its words.
+    fn look(&self) -> (&'static str, SharedString) {
+        match self {
+            RunMark::Running => ("loader-circle", "Running".into()),
+            RunMark::Passed => ("circle-check", "Passed".into()),
+            RunMark::Failed(why) => ("circle-x", why.clone()),
+        }
+    }
+}
+
+/// The build switch a run item's command asks for, as `build-change.ts` `buildChangeOf` reads it:
+/// `scripts/preview --restart` or `scripts/restart --main`, with `--adopt` and nothing else beside.
+/// Any other command, a dry run among them, is a command to run.
+pub(super) fn restart_of(item: &WaitingItem) -> Option<(BuildSource, bool, &'static str)> {
+    let act = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run)?;
+    build_change_of(&act.target)
+}
+
+fn build_change_of(command: &str) -> Option<(BuildSource, bool, &'static str)> {
+    let mut words = command.split_whitespace();
+    let script = words.next()?;
+    let flags: Vec<&str> = words.collect();
+    let name = script.rsplit('/').next()?;
+    let under = script.strip_suffix(name)?.trim_end_matches('/');
+    if !(under == "scripts" || under.ends_with("/scripts")) {
+        return None;
+    }
+    let (build, flag, label) = match name {
+        "preview" => (BuildSource::Preview, "--restart", "Refresh preview"),
+        "restart" => (BuildSource::Main, "--main", "Update to main"),
+        _ => return None,
+    };
+    if !flags.contains(&flag) || flags.iter().any(|one| *one != flag && *one != "--adopt") {
+        return None;
+    }
+    Some((build, flags.contains(&"--adopt"), label))
 }
 
 /// One thing the panel lists.
@@ -86,7 +135,7 @@ fn mark_of(item: &WaitingItem) -> (&'static str, &'static str) {
         Some(WaitingActKind::Walk) => ("app-window", "Opens the walk"),
         Some(WaitingActKind::Answer) => ("message-square", "Goes to the question"),
         Some(WaitingActKind::ApprovePr) => ("git-pull-request-arrow", "Opens the pull request"),
-        Some(WaitingActKind::Run) => ("terminal", "Copies the command"),
+        Some(WaitingActKind::Run) => ("terminal", "Runs the command"),
         Some(WaitingActKind::Message) => ("square-pen", "Goes to the message"),
         None if !item.steps.is_empty() => ("list-checks", "Steps"),
         None => ("bell-ring", "Waiting on you"),
@@ -138,12 +187,28 @@ impl JobView {
             for item in record.waiting_for.iter().filter(|item| !hidden.is_some_and(|hidden| hidden.contains(&item.id))) {
                 match item.source {
                     WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => review.push(item),
+                    _ if restart_of(item).is_some() => {}
                     WaitingSource::Agent | WaitingSource::Walk | WaitingSource::Replied => things.push(Thing::Item(item)),
                     _ => {}
                 }
             }
         }
         (things, review)
+    }
+
+    /// The restarts the Job's items ask for, one key per command, whichever items ask it.
+    pub(super) fn restarts(&self, id: &str, cx: &gpui::App) -> Vec<(String, BuildSource, bool, &'static str)> {
+        let mut keys: Vec<(String, BuildSource, bool, &'static str)> = Vec::new();
+        let Some(record) = self.record(id, cx) else { return keys };
+        let hidden = self.dock_of(id).map(|dock| &dock.hidden);
+        let listed = |item: &&WaitingItem| matches!(item.source, WaitingSource::Agent | WaitingSource::Walk | WaitingSource::Replied);
+        for item in record.waiting_for.iter().filter(listed).filter(|item| !hidden.is_some_and(|hidden| hidden.contains(&item.id))) {
+            let (Some((build, adopt, label)), Some(act)) = (restart_of(item), item.act.as_ref()) else { continue };
+            if !keys.iter().any(|(command, ..)| *command == act.target) {
+                keys.push((act.target.clone(), build, adopt, label));
+            }
+        }
+        keys
     }
 
     pub(super) fn thing_key(thing: &Thing) -> String {
@@ -199,21 +264,18 @@ impl JobView {
         if self.review_open() {
             return;
         }
-        let nothing = {
-            let (things, review) = self.things(&id, cx);
-            things.is_empty() && review.is_empty()
-        };
-        if nothing {
+        // Pages to review alone have no list to open: the band's press opens the sheet (`NeedsYouPanel`).
+        if self.things(&id, cx).0.is_empty() {
             return;
         }
         let up = self.needs_up(&id, cx);
         self.set_needs(!up, None, window, cx);
     }
 
-    /// Whether the panel is up over the thread now.
+    /// Whether the panel is up over the thread now. With only pages to review it has nothing to list and
+    /// stays folded, as Electron's does, however it was left.
     pub(super) fn needs_up(&self, id: &str, cx: &gpui::App) -> bool {
-        let (things, review) = self.things(id, cx);
-        (!things.is_empty() || !review.is_empty()) && self.dock_of(id).and_then(|dock| dock.open).unwrap_or(false)
+        !self.things(id, cx).0.is_empty() && self.dock_of(id).and_then(|dock| dock.open).unwrap_or(false)
     }
 
     /// The thread dims while the panel is up; a press on it, or a scroll of it, folds the panel so the
@@ -245,13 +307,15 @@ impl JobView {
     pub(super) fn render_needs(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let look = cx.look();
         let (things, review) = self.things(id, cx);
-        if things.is_empty() && review.is_empty() {
+        let restarts = self.restarts(id, cx);
+        if things.is_empty() && review.is_empty() && restarts.is_empty() {
             if let Some(page) = self.pages.get(id) {
                 page.keys.mark("question:");
                 page.keys.sweep();
             }
             return None;
         }
+        // A band with nothing to list, a restart or pages to review alone, is never drawn open and has no fold.
         let open = self.needs_up(id, cx);
         let hue = look.color(token::STEP_WAITING);
         let glyphs: Vec<AnyElement> = things
@@ -293,7 +357,9 @@ impl JobView {
                 .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child("Needs you"))
                 .child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(glyphs))
                 .child(div().flex_1())
-                .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
+                .when(!things.is_empty(), |trigger| {
+                    trigger.child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
+                })
                 .on_click(cx.listener(|this, _, window, cx| {
                     let Some(id) = this.shown.clone() else { return };
                     // With nothing else to answer, the band opens the sheet.
@@ -319,7 +385,8 @@ impl JobView {
             .bg(hue)
             .text_color(look.color(token::FG_INVERSE))
             .overflow_hidden()
-            .child(trigger);
+            .child(trigger)
+            .children(restarts.into_iter().map(|(command, build, adopt, label)| self.restart_key(id, command, build, adopt, label, look, cx)));
         let keys = self.pages.get(id).map(|page| page.keys.clone());
         if let Some(keys) = &keys {
             keys.mark("question:");
@@ -348,6 +415,138 @@ impl JobView {
             }
             .into_any_element(),
         )
+    }
+
+    /// A restart's key at the band's end, as Electron's `RestartKey`: its mark and its label, pressed
+    /// folded or open. Nothing starts it again while it runs or once it passed; a failure leaves it
+    /// to press again.
+    #[allow(clippy::too_many_arguments)]
+    fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: &'static str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let mark = self.dock_of(id).and_then(|dock| dock.runs.get(&command).cloned());
+        let held = matches!(mark, Some(RunMark::Running | RunMark::Passed));
+        let (icon, said) = mark.as_ref().map_or(("rotate-cw", SharedString::from(command.clone())), RunMark::look);
+        let accent = look.color(token::ACCENT);
+        let hover = look.color(token::ACCENT_HOVER);
+        labelled(
+            div()
+                .id(SharedString::from(format!("needs-restart:{command}")))
+                .flex_none()
+                .h_full()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .bg(accent)
+                .text_size(look.length(token::TEXT_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .when(!held, move |key| key.cursor_pointer().hover(move |style| style.bg(hover)))
+                .child(glyph(look, icon, Size::Small, look.color(token::FG_INVERSE)))
+                .child(label)
+                .tooltip(tip(said.to_string()))
+                .when(!held, |key| {
+                    key.on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.restart(command.clone(), build, adopt, window, cx);
+                    }))
+                }),
+            Role::Button,
+            label,
+        )
+        .into_any_element()
+    }
+
+    /// Mark a command pressed in the shown Job.
+    fn mark_run(&mut self, job: &SharedString, command: &str, mark: Option<RunMark>, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(job) {
+            match mark {
+                Some(mark) => page.dock.runs.insert(command.to_string(), mark),
+                None => page.dock.runs.remove(command),
+            };
+        }
+        cx.notify();
+    }
+
+    /// The restart key: Fleet's build switch, pressed as the title bar's Refresh preview presses it
+    /// (`sessions-wired.tsx` `switching`). Fleet answering that it began is the pass.
+    fn restart(&mut self, command: String, build: BuildSource, adopt: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt }).map_err(|why| format!("{why:?}"));
+        self.mark_run(&job, &command, Some(RunMark::Running), cx);
+        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
+            self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);
+            return;
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let body = body?;
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::post(port, "/fleet/build/change", body))?;
+                    if (200..300).contains(&status) {
+                        return Ok(());
+                    }
+                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                })
+                .await;
+            let mark = match answer {
+                Ok(()) => RunMark::Passed,
+                Err(why) => RunMark::Failed(why.into()),
+            };
+            let _ = this.update(cx, |this, cx| this.mark_run(&job, &command, Some(mark), cx));
+        })
+        .detach();
+    }
+
+    /// A run item pressed: its command runs where the Job works (`start_session_run`), and its row is
+    /// marked until the run exits. A clean exit is settled by Fleet, which takes the item off the list.
+    pub(super) fn run_item(&mut self, command: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        if self.dock_of(&job).and_then(|dock| dock.runs.get(&command)).is_some_and(|mark| matches!(mark, RunMark::Running)) {
+            return;
+        }
+        let start = ipc::StartSessionRun { session_id: SessionId::carried(job.to_string()), command: command.clone(), cols: None, rows: None };
+        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        self.mark_run(&job, &command, Some(RunMark::Running), cx);
+        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
+            self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);
+            return;
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let body = body?;
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    runtime.block_on(async move {
+                        let (status, bytes) = crate::transport::post(port, "/sessions/run/start", body).await?;
+                        if !(200..300).contains(&status) {
+                            return Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
+                        }
+                        let underway = ipc::decode::<ipc::SessionRunUnderway>("SessionRunUnderway", &bytes).map_err(|why| format!("{why:?}"))?;
+                        let io = crate::transport::upgrade(port, &format!("/sessions/run/{}/observe", underway.run_id)).await?;
+                        let mut messages = crate::frames::Messages::new(io);
+                        while let Some(text) = messages.next().await {
+                            if let Ok(ipc::SessionRunMessage::Exited { code, stopped }) = ipc::decode::<ipc::SessionRunMessage>("SessionRunMessage", text.as_bytes()) {
+                                return match code {
+                                    Some(0) => Ok(()),
+                                    Some(code) => Err(format!("Exited {code}")),
+                                    None if stopped => Err("Stopped".to_string()),
+                                    None => Err("Ended by a signal".to_string()),
+                                };
+                            }
+                        }
+                        Err("The run closed before it exited".to_string())
+                    })
+                })
+                .await;
+            let mark = match answer {
+                Ok(()) => RunMark::Passed,
+                Err(why) => RunMark::Failed(why.into()),
+            };
+            let _ = this.update(cx, |this, cx| this.mark_run(&job, &command, Some(mark), cx));
+        })
+        .detach();
     }
 
     fn render_panel(&self, id: &SharedString, things: &[Thing], review: &[&WaitingItem], look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -470,6 +669,8 @@ impl JobView {
                 }
                 Thing::Item(item) => {
                     let (icon, said) = mark_of(item);
+                    let ran = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).and_then(|act| self.dock_of(id)?.runs.get(&act.target)).map(RunMark::look);
+                    let (icon, said): (&'static str, SharedString) = ran.unwrap_or((icon, said.into()));
                     let kind = item.act.as_ref().map(|act| act.kind);
                     let group = match kind {
                         Some(WaitingActKind::Walk) => 2,
@@ -491,7 +692,7 @@ impl JobView {
                                 this.set_needs(true, Some(key2.clone()), window, cx);
                             } else if kind == Some(WaitingActKind::Run) {
                                 if let Some(target) = &target {
-                                    cx.write_to_clipboard(ClipboardItem::new_string(target.clone()));
+                                    this.run_item(target.clone(), window, cx);
                                 }
                             } else if kind == Some(WaitingActKind::Message) {
                                 this.set_needs(false, None, window, cx);
@@ -722,5 +923,26 @@ impl JobView {
             .child(div().w_full().min_w_0().child(body))
             .children(said.map(|why| super::acts::refusal(look, "dock", why)))
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_change_of;
+    use ipc::BuildSource;
+
+    #[test]
+    fn a_restart_is_read_as_the_build_switch_it_asks_for() {
+        assert_eq!(build_change_of("scripts/preview --restart"), Some((BuildSource::Preview, false, "Refresh preview")));
+        assert_eq!(build_change_of("./scripts/preview --restart --adopt"), Some((BuildSource::Preview, true, "Refresh preview")));
+        assert_eq!(build_change_of("/Users/x/armada/scripts/restart --main"), Some((BuildSource::Main, false, "Update to main")));
+    }
+
+    #[test]
+    fn any_other_command_is_one_to_run() {
+        assert_eq!(build_change_of("scripts/preview --restart --dry-run"), None);
+        assert_eq!(build_change_of("scripts/preview"), None);
+        assert_eq!(build_change_of("other/preview --restart"), None);
+        assert_eq!(build_change_of("armada check test chip"), None);
     }
 }

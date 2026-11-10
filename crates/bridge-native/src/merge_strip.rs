@@ -432,7 +432,7 @@ impl MergeStrip {
         }
         entries.push(Entry::Row(Row::new("refresh", "Refresh")));
         let name = format!("Pull request #{number}");
-        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx));
+        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             this.menu = None;

@@ -84,7 +84,7 @@
    "standing": "working",
    "plan": {
     "version": 2,
-    "summary": "The merge line chip turns amber once the branch is behind main.\nA press on it opens the pull request.",
+    "summary": "The merge line chip turns amber once the branch is behind main, and a press on it opens the pull request where the merge waits.",
     "recorded_at": "2026-11-09T13:40:00Z",
     "approved": false,
     "scope": [
@@ -320,6 +320,7 @@
   },
   {
    "id": "mock-02",
+   "hosted": {"turn": {"state": "idle"}, "mode": "auto", "running": true},
    "mark": {
     "state": "working",
     "lamp": "running",

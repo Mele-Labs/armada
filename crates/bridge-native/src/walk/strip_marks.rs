@@ -21,14 +21,14 @@ pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crat
 
 pub static STEPS: [Step; 41] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
-    step("A ring says a pull request is open and a filled lamp that a queue holds it; the hue is its checks. Rest the pointer on a chip for its card", Verb::Hover, "button", RUNNING),
+    step("A ring is an open pull request, a filled lamp a queued one, the hue its checks; a chip's card opens on hover", Verb::Hover, "button", RUNNING),
     step("A press selects the pull request, and the chip says so in the same frame", Verb::Press, "button", READY),
     marks("A call nobody holds pulses the chip it is about", "strip-calling", "button", CALLING),
     marks("A forge that stopped answering dims main's lamp and an unplugged glyph says since when", "strip-quiet", "img", "Main is green"),
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),
     press_on("A press keeps the card open: what failed, what broke it, the checkout, and how old the reading is", "button", RED, "region", "main"),
     press_on("Dispatch a new Job is pending in the same frame", "button", "Dispatch a new Job", "button", "Dispatch a new Job"),
-    press_on("Send back, beside the pull request that broke main, asks which Job gets the work, the one that merged it chosen, with what goes with it and a Message", "button", "Send back", "dialog", "Send the work back"),
+    press_on("Send back, beside the pull request that broke main, asks which Job takes the work, the one that merged it chosen", "button", "Send back", "dialog", "Send the work back"),
     step("Esc shuts it and the keys go back to the light", Verb::Key("escape"), "button", RED),
     marks("Another machine's claim on the red main: who holds it and for how long, and Take over", "strip-red-elsewhere", "region", "main"),
     press_on("Take over asks once, naming the machine that holds it", "button", "Take over", "dialog", "Take over from Nicks-MacBook-Pro"),

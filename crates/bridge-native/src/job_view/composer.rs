@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use super::head::{drawn, icon_button, tip, Confirm};
 use super::keys;
+use super::format::{enter_at, format_of, marks_of, Enter as BlockEnter, Format};
 use super::offer::{mention_of, Offer};
 use super::quick::Quick;
 use super::tune::{effort_meter, effort_place, trigger_name, TunePicker, Tuned};
@@ -241,10 +242,13 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
     let mut subs = Vec::new();
     subs.push(cx.subscribe_in(&input, window, |this, _, event: &InputEvent, window, cx| match event {
         InputEvent::Change => {
+            this.draw_format(window, cx);
             this.typed(cx);
             this.refresh_offer(window, cx);
         }
-        InputEvent::PressEnter { .. } => this.send(window, cx),
+        // Shift+Enter puts a new line in the box, which the box has done; only a plain Enter sends. Enter
+        // in a quote or a list was settled before the box saw it (`enter_in_block`).
+        InputEvent::PressEnter { shift: false, .. } => this.send(window, cx),
         _ => {}
     }));
     subs.push(cx.observe_window_bounds(window, |this, window, cx| this.fit_box(window, cx)));
@@ -312,6 +316,61 @@ impl JobView {
             self.keep_soon(cx);
         }
         cx.notify();
+    }
+
+    /// Draw the box's markdown as it is typed: quotes, list items and links become format tokens over
+    /// their own words (`format.rs`), and a quote or item marker no longer at a line's start is words again.
+    fn draw_format(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.composer.setting {
+            return;
+        }
+        let input = self.composer.input.clone();
+        let (text, spans, caret) = {
+            let box_ = input.read(cx);
+            (box_.value().to_string(), box_.tokens().to_vec(), box_.selected_range())
+        };
+        let stale: Vec<_> = spans
+            .iter()
+            .filter(|span| matches!(format_of(span.token().id()), Some(Format::Quote | Format::Item)) && span.range().start != 0 && !text[..span.range().start].ends_with('\n'))
+            .map(|span| (span.range(), span.token().text().to_string()))
+            .collect();
+        let taken: Vec<_> = spans.iter().map(|span| span.range()).filter(|range| !stale.iter().any(|(gone, _)| gone == range)).collect();
+        let marks = marks_of(&text, &taken);
+        if stale.is_empty() && marks.is_empty() {
+            return;
+        }
+        input.update(cx, |box_, cx| {
+            for (range, words) in stale {
+                box_.set_selected_range(range, cx);
+                box_.replace(words, window, cx);
+            }
+            for (range, token) in marks {
+                let _ = box_.replace_range_with_token(range, token, window, cx);
+            }
+            box_.set_selected_range(caret, cx);
+        });
+    }
+
+    /// Enter in a quote or a list goes on with it or leaves it (`enterInBlock`). Returns whether it did;
+    /// anywhere else the key is the box's own.
+    fn enter_in_block(&mut self, shift: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let input = self.composer.input.clone();
+        let (text, caret) = {
+            let box_ = input.read(cx);
+            (box_.value().to_string(), box_.selected_range())
+        };
+        let act = if caret.is_empty() { enter_at(&text, caret.start, shift) } else { None };
+        match act {
+            Some(BlockEnter::Insert(words)) => input.update(cx, |box_, cx| box_.insert(words, window, cx)),
+            Some(BlockEnter::Leave(marker)) => input.update(cx, |box_, cx| {
+                box_.set_selected_range(marker, cx);
+                box_.replace("", window, cx);
+            }),
+            None => return false,
+        }
+        self.draw_format(window, cx);
+        self.typed(cx);
+        true
     }
 
     pub(super) fn typed_now(&mut self, cx: &mut Context<Self>) {
@@ -484,7 +543,7 @@ impl JobView {
                 (kept, std::mem::take(&mut held.files), std::mem::take(&mut held.drawn))
             }
         };
-        let text = kept.text.trim().to_string();
+        let text = super::format::sent_text(kept.text.trim());
         if text.is_empty() && files.is_empty() && drawn.is_empty() {
             return;
         }
@@ -606,6 +665,8 @@ impl JobView {
             self.send(window, cx);
         } else if act.is("handoff_retry") && self.handoff_band_focused(window, cx) {
             self.retry_handoff(window, cx);
+        } else if act.is("handoff_dispatch") && self.handoff_band_focused(window, cx) {
+            self.dispatch_handoff_fix(window, cx);
         } else {
             cx.propagate();
         }
@@ -939,18 +1000,19 @@ impl JobView {
                 .h(look.length(token::H_CONTROL_LG))
                 .px(look.length(token::SPACE_4))
                 .rounded(look.length(token::RADIUS_LG))
-                .bg(look.color(token::ACCENT))
-                .text_color(look.color(token::TEXT_ON_ACCENT))
                 .text_size(look.length(token::TEXT_SM))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .when(nothing, |button| button.opacity(0.4))
+                // With nothing to send it is a ghost: no ground, its words a step down.
+                .when(nothing, |button| button.text_color(look.color(token::FG_SUBTLE)))
                 .when(!nothing, |button| {
                     button
+                        .bg(look.color(token::ACCENT))
+                        .text_color(look.color(token::TEXT_ON_ACCENT))
                         .cursor_pointer()
                         .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
                         .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
                 })
-                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(look.color(token::TEXT_ON_ACCENT)))
+                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(if nothing { look.color(token::FG_SUBTLE) } else { look.color(token::TEXT_ON_ACCENT) }))
                 .child("Send")
                 .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
             Role::Button,
@@ -977,8 +1039,13 @@ impl JobView {
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
             .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| this.talk_key_up(event, cx)))
             .capture_action(cx.listener(|this, action: &Enter, window, cx| {
-                if !action.secondary && !action.shift {
-                    this.list_key("enter", window, cx);
+                if action.secondary {
+                    return;
+                }
+                if !action.shift && this.offer_key("enter", window, cx) {
+                    cx.stop_propagation();
+                } else if this.enter_in_block(action.shift, window, cx) {
+                    cx.stop_propagation();
                 }
             }))
             .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
@@ -991,9 +1058,33 @@ impl JobView {
             .text_color(look.color(token::FG_DEFAULT))
             .child({
                 let view = cx.entity().downgrade();
-                Textarea::new(&self.composer.input).appearance(false).aria_label("Message").on_paste(move |item, _, cx| {
-                    view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false)
-                })
+                let quote_bar = look.length(token::BORDER_WIDTH) * 2.;
+                let (accent, gap, mono) = (look.color(token::ACCENT), look.length(token::SPACE_2), look.font_stack(token::FONT_MONO).into_iter().next());
+                Textarea::new(&self.composer.input)
+                    .appearance(false)
+                    .aria_label("Message")
+                    .on_paste(move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false))
+                    .token(move |drawn, _, _| match format_of(drawn.token().id()) {
+                        None => gpui_component::input::InputToken::new(drawn).into_any_element(),
+                        // A quote's marker is its accent edge; an item's is an accent bullet (`SessionComposer.css`).
+                        Some(Format::Quote) => div().h(drawn.line_height()).pr(gap).flex().child(div().w(quote_bar).h_full().bg(accent)).into_any_element(),
+                        Some(Format::Item) => div().h(drawn.line_height()).pr(gap).flex().items_center().text_color(accent).child("•").into_any_element(),
+                        Some(Format::Web(_)) => div().h(drawn.line_height()).flex().items_center().text_color(accent).child(drawn.token().label().clone()).into_any_element(),
+                        Some(Format::File(_)) => div()
+                            .h(drawn.line_height())
+                            .flex()
+                            .items_center()
+                            .text_color(accent)
+                            .when_some(mono.clone(), |path, mono| path.font_family(mono))
+                            .child(drawn.token().label().clone())
+                            .into_any_element(),
+                    })
+                    .on_token_click(|clicked, _, cx| {
+                        // A plain press places the caret; Cmd-press opens a web link (`onClick`).
+                        if let (Some(Format::Web(href)), true) = (format_of(clicked.token().id()), clicked.click().modifiers().platform) {
+                            cx.open_url(&href);
+                        }
+                    })
             })
     }
 
@@ -1110,7 +1201,13 @@ impl JobView {
         let send = self.send_button(nothing, window, cx);
         let attach = self.attach_button(look, cx);
         let mode_button = labelled(
-            self.bar_button(look, "mode", mode_said, mode_tip, None).on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+            // The permission picker is a select, as Electron's: a sunken well in a strong edge.
+            self.bar_button(look, "mode", mode_said, mode_tip, None)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_STRONG))
+                .bg(look.color(token::BG_SUNKEN))
+                .text_color(look.color(token::FG_DEFAULT))
+                .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                 this.open_mode(event.is_keyboard(), window, cx);
             })),
             Role::Button,
@@ -1123,7 +1220,8 @@ impl JobView {
             Role::Button,
             tune_said,
         );
-        let column = look.length(token::SPACE_12) * 20. + look.length(token::SPACE_6) + look.length(token::SPACE_2) + look.length(token::SPACE_4);
+        // The box, Needs you and the cards share one outer edge: the words' column and the bleed either side.
+        let column = self.column(look) + super::bleed(look) * 2.;
         // While a report is open the box is in its dialog; here the Job's draft stands as it was kept.
         let words = if self.reporting.is_some() {
             div()
@@ -1188,8 +1286,9 @@ impl JobView {
                         )
                     }))
                     .children(self.render_handoff_band(id, cx))
-                    .child(
+                    .child(labelled(
                         div()
+                            .id("message-box")
                             .relative()
                             .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| this.take_paths(paths.paths().to_vec(), cx)))
                             .flex()
@@ -1213,7 +1312,9 @@ impl JobView {
                             .children(self.render_tray(id, look, cx))
                             .child(labelled(words, Role::TextInput, "Message"))
                             .child(bar),
-                    )
+                        Role::Group,
+                        "Message box",
+                    ))
                     .children(self.render_toolbelt(id, cx))
                     .children(popup),
             )
