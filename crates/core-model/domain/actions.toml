@@ -1035,7 +1035,7 @@ shortcut = "⌘1–⌘9"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "`⌘1` to `⌘9` are the places bar's tabs in the order it draws them, every drawn tab taking the next digit and a tab that is not drawn taking none: Operator, Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects and System at most, and System opens the page last used there. A layout that hides a tab moves the digits behind it (26 Oct 2026, the owner: the digits follow what the bar draws). One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301. The Operator became a page and the first tab on 5 Nov 2026 (the owner: it should not be an overlay), which moved every tab one digit on and took the row to `⌘9`."
+notes = "`⌘1` to `⌘9` are the places bar's tabs in the order it draws them, every drawn tab taking the next digit and a tab that is not drawn taking none: Operator, Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects and System at most, and System opens the page last used there. A layout that hides a tab moves the digits behind it (26 Oct 2026, the owner: the digits follow what the bar draws). One row over the digits because the rule is the tab's place in the bar, not the number. Studios and Retros took `⌘4` and `⌘5` on 15 Oct 2026 (the owner: studios and retros should live in the main bar), which moved System to `⌘6` and Settings off `⌘5` to `open_settings`. Every other page is reached from the System strip, the title bar's menu, a link on the deck or the palette by name, and has no key. This row replaced `bridge_surfaces`, which numbered the rail's rows `⌘1` to `⌘9` until the rail went with #2301. The Operator became a page and the first tab on 5 Nov 2026 (the owner: it should not be an overlay), which moved every tab one digit on and took the row to `⌘9`. The digits switch screens even from a Job's message box, and the box's quick lines are `⇧⌘1` to `⇧⌘9`, which put the line in the draft and do not send it (10 Nov 2026, the owner). The native app does this; Electron still sends quick line n on `⌘n` from the box until it is ported."
 
 [actions.open_settings]
 kind = "Action"
@@ -1226,6 +1226,18 @@ scope = "thread"
 destructive = false
 confirms = false
 notes = "Opens the review sheet on the Job on screen when a plan, sketch, draft, document or walk waits on the person, oldest first, each answered where it stands; the Review key on the band opens the same sheet. Where none does, it folds the Needs you card open or shut, which holds the questions, commands, pull requests and messages. Nothing happens where nothing waits."
+
+[actions.needs_you_fold]
+kind = "Action"
+tier = "Global"
+verb = "Fold Needs you"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥⌘Y"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Folds the open Job's Needs you card to its band, or opens it, from anywhere in the Job, so the thread can be read with it shut. Where a review waits ⇧⌘Y opens the sheet; this key only folds. A scroll of the thread or a press in it folds the card too. Asked for by the owner on 10 Nov 2026."
 
 [actions.handoff_retry]
 kind = "Action"

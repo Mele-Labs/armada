@@ -193,9 +193,12 @@ impl JobView {
         cx.notify();
     }
 
-    /// ⇧⌘Y: the Needs you card opens or folds. Pages waiting for review open the review sheet instead, which is not drawn yet.
+    /// ⌥⌘Y: the Needs you panel opens or folds from anywhere in the Job, where ⇧⌘Y would open the review sheet.
     pub(super) fn toggle_needs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
+        if self.review_open() {
+            return;
+        }
         let nothing = {
             let (things, review) = self.things(&id, cx);
             things.is_empty() && review.is_empty()
@@ -213,7 +216,8 @@ impl JobView {
         (!things.is_empty() || !review.is_empty()) && self.dock_of(id).and_then(|dock| dock.open).unwrap_or(false)
     }
 
-    /// The thread dims while the panel is up; a press on it folds the panel.
+    /// The thread dims while the panel is up; a press on it, or a scroll of it, folds the panel so the
+    /// thread can be read (his word, 10 Nov). The scroll goes on to the thread.
     pub(super) fn render_scrim(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         if !self.needs_up(id, cx) && !self.band_up(id, cx) {
             return None;
@@ -225,13 +229,16 @@ impl JobView {
                 .absolute()
                 .inset_0()
                 .bg(look.color(token::BG_BASE).opacity(0.5))
-                .on_click(cx.listener(|this, _, window, cx| {
-                    if !this.fold_bands(false, window, cx) {
-                        this.set_needs(false, None, window, cx);
-                    }
-                }))
+                .on_click(cx.listener(|this, _, window, cx| this.fold_over_thread(window, cx)))
+                .on_scroll(cx.listener(|this, _, window, cx| this.fold_over_thread(window, cx)))
                 .into_any_element(),
         )
+    }
+
+    fn fold_over_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.fold_bands(false, window, cx) {
+            self.set_needs(false, None, window, cx);
+        }
     }
 
     /// The band, and over it the panel when it is open.

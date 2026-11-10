@@ -620,7 +620,7 @@ impl JobView {
             return true;
         }
         // The cards behind take none of the thread's keys while the sheet is up.
-        act.is("thread_yes") || act.is("thread_change") || act.is("thread_no") || act.is("needs_you")
+        act.is("thread_yes") || act.is("thread_change") || act.is("thread_no") || act.is("needs_you") || act.is("needs_you_fold")
     }
 
     /// Esc and Tab, caught before anything inside the sheet hears them.

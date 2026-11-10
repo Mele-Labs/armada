@@ -737,7 +737,6 @@ impl JobView {
         let title: SharedString = self.title_of(id, cx).unwrap_or_else(|| "Thread".into());
         let name = self.tab_name(id, cx);
         let mark = mark_of(job, overlay);
-        let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
         let glyph = look.length(token::SPACE_4);
         let state = mark.map(|(icon, said, hue, working)| {
             let said_in: SharedString = format!("{said} \u{b7} {id}").into();
@@ -788,7 +787,6 @@ impl JobView {
                             cx.stop_propagation();
                         }
                     }))
-                    .font_family(mono.clone())
                     .text_size(look.length(token::TEXT_XS))
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(Input::new(&rename.input).appearance(false).cleanable(false)),
@@ -801,7 +799,6 @@ impl JobView {
                 .flex_1()
                 .min_w_0()
                 .truncate()
-                .font_family(mono)
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))

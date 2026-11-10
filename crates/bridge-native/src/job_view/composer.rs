@@ -564,6 +564,10 @@ impl JobView {
             self.needs_key(window, cx);
             return;
         }
+        if act.is("needs_you_fold") {
+            self.toggle_needs(window, cx);
+            return;
+        }
         let in_box = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {
@@ -571,8 +575,6 @@ impl JobView {
         } else if act.is("send_message") && in_box {
             // ⌘Enter sends from the box too.
             self.send(window, cx);
-        } else if act.is("deck_tabs") && in_box && act.digit.is_some_and(|digit| self.press_quick(digit as usize - 1, false, window, cx)) {
-            // ⌘1 to ⌘9 in the box send quick line n, and the tabs do not move.
         } else if act.is("handoff_retry") && self.handoff_band_focused(window, cx) {
             self.retry_handoff(window, cx);
         } else {
@@ -580,7 +582,7 @@ impl JobView {
         }
     }
 
-    /// ⇧⌘1 to ⇧⌘9 put quick line n after the draft (⌘1 to ⌘9 reach the line through `deck_tabs`).
+    /// ⇧⌘1 to ⇧⌘9 put quick line n after the draft, unsent. ⌘1 to ⌘9 switch screens even from the box (his word, 10 Nov).
     pub(super) fn on_box_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         if self.talk_key(event, window, cx) {
             cx.stop_propagation();
@@ -601,6 +603,14 @@ impl JobView {
         if key == "escape" && self.talk_put_away(cx) {
             cx.stop_propagation();
         } else if self.offer_key(key, window, cx) {
+            cx.stop_propagation();
+        } else if key == "escape" && self.fold_bands(false, window, cx) {
+            // Esc anywhere in the Job folds an open end or waiting panel first.
+            cx.stop_propagation();
+        } else if key == "escape" {
+            // Nothing over the box to put away: Esc gives the keys back to the list.
+            let list = self.list.read(cx).focus_handle().clone();
+            window.focus(&list, cx);
             cx.stop_propagation();
         }
     }

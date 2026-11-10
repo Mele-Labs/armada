@@ -436,6 +436,8 @@ pub struct JobsList {
     focused: Option<SharedString>,
     /// The Job opened with Enter or a press.
     opened: Option<SharedString>,
+    /// Counts each pick of a Job, the open one again too, so the view puts the keys in its box.
+    picks: u64,
     focus: FocusHandle,
     /// The whole panel's, which holds the list and what it opens over itself, its menus.
     within: FocusHandle,
@@ -500,6 +502,7 @@ impl JobsList {
             remember,
             focused: None,
             opened: None,
+            picks: 0,
             focus: cx.focus_handle(),
             within: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -549,8 +552,14 @@ impl JobsList {
         self.focused = Some(id.clone());
         self.opened = Some(id);
         self.card = None;
+        self.picks += 1;
         cx.notify();
         true
+    }
+
+    /// How many times a Job was picked: a press, Enter, the palette or a banner.
+    pub fn picks(&self) -> u64 {
+        self.picks
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -568,8 +577,9 @@ impl JobsList {
             self.focused = Some(id.clone());
             self.opened = Some(id);
             self.card = None;
-            cx.notify();
         }
+        self.picks += 1;
+        cx.notify();
     }
 
     /// The title a rename asked for stands on the Job at once. On a live Fleet it stands until Fleet's
@@ -725,8 +735,9 @@ impl JobsList {
             // The registry's slots are j, k, ↓, ↑: even slots go down.
             self.step(if act.slot % 2 == 0 { 1 } else { -1 }, window, cx);
         } else if act.is("open_focused") {
-            if self.opened != self.focused {
+            if self.focused.is_some() {
                 self.opened = self.focused.clone();
+                self.picks += 1;
                 cx.notify();
             }
         } else if act.is("deck_search") {
@@ -1089,6 +1100,7 @@ impl JobsList {
                 this.focused = Some(pressed.clone());
                 this.opened = Some(pressed.clone());
                 this.card = None;
+                this.picks += 1;
                 window.focus(&this.focus, cx);
                 cx.notify();
             }));

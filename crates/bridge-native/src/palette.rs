@@ -125,7 +125,7 @@ impl Entry {
 
 /// The registered acts this build answers. The rest belong to screens the native app does not have yet, and the
 /// palette leaves them out rather than draw a row that does nothing. `command_palette` is the act that opened it.
-const ANSWERED: [&str; 7] = ["message_job", "needs_you", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search"];
+const ANSWERED: [&str; 8] = ["message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search"];
 
 fn act_entry(row: &Registered, section: Section) -> Entry {
     Entry {

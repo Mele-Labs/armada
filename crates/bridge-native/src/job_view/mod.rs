@@ -207,6 +207,8 @@ pub struct JobView {
     /// The Job fleet was last told is on screen.
     visiting: Option<SharedString>,
     switched: Option<std::time::Instant>,
+    /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
+    picked: u64,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -288,6 +290,7 @@ impl JobView {
             aged: false,
             visiting: None,
             switched: None,
+            picked: 0,
             focus: cx.focus_handle(),
             pop: None,
             dock_focus: cx.focus_handle(),
@@ -337,12 +340,19 @@ impl JobView {
 
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let opened = self.list.read(cx).opened_id();
+        let (opened, picks) = {
+            let list = self.list.read(cx);
+            (list.opened_id(), list.picks())
+        };
         if opened != self.shown {
             self.switch(opened, window, cx);
         } else {
             self.synced(cx);
             self.review_sync(window, cx);
+        }
+        if picks != self.picked {
+            self.picked = picks;
+            self.to_composer(window, cx);
         }
     }
 
