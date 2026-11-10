@@ -1,4 +1,4 @@
-// Where the Operator shows outside its panel: on a question in Needs you while it reads it or once it raised it, in a held Job's
+// Where the Operator shows outside its page: on a question in Needs you while it reads it or once it raised it, in a held Job's
 // header, and on a Job row a merge or keep in touch ruling named. Each draws nothing in a window with no Operator store.
 
 import type { ReactNode } from "react";
@@ -79,7 +79,6 @@ export function HeldNotice({ session }: { session: string }) {
           store.act({
             kind: "start",
             line: row.id,
-            by: "press",
           })
         }
       >

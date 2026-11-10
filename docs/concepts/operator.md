@@ -16,6 +16,7 @@ Fleet's side is real: the arrivals, the call, the rulings, the Log and the posit
 The panel that draws the Log and the Operator's box is not.
 The panel is `armada-ehhu.10` and the box is `armada-ehhu.9`.
 Where a person would look for either, this page names the issue.
+Bridge's Operator page, on `⌘J`, draws the box alone, full width: it draws no Log, Queue board or Permissions, and its On/Off switch is Settings' `features.operator`.
 
 ## What it is
 

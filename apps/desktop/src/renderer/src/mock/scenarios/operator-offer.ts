@@ -1,20 +1,18 @@
-// A Job the Operator offers in Discussion, for the walk `operatorOffer`: the board of `operator-take-board` with nothing in
-// hand, so his words are answered at once, as Fleet answers them, and a reply that needs the code read offers a Job.
+// A Job the Operator offers in Discussion, for the walk `operatorOffer`: a reply that needs the code read offers a Job.
 
 import type { Scenario } from "../moment";
-import { operatorTakeBoard } from "./operator-take-board";
+import { operatorPanel } from "./operator-panel";
 
-const board = operatorTakeBoard.draft!.operator!;
+const seed = operatorPanel.draft!.operator!;
 
 export const operatorOffer: Scenario = {
-  ...operatorTakeBoard,
+  ...operatorPanel,
   name: "operator-offer",
   says: "The Operator answers that the code needs reading and offers a Job, which he dispatches into a repository from Discussion",
   draft: {
-    ...operatorTakeBoard.draft,
+    ...operatorPanel.draft,
     operator: {
-      ...board,
-      turns: [],
+      ...seed,
       talk: [
         {
           asked: "error",
@@ -22,7 +20,7 @@ export const operatorOffer: Scenario = {
           offers:
             "Find the update loop behind React error #185 in the overview region, and say whether it needs its own fix.",
         },
-        ...board.talk,
+        ...seed.talk,
       ],
     },
   },

@@ -932,7 +932,7 @@ export function App() {
                           ) : operating ? (
                             <Boundary region="Operator" {...guarded}>
                               <section className="armada-operator-page" aria-label="Operator">
-                                <OperatorPanel picked={pickedRepository} />
+                                <OperatorPanel />
                               </section>
                             </Boundary>
                           ) : logbooking ? (

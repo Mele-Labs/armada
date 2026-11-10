@@ -1,6 +1,4 @@
-/* The Operator's page: the panes a Job's area uses, its Layout control in the title bar as a Job's is. The panes draw
-   their own frames, strips and bodies (`job-panes.css`). What is here is each tab's body: rows of one line where they fit, every
-   control repeated down a list in a column of its own. Bold in weight, never in size. */
+/* The Operator's page: its conversation, full width. A Job opened from it lays over it. */
 
 .armada-operator {
   --deck-gutter: var(--gap-panel);
@@ -15,70 +13,8 @@
   line-height: var(--leading-xs);
 }
 
-.armada-operator__scroll {
-  flex: 1 1 0;
-  min-height: 0;
-  padding: 0;
-}
+/* A held Job's line and the Operator's read on a question: a glyph and its words. */
 
-.armada-operator__line,
-.armada-operator__log-list,
-.armada-operator__permissions,
-.armada-operator__orders,
-.armada-operator__talk {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-operator__title {
-  min-width: 0;
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-operator__line-text {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-  min-width: 0;
-}
-
-/* Each list a grid whose rows are subgrids, so every column, a control's above all, lines up down the list. */
-.armada-operator__line-row,
-.armada-operator__permission {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--h-row-unit);
-  padding: var(--space-1) var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-/* What it is, what it waits on, the Job it waits on, Start now. */
-.armada-operator__line {
-  display: grid;
-  grid-template-columns: minmax(calc(var(--space-12) * 3), 1fr) max-content max-content max-content;
-}
-
-.armada-operator__line-row {
-  cursor: grab;
-}
-
-.armada-operator__line-row:hover,
-.armada-operator__line-row[data-dragging] {
-  background: var(--bg-hover);
-}
-
-.armada-operator__line-row:focus-visible {
-  outline: var(--border-width) solid var(--accent);
-  outline-offset: calc(var(--border-width) * -1);
-}
-
-.armada-operator__wait,
-.armada-operator__lock,
 .armada-operator__held,
 .armada-operator__read {
   display: flex;
@@ -87,14 +23,8 @@
   color: var(--fg-muted);
 }
 
-.armada-operator__named {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-}
-
 /* A Job chip here never shrinks below its name. */
+
 .armada-operator .job-chip {
   flex: none;
   max-width: none;
@@ -104,318 +34,13 @@
   color: var(--fg-muted);
 }
 
-/* The Log: a day band, then a spine of rows. Each row's node says what was done, its card's edge and chip what kind of thing it
-   was: decided, came to you, acted on a Job, or yours. The colours are the board's lanes: done, Needs you, Now. */
-.armada-operator__permissions,
-.armada-operator__orders,
-.armada-operator__talk {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-operator__title {
-  min-width: 0;
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-operator__line-text {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--space-1) / 2);
-  min-width: 0;
-}
-
-/* Each list a grid whose rows are subgrids, so every column, a control's above all, lines up down the list. */
-.armada-operator__line-row,
-.armada-operator__permission {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--h-row-unit);
-  padding: var(--space-1) var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-/* What it is, what it waits on, the Job it waits on, Start now. */
-.armada-operator__line {
-  display: grid;
-  grid-template-columns: minmax(calc(var(--space-12) * 3), 1fr) max-content max-content max-content;
-}
-
-.armada-operator__line-row {
-  cursor: grab;
-}
-
-.armada-operator__line-row:hover,
-.armada-operator__line-row[data-dragging] {
-  background: var(--bg-hover);
-}
-
-.armada-operator__line-row:focus-visible {
-  outline: var(--border-width) solid var(--accent);
-  outline-offset: calc(var(--border-width) * -1);
-}
-
-.armada-operator__wait,
-.armada-operator__lock,
-.armada-operator__held,
-.armada-operator__read {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--fg-muted);
-}
-
-.armada-operator__named {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-/* A Job chip here never shrinks below its name. */
-.armada-operator .job-chip {
-  flex: none;
-  max-width: none;
-}
-
-.armada-operator__does {
-  color: var(--fg-muted);
-}
-
-/* The Log: a day band, then a spine of rows. Each row's node says what was done, its card's edge and chip what kind of thing it
-   was: decided, came to you, acted on a Job, or yours. The colours are the board's lanes: done, Needs you, Now. */
-.armada-operator__log {
-  --log-time: calc(var(--space-12) * 1.25);
-  --log-node: calc(var(--space-6));
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4) var(--space-6);
-}
-
-.armada-operator__log-heading {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  margin: 0 0 var(--space-3);
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-card);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--fg-default);
-}
-
-.armada-operator__log-list {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* The spine, through the middle of every node. */
-.armada-operator__log-list::before {
-  content: "";
-  position: absolute;
-  top: var(--space-2);
-  bottom: var(--space-2);
-  left: calc(var(--log-time) + var(--space-3) + var(--log-node) / 2 - var(--border-width));
-  border-left: calc(var(--border-width) * 2) solid
-    color-mix(in srgb, var(--fg-subtle) 45%, transparent);
-}
-
-.armada-operator__log-row,
-.armada-operator__log-switch {
-  --hue: var(--accent);
-  position: relative;
-  display: grid;
-  grid-template-columns: var(--log-time) var(--log-node) minmax(0, 1fr);
-  align-items: start;
-  column-gap: var(--space-3);
-}
-
-.armada-operator__log-row[data-kind="decided"] {
-  --hue: var(--status-completed-success);
-}
-
-.armada-operator__log-row[data-kind="to-you"] {
-  --hue: var(--status-awaiting-review);
-}
-
-.armada-operator__log-row[data-kind="you"] {
-  --hue: var(--you);
-}
-
-.armada-operator__log-time {
-  padding-top: var(--space-2);
-  font-size: var(--text-xs);
-  text-align: right;
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.armada-operator__log-node {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--log-node);
-  height: var(--log-node);
-  margin-top: calc(var(--space-1) / 2);
-  border: var(--border-width) solid color-mix(in srgb, var(--hue) 55%, transparent);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--hue) 22%, var(--bg-base));
-  color: var(--hue);
-}
-
-.armada-operator__log-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  border: var(--border-width) solid color-mix(in srgb, var(--hue) 22%, var(--border-subtle));
-  border-left: calc(var(--border-width) * 3) solid var(--hue);
-  border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-card);
-  font-size: var(--text-sm);
-  line-height: var(--leading-sm);
-}
-
-.armada-operator__log-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-height: var(--h-control-sm);
-}
-
-.armada-operator__log-acts {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.armada-operator__log-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--hue) 16%, transparent);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-xs);
-  color: var(--hue);
-}
-
-.armada-operator__log-said {
-  color: var(--fg-default);
-}
-
-.armada-operator__log-said .job-chip {
-  vertical-align: baseline;
-}
-
-.armada-operator__log-who {
-  font-weight: var(--weight-medium);
-}
-
-.armada-operator__log-quote {
-  padding-left: var(--space-2);
-  border-left: var(--border-width) solid color-mix(in srgb, var(--hue) 45%, transparent);
-  color: var(--fg-default);
-}
-
-.armada-operator__log-why {
-  font-size: var(--text-xs);
-  line-height: var(--leading-xs);
-  color: var(--fg-muted);
-}
-
-/* He switched the Operator on or off: a node on the spine and a chip, green on, muted off. */
-.armada-operator__log-switch {
-  --hue: var(--fg-subtle);
-  align-items: center;
-}
-
-.armada-operator__log-switch[data-on] {
-  --hue: var(--status-completed-success);
-}
-
-.armada-operator__log-switch .armada-operator__log-time {
-  padding-top: 0;
-}
-
-.armada-operator__log-switched {
-  justify-self: start;
-  padding: calc(var(--space-1) / 2) var(--space-2);
-  border: var(--border-width) dashed color-mix(in srgb, var(--hue) 55%, transparent);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--hue);
-}
-
-.armada-operator__permissions,
-.armada-operator__orders {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-}
-
-.armada-operator__permission[data-master] {
-  background: var(--bg-sunken);
-}
-
 .armada-operator__does {
   font-size: var(--text-2xs);
   line-height: var(--leading-2xs);
-}
-
-.armada-operator__differs {
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--status-awaiting-review);
-}
-
-.armada-operator__ceiling {
-  display: block;
-  width: calc(var(--h-control) * 4);
-}
-
-.armada-operator__lock {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-  color: var(--fg-subtle);
-}
-
-.armada-operator__subhead {
-  margin: 0;
-  padding: var(--space-2) var(--space-3) var(--space-1);
-  border-top: var(--border-width) solid var(--border-default);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-heading);
-  color: var(--fg-default);
-}
-
-.armada-operator__order {
-  font-size: var(--text-2xs);
-  color: var(--fg-muted);
 }
 
 /* Talk: the conversation takes what the box leaves, and scrolls; the box stands at the foot, as a Job's thread over its composer. */
+
 .armada-operator__talk-pane {
   display: flex;
   flex: 1 1 0;
@@ -426,6 +51,7 @@
 }
 
 /* Off: one row with the switch, and what it would answer drawn quiet below. */
+
 .armada-operator__off {
   border-bottom: var(--border-width) solid var(--border-subtle);
   padding-bottom: var(--space-2);
@@ -444,36 +70,8 @@
   overflow-y: auto;
 }
 
-/* Needs you on the box, as a Job's stands on its own: the box's top edge holds the band, and the list opens up over the conversation. */
-.armada-operator__raise {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  white-space: normal;
-}
+/* A Job the Operator offered: it waits on him, so it takes Needs you's amber. */
 
-.armada-operator__raise-read {
-  color: var(--fg-muted);
-}
-
-/* The order words came to, in the form Fleet enforces, with its one press. */
-.armada-operator__proposed {
-  display: flex;
-  flex-basis: 100%;
-  align-items: center;
-  gap: var(--space-2);
-  margin-block-start: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-md);
-}
-
-.armada-operator__proposed > .armada-operator__order {
-  flex: 1;
-  min-width: 0;
-}
-
-/* A Job the Operator offered: it waits on him, so it takes Needs you's amber, as a Log row that came to him does. */
 .armada-operator__offer {
   --hue: var(--status-awaiting-review);
   display: flex;
@@ -515,310 +113,8 @@
   gap: var(--space-2);
 }
 
-/* Each repository that differs: its name, then a column a role, kept where a role follows the machine. */
-.armada-operator__repositories {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, calc(var(--space-12) * 2));
-  gap: var(--space-1) var(--space-2);
-  margin-block-end: var(--space-2);
-  padding-inline: var(--space-3);
-}
-
-.armada-operator__repository,
-.armada-operator__repository-head {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-}
-
-.armada-operator__repository-head {
-  color: var(--fg-muted);
-  font-size: var(--text-xs);
-}
-
 .armada-operator__clear {
   align-self: end;
-}
-
-.armada-operator__talk {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.armada-operator__said {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.armada-operator__speaker {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-/* The item being discussed, pinned above the conversation under a band of its own, so it never reads as a message. */
-.armada-operator__card {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  overflow: hidden;
-  border: var(--border-width) solid color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-}
-
-.armada-operator__card-band {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border-bottom: var(--border-width) solid
-    color-mix(in srgb, var(--accent) 35%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 14%, var(--bg-raised));
-  color: var(--accent);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heading);
-  line-height: var(--leading-2xs);
-}
-
-.armada-operator__card-band .armada-operator__repo {
-  margin-inline-start: auto;
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.armada-operator__card-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-}
-
-/* Where an item came up in the conversation, ruled across it. */
-/* Where an item came up in the conversation, and once settled what came of it: a strip in the hue of where it stands. */
-.armada-operator__marker {
-  --hue: var(--accent);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid color-mix(in srgb, var(--hue) 35%, var(--border-subtle));
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--hue) 8%, var(--bg-sunken));
-  font-size: var(--text-meta);
-}
-
-.armada-operator__marker[data-settled="done"] {
-  --hue: var(--status-completed-success);
-}
-
-.armada-operator__marker[data-settled="let-go"] {
-  --hue: var(--fg-muted);
-}
-
-.armada-operator__marker-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  color: var(--hue);
-}
-
-.armada-operator__marker-what {
-  flex: none;
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heading);
-  line-height: var(--leading-2xs);
-}
-
-.armada-operator__marker-item {
-  overflow: hidden;
-  color: var(--fg-default);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.armada-operator__marker-result {
-  color: var(--fg-muted);
-}
-
-.armada-operator__said-text {
-  min-width: 0;
-}
-
-.armada-operator__in-turn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-operator__queue {
-  display: grid;
-  gap: var(--space-4);
-  padding-block-end: var(--space-2);
-}
-
-/* Each list under a header band, as the slot pool's viewscreen stands under its own. */
-.armada-operator__queue-head {
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
-  border-block: var(--border-width) solid var(--border-default);
-  background: var(--bg-raised);
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-heading);
-  line-height: var(--leading-2xs);
-}
-
-/* A grid whose rows are subgrids, so a row's presses line up down the list. */
-.armada-operator__queue-rows {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.armada-operator__queue-rows[data-turns] {
-  grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
-}
-
-.armada-operator__queue-rows[data-ways] {
-  grid-template-columns: max-content max-content minmax(0, 1fr) max-content;
-}
-
-.armada-operator__queue-row {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--h-row-unit);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-/* The row it is reading: ruled in the accent at its edge, its glyph turning, so where it is stands out without a word. */
-.armada-operator__queue-row[data-reading] {
-  box-shadow: inset calc(var(--border-width) * 2) 0 0 var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-}
-
-.armada-operator__queue-row[data-reading] .armada-operator__glyph {
-  color: var(--accent);
-}
-
-.armada-operator__queue-row[data-reading] .armada-operator__glyph svg {
-  animation: armada-operator-turn 1.6s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .armada-operator__queue-row[data-reading] .armada-operator__glyph svg {
-    animation: none;
-  }
-}
-
-@keyframes armada-operator-turn {
-  to {
-    transform: rotate(1turn);
-  }
-}
-
-.armada-operator__queue-row[data-done] .armada-operator__row-title {
-  color: var(--fg-muted);
-}
-
-.armada-operator__row-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* What kind of thing a row is, in the same caps as its band. */
-.armada-operator__tag {
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-operator__repo {
-  color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  line-height: var(--leading-2xs);
-}
-
-.armada-operator__row-title {
-  font-weight: var(--weight-medium, 500);
-}
-
-/* What the Operator did to put a row first: its own act, so it reads in full colour. */
-.armada-operator__raise-read[data-put] {
-  color: var(--fg-default);
-}
-
-.armada-operator__queue-row[draggable="true"] {
-  cursor: grab;
-}
-
-.armada-operator__queue-row:hover,
-.armada-operator__queue-row[data-dragging],
-.armada-operator__queue-row[data-open] {
-  background: var(--bg-hover);
-}
-
-.armada-operator__queue-row:focus-visible {
-  outline: var(--border-width) solid var(--accent);
-  outline-offset: calc(var(--border-width) * -1);
-}
-
-/* Where a dragged row would land. */
-.armada-operator__queue-row[data-over="above"] {
-  box-shadow: inset 0 calc(var(--border-width) * 2) 0 var(--accent);
-}
-
-.armada-operator__queue-row[data-over="below"] {
-  box-shadow: inset 0 calc(var(--border-width) * -2) 0 var(--accent);
-}
-
-.armada-operator__grip {
-  display: inline-flex;
-  width: var(--space-3);
-  color: var(--fg-muted);
-}
-
-.armada-operator__presses {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-block-start: var(--space-1);
-}
-
-/* Every act on the item being discussed, in reach while the talk runs below. */
-.armada-operator__card-acts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-block-start: var(--space-2);
-}
-
-.armada-operator__card-acts > [data-stop] {
-  margin-inline-start: auto;
-}
-
-.armada-operator__add-repository {
-  padding-inline: var(--space-3);
 }
 
 .armada-operator__glyph {
@@ -832,6 +128,7 @@
 }
 
 /* The held line, part of the Job's head: the glyph, what it waits for, and Start now in a column of its own. */
+
 .armada-operator__held {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
@@ -840,7 +137,8 @@
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
-/* The Operator as a page of its own, in the content's place: the panel fills it, under the title row. */
+/* The Operator as a page of its own, in the content's place: the conversation fills it, under the title row. */
+
 .armada-operator-page {
   display: flex;
   flex: 1 1 0;
@@ -850,14 +148,14 @@
   padding: var(--gap-panel);
 }
 
-/* ---- Discussion read as a Job's thread (`spacious-thread.css`): the thread's rows scroll the whole pane, and the item being
-   discussed, the off row and the box stand on the column the thread's words and cards share. ---- */
+/* ---- Discussion read as a Job's thread (`spacious-thread.css`): the thread's rows scroll the whole pane, and the off row and the box
+   stand on the column the thread's words and cards share. ---- */
+
 [data-thread-take="spacious"] .armada-operator__talk-pane {
   gap: var(--space-3);
   padding: var(--space-4) 0 var(--space-3);
 }
 
-[data-thread-take="spacious"] .armada-operator__talk-pane > .armada-operator__card,
 [data-thread-take="spacious"] .armada-operator__talk-pane > .armada-operator__off,
 [data-thread-take="spacious"] .armada-operator__talk-pane .armada-session-composer,
 [data-thread-take="spacious"] .armada-operator__clear {
@@ -877,67 +175,8 @@
   justify-content: end;
 }
 
-/* The item: the thread's card, a soft fill and a hairline inside it, its kind and repository as the thread's meta line. */
-[data-thread-take="spacious"] .armada-operator__card {
-  border: none;
-  border-radius: var(--spacious-radius);
-  background: var(--spacious-card);
-  box-shadow: var(--spacious-card-edge);
-}
-
-[data-thread-take="spacious"] .armada-operator__card-band {
-  padding: var(--space-3) var(--space-4) 0;
-  border-bottom: none;
-  background: none;
-  color: var(--fg-muted);
-  font-family: var(--font-sans);
-  font-size: var(--spacious-meta);
-  font-weight: var(--weight-medium);
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-[data-thread-take="spacious"] .armada-operator__card-body {
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-4) var(--space-3);
-}
-
-[data-thread-take="spacious"] .armada-operator__card .armada-operator__row-title {
-  font-size: var(--spacious-body);
-  line-height: var(--spacious-leading);
-}
-
-/* Where an item came up or was settled: the thread's card, its hue kept only in its label. */
-[data-thread-take="spacious"] .armada-operator__marker {
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  border-radius: var(--spacious-radius);
-  background: var(--spacious-card);
-  box-shadow: var(--spacious-card-edge);
-}
-
-/* A Job started from Discussion: what started, and the press that opens it, on one card. */
-.armada-operator__started {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.armada-operator__started .armada-operator__marker-item {
-  white-space: normal;
-}
-
-[data-thread-take="spacious"] .armada-operator__marker-what {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-xs);
-  letter-spacing: 0;
-  text-transform: none;
-}
-
 /* A Job opened over the Operator (`overlay.tsx`): the Operator dimmed behind, the Job's page inset over it with its bar on top. */
+
 .armada-operator__over {
   position: absolute;
   inset: 0;
@@ -988,16 +227,6 @@
   font-weight: var(--weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.armada-operator__over-place {
-  flex: none;
-  color: var(--fg-muted);
-}
-
-.armada-operator__over-step {
-  display: flex;
-  gap: var(--space-1);
 }
 
 .armada-operator__over-page {

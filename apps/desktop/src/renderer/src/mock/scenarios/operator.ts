@@ -1,8 +1,8 @@
-// The Operator's dock as the Operator panel over the whole work, which the Operator scenarios after it build on. Ten live Jobs: one whose question the Operator
+// The Operator's page over the whole work, which the Operator scenarios after it build on. Ten live Jobs: one whose question the Operator
 // raised with its read and pick, one whose question it is still reading, two kept in touch with a Job they wait on, one it nudged after
 // Fleet marked it Stopped, one another Job was merged into, two kept in touch from a recorded plan, and two at work. One ended Job, the
-// one merged in. The Log, Waiting to start, Permissions, the standing orders and the rows' ties are the scenario's `operator` draft,
-// which no wire carries yet (`operator/model.ts`).
+// one merged in. The Jobs held to start and the rows' ties are the scenario's `operator` draft, which no wire carries yet
+// (`operator/model.ts`).
 
 import { repository } from "@armada/screens/src/fixtures/repository";
 import type { Session } from "@armada/screens/src/draft/sessions";
@@ -10,8 +10,6 @@ import type { Session } from "@armada/screens/src/draft/sessions";
 import { holding } from "../holding";
 import type { Scenario } from "../moment";
 import { sessionsStore } from "../sessions/script";
-import { operatorPanes } from "../../job-panes/store";
-import { outcomesBut } from "../../operator/model";
 import type { OperatorSeed } from "../../operator/model";
 
 const OWNER = repository().manifest!.id;
@@ -228,7 +226,7 @@ const buildTimes: Session = {
   ],
 };
 
-// The Job merged in: dispatched, ruled the same work, and ended before it pushed. Its card in the Log opens it.
+// The Job merged in: dispatched, ruled the same work, and ended before it pushed.
 const stepTimes: Session = {
   ...BASE,
   id: "op-step-times",
@@ -305,253 +303,13 @@ export const operatorJobs: readonly Session[] = [
   storeSize,
 ];
 
-/** The Jobs' store, each mount opening on the Operator's default layout with nothing kept from a walk before. */
-export function operatorSessions(jobs: readonly Session[]) {
-  if (typeof window !== "undefined") operatorPanes.forget();
-  return sessionsStore(jobs, [], new Map(), []);
-}
-
 const job = (session: Session) => ({
   session: session.id,
   title: session.title!,
 });
-const dispatched = {
-  kind: "you",
-  did: "dispatched",
-} as const;
-const from = (session: Session) => ({
-  kind: "job" as const,
-  job: job(session),
-});
 
 const seed: OperatorSeed = {
   on: true,
-  positions: {
-    dispatch: "decide",
-    delegate: "decide",
-    answer: "decide",
-    file: "decide",
-  },
-  pause: 80,
-  switched: [
-    {
-      on: true,
-      at: ago(100),
-    },
-    {
-      on: false,
-      at: ago(25 * 3600),
-    },
-  ],
-  log: [
-    {
-      id: "log-sent",
-      at: ago(8),
-      by: "you",
-      from: dispatched,
-      item: "Show a placeholder in an empty lane",
-      did: "existing",
-      why: "",
-      names: [
-        {
-          ...job(legend),
-          as: "existing",
-        },
-      ],
-    },
-    {
-      id: "log-bug",
-      at: ago(12),
-      from: {
-        kind: "report",
-        by: job(home),
-      },
-      item: "Job says Idle, but its agent crashed",
-      did: "existing",
-      why: "Stop Silent Job Deaths plans this in its detect group. The words went there",
-      names: [
-        {
-          ...job(deaths),
-          as: "existing",
-        },
-      ],
-      ways: outcomesBut("existing", deaths.title!),
-    },
-    {
-      id: "log-late",
-      at: ago(20),
-      from: from(legend),
-      item: "Legend opens collapsed. Keep it that way?",
-      did: "passed_on",
-      why: "No ruling in time, so it reached you as it does today",
-    },
-    {
-      id: "log-plan",
-      at: ago(30),
-      from: from(storeSize),
-      item: "Plan recorded: size group",
-      did: "in_touch",
-      why: "Doctor Checks the Store calls crates/store/src/size.rs. This group builds it, so the checks group waits on this push",
-      names: [
-        {
-          ...job(doctorStore),
-          as: "in_touch",
-        },
-      ],
-      ways: outcomesBut("in_touch", doctorStore.title!),
-    },
-    {
-      id: "log-nudge",
-      at: ago(40),
-      from: {
-        kind: "fleet",
-        did: "Fleet",
-      },
-      item: "Job says Stopped, but 3 tasks are open",
-      did: "delegated",
-      why: "Told it to carry on. Its plan is approved and nothing waits on you",
-      names: [
-        {
-          ...job(console_),
-          as: "nudged",
-        },
-      ],
-      ways: [
-        "Raise to me",
-      ],
-    },
-    {
-      id: "log-console",
-      at: ago(26 * 3600),
-      from: from(console_),
-      item: "Keep the bays in one row?",
-      did: "answered",
-      what: "Keep one row",
-      why: "Its recommended option, and nothing you see changes",
-    },
-    {
-      id: "log-answer",
-      at: ago(60),
-      from: from(home),
-      item: "Test renamed in the plan. Keep the old name?",
-      did: "answered",
-      why: "Kept the old name, the recommended answer. Its group is not marked seen",
-      ways: [
-        "Rename it",
-        "Raise to me",
-      ],
-    },
-    {
-      id: "log-merge",
-      at: ago(90),
-      from: dispatched,
-      item: "Record shows the build, but not each step's time",
-      did: "merged",
-      why: "Show build times in the Record does the same work in apps/desktop/src/renderer/src/record. The new Job had pushed nothing, so its brief, plan and branch went there",
-      names: [
-        {
-          ...job(stepTimes),
-          as: "merged",
-        },
-        {
-          ...job(buildTimes),
-          as: "existing",
-        },
-      ],
-      ways: outcomesBut("merged", buildTimes.title!),
-    },
-    {
-      id: "log-meter",
-      at: ago(120),
-      from: dispatched,
-      item: "Review list looks live, but polls once a minute",
-      did: "started",
-      why: "No weekly meter reading, so it started as today",
-    },
-    {
-      id: "log-raise",
-      at: ago(180),
-      from: from(deaths),
-      item: "Dead process has no icon. Which one?",
-      did: "raised",
-      why: "Its group is marked seen",
-    },
-    {
-      id: "log-filed",
-      at: ago(240),
-      from: {
-        kind: "report",
-        by: "you",
-      },
-      item: "Logbook search shows results, but drops the first letter",
-      did: "filed",
-      why: "No open issue matches it. Filed in armada",
-      ways: [
-        "Raise to me",
-      ],
-    },
-    {
-      id: "log-pool",
-      at: ago(300),
-      from: dispatched,
-      item: "Map shows Jobs, but not the slots they hold",
-      did: "in_touch",
-      why: "Rework the Map legend changes apps/desktop/src/renderer/src/map/slot.tsx first. This Job's map group waits on that push",
-      line: "line-pool",
-      names: [
-        {
-          ...job(legend),
-          as: "in_touch",
-        },
-      ],
-      ways: outcomesBut("in_touch", legend.title!),
-    },
-    {
-      id: "log-released",
-      at: ago(360),
-      from: {
-        kind: "waiting",
-      },
-      item: "Doctor lists new checks, but runs none",
-      did: "released",
-      why: "Store Migration Spike ended. Started it",
-    },
-    {
-      id: "log-tests",
-      at: ago(480),
-      from: dispatched,
-      item: "Tests take minutes, but build the whole workspace",
-      did: "in_touch",
-      why: "Stop Silent Job Deaths changes crates/testkit/src/run.rs first. This Job's tests group waits on that push",
-      line: "line-tests",
-      names: [
-        {
-          ...job(deaths),
-          as: "in_touch",
-        },
-      ],
-      ways: outcomesBut("in_touch", deaths.title!),
-    },
-    {
-      id: "log-returned",
-      at: ago(540),
-      from: from(home),
-      item: "Job says Idle, but its agent crashed",
-      did: "returned",
-      why: "The Job ended its turn without touching it. Ruled again above",
-    },
-    {
-      id: "log-resumed",
-      at: ago(720),
-      from: {
-        kind: "fleet",
-        did: "Fleet restarted",
-      },
-      item: "Setting says pool, but means slots. Rename it?",
-      did: "resumed",
-      why: "Kept across the restart, then answered. Its group is not marked seen",
-    },
-  ],
   line: [
     {
       id: "line-tests",
@@ -592,28 +350,6 @@ const seed: OperatorSeed = {
       waits: {
         kind: "you",
       },
-    },
-  ],
-  orders: [
-    {
-      id: "order-billing",
-      kind: "role_off",
-      role: "answer",
-      repository: "billing",
-    },
-    {
-      id: "order-components",
-      kind: "hold_paths",
-      paths: "packages/components",
-      until: {
-        job: "Cockpit Console",
-        event: "pushes",
-      },
-    },
-    {
-      id: "order-walks",
-      kind: "always_raise",
-      what: "walks",
     },
   ],
   reads: [
@@ -680,11 +416,6 @@ const seed: OperatorSeed = {
       asked: "why did you hold the tests",
       said: "It is kept in touch with Stop Silent Job Deaths. Both plans change crates/testkit/src/run.rs, and that Job builds it first. Its tests group starts when that Job pushes.",
     },
-    {
-      asked: "start it anyway",
-      said: "Started it. Logged as your correction.",
-      starts: "line-tests",
-    },
   ],
 };
 
@@ -698,12 +429,12 @@ function scenario(name: string, says: string): Scenario {
     },
     draft: {
       operator: seed,
-      sessions: () => operatorSessions(operatorJobs),
+      sessions: () => sessionsStore(operatorJobs, [], new Map(), []),
     },
   };
 }
 
 export const operatorFull = scenario(
   "operator-full",
-  "The Operator panel over the whole work, on a Job's panes: Talk and the Log as tabs, with Waiting to start and Permissions a press away, over ten live Jobs and one merged in",
+  "The Operator page over the whole work: its conversation alone, over ten live Jobs and one merged in",
 );
