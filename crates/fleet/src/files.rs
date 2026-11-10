@@ -7,9 +7,30 @@
 //!
 //! Matches are ranked rather than filtered: the query's letters in order, with
 //! the file name and word starts counting for most.
+//!
+//! **The listing is kept, not rerun.** Bridge asks on every keystroke after
+//! `@`; measured on this repository, `git ls-files` was about 90% of a query
+//! (18 ms of 20) and scoring the paths was about 2 ms. So `FileIndex` holds
+//! each root's paths in memory and a query only scores them. A listing is
+//! retaken in the background once it is `REFRESH_AFTER` old, or at once where
+//! git's index or `HEAD` has changed, and the old list answers until the new
+//! one lands. Only a root's first query waits for git. Both git and scoring
+//! run on the blocking pool, so no keystroke holds an executor thread.
+//! One `Vec<String>` per root served is the whole memory cost.
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, LazyLock, Mutex, PoisonError};
+use std::time::{Duration, Instant, SystemTime};
+
+/// How old a listing may be before a query retakes it in the background. A
+/// file created without git knowing (untracked) shows within this long.
+const REFRESH_AFTER: Duration = Duration::from_secs(5);
+
+/// Every root this process has been asked about.
+static INDEX: LazyLock<FileIndex> = LazyLock::new(|| FileIndex::new(REFRESH_AFTER));
 
 /// Directories the fallback walk never descends into. Each is either
 /// enormous, generated, or both — and `.armada` holds a full copy of the
@@ -29,18 +50,163 @@ const WALK_CAP: usize = 20_000;
 ///
 /// **Never fails.** A subdirectory this cannot read is skipped rather than
 /// failing the search: `ipc::FilesFound`'s own notes carry the reasoning.
-pub(crate) fn search(root: &Path, query: &str) -> Vec<String> {
+pub(crate) async fn search(root: &Path, query: &str) -> Vec<String> {
+    INDEX.search(root, query).await
+}
+
+/// `paths` narrowed to `query` and ranked.
+fn rank(paths: &[String], query: &str) -> Vec<String> {
     let query: Vec<char> = query.chars().map(lower).collect();
-    let mut ranked: Vec<(i32, String)> = listed(root)
-        .unwrap_or_else(|| walked(root))
-        .into_iter()
-        .filter_map(|path| Some((score(&path, &query)?, path)))
+    let mut ranked: Vec<(i32, &String)> = paths
+        .iter()
+        .filter_map(|path| Some((score(path, &query)?, path)))
         .collect();
     // Bridge shows the rows in the order given, so the cut keeps the best.
     ranked.sort_by(|(a_score, a), (b_score, b)| {
         b_score.cmp(a_score).then(a.len().cmp(&b.len())).then(a.cmp(b))
     });
-    ranked.into_iter().take(RESULT_CAP).map(|(_, path)| path).collect()
+    ranked.into_iter().take(RESULT_CAP).map(|(_, path)| path.clone()).collect()
+}
+
+/// What git or the walk names under `root`.
+fn list(root: &Path) -> Vec<String> {
+    listed(root).unwrap_or_else(|| walked(root))
+}
+
+/// One listing per root, answered from memory.
+struct FileIndex {
+    window: Duration,
+    roots: Mutex<HashMap<PathBuf, Arc<Root>>>,
+}
+
+#[derive(Default)]
+struct Root {
+    snapshot: Mutex<Option<Arc<Snapshot>>>,
+    /// Held while the first listing runs, so queries arriving meanwhile wait
+    /// for that one rather than each running git.
+    first: tokio::sync::Mutex<()>,
+    refreshing: AtomicBool,
+}
+
+/// Git's index and `HEAD` file times: what moves when files are added,
+/// removed or renamed, or another branch is checked out.
+type Stamp = [Option<SystemTime>; 2];
+
+struct Snapshot {
+    paths: Vec<String>,
+    taken: Instant,
+    /// Where `stamp` was read, or `None` outside a repository, where only age
+    /// retakes the listing.
+    git_dir: Option<PathBuf>,
+    stamp: Stamp,
+}
+
+impl Snapshot {
+    /// Blocking: runs git, or walks.
+    fn take(root: &Path) -> Self {
+        let git_dir = git_dir(root);
+        // Read before listing, so a change made meanwhile reads as stale.
+        let stamp = git_dir.as_deref().map(stamp).unwrap_or_default();
+        Self {
+            taken: Instant::now(),
+            paths: list(root),
+            git_dir,
+            stamp,
+        }
+    }
+
+    fn is_stale(&self, window: Duration) -> bool {
+        self.taken.elapsed() >= window
+            || self.git_dir.as_deref().is_some_and(|dir| stamp(dir) != self.stamp)
+    }
+}
+
+fn stamp(git_dir: &Path) -> Stamp {
+    ["index", "HEAD"].map(|name| std::fs::metadata(git_dir.join(name)).and_then(|m| m.modified()).ok())
+}
+
+/// The directory holding `root`'s index and `HEAD` — a worktree's own, not the
+/// shared one.
+fn git_dir(root: &Path) -> Option<PathBuf> {
+    let out = git_in(root).args(["rev-parse", "--absolute-git-dir"]).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(PathBuf::from(String::from_utf8(out.stdout).ok()?.trim_end()))
+}
+
+async fn taken(root: PathBuf) -> Snapshot {
+    tokio::task::spawn_blocking(move || Snapshot::take(&root))
+        .await
+        .unwrap_or_else(|_| Snapshot {
+            paths: Vec::new(),
+            taken: Instant::now(),
+            git_dir: None,
+            stamp: Stamp::default(),
+        })
+}
+
+impl FileIndex {
+    fn new(window: Duration) -> Self {
+        Self {
+            window,
+            roots: Mutex::default(),
+        }
+    }
+
+    async fn search(&self, root: &Path, query: &str) -> Vec<String> {
+        let held = self
+            .roots
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .entry(root.to_path_buf())
+            .or_default()
+            .clone();
+        let snapshot = match held.current() {
+            Some(snapshot) => snapshot,
+            None => held.first(root).await,
+        };
+        if snapshot.is_stale(self.window) {
+            held.refresh(root);
+        }
+        let query = query.to_owned();
+        tokio::task::spawn_blocking(move || rank(&snapshot.paths, &query))
+            .await
+            .unwrap_or_default()
+    }
+}
+
+impl Root {
+    fn current(&self) -> Option<Arc<Snapshot>> {
+        self.snapshot.lock().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    fn keep(&self, snapshot: Arc<Snapshot>) {
+        *self.snapshot.lock().unwrap_or_else(PoisonError::into_inner) = Some(snapshot);
+    }
+
+    async fn first(&self, root: &Path) -> Arc<Snapshot> {
+        let _listing = self.first.lock().await;
+        if let Some(snapshot) = self.current() {
+            return snapshot;
+        }
+        let snapshot = Arc::new(taken(root.to_path_buf()).await);
+        self.keep(snapshot.clone());
+        snapshot
+    }
+
+    /// Retake the listing in the background, unless one is already running.
+    fn refresh(self: &Arc<Self>, root: &Path) {
+        if self.refreshing.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let this = self.clone();
+        let root = root.to_path_buf();
+        tokio::spawn(async move {
+            this.keep(Arc::new(taken(root).await));
+            this.refreshing.store(false, Ordering::Release);
+        });
+    }
 }
 
 fn lower(c: char) -> char {
@@ -88,12 +254,8 @@ fn score(path: &str, query: &[char]) -> Option<i32> {
 /// Tracked and untracked-but-not-ignored files, or `None` where `root` is not
 /// a repository or git cannot be run.
 fn listed(root: &Path) -> Option<Vec<String>> {
-    let out = Command::new("git")
+    let out = git_in(root)
         .args(["ls-files", "-z", "--cached", "--others", "--exclude-standard"])
-        .current_dir(root)
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
-        .env_remove("GIT_INDEX_FILE")
         .output()
         .ok()?;
     if !out.status.success() {
@@ -106,6 +268,16 @@ fn listed(root: &Path) -> Option<Vec<String>> {
             .map(|path| String::from_utf8_lossy(path).into_owned())
             .collect(),
     )
+}
+
+/// `git` run in `root`, whichever repository the caller's own environment names.
+fn git_in(root: &Path) -> Command {
+    let mut git = Command::new("git");
+    git.current_dir(root)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE");
+    git
 }
 
 /// Every file under `root` outside `EXCLUDED`, up to `WALK_CAP` of them.
@@ -147,6 +319,12 @@ fn walked(root: &Path) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::tests::tmp::TempDir;
+
+    /// Listed afresh and ranked, the way every query was answered before the
+    /// listing was kept — the ranking tests below do not care about the index.
+    fn search(root: &Path, query: &str) -> Vec<String> {
+        rank(&list(root), query)
+    }
 
     /// A checkout with a nested file, one of the three excluded directories,
     /// and a file that only matches by case.
@@ -317,5 +495,62 @@ mod tests {
     fn a_root_that_cannot_be_read_answers_empty_rather_than_failing() {
         let missing = std::env::temp_dir().join("armada-files-search-missing-root");
         assert!(search(&missing, "").is_empty());
+    }
+
+    /// Asked until `path` is among the answers, or ten seconds pass.
+    async fn appears(index: &FileIndex, root: &Path, query: &str, path: &str) -> bool {
+        for _ in 0..400 {
+            if index.search(root, query).await.contains(&path.to_string()) {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        false
+    }
+
+    /// A file made after the first listing is not seen by a second query
+    /// within the window: the answer came from memory, not from git.
+    #[tokio::test]
+    async fn a_second_search_does_not_list_again() {
+        let home = a_repository();
+        let index = FileIndex::new(Duration::from_secs(3600));
+        assert_eq!(index.search(home.path(), "tracked").await.len(), 2);
+        std::fs::write(home.path().join("src/late.rs"), b"").expect("a file");
+        assert!(index.search(home.path(), "late").await.is_empty());
+        assert_eq!(index.search(home.path(), "tracked").await.len(), 2);
+    }
+
+    /// Past the window a query still answers from the old list, and the next
+    /// ones see the new file once the background listing lands.
+    #[tokio::test]
+    async fn a_new_file_appears_after_the_refresh_window() {
+        let home = a_repository();
+        let index = FileIndex::new(Duration::ZERO);
+        assert_eq!(index.search(home.path(), "tracked").await.len(), 2);
+        std::fs::write(home.path().join("src/late.rs"), b"").expect("a file");
+        assert!(index.search(home.path(), "late").await.is_empty());
+        assert!(appears(&index, home.path(), "late", "src/late.rs").await);
+    }
+
+    /// A change to git's index retakes the listing at once, however far the
+    /// window still has to run.
+    #[tokio::test]
+    async fn a_change_to_gits_index_retakes_the_listing_inside_the_window() {
+        let home = a_repository();
+        let index = FileIndex::new(Duration::from_secs(3600));
+        assert_eq!(index.search(home.path(), "tracked").await.len(), 2);
+        git(home.path(), &["mv", "src/tracked.rs", "src/moved.rs"]);
+        assert!(appears(&index, home.path(), "moved", "src/moved.rs").await);
+    }
+
+    /// A folder that is not a repository is walked through the index too, and
+    /// answers from the kept list afterwards.
+    #[tokio::test]
+    async fn a_folder_without_git_is_walked_into_the_index() {
+        let home = a_checkout();
+        let index = FileIndex::new(Duration::from_secs(3600));
+        assert_eq!(index.search(home.path(), "reader").await, vec!["src/log/reader.rs"]);
+        std::fs::write(home.path().join("reader2.rs"), b"").expect("a file");
+        assert_eq!(index.search(home.path(), "reader").await, vec!["src/log/reader.rs"]);
     }
 }
