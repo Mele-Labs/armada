@@ -27,7 +27,7 @@ impl JobView {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         match row {
-            SessionRow::Message { .. } => self.message(row, page, look, now, window, cx),
+            SessionRow::Message { .. } => self.message(ix, row, page, look, now, window, cx),
             SessionRow::Ran { .. }
             | SessionRow::Requested { .. }
             | SessionRow::Saved { .. }

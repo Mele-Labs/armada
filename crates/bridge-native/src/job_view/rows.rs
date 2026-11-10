@@ -350,7 +350,7 @@ impl JobView {
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
-                self.you(&format!("pending:{}", one.key), &one.text, &[], None, true, false, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], None, true, false, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -425,6 +425,8 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn you(
         &self,
+        ix: usize,
+        page: &Page,
         id: &str,
         text: &str,
         chips: &[String],
@@ -435,6 +437,16 @@ impl JobView {
         now: DateTime<Local>,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let (said, debug) = split_debug(text);
+        let debug = debug.map(|facts| {
+            let key = format!("debug:{id}");
+            let open = page.opened.contains(&key);
+            let head = vec![
+                glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)).into_any_element(),
+                div().child("Debug info").into_any_element(),
+            ];
+            self.fold(ix, key.clone(), "Debug info".into(), head, Some(self.prose(key, facts, look)), page, look, cx)
+        });
         let band = div()
             .flex()
             .items_center()
@@ -497,7 +509,11 @@ impl JobView {
                                 .py(look.length(token::SPACE_3))
                                 .rounded(look.length(token::RADIUS_LG))
                                 .bg(look.color(token::FG_DEFAULT).opacity(0.07))
-                                .child(self.prose(format!("you:{id}"), text, look)),
+                                .flex()
+                                .flex_col()
+                                .gap(look.length(token::SPACE_2))
+                                .child(self.prose(format!("you:{id}"), said, look))
+                                .children(debug),
                         )
                         .when(!chips.is_empty(), |column| {
                             column.child(
@@ -608,7 +624,7 @@ impl JobView {
     }
 
     /// The messages, from the person, the agent and another Job (A2).
-    pub(super) fn message(&self, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
             SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, .. } => {
                 if let Some(act) = act_of(text) {
@@ -616,7 +632,7 @@ impl JobView {
                 }
                 let chips: Vec<String> =
                     files.iter().map(|file| file.name.clone()).chain(tags.iter().map(|tag| tag.title.clone())).collect();
-                self.you(id, text, &chips, Some(at), false, *queued, look, now, cx)
+                self.you(ix, page, id, text, &chips, Some(at), false, *queued, look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
@@ -697,9 +713,29 @@ impl JobView {
     }
 }
 
+/// The words before a line that reads `## Debug info`, and the facts after it.
+fn split_debug(text: &str) -> (&str, Option<&str>) {
+    let mut at = 0;
+    for line in text.split_inclusive('\n') {
+        if line.trim_end_matches(['\r', '\n']) == "## Debug info" {
+            let facts = text[at + line.len()..].trim();
+            return (text[..at].trim_end(), Some(facts).filter(|facts| !facts.is_empty()));
+        }
+        at += line.len();
+    }
+    (text, None)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_info_is_split_off_at_its_heading() {
+        assert_eq!(split_debug("Fix it\n\n## Debug info\nbuild 12\nmain"), ("Fix it", Some("build 12\nmain")));
+        assert_eq!(split_debug("No facts here"), ("No facts here", None));
+        assert_eq!(split_debug("Words\n## Debug info"), ("Words", None));
+    }
 
     fn at(text: &str) -> DateTime<Local> {
         DateTime::parse_from_rfc3339(text).expect("an instant").with_timezone(&Local)

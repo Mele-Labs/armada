@@ -104,7 +104,7 @@
       "from": {
        "kind": "you"
       },
-      "text": "The merge line chip stays green when the branch is behind main. It should turn amber while it is stale.\n\nCan you look at where the chip reads its colour, and tell me before you change it?"
+      "text": "The merge line chip stays green when the branch is behind main. It should turn amber while it is stale.\n\nCan you look at where the chip reads its colour, and tell me before you change it?\n\n## Debug info\nBuild 4f2a91c on main\nWindow 1 of 1"
      }
     },
     {
