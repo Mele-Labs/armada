@@ -7,7 +7,7 @@
 /// so a fourth place is put where its variant is written and not in a precedence table beside it.
 /// Kit's is last because yours wins over the repository's, wherever the two name the same thing.
 ///
-/// A workflow has `WorkflowSource` and a review tool its own; a lifecycle and a Workspace (a set of
+/// A workflow has `WorkflowSource` and a review tool its own; a lifecycle and a Project (a set of
 /// repositories) share this one, and a rule will.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PieceSource {

@@ -38,7 +38,7 @@ fn scope(written: &str) -> LifecycleScope {
     LifecycleScope::Within(ScopeId::new(written).expect("a scope"))
 }
 
-/// A ticket lifecycle as a Workspace (a set of repositories) would scope it, with the tracker's words filled in.
+/// A ticket lifecycle as a Project (a set of repositories) would scope it, with the tracker's words filled in.
 fn my_stores_tickets() -> Lifecycle {
     Lifecycle::declared(
         LifecycleId::new("ticket").expect("an id"),

@@ -46,8 +46,8 @@ mod test_map;
 mod watch;
 /// The workflow a Session or a Job follows, and the ids it is spelled in.
 mod workflow;
-/// A Workspace means a set of repositories, and not the Manifest's monorepo unit.
-mod workspace;
+/// A Project is a set of repositories and monorepo folders; a Workspace keeps only its monorepo meaning.
+mod project;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
@@ -65,7 +65,7 @@ pub use workflow::{
     WorkflowSource, under,
 };
 pub use piece::PieceSource;
-pub use workspace::{MalformedWorkspace, Workspace};
+pub use project::{Folder, MalformedFolder, MalformedProject, Member, Project};
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,
 };

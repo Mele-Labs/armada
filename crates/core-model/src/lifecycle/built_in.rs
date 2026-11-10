@@ -9,7 +9,7 @@
 //! **A tracker brings the rest it uses** ([`Lifecycle::ticket_reading`]), so a repository on a
 //! tracker that declares some reads from the first Job; one on a tracker that declares none leaves
 //! every other status unmapped, which is a fact, where a default would have been a guess. A
-//! lifecycle scoped to a Workspace (a set of repositories) or to a repository replaces the Ticket
+//! lifecycle scoped to a Project (a set of repositories) or to a repository replaces the Ticket
 //! outright, and is where a person says which words are which.
 
 use alloc::vec;
