@@ -155,7 +155,7 @@ impl JobView {
             let asking = held.head.asked.is_some();
             self.item(ix, item, last && working && !asking, page, look, now, window, cx)
         } else {
-            self.extra(&held.head, page, ix - page.items, look, now, cx)
+            self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
         let Some(drawn) = drawn else { return nothing() };
         div()
@@ -336,7 +336,7 @@ impl JobView {
     }
 
     /// What stands after the items (A1.4).
-    fn extra(&self, head: &ipc::ThreadHead, page: &Page, at: usize, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+    fn extra(&self, head: &ipc::ThreadHead, items: &[ThreadItem], page: &Page, at: usize, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
@@ -346,7 +346,7 @@ impl JobView {
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
-                labelled(
+                let line = labelled(
                     div()
                         .id("working")
                         .flex()
@@ -357,12 +357,14 @@ impl JobView {
                         .line_height(look.length(token::LEADING_SM))
                         .text_color(look.color(token::FG_MUTED))
                         .child(div().id("working-mark").child(self.working_mark(look, ink)).tooltip(tip("Working")))
-                        .child("Thinking"),
+                        .child("Thinking")
+                        .child(self.stop_button(look, cx)),
                     Role::Status,
                     "Working",
-                )
-                .into_any_element()
+                );
+                div().flex().flex_col().child(line).children(self.stop_said(page, look)).into_any_element()
             }
+            Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, now, cx),
         })
     }
 

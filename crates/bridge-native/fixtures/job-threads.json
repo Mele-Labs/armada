@@ -235,6 +235,7 @@
      "subagent": {
       "id": "agent-2",
       "task": "Read the chip's stories",
+      "latest": "Read Chip.stories.tsx",
       "state": "running",
       "since": "2026-11-09T13:22:00Z"
      }

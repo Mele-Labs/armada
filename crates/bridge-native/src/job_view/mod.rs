@@ -19,6 +19,7 @@ mod keys;
 mod lines;
 mod perm;
 mod plan;
+mod pinned;
 mod pop;
 mod records;
 mod rows;
@@ -68,6 +69,8 @@ pub(crate) enum Extra {
     Sketch(String),
     Pending(usize),
     Working,
+    /// The card of the subagents running now.
+    Subagents,
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -130,6 +133,9 @@ fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], worki
     let ends_in_calls = matches!(items.last(), Some(ThreadItem::Calls { .. }));
     if working && !running && (!ends_in_calls || head.asked.is_some()) {
         extras.push(Extra::Working);
+    }
+    if running {
+        extras.push(Extra::Subagents);
     }
     extras
 }

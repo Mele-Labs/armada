@@ -159,6 +159,7 @@ pub static WALKS: &[Walk] = &[
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("End goes back to the newest row", Verb::Key("end"), "region", "Thread"),
+            step("Subagents running are one card at the foot; the list opens behind it", Verb::Open("button", "1 subagent running"), "row", "Subagent Read the chip's stories"),
             step("Another Job: a long thread, at its newest row", Verb::Press, "row", "Native Bridge foundation"),
             step("Its calls fold to one line", Verb::Press, "button", "Tool calls: Read, Grep, Bash"),
             step("Words typed in the box stay with this Job", Verb::Type("Check the webhook queue too"), "textbox", "Message"),
