@@ -120,6 +120,13 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         Verb::Look => Ok(()),
         // The walk window builds the screen again before it reaches here (`WalkWindow::play_to`).
         Verb::Fresh => Ok(()),
+        Verb::Width(points) => {
+            let height = window.viewport_size().height;
+            window.resize(gpui::size(gpui::px(points as f32), height));
+            // A window off screen hears no resize from the platform; on screen this is said twice.
+            window.bounds_changed(cx);
+            Ok(())
+        }
         Verb::Key(key) => {
             let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
             if !focus.within.contains_focused(window, cx) {

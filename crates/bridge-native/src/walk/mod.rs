@@ -94,6 +94,9 @@ pub enum Verb {
     /// The screen is built again from its mock, so a part of a long walk starts from the state its
     /// first step expects: no popup, sheet or layer open, every scene at rest. The target is ringed.
     Fresh,
+    /// The window takes this many points across, its height kept, as a person narrows it. Nothing
+    /// puts it back: a walk narrows it at its end.
+    Width(u32),
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -700,6 +703,24 @@ pub static WALKS: &[Walk] = &[
             step("A Job whose run is over", Verb::Press, "row", "Finished calls"),
             step("A press opens the run", Verb::Press, "button", "Tool calls: Read, Grep, Edit, Bash, WebFetch, Agent"),
             step("Each kind done: grey, still on its last frame, each with its time", Verb::Look, "row", "Ran armada check"),
+        ],
+    },
+    Walk {
+        name: "job-fixes",
+        title: "The open Job: his line breaks, tab × and +, the Judge split, 800 wide",
+        screen: Screen::Jobs,
+        scenario: "tool-rows",
+        steps: &[
+            step("A Job he wrote to in two lines", Verb::Press, "row", "Finished calls"),
+            step("His line break stays: the second sentence starts its own line", Verb::Look, "region", "Your message"),
+            step("Each tab has its ×, and each strip ends in +", Verb::Look, "button", "Add tab: Open"),
+            step("× closes the Open tab", Verb::Gone, "button", "Close Open"),
+            step("+ offers it back", Verb::Open("button", "Add tab: Open"), "menuitem", "Open"),
+            step("A press on Open brings it back", Verb::Gone, "menuitem", "Open"),
+            step("In front, with its ×", Verb::Look, "button", "Close Open"),
+            step("Judge opens on the right; the thread and the side share the Job 0.62 to 0.38", Verb::Open("button", "Judge"), "button", "Close Judge"),
+            step("× shuts it", Verb::Gone, "button", "Close Judge"),
+            step("At 800 wide: the list 288, the thread about 300, Open and Now 180", Verb::Width(800), "region", "Thread"),
         ],
     },
     Walk {
