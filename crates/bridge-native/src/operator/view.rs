@@ -7,6 +7,7 @@ use gpui::{
     div, prelude::*, AnyElement, App, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window,
 };
 use ipc::operator_page::{OperatorAnswer, OperatorPage, OperatorTurnItem, OperatorTurnKind};
+use ipc::MainCiState;
 
 use super::face::{self, Kind};
 use super::page::{Done, Opened, OperatorPageView};
@@ -187,18 +188,21 @@ impl OperatorPageView {
                 .bg(look.color(token::BG_SUNKEN))
                 .child(div().h_full().w(gpui::relative(share.clamp(0., 1.))).rounded_full().bg(look.color(fill)))
         };
-        let mains = self.standing.mains.iter().enumerate().map(|(at, (repository, red))| {
-            let said = if *red { format!("{repository} main is red") } else { format!("{repository} main is green") };
-            let (mark, hue) = if *red { ("circle-x", token::STATUS_COMPLETED_FAILED) } else { ("circle-check", token::STATUS_COMPLETED_SUCCESS) };
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        let (mains, slots_read) = self.page.as_ref().map_or((&[][..], None), |page| (&page.mains[..], page.slots.as_ref()));
+        let mains = mains.iter().enumerate().map(|(at, main)| {
+            let since = main.since.as_ref().and_then(|since| minute(since.as_str(), now));
+            let (said, mark) = face::main_said(main, since.as_deref());
+            let red = main.state == Some(MainCiState::Red);
             let pill = pill(if at == 0 { "pill-main-0" } else if at == 1 { "pill-main-1" } else { "pill-main" })
-                .when(*red, |pill| {
+                .when(red, |pill| {
                     pill.border_color(look.color(token::STATUS_COMPLETED_FAILED))
                         .bg(look.color(token::STATUS_COMPLETED_FAILED_BG))
                         .text_color(look.color(token::STATUS_COMPLETED_FAILED))
                 })
                 .tooltip(tip(said.clone()))
-                .child(glyph(mark, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(hue)))
-                .child(format!("{repository} main"));
+                .children(mark.map(|(mark, hue)| glyph(mark, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(hue))))
+                .child(format!("{} main", main.repository));
             labelled(pill, Role::Status, said).into_any_element()
         });
         let mains: Vec<AnyElement> = mains.collect();
@@ -210,7 +214,8 @@ impl OperatorPageView {
                 said,
             )
         });
-        let slots = self.standing.slots.map(|(held, all)| {
+        let slots = slots_read.map(|slots| {
+            let (held, all) = (slots.used, slots.total);
             let said = format!("Slots {held} of {all} held");
             labelled(
                 pill("pill-slots").tooltip(tip(said.clone())).child(format!("Slots {held} of {all}")).child(meter(held as f32 / all.max(1) as f32, token::STATUS_AWAITING_REVIEW)),
@@ -241,7 +246,7 @@ impl OperatorPageView {
                     .items_center()
                     .text_size(look.length(token::TEXT_XS))
                     .text_color(look.color(token::FG_MUTED))
-                    .when_some(self.back_at.as_deref(), |back, at| back.child("back").child(self.stamp(at, Some("at"), (token::TEXT_XS, token::FG_MUTED), look, cx))),
+                    .when_some(self.back_at.as_deref(), |back, at| back.child("back").child(self.stamp(at, Some("at"), (token::TEXT_XS, token::FG_MUTED, token::WEIGHT_BODY), look, cx))),
             )
             .children(mains)
             .children(week)
@@ -331,7 +336,7 @@ impl OperatorPageView {
                             .text_size(look.length(token::TEXT_XS))
                             .text_color(look.color(token::FG_SUBTLE))
                             .child("since")
-                            .child(self.stamp(on_it.since.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE), look, cx)),
+                            .child(self.stamp(on_it.since.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx)),
                     ),
                 Role::Status,
                 "On it",
@@ -410,7 +415,7 @@ impl OperatorPageView {
                     .text_size(look.length(token::TEXT_BASE))
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                     .child("Your note from")
-                    .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT), look, cx))
+                    .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT, token::WEIGHT_MEDIUM), look, cx))
                     // The colon sits on the time, inside its ring's padding.
                     .child(div().ml(-look.length(token::SPACE_1)).child(format!(": {note}")))
             }))
@@ -580,7 +585,11 @@ impl OperatorPageView {
         let sub = if open { Some("Open above".to_string()) } else { face::pick_of(turn).map(|pick| format!("My pick: {pick}")) };
         // Put Later: the clock beside its kind, as nobody acts on it until later today.
         let later = (turn.later_until.is_some() && !open).then(|| {
-            div().id(SharedString::from(format!("later-{at}"))).tooltip(tip("Later today")).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED)))
+            labelled(
+                div().id(SharedString::from(format!("later-{at}"))).tooltip(tip("Later today")).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED))),
+                Role::Image,
+                "Later today",
+            )
         });
         labelled(
             row_frame(SharedString::from(format!("turn-row-{at}")), look)
@@ -648,7 +657,7 @@ impl OperatorPageView {
     /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the
     /// page. `lead` goes before the clock alone, as `at` in `back at 13:05`, which reads `back 3m ago`.
     /// A press or Enter on any time flips them all.
-    fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink): (Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink, weight): (Token, Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let (on_clock, ago) = (minute(at, now).map(|clock| lead.map_or(clock.clone(), |lead| format!("{lead} {clock}"))), crate::job_view::age(at, now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
@@ -656,6 +665,11 @@ impl OperatorPageView {
         let reading = shown.trim_start_matches(lead.unwrap_or_default()).trim_start().to_string();
         let stamp = worded(div().id(SharedString::from(format!("stamp:{at}"))), look)
             .flex_none()
+            // A gap the ring keeps off the word before it, and its sentence's face said again: without it the
+            // time has drawn in the system's face.
+            .ml(look.length(token::SPACE_1) / 2.)
+            .font_family(sans(look))
+            .font_weight(FontWeight(look.number(weight)))
             .text_size(look.length(size))
             .text_color(look.color(ink))
             .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
@@ -709,7 +723,7 @@ impl OperatorPageView {
                     .child(match row.side {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
-                        Side::At(at) => self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE), look, cx),
+                        Side::At(at) => self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx),
                     });
                 // A row that opens a Job is a tab stop, and Enter opens it as a press does.
                 let line = match row.opened {
@@ -790,7 +804,7 @@ impl OperatorPageView {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())) }).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())) }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
@@ -826,7 +840,7 @@ impl OperatorPageView {
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
             .text_color(look.color(token::FG_SUBTLE))
             .child(if page.looked_at.is_some() { "Since you last looked," } else { "Since you last looked" })
-            .children(page.looked_at.as_ref().map(|at| self.stamp(at.as_str(), Some("at"), (token::TEXT_2XS, token::FG_SUBTLE), look, cx)));
+            .children(page.looked_at.as_ref().map(|at| self.stamp(at.as_str(), Some("at"), (token::TEXT_2XS, token::FG_SUBTLE, token::WEIGHT_HEADING), look, cx)));
         labelled(
             div()
                 .id("digest")
@@ -1197,7 +1211,7 @@ impl OperatorPageView {
                             cx.notify();
                         }))
                         .child(div().flex_1().min_w_0().truncate().child(rule.said.clone()))
-                        .child(self.stamp(rule.at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE), look, cx)),
+                        .child(self.stamp(rule.at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx)),
                     Role::ListItem,
                     rule.said.clone(),
                 )

@@ -31,9 +31,9 @@ pub fn talk() -> OperatorTalk {
     ipc::decode::<OperatorTalk>("OperatorTalk", include_bytes!("../../fixtures/operator-talk.json")).expect("the Operator talk fixture decodes")
 }
 
-/// The head as the sketch drew it: storefront's main red, armada's green, the week and the slots.
+/// The week as the sketch drew it; the mains and the slots are in the page's fixture.
 pub fn standing() -> Standing {
-    Standing { mains: vec![("storefront".into(), true), ("armada".into(), false)], week: Some(62), slots: Some((7, 10)) }
+    Standing { week: Some(62) }
 }
 
 /// 13:05 on the sketch's day, the clock the walk's times are read against.

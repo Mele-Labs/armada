@@ -4,8 +4,8 @@
 
 use chrono::{DateTime, Local};
 use gpui::SharedString;
-use ipc::operator_page::{OperatorAnswer, OperatorThen, OperatorTurnItem, OperatorTurnKind};
-use ipc::{Instant, WaitingActKind, WaitingSource};
+use ipc::operator_page::{OperatorAnswer, OperatorMain, OperatorThen, OperatorTurnItem, OperatorTurnKind};
+use ipc::{Instant, MainCiState, WaitingActKind, WaitingSource};
 
 use crate::look::{token, Token};
 
@@ -139,16 +139,28 @@ pub fn day(at: &DateTime<Local>) -> SharedString {
     at.format("%A %-d %B").to_string().into()
 }
 
-/// The head's pills, beside the date. `operator_page` serves none of them: the week is the title bar's
-/// reading, and a red main and the slots are drawn only where something hands them over (the walk's mock).
+/// The head's week pill, which `operator_page` does not serve: the title bar's reading, or the walk's mock.
+/// The mains and the slots are the page's own.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Standing {
-    /// Each repository's main: its name and whether it is red.
-    pub mains: Vec<(SharedString, bool)>,
     /// The week's share of the plan used, in whole percent.
     pub week: Option<u32>,
-    /// Slots held, and slots there are.
-    pub slots: Option<(u32, u32)>,
+}
+
+/// A main's pill: what its tooltip says, and its mark and hue where Fleet has read a state that has one.
+/// A main nothing ran on, or that Fleet has not read yet, is a plain pill.
+pub fn main_said(main: &OperatorMain, since: Option<&str>) -> (String, Option<(&'static str, Token)>) {
+    let repository = &main.repository;
+    match main.state {
+        Some(MainCiState::Red) => (
+            since.map_or(format!("{repository} main is red"), |since| format!("{repository} main is red since {since}")),
+            Some(("circle-x", token::STATUS_COMPLETED_FAILED)),
+        ),
+        Some(MainCiState::Green) => (format!("{repository} main is green"), Some(("circle-check", token::STATUS_COMPLETED_SUCCESS))),
+        Some(MainCiState::Running) => (format!("{repository} main's checks are running"), Some(("circle-dot", token::STATUS_RUNNING))),
+        Some(MainCiState::NothingRan) => (format!("Nothing ran on {repository} main"), None),
+        None => (format!("{repository} main is not read yet"), None),
+    }
 }
 
 #[cfg(test)]
@@ -178,6 +190,16 @@ mod tests {
         assert_eq!(asks_of(&turn(PLAN)).as_deref(), Some("Approve plan version 2"));
         assert_eq!(title_of(&turn(RED)), "storefront main is red");
         assert_eq!(asks_of(&turn(RED)), None);
+    }
+
+    #[test]
+    fn a_main_says_its_state_and_a_main_not_read_is_a_plain_pill() {
+        let main = |wire: &str| -> OperatorMain { ipc::decode("a main", wire.as_bytes()).expect("a main") };
+        let red = main(r#"{"manifest_id":"s","repository":"storefront","state":"red","commit":"abc","since":"2026-11-11T11:24:00-05:00"}"#);
+        assert_eq!(main_said(&red, Some("11:24")), ("storefront main is red since 11:24".into(), Some(("circle-x", token::STATUS_COMPLETED_FAILED))));
+        assert_eq!(main_said(&main(r#"{"manifest_id":"a","repository":"armada","state":"running"}"#), None).1, Some(("circle-dot", token::STATUS_RUNNING)));
+        assert_eq!(main_said(&main(r#"{"manifest_id":"a","repository":"armada","state":"nothing_ran"}"#), None), ("Nothing ran on armada main".into(), None));
+        assert_eq!(main_said(&main(r#"{"manifest_id":"a","repository":"armada"}"#), None), ("armada main is not read yet".into(), None));
     }
 
     #[test]

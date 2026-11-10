@@ -10,7 +10,7 @@ const NOTE: &str = "File your note: the slot meter flickers when a Job ends";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
 pub static STEPS: [Step; 40] = [
-    step("Coming back at 13:05: the day, and the pills say what stands. storefront's main is red", Verb::Look, "status", "storefront main is red"),
+    step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
     step("The Operator's one line on what matters first, the thing it is about in its colour", Verb::Look, "status", TOP),
     step("On it says what the Operator is reading now", Verb::Look, "status", "On it"),
     step("One item is open: its kind, its Job, what it asks and My read. A plan takes Approve, or Send changes in its Job", Verb::Look, "button", "Send changes"),
@@ -46,8 +46,8 @@ pub static STEPS: [Step; 40] = [
     answer("The Operator switched off: nothing is queued, and the page says so with the switch", "off", "region", "The Operator is off"),
     step("What I handled is what it did while it was on", Verb::Look, "button", "What I handled"),
     step("Switch on is the setting Electron's Permissions tab saves, and the page reads on at once", Verb::Open("button", "Switch the Operator on"), "status", "On it"),
-    step("Tab from the page starts at the pills, then goes through the presses, the times, the tiles and the links", Verb::Key("tab"), "status", "storefront main is red"),
+    step("Tab from the page starts at the pills, then goes through the presses, the times, the tiles and the links", Verb::Key("tab"), "status", "storefront main is red since 11:24"),
     step("Your turn is back as Fleet keeps it", Verb::Look, "article", "Quick dispatch"),
     step("The keys: ↓ ↑ or j k move through Your turn; A Yes, H Always here, ⇧A Always, D No, C Send changes; 1–3 a Then", Verb::Look, "heading", "Your turn"),
-    step("L Later; / Ask; ⌥↑ ⌥↓ move the item; Tab moves through the page, Enter or Space presses what it is on; Esc leaves the chat or the sheet", Verb::Look, "heading", "Your turn"),
+    step("L Later; / Ask; ⌥↑ ⌥↓ move the item; Enter is Yes where the page has the keys; Tab moves through the page, and Enter or Space presses what it is on; Esc leaves the chat or the sheet", Verb::Look, "heading", "Your turn"),
 ];

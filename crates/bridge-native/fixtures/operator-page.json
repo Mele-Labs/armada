@@ -3,6 +3,11 @@
  "top": "Since you left, the red main's fix is up as #3414, waiting on ci. **Quick dispatch's plan** is still the one two Jobs wait on.",
  "looked_at": "2026-11-11T12:10:00-05:00",
  "on_it": { "reading": "Store reports its size, for its review", "since": "2026-11-11T13:02:00-05:00" },
+ "mains": [
+  { "manifest_id": "storefront", "repository": "storefront", "state": "red", "commit": "9c41e07d2b5a8f3e6d1c0b9a8e7f6d5c4b3a2f10", "since": "2026-11-11T11:24:00-05:00" },
+  { "manifest_id": "armada", "repository": "armada", "state": "green", "commit": "4dd23c54ac1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d" }
+ ],
+ "slots": { "used": 7, "total": 10 },
  "turn": [
   {
    "id": "turn:1",
@@ -89,12 +94,12 @@
  ],
  "digest": {
   "landed": [
-   { "session_id": "mock-05", "job": "Slot pool controls", "number": "3413", "title": "Slot meter shows free slots" },
-   { "session_id": "mock-06", "job": "Tail-first thread loading", "number": "3411", "title": "Tail-first thread loading" },
-   { "session_id": "mock-10", "job": "Sentence case labels", "number": "3409", "title": "Every label in Bridge and Pocket is sentence case" },
-   { "session_id": "mock-11", "job": "Walk window takes", "number": "3406", "title": "Walk window keeps each take" },
-   { "session_id": "mock-12", "job": "Store reports its size", "number": "3404", "title": "Store reports its size on the Settings page" },
-   { "session_id": "mock-13", "job": "Merge strip freshness", "number": "3401", "title": "Merge strip says how fresh each line is" }
+   { "session_id": "mock-05", "job": "Slot pool controls", "number": "3413", "title": "Slot meter shows free slots", "at": "2026-11-11T12:58:00-05:00" },
+   { "session_id": "mock-06", "job": "Tail-first thread loading", "number": "3411", "title": "Tail-first thread loading", "at": "2026-11-11T12:44:00-05:00" },
+   { "session_id": "mock-10", "job": "Sentence case labels", "number": "3409", "title": "Every label in Bridge and Pocket is sentence case", "at": "2026-11-11T12:18:00-05:00" },
+   { "session_id": "mock-11", "job": "Walk window takes", "number": "3406", "title": "Walk window keeps each take", "at": "2026-11-11T12:12:00-05:00" },
+   { "session_id": "mock-12", "job": "Store reports its size", "number": "3404", "title": "Store reports its size on the Settings page", "at": "2026-11-11T12:11:00-05:00" },
+   { "session_id": "mock-13", "job": "Merge strip freshness", "number": "3401", "title": "Merge strip says how fresh each line is", "at": "2026-11-11T12:10:00-05:00" }
   ],
   "handled": {
    "acts": [
