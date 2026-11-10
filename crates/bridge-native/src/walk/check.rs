@@ -24,7 +24,7 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>) -> Res
     let held: Rc<RefCell<Option<Entity<WalkWindow>>>> = Rc::default();
     let keep = held.clone();
     let handle = cx
-        .open_window(size(px(1100.), px(760.)), move |window, cx| {
+        .open_window(size(px(1100.), px(820.)), move |window, cx| {
             let walking = cx.new(|cx| WalkWindow::new(walk, None, takes, window, cx));
             *keep.borrow_mut() = Some(walking.clone());
             walking

@@ -21,7 +21,7 @@ use super::bar::{button, chord, icon_button, Weight};
 use super::capture::{element_at, region, ringed, Held};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use super::fleet::WalkFleet;
-use super::stage::{find, perform, Stage};
+use super::stage::{find, gone, perform, Stage};
 use super::Verb;
 use super::Walk;
 use crate::labels::{label_root, labelled, Drawn, LabelBook};
@@ -602,8 +602,8 @@ impl WalkWindow {
             } else {
                 let step = &self.walk.steps[self.at];
                 match (step.verb, find(step, window, cx)) {
-                    (Verb::Gone, Ok(_)) => Some(format!("the {} named \"{}\" is still drawn", step.target.role, step.target.name)),
-                    (Verb::Gone, Err(_)) => None,
+                    (Verb::Gone, _) if gone(step, window, cx) => None,
+                    (Verb::Gone, _) => Some(format!("the {} named \"{}\" is still drawn", step.target.role, step.target.name)),
                     (_, found) => found.err().map(|missed| missed.0),
                 }
             },

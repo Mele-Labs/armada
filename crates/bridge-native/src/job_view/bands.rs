@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
 use ipc::{
-    ActOnSessionMcp, CloseSession, DismissWait, DismissWaiting, HeldOpenBy, McpServerAct, MendSessionTools, PullRequestWait, SessionId,
+    ActOnSessionMcp, DismissWait, DismissWaiting, HeldOpenBy, McpServerAct, MendSessionTools, PullRequestWait, SessionId,
     StopWatch, ToolMissing, ToolsMissing, WatchList,
 };
 
@@ -423,22 +423,10 @@ impl JobView {
         }
     }
 
-    /// End the Job. The list of what it still holds in flight is the head's End job, which asks first.
+    /// End the Job through the head's End job, the one path that closes a Job: it lists what the Job still
+    /// holds in flight and asks first, and Fleet's refusal is read back under this card.
     fn end_job(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let body = encoded(&CloseSession { session_id: SessionId::carried(id.to_string()) });
-        let job = id.clone();
-        self.post_then(
-            "/sessions/close",
-            body,
-            move |this, outcome, cx| {
-                if let (Some(page), Some(why)) = (this.pages.get_mut(&job), outcome) {
-                    page.bands.said.insert(DONE.into(), why);
-                }
-                cx.notify();
-            },
-            window,
-            cx,
-        );
+        self.ask_end(id, window, cx);
     }
 
     /// Put the ending away: Fleet's `done` item goes too, and the caret goes to the box.
@@ -515,7 +503,7 @@ impl JobView {
                 Role::Button,
                 "Keep going",
             ));
-        let said = self.pages.get(id).and_then(|page| page.bands.said.get(DONE).cloned());
+        let said = self.pages.get(id).and_then(|page| page.bands.said.get(DONE).cloned()).or_else(|| self.head_said(id));
         let aim = DONE.to_string();
         let body = labelled(
             div()

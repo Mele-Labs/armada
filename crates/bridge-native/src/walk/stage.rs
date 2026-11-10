@@ -41,6 +41,22 @@ impl Stage {
     }
 }
 
+/// How many elements the step's target named when a `Gone` step pressed, so the step reads as met once fewer are
+/// drawn: a name two elements share, such as the head's Stop and the thread's, goes when the one pressed does.
+static GONE_FROM: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// How many elements the window last drew under the step's target.
+pub fn drawn_count(step: &Step, window: &Window, cx: &App) -> usize {
+    let Some(role) = role_named(step.target.role) else { return 0 };
+    cx.try_global::<LabelBook>()
+        .map_or(0, |book| book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == step.target.name).count())
+}
+
+/// Whether a `Gone` step's target is no longer drawn as often as it was when the step pressed it.
+pub fn gone(step: &Step, window: &Window, cx: &App) -> bool {
+    drawn_count(step, window, cx) < GONE_FROM.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// What a step could not do, in the words the check prints.
 #[derive(Debug)]
 pub struct Missed(pub String);
@@ -69,9 +85,20 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_keystroke(keystroke, cx);
             Ok(())
         }
-        Verb::Press | Verb::Gone => {
+        Verb::Press => {
             let at = find(step, window, cx)?.bounds.center();
             press(MouseButton::Left, at, window, cx);
+            Ok(())
+        }
+        Verb::Gone => {
+            // The first drawn, which is the head's where the thread draws a twin below it.
+            let role = role_named(step.target.role).ok_or_else(|| Missed(format!("no role named {}", step.target.role)))?;
+            let found = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().find(|drawn| drawn.role == role && drawn.name == step.target.name).cloned());
+            let Some(found) = found else { return find(step, window, cx).map(|_| ()) };
+            GONE_FROM.store(drawn_count(step, window, cx), std::sync::atomic::Ordering::Relaxed);
+            press(MouseButton::Left, found.bounds.center(), window, cx);
             Ok(())
         }
         Verb::RightPress(on) => {

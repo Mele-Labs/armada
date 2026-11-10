@@ -142,6 +142,15 @@ pub(super) fn check_look(state: SessionCheckState) -> (&'static str, Token, &'st
 }
 
 impl JobView {
+    /// Aa's Spacing: the gap under each row of the thread, the Show earlier row among them.
+    fn row_gap(&self, look: &Look) -> gpui::Pixels {
+        match self.composer.quick.thread().spacing {
+            Spacing::Compact => look.length(token::SPACE_4),
+            Spacing::Default => look.length(token::SPACE_6) + look.length(token::SPACE_2),
+            Spacing::Roomy => look.length(token::SPACE_8) + look.length(token::SPACE_2),
+        }
+    }
+
     /// One element of the shown Job's list: an item, or what stands after the items.
     pub(super) fn render_entry(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let nothing = || div().h(gpui::px(0.)).into_any_element();
@@ -165,11 +174,7 @@ impl JobView {
         let Some(drawn) = drawn else { return nothing() };
         // Aa's Spacing: the gap under each row, and the room a message takes above itself and above the row after it.
         let spacing = self.composer.quick.thread().spacing;
-        let gap = match spacing {
-            Spacing::Compact => look.length(token::SPACE_4),
-            Spacing::Default => look.length(token::SPACE_6) + look.length(token::SPACE_2),
-            Spacing::Roomy => look.length(token::SPACE_8) + look.length(token::SPACE_2),
-        };
+        let gap = self.row_gap(look);
         let room = match spacing {
             Spacing::Compact => look.length(token::SPACE_1),
             Spacing::Default => look.length(token::SPACE_2),
@@ -208,7 +213,7 @@ impl JobView {
             .w_full()
             .flex()
             .justify_center()
-            .pb(look.length(token::SPACE_6))
+            .pb(self.row_gap(look))
             .child(labelled(
                 super::acts::button(look, "show-earlier", "Show earlier", super::acts::Tone::Ghost, false, None, !reading)
                     .tooltip(tip("Show earlier"))

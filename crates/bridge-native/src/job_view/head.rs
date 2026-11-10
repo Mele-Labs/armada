@@ -361,6 +361,11 @@ impl JobView {
             .unwrap_or_default()
     }
 
+    /// Fleet's refusal of the last act asked for this Job from its head.
+    pub(super) fn head_said(&self, id: &str) -> Option<SharedString> {
+        self.head.said.get(id).cloned()
+    }
+
     /// An act Fleet is asked for. `clear` puts the overlay field back, on a refusal with Fleet's
     /// reason, and a beat after an answer once the record has had time to move.
     pub(super) fn ask_act(&mut self, id: SharedString, path: String, body: Result<String, ipc::Unencodable>, clear: fn(&mut Overlay), window: &mut Window, cx: &mut Context<Self>) {
@@ -642,7 +647,7 @@ impl JobView {
     }
 
     /// End job: at once if the Job holds nothing in flight, else after the list says what ending loses.
-    fn ask_end(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn ask_end(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let in_flight: Vec<String> = self
             .record(id, cx)
             .map(|job| job.in_flight.iter().map(|one| if one.state.is_empty() { one.label.clone() } else { format!("{}: {}", one.label, one.state) }).collect())
