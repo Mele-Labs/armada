@@ -109,6 +109,8 @@ struct Page {
     dock: dock::DockState,
     /// The cards here that wait, and what the four thread keys do to each.
     keys: Rc<keys::Cards>,
+    /// Items that came in after the first draw, at most four at once: they fade and slide in (A1.8).
+    arrived: std::ops::Range<usize>,
 }
 
 impl Page {
@@ -116,7 +118,23 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), keys: Rc::default() }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), keys: Rc::default(), arrived: 0..0 }
+    }
+}
+
+/// The thread's head and foot fade into the panel: 32px at the top, 16px at the bottom (A1.3). The words
+/// are not masked as Electron does; a gradient of the panel's own colour is laid over them, which reads
+/// the same on a flat panel.
+fn fade(look: &Look, top: bool) -> gpui::Div {
+    let panel = look.color(token::BG_RAISED);
+    let clear = panel.opacity(0.);
+    let edge = if top { gpui::linear_color_stop(panel, 0.) } else { gpui::linear_color_stop(clear, 0.) };
+    let far = if top { gpui::linear_color_stop(clear, 1.) } else { gpui::linear_color_stop(panel, 1.) };
+    let band = div().absolute().left_0().right_0().bg(gpui::linear_gradient(180., edge, far));
+    if top {
+        band.top_0().h(look.length(token::SPACE_8))
+    } else {
+        band.bottom_0().h(look.length(token::SPACE_4))
     }
 }
 
@@ -472,6 +490,8 @@ impl JobView {
             page.list.scroll_to(ListOffset { item_ix: (top.item_ix + added + lead).saturating_sub(page.lead), offset_in_item: top.offset_in_item });
         }
         let first = page.version.is_none();
+        let grown = items.saturating_sub(page.items);
+        let arrived = (!first && added == 0 && (1..=4).contains(&grown)).then(|| page.items..items);
         page.items = items;
         page.lead = lead;
         page.count = total;
@@ -485,6 +505,23 @@ impl JobView {
                     weak.update(cx, |this, cx| this.want_earlier(&job, cx)).ok();
                 }
             });
+        }
+        if let Some(arrived) = arrived {
+            if let Some(page) = self.pages.get_mut(id) {
+                page.arrived = arrived;
+            }
+            // The animation is over after its own time; the rows are plain again.
+            let (job, over) = (id.clone(), cx.look().duration(token::DURATION_ENTER));
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(over).await;
+                this.update(cx, |this, _| {
+                    if let Some(page) = this.pages.get_mut(&job) {
+                        page.arrived = 0..0;
+                    }
+                })
+                .ok();
+            })
+            .detach();
         }
         self.arrive(id, cx);
     }
@@ -987,7 +1024,9 @@ impl Render for JobView {
                     .size_full()
                     .pt(look.length(token::SPACE_4))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-                    .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full()),
+                    .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
+                    .child(fade(&look, true))
+                    .child(fade(&look, false)),
                 Role::Region,
                 "Thread",
             )

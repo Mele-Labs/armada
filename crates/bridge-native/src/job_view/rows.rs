@@ -162,13 +162,25 @@ impl JobView {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
         let Some(drawn) = drawn else { return nothing() };
-        div()
+        let row = div()
+            .id(SharedString::from(format!("entry:{id}:{ix}")))
             .w_full()
             .flex()
             .justify_center()
             .px(look.length(token::SPACE_6))
             .pb(look.length(token::SPACE_6) + look.length(token::SPACE_2))
-            .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * COLUMN).child(drawn))
+            .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * COLUMN).child(drawn));
+        if !page.arrived.contains(&ix) {
+            return row.into_any_element();
+        }
+        // A row that came in after the first draw rises from `space-2` below, from nothing (A1.8).
+        let rise = look.length(token::SPACE_2);
+        row.relative()
+            .with_animation(
+                SharedString::from(format!("arrive:{id}:{ix}")),
+                Animation::new(look.duration(token::DURATION_ENTER)).with_easing(gpui::ease_out_quint()),
+                move |row, delta| row.opacity(delta).top(rise * (1. - delta)),
+            )
             .into_any_element()
     }
 
