@@ -27,7 +27,7 @@ pub enum Entry {
     Label(&'static str),
     /// A line that cannot be picked now, with the reason in its tooltip.
     Off { label: SharedString, hint: &'static str },
-    /// A row with the parts the title bar's picker and menu give it: a glyph, a detail, a key, a gear.
+    /// A row with the parts the title bar's picker and menu give it: a glyph, a detail, a key.
     Row(Row),
     /// A filter field. What a person types narrows the entries after it, to the next rule when
     /// `to_rule`, else to the end, as Electron's `filterEntries` does.
@@ -48,33 +48,17 @@ pub struct Row {
     pub ticked: Option<bool>,
     /// Under a heading row: one glyph's width in.
     pub member: bool,
-    /// Drawn in the accent colour, as the acts below the picker's rule are.
-    pub accent: bool,
     /// A dot that says something wants the person, in the awaiting colour.
     pub attention: bool,
     /// The reason the row cannot be picked, said in its tooltip; `None` while it can.
     pub off: Option<SharedString>,
-    /// A gear at the row's end that opens what the row names, saying `Open <name>`.
-    pub gear: Option<SharedString>,
     /// Picking it flips its tick and leaves the menu open, as Electron's View group does.
     pub keep: bool,
-    /// A glyph button at the row's end that opens a layer about the row (the picker's place glyph); → on the row does the same.
-    pub trail: Option<Trail>,
-}
-
-/// The mark a row ends in, and what it says.
-#[derive(Clone)]
-pub struct Trail {
-    pub icon: &'static str,
-    /// The button's name.
-    pub said: SharedString,
-    /// Its tooltip.
-    pub tip: SharedString,
 }
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, accent: false, attention: false, off: None, gear: None, keep: false, trail: None }
+        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -103,11 +87,6 @@ impl Row {
         self
     }
 
-    pub fn accent(mut self) -> Row {
-        self.accent = true;
-        self
-    }
-
     pub fn attention(mut self) -> Row {
         self.attention = true;
         self
@@ -126,16 +105,6 @@ impl Row {
 
     pub fn keeps_open(mut self) -> Row {
         self.keep = true;
-        self
-    }
-
-    pub fn trail(mut self, icon: &'static str, said: impl Into<SharedString>, tip: impl Into<SharedString>) -> Row {
-        self.trail = Some(Trail { icon, said: said.into(), tip: tip.into() });
-        self
-    }
-
-    pub fn gear(mut self, said: impl Into<SharedString>) -> Row {
-        self.gear = Some(said.into());
         self
     }
 }
@@ -160,9 +129,6 @@ pub enum Picked {
     Entry { id: &'static str, keep: bool },
 }
 
-/// A gear or trail at a row's end was pressed, or → on the row: open what the row names, and leave the menu.
-pub struct Gear(pub &'static str);
-
 pub struct Dropdown {
     pub entries: Vec<Entry>,
     /// Where the menu's corner sits, in the window.
@@ -179,7 +145,6 @@ pub struct Dropdown {
 }
 
 impl EventEmitter<Picked> for Dropdown {}
-impl EventEmitter<Gear> for Dropdown {}
 impl EventEmitter<DismissEvent> for Dropdown {}
 
 impl Focusable for Dropdown {
@@ -360,16 +325,6 @@ impl Dropdown {
                 None => return,
             },
             "escape" => cx.emit(DismissEvent),
-            "right" => match self.cursor.and_then(|at| match self.entries.get(at) {
-                Some(Entry::Row(row)) if row.gear.is_some() || row.trail.is_some() => Some(row.id),
-                _ => None,
-            }) {
-                Some(id) => {
-                    cx.emit(Gear(id));
-                    cx.emit(DismissEvent);
-                }
-                None => return,
-            },
             _ => return,
         }
         cx.stop_propagation();
@@ -474,8 +429,6 @@ impl Dropdown {
             Entry::Row(row) => {
                 let ink = if row.off.is_some() {
                     look.color(token::FG_SUBTLE)
-                } else if row.accent {
-                    look.color(token::ACCENT)
                 } else if row.ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
                 } else {
@@ -484,56 +437,6 @@ impl Dropdown {
                 let role = if row.ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
                 let (id, label) = (row.id, row.label.clone());
                 let live = row.off.is_none();
-                let gear = row.gear.clone().map(|said| {
-                    let tip = said.clone();
-                    labelled(
-                        div()
-                            .id(SharedString::from(format!("gear-{id}")))
-                            .flex_none()
-                            .size(glyph)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .cursor_pointer()
-                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx))
-                            .child(svg().path(icon_path("settings")).size(glyph).text_color(look.color(token::FG_MUTED)))
-                            .on_click(cx.listener(move |_, _, _, cx| {
-                                cx.stop_propagation();
-                                cx.emit(Gear(id));
-                                cx.emit(DismissEvent);
-                            })),
-                        Role::Button,
-                        said,
-                    )
-                });
-                let trail = row.trail.clone().map(|trail| {
-                    let tip = trail.tip.clone();
-                    labelled(
-                        div()
-                            .id(SharedString::from(format!("trail-{id}")))
-                            .flex_none()
-                            .size(look.length(token::SPACE_6))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(look.length(token::RADIUS_MD))
-                            .cursor_pointer()
-                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx))
-                            .child(svg().path(icon_path(trail.icon)).size(look.length(token::SPACE_3)).text_color(look.color(token::STATUS_COMPLETED_SUCCESS)))
-                            .on_mouse_down(gpui::MouseButton::Left, |_, window, cx| {
-                                cx.stop_propagation();
-                                window.prevent_default();
-                            })
-                            .on_click(cx.listener(move |_, _, _, cx| {
-                                cx.stop_propagation();
-                                cx.emit(Gear(id));
-                                cx.emit(DismissEvent);
-                            })),
-                        Role::Button,
-                        trail.said,
-                    )
-                });
                 labelled(
                     div()
                         .id(id)
@@ -572,8 +475,6 @@ impl Dropdown {
                                 .text_color(look.color(token::FG_SUBTLE))
                                 .child(key)
                         }))
-                        .children(trail)
-                        .children(gear)
                         .when(has_checks, |line| {
                             line.child(div().flex_none().size(glyph).when(row.ticked == Some(true), |mark| {
                                 mark.child(svg().path(icon_path("check")).size(glyph).text_color(look.color(token::ACCENT)))

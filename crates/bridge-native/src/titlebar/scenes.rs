@@ -8,7 +8,7 @@ use gpui::{App, Global, SharedString};
 use ipc::{FleetBuildReport, ModelDownshift};
 
 use super::face::{
-    connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Repository, Restarting, RunsPlace, RunsPlaceKind, Usage, Workspace,
+    connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Repository, Restarting, RunsPlace, RunsPlaceKind, Usage, Project, Member,
 };
 use super::{live, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
@@ -164,11 +164,25 @@ pub fn rest() -> Face {
             Repository { name: "sample-api".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Synced, detail: Some("iCloud Drive".into()) }) },
             Repository { name: "sample-docs".into(), not_set_up: true, kept: None },
         ],
-        chosen: Some(0),
-        workspaces: vec![Workspace { name: "Storefront".into(), members: vec![1, 2] }],
-        scoped: None,
+        chosen: None,
+        projects: vec![
+            Project {
+                name: "Armada".into(),
+                members: vec![Member { repository: 0, folder: None }],
+                tracker: Some("Beads".into()),
+                kept: Some(RunsPlace { kind: RunsPlaceKind::Repository, detail: None }),
+                look: Some("Yours".into()),
+            },
+            Project {
+                name: "Storefront".into(),
+                members: vec![Member { repository: 1, folder: Some("web/checkout".into()) }, Member { repository: 2, folder: Some("services/pricing".into()) }],
+                tracker: Some("Linear, STORE".into()),
+                kept: Some(RunsPlace { kind: RunsPlaceKind::Mac, detail: None }),
+                look: Some("Yours".into()),
+            },
+        ],
+        scoped: Some(0),
         signed_in: true,
-        manifest: true,
         downshift: None,
         places: vec![Place { id: "jobs", label: "Jobs", glyph: "box", shown: true, hideable: true }],
         here: Some("jobs"),

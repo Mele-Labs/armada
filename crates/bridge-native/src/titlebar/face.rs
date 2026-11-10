@@ -523,11 +523,23 @@ impl RunsPlace {
     }
 }
 
-/// A Workspace the picker lists as a heading, with the repositories under it by place in [`Face::repositories`].
+/// A project the switcher lists: whole repositories, or folders of one, and what it holds of its own.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Workspace {
+pub struct Project {
     pub name: SharedString,
-    pub members: Vec<usize>,
+    pub members: Vec<Member>,
+    /// The tracker and its key, as `Linear, STORE`.
+    pub tracker: Option<SharedString>,
+    pub kept: Option<RunsPlace>,
+    /// The look it wears: `Yours` where it keeps the person's own.
+    pub look: Option<SharedString>,
+}
+
+/// A repository of a project by its place in [`Face::repositories`], or a folder of it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Member {
+    pub repository: usize,
+    pub folder: Option<SharedString>,
 }
 
 /// One place in the bar's centre (`DK/TabBar.tsx`, `DECK_TABS`): a screen the window can be in.
@@ -565,13 +577,11 @@ pub struct Face {
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
     pub chosen: Option<usize>,
-    /// The Workspaces, each a heading over its repositories; the one the window is scoped to, if any.
-    pub workspaces: Vec<Workspace>,
+    /// The projects, and the one the window is scoped to, if any.
+    pub projects: Vec<Project>,
     pub scoped: Option<usize>,
     /// Whether a profile is the active one: the menu's account entry says Account, else Sign in.
     pub signed_in: bool,
-    /// Whether a repository is read, which the Manifest button needs.
-    pub manifest: bool,
     /// Where the step down stands, with the window's reset said as a stamp. The weekly limit's card
     /// and the notification both read it; absent is none, or settled.
     pub downshift: Option<(ModelDownshift, SharedString)>,
@@ -592,10 +602,9 @@ impl Face {
             fleet: FleetFace { connection: Connection::Reading, power: Power::Standby, restarting: Restarting::Idle, doctor: None },
             repositories: Vec::new(),
             chosen: None,
-            workspaces: Vec::new(),
+            projects: Vec::new(),
             scoped: None,
             signed_in: false,
-            manifest: false,
             downshift: None,
             places: Vec::new(),
             here: None,
@@ -615,15 +624,45 @@ impl Face {
             && !(self.drawn_places().count() == 1 && self.drawn_places().any(|place| place.id == id))
     }
 
-    /// The picker's trigger: the repository chosen, else `All repositories`, or the reason none is listed.
-    pub fn repository_said(&self) -> SharedString {
-        if let Some(one) = self.scoped.and_then(|at| self.workspaces.get(at)) {
-            return one.name.clone();
+    /// The switcher's trigger: the project and, muted, the repositories it draws on; else the
+    /// repository chosen, else `All`, or the reason none is listed.
+    pub fn chosen_said(&self) -> (SharedString, Option<SharedString>) {
+        if let Some(one) = self.scoped.and_then(|at| self.projects.get(at)) {
+            return (one.name.clone(), self.members_said(one));
         }
         match self.chosen.and_then(|at| self.repositories.get(at)) {
-            Some(one) => one.name.clone(),
-            None if self.repositories.is_empty() => "No repository read yet".into(),
-            None => "All repositories".into(),
+            Some(one) => (one.name.clone(), None),
+            None if self.repositories.is_empty() => ("No repository read yet".into(), None),
+            None => ("All".into(), None),
+        }
+    }
+
+    /// The repositories a project draws on, each once, in the order its members name them.
+    pub fn members_said(&self, project: &Project) -> Option<SharedString> {
+        let mut names: Vec<&str> = Vec::new();
+        for member in &project.members {
+            if let Some(one) = self.repositories.get(member.repository) {
+                if !names.contains(&one.name.as_ref()) {
+                    names.push(one.name.as_ref());
+                }
+            }
+        }
+        (!names.is_empty()).then(|| names.join(", ").into())
+    }
+
+    /// The repositories in no project, by place.
+    pub fn lone(&self) -> Vec<usize> {
+        (0..self.repositories.len()).filter(|&at| !self.projects.iter().any(|one| one.members.iter().any(|member| member.repository == at))).collect()
+    }
+
+    /// What the Settings button beside the trigger names: the project, else the repository, else nothing.
+    pub fn settings_said(&self) -> SharedString {
+        if let Some(one) = self.scoped.and_then(|at| self.projects.get(at)) {
+            return format!("Settings for {}", one.name).into();
+        }
+        match self.chosen.and_then(|at| self.repositories.get(at)) {
+            Some(one) => format!("Settings for {}", one.name).into(),
+            None => "Settings".into(),
         }
     }
 }

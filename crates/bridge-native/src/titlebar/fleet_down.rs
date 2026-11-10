@@ -91,6 +91,13 @@ impl TitleBar {
                 (self.at.meter.get()?, self.usage_card(limits, look, cx))
             }
             Popup::Fleet => (self.at.fleet.get()?, self.fleet_panel(look, cx)),
+            // The switcher hangs from its trigger's left edge, where the bar starts.
+            Popup::Projects => {
+                let from = self.at.repository.get()?;
+                let at = point(from.origin.x, from.origin.y + from.size.height + look.length(token::SPACE_1));
+                let body = self.switcher_panel(look, cx);
+                return Some(deferred(anchored().position(at).anchor(Anchor::TopLeft).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(0).into_any_element());
+            }
         };
         let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
         Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(0).into_any_element())

@@ -1,4 +1,4 @@
-//! The title bar and what stands under it: the repository chip, the Manifest, search, the
+//! The title bar and what stands under it: the project switcher and its Settings, search, the
 //! Operator, the plan rings with the step-down offer, the Fleet dot with its panel and build
 //! switcher, the Keep and Revert bar and the Fleet notice (`TitleBar.tsx`, `FleetBuild.tsx`,
 //! `FleetNotice.tsx`, `trying-bar.tsx`).
@@ -14,6 +14,7 @@
 mod face;
 mod fleet_down;
 pub mod parts;
+mod projects;
 pub mod scenes;
 mod swap_hold;
 mod switcher;
@@ -33,7 +34,7 @@ use ipc::{BuildSource, ModelDownshift};
 pub use face::{Connection, Face, Remedy, Restarting};
 
 use crate::assets::MARK;
-use crate::dropdown::{Dropdown, Entry, Gear, Picked, Row};
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
 use crate::generated::actions::act;
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -50,16 +51,14 @@ pub enum Asked {
     Settings,
     Account,
     Doctor,
-    Manifest,
     Repository(Option<usize>),
-    /// Scope the window to a Workspace, or (from its gear) open its page.
-    Workspace(usize),
-    OpenWorkspace(usize),
-    /// Open the layer of how a repository runs, from the place glyph on its row in the picker (or → on it).
-    RepositoryRuns(usize),
-    AddRepository,
+    /// Scope the window to a project.
+    Project(usize),
+    /// Settings, scoped to a project or to a repository in none: the switcher's Settings, and ⌘, in it.
+    ProjectSettings(usize),
+    RepositorySettings(usize),
+    ProjectMembers(usize),
     NewProject,
-    NewWorkspace,
     ChangeBuild { build: BuildSource, adopt: bool },
     Revert,
     Keep,
@@ -97,6 +96,8 @@ enum Popup {
     /// The plan card: hover opens it, a press pins it.
     Usage { pinned: bool },
     Fleet,
+    /// The project switcher, under its trigger.
+    Projects,
 }
 
 /// The act a Drones dialog holds until the person says yes.
@@ -114,7 +115,6 @@ enum Dialog {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum MenuKind {
-    Repository,
     Build,
     Account,
     /// The places strip's: Hide, then View.
@@ -128,23 +128,14 @@ struct Menu {
     kind: MenuKind,
     _picked: Subscription,
     _dismissed: Subscription,
-    _gear: Subscription,
 }
 
 /// The row is narrow below this width, as Electron's container query is (`TitleBar.css` 746). The
 /// stylesheet states it off-contract because a container condition cannot read a token.
 const NARROW_BELOW: f32 = 900.;
 
-/// The place in the face's repositories a picker row id names: `in-<workspace>-<place>`, or one of [`REPO`].
-fn repository_at(id: &str) -> Option<usize> {
-    match id.strip_prefix("in-") {
-        Some(rest) => rest.split('-').nth(1)?.parse::<usize>().ok()?.checked_sub(1),
-        None => REPO.iter().position(|one| *one == id),
-    }
-}
-
 /// An id a menu row answers to, kept for the life of the app: a row's id is a `&'static str` and the
-/// picker's ids name a Workspace and a repository by place. Each distinct id is made once.
+/// picker's ids name a project and a repository by place. Each distinct id is made once.
 pub fn id_of(text: String) -> &'static str {
     use std::collections::HashSet;
     use std::sync::{Mutex, OnceLock};
@@ -192,6 +183,7 @@ pub struct TitleBar {
     keys_were: Option<FocusHandle>,
     popup_focus: FocusHandle,
     dialog_focus: FocusHandle,
+    switcher: projects::Switcher,
     /// The keys of each place of the strip, kept by its id.
     place_focus: Vec<(&'static str, FocusHandle)>,
     /// The plan meter's keys: they open its card as a hover does.
@@ -278,6 +270,7 @@ impl TitleBar {
             keys_were: None,
             popup_focus: cx.focus_handle(),
             dialog_focus: cx.focus_handle(),
+            switcher: projects::Switcher::default(),
             place_focus: Vec::new(),
             meter_focus,
             meter_by_keys: false,
@@ -325,13 +318,11 @@ impl TitleBar {
                 face::Repository { name: name.into(), not_set_up: one.manifest.is_none(), kept }
             })
             .collect();
-        let manifest = listed.iter().any(|one| !one.not_set_up);
-        if listed == self.face.repositories && manifest == self.face.manifest {
+        if listed == self.face.repositories {
             return;
         }
         self.face.chosen = self.face.chosen.filter(|&at| at < listed.len());
         self.face.repositories = listed;
-        self.face.manifest = manifest;
         cx.notify();
     }
 
@@ -533,45 +524,33 @@ impl TitleBar {
             }
             cx.notify();
         });
-        let gear = cx.subscribe_in(&dropdown, window, move |this, _, opened: &Gear, window, cx| {
-            this.menu = None;
-            if let Some(at) = opened.0.strip_prefix("workspace-").and_then(|n| n.parse::<usize>().ok()) {
-                this.leave_with(Asked::OpenWorkspace(at.saturating_sub(1)), window, cx);
-            } else if let Some(at) = repository_at(opened.0) {
-                this.leave_with(Asked::RepositoryRuns(at), window, cx);
-            }
-        });
         let keys = dropdown.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
-        self.menu = Some(Menu { dropdown, kind, _picked: picked, _dismissed: dismissed, _gear: gear });
+        self.menu = Some(Menu { dropdown, kind, _picked: picked, _dismissed: dismissed });
         cx.notify();
     }
 
     fn picked(&mut self, kind: MenuKind, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         match (kind, id) {
-            (MenuKind::Repository | MenuKind::Account, "all") => self.choose_repository(None, window, cx),
-            (MenuKind::Repository, "add-repository") => self.leave_with(Asked::AddRepository, window, cx),
-            (MenuKind::Repository, "new-project") => self.leave_with(Asked::NewProject, window, cx),
-            (MenuKind::Repository, "new-workspace") => self.leave_with(Asked::NewWorkspace, window, cx),
-            (MenuKind::Repository | MenuKind::Account, id) if id.starts_with("workspace-") => {
-                let at = id["workspace-".len()..].parse::<usize>().unwrap_or(1).saturating_sub(1);
+            (MenuKind::Account, "all") => self.choose_repository(None, window, cx),
+            (MenuKind::Account, id) if id.starts_with("project-") => {
+                let at = id["project-".len()..].parse::<usize>().unwrap_or(1).saturating_sub(1);
                 self.give_keys_back(window, cx);
                 self.answer(|face| {
                     face.scoped = Some(at);
                     face.chosen = None;
                 }, cx);
-                cx.emit(Asked::Workspace(at));
+                cx.emit(Asked::Project(at));
             }
-            (MenuKind::Repository | MenuKind::Account, id) if id.starts_with("in-") => {
-                let place = id["in-".len()..].split('-').nth(1).and_then(|n| n.parse::<usize>().ok()).unwrap_or(1).saturating_sub(1);
-                self.choose_repository(Some(place), window, cx);
-            }
-            (MenuKind::Repository | MenuKind::Account, id) if REPO.contains(&id) => {
+            (MenuKind::Account, id) if REPO.contains(&id) => {
                 if let Some(at) = REPO.iter().position(|one| *one == id) {
                     self.choose_repository(Some(at), window, cx);
                 }
             }
-            (MenuKind::Account, "manifest") => self.leave_with(Asked::Manifest, window, cx),
+            (MenuKind::Account, "scoped-settings") => {
+                let asked = self.settings_here();
+                self.leave_with(asked, window, cx);
+            }
             (MenuKind::Account, "search") => self.leave_with(Asked::Palette, window, cx),
             (MenuKind::Account, "dispatch") => self.leave_with(Asked::Dispatch, window, cx),
             (MenuKind::Account, "operator") => self.leave_with(Asked::Operator, window, cx),
@@ -772,14 +751,14 @@ impl TitleBar {
         look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour)
     }
 
-    /// The first region: the traffic-light gutter, Armada's mark, the repository and the Manifest.
+    /// The first region: the traffic-light gutter, Armada's mark, the project switcher and its Settings.
     fn start(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let mark = look.length(token::SPACE_4) + look.length(token::SPACE_1);
         let ring = Self::focus_ring(look);
         let glyph_side = look.length(token::SPACE_4);
         let chip_at = Rc::clone(&self.at.repository);
-        let opened = matches!(self.menu, Some(Menu { kind: MenuKind::Repository, .. }));
-        let name = self.face.repository_said();
+        let opened = self.popup == Some(Popup::Projects);
+        let (name, members) = self.face.chosen_said();
         let chip = labelled(
             no_drag(div()
                 .id("repository")
@@ -796,7 +775,7 @@ impl TitleBar {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(if opened { token::ACCENT } else { token::BORDER_DEFAULT }))
                 .bg(look.color(if opened { token::ACCENT_MUTED } else { token::BG_SUNKEN }))
-                .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
+                .when(!opened, |chip| chip.hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG))))
                 .focus_visible(move |style| style.border_color(ring))
                 .focusable()
                 .tab_stop(true)
@@ -805,7 +784,7 @@ impl TitleBar {
                 .text_size(look.length(token::TEXT_SM))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(canvas(move |bounds, _, _| chip_at.set(Some(bounds)), |_, _, _, _| {}).absolute().size_full())
+                .child(canvas(move |bounds, _, _| chip_at.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
                 .child(
                     div()
                         .absolute()
@@ -814,39 +793,51 @@ impl TitleBar {
                         .bottom_0()
                         .flex()
                         .items_center()
-                        .child(glyph("folder-git-2", glyph_side, look.color(token::ACCENT))),
+                        .child(glyph("layers", glyph_side, look.color(token::ACCENT))),
                 )
-                .child(div().min_w_0().truncate().child(name))
+                .child(div().flex_none().child(name))
+                .children(members.map(|said| {
+                    div().min_w_0().truncate().ml(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_BODY))).text_color(look.color(token::FG_MUTED)).child(said)
+                }))
+                .child(div().flex_none().ml(look.length(token::SPACE_2)).child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_MUTED))))
                 .on_click(cx.listener(|this, _, window, cx| this.repository_pressed(window, cx)))),
             Role::Button,
-            "Repository",
+            "Project",
         );
-        let manifest = {
-            let enabled = self.face.manifest;
-            let body = div()
-                .id("manifest")
-                .flex_none()
-                .size(look.length(token::H_CONTROL_LG))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(look.length(token::RADIUS_LG))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_SUNKEN))
-                .child(glyph("file-cog", glyph_side, look.color(if enabled { token::FG_MUTED } else { token::FG_SUBTLE })))
-                .tooltip(tip("Open the Manifest"));
-            let body = if enabled {
-                body.cursor_pointer()
-                    .focusable()
-                    .tab_stop(true)
-                    .focus_visible(move |style| style.border_color(ring))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
-                    .on_click(cx.listener(|_, _, _, cx| cx.emit(Asked::Manifest)))
-            } else {
-                body
-            };
-            labelled(no_drag(body), Role::Button, "Open the Manifest")
+        let settings = {
+            let said = self.face.settings_said();
+            labelled(
+                no_drag(
+                    div()
+                        .id("scoped-settings")
+                        .flex_none()
+                        .h(look.length(token::H_CONTROL_LG))
+                        .px(look.length(token::SPACE_3))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_LG))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_DEFAULT))
+                        .bg(look.color(token::BG_SUNKEN))
+                        .font_family(sans(look))
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .cursor_pointer()
+                        .focusable()
+                        .tab_stop(true)
+                        .focus_visible(move |style| style.border_color(ring))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)))
+                        .child(glyph("sliders-horizontal", glyph_side, look.color(token::FG_MUTED)))
+                        .child(div().whitespace_nowrap().child(said.clone()))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            let asked = this.settings_here();
+                            cx.emit(asked);
+                        })),
+                ),
+                Role::Button,
+                said,
+            )
         };
         div()
             // `minmax(max-content, 1fr)`: the region keeps what it holds and takes a share of what is left.
@@ -870,78 +861,32 @@ impl TitleBar {
                     .gap(look.length(token::SPACE_3))
                     .child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h(look.length(token::SPACE_4)).bg(look.color(token::BORDER_DEFAULT)))
                     .child(chip)
-                    .child(manifest),
+                    .child(settings),
             )
     }
 
     fn repository_pressed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.menu.as_ref().is_some_and(|menu| menu.kind == MenuKind::Repository) {
-            self.menu = None;
-            self.give_keys_back(window, cx);
-            cx.notify();
+        if self.popup == Some(Popup::Projects) {
+            self.shut(window, cx);
             return;
         }
-        let Some(from) = self.at.repository.get() else { return };
-        let entries = self.repository_entries(false);
-        self.open_menu(MenuKind::Repository, entries, "Repository", from, false, window, cx);
+        self.open_switcher(window, cx);
     }
 
-    /// The picker's rows as Electron lists them: All, each Workspace as a heading over its
-    /// repositories, the rest, those not set up with their detail, then the acts below a rule.
-    /// `narrow` is the same list inside the menu, with no acts and the Manifest at its end.
-    fn repository_entries(&self, narrow: bool) -> Vec<Entry> {
+    /// The switcher's rows inside the menu of a narrow window: All, each project over its
+    /// repositories, then those in no project, those not set up with their detail.
+    fn repository_entries(&self) -> Vec<Entry> {
         let face = &self.face;
-        let all_ticked = face.chosen.is_none() && face.scoped.is_none();
-        let mut entries = vec![Entry::Search { label: "Find a repository", to_rule: narrow }];
-        entries.push(Entry::Row(Row::new("all", "All repositories").icon("layers").ticked(all_ticked)));
-        let mut in_one = vec![false; face.repositories.len()];
-        // The place glyph at a repository row's end, in the wide picker only: where its Armada configuration is kept.
-        let trailed = |row: Row, at: usize| match (&face.repositories[at].kept, narrow) {
-            (Some(kept), false) => {
-                let name = &face.repositories[at].name;
-                row.trail(kept.glyph(), format!("Armada configuration for {name}"), format!("Armada configuration kept {} (→)", kept.phrase()))
-            }
-            _ => row,
-        };
-        let set_up = face.repositories.iter().any(|one| !one.not_set_up);
-        if set_up {
-            entries.push(Entry::Rule);
+        let mut entries = vec![Entry::Search { label: "Find a project", to_rule: true }];
+        entries.push(Entry::Row(Row::new("all", "All").icon("globe").ticked(face.chosen.is_none() && face.scoped.is_none())));
+        for (p, project) in face.projects.iter().enumerate() {
+            entries.push(Entry::Row(Row::new(id_of(format!("project-{}", p + 1)), project.name.clone()).icon("layers").ticked(face.scoped == Some(p))));
         }
-        for (w, workspace) in face.workspaces.iter().enumerate() {
-            let held: Vec<usize> = workspace.members.iter().copied().filter(|&at| face.repositories.get(at).is_some_and(|one| !one.not_set_up)).collect();
-            if held.is_empty() {
-                continue;
-            }
-            let heading = Row::new(id_of(format!("workspace-{}", w + 1)), workspace.name.clone()).icon("layers").ticked(face.scoped == Some(w));
-            entries.push(Entry::Row(if narrow { heading } else { heading.gear(format!("Open {}", workspace.name)) }));
-            for at in held {
-                in_one[at] = true;
-                entries.push(Entry::Row(trailed(
-                    Row::new(id_of(format!("in-{}-{}", w + 1, at + 1)), face.repositories[at].name.clone())
-                        .icon("folder-git-2")
-                        .member()
-                        .ticked(face.chosen == Some(at) && face.scoped.is_none()),
-                    at,
-                )));
-            }
+        for at in face.lone().into_iter().take(REPO.len()) {
+            let one = &face.repositories[at];
+            let row = Row::new(REPO[at], one.name.clone()).icon("git-branch").member().ticked(face.chosen == Some(at) && face.scoped.is_none());
+            entries.push(Entry::Row(if one.not_set_up { row.detail("Not set up") } else { row }));
         }
-        for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
-            if !one.not_set_up && !in_one[at] {
-                entries.push(Entry::Row(trailed(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").ticked(face.chosen == Some(at) && face.scoped.is_none()), at)));
-            }
-        }
-        for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
-            if one.not_set_up {
-                entries.push(Entry::Row(trailed(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").detail("Not set up").ticked(face.chosen == Some(at) && face.scoped.is_none()), at)));
-            }
-        }
-        if narrow {
-            return entries;
-        }
-        entries.push(Entry::Rule);
-        entries.push(Entry::Row(Row::new("new-project", "New project").icon("folder-plus").accent()));
-        entries.push(Entry::Row(Row::new("add-repository", "Add a repository").icon("plus").accent()));
-        entries.push(Entry::Row(Row::new("new-workspace", "New Workspace").icon("plus").accent()));
         entries
     }
 
@@ -958,9 +903,9 @@ impl TitleBar {
         ];
         if narrow {
             entries.push(Entry::Rule);
-            entries.extend(self.repository_entries(true));
+            entries.extend(self.repository_entries());
             entries.push(Entry::Rule);
-            entries.push(Entry::Row(Row::new("manifest", "Open the Manifest").icon("file-cog").off_when(!self.face.manifest, "No Manifest")));
+            entries.push(Entry::Row(Row::new("scoped-settings", self.face.settings_said()).icon("sliders-horizontal")));
             let key = |id: &str| act(id).map(|row| row.shortcut).unwrap_or_default();
             entries.push(Entry::Row(Row::new("search", "Search").icon("search").key(key("command_palette"))));
             entries.push(Entry::Row(Row::new("dispatch", "Dispatch").icon("plus").key(key("new_job")).off_when(!self.face.fleet.connection.is_live(), "Fleet is not connected")));

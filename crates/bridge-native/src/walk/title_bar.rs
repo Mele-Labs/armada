@@ -8,18 +8,23 @@ pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
 pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
-pub static STEPS: [Step; 56] = [
-    step("The bar at rest: the repository, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
+pub static STEPS: [Step; 61] = [
+    step("The bar at rest: the project with its repositories, its Settings, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Project"),
     step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
     right_on("A right press on a place opens Hide, then View with every place; a place that must stay says Always shown", "tab", "Jobs", "menu", "Places"),
     step("Esc shuts the menu and the keys go back to the place", Verb::Key("escape"), "tab", "Jobs"),
     right_on("A right press anywhere else on the bar, here on the Operator, offers Teach under the heading Title bar", "button", "Operator", "menu", "Title bar"),
     step("Esc shuts the menu", Verb::Key("escape"), "button", "Operator"),
-    press_on("The repository opens its list: All, each Workspace over its repositories, the acts below", "button", "Repository", "menu", "Repository"),
-    step("Typing narrows the list, and a Workspace stays over what matches", Verb::Key("s"), "searchbox", "Find a repository"),
-    step("Each letter answers at once", Verb::Key("a"), "searchbox", "Find a repository"),
-    press_on("Choosing a repository shuts the list and the keys go back", "menuitemcheckbox", "sample-web", "button", "Repository"),
+    press_on("The project opens the switcher: All, the projects, those in no project, and on the right the one the window is on", "button", "Project", "region", "Armada"),
+    step("↓ moves to the next project, and the right side says what it holds", Verb::Key("down"), "region", "Storefront"),
+    step("↑ moves back", Verb::Key("up"), "region", "Armada"),
+    step("Esc shuts the switcher and the keys go back", Verb::Key("escape"), "button", "Project"),
+    press_on("Opened again, the keys are in Find", "button", "Project", "searchbox", "Find a project"),
+    step("Typing finds a project by any member's name or folder", Verb::Keys(&["p", "r", "i"]), "region", "Storefront"),
+    step("Enter switches to it: the trigger reads the project and its repositories, and Settings is the project's", Verb::Key("enter"), "button", "Settings for Storefront"),
+    press_on("Open on Storefront, ⌘, is a step away", "button", "Project", "region", "Storefront"),
+    step("⌘, opens Settings for the row the keys are on and shuts the switcher", Verb::Key("cmd-,"), "button", "Project"),
     scene("Until Fleet has a reading the rings are a sweeping glyph", "rings-loading", "img", "Analyzing Usage"),
     scene("From 95 a ring turns red; the 5-hour ring is outside, the weekly inside", "rings-danger", "button", DANGER),
     scene("An account off a subscription draws no rings", "rings-off", "button", "Operator"),
@@ -47,7 +52,7 @@ pub static STEPS: [Step; 56] = [
     scene("A Fleet that swapped back leaves its line, with Dismiss", "build-swapped-back", "alert", "Swapped back"),
     press_on("Dismiss puts the line away", "button", "Dismiss", "button", "Fleet — Running"),
     scene("Below 900px the row keeps the rings, the dot and the menu", "narrow-window", "button", "Menu"),
-    step("The menu lists what the row gave up: repositories, Search, Dispatch, the Operator", Verb::Press, "button", "Menu"),
+    step("The menu lists what the row gave up: projects, Search, Dispatch, the Operator", Verb::Press, "button", "Menu"),
     press_on("Choosing Search leaves the menu and opens the command palette", "menuitem", "Search", "dialog", "Command palette"),
     step("Esc shuts the palette and the keys go back to the menu", Verb::Key("escape"), "button", "Menu"),
     scene("With no profile signed in, an amber dot stands on the menu", "signed-out", "button", "Menu"),
