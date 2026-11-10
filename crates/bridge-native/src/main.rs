@@ -14,6 +14,7 @@
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
 
 mod assets;
+mod banner;
 mod chrome;
 mod deep_link;
 mod dropdown;
@@ -33,6 +34,7 @@ mod log;
 mod look;
 mod menu;
 mod mock;
+mod notify;
 mod palette;
 mod revert;
 mod runtime_file;
@@ -62,6 +64,7 @@ use keymap::KeymapController;
 use labels::label_root;
 use look::{ActiveLook, LookController};
 use menu::MenuController;
+use notify::Notifier;
 use walk::fleet::WalkFleet;
 use walk::window::WalkWindow;
 
@@ -111,7 +114,7 @@ pub fn init_app(cx: &mut App) {
 /// The window's root on a live Fleet or on mock data.
 struct Shell {
     screen: Entity<JobsScreen>,
-    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>)>,
+    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>, Entity<Notifier>)>,
 }
 
 impl Render for Shell {
@@ -192,8 +195,9 @@ fn main() -> ExitCode {
                     let jobs = cx.new(|cx| JobsList::live(&fleet, cx));
                     let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
+                    let notifier = cx.new(|cx| Notifier::new(&fleet, &jobs, window.window_handle(), cx));
                     let screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
-                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu)) })
+                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),
             Mode::Mock(scenario) => match mock::jobs(&scenario).and_then(|records| Ok((records, mock::threads(&scenario)?))) {
