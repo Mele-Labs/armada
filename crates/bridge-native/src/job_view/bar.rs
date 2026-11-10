@@ -13,6 +13,7 @@ use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::dropdown::Entry;
 use crate::labels::labelled;
+use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
 /// How long Copy reads "Copied" after a press.
@@ -71,6 +72,72 @@ pub(super) fn plain_of(text: &str) -> String {
     plain.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// The line and the emoji a sent message answers with, where it is a response (`readResponse`): the line
+/// quoted, a blank line, then one emoji.
+pub(super) fn read_response(message: &str) -> Option<(&str, &str)> {
+    let (line, emoji) = message.strip_prefix("> ")?.split_once("\n\n")?;
+    let mut chars = emoji.chars();
+    let first = chars.next()?;
+    let one = !line.is_empty() && !line.contains('\n') && !first.is_ascii() && chars.all(|c| matches!(c, '\u{200d}' | '\u{fe0f}' | '\u{20e3}') || !c.is_ascii());
+    one.then_some((line, emoji))
+}
+
+/// The emoji the person already answered the agent message `id` with, from their own messages: a mark
+/// outlives the thread being drawn again. An answer is credited to the latest agent message before it whose
+/// words hold the quoted line, else to the latest agent message.
+pub(super) fn marked_in(items: &[ipc::ThreadItem], id: &str, plain: &str) -> Option<String> {
+    let mut agents: Vec<(&str, String)> = Vec::new();
+    let mut marked = None;
+    for item in items {
+        let ipc::ThreadItem::Row { row: ipc::SessionRow::Message { id: row_id, from, text, .. } } = item else { continue };
+        match from {
+            ipc::SessionVoice::You => {
+                let Some((line, emoji)) = read_response(text) else { continue };
+                let holder = agents.iter().rev().find(|(_, said)| said.contains(line)).or(agents.last());
+                if holder.is_some_and(|(held, _)| *held == id) && line == plain {
+                    marked = Some(emoji.to_string());
+                }
+            }
+            ipc::SessionVoice::Agent => agents.push((row_id.as_str(), plain_of(text))),
+            _ => {}
+        }
+    }
+    marked
+}
+
+/// The setting the responses are kept in: the thread's look, which holds them among its other fields.
+const LOOK_KEY: &str = "thread.look";
+
+fn wire_of(responses: &[Response]) -> ipc::SettingValue {
+    use ipc::SettingValue::{List, Map, Text};
+    List(
+        responses
+            .iter()
+            .map(|one| {
+                Map([("id", &one.id), ("emoji", &one.emoji), ("name", &one.name)].into_iter().map(|(key, value)| (key.to_string(), Text(value.clone()))).chain([("kind".to_string(), Text(if one.ask { "ask" } else { "send" }.to_string()))]).collect())
+            })
+            .collect(),
+    )
+}
+
+/// The responses a saved look holds: absent, or one that does not fit, is the defaults' (`lookFrom`).
+fn responses_in(look: &std::collections::BTreeMap<String, ipc::SettingValue>) -> Option<Vec<Response>> {
+    use ipc::SettingValue::{List, Map, Text};
+    let List(list) = look.get("responses")? else { return None };
+    let found: Option<Vec<Response>> = list
+        .iter()
+        .map(|one| {
+            let Map(fields) = one else { return None };
+            let text = |key: &str| match fields.get(key) {
+                Some(Text(text)) => Some(text.clone()),
+                _ => None,
+            };
+            Some(Response { id: text("id")?, emoji: text("emoji")?, name: text("name")?, ask: text("kind")? == "ask" })
+        })
+        .collect();
+    found.filter(|found| !found.is_empty())
+}
+
 /// The message a response sends: the words quoted, a blank line, then the emoji.
 pub(super) fn response_message(line: &str, emoji: &str) -> String {
     format!("> {line}\n\n{emoji}")
@@ -91,6 +158,9 @@ pub(super) struct Editor {
 /// What the bars of the thread share: the responses, which message was just copied and which holds a menu.
 pub(super) struct Bar {
     responses: Vec<Response>,
+    /// The thread's look as Fleet keeps it (`thread.look`), read once so a save puts back what it did not change.
+    look: Option<std::collections::BTreeMap<String, ipc::SettingValue>>,
+    reading: bool,
     copied: Option<String>,
     held: Option<String>,
     editor: Option<Editor>,
@@ -99,7 +169,7 @@ pub(super) struct Bar {
 
 impl Bar {
     pub fn new() -> Self {
-        Bar { responses: defaults(), copied: None, held: None, editor: None, next: 0 }
+        Bar { responses: defaults(), look: None, reading: false, copied: None, held: None, editor: None, next: 0 }
     }
 }
 
@@ -171,6 +241,7 @@ impl JobView {
             )
         });
         let plain = plain_of(text);
+        let marked = self.shown.as_ref().and_then(|job| self.thread(job, cx)).and_then(|held| marked_in(&held.items, id, &plain));
         let responses: Vec<AnyElement> = if live {
             self.bar
                 .responses
@@ -178,12 +249,13 @@ impl JobView {
                 .map(|response| {
                     let key = format!("response:{id}:{}", response.id);
                     let spot = reach(&key);
-                    let mark = div().text_size(look.length(token::TEXT_SM)).opacity(0.7).hover(|style| style.opacity(1.)).child(SharedString::from(response.emoji.clone())).into_any_element();
+                    let pressed = marked.as_deref() == Some(response.emoji.as_str());
+                    let mark = div().text_size(look.length(token::TEXT_SM)).opacity(if pressed { 1. } else { 0.7 }).hover(|style| style.opacity(1.)).child(SharedString::from(response.emoji.clone())).into_any_element();
                     let press = {
                         let (plain, response) = (plain.clone(), response.clone());
                         cx.listener(move |this, _, window, cx| this.respond(&plain, &response, window, cx))
                     };
-                    let button = ghost(key, &spot, response.name.clone().into(), mark).on_click(press);
+                    let button = ghost(key, &spot, response.name.clone().into(), mark).when(pressed, |button| button.bg(look.color(token::ACCENT_FAINT))).aria_toggled(if pressed { gpui::Toggled::True } else { gpui::Toggled::False }).on_click(press);
                     let (count, chosen, row) = (self.bar.responses.len(), response.clone(), id.to_string());
                     let button = self.menu_on(
                         button,
@@ -239,6 +311,64 @@ impl JobView {
         }
     }
 
+    /// Read the responses Fleet keeps, once, when it can be reached.
+    pub(super) fn responses_read(&mut self, cx: &mut Context<Self>) {
+        if self.bar.reading || self.bar.look.is_some() {
+            return;
+        }
+        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else { return };
+        self.bar.reading = true;
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, "/settings"))?;
+                    if status != 200 {
+                        return Err(format!("Fleet answered {status}"));
+                    }
+                    ipc::decode::<ipc::SettingsList>("settings", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.bar.reading = false;
+                let Ok(list) = answer else { return };
+                let look = match list.settings.into_iter().find(|one| one.key == LOOK_KEY).map(|one| one.value) {
+                    Some(ipc::SettingValue::Map(look)) => look,
+                    _ => Default::default(),
+                };
+                if let Some(responses) = responses_in(&look) {
+                    this.bar.responses = responses;
+                }
+                this.bar.look = Some(look);
+                cx.notify();
+            });
+        })
+        .detach();
+    }
+
+    /// The responses changed: Fleet keeps them in the thread's look, saved a beat later as Electron does.
+    fn responses_changed(&mut self, cx: &mut Context<Self>) {
+        let Some(mut look) = self.bar.look.clone() else { return };
+        look.insert("responses".to_string(), wire_of(&self.bar.responses));
+        self.bar.look = Some(look.clone());
+        let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else { return };
+        let body = ipc::encode(&ipc::SaveSettings { changes: [(LOOK_KEY.to_string(), Some(ipc::SettingValue::Map(look)))].into_iter().collect() }).map_err(|why| format!("{why:?}"));
+        cx.background_executor()
+            .spawn(async move {
+                let sent = body.and_then(|body| {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    runtime.block_on(crate::transport::post(port, "/settings/save", body))
+                });
+                match sent {
+                    Ok((200..=299, _)) => {}
+                    Ok((status, _)) => Note::warn("the quick responses were not kept").field("status", status as i64).emit(),
+                    Err(why) => Note::warn("the quick responses were not kept").field("why", why).emit(),
+                }
+            })
+            .detach();
+    }
+
     /// A pick from a response's menu: edit it, add another, or take it away.
     fn response_act(&mut self, row: &str, response: &Response, pick: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         match pick {
@@ -247,6 +377,7 @@ impl JobView {
             "remove" => {
                 if self.bar.responses.len() > 1 {
                     self.bar.responses.retain(|one| one.id != response.id);
+                    self.responses_changed(cx);
                     cx.notify();
                 }
             }
@@ -301,12 +432,19 @@ impl JobView {
             }
             None => {
                 if self.bar.responses.len() < MAX_RESPONSES {
-                    self.bar.next += 1;
-                    let id = format!("response:{}", self.bar.next);
+                    // A number no response holds, so a saved one is never taken twice.
+                    let id = loop {
+                        self.bar.next += 1;
+                        let id = format!("response:{}", self.bar.next);
+                        if !self.bar.responses.iter().any(|one| one.id == id) {
+                            break id;
+                        }
+                    };
                     self.bar.responses.push(Response { id, emoji, name, ask: false });
                 }
             }
         }
+        self.responses_changed(cx);
         self.close_editor(window, cx);
     }
 
@@ -314,6 +452,7 @@ impl JobView {
         if let Some(id) = self.bar.editor.as_ref().and_then(|editor| editor.id.clone()) {
             if self.bar.responses.len() > 1 {
                 self.bar.responses.retain(|one| one.id != id);
+                self.responses_changed(cx);
             }
         }
         self.close_editor(window, cx);
@@ -450,5 +589,22 @@ mod tests {
     fn the_defaults_are_the_four_the_owner_asked_for() {
         let names: Vec<_> = defaults().into_iter().map(|one| one.name).collect();
         assert_eq!(names, ["Pick this", "Yes to this", "No to this", "Ask about this"]);
+    }
+
+    #[test]
+    fn a_sent_response_reads_back_as_its_line_and_emoji() {
+        assert_eq!(read_response(&response_message("Rename the chip", "\u{1F44D}")), Some(("Rename the chip", "\u{1F44D}")));
+        assert_eq!(read_response("> Rename the chip\n\nyes"), None);
+        assert_eq!(read_response("Rename the chip"), None);
+    }
+
+    #[test]
+    fn responses_survive_a_round_trip_through_the_saved_look() {
+        let mut kept = defaults();
+        kept[1].name = "Looks right".into();
+        let ipc::SettingValue::List(wired) = wire_of(&kept) else { panic!("a list") };
+        let look = [("responses".to_string(), ipc::SettingValue::List(wired))].into_iter().collect();
+        assert_eq!(responses_in(&look), Some(kept));
+        assert_eq!(responses_in(&Default::default()), None);
     }
 }

@@ -33,6 +33,9 @@ pub enum Verb {
     /// A press on the element of this role and name, before the target is ringed: the target is what the
     /// press shows, so the button itself is gone by then.
     Open(&'static str, &'static str),
+    /// A press on the button of this name inside the article of this name: where one card among several
+    /// has a button the others have too.
+    OpenIn(&'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
     RightOpen(&'static str, &'static str),
     /// A drag across the last line of the element of this role and name, as words are selected.
@@ -173,11 +176,23 @@ pub static WALKS: &[Walk] = &[
             step("A workflow draft waits with Approve and Dismiss", Verb::Look, "button", "Approve"),
             step("Page up reads the drafts before it", Verb::Key("pageup"), "region", "Thread"),
             step("Page up reads the drafts before it", Verb::Key("pageup"), "region", "Thread"),
+            step("Page up reads the drafts before it", Verb::Key("pageup"), "region", "Thread"),
             step("Page up reads the drafts before it", Verb::Key("pageup"), "group", "Words draft:dra-034"),
             step("Words selected in a draft are picked", Verb::Select("group", "Words draft:dra-034"), "group", "Words draft:dra-034"),
             step("Shift+F10 on them offers Edit and Add note", Verb::Key("shift-f10"), "menuitem", "Add note"),
             step("Add note opens the note box with the words quoted", Verb::Open("menuitem", "Add note"), "textbox", "Note"),
             step("Cancel puts the note away", Verb::Open("button", "Cancel"), "group", "Words draft:dra-034"),
+            step("Edit opens the draft's own words in a box", Verb::OpenIn("Draft: Comment on #3290", "Edit"), "textbox", "Draft text"),
+            step("The fix is typed", Verb::Type(" and says how far"), "textbox", "Draft text"),
+            step("Approve with fixes settles the draft with the person's words", Verb::OpenIn("Draft: Comment on #3290", "Approve with fixes"), "region", "Thread"),
+            step("Page down reads the drafts after it", Verb::Key("pagedown"), "region", "Thread"),
+            step("Page down reads the workflow draft whole", Verb::Key("pagedown"), "region", "Thread"),
+            step("A workflow draft is dismissed from its own row", Verb::OpenIn("Workflow: Workflow quick-fix", "Dismiss"), "status", "Dismissed"),
+            step("Approve on a draft settles it as it stands", Verb::OpenIn("Draft: Comment on #3294", "Approve"), "status", "Approved"),
+            step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Note opens a box for what to send back", Verb::OpenIn("Draft: Comment on #3295", "Note"), "textbox", "Note"),
+            step("The note is typed", Verb::Type("Say which pull request"), "textbox", "Note"),
+            step("Send back settles the draft with the note", Verb::OpenIn("Draft: Comment on #3295", "Send back"), "status", "Sent back"),
             step("Home goes to the start of the thread", Verb::Key("home"), "region", "Thread"),
             step("Older items are read from Fleet by a press, or as the top comes near", Verb::Look, "button", "Show earlier"),
             step("Subagents running stay at the foot of the view while the thread is up", Verb::Look, "button", "1 subagent running"),

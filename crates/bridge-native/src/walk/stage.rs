@@ -97,12 +97,29 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::Open(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            // The last one drawn: an element the list measured off screen comes first in the book, and the
+            // head's own Approve is drawn before the thread's.
             let drawn = cx
                 .try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
-                .cloned()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
             press(MouseButton::Left, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::OpenIn(article, on) => {
+            let id = window.window_handle().window_id();
+            let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(id).to_vec()).unwrap_or_default();
+            let card = drawn
+                .iter()
+                .rev()
+                .find(|one| one.role == gpui::Role::Article && one.name == article)
+                .ok_or_else(|| Missed(format!("no article named \"{article}\"")))?;
+            let button = drawn
+                .iter()
+                .rev()
+                .find(|one| one.role == gpui::Role::Button && one.name == on && card.bounds.contains(&one.bounds.center()))
+                .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{article}\"")))?;
+            press(MouseButton::Left, button.bounds.center(), window, cx);
             Ok(())
         }
         Verb::RightOpen(role, on) => {

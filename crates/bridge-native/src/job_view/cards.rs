@@ -816,7 +816,7 @@ impl JobView {
             page.keys.set(key, Some(super::keys::Card { at: ix, kind: kind_word.into(), title: title.to_string(), yes, change, send_back, no }));
         }
         let key_s = key.to_string();
-        let row = div().flex().items_center().gap(look.length(token::SPACE_2));
+        let row = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
         let button_at = |name: &'static str, tone: Tone, chip: Option<&'static str>, on: bool| {
             button(look, SharedString::from(format!("{name}:{key}")), name, tone, false, chip, on)
         };

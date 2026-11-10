@@ -369,7 +369,7 @@ mod tests {
     fn call(detail: &str, whole: Option<&str>) -> ipc::CallInFlight {
         let whole = whole.map_or("null".to_string(), |whole| format!("\"{whole}\""));
         let wire = format!(
-            r#"{{"call":"c-1","manifest_id":"armada","asked_at":"2026-11-09T14:03:00Z","tool":"Bash","detail":"{detail}","truncated":false,"rule":"ask","offers":[],"whole":{whole}}}"#
+            r#"{{"call":"c-1","manifest_id":"armada","asked_at":"2026-11-09T14:03:00Z","tool":"Bash","detail":"{detail}","truncated":false,"rule":"ask","offers":[],"holding_for_seconds":0,"whole":{whole}}}"#
         );
         ipc::decode("CallInFlight", wire.as_bytes()).expect("a call decodes")
     }

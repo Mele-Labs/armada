@@ -466,6 +466,7 @@ impl JobView {
         for id in ids {
             self.sync(&id, cx);
         }
+        self.responses_read(cx);
         if let Some(id) = self.shown.clone() {
             self.judge_read(&id, cx);
         }
