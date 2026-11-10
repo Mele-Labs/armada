@@ -30,13 +30,10 @@ export type Open = {
   usaging?: boolean;
   /** The Logbook: what Armada learned from every Job. */
   logbooking?: boolean;
-  /** The Operator's own page. */
-  operating?: boolean;
 };
 
 /** The rail row for what is open, in the precedence `App` draws by. */
 export function showingOf(open: Open): string {
-  if (open.operating === true) return SURFACE.operator;
   if (open.clearing) return SURFACE.worktrees;
   if (open.manifesting) return SURFACE.manifest;
   if (open.settingsShowing) return SURFACE.settings;
