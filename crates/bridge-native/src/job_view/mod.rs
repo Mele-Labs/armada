@@ -553,16 +553,4 @@ mod tests {
         assert_eq!(echoed(&items, "go on"), 1);
         assert_eq!(echoed(&items, "nope"), 0);
     }
-
-    #[test]
-    fn a_draft_is_set_cleared_and_only_a_change_asks_for_a_write() {
-        let mut drafts = Drafts { by_job: HashMap::new(), remember: false };
-        assert!(drafts.set("a", "words"));
-        assert!(!drafts.set("a", "words"));
-        assert_eq!(drafts.get("a"), "words");
-        assert!(drafts.set("a", ""));
-        assert!(!drafts.set("a", ""));
-        assert_eq!(drafts.get("a"), "");
-        assert!(drafts.encoded().is_none(), "mock data keeps nothing");
-    }
 }

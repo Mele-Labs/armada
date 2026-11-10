@@ -1106,8 +1106,8 @@ mod tests {
     #[test]
     fn a_draft_keeps_its_chips_and_a_chip_that_no_longer_fits_the_text_is_dropped() {
         let tag = KeptTag { start: 4, end: 9, id: "issue\u{1f}33\u{1f}".into(), label: "#33".into() };
-        let whole = Kept { text: "see @#33 now".into(), tags: vec![tag.clone()] };
-        assert_eq!(whole.content().tokens().len(), 0, "the range does not hold the chip's words");
+        let past = Kept { text: "see @#33 now".into(), tags: vec![KeptTag { end: 99, ..tag.clone() }] };
+        assert_eq!(past.content().tokens().len(), 0, "the range is not in the text");
         let right = Kept { text: "see @#33 now".into(), tags: vec![KeptTag { start: 4, end: 8, ..tag }] };
         assert_eq!(right.content().tokens().len(), 1);
     }
