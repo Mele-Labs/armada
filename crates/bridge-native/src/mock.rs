@@ -23,6 +23,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs, with the first holding a plan, a sketch, a document and two drafts to read.
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
         "job-view-composer" => include_bytes!("../fixtures/jobs-composer.json"),
+        // The whole Jobs tour: the review palette's Jobs, with the Judge's reading on the first and
+        // the second held Job holding its three waits.
+        "jobs-screens" => include_bytes!("../fixtures/jobs-screens.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -36,6 +39,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         threads: Vec<JobThread>,
     }
     let bytes: &[u8] = match scenario {
+        "jobs-screens" => return screens_threads(),
         "job-view" | "review-palette" => include_bytes!("../fixtures/job-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
         "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
@@ -44,6 +48,32 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     Ok(read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect())
+}
+
+/// The tour's threads, each from the fixture it was walked against: the first Job's question, plan and
+/// cards and the long thread of the second from `job-threads`, the Audit Job's quiet thread from
+/// `composer-threads` so its quick bar draws, and the held Job's from `screens-threads`.
+fn screens_threads() -> Result<HashMap<String, JobThread>, String> {
+    #[derive(Deserialize)]
+    struct Threads {
+        threads: Vec<JobThread>,
+    }
+    let read = |name: &'static str, bytes: &[u8]| ipc::decode::<Threads>(name, bytes).map(|read| read.threads).map_err(|why| why.to_string());
+    let mut all = HashMap::new();
+    for (id, thread) in read("job threads", include_bytes!("../fixtures/job-threads.json"))?.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)) {
+        if id != "mock-04" {
+            all.insert(id, thread);
+        }
+    }
+    for thread in read("composer threads", include_bytes!("../fixtures/composer-threads.json"))? {
+        if thread.session_id.as_str() == "mock-04" {
+            all.insert("mock-04".to_string(), thread);
+        }
+    }
+    for thread in read("screens threads", include_bytes!("../fixtures/screens-threads.json"))? {
+        all.insert(thread.session_id.as_str().to_string(), thread);
+    }
+    Ok(all)
 }
 
 /// What the message box reads from Fleet beside the Job: the models, the quick bar's look and
@@ -75,7 +105,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if named != "job-view-composer" {
+    if named != "job-view-composer" && named != "jobs-screens" {
         return None;
     }
     let read = || -> Result<Catalogue, String> {
@@ -100,5 +130,11 @@ mod tests {
         assert_eq!(super::threads("job-view").expect("decodes").len(), 3);
         assert!(super::jobs("job-view-composer").expect("decodes").len() > 10);
         assert!(super::catalogue().is_some_and(|catalogue| catalogue.models.offered.len() == 3));
+        assert!(super::jobs("jobs-screens").expect("decodes").len() > 10);
+        let screens = super::threads("jobs-screens").expect("decodes");
+        for id in ["mock-01", "mock-02", "mock-04", "mock-06"] {
+            assert!(screens.contains_key(id), "{id}");
+        }
+        assert!(super::catalogue().is_some());
     }
 }
