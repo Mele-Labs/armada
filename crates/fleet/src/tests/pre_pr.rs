@@ -1,9 +1,21 @@
 //! The pre-PR Checks run for an agent that goes to open a pull request, and what it is told.
 
+use checks_runner::CheckWidth;
+
 use crate::session_host::pre_pr::{ran, ran_in, ToRun};
 
 fn check(name: &str, run: &str, expect: i64) -> ToRun {
-    ToRun { name: name.to_string(), run: run.to_string(), dir: std::env::temp_dir(), expect }
+    ToRun { name: name.to_string(), run: run.to_string(), dir: std::env::temp_dir(), expect, width: CheckWidth::of(1) }
+}
+
+/// **A Check's `${width}` is filled before it runs**, as at a gate: nextest refuses a bare
+/// `--test-threads ${width}`, and so did every pull request reaching a Check that wrote one.
+#[tokio::test]
+async fn a_checks_width_is_filled_before_it_runs() {
+    let mut wide = check("crates/bridge-native:test", "test \"${width}\" = 3", 0);
+    wide.width = CheckWidth::of(3);
+    let answered = ran(vec![wide]).await;
+    assert!(answered.passed, "{}", answered.says);
 }
 
 #[tokio::test]
