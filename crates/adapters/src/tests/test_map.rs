@@ -8,7 +8,7 @@ use checks_runner::CheckWidth;
 use core_model::Narrowing;
 
 use super::scratch::Scratch;
-use crate::test_map::{files_reached, in_repository, llvm_major, member_of, tool_folders};
+use crate::test_map::{files_reached, in_repository, llvm_major, measured_in, member_of, tool_folders, FOLDED, RUNNER};
 use crate::NextestCoverage;
 
 #[test]
@@ -93,6 +93,73 @@ fn the_llvm_major_version_is_read_as_the_compiler_and_the_tools_print_it() {
 
 /// A workspace of one member, `sums`, with a function in each of two files
 /// and three tests, each reaching a different set of them.
+fn executable(scratch: &Scratch, relative: &str, text: &str) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let path = scratch.file(relative, text);
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("made executable");
+    path
+}
+
+fn names_in(folder: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(folder)
+        .expect("the folder is read")
+        .map(|entry| entry.expect("an entry").file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+// Kept raw until the run ended, every test's whole-binary profile filled the
+// hosted runner's disk.
+#[test]
+fn a_finished_test_leaves_one_folded_profile_and_its_own_exit_status() {
+    let scratch = Scratch::new();
+    let laps = scratch.folder("laps");
+    let runner = executable(&scratch, "runner", RUNNER);
+    let profdata = executable(
+        &scratch,
+        "llvm-profdata",
+        "#!/bin/sh\nwhile [ \"$1\" != -o ]; do shift; done\necho folded > \"$2\"\n",
+    );
+    let test = executable(
+        &scratch,
+        "test-binary",
+        "#!/bin/sh\necho raw > \"$(dirname \"$LLVM_PROFILE_FILE\")/1-2.profraw\"\nexit 3\n",
+    );
+
+    let status = std::process::Command::new(&runner)
+        .arg(&test)
+        .env("NEXTEST_TEST_NAME", "tests::adds")
+        .env("NEXTEST_BINARY_ID", "sums::reach")
+        .env("ARMADA_TEST_MAP_LAPS", &laps)
+        .env("ARMADA_TEST_MAP_PROFDATA", &profdata)
+        .status()
+        .expect("the runner starts");
+
+    assert_eq!(status.code(), Some(3));
+    let lap = laps.join(&names_in(&laps)[0]);
+    assert_eq!(names_in(&lap), [FOLDED, "test"]);
+}
+
+#[test]
+fn a_lap_is_read_from_its_folded_profile_and_any_raw_one_written_after_the_fold() {
+    let scratch = Scratch::new();
+    scratch.file("laps/lap.a/test", "sums::reach\ntests::adds\n/bin/reach\n/work\n");
+    scratch.file(&format!("laps/lap.a/{FOLDED}"), "folded");
+    scratch.file("laps/lap.a/9-2.profraw", "late");
+
+    let measured = measured_in(&scratch.path().join("laps")).expect("the laps are read");
+
+    let run = &measured[&("sums::reach".to_string(), "tests::adds".to_string())];
+    let mut profiles: Vec<String> = run
+        .profiles
+        .iter()
+        .map(|profile| profile.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    profiles.sort();
+    assert_eq!(profiles, ["9-2.profraw", FOLDED]);
+}
+
 fn fixture() -> Scratch {
     let scratch = Scratch::new();
     scratch.file("Cargo.toml", "[workspace]\nmembers = [\"crates/sums\"]\nresolver = \"2\"\n");

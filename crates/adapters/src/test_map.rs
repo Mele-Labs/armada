@@ -18,6 +18,11 @@
 //! the profile into a folder of that test's own. A runner and not a wrapper
 //! script, because a wrapper script is declared in the repository's nextest
 //! config, and the map never writes to the repository.
+//!
+//! **A test's profiles are folded as soon as it ends.** A raw profile holds
+//! every counter of its binary, 22 MB for each `fleet` test, and kept until
+//! the run ended they outgrew a hosted runner's 84 GB on 9 Nov 2026. The
+//! runner merges them into one sparse profile, the counters the test ran.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -32,15 +37,27 @@ use crate::background::command;
 
 /// Where each test's process writes its profile, beside a note of which test
 /// it is: binary id, test name, binary path and its directory, one a line.
-const RUNNER: &str = r#"#!/bin/sh
+/// Once the test ends its raw profiles are folded into [`FOLDED`]; a fold that
+/// fails leaves them for the collector to read as they are.
+pub(crate) const RUNNER: &str = r#"#!/bin/sh
 if [ -n "$NEXTEST_TEST_NAME" ]; then
   lap=$(mktemp -d "$ARMADA_TEST_MAP_LAPS/lap.XXXXXX") || exit 1
   printf '%s\n%s\n%s\n%s\n' "$NEXTEST_BINARY_ID" "$NEXTEST_TEST_NAME" "$1" "$(pwd -P)" > "$lap/test"
   LLVM_PROFILE_FILE="$lap/%p-%m.profraw"
   export LLVM_PROFILE_FILE
+  "$@"
+  status=$?
+  set -- "$lap"/*.profraw
+  if [ -e "$1" ] && "$ARMADA_TEST_MAP_PROFDATA" merge -sparse -o "$lap/folded.profdata" "$@" 2>/dev/null; then
+    rm -f "$@"
+  fi
+  exit "$status"
 fi
 exec "$@"
 "#;
+
+/// The one profile the runner folds a finished test's raw profiles into.
+pub(crate) const FOLDED: &str = "folded.profdata";
 
 static NEXT_RUNNER: AtomicU64 = AtomicU64::new(0);
 
@@ -112,6 +129,7 @@ impl TestCollector for NextestCoverage {
             .env("CARGO_TARGET_DIR", &target)
             .env(compiler.runner_variable(), &runner.0)
             .env("ARMADA_TEST_MAP_LAPS", &laps)
+            .env("ARMADA_TEST_MAP_PROFDATA", &tools.profdata)
             // Build scripts and the listing are instrumented too, and would
             // otherwise write a profile into the directory they ran in.
             .env("LLVM_PROFILE_FILE", stray.join("%p-%m.profraw"))
@@ -129,6 +147,9 @@ impl TestCollector for NextestCoverage {
             .into_iter()
             .map(|((_, test), run)| {
                 let lcov = tools.export(&run)?;
+                for lap in &run.laps {
+                    let _ = std::fs::remove_dir_all(lap);
+                }
                 Ok(Lap {
                     member: member_of(&run.cwd, &root, self.under.as_deref()),
                     test,
@@ -210,19 +231,21 @@ fn set_executable(_path: &Path) -> Result<(), NotRecorded> {
     Err(NotRecorded("the runner is a shell script, and this is not a unix".to_string()))
 }
 
-/// One test's run: its binary, the directory it ran in, and every profile it
-/// wrote, across retries.
+/// One test's run: its binary, the directory it ran in, every profile it
+/// wrote, across retries, and the lap folders that hold them.
 #[derive(Default)]
-struct MeasuredRun {
+pub(crate) struct MeasuredRun {
     binary: PathBuf,
     cwd: PathBuf,
-    profiles: Vec<PathBuf>,
+    pub(crate) profiles: Vec<PathBuf>,
+    laps: Vec<PathBuf>,
 }
 
-/// Every test that wrote a profile, by binary id and test name. A test that
-/// wrote none, as one that aborted, is left out rather than said to reach
-/// nothing.
-fn measured_in(laps: &Path) -> Result<BTreeMap<(String, String), MeasuredRun>, NotRecorded> {
+/// Every test that wrote a profile, by binary id and test name: the one the
+/// runner folded, and any raw one it left, as a child the test started writes
+/// after the fold. A test that wrote none, as one that aborted, is left out
+/// rather than said to reach nothing.
+pub(crate) fn measured_in(laps: &Path) -> Result<BTreeMap<(String, String), MeasuredRun>, NotRecorded> {
     let unreadable = |why: std::io::Error| NotRecorded(format!("{}: {why}", laps.display()));
     let mut measured: BTreeMap<(String, String), MeasuredRun> = BTreeMap::new();
     for lap in std::fs::read_dir(laps).map_err(unreadable)? {
@@ -236,7 +259,10 @@ fn measured_in(laps: &Path) -> Result<BTreeMap<(String, String), MeasuredRun>, N
         let profiles: Vec<PathBuf> = std::fs::read_dir(&lap)
             .map_err(unreadable)?
             .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-            .filter(|path| path.extension().is_some_and(|extension| extension == "profraw"))
+            .filter(|path| {
+                path.extension().is_some_and(|extension| extension == "profraw")
+                    || path.file_name().is_some_and(|name| name == FOLDED)
+            })
             .collect();
         if profiles.is_empty() {
             continue;
@@ -245,6 +271,7 @@ fn measured_in(laps: &Path) -> Result<BTreeMap<(String, String), MeasuredRun>, N
         run.binary = PathBuf::from(binary);
         run.cwd = PathBuf::from(cwd);
         run.profiles.extend(profiles);
+        run.laps.push(lap);
     }
     Ok(measured)
 }
