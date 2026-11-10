@@ -1,7 +1,7 @@
 //! Which rules apply to one repository, from Kit's and the repository's own.
 //!
 //! **Resolved as lifecycles are**, by the same reading ([`crate::resolving`]): the narrower scope
-//! wins, then yours over the repository's, the loser is still listed and marked, and a Workspace's
+//! wins, then yours over the repository's, the loser is still listed and marked, and a Project's
 //! rules committed to its home are read by its members from there. **Armada carries no rule**, so
 //! with no file anywhere nothing applies and the engine plans nothing.
 //!
@@ -15,7 +15,7 @@ use core_model::{Lifecycle, LifecycleScope, ManifestId, PieceSource};
 
 use crate::piece::{LeftOut, Written};
 use crate::resolving::{resolve, Rank, Resolved, Scoped};
-use crate::workspace::Workspaces;
+use crate::project::Projects;
 
 use super::parse;
 
@@ -92,11 +92,11 @@ pub struct Rules {
 
 impl Rules {
     /// What applies to `repository`: every file in `written` whose scope names it, merged by id.
-    /// `workspaces` says which Workspaces hold the repository, and `lifecycles` are the ones that
+    /// `projects` says which Projects hold the repository, and `lifecycles` are the ones that
     /// apply to it, which a rule's names are checked against.
     pub fn applying_to(
         repository: &ManifestId,
-        workspaces: &Workspaces,
+        projects: &Projects,
         lifecycles: &[&Lifecycle],
         written: impl IntoIterator<Item = Written>,
     ) -> Rules {
@@ -108,7 +108,7 @@ impl Rules {
                 false => Err(format!("{} {}", path.display(), unknown.join("; it "))),
             }
         };
-        let (resolved, left_out) = resolve(repository, workspaces, Vec::new(), written, read);
+        let (resolved, left_out) = resolve(repository, projects, Vec::new(), written, read);
         Rules { files: resolved.into_iter().map(RuleFile::from).collect(), left_out }
     }
 

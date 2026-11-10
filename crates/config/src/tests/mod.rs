@@ -38,7 +38,7 @@ mod settings;
 mod settings_tokens;
 mod watch_recipes;
 mod workflow;
-mod workspace;
+mod project;
 
 use std::path::{Path, PathBuf};
 

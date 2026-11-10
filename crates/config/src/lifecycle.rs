@@ -1,7 +1,7 @@
 //! A lifecycle, read off a piece file.
 //!
 //! One file is one lifecycle. `lifecycle_id` and `name` say which, `scope` says where it applies
-//! (the id of a Workspace, meaning a set of repositories, or of one repository; absent is every
+//! (the id of a Project, meaning a set of repositories, or of one repository; absent is every
 //! repository, which is where the four Armada carries apply), and `states`, `transitions` and
 //! `ends` are its shape. A state's `read` names exactly one of four sources and what to look for
 //! in it, so a state is a fact a reader can see and never something a Job says.

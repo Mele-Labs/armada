@@ -1,213 +1,292 @@
-//! A Workspace means a set of repositories here, read off a piece file and kept in the places a
-//! piece is. **Nothing here touches the Manifest's workspace**, the monorepo unit
-//! `manifest/workspace.rs` reads; the two share a word and no code.
+//! A Project is a set of members, whole repositories or monorepo folders, read off a file Fleet keeps
+//! in the place the person chose for it. **Nothing here touches the Manifest's workspace**, the
+//! monorepo unit `manifest/workspace.rs` reads; a member may name one by folder, and that is all.
 //!
-//! One file is one Workspace: `workspace_id` and `name` say which, and `repositories` lists the
-//! Manifest ids it holds. It is read as a lifecycle's file is, refusing every fault of the file with
-//! its key, then what a whole Workspace must be ([`core_model::Workspace::declared`]).
+//! One file is one Project, version 2: `project_id` and `name` say which, `members` lists each as
+//! `repository` (a Manifest id) and, for a folder of it, `folder`. It is read as a lifecycle's file
+//! is, refusing every fault of the file with its key, then what a whole Project must be
+//! ([`core_model::Project::declared`]).
 //!
-//! **A Workspace is yours or the repository's, merged by id with yours winning.** One that spans
-//! several repositories and is committed is kept in one repository the person picks, and the others
-//! read it from there, so [`Workspaces::of`] is handed the files of every repository Fleet serves
-//! and not only the one asked about. Two repositories committing one id is a fault in the
-//! repository's place, as two files are in a workflow's, and both are set aside.
+//! **A Project is never merged and never in a repository.** Each file is one Project that runs, kept
+//! on this Mac, in a synced folder or in the cloud, and two files of one id are both left out, since
+//! nothing says which the person meant. [`parse_workspace_v1`] reads the file a Workspace was kept
+//! in before, for the migration only.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use core_model::{
-    MalformedWorkspace, ManifestId, PieceSource, ScopeId, Title, Ulid, Workspace,
-};
+use core_model::{Folder, MalformedFolder, MalformedProject, ManifestId, Member, Project, ScopeId, Title, Ulid};
 use serde_yaml_ng::Value;
 
 use crate::error::{Fault, LoadError, Refusal};
-use crate::piece::{hides, named, LeftOut, Written};
+use crate::piece::named;
 use crate::yaml::{self, Table};
 
-const TOP_LEVEL: &[&str] = &["version", "workspace_id", "name", "repositories"];
+const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members"];
+const MEMBER: &[&str] = &["repository", "folder"];
+const TOP_LEVEL_V1: &[&str] = &["version", "workspace_id", "name", "repositories"];
 
 /// The one version of the file there is.
-const VERSIONS: &[&str] = &["1"];
+const VERSIONS: &[&str] = &["2"];
+const VERSIONS_V1: &[&str] = &["1"];
 
-/// Why a Workspace file did not load.
-#[derive(Debug)]
-pub enum WorkspaceError {
-    /// It is not YAML, or the file holds a fault of its own.
-    Load(LoadError),
-    /// Every key is right, and the Workspace they make is not.
-    Malformed { path: PathBuf, why: MalformedWorkspace },
+/// Where a Project is kept. **Never a repository.**
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ProjectPlace {
+    ThisMac,
+    Synced,
+    Cloud,
 }
 
-impl std::fmt::Display for WorkspaceError {
+/// Why a Project file did not load.
+#[derive(Debug)]
+pub enum ProjectError {
+    /// It is not YAML, or the file holds a fault of its own.
+    Load(LoadError),
+    /// A member's folder is not a path inside its repository.
+    Folder { path: PathBuf, at: String, why: MalformedFolder },
+    /// Every key is right, and the Project they make is not.
+    Malformed { path: PathBuf, why: MalformedProject },
+}
+
+impl std::fmt::Display for ProjectError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WorkspaceError::Load(load) => load.fmt(f),
-            WorkspaceError::Malformed { path, why } => write!(f, "{} {why}", path.display()),
+            ProjectError::Load(load) => load.fmt(f),
+            ProjectError::Folder { path, at, why } => write!(f, "{} {at} {why}", path.display()),
+            ProjectError::Malformed { path, why } => write!(f, "{} {why}", path.display()),
         }
     }
 }
 
-impl std::error::Error for WorkspaceError {}
+impl std::error::Error for ProjectError {}
 
-/// Read a Workspace from the text of its file. `path` is only named in a refusal.
-pub fn parse_workspace(path: &Path, text: &str) -> Result<Workspace, WorkspaceError> {
-    let root: Value = serde_yaml_ng::from_str(text)
-        .map_err(|cause| WorkspaceError::Load(LoadError::NotYaml { path: path.to_path_buf(), cause }))?;
-    let mut out = Vec::new();
-    let Some((id, name, repositories)) = read(&root, &mut out).filter(|_| out.is_empty()) else {
-        return Err(WorkspaceError::Load(LoadError::Refused { path: path.to_path_buf(), refusals: out }));
-    };
-    Workspace::declared(id, name, repositories)
-        .map_err(|why| WorkspaceError::Malformed { path: path.to_path_buf(), why })
+/// Read a Project from the text of its file. `path` is only named in a refusal.
+pub fn parse_project(path: &Path, text: &str) -> Result<Project, ProjectError> {
+    parse(path, text, Version::Two)
 }
 
-fn read(root: &Value, out: &mut Vec<Refusal>) -> Option<(ScopeId, Title, Vec<ManifestId>)> {
+/// Read the file a Workspace was kept in before Projects: `workspace_id`, `name` and `repositories`,
+/// each repository a whole member. **For the migration only**, which writes version 2 in its place.
+pub fn parse_workspace_v1(path: &Path, text: &str) -> Result<Project, ProjectError> {
+    parse(path, text, Version::One)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Version {
+    One,
+    Two,
+}
+
+fn parse(path: &Path, text: &str, version: Version) -> Result<Project, ProjectError> {
+    let root: Value = serde_yaml_ng::from_str(text)
+        .map_err(|cause| ProjectError::Load(LoadError::NotYaml { path: path.to_path_buf(), cause }))?;
+    let mut out = Vec::new();
+    let mut bad_folder = None;
+    let read = read(&root, version, &mut out, &mut bad_folder);
+    if let Some((at, why)) = bad_folder.filter(|_| out.is_empty()) {
+        return Err(ProjectError::Folder { path: path.to_path_buf(), at, why });
+    }
+    let Some((id, name, members)) = read.filter(|_| out.is_empty()) else {
+        return Err(ProjectError::Load(LoadError::Refused { path: path.to_path_buf(), refusals: out }));
+    };
+    Project::declared(id, name, members).map_err(|why| ProjectError::Malformed { path: path.to_path_buf(), why })
+}
+
+fn read(
+    root: &Value,
+    version: Version,
+    out: &mut Vec<Refusal>,
+    bad_folder: &mut Option<(String, MalformedFolder)>,
+) -> Option<(ScopeId, Title, Vec<Member>)> {
+    let (id_key, members_key, known, carried, wanted) = match version {
+        Version::One => ("workspace_id", "repositories", TOP_LEVEL_V1, VERSIONS_V1, 1),
+        Version::Two => ("project_id", "members", TOP_LEVEL, VERSIONS, 2),
+    };
     let mut top = Table::open("", root, out)?;
     if let Some(version) = top.required("version", out).and_then(|value| yaml::positive("version", value, out)) {
-        if version != 1 {
-            out.push(Refusal::new("version", Fault::NotYetCarried { value: version.to_string(), carried: VERSIONS }));
+        if version != wanted {
+            out.push(Refusal::new("version", Fault::NotYetCarried { value: version.to_string(), carried }));
         }
     }
     let id = top
-        .required("workspace_id", out)
-        .and_then(|value| yaml::text("workspace_id", value, out))
+        .required(id_key, out)
+        .and_then(|value| yaml::text(id_key, value, out))
         .and_then(|written| ScopeId::new(&written).ok());
     let name = top
         .required("name", out)
         .and_then(|value| yaml::text("name", value, out))
         .and_then(|written| Title::new(&written).ok());
-    let repositories: Option<Vec<ManifestId>> = top
-        .required("repositories", out)
-        .and_then(|value| yaml::list("repositories", value, out))
-        .map(|items| {
+    let members = top.required(members_key, out).and_then(|value| match (version, value) {
+        // A Project made empty is written with `members: []`.
+        (Version::Two, Value::Sequence(items)) if items.is_empty() => Some(Vec::new()),
+        (Version::One, Value::Sequence(items)) if items.is_empty() => Some(Vec::new()),
+        (Version::One, value) => yaml::list(members_key, value, out).map(|items| {
             items
                 .iter()
                 .filter_map(|(at, item)| yaml::text(at, item, out))
-                .map(|written| ManifestId::carried(Ulid::carried(written.trim())))
+                .map(|written| Member::whole(ManifestId::carried(Ulid::carried(written.trim()))))
                 .collect()
-        });
-    top.close(TOP_LEVEL, out);
-    Some((id?, name?, repositories?))
+        }),
+        (Version::Two, value) => yaml::list(members_key, value, out).map(|items| {
+            items.iter().filter_map(|(at, item)| member(at, item, out, bad_folder)).collect()
+        }),
+    });
+    top.close(known, out);
+    Some((id?, name?, members?))
 }
 
-/// One Workspace file that parsed, and what became of it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkspaceFile {
-    workspace: Workspace,
-    source: PieceSource,
+fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Option<(String, MalformedFolder)>) -> Option<Member> {
+    let mut table = Table::open(at, item, out)?;
+    let repository = table
+        .required("repository", out)
+        .and_then(|value| yaml::text(&format!("{at}.repository"), value, out))
+        .map(|written| ManifestId::carried(Ulid::carried(written.trim())));
+    let folder_at = format!("{at}.folder");
+    let folder = table.optional("folder").and_then(|value| yaml::text(&folder_at, value, out));
+    table.close(MEMBER, out);
+    let repository = repository?;
+    match folder {
+        None => Some(Member::whole(repository)),
+        Some(written) => match Folder::new(&written) {
+            Ok(folder) => Some(Member::folder(repository, folder)),
+            Err(why) => {
+                bad_folder.get_or_insert((folder_at, why));
+                None
+            }
+        },
+    }
+}
+
+/// One Project file as text, the place it was read from and where.
+#[derive(Debug, Clone)]
+pub struct ProjectWritten {
+    place: ProjectPlace,
     path: PathBuf,
-    overridden_by: Option<PieceSource>,
-    hides: Option<PieceSource>,
+    text: String,
 }
 
-impl WorkspaceFile {
-    pub fn workspace(&self) -> &Workspace {
-        &self.workspace
+impl ProjectWritten {
+    /// `path` is the file, or the object a bucket holds it as.
+    pub fn new(place: ProjectPlace, path: PathBuf, text: String) -> ProjectWritten {
+        ProjectWritten { place, path, text }
+    }
+}
+
+/// One Project file that parsed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectFile {
+    project: Project,
+    place: ProjectPlace,
+    path: PathBuf,
+}
+
+impl ProjectFile {
+    pub fn project(&self) -> &Project {
+        &self.project
     }
 
-    pub fn source(&self) -> PieceSource {
-        self.source
+    pub fn place(&self) -> ProjectPlace {
+        self.place
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+/// A Project file that was set aside, and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectLeftOut {
+    place: ProjectPlace,
+    path: PathBuf,
+    said: String,
+}
+
+impl ProjectLeftOut {
+    /// A file Fleet could not read at all, so there is no text to parse: `said` is why.
+    pub fn new(place: ProjectPlace, path: PathBuf, said: String) -> ProjectLeftOut {
+        ProjectLeftOut { place, path, said }
+    }
+
+    pub fn place(&self) -> ProjectPlace {
+        self.place
     }
 
     pub fn path(&self) -> &Path {
         &self.path
     }
 
-    /// The place whose file of this id runs instead of this one. Absent on the one that runs.
-    pub fn overridden_by(&self) -> Option<PieceSource> {
-        self.overridden_by
-    }
-
-    /// The place whose file this one replaced because it says something else. **Two copies that are
-    /// the same hide nothing**, so they carry no mark.
-    pub fn hides(&self) -> Option<PieceSource> {
-        self.hides
+    /// The sentence a person reads, naming the key or the id at fault.
+    pub fn said(&self) -> &str {
+        &self.said
     }
 }
 
-/// Every Workspace in hand, merged by id, and the files set aside.
-#[derive(Debug, Default)]
-pub struct Workspaces {
-    files: Vec<WorkspaceFile>,
-    left_out: Vec<LeftOut>,
+/// Every Project in hand and the files set aside.
+#[derive(Debug, Default, Clone)]
+pub struct Projects {
+    files: Vec<ProjectFile>,
+    left_out: Vec<ProjectLeftOut>,
 }
 
-impl Workspaces {
-    /// Parse every file and merge by id, the person's own winning over the repository's.
-    ///
-    /// **The order the files arrive in decides nothing.** A file that does not fit is left out with
-    /// its reason, and two in one place with one id are both left out, naming both.
-    pub fn of(written: impl IntoIterator<Item = Written>) -> Workspaces {
-        let mut left_out = Vec::new();
-        let mut placed: BTreeMap<(ScopeId, PieceSource), Vec<(Workspace, PathBuf)>> = BTreeMap::new();
+impl Projects {
+    /// Parse every file. **The order the files arrive in decides nothing**: a file that does not fit
+    /// is left out with its reason, and two files of one id are both left out, naming both. `unread`
+    /// are files that could not be read at all, set aside as they are.
+    pub fn of(written: impl IntoIterator<Item = ProjectWritten>, unread: Vec<ProjectLeftOut>) -> Projects {
+        let mut left_out = unread;
+        let mut by_id: BTreeMap<ScopeId, Vec<ProjectFile>> = BTreeMap::new();
         for one in written {
-            match parse_workspace(one.path(), one.text()) {
-                Ok(workspace) => placed
-                    .entry((workspace.id().clone(), one.source()))
-                    .or_default()
-                    .push((workspace, one.path().to_path_buf())),
-                Err(why) => left_out.push(LeftOut::new(one.source(), one.path().to_path_buf(), why.to_string())),
+            match parse_project(&one.path, &one.text) {
+                Ok(project) => by_id.entry(project.id().clone()).or_default().push(ProjectFile {
+                    project,
+                    place: one.place,
+                    path: one.path,
+                }),
+                Err(why) => left_out.push(ProjectLeftOut::new(one.place, one.path, why.to_string())),
             }
-        }
-        let mut held: BTreeMap<ScopeId, Vec<(Workspace, PieceSource, PathBuf)>> = BTreeMap::new();
-        for ((id, source), mut defs) in placed {
-            if defs.len() > 1 {
-                let paths: Vec<&Path> = defs.iter().map(|(_, path)| path.as_path()).collect();
-                let said = format!("`{}` is written twice in one place, in {}", id.as_str(), named(&paths));
-                let first = defs.swap_remove(0).1;
-                left_out.push(LeftOut::new(source, first, said));
-                continue;
-            }
-            let (workspace, path) = defs.remove(0);
-            held.entry(id).or_default().push((workspace, source, path));
         }
         let mut files = Vec::new();
-        for (_, mut candidates) in held {
-            candidates.sort_by(|a, b| b.1.cmp(&a.1));
-            let mut candidates = candidates.into_iter();
-            let Some((running, by, path)) = candidates.next() else { continue };
-            let mut hid = None;
-            let mut beaten = Vec::new();
-            for (workspace, source, path) in candidates {
-                if hides(by, &running, source, &workspace) {
-                    hid = Some(source);
-                }
-                beaten.push(WorkspaceFile { workspace, source, path, overridden_by: Some(by), hides: None });
+        for (id, mut same) in by_id {
+            if same.len() > 1 {
+                let paths: Vec<&Path> = same.iter().map(|file| file.path.as_path()).collect();
+                let said = format!("`{}` is written twice, in {}, and neither runs", id.as_str(), named(&paths));
+                left_out.extend(same.iter().map(|file| ProjectLeftOut::new(file.place, file.path.clone(), said.clone())));
+                continue;
             }
-            files.push(WorkspaceFile { workspace: running, source: by, path, overridden_by: None, hides: hid });
-            files.extend(beaten);
+            files.extend(same.pop());
         }
-        Workspaces { files, left_out }
+        Projects { files, left_out }
     }
 
-    /// Every file that parsed: the one that runs for each id and each one it replaced.
-    pub fn files(&self) -> &[WorkspaceFile] {
+    /// Every file that parsed, one for each id.
+    pub fn files(&self) -> &[ProjectFile] {
         &self.files
     }
 
     /// The files set aside, and why.
-    pub fn left_out(&self) -> &[LeftOut] {
+    pub fn left_out(&self) -> &[ProjectLeftOut] {
         &self.left_out
     }
 
-    /// One Workspace for each id: the one that runs.
-    pub fn running(&self) -> impl Iterator<Item = &Workspace> {
-        self.files.iter().filter(|file| file.overridden_by.is_none()).map(|file| &file.workspace)
+    /// Every Project that runs.
+    pub fn running(&self) -> impl Iterator<Item = &Project> {
+        self.files.iter().map(|file| &file.project)
     }
 
-    /// Where the Workspace `id` that runs is kept, if it is committed to a repository. **That
-    /// repository is its home**: the others that belong to it read what is scoped to it from there.
-    /// Absent for one that is Kit's, which has none.
-    pub fn kept_at(&self, id: &ScopeId) -> Option<&Path> {
-        self.files
-            .iter()
-            .find(|file| file.overridden_by.is_none() && file.workspace.id() == id)
-            .filter(|file| file.source == PieceSource::Repository)
-            .map(|file| file.path.as_path())
+    /// The Project `id`, where its file read.
+    pub fn get(&self, id: &ScopeId) -> Option<&Project> {
+        self.running().find(|project| project.id() == id)
     }
 
-    /// The Workspaces that hold `repository`.
-    pub fn holding(&self, repository: &ManifestId) -> Vec<&Workspace> {
-        self.running().filter(|workspace| workspace.holds(repository)).collect()
+    /// The file of Project `id`, where it read.
+    pub fn file(&self, id: &ScopeId) -> Option<&ProjectFile> {
+        self.files.iter().find(|file| file.project.id() == id)
+    }
+
+    /// The Projects that hold `repository`.
+    pub fn holding(&self, repository: &ManifestId) -> Vec<&Project> {
+        self.running().filter(|project| project.holds(repository)).collect()
     }
 }
