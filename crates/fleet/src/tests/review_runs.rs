@@ -75,11 +75,12 @@ fn start(kind: ReviewRunKind, name: &str, again: bool) -> StartReviewRun {
         name: name.into(),
         again,
         place: None,
+        finding: None,
     }
 }
 
 /// Wait until nothing is going for pull request 12, then say what there is.
-async fn settled(fleet: &Fixture, id: &ManifestId) -> Vec<ReviewRun> {
+pub(super) async fn settled(fleet: &Fixture, id: &ManifestId) -> Vec<ReviewRun> {
     for _ in 0..500 {
         let runs = fleet.get_review_runs(id.clone(), 12).await.expect("read").runs;
         if runs.iter().all(|run| matches!(run.state, ReviewRunState::Done | ReviewRunState::Failed)) {

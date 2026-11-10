@@ -146,6 +146,33 @@ pub trait HostedSessions: Send + Sync + 'static {
     /// `operator_talk`: the conversation so far.
     fn operator_talk(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_talk::OperatorTalk, Refusal>> + Send;
 
+    /// `operator_in_front`: Bridge's window came to the front. Answers at once; coming back after time
+    /// away sets when he last looked and rewrites the page's top line.
+    fn operator_in_front(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_page::OperatorInFront, Refusal>> + Send;
+
+    /// `operator_page`: Your turn and the digest beside it.
+    fn operator_page(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
+
+    /// `operator_answer`: one press on an item of Your turn. [`Refusal::NotFound`] where no open item has
+    /// the id, [`Refusal::Unacceptable`] where the answer is not offered on it or the Operator is off.
+    fn operator_answer(
+        self: Arc<Self>,
+        press: ipc::operator_page::OperatorAnswerPress,
+    ) -> impl Future<Output = Result<ipc::operator_page::OperatorAnswered, Refusal>> + Send;
+
+    /// `operator_turn_order`: Your turn as he dragged it.
+    fn operator_turn_order(
+        self: Arc<Self>,
+        order: ipc::operator_page::OperatorTurnOrder,
+    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
+
+    /// `operator_later`: one item goes last for the rest of the local day. [`Refusal::NotFound`] where no
+    /// open item has the id.
+    fn operator_later(
+        self: Arc<Self>,
+        later: ipc::operator_page::OperatorLater,
+    ) -> impl Future<Output = Result<ipc::operator_page::OperatorPage, Refusal>> + Send;
+
     /// `get_operator_board`: what the Operator is ruling on, what waits and what it settled.
     fn get_operator_board(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
 

@@ -61,6 +61,8 @@ test("scrolling up to the top draws the next 40, and what he was reading stays w
 
   const one = scroller();
   one.scrollTop = 0;
+  // Unpinned at once: a resize before the browser's own scroll event would put him back at the end.
+  one.dispatchEvent(new Event("scroll"));
   const reading = page.getByText("row 360 said").element();
   const top = reading.getBoundingClientRect().top;
 

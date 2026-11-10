@@ -2,7 +2,7 @@
 //! hosted Job, whoever started it**, on its own tap beside the one that tells a parent
 //! (`linked_following`), which it leaves as it is.
 //!
-//! **Each is heard once, and makes no call.** The store keeps `operator_ended` and `operator_merged`,
+//! **Each is heard once, and makes no call**, and goes in the Operator's journal of the week. The store keeps `operator_ended` and `operator_merged`,
 //! under names of their own so neither shadows what a parent was told. Nothing is raised, proposed or
 //! ruled: the Operator is only told what finished, and Discussion reads it. **Nothing is replayed**:
 //! when the tap starts, every end and merge already there is marked heard.
@@ -95,11 +95,15 @@ where
         if self.store().lock().await.hosting(&id).ok().flatten().is_none() {
             return;
         }
-        if ended_for_good(&record) {
-            self.heard_once(&id, ENDED, "").await;
+        let job = record.title.clone().unwrap_or_else(|| id.clone());
+        if ended_for_good(&record) && self.heard_once(&id, ENDED, "").await {
+            self.operator_journaled(&format!("Ended: {job}")).await;
         }
         for pull in record.attachments.iter().filter(|one| one.kind == "pr" && crate::after_following::merged(one)) {
-            self.heard_once(&id, MERGED, &pull.target).await;
+            if self.heard_once(&id, MERGED, &pull.target).await {
+                let title = pull.detail.get("title").cloned().unwrap_or_default();
+                self.operator_journaled(&format!("Merged: #{} {title}, held by {job}", pull.target)).await;
+            }
         }
     }
 }

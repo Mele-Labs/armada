@@ -1,0 +1,8 @@
+[operations."operator.page_changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The Operator's page is not what it was"
+notes = """
+Published when an item joins Your turn or settles, when the order, a Later or a rule moves, and when `top` or `on_it` changes. **It carries nothing** beyond the stream's cursor: Bridge reads `operator_page` again, and a new item is what raises its toast. Not published for the digest's other sections, which are read.
+"""

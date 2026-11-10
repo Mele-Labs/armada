@@ -119,7 +119,7 @@ pub fn kind_of(arrived: Arrived) -> OperatorBoardKind {
     }
 }
 
-fn first_line(text: &str) -> String {
+pub(super) fn first_line(text: &str) -> String {
     text.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default().to_string()
 }
 
@@ -144,7 +144,7 @@ fn waited(handed: &Timestamp, now: &Timestamp) -> Option<String> {
 
 /// A ruling in `Kind: what`, or the kind alone. `title_of` names a Job by its id, and `summary_of`
 /// gives what its agent said it achieved.
-fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, summary_of: &dyn Fn(&str) -> Option<String>) -> String {
+pub(super) fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, summary_of: &dyn Fn(&str) -> Option<String>) -> String {
     let said = |kind: &str, what: String| match short(&what) {
         what if what.is_empty() => kind.to_string(),
         what => format!("{kind}: {what}"),
@@ -185,7 +185,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The name of the repository `manifest_id` is.
-    fn board_repository(&self, manifest_id: &str) -> Option<String> {
+    pub(super) fn board_repository(&self, manifest_id: &str) -> Option<String> {
         self.repositories().hosted().into_iter().find(|one| one.manifest().id().as_str() == manifest_id).map(|one| {
             let root = one.root();
             std::path::Path::new(root).file_name().map_or_else(|| root.to_string(), |name| name.to_string_lossy().to_string())

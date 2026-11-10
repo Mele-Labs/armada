@@ -221,6 +221,10 @@ export type Event =
   | {
       kind: "operator.board_changed";
     }
+  /** The Operator's page is not what it was: read `operator_page` again. Carries nothing else. */
+  | {
+      kind: "operator.page_changed";
+    }
   /** A background act failed after its request was answered: the act, what it was for, and the refusal. Not replayed. */
   | ({
       kind: "act.failed";

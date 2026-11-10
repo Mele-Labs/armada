@@ -121,6 +121,17 @@ pub struct SuggestionRead {
     pub text: String,
 }
 
+/// An item of the person's Your turn queue, as a message may be about it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TurnRead {
+    /// `turn:<n>`, the id the page carries.
+    pub id: String,
+    /// `None` for an item no Job holds.
+    pub job: Option<String>,
+    pub text: String,
+    pub read: Option<ipc::OperatorRead>,
+}
+
 /// A live Job's open tasks and the last of what its agent said, each cut to [`LINE_CHARS`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct JobRead {
@@ -143,6 +154,8 @@ pub struct Board {
     /// Newest first.
     pub log: Vec<LogRead>,
     pub needs_you: Vec<NeedsYou>,
+    /// What is in Your turn, in the order he left it.
+    pub turn: Vec<TurnRead>,
     /// The Operator's own suggestions no Job holds, still waiting on a press, oldest first.
     pub suggestions: Vec<SuggestionRead>,
     /// The live Jobs' tasks and last words: filled in by a message, which is the only call that reads them.
@@ -262,8 +275,8 @@ fn question(so_far: &[TalkLine], words: &str, about: Option<&str>, board: &Board
     if let Some(reading) = &reading {
         out.push_str(&format!(
             "\nThe folder for this message is {}. It holds a file for each live Job, named job-<the Job's id>.txt, with its title, its plan if it has one, \
-its open tasks, what waits on the person written in full and the last {SAID_READABLE} messages of its thread, and issues.txt, the issues open in each repository. \
-Fleet deletes it when you have answered.\n",
+its open tasks, what waits on the person written in full and the last {SAID_READABLE} messages of its thread, issues.txt, the issues open in each repository, \
+and your journal of this week and last week, named journal-<year>-W<week>.md, which says what the week held. Fleet deletes it when you have answered.\n",
             reading.folder.display()
         ));
     }
@@ -366,6 +379,11 @@ fn about_text(id: &str, board: &Board) -> Option<String> {
     if let Some(row) = board.log.iter().find(|row| row.arrival == id) {
         return Some(format!("\"{}\" ({id}), ruled: it went {}. {}", first_line(&row.subject), row.outcome, row.because));
     }
+    if let Some(one) = board.turn.iter().find(|one| one.id == id) {
+        let whose = one.job.as_deref().map_or("the Operator's own".to_string(), |job| format!("Job \"{job}\"'s"));
+        let read = one.read.as_ref().map(|read| format!(" Your read: {} Your pick: {}", read.read, read.pick)).unwrap_or_default();
+        return Some(format!("{whose} item in the person's Your turn ({id}): {}{read}", one.text));
+    }
     if let Some(one) = board.suggestions.iter().find(|one| one.id == id) {
         return Some(format!("your suggestion ({id}), waiting on the person to press Do it or Skip: {}", one.text));
     }
@@ -433,6 +451,34 @@ fn form_read(form: &str, board: &Board, live: &[LiveJob]) -> Option<OperatorOrde
     }
     let what = form.strip_prefix("always_raise ")?.trim();
     Arrived::taken_from_word(what).map(|arrived| OperatorOrderForm::AlwaysRaise { what: arrived.word().to_string() })
+}
+
+/// The Jobs that ended and the pull requests hosted Jobs held that merged at or after `since`, each newest first.
+pub(super) fn moved_since(store: &store::Store, since: &str) -> (Vec<EndedJob>, Vec<MergedPull>) {
+    let ended = store
+        .sessions_ended_since(since, ENDED_SHOWN)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|session| EndedJob {
+            summary: store.done_summary(&session.id).ok().flatten(),
+            started_by: started_by_chain(store, &session.id),
+            title: session.title.unwrap_or_else(|| session.id.clone()),
+            session_id: session.id,
+        })
+        .collect();
+    let mut merged: Vec<(String, MergedPull)> = Vec::new();
+    for hosting in store.hostings().unwrap_or_default() {
+        let job = store.session(&hosting.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| hosting.session_id.clone());
+        for pull in store.attachments_of(&store::Holder::session(&hosting.session_id)).unwrap_or_default() {
+            let spent = pull.state == store::AttachmentState::Spent;
+            if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= since {
+                let title = pull.detail.get("title").cloned().unwrap_or_default();
+                merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
+            }
+        }
+    }
+    merged.sort_by(|a, b| b.0.cmp(&a.0));
+    (ended, merged.into_iter().map(|(_, one)| one).take(MERGED_SHOWN).collect())
 }
 
 impl Operator {
@@ -522,30 +568,8 @@ where
                 stopped.push(StoppedJob { session_id: session.id.clone(), title, tasks: mark.tasks });
             }
         }
-        let ended = store
-            .sessions_ended_since(&day_began, ENDED_SHOWN)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|session| EndedJob {
-                summary: store.done_summary(&session.id).ok().flatten(),
-                started_by: started_by_chain(&store, &session.id),
-                title: session.title.unwrap_or_else(|| session.id.clone()),
-                session_id: session.id,
-            })
-            .collect();
-        let mut merged: Vec<(String, MergedPull)> = Vec::new();
-        for hosting in store.hostings().unwrap_or_default() {
-            let job = store.session(&hosting.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| hosting.session_id.clone());
-            for pull in store.attachments_of(&store::Holder::session(&hosting.session_id)).unwrap_or_default() {
-                let spent = pull.state == store::AttachmentState::Spent;
-                if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= day_began.as_str() {
-                    let title = pull.detail.get("title").cloned().unwrap_or_default();
-                    merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
-                }
-            }
-        }
-        merged.sort_by(|a, b| b.0.cmp(&a.0));
-        let merged: Vec<MergedPull> = merged.into_iter().map(|(_, one)| one).take(MERGED_SHOWN).collect();
+        let (ended, merged) = moved_since(&store, &day_began);
+        let turn = self.turn_read(&store);
         drop(store);
         let repositories = self
             .repositories()
@@ -556,7 +580,7 @@ where
                 Repository { id: one.manifest().id().as_str().to_string(), name }
             })
             .collect();
-        Board { log, needs_you, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
+        Board { log, needs_you, turn, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
     }
 
     /// The open tasks and last words of the newest of `ids`, up to [`JOBS_DETAILED`] Jobs. Read from the
@@ -629,12 +653,16 @@ where
     }
 
     async fn talk_kept(&self, words: &str, about: Option<&str>, talked: &Talked, at: &Timestamp) {
-        let mut store = self.store().lock().await;
-        let person = KeptTalk { from_person: true, text: words.to_string(), call: None, at: at.as_str().to_string(), about: about.map(str::to_string) };
-        let operator = KeptTalk { from_person: false, text: talked.said.clone(), call: Some(talked.call.clone()), at: at.as_str().to_string(), about: about.map(str::to_string) };
-        if let Err(why) = store.add_operator_talk(&person).and_then(|()| store.add_operator_talk(&operator)) {
+        let kept = {
+            let mut store = self.store().lock().await;
+            let person = KeptTalk { from_person: true, text: words.to_string(), call: None, at: at.as_str().to_string(), about: about.map(str::to_string) };
+            let operator = KeptTalk { from_person: false, text: talked.said.clone(), call: Some(talked.call.clone()), at: at.as_str().to_string(), about: about.map(str::to_string) };
+            store.add_operator_talk(&person).and_then(|()| store.add_operator_talk(&operator))
+        };
+        if let Err(why) = kept {
             self.operator_warned("the conversation with the Operator was not kept", why);
         }
+        self.operator_journaled(&format!("He wrote: {words} I answered: {}", first_line(&talked.said))).await;
     }
 
     /// He told the box to start a Job that waits: it starts as his press would, and the Log keeps

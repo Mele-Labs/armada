@@ -209,7 +209,7 @@ where
 
     /// The local midnight after `now`. **Thirty hours past this day's**, which is always in the
     /// next day whether the clocks change or not.
-    async fn next_day_began(&self, now: &Timestamp) -> String {
+    pub(super) async fn next_day_began(&self, now: &Timestamp) -> String {
         const THIRTY_HOURS: i64 = 30 * 60 * 60 * 1000;
         let millis = now.epoch_millis().unwrap_or(0);
         let began = crate::clock::local_day_began(millis).await;

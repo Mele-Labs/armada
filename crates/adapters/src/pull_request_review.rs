@@ -17,9 +17,11 @@ use crate::delivery::{last_line, run_in, said, FORGE};
 
 const ADD_REVIEW: &str = "mutation($pr:ID!,$commit:GitObjectID){addPullRequestReview(\
     input:{pullRequestId:$pr,commitOID:$commit}){pullRequestReview{id}}}";
-const ADD_LINE: &str = "mutation($review:ID!,$path:String!,$line:Int!,$side:DiffSide!,$body:String!){\
-    addPullRequestReviewThread(input:{pullRequestReviewId:$review,path:$path,line:$line,side:$side,\
-    body:$body}){thread{id}}}";
+// `startLine` and `startSide` are sent for a range only; unsent, they are null and the thread is on
+// one line.
+const ADD_LINE: &str = "mutation($review:ID!,$path:String!,$line:Int!,$side:DiffSide!,$body:String!,\
+    $startLine:Int,$startSide:DiffSide){addPullRequestReviewThread(input:{pullRequestReviewId:$review,\
+    path:$path,line:$line,side:$side,startLine:$startLine,startSide:$startSide,body:$body}){thread{id}}}";
 const ADD_FILE: &str = "mutation($review:ID!,$path:String!,$body:String!){\
     addPullRequestReviewThread(input:{pullRequestReviewId:$review,path:$path,subjectType:FILE,\
     body:$body}){thread{id}}}";
@@ -32,13 +34,15 @@ const SUBMIT: &str = "mutation($review:ID!,$event:PullRequestReviewEvent!,$body:
 const DELETE: &str = "mutation($review:ID!){deletePullRequestReview(\
     input:{pullRequestReviewId:$review}){pullRequestReview{id}}}";
 
-/// One call to the forge: a mutation, its string values, an integer, and the text for standard
+/// One call to the forge: a mutation, its string values, its integers, and the text for standard
 /// input. `picked` is the jq path of the id it answers with.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Step {
     pub(crate) query: &'static str,
     pub(crate) strings: Vec<(&'static str, String)>,
     pub(crate) line: Option<u64>,
+    /// The first line of a range, sent only where it is before `line`.
+    pub(crate) start_line: Option<u64>,
     /// Sent as `body` on standard input. Absent sends no `body` at all.
     pub(crate) text: Option<String>,
     picked: &'static str,
@@ -50,6 +54,7 @@ impl Step {
             query,
             strings: Vec::new(),
             line: None,
+            start_line: None,
             text: None,
             picked,
         }
@@ -77,6 +82,10 @@ impl Step {
             args.push("-F".to_string());
             args.push(format!("line={line}"));
         }
+        if let Some(start) = self.start_line {
+            args.push("-F".to_string());
+            args.push(format!("startLine={start}"));
+        }
         if self.text.is_some() {
             args.push("-F".to_string());
             args.push("body=@-".to_string());
@@ -98,20 +107,22 @@ fn open(pull_request_id: &str, commit: &str) -> Step {
 
 fn comment(review: &str, comment: &ReviewComment) -> Step {
     match comment {
-        ReviewComment::Line { path, line, side, body } => {
+        ReviewComment::Line { path, line, side, body, start_line } => {
+            let side = match side {
+                DiffSide::Left => "LEFT",
+                DiffSide::Right => "RIGHT",
+            };
             let mut step = Step::new(ADD_LINE, ".data.addPullRequestReviewThread.thread.id")
                 .with("review", review)
                 .with("path", path)
-                .with(
-                    "side",
-                    match side {
-                        DiffSide::Left => "LEFT",
-                        DiffSide::Right => "RIGHT",
-                    },
-                )
-                .saying(body);
+                .with("side", side);
+            // A range is on one side of the diff, so it starts on the side it ends.
+            if let Some(start) = start_line.filter(|start| start < line) {
+                step = step.with("startSide", side);
+                step.start_line = Some(start);
+            }
             step.line = Some(*line);
-            step
+            step.saying(body)
         }
         ReviewComment::File { path, body } => {
             Step::new(ADD_FILE, ".data.addPullRequestReviewThread.thread.id")

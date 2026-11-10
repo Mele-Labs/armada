@@ -232,6 +232,59 @@ pub(crate) async fn operator_talk<D: HostedSessions>(State(served): State<Served
     }
 }
 
+/// The Operator's page: Your turn and the digest beside it.
+pub(crate) async fn operator_page<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().operator_page().await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One press on an item of Your turn. 200 with what it did and the page; 404 where no open item has the
+/// id, 422 where the answer is not offered on it or the Operator is off.
+pub(crate) async fn operator_answer<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let press: ipc::operator_page::OperatorAnswerPress = match ipc::decode_body("an answer to an item of Your turn", &body) {
+        Ok(press) => press,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_answer(press).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Your turn as he dragged it. 200 with the page.
+pub(crate) async fn operator_turn_order<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let order: ipc::operator_page::OperatorTurnOrder = match ipc::decode_body("an order of Your turn", &body) {
+        Ok(order) => order,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_turn_order(order).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// One item goes last for the rest of the local day. 200 with the page; 404 where no open item has the id.
+pub(crate) async fn operator_later<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let later: ipc::operator_page::OperatorLater = match ipc::decode_body("an item put Later", &body) {
+        Ok(later) => later,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().operator_later(later).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// Bridge's window came to the front. 200 at once, saying whether the page's top line is being rewritten.
+pub(crate) async fn operator_in_front<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().operator_in_front().await {
+        Ok(front) => answer(StatusCode::OK, &front, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What the Operator is ruling on, what waits for it and what it settled.
 pub(crate) async fn get_operator_board<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.shared().get_operator_board().await {

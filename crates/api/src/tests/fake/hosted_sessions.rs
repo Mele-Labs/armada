@@ -86,6 +86,26 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn operator_in_front(self: Arc<Self>) -> Result<ipc::operator_page::OperatorInFront, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_page(self: Arc<Self>) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_answer(self: Arc<Self>, _press: ipc::operator_page::OperatorAnswerPress) -> Result<ipc::operator_page::OperatorAnswered, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_turn_order(self: Arc<Self>, _order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn operator_later(self: Arc<Self>, _later: ipc::operator_page::OperatorLater) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
         Err(nothing_hosted())
     }

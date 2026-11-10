@@ -289,6 +289,26 @@ where
         self.operator_talk_wire().await
     }
 
+    async fn operator_in_front(self: Arc<Self>) -> Result<ipc::operator_page::OperatorInFront, Refusal> {
+        Ok(ipc::operator_page::OperatorInFront { rewriting: self.operator_in_front_now().await })
+    }
+
+    async fn operator_page(self: Arc<Self>) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        self.operator_page_wire().await
+    }
+
+    async fn operator_answer(self: Arc<Self>, press: ipc::operator_page::OperatorAnswerPress) -> Result<ipc::operator_page::OperatorAnswered, Refusal> {
+        self.operator_answered(press).await
+    }
+
+    async fn operator_turn_order(self: Arc<Self>, order: ipc::operator_page::OperatorTurnOrder) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        self.operator_turn_ordered(order).await
+    }
+
+    async fn operator_later(self: Arc<Self>, later: ipc::operator_page::OperatorLater) -> Result<ipc::operator_page::OperatorPage, Refusal> {
+        self.operator_turn_later(later).await
+    }
+
     async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
         self.operator_board_wire().await
     }
