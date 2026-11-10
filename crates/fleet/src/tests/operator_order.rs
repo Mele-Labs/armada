@@ -6,7 +6,7 @@ use std::sync::Arc;
 use api::HostedSessions;
 use ipc::{LinePlace, MoveInLine, SessionId};
 
-use super::operator_acting::dispatch;
+use super::operator_acting::operator_on;
 use super::session_host::Rig;
 use super::session_queue::{queued_and_idle, with_slot_one_held};
 
@@ -26,7 +26,7 @@ fn dragged(id: &SessionId, place: LinePlace) -> MoveInLine {
 #[tokio::test]
 async fn a_drag_moves_a_job_in_waiting_to_start_and_is_kept_as_a_correction() {
     let (rig, _holder) = with_slot_one_held().await;
-    dispatch(&rig, true).await;
+    operator_on(&rig).await;
     let (first, _) = queued_and_idle(&rig, "first").await;
     let (second, _) = queued_and_idle(&rig, "second").await;
     let (third, _) = queued_and_idle(&rig, "third").await;

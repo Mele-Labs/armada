@@ -1507,18 +1507,17 @@ function fleetActsOf(rows: readonly WireRow[], record: SessionRecord): FleetAct[
           },
         ];
   const repairing: FleetAct[] =
-    record.stopped?.repair === "running"
-      ? [
+    record.repairing === undefined
+      ? []
+      : [
           {
             id: "repair",
-            at: record.stopped.at,
+            at: record.repairing.since,
             state: "under_way",
             kind: "restart",
-            said: "Repair Job running",
-            why: "The restart failed",
+            said: `Repairing: ${record.repairing.said}`,
           },
-        ]
-      : [];
+        ];
   return [
     ...over,
     ...repairing,
@@ -1993,6 +1992,11 @@ export function sessionOfRecord(
                   down: record.stopped.down,
                 }),
           },
+        }),
+    ...(record.repairing === undefined
+      ? {}
+      : {
+          repairing: record.repairing,
         }),
     ...(ended || record.turn_since === undefined
       ? {}

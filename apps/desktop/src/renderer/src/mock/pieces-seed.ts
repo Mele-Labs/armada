@@ -6,8 +6,8 @@ import type {
   AppliedRule,
   LifecycleDefinition,
   LifecycleRule,
-  WorkspaceOfRepositories,
 } from "@armada/protocol";
+import type { WorkspaceOfRepositories } from "../workspace-of-project";
 
 import type { KeptAutonomy } from "./workspaces-wire";
 import type { KeepDraft } from "../../../shared/api/lifecycles";

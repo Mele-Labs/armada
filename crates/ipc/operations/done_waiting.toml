@@ -1,0 +1,12 @@
+[operations.done_waiting]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Say that you did what a job's item asked of you, with a note if you have one, and send the job one turn naming it"
+notes = """
+`POST /sessions/waiting/done`, body `DoneWaiting`: `session_id`, `item_id` and an optional `note`. Answered with the `SessionRecord`, and `SessionChanged` is published.
+
+**Only an item the agent stated** (source `agent`) is done: it is a thing the agent asked him to do. An item of any other source is a 422 `fleet.session_waiting_empty`, and an item nothing holds a 409, as for `dismiss_waiting`. `get_needs_you` offers it as the `done` act of a row in To do.
+
+**The item closes as a dismissed one does**: it leaves `waiting_for`, is kept in `closed` whole, and is left off if the agent states it again. **The job is sent one turn**, `Done: <item text>`, and on the next line the `note` where it is not blank. The turn is sent first, so a send that fails leaves the item standing to try again; a paused Job keeps the turn for its Resume, as any turn sent to it. Two presses at once settle it once.
+"""

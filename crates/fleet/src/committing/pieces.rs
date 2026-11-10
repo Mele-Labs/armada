@@ -1,15 +1,14 @@
-//! Commit to repository for a Workspace, a lifecycle, a rule and autonomy defaults: the person's
-//! own file in Kit copied into `.armada/<folder>/`, or the repository's file taken out of it.
+//! Commit to repository for a lifecycle, a rule and autonomy defaults: the person's own file in Kit
+//! copied into `.armada/<folder>/`, or the repository's file taken out of it. **A Project is never
+//! committed**: it is kept on this Mac, in a synced folder or in the cloud.
 //!
 //! **A piece is found by what its file declares** (`crate::piece_saving::identity`), in Kit and on
 //! the branch, and the file on the branch that declares it is the one replaced whatever it is
 //! called. **A file on the branch that declares something else is never written over.**
 //!
-//! **Where a piece may be committed follows its scope.** A piece scoped within a Workspace is read
-//! by every repository in it from the Workspace's home, the one repository whose
-//! `.armada/workspaces/` holds the Workspace file, so it is committed there and nowhere else. One
-//! scoped within a repository is that repository's. A Workspace is committed to a single
-//! repository, since two repositories holding one id leave both set aside.
+//! **Where a piece may be committed follows its scope.** A piece scoped within a Project is read by
+//! every member repository from every other member's `.armada/`, so it may be committed to any
+//! repository the Project holds and to no other. One scoped within a repository is that repository's.
 
 use std::path::Path;
 
@@ -23,13 +22,12 @@ use crate::daemon::Fleet;
 use crate::piece_saving::identity::{declaring, folder_of, Identity};
 use crate::run_memory::JobTree;
 
-/// The piece a commit names, where it is one of the four kinds a repository can hold apart from
+/// The piece a commit names, where it is one of the three kinds a repository can hold apart from
 /// the rest of its `.armada/`.
 fn identity_of(piece: &PieceToCommit) -> Option<Identity> {
     match piece {
         PieceToCommit::Lifecycle { id, scope } => Some(Identity::of(LifecyclePieceKind::Lifecycle, id, scope.clone())),
         PieceToCommit::LifecycleRule { id, scope } => Some(Identity::of(LifecyclePieceKind::Rule, id, scope.clone())),
-        PieceToCommit::Workspace { id } => Some(Identity::of(LifecyclePieceKind::Workspace, id, PieceScope::Everywhere)),
         PieceToCommit::Autonomy { id, scope } => Some(Identity::of(LifecyclePieceKind::Autonomy, id, scope.clone())),
         PieceToCommit::FlightControls { .. }
         | PieceToCommit::Workflow { .. }
@@ -49,7 +47,6 @@ fn older_word(piece: &PieceToCommit) -> &'static str {
         PieceToCommit::Requests { .. } => "requests",
         PieceToCommit::Lifecycle { .. }
         | PieceToCommit::LifecycleRule { .. }
-        | PieceToCommit::Workspace { .. }
         | PieceToCommit::Autonomy { .. } => "this",
     }
 }
@@ -73,50 +70,18 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The roots of the repositories whose `.armada/workspaces/` holds the Workspace `id`.
-    fn workspace_homes(&self, id: &str) -> Vec<String> {
-        let wanted = Identity::of(LifecyclePieceKind::Workspace, id, PieceScope::Everywhere);
-        self.repositories()
-            .hosted()
-            .into_iter()
-            .filter(|one| !declared_in(Path::new(one.root()), &wanted).is_empty())
-            .map(|one| one.root().to_string())
-            .collect()
-    }
-
     /// Whether `root` is where `wanted` may be committed. **A refusal names the repository it
     /// belongs in.**
     fn piece_placed_in(&self, root: &str, wanted: &Identity) -> Result<(), Refusal> {
-        if wanted.kind == LifecyclePieceKind::Workspace {
-            let elsewhere: Vec<String> = self.workspace_homes(&wanted.id).into_iter().filter(|home| home != root).collect();
-            return match elsewhere.is_empty() {
+        let PieceScope::Within { id: scoped } = &wanted.scope else { return Ok(()) };
+        let projects = self.projects_held();
+        if let Some(project) = ScopeId::new(scoped).ok().and_then(|id| projects.get(&id).cloned()) {
+            let member = self.repositories().hosted().into_iter().any(|one| one.root() == root && project.holds(one.manifest().id()));
+            return match member {
                 true => Ok(()),
                 false => Err(self.commit_refusal(
                     REFUSED,
-                    format!(
-                        "The {} is already committed in {}. Two repositories holding one Workspace leave both set aside, so change it there.",
-                        wanted.said(),
-                        elsewhere.join(" and ")
-                    ),
-                )),
-            };
-        }
-        let PieceScope::Within { id: scoped } = &wanted.scope else { return Ok(()) };
-        let in_a_workspace = ScopeId::new(scoped).is_ok_and(|id| self.workspaces_read().running().any(|one| one.id() == &id));
-        if in_a_workspace {
-            let homes = self.workspace_homes(scoped);
-            return match homes.as_slice() {
-                [home] if home == root => Ok(()),
-                [] => Err(self.commit_refusal(
-                    REFUSED,
-                    format!(
-                        "The Workspace `{scoped}` is only in your Kit, so it has no home repository to commit the {} to. Commit the Workspace to the repository that should hold it first.",
-                        wanted.said()
-                    ),
-                )),
-                homes => Err(self.commit_refusal(
-                    REFUSED,
-                    format!("The {} is scoped to the Workspace `{scoped}`, whose home is {}. Commit it there.", wanted.said(), homes.join(" and ")),
+                    format!("The {} is scoped to the Project `{scoped}`, which does not hold this repository. Commit it to one that does.", wanted.said()),
                 )),
             };
         }
@@ -128,7 +93,7 @@ where
             )),
             None => Err(self.commit_refusal(
                 REFUSED,
-                format!("The {} is scoped within `{scoped}`, which is neither a Workspace nor a repository Fleet serves.", wanted.said()),
+                format!("The {} is scoped within `{scoped}`, which is neither a Project nor a repository Fleet serves.", wanted.said()),
             )),
         }
     }
@@ -158,13 +123,13 @@ where
         Ok(Copy { files: vec![(path, text)], removals: Vec::new(), message: format!("Add the {named}"), title: format!("Commit the {named}") })
     }
 
-    /// The file on the branch that declares the piece, deleted. **Only the four kinds above can be
+    /// The file on the branch that declares the piece, deleted. **Only the three kinds above can be
     /// removed**, and removing what the repository does not hold is refused.
     pub(super) fn piece_removed(&self, tree: &JobTree, piece: &PieceToCommit) -> Result<Copy, Refusal> {
         let Some(wanted) = identity_of(piece) else {
             return Err(self.commit_refusal(
                 REFUSED,
-                format!("Removing {} from a repository is not built. Only a Workspace, lifecycle, rule or autonomy defaults can be removed.", older_word(piece)),
+                format!("Removing {} from a repository is not built. Only a lifecycle, rule or autonomy defaults can be removed.", older_word(piece)),
             ));
         };
         let removals: Vec<String> = declared_in(Path::new(&tree.path), &wanted).into_iter().map(|(path, _)| path).collect();

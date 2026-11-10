@@ -148,6 +148,7 @@ async fn a_thread_on_your_words(fleet: &Arc<Reading>, manifest: &str, said: &[(i
         .expect("a session");
     store
         .keep_hosting(&store::KeptHosting {
+            project: None,
             session_id: id.to_string(),
             manifest_id: manifest.to_string(),
             model: None,

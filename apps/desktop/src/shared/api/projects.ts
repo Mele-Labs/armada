@@ -2,12 +2,13 @@
 // A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type {
+  EditProject,
   LinkProjectIssue,
   LinkTaskJob,
   LinkTaskPull,
   MoveProjectRow,
   MoveProjectTaskRepository,
-  NameProject,
+  NewProject,
   NewProjectIssue,
   NewProjectTask,
   Outcome,
@@ -30,8 +31,10 @@ export type ProjectsActed =
 export type ProjectsApi = {
   /** His projects, each with its rows in order, and the tasks in none. */
   listProjects: () => Promise<ProjectsActed>;
-  addProject: (body: NameProject) => Promise<ProjectsActed>;
-  renameProject: (project: string, body: NameProject) => Promise<ProjectsActed>;
+  /** A project at the end of his order, empty on this Mac unless the body says more. */
+  addProject: (body: NewProject) => Promise<ProjectsActed>;
+  /** A project's name, members or place: what the body leaves out stays. */
+  editProject: (project: string, body: EditProject) => Promise<ProjectsActed>;
   /** Its rows go with it. */
   deleteProject: (project: string) => Promise<ProjectsActed>;
   /** A task, open, in a repository, at the end of the project or, with none, of the loose tasks. */
@@ -70,7 +73,7 @@ export type ProjectsApi = {
 export const PROJECTS_CHANNELS = {
   listProjects: "bridge:list-projects",
   addProject: "bridge:add-project",
-  renameProject: "bridge:rename-project",
+  editProject: "bridge:edit-project",
   deleteProject: "bridge:delete-project",
   addProjectTask: "bridge:add-project-task",
   addProjectSubtask: "bridge:add-project-subtask",

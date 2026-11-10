@@ -3,6 +3,8 @@
 //
 // The header rules in `protocol.ts` hold here.
 
+import type { RunCloud, RunPlace } from "./run-memory";
+
 /**
  * A written task's own state. `held` is a Job working on it; `asked` is a Job finished, or a pull request linked to the task
  * merged, and whether the task is done is yet to be said, which outlives the Job. More may come: one this build does not
@@ -86,6 +88,42 @@ export type Project = {
   name: string;
   /** In order, across repositories: a row's position is its place here. */
   rows: ProjectRow[];
+  /** The repositories, whole or by a folder, its file lists, in its order. Empty where `unread`. */
+  members: ProjectMember[];
+  /** Where its file is kept. None chosen is `this_mac`, and it is never `repository`. */
+  place: ProjectPlace;
+  /** Present where its file could not be read: the sentence that says why. `name` is then the last the store saw, and `members` is empty. */
+  unread?: string;
+};
+
+/** A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`. */
+export type ProjectMember = {
+  /** The repository, by Manifest id. */
+  manifest_id: string;
+  /** A path inside the repository, `/`-separated, with no leading or trailing `/`. Absent for the whole of it. */
+  folder?: string;
+};
+
+/**
+ * Where a project's file is kept, as `set_run_memory_place` takes a repository's: `synced_folder` is required for `synced` and
+ * `cloud` for `cloud`. **`repository` is refused** with `fleet.project_place_refused`: a project is not kept in one.
+ */
+export type ProjectPlace = {
+  place: RunPlace;
+  /** The folder `synced` writes under. */
+  synced_folder?: string;
+  /** Where `cloud` keeps it. */
+  cloud?: RunCloud;
+};
+
+/** A project file Fleet could not read. */
+export type ProjectLeftOut = {
+  /** `this_mac`, `synced` or `cloud`. */
+  place: RunPlace;
+  /** The file, or the object a bucket holds it as. */
+  path: string;
+  /** The sentence a person reads, naming the key or the id at fault. */
+  why: string;
 };
 
 /**
@@ -97,11 +135,22 @@ export type Projects = {
   projects: Project[];
   /** The tasks in no project, of every repository, in their own order. */
   loose: ProjectRow[];
+  /** The project files Fleet could not read. A file a project of his names is here too, and that project says so as `unread`. */
+  left_out: ProjectLeftOut[];
 };
 
-/** `POST /projects` and `POST /projects/project/:project/rename`. */
-export type NameProject = {
+/** `POST /projects`: the name, trimmed, and what the project starts with. Absent `members` is none, and absent `place` is this Mac. */
+export type NewProject = {
   name: string;
+  members?: ProjectMember[];
+  place?: ProjectPlace;
+};
+
+/** `POST /projects/project/:project/edit`: what changes, and only that. `members` present replaces the whole list, `[]` clearing it. */
+export type EditProject = {
+  name?: string;
+  members?: ProjectMember[];
+  place?: ProjectPlace;
 };
 
 /** `POST /projects/rows/:row/edit` and `POST /projects/rows/:row/subtasks` (a task under the top-level task `row`): title and notes, whole. */

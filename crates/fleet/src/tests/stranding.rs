@@ -35,6 +35,7 @@ async fn a_session(fleet: &Arc<Rescued>) -> String {
         .to_string();
     fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(manifest),
             title: None,
             model: None,
@@ -279,4 +280,28 @@ async fn one_scout_reads_at_a_time() {
         .strandings_attended(&fleet.worktrees_live().await.unwrap())
         .await;
     assert_eq!(finding_of(&fleet, 2).await.state, SlotFindingState::Answered);
+}
+
+/// **A slot a running repair holds is not scouted**, however it reads. Its last holder is the repair's
+/// id, which no Session has, so the ledger alone would call it gone and start a Scout over it. Once
+/// the repair is over the same reading is a gone holder's, and the slot is read as any is.
+#[tokio::test]
+async fn a_slot_a_running_repair_holds_is_not_scouted() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let _running = fleet.repairs().listed("a-job", "a-repair", String::new(), String::new()).expect("listed");
+    strand(&home, &fleet, 2, "fleet/half-done", Some("a-repair"));
+    let holder = slot(&fleet, 2).await.stranded.expect("stranded").last_holder.expect("named");
+    assert!(holder.open, "a running repair is an open holder");
+
+    fleet.strandings_attended(&fleet.worktrees_live().await.unwrap()).await;
+
+    assert_eq!(scouts_started(&home), 0, "no Scout over a slot in use");
+    assert_eq!(slot(&fleet, 2).await.rescue, None);
+    assert_eq!(slot(&fleet, 2).await.stranded.expect("stranded").told, None, "and nobody is told");
+
+    fleet.repairs().ended("a-job");
+    fleet.strandings_attended(&fleet.worktrees_live().await.unwrap()).await;
+    finding_of(&fleet, 2).await;
+    assert_eq!(scouts_started(&home), 1, "the repair being over is the only difference");
 }

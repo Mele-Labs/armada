@@ -11,7 +11,7 @@ use core_model::{Lifecycle, LifecycleId, LifecycleScope, ManifestId, PieceSource
 use crate::lifecycle::parse;
 use crate::piece::{LeftOut, Written};
 use crate::resolving::{resolve, Resolved, Scoped};
-use crate::workspace::Workspaces;
+use crate::project::Projects;
 
 pub use crate::resolving::{Rank, Reach};
 
@@ -81,17 +81,17 @@ pub struct Lifecycles {
 
 impl Lifecycles {
     /// What applies to `repository`: `built_in`, the four Armada carries as the repository's tracker
-    /// has them read, and every file in `written` whose scope names it, merged by id. `workspaces`
-    /// says which Workspaces hold the repository.
+    /// has them read, and every file in `written` whose scope names it, merged by id. `projects`
+    /// says which Projects hold the repository.
     pub fn applying_to(
         repository: &ManifestId,
-        workspaces: &Workspaces,
+        projects: &Projects,
         built_in: Vec<Lifecycle>,
         written: impl IntoIterator<Item = Written>,
     ) -> Lifecycles {
         let (resolved, left_out) = resolve(
             repository,
-            workspaces,
+            projects,
             built_in,
             written,
             |path, text| parse(path, text).map_err(|why| why.to_string()),

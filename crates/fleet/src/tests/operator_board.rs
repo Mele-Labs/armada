@@ -9,7 +9,7 @@ use ipc::operator_board::MoveOnOperatorBoard;
 use ipc::Event;
 use tokio::sync::Semaphore;
 
-use super::operator_acting::{asked, dispatch};
+use super::operator_acting::{asked, operator_on};
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::operator::{Answering, Arrival, Arrived, Calling, Source, Way};
 use crate::CallFailed;
@@ -81,7 +81,7 @@ pub(super) struct Waiting {
 
 pub(super) async fn waiting(rulings: &[&str], talks: &[&str]) -> Waiting {
     let rig = rig_placing(None);
-    dispatch(&rig, true).await;
+    operator_on(&rig).await;
     let call = Gated::saying(rulings, talks);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let job = asked(&rig, "Keep the scrollback").await;
@@ -129,7 +129,7 @@ fn code(refused: api::Refusal) -> (u16, String) {
 #[tokio::test]
 async fn the_board_reads_what_a_call_is_out_on_what_waits_behind_it_and_what_was_settled() {
     let rig = rig_placing(None);
-    dispatch(&rig, true).await;
+    operator_on(&rig).await;
     let first = format!("{}\n", raised(1));
     let second = raised(2);
     let call = Gated::saying(&[&first, &second], &[]);
@@ -301,4 +301,58 @@ async fn the_board_serves_the_last_twenty_moves_of_the_switch_newest_first() {
     assert_eq!(board.switched[0].at, "2026-11-09T10:24:00.000Z");
     assert_eq!(board.switched[19].at, "2026-11-09T10:05:00.000Z");
     assert!(board.switched[0].on && !board.switched[1].on, "{:?}", &board.switched[..2]);
+}
+
+/// Save the master switch and return what the stream told up to the save's own `settings.changed`, which
+/// is published after the switch is acted on.
+async fn kinds_told_by_saving(rig: &Rig, on: bool) -> Vec<String> {
+    let mut watching = rig.fleet.events().subscribe();
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operator".to_string(), Some(ipc::SettingValue::Bool(on)))]) };
+    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
+    let mut told = Vec::new();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(next) = watching.next().await {
+            if let Next::Send(delivered) = next {
+                let kind = delivered.event.kind();
+                let saved = kind == "settings.changed";
+                told.push(kind);
+                if saved {
+                    return;
+                }
+            }
+        }
+        panic!("the stream ended");
+    })
+    .await
+    .expect("the save is told");
+    told
+}
+
+#[tokio::test]
+async fn switching_the_operator_on_tells_bridge_to_read_the_page_and_the_board_again() {
+    let rig = rig_placing(None);
+    let told = kinds_told_by_saving(&rig, true).await;
+    assert!(told.iter().any(|kind| kind == "operator.page_changed"), "{told:?}");
+    assert!(told.iter().any(|kind| kind == "operator.board_changed"), "{told:?}");
+    assert!(rig.fleet.operator_page_wire().await.expect("read").on);
+}
+
+#[tokio::test]
+async fn switching_the_operator_off_tells_bridge_to_read_the_page_again() {
+    let rig = rig_placing(None);
+    kinds_told_by_saving(&rig, true).await;
+    let told = kinds_told_by_saving(&rig, false).await;
+    assert!(told.iter().any(|kind| kind == "operator.page_changed"), "{told:?}");
+    assert!(!rig.fleet.operator_page_wire().await.expect("read").on);
+}
+
+#[tokio::test]
+async fn a_save_that_leaves_the_operators_switch_as_it_was_tells_bridge_nothing_of_the_page() {
+    let rig = rig_placing(None);
+    // It ships off, so this save changes nothing.
+    let told = kinds_told_by_saving(&rig, false).await;
+    assert!(!told.iter().any(|kind| kind.starts_with("operator.")), "{told:?}");
+    kinds_told_by_saving(&rig, true).await;
+    let told = kinds_told_by_saving(&rig, true).await;
+    assert!(!told.iter().any(|kind| kind.starts_with("operator.")), "{told:?}");
 }

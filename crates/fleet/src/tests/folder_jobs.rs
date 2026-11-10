@@ -116,6 +116,7 @@ async fn a_job_on_a_repository_with_no_manifest_leases_a_slot_at_its_first_write
 
     let id = Arc::clone(&rig.fleet)
         .start_session(ipc::StartSession {
+            project: None,
             manifest_id: ipc::ManifestId::carried(added.implicit_id()),
             title: None,
             model: None,

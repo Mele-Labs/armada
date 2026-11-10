@@ -66,19 +66,41 @@ async fn list_projects_answers_each_row_by_its_kind() {
 
 #[tokio::test]
 async fn add_project_takes_a_name_and_a_blank_one_is_a_422() {
-    assert_eq!(reached("POST", "/projects", r#"{"name":"Launch"}"#).await.0, "add_project Launch");
+    assert_eq!(reached("POST", "/projects", r#"{"name":"Launch"}"#).await.0, "add_project Launch 0 ThisMac");
+    let with = r#"{"name":"Launch","members":[{"manifest_id":"api"},{"manifest_id":"web","folder":"apps/web"}],"place":{"place":"synced","synced_folder":"/tmp/x"}}"#;
+    assert_eq!(reached("POST", "/projects", with).await.0, "add_project Launch 2 Synced", "members and a place come with the name");
+    let (status, text) = refused("POST", "/projects", r#"{"name":"Launch","place":{"place":"repository"}}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text.contains("fleet.project_place_refused"), "{text}");
     let (status, text) = refused("POST", "/projects", r#"{"name":"  "}"#).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(text.contains("fleet.project_blank"), "{text}");
 }
 
 #[tokio::test]
-async fn rename_project_takes_the_project_and_a_name_and_a_missing_one_is_a_404() {
-    let (said, id) = reached("POST", "/projects/project/p7/rename", r#"{"name":"Later"}"#).await;
-    assert_eq!((said.as_str(), id.as_str()), ("rename_project Later", "p7"));
-    let (status, text) = refused("POST", "/projects/project/nope/rename", r#"{"name":"Later"}"#).await;
+async fn edit_project_takes_the_project_and_what_changes_and_a_missing_one_is_a_404() {
+    let (said, id) = reached("POST", "/projects/project/p7/edit", r#"{"name":"Later"}"#).await;
+    assert_eq!((said.as_str(), id.as_str()), ("edit_project Later - -", "p7"));
+    let (said, _) = reached("POST", "/projects/project/p7/edit", r#"{"members":[],"place":{"place":"this_mac"}}"#).await;
+    assert_eq!(said, "edit_project - 0 ThisMac", "an empty list clears the members, and absent ones are left");
+    let (status, text) = refused("POST", "/projects/project/nope/edit", r#"{"name":"Later"}"#).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(text.contains("fleet.no_such_project"), "{text}");
+    let (status, text) = refused("POST", "/projects/project/p7/edit", r#"{"members":[{"manifest_id":"api","folder":""}]}"#).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text.contains("fleet.project_malformed"), "{text}");
+    let (status, _) = refused("POST", "/projects/project/p7/rename", r#"{"name":"Later"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "the old route is gone");
+}
+
+#[tokio::test]
+async fn the_projects_holding_a_repository_are_read_by_manifest_id() {
+    let (status, answer) = call("GET", "/projects/holding?manifest_id=armada", "").await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
+    let projects: Projects = ipc::decode("projects", &answer).expect("projects");
+    assert_eq!(projects.projects[0].name, "list_holding_projects armada");
+    let (status, _) = call("GET", "/workspaces/all", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "the Workspace reads are gone");
 }
 
 #[tokio::test]

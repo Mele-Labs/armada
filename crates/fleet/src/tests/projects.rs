@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use api::{Next, Projects, Refusal};
 use ipc::{
-    Event, IssueState, LinkProjectIssue, LinkTaskPull, ManifestId, MoveProjectRow, NameProject, NewProjectIssue, NewProjectTask,
+    EditProject, Event, IssueState, LinkProjectIssue, LinkTaskPull, ManifestId, MoveProjectRow, NewProject, NewProjectIssue, NewProjectTask,
     ProjectRow, ProjectTask, ProjectTaskState, TickProjectTask,
 };
 use testkit::{FakeHarness, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
@@ -30,8 +30,12 @@ pub(super) fn a_fleet(home: &TempDir, tracker: &Arc<FakeTracker>) -> Hosted {
     Fleet::assembled(fittings)
 }
 
-pub(super) fn name(name: &str) -> NameProject {
-    NameProject { name: name.to_string() }
+pub(super) fn name(name: &str) -> NewProject {
+    NewProject { name: name.to_string(), members: None, place: None }
+}
+
+fn edit_name(name: &str) -> EditProject {
+    EditProject { name: Some(name.to_string()), ..Default::default() }
 }
 
 pub(super) fn task(title: &str) -> ProjectTask {
@@ -169,7 +173,7 @@ async fn a_task_is_edited_moved_and_removed_and_a_project_renamed_and_deleted() 
     let removed = fleet.remove_project_row(ids[0].clone()).await.expect("removed");
     assert_eq!(row_ids(&removed), [ids[2].clone(), ids[1].clone()]);
 
-    let renamed = fleet.rename_project(project.clone(), name("Later")).await.expect("renamed");
+    let renamed = fleet.edit_project(project.clone(), edit_name("Later")).await.expect("renamed");
     assert_eq!(renamed.projects[0].name, "Later");
     let left = fleet.delete_project(project).await.expect("deleted");
     assert!(left.projects.is_empty());
@@ -217,7 +221,7 @@ async fn each_refusal_is_its_neighbours_status() {
     assert_eq!(code_of(blank), (422, "fleet.project_blank".to_string()));
     let blank = fleet.add_project_task(new_task(at.clone(), Some(project.clone()), " ")).await.expect_err("refused");
     assert_eq!(code_of(blank), (422, "fleet.project_blank".to_string()));
-    let missing = fleet.rename_project("nope".to_string(), name("Later")).await.expect_err("refused");
+    let missing = fleet.edit_project("nope".to_string(), edit_name("Later")).await.expect_err("refused");
     assert_eq!(code_of(missing), (404, "fleet.no_such_project".to_string()));
     let missing = fleet.remove_project_row("nope".to_string()).await.expect_err("refused");
     assert_eq!(code_of(missing), (404, "fleet.no_such_project_row".to_string()));

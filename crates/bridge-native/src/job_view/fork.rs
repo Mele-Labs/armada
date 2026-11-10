@@ -234,6 +234,7 @@ impl JobView {
             after: None,
             held: false,
             project_rows: Vec::new(),
+            project: None,
             on_your_words: None,
         };
         let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));

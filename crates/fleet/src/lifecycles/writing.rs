@@ -102,7 +102,7 @@ fn ticket<'a>(on: Option<(&'a str, &'a str)>) -> Result<&'a str, String> {
 }
 
 /// `write` as the tracker is asked to make it. **A move writes the first of the target state's
-/// words**, which the Job's own ticket lifecycle gives, so the Workspace says what its tracker calls it.
+/// words**, which the Job's own ticket lifecycle gives, so the Project says what its tracker calls it.
 pub(crate) fn tracker_write(write: &TrackerWrite, on: Option<(&str, &str)>, lifecycles: &[Lifecycle]) -> Result<Resolved, String> {
     ticket(on)?;
     let tickets = lifecycles.iter().find(|one| one.id().as_str() == TICKET);

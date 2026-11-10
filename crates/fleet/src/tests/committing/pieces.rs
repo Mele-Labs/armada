@@ -1,4 +1,4 @@
-//! Commit to repository for a Workspace, a lifecycle, a rule and autonomy defaults, and the removal
+//! Commit to repository for a lifecycle, a rule and autonomy defaults, and the removal
 //! of one: found by what a file declares, written under Kit's own name, kept to the repository its
 //! scope belongs to, and deleted on the Job's branch by the same commit path. `crate::committing`.
 
@@ -48,9 +48,11 @@ fn another(rig: &Rig) -> String {
     root
 }
 
-/// The Workspace `my-store` as a file, holding the rig's repository and the other.
-fn my_store(rig: &Rig) -> String {
-    format!("version: 1\nworkspace_id: my-store\nname: My store\nrepositories:\n  - {}\n  - 01OTHERMANIFEST\n", rig.manifest.as_str())
+/// The Project `my-store` kept in Kit, holding the rig's repository and the other, and read.
+async fn my_store(rig: &Rig, id: &str, members: &[&str]) {
+    let file = kit(rig).join("projects").join(format!("{id}.yml"));
+    plant(&file, &crate::tests::projects_kept::text(id, "My store", members));
+    rig.fleet.projects_reload().await;
 }
 
 fn kit_file(rig: &Rig, folder: &str, name: &str) -> PathBuf {
@@ -85,11 +87,9 @@ async fn each_kind_goes_to_its_own_folder() {
     let rig = rig_placing(None);
     plant(&kit_file(&rig, "rules", "nudge.yml"), NUDGE);
     plant(&kit_file(&rig, "autonomy", "mine.yml"), "version: 1\nautonomy_id: mine\ndefaults:\n  draft: asks\n");
-    plant(&kit_file(&rig, "workspaces", "my-store.yml"), &my_store(&rig));
     for (piece, path) in [
         (rule("nudge", PieceScope::Everywhere), ".armada/rules/nudge.yml"),
         (PieceToCommit::Autonomy { id: "mine".into(), scope: PieceScope::Everywhere }, ".armada/autonomy/mine.yml"),
-        (PieceToCommit::Workspace { id: "my-store".into() }, ".armada/workspaces/my-store.yml"),
     ] {
         let committed = rig.fleet.committed_to_repository(asking(&rig, piece, false)).await.expect("committed");
         assert_eq!(committed.paths, [path]);
@@ -143,35 +143,28 @@ async fn a_piece_kit_does_not_hold_is_not_yours_and_scope_is_part_of_what_is_hel
     assert!(rig.fleet.vcs().created().is_empty());
 }
 
-/// **A piece scoped within a Workspace goes to the Workspace's home**, the one repository whose
-/// `.armada/workspaces/` holds the file, and a refusal names it.
+/// **A piece scoped within a Project goes to any repository the Project holds**, since each member
+/// reads it from the others, and to no other.
 #[tokio::test]
-async fn a_piece_within_a_workspace_is_committed_to_its_home_and_nowhere_else() {
+async fn a_piece_within_a_project_is_committed_to_a_member_and_to_no_other() {
     let rig = rig_placing(None);
     let other = another(&rig);
-    plant(&Path::new(&rig.root).join(".armada/workspaces/my-store.yml"), &my_store(&rig));
     plant(&kit_file(&rig, "rules", "nudge.my-store.yml"), &NUDGE.replace("name: Nudge", "name: Nudge\nscope: my-store"));
     let piece = rule("nudge", within("my-store"));
 
+    my_store(&rig, "my-store", &[rig.manifest.as_str()]).await;
     let (code, said) = refused_with(rig.fleet.committed_to_repository(on(&rig, &other, piece.clone())).await.expect_err("refused"));
     assert_eq!(code, REFUSED);
-    assert!(said.contains("scoped to the Workspace `my-store`") && said.contains(&format!("whose home is {}", rig.root)), "{said}");
+    assert!(said.contains("scoped to the Project `my-store`") && said.contains("does not hold this repository"), "{said}");
     assert!(rig.fleet.vcs().created().is_empty(), "no Job's branch is cut");
 
-    let committed = rig.fleet.committed_to_repository(on(&rig, &rig.root, piece)).await.expect("committed at home");
+    let committed = rig.fleet.committed_to_repository(on(&rig, &rig.root, piece.clone())).await.expect("committed in a member");
     assert_eq!(committed.paths, [".armada/rules/nudge.my-store.yml"]);
     finished(&rig, &committed).await;
-}
 
-#[tokio::test]
-async fn a_piece_within_a_workspace_that_only_kit_holds_has_no_home_to_go_to() {
-    let rig = rig_placing(None);
-    plant(&kit_file(&rig, "workspaces", "solo.yml"), &my_store(&rig).replace("my-store", "solo"));
-    plant(&kit_file(&rig, "rules", "nudge.solo.yml"), &NUDGE.replace("name: Nudge", "name: Nudge\nscope: solo"));
-    let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, rule("nudge", within("solo")), false)).await.expect_err("refused"));
-    assert_eq!(code, REFUSED);
-    assert!(said.contains("The Workspace `solo` is only in your Kit") && said.contains("Commit the Workspace"), "{said}");
-    assert!(rig.fleet.vcs().created().is_empty());
+    // Once the other repository is a member of it, it takes the piece as well.
+    my_store(&rig, "my-store", &[rig.manifest.as_str(), "01OTHERMANIFEST"]).await;
+    rig.fleet.committed_to_repository(on(&rig, &other, piece)).await.expect("committed in the other member");
 }
 
 /// A piece scoped within a repository's Manifest id is that repository's.
@@ -191,21 +184,7 @@ async fn a_piece_within_a_repository_is_committed_to_that_repository() {
     plant(&kit_file(&rig, "rules", "nudge.nowhere.yml"), &NUDGE.replace("name: Nudge", "name: Nudge\nscope: nowhere"));
     let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, rule("nudge", within("nowhere")), false)).await.expect_err("refused"));
     assert_eq!(code, REFUSED);
-    assert!(said.contains("neither a Workspace nor a repository Fleet serves"), "{said}");
-}
-
-/// Two repositories holding one Workspace leave both set aside, so a second is refused.
-#[tokio::test]
-async fn a_workspace_a_repository_already_holds_is_not_committed_to_a_second() {
-    let rig = rig_placing(None);
-    let other = another(&rig);
-    plant(&Path::new(&other).join(".armada/workspaces/my-store.yml"), &my_store(&rig));
-    plant(&kit_file(&rig, "workspaces", "my-store.yml"), &my_store(&rig));
-    let piece = PieceToCommit::Workspace { id: "my-store".into() };
-    let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, piece, false)).await.expect_err("refused"));
-    assert_eq!(code, REFUSED);
-    assert!(said.contains(&format!("already committed in {other}")), "{said}");
-    assert!(rig.fleet.vcs().created().is_empty());
+    assert!(said.contains("neither a Project nor a repository Fleet serves"), "{said}");
 }
 
 /// **A removal is a deletion committed by the Job's branch**: the file is gone from its tree, the
@@ -237,7 +216,7 @@ async fn removing_a_piece_deletes_the_file_that_declares_it_on_the_jobs_branch()
     assert!(Path::new(&rig.root).join(held).exists(), "the checkout is untouched");
 }
 
-/// Removal is for the four kinds, and for what the repository holds under that scope.
+/// Removal is for the three kinds, and for what the repository holds under that scope.
 #[tokio::test]
 async fn removing_what_is_not_held_or_an_older_kind_is_refused_and_makes_no_job() {
     let rig = rig_placing(None);
@@ -245,14 +224,13 @@ async fn removing_what_is_not_held_or_an_older_kind_is_refused_and_makes_no_job(
     for (piece, said) in [
         (rule("absent", PieceScope::Everywhere), "main holds no rule `absent` to remove."),
         (rule("nudge", within("my-store")), "main holds no rule `nudge` within `my-store` to remove."),
-        (PieceToCommit::Workspace { id: "my-store".into() }, "main holds no Workspace `my-store` to remove."),
         (
             PieceToCommit::ReviewTool { id: "security".into() },
-            "Removing a review tool from a repository is not built. Only a Workspace, lifecycle, rule or autonomy defaults can be removed.",
+            "Removing a review tool from a repository is not built. Only a lifecycle, rule or autonomy defaults can be removed.",
         ),
         (
             PieceToCommit::FlightControls { job: vec!["specs".into()], deck: Vec::new() },
-            "Removing tiles from a repository is not built. Only a Workspace, lifecycle, rule or autonomy defaults can be removed.",
+            "Removing tiles from a repository is not built. Only a lifecycle, rule or autonomy defaults can be removed.",
         ),
     ] {
         let (code, refused) = refused_with(rig.fleet.committed_to_repository(removing(&rig.root, piece)).await.expect_err("refused"));

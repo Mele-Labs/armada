@@ -3,9 +3,6 @@
 //
 // The header rules in `protocol.ts` hold here: every closed set is left as `string`, with its words in the comment.
 // **Reads only.** Nothing here saves a piece or moves an instance. Bridge draws a Job's lanes from `JobLifecycles` (`packages/screens/src/session-lanes.ts`); nothing draws the other reads yet.
-//
-// **A Workspace here is a set of repositories** (`WorkspaceOfRepositories`), not the Manifest's monorepo unit that
-// `WorkspaceCommands` and `ScannedWorkspace` speak of.
 
 import type { JobCopyChange } from "./job-copy";
 
@@ -45,41 +42,6 @@ export type PieceLeftOut = {
   source: string;
   path: string;
   said: string;
-};
-
-/** A set of repositories that build one product, as one repository sees it. */
-export type WorkspaceOfRepositories = {
-  /** The id a lifecycle or a rule is scoped to it by. */
-  id: string;
-  name: string;
-  /** Manifest ids, in the order the file lists them. */
-  repositories: string[];
-  /** The repository whose `.armada/workspaces/` holds the file, which the others read it from. Absent for one that is Kit's. */
-  home?: string;
-  /** The place it was kept: `kit` or `repository`. */
-  source: string;
-  path: string;
-  /** The place of the one that runs instead of this. Absent on the one that runs. */
-  overridden_by?: string;
-  /** The place whose file this one replaced because it says something else. */
-  hides?: string;
-};
-
-/** `list_repository_workspaces` (`GET /workspaces?manifest_id=`): the Workspaces that hold one repository. */
-export type RepositoryWorkspaces = {
-  manifest_id: string;
-  /** The one that runs for each id, and each one it replaced. */
-  workspaces: WorkspaceOfRepositories[];
-  /** Every Workspace file Fleet could not read, whichever repository it was for. */
-  left_out: PieceLeftOut[];
-};
-
-/** `list_workspaces` (`GET /workspaces/all`): every Workspace Fleet can see, whichever repositories it holds. */
-export type AllWorkspaces = {
-  /** Each file once: the one that runs for each id, and each one it replaced. Ordered by name. */
-  workspaces: WorkspaceOfRepositories[];
-  /** Every Workspace file Fleet could not read. */
-  left_out: PieceLeftOut[];
 };
 
 /** How a state is read, by the source that knows. */

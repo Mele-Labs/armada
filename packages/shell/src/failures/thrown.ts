@@ -37,6 +37,21 @@ function frames(stack: string | null, message: string): string[] {
   return first !== undefined && first.includes(message) ? lines.slice(1) : lines;
 }
 
+/**
+ * The component stack on one line, innermost first: `Dialog < FixDialog < MainRedBand`.
+ * Only the `at` frames, and only the name of each.
+ */
+function components(where: string | null): string | null {
+  if (where === null) return null;
+  const names = where
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("at "))
+    .map((line) => line.slice("at ".length).split(" ")[0] ?? "")
+    .filter((name) => name !== "");
+  return names.length === 0 ? null : names.join(" < ");
+}
+
 /** What the boundary caught, flattened before anything renders it. */
 export type Caught = {
   message: string;
@@ -71,6 +86,7 @@ export function rendererFailure(
   bridge: BridgeIdentity,
   usable: boolean,
 ): Failure {
+  const line = components(caught.where);
   const details: FailureDetail[] = [
     {
       label: "Component",
@@ -117,6 +133,17 @@ export function rendererFailure(
               {
                 key: "component",
                 value: caught.component,
+              },
+            ]),
+        // The chain below holds the JS stack when there is one, which names no
+        // component, so the components get a line of their own. #185 blames the
+        // component that set state last, which is often not the one looping.
+        ...(line === null
+          ? []
+          : [
+              {
+                key: "components",
+                value: line,
               },
             ]),
         {

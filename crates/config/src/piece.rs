@@ -1,4 +1,4 @@
-//! A piece's file as text, and the place it was read from. A lifecycle and a Workspace (a set of
+//! A piece's file as text, and the place it was read from. A lifecycle and a Project (a set of
 //! repositories) are pieces, and take the places every piece takes.
 //!
 //! **Text in, not directories**, as a workflow's is, so a test drives the reading with no file.
@@ -31,11 +31,11 @@ impl Written {
         Written { source: PieceSource::Repository, path, text, home_of: None }
     }
 
-    /// A file read from the repository that **holds the Workspace** `workspace`, for a repository
-    /// that belongs to it. Only a file scoped to that Workspace is the member's to read; the home
-    /// repository's own, and those scoped to another Workspace, stay the home's.
-    pub fn in_home_of(workspace: ScopeId, path: PathBuf, text: String) -> Written {
-        Written { source: PieceSource::Repository, path, text, home_of: Some(workspace) }
+    /// A file read from another member of the Project `project`, for a repository that is a member
+    /// of it too. Only a file scoped to that Project is the reader's to take; the member's own, and
+    /// those scoped to another Project, stay the member's.
+    pub fn in_home_of(project: ScopeId, path: PathBuf, text: String) -> Written {
+        Written { source: PieceSource::Repository, path, text, home_of: Some(project) }
     }
 
     pub fn source(&self) -> PieceSource {
@@ -50,7 +50,7 @@ impl Written {
         &self.text
     }
 
-    /// The Workspace whose home repository this was read from, where it was.
+    /// The Project whose other member this was read from, where it was.
     pub fn home_of(&self) -> Option<&ScopeId> {
         self.home_of.as_ref()
     }

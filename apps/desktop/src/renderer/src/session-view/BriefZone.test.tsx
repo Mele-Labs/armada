@@ -103,8 +103,13 @@ test("a Job's rail lists the one task it holds as a chip with its project, and a
     },
   );
   await mount({
+    left_out: [],
     projects: [
       {
+        members: [],
+        place: {
+          place: "this_mac",
+        },
         id: "p1",
         name: "Pocket launch",
         rows: [
@@ -165,8 +170,13 @@ test("a Job's rail lists the one task it holds as a chip with its project, and a
 
 test("a Job that holds several tasks lists them as Tasks, a loose one under No project and one it is done with asking", async () => {
   await mount({
+    left_out: [],
     projects: [
       {
+        members: [],
+        place: {
+          place: "this_mac",
+        },
         id: "p1",
         name: "Pocket launch",
         rows: [
@@ -216,8 +226,13 @@ test("a Job that holds several tasks lists them as Tasks, a loose one under No p
 
 test("a Job that holds no task draws no list", async () => {
   await mount({
+    left_out: [],
     projects: [
       {
+        members: [],
+        place: {
+          place: "this_mac",
+        },
         id: "p1",
         name: "Pocket launch",
         rows: [

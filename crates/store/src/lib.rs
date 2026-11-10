@@ -29,6 +29,7 @@ mod hosted_sessions;
 mod session_checks;
 mod session_gates;
 mod stop_nudges;
+mod job_repairs;
 mod session_build;
 mod session_plan;
 mod session_focus;
@@ -92,6 +93,8 @@ mod notice_mutes;
 mod issue_queries;
 /// The projects a person keeps, across repositories: tasks he wrote and linked issues, in order.
 mod projects;
+/// Where each project's file is kept, and the committed Workspace files imported as projects.
+mod project_places;
 mod session_init;
 mod session_waiting;
 /// A repository's Autopilot and what it picked. #2092.
@@ -224,6 +227,7 @@ pub use watches::{KeptWatch, KeptWatchPart, KeptWatchReading, KeptWatchSetAside,
 pub use notice_mutes::LiveMutes;
 pub use word_asks::KeptWordAsk;
 pub use job_renames::KeptRename;
+pub use job_repairs::KeptRepair;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
 pub use home_kinds::KeptHomeItem;
 pub use home_repositories::KeptHomeRepository;

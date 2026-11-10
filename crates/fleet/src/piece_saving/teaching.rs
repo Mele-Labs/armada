@@ -9,8 +9,8 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use config::{LifecycleFile, Reach, Workspaces};
-use core_model::{Lifecycle, LifecycleScope, ManifestId, Observed, ScopeId, StateSource, Ulid, Workspace};
+use config::{LifecycleFile, Projects, Reach};
+use core_model::{Lifecycle, LifecycleScope, ManifestId, Observed, Project, ScopeId, StateSource, Ulid};
 use ipc::{
     LifecycleDefinition, LifecyclePiece, SaveLifecyclePiece, SessionId, StateReadFrom, TeachTicketWord, TicketWordTaught,
 };
@@ -45,14 +45,14 @@ pub(crate) fn taught(ticket: &mut LifecycleDefinition, word: &str, state: &str) 
 }
 
 /// Where the word is written. **The running Ticket's own scope where it is a repository's or a
-/// Workspace's**, so Kit's file there is edited or, for a committed one, outranked at the same reach.
-/// Otherwise the Workspace that holds the repository, the lowest id of several, and else the
-/// repository: a Workspace-scoped file when a repository-scoped one runs would never be read.
-fn taught_at(repository: &ManifestId, running: &LifecycleFile, workspaces: &Workspaces) -> Option<LifecycleScope> {
-    if matches!(running.rank().reach, Reach::Repository | Reach::Workspace) {
+/// Project's**, so Kit's file there is edited or, for a committed one, outranked at the same reach.
+/// Otherwise the Project that holds the repository, the lowest id of several, and else the
+/// repository: a Project-scoped file when a repository-scoped one runs would never be read.
+fn taught_at(repository: &ManifestId, running: &LifecycleFile, projects: &Projects) -> Option<LifecycleScope> {
+    if matches!(running.rank().reach, Reach::Repository | Reach::Project) {
         return Some(running.lifecycle().scope().clone());
     }
-    let mut holding: Vec<&ScopeId> = workspaces.holding(repository).into_iter().map(Workspace::id).collect();
+    let mut holding: Vec<&ScopeId> = projects.holding(repository).into_iter().map(Project::id).collect();
     holding.sort();
     match holding.first() {
         Some(id) => Some(LifecycleScope::Within((*id).clone())),
@@ -61,13 +61,13 @@ fn taught_at(repository: &ManifestId, running: &LifecycleFile, workspaces: &Work
 }
 
 /// Whether a Job in `manifest` reads what is scoped to `scope`.
-fn reaches(scope: &LifecycleScope, workspaces: &Workspaces, manifest: &str) -> bool {
+fn reaches(scope: &LifecycleScope, projects: &Projects, manifest: &str) -> bool {
     match scope {
         LifecycleScope::Everywhere => true,
         LifecycleScope::Within(id) => {
             id.as_str() == manifest || {
                 let repository = ManifestId::carried(Ulid::carried(manifest));
-                workspaces.running().any(|one| one.id() == id && one.holds(&repository))
+                projects.running().any(|one| one.id() == id && one.holds(&repository))
             }
         }
     }
@@ -105,15 +105,15 @@ where
             .iter()
             .find(|file| file.overridden_by().is_none() && file.lifecycle().id().as_str() == TICKET)
             .ok_or_else(|| unfit(format!("No Ticket lifecycle applies to {}", repository.as_str())))?;
-        let workspaces = self.workspaces_read();
-        let scope = taught_at(&repository, running, &workspaces)
+        let projects = self.projects_held();
+        let scope = taught_at(&repository, running, &projects)
             .ok_or_else(|| unfit(format!("{} names no scope a Ticket can be kept at", repository.as_str())))?;
         let mut ticket = wire::lifecycle(running.lifecycle());
         ticket.scope = wire::scope(&scope);
         taught(&mut ticket, &word, &asked.state).map_err(unfit)?;
 
         // What each Job read before the save, so the ticket it holds can be seen moving off it.
-        let reached = self.reached_by(&scope, &workspaces).await;
+        let reached = self.reached_by(&scope, &projects).await;
         let saved = self.lifecycle_piece_saved(SaveLifecyclePiece {
             piece: LifecyclePiece::Lifecycle { lifecycle: ticket },
             overwrite: true,
@@ -135,7 +135,7 @@ where
     }
 
     /// The live Jobs that froze a copy or hold a ticket, in a repository `scope` reaches.
-    async fn reached_by(&self, scope: &LifecycleScope, workspaces: &Workspaces) -> Vec<Reached> {
+    async fn reached_by(&self, scope: &LifecycleScope, projects: &Projects) -> Vec<Reached> {
         let store = self.store().lock().await;
         let mut live = store.live_job_copies().unwrap_or_default();
         live.extend(store.live_lifecycle_holders(TICKET).unwrap_or_default());
@@ -144,7 +144,7 @@ where
         live.into_iter()
             .filter_map(|job| {
                 let manifest = store.session(&job).ok().flatten()?.manifest_id?;
-                reaches(scope, workspaces, &manifest).then(|| {
+                reaches(scope, projects, &manifest).then(|| {
                     let before = self.lifecycles_of_job(&store, &job, &manifest);
                     Reached { job, manifest, before }
                 })

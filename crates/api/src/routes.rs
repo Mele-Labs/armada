@@ -322,6 +322,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::withdraw_window::<D>),
         )
         .route("/sessions/withdraw_sketch", post(crate::sessions::withdraw_sketch::<D>))
+        .route("/sessions/withdraw_document", post(crate::sessions::withdraw_document::<D>))
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
         .route("/sessions/sketch/answer", post(crate::sessions::answer_sketch::<D>))
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))
@@ -458,6 +459,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/waiting/closed",
             get(crate::sessions::list_closed_waiting::<D>),
+        )
+        .route("/sessions/needs_you", get(crate::sessions::get_needs_you::<D>))
+        .route(
+            "/sessions/waiting/done",
+            post(crate::hosted_sessions::done_waiting::<D>),
         )
         .route(
             "/sessions/waiting/confirm",
@@ -763,7 +769,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/shared_home/items/set", post(crate::homing::set_home_item::<D>))
         .route("/shared_home/repository", post(crate::homing::set_home_repository::<D>))
         .route("/projects", get(crate::projects::list_projects::<D>).post(crate::projects::add_project::<D>))
-        .route("/projects/project/:project/rename", post(crate::projects::rename_project::<D>))
+        .route("/projects/holding", get(crate::projects::list_holding_projects::<D>))
+        .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))
@@ -839,8 +846,6 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/watches/try", post(crate::watches::try_watch::<D>))
         .route("/watches/recipes", get(crate::watches::list_watch_recipes::<D>))
         .route("/watches/recipes/save", post(crate::watches::save_watch_recipe::<D>))
-        .route("/workspaces", get(crate::lifecycles::list_repository_workspaces::<D>))
-        .route("/workspaces/all", get(crate::lifecycles::list_workspaces::<D>))
         .route("/lifecycles", get(crate::lifecycles::list_lifecycles::<D>))
         .route("/lifecycles/rules", get(crate::lifecycles::list_lifecycle_rules::<D>))
         .route("/autonomy", get(crate::lifecycles::list_autonomy_defaults::<D>))

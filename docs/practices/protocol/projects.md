@@ -2,21 +2,29 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-A person keeps projects on this Mac, each an ordered list of rows, and **a project has no repository**. A row is a task he
+A person keeps projects on this Mac, each an ordered list of rows, and **a project is in no repository**. A row is a task he
 wrote or an issue he linked, and each row names the repository it is in, so one project may hold rows of several. A task may
-be in no project, and is then loose. They are kept in Fleet's store on this Mac, survive a restart, and are never written to
-the repository or its Manifest.
+be in no project, and is then loose. The rows are kept in Fleet's store on this Mac, survive a restart, and are never written to
+the repository or its Manifest. **A project's name and members are a file Fleet holds**, kept where he chose for it (this Mac, a
+synced folder or the cloud), and a project is also what a Workspace was: the set of repositories a lifecycle or a rule is scoped to.
 The protocol ID moves with the files below, and there is no number to take.
 Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for field.
 
 | Where | Side | Change |
 | --- | --- | --- |
-| `list_projects` | Bridge calls | `GET /projects`, answers `Projects { projects, loose }`: each `Project { id, name, rows }` in his order, and the loose tasks, of every repository, in their own order |
+| `list_projects` | Bridge calls | `GET /projects`, answers `Projects { projects, loose, left_out }`: each `Project { id, name, rows, members, place, unread? }` in his order, the loose tasks, of every repository, in their own order, and the project files Fleet could not read |
+| `Project.members` | Fleet writes, Bridge reads | `[{ manifest_id, folder? }]`, the repositories the file lists in its order, each whole or, with `folder`, a folder of it that carries its own `armada.yml`. Empty where `unread` |
+| `Project.place` | Fleet writes, Bridge reads | `{ place, synced_folder?, cloud? }` as `RunMemoryPlace` carries a repository's: `this_mac` (where none was chosen), `synced` with its folder, or `cloud` with `{"store":{}}` or `{"bucket":"s3://b/p"}`. **Never `repository`** |
+| `Project.unread` | Fleet writes, Bridge reads | Present where the project's file could not be read: the sentence that says why. `name` is then the last the store saw and `members` is empty |
+| `Projects.left_out` | Fleet writes, Bridge reads | `[{ place, path, why }]`, every project file that would not read, `place` `this_mac`, `synced` or `cloud`, `path` the file or the object a bucket holds it as. A file a project of his names is here too, and that project says `unread` |
+| `list_holding_projects` | Bridge calls | `GET /projects/holding?manifest_id=`, the repository Fleet started in where absent: the projects whose members include it, whole or by a folder, answered as `Projects` with every `rows` and `loose` empty. It replaces `list_repository_workspaces`. 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve |
 | `ProjectRow` | Fleet writes, Bridge reads | Tagged by `kind`: `task { id, manifest_id, title, notes, state, held_by?, parent?, issues?, pulls? }`, `state` `open`, `done`, `held` or `asked`, `held_by { session_id, title? }` present for `held` and for an `asked` a Job raised, `parent` the id of the task a subtask belongs to, `issues` `[{ issue, title?, state? }]` the issues linked to it, `pulls` `[{ number, title?, state? }]` the pull requests linked to it, `state` `open`, `merged` or `closed`; or `issue { id, manifest_id, issue, title?, state? }`, `state` `open` or `closed`. `manifest_id` is the repository of the row, and a subtask takes its parent's |
 | `start_session` | Bridge calls | `project_rows?: [{ row }]` on `StartSession`: the rows the Job starts with, each named by its id alone. Each written task among them is held by the Job; an issue row is only named, so the brief can carry it |
-| `add_project` | Bridge calls | `POST /projects`, body `NameProject { name }`. A project is last in his order |
-| `rename_project` | Bridge calls | `POST /projects/project/:project/rename`, body `NameProject { name }` |
-| `delete_project` | Bridge calls | `POST /projects/project/:project/delete`, no body. Its rows go with it |
+| `StartSession.project` | Bridge calls | `project?: string`, the project of his the Job is for. 404 `fleet.no_such_project`, 422 `fleet.project_not_member` where the Job's repository is not a member |
+| `HostedFacts.project` | Fleet writes, Bridge reads | `project?: string`, the id the Job was started for, kept in a new column `hosted_sessions.project`. Absent for a Job started for none |
+| `add_project` | Bridge calls | `POST /projects`, body `NewProject { name, members?, place? }`. Writes the file at the place, this Mac where absent, and the row, last in his order. It replaces the body `NameProject { name }` |
+| `edit_project` | Bridge calls | `POST /projects/project/:project/edit`, body `EditProject { name?, members?, place? }`; only what is present changes, `members` replacing the whole list and `place` moving the file. It replaces `rename_project` and its route `/projects/project/:project/rename` |
+| `delete_project` | Bridge calls | `POST /projects/project/:project/delete`, no body. Its rows go with it, and its file where Fleet keeps it itself, in Kit's folder; one in a synced folder or a bucket is left |
 | `add_project_task` | Bridge calls | `POST /projects/tasks`, body `NewProjectTask { manifest_id, project?, title, notes? }`. Starts `open`, at the end of the project or, with no `project`, of the loose tasks |
 | `add_project_subtask` | Bridge calls | `POST /projects/rows/:row/subtasks`, body `ProjectTask { title, notes? }`: a task under the top-level task `row`, at the end of its subtasks, in its repository |
 | `link_task_issue` | Bridge calls | `POST /projects/rows/:row/issues`, body `LinkProjectIssue`: an issue on a task or subtask. Linking it again changes nothing |
@@ -36,6 +44,21 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 
 **A row's id is the whole address.** Ids are unique across every project and the loose tasks, so a route that acts on a row
 names no project.
+
+**Members follow tasks.** The owner decided on 10 Nov 2026 that a project's members are the repositories its tasks name. A task or an
+issue row written into a project (`add_project_task`, `link_project_issue`, `add_project_subtask`), or moved into one
+(`move_project_row`) or to another repository (`move_project_task_repository`), in a repository the project does not hold, makes that repository a
+whole member, written to the file before the write answers. A repository held by a folder counts as held. A project whose file did not read is left as it is, since
+a file that will not read is not written over. A repository leaves a project only by `edit_project`.
+
+**A Job keeps its project.** `StartSession.project` is checked before anything is made: the project must be his and its file must read, and it
+must list the Job's repository. The id is kept in `hosted_sessions.project`, which is new and additive, and served as `HostedFacts.project`; a Job replaced by a
+handoff keeps it. It is not read with `fork` or `root`.
+
+**What the file said before.** Fleet read each Workspace file Kit or a repository kept, and each task list in the store, into a project at start, once:
+`projects_migrated`. `GET /workspaces/all` and `GET /workspaces?manifest_id=` (`list_workspaces`, `list_repository_workspaces`) answered the Workspaces
+under their old shape, `WorkspaceOfRepositories`, and are gone; `list_projects` and `list_holding_projects` answer the same files. Bridge's Workspaces page
+reads `list_projects` and draws each project that reads as the Workspace it did. A pre-alpha change with no compatibility kept.
 
 **What moved from the per-repository wire.** A project once belonged to one repository and every route named it
 (`/projects/:repository/...`). Moving to this shape, Fleet's store gave each row its project's repository, made the rows of every
@@ -106,19 +129,29 @@ settles one row of it from the Projects tab: done, or open again. The item leave
 404 `fleet.no_such_project` is a project he has none of.
 404 `fleet.no_such_project_row` is a row he has none of.
 422 `fleet.project_blank` is a blank project name or task title.
+422 `fleet.project_malformed` is members that do not make a project: a folder that is not a path inside its repository, a member listed twice, a whole repository beside a folder of it, or an id that is a member's too.
+`add_project` and `edit_project`.
+422 `fleet.project_place_refused` is a place that cannot be used: `repository`, a synced folder that is not there, a cloud place with no address, a bucket that cannot be reached.
+`add_project` and `edit_project`.
+`fleet.project_unwritable` is a project's file that could not be written or removed, a 500, or one that would not read and so is not written over by `edit_project`, a 422. A task written into a project whose file did not read is kept and adds no member.
+422 `fleet.project_not_member` is a Job started for a project that does not list its repository. `start_session`.
+422 `fleet.project_unreadable` is a Job started for a project whose file did not read, so Fleet cannot say what it holds. `start_session`.
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
 422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, an issue row moved under a task, or an issue row moved to another repository.
 422 `fleet.project_subtask_too_deep` is a subtask of a subtask, of a task that has subtasks, or of itself, or a subtask moved to another repository on its own.
 422 `fleet.unacceptable_proposal` is a task moved to a repository Fleet does not serve.
 404 `fleet.no_such_session` is a Job to link that Fleet has no record of, and 422 `fleet.project_job_ended` one that has ended.
 422 `fleet.project_pull_unreadable` is a pull request number of 0.
-`start_session` names rows: 404 `fleet.no_such_project_row` as above. Nothing is made on a refusal.
+`start_session` names rows: 404 `fleet.no_such_project_row` as above, and a project: 404 `fleet.no_such_project`, 422 `fleet.project_not_member` or `fleet.project_unreadable`.
+Nothing is made on a refusal.
 
 **A Job holds a task of any repository.** The owner chose it on 29 Oct 2026, after a task filed in the wrong repository refused every start from the dispatch sheet.
 The task keeps the repository it was filed in, and the Job its own: holding is a link between the two, and the store never compared them.
 422 for a repository Fleet does not serve, as every repository route answers it, on a task or an issue row written into one.
 
-**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**Skew.** There is no number to take: the protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, all of which changed here.
+The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. A Bridge that still calls `GET /workspaces/all`, `GET /workspaces` or
+`POST /projects/project/:project/rename` would meet a 404 on a Fleet that has them gone, which is why the two are never run together.
 **The event stream.** `projects.changed` is published on a person's write, when a Job holds, asks about or lets go of tasks, and when a linked pull request's merge
 asks about one, so it is rare.
 The lifeboat is untouched.

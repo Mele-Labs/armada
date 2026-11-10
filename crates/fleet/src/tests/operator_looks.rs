@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use api::Sessions;
 use testkit::{FakeTracker, FakeTrackers};
 
-use super::operator_acting::{asked, dispatch};
+use super::operator_acting::{asked, operator_on};
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::operator::{Answering, Calling, Looking};
 use crate::CallFailed;
@@ -86,7 +86,7 @@ fn rig_listing() -> Rig {
 }
 
 async fn seated(rig: &Rig, rules: Arc<Rules>, reads: Arc<Reads>) {
-    dispatch(rig, true).await;
+    operator_on(rig).await;
     assert!(rig.fleet.operator_seated_looking(rules, reads));
 }
 

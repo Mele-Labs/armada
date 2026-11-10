@@ -1,7 +1,7 @@
 //! A lifecycle rule, read off a piece file.
 //!
 //! One file is one rule: `rule_id` and `name` say which, `scope` says where it applies (a
-//! Workspace's id or a repository's; absent is every repository), `when` says the moment, `if`
+//! Project's id or a repository's; absent is every repository), `when` says the moment, `if`
 //! lists conditions that must all hold, and `do` lists the acts. `autonomy` and `on_failure` are
 //! optional. **A rule here is a lifecycle rule** (When, If and Do with an autonomy), and not a
 //! notice rule of `fleet.toml`, which `ipc::FleetRule` names.

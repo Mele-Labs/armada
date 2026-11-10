@@ -4,5 +4,5 @@ transport = "HTTP"
 agent_access = "No"
 description = "The person removes a standing order with one press"
 notes = """
-`POST /operator/orders/remove`, body `RemoveOperatorOrder`: `id`. Answered with `OperatorOrders`. It stops standing at once. 422 `fleet.operator_order_unknown` where it is not standing.
+`POST /operator/orders/remove`, body `RemoveOperatorOrder`: `id`, of a hold or of a rule the Operator keeps, which is what Forget presses on Learned. Answered with `OperatorOrders`, which lists holds only. It stops standing at once: a hold's Jobs write again, and an item a rule covered asks again. `operator.page_changed` is sent. 422 `fleet.operator_order_unknown` where it is not standing.
 """

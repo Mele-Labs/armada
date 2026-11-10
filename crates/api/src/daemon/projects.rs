@@ -8,7 +8,7 @@
 use std::future::Future;
 
 use ipc::{
-    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue,
+    EditProject, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
     NewProjectTask, ProjectTask, TickProjectTask,
 };
 
@@ -19,13 +19,17 @@ pub trait Projects: Send + Sync + 'static {
     /// from its repository's tracker. A tracker that cannot be read leaves them absent and refuses nothing.
     fn list_projects(&self) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
-    /// `add_project` — a new project at the end of the list.
-    fn add_project(&self, name: NameProject) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+    /// `list_holding_projects` — the projects whose members include the repository `manifest_id`, or the one Fleet
+    /// started in where absent, each without rows. [`Refusal::Unacceptable`] where Fleet serves no repository by that id.
+    fn list_holding_projects(&self, manifest_id: Option<ipc::ManifestId>) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
-    /// `rename_project`.
-    fn rename_project(&self, project: String, name: NameProject) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+    /// `add_project` — a new project at the end of the list, its file written at the place chosen.
+    fn add_project(&self, project: NewProject) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
-    /// `delete_project` — the project and its rows.
+    /// `edit_project` — its name, its members or where its file is kept; what is absent stays.
+    fn edit_project(&self, project: String, edit: EditProject) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
+    /// `delete_project` — the project and its rows, and its file where Fleet keeps it itself.
     fn delete_project(&self, project: String) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
     /// `add_project_task` — a task he wrote, open, in a repository, at the end of a project or of the loose tasks.

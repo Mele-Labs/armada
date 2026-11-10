@@ -69,9 +69,11 @@ where
             kind: SlotHolderKind::Session,
             id: id.to_string(),
             title: kept.as_ref().and_then(|session| session.title.clone()),
-            open: kept
-                .as_ref()
-                .is_some_and(|session| session.state == store::SessionState::Live),
+            // A repair running is no Session, and is an open holder all the same.
+            open: self.repairs().is_repair(id)
+                || kept
+                    .as_ref()
+                    .is_some_and(|session| session.state == store::SessionState::Live),
         }
     }
 
@@ -88,6 +90,11 @@ where
                 .is_some_and(|found| found.state == SlotFindingState::Reading)
         });
         for slot in &held.slots {
+            // **A slot a running repair holds is neither told nor read**: it is released when the
+            // repair ends, and until then it is in use.
+            if self.repairs().holds(slot) {
+                continue;
+            }
             let manifest = slot.manifest_id.as_str();
             let row = kept
                 .iter()

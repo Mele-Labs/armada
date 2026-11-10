@@ -30,7 +30,7 @@ Fleet kept the Jobs it nudged off a step until 5 Nov 2026 (`nudges?`, `mark_not_
 | `fleet.workflow_unwritable` (500) | delete, where a file cannot be removed |
 
 **Make my copy needs no route.** `get_workflow` with `source=armada` reads Armada's text and `save_workflow` with `scope: kit` and `overwrite: false` writes it under the same id; 422 `fleet.workflow_exists` where Kit already holds one.
-In the Workspace's lanes the first change to one of Armada's makes the same copy, once, and the change is written to it; the column of steps keeps its row read-only.
+In the project's lanes the first change to one of Armada's makes the same copy, once, and the change is written to it; the column of steps keeps its row read-only.
 It is checked against the Checks of the repository Armada's row was listed under, as every save is.
 
 **Each copy is read and acted on under the Manifest Fleet listed it under**, the `manifest_id` on its `WorkflowSummary`, and not the pick's.

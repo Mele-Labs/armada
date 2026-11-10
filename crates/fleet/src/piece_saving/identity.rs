@@ -10,14 +10,13 @@ use std::path::{Path, PathBuf};
 use core_model::LifecycleScope;
 use ipc::{LifecyclePieceKind, PieceScope};
 
-use crate::piece_places::{files_in, AUTONOMY, LIFECYCLES, RULES, WORKSPACES};
+use crate::piece_places::{files_in, AUTONOMY, LIFECYCLES, RULES};
 
 /// The folder a kind of piece is kept in, in Kit and under a repository's `.armada/`.
 pub(crate) fn folder_of(kind: LifecyclePieceKind) -> &'static str {
     match kind {
         LifecyclePieceKind::Lifecycle => LIFECYCLES,
         LifecyclePieceKind::Rule => RULES,
-        LifecyclePieceKind::Workspace => WORKSPACES,
         LifecyclePieceKind::Autonomy => AUTONOMY,
     }
 }
@@ -27,7 +26,6 @@ fn word_of(kind: LifecyclePieceKind) -> &'static str {
     match kind {
         LifecyclePieceKind::Lifecycle => "lifecycle",
         LifecyclePieceKind::Rule => "rule",
-        LifecyclePieceKind::Workspace => "Workspace",
         LifecyclePieceKind::Autonomy => "autonomy defaults",
     }
 }
@@ -39,8 +37,7 @@ fn scope_of(scope: &LifecycleScope) -> PieceScope {
     }
 }
 
-/// One piece: its kind, its id, and where it applies. **A Workspace has no scope**, so it is always
-/// `Everywhere` here and a scope asked for with one is dropped.
+/// One piece: its kind, its id, and where it applies.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Identity {
     pub kind: LifecyclePieceKind,
@@ -51,7 +48,6 @@ pub(crate) struct Identity {
 impl Identity {
     pub(crate) fn of(kind: LifecyclePieceKind, id: &str, scope: PieceScope) -> Identity {
         let scope = match (kind, scope) {
-            (LifecyclePieceKind::Workspace, _) => PieceScope::Everywhere,
             (_, PieceScope::Within { id }) => PieceScope::Within { id: id.trim().to_string() },
             (_, everywhere) => everywhere,
         };
@@ -77,7 +73,7 @@ impl Identity {
     }
 
     /// The file name a new file for it takes: `<id>.yml`, and `<id>.<scope>.yml` within a scope.
-    /// **Anything but letters, digits, `-` and `_` becomes `-`**, since a Workspace's id and a scope
+    /// **Anything but letters, digits, `-` and `_` becomes `-`**, since a scope
     /// are any text and a file's name is not.
     pub(crate) fn file_stem(&self) -> String {
         let plain = |text: &str| -> String {
@@ -100,9 +96,6 @@ pub(crate) fn read(kind: LifecyclePieceKind, path: &Path, text: &str) -> Result<
             .map_err(|why| said(&why)),
         LifecyclePieceKind::Rule => config::parse_rule(path, text)
             .map(|one| Identity::of(kind, one.id().as_str(), scope_of(one.scope())))
-            .map_err(|why| said(&why)),
-        LifecyclePieceKind::Workspace => config::parse_workspace(path, text)
-            .map(|one| Identity::of(kind, one.id().as_str(), PieceScope::Everywhere))
             .map_err(|why| said(&why)),
         LifecyclePieceKind::Autonomy => config::parse_autonomy(path, text)
             .map(|one| Identity::of(kind, one.id().as_str(), scope_of(one.scope())))

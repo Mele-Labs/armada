@@ -1,14 +1,12 @@
 //! What Fleet does on the Operator's ruling, through the ways it already has: Fleet's own word
 //! to a live Job (`told_by_fleet`), a note in a thread, a raised call, the person's Start press
-//! and the close that parks a Job's slots. **The position of each role is read as a ruling comes
-//! back** ([`Acting::position`]), so a call out when it is turned off acts on nothing.
+//! and the close that parks a Job's slots. **An act asks first** ([`Acting::suggest_once`]), and is done
+//! only on the person's go-ahead or a rule he kept.
 
 use std::sync::{Arc, Weak};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use config::settings::{self as keys, Key};
-use ipc::operator_positions::{OperatorPosition, OperatorRepositories, OperatorRole};
-use store::settings_file::SettingValue;
+use config::settings as keys;
 
 use super::{carried, Acted, Acting, Arrival, Ruling, Way};
 use crate::daemon::Fleet;
@@ -60,13 +58,8 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn position(&self, role: Option<OperatorRole>, manifest: &str) -> OperatorPosition {
-        let Some(fleet) = self.fleet.upgrade() else { return OperatorPosition::ReadOnly };
-        match role {
-            Some(role) => fleet.operator_position(role, manifest),
-            None if fleet.operator_on() => OperatorPosition::Decide,
-            None => OperatorPosition::ReadOnly,
-        }
+    fn on(&self) -> bool {
+        self.fleet.upgrade().is_some_and(|fleet| fleet.operator_on())
     }
 
     fn suggest(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
@@ -116,26 +109,6 @@ where
         let at = u32::try_from(self.machine_settings().now().get(keys::OPERATOR_PLAN_PAUSE).clamp(0, 100)).unwrap_or(100);
         let week = self.weekly_reading().await?;
         (week >= at).then_some(super::Paused { week, at })
-    }
-
-    /// How far `role` goes in the repository `manifest`, as settings.json reads now: Read-only under the
-    /// Operator's own switch or a standing order, else what the repository sets, else the machine's.
-    pub(crate) fn operator_position(&self, role: OperatorRole, manifest: &str) -> OperatorPosition {
-        let settings = self.machine_settings().now();
-        if !settings.get(keys::OPERATOR) || self.operator_seat().orders().role_off(role, manifest, &self.now()) {
-            return OperatorPosition::ReadOnly;
-        }
-        // The Answer role is retired: a question or a card goes to the person, whatever the setting says.
-        let key = match role {
-            OperatorRole::Dispatch => keys::OPERATOR_DISPATCH,
-            // Dispatch's old switch held Delegate too, so one saved On carries it across.
-            OperatorRole::Delegate if settings.saved().get(keys::OPERATOR_DELEGATE.name()).is_none() && settings.saved().get(keys::OPERATOR_DISPATCH.name()) == Some(&SettingValue::Bool(true)) => keys::OPERATOR_DISPATCH,
-            OperatorRole::Delegate => keys::OPERATOR_DELEGATE,
-            OperatorRole::File => keys::OPERATOR_FILE,
-            OperatorRole::Answer => return OperatorPosition::ReadOnly,
-        };
-        let repositories = settings.get(keys::OPERATOR_REPOSITORIES).map(|value| OperatorRepositories::read(&value.to_json_text())).unwrap_or_default();
-        repositories.of(manifest, role).unwrap_or_else(|| OperatorPosition::read(&settings.get(key)))
     }
 
     pub(super) async fn title_of(&self, id: &str) -> String {

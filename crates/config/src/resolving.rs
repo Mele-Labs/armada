@@ -4,26 +4,25 @@
 //!
 //! **Where two of the same id apply, the narrower scope wins, then yours over the repository's**
 //! (the design "Workspaces, lifecycles and rules", *Where they are kept*). One scoped to the
-//! repository beats one scoped to a Workspace that holds it, which beats one that applies
+//! repository beats one scoped to a Project that holds it, which beats one that applies
 //! everywhere, whoever kept it; only at the same scope does the place decide, and Kit's is last in
 //! [`PieceSource`] so it wins. The one that loses is **still listed, marked as overridden**.
 //!
-//! **One that applies nowhere here is not listed at all**: scoped to a Workspace that does not hold
+//! **One that applies nowhere here is not listed at all**: scoped to a Project that does not hold
 //! this repository, it is another repository's. A file that will not read belongs to none, so it
 //! is left out for every repository and says why.
 //!
-//! **A Workspace committed to one repository is kept in that repository, its home, and the others
-//! read it from there.** A member is handed the home's files ([`Written::in_home_of`]) and takes
-//! only those scoped to that Workspace. The home's files scoped to itself, or to another
-//! Workspace, stay the home's.
+//! **A Project is read from every repository that is a member of it.** A repository is handed the
+//! files of its fellow members ([`Written::in_home_of`]) and takes only those scoped to the Project
+//! that makes them fellows. Their files scoped to themselves, or to another Project, stay theirs.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use core_model::{LifecycleScope, ManifestId, PieceSource, ScopeId, Workspace};
+use core_model::{LifecycleScope, ManifestId, PieceSource, ScopeId, Project};
 
 use crate::piece::{hides, named, LeftOut, Written};
-use crate::workspace::Workspaces;
+use crate::project::Projects;
 
 /// How narrowly a piece's scope names the repository it is asked about.
 ///
@@ -32,14 +31,14 @@ use crate::workspace::Workspaces;
 pub enum Reach {
     /// Every repository, where the pieces Armada carries apply.
     Everywhere,
-    /// A Workspace that holds the repository.
-    Workspace,
+    /// A Project that holds the repository.
+    Project,
     /// The repository itself.
     Repository,
 }
 
 /// What decides which of two pieces with one id runs: the scope first, then the place, then
-/// whether it came from the home of the Workspace it is scoped to.
+/// whether it came from the home of the Project it is scoped to.
 ///
 /// **Among committed copies at one scope, the home repository's is the one a member sees**, so
 /// `home` is last and a copy a member kept itself loses to it. Kit's still wins over both.
@@ -75,17 +74,17 @@ pub(crate) struct Resolved<T> {
 /// Each id comes out as the one that runs first and then each one it replaced.
 pub(crate) fn resolve<T: Scoped>(
     repository: &ManifestId,
-    workspaces: &Workspaces,
+    projects: &Projects,
     built: Vec<T>,
     written: impl IntoIterator<Item = Written>,
     read: impl Fn(&Path, &str) -> Result<T, String>,
 ) -> (Vec<Resolved<T>>, Vec<LeftOut>) {
     let own = ScopeId::new(repository.as_str()).ok();
-    let held: Vec<&ScopeId> = workspaces.holding(repository).into_iter().map(Workspace::id).collect();
+    let held: Vec<&ScopeId> = projects.holding(repository).into_iter().map(Project::id).collect();
     let reach_of = |written: &LifecycleScope| match written {
         LifecycleScope::Everywhere => Some(Reach::Everywhere),
         LifecycleScope::Within(scope) if Some(scope) == own.as_ref() => Some(Reach::Repository),
-        LifecycleScope::Within(scope) if held.contains(&scope) => Some(Reach::Workspace),
+        LifecycleScope::Within(scope) if held.contains(&scope) => Some(Reach::Project),
         LifecycleScope::Within(_) => None,
     };
 
@@ -98,7 +97,7 @@ pub(crate) fn resolve<T: Scoped>(
     for file in written {
         match read(file.path(), file.text()) {
             Ok(piece) => {
-                // A file from a Workspace's home is the member's only where it is scoped to it.
+                // A file from a Project's home is the member's only where it is scoped to it.
                 let theirs = |home: &ScopeId| piece.scope() == &LifecycleScope::Within(home.clone());
                 if file.home_of().is_some_and(|home| !theirs(home)) {
                     continue;

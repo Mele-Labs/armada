@@ -86,6 +86,7 @@ impl Rig {
     async fn forks_at(&self, id: &str, at: Option<&str>) -> Result<SessionRecord, Refusal> {
         self.fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest.clone(),
                 title: None,
                 model: None,
@@ -145,6 +146,7 @@ impl Rig {
         let hosted = self
             .fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest.clone(),
                 title: None,
                 model: None,
@@ -303,6 +305,7 @@ async fn a_closed_hosted_session_forks_and_a_live_one_does_not() {
     let hosted = rig
         .fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: rig.manifest.clone(),
             title: Some("A thing".into()),
             model: None,

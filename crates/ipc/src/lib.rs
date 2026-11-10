@@ -44,7 +44,7 @@ mod disputes;
 mod bug_reports;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
-/// Saving and deleting one Workspace, lifecycle, rule or autonomy default in Kit.
+/// Saving and deleting one lifecycle, rule or autonomy default in Kit.
 mod piece_saving;
 mod codec;
 /// A body's whole shape, read off its type, for a refusal to name.
@@ -150,7 +150,6 @@ pub mod time_format;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
-pub mod operator_positions;
 /// The Operator's board: what it is ruling on, what waits for it and what it settled. `crates/ipc/operations/get_operator_board.toml`.
 pub mod operator_board;
 /// An error Bridge showed the person, sent to the Operator. `crates/ipc/operations/report_bridge_error.toml`.
@@ -261,6 +260,8 @@ mod sketch;
 mod style_sources;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
+/// What a Job waits on the person for, grouped once. `get_needs_you`.
+mod needs_you;
 /// Which tests reach a set of paths, and which paths nothing reaches. `get_tests_reaching`.
 mod test_map;
 /// A background act that failed after its reply.
@@ -323,13 +324,13 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
-    LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught, WorkspaceToSave,
+    LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught,
 };
 pub use lifecycles::{
-    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    ActKindDefault, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
     LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
-    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
-    RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
+    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RuleAct, RuleAmong,
+    RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom,
 };
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
@@ -469,8 +470,8 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use projects::{
-    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask,
-    Project, ProjectHolder, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
+    EditProject, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
+    NewProjectTask, Project, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
     TickProjectTask,
 };
 pub use issues::{
@@ -678,16 +679,19 @@ pub use session_summary::{
 };
 pub use sessions::{
     AnswerWaiting, OperatorRead, HeldOpenBy, PullRequestWait, Attachment, AttachmentHistory, AttachmentNamed, AttachmentReport, AttachmentState,
-    AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
+    AttachmentVersion, ClosedWaiting, ClosedWaitingList, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, ClaimPullRequest, Holder, HolderKind, MainRedTaken, Owners, Ownership,
     PullRequestClaimed, NameSession, RenameSession, TakeMainRed, SessionFact, SessionId, SessionList,
     SessionOrigin, ProposedField, SessionProposal, SessionRecord, SessionStarted, StepVisit, SessionReport,
     ConfirmLater, DeferLater, LaterDeferred, LaterHow, LaterSettled, SessionLater, SettleLater,
-    SessionStanding, SessionState, SessionStopped, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
+    SessionStanding, SessionState, SessionStopped, SessionRepairing, FleetAway, StopReason, StopRepair, StopRestart, ToolMissing, ToolsMissing, RunningKind, RunningWork, SessionRunMessage, SessionRunUnderway, StartSessionRun,
     StopSessionRun, WriteSessionRun, ResizeSessionRun, SessionUsage, SetWaitingFor, AllDone,
     FinishUp, FinishedUp, ShowWindow, SignIn, TakeWindowSignIn, origins_as_detail, WindowSignIn,
     WindowTake, AskInWindow, ProposeDraft, WindowPlace, TerminalCommand, TerminalFacts, WaitingAct,
     WaitingActKind, WaitingInput, WaitingItem, WaitingMode, WaitingOption, WaitingSource,
-    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDraft, WithdrawSketch, WithdrawWindow,
+    WalkTold, OpenNativeWalk, NativeWalkOpened, WindowClosed, WindowFailed, WithdrawDocument, WithdrawDraft, WithdrawSketch, WithdrawWindow,
+};
+pub use needs_you::{
+    NeedsYou, NeedsYouAct, NeedsYouDismiss, NeedsYouGlyph, NeedsYouGlyphKind, NeedsYouRow, NeedsYouSection, NeedsYouSectionKind,
 };
 pub use draft_document::{ConvertDraftToDocument, DraftDocument};
 pub use pre_pr::{CheckBeforePr, PrePrCheckRan, PrePrChecked};

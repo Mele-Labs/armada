@@ -6,6 +6,7 @@ import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeApi } from "../../../shared/api";
 import type { KeepDraft } from "../../../shared/api/lifecycles";
+import { workspacesOfProjects } from "../workspace-of-project";
 import type { PiecesRead } from "./levels";
 import type { Op, PieceId } from "./write";
 
@@ -17,7 +18,7 @@ export type PiecesApi = Pick<
   | "listKeepDrafts"
   | "listLifecycleRules"
   | "listLifecycles"
-  | "listRepositoryWorkspaces"
+  | "listHoldingProjects"
   | "onKeepDraftsChanged"
   | "saveLifecyclePiece"
 >;
@@ -45,10 +46,10 @@ export async function readPieces(
   current: string,
   served: readonly Served[],
 ): Promise<Read> {
-  const where = await api.listRepositoryWorkspaces(current);
+  const where = await api.listHoldingProjects(current);
   if (!where.ok) return where;
-  const workspaces = where.value.workspaces.filter(
-    (one) => one.overridden_by === undefined && one.repositories.includes(current),
+  const workspaces = workspacesOfProjects(where.value).filter((one) =>
+    one.repositories.includes(current),
   );
   const wanted = [
     ...new Set([
