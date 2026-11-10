@@ -44,6 +44,8 @@ pub struct DispatchScreen {
     jobs: Entity<JobsScreen>,
     sheet: Entity<DispatchSheet>,
     layer: Option<Entity<Layer>>,
+    /// Where the notes are kept, once something says.
+    kept_in: Option<std::path::PathBuf>,
     strip: Option<Strip>,
     /// A start Fleet refused, raised as the window's toast.
     toast: Option<SharedString>,
@@ -91,6 +93,19 @@ fn reach(cx: &mut App, run: impl FnOnce(&mut DispatchScreen, &mut Window, &mut C
     });
 }
 
+/// The layer over this screen. `seeded` reads back the notes a walk starts with, which a layer read back from
+/// its directory finds there instead.
+fn new_layer(area: &Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<super::face::Offered>, seeded: bool, cx: &mut Context<DispatchScreen>) -> Entity<Layer> {
+    cx.new(|cx| {
+        let mut layer = Layer::new(Rc::clone(area), targets, cx);
+        layer.screen = Some("Jobs".into());
+        if seeded {
+            layer.read_again(scenes::saved_notes(), cx);
+        }
+        layer
+    })
+}
+
 impl DispatchScreen {
     pub fn new(jobs: Entity<JobsScreen>, records: &[SessionRecord], window: &mut Window, cx: &mut Context<Self>) -> Self {
         crate::drafts::forget_all(cx);
@@ -99,14 +114,8 @@ impl DispatchScreen {
         let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));
         let area: Rc<Cell<Option<Bounds<Pixels>>>> = Rc::default();
         // The layer is mounted only where Electron's is: a development build.
-        let layer = annotate::dev_build().then(|| {
-            cx.new(|cx| {
-                let mut layer = Layer::new(Rc::clone(&area), targets, cx);
-                layer.screen = Some("Jobs".into());
-                layer.read_again(scenes::saved_notes(), cx);
-                layer
-            })
-        });
+        annotate::forget_awake(cx);
+        let layer = annotate::dev_build().then(|| new_layer(&area, targets, true, cx));
         let mut subs = vec![cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx))];
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
@@ -126,7 +135,7 @@ impl DispatchScreen {
                 });
             }
         })));
-        DispatchScreen { jobs, sheet, layer, strip: None, toast: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, toast: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// ⌘N and its other doors: the sheet opens on the draft as it stands, and the strip goes.
@@ -141,6 +150,14 @@ impl DispatchScreen {
         // A start that was refused clears the toast when the next one begins.
         self.toast = None;
         cx.notify();
+    }
+
+    /// Keep the layer's notes in `dir`: what stands there is read, and each note is written as it is made.
+    pub fn keep_notes(&mut self, dir: std::path::PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        self.kept_in = Some(dir.clone());
+        if let Some(layer) = &self.layer {
+            layer.update(cx, |layer, cx| layer.keep_in(dir, window, cx));
+        }
     }
 
     fn toggle_layer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -264,6 +281,26 @@ impl DispatchScreen {
                     sheet.refused(cx)
                 });
                 self.toast = Some("Job not started: the repository has no free slot".into());
+            }
+            "layer-reload" => {
+                // What a window reloaded does: the layer is built again, reads the notes back from where they were
+                // kept, and is on again where it was on.
+                let dir = std::env::temp_dir().join(format!("bridge-native-walk-notes-{}", std::process::id()));
+                if self.kept_in.is_none() {
+                    let _ = std::fs::remove_dir_all(&dir);
+                    self.keep_notes(dir.clone(), window, cx);
+                }
+                if let Some(layer) = &self.layer {
+                    layer.update(cx, |layer, cx| layer.round_trip_now(cx));
+                }
+                let targets = self.sheet.read(cx).face.mentions.jobs.clone();
+                let layer = new_layer(&self.area, targets, false, cx);
+                self._subs.push(cx.observe(&layer, |_, _, cx| cx.notify()));
+                self.layer = Some(layer.clone());
+                layer.update(cx, |layer, cx| {
+                    layer.keep_in(dir, window, cx);
+                    layer.round_trip_now(cx);
+                });
             }
             "layer-picture" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;

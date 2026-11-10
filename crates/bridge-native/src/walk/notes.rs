@@ -3,10 +3,13 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 35] = [
+pub static STEPS: [Step; 39] = [
     step("⌥⌘A turns annotating on over any screen; the bar says so", Verb::Key("alt-cmd-a"), "status", "Annotating"),
-    step("A press holds it and opens the note", Verb::Press, "row", "Audit the docs index"),
+    step("Aiming reaches the title bar too: it is outlined and named like anything on the screen", Verb::Hover, "tab", "Jobs"),
+    step("A press holds it and opens the note", Verb::Press, "row", "Native Bridge foundation"),
+    press_on("A press elsewhere before a word is typed moves the note to what was pressed", "row", "Audit the docs index", "dialog", "New note"),
     step("The words go in the note", Verb::Type("Show the repository in the title"), "textbox", "Note"),
+    press_on("Once there are words a stray press, here on the title bar, leaves the note as it was and presses nothing under it", "tab", "Jobs", "textbox", "Note"),
     press_on("Size lists the type scale, each step over a bar at its own size", "button", "Size", "group", "Size"),
     press_on("A step picked is a change, with what it was and what it is", "button", "--text-lg", "list", "Changes"),
     press_on("Colour lists the text colours as swatches", "button", "Colour", "group", "Colour"),
@@ -16,6 +19,7 @@ pub static STEPS: [Step; 35] = [
     step("A drag holds a box instead of an element", Verb::Drag, "row", "Native Bridge foundation"),
     step("The second note: on a box the tools stand off", Verb::Type("Two Jobs share this title"), "textbox", "Note"),
     step("Pin 4 stands at the corner of its box, beside the first", Verb::Key("cmd-enter"), "button", "Note 4, open: Two Jobs share this title"),
+    answer("The notes are files under .armada/annotations, one for each. After a reload they are read back, the layer is still on and the pins stand where they were", "layer-reload", "button", "Note 4, open: Two Jobs share this title"),
     press_on("A pin opens its note, with the changes and picture it was saved with, and its acts: Start job, Mark done, Delete", "button", "Note 3, open: Show the repository in the title", "dialog", "Note"),
     step("Esc shuts the note and the keys go back to the layer", Verb::Key("escape"), "status", "Annotating"),
     step("⌥⌘S holds the whole window: its picture is taken and the card opens", Verb::Key("alt-cmd-s"), "dialog", "New note"),

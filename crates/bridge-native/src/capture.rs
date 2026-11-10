@@ -281,8 +281,19 @@ impl Capture {
         cx.notify();
     }
 
+    /// Whether the person has put anything on the note: words, a change or a picture. A stray press does
+    /// not throw that away, while a note with nothing on it moves to what is pressed next.
+    fn begun(&self, cx: &gpui::App) -> bool {
+        let words = self.note.as_ref().is_some_and(|(input, _)| !input.read(cx).value().trim().is_empty());
+        let tools = self.tools.as_ref().is_some_and(|tools| {
+            let tools = tools.read(cx);
+            !tools.changes().is_empty() || !tools.examples().is_empty()
+        });
+        words || tools
+    }
+
     fn pressed(&mut self, at: Point<Pixels>, cx: &mut Context<Self>) {
-        if self.held.is_some() {
+        if self.held.is_some() && self.begun(cx) {
             return;
         }
         self.from = Some(at);
@@ -293,7 +304,10 @@ impl Capture {
     /// A press lets go: a box if it was dragged, else the element under it. The window draws once
     /// with nothing of Capture's over the screen, and that frame is the note's picture.
     fn released(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
-        if self.held.is_some() {
+        if self.held.is_some() && self.begun(cx) {
+            self.from = None;
+            self.to = None;
+            cx.notify();
             return;
         }
         let from = self.from.take().unwrap_or(at);
@@ -309,6 +323,10 @@ impl Capture {
             cx.notify();
             return;
         };
+        // A note with nothing on it gives way to what was pressed.
+        self.note = None;
+        self.tools = None;
+        self.paste = None;
         self.held = Some(held);
         self.clean = true;
         cx.notify();
@@ -428,22 +446,21 @@ impl gpui::Render for Capture {
             return root;
         }
         let mut layer = root;
-        if self.held.is_none() {
-            layer = layer.child(
-                div()
-                    .id("capture-cover")
-                    .absolute()
-                    .left(within.origin.x)
-                    .top(within.origin.y)
-                    .w(within.size.width)
-                    .h(within.size.height)
-                    .cursor(CursorStyle::Crosshair)
-                    .occlude()
-                    .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, window, cx| this.pointer_moved(event.position, window, cx)))
-                    .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| this.pressed(event.position, cx)))
-                    .on_mouse_up(MouseButton::Left, cx.listener(|this, event: &gpui::MouseUpEvent, window, cx| this.released(event.position, window, cx))),
-            );
-        }
+        // The cover takes the pointer while a note is held too, so a press outside it never reaches the screen.
+        layer = layer.child(
+            div()
+                .id("capture-cover")
+                .absolute()
+                .left(within.origin.x)
+                .top(within.origin.y)
+                .w(within.size.width)
+                .h(within.size.height)
+                .cursor(CursorStyle::Crosshair)
+                .occlude()
+                .on_mouse_move(cx.listener(|this, event: &gpui::MouseMoveEvent, window, cx| this.pointer_moved(event.position, window, cx)))
+                .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| this.pressed(event.position, cx)))
+                .on_mouse_up(MouseButton::Left, cx.listener(|this, event: &gpui::MouseUpEvent, window, cx| this.released(event.position, window, cx))),
+        );
         let dragged = self.from.zip(self.to).and_then(|(from, to)| region(from, to));
         if let Some(bounds) = dragged {
             layer = layer.child(outline(bounds));

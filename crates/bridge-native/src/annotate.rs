@@ -14,18 +14,21 @@
 //! **Available only in a development build**, as Electron's is ([`dev_build`]).
 
 mod panel;
+pub mod store;
 pub mod tools;
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
     actions, canvas, div, point, prelude::*, Anchor, App, Bounds, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter,
-    ExternalPaths, FocusHandle, Focusable, FontWeight, KeyBinding, Pixels, Point, Role, SharedString, Subscription, Window,
+    ExternalPaths, FocusHandle, Focusable, FontWeight, Global, KeyBinding, Pixels, Point, Role, SharedString, Subscription, Task, Window,
+    WindowId,
 };
+use serde_json::{json, Value};
 use gpui_component::input::{InputEvent, InputState};
 
 use crate::capture::{self, Capture, CaptureEvent, Held, Words};
@@ -42,6 +45,18 @@ actions!(annotate, [Toggle, Shoot]);
 
 /// Where the layer is kept between openings of the screen: the notes survive a toggle.
 const KEEP_NOTE: &str = "annotate:note";
+
+/// The windows whose layer is on, so a screen drawn again in one finds the layer on (Electron keeps this in
+/// the window's session storage). Per window, not per machine.
+#[derive(Default)]
+struct Awake(HashSet<WindowId>);
+
+impl Global for Awake {}
+
+/// A screen started over from nothing: no window is on.
+pub fn forget_awake(cx: &mut App) {
+    cx.set_global(Awake::default());
+}
 
 /// ⌥⌘A and ⌥⌘S. **Electron reads them by key place in the layer itself** (`Layer.tsx:75-91`); the
 /// registry does not list them, so they are restated here until it does. Bound with no context, so
@@ -86,6 +101,10 @@ pub(crate) enum Status {
 /// `.armada/annotations`).
 pub(crate) struct Note {
     pub id: u32,
+    /// The id the note is filed under, `<key>.json`: it sorts by when the note was written.
+    pub key: String,
+    /// The note as its file reads. A field this layer does not draw is kept here and written back as it was.
+    pub raw: Value,
     pub said: String,
     /// What it is about, as the card's path line reads it.
     pub path: String,
@@ -144,6 +163,11 @@ pub struct Layer {
     capture: Option<(Entity<Capture>, Subscription)>,
     pub(crate) notes: Vec<Note>,
     next_id: u32,
+    /// Where the notes are kept, once the app says: nothing is read or written before.
+    dir: Option<PathBuf>,
+    loading: Option<Task<()>>,
+    /// The Job the pending send went to, for the note's file.
+    sending_session: Option<SharedString>,
     /// The note whose card is open.
     pub(crate) opened: Option<u32>,
     /// The live Jobs the picker lists.
@@ -180,6 +204,9 @@ impl Layer {
             capture: None,
             notes: Vec::new(),
             next_id: 1,
+            dir: None,
+            loading: None,
+            sending_session: None,
             opened: None,
             targets,
             menu: None,
@@ -207,24 +234,120 @@ impl Layer {
     /// Notes read back from where they were kept, oldest first: the ones on other screens are in the
     /// panel and have no pin here.
     pub fn read_again(&mut self, saved: Vec<Saved>, cx: &mut Context<Self>) {
-        for one in saved {
-            let id = self.next_id;
-            self.next_id += 1;
-            let tools = cx.new(|_| Tools::new(Scope::Element { words: None, stories: Vec::new() }));
-            self.notes.push(Note {
-                id,
-                said: one.said.to_string(),
-                path: format!("{} · {}", one.on, one.screen.unwrap_or("no screen marked")),
-                on: one.on.to_string(),
-                screen: one.screen.map(Into::into),
-                ring: None,
-                window: false,
-                picture: None,
-                status: if one.done { Status::Done } else { Status::Open },
-                sent: one.sent.map(Into::into),
-                tools,
+        for (at, one) in saved.into_iter().enumerate() {
+            let key = format!("00000000-0000{at:02}-seed");
+            let mut raw = json!({
+                "id": key, "status": if one.done { "done" } else { "open" }, "text": one.said, "component": null, "owners": [],
+                "ownersFrom": "parent", "selector": one.on, "element": { "tag": one.on, "text": "", "label": null },
+                "screen": one.screen, "layer": null, "location": "/", "scenario": null,
+                "box": { "x": 0, "y": 0, "width": 0, "height": 0 }, "window": { "width": 0, "height": 0 },
+                "createdAt": store::now(), "updatedAt": store::now(),
             });
+            if let Some(title) = one.sent {
+                raw["sent"] = json!({ "at": store::now(), "sessionId": "", "title": title });
+            }
+            let note = self.note_of(raw, cx);
+            self.notes.push(note);
         }
+    }
+
+    /// A note as its file reads. It has a pin here when it was written on this screen, where it stood.
+    fn note_of(&mut self, raw: Value, cx: &mut Context<Self>) -> Note {
+        let id = self.next_id;
+        self.next_id += 1;
+        let text = |value: &Value| value.as_str().map(str::to_string);
+        let on = text(&raw["element"]["tag"]).unwrap_or_else(|| "element".to_string());
+        let screen = text(&raw["screen"]);
+        let window = raw["scope"] == "window";
+        let at = |name: &str| raw["box"][name].as_f64().unwrap_or(0.) as f32;
+        let ring = (!window && screen.is_some() && screen.as_deref() == self.screen.as_deref() && at("width") > 0.)
+            .then(|| Bounds { origin: point(gpui::px(at("x")), gpui::px(at("y"))), size: gpui::size(gpui::px(at("width")), gpui::px(at("height"))) });
+        let tools = cx.new(|_| Tools::new(Scope::Element { words: None, stories: Vec::new() }));
+        Note {
+            id,
+            key: text(&raw["id"]).unwrap_or_default(),
+            said: text(&raw["text"]).unwrap_or_default(),
+            path: text(&raw["element"]["label"]).unwrap_or_else(|| format!("{on} · {}", screen.as_deref().unwrap_or("no screen marked"))),
+            on,
+            screen: screen.map(Into::into),
+            ring,
+            window,
+            picture: None,
+            status: if raw["status"] == "done" { Status::Done } else { Status::Open },
+            sent: text(&raw["sent"]["title"]).map(Into::into),
+            tools,
+            raw,
+        }
+    }
+
+    /// Keep the notes in `dir`: read what stands there now, and write each note as it is made or changed. The
+    /// layer is on again if this window had it on before a reload.
+    pub fn keep_in(&mut self, dir: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        self.dir = Some(dir.clone());
+        let was_on = cx.try_global::<Awake>().is_some_and(|awake| awake.0.contains(&window.window_handle().window_id()));
+        if was_on && !self.on {
+            self.toggle(window, cx);
+        }
+        self.loading = Some(cx.spawn(async move |this, cx| {
+            let found = cx.background_executor().spawn(async move { store::list(&dir) }).await;
+            let _ = this.update(cx, |this, cx| this.read_back(found, cx));
+        }));
+    }
+
+    fn read_back(&mut self, found: Vec<Value>, cx: &mut Context<Self>) {
+        for raw in found {
+            if self.notes.iter().any(|note| raw["id"].as_str() == Some(note.key.as_str())) {
+                continue;
+            }
+            let note = self.note_of(raw, cx);
+            self.notes.push(note);
+        }
+        // Oldest first, as Electron's `byCreation` does: by when it was written, and by its id for two in one millisecond.
+        self.notes.sort_by(|a, b| (a.raw["createdAt"].as_str(), &a.key).cmp(&(b.raw["createdAt"].as_str(), &b.key)));
+        cx.notify();
+    }
+
+    /// Every note written out and read back at once, on the main thread: a walk has no time for the background
+    /// to finish between two steps, and shows a reload from what the disk holds.
+    pub fn round_trip_now(&mut self, cx: &mut Context<Self>) {
+        let Some(dir) = self.dir.clone() else { return };
+        for note in &self.notes {
+            let _ = store::save(&dir, &note.raw);
+        }
+        let found = store::list(&dir);
+        self.read_back(found, cx);
+    }
+
+    /// Write the note's file, and any pictures with it, off the main thread. A write that fails is said in the bar.
+    fn persist(&self, id: u32, pictures: Vec<(String, Vec<u8>)>, cx: &mut Context<Self>) {
+        let (Some(dir), Some(note)) = (self.dir.clone(), self.note(id)) else { return };
+        let raw = note.raw.clone();
+        cx.spawn(async move |this, cx| {
+            let wrote = cx
+                .background_executor()
+                .spawn(async move {
+                    for (name, png) in pictures {
+                        store::save_png(&dir, &name, &png)?;
+                    }
+                    store::save(&dir, &raw)
+                })
+                .await;
+            if let Err(why) = wrote {
+                let _ = this.update(cx, |this, cx| {
+                    this.said = Some(Said { text: format!("Note not saved: {why}").into(), fault: true });
+                    cx.notify();
+                });
+            }
+        })
+        .detach();
+    }
+
+    /// A note changed: its file says when, and is written again.
+    fn changed(&mut self, id: u32, cx: &mut Context<Self>) {
+        if let Some(note) = self.notes.iter_mut().find(|note| note.id == id) {
+            note.raw["updatedAt"] = json!(store::now());
+        }
+        self.persist(id, Vec::new(), cx);
     }
 
     /// The note's number among the open ones, oldest first: a done note carries none and renumbers nothing.
@@ -252,6 +375,13 @@ impl Layer {
             self.on = true;
             self.keys_were = window.focused(cx);
             self.arm(window, cx);
+        }
+        let window_id = window.window_handle().window_id();
+        let awake = cx.default_global::<Awake>();
+        if self.on {
+            awake.0.insert(window_id);
+        } else {
+            awake.0.remove(&window_id);
         }
         cx.notify();
     }
@@ -293,22 +423,73 @@ impl Layer {
             Held::Region(_) => "region".to_string(),
             Held::Window { .. } => "window".to_string(),
         };
+        let tools = noted.tools.clone().unwrap_or_else(|| cx.new(|_| Tools::new(Scope::Window)));
+        let now = store::now();
+        let key = store::new_id(chrono::Utc::now());
+        let ring = noted.held.bounds();
+        let view = window.viewport_size();
+        let (selector, name, label) = match &noted.held {
+            Held::Element(drawn) => (format!("{} \"{}\"", on, drawn.name), drawn.name.to_string(), Some(path.clone())),
+            Held::Region(_) => ("region".to_string(), String::new(), Some(path.clone())),
+            Held::Window { .. } => ("window".to_string(), String::new(), None),
+        };
+        let mut raw = json!({
+            "id": key, "status": "open", "text": noted.said, "component": null, "owners": [], "ownersFrom": "parent",
+            "selector": selector, "element": { "tag": on, "text": name, "label": label },
+            "screen": self.screen, "layer": null, "location": "/", "scenario": null,
+            "box": { "x": f32::from(ring.origin.x), "y": f32::from(ring.origin.y), "width": f32::from(ring.size.width), "height": f32::from(ring.size.height) },
+            "window": { "width": f32::from(view.width), "height": f32::from(view.height) },
+            "createdAt": now, "updatedAt": now,
+        });
+        let mut pictures: Vec<(String, Vec<u8>)> = Vec::new();
+        if matches!(noted.held, Held::Window { .. }) {
+            raw["scope"] = json!("window");
+        }
+        if let Some((picture, _)) = &noted.picture {
+            let mut png = Vec::new();
+            if picture.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).is_ok() {
+                raw["screenshot"] = json!(format!("{key}.png"));
+                pictures.push((format!("{key}.png"), png));
+            }
+        }
+        let kept = tools.read(cx);
+        let changes: Vec<Value> = kept
+            .changes()
+            .iter()
+            .map(|change| {
+                let mut one = json!({ "kind": format!("{:?}", change.kind).to_lowercase(), "property": change.property, "before": change.before, "after": change.after });
+                if let Some(token) = change.token {
+                    one["token"] = json!(token);
+                }
+                one
+            })
+            .collect();
+        if !changes.is_empty() {
+            raw["changes"] = Value::Array(changes);
+        }
+        let examples: Vec<String> = kept.examples().iter().enumerate().map(|(at, _)| format!("{key}-example-{}.png", at + 1)).collect();
+        if !examples.is_empty() {
+            pictures.extend(kept.examples().iter().zip(&examples).map(|(example, name)| (name.clone(), example.image.bytes.clone())));
+            raw["examples"] = json!(examples);
+        }
         let id = self.next_id;
         self.next_id += 1;
-        let tools = noted.tools.clone().unwrap_or_else(|| cx.new(|_| Tools::new(Scope::Window)));
         self.notes.push(Note {
             id,
+            key,
+            raw,
             said: noted.said.clone(),
             path,
             on,
             screen: self.screen.clone(),
-            ring: Some(noted.held.bounds()),
+            ring: Some(ring),
             window: matches!(noted.held, Held::Window { .. }),
             picture: noted.picture.clone(),
             status: Status::Open,
             sent: None,
             tools,
         });
+        self.persist(id, pictures, cx);
         self.said = None;
         self.arm(window, cx);
     }
@@ -327,6 +508,7 @@ impl Layer {
         }
         let notes = self.notes.iter().filter(|note| ids.contains(&note.id)).map(|note| note.said.clone()).collect();
         self.sending = Some(to.as_ref().map_or("Starting job".into(), |job| format!("Sending to {}", job.title).into()));
+        self.sending_session = to.as_ref().map(|job| job.id.clone());
         self.sending_ids = ids;
         self.said = None;
         self.opened = None;
@@ -348,8 +530,13 @@ impl Layer {
     pub fn sent(&mut self, title: &str, new_job: bool, cx: &mut Context<Self>) {
         self.sending = None;
         let ids = std::mem::take(&mut self.sending_ids);
+        let session = self.sending_session.take().unwrap_or_default();
         for note in self.notes.iter_mut().filter(|note| ids.contains(&note.id)) {
             note.sent = Some(title.to_string().into());
+            note.raw["sent"] = json!({ "at": store::now(), "sessionId": session, "title": title });
+        }
+        for id in ids {
+            self.changed(id, cx);
         }
         let text = if new_job { format!("Job started: {title}") } else { format!("Sent to Job {title}") };
         self.said = Some(Said { text: text.into(), fault: false });
@@ -381,11 +568,17 @@ impl Layer {
     pub(crate) fn set_status(&mut self, id: u32, status: Status, cx: &mut Context<Self>) {
         if let Some(note) = self.notes.iter_mut().find(|note| note.id == id) {
             note.status = status;
+            note.raw["status"] = json!(if status == Status::Done { "done" } else { "open" });
         }
+        self.changed(id, cx);
         cx.notify();
     }
 
     pub(crate) fn remove(&mut self, id: u32, cx: &mut Context<Self>) {
+        if let (Some(dir), Some(note)) = (self.dir.clone(), self.note(id)) {
+            let key = note.key.clone();
+            cx.background_executor().spawn(async move { store::remove(&dir, &key) }).detach();
+        }
         self.notes.retain(|note| note.id != id);
         self.selected.remove(&id);
         if self.opened == Some(id) {
