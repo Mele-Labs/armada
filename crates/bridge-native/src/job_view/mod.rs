@@ -86,6 +86,8 @@ struct Page {
     list: ListState,
     /// How many of the list's elements are the thread's items; the rest are [`Extra`]s.
     items: usize,
+    /// Whether the list opens with the Show earlier row (1) or not (0): older items are served.
+    lead: usize,
     count: usize,
     extras: Vec<Extra>,
     /// The thread version the list was last measured for.
@@ -108,7 +110,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), keys: Rc::default() }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), keys: Rc::default() }
     }
 }
 
@@ -425,6 +427,7 @@ impl JobView {
     /// changed and from no earlier, so a tail does not cost a thread's worth of layout.
     fn sync(&mut self, id: &SharedString, cx: &mut Context<Self>) {
         let dirty = self.fleet.as_ref().and_then(|fleet| fleet.update(cx, |fleet, _| fleet.take_dirty(id)));
+        let added = self.fleet.as_ref().map_or(0, |fleet| fleet.update(cx, |fleet, _| fleet.take_prepended(id)));
         let working = self.working(id, cx);
         let settled: Vec<u64> = match (self.thread(id, cx), self.pages.get(id)) {
             (Some(held), Some(page)) => {
@@ -438,18 +441,36 @@ impl JobView {
         let Some(page) = self.pages.get(id) else { return };
         let Some(held) = self.thread(id, cx) else { return };
         let (version, items) = (held.version, held.items.len());
+        let lead = usize::from(held.older.is_some());
         let extras = extras_of(&held.head, &held.items, &page.pending, working);
         let page = self.pages.get_mut(id).expect("the page was just read");
-        if page.version == Some(version) && page.extras == extras && dirty.is_none() {
+        if page.version == Some(version) && page.extras == extras && dirty.is_none() && lead == page.lead {
             return;
         }
-        let total = items + extras.len();
+        let total = lead + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
-        page.list.splice(from..page.count, total - from);
+        let from_list = if lead != page.lead || from == 0 { 0 } else { lead + from };
+        // Items put in front leave the person where they were reading.
+        let top = (added > 0).then(|| page.list.logical_scroll_top());
+        page.list.splice(from_list..page.count, total - from_list);
+        if let Some(top) = top {
+            page.list.scroll_to(ListOffset { item_ix: (top.item_ix + added + lead).saturating_sub(page.lead), offset_in_item: top.offset_in_item });
+        }
+        let first = page.version.is_none();
         page.items = items;
+        page.lead = lead;
         page.count = total;
         page.extras = extras;
         page.version = Some(version);
+        if first {
+            // Within a screen of the top, the older items are read: the row says so when it draws.
+            let (weak, job) = (cx.weak_entity(), id.clone());
+            page.list.set_scroll_handler(move |event, _, cx| {
+                if event.visible_range.start <= 1 {
+                    weak.update(cx, |this, cx| this.want_earlier(&job, cx)).ok();
+                }
+            });
+        }
         self.arrive(id, cx);
     }
 
@@ -595,6 +616,14 @@ impl JobView {
         self.scroll_by(0.9, cx);
     }
 
+    /// Read the thread's older items when the top comes near, and when the row is pressed.
+    pub(crate) fn want_earlier(&mut self, id: &SharedString, cx: &mut Context<Self>) {
+        let Some(fleet) = self.fleet.clone() else { return };
+        if self.thread(id, cx).is_some_and(|held| held.older.is_some()) {
+            fleet.update(cx, |fleet, cx| fleet.read_older(id, cx));
+        }
+    }
+
     fn on_to_start(&mut self, _: &ToStart, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
             page.list.scroll_to(ListOffset { item_ix: 0, offset_in_item: gpui::px(0.) });
@@ -615,7 +644,7 @@ impl JobView {
         if !page.opened.remove(&key) {
             page.opened.insert(key);
         }
-        page.list.remeasure_items(at..at + 1);
+        page.list.remeasure_items(at + page.lead..at + page.lead + 1);
         cx.notify();
     }
 

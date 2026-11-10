@@ -162,7 +162,7 @@ impl JobView {
     /// A card changed its height: that list element measures again.
     pub(super) fn card_changed(&mut self, ix: usize, cx: &mut Context<Self>) {
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
-            page.list.remeasure_items(ix..ix + 1);
+            page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
         }
         cx.notify();
     }
@@ -327,7 +327,7 @@ impl JobView {
         if let Some(page) = self.pages.get_mut(job) {
             page.cards.answers.remove(key);
             page.cards.said.insert(key.to_string(), why);
-            page.list.remeasure_items(ix..ix + 1);
+            page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
         }
         cx.notify();
     }

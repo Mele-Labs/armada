@@ -145,6 +145,10 @@ impl JobView {
         let look = cx.look();
         let working = self.working(&id, cx);
         let now = Local::now();
+        if page.lead == 1 && ix == 0 {
+            return self.earlier_row(&id, look, cx);
+        }
+        let ix = ix - page.lead;
         let drawn = if ix < page.items {
             let Some(item) = held.items.get(ix) else { return nothing() };
             let last = ix + 1 == page.items;
@@ -161,6 +165,25 @@ impl JobView {
             .px(look.length(token::SPACE_6))
             .pb(look.length(token::SPACE_6) + look.length(token::SPACE_2))
             .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * COLUMN).child(drawn))
+            .into_any_element()
+    }
+
+    /// The row that opens the list when Fleet has older items: one press reads them (A1.6).
+    fn earlier_row(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let reading = self.fleet.as_ref().is_some_and(|fleet| fleet.read(cx).reading_older(id));
+        let job = id.clone();
+        div()
+            .w_full()
+            .flex()
+            .justify_center()
+            .pb(look.length(token::SPACE_6))
+            .child(labelled(
+                super::acts::button(look, "show-earlier", "Show earlier", super::acts::Tone::Ghost, false, None, !reading)
+                    .tooltip(tip("Show earlier"))
+                    .on_click(cx.listener(move |this, _, _, cx| this.want_earlier(&job, cx))),
+                Role::Button,
+                "Show earlier",
+            ))
             .into_any_element()
     }
 

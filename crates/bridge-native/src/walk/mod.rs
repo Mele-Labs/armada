@@ -151,6 +151,7 @@ pub static WALKS: &[Walk] = &[
             step("Page up reads the cards before it", Verb::Key("pageup"), "region", "Thread"),
             step("Page up reads the cards before it", Verb::Key("pageup"), "region", "Thread"),
             step("Home goes to the start of the thread", Verb::Key("home"), "region", "Thread"),
+            step("Older items are read from Fleet by a press, or as the top comes near", Verb::Look, "button", "Show earlier"),
             step("A run of calls is one line; a press opens it", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),

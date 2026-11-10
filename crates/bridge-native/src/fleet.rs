@@ -32,16 +32,28 @@ pub struct HeldThread {
     /// The first item that changed since a view last took this (`Held::take_dirty`), so it
     /// measures again from there and no earlier.
     dirty_from: Option<usize>,
+    /// How many items were put before the first since a view last took this (`Held::take_prepended`),
+    /// so it keeps the place the person is reading.
+    prepended: usize,
 }
 
 impl HeldThread {
     pub fn from_read(read: JobThread, version: u64) -> Self {
-        HeldThread { head: read.head, items: read.items, older: read.older, version, stale: false, dirty_from: Some(0) }
+        HeldThread { head: read.head, items: read.items, older: read.older, version, stale: false, dirty_from: Some(0), prepended: 0 }
     }
 
     /// The thread changed from item `at` on: a view measures again from there.
     pub fn mark_dirty(&mut self, at: usize) {
         self.dirty_from = Some(self.dirty_from.map_or(at, |held| held.min(at)));
+    }
+
+    /// Older items, read by `before`, go in front of those held.
+    fn older_read(&mut self, read: JobThread) {
+        self.prepended += read.items.len();
+        self.items.splice(0..0, read.items);
+        self.older = read.older;
+        self.dirty_from = Some(0);
+        self.version += 1;
     }
 
     /// `items` replace what is held from the item `from` to the end. A client that does not hold
@@ -114,6 +126,18 @@ impl Held {
     /// changed since after it. A view measures its list from there.
     pub fn take_dirty(&mut self, session: &str) -> Option<usize> {
         self.threads.get_mut(session)?.dirty_from.take()
+    }
+
+    /// Older items read for a Job go before the ones held.
+    pub fn thread_older(&mut self, read: JobThread) {
+        if let Some(held) = self.threads.get_mut(read.session_id.as_str()) {
+            held.older_read(read);
+        }
+    }
+
+    /// How many items went before the first since this was last asked.
+    pub fn take_prepended(&mut self, session: &str) -> usize {
+        self.threads.get_mut(session).map_or(0, |held| std::mem::take(&mut held.prepended))
     }
 
     fn all_stale(&mut self) {
@@ -279,6 +303,8 @@ pub struct FleetConnection {
     held: Held,
     /// The Jobs whose thread is being read now, so one read is not asked twice.
     reading: BTreeSet<String>,
+    /// The Jobs whose older items are being read now.
+    earlier: BTreeSet<String>,
     /// The Jobs whose last read failed: not asked again until a view asks with `retry`, or the
     /// redraw a failure causes would ask for ever.
     failed: BTreeSet<String>,
@@ -295,6 +321,51 @@ impl FleetConnection {
     /// See [`Held::take_dirty`]. No redraw: the view that asks is already drawing.
     pub fn take_dirty(&mut self, session: &str) -> Option<usize> {
         self.held.take_dirty(session)
+    }
+
+    /// See [`Held::take_prepended`].
+    pub fn take_prepended(&mut self, session: &str) -> usize {
+        self.held.take_prepended(session)
+    }
+
+    /// Whether older items of this Job's thread are being read.
+    pub fn reading_older(&self, session: &str) -> bool {
+        self.earlier.contains(session)
+    }
+
+    /// Read the items before the first one held (`GET /sessions/thread?before=`) off the main thread and
+    /// put them in front. A read already under way is not asked twice; a refusal is noted.
+    pub fn read_older(&mut self, session: &str, cx: &mut Context<Self>) {
+        let Some(port) = self.held.port() else { return };
+        let Some(before) = self.held.threads.get(session).and_then(|held| held.older.clone()) else { return };
+        if !self.earlier.insert(session.to_string()) {
+            return;
+        }
+        let id = session.to_string();
+        let path = format!("/sessions/thread?session_id={session}&before={before}");
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
+                    if !(200..300).contains(&status) {
+                        return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
+                    }
+                    ipc::decode::<JobThread>("JobThread", &bytes).map_err(|why| why.to_string())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                this.earlier.remove(&id);
+                match answer {
+                    Ok(read) => this.held.thread_older(read),
+                    Err(why) => Note::warn("older items of a Job's thread could not be read").field("job", id.as_str()).field("why", why).emit(),
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// A revert has been asked and Fleet took it: the report says so until the next read, as Electron's
@@ -389,7 +460,7 @@ impl FleetConnection {
                 }
             }
         });
-        FleetConnection { held: Held::new(), reading: BTreeSet::new(), failed: BTreeSet::new(), _drain: drain }
+        FleetConnection { held: Held::new(), reading: BTreeSet::new(), earlier: BTreeSet::new(), failed: BTreeSet::new(), _drain: drain }
     }
 }
 

@@ -2,6 +2,7 @@
  "threads": [
   {
    "session_id": "mock-01",
+   "older": "older-1",
    "head": {
     "trail": {
      "started": "2026-11-09T12:58:00Z",
