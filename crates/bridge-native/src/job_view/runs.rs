@@ -52,10 +52,16 @@ fn running_now(job: &str) -> DateTime<Utc> {
 /// One run of the band down a running call's rail.
 const RAIL_MS: u64 = 1400;
 
-/// Where the band is in its run, 0 to 1, by the wall clock.
-fn rail_phase() -> f32 {
-    let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis() as u64);
-    (ms % RAIL_MS) as f32 / RAIL_MS as f32
+thread_local! {
+    /// When each running call's rail was first drawn, by its key.
+    static RAIL_FROM: std::cell::RefCell<std::collections::HashMap<String, std::time::Instant>> = std::cell::RefCell::default();
+}
+
+/// Where the band is in its run, 0 to 1, from when the call's rail was first drawn: a new call's band
+/// starts at the top, and a list item's redraw, which resets an animation's own start, moves nothing.
+fn rail_phase(key: &str) -> f32 {
+    let from = RAIL_FROM.with(|from| *from.borrow_mut().entry(key.to_string()).or_insert_with(std::time::Instant::now));
+    (from.elapsed().as_millis() as u64 % RAIL_MS) as f32 / RAIL_MS as f32
 }
 
 /// What a call's row says: its kind, its phrase, and while it runs, what it works on.
@@ -80,14 +86,14 @@ fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ip
     let gap = side * (10. / 24.);
     let mut rail = div().flex_none().w(gpui::px(3.)).relative().overflow_hidden().bg(look.color(if running { ink } else { token::BORDER_DEFAULT }));
     if running {
-        let band = look.color(token::FG_DEFAULT).opacity(0.35);
+        // The sketch's 35% read as a tint on a 3pt rail; at 80% it reads as a band at a glance.
+        let band = look.color(token::FG_DEFAULT).opacity(0.8);
+        let from = key.to_string();
         rail = rail.child(
-            // Placed by the wall clock and not by the animation's own start, which a list item's redraw can
-            // reset: every running rail runs in step, and a picture taken later finds the band further down.
             div().absolute().left_0().w_full().h(gpui::relative(0.4)).bg(band).with_animation(
                 SharedString::from(format!("rail:{key}")),
                 Animation::new(Duration::from_millis(RAIL_MS)).repeat(),
-                |band, _| band.top(gpui::relative(-0.4 + 1.4 * gpui::ease_in_out(rail_phase()))),
+                move |band, _| band.top(gpui::relative(-0.4 + 1.4 * gpui::ease_in_out(rail_phase(&from)))),
             ),
         );
     }
