@@ -1,4 +1,4 @@
-// Reported bugs on the mock Fleet, through `App`: the band under All and under armada and under no other repository, the ring
+// Reported bugs on the mock Fleet, through `App`: the Reported choice in the query menu under All and under armada and under no other repository, the ring
 // going when a report is opened, Keep and Drop written through Fleet and heard back as `bug_reports.changed`, Start a Job
 // opening the sheet in armada with the report as its brief, `K` and `D` acting only where a report holds focus, and the mark
 // on the Cockpit row of a Job that reported one, and (over `report-linked-job`) the Job started on a report shown on its row and in
@@ -48,13 +48,33 @@ const scenarioIn = (repository: string | null) => ({
   },
 });
 
-async function open(repository: string | null = null) {
+/** Reports stand in the query menu as Reported and are drawn only while it is the choice. */
+async function chooseReported() {
+  issues().element().focus();
+  await userEvent.keyboard("L");
+  await userEvent.click(
+    page.getByRole("menuitem", {
+      name: "Reported",
+      exact: true,
+    }),
+  );
+}
+
+async function open(repository: string | null = null, reported = true) {
   const app = mount(scenarioIn(repository));
   await onScreen();
   await toPlace("Issues" as never);
   await expect.element(issues()).toBeVisible();
+  if (reported) await chooseReported();
   return app;
 }
+
+test("reports are not drawn until Reported is chosen", async () => {
+  await open(null, false);
+  expect(band().query()).toBeNull();
+  await chooseReported();
+  await expect.element(band()).toBeVisible();
+});
 
 test("the band is drawn under All", async () => {
   await open(null);
@@ -67,7 +87,7 @@ test("the band is drawn with armada picked", async () => {
 });
 
 test("no band stands over another repository's issues", async () => {
-  await open(STOREFRONT);
+  await open(STOREFRONT, false);
   await expect.element(issues().getByText("Coupon field accepts an expired code")).toBeVisible();
   expect(band().query()).toBeNull();
 });
@@ -77,6 +97,7 @@ test("the reports are read from Fleet's list, and a report opened loses its ring
   const read = vi.spyOn(app.api, "listBugReports");
   await onScreen();
   await toPlace("Issues" as never);
+  await chooseReported();
   await expect.element(band()).toBeVisible();
   expect(read).toHaveBeenCalled();
   expect(unread()).toBe(2);
@@ -86,7 +107,7 @@ test("the reports are read from Fleet's list, and a report opened loses its ring
   expect(unread()).toBe(1);
 });
 
-test("Keep is written through Fleet, and Start a Job takes its place once Fleet answers", async () => {
+test("Keep is written through Fleet, and Dispatch takes its place once Fleet answers", async () => {
   const app = await open();
   const keep = vi.spyOn(app.api, "keepBugReport");
   await userEvent.click(row(WATCH));
@@ -102,7 +123,7 @@ test("Keep is written through Fleet, and Start a Job takes its place once Fleet 
   await expect
     .element(
       reader().getByRole("button", {
-        name: "Start a Job",
+        name: "Dispatch",
         exact: true,
       }),
     )
@@ -145,7 +166,7 @@ test("a report dropped elsewhere leaves the band on bug_reports.changed, with no
   expect(reread).not.toHaveBeenCalled();
 });
 
-test("Start a Job drafts the Job in armada and opens it holding the report as the brief, with no sheet", async () => {
+test("Dispatch drafts the Job in armada and opens it holding the report as the brief, with no sheet", async () => {
   await open();
   await userEvent.click(row(WATCH));
   await userEvent.click(
@@ -156,7 +177,7 @@ test("Start a Job drafts the Job in armada and opens it holding the report as th
   );
   await userEvent.click(
     reader().getByRole("button", {
-      name: "Start a Job",
+      name: "Dispatch",
       exact: true,
     }),
   );
@@ -196,7 +217,7 @@ test("K keeps the report in the reader, and does nothing on a report already kep
   await expect
     .element(
       reader().getByRole("button", {
-        name: "Start a Job",
+        name: "Dispatch",
         exact: true,
       }),
     )
@@ -217,7 +238,7 @@ test("D on a report row drops that report", async () => {
 });
 
 test("D and K on an issue describe a query and keep nothing, since no report holds focus", async () => {
-  const app = await open();
+  const app = await open(null, false);
   const drop = vi.spyOn(app.api, "dropBugReport");
   const keep = vi.spyOn(app.api, "keepBugReport");
   await expect
@@ -311,9 +332,10 @@ async function openLinked() {
   await onScreen();
   await toPlace("Issues" as never);
   await expect.element(issues()).toBeVisible();
+  await chooseReported();
 }
 
-test("Start a Job sends the report as a tag of its own kind, held in the words of its brief", async () => {
+test("Dispatch sends the report as a tag of its own kind, held in the words of its brief", async () => {
   await open();
   await userEvent.click(row(WATCH));
   await userEvent.click(
@@ -324,7 +346,7 @@ test("Start a Job sends the report as a tag of its own kind, held in the words o
   );
   await userEvent.click(
     reader().getByRole("button", {
-      name: "Start a Job",
+      name: "Dispatch",
       exact: true,
     }),
   );
@@ -359,14 +381,14 @@ test("a report whose Job holds its report row shows the Job on its row and in it
   expect(
     reader()
       .getByRole("button", {
-        name: "Start a Job",
+        name: "Dispatch",
         exact: true,
       })
       .query(),
   ).toBeNull();
 });
 
-test("a report no Job holds, as when its Job ended without merging, shows no Job and offers Start a Job", async () => {
+test("a report no Job holds, as when its Job ended without merging, shows no Job and offers Dispatch", async () => {
   await openLinked();
   // The corner's places are the fix, the Job and the read state, and the Job's stays empty.
   const mark = row(VERB).element().querySelectorAll(".armada-list-card__mark")[1];
@@ -376,7 +398,7 @@ test("a report no Job holds, as when its Job ended without merging, shows no Job
   await expect
     .element(
       reader().getByRole("button", {
-        name: "Start a Job",
+        name: "Dispatch",
         exact: true,
       }),
     )
@@ -390,31 +412,10 @@ test("a report no Job holds, as when its Job ended without merging, shows no Job
   ).toBeNull();
 });
 
-test("a fixed report is hidden under Open, and shown under Closed with the pull request that fixed it", async () => {
+test("a fixed report is not listed under Reported", async () => {
   await openLinked();
   await expect.element(row(LINKED_WATCH)).toBeVisible();
   expect(row(LINKED_ICON).query()).toBeNull();
-
-  row(LINKED_WATCH).element().focus();
-  await userEvent.keyboard("L");
-  await userEvent.click(
-    page.getByRole("menuitem", {
-      name: "Closed",
-      exact: true,
-    }),
-  );
-
-  await expect.element(row(LINKED_ICON)).toBeVisible();
-  expect(row(LINKED_WATCH).query()).toBeNull();
-  await expect
-    .element(
-      issues().getByRole("img", {
-        name: "Fixed by #3071",
-      }),
-    )
-    .toBeVisible();
-  await userEvent.click(row(LINKED_ICON));
-  await expect.element(reader().getByText("#3071")).toBeVisible();
 });
 
 test("the Job started on a report lists the report among its issues", async () => {

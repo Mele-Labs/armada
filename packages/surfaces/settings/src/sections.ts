@@ -523,9 +523,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   ...PANES,
 ];
 
-/** A setting the generic form draws. A Json value is Bridge's own, drawn by its pane. */
+/** The Operator's settings (`features.operator`, `models.operator`, `limits.operatorPlanPause`). Fleet serves them for the native Bridge, which draws them. */
+const OPERATORS = /^[a-z]+\.operator/;
+
+/** A setting the generic form draws. A Json value is Bridge's own, drawn by its pane, and the Operator's are not drawn here. */
 export function drawn(setting: Setting): boolean {
-  return setting.kind.kind !== "json";
+  return setting.kind.kind !== "json" && !OPERATORS.test(setting.key);
 }
 
 /**

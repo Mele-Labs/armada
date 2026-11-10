@@ -45,7 +45,6 @@ import { setup } from "./slices/setup";
 import { studios } from "./slices/studios";
 import { workflows } from "./slices/workflows";
 import { logbook } from "./slices/logbook";
-import { operator } from "./slices/operator";
 import { teaching } from "./slices/teaching";
 import { pullRequestNotes } from "./slices/pull-request-notes";
 
@@ -95,7 +94,6 @@ const BY_NAME = {
   requests,
   sharing,
   logbook,
-  operator,
   teaching,
   pullRequestNotes,
 } satisfies Record<SliceName, AnySlice>;

@@ -77,7 +77,6 @@ export type SliceName =
   | "requests"
   | "sharing"
   | "logbook"
-  | "operator"
   | "teaching"
   | "pullRequestNotes";
 
