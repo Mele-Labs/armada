@@ -97,7 +97,7 @@
     { "at": "2026-11-11T12:47:00-05:00", "title": "The build switcher report", "outcome": "Linked: the build switcher report to #3390" },
     { "at": "2026-11-11T12:20:00-05:00", "title": "Fix desktop_unit after #412", "outcome": "Started: Fix desktop_unit after #412" }
    ],
-   "log": { "week": "2026-W46", "path": "/Users/owner/.armada/operator/journal/2026-W46.md" }
+   "log": { "week": "2026-W46", "path": "/Users/user/.armada/operator/journal/2026-W46.md" }
   },
   "running": [
    { "session_id": "mock-05", "title": "Slot pool controls", "repository": "armada" },
