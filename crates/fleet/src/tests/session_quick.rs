@@ -177,7 +177,7 @@ fn a_message_asks_something_when_it_ends_with_a_question() {
 fn the_agent_spoke_last_only_when_its_message_is_the_threads_last() {
     let mut rows = vec![you("Hi", "2026-10-30T12:00:01Z"), said(SessionVoice::Agent, "Ready?", "2026-10-30T12:00:02Z")];
     assert_eq!(agent_spoke_last(&rows), Some(("r2026-10-30T12:00:02Z", "Ready?")));
-    rows.push(SessionRow::Tool { id: "t1".into(), at: Instant::carried("2026-10-30T12:00:03Z"), text: "Reading a file".into(), subagent: None });
+    rows.push(SessionRow::Tool { id: "t1".into(), at: Instant::carried("2026-10-30T12:00:03Z"), text: "Reading a file".into(), description: None, subagent: None });
     assert!(agent_spoke_last(&rows).is_some(), "a call is no message");
     rows.push(you("Yes", "2026-10-30T12:00:04Z"));
     assert_eq!(agent_spoke_last(&rows), None);

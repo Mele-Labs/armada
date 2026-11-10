@@ -549,6 +549,8 @@ export type SessionRow =
       id: string;
       at: string;
       text: string;
+      /** The call's own one-line phrase for what it does (the `description` of a `Bash` or `Agent` call's input), trimmed. Absent where the input had none, and on every row kept before it existed. */
+      description?: string;
       subagent?: ToolSubagent;
     }
   /** A command the person ran in the terminal, as typed, with no output. Since 23.56. */
