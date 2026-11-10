@@ -1083,6 +1083,50 @@ destructive = false
 confirms = false
 notes = "Puts the cursor in the reply on a call that takes one: a Session's own question, which offers Type something beside its options, or an item with no options. `Enter` in the field sends it and `Esc` leaves it. `t` is attest on a list; a call is not a list."
 
+[actions.call_yes]
+kind = "Action"
+tier = "Contextual"
+verb = "Yes"
+icon = "check"
+shortcut = "a"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Says Yes to the Operator's pick on the item open in Your turn, the Operator's page (`operator_answer` with `yes`). The pick is drawn as the primary button with `A` on it. `a` and not `Enter`: `Enter` sends the answer picked with the digits, and on a go-ahead to file an issue the digits pick the Then, so `a` takes the pick as the Operator read it. Added 10 Nov 2026 with the native Operator page."
+
+[actions.call_ask]
+kind = "Action"
+tier = "Contextual"
+verb = "Ask the Operator"
+icon = "bot"
+shortcut = "/"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Opens the chat with the Operator about the item open in Your turn, in place of the digest, with the keys in its box (`talk_to_operator` with `about` `turn:<n>`). `Esc` leaves the chat and gives the keys back to the item. `/` is search on a page with a search bar; the Operator's page has none. Added 10 Nov 2026 with the native Operator page."
+
+[actions.call_move_focus]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between calls"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Opens the next or the previous item of Your turn, on the Operator's page, and closes the one that was open: one item is open at a time. Its own row for the reason `plan`'s is: the call scope is not a list. Added 10 Nov 2026 with the native Operator page."
+
+[actions.call_reorder]
+kind = "Action"
+tier = "Contextual"
+verb = "Move the call up or down"
+icon = "grip-vertical"
+shortcut = "⌥↑ ⌥↓"
+scope = "call"
+destructive = false
+confirms = false
+notes = "Moves the item open in Your turn one place up or down, as a drag does (`operator_turn_order`). The keys stay on the item it moved. Added 10 Nov 2026 with the native Operator page."
+
 [actions.logbook_edit]
 kind = "Action"
 tier = "Contextual"

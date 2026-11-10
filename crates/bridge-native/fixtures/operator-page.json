@@ -1,0 +1,115 @@
+{
+ "on": true,
+ "top": "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.",
+ "looked_at": "2026-11-11T12:10:00-05:00",
+ "on_it": { "reading": "Store reports its size, for its review", "since": "2026-11-11T13:02:00-05:00" },
+ "turn": [
+  {
+   "id": "turn:1",
+   "kind": "decision",
+   "session_id": "mock-01",
+   "job": "Quick dispatch",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "plan",
+    "text": "Approve plan version 2",
+    "since": "2026-11-11T11:40:00-05:00",
+    "source": "plan"
+   },
+   "read": {
+    "read": "It adds the repository chips you asked for on 15 Oct. Nothing else changes from the version you approved, and two Jobs start once you do.",
+    "pick": "Approve"
+   },
+   "raised_at": "2026-11-11T11:40:00-05:00"
+  },
+  {
+   "id": "turn:2",
+   "kind": "go_ahead",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "note:41",
+    "text": "File your note: the slot meter flickers when a Job ends",
+    "since": "2026-11-11T11:52:00-05:00",
+    "source": "agent"
+   },
+   "read": {
+    "read": "No open issue covers it. #3413 changed the meter this morning, and Slot pool controls is live on the same files, so I'd file it and hand it to that Job.",
+    "pick": "File and hand to Slot pool controls"
+   },
+   "raised_at": "2026-11-11T11:52:00-05:00",
+   "then": [
+    { "then": "just_file" },
+    { "then": "file_and_start" },
+    { "then": "file_and_hand", "hand_to": { "session_id": "mock-05", "job": "Slot pool controls" }, "pick": true }
+   ],
+   "keeps": true
+  },
+  {
+   "id": "turn:3",
+   "kind": "decision",
+   "session_id": "mock-03",
+   "job": "Rework the Map legend",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "walk:armada://walk/map-legend",
+    "text": "Review its walk",
+    "since": "2026-11-11T12:30:00-05:00",
+    "source": "walk",
+    "act": { "kind": "walk", "target": "armada://walk/map-legend" }
+   },
+   "read": {
+    "read": "The new key sits beside the old one, and yesterday's change is in its last step.",
+    "pick": "Open it"
+   },
+   "raised_at": "2026-11-11T12:30:00-05:00"
+  },
+  {
+   "id": "turn:4",
+   "kind": "decision",
+   "session_id": "mock-04",
+   "job": "Fix desktop_unit after #412",
+   "manifest_id": "storefront",
+   "repository": "storefront",
+   "item": {
+    "id": "pr:412",
+    "text": "Approve its pull request: storefront asks before a fix merges",
+    "since": "2026-11-11T12:44:00-05:00",
+    "source": "agent",
+    "act": { "kind": "approve_pr", "target": "418" }
+   },
+   "read": {
+    "read": "The fix is one line in the test's setup and ci is green on it.",
+    "pick": "Approve"
+   },
+   "raised_at": "2026-11-11T12:44:00-05:00"
+  }
+ ],
+ "digest": {
+  "landed": [
+   { "session_id": "mock-05", "job": "Slot pool controls", "number": "3413", "title": "Slot meter shows free slots" },
+   { "session_id": "mock-06", "job": "Tail-first thread loading", "number": "3411", "title": "Tail-first thread loading" }
+  ],
+  "handled": {
+   "acts": [
+    { "at": "2026-11-11T12:47:00-05:00", "title": "The build switcher report", "outcome": "Linked: the build switcher report to #3390" },
+    { "at": "2026-11-11T12:20:00-05:00", "title": "Fix desktop_unit after #412", "outcome": "Started: Fix desktop_unit after #412" }
+   ],
+   "log": { "week": "2026-W46", "path": "/Users/owner/.armada/operator/journal/2026-W46.md" }
+  },
+  "running": [
+   { "session_id": "mock-05", "title": "Slot pool controls", "repository": "armada" },
+   { "session_id": "mock-04", "title": "Fix desktop_unit after #412", "repository": "storefront" },
+   { "session_id": "mock-07", "title": "Store reports its size", "repository": "armada" }
+  ],
+  "coming_up": [
+   { "session_id": "mock-08", "title": "Quick dispatch: repository chips", "needs": "Quick dispatch's plan" }
+  ],
+  "learned": [
+   { "id": 1, "manifest_id": "armada", "repository": "armada", "said": "File your notes without asking", "at": "2026-11-10T16:00:00-05:00" },
+   { "id": 2, "manifest_id": "storefront", "repository": "storefront", "said": "A red main's fix waits for you", "at": "2026-11-10T17:00:00-05:00" }
+  ]
+ }
+}

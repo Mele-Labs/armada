@@ -99,6 +99,8 @@ pub struct Held {
     sheets: BTreeMap<String, (Option<Instant>, String)>,
     /// The threads a view has read, by Job id. Fleet sends a tail for each of these and no other.
     pub threads: BTreeMap<String, HeldThread>,
+    /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
+    pub operator_page_moved: u64,
 }
 
 impl Held {
@@ -117,6 +119,7 @@ impl Held {
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
+            operator_page_moved: 0,
         }
     }
 
@@ -152,6 +155,7 @@ impl Held {
 
     fn all_stale(&mut self) {
         self.threads.values_mut().for_each(|held| held.stale = true);
+        self.operator_page_moved += 1;
     }
 
     /// The checked stylesheets of the theme mods that are on and valid, by mod name. A sheet checked
@@ -269,6 +273,7 @@ impl Held {
                     *kinds.entry(delivered.event.kind()).or_default() += 1;
                     // A row arrives whole and replaces the one held, never patches it.
                     match delivered.event {
+                        Event::OperatorPageChanged(_) => self.operator_page_moved += 1,
                         Event::SessionChanged(record) => {
                             match self.jobs.iter_mut().find(|held| held.id == record.id) {
                                 Some(held) => *held = record,
