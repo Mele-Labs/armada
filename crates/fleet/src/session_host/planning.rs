@@ -263,7 +263,6 @@ where
         if before.is_none() {
             self.rules_plan_first_recorded(&id, &kept.groups).await;
         }
-        self.plan_handed(&id, before.as_ref(), &kept).await;
         // A version after one he approved, with `ask_again`, comes once the plan step is passed: it is his to approve again.
         let late = approved_before.is_some();
         if kept.approved_at.is_none() {

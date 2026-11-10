@@ -29,8 +29,6 @@ pub(super) struct Near {
     pub(super) paths: Vec<String>,
     pub(super) issues: Vec<String>,
     pub(super) words: Vec<String>,
-    /// How the item ties to it, where it does: it waits on the item, the item's Job started it.
-    pub(super) tie: Option<String>,
 }
 
 impl Near {
@@ -45,9 +43,6 @@ impl Near {
         }
         if !self.words.is_empty() {
             parts.push(format!("words {}", self.words.join(", ")));
-        }
-        if let Some(tie) = &self.tie {
-            parts.push(tie.clone());
         }
         parts.join("; ")
     }
@@ -67,8 +62,7 @@ pub(super) fn near(item: &Arrival, live: &[LiveJob]) -> Vec<Near> {
                 words.clear();
             }
             words.truncate(WORDS_SHOWN);
-            let tie = item.ties.iter().find(|(id, _)| *id == job.session_id).map(|(_, how)| how.clone());
-            (!paths.is_empty() || !issues.is_empty() || !words.is_empty() || tie.is_some()).then(|| Near { job: job.clone(), paths, issues, words, tie })
+            (!paths.is_empty() || !issues.is_empty() || !words.is_empty()).then(|| Near { job: job.clone(), paths, issues, words })
         })
         .collect()
 }

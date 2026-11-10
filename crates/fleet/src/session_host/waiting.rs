@@ -783,8 +783,6 @@ where
         for one in items.iter_mut().filter(|one| one.source == WaitingSource::Replied) {
             one.confirmed = confirmed.contains(&one.text);
         }
-        // A question the Answer role at Suggest would answer shows its read and its pick.
-        crate::operator::reads_shown(&mut items, &suggestions);
         // **A paused Job raises nothing**: its items come back after Resume, if they are still owed.
         let items = if paused { Vec::new() } else { items };
         Waited { items, closed: Vec::new(), standing, resting, spoke: his_word, told, died_saying, start_held, paused, plan_held: holds.map(|holds| holds.held_by).unwrap_or_default(), lapsed: lapsed_open }

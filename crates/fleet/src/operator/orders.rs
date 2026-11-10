@@ -2,7 +2,9 @@
 //! `ipc::operator_talk`**, and only once the person has seen the form and pressed. `crates/ipc/operations/confirm_operator_order.toml`.
 //!
 //! **A role off** reads as the role's Read-only position in that repository, until the day ends if he
-//! said today. **A kind always raised** goes to him with no call. **A hold on paths** refuses a write
+//! said today; **Answer is retired**, so an order for it is neither accepted nor served. **A kind
+//! always raised** goes to him with no call, and only a kind the Operator is still handed
+//! ([`Arrived::TAKEN`]) is accepted: an old order naming another is not served. **A hold on paths** refuses a write
 //! under them by any Job but the one it names, in that repository, from a file tool: a shell's writes
 //! cannot be read ahead of time and go through. A Job that ends releases its hold, and so does its
 //! push where the order said pushes, each with a Log row.
@@ -70,10 +72,21 @@ fn under(path: &str, held: &str) -> bool {
     !held.is_empty() && (path.ends_with(&format!("/{held}")) || path.contains(&format!("/{held}/")))
 }
 
+/// Whether Fleet goes by `form` now. An order for the retired Answer role, or for a kind the Operator
+/// is no longer handed, stands in the store and is read by nothing.
+fn served(form: &OperatorOrderForm) -> bool {
+    match form {
+        OperatorOrderForm::RoleOff { role, .. } => *role != OperatorRole::Answer,
+        OperatorOrderForm::AlwaysRaise { what } => Arrived::taken_from_word(what).is_some(),
+        OperatorOrderForm::HoldPaths { .. } => true,
+    }
+}
+
 /// `form` as it may stand, against the repositories and live Jobs Fleet knows. `Err` says why not.
 pub(super) fn checked(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> Result<(), String> {
     let known = |manifest: &String| repositories.iter().any(|one| one.id == *manifest);
     match form {
+        OperatorOrderForm::RoleOff { role: OperatorRole::Answer, .. } => Err("the Answer role is retired: questions and permission cards go to the person".to_string()),
         OperatorOrderForm::RoleOff { manifest_id, .. } if !known(manifest_id) => Err(format!("no repository here has the id {manifest_id}")),
         OperatorOrderForm::RoleOff { .. } => Ok(()),
         OperatorOrderForm::HoldPaths { paths, .. } if paths.iter().all(|one| one.trim_matches('/').is_empty()) => Err("a hold names no paths".to_string()),
@@ -81,9 +94,9 @@ pub(super) fn checked(form: &OperatorOrderForm, repositories: &[Repository], liv
             Some(one) if one.manifest_id == *manifest_id => Ok(()),
             _ => Err(format!("no live Job {} in that repository", job.as_str())),
         },
-        OperatorOrderForm::AlwaysRaise { what } => match Arrived::from_word(what) {
+        OperatorOrderForm::AlwaysRaise { what } => match Arrived::taken_from_word(what) {
             Some(_) => Ok(()),
-            None => Err(format!("{what} is not a kind of thing that arrives")),
+            None => Err(format!("{what} is not a kind of thing the Operator is handed")),
         },
     }
 }
@@ -139,7 +152,7 @@ where
         };
         let orders = kept
             .iter()
-            .filter_map(|one| Some(Order { id: one.n, form: OperatorOrderForm::read(&one.form)?, until: one.until.clone() }))
+            .filter_map(|one| Some(Order { id: one.n, form: OperatorOrderForm::read(&one.form).filter(served)?, until: one.until.clone() }))
             .collect();
         self.operator_seat().orders_are(Orders(orders));
         kept
@@ -183,7 +196,7 @@ where
         let now = self.now();
         let mut orders = Vec::new();
         for one in kept {
-            let Some(form) = OperatorOrderForm::read(&one.form) else { continue };
+            let Some(form) = OperatorOrderForm::read(&one.form).filter(served) else { continue };
             if one.until.as_deref().is_some_and(|until| now.as_str() >= until) || self.hold_released(one.n, &form).await {
                 let _ = self.store().lock().await.remove_operator_order(one.n, now.as_str());
                 continue;

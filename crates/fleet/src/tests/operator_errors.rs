@@ -98,14 +98,14 @@ async fn a_reported_error_arrives_once_with_the_cards_facts_and_the_same_error_a
 #[tokio::test]
 async fn an_error_goes_ahead_of_what_waits_and_shows_first_in_the_boards_next_and_two_keep_their_order() {
     let waiting = waiting(&[], &[]).await;
-    assert_eq!(waiting.next().await, ["question:second", "question:third"]);
+    assert_eq!(waiting.next().await, ["report:second", "report:third"]);
 
     let first = waiting.rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
     waiting.waits_for(3).await;
     let second = waiting.rig.fleet.bridge_error_taken(card("bridge.not_sent", "No handler registered", None)).await;
     waiting.waits_for(4).await;
 
-    assert_eq!(waiting.next().await, [first.id.as_str(), second.id.as_str(), "question:second", "question:third"]);
+    assert_eq!(waiting.next().await, [first.id.as_str(), second.id.as_str(), "report:second", "report:third"]);
     let board = waiting.rig.fleet.operator_board_wire().await.expect("read");
     assert_eq!((board.next[0].kind, board.next[0].title.as_str()), (OperatorBoardKind::Report, SUBJECT));
 

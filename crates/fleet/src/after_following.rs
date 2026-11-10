@@ -173,7 +173,6 @@ where
                 Verdict::Met { said, pull } => (Some(said), pull),
                 // What he approved has not happened, so it is his to start, whatever he approved.
                 Verdict::Stranded { said, pull } => {
-                    self.operator_hold_lifted(&wait, &said).await;
                     wait.held = true;
                     (Some(said), pull)
                 }

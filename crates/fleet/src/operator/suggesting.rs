@@ -1,10 +1,10 @@
 //! What a role at Suggest would do, waiting on one press.
 //!
 //! **Kept with what Decide would have acted on**, so a restart keeps it and `Do it` goes through
-//! [`Operator::acted`] as On does. An answer's suggestion shows on the question it would settle, where
-//! his press on the option is the one press; any other is a row of its own on the Job's Needs you
-//! list. A suggestion with no Job, on a report nothing reported from a Job, on a note he left or on an error Bridge showed him, is
-//! kept for the panel. **A note's is kept whatever its role stands at**, since a note is only ever proposed.
+//! [`Fleet::operator_sourced`] as On does. A suggestion is a row of its own on the Job's Needs you
+//! list; one with no Job, on a report nothing reported from a Job, on a note he left or on an error
+//! Bridge showed him, is kept for the panel. **A note's is kept whatever its role stands at**, since
+//! a note is only ever proposed.
 
 use std::sync::Arc;
 
@@ -12,10 +12,9 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Actor;
 use ipc::operator_board::{AnswerOperatorSuggestion, OperatorBoard};
-use ipc::{Instant, OperatorRead, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError};
+use ipc::{Instant, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError};
 use store::KeptSuggestion;
 
-use super::questions::asked_item;
 use super::{Arrival, Arrived, Logged, Outcome, Ruling, Source, Way};
 use crate::daemon::Fleet;
 use crate::session_host::waiting::SESSION_WAITING_EMPTY;
@@ -54,16 +53,6 @@ pub(crate) fn suggestion_items(kept: &[KeptSuggestion]) -> impl Iterator<Item = 
     })
 }
 
-/// Each question the Operator would answer, with its read and its pick.
-pub(crate) fn reads_shown(items: &mut [WaitingItem], kept: &[KeptSuggestion]) {
-    for one in kept {
-        let (Some(item), Some(pick)) = (&one.item, &one.pick) else { continue };
-        if let Some(asked) = items.iter_mut().find(|asked| &asked.id == item) {
-            asked.operator_read = Some(OperatorRead { read: one.because.clone(), pick: pick.clone() });
-        }
-    }
-}
-
 /// What the row says the Operator would do, naming the other Job by `other`, its title.
 fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
     let because = &ruling.because;
@@ -75,44 +64,19 @@ fn said(arrival: &Arrival, ruling: &Ruling, other: &str) -> String {
         (Arrived::Note, Way::NewJob) => format!("The Operator would start a Job on your note \"{subject}\": {because}"),
         (Arrived::Note, Way::Link) => format!("The Operator would link your note \"{subject}\" to {}: {because}", ruling.issue.as_deref().unwrap_or("an open issue")),
         (Arrived::Note, _) => format!("The Operator would send your note \"{subject}\" to \"{other}\": {because}"),
-        (Arrived::Ended | Arrived::Merged, Way::File) => format!("The Operator would file \"{}\" as a new issue now that {}: {because}", what_of(ruling), happened(arrival)),
-        (Arrived::Ended | Arrived::Merged, _) => format!("The Operator would tell \"{other}\" that {}: {because}", happened(arrival)),
         (Arrived::Error, Way::File) => format!("The Operator would file the error \"{subject}\" as a new issue: {because}"),
         (Arrived::Error, Way::NewJob) => format!("The Operator would start a Job on the error \"{subject}\": {because}"),
         (Arrived::Error, Way::Link) => format!("The Operator would link the error \"{subject}\" to {}: {because}", ruling.issue.as_deref().unwrap_or("an open issue")),
         (Arrived::Error, _) => format!("The Operator would hand the error \"{subject}\" to \"{other}\": {because}"),
-        (Arrived::Later, _) => format!("The Operator would file \"{subject}\" as a new issue: {because}"),
-        (_, Way::Merge) => format!("The Operator would end this Job into \"{other}\": {because}"),
-        (_, Way::KeepInTouch) => format!("The Operator would tell this Job and \"{other}\" of each other: {because}"),
         _ => format!("The Operator would hand this work to \"{other}\": {because}"),
     }
 }
 
 /// What a suggestion is about, so one raised again for it is a repeat: its repository, kind of arrival
-/// and way, and its subject, trimmed, single-spaced and lower-cased. **A file on an end or a merge is
-/// about its `what`**, the next piece of work, since its subject there is the pull request and each
-/// merge is a new one naming the same work.
+/// and way, and its subject, trimmed, single-spaced and lower-cased.
 fn same_thing(one: &KeptSuggestion) -> [String; 4] {
-    let ending_file = one.way == Way::File.word() && Arrived::from_word(&one.arrived).is_some_and(Arrived::is_ending);
-    let about = match &one.what {
-        Some(what) if ending_file && !what.trim().is_empty() => what,
-        _ => &one.subject,
-    };
-    let said = about.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let said = one.subject.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
     [one.manifest_id.clone(), one.arrived.clone(), one.way.clone(), said]
-}
-
-/// What a ruling on an end or a merge would start or file.
-fn what_of(ruling: &Ruling) -> &str {
-    ruling.what.as_deref().unwrap_or_default()
-}
-
-/// What an end or a merge is, as a row says it: `"<Job>" ended`, or `#<n> merged`.
-fn happened(arrival: &Arrival) -> String {
-    match arrival.arrived {
-        Arrived::Merged => format!("#{} merged", arrival.id.rsplit(':').next().unwrap_or_default()),
-        _ => format!("\"{}\" ended", arrival.subject),
-    }
 }
 
 /// The arrival a suggestion was kept from, as far as doing it reads one.
@@ -127,12 +91,8 @@ fn arrival_of(one: &KeptSuggestion) -> Option<Arrival> {
         words: one.words.clone(),
         paths: Vec::new(),
         issues: Vec::new(),
-        group: one.group.clone(),
         ways: Vec::new(),
-        answers: Vec::new(),
-        rule: None,
         open: Vec::new(),
-        ties: Vec::new(),
     })
 }
 
@@ -141,8 +101,6 @@ fn ruling_of(one: &KeptSuggestion) -> Option<Ruling> {
     Some(Ruling {
         other: one.other_session.clone(),
         shared: one.shared.clone(),
-        first: one.first_session.clone(),
-        what: one.what.clone(),
         ..Ruling::alone(Way::from_word(&one.way)?, one.because.clone())
     })
 }
@@ -171,21 +129,20 @@ where
                 arrival: arrival.id.clone(),
                 arrived: arrival.arrived.word().to_string(),
                 way: ruling.way.word().to_string(),
-                // An end's suggestion is kept for the panel: the Job it is about has ended. So is a
-                // note's he sent to a Job, which is the note's and not that Job's to settle.
-                session_id: if arrival.arrived.is_ending() || arrival.is_sent_note() { String::new() } else { arrival.session_id.clone() },
+                // A note's he sent to a Job is kept for the panel: it is the note's and not that Job's to settle.
+                session_id: if arrival.is_sent_note() { String::new() } else { arrival.session_id.clone() },
                 manifest_id: arrival.manifest_id.clone(),
                 subject: arrival.subject.clone(),
                 words: arrival.words.clone(),
-                group: arrival.group.clone(),
+                group: None,
                 other_session: ruling.other.clone(),
                 shared: ruling.shared.clone(),
-                first_session: ruling.first.clone(),
+                first_session: None,
                 step: None,
-                item: asked_item(arrival).map(str::to_string),
-                pick: ruling.answer.as_ref().map(|choice| choice.label.clone()),
+                item: None,
+                pick: None,
                 because: ruling.because.clone(),
-                what: ruling.what.clone(),
+                what: None,
                 text: said(arrival, ruling, &title),
                 raised_at,
             };
@@ -274,19 +231,14 @@ where
     /// here and waited for**, so the row can name the issue it was filed as or the Job it started. The
     /// row is kept once it is done, and where it could not be it says so.
     async fn suggestion_done(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp) {
-        let (Some(arrival), Some(ruling), Some(operator)) = (arrival_of(kept), ruling_of(kept), self.operator_seat().operator()) else { return };
+        let (Some(arrival), Some(ruling)) = (arrival_of(kept), ruling_of(kept)) else { return };
         let mut row = pressed(&arrival, Outcome::Ruled(ruling.way), &ruling.because, at);
         row.other = ruling.other.clone();
         row.shared = ruling.shared.clone();
-        row.first = ruling.first.clone();
-        let done = if arrival.arrived.is_sourced() {
-            self.operator_sourced(&arrival, &ruling).await.map(|made| {
-                row.issue = made.issue;
-                row.other = made.job.or(row.other.take());
-            })
-        } else {
-            operator.acted(&arrival, &ruling).await
-        };
+        let done = self.operator_sourced(&arrival, &ruling).await.map(|made| {
+            row.issue = made.issue;
+            row.other = made.job.or(row.other.take());
+        });
         if let Err(why) = done {
             row.outcome = Outcome::PassedOn;
             row.because = format!("it could not be carried out: {why}");
@@ -325,9 +277,7 @@ pub(super) fn pressed(arrival: &Arrival, outcome: Outcome, because: &str, at: co
         handed: at.clone(),
         at,
         place: None,
-        first: None,
         refused: Vec::new(),
-        answer: None,
         issue: None,
     }
 }

@@ -1,16 +1,15 @@
 //! Work from outside a Job's own run, as Fleet hands it to the Operator and does what it rules: a
 //! report linked in the store to the open issue the call names, nothing handed while the Operator
 //! is off, an issue new only after the first read of its tracker, and a Later item handed over that
-//! no open issue covers, filed in the repository's beads with no call while File is on, and only
-//! kept in the Log while it is off. A red main and a review request reach it through the reads that
-//! find them, and a red a Job already holds never does.
+//! no open issue covers is refused whatever the Operator is, so the Job settles it itself. A red main
+//! reaches it through the read that finds it, and a red a Job already holds never does.
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use adapter_traits::{FromOutside, ListedChecks, ListedPull, OpenIssue, ReviewList, ReviewStanding};
-use api::{HostedSessions, Sessions};
+use adapter_traits::{FromOutside, OpenIssue};
+use api::Sessions;
 use ipc::{AutopilotDecision, LaterHow, ReportBug, SessionId, SettleLater};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeTracker, FakeTrackers};
 
@@ -196,44 +195,26 @@ async fn keeping_one(sentence: &str) -> (Rig, SessionId, Arc<Counting>) {
 }
 
 #[tokio::test]
-async fn a_later_item_handed_over_is_refused_while_the_operator_is_off_and_filed_in_beads_with_no_call_by_file_alone() {
+async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_job_settles_it_itself() {
     let sentence = "I will move the fixture loader into its own crate.";
     let (rig, id, counted) = keeping_one(sentence).await;
 
-    let refused = rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect_err("refused");
-    assert!(format!("{refused:?}").contains("handed needs the Operator on"), "{refused:?}");
+    let refused = rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect_err("refused off");
+    assert!(format!("{refused:?}").contains("handed is not a way to settle it"), "{refused:?}");
 
-    // File is its own switch: Dispatch stays off.
-    switched(&rig, "features.operator", true).await;
-    switched(&rig, "features.operatorFile", true).await;
-    rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
-    rig.fleet.sources_handed().await;
-
-    eventually(|| async { rig.fleet.store().lock().await.later_handed().expect("read").is_empty() }).await;
-    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "ruled with no call");
-    let log = rulings(&rig).await;
-    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str()), ("later", "file"));
-    let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
-    assert!(open.iter().any(|one| one.title.as_written() == sentence), "{open:#?}");
-}
-
-#[tokio::test]
-async fn with_file_read_only_a_later_item_makes_no_call_is_kept_in_the_log_and_nothing_is_filed() {
-    let sentence = "I will move the fixture loader into its own crate.";
-    let (rig, id, counted) = keeping_one(sentence).await;
     on(&rig).await;
-
-    rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
+    switched(&rig, "features.operatorFile", true).await;
+    let refused = rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect_err("refused on, as it is off");
+    assert!(format!("{refused:?}").contains("handed is not a way to settle it"), "{refused:?}");
     rig.fleet.sources_handed().await;
-
-    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    let log = rulings(&rig).await;
-    assert_eq!((log[0].arrived.as_str(), log[0].outcome.as_str()), ("later", "read_only"));
-    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call was made");
-    assert_eq!(rig.fleet.store().lock().await.later_handed().expect("read").len(), 1, "still handed");
+    assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
+    assert!(rulings(&rig).await.is_empty(), "nothing in the Log");
     let open = rig.fleet.open_issues(&manifest(&rig)).await.expect("read");
-    assert!(!open.iter().any(|one| one.title.as_written() == sentence), "{open:#?}");
+    assert!(!open.iter().any(|one| one.title.as_written() == sentence), "nothing is filed: {open:#?}");
+
+    let dropped = SettleLater { how: LaterHow::Dropped, ..handing(&id, "later-1") };
+    rig.fleet.settle_later(None, dropped).await.expect("the Job settles it itself");
 }
 
 #[tokio::test]
@@ -286,80 +267,4 @@ async fn a_red_main_a_job_already_holds_is_never_handed_to_the_operator() {
     assert_eq!(counted.0.load(Ordering::SeqCst), 0, "no call");
     assert!(rulings(&rig).await.is_empty(), "nothing in the Log");
     assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
-}
-
-fn requested(number: u64, slug: &str) -> ListedPull {
-    ListedPull {
-        repository: slug.into(),
-        number,
-        title: format!("Pull request {number}"),
-        branch: format!("branch-{number}"),
-        address: format!("https://forge.invalid/{slug}/pull/{number}"),
-        draft: false,
-        head: "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into(),
-        author: "ada".into(),
-        updated_at: "2026-10-15T09:30:00Z".into(),
-        checks: ListedChecks::Running,
-        review: ReviewStanding::None,
-        team: None,
-    }
-}
-
-#[tokio::test]
-async fn a_review_request_is_read_at_most_every_ten_minutes_and_handed_once_to_be_raised_with_a_read() {
-    let rig = rig_listing();
-    let call = Answers::with(&["item: 1\nway: 1\nbecause: it is for him to review"]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
-    let slug = rig.fleet.named_repositories().await.first().expect("served").slug.clone();
-    rig.fleet.vcs().main_ci.login_is(Some("NickMele"));
-    rig.fleet.vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug)]);
-
-    // Off, it reads nothing and does not use up the interval.
-    rig.fleet.review_requests_handed().await;
-    assert!(call.asked().is_empty());
-    switched(&rig, "features.operator", true).await;
-    rig.fleet.review_requests_handed().await;
-
-    eventually(|| async { !rulings(&rig).await.is_empty() }).await;
-    let asked = call.asked();
-    assert_eq!(asked.len(), 1, "{asked:#?}");
-    for part in ["Pull request 8", "Pull request #8 by ada asks for the person's review: https://forge.invalid/", "The ways it is offered: 1. raise\n"] {
-        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
-    }
-    let log = rulings(&rig).await;
-    assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (format!("review:{}:8", rig.manifest.as_str()).as_str(), "review", "raise"));
-
-    // Inside the ten minutes nothing is read: a request listed since is not handed.
-    rig.fleet.vcs().now_review_list(ReviewList::Requested, vec![requested(8, &slug), requested(9, &slug)]);
-    rig.fleet.review_requests_handed().await;
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    assert_eq!(call.asked().len(), 1);
-    assert_eq!(rulings(&rig).await.len(), 1);
-}
-
-#[tokio::test]
-async fn with_file_at_suggest_a_later_item_waits_on_one_press_and_is_filed_on_it() {
-    let sentence = "I will move the fixture loader into its own crate.";
-    let (rig, id, _) = keeping_one(sentence).await;
-    switched(&rig, "features.operator", true).await;
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([("features.operatorFile".to_string(), Some(ipc::SettingValue::Text("suggest".into())))]) };
-    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
-    rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect("handed");
-    rig.fleet.sources_handed().await;
-
-    let row = || async {
-        let read = Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read");
-        read.session.waiting_for.into_iter().find(|one| one.source == ipc::WaitingSource::OperatorSuggestion)
-    };
-    eventually(|| async { row().await.is_some() }).await;
-    let item = row().await.expect("a row");
-    assert!(item.text.contains(sentence), "{}", item.text);
-    let filed = || async { rig.fleet.open_issues(&manifest(&rig)).await.expect("read").iter().any(|one| one.title.as_written() == sentence) };
-    assert!(!filed().await, "nothing is filed until he presses");
-
-    let press = ipc::AnswerWaiting { session_id: id.clone(), item_id: item.id, choice: Some(0), text: None, mode: None, fixed: None };
-    Arc::clone(&rig.fleet).settle_waiting(press).await.expect("his press");
-
-    eventually(|| async { filed().await }).await;
-    eventually(|| async { rig.fleet.store().lock().await.later_handed().expect("read").is_empty() }).await;
 }

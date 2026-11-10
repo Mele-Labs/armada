@@ -102,11 +102,10 @@ where
                 }
                 ("dropped", reason.map(str::to_string))
             }
-            // Handed on with nothing to take it would never be settled.
-            LaterHow::Handed if !self.operator_on() => {
-                return Err(self.hosted_refusal(NOT_SETTLEABLE, "handed needs the Operator on; settle it as done, filed or dropped"));
+            // Nothing takes a Later item over: the Job settles it itself.
+            LaterHow::Handed => {
+                return Err(self.hosted_refusal(NOT_SETTLEABLE, "handed is not a way to settle it; settle it as done, filed or dropped"));
             }
-            LaterHow::Handed => ("handed", None),
         };
         let now = self.clock().now().as_str().to_string();
         let (settled, record) = {

@@ -70,9 +70,6 @@ where
             }
             SessionFact::Pushed { branch } => {
                 self.road_noted(session, TimelineKind::SessionPushed, "Pushed", branch.clone(), now);
-                if self.operator_on() {
-                    self.operator_seat().moved(&session.id, crate::operator::Moved::Pushed);
-                }
                 self.gate_check_asked(store, session, branch);
                 Observed::Committed
             }

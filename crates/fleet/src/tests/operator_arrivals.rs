@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use core_model::Timestamp;
 
-use crate::operator::{carried, Acted, Acting, Answering, Arrival, Arrived, Calling, Desk, Done, LiveJob, Logged, Operator, PassedOn, Ruled, Source, Way, FIRST_WRITE_WAIT};
+use crate::operator::{Acting, Answering, Arrival, Arrived, Calling, Desk, Done, LiveJob, Logged, Operator, PassedOn, Ruled, Source, Way, NEEDS_YOU_WAIT};
 use crate::CallFailed;
 
 const REPO: &str = "01REPO";
@@ -42,12 +42,7 @@ impl Desk for Desked {
     }
 }
 
-impl Acting for Desked {
-    fn go_ahead(&self, _session: &str) -> Acted<'_> { carried() }
-    fn hand_over(&self, _session: &str, _group: Option<&str>, _into: &str, _shared: &[String]) -> Acted<'_> { carried() }
-    fn merge(&self, _ending: &str, _into: &str, _shared: &[String]) -> Acted<'_> { carried() }
-    fn keep_in_touch(&self, _one: &str, _other: &str, _shared: &[String]) -> Acted<'_> { carried() }
-}
+impl Acting for Desked {}
 
 fn job(id: &str, manifest: &str, words: &str, paths: &[&str], issues: &[&str]) -> LiveJob {
     LiveJob {
@@ -64,21 +59,17 @@ fn job(id: &str, manifest: &str, words: &str, paths: &[&str], issues: &[&str]) -
 
 fn arriving(words: &str, paths: &[&str], issues: &[&str]) -> Arrival {
     Arrival {
-        id: "start:01NEW".into(),
-        arrived: Arrived::Start,
-        source: Source::Dispatch,
+        id: "report:01NEW".into(),
+        arrived: Arrived::Report,
+        source: Source::Agent,
         session_id: "01NEW".into(),
         manifest_id: REPO.into(),
         subject: "Fix the pane".into(),
         words: words.into(),
         paths: paths.iter().map(|one| one.to_string()).collect(),
         issues: issues.iter().map(|one| one.to_string()).collect(),
-        group: None,
-        ways: Way::STARTING.to_vec(),
-        answers: Vec::new(),
-        rule: None,
+        ways: vec![Way::ExistingJob, Way::NewJob],
         open: Vec::new(),
-        ties: Vec::new(),
     }
 }
 
@@ -99,11 +90,11 @@ async fn the_call_is_shown_only_the_jobs_that_share_a_path_an_issue_or_words_and
         job("01NOTHING", REPO, "Give the settings page a search box", &["crates/config/"], &["armada-b111"]),
         job("01ELSEWHERE", "01OTHERREPO", "Terminal scrollback is lost", &["apps/panes/terminal.tsx"], &["armada-a3f2"]),
     ];
-    let reply = "item: 1\nway: 3\njob: 01NOTHING\nshared: crates/config/\nbecause: not offered";
+    let reply = "item: 1\nway: 1\njob: 01NOTHING\nshared: crates/config/\nbecause: not offered";
     let (operator, call, _) = operator(live, &[reply]);
 
     let ruled = operator
-        .ruled(arriving("The terminal scrollback is lost on redraw", &["apps/panes/terminal.tsx"], &["armada-a3f2"]), FIRST_WRITE_WAIT)
+        .ruled(arriving("The terminal scrollback is lost on redraw", &["apps/panes/terminal.tsx"], &["armada-a3f2"]), NEEDS_YOU_WAIT)
         .await;
 
     let asked = call.asked.lock().expect("not poisoned").clone();
@@ -128,10 +119,10 @@ async fn a_live_job_is_shown_with_who_started_it_up_to_the_root_and_a_job_the_pe
     let mut child = job("01CHILD", REPO, "", &["apps/panes/terminal.tsx"], &[]);
     child.started_by = vec![("01ROOT".into(), "Compare editors".into())];
     let by_hand = job("01HAND", REPO, "", &["apps/panes/terminal.tsx"], &[]);
-    let reply = "item: 1\nway: 3\njob: 01HAND\nshared: apps/panes/terminal.tsx\nbecause: not offered";
+    let reply = "item: 1\nway: 1\njob: 01HAND\nshared: apps/panes/terminal.tsx\nbecause: not offered";
     let (operator, call, _) = operator(vec![grandchild, child, by_hand], &[reply]);
 
-    operator.ruled(arriving("Fix the terminal pane", &["apps/panes/terminal.tsx"], &[]), FIRST_WRITE_WAIT).await;
+    operator.ruled(arriving("Fix the terminal pane", &["apps/panes/terminal.tsx"], &[]), NEEDS_YOU_WAIT).await;
 
     let asked = call.asked.lock().expect("not poisoned").clone();
     let question = &asked[0];
@@ -148,7 +139,7 @@ async fn work_no_live_job_shares_anything_with_is_a_new_job_without_a_call() {
     let live = vec![job("01OTHER", REPO, "Give the settings page a search box", &["crates/config/"], &[])];
     let (operator, call, desk) = operator(live, &[]);
 
-    let ruled = operator.ruled(arriving("Fix the terminal pane", &["apps/panes/terminal.tsx"], &[]), FIRST_WRITE_WAIT).await;
+    let ruled = operator.ruled(arriving("Fix the terminal pane", &["apps/panes/terminal.tsx"], &[]), NEEDS_YOU_WAIT).await;
 
     assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::NewJob && ruling.other.is_none()), "{ruled:?}");
     assert!(call.asked.lock().expect("not poisoned").is_empty(), "no call is made");
@@ -164,9 +155,9 @@ async fn a_job_with_a_subagent_and_a_task_running_is_shown_with_what_they_are() 
         ipc::RunningWork { kind: ipc::RunningKind::BackgroundTask, what: "dev server".into(), since: ipc::Instant::carried("2026-11-05T10:05:00.000Z") },
     ];
     let live = vec![LiveJob { running, ..job("01BUSY", REPO, "", &["apps/panes/"], &[]) }, job("01QUIET", REPO, "", &["apps/panes/"], &[])];
-    let (operator, call, _) = operator(live, &["item: 1\nway: 1\nbecause: new"]);
+    let (operator, call, _) = operator(live, &["item: 1\nway: 2\nbecause: new"]);
 
-    let _ = operator.ruled(arriving("Redraw the pane", &["apps/panes/terminal.tsx"], &[]), FIRST_WRITE_WAIT).await;
+    let _ = operator.ruled(arriving("Redraw the pane", &["apps/panes/terminal.tsx"], &[]), NEEDS_YOU_WAIT).await;
 
     let question = call.asked.lock().expect("not poisoned").clone().remove(0);
     assert!(question.contains("Still running past its turn: subagent \"Map the claims\", background task \"dev server\""), "{question}");

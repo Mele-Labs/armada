@@ -1,19 +1,16 @@
-//! The Operator's apparatus: the three Jobs of the 3 Nov report, a model call that answers what
-//! the test wrote, and a Fleet that keeps the Log and acts on Jobs in memory.
+//! The Operator's apparatus: the three live Jobs a report may be handed to, a model call that
+//! answers what the test wrote, and a Fleet that keeps the Log and acts on what it is handed in memory.
 //!
 //! The call is in-process rather than `FakeJudge`'s shell, so a late call is late on tokio's
 //! paused clock and the test waits no real 20 seconds. The real call is `fleet`'s own
 //! `operator::KeptStarted`, proved in `fleet`'s `tests::operator`.
 
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use core_model::Timestamp;
-use fleet::operator::{
-    carried, Acted, Acting, Answering, Arrival, Arrived, Board, Calling, Choice, Desk, Done, Earlier, Filed, Group, Kind, LiveJob, LogRead, Logged, Operator, Order, Orders, Present, Question,
-    Quiet, Repository, Ruling, Source, Stall, Way,
-};
+use fleet::operator::{carried, Acted, Acting, Answering, Arrival, Board, Calling, Desk, Done, Filed, LiveJob, LogRead, Logged, Operator, Order, Orders, Repository, Ruling, Way};
 use fleet::CallFailed;
 use ipc::operator_positions::{OperatorPosition, OperatorRole};
 use ipc::operator_talk::OperatorOrderForm;
@@ -24,7 +21,7 @@ pub const NOW: &str = "2026-11-03T15:30:00.000Z";
 /// Where the three Jobs met, as the write clash Fleet told of that afternoon.
 pub const PANES: &str = "apps/desktop/src/renderer/src/job-panes/";
 
-/// The three Jobs, oldest first. Terminal Bugs started the third and handed it a group of its own plan.
+/// The three Jobs, oldest first.
 pub const TABS: &str = "01JOBPRREVIEWTABS";
 pub const TERMINAL: &str = "01JOBTERMINALBUGS";
 pub const IN_TAB: &str = "01JOBTERMINALINTAB";
@@ -64,28 +61,6 @@ pub fn live() -> Vec<LiveJob> {
     ]
 }
 
-/// The start of one of [`live`]'s Jobs, as Fleet hands it to the Operator.
-pub fn started(session: &str, source: Source) -> Arrival {
-    let job = live().into_iter().find(|one| one.session_id == session).expect("one of the three");
-    Arrival {
-        id: format!("start:{session}"),
-        arrived: Arrived::Start,
-        source,
-        session_id: job.session_id,
-        manifest_id: job.manifest_id,
-        subject: job.title,
-        words: job.words,
-        paths: job.paths,
-        issues: job.issues,
-        group: None,
-        ways: Way::STARTING.to_vec(),
-        answers: Vec::new(),
-        rule: None,
-        open: Vec::new(),
-        ties: Vec::new(),
-    }
-}
-
 /// The issues open in [`REPOSITORY`]'s beads as the sources arrive.
 pub const SCROLLBACK_ISSUE: &str = "armada-a3f2";
 pub fn open_issues() -> Vec<Filed> {
@@ -93,41 +68,6 @@ pub fn open_issues() -> Vec<Filed> {
         Filed { reference: SCROLLBACK_ISSUE.into(), title: "Terminal scrollback is lost when the pane redraws".into() },
         Filed { reference: "armada-b71c".into(), title: "Usage meter shows yesterday's tokens".into() },
     ]
-}
-
-/// The question the 3 Nov report's Jobs each asked, as an agent's options put it.
-pub const ASKED: &str = "Should a terminal an agent opens keep its scrollback per tab, or share one?";
-pub const PER_TAB: &str = "Keep it per tab (recommended)";
-
-/// [`ASKED`], from one of [`live`]'s Jobs working on `group`, while the person is `present`.
-pub fn asked(session: &str, group: Group, present: Present, earlier: Option<Earlier>) -> Question {
-    let job = live().into_iter().find(|one| one.session_id == session).expect("one of the three");
-    Question {
-        session_id: job.session_id,
-        manifest_id: job.manifest_id,
-        title: job.title,
-        item_id: "ask:1".into(),
-        text: ASKED.into(),
-        options: vec![PER_TAB.into(), "Share one scrollback".into()],
-        kind: Kind::Recommended(0),
-        group,
-        earlier,
-        present,
-    }
-}
-
-/// One of [`live`]'s Jobs gone quiet as `quiet` says, with its plan's tasks `left`.
-pub fn stall(session: &str, quiet: Quiet, left: &[&str]) -> Stall {
-    let job = live().into_iter().find(|one| one.session_id == session).expect("one of the three");
-    Stall {
-        session_id: job.session_id,
-        manifest_id: job.manifest_id,
-        title: job.title,
-        quiet,
-        plan: Some(job.words),
-        done: vec!["Find where the scrollback is dropped".into()],
-        left: left.iter().map(|one| one.to_string()).collect(),
-    }
 }
 
 /// What one call does: answer after a while, or fail after a while.
@@ -177,14 +117,8 @@ impl Calling for FakeCall {
 pub struct FakeFleet {
     live: Vec<LiveJob>,
     log: Mutex<Vec<Logged>>,
-    ended: Mutex<Vec<(String, String)>>,
-    in_touch: Mutex<Vec<(String, String)>>,
-    raised: Mutex<Vec<(String, String)>>,
-    answered: Mutex<Vec<(String, String, u32, String)>>,
-    answered_first: Mutex<bool>,
-    went_ahead: Mutex<Vec<String>>,
     sourced: Mutex<Vec<Sourced>>,
-    answer_stands: Mutex<OperatorPosition>,
+    stands: Mutex<Vec<(OperatorRole, OperatorPosition)>>,
     suggested: Mutex<Vec<(String, Way)>>,
     orders: Mutex<Orders>,
     log_read: Mutex<Vec<LogRead>>,
@@ -204,27 +138,14 @@ impl FakeFleet {
         Arc::new(FakeFleet {
             live,
             log: Mutex::new(Vec::new()),
-            ended: Mutex::new(Vec::new()),
-            in_touch: Mutex::new(Vec::new()),
-            raised: Mutex::new(Vec::new()),
-            answered: Mutex::new(Vec::new()),
-            answered_first: Mutex::new(false),
-            went_ahead: Mutex::new(Vec::new()),
             sourced: Mutex::new(Vec::new()),
-            answer_stands: Mutex::new(OperatorPosition::Decide),
+            stands: Mutex::new(Vec::new()),
             suggested: Mutex::new(Vec::new()),
             orders: Mutex::new(Orders::default()),
             log_read: Mutex::new(Vec::new()),
         })
     }
 
-    /// Each Job raised to the person, and the Operator's read.
-    pub fn raised(&self) -> Vec<(String, String)> {
-        self.raised.lock().expect("not poisoned").clone()
-    }
-
-    /// Each item answered as the person's press would: the Job, the item, the option and its label.
-    /// Where the Answer role stands from here on. The others stand On.
     /// A row of the Log the box may cite.
     pub fn logged_earlier(&self, row: LogRead) {
         self.log_read.lock().expect("not poisoned").push(row);
@@ -237,57 +158,24 @@ impl FakeFleet {
         orders.0.push(Order { id, form, until: None });
     }
 
-    pub fn answer_stands(&self, position: OperatorPosition) {
-        *self.answer_stands.lock().expect("not poisoned") = position;
+    /// Where `role` stands from here on. The others stand On.
+    pub fn role_stands(&self, role: OperatorRole, position: OperatorPosition) {
+        self.stands.lock().expect("not poisoned").push((role, position));
     }
 
-    /// What a role at Suggest would do: the Job and the way.
+    /// What a role at Suggest would do: the arrival and the way.
     pub fn suggested(&self) -> Vec<(String, Way)> {
         self.suggested.lock().expect("not poisoned").clone()
     }
 
-    pub fn answered(&self) -> Vec<(String, String, u32, String)> {
-        self.answered.lock().expect("not poisoned").clone()
-    }
-
-    /// Each Job let start as its own.
-    pub fn went_ahead(&self) -> Vec<String> {
-        self.went_ahead.lock().expect("not poisoned").clone()
-    }
-
-    /// What each ruling on a report, an issue, a red main, a review request or a Later item did.
+    /// What each ruling on a report, an issue, a red main, a note or an error did.
     pub fn sourced(&self) -> Vec<Sourced> {
         self.sourced.lock().expect("not poisoned").clone()
-    }
-
-    /// The person answers every item himself, ahead of any ruling.
-    pub fn answer_first(&self) {
-        *self.answered_first.lock().expect("not poisoned") = true;
     }
 
     /// The Log, oldest first.
     pub fn log(&self) -> Vec<Logged> {
         self.log.lock().expect("not poisoned").clone()
-    }
-
-    /// The Jobs still working once every ruling was acted on.
-    pub fn carrying_on(&self) -> BTreeSet<String> {
-        let ended = self.ended.lock().expect("not poisoned");
-        self.live
-            .iter()
-            .map(|one| one.session_id.clone())
-            .filter(|id| !ended.iter().any(|(gone, _)| gone == id))
-            .collect()
-    }
-
-    /// Each pair of Jobs told of the other, in the order the pair was named.
-    pub fn in_touch(&self) -> Vec<(String, String)> {
-        self.in_touch.lock().expect("not poisoned").clone()
-    }
-
-    /// Each Job that ended into another, and that other.
-    pub fn ended_into(&self) -> Vec<(String, String)> {
-        self.ended.lock().expect("not poisoned").clone()
     }
 }
 
@@ -318,10 +206,6 @@ impl Desk for FakeFleet {
         Box::pin(async move { self.log.lock().expect("not poisoned").push(row) })
     }
 
-    fn settled(&self, _arrival: &Arrival) -> Done<'_, Option<String>> {
-        let first = *self.answered_first.lock().expect("not poisoned");
-        Box::pin(async move { first.then(|| "the person answered it before the ruling came".to_string()) })
-    }
 }
 
 impl Acting for FakeFleet {
@@ -329,44 +213,12 @@ impl Acting for FakeFleet {
         if role.is_some_and(|role| self.orders.lock().expect("not poisoned").role_off(role, manifest, &Timestamp::from_rfc3339(NOW))) {
             return OperatorPosition::ReadOnly;
         }
-        match role {
-            Some(OperatorRole::Answer) => *self.answer_stands.lock().expect("not poisoned"),
-            _ => OperatorPosition::Decide,
-        }
+        let stands = self.stands.lock().expect("not poisoned");
+        role.and_then(|role| stands.iter().rev().find(|(one, _)| *one == role).map(|(_, position)| *position)).unwrap_or(OperatorPosition::Decide)
     }
 
     fn suggest(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
-        self.suggested.lock().expect("not poisoned").push((arrival.session_id.clone(), ruling.way));
-        carried()
-    }
-
-    fn go_ahead(&self, session: &str) -> Acted<'_> {
-        self.went_ahead.lock().expect("not poisoned").push(session.into());
-        carried()
-    }
-
-    fn hand_over(&self, session: &str, _group: Option<&str>, into: &str, _shared: &[String]) -> Acted<'_> {
-        self.ended.lock().expect("not poisoned").push((session.into(), into.into()));
-        carried()
-    }
-
-    fn merge(&self, ending: &str, into: &str, _shared: &[String]) -> Acted<'_> {
-        self.ended.lock().expect("not poisoned").push((ending.into(), into.into()));
-        carried()
-    }
-
-    fn keep_in_touch(&self, one: &str, other: &str, _shared: &[String]) -> Acted<'_> {
-        self.in_touch.lock().expect("not poisoned").push((one.into(), other.into()));
-        carried()
-    }
-
-    fn raise(&self, session: &str, read: &str) -> Acted<'_> {
-        self.raised.lock().expect("not poisoned").push((session.into(), read.into()));
-        carried()
-    }
-
-    fn answer(&self, session: &str, item: &str, choice: &Choice, _because: &str) -> Acted<'_> {
-        self.answered.lock().expect("not poisoned").push((session.into(), item.into(), choice.at, choice.label.clone()));
+        self.suggested.lock().expect("not poisoned").push((arrival.id.clone(), ruling.way));
         carried()
     }
 
