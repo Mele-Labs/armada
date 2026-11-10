@@ -20,6 +20,19 @@ pub enum OperatorTurnKind {
     GoAhead,
 }
 
+/// How soon an item wants him, which Fleet decides so no screen has to.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorUrgency {
+    /// A red main.
+    Urgent,
+    /// His decision.
+    #[default]
+    Decision,
+    /// A go-ahead.
+    GoAhead,
+}
+
 /// His press on an item. Later and Ask are not here: Later is `operator_later`, and Ask is Bridge
 /// opening the chat with `talk_to_operator` carrying the item.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -75,6 +88,8 @@ pub struct OperatorTurnItem {
     /// `turn:<n>`, the id every act on the page names.
     pub id: String,
     pub kind: OperatorTurnKind,
+    /// How soon it wants him: `urgent` on a red main, else `decision` or `go_ahead` as its kind.
+    pub urgency: OperatorUrgency,
     /// The Job whose list holds it. Absent on a go-ahead no Job holds and on a red main.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_id: Option<SessionId>,

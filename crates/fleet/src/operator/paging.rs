@@ -11,7 +11,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::{
     item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning,
-    OperatorSlots, OperatorTurnItem, OperatorTurnKind,
+    OperatorSlots, OperatorTurnItem, OperatorTurnKind, OperatorUrgency,
 };
 use ipc::operator_talk::OperatorOrderForm;
 use ipc::{Instant, MainCiState, OperatorRead, SessionId, SlotHolding};
@@ -24,6 +24,17 @@ use super::turning::RED;
 use crate::daemon::Fleet;
 
 const DAY: i64 = 86_400_000;
+
+/// How soon `row` wants him: a red main is urgent, else its kind. No stopped Job is queued today, so none reads urgent.
+fn urgency_of(row: &KeptTurn) -> OperatorUrgency {
+    if row.item.starts_with(RED) {
+        OperatorUrgency::Urgent
+    } else if row.go_ahead {
+        OperatorUrgency::GoAhead
+    } else {
+        OperatorUrgency::Decision
+    }
+}
 /// How many of the Log's rows the digest reads before keeping those since he looked.
 const HANDLED_READ: u32 = 60;
 
@@ -145,6 +156,7 @@ where
         let shown = OperatorTurnItem {
             id: format!("turn:{}", row.n),
             kind: if row.go_ahead { OperatorTurnKind::GoAhead } else { OperatorTurnKind::Decision },
+            urgency: urgency_of(row),
             session_id: Some(row.session.as_str()).filter(|id| !id.is_empty()).map(SessionId::carried),
             job: row.job.clone(),
             manifest_id: Some(row.manifest_id.clone()).filter(|id| !id.is_empty()),

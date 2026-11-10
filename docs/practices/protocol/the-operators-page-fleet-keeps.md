@@ -26,6 +26,7 @@ Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, fiel
 An `OperatorTurnItem` is what a card needs, with no second vocabulary beside the item's own.
 `id` is `turn:<n>`, which every act names.
 `kind` is `decision`, his to decide, or `go_ahead`, what the Operator would do itself.
+`urgency` is `urgent` on a red main, else `decision` or `go_ahead` as its kind, so a screen reads it and never works it out. No stopped Job is queued today, so none reads `urgent`.
 `item` is the `WaitingItem` as it was raised: its `source` is its kind, `text` the thing, `act` and `options` what it asks.
 `read` is the `OperatorRead` `{ read, pick }`, the shape a question's `operator_read` already has. It is absent where no call read the item, and an empty `pick` is none.
 `session_id` and `job` name the Job whose list holds the item, both absent on a go-ahead no Job holds and on a red main. `manifest_id` and `repository` are present where the item has a repository.

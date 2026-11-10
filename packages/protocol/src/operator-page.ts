@@ -7,6 +7,9 @@ import type { OperatorRead, WaitingAct, WaitingItem } from "./sessions";
 /** Whose act an item is: `decision` is his to decide, `go_ahead` is what the Operator would do itself, waiting on his word. */
 export type OperatorTurnKind = "decision" | "go_ahead";
 
+/** How soon an item wants him, decided by Fleet: `urgent` is a red main, `decision` his to decide, `go_ahead` what the Operator would do itself. */
+export type OperatorUrgency = "urgent" | "decision" | "go_ahead";
+
 /** His press on an item. Later is `operator_later`, and Ask is the chat opened with `talk_to_operator` carrying the item. */
 export type OperatorAnswer = "yes" | "always_here" | "always" | "no";
 
@@ -33,6 +36,8 @@ export type OperatorTurnItem = {
   /** `turn:<n>`, the id every act on the page names. */
   id: string;
   kind: OperatorTurnKind;
+  /** How soon it wants him: `urgent` on a red main, else `decision` or `go_ahead` as its kind. */
+  urgency: OperatorUrgency;
   /** The Job whose list holds it. Absent on a go-ahead no Job holds and on a red main. */
   session_id?: string;
   /** That Job's title. */
