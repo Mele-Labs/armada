@@ -1715,7 +1715,8 @@ Bridge's half is `ConvertDraftToDocument` and `DraftDocument` in `packages/proto
 | Refusals | Fleet writes | 404 `fleet.draft_convert_unknown` for a draft the Job has no row for; 409 `fleet.draft_convert_settled`; 422 `fleet.draft_convert_proposal` for a draft that proposes a change; 409 `fleet.draft_convert_no_worktree`; 500 `fleet.draft_convert_unwritten`. Nothing is written for a refusal |
 
 **What Fleet does.** It writes `.armada/documents/<slug>.html` (never over a page that is there), settles the draft `withdrawn` with no words, keeps the page as the Job's own write is kept, and sends the Job one turn in Fleet's words.
-A paused Job holds no slot, so it is refused with `fleet.draft_convert_no_worktree`. One paused between that check and the send has the turn kept for its Resume, as a person's turn is, and one that has ended is sent nothing; `told` is false for both.
+A paused Job holds no slot, so it is refused with `fleet.draft_convert_no_worktree`.
+One paused between that check and the send has the turn kept for its Resume, as a person's turn is, and one that has ended is sent nothing; `told` is false for both.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event: the draft settling and the page's kept row publish `session.changed`, as they do for any other settling. The open risk below is neither better nor worse.
