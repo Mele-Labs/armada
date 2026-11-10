@@ -49,6 +49,7 @@ mod palette;
 mod revert;
 mod runtime_file;
 mod titlebar;
+mod toasts;
 mod transport;
 mod voice;
 mod walk;
