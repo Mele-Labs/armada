@@ -294,11 +294,23 @@ export function StoryColumn({
     lastCheck !== undefined && lastCheck.kind === "check" && lastCheck.state === "failed"
       ? lastCheck
       : undefined;
+  // Fleet's waiting list is what he is owed: it drops a walk he approved or dismissed, one withdrawn, one replaced. A window row stands as a walk only while Fleet still holds a walk item for its page.
+  const owing = owesOf(session);
+  const heldWalks = new Set(
+    owing.flatMap((one) =>
+      one.source === "walk" && one.act?.kind === "walk"
+        ? [
+            one.act.target,
+          ]
+        : [],
+    ),
+  );
   // A page shown again adds a row for the same address; only the newest of each stands as the walk.
   const walks = session.rows.filter(
     (one, i, rows) =>
       one.kind === "window" &&
       one.ended === undefined &&
+      heldWalks.has(one.url) &&
       !rows
         .slice(i + 1)
         .some(
@@ -315,15 +327,17 @@ export function StoryColumn({
         : [],
     ),
   );
-  const owed = owesOf(session).filter(
-    (one) =>
-      !(drafting && one.source === "plan") &&
-      !(one.source === "walk" && one.act?.kind === "walk" && walkUrls.has(one.act.target)),
-  );
   // A question the agent is held on is a call on him as well; it is asked in the thread, and here it is the lamp.
   const asking =
     session.asked?.questions?.[0]?.question ??
     (session.asked === undefined ? undefined : session.asked.command);
+  // Fleet sends that same question as an ask_card item; the lamp already draws it.
+  const owed = owing.filter(
+    (one) =>
+      !(drafting && one.source === "plan") &&
+      !(asking !== undefined && one.source === "ask_card") &&
+      !(one.source === "walk" && one.act?.kind === "walk" && walkUrls.has(one.act.target)),
+  );
   const atWork = planned ? [] : subagentsAtWork(session);
   // A drone on a plan group opens its subagent's thread: a tab of the Job drawn in panes, else the sheet the ledger's row for it opens.
   const toSubagent = (id: string) =>
