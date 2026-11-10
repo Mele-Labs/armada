@@ -1,0 +1,88 @@
+{
+ "threads": [
+  {
+   "session_id": "mock-31",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-1",
+      "at": "2026-11-09T15:20:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "Both pull requests are open. I am waiting on the merge queue and the watch."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-32",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-2",
+      "at": "2026-11-09T15:20:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "The settings page follows the system theme now, and the toggle keeps the choice."
+     }
+    }
+   ]
+  },
+  {
+   "session_id": "mock-33",
+   "head": {
+    "trail": {
+     "started": "2026-11-09T12:58:00Z",
+     "bays": [
+      {
+       "slot": 4,
+       "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    }
+   },
+   "items": [
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-3",
+      "at": "2026-11-09T15:20:00Z",
+      "from": {
+       "kind": "agent"
+      },
+      "text": "I started the router upgrade and the routes compile."
+     }
+    }
+   ]
+  }
+ ]
+}

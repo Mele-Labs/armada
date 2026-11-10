@@ -2,7 +2,7 @@
 //! through here, so what the check passes is what the owner sees.
 
 use gpui::{
-    point, AnyView, App, AppContext, Entity, FocusHandle, Keystroke, Modifiers, MouseButton, MouseDownEvent,
+    point, px, AnyView, App, AppContext, Entity, FocusHandle, Keystroke, Modifiers, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point, Window,
 };
 
@@ -31,13 +31,30 @@ impl Stage {
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
-                let screen = cx.new(|cx| JobsScreen::new(list, cx));
+                let threads = crate::mock::threads(walk.scenario)?;
+                let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
             }
         }
     }
+}
+
+/// How many elements the step's target named when a `Gone` step pressed, so the step reads as met once fewer are
+/// drawn: a name two elements share, such as the head's Stop and the thread's, goes when the one pressed does.
+static GONE_FROM: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// How many elements the window last drew under the step's target.
+pub fn drawn_count(step: &Step, window: &Window, cx: &App) -> usize {
+    let Some(role) = role_named(step.target.role) else { return 0 };
+    cx.try_global::<LabelBook>()
+        .map_or(0, |book| book.drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == role && drawn.name == step.target.name).count())
+}
+
+/// Whether a `Gone` step's target is no longer drawn as often as it was when the step pressed it.
+pub fn gone(step: &Step, window: &Window, cx: &App) -> bool {
+    drawn_count(step, window, cx) < GONE_FROM.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 /// What a step could not do, in the words the check prints.
@@ -47,10 +64,13 @@ pub struct Missed(pub String);
 /// The element a step aims at, as the window last drew it.
 pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
     let role = role_named(step.target.role).ok_or_else(|| Missed(format!("no role named {}", step.target.role)))?;
+    // The last one drawn: an element the list measured off screen comes first in the book.
     cx.try_global::<LabelBook>()
-        .and_then(|book| book.find(window.window_handle().window_id(), role, step.target.name))
-        .cloned()
-        .ok_or_else(|| Missed(format!("no {} named \"{}\"", step.target.role, step.target.name)))
+        .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == step.target.name).cloned())
+        .ok_or_else(|| {
+            let seen: Vec<String> = cx.try_global::<LabelBook>().map(|b| b.drawn(window.window_handle().window_id()).iter().filter(|d| d.role == role).map(|d| d.name.to_string()).collect()).unwrap_or_default();
+            Missed(format!("no {} named \"{}\"; drawn: {:?}", step.target.role, step.target.name, seen))
+        })
 }
 
 /// Do what reaching `step` does. A press needs its target drawn first; a key goes to the screen.
@@ -70,14 +90,94 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
+        Verb::Gone => {
+            // The first drawn, which is the head's where the thread draws a twin below it.
+            let role = role_named(step.target.role).ok_or_else(|| Missed(format!("no role named {}", step.target.role)))?;
+            let found = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().find(|drawn| drawn.role == role && drawn.name == step.target.name).cloned());
+            let Some(found) = found else { return find(step, window, cx).map(|_| ()) };
+            GONE_FROM.store(drawn_count(step, window, cx), std::sync::atomic::Ordering::Relaxed);
+            press(MouseButton::Left, found.bounds.center(), window, cx);
+            Ok(())
+        }
         Verb::RightPress(on) => {
-            let role = role_named("row").expect("a row is a role");
+            let book = cx.try_global::<LabelBook>();
+            let found = |word: &str| {
+                let role = role_named(word).expect("a role the walk names");
+                book.and_then(|book| book.find(window.window_handle().window_id(), role, on)).cloned()
+            };
+            let drawn = found("row").or_else(|| found("button")).ok_or_else(|| Missed(format!("no row or button named \"{on}\" to press")))?;
+            press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Type(text) => {
+            // The press focuses the box; each letter then goes in as the platform's input method would.
+            let at = find(step, window, cx)?.bounds.center();
+            press(MouseButton::Left, at, window, cx);
+            for ch in text.chars() {
+                let key = if ch == ' ' { "space".to_string() } else { ch.to_string() };
+                let keystroke = Keystroke { modifiers: Modifiers::default(), key, key_char: Some(ch.to_string()) };
+                window.dispatch_keystroke(keystroke, cx);
+            }
+            Ok(())
+        }
+        Verb::Open(role, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            // The last one drawn: an element the list measured off screen comes first in the book, and the
+            // head's own Approve is drawn before the thread's.
             let drawn = cx
                 .try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
-                .cloned()
-                .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
+            press(MouseButton::Left, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::OpenIn(article, on) => {
+            let id = window.window_handle().window_id();
+            let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(id).to_vec()).unwrap_or_default();
+            let card = drawn
+                .iter()
+                .rev()
+                .find(|one| one.role == gpui::Role::Article && one.name == article)
+                .ok_or_else(|| Missed(format!("no article named \"{article}\"")))?;
+            let button = drawn
+                .iter()
+                .rev()
+                .find(|one| one.role == gpui::Role::Button && one.name == on && card.bounds.contains(&one.bounds.center()))
+                .ok_or_else(|| Missed(format!("no button named \"{on}\" in \"{article}\"")))?;
+            press(MouseButton::Left, button.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::RightOpen(role, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            // The last one drawn: an element the list measured off screen comes first in the book.
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Select(role, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            // The last one drawn: an element the list measured off screen comes first in the book.
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to select in")))?;
+            let line = drawn.bounds.bottom() - px(16.);
+            let from = point(drawn.bounds.left() + px(3.), line);
+            let to = point(drawn.bounds.left() + drawn.bounds.size.width / 3., line);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
+                cx,
+            );
+            for step in 1..=6 {
+                let at = point(from.x + (to.x - from.x) * (step as f32 / 6.), from.y);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: Some(MouseButton::Left), modifiers: Modifiers::default() }), cx);
+            }
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);
             Ok(())
         }
         Verb::Hover => {

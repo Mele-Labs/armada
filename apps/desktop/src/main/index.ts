@@ -74,6 +74,7 @@ import { AgentSignInNotice } from "./agent-sign-in-notice";
 import { SessionAttention } from "./session-attention";
 import { soundOf } from "./telling";
 import { followReduceMotion } from "./reduce-motion";
+import { NativeTakeover, watchNative } from "./native-takeover";
 import { settingOf, switchDeepLinks, switchReduceMotion } from "./settings";
 import { DeepLinks } from "./deep-link";
 import { DEEP_LINK_SCHEME, type PullLink } from "../shared/pull-link";
@@ -704,10 +705,15 @@ const agentSignInNotice = new AgentSignInNotice({
 /**
  * What the OS says when a Job starts waiting on the owner. The rule, the words and the tone are `session-attention.ts`'s; this is
  * the effect. **A banner only while no Bridge window has focus, and only while `features.notifications` is not off**. A press lands
- * on the Job. The dock count is the Cockpit's, sent by the window (`DockCount`).
+ * on the Job. The dock count is the Cockpit's, sent by the window (`DockCount`). **None of it while the native app runs**: it tells the
+ * owner itself, and `nativeTakeover` is how main knows.
  */
+const nativeTakeover = new NativeTakeover({
+  badge: (label) => app.dock?.setBadge(label),
+});
 const sessionAttention = new SessionAttention({
   show: (told) => {
+    if (nativeTakeover.active) return;
     if (BrowserWindow.getFocusedWindow() !== null) return;
     if (settingOf(published.settings, "features.notifications") === false) return;
     if (!Notification.isSupported()) return;
@@ -726,6 +732,7 @@ const sessionAttention = new SessionAttention({
 });
 
 void app.whenReady().then(() => {
+  watchNative(nativeTakeover);
   menuFollows();
   wearTheMark();
   protocol.handle(VIDEO_SCHEME, (request) =>
@@ -1141,7 +1148,7 @@ void app.whenReady().then(() => {
   // The Cockpit's calls, counted by the window that holds them. Anything but a count is ignored.
   ipcMain.on(CHANNELS.dockCount, (_event, calls: unknown) => {
     if (typeof calls !== "number" || !Number.isInteger(calls) || calls < 0) return;
-    app.dock?.setBadge(calls === 0 ? "" : String(calls));
+    nativeTakeover.dockCount(calls);
   });
   handlePlanUsage({
     ipc: ipcMain,

@@ -1,0 +1,50 @@
+{
+ "models": [
+  "opus",
+  "sonnet",
+  "haiku"
+ ],
+ "default": "sonnet",
+ "session": "opus",
+ "harnesses": [
+  "claude"
+ ],
+ "offered": [
+  {
+   "name": "opus",
+   "display": "Opus 5.5",
+   "version": "5.5",
+   "description": "",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "max"
+   ],
+   "on": true
+  },
+  {
+   "name": "sonnet",
+   "display": "Sonnet 5.5",
+   "version": "5.5",
+   "description": "",
+   "efforts": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "on": true
+  },
+  {
+   "name": "haiku",
+   "display": "Haiku 5",
+   "version": "5",
+   "description": "",
+   "efforts": [],
+   "on": true
+  }
+ ],
+ "read": {
+  "what": "read"
+ }
+}

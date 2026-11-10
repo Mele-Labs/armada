@@ -14,14 +14,17 @@
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
 
 mod assets;
+mod banner;
 mod chrome;
 mod deep_link;
+mod dictation;
 mod dropdown;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
 mod fleet;
 mod frames;
+mod job_view;
 mod jobs;
 mod keymap;
 mod labels;
@@ -32,10 +35,14 @@ mod log;
 mod look;
 mod menu;
 mod mock;
+mod notify;
+mod palette;
 mod revert;
 mod runtime_file;
 mod transport;
+mod voice;
 mod walk;
+mod whisper;
 
 /// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
 #[allow(dead_code)]
@@ -60,6 +67,7 @@ use keymap::KeymapController;
 use labels::label_root;
 use look::{ActiveLook, LookController};
 use menu::MenuController;
+use notify::Notifier;
 use walk::fleet::WalkFleet;
 use walk::window::WalkWindow;
 
@@ -101,6 +109,7 @@ pub fn init_app(cx: &mut App) {
     look::init(cx);
     walk::window::bind(cx);
     jobs::bind(cx);
+    job_view::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }
@@ -108,7 +117,7 @@ pub fn init_app(cx: &mut App) {
 /// The window's root on a live Fleet or on mock data.
 struct Shell {
     screen: Entity<JobsScreen>,
-    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>)>,
+    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>, Entity<Notifier>)>,
 }
 
 impl Render for Shell {
@@ -189,17 +198,18 @@ fn main() -> ExitCode {
                     let jobs = cx.new(|cx| JobsList::live(&fleet, cx));
                     let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                    let screen = cx.new(|cx| JobsScreen::new(jobs, cx));
-                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu)) })
+                    let notifier = cx.new(|cx| Notifier::new(&fleet, &jobs, window.window_handle(), cx));
+                    let screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
+                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),
-            Mode::Mock(scenario) => match mock::jobs(&scenario) {
-                Ok(records) => cx
+            Mode::Mock(scenario) => match mock::jobs(&scenario).and_then(|records| Ok((records, mock::threads(&scenario)?))) {
+                Ok((records, threads)) => cx
                     .open_window(options("Armada".into()), |window, cx| {
                         let jobs = cx.new(|cx| JobsList::mock(&records, cx));
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
-                        let screen = cx.new(|cx| JobsScreen::new(jobs, cx));
+                        let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx));
                         cx.new(|_| Shell { screen, _fleet: None })
                     })
                     .map(|_| ()),

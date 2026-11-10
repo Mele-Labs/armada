@@ -21,12 +21,19 @@ use gpui::{
 pub fn role_named(word: &str) -> Option<Role> {
     Some(match word {
         "button" => Role::Button,
+        "dialog" => Role::Dialog,
         "row" => Role::Row,
         "list" => Role::List,
         "listitem" => Role::ListItem,
         "heading" => Role::Heading,
         "textbox" => Role::TextInput,
         "region" => Role::Region,
+        "article" => Role::Article,
+        "radio" => Role::RadioButton,
+        "checkbox" => Role::CheckBox,
+        "group" => Role::Group,
+        "radiogroup" => Role::RadioGroup,
+        "switch" => Role::Switch,
         "toolbar" => Role::Toolbar,
         "status" => Role::Status,
         "label" => Role::Label,
@@ -36,7 +43,12 @@ pub fn role_named(word: &str) -> Option<Role> {
         "menuitemcheckbox" => Role::MenuItemCheckBox,
         "searchbox" => Role::SearchInput,
         "img" => Role::Image,
+        "combobox" => Role::ComboBox,
+        "listbox" => Role::ListBox,
+        "option" => Role::ListBoxOption,
+        "progressbar" => Role::ProgressIndicator,
         "separator" => Role::Splitter,
+        "alert" => Role::Alert,
         _ => return None,
     })
 }

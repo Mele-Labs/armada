@@ -264,6 +264,15 @@ pub struct Bound {
     pub keystroke: String,
     pub act: Act,
     pub context: Option<&'static str>,
+    /// A key a text box takes as typing: no ⌘, ⌥ or ⌃, and not Esc. It is not heard while one has focus.
+    pub typed: bool,
+}
+
+/// The key context every text box sits under, so a typed key goes to the box and not to a shortcut.
+pub const TEXT_BOX: &str = "Input";
+
+fn typed(mods: Mods, key: &str) -> bool {
+    !mods.ctrl && !mods.alt && !mods.meta && !key.eq_ignore_ascii_case("escape") && !key.eq_ignore_ascii_case("esc")
 }
 
 /// Every key the registry and the person's changes bind. A slot with no key, or one this cannot
@@ -279,6 +288,7 @@ pub fn bound(rebinding: &Rebinding) -> Vec<Bound> {
                     keystroke: chord.keystroke(),
                     act: Act { id: row.id, slot: slot_at, digit: None },
                     context,
+                    typed: typed(Mods { ctrl: chord.ctrl, alt: chord.alt, shift: chord.shift, meta: chord.meta }, &chord.key),
                 }),
                 Slot::Chord(None) | Slot::Digits { mods: None, .. } => {}
                 Slot::Digits { mods: Some(mods), from, to } => {
@@ -287,6 +297,7 @@ pub fn bound(rebinding: &Rebinding) -> Vec<Bound> {
                             keystroke: keystroke(mods, &digit.to_string()),
                             act: Act { id: row.id, slot: slot_at, digit: Some(digit) },
                             context,
+                            typed: typed(mods, &digit.to_string()),
                         });
                     }
                 }
@@ -304,10 +315,16 @@ pub fn install(rebinding: &Rebinding, cx: &mut App) {
         cx.key_bindings().borrow().bindings().filter(|binding| binding.action().as_any().downcast_ref::<Act>().is_none()).cloned().collect();
     let mut fresh = Vec::new();
     for key in bound(rebinding) {
-        let context = match key.context.map(KeyBindingContextPredicate::parse) {
+        // A typed key steps aside for a text box anywhere in the focus path: gpui reads `!` over the whole path.
+        let spelled = match (key.context, key.typed) {
+            (Some(context), true) => Some(format!("{context} && !{TEXT_BOX}")),
+            (None, true) => Some(format!("!{TEXT_BOX}")),
+            (context, false) => context.map(str::to_string),
+        };
+        let context = match spelled.as_deref().map(KeyBindingContextPredicate::parse) {
             Some(Ok(predicate)) => Some(std::rc::Rc::new(predicate)),
             Some(Err(why)) => {
-                Note::warn("a key context did not parse").field("context", key.context.unwrap_or_default()).field("why", why.to_string()).emit();
+                Note::warn("a key context did not parse").field("context", spelled.unwrap_or_default()).field("why", why.to_string()).emit();
                 continue;
             }
             None => None,
@@ -454,6 +471,14 @@ mod tests {
         let digits: Vec<_> = all.iter().filter(|key| key.act.digit.is_some()).collect();
         assert!(!digits.is_empty());
         assert!(digits.iter().all(|key| key.act.digit.is_some_and(|digit| key.keystroke.ends_with(&digit.to_string()))));
+    }
+
+    #[test]
+    fn a_typed_key_steps_aside_for_a_text_box_and_a_chord_or_esc_does_not() {
+        let all = bound(&Rebinding::default());
+        assert!(all.iter().any(|key| key.typed && key.context.is_some()), "a bare key on a screen is typing in a text box");
+        assert!(!all.iter().find(|key| key.act.id == "command_palette").expect("bound").typed);
+        assert!(all.iter().filter(|key| key.keystroke == "escape").all(|key| !key.typed));
     }
 
     #[test]

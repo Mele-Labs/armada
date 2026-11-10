@@ -22,6 +22,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
 use crate::fleet::FleetConnection;
+use crate::job_view::JobView;
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -109,7 +110,6 @@ struct View([bool; 7]);
 
 impl View {
     const DEFAULT: View = View([false, false, false, false, true, true, false]);
-    const ALL: View = View([true; 7]);
 
     fn on(self, id: &str) -> bool {
         VIEW_FIELDS.iter().position(|(field, _)| *field == id).is_some_and(|at| self.0[at])
@@ -131,7 +131,7 @@ impl View {
 
 /// A state's glyph and the words its tooltip says, as Electron's row draws them
 /// (`SessionFrame.tsx`, `MARK`; `session-state.ts`, `jobStateOf`).
-fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
+pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
     let (glyph, said) = match state {
         JobState::Working => ("circle-dot", "Working"),
         JobState::Running => ("square-terminal", "Running"),
@@ -157,7 +157,7 @@ fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, SharedString) {
 }
 
 /// The hue a state's glyph takes: one per bucket (`SessionFrame.css`, `data-bucket`).
-fn hue_of(state: JobState) -> crate::look::Token {
+pub(crate) fn hue_of(state: JobState) -> crate::look::Token {
     match state {
         JobState::Waiting | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
             token::STATUS_AWAITING_REVIEW
@@ -343,7 +343,7 @@ fn lines_of(jobs: &[SessionRecord], scope: Scope, query: &str, order: &[String])
 
 /// Where the list's scope and placed order are kept between runs, as Electron keeps them in its
 /// `localStorage`: the scope's id on the first line, then one Job id a line.
-fn deck_file() -> Option<PathBuf> {
+pub(crate) fn deck_file() -> Option<PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(PathBuf::from(home).join("Library/Application Support/Armada/native-deck"))
 }
@@ -386,7 +386,7 @@ fn write_deck(scope: Scope, order: &[String]) {
 
 /// A row's act, sent to Fleet off the main thread. With no Fleet to ask, as on mock data, it is
 /// only noted.
-fn send(port: Option<u16>, path: &'static str, body: Result<String, String>, cx: &mut App) {
+pub(crate) fn send(port: Option<u16>, path: &'static str, body: Result<String, String>, cx: &mut App) {
     let Some(port) = port else {
         Note::warn("not sent: no Fleet is connected").field("route", path).emit();
         return;
@@ -452,13 +452,18 @@ pub struct JobsList {
     _card_wait: Option<Task<()>>,
     fleet: Option<Entity<FleetConnection>>,
     _watch: Option<Subscription>,
+    /// Titles asked for and not yet answered, by Job id: (the title Fleet last held, the title asked for).
+    /// Every reader of a Job's title reads the record, so the head, the list, the review sheet and the
+    /// palette cannot disagree while Fleet's answer is pending.
+    asked: HashMap<String, (Option<String>, String)>,
 }
 
 impl JobsList {
     /// The list on a live Fleet: it follows the Jobs the connection holds.
     pub fn live(fleet: &Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
         let watch = cx.observe(fleet, |this, fleet, cx| {
-            let jobs = fleet.read(cx).held().jobs.clone();
+            let mut jobs = fleet.read(cx).held().jobs.clone();
+            this.hold_asked_titles(&mut jobs);
             if jobs != this.jobs {
                 this.jobs = jobs;
                 this.place_new();
@@ -470,9 +475,9 @@ impl JobsList {
         Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
-    /// The list on mock Jobs, which never change, with every field on so a walk shows them all.
+    /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
     pub fn mock(jobs: &[SessionRecord], cx: &mut Context<Self>) -> Self {
-        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::ALL, false, None, None, cx)
+        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
     fn with(
@@ -506,6 +511,7 @@ impl JobsList {
             _card_wait: None,
             fleet,
             _watch: watch,
+            asked: HashMap::new(),
         };
         this.place_new();
         this.lines = this.lines_now();
@@ -533,8 +539,90 @@ impl JobsList {
         &self.focus
     }
 
+    /// Open a Job from outside the list, as a press on its row does: the keys land on it and its card
+    /// closes. A Job the list does not hold is not opened. Returns whether it was.
+    pub fn open_job(&mut self, id: &str, cx: &mut Context<Self>) -> bool {
+        if !self.jobs.iter().any(|one| one.id.as_str() == id) {
+            return false;
+        }
+        let id: SharedString = id.to_string().into();
+        self.focused = Some(id.clone());
+        self.opened = Some(id);
+        self.card = None;
+        cx.notify();
+        true
+    }
+
     pub fn within(&self) -> &FocusHandle {
         &self.within
+    }
+
+    /// The Job the person opened, whose room the middle of the screen draws.
+    pub fn opened_id(&self) -> Option<SharedString> {
+        self.opened.clone()
+    }
+
+    /// Open a Job, as a press on its row does.
+    pub fn open(&mut self, id: SharedString, cx: &mut Context<Self>) {
+        if self.opened.as_ref() != Some(&id) {
+            self.focused = Some(id.clone());
+            self.opened = Some(id);
+            self.card = None;
+            cx.notify();
+        }
+    }
+
+    /// The title a rename asked for stands on the Job at once. On a live Fleet it stands until Fleet's
+    /// record moves off the old title (its echo, or another rename); on mock data nothing echoes, so the
+    /// record takes it for good, as Fleet's would.
+    pub fn retitle(&mut self, id: &str, title: String, cx: &mut Context<Self>) {
+        let Some(held) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) else { return };
+        if self.fleet.is_some() {
+            let was = self.asked.get(id).map_or_else(|| held.title.clone(), |(was, _)| was.clone());
+            self.asked.insert(id.to_string(), (was, title.clone()));
+        }
+        held.title = Some(title);
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// Fleet refused the rename: the title it holds comes back.
+    pub fn untitle(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some((was, _)) = self.asked.remove(id) else { return };
+        if let Some(held) = self.jobs.iter_mut().find(|job| job.id.as_str() == id) {
+            held.title = was;
+        }
+        self.relist(cx);
+        cx.notify();
+    }
+
+    /// Put the titles still waiting on Fleet over the records it sent, and let go of those it has answered.
+    fn hold_asked_titles(&mut self, jobs: &mut [SessionRecord]) {
+        self.asked.retain(|id, (was, asked)| match jobs.iter_mut().find(|job| job.id.as_str() == id) {
+            Some(job) if job.title == *was => {
+                job.title = Some(asked.clone());
+                true
+            }
+            _ => false,
+        });
+    }
+
+    pub fn record(&self, id: &str) -> Option<&SessionRecord> {
+        self.jobs.iter().find(|job| job.id.as_str() == id)
+    }
+
+    /// Every Job the list holds, for the message box's `@` to name.
+    pub fn records(&self) -> &[SessionRecord] {
+        &self.jobs
+    }
+
+    pub fn fleet(&self) -> Option<Entity<FleetConnection>> {
+        self.fleet.clone()
+    }
+
+    /// Whether this list is kept between runs: not on mock data.
+    pub fn remembers(&self) -> bool {
+        self.remember
     }
 
     fn lines_now(&self) -> Vec<Line> {
@@ -665,7 +753,7 @@ impl JobsList {
 
     /// The row's menu (`RowMenu.tsx`), at `at`: Pause or Resume, Name it for me, Try it in your app
     /// and Close. An ended Job has none of them, and draws no menu.
-    fn open_menu(&mut self, id: SharedString, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_menu(&mut self, id: SharedString, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = self.rows().find(|row| row.id == id).cloned() else { return };
         if row.ended {
             return;
@@ -950,6 +1038,8 @@ impl JobsList {
             })
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
             .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
+            // The lamp's edge down the row's left side (`ListCard.css` `border-left`).
+            .child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).rounded_l(radius).bg(lamp_ink))
             .child(
                 div()
                     .flex()
@@ -1074,7 +1164,7 @@ impl JobsList {
         let ink = if self.scope == Scope::Active { token::FG_MUTED } else { token::ACCENT };
         let field = self.search.as_ref().map(|(search, _)| {
             labelled(
-                div().id("search").flex_1().min_w_0().child(
+                div().id("search").key_context(crate::keymap::TEXT_BOX).flex_1().min_w_0().child(
                     Input::new(search)
                         .h(look.length(token::H_CONTROL_LG))
                         .rounded(look.length(token::RADIUS_LG))
@@ -1328,21 +1418,37 @@ impl Render for DeckHandle {
 /// A handle on the list's inner edge drags it wider or narrower, as Electron's `DockHandle` does.
 pub struct JobsScreen {
     pub list: Entity<JobsList>,
+    /// The open Job, in the middle.
+    view: Entity<JobView>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
     /// The whole screen's, which holds the list and the handle beside it.
     within: FocusHandle,
     remember: bool,
+    /// The command palette, over the whole screen.
+    palette: Entity<crate::palette::Palette>,
 }
 
 impl JobsScreen {
-    pub fn new(list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        list: Entity<JobsList>,
+        threads: Option<HashMap<String, ipc::JobThread>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let remember = list.read(cx).remember;
+        let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
-        JobsScreen { list, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember }
+        let palette = cx.new(|cx| crate::palette::Palette::new(list.clone(), cx));
+        JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
+    }
+
+    /// The command palette, which the title bar's search field opens with `Palette::open`.
+    pub fn palette(&self) -> &Entity<crate::palette::Palette> {
+        &self.palette
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1388,6 +1494,11 @@ impl JobsScreen {
             window.focus(&focus, cx);
         } else if act.is("deck_search") {
             self.list.update(cx, |list, cx| list.to_search(window, cx));
+        } else if act.is("command_palette") {
+            self.palette.update(cx, |palette, cx| palette.open(window, cx));
+        } else if act.is("message_job") {
+            // ⌥M from anywhere on the deck puts the caret in the open Job's box.
+            self.view.update(cx, |view, cx| view.to_composer(window, cx));
         } else {
             cx.propagate();
         }
@@ -1470,6 +1581,12 @@ impl Render for JobsScreen {
             .key_context("deck")
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
+            // A chord the person gave a palette row runs that row from anywhere on the screen.
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx)) {
+                    cx.stop_propagation();
+                }
+            }))
             .size_full()
             .flex()
             .flex_col()
@@ -1489,9 +1606,10 @@ impl Render for JobsScreen {
                         this.resize(Some(to), window, cx);
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
-                    .child(div().flex_1())
+                    .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
                     .child(panel(look).w(column * RIGHT)),
             )
+            .child(self.palette.clone())
     }
 }
 
@@ -1505,6 +1623,20 @@ mod tests {
 
     fn titles(lines: &[Line]) -> Vec<String> {
         lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.title.to_string()), Line::Project(_) => None }).collect()
+    }
+
+    #[gpui::test]
+    fn a_job_opened_from_outside_is_the_one_the_keys_are_on(cx: &mut gpui::TestAppContext) {
+        let all = jobs();
+        let live = all.iter().find(|job| job.state == ipc::SessionState::Live).expect("a live Job").id.as_str().to_string();
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        assert!(list.update(cx, |list, cx| list.open_job(&live, cx)));
+        list.read_with(cx, |list, _| {
+            assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(live.as_str()));
+            assert_eq!(list.focused, list.opened);
+        });
+        assert!(!list.update(cx, |list, cx| list.open_job("no-such-job", cx)), "a Job the list does not hold is not opened");
+        list.read_with(cx, |list, _| assert_eq!(list.opened.as_ref().map(|id| id.as_ref()), Some(live.as_str())));
     }
 
     #[test]

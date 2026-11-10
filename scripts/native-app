@@ -11,8 +11,8 @@
 # The binary is renamed to `Contents/MacOS/Armada`, because the Dock and the app
 # switcher read the executable's file name (`scripts/armada-electron` has the
 # measurement). The icon is the brand's, from beside this script unless one is
-# given. A caller that adds to the bundle afterwards signs it again: writing into
-# a signed bundle breaks the seal.
+# given. The two notification tones go in Resources beside it. A caller that adds
+# to the bundle afterwards signs it again: writing into a signed bundle breaks the seal.
 
 set -euo pipefail
 
@@ -35,6 +35,20 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp -c "$binary" "$app/Contents/MacOS/Armada" 2>/dev/null || cp "$binary" "$app/Contents/MacOS/Armada"
 chmod 755 "$app/Contents/MacOS/Armada"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
+# The notification tones, in Resources, the first place macOS looks up a banner's sound by name. The same files
+# Armada Classic bundles (`extraResources` in `apps/desktop/electron-builder.yml`); `crates/bridge-native/src/notify.rs` names them.
+sounds="$here/../apps/desktop/sounds"
+for tone in armada-blocked armada-waiting; do
+  [[ -f "$sounds/$tone.wav" ]] || fail "$sounds/$tone.wav is missing"
+  cp "$sounds/$tone.wav" "$app/Contents/Resources/$tone.wav"
+done
+# Armada Voice, the helper Talk hears through, as the Electron app carries it: in `Contents/Helpers`, where the
+# binary looks first. Built by `node apps/desktop/native/voice/build.mjs`; where it is not built Talk has no voice.
+voice="$here/../apps/desktop/native/voice/build/Armada Voice.app"
+if [[ -d "$voice" ]]; then
+  mkdir -p "$app/Contents/Helpers"
+  cp -R "$voice" "$app/Contents/Helpers/"
+fi
 python3 - "$app/Contents/Info.plist" <<'PY'
 import plistlib, sys
 
