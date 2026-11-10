@@ -24,13 +24,15 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, Animation, AnimationExt as _, AnyElement, App, Bounds, Context, Empty, EventEmitter,
-    FocusHandle, FontWeight, Global, Hsla, Pixels, Role, ScrollHandle, SharedString, Subscription, Task, WeakEntity, Window,
+    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, Animation, AnimationExt as _, AnyElement, App, Bounds, ClipboardItem, Context, DismissEvent,
+    Empty, Entity, EventEmitter, FocusHandle, Focusable, FontWeight, Global, Hsla, MouseButton, Pixels, Point, Role, ScrollHandle, SharedString, Subscription, Task,
+    WeakEntity, Window,
 };
 use ipc::{
     HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, StandingCall, StandingCallKind,
 };
 
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
 use crate::inspect::{self, Fact, Spec, State, Width};
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -95,6 +97,10 @@ pub enum Asked {
     OpenJob(SharedString),
     /// A new Job for the red main of this repository.
     DispatchFix { root: String },
+    /// Fleet reads the pull request from the forge now (the chip menu's Refresh).
+    RefreshPull { root: String, number: u64 },
+    /// Teach, from the chip's menu; the target is what the menu's heading names.
+    Teach(&'static str),
 }
 
 impl EventEmitter<Asked> for MergeStrip {}
@@ -143,6 +149,13 @@ pub fn bind(cx: &mut App) {
     });
 }
 
+/// The menu a right press on a chip, or Shift+F10 on it, opens.
+struct ChipMenu {
+    dropdown: Entity<Dropdown>,
+    _picked: Subscription,
+    _dismissed: Subscription,
+}
+
 pub struct MergeStrip {
     pub data: Strip,
     /// The window the strip is drawn in, which a key that works from anywhere puts the keys in.
@@ -166,6 +179,13 @@ pub struct MergeStrip {
     bounds: Rc<RefCell<HashMap<SharedString, Bounds<Pixels>>>>,
     /// The repository whose red main has a new Job being dispatched, and any refusal.
     fixing: Option<String>,
+    /// The keys of each chip and light, so a card opens as the keys arrive on it.
+    chip_focus: HashMap<SharedString, (FocusHandle, Subscription, Subscription)>,
+    /// A card Esc shut while the keys stayed on its chip: it does not open again until they leave.
+    quiet: Option<Card>,
+    /// The card the keys opened, which they shut again as they leave; one a hover or a press opened is theirs to leave.
+    by_keys: Option<Card>,
+    menu: Option<ChipMenu>,
     _rotate: Task<()>,
     _focus_in: Subscription,
     _focus_out: Subscription,
@@ -214,6 +234,10 @@ impl MergeStrip {
             scroll: ScrollHandle::new(),
             bounds: Rc::default(),
             fixing: None,
+            chip_focus: HashMap::new(),
+            quiet: None,
+            by_keys: None,
+            menu: None,
             _rotate: rotate,
             _focus_in: focus_in,
             _focus_out: focus_out,
@@ -307,6 +331,7 @@ impl MergeStrip {
 
     fn shut(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.card = None;
+        self.by_keys = None;
         self.pinned = false;
         self.over_card = false;
         self._ticking = None;
@@ -316,8 +341,101 @@ impl MergeStrip {
 
     fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.card.is_some() {
+            // The keys go back to the chip, and its focus is not a reason to open the card again.
+            self.quiet = self.card.clone();
             self.shut(window, cx);
         }
+    }
+
+    /// The keys arrived on a chip or light: from the keyboard its card opens, as a hover opens it.
+    fn focused_in(&mut self, card: Card, window: &mut Window, cx: &mut Context<Self>) {
+        if !window.last_input_was_keyboard() || self.pinned || self.quiet.as_ref() == Some(&card) || self.menu.is_some() {
+            return;
+        }
+        self._leaving = None;
+        if self.card.as_ref() != Some(&card) {
+            self.keep_keys(window, cx);
+            self.by_keys = Some(card.clone());
+            self.card = Some(card);
+            self.tick(cx);
+            cx.notify();
+        }
+    }
+
+    /// The keys left a chip or light: its card shuts with them, unless it was kept open.
+    fn focused_out(&mut self, card: Card, cx: &mut Context<Self>) {
+        if self.quiet.as_ref() == Some(&card) {
+            self.quiet = None;
+        }
+        if self.by_keys.as_ref() == Some(&card) && self.card.as_ref() == Some(&card) && !self.pinned && !self.over_card {
+            self.card = None;
+            self.by_keys = None;
+            self._ticking = None;
+            self.keys_were = None;
+            cx.notify();
+        }
+    }
+
+    /// The keys for a chip or light, made once and kept.
+    fn focus_for(&mut self, key: SharedString, card: Card, window: &mut Window, cx: &mut Context<Self>) {
+        if self.chip_focus.contains_key(&key) {
+            return;
+        }
+        let handle = cx.focus_handle().tab_stop(true);
+        let into = card.clone();
+        let arrived = cx.on_focus_in(&handle, window, move |this, window, cx| this.focused_in(into.clone(), window, cx));
+        let left = cx.on_focus_out(&handle, window, move |this, _, _, cx| this.focused_out(card.clone(), cx));
+        self.chip_focus.insert(key, (handle, arrived, left));
+    }
+
+    fn focus_of(&self, key: &str) -> Option<FocusHandle> {
+        self.chip_focus.get(key).map(|(handle, _, _)| handle.clone())
+    }
+
+    // -- the chip's menu ---------------------------------------------------------------------------
+
+    /// A right press on a chip, or Shift+F10 on it: Open in browser and Copy link where the chip knows its
+    /// address, Refresh, and Teach, under the heading `Pull request #n`.
+    fn open_chip_menu(&mut self, line: usize, number: u64, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(one) = self.data.lines.get(line) else { return };
+        let Some(pull) = one.view.pulls.iter().find(|pull| pull.number == number) else { return };
+        let (root, url) = (one.view.root.clone(), pull.url.clone());
+        self.keep_keys(window, cx);
+        self.card = None;
+        self.pinned = false;
+        self.over_card = false;
+        self._ticking = None;
+        let mut entries = vec![Entry::Label(crate::titlebar::id_of(format!("Pull request #{number}")))];
+        if !url.is_empty() {
+            entries.push(Entry::Row(Row::new("browser", "Open in browser").icon("external-link")));
+            entries.push(Entry::Row(Row::new("copy", "Copy link").icon("link")));
+        }
+        entries.push(Entry::Row(Row::new("refresh", "Refresh")));
+        entries.push(Entry::Row(Row::new("teach", "Teach").icon("graduation-cap")));
+        let name = format!("Pull request #{number}");
+        let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx));
+        let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
+            let Picked::Entry { id, .. } = picked;
+            this.menu = None;
+            match *id {
+                "browser" => cx.open_url(&url),
+                "copy" => cx.write_to_clipboard(ClipboardItem::new_string(url.clone())),
+                "refresh" => cx.emit(Asked::RefreshPull { root: root.clone(), number }),
+                "teach" => cx.emit(Asked::Teach("Pull request")),
+                _ => {}
+            }
+            this.give_keys_back(window, cx);
+            cx.notify();
+        });
+        let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
+            this.menu = None;
+            this.give_keys_back(window, cx);
+            cx.notify();
+        });
+        let keys = dropdown.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.menu = Some(ChipMenu { dropdown, _picked: picked, _dismissed: dismissed });
+        cx.notify();
     }
 
     fn step_row(&mut self, by: isize, cx: &mut Context<Self>) {
@@ -337,6 +455,7 @@ impl MergeStrip {
             self._leaving = None;
             if !self.pinned && self.card.as_ref() != Some(&card) {
                 self.keep_keys(window, cx);
+                self.by_keys = None;
                 self.card = Some(card);
                 self.tick(cx);
                 cx.notify();
@@ -364,6 +483,7 @@ impl MergeStrip {
             return;
         }
         self.keep_keys(window, cx);
+        self.by_keys = None;
         self.card = Some(card);
         self.pinned = true;
         self.tick(cx);
@@ -589,8 +709,11 @@ impl MergeStrip {
         let kept = id.clone();
         let lit = selected || dot.related;
         let dot_mark = lamp(look, hue, dot.queued || dot.state == PullState::Open);
+        let keys = self.focus_of(&id);
+        let key_id = id.clone();
         let body = pill(look)
             .id(id.clone())
+            .when_some(keys, |chip, keys| chip.track_focus(&keys))
             .when(selected, |chip| chip.border_color(look.color(token::FG_DEFAULT)).bg(look.color(token::BG_HOVER)))
             .when(dot.related, |chip| chip.border_color(look.color(token::FG_DEFAULT)).bg(look.color(token::FG_DEFAULT).opacity(0.22)))
             .when(lit, |chip| chip.text_color(look.color(token::FG_DEFAULT)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))))
@@ -618,7 +741,22 @@ impl MergeStrip {
             .focus_visible(move |style| style.border_color(ring))
             .hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.12)).text_color(look.color(token::FG_DEFAULT)))
             .on_hover(cx.listener(move |this, over: &bool, window, cx| this.hovered(Card::Chip(line, number), *over, window, cx)))
-            .on_click(cx.listener(move |this, _, window, cx| this.chip_pressed(line, number, window, cx)));
+            .on_click(cx.listener(move |this, _, window, cx| this.chip_pressed(line, number, window, cx)))
+            .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                cx.stop_propagation();
+                this.open_chip_menu(line, number, event.position, false, window, cx);
+            }))
+            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                let key = &event.keystroke;
+                // The ContextMenu key is not one gpui delivers on macOS, so Shift+F10 alone.
+                if key.key != "f10" || !key.modifiers.shift {
+                    return;
+                }
+                cx.stop_propagation();
+                let chip = this.bounds.borrow().get(&key_id).copied();
+                let at = chip.map_or_else(Point::default, |chip| point(chip.origin.x + chip.size.width / 2., chip.origin.y + chip.size.height));
+                this.open_chip_menu(line, number, at, true, window, cx);
+            }));
         labelled(body, Role::Button, name).into_any_element()
     }
 
@@ -651,6 +789,7 @@ impl MergeStrip {
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let store = Rc::clone(&self.bounds);
         let kept = id.clone();
+        let keys = self.focus_of(&id);
         let body = pill(look)
             .id(id.clone())
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().size_full())
@@ -681,7 +820,8 @@ impl MergeStrip {
             return labelled(body.tooltip(tip(tooltip)), Role::Image, said).into_any_element();
         }
         labelled(
-            body.cursor_pointer()
+            body.when_some(keys, |chip, keys| chip.track_focus(&keys))
+                .cursor_pointer()
                 .focusable()
                 .tab_stop(true)
                 .focus_visible(move |style| style.border_color(ring))
@@ -1122,13 +1262,21 @@ fn checkout_section(held: &HeldCheckout, look: &Look) -> AnyElement {
 }
 
 impl Render for MergeStrip {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let look = cx.look();
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let shown = self.shown();
+        for &line in &shown {
+            self.focus_for(SharedString::from(format!("light-{line}")), Card::Main(line), window, cx);
+            let numbers: Vec<u64> = dots_of(&self.data.lines[line], &self.data.related).iter().map(|dot| dot.pull.number).collect();
+            for number in numbers {
+                self.focus_for(SharedString::from(format!("chip-{line}-{number}")), Card::Chip(line, number), window, cx);
+            }
+        }
+        let look = cx.look();
         if shown.is_empty() && !self.data.loading {
             // None served: nothing, and no sentence about the absence.
             return Empty.into_any_element();
         }
+
         let grouped = shown.len() > 1;
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let row = if self.data.loading {
@@ -1170,6 +1318,8 @@ impl Render for MergeStrip {
                 .id("merge-strip")
                 .key_context("strip")
                 .track_focus(&self.focus)
+                // Tab from the strip goes to its own chips, not the first stop in the window.
+                .tab_group()
                 .flex_none()
                 .w_full()
                 .flex()
@@ -1205,7 +1355,8 @@ impl Render for MergeStrip {
                         .child(merge)
                         .child(row),
                 )
-                .children(card),
+                .children(card)
+                .children(self.menu.as_ref().map(|menu| menu.dropdown.clone())),
             Role::Region,
             "Merge queue",
         )

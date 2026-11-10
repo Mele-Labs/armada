@@ -32,6 +32,8 @@ pub enum Verb {
     Press,
     /// A key, as gpui writes one (`j`, `enter`, `cmd-k`), sent to the screen.
     Key(&'static str),
+    /// Several keys one after the other, each drawn before the next is sent, as a person's would be.
+    Keys(&'static [&'static str]),
     /// A right press on the step's own target, before the target is ringed: the target is
     /// what the press opens, so the press aims at `on`, a row's name.
     RightPress(&'static str),

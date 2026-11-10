@@ -39,6 +39,21 @@ impl Act {
     }
 }
 
+/// Tab and Shift+Tab: the next and the previous tab stop, for a key nothing on the way up took. A screen's
+/// root calls this from its `on_key_down`, so every element that sets `tab_stop` is reached from the keyboard.
+pub fn traverse(event: &gpui::KeyDownEvent, window: &mut gpui::Window, cx: &mut gpui::App) -> bool {
+    let key = &event.keystroke;
+    if key.key != "tab" || key.modifiers.platform || key.modifiers.control || key.modifiers.alt {
+        return false;
+    }
+    if key.modifiers.shift {
+        window.focus_prev(cx);
+    } else {
+        window.focus_next(cx);
+    }
+    true
+}
+
 /// One key with its modifiers. `key` is a lower-case letter, a digit, a symbol, or a named key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Chord {

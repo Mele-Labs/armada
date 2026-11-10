@@ -350,6 +350,12 @@ impl Render for DispatchScreen {
         div()
             .id("dispatch-screen")
             .track_focus(&self.within)
+            // Tab, for what nothing under the screen took: the annotation layer's pins are among the stops.
+            .on_key_down(cx.listener(|_, event: &gpui::KeyDownEvent, window, cx| {
+                if crate::keymap::traverse(event, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .relative()
             .size_full()
             .child(self.jobs.clone())

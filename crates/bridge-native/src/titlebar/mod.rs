@@ -1276,7 +1276,7 @@ impl Render for TitleBar {
         let has_places = self.face.drawn_places().next().is_some();
         for place in self.face.drawn_places() {
             if !self.place_focus.iter().any(|(id, _)| *id == place.id) {
-                self.place_focus.push((place.id, cx.focus_handle()));
+                self.place_focus.push((place.id, cx.focus_handle().tab_stop(true)));
             }
         }
         let row_at = Rc::clone(&self.at.row);

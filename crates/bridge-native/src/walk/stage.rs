@@ -108,6 +108,17 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_keystroke(keystroke, cx);
             Ok(())
         }
+        Verb::Keys(keys) => {
+            if !focus.within.contains_focused(window, cx) {
+                window.focus(&focus.keys, cx);
+            }
+            for key in keys {
+                let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
+                window.draw(cx).clear(cx);
+                window.dispatch_keystroke(keystroke, cx);
+            }
+            Ok(())
+        }
         Verb::Press => {
             let at = find(step, window, cx)?.bounds.center();
             press(MouseButton::Left, at, window, cx);

@@ -1470,6 +1470,11 @@ impl Render for JobsScreen {
             .key_context("deck")
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
+            .on_key_down(cx.listener(|_, event: &gpui::KeyDownEvent, window, cx| {
+                if crate::keymap::traverse(event, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .size_full()
             .flex()
             .flex_col()

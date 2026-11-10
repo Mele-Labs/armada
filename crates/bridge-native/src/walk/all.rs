@@ -118,6 +118,10 @@ pub static STEPS: &[Step] = &[
     // -- the merge strip and the Job marks -----------------------------------------------------
     fresh("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "region", "Merge queue"),
     step("A ring says a pull request is open and a filled lamp that a queue holds it; the hue is its checks. Rest the pointer on a chip for its card", Verb::Hover, "button", RUNNING),
+    right_on("A right press on a chip opens its menu: the heading names the pull request, then Open in browser, Copy link, Refresh and Teach", "button", RUNNING, "menu", "Pull request #3392"),
+    step("Esc shuts the menu and the keys go back to the chip", Verb::Key("escape"), "button", RUNNING),
+    step("Q puts the keys on the strip", Verb::Key("q"), "region", "Merge queue"),
+    step("Tab reaches a chip: its card opens as a hover opens it, and Enter on it opens the pull request", Verb::Keys(&["tab", "tab"]), "region", "Pull request #3395"),
     marks("A call nobody holds pulses the chip it is about", "strip-calling", "button", CALLING),
     marks("A forge that stopped answering dims main's lamp and an unplugged glyph says since when", "strip-quiet", "img", "Main is green"),
     marks("Main red: the light says where, and a held checkout marks it", "strip-red", "button", RED),

@@ -31,6 +31,8 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>) -> Res
         })
         .map_err(|why| why.to_string())?;
     let walking = held.borrow().clone().ok_or("the walk window did not open")?;
+    // A window nobody is in is not active, and a focus listener hears nothing in one: the check's window is the one in front.
+    cx.update_window(handle.into(), |_, window, _| window.activate_window()).map_err(|why| why.to_string())?;
     if let Some(dir) = &shots {
         std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
     }
