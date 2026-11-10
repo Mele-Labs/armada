@@ -22,7 +22,9 @@
 # A failed `--restart` drops the branches its output names: the migration
 # guard's `leave out <branch>: <why>` lines, else the branches that changed a
 # file the compiler errors name (git merges branches cut before a deletion
-# without a word). The rest are merged again and `scripts/restart` run again.
+# without a word), else the branches that removed a module file or a crate item
+# the Rust errors say is missing, in a file they did not touch. The rest are
+# merged again and `scripts/restart` run again.
 # A failure that names no branch still merged is reported as it is. Before each
 # restart, `Armada/preview-left-out` records the commit and why each was skipped, and
 # `Armada/preview-held` the main commit the preview stands on and the branches merged into it.
