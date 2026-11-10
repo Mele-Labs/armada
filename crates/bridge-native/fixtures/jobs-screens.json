@@ -60,7 +60,8 @@
    "state": "live",
    "started_at": "2026-11-08T08:00:00Z",
    "last_seen_at": "2026-11-08T21:40:00Z",
-   "usage": {},
+   "usage": {"context_tokens": 126000, "context_window": 200000, "context_percent": 63, "context_band": "normal"},
+   "compact": {"state": "offered", "how": "message"},
    "attachments": [
     {
      "kind": "issue",

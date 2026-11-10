@@ -136,7 +136,7 @@ proposal that reintroduces one of them is answering a question already settled.
 |---|---|---|
 | Skills in a repository | Worked, but was not portable to other projects | The Manifest. A repository has its own setup, kept at the place a person chooses, and one Fleet serves every repository a person adds rather than being configured per project |
 | A CLI | Did not surface the information he needed | Bridge, and why it is a board that is scanned rather than output that is read |
-| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's plan, a Job's branch — never a transcript read as a claim. The [Operator](concepts/operator.md) is no conversation with tools: it is one call per arrival that holds none, and what it leaves is a Log of rulings |
+| Orchestrator agents with sub agents | **Having a conversation was not the tool he was looking for** | Dispatch and report is how work gets done, and reading a transcript is not. What a conversation produces is kept as structure — a Studio's nodes, a Job's plan, a Job's branch — never a transcript read as a claim. The [Operator](concepts/operator.md) is a chat that only reads: it wakes for an event or a message, makes one call that holds at most Read, Grep and Glob, and what it leaves is a record of what it did and the Jobs it started |
 | Armada v1 | Close | This |
 
 **The third one explains more of the design than it looks like.** Evidence is

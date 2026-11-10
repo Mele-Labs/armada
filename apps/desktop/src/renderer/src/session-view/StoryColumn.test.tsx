@@ -273,6 +273,18 @@ test("a walk shown again at one address is one beat in Now, the newest showing",
         url,
       },
     ],
+    waitingFor: [
+      {
+        id: "walk:w2",
+        text: "Processes, take 2",
+        since: "2026-10-27T10:03:00Z",
+        source: "walk",
+        act: {
+          kind: "walk",
+          target: url,
+        },
+      },
+    ],
   } as unknown as Session;
   const host = mount(shown);
   const walks = [
@@ -281,6 +293,85 @@ test("a walk shown again at one address is one beat in Now, the newest showing",
   expect(walks).toEqual([
     "Processes, take 2",
   ]);
+});
+
+test("a walk Fleet no longer holds is not listed in Now, though its page's row is still not ended", () => {
+  const held_ = "http://localhost:5511/?walk=processes";
+  const gone = "http://localhost:40032/?walk=operatorOffer";
+  const again = session("idle");
+  const shown = {
+    ...again,
+    rows: [
+      ...again.rows,
+      {
+        id: "w1",
+        at: "2026-10-27T10:02:00Z",
+        kind: "window",
+        title: "Processes",
+        url: held_,
+      },
+      {
+        id: "w2",
+        at: "2026-10-27T10:03:00Z",
+        kind: "window",
+        title: "Operator offer",
+        url: gone,
+      },
+    ],
+    waitingFor: [
+      {
+        id: "walk:w1",
+        text: "Processes",
+        since: "2026-10-27T10:02:00Z",
+        source: "walk",
+        act: {
+          kind: "walk",
+          target: held_,
+        },
+      },
+    ],
+  } as unknown as Session;
+  const host = mount(shown);
+  const now = host.querySelector('ul[aria-label="Now"]');
+  const walks = [
+    ...(now?.querySelectorAll("li[data-walk]") ?? []),
+  ].map((one) => one.querySelector(".sv-beat__label")?.textContent);
+  expect(walks).toEqual([
+    "Processes",
+  ]);
+  expect(now?.textContent).not.toContain("Operator offer");
+  expect(now?.textContent).not.toContain(gone);
+});
+
+test("a question the agent asked is one line in Now, though Fleet also sends it as an ask_card item", () => {
+  const question = "Approve the Operator plan above?";
+  const asked = {
+    ...session("idle"),
+    asked: {
+      questions: [
+        {
+          question,
+        },
+      ],
+    },
+    waitingFor: [
+      {
+        id: "ask:1",
+        text: question,
+        since: "2026-10-27T10:02:00Z",
+        source: "ask_card",
+        act: {
+          kind: "answer",
+          target: "ask:1",
+        },
+      },
+    ],
+  } as unknown as Session;
+  const host = mount(asked);
+  const lines = [
+    ...host.querySelectorAll('ul[aria-label="Now"] > li'),
+  ].filter((one) => one.textContent?.includes(question));
+  expect(lines).toHaveLength(1);
 });
 
 const childJob = (id: string, title: string, change: object): Session =>

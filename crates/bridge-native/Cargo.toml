@@ -50,6 +50,7 @@ async-channel = "2"
 # `ps -o lstart=` is local time; Fleet's age is read from it.
 chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 # `open_window` answers anyhow's error, which gpui already links.
 anyhow = "1"
 # A walk check writes each step as a PNG; gpui already links this version.

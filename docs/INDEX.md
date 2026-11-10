@@ -376,6 +376,8 @@ approximations.
 - [`spikes/native-titlebar-inventory/dispatch-merge-clash.md`](spikes/native-titlebar-inventory/dispatch-merge-clash.md)
   — what Electron Bridge's dispatch sheet, annotation layer, merge queue strip and write-clash marks draw today,
   as the spec the native ones match.
+- [`spikes/native-titlebar-inventory/handoff.md`](spikes/native-titlebar-inventory/handoff.md)
+  — what the native title bar, dispatch and strip work leaves Jobs screens: its files, the shared ones and what a merge keeps, open bugs, walk steps.
 
 Raw transcripts sit beside each record. A negative result is a result and stays.
 

@@ -11,11 +11,16 @@
 //! check and the window play the same list. Each step aims at a `{role, name}` from
 //! [`crate::labels`], which is what VoiceOver reads too.
 
+pub mod all;
 pub mod bar;
-pub mod capture;
 pub mod check;
+pub mod dispatch;
 pub mod fleet;
+pub mod notes;
 pub mod stage;
+pub mod stand_in;
+pub mod strip_marks;
+pub mod title_bar;
 pub mod window;
 
 /// What a step does when it is reached, before its target is ringed.
@@ -30,6 +35,8 @@ pub enum Verb {
     Gone,
     /// A key, as gpui writes one (`j`, `enter`, `cmd-k`), sent to the screen.
     Key(&'static str),
+    /// Several keys one after the other, each drawn before the next is sent, as a person's would be.
+    Keys(&'static [&'static str]),
     /// A right press on the step's own target, before the target is ringed: the target is
     /// what the press opens, so the press aims at `on`, a row's name.
     RightPress(&'static str),
@@ -47,6 +54,31 @@ pub enum Verb {
     Hover,
     /// A press in the middle of the target, then these words typed into whatever it focused.
     Type(&'static str),
+    /// A right press on another element, `(role, name)`, before the target is ringed: for a thing
+    /// that is not a row, such as a place of the title bar or a button the bar's own menu sits over.
+    RightPressOn(&'static str, &'static str),
+    /// The title bar moves to a named scene of its mock scenario (`titlebar/scenes.rs`), then the
+    /// target is ringed. A scene changes data and presses nothing.
+    Scene(&'static str),
+    /// A press on another element, `(role, name)`, before the target is ringed: for an act whose
+    /// own button is gone once it is pressed.
+    PressOn(&'static str, &'static str),
+    /// Characters typed into whatever holds the keys, one by one, with no press first (`Type` presses the target).
+    Typed(&'static str),
+    /// A drag across the target's inner area, to hold a box rather than the element.
+    Drag,
+    /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
+    /// or a state of the sheet's face. A scene changes data and presses nothing.
+    Answer(&'static str),
+    /// The merge strip, the context ring or the write-clash marks move to a named scene
+    /// (`strip_marks.rs`). A scene changes data and presses nothing.
+    Marks(&'static str),
+    /// The Jobs list's scope picked as a person picks it, from the keys: press the scope button, ↓ to
+    /// Paused, Enter. One step for the three, since the list is on the same screen.
+    PausedScope,
+    /// The screen is built again from its mock, so a part of a long walk starts from the state its
+    /// first step expects: no popup, sheet or layer open, every scene at rest. The target is ringed.
+    Fresh,
 }
 
 /// Where a step points: an element's role, in the walk's words, and its name.
@@ -77,6 +109,37 @@ pub struct Walk {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Jobs,
+    Dispatch,
+    /// The Jobs screen with the Job head's stand-in drawn over it, for the walk of the strip and marks.
+    Marks,
+    /// Every piece at once, for the walk that plays the others in order: the title bar, the merge
+    /// strip, the dispatch sheet and the notes layer over the Jobs screen, and the Job head's
+    /// stand-in, drawn only while a scene shows the ring.
+    All,
+}
+
+const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
+}
+
+const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
+    Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+}
+
+const fn right_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
+    Step { say, verb: Verb::RightPressOn(role, name), target: Target { role: then_role, name: then } }
+}
+
+const fn marks(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Marks(name), target: Target { role, name: target } }
+}
+
+const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Answer(name), target: Target { role, name: target } }
+}
+
+const fn fresh(say: &'static str, role: &'static str, target: &'static str) -> Step {
+    Step { say, verb: Verb::Fresh, target: Target { role, name: target } }
 }
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
@@ -121,6 +184,41 @@ pub static WALKS: &[Walk] = &[
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
         step("The scope says what the list holds", Verb::Look, "button", "Paused"),
     ],
+    },
+    Walk {
+        name: "strip-marks",
+        title: "Merge strip and Job marks",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::STEPS,
+    },
+    Walk {
+        name: "title-bar",
+        title: "Title bar",
+        screen: Screen::Jobs,
+        scenario: "jobs-many",
+        steps: &title_bar::STEPS,
+    },
+    Walk {
+        name: "dispatch",
+        title: "Dispatch sheet",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &dispatch::STEPS,
+    },
+    Walk {
+        name: "notes",
+        title: "Notes on ⌥⌘A",
+        screen: Screen::Dispatch,
+        scenario: "jobs-many",
+        steps: &notes::STEPS,
+    },
+    Walk {
+        name: "native-title-bar",
+        title: "Dispatch and the title bar",
+        screen: Screen::All,
+        scenario: "jobs-many",
+        steps: all::STEPS,
     },
     Walk {
         name: "jobs-lamps",
@@ -521,6 +619,19 @@ pub static WALKS: &[Walk] = &[
             step("Teach opens the panel over the thread, with the command and a box", Verb::Open("menuitem", "Teach"), "textbox", "Instruction"),
             step("Esc puts the panel away and the command has focus again", Verb::Key("escape"), "listitem", "/reload-plugins"),
             step("⇧⌘Y opens the review sheet; the Job's waiting items stand in it", Verb::Key("shift-cmd-y"), "dialog", "Fix the merge line freshness chips"),
+            step("The plan reads as what changed since the last version; Edit plan opens its groups", Verb::Open("button", "Edit plan"), "region", "Chip reads the stale state"),
+            step("A press on a task's name makes it a field", Verb::Open("button", "Task: Read behind_by on the row"), "textbox", "Task"),
+            step("The new name is typed", Verb::Type(" and its base"), "textbox", "Task"),
+            step("Enter keeps it, as a mark not yet sent", Verb::Key("enter"), "button", "Task: Read behind_by on the row and its base"),
+            step("The last line of a group takes a new task", Verb::Open("textbox", "New task in Write it down"), "textbox", "New task in Write it down"),
+            step("The task is typed", Verb::Type("Say what the amber chip means"), "textbox", "New task in Write it down"),
+            step("Enter adds it and the line stays open for the next", Verb::Key("enter"), "button", "Task: Say what the amber chip means"),
+            step("Esc shuts the line", Verb::Key("escape"), "textbox", "New task in Write it down"),
+            step("Each group's subagent type is a menu", Verb::Open("combobox", "Subagent type of Write it down"), "menuitemcheckbox", "general-purpose"),
+            step("A type picked replaces it", Verb::Open("menuitemcheckbox", "rust-engineer"), "combobox", "Subagent type of Write it down"),
+            step("Suggest opens a box under the group", Verb::Open("button", "Suggest on group Write it down"), "textbox", "Suggest on Write it down"),
+            step("The suggestion is typed", Verb::Type("Link the legend from the chip's tooltip"), "textbox", "Suggest on Write it down"),
+            step("Enter pins it under the group", Verb::Key("enter"), "list", "Suggestions"),
             step("A press on an item shows its body", Verb::Press, "button", "Tail layout"),
             step("↓ moves to the next item, ↑ back", Verb::Key("down"), "button", "Approve Stale branch design"),
             step("⌥R opens the note on the open item", Verb::Key("alt-r"), "textbox", "Note"),
@@ -528,6 +639,8 @@ pub static WALKS: &[Walk] = &[
             step("⌘↵ sends it back, and the next open item is chosen", Verb::Key("cmd-enter"), "img", "Sent back"),
             step("⌘↵ is also the primary: it answers the item in view", Verb::Key("cmd-enter"), "img", "Approved"),
             step("Esc shuts the sheet", Verb::Key("escape"), "button", "Needs you"),
+            step("The ring under the box says how full the Job's window is; a press opens Compact", Verb::Open("button", "Context 63%"), "button", "Compact"),
+            step("Compact sends /compact to the Job in the same frame; the popover goes and the thread drops to its end", Verb::Open("button", "Compact"), "region", "Thread"),
             step("A Job held open by what is not you shows a Waiting band", Verb::Press, "row", "Quiet the write-clash notices"),
             step("A press opens a row for each wait, each with its own stop", Verb::Open("button", "Waiting"), "button", "Stop the watch: Held open by ci on branch"),
             step("Another Job: its box, its pickers and its quick bar", Verb::Press, "row", "Audit the docs index"),
