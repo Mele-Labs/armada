@@ -50,6 +50,7 @@ pub use judge_tab::JobJudge;
 pub use side::JobSide;
 mod runs;
 mod talk;
+mod tool_icons;
 mod tune;
 mod wire;
 

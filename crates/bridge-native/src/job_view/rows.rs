@@ -56,6 +56,21 @@ pub(super) fn elapsed_words(from: &str, to: &str) -> Option<String> {
     })
 }
 
+/// When an item began, where it says: a run's end is the next item's start.
+fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
+    match item {
+        ThreadItem::Row { row } => Some(row.at()),
+        ThreadItem::Calls { rows, .. } | ThreadItem::Checks { rows, .. } => rows.first().map(SessionRow::at),
+        ThreadItem::FleetTurn { notice, .. } => Some(notice.at()),
+        ThreadItem::Subagent { at, .. }
+        | ThreadItem::File { at, .. }
+        | ThreadItem::Change { at, .. }
+        | ThreadItem::NotStarted { at, .. }
+        | ThreadItem::Judged { at, .. } => Some(at),
+        ThreadItem::Sketch(_) | ThreadItem::Document(_) | ThreadItem::Plan(_) => None,
+    }
+}
+
 /// What a person's message says when it answers or approves instead of talking (`Did`, A2.4).
 #[derive(Debug, PartialEq)]
 enum Act<'a> {
@@ -186,7 +201,9 @@ impl JobView {
             let Some(item) = held.items.get(ix) else { return nothing() };
             let last = ix + 1 == page.items;
             let asking = held.head.asked.is_some();
-            self.item(ix, item, last && working && !asking, page, look, now, window, cx)
+            // A finished run's last call ended when the item after it began.
+            let next = held.items.get(ix + 1).and_then(began);
+            self.item(ix, item, last && working && !asking, next, page, look, now, window, cx)
         } else {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
@@ -387,6 +404,7 @@ impl JobView {
         ix: usize,
         item: &ThreadItem,
         live: bool,
+        next: Option<&ipc::Instant>,
         page: &Page,
         look: &Look,
         now: DateTime<Local>,
@@ -395,7 +413,7 @@ impl JobView {
     ) -> Option<AnyElement> {
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
-            ThreadItem::Calls { id, rows, .. } => self.calls(ix, id, rows, live, page, look, cx),
+            ThreadItem::Calls { id, rows, .. } => self.calls(ix, id, rows, live, next, page, look, cx),
             ThreadItem::Subagent { id, subagent, .. } => self.subagent(id, subagent, look),
             ThreadItem::Checks { id, rows } => self.checks(ix, id, rows, page, look, now, cx),
             ThreadItem::FleetTurn { id, notice, rows, handled } => self.fleet_turn(ix, id, notice, rows, *handled, page, look, cx),

@@ -59,6 +59,9 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.22"
 # The sketch pad's picture is drawn as SVG and rasterised. 0.46.0 is the build gpui already links with text on, so nothing new downloads.
 resvg = "=0.46.0"
+# A tool call's icon is stroked with round caps and joins; gpui paints paths with this version but does not
+# re-export its cap and join kinds.
+lyon = "=1.0.19"
 # The run id every log line carries: 80 random bits, minted by this process (the one id Bridge mints).
 getrandom = "0.3"
 

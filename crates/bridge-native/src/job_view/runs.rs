@@ -3,12 +3,15 @@
 
 use std::rc::Rc;
 
-use chrono::{DateTime, Local};
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
+use std::time::Duration;
+
+use chrono::{DateTime, Local, Utc};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{SessionCheckState, SessionRow, ToolSubagent, ToolSubagentState};
 
 use super::acts::refusal;
 use super::calls;
+use super::tool_icons::{self, Kind};
 use super::menus::{notice_entries, teach_entries};
 use super::rows::{check_look, elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
@@ -20,6 +23,92 @@ fn summary_of(text: &str) -> String {
     let line = text.lines().next().unwrap_or("");
     let first = line.split(". ").next().unwrap_or(line);
     first.trim_end_matches('.').to_string()
+}
+
+/// What a call's row says: its kind, its phrase, and while it runs, what it works on.
+struct Call {
+    kind: Kind,
+    phrase: String,
+    working_on: Option<String>,
+}
+
+/// One call (take A, approved 10 Nov): a rail in its kind's colour, its kind's icon, the phrase and the
+/// time it took. While it runs a band travels down the rail, the icon moves, the time counts and a
+/// second line says what it works on. Done, it is one grey line, the icon on its last frame.
+fn tool_row(key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, look: &Look) -> AnyElement {
+    let Call { kind, phrase, working_on } = call;
+    let ink = match kind {
+        Kind::Read | Kind::Search | Kind::Web | Kind::Other => token::ACCENT,
+        Kind::Run => token::STATUS_RUNNING,
+        Kind::Edit => token::STATUS_COMPLETED_SUCCESS,
+        Kind::Agent => token::STATUS_AWAITING_REVIEW,
+    };
+    let side = look.length(token::SPACE_6);
+    let gap = side * (10. / 24.);
+    let mut rail = div().flex_none().w(gpui::px(3.)).relative().overflow_hidden().bg(look.color(if running { ink } else { token::BORDER_DEFAULT }));
+    if running {
+        let band = look.color(token::FG_DEFAULT).opacity(0.35);
+        rail = rail.child(
+            div().absolute().left_0().w_full().h(gpui::relative(0.4)).bg(band).with_animation(
+                SharedString::from(format!("rail:{key}")),
+                Animation::new(Duration::from_millis(1400)).repeat().with_easing(gpui::ease_in_out),
+                |band, delta| band.top(gpui::relative(-0.4 + 1.4 * delta)),
+            ),
+        );
+    }
+    let since = at.clone();
+    let time = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE));
+    let time = if running {
+        // The count goes on each frame the row is drawn.
+        time.with_animation(SharedString::from(format!("count:{key}")), Animation::new(Duration::from_secs(1)).repeat(), move |time, _| {
+            time.child(elapsed_words(since.as_str(), &Utc::now().to_rfc3339()).unwrap_or_default())
+        })
+        .into_any_element()
+    } else {
+        time.children(end.and_then(|end| elapsed_words(at.as_str(), end.as_str()))).into_any_element()
+    };
+    let icon_ink = look.color(if running { ink } else { token::FG_SUBTLE });
+    // A brief is not a verb, so a running agent's row says it runs.
+    let said = if running && kind == Kind::Agent { format!("{phrase}, running") } else { phrase.clone() };
+    let first = div()
+        .flex()
+        .items_center()
+        .gap(gap)
+        .min_w_0()
+        .child(tool_icons::icon(kind, running, SharedString::from(format!("icon:{key}")), icon_ink, side))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .truncate()
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .text_color(look.color(if running { token::FG_DEFAULT } else { token::FG_MUTED }))
+                .child(phrase),
+        )
+        .child(time);
+    let second = working_on.map(|line| {
+        div()
+            .pl(side + gap)
+            .min_w_0()
+            .truncate()
+            .font_family(mono(look))
+            .text_size(look.length(token::TEXT_2XS) + gpui::px(0.5))
+            .line_height(look.length(token::LEADING_2XS))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(line)
+    });
+    labelled(
+        div()
+            .id(SharedString::from(format!("call:{key}")))
+            .flex()
+            .min_w_0()
+            .child(rail)
+            .child(div().flex_1().min_w_0().flex().flex_col().pl(look.length(token::SPACE_3)).py(look.length(token::SPACE_1)).child(first).children(second)),
+        Role::Row,
+        said,
+    )
+    .into_any_element()
 }
 
 impl JobView {
@@ -120,19 +209,6 @@ impl JobView {
         self.fold(ix, format!("checks:{id}"), format!("Check {name}, latest {word}"), head, Some(body), page, look, cx)
     }
 
-    /// The line a call reads as in the live list: the whole command for a shell call (A3.3).
-    fn live_line(row: &SessionRow, newest: bool) -> String {
-        match row {
-            SessionRow::Tool { text, .. } => match text.strip_prefix("Bash ") {
-                Some(command) => format!("{} {}", if newest { "Running" } else { "Ran" }, command.trim()),
-                None => calls::call_line(text, newest),
-            },
-            SessionRow::Ask { ask, .. } => calls::call_line(&format!("{} {}", ask.tool, ask.detail), newest),
-            SessionRow::WindowAsk { question, .. } => question.clone(),
-            _ => String::new(),
-        }
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub(super) fn calls(
         &self,
@@ -140,6 +216,7 @@ impl JobView {
         id: &str,
         rows: &[SessionRow],
         live: bool,
+        end: Option<&ipc::Instant>,
         page: &Page,
         look: &Look,
         cx: &Context<Self>,
@@ -154,33 +231,24 @@ impl JobView {
             .collect();
         let refs: Vec<&str> = texts.iter().map(String::as_str).filter(|text| !text.is_empty()).collect();
         let label = format!("Tool calls: {}", calls::names_of(&refs).join(", "));
+        // Each call ended when the next began; the last, when the item after the run did.
+        let last = rows.len().saturating_sub(1);
+        let lines = rows.iter().enumerate().map(|(at, row)| {
+            let running = live && at == last;
+            let end = rows.get(at + 1).map(SessionRow::at).or(end);
+            let one = match row {
+                SessionRow::WindowAsk { question, .. } => Call { kind: Kind::Other, phrase: question.clone(), working_on: None },
+                _ => Call {
+                    kind: calls::kind_of(&texts[at]),
+                    phrase: calls::call_line(&texts[at], running),
+                    working_on: calls::working_on(&texts[at]).filter(|_| running),
+                },
+            };
+            tool_row(&format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, look)
+        });
         if live {
-            let last = rows.len().saturating_sub(1);
             return labelled(
-                div()
-                    .id(SharedString::from(format!("live:{id}")))
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_2))
-                    .children(rows.iter().enumerate().map(|(at, row)| {
-                        let newest = at == last;
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(look.length(token::SPACE_2))
-                            .text_size(look.length(token::TEXT_XS))
-                            .line_height(look.length(token::LEADING_SM))
-                            .text_color(look.color(if newest { token::FG_DEFAULT } else { token::FG_SUBTLE }))
-                            .child(
-                                div()
-                                    .flex_none()
-                                    .flex()
-                                    .justify_center()
-                                    .w(look.length(token::SPACE_4))
-                                    .when(newest, |cell| cell.child(self.working_mark(look, look.color(token::STATUS_RUNNING)))),
-                            )
-                            .child(div().min_w_0().truncate().child(Self::live_line(row, newest)))
-                    })),
+                div().id(SharedString::from(format!("live:{id}"))).flex().flex_col().gap(look.length(token::SPACE_1)).children(lines),
                 Role::List,
                 label,
             )
@@ -191,40 +259,15 @@ impl JobView {
             glyph(look, "wrench", Size::Small, look.color(token::FG_MUTED)).into_any_element(),
             div().min_w_0().truncate().child(line).into_any_element(),
         ];
-        let body = div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_1))
-            .children(rows.iter().map(|row| {
-                div()
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_SM))
-                    .text_color(look.color(token::FG_MUTED))
-                    .child(Self::live_line(row, false))
-            }))
-            .into_any_element();
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_1)).children(lines).into_any_element();
         self.fold(ix, format!("calls:{id}"), label, head, Some(body), page, look, cx)
     }
 
     pub(super) fn subagent(&self, id: &str, subagent: &ToolSubagent, look: &Look) -> AnyElement {
         let task = subagent.task.clone();
         if subagent.state == ToolSubagentState::Running {
-            return labelled(
-                div()
-                    .id(SharedString::from(format!("subagent:{id}")))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .py(look.length(token::SPACE_1))
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .child(glyph(look, "bot", Size::Large, look.color(token::FG_SUBTLE)))
-                    .child(div().min_w_0().truncate().child(format!("Started a subagent: {task}"))),
-                Role::Row,
-                format!("Subagent {task}, running"),
-            )
-            .into_any_element();
+            let one = Call { kind: Kind::Agent, phrase: task, working_on: None };
+            return div().id(SharedString::from(format!("subagent:{id}"))).child(tool_row(&format!("subagent:{id}"), one, &subagent.since, None, true, look)).into_any_element();
         }
         let cut = subagent.state == ToolSubagentState::CutOff;
         let said = if cut { "Subagent cut off" } else { "Subagent finished" };
