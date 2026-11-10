@@ -380,6 +380,7 @@ pub(crate) fn sketch_items<'a>(attachments: &'a [ipc::Attachment], session: &'a 
         .filter(|newest| is_open(newest))
         .into_iter()
         .map(move |one| WaitingItem {
+            approves: false,
             id: one.target.clone(),
             text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.trim_start_matches(TARGET_PREFIX).to_string()),
             since: one.changed_at.clone(),

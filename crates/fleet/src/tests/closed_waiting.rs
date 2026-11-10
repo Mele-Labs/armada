@@ -13,6 +13,7 @@ fn steps_item(id: &ipc::SessionId) -> SetWaitingFor {
         session_id: Some(id.clone()),
         items: vec![
             WaitingInput {
+                approves: false,
                 id: "a".into(),
                 text: "Run the tests".into(),
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),
@@ -20,6 +21,7 @@ fn steps_item(id: &ipc::SessionId) -> SetWaitingFor {
                 steps: vec!["first".into(), "second".into()],
             },
             WaitingInput {
+                approves: false,
                 id: "b".into(),
                 text: "Look".into(),
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),

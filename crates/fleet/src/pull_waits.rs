@@ -68,6 +68,7 @@ mod tests {
 
     fn item(source: WaitingSource, text: &str, act: Option<(WaitingActKind, &str)>) -> WaitingItem {
         WaitingItem {
+            approves: false,
             id: "one".to_string(),
             text: text.to_string(),
             since: Instant::carried("2026-10-19T00:00:00Z"),
