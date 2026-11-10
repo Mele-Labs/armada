@@ -44,6 +44,8 @@ async fn suggested(rulings: &[&str], notes: &[(&str, &str)]) -> Rig {
 }
 
 const FILE: &str = "item: 1\nway: 1\nbecause: no open issue covers it";
+// Once the note is filed, the issue it became is open and near the next, so a link is offered first.
+const FILE_BESIDE_A_LINK: &str = "item: 1\nway: 2\nbecause: no open issue covers it";
 const START: &str = "item: 1\nway: 2\nbecause: no Job is near it";
 
 async fn board(rig: &Rig) -> OperatorBoard {
@@ -186,4 +188,100 @@ async fn the_board_is_told_when_a_suggestion_is_added_and_when_one_is_settled() 
     let mut watching = rig.fleet.events().subscribe();
     Arc::clone(&rig.fleet).suggestion_answered(press(&id, 1)).await.expect("his press");
     assert!(matches!(board_told(&mut watching).await, Event::OperatorBoardChanged(_)));
+}
+
+/// A note left after the first, ruled by the next of the rulings seated, and waited on until the Log has its row.
+async fn left_again(rig: &Rig, id: &str, text: &str) -> store::KeptRuling {
+    leave(rig, id, "open", None, text);
+    rig.fleet.sources_handed().await;
+    let arrival = format!("note:{}:{id}", manifest(rig).as_str());
+    eventually(|| async { rig.fleet.store().lock().await.operator_rulings(20).expect("read").iter().any(|row| row.arrival == arrival) }).await;
+    rig.fleet.store().lock().await.operator_rulings(20).expect("read").into_iter().find(|row| row.arrival == arrival).expect("logged")
+}
+
+fn noted_as_a_repeat(row: &store::KeptRuling, of: &str) {
+    assert_eq!(row.outcome, "noted", "{}", row.because);
+    assert!(row.because.contains(of), "{}", row.because);
+}
+
+#[tokio::test]
+async fn a_repeat_of_a_suggestion_still_standing_raises_nothing_and_is_noted_as_its_repeat() {
+    let rig = suggested(&[FILE, FILE], &[("n-1", TEXT)]).await;
+
+    let row = left_again(&rig, "n-2", &format!("  {}  ", TEXT.to_uppercase())).await;
+
+    noted_as_a_repeat(&row, &standing_arrival(&rig));
+    assert_eq!(standing(&rig).await.len(), 1, "no second suggestion");
+    assert!(board(&rig).await.suggestions.len() == 1);
+}
+
+#[tokio::test]
+async fn a_repeat_after_skip_raises_nothing() {
+    let rig = suggested(&[FILE, FILE], &[("n-1", TEXT)]).await;
+    let id = format!("suggestion:{}", standing(&rig).await[0].n);
+    Arc::clone(&rig.fleet).suggestion_answered(press(&id, 1)).await.expect("his press");
+
+    let row = left_again(&rig, "n-2", TEXT).await;
+
+    noted_as_a_repeat(&row, &standing_arrival(&rig));
+    assert!(standing(&rig).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_repeat_after_do_it_raises_nothing() {
+    let rig = suggested(&[FILE, FILE_BESIDE_A_LINK], &[("n-1", TEXT)]).await;
+    let id = format!("suggestion:{}", standing(&rig).await[0].n);
+    Arc::clone(&rig.fleet).suggestion_answered(press(&id, 0)).await.expect("his press");
+
+    let row = left_again(&rig, "n-2", TEXT).await;
+
+    noted_as_a_repeat(&row, &standing_arrival(&rig));
+    assert!(standing(&rig).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_different_subject_still_raises() {
+    let rig = suggested(&[FILE, FILE], &[("n-1", TEXT), ("n-2", SIDEBAR)]).await;
+
+    assert_eq!(standing(&rig).await.len(), 2);
+}
+
+fn merged(rig: &Rig, pull: u32, subject: &str) -> Arrival {
+    Arrival {
+        id: format!("merged:01JOB:{pull}"),
+        arrived: Arrived::Merged,
+        source: Source::Person,
+        session_id: String::new(),
+        manifest_id: manifest(rig).as_str().to_string(),
+        subject: subject.to_string(),
+        words: String::new(),
+        paths: Vec::new(),
+        issues: Vec::new(),
+        group: None,
+        ways: Vec::new(),
+        answers: Vec::new(),
+        rule: None,
+        open: Vec::new(),
+        ties: Vec::new(),
+    }
+}
+
+fn file_next(what: &str) -> Ruling {
+    Ruling { what: Some(what.to_string()), ..Ruling::alone(Way::File, "the next piece of work") }
+}
+
+#[tokio::test]
+async fn two_files_after_two_merges_naming_the_same_what_raise_once() {
+    let rig = filing().await;
+    let acting = FleetActing::on(&rig.fleet);
+    let what = "Show Jobs waiting for a slot in the Operator's Up next";
+
+    let first = acting.suggest_once(&merged(&rig, 3301, "Keep the board's rows"), &file_next(what)).await.expect("carried out");
+    let again = acting.suggest_once(&merged(&rig, 3302, "Tell the Job its slot"), &file_next(&format!(" {}\n", what.to_lowercase()))).await.expect("carried out");
+    let other = acting.suggest_once(&merged(&rig, 3303, "Keep the board's rows"), &file_next("Name the repository on each row")).await.expect("carried out");
+
+    assert_eq!(first, None);
+    assert_eq!(again.as_deref(), Some("a repeat of the suggestion kept for merged:01JOB:3301"));
+    assert_eq!(other, None, "another piece of work is not a repeat, though the subject is the first's");
+    assert_eq!(standing(&rig).await.len(), 2);
 }

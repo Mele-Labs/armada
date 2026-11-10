@@ -88,7 +88,18 @@ where
 
     fn suggest(&self, arrival: &Arrival, ruling: &Ruling) -> Acted<'_> {
         let (arrival, ruling) = (arrival.clone(), ruling.clone());
-        self.doing(move |fleet| async move { fleet.operator_suggested(&arrival, &ruling).await })
+        self.doing(move |fleet| async move { fleet.operator_suggested(&arrival, &ruling).await.map(|_| ()) })
+    }
+
+    fn suggest_once(&self, arrival: &Arrival, ruling: &Ruling) -> super::Done<'_, Result<Option<String>, String>> {
+        let (arrival, ruling) = (arrival.clone(), ruling.clone());
+        let fleet = self.fleet.upgrade();
+        Box::pin(async move {
+            match fleet {
+                Some(fleet) => fleet.operator_suggested(&arrival, &ruling).await,
+                None => Err("Fleet stopped".to_string()),
+            }
+        })
     }
 
     fn go_ahead(&self, session: &str) -> Acted<'_> {
