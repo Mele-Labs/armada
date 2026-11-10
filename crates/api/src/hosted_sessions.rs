@@ -409,6 +409,22 @@ pub(crate) async fn dismiss_waiting<D: HostedSessions>(
     }
 }
 
+/// The person turns a draft into a Document. 200 with the page's name and path; 404 for a draft the job has
+/// none of, 409 for one settled or a job with no worktree, 422 for a proposal's draft.
+pub(crate) async fn convert_draft_to_document<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let convert: ipc::ConvertDraftToDocument = match ipc::decode_body("a draft to turn into a document", &body) {
+        Ok(convert) => convert,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().convert_draft_to_document(convert).await {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The person lets an item he closed wait again. 200 with the row; 409 where no closed item has the id;
 /// 422 where it would not wait again.
 pub(crate) async fn reopen_waiting<D: HostedSessions>(

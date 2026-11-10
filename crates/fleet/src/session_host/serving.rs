@@ -348,6 +348,13 @@ where
         self.dismiss_waited(dismiss).await
     }
 
+    async fn convert_draft_to_document(
+        self: Arc<Self>,
+        convert: ipc::ConvertDraftToDocument,
+    ) -> Result<ipc::DraftDocument, Refusal> {
+        self.draft_made_a_document(convert).await
+    }
+
     async fn reopen_waiting(
         self: Arc<Self>,
         reopen: ipc::ReopenWaiting,
