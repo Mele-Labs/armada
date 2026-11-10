@@ -4,7 +4,7 @@
    "id": "mock-01",
    "mark": {
     "state": "working",
-    "lamp": "working",
+    "lamp": "running",
     "group": "working"
    },
    "harness": "claude-code",
@@ -119,7 +119,7 @@
    "mark": {
     "state": "idle",
     "lamp": "idle",
-    "group": "working"
+    "group": "done"
    },
    "harness": "claude-code",
    "origin": "bridge",

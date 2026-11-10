@@ -22,6 +22,7 @@ use super::capture::{element_at, region, ringed, Held};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use super::fleet::WalkFleet;
 use super::stage::{find, perform, Stage};
+use super::Verb;
 use super::Walk;
 use crate::labels::{label_root, labelled, Drawn, LabelBook};
 use crate::look::{token, ActiveLook};
@@ -596,7 +597,16 @@ impl WalkWindow {
         Reading {
             at: self.at,
             fault: self.said.as_ref().filter(|said| said.fault).map(|said| said.text.to_string()),
-            missing: if self.playing { Some("still playing".into()) } else { find(&self.walk.steps[self.at], window, cx).err().map(|missed| missed.0) },
+            missing: if self.playing {
+                Some("still playing".into())
+            } else {
+                let step = &self.walk.steps[self.at];
+                match (step.verb, find(step, window, cx)) {
+                    (Verb::Gone, Ok(_)) => Some(format!("the {} named \"{}\" is still drawn", step.target.role, step.target.name)),
+                    (Verb::Gone, Err(_)) => None,
+                    (_, found) => found.err().map(|missed| missed.0),
+                }
+            },
         }
     }
 

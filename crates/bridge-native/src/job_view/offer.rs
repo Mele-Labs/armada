@@ -7,7 +7,7 @@
 
 use std::time::Duration;
 
-use gpui::{div, prelude::*, svg, Context, KeyDownEvent, Role, SharedString, Window};
+use gpui::{div, prelude::*, svg, Context, Role, SharedString, Window};
 use gpui_component::input::InlineToken;
 use ipc::TagKind;
 
@@ -281,10 +281,9 @@ impl JobView {
         .detach();
     }
 
-    /// The keys while a list is open: they are the list's, and the box does not see them.
-    pub(super) fn on_composer_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let key = event.keystroke.key.as_str();
-        let Some(offer) = self.composer.offer.as_mut() else { return };
+    /// A key while a list is open: it is the list's, and the box does not see it. True where taken.
+    pub(super) fn offer_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(offer) = self.composer.offer.as_mut() else { return false };
         let last = offer.rows.len().saturating_sub(1);
         match key {
             "down" => offer.current = (offer.current + 1).min(last),
@@ -296,14 +295,14 @@ impl JobView {
                 let whole = key == "enter" && offer.rows.get(current).is_some_and(|row| matches!(&row.pick, Pick::Command(name) if *name == offer.query));
                 if whole {
                     self.composer.offer = None;
-                    return;
+                    return false;
                 }
                 self.choose(current, window, cx);
             }
-            _ => return,
+            _ => return false,
         }
-        cx.stop_propagation();
         cx.notify();
+        true
     }
 
     pub(super) fn choose(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {

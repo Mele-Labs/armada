@@ -66,18 +66,18 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_keystroke(keystroke, cx);
             Ok(())
         }
-        Verb::Press => {
+        Verb::Press | Verb::Gone => {
             let at = find(step, window, cx)?.bounds.center();
             press(MouseButton::Left, at, window, cx);
             Ok(())
         }
         Verb::RightPress(on) => {
-            let role = role_named("row").expect("a row is a role");
-            let drawn = cx
-                .try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
-                .cloned()
-                .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
+            let book = cx.try_global::<LabelBook>();
+            let found = |word: &str| {
+                let role = role_named(word).expect("a role the walk names");
+                book.and_then(|book| book.find(window.window_handle().window_id(), role, on)).cloned()
+            };
+            let drawn = found("row").or_else(|| found("button")).ok_or_else(|| Missed(format!("no row or button named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
             Ok(())
         }

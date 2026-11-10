@@ -431,7 +431,7 @@ impl JobView {
                 Entry::Act { id: EDIT, label: "Edit".into(), icon: Some("square-pen"), danger: false },
                 Entry::Act { id: PIN, label: if line.pinned { "Unpin" } else { "Pin" }.into(), icon: Some("arrow-up-to-line"), danger: false },
                 Entry::Rule,
-                Entry::Act { id: DELETE, label: "Delete".into(), icon: Some("trash-2"), danger: true },
+                Entry::Act { id: DELETE, label: "Delete".into(), icon: Some("trash"), danger: true },
             ],
             (None, Kind::Asked) => {
                 let kept = self.composer.quick.kept().iter().any(|one| one.text == line.text);
@@ -496,7 +496,7 @@ impl JobView {
                 }
             }
             let (glyph, word) = match line.kind {
-                Kind::Asked => ("message-circle-question", "Asked"),
+                Kind::Asked => ("message-circle-question-mark", "Asked"),
                 Kind::Learnt => ("repeat", "Learnt"),
                 Kind::Saved => ("message-square-quote", "Saved"),
             };
@@ -549,6 +549,7 @@ impl JobView {
                             MouseButton::Right,
                             cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
                                 this.open_line_menu(menu_line.clone(), event.position, false, window, cx);
+                                cx.stop_propagation();
                             }),
                         )
                         .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {

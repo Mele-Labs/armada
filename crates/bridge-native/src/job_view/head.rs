@@ -55,12 +55,12 @@ struct Rename {
 }
 
 struct OpenMenu {
-    _menu: Entity<Dropdown>,
+    menu: Entity<Dropdown>,
     _subs: Vec<Subscription>,
 }
 
 struct OpenConfirm {
-    _confirm: Entity<Confirm>,
+    confirm: Entity<Confirm>,
     _subs: Vec<Subscription>,
 }
 
@@ -402,11 +402,6 @@ impl JobView {
         .detach();
     }
 
-    /// Fleet's reason for the last act on the Job it refused.
-    pub(super) fn head_said(&self, id: &SharedString) -> Option<SharedString> {
-        self.head.said.get(id).cloned()
-    }
-
     pub(super) fn session_id(id: &SharedString) -> SessionId {
         SessionId::carried(id.to_string())
     }
@@ -513,7 +508,7 @@ impl JobView {
         });
         let keys = menu.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
-        self.head.menu = Some(OpenMenu { _menu: menu, _subs: vec![picked, dismissed] });
+        self.head.menu = Some(OpenMenu { menu, _subs: vec![picked, dismissed] });
         cx.notify();
     }
 
@@ -684,7 +679,7 @@ impl JobView {
         });
         let keys = confirm.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&keys, cx));
-        self.head.confirm = Some(OpenConfirm { _confirm: confirm, _subs: vec![decided, dismissed] });
+        self.head.confirm = Some(OpenConfirm { confirm, _subs: vec![decided, dismissed] });
         cx.notify();
     }
 
@@ -780,7 +775,7 @@ impl JobView {
                     .id("head-rename")
                     .key_context(crate::keymap::TEXT_BOX)
                     .flex_1()
-                    .min_w_0()
+                    .min_w(look.length(token::SPACE_12) * 5.)
                     .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                         if event.keystroke.key == "escape" {
                             this.finish_rename(false, window, cx);
@@ -875,6 +870,8 @@ impl JobView {
                     .child(div().max_w(look.length(token::SPACE_12) * 8.).min_w_0().flex().h_full().child(tab)),
             )
             .children(said)
+            .children(self.head.menu.as_ref().map(|open| open.menu.clone()))
+            .children(self.head.confirm.as_ref().map(|open| open.confirm.clone()))
             .into_any_element()
     }
 
@@ -1015,6 +1012,8 @@ impl JobView {
     pub(super) fn retry_handoff(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         self.overlay_mut(&id).retried = true;
+        // The band goes with the press, so the keys go back to the box.
+        self.to_composer(window, cx);
         let body = ipc::encode(&ipc::RetryHandoff { session_id: Self::session_id(&id) });
         self.ask_act(id, "/sessions/handoff/retry".into(), body, |overlay| overlay.retried = false, window, cx);
     }

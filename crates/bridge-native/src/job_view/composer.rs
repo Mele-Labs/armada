@@ -21,7 +21,7 @@ use gpui::{
     Context, DismissEvent, Entity, ExternalPaths, FocusHandle, Focusable, FontWeight, Image, ImageFormat, KeyDownEvent, PathPromptOptions,
     Role, SharedString, Subscription, Task, Window,
 };
-use gpui_component::input::{InlineToken, InputContent, InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, Escape, IndentInline, InlineToken, InputContent, InputEvent, MoveDown, MoveUp, Textarea, TextareaState};
 use ipc::{
     ModelChoices, SendSessionMessage, SendSessionMessageBody, SentFile, SessionMode, SessionRow, SessionTag, SessionUpload,
     SessionVoice, ThreadItem, TuneSession,
@@ -516,6 +516,8 @@ impl JobView {
         if act.is("send_message") && in_box {
             // ⌘Enter sends from the box too.
             self.send(window, cx);
+        } else if act.is("deck_tabs") && in_box && act.digit.is_some_and(|digit| self.press_quick(digit as usize - 1, false, window, cx)) {
+            // ⌘1 to ⌘9 in the box send quick line n, and the tabs do not move.
         } else if act.is("handoff_retry") && self.handoff_band_focused(window, cx) {
             self.retry_handoff(window, cx);
         } else {
@@ -523,20 +525,22 @@ impl JobView {
         }
     }
 
-    /// The keys the box takes before the text does: the list's, and the quick lines' (⌘1 to ⌘9 send
-    /// line n, with ⇧ it goes after the draft).
+    /// ⇧⌘1 to ⇧⌘9 put quick line n after the draft (⌘1 to ⌘9 reach the line through `deck_tabs`).
     pub(super) fn on_box_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let keys = &event.keystroke;
-        if self.composer.offer.is_some() {
-            self.on_composer_key(event, window, cx);
-            return;
-        }
-        if keys.modifiers.platform && !keys.modifiers.alt && !keys.modifiers.control {
+        if keys.modifiers.platform && keys.modifiers.shift && !keys.modifiers.alt && !keys.modifiers.control {
             if let Some(n) = keys.key.parse::<usize>().ok().filter(|n| (1..=9).contains(n)) {
-                if self.press_quick(n - 1, keys.modifiers.shift, window, cx) {
+                if self.press_quick(n - 1, true, window, cx) {
                     cx.stop_propagation();
                 }
             }
+        }
+    }
+
+    /// The keys the text box would take, which a list over it takes first.
+    fn list_key(&mut self, key: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.offer_key(key, window, cx) {
+            cx.stop_propagation();
         }
     }
 
@@ -814,7 +818,7 @@ impl JobView {
             let key = one.key;
             let name: SharedString = one.name.clone().into();
             let remove = labelled(
-                icon_button(look, "remove-file", "trash-2", format!("Remove {}", one.name).into(), false, false)
+                icon_button(look, "remove-file", "trash", format!("Remove {}", one.name).into(), false, false)
                     .absolute()
                     .top(look.length(token::SPACE_1))
                     .right(look.length(token::SPACE_1))
@@ -888,7 +892,7 @@ impl JobView {
     /// The box and what hangs on it: refusal, hand-off band, quick bar, tray, words, bar and acts.
     pub(super) fn render_dock(&self, id: &SharedString, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let look = cx.look();
-        let refused = self.pages.get(id).and_then(|page| page.refused.clone()).or_else(|| self.head_said(id));
+        let refused = self.pages.get(id).and_then(|page| page.refused.clone());
         let kept_empty = self.composer.input.read(cx).value().trim().is_empty();
         let nothing = kept_empty && self.composer.files_of(id).is_empty();
         let focused = self.composer.input.read(cx).focus_handle(cx).contains_focused(window, cx);
@@ -967,6 +971,15 @@ impl JobView {
             .id("message")
             .key_context(crate::keymap::TEXT_BOX)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if !action.secondary && !action.shift {
+                    this.list_key("enter", window, cx);
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
+            .capture_action(cx.listener(|this, _: &MoveDown, window, cx| this.list_key("down", window, cx)))
+            .capture_action(cx.listener(|this, _: &Escape, window, cx| this.list_key("escape", window, cx)))
+            .capture_action(cx.listener(|this, _: &IndentInline, window, cx| this.list_key("tab", window, cx)))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
             .text_size(look.length(token::TEXT_BASE))
