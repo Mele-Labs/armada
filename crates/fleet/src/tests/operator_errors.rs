@@ -1,5 +1,5 @@
 //! An error Bridge showed the person, as it reaches the Operator: once for the same fault in a local
-//! day, first in the order, and by the role's position as a bug report goes. Nothing arrives while the
+//! day, first in the order, and asking before it acts as a bug report does. Nothing arrives while the
 //! Operator is off.
 
 use ipc::operator_board::OperatorBoardKind;
@@ -26,11 +26,6 @@ fn card(code: &str, message: &str, job: Option<&str>) -> ReportBridgeError {
         job_id: job.map(str::to_string),
         at: "2026-11-06T09:00:00.000Z".into(),
     }
-}
-
-async fn positioned(rig: &Rig, key: &str, position: &str) {
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Text(position.to_string())))]) };
-    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
 /// A Job ruled to start, which needs no near Job: ways are 1. file, 2. new job, 3. raise.
@@ -116,9 +111,8 @@ async fn an_error_goes_ahead_of_what_waits_and_shows_first_in_the_boards_next_an
 }
 
 #[tokio::test]
-async fn with_dispatch_at_suggest_an_error_is_kept_as_a_suggestion_and_a_job_starts_only_on_do_it() {
+async fn an_error_ruled_a_new_job_is_kept_as_a_suggestion_and_a_job_starts_only_on_do_it() {
     let rig = filing().await;
-    positioned(&rig, "features.operatorDispatch", "suggest").await;
     assert!(rig.fleet.operator_seated_with(Answers::with(&[START])));
 
     rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
@@ -134,14 +128,17 @@ async fn with_dispatch_at_suggest_an_error_is_kept_as_a_suggestion_and_a_job_sta
 }
 
 #[tokio::test]
-async fn with_dispatch_on_an_error_ruled_a_new_job_starts_it_at_once_with_every_word_of_the_card_as_its_brief() {
+async fn doing_it_starts_the_job_with_every_word_of_the_card_as_its_brief() {
     let rig = filing().await;
     assert!(rig.fleet.operator_seated_with(Answers::with(&[START])));
 
     rig.fleet.bridge_error_taken(card("bridge.fleet.build_failed", SUBJECT, None)).await;
 
+    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
+    let kept = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").remove(0);
+    let _ = std::sync::Arc::clone(&rig.fleet).suggestion_chosen("", &format!("suggestion:{}", kept.n), Some(0)).await;
+
     eventually(|| async { jobs_titled(&rig, SUBJECT).await == 1 }).await;
-    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty());
     let job = {
         let store = rig.fleet.store().lock().await;
         let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: None, text: None }).expect("read");
@@ -160,7 +157,7 @@ async fn eventually_told(rig: &Rig, job: &str) -> String {
 }
 
 #[tokio::test]
-async fn an_error_raised_in_a_live_job_is_weighed_against_it_and_handed_to_it_at_on() {
+async fn an_error_raised_in_a_live_job_is_weighed_against_it_and_handed_to_it_only_on_do_it() {
     let rig = filing().await;
     let near = rig.start_titled(Some("Terminal scrollback loss")).await;
     let ruling = format!("item: 1\nway: 2\njob: {}\nshared: terminal, scrollback\nbecause: its work caused it", near.as_str());
@@ -168,6 +165,11 @@ async fn an_error_raised_in_a_live_job_is_weighed_against_it_and_handed_to_it_at
     assert!(rig.fleet.operator_seated_with(call.clone()));
 
     rig.fleet.bridge_error_taken(card("bridge.panes.crashed", "The pane exited early", Some(near.as_str()))).await;
+
+    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
+    assert!(!notices_in(&rig, &near).await.iter().any(|(_, text)| text.contains("The Operator handed you an error")), "nobody is told until he presses");
+    let kept = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").remove(0);
+    let _ = std::sync::Arc::clone(&rig.fleet).suggestion_chosen(&kept.session_id, &format!("suggestion:{}", kept.n), Some(0)).await;
 
     eventually(|| async { notices_in(&rig, &near).await.iter().any(|(_, text)| text.contains("The Operator handed you an error") && text.contains("Code: bridge.panes.crashed")) }).await;
     let asked = call.asked();

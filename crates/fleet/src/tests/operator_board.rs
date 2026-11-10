@@ -9,7 +9,7 @@ use ipc::operator_board::MoveOnOperatorBoard;
 use ipc::Event;
 use tokio::sync::Semaphore;
 
-use super::operator_acting::{asked, dispatch};
+use super::operator_acting::{asked, operator_on};
 use super::session_host::{eventually, rig_placing, Rig};
 use crate::operator::{Answering, Arrival, Arrived, Calling, Source, Way};
 use crate::CallFailed;
@@ -81,7 +81,7 @@ pub(super) struct Waiting {
 
 pub(super) async fn waiting(rulings: &[&str], talks: &[&str]) -> Waiting {
     let rig = rig_placing(None);
-    dispatch(&rig, true).await;
+    operator_on(&rig).await;
     let call = Gated::saying(rulings, talks);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     let job = asked(&rig, "Keep the scrollback").await;
@@ -129,7 +129,7 @@ fn code(refused: api::Refusal) -> (u16, String) {
 #[tokio::test]
 async fn the_board_reads_what_a_call_is_out_on_what_waits_behind_it_and_what_was_settled() {
     let rig = rig_placing(None);
-    dispatch(&rig, true).await;
+    operator_on(&rig).await;
     let first = format!("{}\n", raised(1));
     let second = raised(2);
     let call = Gated::saying(&[&first, &second], &[]);

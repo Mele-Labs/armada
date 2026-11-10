@@ -153,8 +153,8 @@ pub enum PassedOn {
     Refused(String),
     /// The week's plan is used to the Operator's pause, so no call was made.
     Paused(Paused),
-    /// Every way it could go is Read-only, so no call was made. **Not in Done.**
-    ReadOnly,
+    /// The ruling came back after the Operator was turned off, so nothing was done.
+    Off,
     /// The ruling came back, and Fleet could not carry it out.
     Undone(String),
 }
@@ -167,7 +167,7 @@ impl fmt::Display for PassedOn {
             PassedOn::Unreadable(why) => write!(out, "the answer could not be read: {why}"),
             PassedOn::Refused(why) => write!(out, "the ruling was refused: {why}"),
             PassedOn::Paused(paused) => write!(out, "the week's plan is {}% used, past the Operator's pause at {}%, so no call was made", paused.week, paused.at),
-            PassedOn::ReadOnly => write!(out, "every way it could go is Read-only, so no call was made"),
+            PassedOn::Off => write!(out, "the Operator was turned off while its call was out, so nothing was done"),
             PassedOn::Undone(why) => write!(out, "it could not be carried out: {why}"),
         }
     }
@@ -193,8 +193,6 @@ pub enum Outcome {
     Skipped,
     /// The person sent a note to a Job himself, from Bridge.
     Sent,
-    /// Its role is Read-only, so no call was made or none was acted on. **Not in Done.**
-    ReadOnly,
     /// The ruling was kept to wait on a press. **Not in Done**: the press is the row.
     Proposed(Way),
 }
@@ -208,7 +206,6 @@ impl Outcome {
             Outcome::HoldLifted => "hold_lifted",
             Outcome::Skipped => "skipped",
             Outcome::Sent => "sent",
-            Outcome::ReadOnly => "read_only",
             Outcome::Proposed(way) => way.proposed_word(),
         }
     }

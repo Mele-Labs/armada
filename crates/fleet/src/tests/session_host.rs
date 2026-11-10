@@ -25,7 +25,7 @@ use crate::session_host::{address_of, Heard, Process, Processes, Sink, Start};
 use crate::tests::daemon::a_fleet;
 use crate::tests::tmp::TempDir;
 
-type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
+pub(super) type Hosted = Fleet<FakeHarness, FakeVcs, FakeWorkProduct>;
 
 pub(super) struct Standing {
     pub(super) sent: Mutex<Vec<String>>,

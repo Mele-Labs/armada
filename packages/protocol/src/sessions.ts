@@ -646,25 +646,14 @@ export type MoveInLine = {
   place: LinePlace;
 };
 
-/** One of the forms a standing order takes, which Fleet enforces. `what` is a kind as the Log names it. */
-export type OperatorOrderForm =
-  | {
-      kind: "role_off";
-      role: "dispatch" | "delegate" | "answer" | "file";
-      manifest_id: string;
-      today?: boolean;
-    }
-  | {
-      kind: "hold_paths";
-      manifest_id: string;
-      paths: string[];
-      job: string;
-      until: "pushes" | "ends";
-    }
-  | {
-      kind: "always_raise";
-      what: string;
-    };
+/** The one form a standing order takes, which Fleet enforces: a hold on paths. */
+export type OperatorOrderForm = {
+  kind: "hold_paths";
+  manifest_id: string;
+  paths: string[];
+  job: string;
+  until: "pushes" | "ends";
+};
 
 /** `operator_orders` (`GET /operator/orders`), and the answer to confirming or removing one: the orders in force now. */
 export type OperatorOrders = {
@@ -717,6 +706,10 @@ export type OperatorSaid = {
   forms?: string[];
   /** The board item it put first in `next`, as he asked. */
   moved?: string;
+  /** The rule it forgot, as he asked: its id, which is gone from Learned. The item it covered asks again. */
+  forgot?: number;
+  /** The hold it lifted, as he asked: its id. The Jobs it held write again. */
+  lifted?: number;
 };
 
 /** `operator_talk` (`GET /operator/talk`): the last twenty messages, oldest first. */

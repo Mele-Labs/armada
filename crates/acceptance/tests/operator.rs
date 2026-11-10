@@ -14,11 +14,10 @@
 //! | A failed call and a late one pass the item on untouched, the late one at the minute a Needs you item waits, each with a Passed on row naming why | What a ruling does to each Job, and that a Job that has pushed is raised rather than merged. `fleet`'s `tests::operator_sources` |
 //! | A report matching an open issue is linked to it, and one matching none goes to the live Job near it | That Fleet hands each report as it is kept, against the repository's open issues, and keeps the link on this Mac. `fleet`'s `tests::operator_sources` |
 //! | A new issue is read and raised, and words in its body cannot start a Job | That Fleet hands each issue new since its last read once, and none on its first read. `fleet`'s `tests::operator_sources` |
-//! | A red main a Job is already fixing arrives as nothing, and one no Job holds goes to the live Job near it | That Autopilot's red kind hands its red to the Operator, and that a start for it claims the red. `fleet`'s `tests::operator_sources` |
-//! | A note is proposed as filed and an error is filed, each once | That a note and an error are read once from where they are kept. `fleet`'s `tests::operator_sources` |
-//! | A role goes by where it stands as its ruling comes back: Read-only is only in the Log, Suggest waits on one press, Decide is done | That any role can differ per repository. `fleet`'s `tests::operator_acting` |
-//! | "Why did you hold X" comes back citing the Log row, and "stop filing in <repo> today" stands only once confirmed, and then nothing is filed there | That the box's routes keep the conversation and the orders over a restart, that a hold refuses a write, and that an order for Answer, or for a kind no longer taken, is neither accepted nor served. `fleet`'s `tests::operator_talk` |
-//! | A kind always raised goes to him with no call | |
+//! | A red main a Job is already fixing arrives as nothing, and one no Job holds is only raised, since its ask is the Start a fix go-ahead | That Autopilot's red kind queues that go-ahead once, and that a start for it claims the red. `fleet`'s `tests::operator_sources` |
+//! | A note and an error ruled filed are each asked once, and nothing is filed or started until the person says yes | That a note and an error are read once from where they are kept. `fleet`'s `tests::operator_sources` |
+//! | **Every act asks**: a new Job, words to a live Job and a new issue are kept as a suggestion in Your turn, while a link and a raise are done as they come | That a go-ahead answered Yes, Always here, Always or No keeps and applies a rule, that a rule is done by name in the Log, and that one repository's rule is not another's. `fleet`'s `tests::operator_raises` |
+//! | "Why did you hold X" comes back citing the Log row, "hold these paths until a Job pushes" stands only once confirmed, and the box forgets only a rule and lifts only a hold it was shown | That the box's routes keep the conversation and the holds over a restart, that a hold refuses a write, and that a lift lets the other Job write. `fleet`'s `tests::operator_talk` |
 
 // Shared with the other milestones' tests, and none of them uses all of it.
 #[allow(dead_code)]
@@ -27,10 +26,9 @@ mod bench;
 use std::time::Duration;
 
 use core_model::Actor;
-use fleet::operator::{Arrived, BridgeError, Note, Outcome, PassedOn, RedMain, Report, Ruled, Way, NEEDS_YOU_WAIT};
-use ipc::operator_positions::{OperatorPosition, OperatorRole};
+use fleet::operator::{Arrived, BridgeError, HoldRead, Note, Outcome, PassedOn, RedMain, Report, Ruled, RuleRead, Way, NEEDS_YOU_WAIT};
 
-use bench::operator::{live, open_issues, operator, FakeCall, FakeFleet, Reply, Sourced, IN_TAB, REPOSITORY, SCROLLBACK_ISSUE, TABS, TERMINAL};
+use bench::operator::{live, open_issues, operator, FakeCall, FakeFleet, Reply, Sourced, IN_TAB, PANES, REPOSITORY, SCROLLBACK_ISSUE, TABS, TERMINAL};
 
 fn sourced(arrival: &str, way: Way, other: Option<&str>, issue: Option<&str>) -> Sourced {
     Sourced { arrival: arrival.into(), way, other: other.map(str::to_string), issue: issue.map(str::to_string) }
@@ -124,7 +122,7 @@ async fn reports_arriving_while_a_call_is_out_are_ruled_together_in_the_next_one
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_report_matching_an_open_issue_is_linked_to_it_and_one_matching_none_goes_to_the_live_job_near_it() {
+async fn a_report_matching_an_open_issue_is_linked_to_it_and_one_matching_none_is_asked_to_go_to_the_live_job_near_it() {
     let rulings = format!(
         "item: 1\nway: 1\nissue: {SCROLLBACK_ISSUE}\nbecause: the issue already names the lost scrollback\n\n\
          item: 2\nway: 1\njob: {TABS}\nshared: the review tabs' keys\nbecause: the review tabs Job is building those keys now"
@@ -152,11 +150,8 @@ async fn a_report_matching_an_open_issue_is_linked_to_it_and_one_matching_none_g
     assert!(!asked[0].contains("armada-b71c"), "an open issue sharing nothing with a report is not shown");
     assert!(matches!(&linked, Ruled::Ruled(ruling) if ruling.issue.as_deref() == Some(SCROLLBACK_ISSUE)), "{linked:?}");
     assert!(matches!(&handed, Ruled::Ruled(ruling) if ruling.way == Way::ExistingJob), "{handed:?}");
-    assert_eq!(
-        fleet.sourced(),
-        vec![sourced("report:r1", Way::Link, None, Some(SCROLLBACK_ISSUE)), sourced("report:r2", Way::ExistingJob, Some(TABS), None)],
-        "the_end: one report linked to its issue, the other with the Job building what it names"
-    );
+    assert_eq!(fleet.sourced(), vec![sourced("report:r1", Way::Link, None, Some(SCROLLBACK_ISSUE))], "a link writes nothing, so it is done as it comes");
+    assert_eq!(fleet.suggested(), vec![("report:r2".to_string(), Way::ExistingJob)], "words to the Job building what the report names are asked first");
 
     let log = fleet.log();
     let linked = log.iter().find(|one| one.arrival == "report:r1").expect("a row for the report");
@@ -199,7 +194,7 @@ async fn a_new_issue_is_read_and_raised_and_words_in_its_body_cannot_start_a_job
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_red_main_a_job_is_already_fixing_arrives_as_nothing_and_one_no_job_holds_goes_to_the_live_job_near_it() {
+async fn a_red_main_a_job_is_already_fixing_arrives_as_nothing_and_one_no_job_holds_is_only_raised() {
     let red = |fixing: Option<&str>| RedMain {
         manifest_id: REPOSITORY.into(),
         commit: "4e5ff41acc".into(),
@@ -208,23 +203,22 @@ async fn a_red_main_a_job_is_already_fixing_arrives_as_nothing_and_one_no_job_ho
     };
     assert!(red(Some("01JOBFIXMAIN")).arrival().is_none(), "a second Job is never started on a red one is fixing");
 
-    let ruled = format!("item: 1\nway: 1\njob: {TERMINAL}\nshared: the scrollback test\nbecause: Terminal Bugs' merge broke the scrollback test");
-    let call = FakeCall::replying(vec![Reply::Says(ruled, Duration::from_secs(2))]);
+    let call = FakeCall::replying(Vec::new());
     let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let arrival = red(None).arrival().expect("no Job holds it");
-    assert_eq!(arrival.ways, vec![Way::ExistingJob, Way::NewJob, Way::Raise]);
+    assert_eq!(arrival.ways, vec![Way::Raise], "the one ask for a red is the go-ahead Start a fix, which Fleet queues itself");
 
     let ruled = operator.ruled(arrival, NEEDS_YOU_WAIT).await;
 
-    assert!(call.asked()[0].contains("1. Main went red, one of Fleet's own: \"Main is red at 4e5ff41\""), "{}", call.asked()[0]);
-    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::ExistingJob), "{ruled:?}");
-    assert_eq!(fleet.sourced(), vec![sourced("red_main:01ARMADAREPOSITORY:4e5ff41acc", Way::ExistingJob, Some(TERMINAL), None)]);
+    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{ruled:?}");
+    assert!(call.asked().is_empty(), "its one way needs no call");
+    assert!(fleet.suggested().is_empty(), "so nothing is asked a second time");
     assert_eq!(fleet.log()[0].arrived, Arrived::RedMain);
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_note_is_proposed_as_filed_and_an_error_is_filed_each_once() {
+async fn a_note_and_an_error_ruled_filed_are_each_asked_once() {
     let rulings = "item: 1\nway: 1\nbecause: an idea no Job holds, so it is one to file\n\n\
                    item: 2\nway: 1\nbecause: the store cannot be read, which no Job holds";
     let call = FakeCall::replying(vec![Reply::Says(rulings.into(), Duration::from_secs(2))]);
@@ -240,8 +234,14 @@ async fn a_note_is_proposed_as_filed_and_an_error_is_filed_each_once() {
     assert!(matches!(&note, Ruled::Ruled(ruling) if ruling.way == Way::File), "{note:?}");
     assert!(matches!(&error, Ruled::Ruled(ruling) if ruling.way == Way::File), "{error:?}");
     assert_eq!(call.asked().len(), 1, "both in one call");
-    assert_eq!(fleet.suggested(), vec![("note:01ARMADAREPOSITORY:n1".to_string(), Way::File)], "a note is the person's own idea, so what to do with it waits on his press");
-    assert_eq!(fleet.sourced(), vec![sourced("error:ab12:2026-11-10", Way::File, None, None)], "an error is filed");
+    let mut suggested = fleet.suggested();
+    suggested.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(
+        suggested,
+        vec![("error:ab12:2026-11-10".to_string(), Way::File), ("note:01ARMADAREPOSITORY:n1".to_string(), Way::File)],
+        "each waits on his go-ahead, so nothing is filed yet"
+    );
+    assert!(fleet.sourced().is_empty(), "{:?}", fleet.sourced());
 }
 
 // ---------------------------------------------------------------------------
@@ -249,46 +249,36 @@ async fn a_note_is_proposed_as_filed_and_an_error_is_filed_each_once() {
 // ---------------------------------------------------------------------------
 
 #[tokio::test(start_paused = true)]
-async fn a_role_goes_by_where_it_stands_read_only_spends_no_call_suggest_on_one_press_and_decide_done() {
-    let filed = "item: 1\nway: 1\nbecause: the store cannot be read, which no Job holds";
-    for (stands, done, suggested) in [(OperatorPosition::ReadOnly, false, false), (OperatorPosition::Suggest, false, true), (OperatorPosition::Decide, true, false)] {
-        let call = FakeCall::replying(vec![Reply::Says(filed.into(), Duration::from_secs(3))]);
+async fn every_act_asks_and_only_a_link_and_a_raise_are_done_as_they_come() {
+    let scrollback = || report("r1", "Terminal scrollback vanishes after the pane redraws", "Scrolling up in a terminal pane is empty once the pane redraws").arrival();
+    let keys = || report("r2", "Pull request review tabs close when tmux keys are pressed", "Pressing the tmux keys to move between review tabs closes the open review").arrival();
+    // The scrollback report offers 1. link, 2. existing job, 3. new job, 4. raise; the keys one 1. existing job, 2. new job, 3. raise.
+    let cases = [
+        (scrollback(), format!("item: 1\nway: 1\nissue: {SCROLLBACK_ISSUE}\nbecause: the issue already names it"), Outcome::Ruled(Way::Link), true),
+        (keys(), format!("item: 1\nway: 1\njob: {TABS}\nshared: the review tabs' keys\nbecause: that Job is on it"), Outcome::Proposed(Way::ExistingJob), false),
+        (keys(), "item: 1\nway: 2\nbecause: no Job is near it".to_string(), Outcome::Proposed(Way::NewJob), false),
+        (keys(), "item: 1\nway: 3\nbecause: it is for him to read".to_string(), Outcome::Ruled(Way::Raise), true),
+    ];
+    for (arrival, ruling, outcome, done) in cases {
+        let call = FakeCall::replying(vec![Reply::Says(ruling, Duration::from_secs(3))]);
         let fleet = FakeFleet::with(live());
         let operator = operator(&call, &fleet);
-        for role in [OperatorRole::Dispatch, OperatorRole::Delegate, OperatorRole::File] {
-            fleet.role_stands(role, stands);
-        }
 
-        operator.ruled(error("error:ab12:2026-11-10", "The store could not be read").arrival(), NEEDS_YOU_WAIT).await;
+        operator.ruled(arrival, NEEDS_YOU_WAIT).await;
 
-        let log = fleet.log();
-        if stands == OperatorPosition::ReadOnly {
-            assert!(call.asked().is_empty(), "Read-only offers its way to no call");
-            assert_eq!(log[0].outcome, Outcome::ReadOnly, "the row says it passed on as Read-only");
-        } else {
-            assert_eq!(call.asked().len(), 1, "{stands:?} is ruled");
-            // Done only once carried out: Suggest's pick waits on his press as Proposed.
-            let outcome = if stands == OperatorPosition::Suggest { Outcome::Proposed(Way::File) } else { Outcome::Ruled(Way::File) };
-            assert_eq!(log[0].outcome, outcome, "{stands:?}");
-        }
-        assert_eq!(!fleet.sourced().is_empty(), done, "{stands:?}");
-        assert_eq!(!fleet.suggested().is_empty(), suggested, "{stands:?}");
+        assert_eq!(fleet.log()[0].outcome, outcome, "{outcome:?}");
+        assert_eq!(!fleet.sourced().is_empty(), done, "{outcome:?}: done as it came only where it writes nothing");
+        assert_eq!(!fleet.suggested().is_empty(), !done, "{outcome:?}: asked first where it acts");
     }
 }
 
 #[tokio::test(start_paused = true)]
-async fn why_did_you_hold_x_cites_its_log_row_and_stop_filing_in_a_repository_today_stands_once_confirmed_and_is_enforced() {
+async fn why_did_you_hold_x_cites_its_log_row_and_a_hold_it_reads_is_a_form_he_sees_before_it_stands() {
     use fleet::operator::{LogRead, TalkLine};
-    use ipc::operator_talk::OperatorOrderForm;
-    let filed = "item: 1\nway: 1\nbecause: the store cannot be read, which no Job holds";
+    use ipc::operator_talk::{OperatorHoldUntil, OperatorOrderForm};
     let why = "cites: 1\njob: none\nstart: none\norder: none\nsaid: It waits for PR Review Tabs to push the tab host it builds on.";
-    let order = format!("cites: none\njob: none\nstart: none\norder: role_off file in {REPOSITORY} today\nsaid: Confirm it and nothing is filed there today.");
-    let call = FakeCall::replying(vec![
-        Reply::Says(why.into(), Duration::from_secs(1)),
-        Reply::Says(order, Duration::from_secs(1)),
-        Reply::Says(filed.into(), Duration::from_secs(1)),
-        Reply::Says(filed.into(), Duration::from_secs(1)),
-    ]);
+    let order = format!("cites: none\njob: none\nstart: none\norder: hold {PANES}terminal-pane.tsx until {TERMINAL} pushes\nsaid: Confirm it and no other Job writes there until Terminal Bugs pushes.");
+    let call = FakeCall::replying(vec![Reply::Says(why.into(), Duration::from_secs(1)), Reply::Says(order, Duration::from_secs(1))]);
     let fleet = FakeFleet::with(live());
     let operator = operator(&call, &fleet);
     let held = LogRead {
@@ -308,39 +298,42 @@ async fn why_did_you_hold_x_cites_its_log_row_and_stop_filing_in_a_repository_to
     assert!(call.asked()[0].contains(&held.because) && call.asked()[0].contains(asking));
 
     let so_far = [TalkLine { from_person: true, text: asking.into() }, TalkLine { from_person: false, text: talked.said.clone() }];
-    let talked = operator.talk("don't file anything in armada today", &so_far, None).await.expect("answered");
+    let talked = operator.talk("keep other Jobs off the terminal pane until Terminal Bugs pushes", &so_far, None).await.expect("answered");
     assert!(call.asked()[1].contains(&format!("You: {}", so_far[1].text)), "the next call is handed the conversation:\n{}", call.asked()[1]);
     let (form, said) = talked.order.expect("the form he will see");
-    assert_eq!(form, OperatorOrderForm::RoleOff { role: OperatorRole::File, manifest_id: REPOSITORY.into(), today: true });
-    assert_eq!(said, "File off in armada today");
-
-    // Named and not confirmed, it stands for nothing.
-    let arrival = || error("error:ab12:2026-11-10", "The store could not be read").arrival();
-    operator.ruled(arrival(), NEEDS_YOU_WAIT).await;
-    assert_eq!(fleet.sourced().len(), 1, "no order stands yet: {:?}", fleet.sourced());
-
+    assert_eq!(
+        form,
+        OperatorOrderForm::HoldPaths { manifest_id: REPOSITORY.into(), paths: vec![format!("{PANES}terminal-pane.tsx")], job: ipc::SessionId::carried(TERMINAL), until: OperatorHoldUntil::Pushes }
+    );
+    assert_eq!(said, format!("Hold {PANES}terminal-pane.tsx until Terminal Bugs pushes"));
     assert_eq!(operator.order_checked(&form).await.expect("a form Fleet knows"), said);
-    fleet.order_stands(form);
-    operator.ruled(arrival(), NEEDS_YOU_WAIT).await;
-    let after = call.asked().pop().expect("a call");
-    let offered = after.lines().find(|line| line.contains("The ways it is offered:")).expect("the item's ways");
-    assert!(!offered.contains("file"), "filing is no way it is offered once the order stands:\n{after}");
-    assert_eq!(fleet.sourced().iter().filter(|one| one.way == Way::File).count(), 1, "the order holds: nothing more is filed");
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_kind_always_raised_goes_to_him_with_no_call() {
-    use ipc::operator_talk::OperatorOrderForm;
-    let call = FakeCall::replying(Vec::new());
+async fn the_box_forgets_only_a_rule_and_lifts_only_a_hold_it_was_shown() {
+    let said = |forget: &str, lift: &str| format!("cites: none\njob: none\nstart: none\norder: none\nforget: {forget}\nlift: {lift}\nsaid: Done.");
+    let call = FakeCall::replying(vec![
+        Reply::Says(said("7", "9"), Duration::from_secs(1)),
+        Reply::Says(said("9", "7"), Duration::from_secs(1)),
+        Reply::Says(said("42", "none"), Duration::from_secs(1)),
+    ]);
     let fleet = FakeFleet::with(live());
+    fleet.keeps(
+        vec![RuleRead { id: 7, said: "Start a Job on a note".into(), repository: Some("armada".into()) }],
+        vec![HoldRead { id: 9, said: format!("Hold {PANES}terminal-pane.tsx until Terminal Bugs pushes") }],
+    );
     let operator = operator(&call, &fleet);
-    fleet.order_stands(OperatorOrderForm::AlwaysRaise { what: "report".into() });
 
-    let ruled = operator.ruled(report("r1", "Terminal scrollback vanishes after the pane redraws", "The pane redraws and the scrollback is gone").arrival(), NEEDS_YOU_WAIT).await;
+    let right = operator.talk("forget that rule and lift that hold", &[], None).await.expect("answered");
+    assert_eq!((right.forget, right.lift), (Some(7), Some(9)));
+    let asked = &call.asked()[0];
+    assert!(asked.contains("Rule 7: Start a Job on a note, in armada") && asked.contains("Hold 9: Hold "), "it is shown each with its id:\n{asked}");
 
-    assert!(matches!(&ruled, Ruled::Ruled(ruling) if ruling.way == Way::Raise), "{ruled:?}");
-    assert!(call.asked().is_empty(), "no call");
-    assert!(fleet.log()[0].because.contains("standing order"), "{}", fleet.log()[0].because);
+    let crossed = operator.talk("swap them", &[], None).await.expect("answered");
+    assert_eq!((crossed.forget, crossed.lift), (None, None), "a hold's id is no rule's to forget, and a rule's is no hold's to lift");
+
+    let unknown = operator.talk("forget rule 42", &[], None).await.expect("answered");
+    assert_eq!((unknown.forget, unknown.lift), (None, None), "an id it was not shown is dropped");
 }
 
 // ---------------------------------------------------------------------------

@@ -278,6 +278,7 @@ mod autopilot_reviewing;
 mod operator;
 mod operator_acting;
 mod operator_arrivals;
+mod operator_asks;
 mod operator_board;
 mod operator_ends;
 mod operator_raises;

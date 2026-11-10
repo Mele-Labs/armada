@@ -57,7 +57,6 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use core_model::{Actor, Timestamp};
-use ipc::operator_positions::{OperatorPosition, OperatorRole};
 use tokio::sync::oneshot;
 
 pub use arriving::{Arrival, Arrived, InLine, LiveJob, Source};
@@ -78,7 +77,7 @@ pub(crate) use seat::Seat;
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub use sources::{BridgeError, Filed, NewIssue, Note, RedMain, Report};
 pub(crate) use sourcing::Sources;
-pub use talking::{Board, EndedJob, HeldJob, JobRead, LogRead, MergedPull, NeedsYou, Repository, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked, TurnRead};
+pub use talking::{Board, EndedJob, HeldJob, HoldRead, JobRead, LogRead, MergedPull, NeedsYou, Repository, RuleRead, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked, TurnRead};
 pub(crate) use suggesting::{suggestion_items, SKIP};
 
 /// How long a Needs you item waits for its ruling before it pulses.
@@ -110,10 +109,6 @@ pub trait Desk: Send + Sync {
     fn waiting(&self) -> Done<'_, Vec<InLine>> {
         Box::pin(async { Vec::new() })
     }
-    /// The standing orders, which [`Operator::pass`] goes by before any call.
-    fn orders(&self) -> Done<'_, Orders> {
-        Box::pin(async { Orders::default() })
-    }
     /// What the box may answer from.
     fn board(&self) -> Done<'_, Board> {
         Box::pin(async { Board::default() })
@@ -140,17 +135,15 @@ pub fn carried() -> Acted<'static> {
 }
 
 /// What Fleet does to Jobs on a ruling, called as it comes back and never for one that came late.
-/// **Each act is Fleet's to refuse**: the role's position, read as the ruling comes back, and a Job
-/// that has pushed are not the call's to weigh. **Each says how it came out**, since the Log keeps
-/// a ruling as done only once it is.
+/// **Each act is Fleet's to refuse**: a Job that has pushed is not the call's to weigh. **Each says
+/// how it came out**, since the Log keeps a ruling as done only once it is.
 pub trait Acting: Send + Sync {
-    /// How far `role` goes in the repository `manifest`, as the settings read now. `None` is a way
-    /// no role governs, which goes while the Operator is on. **Read as each ruling comes back**, so
-    /// a change holds from the next arrival and a call out when it changed goes by the new position.
-    fn position(&self, _role: Option<OperatorRole>, _manifest: &str) -> OperatorPosition {
-        OperatorPosition::Decide
+    /// Whether the Operator is on now. **Read as each ruling comes back**, so a call out when it was
+    /// turned off acts on nothing.
+    fn on(&self) -> bool {
+        true
     }
-    /// The role that `ruling` falls to stands at Suggest: what it would do is kept, to wait on one press.
+    /// What `ruling` would do is kept, to wait on the person's go-ahead in Your turn.
     fn suggest(&self, _arrival: &Arrival, _ruling: &Ruling) -> Acted<'_> {
         carried()
     }
@@ -198,7 +191,6 @@ impl Logged {
     fn of(arrival: &Arrival, ruled: &Ruled, call: Option<String>, handed: Timestamp, at: Timestamp) -> Logged {
         let (outcome, other, shared, because) = match ruled {
             Ruled::Ruled(ruling) => (Outcome::Ruled(ruling.way), ruling.other.clone(), ruling.shared.clone(), ruling.because.clone()),
-            Ruled::PassedOn(PassedOn::ReadOnly) => (Outcome::ReadOnly, None, Vec::new(), PassedOn::ReadOnly.to_string()),
             Ruled::PassedOn(why) => (Outcome::PassedOn, None, Vec::new(), why.to_string()),
         };
         let (refused, issue) = match ruled {
@@ -363,23 +355,8 @@ impl Operator {
             };
             self.desk.board_changed();
             let live = self.desk.live().await;
-            let orders = self.desk.orders().await;
             let mut asked = Vec::new();
             for (token, mut arrival) in taken {
-                if orders.always_raises(arrival.arrived) {
-                    let Some(one) = take(&mut held(&self.queue).out, token) else { continue };
-                    self.settled_apart(one, Ruled::Ruled(Ruling::alone(Way::Raise, "a standing order always raises this")), None);
-                    continue;
-                }
-                // A way whose role is Read-only is not offered. Where that leaves nothing the
-                // Operator could do or suggest, no call is made and the item goes to the person.
-                let offered = arrival.ways.len();
-                arrival.ways.retain(|way| self.acting.position(role_of(arrival.arrived, *way), &arrival.manifest_id) != OperatorPosition::ReadOnly);
-                if arrival.ways.len() < offered && arrival.ways.iter().all(|way| matches!(way, Way::Raise | Way::Leave)) {
-                    let Some(one) = take(&mut held(&self.queue).out, token) else { continue };
-                    self.settled_apart(one, Ruled::PassedOn(PassedOn::ReadOnly), None);
-                    continue;
-                }
                 let near = candidates::near(&arrival, &live);
                 let alone = near.is_empty() && arrival.ways.iter().any(|way| way.names_another());
                 if alone {
@@ -458,19 +435,20 @@ impl Operator {
         tokio::spawn(Arc::clone(self).settle(one, ruled, call));
     }
 
-    /// An item ruled: carried out as its role stands, then kept in the Log and its ruling told.
-    /// **A row of the Log says what was done only once it is**: a Decide's after its act came out, a
-    /// refused act as what refused it, a suggestion as one kept to wait on a press, and a role that is
-    /// Read-only by now as a row that is not in Done.
+    /// An item ruled: carried out, or kept to ask, then kept in the Log and its ruling told.
+    /// **A row of the Log says what was done only once it is**: a link's after it came out, a
+    /// refused act as what refused it, and an act that asks as one kept to wait on a go-ahead.
     async fn settle(self: Arc<Self>, one: Held, mut ruled: Ruled, call: Option<String>) {
         let Held { handed, arrival, tell, .. } = one;
         let mut row_outcome = None;
+        if matches!(ruled, Ruled::Ruled(_)) && !self.acting.on() {
+            ruled = Ruled::PassedOn(PassedOn::Off);
+        }
         if let Ruled::Ruled(ruling) = &ruled {
             match self.act(&arrival, ruling).await {
                 Ok(Carried::Done) => {}
                 Ok(Carried::Proposed) => row_outcome = Some(Outcome::Proposed(ruling.way)),
                 Ok(Carried::Repeat(of)) => ruled = Ruled::Ruled(Ruling::alone(Way::Noted, of)),
-                Ok(Carried::Withheld) => row_outcome = Some(Outcome::ReadOnly),
                 Err(why) => ruled = Ruled::PassedOn(PassedOn::Undone(why)),
             }
         }
@@ -483,28 +461,18 @@ impl Operator {
         let _ = tell.send(ruled);
     }
 
-    /// What Fleet does on `ruling`, by the position of the role it falls to. **A note's ruling, but a
-    /// raise, is kept as a suggestion at Decide as at Suggest**, short of one he sent to a Job himself.
+    /// What Fleet does on `ruling`. **An act asks**: a new Job, words to a live Job and a new issue are
+    /// kept as a suggestion, which raising turns into a go-ahead in Your turn, answered Yes, Always
+    /// here, Always or No, and which a kept rule covering it does as it is raised. A link writes
+    /// nothing, and a raise, a leave and a note are not acts, so they are done as they came.
     async fn act(&self, arrival: &Arrival, ruling: &Ruling) -> Result<Carried, String> {
-        match self.acting.position(role_of(arrival.arrived, ruling.way), &arrival.manifest_id) {
-            OperatorPosition::ReadOnly => Ok(Carried::Withheld),
-            // A note is the person's own idea, so Fleet only proposes what to do with it, and a
-            // raise is already a row on his list. One he sent to a Job himself is moved as any ruling is,
-            // and left where it is.
-            OperatorPosition::Decide if arrival.arrived == Arrived::Note && !arrival.is_sent_note() && !matches!(ruling.way, Way::Raise | Way::Leave) => {
-                self.acting.suggest_once(arrival, ruling).await.map(Carried::kept)
-            }
-            OperatorPosition::Decide => self.acted(arrival, ruling).await.map(|()| Carried::Done),
-            OperatorPosition::Suggest => match ruling.way {
-                // A raise is already a row on his list.
-                Way::Raise => self.acted(arrival, ruling).await.map(|()| Carried::Done),
-                _ => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
-            },
+        match ruling.way {
+            Way::NewJob | Way::ExistingJob | Way::File => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
+            Way::Raise | Way::Link | Way::Leave | Way::Noted => self.acted(arrival, ruling).await.map(|()| Carried::Done),
         }
     }
 
-    /// `ruling` done: as it came back with its role at Decide, or on the person's press on a
-    /// suggestion. **Whether it came out**, so a Log row is not kept for what did not happen.
+    /// `ruling` done: a link as it came back, or on the person's go-ahead on a suggestion. **Whether it came out**, so a Log row is not kept for what did not happen.
     pub(crate) async fn acted(&self, arrival: &Arrival, ruling: &Ruling) -> Result<(), String> {
         self.acting.sourced(arrival, ruling).await
     }
@@ -516,8 +484,6 @@ enum Carried {
     Done,
     /// It was kept to wait on a press.
     Proposed,
-    /// Its role stands at Read-only by now, so nothing was done.
-    Withheld,
     /// It repeated a suggestion kept before, so none was kept. Noted in the Log, saying which.
     Repeat(String),
 }
@@ -526,18 +492,6 @@ impl Carried {
     /// A suggestion as it came out: kept to wait on a press, or a repeat that was not.
     fn kept(repeat: Option<String>) -> Carried {
         repeat.map_or(Carried::Proposed, Carried::Repeat)
-    }
-}
-
-/// The role a way falls to. **A link writes nothing and a red main has Autopilot's own switch**, so
-/// neither has one, and a raise is only its Log row.
-fn role_of(arrived: Arrived, way: Way) -> Option<OperatorRole> {
-    match way {
-        Way::Leave | Way::Raise | Way::Link | Way::Noted => None,
-        Way::File => Some(OperatorRole::File),
-        _ if arrived == Arrived::RedMain => None,
-        Way::ExistingJob => Some(OperatorRole::Delegate),
-        Way::NewJob => Some(OperatorRole::Dispatch),
     }
 }
 
