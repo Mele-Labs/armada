@@ -670,7 +670,6 @@ impl Render for JobView {
             .children(origin)
             .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)))
             .children(self.render_bands(&id, cx))
-            .children(self.render_needs(&id, cx))
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .children(self.render_confirm(window, cx))

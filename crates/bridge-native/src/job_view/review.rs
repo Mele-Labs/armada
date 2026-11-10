@@ -259,11 +259,6 @@ impl JobView {
         !self.review_items(id, cx).is_empty()
     }
 
-    /// The words the Review row lists: each item's kind.
-    pub(super) fn review_kinds(&self, id: &str, cx: &gpui::App) -> Vec<&'static str> {
-        self.review_items(id, cx).iter().map(|item| item.kind.mark().1).collect()
-    }
-
     /// The thread's cards an item answers on, by the key `CardState::answers` holds them under.
     fn card_keys(&self, id: &str, item: &Item, cx: &gpui::App) -> Vec<String> {
         let Some(held) = self.thread(id, cx) else { return Vec::new() };
