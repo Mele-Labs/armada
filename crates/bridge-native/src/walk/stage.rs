@@ -31,7 +31,8 @@ impl Stage {
                 let jobs = crate::mock::jobs(walk.scenario)?;
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&jobs, cx));
                 let keys = list.read(cx).focus_handle().clone();
-                let screen = cx.new(|cx| JobsScreen::new(list, cx));
+                let threads = crate::mock::threads(walk.scenario)?;
+                let screen = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
                 let focus = Focus { keys, within: screen.read(cx).within().clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: screen.into(), focus })
@@ -78,6 +79,17 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .cloned()
                 .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Type(text) => {
+            // The press focuses the box; each letter then goes in as the platform's input method would.
+            let at = find(step, window, cx)?.bounds.center();
+            press(MouseButton::Left, at, window, cx);
+            for ch in text.chars() {
+                let key = if ch == ' ' { "space".to_string() } else { ch.to_string() };
+                let keystroke = Keystroke { modifiers: Modifiers::default(), key, key_char: Some(ch.to_string()) };
+                window.dispatch_keystroke(keystroke, cx);
+            }
             Ok(())
         }
         Verb::Hover => {
