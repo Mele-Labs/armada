@@ -363,10 +363,10 @@ export function StoryColumn({
       });
   // A step that ends on a state of a ticket, a pull request or a deploy waits for it: Fleet's watch wakes the Job on the change.
   const waiting = session.lanes?.job.waiting;
-  // The agent's own list stays when the turn ends. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
+  // The agent's own list stays when the turn ends, with its open and working items: a done one is behind it, and Now is what is still to do. An item Fleet matched to a plan task is that task's row already, so it is not drawn twice.
   // Fleet holds the live list in memory only; after a restart the build record's copy stands in until the agent next changes it.
   const reported = session.activity?.todos ?? [];
-  const todos =
+  const todos = (
     reported.length > 0
       ? reported.filter((one) => one.task === undefined)
       : (work.tasks ?? []).map(
@@ -374,7 +374,8 @@ export function StoryColumn({
             text: one.subject,
             state: TODO_OF[one.state],
           }),
-        );
+        )
+  ).filter((one) => one.state !== "done");
   // The tasks a Job stopped on stand named under its stopped line, open.
   const left = stopped?.tasks ?? [];
   const list =

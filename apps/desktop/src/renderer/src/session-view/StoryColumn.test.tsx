@@ -754,3 +754,55 @@ test("on a workflow, Open lists an open ticket and a draft pull request until th
   expect(open.textContent).toContain("Document the audit log rotation");
   expect(open.textContent).toContain("Keep the rotation window in the config");
 });
+
+const agentRows = (host: HTMLElement) =>
+  [
+    ...host.querySelectorAll("ul.sv-agent-tasks .sv-agent-tasks__subject"),
+  ].map((one) => one.textContent);
+
+test("Now lists the agent's open and working items and leaves out the ones it finished", () => {
+  const reported = {
+    ...session("working"),
+    activity: {
+      todos: [
+        {
+          text: "Read the lease",
+          state: "done",
+        },
+        {
+          text: "Rotate the file",
+          state: "doing",
+        },
+        {
+          text: "Document the rotation",
+          state: "todo",
+        },
+      ],
+    },
+  } as unknown as Session;
+  expect(agentRows(mount(reported))).toEqual([
+    "Rotate the file",
+    "Document the rotation",
+  ]);
+});
+
+test("a list the agent has finished draws nothing in Now", () => {
+  const finished = {
+    ...session("idle"),
+    activity: {
+      todos: [
+        {
+          text: "Read the lease",
+          state: "done",
+        },
+        {
+          text: "Rotate the file",
+          state: "done",
+        },
+      ],
+    },
+  } as unknown as Session;
+  const host = mount(finished);
+  expect(host.querySelector("ul.sv-agent-tasks")).toBeNull();
+  expect(host.textContent).not.toContain("Rotate the file");
+});
