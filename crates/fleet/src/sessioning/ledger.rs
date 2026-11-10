@@ -333,9 +333,6 @@ where
             let gate = reads.plan.as_ref().and_then(|plan| crate::gate_holding::item_of(plan, &reads.held, &session.id, nothing_runs));
             record.waiting_for.extend(gate);
         }
-        // A question or a card it waits on: the Operator is handed it on the next tick.
-        let asked = if session.state == store::SessionState::Live { record.waiting_for.as_slice() } else { &[] };
-        self.operator_seat().asked_noted(&session.id, asked);
         record.closed = waited.closed;
         let parked = waited.start_held || waited.paused;
         let spoke = waited.spoke;
@@ -421,8 +418,6 @@ where
             record.standing = Some(ipc::SessionStanding::Stopped);
             record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
         }
-        // Gone quiet with work left: the Operator is handed it on the next tick.
-        self.operator_seat().stall_noted(&session.id, crate::operator::seen_of(&record, between && !parked));
         record.stop_told_by = owed.map(|(_, from)| wire_instant(&crate::clock::rfc3339_utc(from + crate::session_host::stopping::STOP_AFTER.as_millis() as i64)));
         // How long the running turn has been at it and when it was last heard, which Now says beside it.
         if session.origin == "bridge" {

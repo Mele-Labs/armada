@@ -2,8 +2,8 @@
 //! starts, so a restart serves the same Jobs in the same order. **What the store cannot keep is
 //! let go**: a write that fails leaves the line in memory as it was, and only a restart loses it.
 //!
-//! **A Job moved in the line renumbers the whole of it**, 0 upward in its new order, so the
-//! Operator's place and a person's drag are kept the same way a join is.
+//! **A Job moved in the line renumbers the whole of it**, 0 upward in its new order, so a person's
+//! drag is kept the same way a join is.
 
 use std::sync::Arc;
 
@@ -81,9 +81,8 @@ where
         }
     }
 
-    /// `id` is in no line now, and a place ruled for it is let go.
+    /// `id` is in no line now.
     pub(crate) async fn line_let_go(&self, id: &str) {
-        self.operator_seat().take_place(id);
         let _ = self.store().lock().await.leave_slot_line(id);
     }
 
@@ -97,14 +96,6 @@ where
         // The head may have changed while a slot was free.
         self.hosts().slot_queue().freed();
         true
-    }
-
-    /// As `id` joins `manifest`'s line, the place the Operator ruled for it, where Dispatch is on.
-    pub(crate) async fn ruled_place_taken(&self, manifest: &str, id: &str) {
-        let Some(place) = self.operator_seat().take_place(id) else { return };
-        if self.operator_position(ipc::operator_positions::OperatorRole::Dispatch, manifest) == ipc::operator_positions::OperatorPosition::Decide {
-            self.line_reordered(manifest, id, &place).await;
-        }
     }
 
     /// Every Job waiting to start, with its title, each repository's in its order.

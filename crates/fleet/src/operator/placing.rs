@@ -1,8 +1,5 @@
-//! The Operator's order of Waiting to start, and the person's correction of it. A start ruled a
-//! place takes it as it joins its repository's line, or at once where it waits there already;
-//! **only where Dispatch is on**, so anywhere else, or with the Operator off, the line is first come, first
-//! served. A person's drag moves a Job whatever the Operator ruled, and is kept in its Log as a
-//! correction, which the next call reads.
+//! The person's drag of a Job in Waiting to start, kept in the Operator's Log as a correction.
+//! **The Operator no longer orders the line**, so with it off the line is first come, first served.
 
 use std::sync::Arc;
 
@@ -27,16 +24,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The Operator ruled `id` a place: kept for when it joins the line, or taken now where it waits.
-    pub(super) async fn operator_placed(&self, id: &str, place: Place) {
-        // Kept before the line is read, so a Job joining in between still takes it as it joins.
-        self.operator_seat().place(id, place);
-        let Some(manifest) = self.hosts().slot_queue().line_holding(id) else { return };
-        if let Some(place) = self.operator_seat().take_place(id) {
-            self.line_reordered(&manifest, id, &place).await;
-        }
-    }
-
     /// The person moved `id` to `place` in Waiting to start: it moves, and the Log keeps it as a
     /// correction of the Operator's order. **Refused, with nothing moved**, while the Operator is off,
     /// where `id` is not waiting, and where `place` names a Job not waiting in the same line.
@@ -93,9 +80,7 @@ impl Logged {
             handed: at.clone(),
             at,
             place: None,
-            first: None,
             refused: Vec::new(),
-            answer: None,
             issue: None,
         }
     }

@@ -1,22 +1,13 @@
-//! Fleet handing the Operator what arrives: a dispatch and a Job an agent started, at their start,
-//! and each group of a plan recorded that is new or names other paths than before. Seated once,
-//! at start, on the Operator model with one call kept started.
-//!
-//! **A start never waits for its ruling.** Its first write does, at most [`FIRST_WRITE_WAIT`] and
-//! only where Delegate or Dispatch is on, so a ruling that hands the Job's work away stops it having only read.
+//! Seating the Operator: once, at start, on the Operator model with one call kept started. **A Job's
+//! own events are never handed to it**, so nothing a Job does waits on its ruling.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Model, Vcs, WorkProduct};
 use config::settings as keys;
 use core_model::{Component, Envelope, FieldValue, Level};
-use ipc::operator_positions::{OperatorPosition, OperatorRole};
-use ipc::Notice;
-use store::KeptPlan;
 
-use super::candidates::shared_paths;
-use super::desk::held_of;
-use super::{Arrival, Arrived, Calling, FleetActing, FleetDesk, Blind, KeptStarted, Looking, Moved, Operator, ReadingScout, Ruled, Source, Way, FIRST_WRITE_WAIT, NEEDS_YOU_WAIT};
+use super::{Blind, Calling, FleetActing, FleetDesk, KeptStarted, Looking, Operator, ReadingScout};
 use crate::daemon::Fleet;
 
 impl<H, V, W> Fleet<H, V, W>
@@ -92,133 +83,5 @@ where
             }
         });
         self.operator_seat().seat(Operator::new_looking(call, looking, Arc::new(desk), Arc::new(FleetActing::on(self))))
-    }
-
-    /// A Job's start, handed to the Operator with `words`, what it was asked.
-    pub(crate) async fn start_handed(&self, id: &str, source: Source, words: &str) {
-        if !self.operator_on() {
-            return;
-        }
-        let arrival = {
-            let store = self.store().lock().await;
-            let (Ok(Some(session)), Ok(Some(hosting))) = (store.session(id), store.hosting(id)) else { return };
-            let (paths, issues, _) = held_of(&store, id);
-            let subject = session.title.unwrap_or_else(|| words.lines().next().unwrap_or_default().trim().to_string());
-            Arrival {
-                id: format!("start:{id}"),
-                arrived: Arrived::Start,
-                source,
-                session_id: id.to_string(),
-                manifest_id: hosting.manifest_id,
-                subject,
-                words: words.to_string(),
-                paths,
-                issues,
-                group: None,
-                ways: Way::STARTING.to_vec(),
-                answers: Vec::new(),
-                rule: None,
-                open: Vec::new(),
-                ties: Vec::new(),
-            }
-        };
-        self.operator_seat().hand_start(arrival, FIRST_WRITE_WAIT);
-    }
-
-    /// Each group of `kept`, just recorded, that `before` did not hold with the same paths. A group
-    /// that goes to a Job of its own is that Job's start to rule, so it is not handed here.
-    pub(crate) async fn plan_handed(&self, id: &str, before: Option<&KeptPlan>, kept: &KeptPlan) {
-        if !self.operator_on() {
-            return;
-        }
-        self.operator_seat().moved(id, Moved::Plan);
-        let Ok(Some(hosting)) = self.store().lock().await.hosting(id) else { return };
-        for group in kept.groups.iter().filter(|group| !group.own_job && !group.paths.is_empty()) {
-            let held = before.and_then(|before| before.groups.iter().find(|one| one.id == group.id));
-            if held.is_some_and(|one| one.paths == group.paths) {
-                continue;
-            }
-            let mut words: Vec<String> = group.gives.iter().cloned().collect();
-            words.extend(group.tasks.iter().map(|task| task.text.clone()));
-            self.operator_seat().hand(
-                Arrival {
-                    id: format!("plan:{id}:{}:{}", kept.version, group.id),
-                    arrived: Arrived::Plan,
-                    source: Source::Agent,
-                    session_id: id.to_string(),
-                    manifest_id: hosting.manifest_id.clone(),
-                    subject: group.title.clone(),
-                    words: words.join(". "),
-                    paths: group.paths.clone(),
-                    issues: group.issue.iter().cloned().collect(),
-                    group: Some(group.id.clone()),
-                    ways: Way::STARTING.to_vec(),
-                    answers: Vec::new(),
-                    rule: None,
-                    open: Vec::new(),
-                    ties: Vec::new(),
-                },
-                NEEDS_YOU_WAIT,
-            );
-        }
-    }
-
-    /// What a Job's first write is told where its start's ruling sends its work to another Job,
-    /// having waited for that ruling at most [`FIRST_WRITE_WAIT`]. `None` lets the write go on.
-    pub(crate) async fn first_write_ruled(&self, id: &str) -> Option<String> {
-        if !self.operator_on() {
-            return None;
-        }
-        let manifest = self.store().lock().await.hosting(id).ok().flatten()?.manifest_id;
-        let on = |role| self.operator_position(role, &manifest) == OperatorPosition::Decide;
-        if !on(OperatorRole::Delegate) && !on(OperatorRole::Dispatch) {
-            return None;
-        }
-        let mut ruling = self.operator_seat().start_ruling(id)?;
-        let waited = tokio::time::timeout(FIRST_WRITE_WAIT, ruling.wait_for(Option::is_some)).await;
-        let ruled = waited.ok()?.ok()?.clone()?;
-        match ruled {
-            Ruled::Ruled(ruling)
-                if (ruling.way == Way::ExistingJob && on(OperatorRole::Delegate)) || (ruling.way == Way::Merge && on(OperatorRole::Dispatch)) =>
-            {
-                let other = ruling.other.unwrap_or_default();
-                Some(format!(
-                    "The Operator found Job {other} already doing this work, so it goes to that Job and this Job ends. \
-                     Make no changes: stop here."
-                ))
-            }
-            _ => None,
-        }
-    }
-
-    /// Tell each live Job kept in touch with one that moved, where the move was on the paths they
-    /// share. Once a tick, and only where Delegate is on.
-    pub async fn in_touch_told(self: &Arc<Self>) {
-        let moved = self.operator_seat().take_moved();
-        for (id, how) in moved {
-            let (pairs, plan, touched) = {
-                let store = self.store().lock().await;
-                let Some(manifest) = store.hosting(&id).ok().flatten().map(|hosting| hosting.manifest_id) else { continue };
-                if self.operator_position(OperatorRole::Delegate, &manifest) != OperatorPosition::Decide {
-                    continue;
-                }
-                let pairs = store.operator_in_touch(&id).unwrap_or_default();
-                let plan: Vec<String> = store.session_plan(&id).ok().flatten().into_iter().flat_map(|plan| plan.groups).flat_map(|group| group.paths).collect();
-                let touched: Vec<String> = store.session_touches(&id).unwrap_or_default().into_iter().map(|touch| touch.path).collect();
-                (pairs, plan, touched)
-            };
-            for (other, shared) in pairs {
-                let live = self.store().lock().await.session(&other).ok().flatten().is_some_and(|one| one.state != store::SessionState::Ended);
-                let (paths, did) = match how {
-                    Moved::Plan => (shared_paths(&plan, &shared), "changed its plan on ground you share"),
-                    Moved::Pushed => (shared_paths(&touched, &shared), "pushed on ground you share"),
-                };
-                if !live || paths.is_empty() {
-                    continue;
-                }
-                let text = self.in_touch_said(&id, &paths, did).await;
-                let _ = self.told_by_fleet(&other, &text, Notice::Operator).await;
-            }
-        }
     }
 }

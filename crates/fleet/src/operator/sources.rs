@@ -1,8 +1,7 @@
-//! The arrivals from outside a Job's own run: a bug report, a new issue, a red main, a review
-//! request, a Later item handed over, a note the person left on Bridge and an error Bridge showed
-//! him. **Words from off this machine are data**: an issue's body and someone else's review request
-//! are offered only a raise, so nothing they say can start a Job or answer for the person, and the
-//! call can name only a way it was offered. A note is the person's own words, so it is offered every
+//! The arrivals from outside a Job's own run, which nobody owns: a bug report, a new issue, a red
+//! main, a note the person left on Bridge and an error Bridge showed him. **Words from off this
+//! machine are data**: an issue's body is offered only a raise, so nothing it says can start a Job,
+//! and the call can name only a way it was offered. A note is the person's own words, so it is offered every
 //! way, and Fleet keeps what is ruled on it as a suggestion until he presses Do it. An error is
 //! Fleet's own build's words, offered every way as a report is, and goes by the role's position.
 
@@ -50,12 +49,8 @@ impl Report {
             words: self.what.clone(),
             paths: Vec::new(),
             issues: Vec::new(),
-            group: None,
             ways,
-            answers: Vec::new(),
-            rule: None,
             open,
-            ties: Vec::new(),
         }
     }
 }
@@ -85,12 +80,8 @@ impl NewIssue {
             words: format!("{} by {}: {}", self.reference, self.author, self.excerpt),
             paths: Vec::new(),
             issues: vec![self.reference.clone()],
-            group: None,
             ways: vec![Way::Raise],
-            answers: Vec::new(),
-            rule: None,
             open: Vec::new(),
-            ties: Vec::new(),
         }
     }
 }
@@ -124,98 +115,9 @@ impl RedMain {
             words: self.seen.clone(),
             paths: Vec::new(),
             issues: Vec::new(),
-            group: None,
             ways: vec![Way::ExistingJob, Way::NewJob, Way::Raise],
-            answers: Vec::new(),
-            rule: None,
             open: Vec::new(),
-            ties: Vec::new(),
         })
-    }
-}
-
-/// A pull request someone asked the person to review.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ReviewRequest {
-    pub manifest_id: String,
-    pub number: u64,
-    pub title: String,
-    pub author: String,
-    pub url: String,
-}
-
-impl ReviewRequest {
-    /// Raised with a read. **An agent's review stays on his press.**
-    pub fn arrival(&self) -> Arrival {
-        Arrival {
-            id: format!("review:{}:{}", self.manifest_id, self.number),
-            arrived: Arrived::Review,
-            source: Source::Forge,
-            session_id: String::new(),
-            manifest_id: self.manifest_id.clone(),
-            subject: self.title.clone(),
-            words: format!("Pull request #{} by {} asks for the person's review: {}", self.number, self.author, self.url),
-            paths: Vec::new(),
-            issues: Vec::new(),
-            group: None,
-            ways: vec![Way::Raise],
-            answers: Vec::new(),
-            rule: None,
-            open: Vec::new(),
-            ties: Vec::new(),
-        }
-    }
-}
-
-/// A Later item a Job handed over to be settled.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Handed {
-    pub session_id: String,
-    pub manifest_id: String,
-    /// The Job's title.
-    pub title: String,
-    /// `later-<n>`.
-    pub later_id: String,
-    pub sentence: String,
-    /// The repository's open issues, checked first.
-    pub open: Vec<Filed>,
-    /// Whether the repository's tracker is beads, the one Fleet files in.
-    pub files: bool,
-}
-
-impl Handed {
-    /// Linked to an open issue it may be, filed where the repository's beads take it, or raised.
-    /// **Filed with no call where no open issue shares its words**: that is what handing it over asked.
-    pub fn arrival(&self) -> Arrival {
-        let open = open_near(&self.sentence, &self.open);
-        let mut ways = Vec::new();
-        if !open.is_empty() {
-            ways.push(Way::Link);
-        }
-        if self.files {
-            ways.push(Way::File);
-        }
-        if ways != [Way::File] {
-            ways.push(Way::Raise);
-        }
-        let rule = (ways == [Way::File]).then(|| "no open issue shares its words, so it is filed".to_string());
-        Arrival {
-            id: format!("later:{}:{}", self.session_id, self.later_id),
-            arrived: Arrived::Later,
-            source: Source::Agent,
-            session_id: self.session_id.clone(),
-            manifest_id: self.manifest_id.clone(),
-            subject: self.sentence.clone(),
-            words: format!("Job \"{}\" kept it for later, and handed it over to be settled", self.title),
-            paths: Vec::new(),
-            issues: Vec::new(),
-            group: None,
-            ways,
-            answers: Vec::new(),
-            rule,
-            open,
-            ties: Vec::new(),
-        }
     }
 }
 
@@ -273,12 +175,8 @@ impl Note {
             words: format!("{}\n\n{}", self.text.trim(), self.left()),
             paths: Vec::new(),
             issues: Vec::new(),
-            group: None,
             ways,
-            answers: Vec::new(),
-            rule: None,
             open,
-            ties: Vec::new(),
         }
     }
 
@@ -296,12 +194,8 @@ impl Note {
             words: format!("{}\n\n{}\n\nThe person sent it to Job \"{title}\" from Bridge.", self.text.trim(), self.left()),
             paths: Vec::new(),
             issues: Vec::new(),
-            group: None,
             ways: vec![Way::ExistingJob, Way::NewJob, Way::Leave],
-            answers: Vec::new(),
-            rule: None,
             open: Vec::new(),
-            ties: Vec::new(),
         }
     }
 
@@ -364,12 +258,8 @@ impl BridgeError {
             words,
             paths: Vec::new(),
             issues: Vec::new(),
-            group: None,
             ways,
-            answers: Vec::new(),
-            rule: None,
             open,
-            ties: Vec::new(),
         }
     }
 

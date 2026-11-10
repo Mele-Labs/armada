@@ -46,9 +46,9 @@ const LINE_CHARS: usize = 400;
 
 /// Every form an order can take, listed where his words fit none.
 pub const FORMS: [&str; 3] = [
-    "Turn a role off for a repository: Dispatch, Delegate, Answer or File, for today or until you remove it.",
+    "Turn a role off for a repository: Dispatch, Delegate or File, for today or until you remove it.",
     "Hold paths until a Job pushes or ends.",
-    "Always raise one kind of thing: Job starts, questions, permission cards, stopped Jobs, red pull requests, plans, bug reports, new issues, red mains, review requests or Later items.",
+    "Always raise one kind of thing: bug reports, new issues, red mains, notes or errors.",
 ];
 
 /// One row of the Log, as a call reads it.
@@ -207,11 +207,11 @@ person asks for an item that waits to be taken first or sooner, name its id in f
 The person may ask for a standing order. You cannot make one stand: name its form, and Fleet shows it \
 to the person, who confirms it. These are the only forms:
 
-    role_off <dispatch, delegate, answer or file> in <repository id> today
-    role_off <dispatch, delegate, answer or file> in <repository id>
+    role_off <dispatch, delegate or file> in <repository id> today
+    role_off <dispatch, delegate or file> in <repository id>
     hold <paths, separated by commas> until <the id of a live Job> pushes
     hold <paths, separated by commas> until <the id of a live Job> ends
-    always_raise <start, question, card, stopped, red, plan, report, issue, red_main, review, later, note or error>
+    always_raise <note, error, report, issue or red_main>
 
 Name a form only where the person asked for an order. Where he asked for one that fits none of them, \
 write no_form.
@@ -392,7 +392,6 @@ fn form_read(form: &str, board: &Board, live: &[LiveJob]) -> Option<OperatorOrde
         let role = match role.trim() {
             "dispatch" => OperatorRole::Dispatch,
             "delegate" => OperatorRole::Delegate,
-            "answer" => OperatorRole::Answer,
             "file" => OperatorRole::File,
             _ => return None,
         };
@@ -416,7 +415,7 @@ fn form_read(form: &str, board: &Board, live: &[LiveJob]) -> Option<OperatorOrde
         return Some(OperatorOrderForm::HoldPaths { manifest_id: held.manifest_id.clone(), paths, job: SessionId::carried(job), until });
     }
     let what = form.strip_prefix("always_raise ")?.trim();
-    Arrived::from_word(what).map(|arrived| OperatorOrderForm::AlwaysRaise { what: arrived.word().to_string() })
+    Arrived::taken_from_word(what).map(|arrived| OperatorOrderForm::AlwaysRaise { what: arrived.word().to_string() })
 }
 
 impl Operator {
