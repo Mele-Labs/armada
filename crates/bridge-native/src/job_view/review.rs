@@ -28,7 +28,7 @@ use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::dropdown::{under, Entry};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look, Token};
+use crate::look::{token, ActiveLook, Look};
 
 /// What an item is. The sheet draws a plan, a sketch, a document and a draft and nothing else: a
 /// question, a command and a pull request stay on the Needs you card.
@@ -41,13 +41,13 @@ pub(super) enum Kind {
 }
 
 impl Kind {
-    /// The kind's glyph, the word its tooltip names it by, and its hue (`REVIEW_MARKS`).
-    pub(super) fn mark(self) -> (&'static str, &'static str, Token) {
+    /// The kind's glyph and the word its tooltip names it by (`REVIEW_MARKS`).
+    pub(super) fn mark(self) -> (&'static str, &'static str) {
         match self {
-            Kind::Plan => ("list-todo", "Plan", token::KIND_STEP),
-            Kind::Sketch => ("pencil-ruler", "Sketch", token::TOOL_LOOK),
-            Kind::Draft => ("message-square-text", "Draft", token::TOOL_CHANGE),
-            Kind::Document => ("file-text", "Document", token::STATUS_AWAITING_REVIEW),
+            Kind::Plan => ("list-todo", "Plan"),
+            Kind::Sketch => ("pencil-ruler", "Sketch"),
+            Kind::Draft => ("message-square-text", "Draft"),
+            Kind::Document => ("file-text", "Document"),
         }
     }
 }
@@ -910,7 +910,7 @@ impl JobView {
     fn review_row(&self, id: &SharedString, item: &Item, review: &ReviewState, look: &Look, cx: &Context<Self>) -> AnyElement {
         let settled = self.review_standing(id, item, cx);
         let on = review.at.as_deref() == Some(item.id.as_str());
-        let (icon, kind_said, hue) = item.kind.mark();
+        let (icon, kind_said) = item.kind.mark();
         let spent = settled.standing != Standing::Open;
         let mark = match settled.standing {
             Standing::Open => None,
@@ -943,7 +943,7 @@ impl JobView {
                     look,
                     icon,
                     Size::Small,
-                    look.color(if spent { token::FG_SUBTLE } else { hue }),
+                    look.color(if spent { token::FG_SUBTLE } else { token::FG_MUTED }),
                 )),
                 Role::Image,
                 kind_said,
