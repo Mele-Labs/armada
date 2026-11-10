@@ -5,6 +5,10 @@ What it is and why it exists is in [Native Bridge](../concepts/native-bridge.md)
 
 ## Who does the work
 
+**One Job owns `crates/bridge-native/` at a time.**
+Other Jobs in the rebuild do Fleet views and inventories, and never edit the crate.
+Decided 10 Nov 2026: two Jobs built halves that never met in one build, so walks showed one half with stand-ins for the other.
+
 **Dispatch `gpui-engineer` for any work under `crates/bridge-native/`.**
 Its brief is `.claude/agents/gpui-engineer.md`.
 
@@ -37,13 +41,16 @@ Every feature goes through the same five steps, in order.
 
 1. An inventory of the Electron screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A parity check by the Job, against Electron, before the owner sees anything.
+3. A parity check against running Electron, by the Job and then by a checker that did not build it.
 4. One native walk of the whole feature on mock data, in its own window with a walk bar, shown alone.
    The owner annotates spacing and font changes there, or approves, and changes go into the native screens only.
 5. Land.
 
 **The parity check passes before any walk is shown.**
-At least these match Electron, checked by the Job against the inventory:
+It compares pictures, not code: Electron's renderer on the mock Fleet in Playwright, at the walk window's size and on the same scenarios, beside each step of `--shots`.
+The Job looks at every picture itself, and a subagent's own table never signs off.
+Then the orchestrating Job runs a checker agent that did not build the feature, and looks at the pictures before the walk is shown.
+At least these match Electron:
 
 | Area | Matches |
 |---|---|
