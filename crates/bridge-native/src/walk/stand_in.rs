@@ -29,10 +29,10 @@ fn breakdown() -> ContextBreakdown {
             {"name":"Deferred tools","tokens":12000,"kind":"deferred"}
         ],
         "memory_files":[
-            {"path":"/Users/nick/Development/armada/CLAUDE.md","tokens":2900},
-            {"path":"/Users/nick/.claude/CLAUDE.md","tokens":1100},
-            {"path":"/Users/nick/.claude/projects/armada/memory/MEMORY.md","tokens":1700},
-            {"path":"/Users/nick/Development/armada/crates/bridge-native/CLAUDE.md","tokens":700}
+            {"path":"/Users/user/Development/armada/CLAUDE.md","tokens":2900},
+            {"path":"/Users/user/.claude/CLAUDE.md","tokens":1100},
+            {"path":"/Users/user/.claude/projects/armada/memory/MEMORY.md","tokens":1700},
+            {"path":"/Users/user/Development/armada/crates/bridge-native/CLAUDE.md","tokens":700}
         ],
         "mcp_tools":[
             {"name":"list_jobs","server":"armada-fleet","tokens":1400},

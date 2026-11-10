@@ -53,7 +53,7 @@ fn armada(main: &str, checkout: &str, read: i64, quiet: Option<i64>) -> MergeLin
     .join(",");
     let quiet = quiet.map(|seconds| format!(r#","quiet_since":"{}""#, ago(seconds))).unwrap_or_default();
     view(format!(
-        r#"{{"root":"/Users/nick/Development/armada","name":"armada"{main}{checkout},"pulls":[{pulls}],"read_at":"{}"{quiet}}}"#,
+        r#"{{"root":"/Users/user/Development/armada","name":"armada"{main}{checkout},"pulls":[{pulls}],"read_at":"{}"{quiet}}}"#,
         ago(read)
     ))
 }
@@ -97,7 +97,7 @@ fn calls(keys: &[(&str, &str, &str)]) -> Vec<StandingCall> {
 fn others() -> Vec<Line> {
     let simple = |root: &str, name: &str, main: &str, pulls: &str| {
         Line {
-            view: view(format!(r#"{{"root":"/Users/nick/Development/{root}","name":"{name}"{main},"pulls":[{pulls}],"read_at":"{}"}}"#, ago(40))),
+            view: view(format!(r#"{{"root":"/Users/user/Development/{root}","name":"{name}"{main},"pulls":[{pulls}],"read_at":"{}"}}"#, ago(40))),
             held: Vec::new(),
         }
     };
@@ -173,7 +173,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "strip-quiet" => Strip { lines: vec![line(armada(GREEN, "", 900, Some(7 * 60)))], ..rest() },
         "strip-red" => Strip {
             lines: vec![line(armada(&red(""), CHECKOUT, 40, None))],
-            calls: calls(&[("main:/Users/nick/Development/armada", "main", "Main is red")]),
+            calls: calls(&[("main:/Users/user/Development/armada", "main", "Main is red")]),
             ..rest()
         },
         "strip-red-elsewhere" => Strip {

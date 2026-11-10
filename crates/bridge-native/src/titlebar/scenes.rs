@@ -18,7 +18,7 @@ pub struct Opening(pub Face);
 
 impl Global for Opening {}
 
-const PATH: &str = "/Users/nick/Library/Application Support/Armada/fleet.json";
+const PATH: &str = "/Users/user/Library/Application Support/Armada/fleet.json";
 /// A window narrower than the row's 900px bound.
 const NARROW: gpui::Pixels = gpui::px(720.);
 const UNTIL: &str = "13 Nov, 09:00";

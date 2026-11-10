@@ -28,7 +28,7 @@ fn annotation_root(exe: &Path) -> Option<PathBuf> {
     [folder.join("build.toml"), folder.join("..").join("build.toml")].iter().find_map(|record| {
         let record = fs::read_to_string(record).ok()?;
         let line = record.lines().find_map(|line| line.strip_prefix("tree = "))?;
-        let tree: String = serde_json::from_str(line).ok()?;
+        let tree: String = ipc::decode("the build record's tree", line.as_bytes()).ok()?;
         repository_root(Path::new(&tree))
     })
 }
@@ -69,7 +69,7 @@ pub fn list(dir: &Path) -> Vec<Value> {
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
             let id = name.strip_suffix(".json")?.to_string();
-            let note: Value = serde_json::from_str(&fs::read_to_string(entry.path()).ok()?).ok()?;
+            let note: Value = ipc::decode("a note", fs::read_to_string(entry.path()).ok()?.as_bytes()).ok()?;
             (note.get("id").and_then(Value::as_str) == Some(id.as_str()) && is_id(&id) && note.get("status").is_some()).then_some(note)
         })
         .collect();
