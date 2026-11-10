@@ -849,9 +849,9 @@ export function OperatorFrom({
 }
 
 function Seeded({ seed, children }: { seed: OperatorSeed; children: ReactNode }) {
-  const [state, act] = useReducer(reduce, seed, (first) => ({
+  const [state, act] = useReducer(reduce, seed, (first): OperatorState => ({
     ...first,
-    messages: [],
+    messages: first.said ?? [],
   }));
   useEffect(() => {
     seed.moves?.(() =>
