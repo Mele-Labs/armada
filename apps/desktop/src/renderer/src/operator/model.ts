@@ -361,8 +361,6 @@ export type OperatorSeed = {
   take?: string;
   /** Discussion takes an item at once, however busy the Operator is: Fleet's Operator holds no queue for talk. */
   discussesAtOnce?: boolean;
-  /** Discussion as it stands when the window opens: what the Operator said before he looked, such as raises and a briefing. */
-  said?: readonly OperatorMessage[];
   /** Takes what moves the Operator on to its next turn, where time passes in the scenario. */
   moves?: (next: () => void) => void;
 };
