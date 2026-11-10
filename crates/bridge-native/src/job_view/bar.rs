@@ -9,6 +9,7 @@ use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, Entity, FocusHan
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 
 use super::acts::{button, Tone};
+use super::composer::Kept;
 use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::dropdown::Entry;
@@ -298,15 +299,11 @@ impl JobView {
             return;
         }
         let message = response_message(plain, &response.emoji);
-        let held = self.composer.read(cx).value().to_string();
-        self.setting = true;
-        self.composer.update(cx, |composer, cx| composer.set_value(message, window, cx));
-        self.setting = false;
+        let held = self.kept(cx);
+        self.set_box(&Kept { text: message, tags: Vec::new() }, window, cx);
         self.send(window, cx);
-        if !held.trim().is_empty() {
-            self.setting = true;
-            self.composer.update(cx, |composer, cx| composer.set_value(held, window, cx));
-            self.setting = false;
+        if !held.text.trim().is_empty() {
+            self.set_box(&held, window, cx);
             self.typed_now(cx);
         }
     }

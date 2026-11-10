@@ -280,12 +280,12 @@ impl JobView {
             cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
         }
         self.card_changed(ix, cx);
-        self.post(job, ix, key, route, body, window, cx);
+        self.post_card(job, ix, key, route, body, window, cx);
     }
 
     /// An act with no answer to show: it goes, and a refusal is said on the card.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn post(
+    pub(super) fn post_card(
         &mut self,
         job: SharedString,
         ix: usize,

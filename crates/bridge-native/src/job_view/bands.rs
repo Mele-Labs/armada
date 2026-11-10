@@ -462,7 +462,7 @@ impl JobView {
             window,
             cx,
         );
-        self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+        self.composer.input.update(cx, |input, cx| input.focus(window, cx));
         cx.notify();
     }
 

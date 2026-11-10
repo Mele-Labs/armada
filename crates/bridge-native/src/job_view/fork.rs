@@ -255,9 +255,7 @@ impl JobView {
                 .await;
             let _ = this.update(cx, |this, cx| match answer {
                 Ok(id) => {
-                    if this.drafts.set(&id, &format!("{quoted}\n\n")) {
-                        this.keep_soon(cx);
-                    }
+                    this.keep_words(&id, &format!("{quoted}\n\n"), cx);
                     this.open_job(id, cx);
                 }
                 Err(why) => {

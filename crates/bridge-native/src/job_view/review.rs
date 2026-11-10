@@ -539,9 +539,7 @@ impl JobView {
             page.review.note = None;
         }
         let kept = note_key(&job, &item.id);
-        if self.drafts.set(&kept, "") {
-            self.keep_soon(cx);
-        }
+        self.keep_words(&kept, "", cx);
         self.settle(SHEET, first, answer, route, body, window, cx);
         self.review_advance(window, cx);
         window.focus(&self.review_focus.list, cx);
@@ -572,15 +570,13 @@ impl JobView {
             return;
         }
         let key = note_key(&job, &item.id);
-        let kept = self.drafts.get(&key).to_string();
+        let kept = self.draft_words(&key);
         let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8));
         area.update(cx, |area, cx| area.set_value(kept, window, cx));
         let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, window, cx| match event {
             InputEvent::Change => {
                 let text = area.read(cx).value().to_string();
-                if this.drafts.set(&key, &text) {
-                    this.keep_soon(cx);
-                }
+                this.keep_words(&key, &text, cx);
                 cx.notify();
             }
             InputEvent::PressEnter { secondary: true, .. } => this.review_send_note(window, cx),

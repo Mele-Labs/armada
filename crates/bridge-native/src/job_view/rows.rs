@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 use super::acts::refusal;
 use super::menus::notice_entries;
+use super::quick::{Spacing, TextSize};
 use super::{Extra, JobView, Page};
 use crate::assets::icon_path;
 use crate::labels::labelled;
@@ -162,13 +163,28 @@ impl JobView {
             self.extra(&held.head, &held.items, page, ix - page.items, look, now, cx)
         };
         let Some(drawn) = drawn else { return nothing() };
+        // Aa's Spacing: the gap under each row, and the room a message takes above itself and above the row after it.
+        let spacing = self.composer.quick.thread().spacing;
+        let gap = match spacing {
+            Spacing::Compact => look.length(token::SPACE_4),
+            Spacing::Default => look.length(token::SPACE_6) + look.length(token::SPACE_2),
+            Spacing::Roomy => look.length(token::SPACE_8) + look.length(token::SPACE_2),
+        };
+        let room = match spacing {
+            Spacing::Compact => look.length(token::SPACE_1),
+            Spacing::Default => look.length(token::SPACE_2),
+            Spacing::Roomy => look.length(token::SPACE_4),
+        };
+        let is_message = |at: usize| matches!(held.items.get(at), Some(ThreadItem::Row { row: SessionRow::Message { .. } }));
+        let roomy = ix > 0 && ix < page.items && (is_message(ix) || is_message(ix - 1));
         let row = div()
             .id(SharedString::from(format!("entry:{id}:{ix}")))
             .w_full()
             .flex()
             .justify_center()
             .px(look.length(token::SPACE_6))
-            .pb(look.length(token::SPACE_6) + look.length(token::SPACE_2))
+            .pb(gap)
+            .when(roomy, |row| row.pt(room))
             .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * COLUMN).child(drawn));
         if !page.arrived.contains(&ix) {
             return row.into_any_element();
@@ -205,6 +221,10 @@ impl JobView {
 
     /// A time as the thread reads it now: the clock, or its age once a press has flipped every stamp.
     pub(super) fn stamp(&self, at: &ipc::Instant, look: &Look, now: DateTime<Local>, still: bool, cx: &Context<Self>) -> AnyElement {
+        // Aa's Show times: no stamp is drawn, whatever a press has flipped them to.
+        if !self.composer.quick.thread().show_times {
+            return gpui::Empty.into_any_element();
+        }
         let (on_clock, ago) = (clock(at.as_str(), now), age(at.as_str(), now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
         let Some(shown) = shown else {
@@ -235,12 +255,18 @@ impl JobView {
         .into_any_element()
     }
 
-    /// Markdown at the thread's body size (15 over 24).
+    /// Markdown at the thread's body size: 15 over 24 unless Aa's Text size says another.
     pub(super) fn prose(&self, key: String, text: &str, look: &Look) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
+        let size = match self.composer.quick.thread().text_size {
+            TextSize::Xs => token::TEXT_XS,
+            TextSize::Sm => token::TEXT_SM,
+            TextSize::Base => token::TEXT_BASE,
+            TextSize::Lg => token::TEXT_LG,
+        };
         TextView::markdown(ElementId::Name(format!("md:{job}:{key}").into()), text.to_string())
             .w_full()
-            .text_size(look.length(token::TEXT_BASE))
+            .text_size(look.length(size))
             .line_height(relative(1.6))
             .text_color(look.color(token::FG_DEFAULT))
             .selectable(true)

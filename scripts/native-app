@@ -42,6 +42,13 @@ for tone in armada-blocked armada-waiting; do
   [[ -f "$sounds/$tone.wav" ]] || fail "$sounds/$tone.wav is missing"
   cp "$sounds/$tone.wav" "$app/Contents/Resources/$tone.wav"
 done
+# Armada Voice, the helper Talk hears through, as the Electron app carries it: in `Contents/Helpers`, where the
+# binary looks first. Built by `node apps/desktop/native/voice/build.mjs`; where it is not built Talk has no voice.
+voice="$here/../apps/desktop/native/voice/build/Armada Voice.app"
+if [[ -d "$voice" ]]; then
+  mkdir -p "$app/Contents/Helpers"
+  cp -R "$voice" "$app/Contents/Helpers/"
+fi
 python3 - "$app/Contents/Info.plist" <<'PY'
 import plistlib, sys
 

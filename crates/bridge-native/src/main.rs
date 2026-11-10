@@ -17,6 +17,7 @@ mod assets;
 mod banner;
 mod chrome;
 mod deep_link;
+mod dictation;
 mod dropdown;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
@@ -39,7 +40,9 @@ mod palette;
 mod revert;
 mod runtime_file;
 mod transport;
+mod voice;
 mod walk;
+mod whisper;
 
 /// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
 #[allow(dead_code)]

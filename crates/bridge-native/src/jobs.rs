@@ -571,13 +571,13 @@ impl JobsList {
         self.jobs.iter().find(|job| job.id.as_str() == id)
     }
 
-    pub fn fleet(&self) -> Option<Entity<FleetConnection>> {
-        self.fleet.clone()
-    }
-
-    /// Every Job the list holds, in Fleet's order.
+    /// Every Job the list holds, for the message box's `@` to name.
     pub fn records(&self) -> &[SessionRecord] {
         &self.jobs
+    }
+
+    pub fn fleet(&self) -> Option<Entity<FleetConnection>> {
+        self.fleet.clone()
     }
 
     /// Whether this list is kept between runs: not on mock data.

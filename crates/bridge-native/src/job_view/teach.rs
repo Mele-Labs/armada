@@ -279,16 +279,14 @@ impl JobView {
         let record = self.record(&job, cx);
         let repository = record.map(|record| record.manifest_id.as_ref().map_or_else(|| record.cwd.clone(), |id| id.as_str().to_string())).unwrap_or_default();
         let root = record.map(|record| record.cwd.clone());
-        let kept = self.drafts.get(&format!("teach:{job}")).to_string();
+        let kept = self.draft_words(&format!("teach:{job}"));
         let say = cx.new(|cx| TextareaState::new(window, cx).auto_grow(4, 12));
         say.update(cx, |say, cx| say.set_value(kept, window, cx));
         let typing = cx.subscribe_in(&say, window, |this, say, event: &InputEvent, _, cx| {
             if matches!(event, InputEvent::Change) {
                 let Some(job) = this.shown.clone() else { return };
                 let text = say.read(cx).value().to_string();
-                if this.drafts.set(&format!("teach:{job}"), &text) {
-                    this.keep_soon(cx);
-                }
+                this.keep_words(&format!("teach:{job}"), &text, cx);
                 cx.notify();
             }
         });
@@ -440,9 +438,7 @@ impl JobView {
 
     fn teach_saved(&mut self, job: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         // What was written is now taught.
-        if self.drafts.set(&format!("teach:{job}"), "") {
-            self.keep_soon(cx);
-        }
+        self.keep_words(&format!("teach:{job}"), "", cx);
         self.teach_said = None;
         self.teach_close(window, cx);
     }

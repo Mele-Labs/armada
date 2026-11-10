@@ -591,7 +591,7 @@ impl JobView {
                             let body = encoded(&SendPlanChanges { session_id, version, marks: vec![mark], approve: false });
                             let job = this.shown.clone().unwrap_or_default();
                             this.close_box(ix, &send_key, cx);
-                            this.post(job, ix, send_key.clone(), "/sessions/plan/changes", body, window, cx);
+                            this.post_card(job, ix, send_key.clone(), "/sessions/plan/changes", body, window, cx);
                         }))
                     },
                 ),

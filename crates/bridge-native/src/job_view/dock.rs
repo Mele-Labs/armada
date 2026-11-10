@@ -168,7 +168,7 @@ impl JobView {
         if open {
             window.focus(&self.dock_focus, cx);
         } else if self.shown.as_ref().is_some_and(|id| !self.closed(id, cx)) {
-            self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+            self.composer.input.update(cx, |input, cx| input.focus(window, cx));
         } else {
             window.focus(&self.focus, cx);
         }
