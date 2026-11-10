@@ -416,8 +416,8 @@ impl OperatorPageView {
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                     .child("Your note from")
                     .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT, token::WEIGHT_MEDIUM), look, cx))
-                    // The colon sits on the time, inside its ring's padding.
-                    .child(div().ml(-look.length(token::SPACE_1)).child(format!(": {note}")))
+                    // The colon closes up on the time, past its ring's hairline.
+                    .child(div().ml(-look.length(token::BORDER_WIDTH) * 2.).child(format!(": {note}")))
             }))
             .children(read)
             .children(then)
@@ -665,9 +665,9 @@ impl OperatorPageView {
         let reading = shown.trim_start_matches(lead.unwrap_or_default()).trim_start().to_string();
         let stamp = worded(div().id(SharedString::from(format!("stamp:{at}"))), look)
             .flex_none()
-            // A gap the ring keeps off the word before it, and its sentence's face said again: without it the
-            // time has drawn in the system's face.
-            .ml(look.length(token::SPACE_1) / 2.)
+            // A hairline inside the ring, so the gap before it and the ring together are one word space.
+            .px(look.length(token::BORDER_WIDTH))
+            // Its sentence's face said again: without it the time has drawn in the system's face.
             .font_family(sans(look))
             .font_weight(FontWeight(look.number(weight)))
             .text_size(look.length(size))
@@ -675,15 +675,16 @@ impl OperatorPageView {
             .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
             .tooltip(tip(other.unwrap_or_default()))
             .child(shown);
-        labelled(
+        let pressable = labelled(
             pressed(stamp, cx, |this, _, cx| {
                 cx.stop_propagation();
                 this.flip_stamps(cx);
             }),
             Role::Button,
             format!("Time {reading}"),
-        )
-        .into_any_element()
+        );
+        // The ring is drawn inside this: the gap before the time is the wrapper's, so it never reaches the word.
+        div().flex_none().pl(look.length(token::SPACE_1) / 2.).child(pressable).into_any_element()
     }
 
     /// A link under a tile's rows: a tab stop Enter presses.
@@ -839,7 +840,7 @@ impl OperatorPageView {
             .text_size(look.length(token::TEXT_2XS))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
             .text_color(look.color(token::FG_SUBTLE))
-            .child(if page.looked_at.is_some() { "Since you last looked," } else { "Since you last looked" })
+            .child("Since you last looked")
             .children(page.looked_at.as_ref().map(|at| self.stamp(at.as_str(), Some("at"), (token::TEXT_2XS, token::FG_SUBTLE, token::WEIGHT_HEADING), look, cx)));
         labelled(
             div()
