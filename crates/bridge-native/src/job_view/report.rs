@@ -141,6 +141,7 @@ impl JobView {
                     held: false,
                     project_rows: Vec::new(),
                     on_your_words: None,
+                    project: None,
                 };
                 let done: Done = Box::new(move |this, answer, window, cx| match answer {
                     Ok(bytes) => match ipc::decode::<SessionRecord>("SessionRecord", &bytes) {
