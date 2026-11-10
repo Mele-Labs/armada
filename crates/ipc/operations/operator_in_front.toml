@@ -1,0 +1,10 @@
+[operations.operator_in_front]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Bridge's window came to the front, which is when he looks"
+notes = """
+`POST /operator/front`, no body, answered at once with `OperatorInFront`: `rewriting` is true where he came back after time away and the page's top line is being rewritten. Bridge sends it whenever its window gains focus or is shown, however often.
+
+**Fleet decides whether he was away.** It keeps when the window was last in front, and a time in front more than a quarter of an hour after the last sets when he last looked, which the page's digest counts from, and rewrites `top` with one reading call. The first ever counts from the start of the day before. It acts only while the Operator is on. Where the call fails, or the week's plan is paused, `top` is left as it was. Publishes `operator.page_changed` when the top line moves.
+"""

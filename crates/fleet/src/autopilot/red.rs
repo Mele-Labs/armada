@@ -61,7 +61,7 @@ where
         if self.taking(&main).await.is_some() {
             return 0;
         }
-        let Some(job) = self.red_started(&served, &main, AUTOPILOT).await else { return 0 };
+        let Some(job) = self.red_started(&served, &main, AUTOPILOT, "").await else { return 0 };
         let asked = format!("Main is red at {}", short(main.red_commit()));
         let because = "A red main is fixed by one Job, once for each red commit.".to_string();
         self.decision_kept_as(helping, &id, Some(&job), "Fix main", AutopilotDecision::Red, asked, "Start a Job to fix it", because).await;
@@ -70,7 +70,8 @@ where
 
     /// A Job titled "Fix main" started on `main`'s red, the red claimed for it and its brief said in
     /// `by`'s name. **Nothing where the red is not free**, or the Job would not take its brief.
-    pub(crate) async fn red_started(self: &Arc<Self>, served: &Served, main: &MainCi, by: &str) -> Option<String> {
+    /// `extra` is what the brief ends with, such as how the fix is to be got in.
+    pub(crate) async fn red_started(self: &Arc<Self>, served: &Served, main: &MainCi, by: &str, extra: &str) -> Option<String> {
         self.red_is_free(main, false).await.ok()?;
         let started = self
             .start_session(StartSession {
@@ -95,7 +96,7 @@ where
             return None;
         }
         let facts = self.with_the_log(served, main, brief_of(main)).await;
-        let said = format!("Main went red at {}.\n\n{facts}", short(main.red_commit()));
+        let said = format!("Main went red at {}.\n\n{facts}{extra}", short(main.red_commit()));
         let voice = SessionVoice::Session { id: by.to_lowercase(), title: by.to_string() };
         if self.first_message_from(&job, voice, &said).await.is_err() {
             self.release_red(main).await;
@@ -107,7 +108,7 @@ where
     }
 
     /// The red the Operator ruled on, where it is still `commit`'s and no Job holds it.
-    async fn red_still(&self, manifest: &str, commit: &str) -> Option<(Served, MainCi)> {
+    pub(crate) async fn red_still(&self, manifest: &str, commit: &str) -> Option<(Served, MainCi)> {
         let served = self.served_named(Some(&ManifestId::carried(manifest))).ok()?;
         let (served, main) = self.red_of(served.root()).await.ok()?;
         if main.red_commit() != commit || self.taking(&main).await.is_some() {
@@ -119,7 +120,20 @@ where
     /// The Operator ruled a new Job for the red: Autopilot's own start, in the Operator's name.
     pub(crate) async fn operator_fixed_red(self: &Arc<Self>, manifest: &str, commit: &str) {
         let Some((served, main)) = self.red_still(manifest, commit).await else { return };
-        self.red_started(&served, &main, OPERATOR).await;
+        self.red_started(&served, &main, OPERATOR, "").await;
+    }
+
+    /// Whether `commit`'s red in `manifest` stands with no Job on it.
+    pub(crate) async fn red_is_standing(&self, manifest: &str, commit: &str) -> bool {
+        self.red_still(manifest, commit).await.is_some()
+    }
+
+    /// The person pressed Start a fix: a Job on `commit`'s red at once, **with no plan step**. The Job's
+    /// id, or why none was started.
+    pub(crate) async fn operator_started_fix(self: &Arc<Self>, manifest: &str, commit: &str) -> Result<String, String> {
+        let (served, main) = self.red_still(manifest, commit).await.ok_or("main is no longer red there, or a Job is on it already")?;
+        let how = "\n\nJust get the fix in and have a pull request ready. There is no plan step: do not write a plan or wait for one to be approved.";
+        self.red_started(&served, &main, OPERATOR, how).await.ok_or_else(|| "the Job did not start".to_string())
     }
 
     /// The Operator ruled the red to live Job `job`, whose work is near it: the red is claimed for

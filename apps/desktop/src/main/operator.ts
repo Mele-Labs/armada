@@ -38,10 +38,24 @@ export async function readOperatorBoard(
 export class OperatorHost {
   private readonly port: () => number | null;
   private readonly publish: (change: Partial<BridgeState>) => void;
+  /** The window came to the front while Fleet was not connected: told once it is. */
+  private inFrontOwed = false;
 
   constructor(port: () => number | null, publish: (change: Partial<BridgeState>) => void) {
     this.port = port;
     this.publish = publish;
+  }
+
+  /** Bridge's window came to the front. Fleet decides whether he was away; nothing of its answer is read here. */
+  inFront(): void {
+    const port = this.port();
+    this.inFrontOwed = port === null;
+    if (port !== null) void ask(port, "POST", "/operator/front", {});
+  }
+
+  /** Fleet connected: a time in front it missed is told now. */
+  connected(): void {
+    if (this.inFrontOwed) this.inFront();
   }
 
   async readTalk(): Promise<OperatorTalkRead> {

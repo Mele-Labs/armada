@@ -104,6 +104,7 @@ pub fn fitted_over<V>(
             // Under the fixture's own home, so no case reads or writes a real
             // `~/.armada`.
             kit_home: home.path().join("kit").to_string_lossy().to_string(),
+            operator_journal_dir: home.path().join("operator").join("journal").to_string_lossy().to_string(),
             mods_dir: home.path().join("mods").to_string_lossy().to_string(),
             // None: the cases about an app's mod plant a bundle of their own.
             mod_bundle: None,

@@ -297,6 +297,7 @@ where
         self.base_moves_started();
         self.main_acted_on(&changed).await;
         self.red_given_to_sessions(&changed).await;
+        self.red_offered(&changed).await;
         self.pulls_told_when_due().await;
         self.builds_told_when_due().await;
         self.preview_offered_when_left_out_moved().await;

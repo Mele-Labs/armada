@@ -1,0 +1,315 @@
+//! The Operator's page: Your turn, the queue the person works through, beside the digest Since you
+//! last looked. `crates/ipc/operations/operator_page.toml`.
+//!
+//! **Fleet keeps it all; Bridge only draws it.** An item is a `WaitingItem` as it was raised, with
+//! the Operator's read and pick beside it, so its kind, its thing and its acts are the item's own
+//! and no second vocabulary stands beside them.
+
+use serde::{Deserialize, Serialize};
+
+use crate::{Instant, OperatorRead, SessionId, WaitingAct, WaitingItem};
+
+/// Whose act an item is.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorTurnKind {
+    /// His to decide: a plan, a walk, a review, a question.
+    #[default]
+    Decision,
+    /// What the Operator would do itself, waiting on his word.
+    GoAhead,
+}
+
+/// His press on an item. Later and Ask are not here: Later is `operator_later`, and Ask is Bridge
+/// opening the chat with `talk_to_operator` carrying the item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorAnswer {
+    /// Do the pick.
+    Yes,
+    /// Do the pick, and keep it as a rule for this item's project.
+    AlwaysHere,
+    /// Do the pick, and keep it as a rule everywhere.
+    Always,
+    /// Drop the item.
+    No,
+}
+
+/// What follows filing an issue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorThen {
+    JustFile,
+    /// File it, then start a Job on it.
+    FileAndStart,
+    /// File it, then hand it to a live Job already working on the same files.
+    FileAndHand,
+}
+
+/// A live Job an issue would be handed to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorHandTo {
+    pub session_id: SessionId,
+    pub job: String,
+}
+
+/// One Then offered on a go-ahead to file an issue.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorThenOffer {
+    pub then: OperatorThen,
+    /// On `file_and_hand` only: the Job. **That choice is offered only where one is live.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hand_to: Option<OperatorHandTo>,
+    /// The Operator's read marks this one as its pick.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub pick: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+/// One item of Your turn.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorTurnItem {
+    /// `turn:<n>`, the id every act on the page names.
+    pub id: String,
+    pub kind: OperatorTurnKind,
+    /// The Job whose list holds it. Absent on a go-ahead no Job holds and on a red main.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// That Job's title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// The repository's id, where it has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<String>,
+    /// The repository's name, where Fleet serves it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    /// The item as it was raised. Its `source` is its kind, `text` the thing, `act` and `options` what it asks.
+    pub item: WaitingItem,
+    /// What the Operator made of it and what it would pick. Absent where no call read it: the Operator
+    /// was paused for the week's plan, or the call failed. An empty `pick` is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read: Option<OperatorRead>,
+    /// When it joined the queue.
+    pub raised_at: Instant,
+    /// Last in the queue until then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub later_until: Option<Instant>,
+    /// On a go-ahead to file an issue: the Thens offered, in the order to draw them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub then: Vec<OperatorThenOffer>,
+    /// Whether Always here and Always are offered: only where Fleet can do the pick by itself, which
+    /// a go-ahead and a red main are.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub keeps: bool,
+}
+
+/// What the Operator is reading now.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorOnIt {
+    /// What it is reading, in a few words.
+    pub reading: String,
+    pub since: Instant,
+}
+
+/// A pull request that merged since he last looked.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorLanded {
+    pub session_id: SessionId,
+    /// The Job that held it.
+    pub job: String,
+    pub number: String,
+    pub title: String,
+}
+
+/// One thing the Operator did on its own since he last looked.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorHandledAct {
+    pub at: Instant,
+    /// What it was about: a Job's title, an item's first line.
+    pub title: String,
+    /// Written `Kind: what`, as the Log's rows are.
+    pub outcome: String,
+}
+
+/// Where the week's Log is: the journal Fleet keeps for the Operator, a markdown file for each ISO week.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorLogFile {
+    /// `2026-W46`.
+    pub week: String,
+    /// The file's absolute path on this machine.
+    pub path: String,
+}
+
+/// What the Operator handled itself since he last looked.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorHandled {
+    /// Newest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub acts: Vec<OperatorHandledAct>,
+    /// The week's Log, where anything is written in it yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub log: Option<OperatorLogFile>,
+}
+
+/// A live Job.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorRunning {
+    pub session_id: SessionId,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+}
+
+/// A Job waiting to start.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorComingUp {
+    pub session_id: SessionId,
+    pub title: String,
+    /// What it waits on, in words.
+    pub needs: String,
+}
+
+/// One rule the Operator keeps from an Always or an Always here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorLearned {
+    pub id: i64,
+    /// The repository it holds in. Absent on an Always, which holds everywhere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    /// The rule in Fleet's words, such as `Start a fix when main is red`.
+    pub said: String,
+    pub at: Instant,
+}
+
+/// Since he last looked, and what stands.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorDigest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub landed: Vec<OperatorLanded>,
+    #[serde(default)]
+    pub handled: OperatorHandled,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub running: Vec<OperatorRunning>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub coming_up: Vec<OperatorComingUp>,
+    /// The rules, across projects.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub learned: Vec<OperatorLearned>,
+}
+
+/// `operator_page`: the whole page.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorPage {
+    /// Whether the Operator is on. Off, Your turn is empty: nothing is queued while it is off.
+    pub on: bool,
+    /// The page's one line, rewritten each time he comes back. Absent before the first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top: Option<String>,
+    /// When he last looked: what the digest counts from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub looked_at: Option<Instant>,
+    /// Present while the Operator is reading something to review.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_it: Option<OperatorOnIt>,
+    /// In the order he left them, what he put Later last.
+    #[serde(default)]
+    pub turn: Vec<OperatorTurnItem>,
+    #[serde(default)]
+    pub digest: OperatorDigest,
+}
+
+/// `operator_answer`: one press on an item.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorAnswerPress {
+    /// The item's `id`.
+    pub id: String,
+    pub answer: OperatorAnswer,
+    /// On a go-ahead to file an issue: which Then. Absent takes the Operator's pick, else `just_file`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub then: Option<OperatorThen>,
+}
+
+/// What `operator_answer` did.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorAnswered {
+    /// What Bridge opens: the act of an item Fleet cannot do itself, such as a walk or a pull request.
+    /// The item stays in Your turn until its Job's list drops it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open: Option<WaitingAct>,
+    /// The Job a fix or a filed issue started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub started: Option<SessionId>,
+    /// The issue filed, as its tracker names it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filed: Option<String>,
+    /// The live Job the issue was handed to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub handed_to: Option<SessionId>,
+    pub page: OperatorPage,
+}
+
+/// `operator_turn_order`: the items as he dragged them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorTurnOrder {
+    /// Item ids, first to last. Items it does not name follow, as they were.
+    pub ids: Vec<String>,
+}
+
+/// `operator_later`: one item goes last for the rest of the local day.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorLater {
+    pub id: String,
+}
+
+/// `operator.page_changed`: the page is not what it was, so read it again. Nothing else rides.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorPageChanged {}
+
+/// `operator_in_front`: Bridge's window came to the front.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorInFront {
+    /// True where he came back after time away and the page's top line is being rewritten.
+    pub rewriting: bool,
+}
+
+/// A rule the Operator keeps from an Always or an Always here, in the store's orders beside the
+/// standing orders. It is none of `OperatorOrderForm`'s forms, so a list of orders never serves it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum OperatorRule {
+    /// Where `what` arrives, do `pick`, with no press. `manifest_id` absent holds everywhere.
+    PickRule {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        manifest_id: Option<String>,
+        what: String,
+        pick: String,
+    },
+}
+
+impl OperatorRule {
+    /// The rule as the store keeps it.
+    pub fn kept(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+
+    /// What the store kept. `None` where it is no rule, such as a standing order.
+    pub fn read(text: &str) -> Option<OperatorRule> {
+        serde_json::from_str(text).ok()
+    }
+}
+
+/// A raised item as the store keeps its body.
+pub fn item_kept(item: &WaitingItem) -> String {
+    serde_json::to_string(item).unwrap_or_default()
+}
+
+/// What the store kept of an item. `None` where it does not read.
+pub fn item_read(text: &str) -> Option<WaitingItem> {
+    serde_json::from_str(text).ok()
+}

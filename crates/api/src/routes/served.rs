@@ -619,6 +619,31 @@ const ROUTES: &[Route] = &[
         path: "/operator/talk",
     },
     Route {
+        operation: "operator_in_front",
+        method: "POST",
+        path: "/operator/front",
+    },
+    Route {
+        operation: "operator_page",
+        method: "GET",
+        path: "/operator/page",
+    },
+    Route {
+        operation: "operator_answer",
+        method: "POST",
+        path: "/operator/page/answer",
+    },
+    Route {
+        operation: "operator_turn_order",
+        method: "POST",
+        path: "/operator/page/order",
+    },
+    Route {
+        operation: "operator_later",
+        method: "POST",
+        path: "/operator/page/later",
+    },
+    Route {
         operation: "get_operator_board",
         method: "GET",
         path: "/operator/board",
