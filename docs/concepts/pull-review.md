@@ -89,7 +89,7 @@ It holds the forge's conversation, the threads on each change and his review; it
 
 ## Agent runs
 
-**A run is an agent's read-only turn about one pull request, and only a press starts one.** Listing or opening a pull request spends nothing. A run is one of three kinds:
+**A run is an agent's read-only turn about one pull request, and only a press starts one.** Listing or opening a pull request spends nothing. A run is one of four kinds:
 
 | Kind | Asked with | Answers |
 |---|---|---|
@@ -97,6 +97,7 @@ It holds the forge's conversation, the threads on each change and his review; it
 | Tool | Risks, Possible bugs, API breaking changes, or one a person added | Findings, each pinned to a path and line range with a severity, title and body |
 | Tool | Tour | Stops in the order the change runs, entry point first, each a line on what it does and the place it is about |
 | Ask | A question in his words | Markdown |
+| Fix | A finding, from its card | The lines that replace the finding's lines at the head, and one line on why |
 
 The Review tab is not a run. It is the forge's conversation.
 
@@ -110,9 +111,13 @@ The model is `models.review`, which ships as the Job model and is its own settin
 
 **The answer is JSON in the shape the kind has, and is checked before it is kept.** A finding or a change names a file the pull request touches and a range from line 1. A How to Test step names where it came from (the description first, then a README or an agent file in the checkout, up the tree from a changed path), and a doc it names must exist at the head.
 A Why link is an http or https address.
+**A fix is asked only for a finding on the head's lines of a file the pull request changes**, and Fleet refuses one on the old lines or outside the change before anything is spent.
+Fleet reads the lines the finding names from the bay at the head and keeps them as the fix's before, beside the finding's place, so the agent writes only the lines after and why.
+A finding past the end of its file, an empty fix, or a fix that is the lines as they are is a failed run.
 **An answer that fails any of this is a failed run with its reason, and is never a result.** A failed run does not count as kept, so pressing again runs again.
 
 **A result is kept for the commit it read.** It is keyed by repository, pull request, head commit and kind and name.
+A fix's name is the finding's path, lines and title, so two findings of one title are two fixes.
 Opening a run that has a kept result shows it with no run and no spend.
 A pull request whose head moved still shows the old result, with the commit it ran on, and Bridge marks it out of date.
 Run again is the one press that spends on a commit that already has an answer.

@@ -147,6 +147,7 @@ WebSocket event stream, read this first.
 | [A Job's window: origins and a sign-in](protocol/a-jobs-window-origins-and-a-sign-in.md) |
 | [The Reviews tab: the lists waiting on a person, a page's threads and a review's comments](protocol/the-reviews-tab-the-lists-waiting-on-a-person-a-pages-threads-and-a.md) |
 | [The Reviews tab: agent runs and review tools](protocol/the-reviews-tab-agent-runs-and-review-tools.md) |
+| [A comment on several lines, and a fix for a finding](protocol/a-comment-on-several-lines-and-a-fix-for-a-finding.md) |
 | [A Job's running Check: its log live, and a stop](protocol/a-jobs-running-check-its-log-live-and-a-stop.md) |
 | [A Job's reach past its slots: the folder answers](protocol/a-jobs-reach-past-its-slots-the-folder-answers.md) |
 | [A Job follows the Jobs its plan was handed to](protocol/a-job-follows-the-jobs-its-plan-was-handed-to.md) |

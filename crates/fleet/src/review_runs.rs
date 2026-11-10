@@ -19,16 +19,19 @@
 //!
 //! **An answer that does not hold up is a failed run with its reason**, never a result: not JSON,
 //! the wrong shape, a place in a file the change does not touch, a doc that is not in the
-//! checkout.
+//! checkout, a fix that changes nothing.
+//!
+//! **A fix is the one run whose result holds the checkout's own words**: its `before` is read
+//! from the bay at the head, and its `at` is the finding's, so the agent writes only `after`.
 
 use std::num::NonZeroU8;
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
 use adapter_traits::{
-    AgentHarness, Ask, CallProgress, Delivery, Environment, Model, ModelClient, Reading, ReviewBay,
-    SlotPool, Vcs, WorkProduct,
+    AgentHarness, Ask, CallProgress, Delivery, Environment, Model, ModelClient, PullRequestDiff, Reading,
+    ReviewBay, SlotPool, Vcs, WorkProduct,
 };
 use api::Refusal;
 use ipc::{
@@ -47,6 +50,12 @@ const UNKNOWN_TOOL: &str = "fleet.review_unknown_tool";
 pub(crate) const BLANK: &str = "fleet.review_blank";
 /// The forge would not give the pull request. A 500.
 pub(crate) const UNREADABLE: &str = "fleet.review_pull_request_unreadable";
+/// A fix asked for with no finding to fix. A 422.
+const FIX_NEEDS_A_FINDING: &str = "fleet.review_fix_needs_a_finding";
+/// A fix of a finding on the base's lines, which no suggestion can replace. A 422.
+const FIX_ON_OLD_LINES: &str = "fleet.review_fix_on_old_lines";
+/// A fix of a finding in a file the pull request does not change, or on no range of lines. A 422.
+const FIX_OFF_THE_CHANGE: &str = "fleet.review_fix_off_the_change";
 
 /// Turns a run may take, its reads and its answer together. A change worth explaining is read
 /// across several files, which the Judge's sixteen would cut short.
@@ -89,6 +98,8 @@ enum Shape {
     Walk,
     /// The tool `tour`: the change in the order a reader follows it.
     Tour,
+    /// A fix for one finding's lines.
+    Fix,
 }
 
 /// **By the definition's id**: the four explanations Armada carries answer the shape their id
@@ -100,6 +111,7 @@ fn shape_of(kind: ReviewRunKind, id: &str) -> Shape {
         (ReviewRunKind::Tool, "tour") => Shape::Tour,
         (ReviewRunKind::Tool, _) => Shape::Findings,
         (ReviewRunKind::Ask | ReviewRunKind::Search, _) => Shape::Text,
+        (ReviewRunKind::Fix, _) => Shape::Fix,
         (ReviewRunKind::Explanation, "how-it-works") => Shape::Themes,
         (ReviewRunKind::Explanation, "user-impact") => Shape::Impact,
         (ReviewRunKind::Explanation, "how-to-test") => Shape::Steps,
@@ -119,6 +131,7 @@ fn kind_word(kind: ReviewRunKind) -> &'static str {
         ReviewRunKind::Explanation => "explanation",
         ReviewRunKind::Ask => "ask",
         ReviewRunKind::Search => "search",
+        ReviewRunKind::Fix => "fix",
     }
 }
 
@@ -127,6 +140,7 @@ fn kind_of(word: &str) -> ReviewRunKind {
         "tool" => ReviewRunKind::Tool,
         "explanation" => ReviewRunKind::Explanation,
         "search" => ReviewRunKind::Search,
+        "fix" => ReviewRunKind::Fix,
         _ => ReviewRunKind::Ask,
     }
 }
@@ -224,6 +238,10 @@ struct Plan {
     body: Option<String>,
     /// Where the change runs, for the tool `walk` and nothing else.
     place: Option<WalkPlace>,
+    /// The finding a fix fixes, and nothing else's.
+    finding: Option<ReviewFinding>,
+    /// The diff, where it was read before the run started: a fix's file is checked against it.
+    diff: Option<PullRequestDiff>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -280,6 +298,28 @@ where
                 }
                 (words_of(&question), question.clone(), question, Shape::Text)
             }
+            ReviewRunKind::Fix => {
+                let Some(finding) = start.finding.as_ref() else {
+                    return Err(unacceptable(
+                        FIX_NEEDS_A_FINDING,
+                        "a fix is written for a finding, and none was given".to_string(),
+                    ));
+                };
+                if finding.at.side != ipc::DiffSide::Right {
+                    return Err(unacceptable(
+                        FIX_ON_OLD_LINES,
+                        format!(
+                            "the finding is on the old lines of `{}`, and a fix replaces the head's",
+                            finding.at.path
+                        ),
+                    ));
+                }
+                let name = start.name.trim().to_string();
+                if name.is_empty() {
+                    return Err(unacceptable(BLANK, "a fix needs the name its card gives it".to_string()));
+                }
+                (name.clone(), name, fix_asking(finding), Shape::Fix)
+            }
             ReviewRunKind::Search => {
                 return Err(unacceptable(
                     UNKNOWN_TOOL,
@@ -322,12 +362,15 @@ where
                 return Ok(run_of(kept));
             }
         }
-        // The head the forge says now, and what the model is told about the pull request.
+        // The head the forge says now, and what the model is told about the pull request. A fix
+        // reads the diff too, to hold its finding to the files the change touches.
         let number = start.number;
-        let (facts, page) = self
+        let fixing = start.kind == ReviewRunKind::Fix;
+        let (facts, page, diff) = self
             .forge_asked(served.root(), move |vcs: &V, root: &str| {
                 let named = number.to_string();
-                (vcs.pull_request_facts(root, &named), vcs.pull_request_page(root, &named))
+                let diff = fixing.then(|| vcs.pull_request_diff(root, &named)).flatten();
+                (vcs.pull_request_facts(root, &named), vcs.pull_request_page(root, &named), diff)
             })
             .await;
         let unreadable = || {
@@ -340,6 +383,12 @@ where
             (Some(facts), Some(head)) if !head.trim().is_empty() => (facts, head),
             _ => return Err(unreadable()),
         };
+        // Any other kind ignores a finding it was sent.
+        let finding = start.finding.clone().filter(|_| fixing);
+        if let Some(finding) = &finding {
+            let files = diff.as_ref().map(|diff| diff.files.as_slice()).ok_or_else(unreadable)?;
+            place_holds(&finding.at, files, "the finding").map_err(|said| unacceptable(FIX_OFF_THE_CHANGE, said))?;
+        }
         let now = self.clock().now().as_str().to_string();
         let run = ReviewRun {
             manifest_id: manifest_id.clone(),
@@ -377,6 +426,8 @@ where
             title: facts.title,
             body: facts.body,
             place,
+            finding,
+            diff,
         };
         let fleet = Arc::clone(&self);
         let started = run.clone();
@@ -447,10 +498,13 @@ where
         let reviewing = self.reviewing().map_err(|why| spent(format!("no agent could be asked: {why:?}")))?;
         let root = plan.pool.repo_root().to_string();
         let number = run.number;
-        let diff = self
-            .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_diff(root, &number.to_string()))
-            .await
-            .ok_or_else(|| spent(format!("the forge would not give the diff of pull request {number}")))?;
+        let diff = match plan.diff.clone() {
+            Some(diff) => diff,
+            None => self
+                .forge_asked(&root, move |vcs: &V, root: &str| vcs.pull_request_diff(root, &number.to_string()))
+                .await
+                .ok_or_else(|| spent(format!("the forge would not give the diff of pull request {number}")))?,
+        };
 
         let holder = format!("review-{}", self.mint().ulid().as_str().to_lowercase());
         let (slot, path, bay_head) = self.review_bay_taken(&plan.pool, run.number, &holder).await.map_err(spent)?;
@@ -466,14 +520,29 @@ where
                     short(&bay_head)
                 )));
             }
-            let prompt = brief(plan, run, &diff.patch, &diff.files);
+            // A fix's lines are read before anything is spent, so a finding past the file's end
+            // costs no call.
+            let before = match &plan.finding {
+                Some(finding) => Some(lines_at(Path::new(&path), &finding.at).map_err(spent)?),
+                None => None,
+            };
+            let fixing = plan.finding.as_ref().zip(before.as_deref()).map(|(finding, before)| (&finding.at, before));
+            let prompt = brief(plan, run, &diff.patch, &diff.files, before.as_deref());
             let ask = Ask::put(reviewing.model.clone(), &prompt, reviewing.environment.clone())
                 .and_then(|ask| Ok(ask.reading(Reading::checkout(&path, READ_TURNS)?)))
                 .map_err(|why| spent(format!("the question could not be put: {why:?}")))?;
             let (answered, micros) = asked_and_costed(&reviewing, &ask).await;
             let answer = answered.map_err(|why| (format!("the agent did not answer: {why}"), micros))?;
-            let result = read_answer(plan.shape, &answer, &diff.files, Path::new(&path), plan.body.as_deref(), plan.place.as_ref())
-                .map_err(|why| (format!("the answer was refused: {why}"), micros))?;
+            let result = read_answer(
+                plan.shape,
+                &answer,
+                &diff.files,
+                Path::new(&path),
+                plan.body.as_deref(),
+                plan.place.as_ref(),
+                fixing,
+            )
+            .map_err(|why| (format!("the answer was refused: {why}"), micros))?;
             Ok((result, micros))
         }
         .await;
@@ -543,7 +612,7 @@ pub(crate) fn short(sha: &str) -> &str {
 
 /// What the model is told. **The pull request is data and not instruction**: its description and
 /// its diff are somebody else's words, and the brief says so before it lays them in.
-fn brief(plan: &Plan, run: &ReviewRun, patch: &str, files: &[String]) -> String {
+fn brief(plan: &Plan, run: &ReviewRun, patch: &str, files: &[String], before: Option<&str>) -> String {
     let body = plan.body.as_deref().map(str::trim).filter(|body| !body.is_empty());
     let diff: String = patch.chars().take(DIFF_AT_MOST).collect();
     let cut = match patch.chars().count() > DIFF_AT_MOST {
@@ -566,7 +635,11 @@ fn brief(plan: &Plan, run: &ReviewRun, patch: &str, files: &[String]) -> String 
         title = plan.title.replace('"', "'"),
         head = run.head,
         asking = plan.asking.trim(),
-        place = plan.place.as_ref().map(crate::review_walk_runs::place_section).unwrap_or_default(),
+        place = match (plan.place.as_ref(), plan.finding.as_ref().zip(before)) {
+            (Some(place), _) => crate::review_walk_runs::place_section(place),
+            (None, Some((finding, before))) => lines_section(&finding.at, before),
+            (None, None) => String::new(),
+        },
         body = body.unwrap_or("(none)"),
         files = files.join("\n"),
         contract = contract(plan.shape),
@@ -608,6 +681,10 @@ fn contract(shape: Shape) -> String {
             .to_string(),
         Shape::Text => "{\"body\": \"Markdown\"}".to_string(),
         Shape::Walk => crate::review_walk_runs::walk_contract(),
+        Shape::Fix => "{\"after\": \"the lines that replace the lines above, whole\", \"why\": \"one line on what the fix \
+                       changes\"}. `after` replaces exactly those lines and nothing around them: keep each line's \
+                       indentation, and repeat no line from before or after the range. It must change something."
+            .to_string(),
         Shape::Tour => format!(
             "{{\"stops\": [{{\"title\": \"one line on what this piece does\", \"at\": <place>}}]}}. 3 to 10 stops, in \
              the order a reader should follow the change, entry point first. Skip lockfiles, generated files and \
@@ -653,6 +730,12 @@ struct FindingsOut {
 struct TourOut {
     stops: Vec<ReviewTourStop>,
 }
+/// Only what the agent writes: `at` and `before` are Fleet's, and anything else it says is dropped.
+#[derive(Deserialize)]
+struct FixOut {
+    after: String,
+    why: String,
+}
 
 /// The one JSON object in an answer: from the first `{` to the last `}`, which sees through a
 /// code fence or a sentence the model could not help adding.
@@ -687,16 +770,72 @@ fn place_holds(place: &ReviewPlace, changed: &[String], what: &str) -> Result<()
     Ok(())
 }
 
-/// A doc the checkout holds, named relative to its root and staying inside it.
-fn doc_holds(path: &str, checkout: &Path) -> Result<(), String> {
+/// A file the checkout holds, named relative to its root and staying inside it.
+fn file_in(checkout: &Path, path: &str) -> Option<PathBuf> {
     let relative = Path::new(path);
     let inside = !path.trim().is_empty()
         && relative.is_relative()
         && relative.components().all(|part| matches!(part, Component::Normal(_)));
-    match inside && checkout.join(relative).is_file() {
-        true => Ok(()),
-        false => Err(format!("a step names `{path}` as its source, which is not a file in the checkout")),
+    let file = checkout.join(relative);
+    (inside && file.is_file()).then_some(file)
+}
+
+fn doc_holds(path: &str, checkout: &Path) -> Result<(), String> {
+    match file_in(checkout, path) {
+        Some(_) => Ok(()),
+        None => Err(format!("a step names `{path}` as its source, which is not a file in the checkout")),
     }
+}
+
+/// Lines `start` to `end` of a file in the checkout, joined by newlines and with none after the
+/// last: a fix's `before`.
+fn lines_at(checkout: &Path, at: &ReviewPlace) -> Result<String, String> {
+    let file = file_in(checkout, &at.path).ok_or_else(|| format!("`{}` is not a file at the head", at.path))?;
+    let text = std::fs::read_to_string(&file).map_err(|why| format!("`{}` would not read as text: {why}", at.path))?;
+    let lines: Vec<&str> = text.lines().collect();
+    let (from, to) = (usize::try_from(at.start).unwrap_or(usize::MAX), usize::try_from(at.end).unwrap_or(usize::MAX));
+    if from == 0 || to < from || to > lines.len() {
+        return Err(format!(
+            "the finding names lines {} to {} of `{}`, which has {} lines at the head",
+            at.start,
+            at.end,
+            at.path,
+            lines.len()
+        ));
+    }
+    Ok(lines[from - 1..to].join("\n"))
+}
+
+/// What a fix asks: the finding, as the review tool wrote it.
+fn fix_asking(finding: &ReviewFinding) -> String {
+    format!(
+        "A review of this pull request found a problem. Write the fix for it, as the lines that replace \
+         the lines it is about.\n\nFinding: {title}\n\n{body}",
+        title = finding.title.trim(),
+        body = finding.body.trim(),
+    )
+}
+
+/// The brief's section on the lines a fix replaces, as they are at the head.
+fn lines_section(at: &ReviewPlace, before: &str) -> String {
+    format!(
+        "## The lines to replace\n\nLines {start} to {end} of `{path}`, at this commit:\n\n````\n{before}\n````\n\n",
+        start = at.start,
+        end = at.end,
+        path = at.path,
+    )
+}
+
+/// A fix's answer, with the finding's place and the head's lines filled in by Fleet.
+fn fix_read(json: &str, at: &ReviewPlace, before: &str) -> Result<ReviewResult, String> {
+    let out: FixOut = said(json)?;
+    let after = out.after.trim_end_matches(['\n', '\r']).to_string();
+    nothing("the fix", &after)?;
+    nothing("why", &out.why)?;
+    if after == before {
+        return Err("the fix is the lines as they are, so it changes nothing".to_string());
+    }
+    Ok(ReviewResult::Fix { at: at.clone(), before: before.to_string(), after, why: out.why })
 }
 
 /// The answer, read into the shape `shape` has and held to what the pull request is. `changed`
@@ -708,6 +847,7 @@ fn read_answer(
     checkout: &Path,
     description: Option<&str>,
     place: Option<&WalkPlace>,
+    fixing: Option<(&ReviewPlace, &str)>,
 ) -> Result<ReviewResult, String> {
     let json = object_in(answer)?;
     match shape {
@@ -818,6 +958,10 @@ fn read_answer(
             let place = place.ok_or_else(|| "a walk is written against a place, and none was given".to_string())?;
             crate::review_walk_runs::walk_read(json, place)
         }
+        Shape::Fix => {
+            let (at, before) = fixing.ok_or_else(|| "a fix is read against its finding's lines, and none were read".to_string())?;
+            fix_read(json, at, before)
+        }
     }
 }
 
@@ -841,5 +985,12 @@ pub(crate) fn answer_read(
         "tour" => Shape::Tour,
         _ => Shape::Text,
     };
-    read_answer(shape, answer, changed, checkout, description, place)
+    read_answer(shape, answer, changed, checkout, description, place, None)
+}
+
+/// A fix's lines at the head, and its answer read against them.
+#[cfg(test)]
+pub(crate) fn fix_answer_read(answer: &str, checkout: &Path, at: &ReviewPlace) -> Result<ReviewResult, String> {
+    let before = lines_at(checkout, at)?;
+    read_answer(Shape::Fix, answer, &[], checkout, None, None, Some((at, &before)))
 }

@@ -18,6 +18,7 @@ import {
   Footprints,
   FolderGit2,
   LoaderCircle,
+  Map as MapGlyph,
   Minus,
   ShieldCheck,
   ShieldX,
@@ -110,6 +111,10 @@ export const TOOL_MARK: Record<ToolMark, Said> = {
   why: {
     Glyph: CircleHelp,
     said: "Why",
+  },
+  tour: {
+    Glyph: MapGlyph,
+    said: "Tour",
   },
   custom: {
     Glyph: ClipboardList,
