@@ -33,6 +33,7 @@ mod log;
 mod look;
 mod menu;
 mod mock;
+mod palette;
 mod revert;
 mod runtime_file;
 mod transport;

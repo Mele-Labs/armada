@@ -44,6 +44,9 @@ pub fn role_named(word: &str) -> Option<Role> {
         "searchbox" => Role::SearchInput,
         "img" => Role::Image,
         "separator" => Role::Splitter,
+        "listbox" => Role::ListBox,
+        "option" => Role::ListBoxOption,
+        "alert" => Role::Alert,
         _ => return None,
     })
 }
