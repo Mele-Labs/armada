@@ -5,3 +5,10 @@
   status = "Proposed"
   reserved = "An item the person and the Operator are discussing now, on its card and its marker in Discussion. Never a single message sent, which is `message-square`, and never a Job's question, which is `message-circle-question`."
   notes = "Proposed 5 Nov 2026 with the Operator's Discussion. The card's line reads `In Discussion now` beside it, and the marker in Discussion wears it until the item settles, when it becomes `check`."
+
+[[icons.messages-square.usage]]
+  means = "Ask, a pull request's tab holding his questions about it and the answers, with the box he asks in"
+  group = "Pull request review"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 9 Nov 2026 for the walk `pr-review-by-file`. The tab's glyph in its tab strip and in +. The tab is a conversation with an agent about one pull request, which is what two bubbles about one thing claim."

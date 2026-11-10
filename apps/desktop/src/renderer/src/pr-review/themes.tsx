@@ -19,6 +19,7 @@ import {
   spotOf,
 } from "./changes";
 import type { Spot } from "./changes";
+import { CodeRefs } from "./code-refs";
 import { DraftCard, FindingCard, LineComposer, ThreadCard } from "./lines";
 import { TOOL_MARK } from "./marks";
 import type { Change, Draft, Finding, ReviewPr, Theme, Thread } from "./model";
@@ -442,16 +443,18 @@ function FindingBlock({
 }) {
   const store = useReviewStore()!;
   return (
-    <FindingCard
-      finding={finding}
-      mark={mark}
-      session={send !== undefined}
-      onDismiss={() => store.dismiss(pr.key, finding.id)}
-      onSend={() =>
-        send?.([
-          finding,
-        ])
-      }
-    />
+    <CodeRefs pr={pr}>
+      <FindingCard
+        finding={finding}
+        mark={mark}
+        session={send !== undefined}
+        onDismiss={() => store.dismiss(pr.key, finding.id)}
+        onSend={() =>
+          send?.([
+            finding,
+          ])
+        }
+      />
+    </CodeRefs>
   );
 }

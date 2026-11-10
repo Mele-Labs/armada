@@ -40,7 +40,12 @@ export const PR_TAB_KINDS = [
   "pr-review",
   "pr-tool",
   "pr-comments",
+  "pr-ask",
 ] as const;
+/** Kinds a kept layout may still name, and the kind each opens now. Focus became the one Review tab. */
+export const RENAMED_PR_KINDS: Readonly<Record<string, (typeof PR_TAB_KINDS)[number]>> = {
+  "pr-focus": "pr-review",
+};
 /** The Operator's tabs, in its dock: Talk, its conversation over the Job composer, its Queue, its Log, what waits to start and its Permissions. */
 export const OPERATOR_TAB_KINDS = [
   "op-talk",
@@ -594,6 +599,80 @@ const tabOf = (
         terminal,
       }),
 });
+
+/**
+ * A pane holding one new tab of `kind`, under the whole arrangement and as wide as it, taking `share` of its height. The focus stays
+ * where it was.
+ */
+export function dockAtBottom(arrangement: Arrangement, kind: TabKind, share: number): Arrangement {
+  const [splitId, afterSplit] = mint(arrangement, "s");
+  const [paneId, afterPane] = mint(afterSplit, "p");
+  const [tabId, next] = mint(afterPane, "t");
+  return {
+    ...next,
+    root: {
+      type: "split",
+      id: splitId,
+      dir: "column",
+      ratio: clampRatio(1 - share),
+      a: arrangement.root,
+      b: {
+        type: "pane",
+        id: paneId,
+        tabs: [
+          tabOf(tabId, kind, undefined),
+        ],
+        active: tabId,
+      },
+    },
+  };
+}
+
+/**
+ * Each tab of a kind `renamed` names, as the kind it opens now. Where that leaves two tabs of one kind, the first in the tree stays and
+ * the other goes, its pane fronting the one that stayed or its first tab.
+ */
+export function renameKinds(
+  arrangement: Arrangement,
+  renamed: Readonly<Record<string, TabKind>>,
+): Arrangement {
+  const onto = new Set(Object.values(renamed));
+  const seen = new Map<string, string>();
+  const walk = (node: Node): Node => {
+    if (node.type === "split")
+      return {
+        ...node,
+        a: walk(node.a),
+        b: walk(node.b),
+      };
+    const tabs: Tab[] = [];
+    for (const tab of node.tabs) {
+      const kind = renamed[tab.kind] ?? tab.kind;
+      if (onto.has(kind) && seen.has(kind)) continue;
+      if (onto.has(kind)) seen.set(kind, tab.id);
+      tabs.push(
+        kind === tab.kind
+          ? tab
+          : {
+              ...tab,
+              kind,
+            },
+      );
+    }
+    const gone = node.active !== undefined && !tabs.some((tab) => tab.id === node.active);
+    const kept = gone ? node.tabs.find((tab) => tab.id === node.active) : undefined;
+    const instead = kept === undefined ? undefined : seen.get(renamed[kept.kind] ?? kept.kind);
+    return {
+      ...node,
+      tabs,
+      active: !gone ? node.active : tabs.some((tab) => tab.id === instead) ? instead : tabs[0]?.id,
+    };
+  };
+  return {
+    ...arrangement,
+    root: walk(arrangement.root),
+  };
+}
 
 /** A new tab at the end of a pane, in front. */
 export function addTab(

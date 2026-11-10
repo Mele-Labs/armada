@@ -70,3 +70,10 @@
   size = "14px"
   status = "Specified"
   notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Next`. A chunk is a step of the Job's workflow, so this is a step's own not_started, the first of the reservation's three uses."
+
+[[icons.circle-dashed.usage]]
+  means = "A review tool not run on this pull request, on its button in the Review tab's head"
+  group = "Pull request review"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 9 Nov 2026 for the walk `pr-review-by-file`. Tooltip names the tool and `Not run`. The same claim as step_state.not_started, a run that has not started; it turns to the turning `loader-circle` while it runs."

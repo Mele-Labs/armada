@@ -50,6 +50,8 @@ import { askToOpenSession } from "./open-session";
 import { FileInline } from "./shared-panel/file";
 import { openAddressInPanel, openInPanel, openMod } from "./shared-panel/store";
 import { usePaletteTable } from "./palette-table";
+import { RunOnOpening } from "./pr-review/opening-run";
+import { useReviewStore } from "./pr-review/store";
 import { useSystemEntry } from "./system-entry";
 
 export type SystemSurfaceProps = KitSlice & {
@@ -282,6 +284,8 @@ export function SystemSurface({
   );
   // Words, Tracker and Fleet are listed once a teaching or a scaffold has made a mod of that kind, and not before.
   const taught = useTaught();
+  // Repository also holds what opening Review runs, wherever reviews are served.
+  const reviewing = useReviewStore() !== undefined && repositories.length > 0;
   const made = (id: string) =>
     id === "bridge:words"
       ? taughtOf(taught, "words").length > 0
@@ -290,7 +294,7 @@ export function SystemSurface({
         : id === "bridge:fleet"
           ? taughtOf(taught, "fleet").length > 0
           : id === "fleet:repository"
-            ? connectors !== undefined
+            ? connectors !== undefined || reviewing
             : id === "kit:workspaces"
               ? workspaces !== undefined
               : true;
@@ -503,28 +507,31 @@ export function SystemSurface({
         />
       );
     }
-    if (def.id === "fleet:repository" && connectors !== undefined) {
+    if (def.id === "fleet:repository") {
       return (
         <div className="armada-system__pane" data-col="detail">
           <div className="armada-system__section">
-            <RepositorySwitches
-              title="Connectors"
-              help="Off, Jobs in that repository start without the connectors on your account, such as Notion, Drive and Slack. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected. A switch you have not set follows the repository's armada.yml."
-              rows={repositories.map((one) => ({
-                id: one.id,
-                name: one.name,
-                on: !connectors.off(one.id, one.connectorsOff),
-              }))}
-              switchLabel={(name) => `Connectors in ${name}`}
-              disabled={!live}
-              onSwitch={(id, on) =>
-                connectors.onSwitch(
-                  id,
-                  repositories.find((one) => one.id === id)?.connectorsOff ?? false,
-                  on,
-                )
-              }
-            />
+            {connectors === undefined ? null : (
+              <RepositorySwitches
+                title="Connectors"
+                help="Off, Jobs in that repository start without the connectors on your account, such as Notion, Drive and Slack. Servers in the repository's own .mcp.json are kept, and sessions started outside Armada are unaffected. A switch you have not set follows the repository's armada.yml."
+                rows={repositories.map((one) => ({
+                  id: one.id,
+                  name: one.name,
+                  on: !connectors.off(one.id, one.connectorsOff),
+                }))}
+                switchLabel={(name) => `Connectors in ${name}`}
+                disabled={!live}
+                onSwitch={(id, on) =>
+                  connectors.onSwitch(
+                    id,
+                    repositories.find((one) => one.id === id)?.connectorsOff ?? false,
+                    on,
+                  )
+                }
+              />
+            )}
+            <RunOnOpening repositories={repositories} />
           </div>
         </div>
       );
