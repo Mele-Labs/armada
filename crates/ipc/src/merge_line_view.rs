@@ -41,7 +41,7 @@ pub struct MergeLineView {
     /// number, title, address, branch, author and place, with no ci, review, mergeability or hand, and its
     /// queue state `in_queue`, so nothing downstream raises a card for it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pulls: Vec<HubPullRequest>,
+    pub pulls: Vec<PullView>,
     /// The newest pull requests merged, newest first, with the run each started on main.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub landed: Vec<HubMerged>,
@@ -53,6 +53,33 @@ pub struct MergeLineView {
     /// When the forge first failed to answer, since the last whole visit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quiet_since: Option<Instant>,
+}
+
+/// One pull request on the line: the hub's row whole, and two facts Fleet works out beside it so a
+/// client does not. **Flattened, so every field of [`HubPullRequest`] is where it was** and the two
+/// new ones sit beside them.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullView {
+    #[serde(flatten)]
+    pub pull: HubPullRequest,
+    /// The Job that holds it: the one whose ledger names the pull request by its number, else its
+    /// branch, in any state, an ended Job included, since the question is who made it. **Its `title`
+    /// is always set**: the ledger's, else the Job's id. Absent where no Job holds it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_by: Option<HubSession>,
+    /// How its chip reads, decided by Fleet. **A state, never a colour.**
+    pub tone: PullTone,
+}
+
+/// The tone of a pull request's chip: `bad` for one whose ci failed, `ask` for one the person can
+/// merge, `calm` for the rest. Another author's is always `calm`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PullTone {
+    #[default]
+    Calm,
+    Ask,
+    Bad,
 }
 
 /// Main as the line marks it.

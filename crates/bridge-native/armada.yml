@@ -1,0 +1,32 @@
+# The native Bridge, a Cargo workspace of its own outside the root's (`exclude` in the root
+# Cargo.toml), so the root's `build` and `test` cannot reach it: cargo refuses `-p` of a package
+# it does not own. This is the one place its tests run from a terminal or a Job:
+# `armada check crates/bridge-native:test <name>`, or `crates/bridge-native:test --changed`.
+# `docs/concepts/manifest.md`, *Workspace gating*.
+version: 1
+id: armada-bridge-native
+
+# No `depends_on`, on purpose. `crates/ipc`, `crates/core-model` and `packages/tokens` are read
+# by this crate, but a change to them is a change this machine already pays for, and a hit would
+# put gpui's hundreds of crates into the pre-PR run of every one. Only a change under this
+# directory reaches this manifest.
+
+checks:
+  test:
+    # Its own manifest and lockfile, hence `--locked` on it. The Check runs in this directory.
+    run: cargo nextest run --locked --manifest-path Cargo.toml --test-threads ${width}
+    one_test:
+      run: cargo nextest run --locked --manifest-path Cargo.toml --test-threads ${width} -E test(/(^|::){}(::|$)/)
+    # **`pre_pr`: this Check is never a gate.** CI runs these tests in its `native` job on macOS,
+    # whenever a change reaches this crate, because gpui builds on no Linux runner and the other
+    # jobs are Linux. So the only run on this machine is the one an agent makes before opening a
+    # pull request that touches this crate, and `.github/ci/plan.py` reads the key as `native`.
+    runs_at: pre_pr
+    # What the command reads. `--changed` runs the crate's whole suite, since a single crate has
+    # no member to narrow to; it runs nothing for a change outside these.
+    when:
+      - "src/**"
+      - "fixtures/**"
+      - "build.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"

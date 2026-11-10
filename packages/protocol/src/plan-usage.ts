@@ -1,5 +1,7 @@
 // The plan's windows on the wire, mirrored by hand from `crates/ipc/src/plan_usage.rs`.
 
+import type { RingBand } from "./ring-band";
+
 /** One window of the account's plan, as a session's mod last read it. */
 export type PlanWindow = {
   /** `five_hour`, `seven_day`, or a gateway's `spend_limit`. Draw the two known; leave the rest. */
@@ -8,6 +10,11 @@ export type PlanWindow = {
   percent_used: number;
   /** When the window resets. Absent where the reading carried none. */
   resets_at?: string;
+  /**
+   * How full the window is, for a ring: Fleet's reading of `percent_used`, never a session's. Left out of a
+   * session's report, and read as `normal` where absent.
+   */
+  band?: RingBand;
 };
 
 /**

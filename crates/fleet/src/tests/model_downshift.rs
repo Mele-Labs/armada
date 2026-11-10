@@ -45,6 +45,7 @@ async fn feed(fleet: &Fixture, percent: u32, resets_at: &str) {
         kind: "seven_day".into(),
         percent_used: percent,
         resets_at: Some(ipc::Instant::carried(resets_at)),
+        band: ipc::RingBand::of(percent),
     }];
     let measured = SessionFact::Measured { usage: SessionUsage::default(), plan, context_breakdown: None };
     fleet.report_session(report("s1", measured)).await.unwrap();

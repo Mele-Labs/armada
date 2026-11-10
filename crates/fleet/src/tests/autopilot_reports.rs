@@ -248,7 +248,7 @@ async fn a_report_dropped_since_it_was_set_aside_starts_a_job_from_the_title_and
 // ---- The weekly cap ----
 
 fn week(percent: u32, resets_at: &str) -> Vec<PlanWindow> {
-    vec![PlanWindow { kind: "seven_day".into(), percent_used: percent, resets_at: Some(ipc::Instant::carried(resets_at)) }]
+    vec![PlanWindow { kind: "seven_day".into(), percent_used: percent, resets_at: Some(ipc::Instant::carried(resets_at)), band: ipc::RingBand::of(percent) }]
 }
 
 fn read_week(rig: &Rig, windows: Vec<PlanWindow>) {
@@ -277,7 +277,7 @@ async fn a_reading_at_the_weekly_cap_pauses_naming_it_and_one_below_does_not() {
 
 #[tokio::test]
 async fn no_reading_and_a_window_that_has_reset_never_count_as_the_cap_reached() {
-    for windows in [Vec::new(), week(100, LONG_AGO), vec![PlanWindow { kind: "five_hour".into(), percent_used: 100, resets_at: None }]] {
+    for windows in [Vec::new(), week(100, LONG_AGO), vec![PlanWindow { kind: "five_hour".into(), percent_used: 100, resets_at: None, band: ipc::RingBand::Danger }]] {
         let (rig, _, _) = rig_picking(NOTHING, false);
         read_week(&rig, windows.clone());
         rig.fleet.start_autopilot(rig.manifest.clone(), capped_at(10)).await.expect("started past a cap it has no reading of");

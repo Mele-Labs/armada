@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ids::Instant;
+use crate::ring_band::RingBand;
 
 /// One window of the account's plan, as a session's mod last read it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,6 +16,11 @@ pub struct PlanWindow {
     /// When the window resets. Absent where the reading carried none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resets_at: Option<Instant>,
+    /// How full the window is, for a ring: Fleet's reading of `percent_used`. **Fleet's, never a
+    /// session's**: a report that names one is overwritten, and a reading kept before the field
+    /// existed is read again.
+    #[serde(default)]
+    pub band: RingBand,
 }
 
 /// `get_plan_usage`, and `plan_usage.changed` whole: the newest reading of the account's windows,

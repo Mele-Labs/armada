@@ -5,19 +5,25 @@
 //! TypeScript (`mergeLineViews`, `hubOf`, `mainOf`, `redOf` and `repositoryLabel`), with the rules
 //! kept as they were. **Two departures**: a pull request of your own passes through whole, where
 //! the TypeScript kept only the fields a panel drew, and a title is filled in on a Job where the
-//! TypeScript filled it in on the row.
+//! TypeScript filled it in on the row. **Two facts are new**, for the native strip: the Job that holds
+//! each pull request, and the tone of its chip, which Electron's deck worked out in `Deck.tsx`.
 
 use ipc::{
-    HubPullRequest, HubQueue, HubQueueState, HubSession, MainCiState, MainFailedJob, MainMerge, MainRedJob,
-    MainStanding, MainView, MergeLine, MergeLineHub, MergeLineView, MergeLineViews, MergeLines, RepositorySummary,
+    HubPullCi, HubPullRequest, HubQueue, HubQueueState, HubSession, MainCiState, MainFailedJob, MainMerge, MainRedJob,
+    MainStanding, MainView, MergeLine, MergeLineHub, MergeLineView, MergeLineViews, MergeLines, PullTone, PullView,
+    RepositorySummary,
 };
 
-/// Every line as a screen draws it, in the order Fleet serves the lines.
-pub(crate) fn views(lines: &MergeLines, repositories: &[RepositorySummary]) -> MergeLineViews {
-    MergeLineViews { lines: lines.lines.iter().map(|line| view_of(line, repositories)).collect() }
+/// The Job that holds a pull request, by repository root and number, as Fleet read the ledger.
+pub(crate) type Holder = (String, u64, HubSession);
+
+/// Every line as a screen draws it, in the order Fleet serves the lines. `holders` is who holds
+/// which pull request, which only the ledger knows.
+pub(crate) fn views(lines: &MergeLines, repositories: &[RepositorySummary], holders: &[Holder]) -> MergeLineViews {
+    MergeLineViews { lines: lines.lines.iter().map(|line| view_of(line, repositories, holders)).collect() }
 }
 
-fn view_of(line: &MergeLine, repositories: &[RepositorySummary]) -> MergeLineView {
+fn view_of(line: &MergeLine, repositories: &[RepositorySummary], holders: &[Holder]) -> MergeLineView {
     let name = name_of(&line.root, repositories);
     let Some(hub) = &line.hub else {
         return MergeLineView {
@@ -35,7 +41,7 @@ fn view_of(line: &MergeLine, repositories: &[RepositorySummary]) -> MergeLineVie
         root: line.root.clone(),
         name,
         main: main_of(hub),
-        pulls: pulls_of(&hub.pull_requests),
+        pulls: pulls_of(&line.root, &hub.pull_requests, holders),
         landed: hub.merged.clone(),
         checkout: hub.checkout.clone(),
         read_at: hub.forge_read_at.clone(),
@@ -87,7 +93,8 @@ fn folder_of(root: &str) -> String {
 }
 
 /// Another author's pull request stays only in the queue, quiet; the rest are listed queue first.
-fn pulls_of(pulls: &[HubPullRequest]) -> Vec<HubPullRequest> {
+/// Each carries the Job that holds it and the tone of its chip.
+fn pulls_of(root: &str, pulls: &[HubPullRequest], holders: &[Holder]) -> Vec<PullView> {
     let mut kept: Vec<&HubPullRequest> = pulls.iter().filter(|pull| pull.mine || in_the_queue(pull)).collect();
     kept.sort_by_key(|pull| {
         let (rank, position) = match &pull.queue {
@@ -97,7 +104,35 @@ fn pulls_of(pulls: &[HubPullRequest]) -> Vec<HubPullRequest> {
         };
         (rank, position)
     });
-    kept.into_iter().map(|pull| if pull.mine { pull.clone() } else { quiet_of(pull) }).collect()
+    kept.into_iter()
+        .map(|pull| {
+            let listed = if pull.mine { pull.clone() } else { quiet_of(pull) };
+            PullView { held_by: held_by_of(root, listed.number, holders), tone: tone_of(&listed), pull: listed }
+        })
+        .collect()
+}
+
+/// The Job that holds pull request `number` of the repository at `root`, named by its title, else
+/// its id. **The number is the repository's own**, so the same number in another repository is not
+/// its holder.
+pub(crate) fn held_by_of(root: &str, number: u64, holders: &[Holder]) -> Option<HubSession> {
+    let (_, _, job) = holders.iter().find(|(held_root, held, _)| held_root == root && *held == number)?;
+    Some(HubSession { id: job.id.clone(), title: Some(job.title.clone().unwrap_or_else(|| job.id.clone())) })
+}
+
+/// How a pull request's chip reads, which Electron's deck decided from the stage it worked out:
+/// `bad` where ci failed, `ask` where the person can merge it, `calm` otherwise. **Mergeable there is
+/// a pull request in the queue or ready whose ci passed, and a pull request with ci passed is always
+/// one of the two**, so it is `ci` alone. Another author's is `calm`: Electron drew no subject for it.
+pub(crate) fn tone_of(pull: &HubPullRequest) -> PullTone {
+    if !pull.mine {
+        return PullTone::Calm;
+    }
+    match pull.ci {
+        Some(HubPullCi::Failed) => PullTone::Bad,
+        Some(HubPullCi::Passed) => PullTone::Ask,
+        Some(HubPullCi::Running | HubPullCi::WaitingOnMain) | None => PullTone::Calm,
+    }
 }
 
 /// In the forge's merge queue now, rather than waiting for ci to join it.

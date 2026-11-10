@@ -4,7 +4,7 @@
 
 use std::future::Future;
 
-use ipc::{ClashFile, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClashes};
+use ipc::{AllWriteClashes, ClashFile, ClashSide, ManifestId, RepositoryAreas, SessionFileChange, SlotTouches, WriteClashes};
 
 use crate::daemon::Refusal;
 
@@ -17,6 +17,10 @@ pub trait Clashing: Send + Sync + 'static {
         manifest_id: Option<ManifestId>,
         holder: Option<String>,
     ) -> impl Future<Output = Result<WriteClashes, Refusal>> + Send;
+
+    /// `list_all_write_clashes` — the clashes standing in every served repository, a repository with
+    /// none left out. Read from what Fleet last checked; asks git for nothing. It never refuses.
+    fn list_all_write_clashes(&self) -> impl Future<Output = Result<AllWriteClashes, Refusal>> + Send;
 
     /// `read_clash_file` — one file of the clash between `session_id` and the other holder, as
     /// each changed it. `other_id` is ignored where `other_kind` is `main`. Asks git, since a
