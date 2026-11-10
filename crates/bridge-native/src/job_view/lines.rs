@@ -23,11 +23,11 @@ impl JobView {
         page: &Page,
         look: &Look,
         now: DateTime<Local>,
-        _window: &mut gpui::Window,
+        window: &mut gpui::Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         match row {
-            SessionRow::Message { .. } => self.message(row, page, look, now, cx),
+            SessionRow::Message { .. } => self.message(row, page, look, now, window, cx),
             SessionRow::Ran { .. }
             | SessionRow::Requested { .. }
             | SessionRow::Saved { .. }

@@ -1,0 +1,443 @@
+//! The bar under an agent's message: Copy, Reply and the quick responses (A2.3a), and the editor a
+//! response's menu opens.
+
+use std::rc::Rc;
+use std::time::Duration;
+
+use chrono::{DateTime, Local};
+use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, Entity, FocusHandle, Focusable as _, FontWeight, Role, SharedString, Subscription, Window};
+use gpui_component::input::{InputEvent, Textarea, TextareaState};
+
+use super::acts::{button, Tone};
+use super::rows::{glyph, tip, Size};
+use super::{JobView, Page};
+use crate::dropdown::Entry;
+use crate::labels::labelled;
+use crate::look::{token, ActiveLook, Look};
+
+/// How long Copy reads "Copied" after a press.
+const COPIED_FOR: Duration = Duration::from_millis(1500);
+/// How many responses the bar holds.
+const MAX_RESPONSES: usize = 6;
+
+/// One quick response: an emoji and a name. `ask` puts the quote in the box and sends nothing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Response {
+    pub id: String,
+    pub emoji: String,
+    pub name: String,
+    pub ask: bool,
+}
+
+/// The responses a person starts with (`DEFAULT_RESPONSES`).
+fn defaults() -> Vec<Response> {
+    [("pick", "\u{2705}", "Pick this", false), ("yes", "\u{1F44D}", "Yes to this", false), ("no", "\u{1F44E}", "No to this", false), ("ask", "\u{2753}", "Ask about this", true)]
+        .into_iter()
+        .map(|(id, emoji, name, ask)| Response { id: id.into(), emoji: emoji.into(), name: name.into(), ask })
+        .collect()
+}
+
+/// The words of a message as plain text: formatting dropped, a line's words joined by spaces.
+pub(super) fn plain_of(text: &str) -> String {
+    let mut out = String::new();
+    for line in text.lines() {
+        let mut line = line.trim();
+        line = line.trim_start_matches('#').trim_start_matches('>').trim();
+        for marker in ["- ", "* ", "+ "] {
+            if let Some(rest) = line.strip_prefix(marker) {
+                line = rest.trim();
+            }
+        }
+        if !out.is_empty() && !line.is_empty() {
+            out.push(' ');
+        }
+        out.push_str(line);
+    }
+    let mut plain = String::new();
+    let mut chars = out.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '`' | '*' => {}
+            '[' => {
+                let label: String = chars.by_ref().take_while(|&c| c != ']').collect();
+                if chars.peek() == Some(&'(') {
+                    chars.by_ref().take_while(|&c| c != ')').for_each(drop);
+                }
+                plain.push_str(&label);
+            }
+            _ => plain.push(ch),
+        }
+    }
+    plain.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// The message a response sends: the words quoted, a blank line, then the emoji.
+pub(super) fn response_message(line: &str, emoji: &str) -> String {
+    format!("> {line}\n\n{emoji}")
+}
+
+/// The editor of one response: its emoji and its name.
+pub(super) struct Editor {
+    id: Option<String>,
+    from: String,
+    emoji: Entity<TextareaState>,
+    name: Entity<TextareaState>,
+    back: Option<FocusHandle>,
+    _enter: Vec<Subscription>,
+}
+
+/// What the bars of the thread share: the responses, which message was just copied and which holds a menu.
+pub(super) struct Bar {
+    responses: Vec<Response>,
+    copied: Option<String>,
+    held: Option<String>,
+    editor: Option<Editor>,
+    next: u32,
+}
+
+impl Bar {
+    pub fn new() -> Self {
+        Bar { responses: defaults(), copied: None, held: None, editor: None, next: 0 }
+    }
+}
+
+impl JobView {
+    /// Copy, Reply and the responses under the agent's message `id`, then its time.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn message_bar(&self, id: &str, text: &str, at: &ipc::Instant, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let group = SharedString::from(format!("agent:{id}"));
+        let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
+        let copied = self.bar.copied.as_deref() == Some(id);
+        let mut focused = self.bar.held.as_deref() == Some(id);
+        let mut reach = |key: &str| {
+            let spot = page.keys.spot(key, cx);
+            focused |= spot.focus.is_focused(window);
+            spot
+        };
+        let ghost = |key: String, spot: &super::keys::Spot, said: SharedString, mark: AnyElement| {
+            div()
+                .id(SharedString::from(key))
+                .track_focus(&spot.focus)
+                .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(look.length(token::H_CONTROL))
+                .rounded_full()
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .tooltip(tip(said))
+                .child(mark)
+        };
+        let said = text.to_string();
+        let copy_spot = reach(&format!("copy:{id}"));
+        let copy_name: SharedString = if copied { "Copied" } else { "Copy message" }.into();
+        let copy = labelled(
+            ghost(format!("copy:{id}"), &copy_spot, copy_name.clone(), glyph(look, if copied { "check" } else { "copy" }, Size::Large, look.color(token::FG_SUBTLE)).into_any_element()).on_click(cx.listener({
+                let (said, id) = (said.clone(), id.to_string());
+                move |this, _, _, cx| {
+                    cx.write_to_clipboard(ClipboardItem::new_string(said.clone()));
+                    this.bar.copied = Some(id.clone());
+                    cx.notify();
+                    let id = id.clone();
+                    cx.spawn(async move |this, cx| {
+                        cx.background_executor().timer(COPIED_FOR).await;
+                        this.update(cx, |this, cx| {
+                            if this.bar.copied.as_deref() == Some(id.as_str()) {
+                                this.bar.copied = None;
+                                cx.notify();
+                            }
+                        })
+                        .ok();
+                    })
+                    .detach();
+                }
+            })),
+            Role::Button,
+            copy_name,
+        );
+        let reply = live.then(|| {
+            let spot = reach(&format!("reply:{id}"));
+            labelled(
+                ghost(format!("reply:{id}"), &spot, "Reply".into(), glyph(look, "reply", Size::Large, look.color(token::FG_SUBTLE)).into_any_element()).on_click(cx.listener({
+                    let said = said.clone();
+                    move |this, _, window, cx| this.quote(&said, window, cx)
+                })),
+                Role::Button,
+                "Reply",
+            )
+        });
+        let plain = plain_of(text);
+        let responses: Vec<AnyElement> = if live {
+            self.bar
+                .responses
+                .iter()
+                .map(|response| {
+                    let key = format!("response:{id}:{}", response.id);
+                    let spot = reach(&key);
+                    let mark = div().text_size(look.length(token::TEXT_SM)).opacity(0.7).hover(|style| style.opacity(1.)).child(SharedString::from(response.emoji.clone())).into_any_element();
+                    let press = {
+                        let (plain, response) = (plain.clone(), response.clone());
+                        cx.listener(move |this, _, window, cx| this.respond(&plain, &response, window, cx))
+                    };
+                    let button = ghost(key, &spot, response.name.clone().into(), mark).on_click(press);
+                    let (count, chosen, row) = (self.bar.responses.len(), response.clone(), id.to_string());
+                    let button = self.menu_on(
+                        button,
+                        &spot,
+                        format!("Quick response {}", response.name),
+                        spot.focus.clone(),
+                        Rc::new(move || response_entries(count)),
+                        Rc::new(move |this, pick, window, cx| this.response_act(&row, &chosen, pick, window, cx)),
+                        cx,
+                    );
+                    labelled(button, Role::Button, response.name.clone()).into_any_element()
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        labelled(
+            div()
+                .id(SharedString::from(format!("message-bar:{id}")))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .ml(-look.length(token::SPACE_2))
+                .opacity(if focused { 1. } else { 0. })
+                .group_hover(group, |style| style.opacity(1.))
+                .child(copy)
+                .children(reply)
+                .children(responses)
+                .child(div().ml(look.length(token::SPACE_2)).child(self.stamp(at, look, now, false, cx))),
+            Role::Toolbar,
+            "Message",
+        )
+        .into_any_element()
+    }
+
+    /// A response pressed: it sends the quoted words and its emoji, or puts the quote in the box.
+    fn respond(&mut self, plain: &str, response: &Response, window: &mut Window, cx: &mut Context<Self>) {
+        if response.ask {
+            self.quote(plain, window, cx);
+            return;
+        }
+        let message = response_message(plain, &response.emoji);
+        let held = self.composer.read(cx).value().to_string();
+        self.setting = true;
+        self.composer.update(cx, |composer, cx| composer.set_value(message, window, cx));
+        self.setting = false;
+        self.send(window, cx);
+        if !held.trim().is_empty() {
+            self.setting = true;
+            self.composer.update(cx, |composer, cx| composer.set_value(held, window, cx));
+            self.setting = false;
+            self.typed_now(cx);
+        }
+    }
+
+    /// A pick from a response's menu: edit it, add another, or take it away.
+    fn response_act(&mut self, row: &str, response: &Response, pick: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        match pick {
+            "edit" => self.open_editor(row, Some(response.clone()), window, cx),
+            "add" => self.open_editor(row, None, window, cx),
+            "remove" => {
+                if self.bar.responses.len() > 1 {
+                    self.bar.responses.retain(|one| one.id != response.id);
+                    cx.notify();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn open_editor(&mut self, row: &str, edit: Option<Response>, window: &mut Window, cx: &mut Context<Self>) {
+        let back = window.focused(cx);
+        let line = |text: String, window: &mut Window, cx: &mut Context<Self>| {
+            let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 1).submit_on_enter(true));
+            area.update(cx, |area, cx| area.set_value(text, window, cx));
+            area
+        };
+        let emoji = line(edit.as_ref().map(|one| one.emoji.clone()).unwrap_or_default(), window, cx);
+        let name = line(edit.as_ref().map(|one| one.name.clone()).unwrap_or_default(), window, cx);
+        let enter = [&emoji, &name].map(|area| {
+            cx.subscribe_in(area, window, |this, _, event: &InputEvent, window, cx| {
+                if matches!(event, InputEvent::PressEnter { .. }) {
+                    this.save_editor(window, cx);
+                }
+            })
+        });
+        let from = edit.as_ref().map_or_else(|| "Add response".to_string(), |one| format!("Edit {}", one.name));
+        let first = emoji.clone();
+        self.bar.held = Some(row.to_string());
+        self.bar.editor = Some(Editor { id: edit.map(|one| one.id), from, emoji, name, back, _enter: enter.into() });
+        first.update(cx, |area, cx| area.focus(window, cx));
+        cx.notify();
+    }
+
+    fn close_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.bar.held = None;
+        if let Some(back) = self.bar.editor.take().and_then(|editor| editor.back) {
+            window.focus(&back, cx);
+        }
+        cx.notify();
+    }
+
+    fn save_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(editor) = self.bar.editor.as_ref() else { return };
+        let (emoji, name) = (editor.emoji.read(cx).value().trim().to_string(), editor.name.read(cx).value().trim().to_string());
+        if emoji.is_empty() || name.is_empty() {
+            return;
+        }
+        match editor.id.clone() {
+            Some(id) => {
+                if let Some(one) = self.bar.responses.iter_mut().find(|one| one.id == id) {
+                    one.emoji = emoji;
+                    one.name = name;
+                }
+            }
+            None => {
+                if self.bar.responses.len() < MAX_RESPONSES {
+                    self.bar.next += 1;
+                    let id = format!("response:{}", self.bar.next);
+                    self.bar.responses.push(Response { id, emoji, name, ask: false });
+                }
+            }
+        }
+        self.close_editor(window, cx);
+    }
+
+    fn remove_in_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(id) = self.bar.editor.as_ref().and_then(|editor| editor.id.clone()) {
+            if self.bar.responses.len() > 1 {
+                self.bar.responses.retain(|one| one.id != id);
+            }
+        }
+        self.close_editor(window, cx);
+    }
+
+    /// The editor a response's menu opens, over the Job's area.
+    pub(super) fn render_editor(&self, cx: &Context<Self>) -> Option<AnyElement> {
+        let editor = self.bar.editor.as_ref()?;
+        let look = cx.look();
+        let field = |name: &'static str, area: &Entity<TextareaState>| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("response-field:{name}")))
+                    .key_context(crate::keymap::TEXT_BOX)
+                    .w_full()
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_SUNKEN))
+                    .text_size(look.length(token::TEXT_SM))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(Textarea::new(area).appearance(false).aria_label(name)),
+                Role::TextInput,
+                name,
+            )
+        };
+        let removable = editor.id.is_some() && self.bar.responses.len() > 1;
+        let title = editor.from.clone();
+        Some(
+            div()
+                .id("response-editor-scrim")
+                .absolute()
+                .inset_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .bg(look.color(token::BG_BASE).opacity(0.6))
+                .occlude()
+                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "escape" {
+                        cx.stop_propagation();
+                        this.close_editor(window, cx);
+                    }
+                }))
+                .child(labelled(
+                    div()
+                        .id("response-editor")
+                        .w(look.length(token::SPACE_12) * 6.)
+                        .max_w_full()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_3))
+                        .p(look.length(token::SPACE_6))
+                        .rounded(look.length(token::RADIUS_LG))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(look.color(token::BORDER_DEFAULT))
+                        .bg(look.color(token::BG_OVERLAY))
+                        .shadow(look.shadows(token::SHADOW_OVERLAY))
+                        .child(div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(title.clone())))
+                        .child(field("Emoji", &editor.emoji))
+                        .child(field("Name", &editor.name))
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_end()
+                                .gap(look.length(token::SPACE_2))
+                                .children(removable.then(|| {
+                                    labelled(
+                                        button(&look, "response-remove", "Remove", Tone::Ghost, false, None, true).on_click(cx.listener(|this, _, window, cx| this.remove_in_editor(window, cx))),
+                                        Role::Button,
+                                        "Remove",
+                                    )
+                                }))
+                                .child(labelled(button(&look, "response-cancel", "Cancel", Tone::Ghost, false, None, true).on_click(cx.listener(|this, _, window, cx| this.close_editor(window, cx))), Role::Button, "Cancel"))
+                                .child(labelled(button(&look, "response-save", "Save", Tone::Primary, false, None, true).on_click(cx.listener(|this, _, window, cx| this.save_editor(window, cx))), Role::Button, "Save")),
+                        ),
+                    Role::Dialog,
+                    title,
+                ))
+                .into_any_element(),
+        )
+    }
+}
+
+/// A response's menu: Edit, Add response, then Remove.
+fn response_entries(count: usize) -> Vec<Entry> {
+    let add = if count >= MAX_RESPONSES {
+        Entry::Off { label: "Add response".into(), hint: "Six at most" }
+    } else {
+        Entry::Act { id: "add", label: "Add response".into(), icon: None, danger: false }
+    };
+    let remove = if count <= 1 {
+        Entry::Off { label: "Remove".into(), hint: "One at least" }
+    } else {
+        Entry::Act { id: "remove", label: "Remove".into(), icon: None, danger: true }
+    };
+    vec![Entry::Act { id: "edit", label: "Edit".into(), icon: None, danger: false }, add, Entry::Rule, remove]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_message_reads_as_plain_words_on_one_line() {
+        assert_eq!(plain_of("## Plan\n\n- **Read** the `chip` stories\n- see [the docs](https://x.y)"), "Plan Read the chip stories see the docs");
+    }
+
+    #[test]
+    fn a_response_quotes_the_words_then_the_emoji() {
+        assert_eq!(response_message("Go ahead", "\u{1F44D}"), "> Go ahead\n\n\u{1F44D}");
+    }
+
+    #[test]
+    fn the_menu_disables_what_the_list_cannot_take() {
+        assert!(matches!(response_entries(6)[1], Entry::Off { .. }));
+        assert!(matches!(response_entries(1)[3], Entry::Off { .. }));
+        assert!(matches!(response_entries(3)[1], Entry::Act { id: "add", .. }));
+    }
+
+    #[test]
+    fn the_defaults_are_the_four_the_owner_asked_for() {
+        let names: Vec<_> = defaults().into_iter().map(|one| one.name).collect();
+        assert_eq!(names, ["Pick this", "Yes to this", "No to this", "Ask about this"]);
+    }
+}

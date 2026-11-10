@@ -536,49 +536,9 @@ impl JobView {
     }
 
     /// The agent's words, with the bar under them that shows on hover (A2.3).
-    fn agent(&self, id: &str, text: &str, at: &ipc::Instant, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+    #[allow(clippy::too_many_arguments)]
+    fn agent(&self, id: &str, text: &str, at: &ipc::Instant, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> AnyElement {
         let group = SharedString::from(format!("agent:{id}"));
-        let button = |name: &'static str, icon: &'static str| {
-            div()
-                .id(SharedString::from(format!("{name}:{id}")))
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL))
-                .rounded_full()
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .child(glyph(look, icon, Size::Large, look.color(token::FG_SUBTLE)))
-                .tooltip(tip(name))
-        };
-        let said = text.to_string();
-        let copy = labelled(
-            button("Copy message", "copy").on_click(cx.listener({
-                let said = said.clone();
-                move |_, _, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(said.clone()))
-            })),
-            Role::Button,
-            "Copy message",
-        );
-        let reply = labelled(
-            button("Reply", "reply").on_click(cx.listener({
-                let said = said.clone();
-                move |this, _, window, cx| this.quote(&said, window, cx)
-            })),
-            Role::Button,
-            "Reply",
-        );
-        let bar = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_1))
-            .ml(-look.length(token::SPACE_2))
-            .opacity(0.)
-            .group_hover(group.clone(), |style| style.opacity(1.))
-            .child(copy)
-            .child(reply)
-            .child(div().ml(look.length(token::SPACE_2)).child(self.stamp(at, look, now, false, cx)));
         div()
             .group(group)
             .flex()
@@ -586,7 +546,7 @@ impl JobView {
             .gap(look.length(token::SPACE_2))
             .min_w_0()
             .child(self.prose(format!("agent:{id}"), text, look))
-            .child(bar)
+            .child(self.message_bar(id, text, at, page, look, now, window, cx))
             .into_any_element()
     }
 
@@ -648,7 +608,7 @@ impl JobView {
     }
 
     /// The messages, from the person, the agent and another Job (A2).
-    pub(super) fn message(&self, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn message(&self, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
             SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, .. } => {
                 if let Some(act) = act_of(text) {
@@ -658,7 +618,7 @@ impl JobView {
                     files.iter().map(|file| file.name.clone()).chain(tags.iter().map(|tag| tag.title.clone())).collect();
                 self.you(id, text, &chips, Some(at), false, *queued, look, now, cx)
             }
-            SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, look, now, cx),
+            SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
                 let band = div()
                     .flex()

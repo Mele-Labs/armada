@@ -11,6 +11,7 @@
 //! again. A page is made on the first visit.
 
 mod acts;
+mod bar;
 mod calls;
 mod cards;
 mod deck;
@@ -227,6 +228,8 @@ pub struct JobView {
     dock_focus: FocusHandle,
     /// The dialog a thread key opens to ask which card it goes to.
     confirm: Option<keys::Confirm>,
+    /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
+    bar: bar::Bar,
     confirm_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -284,6 +287,7 @@ impl JobView {
             pop: None,
             dock_focus: cx.focus_handle(),
             confirm: None,
+            bar: bar::Bar::new(),
             confirm_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -1005,6 +1009,7 @@ impl Render for JobView {
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .children(self.render_confirm(cx))
+            .children(self.render_editor(cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

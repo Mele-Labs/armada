@@ -22,13 +22,15 @@ pub enum Entry {
     Choice { id: &'static str, label: SharedString, on: bool },
     Rule,
     Label(&'static str),
+    /// A line that cannot be picked now, with the reason in its tooltip.
+    Off { label: SharedString, hint: &'static str },
 }
 
 impl Entry {
     fn id(&self) -> Option<&'static str> {
         match self {
             Entry::Act { id, .. } | Entry::Toggle { id, .. } | Entry::Choice { id, .. } => Some(id),
-            Entry::Rule | Entry::Label(_) => None,
+            Entry::Rule | Entry::Label(_) | Entry::Off { .. } => None,
         }
     }
 }
@@ -101,7 +103,7 @@ impl Dropdown {
                 cx.emit(Picked::Entry { id, keep: true });
                 cx.notify();
             }
-            Entry::Rule | Entry::Label(_) => {}
+            Entry::Rule | Entry::Label(_) | Entry::Off { .. } => {}
         }
     }
 
@@ -145,11 +147,26 @@ impl Dropdown {
                 .text_color(look.color(token::FG_SUBTLE))
                 .child(*text)
                 .into_any_element(),
+            Entry::Off { label, hint } => div()
+                .id(SharedString::from(format!("off:{label}")))
+                .h(look.length(token::H_MENU_ITEM))
+                .flex()
+                .items_center()
+                .px(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_SM))
+                .text_color(look.color(token::FG_SUBTLE))
+                .opacity(0.5)
+                .tooltip({
+                    let hint = *hint;
+                    move |window, cx| gpui_component::tooltip::Tooltip::new(hint).build(window, cx)
+                })
+                .child(label.clone())
+                .into_any_element(),
             entry => {
                 let (id, label, icon, danger, ticked) = match entry {
                     Entry::Act { id, label, icon, danger } => (*id, label.clone(), *icon, *danger, None),
                     Entry::Toggle { id, label, on } | Entry::Choice { id, label, on } => (*id, label.clone(), None, false, Some(*on)),
-                    Entry::Rule | Entry::Label(_) => unreachable!("matched above"),
+                    Entry::Rule | Entry::Label(_) | Entry::Off { .. } => unreachable!("matched above"),
                 };
                 let ink = if danger {
                     look.color(token::STATUS_COMPLETED_FAILED)
