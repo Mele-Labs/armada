@@ -16,9 +16,9 @@
 //! **A new item raises a toast in the shared shell, which this module does not draw.** The page emits
 //! [`page::Arrived`] with the items that joined Your turn since it last read; subscribe on [`live`].
 //!
-//! **Switch on reads the page again once the setting saves.** Fleet publishes no
-//! `operator.page_changed` when `features.operator` changes, so the page asks for itself. When Fleet
-//! publishes it, the re-read in [`page::OperatorPageView::switch_on`] goes.
+//! **Switch on and Forget wait on Fleet's `operator.page_changed`**, which it sends when
+//! `features.operator` changes and when a rule or hold is removed. Each draws its change at once and
+//! reads nothing itself; the walk's mock sends no event, so there each reads the page in its place.
 
 mod chat;
 pub mod face;

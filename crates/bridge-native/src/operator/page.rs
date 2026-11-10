@@ -44,7 +44,7 @@ pub enum Opened {
 pub struct Arrived(pub Vec<OperatorTurnItem>);
 
 /// The digest's tab stops: each tile's head, and the links under them.
-pub const STOPS: [&str; 7] = ["Landed", "What I handled", "Running", "Coming up", "Learned", "The whole Log", "Every rule"];
+pub const STOPS: [&str; 8] = ["Landed", "What I handled", "Running", "Coming up", "Learned", "Holds", "The whole Log", "Every rule"];
 
 impl EventEmitter<Opened> for OperatorPageView {}
 impl EventEmitter<Arrived> for OperatorPageView {}
@@ -252,6 +252,7 @@ impl OperatorPageView {
             match act.id {
                 "call_move_focus" => self.step_rule(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
                 "call_send" => cx.propagate(),
+                "call_forget" => self.forget_selected_rule(cx),
                 id if id.starts_with("call_") => {}
                 _ => cx.propagate(),
             }
@@ -271,6 +272,7 @@ impl OperatorPageView {
             // ⌥↑ then ⌥↓.
             "call_reorder" => self.shove(if act.slot == 0 { -1 } else { 1 }, cx),
             "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, cx),
+            // `f` among them: a rule's or a hold's Forget takes it itself, where it has the keys.
             _ => cx.propagate(),
         }
     }
@@ -321,7 +323,8 @@ impl OperatorPageView {
     }
 
     /// Switch on, where the page says the Operator is off: the setting Electron's Permissions tab saves.
-    /// The page reads on at once, and goes back with why if Fleet refuses.
+    /// The page reads on at once, and goes back with why if Fleet refuses. Saved, Fleet's
+    /// `operator.page_changed` redraws it; the mock sends no event, so it is read in its place.
     pub fn switch_on(&mut self, cx: &mut Context<Self>) {
         if self.switching {
             return;
@@ -338,7 +341,8 @@ impl OperatorPageView {
             let _ = this.update(cx, |this, cx| {
                 this.switching = false;
                 match saved {
-                    Ok(()) => this.read(cx),
+                    Ok(()) if !this.wire.is_live() => this.read(cx),
+                    Ok(()) => cx.notify(),
                     Err(why) => {
                         if let Some(page) = this.page.as_mut() {
                             page.on = false;
@@ -386,6 +390,47 @@ impl OperatorPageView {
         self.rules_scroll.scroll_to_item(at + heads);
         self.rules = Some(at);
         cx.notify();
+    }
+
+    /// Forget: the rule or hold stops standing. Its row goes at once; Fleet's `operator.page_changed`
+    /// redraws the page, and a refusal reads it again, which puts the row back.
+    pub fn forget(&mut self, id: i64, cx: &mut Context<Self>) {
+        if let Some(page) = self.page.as_mut() {
+            page.digest.learned.retain(|rule| rule.id != id);
+            page.digest.holds.retain(|hold| hold.id != id);
+        }
+        if let Some(at) = self.rules {
+            self.rules = Some(at.min(self.rules_in_order().len().saturating_sub(1)));
+        }
+        cx.notify();
+        let task = self.wire.forget(id, cx);
+        let task = cx.spawn(async move |this, cx| {
+            let forgot = task.await;
+            let _ = this.update(cx, |this, cx| match forgot {
+                Ok(Some(page)) => this.set_page(page, cx),
+                Ok(None) => {}
+                Err(why) => {
+                    Note::warn("the Operator's page did not forget it").field("why", why).emit();
+                    this.read(cx);
+                }
+            });
+        });
+        self.track(task);
+    }
+
+    /// Forget pressed on a row: the row and its Forget go, so the keys go to the sheet, or the tile's head.
+    pub fn forget_pressed(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
+        let held = self.page.as_ref().is_some_and(|page| page.digest.holds.iter().any(|hold| hold.id == id));
+        self.forget(id, cx);
+        let keys = if self.rules.is_some() { Some(&self.rules_focus) } else { self.stops.get(if held { "Holds" } else { "Learned" }) };
+        window.focus(keys.unwrap_or(&self.focus), cx);
+    }
+
+    /// `f` on Every rule: the selected rule.
+    fn forget_selected_rule(&mut self, cx: &mut Context<Self>) {
+        if let Some(id) = self.rules.and_then(|at| self.rules_in_order().get(at).map(|rule| rule.id)) {
+            self.forget(id, cx);
+        }
     }
 
     /// Open the next or the previous item.
@@ -986,6 +1031,44 @@ mod tests {
         cx.simulate_keystrokes("escape");
         assert_eq!(page.read_with(cx, |page, _| page.rules), None);
         cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
+    }
+
+    fn standing(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) -> (Vec<i64>, Vec<i64>) {
+        page.read_with(cx, |page, _| {
+            let digest = page.page.as_ref().map(|page| &page.digest);
+            (digest.map_or(Vec::new(), |digest| digest.learned.iter().map(|rule| rule.id).collect()), digest.map_or(Vec::new(), |digest| digest.holds.iter().map(|hold| hold.id).collect()))
+        })
+    }
+
+    #[gpui::test]
+    fn f_on_every_rule_forgets_the_rule_it_has_on_and_the_next_one_takes_its_place(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let link = page.read_with(cx, |page, _| page.stops.get("Every rule").cloned()).expect("Every rule is a tab stop");
+        cx.update(|window, cx| window.focus(&link, cx));
+        cx.simulate_keystrokes("enter down");
+        let on = page.read_with(cx, |page, _| page.rules_in_order()[1].id);
+        cx.simulate_keystrokes("f");
+        cx.run_until_parked();
+        let (rules, _) = standing(&page, cx);
+        assert!(!rules.contains(&on), "forgotten");
+        assert_eq!(rules.len(), 5);
+        assert!(page.update(cx, |page, _| page.mock_fleet().is_some_and(|mock| mock.page.digest.learned.iter().all(|rule| rule.id != on))), "Fleet was told");
+        assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1), "the next rule has the sheet");
+        assert!(pressed(&page, cx).is_empty(), "f answers nothing in Your turn");
+    }
+
+    #[gpui::test]
+    fn forget_lifts_a_hold_at_once_and_a_refusal_reads_the_page_again(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.forget(12, cx));
+        assert_eq!(standing(&page, cx).1, [11], "gone before Fleet answers");
+        cx.run_until_parked();
+        assert_eq!(standing(&page, cx).1, [11]);
+
+        // An id nothing has: the mock refuses, and the page is read again as it was.
+        page.update(cx, |page, cx| page.forget(99, cx));
+        cx.run_until_parked();
+        assert_eq!(standing(&page, cx), (vec![1, 2, 3, 4, 5, 6], vec![11]));
     }
 
     #[gpui::test]

@@ -1,9 +1,9 @@
-//! The page's six routes, each a request off the main thread on the port the Fleet connection read, or
+//! The page's routes, each a request off the main thread on the port the Fleet connection read, or
 //! answered by the walk's mock at once. `crates/ipc/operations/operator_page.toml` and its siblings.
 
 use gpui::{App, AppContext, Entity, Task};
 use ipc::operator_page::{OperatorAnswerPress, OperatorAnswered, OperatorInFront, OperatorLater, OperatorPage, OperatorTurnOrder};
-use ipc::operator_talk::{OperatorSaid, OperatorTalk, TalkToOperator};
+use ipc::operator_talk::{OperatorOrders, OperatorSaid, OperatorTalk, RemoveOperatorOrder, TalkToOperator};
 use serde::de::DeserializeOwned;
 
 use super::scenes::MockFleet;
@@ -115,6 +115,18 @@ impl Wire {
         let Some(port) = self.port(cx) else { return Self::unreachable() };
         let saved = request::<ipc::SettingsList>(port, Ask::Post("/settings/save", said), "SettingsList", cx);
         cx.background_spawn(async move { saved.await.map(|_| ()) })
+    }
+
+    /// `POST /operator/orders/remove`: a rule or a hold stops standing. Fleet sends `operator.page_changed`,
+    /// which redraws the page; the mock has no event, so it answers with its page.
+    pub fn forget(&mut self, id: i64, cx: &App) -> Task<Result<Option<OperatorPage>, String>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.forget(id).map(Some));
+        }
+        let said = body(&RemoveOperatorOrder { id });
+        let Some(port) = self.port(cx) else { return Self::unreachable() };
+        let removed = request::<OperatorOrders>(port, Ask::Post("/operator/orders/remove", said), "OperatorOrders", cx);
+        cx.background_spawn(async move { removed.await.map(|_| None) })
     }
 
     /// `GET /operator/talk`.

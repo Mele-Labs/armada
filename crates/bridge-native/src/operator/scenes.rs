@@ -112,6 +112,18 @@ impl MockFleet {
         }
     }
 
+    /// What `remove_operator_order` does: the rule or hold with that id stops standing.
+    pub fn forget(&mut self, id: i64) -> Result<OperatorPage, String> {
+        let digest = &mut self.page.digest;
+        let (rules, holds) = (digest.learned.len(), digest.holds.len());
+        digest.learned.retain(|rule| rule.id != id);
+        digest.holds.retain(|hold| hold.id != id);
+        if digest.learned.len() == rules && digest.holds.len() == holds {
+            return Err("No rule or hold stands with that id".into());
+        }
+        Ok(self.page.clone())
+    }
+
     /// The Operator answers the words it was sent last.
     pub fn said(&mut self) -> Option<OperatorTalkLine> {
         let (words, about) = self.heard.pop()?;

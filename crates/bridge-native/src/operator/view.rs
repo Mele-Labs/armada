@@ -702,6 +702,28 @@ impl OperatorPageView {
         labelled(pressed(link, cx, move |this, window, cx| this.press_stop(said, window, cx)), Role::Link, said).into_any_element()
     }
 
+    /// Forget on a rule's or a hold's row: a press, or Enter, Space or `f` while it has the keys.
+    fn forget_button(&self, id: i64, about: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let button = worded(div().id(SharedString::from(format!("forget-{id}"))), look)
+            .flex_none()
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_SUBTLE))
+            .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
+            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                if event.keystroke.key == "f" && !event.keystroke.modifiers.modified() {
+                    cx.stop_propagation();
+                    this.forget_pressed(id, window, cx);
+                }
+            }))
+            .child("Forget");
+        // The press stops here, so a row of Every rule under it is not selected as well.
+        let forget = move |this: &mut OperatorPageView, window: &mut Window, cx: &mut Context<OperatorPageView>| {
+            cx.stop_propagation();
+            this.forget_pressed(id, window, cx);
+        };
+        labelled(pressed(button, cx, forget), Role::Button, format!("Forget {about}")).into_any_element()
+    }
+
     fn tile(&self, name: &'static str, mark: &'static str, hue: Token, aside: Option<String>, rows: Vec<Row>, link: Option<&'static str>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let open = self.folded.get(name).copied().unwrap_or(opens_unpressed(name));
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
@@ -725,7 +747,8 @@ impl OperatorPageView {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
                         Side::At(at) => self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx),
-                    });
+                    })
+                    .children(row.forget.map(|id| self.forget_button(id, &text, look, cx)));
                 // A row that opens a Job is a tab stop, and Enter opens it as a press does.
                 let line = match row.opened {
                     Some(opened) => pressed(worded(line, look).mx(-look.length(token::SPACE_1)), cx, move |_, _, cx| cx.emit(opened.clone())),
@@ -805,22 +828,22 @@ impl OperatorPageView {
         let digest = &page.digest;
         let mut tiles: Vec<AnyElement> = Vec::new();
         if !digest.landed.is_empty() {
-            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())) }).collect();
+            let rows = digest.landed.iter().map(|one| Row { text: format!("#{} {}", one.number, one.title), side: Side::At(one.at.clone()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
             tiles.push(self.tile("Landed", "git-merge", token::STATUS_COMPLETED_SUCCESS, None, rows, None, look, cx));
         }
         if !digest.handled.acts.is_empty() || digest.handled.log.is_some() {
-            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), side: Side::At(act.at.clone()), opened: None }).collect();
+            let rows = digest.handled.acts.iter().map(|act| Row { text: handled_said(act), side: Side::At(act.at.clone()), opened: None, forget: None }).collect();
             // Off, nothing new is handled: what is here it did before it was switched off.
             let aside = (!page.on).then(|| "while it was on".to_string());
             let link = digest.handled.log.as_ref().map(|_| "The whole Log");
             tiles.push(self.tile("What I handled", "bot", token::OPERATOR, aside, rows, link, look, cx));
         }
         if !digest.running.is_empty() {
-            let rows = digest.running.iter().map(|one| Row { text: one.title.clone(), side: Side::Text(one.repository.clone().unwrap_or_default()), opened: Some(Opened::Job(one.session_id.clone())) }).collect();
+            let rows = digest.running.iter().map(|one| Row { text: one.title.clone(), side: Side::Text(one.repository.clone().unwrap_or_default()), opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
             tiles.push(self.tile("Running", "activity", token::STATUS_RUNNING, None, rows, None, look, cx));
         }
         if !digest.coming_up.is_empty() {
-            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())) }).collect();
+            let rows = digest.coming_up.iter().map(|one| Row { text: format!("{}: waits on {}", one.title, one.needs), side: Side::None, opened: Some(Opened::Job(one.session_id.clone())), forget: None }).collect();
             tiles.push(self.tile("Coming up", "clock", token::STATUS_NOT_STARTED, None, rows, None, look, cx));
         }
         if !digest.learned.is_empty() {
@@ -831,8 +854,12 @@ impl OperatorPageView {
                     places.push(place);
                 }
             }
-            let rows = digest.learned.iter().map(|rule| Row { text: rule_said(rule), side: Side::At(rule.at.clone()), opened: None }).collect();
+            let rows = digest.learned.iter().map(|rule| Row { text: rule_said(rule), side: Side::At(rule.at.clone()), opened: None, forget: Some(rule.id) }).collect();
             tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
+        }
+        if !digest.holds.is_empty() {
+            let rows = digest.holds.iter().map(|hold| Row { text: hold_said(hold), side: Side::At(hold.at.clone()), opened: None, forget: Some(hold.id) }).collect();
+            tiles.push(self.tile("Holds", "folder-lock", token::OPERATOR, None, rows, None, look, cx));
         }
         let since = div()
             .flex()
@@ -975,9 +1002,9 @@ fn emphasised(top: &str, look: &Look) -> gpui::StyledText {
 /// A tile's rows past these are a press away, or in the Log.
 const FEW: usize = 4;
 
-/// Tiles the chosen side column draws open: what it handled and what it learned.
+/// Tiles the chosen side column draws open: what it handled, what it learned, and what it holds.
 pub(super) fn opens_unpressed(name: &str) -> bool {
-    matches!(name, "What I handled" | "Learned")
+    matches!(name, "What I handled" | "Learned" | "Holds")
 }
 
 /// One row of a tile: its words, what stands at its right, and where a press on it goes.
@@ -985,6 +1012,8 @@ pub(super) struct Row {
     text: String,
     side: Side,
     opened: Option<Opened>,
+    /// A rule's or a hold's id, which its Forget names.
+    forget: Option<i64>,
 }
 
 pub(super) enum Side {
@@ -1012,9 +1041,18 @@ pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<S
 
 /// A rule as the sketch writes it: where it holds, then the rule, its first letter small after the colon.
 pub(super) fn rule_said(rule: &ipc::operator_page::OperatorLearned) -> String {
-    let mut said = rule.said.chars();
+    placed(rule.repository.as_deref().unwrap_or("everywhere"), &rule.said)
+}
+
+/// A hold as Learned writes a rule: the repository it holds in, then the hold.
+pub(super) fn hold_said(hold: &ipc::operator_page::OperatorHold) -> String {
+    placed(hold.repository.as_deref().unwrap_or(&hold.manifest_id), &hold.said)
+}
+
+fn placed(place: &str, said: &str) -> String {
+    let mut said = said.chars();
     let small: String = said.next().map(|first| first.to_lowercase().chain(said).collect()).unwrap_or_default();
-    format!("{}: {small}", rule.repository.as_deref().unwrap_or("everywhere"))
+    format!("{place}: {small}")
 }
 
 /// The week's share as the title bar's rings read it, on a live Fleet.
@@ -1212,7 +1250,8 @@ impl OperatorPageView {
                             cx.notify();
                         }))
                         .child(div().flex_1().min_w_0().truncate().child(rule.said.clone()))
-                        .child(self.stamp(rule.at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx)),
+                        .child(self.stamp(rule.at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE, token::WEIGHT_BODY), look, cx))
+                        .child(self.forget_button(rule.id, &rule.said, look, cx)),
                     Role::ListItem,
                     rule.said.clone(),
                 )
@@ -1313,5 +1352,18 @@ mod tests {
         };
         assert_eq!(rule_said(&rule(None)), "everywhere: start a fix when main is red");
         assert_eq!(rule_said(&rule(Some("armada"))), "armada: start a fix when main is red");
+    }
+
+    #[test]
+    fn a_hold_reads_as_a_rule_does_and_names_its_manifest_where_no_repository_is_given() {
+        let hold = |repository: Option<&str>| ipc::operator_page::OperatorHold {
+            id: 11,
+            manifest_id: "01REPO".into(),
+            repository: repository.map(String::from),
+            said: "Only Slot pool controls writes under apps/cockpit until it pushes".into(),
+            at: ipc::Instant::carried("2026-11-11T12:40:00-05:00"),
+        };
+        assert_eq!(hold_said(&hold(Some("armada"))), "armada: only Slot pool controls writes under apps/cockpit until it pushes");
+        assert_eq!(hold_said(&hold(None)), "01REPO: only Slot pool controls writes under apps/cockpit until it pushes");
     }
 }

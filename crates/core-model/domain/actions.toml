@@ -1163,6 +1163,18 @@ destructive = false
 confirms = false
 notes = "On a plan in Your turn: opens the plan in its Job to suggest changes, in place of approving it. Nothing is answered: the item stays until its Job's list drops it. Added 10 Nov 2026 with the native Operator page."
 
+[actions.call_forget]
+kind = "Action"
+tier = "Contextual"
+verb = "Forget"
+icon = ""
+icon_absent = "undecided"
+shortcut = "f"
+scope = "call"
+destructive = false
+confirms = false
+notes = "On the Operator page: the rule selected in Every rule, or the rule or hold whose row has the keys, stops standing at once (`remove_operator_order`). An item it covered asks again, and a hold's Jobs write again. It asks nothing first: a rule is made again by the next Always, a hold by the next order. `f` as Logbook's Forget is. Added 10 Nov 2026 with the native Operator page's Holds."
+
 [actions.logbook_edit]
 kind = "Action"
 tier = "Contextual"
