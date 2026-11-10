@@ -95,6 +95,7 @@ It holds the forge's conversation, the threads on each change and his review; it
 |---|---|---|
 | Explanation | How it works, User Impact, How to Test, Why, or one a person added | Themes, before and after, steps, or the problem and its cost. An explanation added by a person answers text |
 | Tool | Risks, Possible bugs, API breaking changes, or one a person added | Findings, each pinned to a path and line range with a severity, title and body |
+| Tool | Tour | Stops in the order the change runs, entry point first, each a line on what it does and the place it is about |
 | Ask | A question in his words | Markdown |
 
 The Review tab is not a run. It is the forge's conversation.

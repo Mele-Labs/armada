@@ -587,7 +587,7 @@ pub use judge::{
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,
     ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewRuns, ReviewSeverity,
-    ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut,
+    ReviewStep, ReviewStepSource, ReviewTheme, ReviewTool, ReviewToolKind, ReviewToolLeftOut, ReviewTourStop,
     ReviewToolScope, ReviewToolSource, ReviewTools, SaveReviewTool, StartReviewRun,
 };
 pub use pull_request_notes::{

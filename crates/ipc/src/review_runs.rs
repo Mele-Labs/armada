@@ -233,6 +233,13 @@ pub struct ReviewFinding {
     pub at: ReviewPlace,
 }
 
+/// One stop of a tour: a piece of the change and one line on what it does.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewTourStop {
+    pub title: String,
+    pub at: ReviewPlace,
+}
+
 /// What a run came to, in the shape its kind has. **Validated before it is kept**: an answer
 /// that does not parse into one of these, or names a file the pull request does not change, is
 /// a failed run with its reason.
@@ -256,6 +263,8 @@ pub enum ReviewResult {
     Text { body: String },
     /// A review tool's findings. None is an answer: the tool read the change and found nothing.
     Findings { findings: Vec<ReviewFinding> },
+    /// The tool `tour`: the change in the order a reader follows it, entry point first.
+    Tour { stops: Vec<ReviewTourStop> },
     /// Natural Search: the open pull requests that matched, each with why. None is an answer.
     Matches { matches: Vec<ReviewMatch> },
     /// The tool `walk` for a web change: `show_window` steps over the page at `place`. `place` is
