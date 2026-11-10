@@ -463,30 +463,29 @@ impl JobView {
     }
 
     /// A file, a window or a judged reading the Job showed: a quiet card with a glyph and a name.
+    fn quiet_base(&self, id: &str, icon: &'static str, parts: Vec<AnyElement>, look: &Look) -> gpui::Stateful<gpui::Div> {
+        div()
+            .id(SharedString::from(format!("quiet:{id}")))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .w_full()
+            .min_w_0()
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_LG))
+            .bg(look.color(token::FG_DEFAULT).opacity(0.04))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::FG_DEFAULT).opacity(0.07))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED)))
+            .children(parts)
+    }
+
     pub(super) fn quiet(&self, id: &str, icon: &'static str, label: String, parts: Vec<AnyElement>, look: &Look) -> AnyElement {
-        labelled(
-            div()
-                .id(SharedString::from(format!("quiet:{id}")))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .w_full()
-                .min_w_0()
-                .px(look.length(token::SPACE_4))
-                .py(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_LG))
-                .bg(look.color(token::FG_DEFAULT).opacity(0.04))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::FG_DEFAULT).opacity(0.07))
-                .text_size(look.length(token::TEXT_SM))
-                .line_height(look.length(token::LEADING_SM))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED)))
-                .children(parts),
-            Role::Row,
-            label,
-        )
-        .into_any_element()
+        labelled(self.quiet_base(id, icon, parts, look), Role::Row, label).into_any_element()
     }
 
     pub(super) fn file_row(&self, id: &str, name: &str, look: &Look) -> AnyElement {
@@ -497,14 +496,36 @@ impl JobView {
         self.quiet(id, "file", format!("Opened {name}"), parts, look)
     }
 
-    pub(super) fn judged_row(&self, id: &str, title: &str, at: &Instant, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+    /// A reading that finished. A press opens the plan at its notes; the other artifacts open in panes the Job panes step draws.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn judged_row(&self, id: &str, artifact: &ipc::JudgeArtifact, at: &Instant, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+        let title = &artifact.title;
         let parts = vec![
             div().flex_none().child("Judged").into_any_element(),
             div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(title.to_string())).into_any_element(),
             div().flex_1().into_any_element(),
             self.stamp(at, look, now, true, cx),
         ];
-        self.quiet(id, "scale", format!("Judged {title}"), parts, look)
+        let spot = page.keys.spot(&format!("judged:{id}"), cx);
+        let plan = artifact.kind == ipc::JudgeKind::Plan;
+        let row = self
+            .quiet_base(id, "scale", parts, look)
+            .track_focus(&spot.focus)
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.08)))
+            .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+            .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                if plan && matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                    cx.stop_propagation();
+                    this.show_notes(window, cx);
+                }
+            }))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                if plan {
+                    this.show_notes(window, cx);
+                }
+            }));
+        labelled(row, Role::Button, format!("Judged {title}")).into_any_element()
     }
 
     pub(super) fn window_row(&self, id: &str, title: &str, look: &Look) -> AnyElement {

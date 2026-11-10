@@ -7,13 +7,16 @@
 
 use std::collections::{HashMap, HashSet};
 
-use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Window};
-use ipc::{Lapsed, ReachesTo, ThreadAsk, WaitingActKind, WaitingItem, WaitingSource};
+use std::rc::Rc;
+
+use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, FocusHandle, Focusable as _, FontWeight, KeyDownEvent, Role, SharedString, Window};
+use ipc::{ConfirmWaiting, DismissWaiting, SessionId, Lapsed, ReachesTo, ThreadAsk, WaitingActKind, WaitingItem, WaitingSource};
 
 use super::deck::Deck;
 use super::perm::Perm;
 use super::rows::{eyebrow, glyph, tip, Size};
 use super::JobView;
+use crate::dropdown::Entry;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 
@@ -30,6 +33,8 @@ pub(super) struct DockState {
     pub perms: HashMap<String, Perm>,
     /// Lapsed questions answered or skipped.
     pub hidden: HashSet<String>,
+    /// Sentences read from a reply that the person said are questions, before Fleet's row says so.
+    pub confirmed: HashSet<String>,
     pub said: HashMap<String, SharedString>,
 }
 
@@ -42,6 +47,16 @@ pub(super) enum Thing<'a> {
 
 pub(super) fn first_line(text: &str) -> &str {
     text.lines().next().unwrap_or("")
+}
+
+/// The menu of a sentence Fleet read from a reply: A question, unless it was said already, and Not a question.
+fn misread_entries(confirmed: bool) -> Vec<Entry> {
+    let mut entries = Vec::new();
+    if !confirmed {
+        entries.push(Entry::Act { id: "yes", label: "A question".into(), icon: Some("thumbs-up"), danger: false });
+    }
+    entries.push(Entry::Act { id: "no", label: "Not a question".into(), icon: Some("thumbs-down"), danger: false });
+    entries
 }
 
 /// What a waiting item stands for in the list: its glyph and the words that name it.
@@ -101,7 +116,8 @@ impl JobView {
             }
         }
         if let Some(record) = self.record(id, cx) {
-            for item in &record.waiting_for {
+            let hidden = self.dock_of(id).map(|dock| &dock.hidden);
+            for item in record.waiting_for.iter().filter(|item| !hidden.is_some_and(|hidden| hidden.contains(&item.id))) {
                 match item.source {
                     WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => review.push(item),
                     WaitingSource::Agent | WaitingSource::Walk | WaitingSource::Replied => things.push(Thing::Item(item)),
@@ -352,10 +368,14 @@ impl JobView {
 
     fn render_list(&self, things: &[Thing], review: &[&WaitingItem], look: &Look, cx: &Context<Self>) -> AnyElement {
         type Press = Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)>;
-        let row = |at: String, icon: &'static str, said: String, text: String, press: Press| {
+        let row = |at: String, icon: &'static str, said: String, text: String, press: Press, misread: Option<&WaitingItem>| {
             let name = text.clone();
-            labelled(
-                div()
+            let page = self.shown.as_ref().and_then(|job| self.pages.get(job));
+            let spot = misread.zip(page).map(|(_, page)| page.keys.spot(&format!("needs-row:{at}"), cx));
+            let refused = misread.and_then(|item| self.dock_of(self.shown.as_deref()?).and_then(|dock| dock.said.get(&format!("item:{}", item.id)).cloned()));
+            let confirmed = misread.is_some_and(|item| item.confirmed || self.shown.as_deref().and_then(|job| self.dock_of(job)).is_some_and(|dock| dock.confirmed.contains(&item.id)));
+            let thumbs = misread.zip(spot.as_ref()).map(|(item, spot)| self.thumbs(&item.id, confirmed, spot.focus.clone(), look, cx));
+            let line = div()
                     .id(SharedString::from(format!("needs-row:{at}")))
                     .flex()
                     .items_center()
@@ -370,11 +390,32 @@ impl JobView {
                     .hover(|style| style.bg(look.color(token::BG_HOVER)))
                     .child(div().id(SharedString::from(format!("needs-mark:{at}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
                     .child(div().flex_1().min_w_0().truncate().child(SharedString::from(text)))
-                    .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx))),
-                Role::Button,
-                format!("Open {name}"),
-            )
-            .into_any_element()
+                    .children(thumbs)
+                    .on_click(cx.listener(move |this, _, window, cx| press(this, window, cx)));
+            // A sentence Fleet read from a reply: a right press offers A question and Not a question.
+            let line = match (misread, spot.as_ref()) {
+                (Some(item), Some(spot)) => {
+                    let item_id = item.id.clone();
+                    self.menu_on(
+                        line.track_focus(&spot.focus),
+                        spot,
+                        "Question",
+                        spot.focus.clone(),
+                        Rc::new(move || misread_entries(confirmed)),
+                        Rc::new(move |this, choice, window, cx| match choice {
+                            "yes" => this.misread_yes(&item_id, window, cx),
+                            _ => this.misread_no(&item_id, window, cx),
+                        }),
+                        cx,
+                    )
+                }
+                _ => line,
+            };
+            let line = labelled(line, Role::Button, format!("Open {name}")).into_any_element();
+            match refused {
+                Some(why) => div().flex().flex_col().child(line).child(super::acts::refusal(look, &at, why)).into_any_element(),
+                None => line,
+            }
         };
         let mut groups: Vec<(&'static str, Vec<AnyElement>)> =
             vec![("Questions", vec![]), ("To review", vec![]), ("Walks", vec![]), ("Commands", vec![]), ("PRs", vec![])];
@@ -383,12 +424,12 @@ impl JobView {
             match thing {
                 Thing::Ask(ask) => {
                     let key2 = key.clone();
-                    groups[0].1.push(row(key, "message-circle-question-mark", ask_label(ask), ask_text(ask), Box::new(move |this, window, cx| this.set_needs(true, Some(key2.clone()), window, cx))));
+                    groups[0].1.push(row(key, "message-circle-question-mark", ask_label(ask), ask_text(ask), Box::new(move |this, window, cx| this.set_needs(true, Some(key2.clone()), window, cx)), None));
                 }
                 Thing::Lapsed(lapsed) => {
                     let key2 = key.clone();
                     let text = lapsed.questions.first().map(|q| q.question.clone()).unwrap_or_default();
-                    groups[0].1.push(row(key, "message-circle-question-mark", "Unanswered".into(), text, Box::new(move |this, window, cx| this.set_needs(true, Some(key2.clone()), window, cx))));
+                    groups[0].1.push(row(key, "message-circle-question-mark", "Unanswered".into(), text, Box::new(move |this, window, cx| this.set_needs(true, Some(key2.clone()), window, cx)), None));
                 }
                 Thing::Item(item) => {
                     let (icon, said) = mark_of(item);
@@ -422,6 +463,7 @@ impl JobView {
                                 this.set_needs(false, None, window, cx);
                             }
                         }),
+                        (item.source == WaitingSource::Replied).then_some(&**item),
                     ));
                 }
             }
@@ -438,6 +480,7 @@ impl JobView {
                     this.pin_shown();
                     cx.notify();
                 }),
+                None,
             ));
         }
         div()
@@ -465,6 +508,101 @@ impl JobView {
         if let Some(id) = self.shown.clone() {
             self.pin(&id);
         }
+    }
+
+    /// The two thumbs at the end of a sentence Fleet read from a reply: A question, and Not a question.
+    /// Confirmed, Fleet has nothing left to ask, so there are none.
+    fn thumbs(&self, item: &str, confirmed: bool, back: FocusHandle, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let thumb = |id: &'static str, said: &'static str, icon: &'static str, yes: bool| {
+            let (item, back) = (item.to_string(), back.clone());
+            labelled(
+                div()
+                    .id(SharedString::from(format!("{id}:{item}")))
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(look.length(token::H_CONTROL_SM))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    .tooltip(tip(said))
+                    .child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        if yes {
+                            this.misread_yes(&item, window, cx);
+                            window.focus(&back, cx);
+                        } else {
+                            this.misread_no(&item, window, cx);
+                        }
+                    })),
+                Role::Button,
+                said,
+            )
+        };
+        div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .children((!confirmed).then(|| thumb("misread-yes", "A question", "thumbs-up", true)))
+            .child(thumb("misread-no", "Not a question", "thumbs-down", false))
+            .into_any_element()
+    }
+
+    /// Thumbs up: the sentence is a question. It reads confirmed at once; a refusal takes that back.
+    pub(super) fn misread_yes(&mut self, item: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        if let Some(dock) = self.dock_mut() {
+            dock.confirmed.insert(item.to_string());
+            dock.said.remove(&format!("item:{item}"));
+        }
+        let body = ipc::encode(&ConfirmWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.to_string() }).map_err(|why| format!("{why:?}"));
+        let (back, item) = (job.clone(), item.to_string());
+        self.post_with(
+            job,
+            "/sessions/waiting/confirm",
+            body,
+            move |this, why, cx| {
+                if let Some(page) = this.pages.get_mut(&back) {
+                    page.dock.confirmed.remove(&item);
+                    page.dock.said.insert(format!("item:{item}"), why);
+                }
+                cx.notify();
+            },
+            window,
+            cx,
+        );
+        cx.notify();
+    }
+
+    /// Thumbs down: the sentence asked nothing. It leaves the list at once; a refusal puts it back.
+    pub(super) fn misread_no(&mut self, item: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        if let Some(dock) = self.dock_mut() {
+            dock.hidden.insert(item.to_string());
+            if dock.detail.as_deref() == Some(&format!("item:{item}")) {
+                dock.detail = None;
+            }
+            dock.said.remove(&format!("item:{item}"));
+        }
+        let body = ipc::encode(&DismissWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.to_string(), reason: None, misread: true }).map_err(|why| format!("{why:?}"));
+        let (back, item) = (job.clone(), item.to_string());
+        self.post_with(
+            job,
+            "/sessions/waiting/dismiss",
+            body,
+            move |this, why, cx| {
+                if let Some(page) = this.pages.get_mut(&back) {
+                    page.dock.hidden.remove(&item);
+                    page.dock.said.insert(format!("item:{item}"), why);
+                }
+                cx.notify();
+            },
+            window,
+            cx,
+        );
+        cx.notify();
     }
 
     fn render_detail(&self, id: &SharedString, thing: &Thing, only: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -504,12 +642,20 @@ impl JobView {
             }
         };
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&Self::thing_key(thing)).cloned());
+        // A sentence Fleet read from a reply carries its thumbs in the head too.
+        let head_thumbs = match thing {
+            Thing::Item(item) if item.source == WaitingSource::Replied => {
+                let confirmed = item.confirmed || self.dock_of(id).is_some_and(|dock| dock.confirmed.contains(&item.id));
+                Some(self.thumbs(&item.id, confirmed, self.focus.clone(), look, cx))
+            }
+            _ => None,
+        };
         div()
             .flex()
             .flex_col()
             .items_start()
             .gap(look.length(token::SPACE_2))
-            .child(back)
+            .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(back).children(head_thumbs))
             .child(div().w_full().min_w_0().child(body))
             .children(said.map(|why| super::acts::refusal(look, "dock", why)))
             .into_any_element()

@@ -134,6 +134,11 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             step("A press on a Job opens it in the middle; what waits on you is up", Verb::Press, "row", "Fix the merge line freshness chip"),
             step("What waits on you stays up", Verb::Look, "button", "Needs you"),
+            step("A sentence Fleet read from a reply has thumbs at its end", Verb::Look, "button", "Not a question"),
+            step("A right press on its row offers A question and Not a question", Verb::RightOpen("button", "Open Should the legend come back as a row in the tooltip?"), "menuitem", "Not a question"),
+            step("Esc shuts the menu and the row has focus again", Verb::Key("escape"), "button", "Open Should the legend come back as a row in the tooltip?"),
+            step("A question confirms it, and the thumbs go but Not a question", Verb::Open("button", "A question"), "button", "Not a question"),
+            step("Not a question takes the sentence off the list", Verb::Open("button", "Not a question"), "button", "Needs you"),
             step("The question opens whole", Verb::Open("button", "Open Which colour does the stale chip take?"), "button", "Back"),
             step("One answer picks and moves to the next question", Verb::Open("radio", "Amber"), "checkbox", "In the tooltip"),
             step("A second question takes several", Verb::Press, "checkbox", "In the tooltip"),

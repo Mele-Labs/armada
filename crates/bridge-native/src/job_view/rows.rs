@@ -350,7 +350,7 @@ impl JobView {
             ThreadItem::File { id, name, .. } => self.file_row(id, name, look),
             ThreadItem::Document(card) => self.document(ix, card, page, look, now, cx),
             ThreadItem::Plan(plan) => self.plan_card(ix, plan, page, look, now, cx),
-            ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, &artifact.title, at, look, now, cx),
+            ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
         })
