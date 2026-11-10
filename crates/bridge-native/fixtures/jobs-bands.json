@@ -1,0 +1,138 @@
+{
+ "sessions": [
+  {
+   "id": "mock-31",
+   "mark": {
+    "state": "held",
+    "lamp": "idle",
+    "group": "held"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Quiet the write-clash notices",
+   "last_turn_at": "2026-11-09T15:30:00Z",
+   "state": "live",
+   "started_at": "2026-11-08T13:35:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle",
+   "held_open_by": [
+    {
+     "kind": "watch",
+     "name": "ci on branch"
+    },
+    {
+     "kind": "pull_request",
+     "number": 3391,
+     "on": {
+      "kind": "queue"
+     }
+    },
+    {
+     "kind": "pull_request",
+     "number": 3392,
+     "on": {
+      "kind": "checks",
+      "auto_merge": true
+     }
+    }
+   ]
+  },
+  {
+   "id": "mock-32",
+   "mark": {
+    "state": "replied",
+    "lamp": "idle",
+    "group": "done"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Dark mode for the settings page",
+   "last_turn_at": "2026-11-09T15:30:00Z",
+   "state": "live",
+   "started_at": "2026-11-08T13:35:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [
+    {
+     "kind": "pr",
+     "target": "421",
+     "state": "standing",
+     "detail": {
+      "title": "Dark mode for the settings page"
+     },
+     "since": "2026-11-08T16:00:00Z",
+     "changed_at": "2026-11-08T16:00:00Z"
+    },
+    {
+     "kind": "pr",
+     "target": "422",
+     "state": "standing",
+     "detail": {
+      "title": "Keep the choice across restarts"
+     },
+     "since": "2026-11-08T16:00:00Z",
+     "changed_at": "2026-11-08T16:00:00Z"
+    }
+   ],
+   "standing": "idle",
+   "done_since": "2026-11-09T15:30:00Z",
+   "done_summary": "The settings page follows the system theme and the toggle keeps the person's choice."
+  },
+  {
+   "id": "mock-33",
+   "mark": {
+    "state": "running",
+    "lamp": "running",
+    "group": "working"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Upgrade the router",
+   "last_turn_at": "2026-11-09T15:30:00Z",
+   "state": "live",
+   "started_at": "2026-11-08T13:35:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle",
+   "tools_missing": {
+    "harness": "Claude Code",
+    "update": "claude update",
+    "harness_version": "2.1.40",
+    "missing": [
+     "mod",
+     "door",
+     "task_tools"
+    ]
+   }
+  },
+  {
+   "id": "mock-34",
+   "mark": {
+    "state": "paused",
+    "lamp": "idle",
+    "group": "held"
+   },
+   "harness": "claude-code",
+   "origin": "bridge",
+   "manifest_id": "armada",
+   "cwd": "/repos/armada",
+   "title": "Pocket sign-in on the phone",
+   "last_turn_at": "2026-11-09T15:30:00Z",
+   "state": "live",
+   "started_at": "2026-11-08T13:35:00Z",
+   "last_seen_at": "2026-11-08T21:40:00Z",
+   "usage": {},
+   "attachments": [],
+   "standing": "idle"
+  }
+ ]
+}

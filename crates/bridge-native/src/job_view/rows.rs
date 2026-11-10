@@ -7,7 +7,7 @@
 
 use chrono::{DateTime, Local};
 use gpui::{
-    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, ClipboardItem, Context, ElementId, FontWeight, Hsla,
+    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, Context, ElementId, FontWeight, Hsla,
     Role, SharedString, Transformation, Window,
 };
 use gpui_component::text::TextView;

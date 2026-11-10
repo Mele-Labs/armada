@@ -11,6 +11,7 @@ use serde::Deserialize;
 pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         "jobs-many" | "job-view" => include_bytes!("../fixtures/jobs-many.json"),
+        "job-bands" => include_bytes!("../fixtures/jobs-bands.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -25,6 +26,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     }
     let bytes: &[u8] = match scenario {
         "job-view" => include_bytes!("../fixtures/job-threads.json"),
+        "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;

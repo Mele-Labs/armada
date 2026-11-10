@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use chrono::{DateTime, Local};
-use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, Entity, FocusHandle, Focusable as _, FontWeight, Role, SharedString, Subscription, Window};
+use gpui::{div, prelude::*, AnyElement, ClipboardItem, Context, Entity, FocusHandle, FontWeight, Role, SharedString, Subscription, Window};
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 
 use super::acts::{button, Tone};

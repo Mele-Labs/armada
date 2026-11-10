@@ -193,6 +193,29 @@ pub static WALKS: &[Walk] = &[
             step("A Job whose thread has not come draws its shape", Verb::Press, "row", "Quiet the write-clash notices"),
         ],
     },
+    Walk {
+        name: "job-bands",
+        title: "The bands over the box",
+        screen: Screen::Jobs,
+        scenario: "job-bands",
+        steps: &[
+            step("A Job held open by what is not you shows a Waiting band", Verb::Press, "row", "Quiet the write-clash notices"),
+            step("The band names each wait in a glyph", Verb::Look, "button", "Waiting"),
+            step("A press opens a row for each wait, each with its own stop", Verb::Open("button", "Waiting"), "button", "Stop the watch: Held open by ci on branch"),
+            step("Esc folds it and the band has focus again", Verb::Key("escape"), "button", "Waiting"),
+            step("A Job whose agent came up without its tools says so", Verb::Press, "row", "Upgrade the router"),
+            step("Each missing piece has the act that puts it right", Verb::Look, "button", "Restart the agent"),
+            step("The cross puts the band away", Verb::Open("button", "Dismiss"), "textbox", "Message"),
+            step("A Job with nothing left to do draws its ending over the box, open", Verb::Press, "row", "Dark mode for the settings page"),
+            step("The ending lists what it made and the two ways on", Verb::Look, "button", "End job"),
+            step("A press in the box puts the caret there; the ending stays up", Verb::Press, "textbox", "Message"),
+            step("Esc anywhere in the Job folds it", Verb::Key("escape"), "button", "Nothing left to do"),
+            step("A press on the band opens it", Verb::Open("button", "Nothing left to do"), "button", "Keep going"),
+            step("⌥X asks which waiting card, with the ending among them", Verb::Key("alt-x"), "radiogroup", "Waiting cards"),
+            step("Esc puts the dialog away", Verb::Key("escape"), "button", "Keep going"),
+            step("Keep going puts the ending away and the caret goes to the box", Verb::Open("button", "Keep going"), "textbox", "Message"),
+        ],
+    },
 ];
 
 pub fn named(name: &str) -> Option<&'static Walk> {

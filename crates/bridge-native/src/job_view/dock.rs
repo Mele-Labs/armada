@@ -122,6 +122,12 @@ impl JobView {
 
     /// A question that has not opened the panel yet opens it, once.
     pub(super) fn arrive(&mut self, id: &SharedString, cx: &gpui::App) {
+        // Nothing missing forgets that the tools band was put away.
+        if self.record(id, cx).is_some_and(|record| record.tools_missing.is_none()) {
+            if let Some(page) = self.pages.get_mut(id) {
+                page.bands.tools_away = None;
+            }
+        }
         let key = {
             let (things, _) = self.things(id, cx);
             things.iter().find_map(|thing| match thing {
@@ -161,7 +167,7 @@ impl JobView {
 
     /// The thread dims while the panel is up; a press on it folds the panel.
     pub(super) fn render_scrim(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.needs_up(id, cx) {
+        if !self.needs_up(id, cx) && !self.band_up(id, cx) {
             return None;
         }
         let look = cx.look();
@@ -171,7 +177,11 @@ impl JobView {
                 .absolute()
                 .inset_0()
                 .bg(look.color(token::BG_BASE).opacity(0.5))
-                .on_click(cx.listener(|this, _, window, cx| this.set_needs(false, None, window, cx)))
+                .on_click(cx.listener(|this, _, window, cx| {
+                    if !this.fold_bands(false, window, cx) {
+                        this.set_needs(false, None, window, cx);
+                    }
+                }))
                 .into_any_element(),
         )
     }

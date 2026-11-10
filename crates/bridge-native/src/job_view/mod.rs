@@ -11,6 +11,7 @@
 //! again. A page is made on the first visit.
 
 mod acts;
+mod bands;
 mod bar;
 mod calls;
 mod cards;
@@ -108,6 +109,8 @@ struct Page {
     cards: acts::CardState,
     /// What the Needs you panel remembers of this Job.
     dock: dock::DockState,
+    /// What the tools, ending and waiting bands remember of this Job.
+    bands: bands::BandState,
     /// The cards here that wait, and what the four thread keys do to each.
     keys: Rc<keys::Cards>,
     /// Items that came in after the first draw, at most four at once: they fade and slide in (A1.8).
@@ -119,7 +122,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), keys: Rc::default(), arrived: 0..0 }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0 }
     }
 }
 
@@ -1046,10 +1049,12 @@ impl Render for JobView {
             .relative()
             .key_context("thread")
             .on_action(cx.listener(Self::on_act))
+            .on_key_down(cx.listener(Self::on_job_escape))
             // Selected words need the window's selection layer; the Job's view is where words are selected.
             .child(gpui_base::TextSelectionLayer)
             .child(head)
             .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_callchip(&id, cx)))
+            .children(self.render_bands(&id, cx))
             .children(self.render_needs(&id, cx))
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
