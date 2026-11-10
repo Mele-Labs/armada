@@ -116,6 +116,21 @@ pub(crate) async fn send_session_message<D: HostedSessions>(
     }
 }
 
+/// **202**, as a message is: the edit is taken, and the reply is the thread's.
+pub(crate) async fn edit_session_message<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let edit: ipc::EditSessionMessage = match ipc::decode_body("an edit to a message", &body) {
+        Ok(edit) => edit,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().edit_session_message(edit).await {
+        Ok(record) => answer(StatusCode::ACCEPTED, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// **202**, as a message is: the note is taken, with the lines it was handed, and the reply is the
 /// thread's.
 pub(crate) async fn send_session_note<D: HostedSessions>(

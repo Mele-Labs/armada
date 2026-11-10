@@ -538,6 +538,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             ),
         )
         .route(
+            "/sessions/message/edit",
+            post(crate::hosted_sessions::edit_session_message::<D>),
+        )
+        .route(
             "/sessions/note",
             post(crate::hosted_sessions::send_session_note::<D>).layer(
                 axum::extract::DefaultBodyLimit::max(

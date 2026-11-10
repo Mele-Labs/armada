@@ -67,6 +67,7 @@ where
                 tags: Vec::new(),
                 notice: None,
                 queued: false,
+                edited_at: None,
             },
         )
         .await;

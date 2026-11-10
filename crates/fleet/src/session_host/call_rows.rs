@@ -117,13 +117,27 @@ impl CallRows {
     pub(crate) fn read(&mut self) -> Vec<SessionRow> {
         std::mem::take(&mut self.queued)
             .into_iter()
-            .map(|row| match row {
-                SessionRow::Message { id, at, from, text, files, tags, notice, .. } => {
-                    SessionRow::Message { id, at, from, text, files, tags, notice, queued: false }
+            .map(|mut row| {
+                if let SessionRow::Message { queued, .. } = &mut row {
+                    *queued = false;
                 }
-                other => other,
+                row
             })
             .collect()
+    }
+
+    /// The person edited a row held here: the row put again once the agent has read it carries the
+    /// new words. `false` where no row of `id` is held.
+    pub(crate) fn edited(&mut self, id: &str, words: &str, at: &Instant) -> bool {
+        let held = self.queued.iter_mut().find(|row| row.id() == id);
+        match held {
+            Some(SessionRow::Message { text, edited_at, .. }) => {
+                *text = words.to_string();
+                *edited_at = Some(at.clone());
+                true
+            }
+            _ => false,
+        }
     }
 
     /// The subagent call `call` started, running. Its row, where the call was drawn; else it waits for the row.
