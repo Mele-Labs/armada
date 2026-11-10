@@ -9,11 +9,47 @@ use super::acts::refusal;
 use super::rows::{elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use crate::look::{token, ActiveLook, Look};
 
 const STOP_KEY: &str = "stop";
 
 impl JobView {
+    /// The card of the subagents running, held in sight at the thread's foot while the rows scroll under it
+    /// (`position: sticky; bottom: space-2`): where it stands in the thread it is drawn there, and while that
+    /// place is below what is on screen it stands at the foot of the view instead.
+    pub(super) fn render_subagents_pin(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+        let page = self.pages.get(id)?;
+        let at = page.extras.iter().position(|extra| matches!(extra, super::Extra::Subagents))?;
+        let item_ix = page.lead + page.items + at;
+        let viewport = page.list.viewport_bounds();
+        let seen = page.list.bounds_for_item(item_ix).is_some_and(|bounds| bounds.bottom() <= viewport.bottom());
+        if seen {
+            return None;
+        }
+        let held = self.thread(id, cx)?;
+        let look = cx.look();
+        let card = self.subagents_card(item_ix, &held.items, page, look, Local::now(), cx)?;
+        Some(
+            div()
+                .w_full()
+                .px(look.length(token::SPACE_6))
+                .flex()
+                .justify_center()
+                .child(div().w_full().min_w_0().max_w(look.length(token::SPACE_12) * 20.).child(card))
+                .into_any_element(),
+        )
+    }
+
+    /// What stands at the foot of the view over the rows: the chip to what waits below, over the subagents card.
+    pub(super) fn render_foot(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
+        let (chip, pin) = (self.render_callchip(id, cx), self.render_subagents_pin(id, cx));
+        if chip.is_none() && pin.is_none() {
+            return None;
+        }
+        let look = cx.look();
+        Some(div().absolute().bottom(look.length(token::SPACE_2)).left_0().right_0().flex().flex_col().gap(look.length(token::SPACE_2)).children(chip).children(pin).into_any_element())
+    }
+
     /// Stop: ends what the agent is doing. The Job stays live and its next message resumes it.
     pub(super) fn stop_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
         labelled(

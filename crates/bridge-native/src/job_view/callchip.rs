@@ -52,6 +52,6 @@ impl JobView {
             Role::Button,
             if planned { "Plan" } else { "Go to what waits" },
         );
-        Some(div().absolute().bottom(look.length(token::SPACE_2)).left_0().right_0().flex().justify_center().child(chip).into_any_element())
+        Some(div().flex().justify_center().child(chip).into_any_element())
     }
 }

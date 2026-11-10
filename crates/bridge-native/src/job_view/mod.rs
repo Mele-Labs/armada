@@ -1084,7 +1084,7 @@ impl Render for JobView {
             // Selected words need the window's selection layer; the Job's view is where words are selected.
             .child(gpui_base::TextSelectionLayer)
             .child(head)
-            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_callchip(&id, cx)))
+            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)))
             .children(self.render_bands(&id, cx))
             .children(self.render_needs(&id, cx))
             .children(dock)

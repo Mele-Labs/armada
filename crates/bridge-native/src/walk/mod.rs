@@ -180,6 +180,7 @@ pub static WALKS: &[Walk] = &[
             step("Cancel puts the note away", Verb::Open("button", "Cancel"), "group", "Words draft:dra-034"),
             step("Home goes to the start of the thread", Verb::Key("home"), "region", "Thread"),
             step("Older items are read from Fleet by a press, or as the top comes near", Verb::Look, "button", "Show earlier"),
+            step("Subagents running stay at the foot of the view while the thread is up", Verb::Look, "button", "1 subagent running"),
             step("The Plan chip says a plan waits below the words in view", Verb::Look, "button", "Plan"),
             step("A press on it goes to the plan", Verb::Open("button", "Plan"), "region", "Thread"),
             step("Home goes back to the start", Verb::Key("home"), "button", "Show earlier"),
