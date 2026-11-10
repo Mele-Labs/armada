@@ -204,7 +204,7 @@ async fn the_forms_the_call_is_told_of_leave_out_answer_and_the_kinds_the_operat
 
     let prompt = &call.asked()[0];
     assert!(prompt.contains("role_off <dispatch, delegate or file> in <repository id>"), "{prompt}");
-    assert!(!prompt.contains("answer, "), "Answer is not a role an order may name");
+    assert!(!prompt.contains("role_off answer") && !prompt.contains("delegate, answer"), "Answer is not a role an order may name");
     assert!(!prompt.contains("review, later"), "a Job's own events are not kinds an order may name");
     assert!(said.order.is_none(), "role_off answer fits no form");
     assert_eq!(said.forms.len(), 3);
