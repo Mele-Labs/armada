@@ -19,6 +19,26 @@ pub struct KeptRepair {
     pub outcome: Option<String>,
     /// The sentence its first line carried, or why it did not finish.
     pub said: Option<String>,
+    /// The pool slot leased for it and not yet given back.
+    pub slot: Option<u32>,
+    /// Whether the branch in that slot was cut for the repair, and so goes with it.
+    pub cut: bool,
+}
+
+const COLUMNS: &str = "id, session_id, broke, started_at, ended_at, outcome, said, slot, cut";
+
+fn kept(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptRepair> {
+    Ok(KeptRepair {
+        id: row.get(0)?,
+        session_id: row.get(1)?,
+        broke: row.get(2)?,
+        started_at: row.get(3)?,
+        ended_at: row.get(4)?,
+        outcome: row.get(5)?,
+        said: row.get(6)?,
+        slot: row.get(7)?,
+        cut: row.get::<_, i64>(8)? != 0,
+    })
 }
 
 impl Store {
@@ -39,6 +59,36 @@ impl Store {
             .map(|_| ())
             .map_err(fault(doing))
             .map_err(WriteError::Database)
+    }
+
+    /// Keep that `repair` holds pool slot `slot`, on a branch `cut` for it or not.
+    pub fn keep_repair_slot(&mut self, repair: &str, slot: u32, cut: bool) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE job_repairs SET slot = ?2, cut = ?3 WHERE id = ?1", (repair, slot, cut))
+            .map(|_| ())
+            .map_err(fault("keeping the slot of a repair"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep that `repair` gave its slot back.
+    pub fn keep_repair_slot_given_back(&mut self, repair: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE job_repairs SET slot = NULL, cut = 0 WHERE id = ?1", [repair])
+            .map(|_| ())
+            .map_err(fault("keeping that a repair gave its slot back"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every repair with no end kept: what Fleet left running when it stopped.
+    pub fn open_repairs(&self) -> Result<Vec<KeptRepair>, WriteError> {
+        let doing = "reading the repairs left open";
+        let mut query = self
+            .conn
+            .prepare(&format!("SELECT {COLUMNS} FROM job_repairs WHERE ended_at IS NULL ORDER BY started_at"))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = query.query_map([], kept).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
     }
 
     /// Keep how `repair` ended. Kept once: an end already kept stays.
@@ -68,21 +118,7 @@ impl Store {
 
     pub fn repair(&self, repair: &str) -> Result<Option<KeptRepair>, WriteError> {
         self.conn
-            .query_row(
-                "SELECT id, session_id, broke, started_at, ended_at, outcome, said FROM job_repairs WHERE id = ?1",
-                [repair],
-                |row| {
-                    Ok(KeptRepair {
-                        id: row.get(0)?,
-                        session_id: row.get(1)?,
-                        broke: row.get(2)?,
-                        started_at: row.get(3)?,
-                        ended_at: row.get(4)?,
-                        outcome: row.get(5)?,
-                        said: row.get(6)?,
-                    })
-                },
-            )
+            .query_row(&format!("SELECT {COLUMNS} FROM job_repairs WHERE id = ?1"), [repair], kept)
             .optional()
             .map_err(fault("reading a repair"))
             .map_err(WriteError::Database)

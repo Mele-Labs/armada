@@ -407,3 +407,51 @@ async fn a_subagent_still_working_excuses_a_stop() {
     assert_eq!(row.running.len(), 1);
     assert_eq!((row.running[0].kind, row.running[0].what.as_str()), (ipc::RunningKind::Subagent, "sweep"));
 }
+
+/// **A repair never runs in the repository's own checkout.** A dead Job that holds no slot has one
+/// leased for its repair, held under the repair's id while it runs and given back when it ends.
+#[tokio::test]
+async fn a_dead_job_holding_no_slot_has_its_repair_in_a_leased_slot_and_the_slot_is_given_back() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = dead_job(&rig).await;
+    rig.fleet.stops_told().await;
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+    let repair = rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job.expect("a repair");
+
+    let ran_in = super::repairing::directories(&rig.repair_state).remove(0);
+    let canonical = |path: &str| std::fs::canonicalize(path).expect("exists").to_string_lossy().to_string();
+    assert_ne!(ran_in, canonical(&rig.root), "not the repository's own checkout");
+    assert_eq!(ran_in, canonical(&adapter_traits::slot_path(&rig.root, 1)), "a slot of the pool");
+    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0].as_deref(), Some(repair.as_str()), "held under the repair's id");
+    assert_eq!(rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().slot, Some(1), "kept, for a Fleet that restarts");
+
+    released(&rig);
+    eventually(|| async { rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().outcome.is_some() }).await;
+    assert_eq!(rig.fleet.vcs().released_slots(), vec![(1, repair.clone())], "given back once");
+    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0], None);
+    assert_eq!(rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().slot, None);
+    let gone = rig.fleet.vcs().deleted_branches();
+    assert!(gone.len() == 1 && gone[0].starts_with("armada/repair-"), "the branch cut for it goes with it: {gone:?}");
+}
+
+/// A repair a Fleet left open when it stopped had its slot leased, and nothing runs it now: the slot is
+/// given back at boot, before the repair is ended as abandoned.
+#[tokio::test]
+async fn a_slot_a_repair_held_when_fleet_stopped_is_given_back_at_boot() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        store.keep_repair_started(id.as_str(), "a-repair", "died", ENDED).unwrap();
+        store.keep_repair_slot("a-repair", 1, false).unwrap();
+    }
+    rig.fleet.vcs().hold_slot(&rig.root, 1, "a-repair");
+
+    rig.fleet.open_turns_started().await;
+
+    assert_eq!(rig.fleet.vcs().released_slots(), vec![(1, "a-repair".to_string())]);
+    assert_eq!(rig.fleet.vcs().slot_holders(&rig.root)[0], None);
+    let kept = rig.fleet.store().lock().await.repair("a-repair").unwrap().unwrap();
+    assert_eq!((kept.outcome.as_deref(), kept.slot), (Some("abandoned"), None));
+}

@@ -67,7 +67,7 @@ A process that dies in a turn is started again once ([What a restart does to a j
 One that dies again, with `session_open_turn` showing the restart spent, ends no turn, so no turn's end says it: the ledger reads it `stopped`, `process_gone`, or `fleet_down` where its open turn overlapped a stretch in `fleet_outages`.
 Fleet then starts a hidden repair beside it (`repairs_started`, `repair_started`).
 A repair is an agent process Fleet hosts, with no session row, no place in the Jobs list and no start card.
-It runs one turn in the Job's own checkout, with the edit and run tools a hosted Job has, and ends by itself.
+It runs one turn in the Job's own checkout, or in a slot of its own where the Job holds none, with the edit and run tools a hosted Job has, and ends by itself.
 Fleet starts one dead Job's repair at a time, and never two for one Job.
 If a probe of `get_health` fails, a new agent would fail the same way, so Fleet starts none and the row says so.
 Fleet's note in the thread says what broke when it starts, such as `Repair: its process died twice`, and the Now panel reads `Repairing: its process died twice` until a `Repaired: ` or `Not repaired: ` note follows.
@@ -80,7 +80,7 @@ For a quiet stop, a hung command, a dead process or a broken checkout it then wa
 `NOT REPAIRED`, a final message with neither marker, a process that would not finish its turn, or twenty minutes (`REPAIR_LIMIT`, unmeasured; an interrupt, then its process group) write `Not repaired: <sentence or why>` and wake nobody.
 The row reads amber with `gave_up` only once Fleet has run out: its repair ended without `REPAIRED` with the Job still dead, or Fleet is unhealthy.
 A Job's next turn beginning, or the Job ending, stops a repair still running, and the note says the Job moved on first.
-A Fleet that starts finds a repair left open and ends it as abandoned.
+A Fleet that starts finds a repair left open, gives its slot back and ends it as abandoned.
 A live agent that stopped again reads amber too: its process is fine, so a dead-process repair would have nothing to fix.
 A turn beginning clears the repair, so a later death gets its own.
 
@@ -98,7 +98,11 @@ The Job's id and title, its branch, its checkout and what Fleet saw go last, aft
 | Stranded: a slot whose holder is gone, left with changes | Pushes the leftovers to a branch and scraps nothing | Not yet |
 
 `repair_started` is the one call a trigger makes.
-It checks health, takes the Job's slot as the checkout (the repository's own checkout, with a rule to change nothing in it, for a Job that holds none), and for a pull request whose Job ended it leases a slot on the pull request's branch and gives it back after.
+It checks health and takes the Job's slot as the checkout.
+A repair never runs in the repository's own checkout, which is the main checkout and is never written.
+A Job that holds no slot gets one leased for the repair on a branch cut for it, and a pull request whose Job ended gets one leased on the pull request's branch.
+The slot is given back on every ending, repaired or not, the twenty minutes, an early stop and a Fleet restart, before the repair leaves the list.
+While a repair runs its slot reads as an open holder's, so it is never told and never read by a rescue Scout.
 The Operator's triggers for the other five are the next group.
 
 **Fleet's own acts stand in Now, Open and Done**, read from what is kept: each word and note of Fleet's in the thread is over, the nudge coming is read off the row, and the repair running is read off Fleet's notes, a start note with no end note after it.

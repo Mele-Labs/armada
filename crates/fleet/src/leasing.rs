@@ -172,7 +172,11 @@ where
                 let last_holder = match (&stranded, &reading.held) {
                     (Some(_), SlotHeld::Hosted(_)) => match &session {
                         Some(held) => Some(self.session_holder(&held.id).await),
-                        None => None,
+                        None => match &reading.held {
+                            // A running repair's slot reads as held by an open holder.
+                            SlotHeld::Hosted(id) if self.repairs().is_repair(id) => Some(self.session_holder(id).await),
+                            _ => None,
+                        },
                     },
                     (Some(_), SlotHeld::Stranded(_)) => match &reading.last_session {
                         Some(id) => Some(self.session_holder(id).await),

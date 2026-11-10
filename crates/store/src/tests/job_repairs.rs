@@ -38,3 +38,18 @@ fn a_repair_left_open_when_fleet_stopped_ends_as_abandoned_and_one_over_is_left_
     assert_eq!(store.repair("r1").expect("reads").expect("kept").outcome.as_deref(), Some("abandoned"));
     assert_eq!(store.repair("r2").expect("reads").expect("kept").outcome.as_deref(), Some("repaired"));
 }
+
+#[test]
+fn a_repair_names_the_slot_it_holds_until_it_gives_it_back() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_repair_started("s1", "r1", "died", AT).expect("keeps");
+    assert_eq!(store.repair("r1").expect("reads").expect("kept").slot, None);
+    store.keep_repair_slot("r1", 4, true).expect("keeps");
+    let held = store.open_repairs().expect("reads");
+    assert_eq!(held.iter().map(|one| (one.id.as_str(), one.slot, one.cut)).collect::<Vec<_>>(), [("r1", Some(4), true)]);
+    store.keep_repair_slot_given_back("r1").expect("keeps");
+    assert_eq!(store.repair("r1").expect("reads").expect("kept").slot, None);
+    store.keep_repair_ended("r1", LATER, "repaired", "").expect("keeps");
+    assert!(store.open_repairs().expect("reads").is_empty(), "an end kept is not open");
+}

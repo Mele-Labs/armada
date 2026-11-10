@@ -231,10 +231,11 @@ impl Running {
     }
 }
 
-/// Every repair running, by the Job it repairs, and the host that starts them. **One a Job.**
+/// Every repair running, by the Job it repairs, and the host that starts them. **One a Job.** Each is
+/// listed with its own id, which is what a slot it leased is held under.
 pub struct Repairs {
     host: Arc<RepairHost>,
-    running: Mutex<BTreeMap<String, Arc<Running>>>,
+    running: Mutex<BTreeMap<String, (String, Arc<Running>)>>,
 }
 
 impl Repairs {
@@ -246,15 +247,31 @@ impl Repairs {
         Arc::clone(&self.host)
     }
 
-    /// Listed as running for `job`, until [`Repairs::ended`]. `None` where one already is.
-    pub(crate) fn listed(&self, job: &str) -> Option<Arc<Running>> {
+    /// Listed as running for `job` under `repair`, until [`Repairs::ended`]. `None` where one already is.
+    pub(crate) fn listed(&self, job: &str, repair: &str) -> Option<Arc<Running>> {
         let mut running = self.running.lock().expect("the repairs are not held across a panic");
         if running.contains_key(job) {
             return None;
         }
         let one = Arc::new(Running::default());
-        running.insert(job.to_string(), Arc::clone(&one));
+        running.insert(job.to_string(), (repair.to_string(), Arc::clone(&one)));
         Some(one)
+    }
+
+    /// Whether `id` is a repair running now: the id a slot it leased is held under, which no Session
+    /// has, so a slot held under it is an open holder's and is never read as stranded.
+    pub(crate) fn is_repair(&self, id: &str) -> bool {
+        self.running.lock().expect("the repairs are not held across a panic").values().any(|(repair, _)| repair == id)
+    }
+
+    /// Whether a running repair holds `slot`, or was the last to: a slot Fleet neither tells nor reads.
+    pub(crate) fn holds(&self, slot: &ipc::WorktreeSlot) -> bool {
+        let held = match &slot.held {
+            ipc::SlotHolding::HostedSession { session_id, .. } => Some(session_id.as_str()),
+            _ => None,
+        };
+        let last = slot.stranded.as_ref().and_then(|work| work.last_holder.as_ref()).map(|holder| holder.id.as_str());
+        held.into_iter().chain(last).any(|id| self.is_repair(id))
     }
 
     pub(crate) fn ended(&self, job: &str) {
@@ -274,7 +291,7 @@ impl Repairs {
 
     /// Stop the repair running for `job`. `false` where none is.
     pub(crate) fn stop(&self, job: &str) -> bool {
-        let one = self.running.lock().expect("the repairs are not held across a panic").get(job).cloned();
+        let one = self.running.lock().expect("the repairs are not held across a panic").get(job).map(|(_, one)| Arc::clone(one));
         match one {
             Some(one) => {
                 one.stop();

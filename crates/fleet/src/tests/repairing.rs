@@ -19,6 +19,7 @@ use crate::tests::tmp::TempDir;
 const STAND_IN: &str = r##"#!/bin/sh
 state='@STATE@'
 printf '%s\n' "$*" >> "$state/argv.log"
+pwd -P >> "$state/cwd.log"
 IFS= read -r turn
 printf '%s\n' "$turn" >> "$state/turns.log"
 said() {
@@ -53,6 +54,11 @@ pub(super) fn stand_in(home: &Path) -> RepairHost {
         home.join("repair-mcp.json"),
         HostPaths { path: "/usr/bin:/bin", home: &root, user: "someone", width: checks_runner::CheckWidth::of(2) },
     )
+}
+
+/// The directory each repair was started in, one per line, as the process itself read it.
+pub(super) fn directories(state: &Path) -> Vec<String> {
+    std::fs::read_to_string(state.join("cwd.log")).unwrap_or_default().lines().map(str::to_string).collect()
 }
 
 /// What every repair was told on its one turn, one per line.
@@ -154,7 +160,7 @@ async fn a_repair_read_to_its_end_answers_what_it_said_last() {
     let home = TempDir::new();
     let host = Arc::new(stand_in(home.path()));
     std::fs::write(state_in(home.path()).join("answer"), "REPAIRED: it did\\nand more").expect("an answer");
-    let running = Repairs::hosted_by(Arc::clone(&host)).listed("j").expect("listed");
+    let running = Repairs::hosted_by(Arc::clone(&host)).listed("j", "r1").expect("listed");
     let ended = host.run(&directory(&home), "fix it", &running).await;
     assert_eq!(ended.finish, Finish::Ended);
     assert_eq!(report_of(ended.said.as_deref()), Report::Repaired("it did".to_string()));
@@ -165,7 +171,7 @@ async fn a_repair_read_to_its_end_answers_what_it_said_last() {
 async fn a_repair_still_going_at_its_limit_is_interrupted_and_read_as_timed_out() {
     let home = TempDir::new();
     let host = Arc::new(stand_in(home.path()).stopping_after(Duration::from_millis(300), Duration::from_millis(300)));
-    let running = Repairs::hosted_by(Arc::clone(&host)).listed("j").expect("listed");
+    let running = Repairs::hosted_by(Arc::clone(&host)).listed("j", "r1").expect("listed");
     let started = std::time::Instant::now();
     let ended = host.run(&directory(&home), "never ends", &running).await;
     assert_eq!(ended.finish, Finish::TimedOut);
@@ -177,9 +183,9 @@ async fn a_repair_told_to_stop_ends_as_stopped_and_one_is_listed_for_a_job_at_a_
     let home = TempDir::new();
     let host = Arc::new(stand_in(home.path()));
     let repairs = Repairs::hosted_by(Arc::clone(&host));
-    let running = repairs.listed("j").expect("listed");
-    assert!(repairs.listed("j").is_none(), "one a Job");
-    assert!(repairs.listed("other").is_some(), "another Job's is its own");
+    let running = repairs.listed("j", "r1").expect("listed");
+    assert!(repairs.listed("j", "r1").is_none(), "one a Job");
+    assert!(repairs.listed("other", "r2").is_some(), "another Job's is its own");
     assert!(repairs.running_any());
     let dir = directory(&home);
     let reading = tokio::spawn({
@@ -192,5 +198,5 @@ async fn a_repair_told_to_stop_ends_as_stopped_and_one_is_listed_for_a_job_at_a_
     assert_eq!(ended.finish, Finish::Stopped);
     repairs.ended("j");
     assert!(!repairs.stop("j"), "none left to stop");
-    assert!(repairs.listed("j").is_some());
+    assert!(repairs.listed("j", "r1").is_some());
 }

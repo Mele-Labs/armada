@@ -101,6 +101,10 @@ where
         let mut by_session: BTreeMap<&str, Vec<(&WorktreeSlot, u32)>> = BTreeMap::new();
         for slot in &held.slots {
             let key = (slot.manifest_id.as_str().to_string(), slot.slot);
+            // A running repair's slot is told to nobody: the repair is no Session.
+            if self.repairs().holds(slot) {
+                continue;
+            }
             let leaving_now = branch_of(slot).is_some_and(|branch| leaving.contains(&branch));
             let (Some(session), Some(behind)) = (holder_of(slot), behind_to_tell(slot).filter(|_| !leaving_now))
             else {

@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use adapter_traits::{slot_path, AgentHarness, Delivery, SlotLeased, SlotPool, Vcs, WorkProduct};
+use adapter_traits::{slot_path, AgentHarness, Delivery, SlotLeased, SlotPool, Vcs, WorkProduct, WorktreeSpec};
 use api::Refusal;
 
 use super::hosting::Running;
@@ -20,10 +20,39 @@ const REPAIR_NO_CHECKOUT: &str = "fleet.repair_no_checkout";
 /// Fleet is unhealthy, so a repair would fail the way the Job did.
 pub(crate) const REPAIR_UNHEALTHY: &str = "fleet.repair_unhealthy";
 
-/// A slot leased for a repair on a pull request's branch, given back when it ends.
+/// A slot leased for a repair, given back when it ends. **A repair never runs in the repository's own
+/// checkout**, which is the main checkout and is never written: it has a slot of its own. `cut` is
+/// the spec of a branch cut for it, which goes with it, and `None` for a pull request's own branch.
 struct Leased {
     pool: SlotPool,
     slot: u32,
+    cut: Option<WorktreeSpec>,
+}
+
+/// What a slot is leased on for a repair.
+enum Lease {
+    /// A branch that exists, at its tip.
+    Existing(String),
+    /// A branch cut for the repair.
+    Cut(WorktreeSpec),
+}
+
+/// The name a repair's own branch is cut under: the end of its id, which is the part that differs.
+fn cut_name(repair: &str) -> String {
+    format!("repair-{}", &repair[repair.len().saturating_sub(8)..])
+}
+
+/// A slot given back by the pool's rules, or kept for what the repair left in it. **Released first**,
+/// which refuses where something would be lost, and parked then, which commits what is there to its
+/// branch. A branch cut for the repair goes only with a slot that was released clean.
+fn slot_returned<V: Vcs>(vcs: &V, pool: &SlotPool, slot: u32, repair: &str, cut: Option<&WorktreeSpec>) -> bool {
+    if vcs.release_slot(pool, slot, repair).is_ok() {
+        if let Some(spec) = cut {
+            let _ = vcs.delete_repair_branch(spec);
+        }
+        return true;
+    }
+    vcs.park_hosted_slot(pool, slot, repair).is_ok()
 }
 
 /// Everything a started repair is run with.
@@ -56,10 +85,11 @@ where
         broke: RepairBreak,
         saw: Vec<(String, String)>,
     ) -> Result<(), Refusal> {
-        let Some(running) = self.repairs().listed(job) else {
+        let repair = self.mint().ulid().as_str().to_lowercase();
+        let Some(running) = self.repairs().listed(job, &repair) else {
             return Err(self.hosted_refusal(REPAIR_RUNNING, &format!("a repair is already running for job {job}")));
         };
-        match self.repair_prepared(job, broke, &saw).await {
+        match self.repair_prepared(job, &repair, broke, &saw).await {
             Ok(prepared) => {
                 let fleet = Arc::clone(self);
                 tokio::spawn(async move { fleet.repair_run(prepared, running).await });
@@ -72,15 +102,13 @@ where
         }
     }
 
-    async fn repair_prepared(&self, job: &str, broke: RepairBreak, saw: &[(String, String)]) -> Result<Prepared, Refusal> {
-        let mut saw = saw.to_vec();
+    async fn repair_prepared(&self, job: &str, repair: &str, broke: RepairBreak, saw: &[(String, String)]) -> Result<Prepared, Refusal> {
         let healthy = self.health().await.is_ok_and(|health| !health.probes.iter().any(|one| one.outcome == "fail"));
         if !healthy {
             return Err(self.hosted_refusal(REPAIR_UNHEALTHY, "Fleet is unhealthy, so a repair would fail the same way"));
         }
         let (session, hosting) = self.session_and_hosting(job).await?;
         let served = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id)))?;
-        let repair = self.mint().ulid().as_str().to_lowercase();
         let no_checkout = |why: String| self.hosted_refusal(REPAIR_NO_CHECKOUT, &why);
         let (directory, leased) = match broke {
             RepairBreak::Stranded { slot } => (slot_path(served.root(), slot), None),
@@ -88,24 +116,16 @@ where
             RepairBreak::RedPull { number } if session.state == store::SessionState::Ended || hosting.lease_slot.is_none() => {
                 let branch = self.pull_request_branch(job, number).await.or(hosting.lease_branch.clone());
                 let branch = branch.ok_or_else(|| no_checkout(format!("pull request #{number} names no branch to repair on")))?;
-                let pool = crate::leasing::pool_of(&served);
-                let (vcs, held, on, by) = (Arc::clone(self.vcs()), pool.clone(), branch, repair.clone());
-                let leased = tokio::task::spawn_blocking(move || vcs.lease_existing_slot(&held, &on, &by))
-                    .await
-                    .map_err(|_| no_checkout("the lease of a slot panicked".to_string()))?;
-                match leased {
-                    Ok(SlotLeased::Took { slot, worktree, .. }) => (worktree.path().to_string(), Some(Leased { pool, slot })),
-                    Ok(SlotLeased::Full) => return Err(no_checkout("every slot is held, so there is none to repair in".to_string())),
-                    Err(why) => return Err(no_checkout(format!("a slot could not be leased on the branch: {why}"))),
-                }
+                self.repair_slot_leased(&served, Lease::Existing(branch), repair).await.map_err(no_checkout).map(|(at, leased)| (at, Some(leased)))?
             }
             _ => match hosting.lease_slot {
                 Some(slot) => (slot_path(served.root(), slot), None),
-                // Where its process runs before it has leased a slot is the repository's own checkout,
-                // which a repair is told to leave as it is. Nothing of a broken checkout is there to fix.
+                // A Job that holds no slot has its process in the repository's own checkout, which is
+                // the main checkout and is never written. The repair gets a slot of its own.
                 None if broke != RepairBreak::Checkout => {
-                    saw.push((String::from("Its checkout"), String::from("the Job holds no slot, so this is the repository's own checkout: change no file in it")));
-                    (served.root().to_string(), None)
+                    let spec = WorktreeSpec::for_job(served.root(), &cut_name(repair))
+                        .map_err(|why| no_checkout(format!("no slot could be named: {}", why.said())))?;
+                    self.repair_slot_leased(&served, Lease::Cut(spec), repair).await.map_err(no_checkout).map(|(at, leased)| (at, Some(leased)))?
                 }
                 None => return Err(no_checkout(format!("job {job} holds no checkout"))),
             },
@@ -117,14 +137,18 @@ where
             &brief::Material { job, title: &title, branch: hosting.lease_branch.as_deref(), checkout: &directory, saw: &saw },
         );
         let at = self.now().as_str().to_string();
-        let kept = self.store().lock().await.keep_repair_started(job, &repair, broke.key(), &at);
+        let kept = self.store().lock().await.keep_repair_started(job, repair, broke.key(), &at);
         if let Err(why) = kept {
-            self.repair_slot_given_back(&leased, &repair).await;
+            self.repair_slot_given_back(&leased, repair).await;
             return Err(self.ledger_fault(why));
+        }
+        if let Some(Leased { slot, cut, .. }) = &leased {
+            // So a Fleet that restarts under the repair knows the slot to give back.
+            let _ = self.store().lock().await.keep_repair_slot(repair, *slot, cut.is_some());
         }
         self.fleet_note(job, format!("{STARTED}{}", broke.words())).await;
         let _ = self.published_hosted(job).await;
-        Ok(Prepared { repair, job: job.to_string(), broke, directory, told, leased })
+        Ok(Prepared { repair: repair.to_string(), job: job.to_string(), broke, directory, told, leased })
     }
 
     /// The branch the Job's pull request `number` is on, as its attachment recorded it.
@@ -135,10 +159,55 @@ where
             .and_then(|one| one.detail.get("branch").cloned())
     }
 
+    /// A slot leased for `repair` on `lease`, and the directory it is in.
+    async fn repair_slot_leased(&self, served: &crate::repositories::Served, lease: Lease, repair: &str) -> Result<(String, Leased), String> {
+        let pool = crate::leasing::pool_of(served);
+        let (vcs, held, by) = (Arc::clone(self.vcs()), pool.clone(), repair.to_string());
+        let on = match &lease {
+            Lease::Existing(branch) => Lease::Existing(branch.clone()),
+            Lease::Cut(spec) => Lease::Cut(spec.clone()),
+        };
+        let leased = tokio::task::spawn_blocking(move || match &on {
+            Lease::Existing(branch) => vcs.lease_existing_slot(&held, branch, &by),
+            Lease::Cut(spec) => vcs.lease_slot(&held, spec, &by),
+        })
+        .await
+        .map_err(|_| "the lease of a slot panicked".to_string())?;
+        match leased {
+            Ok(SlotLeased::Took { slot, worktree, .. }) => {
+                let cut = match lease {
+                    Lease::Cut(spec) => Some(spec),
+                    Lease::Existing(_) => None,
+                };
+                Ok((worktree.path().to_string(), Leased { pool, slot, cut }))
+            }
+            Ok(SlotLeased::Full) => Err("every slot is held, so there is none to repair in".to_string()),
+            Err(why) => Err(format!("a slot could not be leased for it: {why}")),
+        }
+    }
+
+    /// Give a slot a repair leased back. **Called on every ending**, before the repair leaves the list,
+    /// so a slot never reads as stranded after it. What is kept of it is cleared once it is back.
     async fn repair_slot_given_back(&self, leased: &Option<Leased>, repair: &str) {
-        if let Some(Leased { pool, slot }) = leased {
-            let (vcs, pool, slot, repair) = (Arc::clone(self.vcs()), pool.clone(), *slot, repair.to_string());
-            let _ = tokio::task::spawn_blocking(move || vcs.release_slot(&pool, slot, &repair)).await;
+        let Some(Leased { pool, slot, cut }) = leased else { return };
+        let (vcs, pool, slot, by, cut) = (Arc::clone(self.vcs()), pool.clone(), *slot, repair.to_string(), cut.clone());
+        let back = tokio::task::spawn_blocking(move || slot_returned(vcs.as_ref(), &pool, slot, &by, cut.as_ref())).await;
+        if back.unwrap_or(false) {
+            let _ = self.store().lock().await.keep_repair_slot_given_back(repair);
+        }
+    }
+
+    /// Give back every slot a repair held when Fleet stopped. **Called once at boot**, before those
+    /// repairs are ended as abandoned: a repair does not outlive the Fleet, so nothing holds the slot.
+    pub(crate) async fn open_repair_slots_given_back(&self) {
+        let open = self.store().lock().await.open_repairs().unwrap_or_default();
+        for one in open {
+            let Some(slot) = one.slot else { continue };
+            let Ok((_, hosting)) = self.session_and_hosting(&one.session_id).await else { continue };
+            let Ok(served) = self.served_named(Some(&ipc::ManifestId::carried(&hosting.manifest_id))) else { continue };
+            let cut = if one.cut { WorktreeSpec::for_job(served.root(), &cut_name(&one.id)).ok() } else { None };
+            let leased = Some(Leased { pool: crate::leasing::pool_of(&served), slot, cut });
+            self.repair_slot_given_back(&leased, &one.id).await;
         }
     }
 
@@ -146,9 +215,11 @@ where
     async fn repair_run(self: Arc<Self>, prepared: Prepared, running: Arc<Running>) {
         let Prepared { repair, job, broke, directory, told, leased } = prepared;
         let ended = self.repairs().host().run(&directory, &told, &running).await;
+        // The slot first: while the repair is listed its slot reads as an open holder's, and once it is
+        // not, the slot must be back already or it would read as stranded.
+        self.repair_slot_given_back(&leased, &repair).await;
         // Out of the list before the Job is woken: its next turn stops a repair still listed.
         self.repairs().ended(&job);
-        self.repair_slot_given_back(&leased, &repair).await;
         let verdict = verdict_of(&ended);
         self.repair_ended(&job, &repair, broke, &verdict).await;
     }

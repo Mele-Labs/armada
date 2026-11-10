@@ -81,7 +81,8 @@ where
     /// Start again the Jobs whose turn was open when their process was lost with Fleet down.
     /// **Called once at boot**, after the loops that move Jobs are running.
     pub async fn open_turns_started(self: &Arc<Self>) {
-        // A repair does not outlive the Fleet that read it, so one left open is over.
+        // A repair does not outlive the Fleet that read it, so one left open is over, and its slot is back.
+        self.open_repair_slots_given_back().await;
         let at = self.now().as_str().to_string();
         let _ = self.store().lock().await.end_open_repairs(&at);
         let rows = self.store().lock().await.open_turns().unwrap_or_default();
