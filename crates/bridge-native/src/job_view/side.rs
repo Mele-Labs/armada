@@ -1,6 +1,6 @@
 //! The Job's right column, as Electron's `StoryColumn` draws it in its two default panes: Open, Done
-//! and Deferred over Now. The panes' Add tab and their close are not drawn, since the other pane kinds
-//! (Requests, Checks, Subagents and the rest) are not built yet.
+//! and Deferred over Now. Each tab has its × and each strip its +, which offers only that pane's own
+//! tabs (`tabs.rs`), since the other pane kinds (Requests, Checks, Subagents and the rest) are not built yet.
 //!
 //! Now's owed rows read Fleet's `waiting_for` alone, one row per item, where Electron mixes in the
 //! thread's walk rows and the asked question and so keeps dismissed walks and draws a question twice.
@@ -15,6 +15,7 @@ use super::acts::{button, Tone};
 use super::head::icon_button;
 use super::plan::task_look;
 use super::rows::{glyph, tip, Size};
+use super::tabs::Pane;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -32,7 +33,15 @@ pub(super) enum Zone {
 }
 
 impl Zone {
-    const ALL: [Zone; 3] = [Zone::Open, Zone::Done, Zone::Deferred];
+    pub(super) const ALL: [Zone; 3] = [Zone::Open, Zone::Done, Zone::Deferred];
+
+    pub(super) fn id(self) -> &'static str {
+        match self {
+            Zone::Open => "open",
+            Zone::Done => "done",
+            Zone::Deferred => "deferred",
+        }
+    }
 
     fn look(self) -> (&'static str, &'static str) {
         match self {
@@ -117,7 +126,7 @@ fn tab(look: &Look, id: &'static str, icon: &'static str, said: &'static str, fr
         .flex()
         .items_center()
         .gap(look.length(token::SPACE_2))
-        .px(look.length(token::SPACE_3))
+        .pl(look.length(token::SPACE_3))
         .text_size(look.length(token::TEXT_XS))
         .font_weight(FontWeight(look.number(if front { token::WEIGHT_HEADING } else { token::WEIGHT_MEDIUM })))
         .text_color(look.color(if front { token::FG_DEFAULT } else { token::FG_MUTED }))
@@ -146,28 +155,34 @@ impl JobView {
     pub(super) fn render_side(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let look = cx.look();
         let look = &look;
-        let zone = self.zone;
-        let tabs = Zone::ALL.into_iter().map(|one| {
+        let zone = self.zone_shown();
+        let tabs: Vec<_> = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).map(|one| {
             let (icon, said) = one.look();
             let id = match one {
                 Zone::Open => "side-open",
                 Zone::Done => "side-done",
                 Zone::Deferred => "side-deferred",
             };
+            let front = Some(one) == zone;
+            let group = SharedString::from(id);
             labelled(
-                tab(look, id, icon, said, one == zone).on_click(cx.listener(move |this, _, _, cx| {
-                    this.zone = one;
-                    cx.notify();
-                })),
+                tab(look, id, icon, said, front)
+                    .group(group.clone())
+                    .child(self.close_button(one.id(), said, group, front, look, cx))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.zone = one;
+                        cx.notify();
+                    })),
                 Role::Tab,
                 format!("Job column: {said}"),
             )
-        });
-        let top_body = self.shown.clone().map(|id| match zone {
+        }).collect();
+        let top_body = self.shown.clone().zip(zone).map(|(id, zone)| match zone {
             Zone::Open => self.side_groups(&id, Stands::Coming, look, cx),
             Zone::Done => self.side_groups(&id, Stands::Done, look, cx),
             Zone::Deferred => self.side_deferred(&id, look, cx),
         });
+        let now_open = !self.tab_closed("now");
         let ask = self.shown.clone().filter(|id| !self.closed(id, cx)).map(|_| {
             labelled(
                 icon_button(look, "side-ask-update", "message-circle-more", "Ask for an update".into(), false, false)
@@ -176,7 +191,7 @@ impl JobView {
                 "Ask for an update",
             )
         });
-        let now_body = self.shown.clone().map(|id| self.side_now(&id, look, cx));
+        let now_body = self.shown.clone().filter(|_| now_open).map(|id| self.side_now(&id, look, cx));
         let body = |id: &'static str, inner: Option<AnyElement>| {
             div()
                 .id(id)
@@ -195,7 +210,13 @@ impl JobView {
             .gap(look.length(token::GAP_PANEL))
             .child(
                 labelled(
-                    pane(look).id("side-top").flex_grow(2.).flex_shrink(1.).flex_basis(gpui::px(0.)).child(strip(look).children(tabs)).child(body("side-top-body", top_body)),
+                    pane(look)
+                        .id("side-top")
+                        .flex_grow(2.)
+                        .flex_shrink(1.)
+                        .flex_basis(gpui::px(0.))
+                        .child(strip(look).children(tabs).child(self.add_button(Pane::Top, look, cx)))
+                        .child(body("side-top-body", top_body)),
                     Role::Region,
                     "Open, Done and Deferred",
                 ),
@@ -208,9 +229,16 @@ impl JobView {
                     .flex_basis(gpui::px(0.))
                     .child(
                         strip(look)
-                            .child(labelled(tab(look, "side-now-tab", "activity", "Now", true), Role::Tab, "Job column: Now"))
+                            .when(now_open, |strip| {
+                                strip.child(labelled(
+                                    tab(look, "side-now-tab", "activity", "Now", true).group("side-now-tab").child(self.close_button("now", "Now", "side-now-tab".into(), true, look, cx)),
+                                    Role::Tab,
+                                    "Job column: Now",
+                                ))
+                            })
+                            .child(self.add_button(Pane::Now, look, cx))
                             .child(div().flex_1())
-                            .child(div().flex().items_center().pr(look.length(token::SPACE_1)).children(ask)),
+                            .child(div().flex().items_center().pr(look.length(token::SPACE_1)).children(ask.filter(|_| now_open))),
                     )
                     .child(body("side-now-body", now_body)),
                 Role::Region,

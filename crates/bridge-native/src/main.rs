@@ -5,7 +5,7 @@
 //! | nothing | The Jobs list on the owner's running Fleet |
 //! | `--mock <scenario>` | The same window on mock data (`mock.rs`), with no Fleet |
 //! | `--walk <name>` | A native walk in its own window with a walk bar (`walk/`). Fleet adds `--job <id> --url <url> --fleet-port <port>` when the owner presses Open, and `--take <name>=<walk>` for each of its variations |
-//! | `--walk <name> --check [--shots <dir>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed |
+//! | `--walk <name> --check [--shots <dir>] [--hold <ms>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed. `--hold` lets each step's animations run before its picture |
 //!
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
 //! leave a window on someone's screen.
@@ -86,7 +86,7 @@ use walk::window::WalkWindow;
 /// What `--help` prints, and what an unread command line prints before it exits.
 const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
-       bridge-native --walk <name> [--check] [--shots <dir>] [--width <points>] [--take <name>=<walk>]...
+       bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--width <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
 
 With no flags it opens on the Fleet this Mac runs.
@@ -94,6 +94,7 @@ With no flags it opens on the Fleet this Mac runs.
   --walk <name>       open the walk of that name in its own window
   --check             play the walk with no window on screen; exit 0 when it plays to its end
   --shots <dir>       with --check, keep a picture of each step in <dir>
+  --hold <ms>         with --shots, let each step's animations run this long before its picture
   --width <points>    the walk's window width
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
@@ -101,7 +102,7 @@ With no flags it opens on the Fleet this Mac runs.
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
-const VALUED: [&str; 8] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--width", "--take", "--mock"];
+const VALUED: [&str; 9] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--width", "--take", "--mock"];
 const BARE: [&str; 1] = ["--check"];
 
 /// What the command line asked for.
@@ -109,7 +110,7 @@ enum Mode {
     Help,
     Live,
     Mock(String),
-    Walk { name: String, check: bool, shots: Option<PathBuf>, width: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
+    Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
 
 fn mode_of(args: &[String]) -> Result<Mode, String> {
@@ -120,7 +121,8 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
     while let Some(arg) = rest.next() {
         if VALUED.contains(&arg.as_str()) {
             rest.next();
-        } else if !BARE.contains(&arg.as_str()) {
+        } else if !BARE.contains(&arg.as_str()) && !arg.starts_with("-psn_") {
+            // `-psn_0_…` is what LaunchServices may hand an app it opens; it is not his to type.
             return Err(format!("{arg} is not a flag this app reads"));
         }
     }
@@ -135,13 +137,14 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
         };
         let shots = value("--shots").transpose()?.map(PathBuf::from);
         let width = value("--width").transpose()?.map(|wide| wide.parse::<f32>().map_err(|_| format!("--width {wide} is not a number of points"))).transpose()?;
+        let hold = value("--hold").transpose()?.map(|ms| ms.parse::<u64>().map_err(|_| format!("--hold {ms} is not a number of milliseconds"))).transpose()?;
         // `--take <name>=<walk>`, once for each take, in the bar's order.
         let takes = args
             .windows(2)
             .filter(|pair| pair[0] == "--take")
             .map(|pair| pair[1].rsplit_once('=').map(|(name, walk)| (name.to_string(), walk.to_string())).ok_or(format!("--take {} is not <name>=<walk>", pair[1])))
             .collect::<Result<_, _>>()?;
-        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, width, fleet, takes });
+        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, hold, width, fleet, takes });
     }
     if let Some(scenario) = value("--mock").transpose()? {
         return Ok(Mode::Mock(scenario));
@@ -191,12 +194,12 @@ fn main() -> ExitCode {
         print!("{USAGE}");
         return ExitCode::SUCCESS;
     }
-    if let Mode::Walk { name, check: true, shots, width, takes, .. } = &mode {
+    if let Mode::Walk { name, check: true, shots, hold, width, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
             return ExitCode::FAILURE;
         };
-        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *width) {
+        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *hold, *width) {
             Ok(()) => {
                 log::Note::info("the walk played to its end").field("walk", walk.name).emit();
                 ExitCode::SUCCESS
@@ -345,5 +348,6 @@ mod tests {
         assert!(matches!(mode_of(&args(&["--walk", "jobs-list", "-h"])), Ok(Mode::Help)));
         assert_eq!(mode_of(&args(&["--walks", "jobs-list"])).err().as_deref(), Some("--walks is not a flag this app reads"));
         assert!(mode_of(&args(&["--walk", "jobs-list", "--check", "--width", "800"])).is_ok(), "a value is not read as a flag");
+        assert!(matches!(mode_of(&args(&["-psn_0_123456"])), Ok(Mode::Live)), "LaunchServices' own argument passes");
     }
 }

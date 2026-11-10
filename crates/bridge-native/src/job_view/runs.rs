@@ -25,6 +25,39 @@ fn summary_of(text: &str) -> String {
     first.trim_end_matches('.').to_string()
 }
 
+/// The clock a running call counts on: the wall's, or on mock data the thread's newest moment, moving
+/// on from when the data was read, so a running call reads its own seconds and not the fixture's age.
+/// Each mock thread's newest moment, by Job, and when the data was read.
+static MOCK_CLOCK: std::sync::OnceLock<(std::collections::HashMap<String, DateTime<Utc>>, std::time::Instant)> = std::sync::OnceLock::new();
+
+pub(super) fn start_mock_clock(threads: &std::collections::HashMap<String, ipc::JobThread>) {
+    let newest = threads
+        .iter()
+        .filter_map(|(job, thread)| {
+            let wire = ipc::encode(thread).ok()?;
+            let newest = wire.split("\"at\":\"").skip(1).filter_map(|rest| rest.split('"').next().and_then(|at| DateTime::parse_from_rfc3339(at).ok())).map(|at| at.with_timezone(&Utc)).max()?;
+            Some((job.clone(), newest))
+        })
+        .collect();
+    let _ = MOCK_CLOCK.set((newest, std::time::Instant::now()));
+}
+
+fn running_now(job: &str) -> DateTime<Utc> {
+    match MOCK_CLOCK.get().and_then(|(newest, read)| newest.get(job).map(|at| (*at, read))) {
+        Some((newest, read)) => newest + chrono::Duration::from_std(read.elapsed()).unwrap_or_default(),
+        None => Utc::now(),
+    }
+}
+
+/// One run of the band down a running call's rail.
+const RAIL_MS: u64 = 1400;
+
+/// Where the band is in its run, 0 to 1, by the wall clock.
+fn rail_phase() -> f32 {
+    let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |since| since.as_millis() as u64);
+    (ms % RAIL_MS) as f32 / RAIL_MS as f32
+}
+
 /// What a call's row says: its kind, its phrase, and while it runs, what it works on.
 struct Call {
     kind: Kind,
@@ -35,7 +68,7 @@ struct Call {
 /// One call (take A, approved 10 Nov): a rail in its kind's colour, its kind's icon, the phrase and the
 /// time it took. While it runs a band travels down the rail, the icon moves, the time counts and a
 /// second line says what it works on. Done, it is one grey line, the icon on its last frame.
-fn tool_row(key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, look: &Look) -> AnyElement {
+fn tool_row(job: &str, key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>, running: bool, look: &Look) -> AnyElement {
     let Call { kind, phrase, working_on } = call;
     let ink = match kind {
         Kind::Read | Kind::Search | Kind::Web | Kind::Other => token::ACCENT,
@@ -49,19 +82,21 @@ fn tool_row(key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>
     if running {
         let band = look.color(token::FG_DEFAULT).opacity(0.35);
         rail = rail.child(
+            // Placed by the wall clock and not by the animation's own start, which a list item's redraw can
+            // reset: every running rail runs in step, and a picture taken later finds the band further down.
             div().absolute().left_0().w_full().h(gpui::relative(0.4)).bg(band).with_animation(
                 SharedString::from(format!("rail:{key}")),
-                Animation::new(Duration::from_millis(1400)).repeat().with_easing(gpui::ease_in_out),
-                |band, delta| band.top(gpui::relative(-0.4 + 1.4 * delta)),
+                Animation::new(Duration::from_millis(RAIL_MS)).repeat(),
+                |band, _| band.top(gpui::relative(-0.4 + 1.4 * gpui::ease_in_out(rail_phase()))),
             ),
         );
     }
-    let since = at.clone();
+    let (since, job) = (at.clone(), job.to_string());
     let time = div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE));
     let time = if running {
         // The count goes on each frame the row is drawn.
         time.with_animation(SharedString::from(format!("count:{key}")), Animation::new(Duration::from_secs(1)).repeat(), move |time, _| {
-            time.child(elapsed_words(since.as_str(), &Utc::now().to_rfc3339()).unwrap_or_default())
+            time.child(elapsed_words(since.as_str(), &running_now(&job).to_rfc3339()).unwrap_or_default())
         })
         .into_any_element()
     } else {
@@ -104,7 +139,7 @@ fn tool_row(key: &str, call: Call, at: &ipc::Instant, end: Option<&ipc::Instant>
             .flex()
             .min_w_0()
             .child(rail)
-            .child(div().flex_1().min_w_0().flex().flex_col().pl(look.length(token::SPACE_3)).py(look.length(token::SPACE_1)).child(first).children(second)),
+            .child(div().flex_1().min_w_0().flex().flex_col().pl(look.length(token::SPACE_3)).pr(look.length(token::SPACE_2)).py(look.length(token::SPACE_1)).child(first).children(second)),
         Role::Row,
         said,
     )
@@ -233,6 +268,7 @@ impl JobView {
         let label = format!("Tool calls: {}", calls::names_of(&refs).join(", "));
         // Each call ended when the next began; the last, when the item after the run did.
         let last = rows.len().saturating_sub(1);
+        let job = self.shown.clone().unwrap_or_default();
         let lines = rows.iter().enumerate().map(|(at, row)| {
             let running = live && at == last;
             let end = rows.get(at + 1).map(SessionRow::at).or(end);
@@ -248,7 +284,7 @@ impl JobView {
                     working_on: calls::working_on(&texts[at]).filter(|_| running),
                 },
             };
-            tool_row(&format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, look)
+            tool_row(&job, &format!("{id}:{at}"), one, row.at(), if running { None } else { end }, running, look)
         });
         if live {
             return labelled(
@@ -271,7 +307,7 @@ impl JobView {
         let task = subagent.task.clone();
         if subagent.state == ToolSubagentState::Running {
             let one = Call { kind: Kind::Agent, phrase: task, working_on: None };
-            return div().id(SharedString::from(format!("subagent:{id}"))).child(tool_row(&format!("subagent:{id}"), one, &subagent.since, None, true, look)).into_any_element();
+            return div().id(SharedString::from(format!("subagent:{id}"))).child(tool_row(self.shown.as_deref().unwrap_or_default(), &format!("subagent:{id}"), one, &subagent.since, None, true, look)).into_any_element();
         }
         let cut = subagent.state == ToolSubagentState::CutOff;
         let said = if cut { "Subagent cut off" } else { "Subagent finished" };

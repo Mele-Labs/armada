@@ -1739,20 +1739,24 @@ impl JobsScreen {
         (unit * RIGHT).clamp(unit * FLOOR_RIGHT, most)
     }
 
-    /// The narrowest and widest the list may be in this window, so the centre keeps its floor.
-    fn range(&self, window: &Window, look: &Look) -> (f32, f32) {
+    /// The narrowest and widest the list may be in this window, so the centre keeps its floor. With no
+    /// Judge open the Job's own panes are the centre and there is no right column, as Electron's
+    /// `session` layout draws it (`NO_RIGHT`): the list may take its room and gap.
+    fn range(&self, window: &Window, cx: &App) -> (f32, f32) {
+        let look = cx.look();
         let unit = f32::from(look.length(token::SPACE_12));
         let least = unit * FLOOR_LEFT;
-        (least, (Self::room(window, look) - Self::right(window, look) - unit * CENTRE_FLOOR).max(least))
+        let beside = if self.view.read(cx).judge_pane_open() { Self::right(window, look) } else { -f32::from(look.length(token::GAP_PANEL)) };
+        (least, (Self::room(window, look) - beside - unit * CENTRE_FLOOR).max(least))
     }
 
-    fn width(&self, window: &Window, look: &Look) -> f32 {
-        let (least, most) = self.range(window, look);
-        self.left.unwrap_or(f32::from(look.length(token::SPACE_12)) * REST_LEFT).clamp(least, most)
+    fn width(&self, window: &Window, cx: &App) -> f32 {
+        let (least, most) = self.range(window, cx);
+        self.left.unwrap_or(f32::from(cx.look().length(token::SPACE_12)) * REST_LEFT).clamp(least, most)
     }
 
     fn resize(&mut self, to: Option<f32>, window: &Window, cx: &mut Context<Self>) {
-        let (least, most) = self.range(window, cx.look());
+        let (least, most) = self.range(window, cx);
         self.left = to.map(|to| to.clamp(least, most));
         if self.remember {
             if let Some(path) = columns_file() {
@@ -1882,8 +1886,8 @@ impl JobsScreen {
     /// The handle on the list's inner edge (`dock-handle.tsx`): a quiet line that shows on hover,
     /// focus or drag; ← and → move it, a double press puts the list back at its resting width.
     fn render_handle(&self, width: f32, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (least, most) = self.range(window, cx);
         let look = cx.look();
-        let (least, most) = self.range(window, look);
         let line = look.color(token::BORDER_DEFAULT);
         let focused = self.handle.is_focused(window);
         labelled(
@@ -1946,9 +1950,7 @@ fn panel(look: &Look) -> gpui::Div {
 
 impl Render for JobsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let look = cx.look();
-        let width = self.width(window, look);
-        let right = gpui::px(Self::right(window, look));
+        let width = self.width(window, cx);
         let handle = self.render_handle(width, window, cx);
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
@@ -2019,19 +2021,18 @@ impl Render for JobsScreen {
                                             .min_w(gpui::px(PANE_LEAST * 2.) + look.length(token::GAP_PANEL))
                                     })
                                     .when(!judged, |job| job.flex_1())
+                                    // The Job's own split, judged or not, as Electron's tree draws it.
                                     .child(
                                         panel(look)
                                             .min_w_0()
-                                            .when(judged, |thread| thread.flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)))
-                                            .when(!judged, |thread| thread.flex_1())
+                                            .flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
                                             .overflow_hidden()
                                             .child(self.view.clone()),
                                     )
                                     .child(
                                         div()
                                             .h_full()
-                                            .when(judged, |side| side.flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)))
-                                            .when(!judged, |side| side.w(right).flex_none())
+                                            .flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST))
                                             .child(self.side.clone()),
                                     ),
                             )

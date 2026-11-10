@@ -47,6 +47,7 @@ mod report;
 mod sketch_pad;
 mod report_brief;
 mod side;
+mod tabs;
 pub use judge_tab::JobJudge;
 pub use side::JobSide;
 mod runs;
@@ -241,6 +242,9 @@ pub struct JobView {
     picked: u64,
     /// The right column's top pane: Open, Done or Deferred.
     zone: side::Zone,
+    /// The tabs closed on each Job, and + 's menu while it is open.
+    tabs_closed: tabs::Closed,
+    tabs_menu: Option<tabs::AddMenu>,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -294,6 +298,9 @@ impl JobView {
         cx: &mut Context<Self>,
     ) -> Self {
         let fleet = list.read(cx).fleet();
+        if let Some(threads) = mock.as_ref().filter(|_| fleet.is_none()) {
+            runs::start_mock_clock(threads);
+        }
         let remember = list.read(cx).remembers();
         let (mut composer, mut subscriptions) = composer::build(remember, window, cx);
         if let Some(catalogue) = crate::mock::catalogue() {
@@ -344,6 +351,8 @@ impl JobView {
             pane: None,
             picked: 0,
             zone: side::Zone::default(),
+            tabs_closed: tabs::Closed::default(),
+            tabs_menu: None,
             focus: cx.focus_handle(),
             pop: None,
             dock_focus: cx.focus_handle(),
@@ -673,7 +682,8 @@ impl Render for JobView {
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
-        if self.pages.get(&id).is_some_and(|page| page.keys.begin_frame(window)) {
+        let picture_lost = self.picture_lost(window);
+        if self.pages.get(&id).is_some_and(|page| page.keys.begin_frame(window)) || picture_lost {
             // The focused row scrolled out of the list: focus goes to the thread, so keys still reach it.
             window.focus(&self.focus, cx);
         }
@@ -736,8 +746,11 @@ impl Render for JobView {
             self.render_skeleton(look)
         };
         let head = self.render_head(&id, cx);
-        let origin = self.render_origin(&id, cx);
-        let dock = (!self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
+        // A closed Thread tab leaves its pane empty under the strip, as Electron's does.
+        let open = !self.tab_closed("thread");
+        let body = if open { body } else { div().into_any_element() };
+        let origin = self.render_origin(&id, cx).filter(|_| open);
+        let dock = (open && !self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
         div()
@@ -752,9 +765,10 @@ impl Render for JobView {
             .child(gpui_base::TextSelectionLayer)
             .child(head)
             .children(origin)
-            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)))
-            .children(self.render_bands(&id, cx))
+            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx).filter(|_| open)).children(self.render_foot(&id, cx).filter(|_| open)))
+            .children(self.render_bands(&id, cx).filter(|_| open))
             .children(dock)
+            .children(self.tabs_menu.as_ref().map(|open| open.menu.clone()))
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .children(self.render_confirm(window, cx))
             .children(self.render_editor(window, cx))

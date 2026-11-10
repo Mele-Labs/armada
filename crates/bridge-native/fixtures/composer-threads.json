@@ -3832,6 +3832,68 @@
       },
       "text": "Every page is listed. The index is current."
      }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-341",
+      "at": "2026-11-09T18:55:10Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "The index page at full width.",
+      "files": [
+       {
+        "id": "pasted-2",
+        "name": "Wide index.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-342",
+      "at": "2026-11-09T18:55:40Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "And the phone layout.",
+      "files": [
+       {
+        "id": "pasted-3",
+        "name": "Tall phone.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "m-343",
+      "at": "2026-11-09T18:56:20Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Before and after the fix.",
+      "files": [
+       {
+        "id": "pasted-4",
+        "name": "Before.png",
+        "media_type": "image/png"
+       },
+       {
+        "id": "pasted-5",
+        "name": "After.png",
+        "media_type": "image/png"
+       }
+      ]
+     }
     }
    ]
   }

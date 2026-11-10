@@ -1,7 +1,8 @@
 //! `--walk <name> --check`: play the walk window step by step with no window on screen, and fail
 //! on the first step that faults or whose target is not drawn. A Job runs it before it shows the
 //! walk. `--shots <dir>` also writes each step as a picture, which is how a Job looks at a native
-//! screen without putting a window in front of the owner.
+//! screen without putting a window in front of the owner; `--hold <ms>` takes each picture that long
+//! into the step, so a moving thing is caught mid-way.
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -14,7 +15,7 @@ use super::window::{Next, Take, WalkWindow};
 use super::Walk;
 
 /// Play `walk` to its end. `Ok` says every step was reached and its target drawn.
-pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, width: Option<f32>) -> Result<(), String> {
+pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>) -> Result<(), String> {
     let platform = gpui_platform::current_platform(true);
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || {
         gpui_platform::current_headless_renderer()
@@ -57,6 +58,11 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, width:
             return Err(format!("step {}: {why}", at + 1));
         }
         if let Some(dir) = &shots {
+            // An animation reads the wall clock, so a picture taken at once always catches its first frame.
+            if let Some(ms) = hold {
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+                cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+            }
             let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
             let path = dir.join(format!("{}-{:02}.png", walk.name, at + 1));
             picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;

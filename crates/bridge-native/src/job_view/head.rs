@@ -6,8 +6,7 @@
 //! asks Fleet; the overlay is put back with Fleet's reason when it refuses, and let go of once
 //! Fleet's own record has had time to arrive. With no Fleet, as on mock data, it stays.
 //!
-//! Only the Thread tab is drawn: the other panes and Add tab are a later step, so no entry or
-//! button here stands for one.
+//! The Thread tab has its × and the strip its +, which offers the thread alone (`tabs.rs`).
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -848,17 +847,18 @@ impl JobView {
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .pl(look.length(token::SPACE_3))
-                .pr(look.length(token::SPACE_1))
                 .bg(look.color(token::BG_RAISED))
                 .border_r(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_GLASS))
                 .children(state)
                 .child(label)
                 .children(stop)
-                .child(more),
+                .child(more)
+                .child(self.close_button("thread", &title, "head-tab".into(), true, look, cx)),
             Role::Row,
             name,
         );
+        let tab = (!self.tab_closed("thread")).then_some(tab);
         let said = self.head.said.get(id).cloned().map(|why| {
             labelled(
                 div()
@@ -885,7 +885,8 @@ impl JobView {
                     .bg(look.color(token::BG_SUNKEN))
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_GLASS))
-                    .child(div().max_w(look.length(token::SPACE_12) * 8.).min_w_0().flex().h_full().child(tab)),
+                    .children(tab.map(|tab| div().max_w(look.length(token::SPACE_12) * 8.).min_w_0().flex().h_full().child(tab)))
+                    .child(self.add_button(super::tabs::Pane::Thread, look, cx)),
             )
             .children(said)
             .children(self.head.menu.as_ref().map(|open| open.menu.clone()))
