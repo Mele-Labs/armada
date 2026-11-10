@@ -264,7 +264,7 @@ The page carries none of the gate boxes, retries or passes the old editor offere
 |---|---|
 | Change a step's words | Edits them where they stand, and the page saves them in the place that copy is |
 | Change a workflow's shape | Types the change under *Tell an agent what to change*; an agent drafts the whole definition, the page shows it beside what it was, and he approves it, sends it back with notes, or dismisses it. Nothing saves without his Approve |
-| Change one Armada carries | In the Workspace's lanes, changes it where it stands: the first change makes his own copy, written to Kit under the same id for every repository on this Mac, and nothing says copy. In the column of steps Armada's rows are read-only, and he presses Make my copy, which writes the same file. Or he presses Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install |
+| Change one Armada carries | In the project's lanes, changes it where it stands: the first change makes his own copy, written to Kit under the same id for every repository on this Mac, and nothing says copy. In the column of steps Armada's rows are read-only, and he presses Make my copy, which writes the same file. Or he presses Propose to Armada, which starts a Job on Armada's repository that lands it as a pull request for every install |
 | See how a copy differs | Presses Compare with Armada's, and each step's words show beside Armada's |
 | Go back to Armada's | Presses Reset to Armada's on a copy, which replaces the file with Armada's definition |
 | Remove a copy | Presses Delete, which removes that one file. A copy that was left out is deleted by its file, since it may declare no id Fleet can read |

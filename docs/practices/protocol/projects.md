@@ -134,14 +134,16 @@ settles one row of it from the Projects tab: done, or open again. The item leave
 422 `fleet.project_place_refused` is a place that cannot be used: `repository`, a synced folder that is not there, a cloud place with no address, a bucket that cannot be reached.
 `add_project` and `edit_project`.
 `fleet.project_unwritable` is a project's file that could not be written or removed, a 500, or one that would not read and so is not written over by `edit_project`, a 422. A task written into a project whose file did not read is kept and adds no member.
-422 `fleet.project_not_member` is a Job started for a project that does not list its repository, or whose file did not read. `start_session`.
+422 `fleet.project_not_member` is a Job started for a project that does not list its repository. `start_session`.
+422 `fleet.project_unreadable` is a Job started for a project whose file did not read, so Fleet cannot say what it holds. `start_session`.
 422 `fleet.project_issue_unreadable` is a link `IssueReference` refuses.
 422 `fleet.project_row_not_a_task` is an edit, a tick, a link (of an issue, a Job or a pull request) or a subtask on an issue row, an issue row moved under a task, or an issue row moved to another repository.
 422 `fleet.project_subtask_too_deep` is a subtask of a subtask, of a task that has subtasks, or of itself, or a subtask moved to another repository on its own.
 422 `fleet.unacceptable_proposal` is a task moved to a repository Fleet does not serve.
 404 `fleet.no_such_session` is a Job to link that Fleet has no record of, and 422 `fleet.project_job_ended` one that has ended.
 422 `fleet.project_pull_unreadable` is a pull request number of 0.
-`start_session` names rows: 404 `fleet.no_such_project_row` as above, and a project: 404 `fleet.no_such_project`, 422 `fleet.project_not_member`. Nothing is made on a refusal.
+`start_session` names rows: 404 `fleet.no_such_project_row` as above, and a project: 404 `fleet.no_such_project`, 422 `fleet.project_not_member` or `fleet.project_unreadable`.
+Nothing is made on a refusal.
 
 **A Job holds a task of any repository.** The owner chose it on 29 Oct 2026, after a task filed in the wrong repository refused every start from the dispatch sheet.
 The task keeps the repository it was filed in, and the Job its own: holding is a link between the two, and the store never compared them.

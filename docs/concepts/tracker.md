@@ -262,11 +262,11 @@ What each does:
 | Tracker | Move to a status | Assign | Close |
 |---|---|---|---|
 | The forge's issues | Only to `Open` (reopen) and `Closed` (close). A board's column is not written | `gh issue edit --add-assignee` | `gh issue close` |
-| Jira | `acli jira workitem transition --status` | `acli jira workitem assign --assignee`: an email or account id, or `@me` | A transition to the word the Workspace's ticket lifecycle gives Closed. None, and it is not carried |
+| Jira | `acli jira workitem transition --status` | `acli jira workitem assign --assignee`: an email or account id, or `@me` | A transition to the word the project's ticket lifecycle gives Closed. None, and it is not carried |
 | Beads | `bd update --status` for `open`, `in_progress` and `blocked`; `bd close` for `closed` | `bd update --assignee` | `bd close --force`, as a close from the backlog is |
 | A tracker mod | Its `[move]`, if it has one | Its `[assign]` | Its `[close]`, else its `[move]` to that word. [Tracker mods](mods.md#tracker-mods) |
 
-**The status is the tracker's word, and a Workspace's where it says otherwise.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to, and the act is kept as not carried with `The ticket lifecycle names no tracker word for In progress`.
+**The status is the tracker's word, and a project's where it says otherwise.** A move writes the first tracker word the ticket lifecycle lists for the state being moved to; a state that lists none cannot be moved to, and the act is kept as not carried with `The ticket lifecycle names no tracker word for In progress`.
 Armada's own ticket lifecycle lists `closed` for Closed and a word for no other state, except the words the repository's tracker declares for its states.
 Beads declares `open` for To do, `in_progress` for In progress and `closed` for Closed, so a repository on beads reads and moves its tickets from the first Job.
 `blocked` and `deferred` are no step of the ticket's way and stay unmapped, and beads has no status for In review.
@@ -275,11 +275,11 @@ Every other tracker, Jira and a tracker mod included, declares none, so no word 
 **A person teaches the rest from the ticket's own row.**
 Right-clicking a ticket's row in a Job or in the Issues tab, or the ContextMenu key or Shift+F10 on it, opens `ABC-12 is Ready for QA. In Armada that is` over To do, In progress, In review and Closed, the state the status reads as now ticked.
 Picking one calls `POST /lifecycles/ticket/teach` (`TeachTicketWord { manifest_id, word, state }`), and Fleet puts the word, the status as the tracker said it, on that state of the Ticket lifecycle Kit keeps, taking it off any other state.
-The scope is the running Ticket's own where that is a repository's or a Workspace's; else the Workspace holding the repository, the lowest id when several do; else the repository's own scope.
+The scope is the running Ticket's own where that is a repository's or a project's; else the project holding the repository, the lowest id when several do; else the repository's own scope.
 A repository's committed file is never written.
 **A Job keeps the copy it started with, and this is the one exception**: every live Job in that scope gets the same move in its own frozen copy, marked `word taught by you`, and its ticket is read again at once.
 The status the row offers is the issue attachment's `status`: Jira's status name, beads' status, and `Open` or `Closed` for the forge's issues and for a mod with no Status field.
-A ticket lifecycle a Workspace or a repository writes replaces Armada's outright, its words and not the tracker's.
+A ticket lifecycle a project or a repository writes replaces Armada's outright, its words and not the tracker's.
 This was changed on 30 Oct 2026: the ticket had listed no tracker's words, on the ground that two rarely share theirs.
 
 **The forge's half is the forge's own calls.** A rule may ask reviewers (`gh pr edit --add-reviewer`), mark a pull request ready, turn on auto-merge and merge it.
