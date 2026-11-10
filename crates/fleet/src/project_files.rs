@@ -41,8 +41,7 @@ pub(crate) const UNREADABLE: &str = "fleet.project_unreadable";
 pub(crate) const MALFORMED: &str = "fleet.project_malformed";
 /// The place chosen for a project cannot be used. A 422.
 pub(crate) const PLACE_REFUSED: &str = "fleet.project_place_refused";
-/// Fleet holds no project by that id. A 404.
-pub(crate) const NO_SUCH: &str = "fleet.no_such_project";
+pub(crate) use crate::projects::NO_SUCH_PROJECT as NO_SUCH;
 
 /// The projects as last read. A `std` lock, never held across an `.await`.
 #[derive(Default)]

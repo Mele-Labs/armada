@@ -28,7 +28,7 @@ use crate::run_memory::{cloud, place_of};
 use crate::tracking::HELD_FOR;
 
 /// He has no project by that id. A 404.
-const NO_SUCH_PROJECT: &str = "fleet.no_such_project";
+pub(crate) const NO_SUCH_PROJECT: &str = "fleet.no_such_project";
 /// There is no row by that id. A 404.
 const NO_SUCH_ROW: &str = "fleet.no_such_project_row";
 /// A project's name or a task's title is blank. A 422.

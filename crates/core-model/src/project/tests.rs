@@ -82,7 +82,7 @@ fn a_folder_is_a_relative_slash_separated_path_that_stays_inside() {
     assert_eq!(Folder::new("./apps"), Err(MalformedFolder::Segment));
     assert_eq!(Folder::new(".."), Err(MalformedFolder::Segment));
     assert_eq!(Folder::new("apps//api"), Err(MalformedFolder::Segment));
-    assert!(Folder::new(".github").is_ok(), "a dot inside a name is not a dot segment");
+    assert!(Folder::new(".config").is_ok(), "a dot inside a name is not a dot segment");
 }
 
 #[test]
