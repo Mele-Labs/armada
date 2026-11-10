@@ -12,7 +12,7 @@ Bridge's half is `packages/protocol/src/operator-page.ts`, written by hand, fiel
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`: `on`, `top`, `looked_at`, `on_it`, `turn`, `digest` |
+| `operator_page` (`GET /operator/page`) | Bridge reads | `OperatorPage`: `on`, `top`, `looked_at`, `on_it`, `turn`, `digest`, `mains`, `slots` |
 | `operator_answer` (`POST /operator/page/answer`) | Bridge writes | `OperatorAnswerPress` `{ id, answer, then? }`, answered with `OperatorAnswered` `{ open?, started?, filed?, handed_to?, page }` |
 | `operator_later` (`POST /operator/page/later`) | Bridge writes | `OperatorLater` `{ id }`, answered with `OperatorPage` |
 | `operator_turn_order` (`POST /operator/page/order`) | Bridge writes | `OperatorTurnOrder` `{ ids }`, answered with `OperatorPage` |
@@ -49,6 +49,23 @@ Where the review call fails, or the week's plan is paused, the item is still que
 `on_it` is `{ reading, since }`, present while the Operator is reading something to review.
 `digest` has `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; and `learned`, the Always and Always here rules across projects, each with its repository where it holds in one.
 A digest section with nothing in it is absent from the JSON, except `handled`.
+Each `landed` row is `{ session_id, job, number, title, at }`, with `at` the time the pull request merged.
+
+## The head
+
+`mains` is one `OperatorMain` for each repository Fleet serves, first first, which the head draws as a pill: red when main is red, plain when it is not.
+Each is `{ manifest_id, repository, state?, commit?, since? }`.
+`repository` is the name an item gives.
+`state` is `green`, `red`, `running` or `nothing_ran`, as the merge line's `main_ci_state` has it, and a red that a newer commit's run is still on is `red`.
+`commit` is whole: the commit the state was decided from, and the red's own on a red.
+`since` is `red` only, when main first read red.
+`state` and `commit` are absent where Fleet has not read that main yet.
+It is read from what main's CI already kept, the row that makes a red main a queue item, so the page makes no call and adds no poll.
+
+`slots` is `{ used, total }` across every pool, read from the list Cleanup draws, which a keeper holds in memory.
+`used` counts the slots a Job or a process holds, work stranded in one, and a take or a release under way.
+`total` counts every slot, free, unmade or closed ones too.
+It is absent where no pool is read.
 
 ## A press
 
@@ -84,7 +101,8 @@ A time in front that comes before Fleet is connected is owed: Electron sends it 
 
 ## The event stream
 
-`operator.page_changed` is sent when an item joins Your turn or settles, when the order, a Later or a rule moves, when `top` or `on_it` changes, and when `operator_in_front` moves the top line.
+`operator.page_changed` is sent when an item joins Your turn or settles, when the order, a Later or a rule moves, when `top` or `on_it` changes, when `operator_in_front` moves the top line, and when a repository's main turns red or green, once for each reading that changed it.
+**It is not sent when the slot count moves**: slots move with every lease and every release, and Bridge reads `slots` with the page whenever it reads the page.
 **It carries nothing** beyond the stream's cursor: Bridge reads `operator_page` again, and a new item is what raises its toast.
 It is not sent for the digest's other sections, which are read.
 A client that missed one reads the page again on reconnecting.
