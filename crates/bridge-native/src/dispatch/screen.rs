@@ -121,10 +121,11 @@ impl DispatchScreen {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
         }
         cx.set_global(Live(cx.entity().downgrade(), window.window_handle()));
-        // What the title bar asks: the narrow menu's Dispatch opens the sheet. Search asks for the palette,
-        // which is another Job's, so nothing here answers it.
+        // What the title bar asks: the narrow menu's Dispatch opens the sheet. The rest goes to the sink this
+        // one stands in front of, the Jobs screen's, which opens its palette on search.
         let handle = window.window_handle();
         let me = cx.entity().downgrade();
+        let behind = cx.try_global::<AskedSink>().cloned();
         cx.set_global(AskedSink(Rc::new(move |asked: &BarAsked, cx: &mut App| {
             if matches!(asked, BarAsked::Dispatch) {
                 let me = me.clone();
@@ -133,6 +134,8 @@ impl DispatchScreen {
                         me.update(cx, |this, cx| this.open_sheet("", window, cx));
                     }
                 });
+            } else if let Some(behind) = &behind {
+                (behind.0)(asked, cx);
             }
         })));
         DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, toast: None, within: cx.focus_handle(), area, _subs: subs }

@@ -43,8 +43,7 @@ use parts::{glyph, mono, no_drag, sans, tip};
 /// What a press on the bar asks of the rest of the app. The wiring sends these; the walk reads none.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Asked {
-    /// The command palette: ⌘K and the search trigger. **The palette is another Job's work**, so a walk
-    /// ends the step here.
+    /// The command palette: ⌘K and the search trigger. The Jobs screen's sink opens its palette.
     Palette,
     Dispatch,
     Operator,

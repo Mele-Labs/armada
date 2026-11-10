@@ -1442,12 +1442,21 @@ impl JobsScreen {
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
         let palette = cx.new(|cx| crate::palette::Palette::new(list.clone(), cx));
+        // The bar's search, and ⌘K where no screen took it, open this palette.
+        let handle = window.window_handle();
+        let opens = palette.downgrade();
+        cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
+            if *asked != crate::titlebar::Asked::Palette {
+                return;
+            }
+            let opens = opens.clone();
+            let _ = handle.update(cx, move |_, window, cx| {
+                if let Some(palette) = opens.upgrade() {
+                    palette.update(cx, |palette, cx| palette.open(window, cx));
+                }
+            });
+        })));
         JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
-    }
-
-    /// The command palette, which the title bar's search field opens with `Palette::open`.
-    pub fn palette(&self) -> &Entity<crate::palette::Palette> {
-        &self.palette
     }
 
     pub fn within(&self) -> &FocusHandle {
