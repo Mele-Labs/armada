@@ -401,7 +401,7 @@ async fn main_with_a_newer_run_still_going_is_no_call_and_a_failing_pull_request
     }
     let mut failing = red_main("/s", 8, "other");
     failing.main = None;
-    failing.pulls = vec![ipc::HubPullRequest {
+    failing.pulls = vec![ipc::PullView { held_by: None, tone: ipc::PullTone::Bad, pull: ipc::HubPullRequest {
         number: 9,
         title: "Cap the retries".into(),
         branch: "cap".into(),
@@ -419,7 +419,7 @@ async fn main_with_a_newer_run_still_going_is_no_call_and_a_failing_pull_request
         owner: None,
         merge_by_hand: false,
         mine: true,
-    }];
+    } }];
     keeper.lines = lines(vec![held, failing]);
     let calls = keeper.standing(&nowhere, now());
     assert_eq!(calls.len(), 1, "{calls:?}");
@@ -527,7 +527,7 @@ async fn a_held_checkout_and_a_pull_request_to_merge_by_hand_are_calls_nobody_is
         ahead: 0,
         pull_request: None,
     });
-    line.pulls = vec![ipc::HubPullRequest {
+    line.pulls = vec![ipc::PullView { held_by: None, tone: ipc::PullTone::Ask, pull: ipc::HubPullRequest {
         number: 4,
         title: "Edit".into(),
         branch: "armada-yml".into(),
@@ -545,7 +545,7 @@ async fn a_held_checkout_and_a_pull_request_to_merge_by_hand_are_calls_nobody_is
         owner: None,
         merge_by_hand: true,
         mine: true,
-    }];
+    } }];
     keeper.lines = lines(vec![line]);
     let calls = keeper.standing(&nowhere, now());
     let shown: Vec<_> = calls.iter().map(|one| (one.key.as_str(), one.kind, one.title.as_str(), one.text.as_str())).collect();

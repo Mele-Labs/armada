@@ -114,6 +114,19 @@ async fn the_calls_are_served_and_opening_one_answers_them() {
     ipc::decode::<ipc::StandingCalls>("the calls", &body).expect("the calls");
 }
 
+/// The clashes of every repository are their own route beside `/clashes`, which still wants a Manifest.
+#[tokio::test]
+async fn the_clashes_of_every_repository_are_served_beside_the_one_repository_read() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let (status, body) = call(&app, "GET", "/clashes/all", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let held: ipc::AllWriteClashes = ipc::decode("the clashes", &body).expect("the clashes");
+    assert!(held.repositories.is_empty());
+    let (status, _) = call(&app, "GET", "/clashes", "").await;
+    assert_eq!(status, StatusCode::OK, "the read of one repository is as it was");
+}
+
 /// **A step's gates cross before any of them acts.** This is the preview a
 /// person approves a dispatch from — a workflow that will stop and wait at
 /// `handoff`, and spend Judge calls at `implement`, previewed as neither,

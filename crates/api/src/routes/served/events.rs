@@ -28,6 +28,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // Every standing write clash of every served repository, whole, when the set moved.
+    Route {
+        operation: "write_clashes.changed",
+        method: "GET",
+        path: "/events",
+    },
     // What calls the person, whole, and the news since the last one.
     Route {
         operation: "calls.changed",

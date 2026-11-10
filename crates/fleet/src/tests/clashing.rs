@@ -273,6 +273,53 @@ async fn a_holder_that_ends_takes_its_clashes_with_it() {
     assert!(!rig.fleet.writes().holders().iter().any(|(who, ..)| *who == Who::Session("sess-a".into())));
 }
 
+/// The next `write_clashes.changed` within `wait`, passing every other event by.
+async fn pushed(watching: &mut api::Subscription, wait: Duration) -> Option<ipc::AllWriteClashes> {
+    tokio::time::timeout(wait, async {
+        loop {
+            match watching.next().await {
+                Some(api::Next::Send(delivered)) => {
+                    if let ipc::Event::WriteClashesChanged(all) = delivered.event {
+                        return all;
+                    }
+                }
+                other => panic!("the stream ended or dropped: {other:?}"),
+            }
+        }
+    })
+    .await
+    .ok()
+}
+
+/// A clash found, and the holder ending that took it away, are each pushed once as every repository's
+/// set, and the read across repositories says what the push did.
+#[tokio::test]
+async fn a_clash_found_and_one_that_ended_are_pushed_as_the_set_of_every_repository() {
+    let rig = a_rig();
+    rig.a_session_in_slot("sess-a", 1).await;
+    rig.a_session_in_slot("sess-b", 2).await;
+    rig.fleet.clashes_published().await;
+    let mut watching = rig.fleet.events().subscribe();
+    rig.writes("sess-a", 1, "f.txt", 5, "a").await;
+    rig.writes("sess-b", 2, "f.txt", 5, "b").await;
+    rig.checks("sess-a", "sess-b").await;
+
+    rig.fleet.clashes_published().await;
+    let found = pushed(&mut watching, Duration::from_secs(5)).await.expect("the clash is pushed");
+    assert_eq!(found.repositories.len(), 1);
+    assert_eq!(found.repositories[0].clashes.len(), 1);
+    assert_eq!(found.repositories[0].clashes[0].paths, vec!["f.txt".to_string()]);
+    assert_eq!(rig.fleet.list_all_write_clashes().await.unwrap(), found, "the read says what the push did");
+
+    rig.fleet.clashes_published().await;
+    assert_eq!(pushed(&mut watching, Duration::from_millis(300)).await, None, "the same set says nothing");
+
+    rig.report("sess-a", SessionFact::Ended { reason: "prompt_input_exit".into() }).await;
+    rig.fleet.clashes_published().await;
+    let cleared = pushed(&mut watching, Duration::from_secs(5)).await.expect("the end is pushed");
+    assert_eq!(cleared, ipc::AllWriteClashes::default());
+}
+
 /// The table is memory only, and the owner restarts Fleet often: the first pass fills it from what
 /// each holder's worktree changed, so two that already clash are paired without writing again.
 #[tokio::test]

@@ -68,6 +68,7 @@ pub(super) fn a_record() -> SessionRecord {
         in_flight: Vec::new(),
         mark: None,
         viewed_at: None,
+        compact: None,
     }
 }
 

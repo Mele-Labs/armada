@@ -5,6 +5,10 @@ What it is and why it exists is in [Native Bridge](../concepts/native-bridge.md)
 
 ## Who does the work
 
+**One Job owns `crates/bridge-native/` at a time.**
+Other Jobs in the rebuild do Fleet views and inventories, and never edit the crate.
+Decided 10 Nov 2026: two Jobs built halves that never met in one build, so walks showed one half with stand-ins for the other.
+
 **Dispatch `gpui-engineer` for any work under `crates/bridge-native/`.**
 Its brief is `.claude/agents/gpui-engineer.md`.
 
@@ -33,13 +37,31 @@ Missing logic is a Fleet change, so Pocket gets it too.
 
 **A native screen is a port of its Electron screen, never a redesign.**
 It keeps the layout, controls, states and keys it has today.
-Every screen goes through the same four steps, in order.
+Every feature goes through the same five steps, in order.
 
-1. An inventory of the Electron screen: its regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
+1. An inventory of the Electron screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A native walk on mock data, in the screen's own window with a walk bar, shown alone.
-   The owner names his spacing and font tweaks there, and they go into the native screen only.
-4. Land.
+3. A parity check against running Electron, by the Job and then by a checker that did not build it.
+4. One native walk of the whole feature on mock data, in its own window with a walk bar, shown alone.
+   The owner annotates spacing and font changes there, or approves, and changes go into the native screens only.
+5. Land.
+
+**The parity check passes before any walk is shown.**
+It compares pictures, not code: Electron's renderer on the mock Fleet in Playwright, at the walk window's size and on the same scenarios, beside each step of `--shots`.
+The Job looks at every picture itself, and a subagent's own table never signs off.
+Then the orchestrating Job runs a checker agent that did not build the feature, and looks at the pictures before the walk is shown.
+At least these match Electron:
+
+| Area | Matches |
+|---|---|
+| Keys | Every shortcut, working from the same places, with focus returned after a popup or menu closes |
+| Right-click | Every element's menu, with the same items in the same order |
+| Layout | Tabs, panels, resizing and focus behave the same |
+
+The walk's brief carries the result as a short table, with any known gpui gap.
+
+**One walk per feature, never one per piece.**
+Decided 9 Nov 2026: partial walks made the owner do the comparing, and the rebuild slowed.
 
 **Nothing he sees lands before his walk.**
 
@@ -78,7 +100,7 @@ That covers documents, sketch mocks, walks of web pages and the Browser tool.
 |---|---|
 | A native build | Runs like any other Rust build Job: a cold one is about a minute and 2 GB, measured in [the feel spike](../spikes/native-bridge-feel.md) |
 | A build with Chrome in it | Measured heavier in [the Chrome spike](../spikes/native-bridge-chrome.md): look again before two run at once |
-| Tests | Only through `armada check test <name>` or `--changed` |
+| Tests | Only through `armada check crates/bridge-native:test <name>` or `armada check crates/bridge-native:test --changed`: the crate is a workspace of its own, so the root's `armada check test` does not reach it. `bridge-native --walk <name> --check` stays the walk's own test. CI runs the whole suite in the `native` job on any pull request whose change touches the crate, and `ci` waits on it |
 | Formatting | Never `rustfmt` or `cargo fmt` |
 
 ## What gpui cannot match

@@ -44,6 +44,30 @@ pub struct BuildPosition {
     pub behind: u32,
 }
 
+/// Which act the restart button is. **The build it targets**: the one a restart under way is moving
+/// onto, else the one in use. Bridge's `Refresh preview` and `Update to main`, whose present-tense
+/// words follow `restarting`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RestartAct {
+    /// Merge the in-flight branches again and restart on the preview.
+    RefreshPreview,
+    /// Restart on the latest `origin/main`.
+    UpdateToMain,
+}
+
+/// What the build switcher draws, without its words. Carried on `FleetBuildReport::switcher`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BuildSwitcher {
+    /// The running build is level with `origin/main`: a position that is known, with none ahead and none
+    /// behind. **A position that cannot be counted is not aligned.**
+    pub aligned: bool,
+    /// Nothing is restarting, the build is `main` and it is aligned: there is nothing to restart onto,
+    /// so the restart button is disabled rather than absent.
+    pub idle_on_main: bool,
+    pub restart: RestartAct,
+}
+
 /// What `get_fleet_build` answers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetBuildReport {
@@ -107,6 +131,10 @@ pub struct FleetBuildReport {
     /// is done. Absent where false.
     #[serde(default, skip_serializing_if = "is_false")]
     pub swapping: bool,
+    /// What the build switcher draws, read by Fleet from `on`, `position` and `restarting`. Absent from
+    /// a report built without it. Since 9 Nov 2026. `docs/practices/protocol/the-title-bars-views-fleet-reads.md`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub switcher: Option<BuildSwitcher>,
 }
 
 /// A branch picked for the next snapshot.

@@ -437,6 +437,7 @@ where
         let thread = super::marking::Thread { lapsed, checks_running, spoken };
         let on_screen = self.hosts().on_screen.now(&session.id);
         record.mark = Some(super::marking::mark_of(&record, &thread, on_screen, self.now().epoch_millis()));
+        record.compact = Some(super::compact::compact_of(&record));
         record
     }
 
