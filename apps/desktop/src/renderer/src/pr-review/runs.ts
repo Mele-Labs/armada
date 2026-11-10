@@ -250,7 +250,7 @@ export function linesOfFix(fix: FixWritten): DiffLine[] {
   ];
 }
 
-/** A fix's lines as a GitHub suggestion, which the forge offers to commit in place of the lines a comment is on. */
+/** A fix's lines as the forge's suggestion block, which it offers to commit in place of the lines a comment is on. */
 export const suggestionOf = (after: string): string => `\`\`\`suggestion\n${after}\n\`\`\``;
 
 /** The answer to a question, as Markdown. An answer of no words is none. */
