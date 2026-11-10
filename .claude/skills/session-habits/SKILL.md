@@ -37,6 +37,11 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
 - **A restart he has to run goes in `waiting_for` as a `run` item**,
   `scripts/preview --restart`. Bridge presses Refresh preview for it. A plain
   restart onto `main` is never an option (7 and 13 Oct).
+- **Never hand him a restart command you have not checked** (10 Nov: two
+  refreshes a Job handed him failed on half-done branches and stale scripts, and
+  he rescued his build in a terminal). Dry-run it, read every merged branch for a
+  half-done change, and name what the refresh holds and leaves out before he
+  presses anything.
 - **Documentation a change made wrong is fixed with the change.** Do not ask
   (18 Sep).
 - **Never ask him to delete a merged branch.** A hosted job calls
