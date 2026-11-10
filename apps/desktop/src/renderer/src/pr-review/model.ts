@@ -410,6 +410,8 @@ export type PrWork = {
   runs: Readonly<Record<string, AgentRun>>;
   /** Fleet has answered for what is kept: until then an empty `runs` says nothing about what was run. */
   runsRead: boolean;
+  /** The fixes he asked for, by the fix's name at Fleet. What each wrote is its run in `wire`. */
+  fixes: Readonly<Record<string, AgentRun>>;
   /** Changes whose hunks are open. */
   opened: readonly string[];
   drafts: readonly Draft[];

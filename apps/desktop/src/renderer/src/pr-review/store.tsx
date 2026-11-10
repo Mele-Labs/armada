@@ -71,6 +71,7 @@ const EMPTY: PrWork = {
   view: "explanation",
   runs: {},
   runsRead: false,
+  fixes: {},
   opened: [],
   drafts: [],
   threads: [],

@@ -13,12 +13,16 @@ import {
   areaShown,
   explanationOf,
   findingsOf,
+  fixName,
+  fixOf,
+  linesOfFix,
   matchesOf,
   placeSaid,
   placeWords,
   runKey,
   searchId,
   searchName,
+  suggestionOf,
   toolDefOf,
   walkOf,
   wordsOf,
@@ -395,6 +399,89 @@ test("a place is said as path and line, or path and lines", () => {
       end: 5,
     }),
   ).toBe("a.rs:3-5");
+});
+
+test("a fix is named by its finding's place and title, and drawn as the lines before removed and after added under their numbers", () => {
+  const at = {
+    path: "a.rb",
+    side: "right" as const,
+    start: 8,
+    end: 10,
+  };
+  expect(
+    fixName({
+      at,
+      title: "Two refunds pass",
+    }),
+  ).toBe("a.rb:8-10 Two refunds pass");
+  const written = {
+    shape: "fix" as const,
+    at,
+    before: "check\n\ncreate",
+    after: "lock do\n  check\nend\n",
+    why: "Under one lock.",
+  };
+  expect(linesOfFix(written)).toEqual([
+    {
+      kind: "hunk",
+      text: "@@ -8,3 +8,3 @@",
+    },
+    {
+      kind: "removed",
+      text: "-check",
+    },
+    {
+      kind: "removed",
+      text: "-",
+    },
+    {
+      kind: "removed",
+      text: "-create",
+    },
+    {
+      kind: "added",
+      text: "+lock do",
+    },
+    {
+      kind: "added",
+      text: "+  check",
+    },
+    {
+      kind: "added",
+      text: "+end",
+    },
+  ]);
+  // A fix that removes the lines adds none.
+  expect(
+    linesOfFix({
+      ...written,
+      after: "",
+    }).at(0),
+  ).toEqual({
+    kind: "hunk",
+    text: "@@ -8,3 +8,0 @@",
+  });
+  const done: ReviewRun = {
+    manifest_id: "m1",
+    number: 1,
+    kind: "fix",
+    name: "a.rb:8-10 Two refunds pass",
+    head: "h",
+    state: "done",
+    started_at: "2026-11-10T10:00:00Z",
+    result: written,
+  };
+  expect(fixOf(done)).toBe(written);
+  expect(
+    fixOf({
+      ...done,
+      state: "running",
+    }),
+  ).toBeUndefined();
+});
+
+test("a suggestion is the fix's lines in the forge's suggestion fence", () => {
+  expect(suggestionOf("lock do\nend")).toBe("```suggestion\nlock do\nend\n```");
 });
 
 test("a run's state is going, kept for its commit, or failed in Fleet's words", () => {

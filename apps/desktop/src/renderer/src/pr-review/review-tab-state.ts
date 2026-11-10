@@ -36,6 +36,8 @@ export type ReviewTabState = {
     | {
         from: number;
         to: number;
+        /** What the box starts with: a fix, as a suggestion. Absent starts it empty. */
+        body?: string;
       }
     | undefined;
   marks: Readonly<Record<string, FindingMark>>;
