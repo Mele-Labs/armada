@@ -250,8 +250,13 @@ const PULLS: LinkedPull[] = [
 
 /** What Fleet lists: tasks and issue rows flat, a parent followed by its subtasks, a reference or a number with what the tracker or forge said of it. Each row names its repository. */
 const PROJECTS: Projects = {
+  left_out: [],
   projects: [
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "pocket-launch",
       name: "Pocket launch",
       rows: [
@@ -374,6 +379,10 @@ const PROJECTS: Projects = {
       ],
     },
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "cockpit-trust",
       name: "Cockpit trust",
       rows: [
@@ -396,6 +405,10 @@ const PROJECTS: Projects = {
       ],
     },
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "docs-refresh",
       name: "Docs refresh",
       rows: [

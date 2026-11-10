@@ -28,8 +28,13 @@ const task = (
 });
 
 const SEED = (): Projects => ({
+  left_out: [],
   projects: [
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "p1",
       name: "Pocket launch",
       rows: [

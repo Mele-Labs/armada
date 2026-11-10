@@ -1,4 +1,4 @@
-//! Workspaces, lifecycles and rules over the router: each read reaches the daemon with the repository it
+//! Lifecycles and rules over the router: each read reaches the daemon with the repository it
 //! names, a Job's is placed by its `session_id`, and what answers is what the mirror declares.
 
 use axum::body::Body;
@@ -59,7 +59,7 @@ async fn the_keeps_waiting_on_approve_are_read_for_a_repository_by_manifest_id()
 #[tokio::test]
 async fn a_repository_nobody_serves_is_the_callers_to_correct() {
     let app = wired();
-    for route in ["/workspaces", "/lifecycles", "/lifecycles/rules", "/autonomy", "/lifecycles/keep_drafts"] {
+    for route in ["/lifecycles", "/lifecycles/rules", "/autonomy", "/lifecycles/keep_drafts"] {
         let (status, _) = get(&app, &format!("{route}?manifest_id=01NOWHERE")).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{route}");
     }

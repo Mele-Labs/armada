@@ -2,12 +2,8 @@
 // what it is for. The seed names repositories by name, which the Workflows page draws; the wire names them by Manifest.
 
 import type { Autonomy } from "@armada/components";
-import type {
-  PieceKept,
-  PieceScope,
-  RepositorySummary,
-  WorkspaceOfRepositories,
-} from "@armada/protocol";
+import type { PieceKept, PieceScope, RepositorySummary } from "@armada/protocol";
+import type { WorkspaceOfRepositories } from "../workspace-of-project";
 
 import type { WorkspaceSeed } from "../workspace-draft";
 

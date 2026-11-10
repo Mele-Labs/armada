@@ -20,8 +20,13 @@ const task = (id: string, manifest_id: string, title: string): ProjectRow => ({
 /** Fleet as far as the store reads it: each write is noted, applied to what Fleet holds, and answered with the projects whole. */
 function fleet() {
   const held: Projects = {
+    left_out: [],
     projects: [
       {
+        members: [],
+        place: {
+          place: "this_mac",
+        },
         id: "p1",
         name: "Pocket launch",
         rows: [
@@ -50,6 +55,10 @@ function fleet() {
         id: `p${(made += 1) + 1}`,
         name: body.name,
         rows: [],
+        members: [],
+        place: {
+          place: "this_mac",
+        },
       });
       return answer();
     }),

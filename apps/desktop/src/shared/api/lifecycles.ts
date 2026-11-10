@@ -3,7 +3,6 @@
 // `commitToRepository`. Nothing here moves an instance. A slice imports protocol, never another slice; `../api.ts` and `../bridge.ts` compose them.
 
 import type {
-  AllWorkspaces,
   ChangeJobCopy,
   ChangeSessionSteps,
   DeleteLifecyclePiece,
@@ -16,10 +15,10 @@ import type {
   LifecyclePieceDeleted,
   LifecyclePieceSaved,
   Outcome,
+  Projects,
   RepositoryAutonomy,
   RepositoryLifecycleRules,
   RepositoryLifecycles,
-  RepositoryWorkspaces,
   SaveLifecyclePiece,
   TeachTicketWord,
   TicketWordTaught,
@@ -40,10 +39,8 @@ export type LifecyclesActed<T> =
 export type { KeepDraft, KeepDrafts };
 
 export type LifecyclesApi = {
-  /** The Workspaces (sets of repositories) that hold one repository, and the files Fleet set aside. `GET /workspaces`. */
-  listRepositoryWorkspaces: (manifestId: string) => Promise<LifecyclesActed<RepositoryWorkspaces>>;
-  /** Every Workspace Fleet can see, whichever repositories it holds, and the files Fleet set aside. `GET /workspaces/all`. */
-  listWorkspaces: () => Promise<LifecyclesActed<AllWorkspaces>>;
+  /** The projects that hold one repository, each without rows, and the files Fleet set aside. `GET /projects/holding`. */
+  listHoldingProjects: (manifestId: string) => Promise<LifecyclesActed<Projects>>;
   /** The lifecycles that apply to one repository, where each was kept, and the files set aside. `GET /lifecycles`. */
   listLifecycles: (manifestId: string) => Promise<LifecyclesActed<RepositoryLifecycles>>;
   /** The rules that apply to one repository, where each was kept, and the files set aside. `GET /lifecycles/rules`. */
@@ -79,8 +76,7 @@ export type LifecyclesApi = {
 };
 
 export const LIFECYCLES_CHANNELS = {
-  listRepositoryWorkspaces: "bridge:list-repository-workspaces",
-  listWorkspaces: "bridge:list-workspaces",
+  listHoldingProjects: "bridge:list-holding-projects",
   listLifecycles: "bridge:list-lifecycles",
   listLifecycleRules: "bridge:list-lifecycle-rules",
   listAutonomyDefaults: "bridge:list-autonomy-defaults",

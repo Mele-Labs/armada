@@ -137,8 +137,13 @@ const task = (id: string, manifest_id: string, title: string) => ({
   state: "open" as const,
 });
 const PROJECTS: Projects = {
+  left_out: [],
   projects: [
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "palette",
       name: "Palette",
       rows: [
@@ -147,6 +152,10 @@ const PROJECTS: Projects = {
       ],
     },
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "offline-install",
       name: "Offline install",
       rows: [
