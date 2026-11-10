@@ -1,7 +1,7 @@
-//! **A stand-in for the Job head.** The Job head is another Job's, and it is not on this branch, so
-//! `context_ring::ContextRing` is mounted nowhere in the app yet. This draws the ring on the Jobs
-//! screen's centre, in a bar the size of a head's tools row, so the walk shows the component at its
-//! real size where the head will carry it. Nothing here ships: it is a walk's stage only.
+//! **A stand-in for the Job head.** The app carries `context_ring::ContextRing` in the open Job's
+//! toolbelt (`job_view::head`); this draws it alone on the Jobs screen's centre, in a bar the size of
+//! a head's tools row, so the title-bar walk can step through each of its forms by scene. Nothing here
+//! ships: it is a walk's stage only.
 //!
 //! Its scenes set what a head would hand the ring, as the title bar's scenes set the bar's face.
 

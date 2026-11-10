@@ -626,6 +626,8 @@ pub static WALKS: &[Walk] = &[
             step("⌘↵ sends it back, and the next open item is chosen", Verb::Key("cmd-enter"), "img", "Sent back"),
             step("⌘↵ is also the primary: it answers the item in view", Verb::Key("cmd-enter"), "img", "Approved"),
             step("Esc shuts the sheet", Verb::Key("escape"), "button", "Needs you"),
+            step("The ring under the box says how full the Job's window is; a press opens Compact", Verb::Open("button", "Context 63%"), "button", "Compact"),
+            step("Compact sends /compact to the Job in the same frame; the popover goes and the thread drops to its end", Verb::Open("button", "Compact"), "region", "Thread"),
             step("A Job held open by what is not you shows a Waiting band", Verb::Press, "row", "Quiet the write-clash notices"),
             step("A press opens a row for each wait, each with its own stop", Verb::Open("button", "Waiting"), "button", "Stop the watch: Held open by ci on branch"),
             step("Another Job: its box, its pickers and its quick bar", Verb::Press, "row", "Audit the docs index"),

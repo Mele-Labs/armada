@@ -316,6 +316,10 @@ impl Figure {
         if let Some(on_compact) = self.on_compact.clone() {
             on_compact(how, window, cx);
         }
+        // The popover goes once Compact is sent (`CompactButton`'s `after`); the card stays to show it pending.
+        if self.fill.as_ref().is_some_and(|fill| form_of(fill) == Form::Popover) {
+            self.shut(window, cx);
+        }
     }
 
     fn escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -656,9 +660,21 @@ impl Figure {
 }
 
 impl Render for Figure {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let Some(fill) = self.fill.clone() else { return Empty.into_any_element() };
         let look = cx.look();
+        // What floats off the ring hangs from its trailing edge, so it opens leftward: under it, or over it where
+        // the ring sits in the window's lower half, as a Radix popover flips (the toolbelt is at the foot).
+        let half = window.viewport_size().height / 2.;
+        let gap = look.length(token::SPACE_1);
+        let hang = move |from: Bounds<Pixels>| {
+            let right = from.origin.x + from.size.width;
+            if from.origin.y > half {
+                (point(right, from.origin.y - gap), Anchor::BottomRight)
+            } else {
+                (point(right, from.origin.y + from.size.height + gap), Anchor::TopRight)
+            }
+        };
         let tone = tone_of(fill.band, look);
         let form = form_of(&fill);
         let side = look.length(token::SPACE_4);
@@ -729,16 +745,15 @@ impl Render for Figure {
                 (Form::Popover, _, Some(offer)) => self.popover_body(&fill, offer, look, cx),
                 _ => return None,
             };
-            // The card hangs under the ring from its trailing edge, so it opens leftward.
-            let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
-            Some(deferred(anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(1).into_any_element())
+            let (at, anchor) = hang(from);
+            Some(deferred(anchored().position(at).anchor(anchor).snap_to_window_with_margin(look.length(token::SPACE_1)).child(body)).with_priority(1).into_any_element())
         });
         let tip = match self.hover {
             Some(Hover::Ring) if form == Form::Tip => self.ring_at.get().map(|from| {
-                let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
+                let (at, anchor) = hang(from);
                 let said = format!("Context · {} of {} tokens", tokens_said(fill.tokens), tokens_said(fill.window));
                 deferred(
-                    anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
+                    anchored().position(at).anchor(anchor).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
                         div().id("context-tip").child(tip_card(said.clone(), look)),
                         Role::Tooltip,
                         said,
@@ -753,10 +768,10 @@ impl Render for Figure {
                         CompactOffer::Offered { .. } => "Compact the Job's context",
                         CompactOffer::Off { why } => why_said(why),
                     };
-                    let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
+                    let (at, anchor) = hang(from);
                     Some(
                         deferred(
-                            anchored().position(at).anchor(Anchor::TopRight).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
+                            anchored().position(at).anchor(anchor).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
                                 div().id("compact-tip").child(tip_card(said, look)),
                                 Role::Tooltip,
                                 said,
