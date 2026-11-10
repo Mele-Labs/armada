@@ -108,7 +108,7 @@ pub static WALKS: &[Walk] = &[
         step("A right press opens the Job's menu", Verb::RightPress("Audit the docs index"), "menuitem", "Pause"),
         step("Under the Job's acts, the View group picks what every row draws", Verb::Look, "menuitemcheckbox", "Now"),
         step("Esc shuts it", Verb::Key("escape"), "row", "Audit the docs index"),
-        step("Every field is on here: the issue and pull request, the workflow's step, what it is doing, the time", Verb::Look, "row", "Fix the merge line freshness chip"),
+        step("A row is one line, its title and its state, until the View turns more on", Verb::Look, "row", "Fix the merge line freshness chip"),
         step("⌥↑ moves the Job up past its neighbour", Verb::Key("alt-up"), "row", "Audit the docs index"),
         step("Shift+F10 opens the menu from the keys", Verb::Key("shift-f10"), "menuitem", "Close"),
         step("Esc shuts it again", Verb::Key("escape"), "row", "Audit the docs index"),

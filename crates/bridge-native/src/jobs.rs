@@ -110,7 +110,6 @@ struct View([bool; 7]);
 
 impl View {
     const DEFAULT: View = View([false, false, false, false, true, true, false]);
-    const ALL: View = View([true; 7]);
 
     fn on(self, id: &str) -> bool {
         VIEW_FIELDS.iter().position(|(field, _)| *field == id).is_some_and(|at| self.0[at])
@@ -476,9 +475,9 @@ impl JobsList {
         Self::with(jobs, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
 
-    /// The list on mock Jobs, which never change, with every field on so a walk shows them all.
+    /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
     pub fn mock(jobs: &[SessionRecord], cx: &mut Context<Self>) -> Self {
-        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::ALL, false, None, None, cx)
+        Self::with(jobs.to_vec(), Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
     fn with(
@@ -1039,6 +1038,8 @@ impl JobsList {
             })
             // A Job pulsing for you already carries its colour, and a wash under the pulse muddies it.
             .when(!opened && !needs, |strip| strip.child(div().absolute().inset_0().rounded(radius).bg(lamp_ink.opacity(HULL))))
+            // The lamp's edge down the row's left side (`ListCard.css` `border-left`).
+            .child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::SPACE_1)).rounded_l(radius).bg(lamp_ink))
             .child(
                 div()
                     .flex()
