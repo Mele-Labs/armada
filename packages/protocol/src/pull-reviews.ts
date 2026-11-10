@@ -88,9 +88,12 @@ export type PullReviewComment =
   | {
       kind: "line";
       path: string;
+      /** The last line of the range, or the only line. */
       line: number;
       side: DiffSide;
       body: string;
+      /** The first line of a range on `side`, before `line`. Absent is one line. */
+      start_line?: number;
     }
   | {
       kind: "file";
