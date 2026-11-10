@@ -8,7 +8,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
+    canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
     Subscription, WeakEntity, Window,
 };
 use ipc::SessionRecord;
@@ -30,6 +30,15 @@ struct Strip {
     place: Bounds<Pixels>,
     focus: FocusHandle,
 }
+
+/// What the screen asks of the window around it: a place this screen does not draw.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Opened {
+    /// The repository's Autopilot lane on the Cockpit, from the strip's Open or its Enter.
+    AutopilotLane(SharedString),
+}
+
+impl EventEmitter<Opened> for DispatchScreen {}
 
 pub struct DispatchScreen {
     jobs: Entity<JobsScreen>,
@@ -181,12 +190,20 @@ impl DispatchScreen {
         cx.notify();
     }
 
+    /// Open on the strip, or Enter on it: the lane of the repository the Autopilot runs in is asked for, and
+    /// the strip, which said what was sent, goes.
+    fn open_lane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(strip) = &self.strip else { return };
+        cx.emit(Opened::AutopilotLane(strip.sent.root.clone()));
+        self.dismiss_strip(window, cx);
+    }
+
     fn strip_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let key = &event.keystroke;
         if key.key == "escape" {
             self.dismiss_strip(window, cx);
         } else if key.key == "enter" {
-            // Opens the repository's Autopilot lane on the Cockpit, which this screen does not draw yet.
+            self.open_lane(window, cx);
         } else if let Some(typed) = key.key_char.as_ref().filter(|typed| typed.chars().count() == 1 && *typed != " ") {
             if !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt {
                 let typed = typed.clone();
@@ -283,6 +300,7 @@ impl Render for DispatchScreen {
                     .id("dispatch-strip")
                     .track_focus(&strip.focus)
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.strip_keys(event, window, cx)))
+                    .occlude()
                     .absolute()
                     .left(place.origin.x)
                     .top(place.origin.y)
@@ -310,8 +328,9 @@ impl Render for DispatchScreen {
                     .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(sent.title.clone()))
                     .child(kbd("↵", look).opacity(if strip.focus.is_focused(_window) { 1. } else { 0. }))
                     .child(labelled(
-                        Btn::new("strip-open", "Open", Weight::Secondary).draw(look, cx).on_click(cx.listener(|_, _, _, cx| {
+                        Btn::new("strip-open", "Open", Weight::Secondary).draw(look, cx).on_click(cx.listener(|this, _, window, cx| {
                             cx.stop_propagation();
+                            this.open_lane(window, cx);
                         })),
                         Role::Button,
                         "Open",

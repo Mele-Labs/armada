@@ -69,7 +69,7 @@ pub static STEPS: &[Step] = &[
     answer("A read sentence becomes an instruction and the limits, each quoted back", "autopilot-read", "textbox", "Instruction"),
     press_on("Start Autopilot answers in the same frame", "button", "Start Autopilot", "button", "Starting Autopilot"),
     answer("Started: the sheet goes and the strip stands where the search was", "answer-autopilot", "group", "Last dispatch"),
-    step("Esc dismisses the strip", Verb::Key("escape"), "heading", "armada"),
+    step("Enter asks for the repository's Autopilot lane, and the strip goes", Verb::Key("enter"), "heading", "armada"),
     step("⌘N opens a sheet with nothing kept: the send cleared the draft", Verb::Key("cmd-n"), "tab", "Job"),
     step("⌥A puts an @ in the request and opens the Jobs to tag", Verb::Key("alt-a"), "listbox", "Jobs"),
     step("Enter tags the Job in the words", Verb::Key("enter"), "textbox", "Request"),

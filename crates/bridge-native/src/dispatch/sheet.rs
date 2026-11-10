@@ -436,7 +436,7 @@ impl DispatchSheet {
         self.fields.clear();
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
         self.close(window, cx);
-        (kind == Kind::Autopilot).then(|| Sent { kind, title: title.into() })
+        (kind == Kind::Autopilot).then(|| Sent { kind, root: title.clone().into(), title: title.into() })
     }
 
     /// Fleet refused: the sheet is as it was, words and pick kept.

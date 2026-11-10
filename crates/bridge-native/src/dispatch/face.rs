@@ -436,4 +436,6 @@ impl Face {
 pub struct Sent {
     pub kind: Kind,
     pub title: SharedString,
+    /// The repository it runs in, which the Open on the strip asks the Autopilot lane of.
+    pub root: SharedString,
 }
