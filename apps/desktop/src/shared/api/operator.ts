@@ -52,13 +52,10 @@ export type OperatorApi = {
 export type OperatorState = {
   /** `null` until read. Main reads it on connecting and again on every `operator.board_changed`. */
   operatorBoard: OperatorBoard | null;
-  /** Moves on every connection and every `operator.talk_changed`: the Operator page reads the talk again when it does. */
-  operatorTalkMoved: number;
 };
 
 export const OPERATOR_NOTHING_YET: OperatorState = {
   operatorBoard: null,
-  operatorTalkMoved: 0,
 };
 
 export const OPERATOR_CHANNELS = {

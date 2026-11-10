@@ -348,7 +348,7 @@ function createWindow(): BrowserWindow {
   rememberWindow(window);
   bridgeWindows.add(window);
   window.on("ready-to-show", () => window.show());
-  // The Operator's briefing waits on the day's first time Bridge comes to the front, which Fleet decides.
+  // Fleet decides whether he was away, and rewrites the Operator page's top line when he was.
   const inFront = (): void => connection?.operator.inFront();
   window.on("focus", inFront);
   window.on("show", inFront);

@@ -708,6 +708,17 @@ export type OperatorSaid = {
   moved?: string;
 };
 
+/** `operator_talk` (`GET /operator/talk`): the last twenty messages, oldest first. */
+export type OperatorTalk = {
+  lines: {
+    from_person: boolean;
+    text: string;
+    at: string;
+    /** The item the message was about, where it named one. */
+    about?: string;
+  }[];
+};
+
 /**
  * `free_slot` (`POST /sessions/slot_choice/free`): the person gives back the slot a waiting Job's call lists, to that
  * Job. `session_id` is the waiting Job and `item_id` its `slot_choice` item (`slot-choice`). Only a press: Fleet never

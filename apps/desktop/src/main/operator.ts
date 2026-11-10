@@ -35,17 +35,6 @@ export async function readOperatorBoard(
     });
 }
 
-/** How often the conversation has moved since Bridge started, which the Operator page reads the talk again on. */
-let talkMoved = 0;
-
-/** The Operator's conversation is not what it was: the page reads it again. `operator.talk_changed` carries nothing. */
-export function operatorTalkMoved(publish: (change: Partial<BridgeState>) => void): void {
-  talkMoved += 1;
-  publish({
-    operatorTalkMoved: talkMoved,
-  });
-}
-
 export class OperatorHost {
   private readonly port: () => number | null;
   private readonly publish: (change: Partial<BridgeState>) => void;
@@ -57,7 +46,7 @@ export class OperatorHost {
     this.publish = publish;
   }
 
-  /** Bridge's window came to the front. Fleet decides whether it is the day's first, and briefs then; nothing is answered here. */
+  /** Bridge's window came to the front. Fleet decides whether he was away; nothing of its answer is read here. */
   inFront(): void {
     const port = this.port();
     this.inFrontOwed = port === null;

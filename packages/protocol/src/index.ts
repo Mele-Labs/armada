@@ -32,7 +32,7 @@ export * from "./health";
 export * from "./calls";
 export * from "./thought";
 export * from "./operator-board";
-export * from "./operator-talk";
+export * from "./operator-page";
 export * from "./operator-errors";
 export * from "./retro";
 export * from "./retro-review";

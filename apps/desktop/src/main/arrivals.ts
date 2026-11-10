@@ -23,7 +23,7 @@ import type { IssuesHost } from "./issues";
 import type { Modding } from "./mods";
 import type { RehearsalConnection } from "./rehearsal";
 import { ask, limitsOf, mergeLinesOf, preferencesOf } from "./request";
-import { type OperatorHost, operatorTalkMoved, readOperatorBoard } from "./operator";
+import { type OperatorHost, readOperatorBoard } from "./operator";
 import type { RepositoryReads } from "./repositories";
 import type { BridgeStateFleet } from "./socket";
 import type { SessionsHost } from "./sessions";
@@ -222,8 +222,7 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
     void host.sessions.again(fleet.port);
     // And the Operator's board, once per connection — `operator.board_changed` carries nothing, so each is a read.
     void readOperatorBoard(fleet.port, host.publish);
-    // And its talk, for the lines kept while the stream was down, and a time in front Fleet missed.
-    operatorTalkMoved(host.publish);
+    // And a time in front Fleet missed while it was not connected, told now.
     host.operator?.connected();
     // And the pool's held worktrees, once, for nobody: the first open after a restart then has a list to draw.
     void host.held.warm(fleet.port);
@@ -301,11 +300,6 @@ export function applyArrival(host: ArrivalHost, text: string, fleet: BridgeState
   if (event.kind === "operator.board_changed") {
     // The event carries nothing, so the route is asked; a failed read keeps the board held.
     void readOperatorBoard(fleet.port, host.publish);
-    return;
-  }
-  if (event.kind === "operator.talk_changed") {
-    // Nothing rides: the Operator page reads the talk again.
-    operatorTalkMoved(host.publish);
     return;
   }
   if (event.kind === "merge_lines.changed") {
