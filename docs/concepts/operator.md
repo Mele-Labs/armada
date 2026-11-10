@@ -40,8 +40,8 @@ Everything that needs a person reaches the person already read, with the Operato
 | Handles reviews | Not built |
 | Reviews what needs you and raises it with its read and a pick | Partly. The read and pick exist, and the item is left in a list |
 | One chat, on its own page or in a pane from anywhere | Partly. A box in the Electron Bridge |
-| A short draggable list of what it is on and what is next | Not built |
-| On its own page, the Log and what it learned in each project | Partly. The Log is built in the Electron Bridge |
+| Its page: Your turn, the short draggable list, beside the digest Since you last looked | Not built |
+| The Log and what it learned in each project, as tiles of the digest | Partly. The Log is built in the Electron Bridge |
 | Toasts in the native Bridge | Not built |
 
 ## How it is shaped
@@ -211,14 +211,25 @@ Each step is its own Job, and the order is the order of the table.
 | Asks | Yes / Always here / Always / No before it first acts in a project, replacing permission levels and standing orders | Not built |
 | Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Not built |
 | Repair Jobs that close themselves | A stuck Job is nudged, then repaired by what broke, and the repair ends when it is done | Not built |
-| The native chat | One chat, a card per kind, the short draggable list, and toasts | Not built |
+| The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 
 **What raises and what asks is one rule.**
 Whatever needs the person, the Operator reviews first and raises with its read and a pick, so nothing sits in a list.
 A first act in a project is asked once, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
 
-**The chat is the one place to talk to it.**
-Its own page holds the chat, the short list of what it is on and what is next in an order the person drags, the Log, and what it learned in each project, where each Yes, Always here and Always it holds can be changed.
+**Its page is a queue the person works through, with a digest beside it.**
+Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
+- The top line is the Operator's one sentence on what matters first, rewritten each time the person comes back to the page.
+- Your turn is the short list, in an order the person drags.
+  On it sits at the top, saying what the Operator is doing now.
+  One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
+  The rest are one line each.
+- Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
+- Ask on an item opens the chat about that item in place of the digest. The chat holds conversation only; a raise is an item of Your turn, never a chat line.
+- The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab.
+- A new item during the day joins the queue and raises a toast whose pick button settles it.
+- A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
+
 The pane opened from a Job holds the chat and the short list.
 It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.
 The Electron Bridge keeps today's Operator page unchanged until the native one has these, decided 10 Nov: no new interface goes into Electron.
