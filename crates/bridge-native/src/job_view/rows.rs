@@ -231,6 +231,7 @@ impl JobView {
             .text_size(look.length(token::TEXT_BASE))
             .line_height(relative(1.6))
             .text_color(look.color(token::FG_DEFAULT))
+            .selectable(true)
             .into_any_element()
     }
 
@@ -512,7 +513,7 @@ impl JobView {
                                 .flex()
                                 .flex_col()
                                 .gap(look.length(token::SPACE_2))
-                                .child(self.prose(format!("you:{id}"), said, look))
+                                .child(self.block(page, id, self.prose(format!("you:{id}"), said, look), cx))
                                 .children(debug),
                         )
                         .when(!chips.is_empty(), |column| {
@@ -561,7 +562,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_2))
             .min_w_0()
-            .child(self.prose(format!("agent:{id}"), text, look))
+            .child(self.block(page, id, self.prose(format!("agent:{id}"), text, look), cx))
             .child(self.message_bar(id, text, at, page, look, now, window, cx))
             .into_any_element()
     }
@@ -687,7 +688,7 @@ impl JobView {
                         div()
                             .px(look.length(token::SPACE_3))
                             .py(look.length(token::SPACE_2))
-                            .child(self.prose(format!("from:{id}"), text, look)),
+                            .child(self.block(page, id, self.prose(format!("from:{id}"), text, look), cx)),
                     )
                     .children(said.map(|why| refusal(look, &format!("notice:{id}"), why)));
                 let card = if sender == "fleet" {

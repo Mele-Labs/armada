@@ -35,6 +35,8 @@ pub enum Verb {
     Open(&'static str, &'static str),
     /// A right press on the element of this role and name, before the target is ringed: the target is the menu it opens.
     RightOpen(&'static str, &'static str),
+    /// A drag across the last line of the element of this role and name, as words are selected.
+    Select(&'static str, &'static str),
     /// The pointer brought to rest on the target.
     Hover,
     /// A press in the middle of the target, then these words typed into whatever it focused.
@@ -158,6 +160,9 @@ pub static WALKS: &[Walk] = &[
             step("A run of calls is one line; a press opens it", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
+            step("Selected words bring up a bar of Reply, Fork from here and Teach", Verb::Select("group", "Words m-007"), "toolbar", "Selection"),
+            step("Shift+F10 on selected words offers the same three", Verb::Key("shift-f10"), "menuitem", "Fork from here"),
+            step("Esc shuts the menu", Verb::Key("escape"), "region", "Thread"),
             step("The pointer on an agent's words brings up its bar", Verb::Hover, "toolbar", "Message"),
             step("Copy puts the words on the clipboard and reads Copied", Verb::Open("button", "Copy message"), "button", "Copied"),
             step("A right press on a quick response offers Edit, Add and Remove", Verb::RightOpen("button", "Yes to this"), "menuitem", "Edit"),

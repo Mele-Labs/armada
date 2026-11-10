@@ -644,6 +644,7 @@ dependencies = [
  "chrono",
  "core-model",
  "getrandom 0.3.4",
+ "gpui-base",
  "gpui-component",
  "gpui-kit-assets",
  "gpui-pre",

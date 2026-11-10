@@ -16,6 +16,7 @@ mod calls;
 mod cards;
 mod deck;
 mod dock;
+mod fork;
 mod keys;
 mod lines;
 mod menus;
@@ -230,6 +231,8 @@ pub struct JobView {
     confirm: Option<keys::Confirm>,
     /// The bar under agent messages: its responses, what was just copied, and the editor of a response.
     bar: bar::Bar,
+    /// Words selected in the thread and the bar over them.
+    fork: fork::Fork,
     confirm_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -288,6 +291,7 @@ impl JobView {
             dock_focus: cx.focus_handle(),
             confirm: None,
             bar: bar::Bar::new(),
+            fork: fork::Fork::default(),
             confirm_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -968,8 +972,7 @@ impl Render for JobView {
         let body = if loaded {
             let state = self.pages[&id].list.clone();
             labelled(
-                div()
-                    .id("thread")
+                self.fork_hooks(div().id("thread"), cx)
                     .key_context("thread_scroll")
                     .track_focus(&self.focus)
                     .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| {
@@ -1003,6 +1006,8 @@ impl Render for JobView {
             .relative()
             .key_context("thread")
             .on_action(cx.listener(Self::on_act))
+            // Selected words need the window's selection layer; the Job's view is where words are selected.
+            .child(gpui_base::TextSelectionLayer)
             .child(head)
             .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)))
             .children(self.render_needs(&id, cx))
@@ -1010,6 +1015,7 @@ impl Render for JobView {
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .children(self.render_confirm(cx))
             .children(self.render_editor(cx))
+            .children(self.render_fork_bar(cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

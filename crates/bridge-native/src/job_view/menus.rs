@@ -135,7 +135,7 @@ impl JobView {
             let pick = pick.clone();
             this.open_pop(name.clone(), entries(), under(edges.get()), true, Some(back.clone()), move |this, id, window, cx| pick(this, id, window, cx), window, cx);
         }))
-        .child(canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().size_full())
+        .child(canvas(move |bounds, _, _| drawn.set(bounds), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
     }
 
     /// The pick of a Fleet notice's menu: Teach, or a mute of the notice for the Job, its repository or an hour.

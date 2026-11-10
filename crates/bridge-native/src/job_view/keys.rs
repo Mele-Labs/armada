@@ -147,6 +147,16 @@ impl Cards {
         lost
     }
 
+    /// The block of words drawn under both points, by the id of its row: what a selection lies in.
+    pub fn block_at(&self, a: gpui::Point<gpui::Pixels>, b: gpui::Point<gpui::Pixels>) -> Option<String> {
+        self.spots
+            .borrow()
+            .iter()
+            .filter(|(key, spot)| key.starts_with("block:") && spot.seen.get())
+            .find(|(_, spot)| spot.bounds.get().contains(&a) && spot.bounds.get().contains(&b))
+            .map(|(key, _)| key["block:".len()..].to_string())
+    }
+
     pub fn take_changed(&self) -> bool {
         self.changed.replace(false)
     }

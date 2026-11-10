@@ -2,7 +2,7 @@
 //! through here, so what the check passes is what the owner sees.
 
 use gpui::{
-    point, AnyView, App, AppContext, Entity, FocusHandle, Keystroke, Modifiers, MouseButton, MouseDownEvent,
+    point, px, AnyView, App, AppContext, Entity, FocusHandle, Keystroke, Modifiers, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point, Window,
 };
 
@@ -107,12 +107,33 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::RightOpen(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            // The last one drawn: an element the list measured off screen comes first in the book.
             let drawn = cx
                 .try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
-                .cloned()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
+            Ok(())
+        }
+        Verb::Select(role, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            // The last one drawn: an element the list measured off screen comes first in the book.
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to select in")))?;
+            let line = drawn.bounds.bottom() - px(16.);
+            let from = point(drawn.bounds.left() + px(3.), line);
+            let to = point(drawn.bounds.left() + drawn.bounds.size.width / 3., line);
+            window.dispatch_event(
+                PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
+                cx,
+            );
+            for step in 1..=6 {
+                let at = point(from.x + (to.x - from.x) * (step as f32 / 6.), from.y);
+                window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position: at, pressed_button: Some(MouseButton::Left), modifiers: Modifiers::default() }), cx);
+            }
+            window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: to, modifiers: Modifiers::default(), click_count: 1 }), cx);
             Ok(())
         }
         Verb::Hover => {

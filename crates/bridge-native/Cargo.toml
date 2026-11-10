@@ -30,6 +30,8 @@ gpui = { package = "gpui-pre", version = "=0.3.11", features = ["test-support"] 
 # log line. `test-support` is the headless context the walk check plays in.
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["runtime_shaders", "font-kit", "test-support"] }
 gpui-component = "=0.9.0"
+# The window's text selection, which gpui-component draws and reads through: the selected words and clearing them.
+gpui-base = "=0.9.0"
 # The lucide SVGs the icon registry names, all 1,830. gpui-component already links this exact version.
 gpui-kit-assets = "=0.9.0"
 # The wire, linked and never copied: the protocol ID covers this crate.
