@@ -16,6 +16,7 @@
 mod assets;
 mod chrome;
 mod deep_link;
+mod dictation;
 mod dropdown;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]

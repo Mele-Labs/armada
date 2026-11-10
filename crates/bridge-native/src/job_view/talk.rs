@@ -19,6 +19,8 @@ pub(super) struct Talk {
     /// The hearing was started by ⌥Space, so its release stops it.
     held: bool,
     hearing: Option<Hearing>,
+    /// macOS Dictation is typing into the box, and the release is what stops it.
+    dictating: bool,
     /// One per hearing: a Whisper hearing keeps giving words after it is released.
     tasks: Vec<Task<()>>,
     count: u64,
@@ -133,6 +135,10 @@ impl JobView {
         if let Some(hearing) = &talk.hearing {
             hearing.release();
         }
+        if std::mem::take(&mut talk.dictating) {
+            crate::dictation::dictate(false);
+            talk.hearing = None;
+        }
         talk.listening = false;
         talk.held = false;
         cx.notify();
@@ -143,6 +149,9 @@ impl JobView {
         let talk = &mut self.composer.talk;
         if let Some(hearing) = talk.hearing.take() {
             hearing.release();
+        }
+        if std::mem::take(&mut talk.dictating) {
+            crate::dictation::dictate(false);
         }
         talk.tasks.clear();
         talk.listening = false;
@@ -170,6 +179,19 @@ impl JobView {
                     talk.refused = *why;
                 }
                 Heard::End(_) => {}
+                // Dictation types into the box itself, so nothing is joined here; a Mac that will not start it says so.
+                Heard::Dictate if mine == self.composer.talk.count => {
+                    let talk = &mut self.composer.talk;
+                    if crate::dictation::dictate(true) {
+                        talk.dictating = true;
+                    } else {
+                        talk.hearing = None;
+                        talk.listening = false;
+                        talk.held = false;
+                        talk.refused = Some(Why::HelperFailed);
+                    }
+                }
+                Heard::Dictate => {}
             }
         }
         if words {

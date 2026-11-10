@@ -3,8 +3,8 @@
 //! or a process. A voice that cannot hear hands over to the next, so the person is asked only for
 //! what macOS withholds. The Electron Bridge does the same in `apps/desktop/src/main/voice.ts`.
 //!
-//! macOS Dictation, the third Electron voice, is not here: it is `startDictation:` sent to the
-//! first responder, which takes an Objective-C call, and this crate forbids `unsafe`.
+//! macOS Dictation, the third voice, is started on the main thread (`crate::dictation`), so the
+//! worker here only says when to: `Heard::Dictate`.
 
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -20,15 +20,17 @@ use serde::Deserialize;
 pub enum Engine {
     Apple,
     Whisper,
+    /// macOS's own, typing into whichever box has focus.
+    Dictation,
 }
 
 impl Engine {
-    /// The engine a setting names. Dictation, and anything unknown, is Apple here.
+    /// The engine a setting names; anything unknown is Apple.
     pub fn named(name: &str) -> Engine {
-        if name == "whisper" {
-            Engine::Whisper
-        } else {
-            Engine::Apple
+        match name {
+            "whisper" => Engine::Whisper,
+            "dictation" => Engine::Dictation,
+            _ => Engine::Apple,
         }
     }
 
@@ -39,6 +41,7 @@ impl Engine {
         match self {
             Engine::Apple => Duration::from_secs(6),
             Engine::Whisper => Duration::from_secs(120),
+            Engine::Dictation => Duration::ZERO,
         }
     }
 }
@@ -144,13 +147,15 @@ impl Settled {
     }
 }
 
-/// The voices tried for a chosen engine, in order, among those this Mac can start.
+/// The voices tried for a chosen engine, in order, among those this Mac can start. Dictation is
+/// last wherever it is there, and always can start.
 pub fn voices_for(engine: Engine, helper: bool, whisper: bool) -> Vec<Engine> {
-    let order = match engine {
-        Engine::Apple => [Engine::Apple, Engine::Whisper],
-        Engine::Whisper => [Engine::Whisper, Engine::Apple],
+    let order: &[Engine] = match engine {
+        Engine::Apple => &[Engine::Apple, Engine::Whisper, Engine::Dictation],
+        Engine::Whisper => &[Engine::Whisper, Engine::Apple, Engine::Dictation],
+        Engine::Dictation => &[Engine::Dictation],
     };
-    order.into_iter().filter(|one| helper && (*one == Engine::Apple || whisper)).collect()
+    order.iter().copied().filter(|one| *one == Engine::Dictation || (helper && (*one == Engine::Apple || whisper))).collect()
 }
 
 /// What follows a voice that ended: the end, with a reason where the person has to act, or the
@@ -175,6 +180,8 @@ pub fn next_after(why: Option<Why>, released: bool, given: bool, at: usize, voic
 pub enum Heard {
     Word(String),
     End(Option<Why>),
+    /// No voice of the helper's could hear: macOS Dictation is started, and ended by the release.
+    Dictate,
 }
 
 /// Where words come from: the helper, or on mock data a script that stands in for it.
@@ -254,13 +261,22 @@ pub fn hear(engine: Engine, source: Source) -> Hearing {
     let hearing = Hearing { heard, state: state.clone(), engine, done: done.clone() };
     std::thread::spawn(move || {
         let end = match source.script {
-            Some(script) => play(&script, &send, &state),
+            Some(script) => Finish::End(play(&script, &send, &state)),
             None => run(engine, &source, &send, &state, &done),
         };
         done.store(true, Ordering::Relaxed);
-        let _ = send.send_blocking(Heard::End(end));
+        let _ = send.send_blocking(match end {
+            Finish::End(why) => Heard::End(why),
+            Finish::Dictate => Heard::Dictate,
+        });
     });
     hearing
+}
+
+/// How a worker's hearing finished.
+enum Finish {
+    End(Option<Why>),
+    Dictate,
 }
 
 fn released(state: &Mutex<State>) -> bool {
@@ -284,21 +300,21 @@ fn play(script: &Script, send: &async_channel::Sender<Heard>, state: &Mutex<Stat
     None
 }
 
-fn run(engine: Engine, source: &Source, send: &async_channel::Sender<Heard>, state: &Arc<Mutex<State>>, done: &Arc<AtomicBool>) -> Option<Why> {
+fn run(engine: Engine, source: &Source, send: &async_channel::Sender<Heard>, state: &Arc<Mutex<State>>, done: &Arc<AtomicBool>) -> Finish {
     let voices = voices_for(engine, source.helper.is_some(), source.whisper.is_some());
-    let Some(helper) = source.helper.as_deref() else { return Some(Why::HelperMissing) };
-    if voices.is_empty() {
-        return Some(Why::HelperMissing);
-    }
     let mut given = false;
     for (at, voice) in voices.iter().enumerate() {
-        let why = hear_with(*voice, helper, source.whisper.as_ref(), send, state, done, &mut given);
+        let why = match (voice, source.helper.as_deref()) {
+            (Engine::Dictation, _) => return Finish::Dictate,
+            (_, Some(helper)) => hear_with(*voice, helper, source.whisper.as_ref(), send, state, done, &mut given),
+            (_, None) => Some(Why::HelperMissing),
+        };
         match next_after(why, released(state), given, at, voices.len()) {
-            Next::End(why) => return why,
+            Next::End(why) => return Finish::End(why),
             Next::Try => {}
         }
     }
-    None
+    Finish::End(None)
 }
 
 /// One voice, heard to its end.
@@ -314,7 +330,7 @@ fn hear_with(
     let mut command = Command::new(helper);
     match (voice, whisper) {
         (Engine::Whisper, Some((library, model))) => command.args(["whisper", library, model]),
-        (Engine::Whisper, None) => return Some(Why::HelperMissing),
+        (Engine::Whisper, None) | (Engine::Dictation, _) => return Some(Why::HelperMissing),
         (Engine::Apple, _) => command.arg("listen"),
     };
     let Ok(mut child) = command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn() else {
@@ -435,10 +451,11 @@ mod tests {
 
     #[test]
     fn a_voice_is_tried_only_where_it_can_start() {
-        assert_eq!(voices_for(Engine::Whisper, true, true), [Engine::Whisper, Engine::Apple]);
-        assert_eq!(voices_for(Engine::Whisper, true, false), [Engine::Apple]);
-        assert_eq!(voices_for(Engine::Apple, true, true), [Engine::Apple, Engine::Whisper]);
-        assert!(voices_for(Engine::Apple, false, true).is_empty());
+        assert_eq!(voices_for(Engine::Whisper, true, true), [Engine::Whisper, Engine::Apple, Engine::Dictation]);
+        assert_eq!(voices_for(Engine::Whisper, true, false), [Engine::Apple, Engine::Dictation]);
+        assert_eq!(voices_for(Engine::Apple, true, true), [Engine::Apple, Engine::Whisper, Engine::Dictation]);
+        assert_eq!(voices_for(Engine::Apple, false, true), [Engine::Dictation]);
+        assert_eq!(voices_for(Engine::Dictation, true, true), [Engine::Dictation]);
     }
 
     #[test]
@@ -478,8 +495,10 @@ mod tests {
     }
 
     #[test]
-    fn no_helper_is_a_voice_that_cannot_start() {
-        let hearing = hear(Engine::Apple, Source { helper: None, whisper: None, script: None });
-        assert_eq!(hearing.heard.recv_blocking().ok(), Some(Heard::End(Some(Why::HelperMissing))));
+    fn no_helper_hands_over_to_dictation_and_dictation_asked_for_is_the_only_voice() {
+        for engine in [Engine::Apple, Engine::Dictation] {
+            let hearing = hear(engine, Source { helper: None, whisper: None, script: None });
+            assert_eq!(hearing.heard.recv_blocking().ok(), Some(Heard::Dictate));
+        }
     }
 }

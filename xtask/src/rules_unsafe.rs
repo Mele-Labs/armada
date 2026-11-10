@@ -31,6 +31,11 @@ const RELAXED: &[(&str, &str)] = &[
          — and libc::killpg over the group that call makes, so a Drone's tools end with it",
     ),
     (
+        "bridge-native",
+        "-[NSApplication sendAction:to:from:] with startDictation: and stopDictation: — Talk's \
+         macOS Dictation voice, which no safe objc2-app-kit method can send",
+    ),
+    (
         "checks-runner",
         "libc::killpg on a timed-out Check — killing only the process Fleet started leaves \
          whatever it spawned holding the worktree — and libc::setsid() in pre_exec for a server \
@@ -50,6 +55,12 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
          a group signal, because a kill at the pid alone leaves them running on the process's \
          own pipe — and the reading that says the Drone is gone without collecting it, \
          because collecting frees the pid the group is named by",
+    ),
+    (
+        "crates/bridge-native/src/dictation.rs",
+        "the one call that sends startDictation: or stopDictation: to the first responder, as the \
+         Electron Bridge's Menu.sendActionToFirstResponder does — objc2-app-kit declares \
+         sendAction:to:from: unsafe, and no safe method sends an action by selector",
     ),
     (
         "crates/checks-runner/src/run.rs",
