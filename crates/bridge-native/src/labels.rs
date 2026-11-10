@@ -27,6 +27,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "heading" => Role::Heading,
         "textbox" => Role::TextInput,
         "region" => Role::Region,
+        "article" => Role::Article,
         "toolbar" => Role::Toolbar,
         "status" => Role::Status,
         "label" => Role::Label,

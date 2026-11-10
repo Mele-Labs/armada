@@ -10,8 +10,12 @@
 //! person is in another Job, so a switch is a swap of what is drawn and nothing is read or measured
 //! again. A page is made on the first visit.
 
+mod acts;
 mod calls;
+mod cards;
 mod lines;
+mod plan;
+mod pop;
 mod records;
 mod rows;
 mod runs;
@@ -88,6 +92,8 @@ struct Page {
     pending: Vec<Pending>,
     /// Fleet's reason for the last send it refused.
     refused: Option<SharedString>,
+    /// What the cards in this Job's thread remember.
+    cards: acts::CardState,
 }
 
 impl Page {
@@ -95,7 +101,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None }
+        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default() }
     }
 }
 
@@ -205,6 +211,8 @@ pub struct JobView {
     visiting: Option<SharedString>,
     switched: Option<std::time::Instant>,
     focus: FocusHandle,
+    /// The menu a thread element opened, if one is open.
+    pop: Option<pop::Pop>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -258,6 +266,7 @@ impl JobView {
             visiting: None,
             switched: None,
             focus: cx.focus_handle(),
+            pop: None,
             _subscriptions: subscriptions,
         }
     }
@@ -929,6 +938,7 @@ impl Render for JobView {
             .child(head)
             .child(div().relative().flex_1().min_h_0().child(body))
             .children(dock)
+            .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

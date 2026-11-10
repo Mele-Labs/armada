@@ -16,6 +16,81 @@
      "id": "plan:v2",
      "version": 2,
      "state": "waiting"
+    },
+    "sketch": {
+     "id": "sk-3",
+     "at": "2026-11-09T14:01:00Z",
+     "sketch": "sketch:Tail layout",
+     "title": "Tail layout",
+     "drawing": {
+      "nodes": []
+     },
+     "against": "Chip states",
+     "against_drawing": {
+      "nodes": []
+     },
+     "asked": true,
+     "revisions": [
+      {
+       "nodes": []
+      },
+      {
+       "nodes": []
+      }
+     ]
+    },
+    "asked": {
+     "command": "Which colour does the stale chip take?",
+     "call": {
+      "call": "call-1",
+      "manifest_id": "armada",
+      "asked_at": "2026-11-09T14:02:00Z",
+      "tool": "AskUserQuestion",
+      "detail": "Which colour does the stale chip take?",
+      "truncated": false,
+      "rule": "ask",
+      "offers": [
+       "allow_once",
+       "refuse"
+      ],
+      "holding_for_seconds": 120,
+      "questions": [
+       {
+        "question": "Which colour does the stale chip take?",
+        "header": "Colour",
+        "multi_select": false,
+        "options": [
+         {
+          "label": "Amber",
+          "description": "Matches the other waiting marks."
+         },
+         {
+          "label": "Orange",
+          "description": "Reads as an error."
+         },
+         {
+          "label": "Grey",
+          "description": "Reads as nothing happened."
+         }
+        ]
+       },
+       {
+        "question": "Where does the chip show how far behind it is?",
+        "header": "Place",
+        "multi_select": true,
+        "options": [
+         {
+          "label": "In the tooltip",
+          "description": "A press is not needed."
+         },
+         {
+          "label": "In the chip",
+          "description": "Always visible."
+         }
+        ]
+       }
+      ]
+     }
     }
    },
    "items": [
@@ -506,6 +581,18 @@
     },
     {
      "kind": "sketch",
+     "id": "sk-0",
+     "at": "2026-11-09T13:40:12Z",
+     "sketch": "sketch:Chip states",
+     "title": "Chip states",
+     "drawing": {
+      "nodes": []
+     },
+     "replaced": true,
+     "asked": true
+    },
+    {
+     "kind": "sketch",
      "id": "sk-1",
      "at": "2026-11-09T13:43:01Z",
      "sketch": "sketch:Chip states",
@@ -520,11 +607,26 @@
     },
     {
      "kind": "document",
+     "id": "document:notes:r1",
+     "at": "2026-11-09T13:44:40Z",
+     "page": "notes",
+     "title": "Release notes",
+     "revision": 1,
+     "asked": true,
+     "settled": {
+      "how": "sent_back",
+      "at": "2026-11-09T13:45:00Z",
+      "words": "Say which branches are affected."
+     }
+    },
+    {
+     "kind": "document",
      "id": "document:design:r2",
      "at": "2026-11-09T13:45:15Z",
      "page": "design",
      "title": "Stale branch design",
-     "revision": 2
+     "revision": 2,
+     "asked": true
     },
     {
      "kind": "file",
@@ -551,7 +653,64 @@
       "id": "dra-034",
       "at": "2026-11-09T13:48:36Z",
       "title": "Comment on #3290",
-      "text": "The chip now reads `behind_by`."
+      "text": "The chip now reads `behind_by`.",
+      "before": "The chip is green."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-040",
+      "at": "2026-11-09T13:49:00Z",
+      "title": "Comment on #3291",
+      "text": "The chip reads amber when the branch is behind main.",
+      "settled": {
+       "how": "approved",
+       "at": "2026-11-09T13:49:30Z"
+      }
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-041",
+      "at": "2026-11-09T13:50:00Z",
+      "title": "Comment on #3292",
+      "text": "The chip now reads `behind_by`.",
+      "settled": {
+       "how": "fixed",
+       "words": "The chip now reads `behind_by` and says how far.",
+       "at": "2026-11-09T13:50:30Z"
+      },
+      "before": "The chip is green."
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-042",
+      "at": "2026-11-09T13:51:00Z",
+      "title": "Workflow quick-fix",
+      "text": "steps:\n  - build\n  - land",
+      "change": 12
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "draft",
+      "id": "dra-043",
+      "at": "2026-11-09T13:52:00Z",
+      "title": "Comment on #3293",
+      "text": "Closing this as a duplicate.",
+      "settled": {
+       "how": "sent_back",
+       "words": "Name the issue it duplicates.",
+       "at": "2026-11-09T13:52:30Z"
+      }
      }
     },
     {
@@ -3782,6 +3941,53 @@
       {
        "slot": 4,
        "from": "2026-11-09T13:00:00Z"
+      }
+     ]
+    },
+    "asked": {
+     "command": "rm -rf target/debug/incremental",
+     "call": {
+      "call": "call-2",
+      "manifest_id": "armada",
+      "asked_at": "2026-11-09T14:03:00Z",
+      "tool": "Bash",
+      "detail": "rm -rf target/debug/incremental",
+      "truncated": false,
+      "rule": "ask",
+      "offers": [
+       "allow_once",
+       "allow_and_remember",
+       "refuse",
+       "always_allow",
+       "always_block",
+       "allow_for_session",
+       "allow_like_this_for_session"
+      ],
+      "holding_for_seconds": 30,
+      "reaches": "/repos/armada/target/debug/incremental",
+      "reaches_to": "write",
+      "kind": {
+       "program": "rm"
+      }
+     }
+    },
+    "lapsed": {
+     "id": "ask-7",
+     "questions": [
+      {
+       "question": "Should the chip link to the pull request?",
+       "header": "Link",
+       "multi_select": false,
+       "options": [
+        {
+         "label": "Yes",
+         "description": "Opens the pull request."
+        },
+        {
+         "label": "No",
+         "description": "Stays a label."
+        }
+       ]
       }
      ]
     }

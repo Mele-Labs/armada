@@ -151,7 +151,7 @@ impl JobView {
             let asking = held.head.asked.is_some();
             self.item(ix, item, last && working && !asking, page, look, now, window, cx)
         } else {
-            self.extra(page, ix - page.items, look, now, cx)
+            self.extra(&held.head, page, ix - page.items, look, now, cx)
         };
         let Some(drawn) = drawn else { return nothing() };
         div()
@@ -302,28 +302,21 @@ impl JobView {
             ThreadItem::Subagent { id, subagent, .. } => self.subagent(id, subagent, look),
             ThreadItem::Checks { id, rows } => self.checks(ix, id, rows, page, look, now, cx),
             ThreadItem::FleetTurn { id, notice, rows, handled } => self.fleet_turn(ix, id, notice, rows, *handled, page, look, cx),
-            ThreadItem::Sketch(card) => self.card(&card.id, "Sketch", Some(&card.title), "layout-dashboard", look),
-            ThreadItem::File { id, name, .. } => self.card(id, "File", Some(name), "file", look),
-            ThreadItem::Document(card) => self.card(&card.id, "Document", Some(&card.title), "file-text", look),
-            ThreadItem::Plan(plan) => self.card(&plan.id, "Plan", None, "list-checks", look),
-            ThreadItem::Judged { id, .. } => self.card(id, "Judged", None, "scale", look),
+            ThreadItem::Sketch(card) => self.sketch(ix, card, page, look, now, cx),
+            ThreadItem::File { id, name, .. } => self.file_row(id, name, look),
+            ThreadItem::Document(card) => self.document(ix, card, page, look, now, cx),
+            ThreadItem::Plan(plan) => self.plan_card(ix, plan, page, look, now, cx),
+            ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, &artifact.title, at, look, now, cx),
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
         })
     }
 
     /// What stands after the items (A1.4).
-    fn extra(&self, page: &Page, at: usize, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+    fn extra(&self, head: &ipc::ThreadHead, page: &Page, at: usize, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match page.extras.get(at)? {
-            Extra::Plan(state) => {
-                let word = match state {
-                    PlanCardState::Waiting => "Plan, waiting on you",
-                    PlanCardState::SetAside => "Plan, set aside",
-                    PlanCardState::Approved => "Plan",
-                };
-                self.card("plan-head", word, None, "list-checks", look)
-            }
-            Extra::Sketch(title) => self.card("sketch-head", "Sketch", Some(title), "layout-dashboard", look),
+            Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
+            Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Asked(command) => self.card("asked-head", "Ask", Some(command), "circle-help", look),
             Extra::Lapsed => self.card("lapsed-head", "Questions not answered", None, "circle-help", look),
             Extra::Pending(i) => {

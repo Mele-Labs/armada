@@ -128,6 +128,7 @@ pub static WALKS: &[Walk] = &[
             step("A press on a Job opens it in the middle", Verb::Press, "row", "Fix the merge line freshness chip"),
             step("The head carries the Job's state and its title", Verb::Look, "row", "Thread: Fix the merge line freshness chip"),
             step("The thread opens at its newest row and follows it", Verb::Press, "region", "Thread"),
+            step("The plan and the pinned sketch wait at the end", Verb::Key("pageup"), "region", "Thread"),
             step("Home goes to the start of the thread", Verb::Key("home"), "region", "Thread"),
             step("A run of calls is one line; a press opens it", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),

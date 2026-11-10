@@ -4,7 +4,7 @@
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
-use ipc::{DraftHow, RetroStage, SessionRow};
+use ipc::{RetroStage, SessionRow};
 
 use super::rows::{eyebrow, glyph, mono, tip, Size};
 use super::{JobView, Page};
@@ -231,15 +231,8 @@ impl JobView {
                     .into_any_element()
             }
             SessionRow::WindowAsk { id, .. } => self.card(id, "Question in a window", None, "app-window", look),
-            SessionRow::Draft { id, title, settled, .. } => {
-                let how = settled.as_ref().map(|settled| match settled.how {
-                    DraftHow::Approved => "approved",
-                    DraftHow::Fixed => "fixed",
-                    DraftHow::SentBack => "sent back",
-                    DraftHow::Withdrawn => "withdrawn",
-                });
-                let kind = how.map_or("Draft".to_string(), |how| format!("Draft, {how}"));
-                self.card(id, &kind, Some(title), "file-pen", look)
+            SessionRow::Draft { id, at, title, text, before, settled, change } => {
+                self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, page, look, now, cx)
             }
             SessionRow::Ask { id, ask, .. } => self.card(id, "Ask", Some(&ask.tool), "circle-help", look),
             _ => div().into_any_element(),
