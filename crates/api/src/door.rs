@@ -169,6 +169,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "show_window",
     "withdraw_window",
     "withdraw_sketch",
+    "withdraw_document",
     "show_sketch",
     "show_file",
     "record_plan",

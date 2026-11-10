@@ -362,6 +362,13 @@ where
         self.waiting_reopened(reopen).await
     }
 
+    async fn done_waiting(
+        self: Arc<Self>,
+        done: ipc::DoneWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.done_waited(done).await
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         confirm: ipc::ConfirmWaiting,

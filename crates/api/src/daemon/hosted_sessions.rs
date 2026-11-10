@@ -243,6 +243,13 @@ pub trait HostedSessions: Send + Sync + 'static {
         reopen: ipc::ReopenWaiting,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `done_waiting`: the person did what an agent's item asked of him; the job is sent `Done: <text>` and his note.
+    /// [`Refusal::IllegalMove`] where nothing holds the item, [`Refusal::Unacceptable`] for an item the agent did not state.
+    fn done_waiting(
+        self: Arc<Self>,
+        done: ipc::DoneWaiting,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `confirm_waiting`: thumbs up on an item read from a reply. [`Refusal::IllegalMove`] where
     /// nothing holds the item, and where it was not read from a reply.
     fn confirm_waiting(

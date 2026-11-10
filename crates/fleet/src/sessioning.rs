@@ -759,6 +759,14 @@ where
         self.sketch_withdrawn(caller, withdraw).await
     }
 
+    async fn withdraw_document(
+        &self,
+        caller: Option<api::Caller>,
+        withdraw: ipc::WithdrawDocument,
+    ) -> Result<SessionRecord, Refusal> {
+        self.document_withdrawn(caller, withdraw).await
+    }
+
     async fn show_sketch(
         &self,
         caller: Option<api::Caller>,
@@ -952,6 +960,14 @@ where
         session_id: Option<ipc::SessionId>,
     ) -> Result<ipc::ClosedWaitingList, Refusal> {
         self.closed_waiting_listed(caller, session_id).await
+    }
+
+    async fn get_needs_you(
+        &self,
+        caller: Option<api::Caller>,
+        session_id: Option<ipc::SessionId>,
+    ) -> Result<ipc::NeedsYou, Refusal> {
+        self.needs_you_read(caller, session_id).await
     }
 
     async fn all_done(

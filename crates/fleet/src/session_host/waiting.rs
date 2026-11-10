@@ -49,7 +49,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{HostedSessions, Refusal};
 use ipc::{
-    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, ReopenWaiting, CallAnswer, CallInFlight, Instant,
+    AllDone, AnswerSessionAsk, AnswerWaiting, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, CallAnswer, CallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     DraftHow, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
@@ -64,14 +64,14 @@ use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, mergin
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
-const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
+pub(super) const SESSION_WAITING_UNNAMED: &str = "fleet.session_waiting_unnamed";
 pub(crate) const SESSION_WAITING_EMPTY: &str = "fleet.session_waiting_empty";
 const SESSION_WAITING_UNHELD: &str = "fleet.session_waiting_unheld";
 const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
-const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
+pub(super) const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
@@ -1301,32 +1301,8 @@ where
                 .find(|one| one.id == dismiss.item_id)
                 .ok_or_else(|| self.settled_already())?
         };
-        if item.source == WaitingSource::Delivery {
-            return Err(self.hosted_refusal(
-                SESSION_WAITING_EMPTY,
-                "how the work is delivered is answered, not dismissed",
-            ));
-        }
-        if item.source == WaitingSource::SlotChoice {
-            return Err(self.hosted_refusal(
-                SESSION_WAITING_EMPTY,
-                "whether a job waits for a slot or has one added is answered, not dismissed",
-            ));
-        }
-        if item.source == WaitingSource::TaskDone {
-            return Err(self.hosted_refusal(
-                SESSION_WAITING_EMPTY,
-                "whether the tasks are done is answered, not dismissed",
-            ));
-        }
-        if item.source == WaitingSource::HeldChild {
-            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, HELD_CHILD_SETTLED_BY));
-        }
-        if item.source == WaitingSource::Gate {
-            return Err(self.hosted_refusal(
-                SESSION_WAITING_EMPTY,
-                "a gate is approved or its group skipped, not dismissed",
-            ));
+        if let Some(why) = super::needs_you::refused_dismissal(item.source) {
+            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, why));
         }
         if dismiss.misread && item.source != WaitingSource::Replied {
             return Err(self.hosted_refusal(
@@ -1365,16 +1341,7 @@ where
         if item.source == WaitingSource::Plan {
             self.plan_set_aside(&id, &item.id).await?;
         }
-        let closed = KeptClosed {
-            item_id: item.id.clone(),
-            text: item.text.clone(),
-            source: source_name(item.source),
-            act: item.act.as_ref().map(|act| (act_kind_text(act.kind).to_string(), act.target.clone())),
-            options: item.options.iter().map(|option| option.label.clone()).collect(),
-            steps: item.steps.clone(),
-            since: item.since.as_str().to_string(),
-            closed_at: self.clock().now().as_str().to_string(),
-        };
+        let closed = self.closed_as_it_stood(&item);
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
@@ -1403,6 +1370,56 @@ where
         if item.source == WaitingSource::Sketch {
             self.sketch_withdrawn_mark(&id, &item.id).await;
         }
+        self.drop_answered(&id, &item.id, Some(&closed)).await
+    }
+
+    /// The item as the closed list keeps it, whole, at the moment the person closes it.
+    fn closed_as_it_stood(&self, item: &WaitingItem) -> KeptClosed {
+        KeptClosed {
+            item_id: item.id.clone(),
+            text: item.text.clone(),
+            source: source_name(item.source),
+            act: item.act.as_ref().map(|act| (act_kind_text(act.kind).to_string(), act.target.clone())),
+            options: item.options.iter().map(|option| option.label.clone()).collect(),
+            steps: item.steps.clone(),
+            since: item.since.as_str().to_string(),
+            closed_at: self.clock().now().as_str().to_string(),
+        }
+    }
+
+    /// `done_waiting`: the person did what an agent's item asked of him. **Closed as a dismissed one is**, and the
+    /// job is sent one turn, `Done: <text>` and his note. The turn goes first, so a send that fails leaves the item
+    /// standing to try again, and a paused job keeps it for its Resume as it keeps any turn.
+    pub(crate) async fn done_waited(self: Arc<Self>, done: DoneWaiting) -> Result<SessionRecord, Refusal> {
+        let id = done.session_id.as_str().to_string();
+        let terminal = self.terminal_session(&id).await?;
+        if terminal.is_some() {
+            self.terminal_ask_standing(&id).await;
+        }
+        let item = {
+            let store = self.store().lock().await;
+            let session = store
+                .session(&id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            self.ledger_row(&store, &session)?
+                .waiting_for
+                .into_iter()
+                .find(|one| one.id == done.item_id)
+                .ok_or_else(|| self.settled_already())?
+        };
+        if item.source != WaitingSource::Agent {
+            return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "only a thing the agent asked him to do is marked done"));
+        }
+        let _settling = self.hosts().settling(&id, &item.id).ok_or_else(|| self.settled_already())?;
+        let sent = SendSessionMessage {
+            session_id: done.session_id.clone(),
+            text: done_told(&item.text, done.note.as_deref()),
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+        };
+        Arc::clone(&self).send_known(terminal, sent).await?;
+        let closed = self.closed_as_it_stood(&item);
         self.drop_answered(&id, &item.id, Some(&closed)).await
     }
 
@@ -1629,6 +1646,14 @@ fn removed(item: &str, reason: Option<&str>) -> String {
     match reason.map(str::trim).filter(|why| !why.is_empty()) {
         Some(why) => format!("Owner removed \"{item}\": {why}"),
         None => format!("Owner removed \"{item}\""),
+    }
+}
+
+/// What the agent is sent when the person did what its item asked: the line, and his note under it.
+fn done_told(item: &str, note: Option<&str>) -> String {
+    match note.map(str::trim).filter(|note| !note.is_empty()) {
+        Some(note) => format!("Done: {item}\n{note}"),
+        None => format!("Done: {item}"),
     }
 }
 
