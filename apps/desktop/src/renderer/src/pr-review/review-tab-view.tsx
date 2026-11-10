@@ -503,6 +503,7 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
   return (
     <div ref={root} className="pr-review-tab-view" tabIndex={-1}>
       <header className="pr-review-tab-view__head">
+        <RunTools pr={pr} />
         {stops === undefined || tour === undefined ? (
           <span className="pr-review-tab-view__steps" role="group" aria-label="Files">
             <Button
@@ -565,9 +566,6 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
         <span className="pr-review-tab-view__title" title={stop?.title}>
           {stop?.title ?? ""}
         </span>
-        <span className="pr-review-tab-view__path" title={path}>
-          {path ?? ""}
-        </span>
         {/* Drawn empty off a tour, so the columns after it stay where they are. */}
         {stop === undefined || tour === undefined ? (
           <span className="pr-review-tab-view__whole" />
@@ -597,7 +595,6 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             </Button>
           </Tooltip>
         )}
-        <RunTools pr={pr} />
         <Tooltip label="Keys">
           <Button
             variant="ghost"
@@ -635,6 +632,11 @@ export function ReviewTabView({ pr, send }: { pr: ReviewPr; send: Send }) {
             className="pr-review-tab-view__diff"
             data-tool={focused === undefined ? undefined : markOfTool(focused)}
           >
+            {path === undefined ? null : (
+              <span className="pr-review-tab-view__path" title={path}>
+                {path}
+              </span>
+            )}
             {file === undefined ? (
               <p className="pr-review-tab-view__said">{none}</p>
             ) : every.state !== "read" ? (
