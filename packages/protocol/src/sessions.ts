@@ -637,29 +637,14 @@ export type MoveInLine = {
   place: LinePlace;
 };
 
-/**
- * One of the forms a standing order takes, which Fleet enforces. Fleet now reads and writes only
- * `hold_paths`; `role_off` and `always_raise` stay in this mirror so Electron, which still draws them,
- * compiles, and Fleet reads an old one as nothing.
- */
-export type OperatorOrderForm =
-  | {
-      kind: "role_off";
-      role: "dispatch" | "delegate" | "answer" | "file";
-      manifest_id: string;
-      today?: boolean;
-    }
-  | {
-      kind: "hold_paths";
-      manifest_id: string;
-      paths: string[];
-      job: string;
-      until: "pushes" | "ends";
-    }
-  | {
-      kind: "always_raise";
-      what: string;
-    };
+/** The one form a standing order takes, which Fleet enforces: a hold on paths. */
+export type OperatorOrderForm = {
+  kind: "hold_paths";
+  manifest_id: string;
+  paths: string[];
+  job: string;
+  until: "pushes" | "ends";
+};
 
 /** `operator_orders` (`GET /operator/orders`), and the answer to confirming or removing one: the orders in force now. */
 export type OperatorOrders = {
