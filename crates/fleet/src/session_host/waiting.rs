@@ -754,7 +754,7 @@ where
             // The done and a reply that asks are read off the turn, so a Session whose agent never
             // called a tool still reaches the person. Not when it already asked through one, while
             // the sentence readers are off: in force they read the reply whatever is listed, and a
-            // repeat of a listed item is folded below.
+            // repeat of a listed command is folded below.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
                 matches!(
                     one.source,
@@ -769,6 +769,8 @@ where
                 )
             });
             items.extend(super::standing::derived(&super::standing::Seen { called, ..seen }));
+            // A command the agent listed is not raised again by the fenced block of its reply.
+            items = super::dedup::without_a_command_listed(items);
             // A sentence read from the reply near one he marked Not a question is left off, once the
             // model is loaded.
             if !misreads.is_empty() && items.iter().any(|one| one.source == WaitingSource::Replied) {

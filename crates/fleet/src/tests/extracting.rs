@@ -9,6 +9,7 @@ use adapter_traits::{NotEmbedded, TextModel, TextReading};
 use ipc::{WaitingActKind, WaitingSource};
 
 use crate::session_host::asks::closing;
+use crate::session_host::dedup::without_a_command_listed;
 use crate::session_host::asks_model::Reads;
 use crate::session_host::extracting::{extracted, options_of, read, Act, Extracted, ASKS_AT};
 use crate::session_host::standing::{derived, Seen};
@@ -186,4 +187,37 @@ fn beside_a_walk_an_ask_that_only_names_his_approval_is_left_out() {
     assert_eq!(both.asks.len(), 2);
     let beside = both.beside_a_walk();
     assert_eq!(beside.asks.iter().map(|one| (one.sentence.as_str(), one.index)).collect::<Vec<_>>(), vec![("Which one do you want first?", 0)]);
+}
+
+const RESTART_REPLY: &str = "All four fixes are on main now. One restart puts the last one, @ search, into your app:\n\n```bash\nscripts/preview --restart\n```";
+
+fn listed_restart() -> ipc::WaitingItem {
+    let mut item = derived(&Seen { turn_end: Some((ENDED, RESTART_REPLY)), ..between(Some(&|said| Some(asks_of(said, &["One restart puts the last one, @ search, into your app:"])))) }).remove(0);
+    item.id = String::from("restart-file-search");
+    item.text = String::from("Restart onto the instant @ file search");
+    item.source = WaitingSource::Agent;
+    item
+}
+
+/// The agent listed the restart and its reply carries the same command in a fenced block: one command is
+/// one item, and the reply's sentence about it is not a second.
+#[test]
+fn a_reply_that_repeats_a_listed_command_raises_no_second_item() {
+    let reads = |said: &str| Some(asks_of(said, &["One restart puts the last one, @ search, into your app:"]));
+    let from_reply = derived(&Seen { turn_end: Some((ENDED, RESTART_REPLY)), ..between(Some(&reads)) });
+    assert_eq!(from_reply.len(), 1);
+    assert_eq!(from_reply[0].act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((WaitingActKind::Run, "scripts/preview --restart")));
+    let kept = without_a_command_listed(vec![listed_restart(), from_reply.into_iter().next().expect("one")]);
+    assert_eq!(kept.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["restart-file-search"]);
+}
+
+/// With no item of the agent's for the command, the reply's is the one item, and a different command is not a repeat.
+#[test]
+fn a_reply_item_stands_where_no_other_item_holds_its_command() {
+    let reads = |said: &str| Some(asks_of(said, &["One restart puts the last one, @ search, into your app:"]));
+    let from_reply = derived(&Seen { turn_end: Some((ENDED, RESTART_REPLY)), ..between(Some(&reads)) });
+    assert_eq!(without_a_command_listed(from_reply.clone()).len(), 1);
+    let mut other = listed_restart();
+    other.act.as_mut().expect("a run").target = String::from("scripts/preview --restart --adopt");
+    assert_eq!(without_a_command_listed(vec![other, from_reply.into_iter().next().expect("one")]).len(), 2);
 }

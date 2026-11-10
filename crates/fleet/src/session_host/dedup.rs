@@ -1,9 +1,10 @@
 //! The language model's vectors of a Session's texts, read for what he marked as misread.
 //! `docs/spikes/needs-you-dedup.md` has the cosines measured.
 //!
-//! Fleet does not fold two items into one: whether two wordings are one ask is a guess, and the
-//! person sees both. What stays is the vectors, and the cosine that leaves a sentence he marked Not
-//! a question, or a follow-up he marked Not deferred, off the list.
+//! Fleet does not fold two items into one by their wording: whether two wordings are one ask is a
+//! guess, and the person sees both. What stays is the vectors, and the cosine that leaves a sentence he
+//! marked Not a question, or a follow-up he marked Not deferred, off the list. **The one fold is by
+//! command**, which is not a guess: the same command twice is one thing to run.
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -11,7 +12,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::TextModel;
-use ipc::{WaitingItem, WaitingSource};
+use ipc::{WaitingActKind, WaitingItem, WaitingSource};
 
 /// The cosine at and above which a text is the one he marked: the lowest at which no `different` pair of
 /// the 150 development pairs scored at or above it (the closest scored 0.8445), measured 21 Oct 2026
@@ -37,6 +38,28 @@ pub(crate) fn left_off_as_misread(items: Vec<WaitingItem>, misreads: &[String], 
                 || !vector(&item.text).is_some_and(|own| marked.iter().any(|theirs| cosine(&own, theirs) >= at))
         })
         .collect()
+}
+
+/// `items` with a sentence read from a reply that hands him a command left off where another item already
+/// holds that command to run: the agent listed it, so the reply's fenced block repeats it. Two sentences of
+/// one reply over the same command are one run too, and the first stays.
+pub(crate) fn without_a_command_listed(items: Vec<WaitingItem>) -> Vec<WaitingItem> {
+    let mut held: HashSet<String> = HashSet::new();
+    for item in items.iter().filter(|one| one.source != WaitingSource::Replied) {
+        if let Some(command) = command_of(item) {
+            held.insert(command);
+        }
+    }
+    items
+        .into_iter()
+        .filter(|item| {
+            item.source != WaitingSource::Replied || command_of(item).map_or(true, |command| held.insert(command))
+        })
+        .collect()
+}
+
+fn command_of(item: &WaitingItem) -> Option<String> {
+    item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).map(|act| act.target.trim().to_string())
 }
 
 /// The model's vectors of items' texts, and the Sessions whose texts were embedded since the last look.
