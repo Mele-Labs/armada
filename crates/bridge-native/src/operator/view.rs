@@ -114,6 +114,38 @@ fn press(id: impl Into<SharedString>, label: SharedString, icon: Option<&'static
         .children(cap)
 }
 
+/// What a press does on a click, and on Enter or Space while it has the keys: the key goes no further,
+/// so the page's own Enter (Yes) is not said as well.
+fn pressed(
+    element: Stateful<Div>,
+    cx: &Context<OperatorPageView>,
+    act: impl Fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>) + 'static,
+) -> Stateful<Div> {
+    let act = std::rc::Rc::new(act);
+    let by_key = act.clone();
+    element.on_click(cx.listener(move |this, _, window, cx| act(this, window, cx))).on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+        let key = &event.keystroke;
+        if matches!(key.key.as_str(), "enter" | "space") && !key.modifiers.modified() {
+            cx.stop_propagation();
+            by_key(this, window, cx);
+        }
+    }))
+}
+
+/// A press drawn as words, such as a link or Show all: a tab stop whose ring sits on the words alone.
+fn worded(element: Stateful<Div>, look: &Look) -> Stateful<Div> {
+    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+    element
+        .focusable()
+        .tab_stop(true)
+        .px(look.length(token::SPACE_1))
+        .rounded(look.length(token::RADIUS_SM))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(gpui::transparent_black())
+        .focus_visible(move |style| style.border_color(ring))
+        .cursor_pointer()
+}
+
 /// A grey shape where words will be, while the page is read.
 fn bone(width: f32, height: Pixels, look: &Look) -> Div {
     div().h(height).w(gpui::relative(width)).rounded(look.length(token::RADIUS_LG)).bg(look.color(token::BG_HOVER))
@@ -122,11 +154,14 @@ fn bone(width: f32, height: Pixels, look: &Look) -> Div {
 impl OperatorPageView {
     // -- the head ----------------------------------------------------------------------------------
 
-    fn head(&self, look: &Look, cx: &App) -> impl IntoElement {
+    fn head(&self, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        // The first pill drawn is where Tab goes from the page itself.
+        let first = std::cell::Cell::new(Some(self.first_stop.clone()));
         let pill = |id: &'static str| {
             div()
                 .id(id)
+                .when_some(first.take(), |pill, keys| pill.track_focus(&keys))
                 // Tab reaches each pill, and its tooltip says what it reads.
                 .focusable()
                 .tab_stop(true)
@@ -166,6 +201,7 @@ impl OperatorPageView {
                 .child(format!("{repository} main"));
             labelled(pill, Role::Status, said).into_any_element()
         });
+        let mains: Vec<AnyElement> = mains.collect();
         let week = self.standing.week.or_else(|| week_from_bar(cx)).map(|percent| {
             let said = format!("{percent}% of the week's plan used");
             labelled(
@@ -201,9 +237,11 @@ impl OperatorPageView {
             .child(
                 div()
                     .flex_1()
+                    .flex()
+                    .items_center()
                     .text_size(look.length(token::TEXT_XS))
                     .text_color(look.color(token::FG_MUTED))
-                    .children(self.back_at.clone().map(|back| format!("back at {back}"))),
+                    .when_some(self.back_at.as_deref(), |back, at| back.child("back").child(self.stamp(at, Some("at"), (token::TEXT_XS, token::FG_MUTED), look, cx))),
             )
             .children(mains)
             .children(week)
@@ -290,11 +328,10 @@ impl OperatorPageView {
                         div()
                             .flex()
                             .items_center()
-                            .gap(look.length(token::SPACE_1))
                             .text_size(look.length(token::TEXT_XS))
                             .text_color(look.color(token::FG_SUBTLE))
                             .child("since")
-                            .child(self.stamp(&on_it.since, look, cx)),
+                            .child(self.stamp(on_it.since.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE), look, cx)),
                     ),
                 Role::Status,
                 "On it",
@@ -365,6 +402,18 @@ impl OperatorPageView {
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
             .children(face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)))
+            .children(face::note_of(turn).map(|(since, note)| {
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_baseline()
+                    .text_size(look.length(token::TEXT_BASE))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .child("Your note from")
+                    .child(self.stamp(since.as_str(), None, (token::TEXT_BASE, token::FG_DEFAULT), look, cx))
+                    // The colon sits on the time, inside its ring's padding.
+                    .child(div().ml(-look.length(token::SPACE_1)).child(format!(": {note}")))
+            }))
             .children(read)
             .children(then)
             .children(refused);
@@ -376,21 +425,20 @@ impl OperatorPageView {
                 _ => face::answer_word(answer).into(),
             };
             let key: Option<SharedString> = Some(face::answer_key(answer).into());
-            let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
-                .tooltip(tip(match answer {
-                    OperatorAnswer::Yes => "Do my pick",
-                    OperatorAnswer::AlwaysHere => "Do my pick, and keep it as a rule in this project",
-                    OperatorAnswer::Always => "Do my pick, and keep it as a rule everywhere",
-                    OperatorAnswer::No => "Drop it",
-                }))
-                .on_click(cx.listener(move |this, _, window, cx| this.answer(answer, window, cx)));
+            let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look).tooltip(tip(match answer {
+                OperatorAnswer::Yes => "Do my pick",
+                OperatorAnswer::AlwaysHere => "Do my pick, and keep it as a rule in this project",
+                OperatorAnswer::Always => "Do my pick, and keep it as a rule everywhere",
+                OperatorAnswer::No => "Drop it",
+            }));
+            let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
             labelled(button, Role::Button, label).into_any_element()
         });
         let changes = face::sends_changes(turn).then(|| {
             labelled(
-                press("turn-changes", "Send changes".into(), None, Some("C".into()), Weight::Plain, look)
-                    .tooltip(tip("Open the plan in its Job to suggest changes"))
-                    .on_click(cx.listener(|this, _, _, cx| this.send_changes(cx))),
+                pressed(press("turn-changes", "Send changes".into(), None, Some("C".into()), Weight::Plain, look).tooltip(tip("Open the plan in its Job to suggest changes")), cx, |this, _, cx| {
+                    this.send_changes(cx)
+                }),
                 Role::Button,
                 "Send changes",
             )
@@ -410,16 +458,16 @@ impl OperatorPageView {
             .children(changes)
             .child(div().flex_1())
             .child(labelled(
-                press("turn-later", "Later".into(), None, Some("L".into()), Weight::Bare, look)
-                    .tooltip(tip("Last for the rest of today"))
-                    .on_click(cx.listener(|this, _, _, cx| this.later(cx))),
+                pressed(press("turn-later", "Later".into(), None, Some("L".into()), Weight::Bare, look).track_focus(&self.later_focus).tooltip(tip("Last for the rest of today")), cx, |this, _, cx| {
+                    this.later(cx)
+                }),
                 Role::Button,
                 "Later",
             ))
             .child(labelled(
-                press("turn-ask", "Ask".into(), Some("bot"), Some("/".into()), Weight::Bare, look)
-                    .tooltip(tip("Ask the Operator about this"))
-                    .on_click(cx.listener(|this, _, window, cx| this.ask(window, cx))),
+                pressed(press("turn-ask", "Ask".into(), Some("bot"), Some("/".into()), Weight::Bare, look).tooltip(tip("Ask the Operator about this")), cx, |this, window, cx| {
+                    this.ask(window, cx)
+                }),
                 Role::Button,
                 "Ask",
             ));
@@ -507,7 +555,7 @@ impl OperatorPageView {
         labelled(
             row_frame(SharedString::from(format!("done-{}", done.id)), look)
                 .text_color(look.color(token::FG_SUBTLE))
-                .tooltip(tip(if pending { "Sending your answer" } else { "Done" }))
+                .tooltip(tip(if pending { "Sending" } else { "Answered" }))
                 .child(div().w(look.length(token::SPACE_3)))
                 .child(mark)
                 .child(
@@ -529,13 +577,11 @@ impl OperatorPageView {
         let title = face::title_of(turn);
         let id = turn.id.clone();
         let drop_id = turn.id.clone();
-        let sub = match (face::pick_of(turn), turn.later_until.is_some() && !open) {
-            _ if open => Some("Open above".to_string()),
-            (Some(pick), true) => Some(format!("Later today. My pick: {pick}")),
-            (Some(pick), false) => Some(format!("My pick: {pick}")),
-            (None, true) => Some("Later today".to_string()),
-            (None, false) => None,
-        };
+        let sub = if open { Some("Open above".to_string()) } else { face::pick_of(turn).map(|pick| format!("My pick: {pick}")) };
+        // Put Later: the clock beside its kind, as nobody acts on it until later today.
+        let later = (turn.later_until.is_some() && !open).then(|| {
+            div().id(SharedString::from(format!("later-{at}"))).tooltip(tip("Later today")).child(glyph("clock", look.length(token::SPACE_4), look.color(token::STATUS_NOT_STARTED)))
+        });
         labelled(
             row_frame(SharedString::from(format!("turn-row-{at}")), look)
                 .when(open, |row| row.text_color(look.color(token::OPERATOR)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))))
@@ -558,6 +604,7 @@ impl OperatorPageView {
                         .child(div().truncate().child(title.clone()))
                         .children(sub.map(|sub| div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(sub))),
                 )
+                .children(later)
                 .child(kind_chip(kind, look)),
             Role::Row,
             title,
@@ -598,71 +645,56 @@ impl OperatorPageView {
 
     // -- the digest --------------------------------------------------------------------------------
 
-    /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the page.
-    fn stamp(&self, at: &ipc::Instant, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the
+    /// page. `lead` goes before the clock alone, as `at` in `back at 13:05`, which reads `back 3m ago`.
+    /// A press or Enter on any time flips them all.
+    fn stamp(&self, at: &str, lead: Option<&'static str>, (size, ink): (Token, Token), look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
-        let (on_clock, ago) = (minute(at.as_str(), now), crate::job_view::age(at.as_str(), now));
+        let (on_clock, ago) = (minute(at, now).map(|clock| lead.map_or(clock.clone(), |lead| format!("{lead} {clock}"))), crate::job_view::age(at, now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
         let Some(shown) = shown else { return gpui::Empty.into_any_element() };
+        let reading = shown.trim_start_matches(lead.unwrap_or_default()).trim_start().to_string();
+        let stamp = worded(div().id(SharedString::from(format!("stamp:{at}"))), look)
+            .flex_none()
+            .text_size(look.length(size))
+            .text_color(look.color(ink))
+            .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
+            .tooltip(tip(other.unwrap_or_default()))
+            .child(shown);
         labelled(
-            div()
-                .id(SharedString::from(format!("stamp:{}", at.as_str())))
-                .flex_none()
-                .text_size(look.length(token::TEXT_XS))
-                .text_color(look.color(token::FG_SUBTLE))
-                .cursor_pointer()
-                .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
-                .on_click(cx.listener(|this, _, _, cx| {
-                    cx.stop_propagation();
-                    this.flip_stamps(cx);
-                }))
-                .tooltip(tip(other.unwrap_or_default()))
-                .child(shown.clone()),
+            pressed(stamp, cx, |this, _, cx| {
+                cx.stop_propagation();
+                this.flip_stamps(cx);
+            }),
             Role::Button,
-            format!("Time {shown}"),
+            format!("Time {reading}"),
         )
         .into_any_element()
     }
 
     /// A link under a tile's rows: a tab stop Enter presses.
     fn link(&self, said: &'static str, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let keys = self.stops.get(said).cloned();
-        labelled(
-            div()
-                .id(SharedString::from(format!("link-{said}")))
-                .when_some(keys, |link, keys| link.track_focus(&keys))
-                .focusable()
-                .tab_stop(true)
-                // As wide as its words, so its ring sits on them and not across the tile.
-                .self_start()
-                .mt(look.length(token::SPACE_1))
-                .px(look.length(token::SPACE_1))
-                .ml(-look.length(token::SPACE_1))
-                .rounded(look.length(token::RADIUS_SM))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(gpui::transparent_black())
-                .focus_visible(move |style| style.border_color(ring))
-                .text_size(look.length(token::TEXT_XS))
-                .text_color(look.color(token::ACCENT))
-                .cursor_pointer()
-                .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
-                .on_click(cx.listener(move |this, _, window, cx| this.press_stop(said, window, cx)))
-                .child(said),
-            Role::Link,
-            said,
-        )
-        .into_any_element()
+        let link = worded(div().id(SharedString::from(format!("link-{said}"))).when_some(keys, |link, keys| link.track_focus(&keys)), look)
+            // As wide as its words, so its ring sits on them and not across the tile; its words line up with the rows'.
+            .self_start()
+            .ml(-look.length(token::SPACE_1))
+            .mt(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::ACCENT))
+            .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
+            .child(said);
+        labelled(pressed(link, cx, move |this, window, cx| this.press_stop(said, window, cx)), Role::Link, said).into_any_element()
     }
 
     fn tile(&self, name: &'static str, mark: &'static str, hue: Token, aside: Option<String>, rows: Vec<Row>, link: Option<&'static str>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let open = self.folded.get(name).copied().unwrap_or(opens_unpressed(name));
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let body = open.then(|| {
-            // The first few, one line each: the rest are a press away, or in the Log.
-            let more = rows.len() > FEW && link.is_none();
+            // The first few, one line each: the rest are a press away. Learned's are all on Every rule.
+            let more = rows.len() > FEW && link != Some("Every rule");
             let whole = self.whole.contains(name);
-            let shown = if whole || !(more || link.is_some()) { rows.len() } else { FEW.min(rows.len()) };
+            let shown = if whole || !more { rows.len() } else { FEW };
             let rows = rows.into_iter().take(shown).enumerate().map(|(at, row)| {
                 let text = row.text;
                 let line = div()
@@ -677,30 +709,33 @@ impl OperatorPageView {
                     .child(match row.side {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
-                        Side::At(at) => self.stamp(&at, look, cx),
-                    })
-                    .when_some(row.opened, |line, opened| line.cursor_pointer().on_click(cx.listener(move |_, _, _, cx| cx.emit(opened.clone()))));
+                        Side::At(at) => self.stamp(at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE), look, cx),
+                    });
+                // A row that opens a Job is a tab stop, and Enter opens it as a press does.
+                let line = match row.opened {
+                    Some(opened) => pressed(worded(line, look).mx(-look.length(token::SPACE_1)), cx, move |_, _, cx| cx.emit(opened.clone())),
+                    None => line,
+                };
                 labelled(line, Role::ListItem, text).into_any_element()
             });
             let link = link.map(|said| self.link(said, look, cx));
             let toggle = more.then(|| {
                 let said = if whole { "Show fewer" } else { "Show all" };
+                let toggle = worded(div().id(SharedString::from(format!("{name}-whole"))), look)
+                    .self_start()
+                    .ml(-look.length(token::SPACE_1))
+                    .mt(look.length(token::SPACE_1))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::ACCENT))
+                    .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
+                    .child(said);
                 labelled(
-                    div()
-                        .id(SharedString::from(format!("{name}-whole")))
-                        .self_start()
-                        .mt(look.length(token::SPACE_1))
-                        .text_size(look.length(token::TEXT_XS))
-                        .text_color(look.color(token::ACCENT))
-                        .cursor_pointer()
-                        .hover(|style| style.text_color(cx.look().color(token::ACCENT_HOVER)))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            if !this.whole.remove(name) {
-                                this.whole.insert(name);
-                            }
-                            cx.notify();
-                        }))
-                        .child(said),
+                    pressed(toggle, cx, move |this, _, cx| {
+                        if !this.whole.remove(name) {
+                            this.whole.insert(name);
+                        }
+                        cx.notify();
+                    }),
                     Role::Button,
                     format!("{said} {name}"),
                 )
@@ -719,31 +754,27 @@ impl OperatorPageView {
         });
         let no_aside = aside.is_none();
         let keys = self.stops.get(name).cloned();
-        let head = labelled(
-            div()
-                .id(SharedString::from(format!("tile-{name}")))
-                .when_some(keys, |head, keys| head.track_focus(&keys))
-                .focusable()
-                .tab_stop(true)
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .px(look.length(token::SPACE_3))
-                .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
-                .rounded(look.length(token::RADIUS_LG) * 1.25)
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(gpui::transparent_black())
-                .focus_visible(move |style| style.border_color(ring))
-                .cursor_pointer()
-                .on_click(cx.listener(move |this, _, window, cx| this.press_stop(name, window, cx)))
-                .child(glyph(mark, look.length(token::SPACE_4), look.color(hue)))
-                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_size(look.length(token::TEXT_SM)).child(name))
-                .children(aside.map(|aside| div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(aside)))
-                .when(no_aside, |head| head.child(div().flex_1()))
-                .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(token::FG_SUBTLE))),
-            Role::Button,
-            name,
-        );
+        let head = div()
+            .id(SharedString::from(format!("tile-{name}")))
+            .when_some(keys, |head, keys| head.track_focus(&keys))
+            .focusable()
+            .tab_stop(true)
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_LG) * 1.25)
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(gpui::transparent_black())
+            .focus_visible(move |style| style.border_color(ring))
+            .cursor_pointer()
+            .child(glyph(mark, look.length(token::SPACE_4), look.color(hue)))
+            .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_size(look.length(token::TEXT_SM)).child(name))
+            .children(aside.map(|aside| div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(aside)))
+            .when(no_aside, |head| head.child(div().flex_1()))
+            .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(token::FG_SUBTLE)));
+        let head = labelled(pressed(head, cx, move |this, window, cx| this.press_stop(name, window, cx)), Role::Button, name);
         div()
             .flex_none()
             .rounded(look.length(token::RADIUS_LG) * 1.25)
@@ -788,14 +819,21 @@ impl OperatorPageView {
             let rows = digest.learned.iter().map(|rule| Row { text: rule_said(rule), side: Side::At(rule.at.clone()), opened: None }).collect();
             tiles.push(self.tile("Learned", "scroll-text", token::OPERATOR, Some(places.join(", ")), rows, Some("Every rule"), look, cx));
         }
-        let since = page.looked_at.as_ref().map_or("Since you last looked".to_string(), |at| format!("Since you last looked, at {}", face::clock(at)));
+        let since = div()
+            .flex()
+            .items_center()
+            .text_size(look.length(token::TEXT_2XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(if page.looked_at.is_some() { "Since you last looked," } else { "Since you last looked" })
+            .children(page.looked_at.as_ref().map(|at| self.stamp(at.as_str(), Some("at"), (token::TEXT_2XS, token::FG_SUBTLE), look, cx)));
         labelled(
             div()
                 .id("digest")
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
-                .child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child(since))
+                .child(since)
                 .children(tiles),
             Role::Region,
             "Since you last looked",
@@ -984,8 +1022,13 @@ impl Render for OperatorPageView {
             .key_context("call")
             .track_focus(&self.focus)
             .on_action(cx.listener(Self::on_act))
-            .on_key_down(cx.listener(|_, event: &gpui::KeyDownEvent, window, cx| {
-                if crate::keymap::traverse(event, window, cx) {
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                // From the page itself, Tab starts at its first pill, not wherever the window's order wraps to.
+                let key = &event.keystroke;
+                if key.key == "tab" && !key.modifiers.modified() && this.focus.is_focused(window) {
+                    window.focus(&this.first_stop, cx);
+                    cx.stop_propagation();
+                } else if crate::keymap::traverse(event, window, cx) {
                     cx.stop_propagation();
                 }
             }))
@@ -1022,6 +1065,8 @@ impl Render for OperatorPageView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
+                    // As wide as the sketch's column at most, so a wide window does not stretch a card's lines.
+                    .max_w(look.length(token::SPACE_12) * 16.)
                     .child(self.turn_head(look))
                     .children(self.on_it(page, look, cx))
                     .children(off)
@@ -1055,9 +1100,11 @@ impl OperatorPageView {
                 .into_any_element()
         } else {
             labelled(
-                press("operator-switch", "Switch on".into(), Some("power"), None, Weight::Pick, look)
-                    .tooltip(tip("The Operator reads what comes in and queues what needs you here"))
-                    .on_click(cx.listener(|this, _, _, cx| this.switch_on(cx))),
+                // The press goes as the page reads on: the keys go to the page, where Tab starts at the pills.
+                pressed(press("operator-switch", "Switch on".into(), Some("power"), None, Weight::Pick, look).tooltip(tip("Queue what needs you here")), cx, |this, window, cx| {
+                    this.switch_on(cx);
+                    window.focus(&this.focus, cx);
+                }),
                 Role::Button,
                 "Switch the Operator on",
             )
@@ -1092,7 +1139,7 @@ impl OperatorPageView {
                                 .flex_1()
                                 .min_w_0()
                                 .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("The Operator is off"))
-                                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Everything comes to you as it did, and nothing is queued here.")),
+                                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Every Job asks you directly.")),
                         )
                         .child(switch),
                 )
@@ -1150,7 +1197,7 @@ impl OperatorPageView {
                             cx.notify();
                         }))
                         .child(div().flex_1().min_w_0().truncate().child(rule.said.clone()))
-                        .child(self.stamp(&rule.at, look, cx)),
+                        .child(self.stamp(rule.at.as_str(), None, (token::TEXT_XS, token::FG_SUBTLE), look, cx)),
                     Role::ListItem,
                     rule.said.clone(),
                 )
@@ -1158,7 +1205,7 @@ impl OperatorPageView {
             );
         }
         let close = labelled(
-            press("rules-close", "Close".into(), None, Some("Esc".into()), Weight::Bare, look).on_click(cx.listener(|this, _, window, cx| this.close_rules(window, cx))),
+            pressed(press("rules-close", "Close".into(), None, Some("Esc".into()), Weight::Bare, look), cx, |this, window, cx| this.close_rules(window, cx)),
             Role::Button,
             "Close",
         );
@@ -1191,7 +1238,7 @@ impl OperatorPageView {
                     ))
                     .child(close),
             )
-            .child(div().id("rules-list").flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2)).children(body));
+            .child(div().id("rules-list").track_scroll(&self.rules_scroll).flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2)).children(body));
         labelled(
             div()
                 .id("rules-sheet")

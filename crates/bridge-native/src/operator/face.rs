@@ -76,14 +76,14 @@ pub fn card_title(turn: &OperatorTurnItem) -> SharedString {
     if turn.job.is_none() && files(turn) { "File your note as an issue".into() } else { title_of(turn) }
 }
 
-/// What the card says it asks, under the title: the item's words where the title is the Job's, and
-/// his note with when he left it on a go-ahead to file.
+/// What the card says it asks, under the title, where the title is the Job's: the item's words.
 pub fn asks_of(turn: &OperatorTurnItem) -> Option<SharedString> {
-    match &turn.job {
-        Some(_) => Some(turn.item.text.clone().into()),
-        None if files(turn) => Some(format!("Your note from {}: \"{}\"", clock(&turn.item.since), turn.item.text).into()),
-        None => None,
-    }
+    turn.job.as_ref().map(|_| turn.item.text.clone().into())
+}
+
+/// His note, on a go-ahead to file, which the card writes after when he left it: `Your note from 11:52:`.
+pub fn note_of(turn: &OperatorTurnItem) -> Option<(&Instant, String)> {
+    (turn.job.is_none() && files(turn)).then(|| (&turn.item.since, format!("\"{}\"", turn.item.text)))
 }
 
 /// The Operator's pick, where it read one: an empty `pick` is none.
@@ -132,15 +132,6 @@ pub fn then_said(then: OperatorThen, hand_to: Option<&str>) -> (SharedString, &'
         OperatorThen::FileAndStart => ("File and start a Job".into(), "play"),
         OperatorThen::FileAndHand => (format!("File and hand to {}", hand_to.unwrap_or("the Job on these files")).into(), "git-branch"),
     }
-}
-
-fn local(at: &Instant) -> Option<DateTime<Local>> {
-    DateTime::parse_from_rfc3339(at.as_str()).ok().map(|at| at.with_timezone(&Local))
-}
-
-/// `13:05`, in this Mac's time.
-pub fn clock(at: &Instant) -> SharedString {
-    local(at).map(|at| at.format("%H:%M").to_string()).unwrap_or_default().into()
 }
 
 /// `Wednesday 11 November`.

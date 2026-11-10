@@ -54,9 +54,9 @@ pub struct OperatorPageView {
     /// Fleet's page, with this sitting's presses already on it. `None` until it is read: a skeleton.
     pub(super) page: Option<OperatorPage>,
     pub(super) standing: Standing,
-    /// The date, and when he came back.
+    /// The date, and when he came back, as RFC 3339 so it flips with the page's other times.
     pub(super) day: Option<SharedString>,
-    pub(super) back_at: Option<SharedString>,
+    pub(super) back_at: Option<String>,
     /// The item open, by id: one at a time.
     pub(super) open: Option<String>,
     pub(super) done: Vec<Done>,
@@ -86,7 +86,12 @@ pub struct OperatorPageView {
     /// Every rule, on a sheet over the page, with the row the arrows are on. `None` while it is shut.
     pub(super) rules: Option<usize>,
     pub(super) rules_focus: FocusHandle,
+    pub(super) rules_scroll: ScrollHandle,
     pub(super) main_scroll: ScrollHandle,
+    /// The page's first tab stop, its first pill: where Tab goes from the page itself.
+    pub(super) first_stop: FocusHandle,
+    /// The open card's Later, so a test can put the keys on a press.
+    pub(super) later_focus: FocusHandle,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
     seen: Option<BTreeSet<String>>,
     read_at: u64,
@@ -129,7 +134,10 @@ impl OperatorPageView {
             whole: BTreeSet::new(),
             rules: None,
             rules_focus: cx.focus_handle(),
+            rules_scroll: ScrollHandle::new(),
             main_scroll: ScrollHandle::new(),
+            first_stop: cx.focus_handle(),
+            later_focus: cx.focus_handle(),
             seen: None,
             read_at: 0,
             reading: false,
@@ -160,9 +168,8 @@ impl OperatorPageView {
     pub fn mock(pane: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut this = Self::new(Wire::Mock(Box::new(MockFleet::new())), pane, window, cx);
         this.standing = scenes::standing();
-        let (day, back) = scenes::when();
-        this.day = Some(day);
-        this.back_at = Some(back);
+        this.day = Some(scenes::day());
+        this.back_at = Some(scenes::now().to_rfc3339());
         this.clock_now = Some(scenes::now());
         this.read(cx);
         this
@@ -244,6 +251,7 @@ impl OperatorPageView {
         if self.rules.is_some() {
             match act.id {
                 "call_move_focus" => self.step_rule(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
+                "call_send" => cx.propagate(),
                 id if id.starts_with("call_") => {}
                 _ => cx.propagate(),
             }
@@ -271,13 +279,13 @@ impl OperatorPageView {
         self.chat.as_ref().is_some_and(|chat| chat.read(cx).focus_handle(cx).contains_focused(window, cx))
     }
 
-    /// Enter: the tile or link Tab reached, where one has the keys; Yes where the page has them.
+    /// Enter where the page itself has the keys: Yes. A press with the keys, such as Later, a tile or a
+    /// time, takes Enter itself and does what a click does: gpui runs the binding first, so it is handed on.
     fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(name) = self.stops.iter().find(|(_, keys)| keys.is_focused(window)).map(|(name, _)| *name) {
-            return self.press_stop(name, window, cx);
-        }
         if self.focus.is_focused(window) {
             self.answer(OperatorAnswer::Yes, window, cx);
+        } else {
+            cx.propagate();
         }
     }
 
@@ -370,11 +378,14 @@ impl OperatorPageView {
     }
 
     fn step_rule(&mut self, by: isize, cx: &mut Context<Self>) {
-        let count = self.rules_in_order().len();
-        if let Some(at) = self.rules.as_mut() {
-            *at = (*at as isize + by).clamp(0, count.saturating_sub(1) as isize) as usize;
-            cx.notify();
-        }
+        let rules = self.rules_in_order();
+        let Some(at) = self.rules else { return };
+        let at = (at as isize + by).clamp(0, rules.len().saturating_sub(1) as isize) as usize;
+        // The sheet's list holds a heading before each place's first rule: the row's place counts them.
+        let heads = rules.iter().take(at + 1).enumerate().filter(|(n, rule)| *n == 0 || rules[n - 1].repository != rule.repository).count();
+        self.rules_scroll.scroll_to_item(at + heads);
+        self.rules = Some(at);
+        cx.notify();
     }
 
     /// Open the next or the previous item.
@@ -585,6 +596,8 @@ impl OperatorPageView {
         }
         self.chat = None;
         window.focus(&self.focus, cx);
+        // The keys are back on the open item: the page shows it.
+        self.main_scroll.set_offset(gpui::Point::default());
         cx.notify();
     }
 
@@ -609,7 +622,7 @@ impl OperatorPageView {
                 Ok(front) if live && (front.rewriting || this.back_at.is_none()) => {
                     let now = chrono::Local::now();
                     this.day = Some(face::day(&now));
-                    this.back_at = Some(now.format("%H:%M").to_string().into());
+                    this.back_at = Some(now.to_rfc3339());
                     cx.notify();
                 }
                 Ok(_) => {}
@@ -621,9 +634,24 @@ impl OperatorPageView {
 
     // -- the walk's scenes -------------------------------------------------------------------------
 
-    /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), or a new item joins
-    /// the queue (`arrives`).
+    /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), a new item joins
+    /// the queue (`arrives`), or it is switched off (`off`). Two scenes only scroll the page, where a
+    /// step looks at what a short window holds below the open card: `rest` to the rows under it, `top`
+    /// back to the card.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
+        match name {
+            "rest" => {
+                self.main_scroll.scroll_to_bottom();
+                cx.notify();
+                return Ok(());
+            }
+            "top" => {
+                self.main_scroll.set_offset(gpui::Point::default());
+                cx.notify();
+                return Ok(());
+            }
+            _ => {}
+        }
         let mock = self.mock_fleet().ok_or("the page is on a live Fleet")?;
         match name {
             "said" => {
@@ -906,6 +934,26 @@ mod tests {
         assert!(page.read_with(cx, |page, _| page.aged));
         page.update(cx, |page, cx| page.flip_stamps(cx));
         assert!(!page.read_with(cx, |page, _| page.aged));
+    }
+
+    #[gpui::test]
+    fn enter_and_space_press_the_button_with_the_keys_and_say_no_yes(cx: &mut TestAppContext) {
+        for key in ["enter", "space"] {
+            let (page, cx) = open(cx);
+            let later = page.read_with(cx, |page, _| page.later_focus.clone());
+            cx.update(|window, cx| window.focus(&later, cx));
+            cx.simulate_keystrokes(key);
+            assert!(pressed(&page, cx).is_empty(), "{key} on Later is not Yes");
+            assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:1"], "{key} on Later puts the item last");
+        }
+    }
+
+    #[gpui::test]
+    fn tab_from_the_page_starts_at_its_first_pill(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        cx.simulate_keystrokes("tab");
+        let first = page.read_with(cx, |page, _| page.first_stop.clone());
+        cx.update(|window, _| assert!(first.is_focused(window)));
     }
 
     #[gpui::test]

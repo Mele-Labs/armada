@@ -41,9 +41,9 @@ pub fn now() -> chrono::DateTime<chrono::Local> {
     chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").map(|at| at.with_timezone(&chrono::Local)).unwrap_or_else(|_| chrono::Local::now())
 }
 
-/// The date and the time he came back, as the sketch has them.
-pub fn when() -> (SharedString, SharedString) {
-    ("Wednesday 11 November".into(), "13:05".into())
+/// The date he came back, as the sketch has it; he came back at [`now`].
+pub fn day() -> SharedString {
+    "Wednesday 11 November".into()
 }
 
 impl MockFleet {
