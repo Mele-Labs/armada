@@ -1,0 +1,32 @@
+{
+ "manifest_id": "armada",
+ "fetched_at": "2026-11-09T09:00:00Z",
+ "issues": [
+  {
+   "reference": "#3290",
+   "title": "Merge line freshness chip stays green when stale",
+   "url": "https://forge.example/3290",
+   "labels": [],
+   "assignees": [],
+   "updated_at": "2026-11-08T09:00:00Z",
+   "excerpt": "",
+   "linked_pull_request": false,
+   "state": "open",
+   "fields": [],
+   "holders": []
+  },
+  {
+   "reference": "#3356",
+   "title": "Bridge redraw volume",
+   "url": "https://forge.example/3356",
+   "labels": [],
+   "assignees": [],
+   "updated_at": "2026-11-08T09:00:00Z",
+   "excerpt": "",
+   "linked_pull_request": false,
+   "state": "open",
+   "fields": [],
+   "holders": []
+  }
+ ]
+}

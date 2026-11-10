@@ -557,6 +557,11 @@ impl JobsList {
         self.jobs.iter().find(|job| job.id.as_str() == id)
     }
 
+    /// Every Job the list holds, for the message box's `@` to name.
+    pub fn records(&self) -> &[SessionRecord] {
+        &self.jobs
+    }
+
     pub fn fleet(&self) -> Option<Entity<FleetConnection>> {
         self.fleet.clone()
     }

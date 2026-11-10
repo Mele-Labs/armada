@@ -1,0 +1,10 @@
+{
+ "paths": [
+  "crates/bridge-native/src/job_view/mod.rs",
+  "crates/bridge-native/src/job_view/head.rs",
+  "crates/bridge-native/src/job_view/composer.rs",
+  "crates/bridge-native/src/jobs.rs",
+  "docs/spikes/native-jobs-inventory/job-view.md",
+  "packages/tokens/tokens.css"
+ ]
+}

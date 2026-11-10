@@ -11,29 +11,27 @@
 //! again. A page is made on the first visit.
 
 mod calls;
+mod composer;
+mod head;
 mod lines;
+mod offer;
+mod quick;
 mod records;
 mod rows;
 mod runs;
+mod tune;
+mod wire;
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
-use std::time::Duration;
 
 use gpui::{
-    actions, canvas, div, list, prelude::*, svg, Animation, AnimationExt, AnyElement, App, Context, Entity,
-    FocusHandle, Focusable, FollowMode, FontWeight, KeyBinding, ListAlignment, ListOffset, ListState, Role, SharedString,
-    Subscription, Task, Window,
+    actions, canvas, div, list, prelude::*, Animation, AnimationExt, AnyElement, App, Context, Entity, FocusHandle, FollowMode,
+    KeyBinding, ListAlignment, ListOffset, ListState, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, Textarea, TextareaState};
-use ipc::{
-    JobState, PlanCardState, SendSessionMessage, SendSessionMessageBody, SessionId, SessionRecord, SessionRow, SessionState,
-    SessionVoice, ThreadHead, ThreadItem, ViewSession,
-};
+use ipc::{JobState, PlanCardState, SessionId, SessionRecord, SessionRow, SessionState, SessionVoice, ThreadHead, ThreadItem, ViewSession};
 
-use crate::assets::icon_path;
 use crate::fleet::{FleetConnection, HeldThread};
-use crate::jobs::{glyph_of, hue_of, JobsList};
+use crate::jobs::JobsList;
 use crate::labels::labelled;
 use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
@@ -49,6 +47,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("home", ToStart, Some("thread")),
         KeyBinding::new("end", ToEnd, Some("thread")),
     ]);
+    head::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -140,51 +139,6 @@ fn tell_fleet(port: Option<u16>, job: &str, on: bool, cx: &mut App) {
     crate::jobs::send(port, "/sessions/view", body, cx);
 }
 
-/// The drafts the person left in Jobs' message boxes, by Job id. Kept between runs as Electron keeps
-/// each box under `keep` key `session:<id>` (`keep.ts`), except on mock data.
-struct Drafts {
-    by_job: HashMap<String, String>,
-    remember: bool,
-}
-
-fn drafts_file() -> Option<PathBuf> {
-    crate::jobs::deck_file().map(|deck| deck.with_file_name("native-drafts"))
-}
-
-impl Drafts {
-    fn read(remember: bool) -> Self {
-        let by_job = remember
-            .then(|| drafts_file().and_then(|path| std::fs::read(path).ok()))
-            .flatten()
-            .and_then(|bytes| ipc::decode::<HashMap<String, String>>("drafts", &bytes).ok())
-            .unwrap_or_default();
-        Drafts { by_job, remember }
-    }
-
-    fn set(&mut self, job: &str, text: &str) -> bool {
-        if text.is_empty() {
-            self.by_job.remove(job).is_some()
-        } else if self.by_job.get(job).map(String::as_str) != Some(text) {
-            self.by_job.insert(job.to_string(), text.to_string());
-            true
-        } else {
-            false
-        }
-    }
-
-    fn get(&self, job: &str) -> &str {
-        self.by_job.get(job).map_or("", String::as_str)
-    }
-
-    /// The file's whole text, for a write off the main thread.
-    fn encoded(&self) -> Option<(PathBuf, String)> {
-        if !self.remember {
-            return None;
-        }
-        Some((drafts_file()?, ipc::encode(&self.by_job).ok()?))
-    }
-}
-
 pub struct JobView {
     list: Entity<JobsList>,
     fleet: Option<Entity<FleetConnection>>,
@@ -193,14 +147,10 @@ pub struct JobView {
     /// The Job on screen.
     shown: Option<SharedString>,
     pages: HashMap<SharedString, Page>,
-    composer: Entity<TextareaState>,
-    drafts: Drafts,
-    /// The box is being set to a draft, which is not the person typing.
-    setting: bool,
-    keeping: Option<Task<()>>,
+    head: head::Head,
+    composer: composer::Composer,
     /// Every stamp in the thread reads as an age, not a clock (a press flips them all).
     aged: bool,
-    next_key: u64,
     /// The Job fleet was last told is on screen.
     visiting: Option<SharedString>,
     switched: Option<std::time::Instant>,
@@ -217,13 +167,14 @@ impl JobView {
     ) -> Self {
         let fleet = list.read(cx).fleet();
         let remember = list.read(cx).remembers();
-        let composer = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true));
-        let mut subscriptions = Vec::new();
-        subscriptions.push(cx.subscribe_in(&composer, window, |this, _, event: &InputEvent, window, cx| match event {
-            InputEvent::Change => this.typed(cx),
-            InputEvent::PressEnter { .. } => this.send(window, cx),
-            _ => {}
-        }));
+        let (mut composer, mut subscriptions) = composer::build(remember, window, cx);
+        if let Some(catalogue) = crate::mock::catalogue() {
+            composer.catalog.models = Some(catalogue.models);
+            composer.catalog.models_asked = true;
+            composer.catalog.mock_files = catalogue.files;
+            composer.catalog.issues.insert(catalogue.issues.manifest_id.as_str().to_string(), catalogue.issues.issues);
+            composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);
+        }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
         if let Some(fleet) = &fleet {
             subscriptions.push(cx.observe(fleet, |this, _, cx| this.synced(cx)));
@@ -249,12 +200,9 @@ impl JobView {
             mock,
             shown: None,
             pages: HashMap::new(),
+            head: head::Head::new(cx),
             composer,
-            drafts: Drafts::read(remember),
-            setting: false,
-            keeping: None,
             aged: false,
-            next_key: 0,
             visiting: None,
             switched: None,
             focus: cx.focus_handle(),
@@ -276,7 +224,8 @@ impl JobView {
 
     /// Whether the agent's turn is running, as the record says (`session.turn.state`).
     fn working(&self, id: &str, cx: &App) -> bool {
-        self.record(id, cx).is_some_and(|job| match &job.hosted {
+        !self.head.stopped(id)
+            && self.record(id, cx).is_some_and(|job| match &job.hosted {
             Some(hosted) => matches!(hosted.turn, ipc::SessionTurn::Working { .. }),
             None => job.mark.is_some_and(|mark| mark.state == JobState::Working),
         })
@@ -284,16 +233,10 @@ impl JobView {
 
     /// The Job's message box is not drawn once it has ended or gone quiet (`session.dead`).
     fn closed(&self, id: &str, cx: &App) -> bool {
-        self.record(id, cx).is_none_or(|job| {
+        self.head.ended(id)
+            || self.record(id, cx).is_none_or(|job| {
             job.state == SessionState::Ended || job.mark.is_some_and(|mark| matches!(mark.state, JobState::Ended | JobState::Quiet))
         })
-    }
-
-    /// ⌥M: the caret goes in the box, from anywhere in the Job's view (`message_job`).
-    pub fn to_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.shown.as_ref().is_some_and(|id| !self.closed(id, cx)) {
-            self.composer.update(cx, |composer, cx| composer.focus(window, cx));
-        }
     }
 
     /// The list opened another Job, or the same Job's record moved.
@@ -310,67 +253,21 @@ impl JobView {
     /// words, tells Fleet who is looking, and reads the thread if it is not held.
     fn switch(&mut self, to: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let started = std::time::Instant::now();
-        self.leave_box(cx);
+        self.composer_leave(cx);
         self.shown = to.clone();
         self.switched = Some(started);
         if let Some(id) = &to {
             self.pages.entry(id.clone()).or_insert_with(Page::new);
-            let text = self.drafts.get(id).to_string();
-            self.setting = true;
-            self.composer.update(cx, |composer, cx| composer.set_value(text, window, cx));
-            self.setting = false;
             if let Some(fleet) = self.fleet.clone() {
                 let id = id.clone();
                 fleet.update(cx, |fleet, cx| fleet.read_thread(&id, true, cx));
             }
             self.sync(id, cx);
-        } else {
-            self.setting = true;
-            self.composer.update(cx, |composer, cx| composer.set_value("", window, cx));
-            self.setting = false;
         }
+        self.composer_enter(to.as_ref(), window, cx);
         let on = window.is_window_active().then(|| to.clone()).flatten();
         self.visit(on, cx);
         cx.notify();
-    }
-
-    /// The words in the box are the shown Job's draft; they are written down after a pause, not on every key.
-    fn typed(&mut self, cx: &mut Context<Self>) {
-        if self.setting {
-            return;
-        }
-        let Some(id) = self.shown.clone() else { return };
-        let text = self.composer.read(cx).value().to_string();
-        if self.drafts.set(&id, &text) {
-            self.keep_soon(cx);
-        }
-        cx.notify();
-    }
-
-    /// Fold what is in the box into the shown Job's draft before it leaves the screen.
-    fn leave_box(&mut self, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
-        let text = self.composer.read(cx).value().to_string();
-        if self.drafts.set(&id, &text) {
-            self.keep_soon(cx);
-        }
-    }
-
-    /// Write the drafts 400 ms after the last change, off the main thread (Electron saves a look
-    /// that long after a change; `keep.ts` writes at once).
-    fn keep_soon(&mut self, cx: &mut Context<Self>) {
-        let Some((path, text)) = self.drafts.encoded() else { return };
-        self.keeping = Some(cx.spawn(async move |_, cx| {
-            cx.background_executor().timer(Duration::from_millis(400)).await;
-            cx.background_executor()
-                .spawn(async move {
-                    let kept = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&path, text));
-                    if let Err(why) = kept {
-                        Note::warn("the drafts were not kept").field("why", why.to_string()).emit();
-                    }
-                })
-                .await;
-        }));
     }
 
     /// Tell Fleet which Job is on screen: off the one it was told of, on the one now (`view_session`,
@@ -394,6 +291,7 @@ impl JobView {
         for id in ids {
             self.sync(&id, cx);
         }
+        self.quick_follow(cx);
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {
@@ -434,127 +332,10 @@ impl JobView {
         page.version = Some(version);
     }
 
-    /// Send what is in the box. The words are in the thread this frame; Fleet's row replaces them
-    /// when it arrives, and a refusal puts them back with Fleet's reason.
-    fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
-        if self.closed(&id, cx) {
-            return;
-        }
-        let text = self.composer.read(cx).value().trim().to_string();
-        if text.is_empty() {
-            return;
-        }
-        self.next_key += 1;
-        let key = self.next_key;
-        let seen = self.thread(&id, cx).map_or(0, |held| echoed(&held.items, &text));
-        self.setting = true;
-        self.composer.update(cx, |composer, cx| composer.set_value("", window, cx));
-        self.setting = false;
-        if self.drafts.set(&id, "") {
-            self.keep_soon(cx);
-        }
-        let page = self.pages.entry(id.clone()).or_insert_with(Page::new);
-        page.refused = None;
-        match self.fleet.clone() {
-            Some(fleet) => {
-                page.pending.push(Pending { key, text: text.clone(), seen });
-                let Some(port) = fleet.read(cx).held().port() else {
-                    self.refused(&id, key, text, "Fleet is not connected".into(), window, cx);
-                    return;
-                };
-                let body = SendSessionMessageBody {
-                    message: SendSessionMessage { session_id: SessionId::carried(id.to_string()), text: text.clone(), attachments: Vec::new(), mentions: Vec::new() },
-                    aim: None,
-                };
-                let sent = ipc::encode(&body).map_err(|why| format!("{why:?}"));
-                let job = id.clone();
-                cx.spawn_in(window, async move |this, cx| {
-                    let answer = cx
-                        .background_executor()
-                        .spawn(async move {
-                            let body = sent?;
-                            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                            let (status, bytes) = runtime.block_on(crate::transport::post(port, "/sessions/message", body))?;
-                            if (200..300).contains(&status) {
-                                return Ok(());
-                            }
-                            Err(ipc::decode::<ipc::WireError>("WireError", &bytes)
-                                .map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
-                        })
-                        .await;
-                    if let Err(why) = answer {
-                        let _ = this.update_in(cx, |this, window, cx| this.refused(&job, key, text, why.into(), window, cx));
-                    }
-                })
-                .detach();
-            }
-            None => {
-                // Mock data: Fleet's row for these words arrives at once.
-                let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
-                if let Some(held) = self.mock.get_mut(id.as_str()) {
-                    held.items.push(ThreadItem::Row {
-                        row: SessionRow::Message {
-                            id: format!("sent-{key}"),
-                            at,
-                            from: SessionVoice::You,
-                            text,
-                            files: Vec::new(),
-                            tags: Vec::new(),
-                            notice: None,
-                            queued: false,
-                        },
-                    });
-                    held.version += 1;
-                    let at = held.items.len() - 1;
-                    held.mark_dirty(at);
-                }
-                self.sync_mock(&id);
-            }
-        }
-        self.pin(&id);
-        self.sync(&id, cx);
-        cx.notify();
-    }
-
-    fn sync_mock(&mut self, _id: &SharedString) {}
-
     /// A message from the person puts the thread at its end again (A1.5).
-    fn pin(&mut self, id: &SharedString) {
+    pub(super) fn pin(&mut self, id: &SharedString) {
         if let Some(page) = self.pages.get(id) {
             page.list.set_follow_mode(FollowMode::Tail);
-        }
-    }
-
-    /// Fleet refused the words: they go back in the box unless something was typed since, and its
-    /// reason stands over the box.
-    fn refused(&mut self, id: &SharedString, key: u64, text: String, why: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(page) = self.pages.get_mut(id) {
-            page.pending.retain(|one| one.key != key);
-            page.refused = Some(why);
-        }
-        if self.shown.as_ref() == Some(id) {
-            if self.composer.read(cx).value().is_empty() {
-                self.setting = true;
-                self.composer.update(cx, |composer, cx| composer.set_value(text.clone(), window, cx));
-                self.setting = false;
-                self.drafts.set(id, &text);
-                self.keep_soon(cx);
-            }
-        } else if self.drafts.get(id).is_empty() {
-            self.drafts.set(id, &text);
-            self.keep_soon(cx);
-        }
-        self.sync(id, cx);
-        cx.notify();
-    }
-
-    fn on_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) {
-        // ⌘Enter sends from the box too (`send_message`).
-        if act.is("send_message") && self.composer.read(cx).focus_handle(cx).contains_focused(window, cx) {
-            self.send(window, cx);
-        } else {
-            cx.propagate();
         }
     }
 
@@ -605,134 +386,6 @@ impl JobView {
     /// Another Job from a row of this one: the list opens it.
     pub(crate) fn open_job(&mut self, id: String, cx: &mut Context<Self>) {
         self.list.update(cx, |list, cx| list.open(id.into(), cx));
-    }
-
-    /// Words go in the box as a quote, and the caret with them (Reply, `quoteIntoDraft`).
-    pub(crate) fn quote(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let quoted: String = text
-            .trim()
-            .lines()
-            .map(|line| if line.is_empty() { ">".to_string() } else { format!("> {line}") })
-            .collect::<Vec<_>>()
-            .join("\n");
-        let held = self.composer.read(cx).value().to_string();
-        let joined = if held.trim().is_empty() { format!("{quoted}\n\n") } else { format!("{held}\n\n{quoted}\n\n") };
-        self.composer.update(cx, |composer, cx| {
-            composer.set_value(joined.clone(), window, cx);
-            composer.focus(window, cx);
-        });
-        self.typed_now(cx);
-    }
-
-    fn typed_now(&mut self, cx: &mut Context<Self>) {
-        self.setting = false;
-        self.typed(cx);
-    }
-
-    /// The head: the Job's Thread tab, as the Job panes draw it (1.1). Its mark says the state, its
-    /// title is the tab's label, and More opens the Job's acts.
-    fn render_head(&self, id: &SharedString, cx: &mut Context<Self>) -> AnyElement {
-        let look = cx.look();
-        let job = self.record(id, cx);
-        let paused = job.is_some_and(|job| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some()));
-        let title: SharedString = job.and_then(|job| job.title.clone()).map_or_else(|| "Thread".into(), Into::into);
-        let name: SharedString = job.and_then(|job| job.title.as_ref()).map_or_else(|| "Thread".into(), |title| format!("Thread: {title}").into());
-        let mark = job.and_then(|job| job.mark).map(|mark| {
-            if paused {
-                (("circle-pause", SharedString::from("Paused")), token::FG_MUTED, false)
-            } else {
-                (glyph_of(mark.state, None), hue_of(mark.state), mark.state == JobState::Working)
-            }
-        });
-        let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
-        let glyph = look.length(token::SPACE_4);
-        let tip = |said: SharedString| move |window: &mut Window, cx: &mut App| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx);
-        let state = mark.map(|((icon, said), hue, working)| {
-            let said_in: SharedString = format!("{said} \u{b7} {id}").into();
-            let ink = look.color(hue);
-            let drawn = if working {
-                svg()
-                    .path(icon_path("loader-circle"))
-                    .size(glyph)
-                    .text_color(ink)
-                    .with_animation(
-                        "head-working",
-                        Animation::new(look.duration(token::DURATION_SPIN)).repeat(),
-                        |mark, delta| mark.with_transformation(gpui::Transformation::rotate(gpui::percentage(delta))),
-                    )
-                    .into_any_element()
-            } else {
-                svg().path(icon_path(icon)).size(glyph).text_color(ink).into_any_element()
-            };
-            labelled(div().id("head-state").flex_none().child(drawn).tooltip(tip(said_in)), Role::Image, said)
-        });
-        let more = labelled(
-            div()
-                .id("head-more")
-                .flex_none()
-                .flex()
-                .items_center()
-                .justify_center()
-                .size(look.length(token::H_CONTROL))
-                .rounded(look.length(token::RADIUS_LG))
-                .cursor_pointer()
-                .text_color(look.color(token::FG_MUTED))
-                .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-                .child(svg().path(icon_path("ellipsis")).size(glyph).text_color(look.color(token::FG_MUTED)))
-                .tooltip(tip("More".into()))
-                .on_click(cx.listener(|this, event: &gpui::ClickEvent, window, cx| {
-                    // The list's own menu for this Job, which gives the keys back to the list when it shuts.
-                    if let Some(id) = this.shown.clone() {
-                        let at = event.position();
-                        this.list.update(cx, |list, cx| list.open_menu(id, at, false, window, cx));
-                    }
-                })),
-            Role::Button,
-            "More",
-        );
-        let tab = labelled(
-            div()
-                .id("head-tab")
-                .flex_1()
-                .min_w_0()
-                .h_full()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .pl(look.length(token::SPACE_3))
-                .pr(look.length(token::SPACE_1))
-                .bg(look.color(token::BG_RAISED))
-                .border_r(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_GLASS))
-                .children(state)
-                .child(
-                    div()
-                        .id("head-title")
-                        .flex_1()
-                        .min_w_0()
-                        .truncate()
-                        .font_family(mono)
-                        .text_size(look.length(token::TEXT_XS))
-                        .line_height(look.length(token::LEADING_XS))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                        .text_color(look.color(token::FG_DEFAULT))
-                        .child(title.to_uppercase())
-                        .tooltip(tip(title.clone())),
-                )
-                .child(more),
-            Role::Row,
-            name,
-        );
-        div()
-            .flex_none()
-            .flex()
-            .items_stretch()
-            .h(look.length(token::H_CONTROL_LG))
-            .bg(look.color(token::BG_SUNKEN))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_GLASS))
-            .child(div().max_w(look.length(token::SPACE_12) * 8.).min_w_0().flex().h_full().child(tab))
-            .into_any_element()
     }
 
     /// The shapes a thread draws while Fleet has not answered (A1.7): the person's turn, then the agent's.
@@ -790,102 +443,6 @@ impl JobView {
         .into_any_element()
     }
 
-    fn render_dock(&self, id: &SharedString, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let look = cx.look();
-        let refused = self.pages.get(id).and_then(|page| page.refused.clone());
-        let empty = self.composer.read(cx).value().trim().is_empty();
-        let focused = self.composer.read(cx).focus_handle(cx).contains_focused(window, cx);
-        let send = labelled(
-            div()
-                .id("send")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL_LG))
-                .px(look.length(token::SPACE_4))
-                .rounded(look.length(token::RADIUS_LG))
-                .bg(look.color(token::ACCENT))
-                .text_color(look.color(token::TEXT_ON_ACCENT))
-                .text_size(look.length(token::TEXT_SM))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .when(empty, |button| button.opacity(0.4))
-                .when(!empty, |button| {
-                    button
-                        .cursor_pointer()
-                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
-                        .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
-                })
-                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(look.color(token::TEXT_ON_ACCENT)))
-                .child("Send"),
-            Role::Button,
-            "Send",
-        );
-        let column = look.length(token::SPACE_12) * 20. + look.length(token::SPACE_6) + look.length(token::SPACE_2) + look.length(token::SPACE_4);
-        div()
-            .flex_none()
-            .flex()
-            .justify_center()
-            .px(look.length(token::SPACE_4))
-            .pb(look.length(token::SPACE_4))
-            .child(
-                div()
-                    .w_full()
-                    .max_w(column)
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_2))
-                    .children(refused.map(|why| {
-                        labelled(
-                            div()
-                                .id("refused")
-                                .px(look.length(token::SPACE_3))
-                                .text_size(look.length(token::TEXT_XS))
-                                .line_height(look.length(token::LEADING_SM))
-                                .text_color(look.color(token::STATUS_COMPLETED_FAILED))
-                                .child(why),
-                            Role::Status,
-                            "Refused",
-                        )
-                    }))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .rounded(look.length(token::RADIUS_LG))
-                            .border(look.length(token::BORDER_WIDTH))
-                            .border_color(look.color(if focused { token::BORDER_DEFAULT } else { token::BORDER_SUBTLE }))
-                            .bg(look.color(token::BG_SUNKEN))
-                            .child(
-                                labelled(
-                                    div()
-                                        .id("message")
-                                        .key_context(crate::keymap::TEXT_BOX)
-                                        .px(look.length(token::SPACE_4))
-                                        .py(look.length(token::SPACE_3))
-                                        .text_size(look.length(token::TEXT_BASE))
-                                        .text_color(look.color(token::FG_DEFAULT))
-                                        .child(Textarea::new(&self.composer).appearance(false).aria_label("Message")),
-                                    Role::TextInput,
-                                    "Message",
-                                ),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .justify_end()
-                                    .gap(look.length(token::SPACE_2))
-                                    .px(look.length(token::SPACE_2))
-                                    .py(look.length(token::SPACE_2))
-                                    .border_t(look.length(token::BORDER_WIDTH))
-                                    .border_color(look.color(token::BORDER_SUBTLE))
-                                    .child(send),
-                            ),
-                    ),
-            )
-            .into_any_element()
-    }
 }
 
 impl Render for JobView {
@@ -918,6 +475,7 @@ impl Render for JobView {
             self.render_skeleton(look)
         };
         let head = self.render_head(&id, cx);
+        let origin = self.render_origin(&id, cx);
         let dock = (!self.closed(&id, cx)).then(|| self.render_dock(&id, window, cx));
         // The time from the press that opened the Job to this frame's paint, once per switch.
         let timing = self.switched.take();
@@ -927,6 +485,7 @@ impl Render for JobView {
             .flex_col()
             .on_action(cx.listener(Self::on_act))
             .child(head)
+            .children(origin)
             .child(div().relative().flex_1().min_h_0().child(body))
             .children(dock)
             .child(canvas(

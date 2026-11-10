@@ -20,6 +20,9 @@ pub enum Entry {
     Toggle { id: &'static str, label: SharedString, on: bool },
     /// One of several, ticked while chosen: picking it shuts the menu.
     Choice { id: &'static str, label: SharedString, on: bool },
+    /// An act that may show its key at the right edge, or be off with the reason it is, as
+    /// Electron's `DropdownMenu` items with a `shortcut` or a `hint` do.
+    Item { id: &'static str, label: SharedString, icon: Option<&'static str>, danger: bool, key: Option<SharedString>, off: Option<SharedString> },
     Rule,
     Label(&'static str),
 }
@@ -27,9 +30,14 @@ pub enum Entry {
 impl Entry {
     fn id(&self) -> Option<&'static str> {
         match self {
-            Entry::Act { id, .. } | Entry::Toggle { id, .. } | Entry::Choice { id, .. } => Some(id),
+            Entry::Act { id, .. } | Entry::Toggle { id, .. } | Entry::Choice { id, .. } | Entry::Item { id, .. } => Some(id),
             Entry::Rule | Entry::Label(_) => None,
         }
+    }
+
+    /// Whether the keys can rest on it: an item that is off is read, not chosen.
+    fn pickable(&self) -> bool {
+        !matches!(self, Entry::Rule | Entry::Label(_) | Entry::Item { off: Some(_), .. })
     }
 }
 
@@ -70,11 +78,11 @@ impl Dropdown {
     }
 
     fn first(&self) -> Option<usize> {
-        self.entries.iter().position(|entry| entry.id().is_some())
+        self.entries.iter().position(Entry::pickable)
     }
 
     fn step(&mut self, by: isize) {
-        let ids: Vec<usize> = (0..self.entries.len()).filter(|&at| self.entries[at].id().is_some()).collect();
+        let ids: Vec<usize> = (0..self.entries.len()).filter(|&at| self.entries[at].pickable()).collect();
         if ids.is_empty() {
             return;
         }
@@ -101,7 +109,12 @@ impl Dropdown {
                 cx.emit(Picked::Entry { id, keep: true });
                 cx.notify();
             }
-            Entry::Rule | Entry::Label(_) => {}
+            Entry::Item { id, off: None, .. } => {
+                let id = *id;
+                cx.emit(Picked::Entry { id, keep: false });
+                cx.emit(DismissEvent);
+            }
+            Entry::Item { off: Some(_), .. } | Entry::Rule | Entry::Label(_) => {}
         }
     }
 
@@ -125,7 +138,7 @@ impl Dropdown {
 
     fn render_entry(&self, at: usize, cx: &mut Context<Self>) -> gpui::AnyElement {
         let look = cx.look();
-        let has_icons = self.entries.iter().any(|entry| matches!(entry, Entry::Act { icon: Some(_), .. }));
+        let has_icons = self.entries.iter().any(|entry| matches!(entry, Entry::Act { icon: Some(_), .. } | Entry::Item { icon: Some(_), .. }));
         let has_checks = self.entries.iter().any(|entry| matches!(entry, Entry::Toggle { .. } | Entry::Choice { .. }));
         let glyph = look.length(token::SPACE_4);
         match &self.entries[at] {
@@ -146,12 +159,15 @@ impl Dropdown {
                 .child(*text)
                 .into_any_element(),
             entry => {
-                let (id, label, icon, danger, ticked) = match entry {
-                    Entry::Act { id, label, icon, danger } => (*id, label.clone(), *icon, *danger, None),
-                    Entry::Toggle { id, label, on } | Entry::Choice { id, label, on } => (*id, label.clone(), None, false, Some(*on)),
+                let (id, label, icon, danger, ticked, key, off) = match entry {
+                    Entry::Act { id, label, icon, danger } => (*id, label.clone(), *icon, *danger, None, None, None),
+                    Entry::Item { id, label, icon, danger, key, off } => (*id, label.clone(), *icon, *danger, None, key.clone(), off.clone()),
+                    Entry::Toggle { id, label, on } | Entry::Choice { id, label, on } => (*id, label.clone(), None, false, Some(*on), None, None),
                     Entry::Rule | Entry::Label(_) => unreachable!("matched above"),
                 };
-                let ink = if danger {
+                let ink = if off.is_some() {
+                    look.color(token::FG_SUBTLE)
+                } else if danger {
                     look.color(token::STATUS_COMPLETED_FAILED)
                 } else if ticked == Some(true) {
                     look.color(token::FG_DEFAULT)
@@ -178,10 +194,16 @@ impl Dropdown {
                             row.child(div().flex_none().size(glyph).children(icon.map(|icon| svg().path(icon_path(icon)).size(glyph).text_color(ink))))
                         })
                         .child(div().flex_1().min_w_0().truncate().child(label.clone()))
+                        .children(key.map(|key| {
+                            div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(key)
+                        }))
                         .when(has_checks, |row| {
                             row.child(div().flex_none().size(glyph).when(ticked == Some(true), |mark| {
                                 mark.child(svg().path(icon_path("check")).size(glyph).text_color(look.color(token::ACCENT)))
                             }))
+                        })
+                        .when_some(off, |row, why| {
+                            row.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx))
                         })
                         .on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx))),
                     role,
