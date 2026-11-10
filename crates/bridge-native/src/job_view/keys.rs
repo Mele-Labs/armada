@@ -211,7 +211,7 @@ impl Cards {
         self.cards.borrow().contains_key(key)
     }
 
-    fn get(&self, key: &str) -> Option<Card> {
+    pub fn get(&self, key: &str) -> Option<Card> {
         self.cards.borrow().get(key).cloned()
     }
 }

@@ -31,6 +31,17 @@ pub(super) struct Fork {
     shown: Option<Picked>,
 }
 
+/// A draft's block id is its card key, which starts `draft:`.
+fn draft_row(row: &str) -> Option<&str> {
+    row.starts_with("draft:").then_some(row)
+}
+
+/// Words quoted for a note: each line after `>`, then a blank line.
+fn quoted(words: &str) -> String {
+    let lines: Vec<String> = words.replace('\r', "").trim().lines().map(|line| if line.trim().is_empty() { ">".to_string() } else { format!("> {}", line.trim()) }).collect();
+    format!("{}\n\n", lines.join("\n"))
+}
+
 fn spanning(a: Point<Pixels>, b: Point<Pixels>) -> Bounds<Pixels> {
     let origin = gpui::point(a.x.min(b.x), a.y.min(b.y));
     Bounds { origin, size: gpui::size((a.x - b.x).abs().max(gpui::px(1.)), (a.y - b.y).abs().max(gpui::px(1.))) }
@@ -74,7 +85,17 @@ impl JobView {
                 let Some(picked) = this.fork.shown.as_ref() else { return };
                 if picked.span.contains(&event.position) {
                     cx.stop_propagation();
-                    this.fork_menu(event.position, false, window, cx);
+                    this.selection_menu(event.position, false, window, cx);
+                }
+            }))
+            // A draft card has a menu key of its own; words picked in it take it first.
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                let key = event.keystroke.key.as_str();
+                let picked_in_draft = this.fork.shown.as_ref().is_some_and(|picked| draft_row(&picked.row).is_some());
+                if this.pop.is_none() && picked_in_draft && (key == "menu" || (key == "f10" && event.keystroke.modifiers.shift)) {
+                    cx.stop_propagation();
+                    let at = this.fork.shown.as_ref().map(|picked| picked.at).unwrap_or_default();
+                    this.selection_menu(at, true, window, cx);
                 }
             }))
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
@@ -90,7 +111,7 @@ impl JobView {
                     "f10" if event.keystroke.modifiers.shift => {
                         cx.stop_propagation();
                         let at = this.fork.shown.as_ref().map(|picked| picked.at).unwrap_or_default();
-                        this.fork_menu(at, true, window, cx);
+                        this.selection_menu(at, true, window, cx);
                     }
                     _ => {}
                 }
@@ -118,6 +139,52 @@ impl JobView {
     fn fork_done(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.fork.shown = None;
         TextSelection::clear(window, cx);
+        cx.notify();
+    }
+
+    /// The menu of the selected words: a draft's own, or the thread's Teach, Reply and Fork.
+    fn selection_menu(&mut self, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        match self.fork.shown.as_ref().filter(|picked| picked.row.starts_with("draft:")).map(|picked| (picked.row.clone(), picked.words.clone())) {
+            Some((row, words)) => self.draft_menu(at, from_keys, row, words, window, cx),
+            None => self.fork_menu(at, from_keys, window, cx),
+        }
+    }
+
+    /// Edit and Add note on words selected in an open draft: each offered where the draft has it.
+    fn draft_menu(&mut self, at: Point<Pixels>, from_keys: bool, row: String, words: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(key) = draft_row(&row) else { return };
+        let Some(card) = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.get(key)) else { return };
+        let mut entries = Vec::new();
+        if card.change.is_some() {
+            entries.push(Entry::Act { id: "edit", label: "Edit".into(), icon: Some("pencil"), danger: false });
+        }
+        if card.send_back.is_some() {
+            entries.push(Entry::Act { id: "note", label: "Add note".into(), icon: Some("message-square-plus"), danger: false });
+        }
+        if entries.is_empty() {
+            return;
+        }
+        let back = self.focus.clone();
+        self.open_pop("Selection", entries, at, from_keys, Some(back), move |this, id, window, cx| this.draft_pick(&row, &words, id, window, cx), window, cx);
+    }
+
+    fn draft_pick(&mut self, row: &str, words: &str, choice: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        self.fork.shown = None;
+        TextSelection::clear(window, cx);
+        let Some(key) = draft_row(row) else { return };
+        let Some(job) = self.shown.clone() else { return };
+        let card = self.pages.get(&job).and_then(|page| page.keys.get(key));
+        let run = card.and_then(|card| if choice == "edit" { card.change } else { card.send_back }).map(|(_, run)| run);
+        let Some(run) = run else { return };
+        run(self, window, cx);
+        if choice == "note" {
+            // The words come into the note as a quote, as they do in a reply.
+            let area = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&format!("{key}:{:?}", super::acts::Mode::Note)).cloned());
+            if let Some(area) = area {
+                let quote = quoted(words);
+                area.update(cx, |area, cx| area.set_value(quote, window, cx));
+            }
+        }
         cx.notify();
     }
 
@@ -206,7 +273,7 @@ impl JobView {
 
     /// The bar over the selected words: Reply, Fork from here, Teach.
     pub(super) fn render_fork_bar(&self, cx: &Context<Self>) -> Option<AnyElement> {
-        let picked = self.fork.shown.as_ref()?;
+        let picked = self.fork.shown.as_ref().filter(|picked| !picked.row.starts_with("draft:"))?;
         let look = cx.look();
         let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
         let act = |id: &'static str, said: &'static str, icon: &'static str| {
