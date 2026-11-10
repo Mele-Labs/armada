@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Instant, OperatorRead, SessionId, WaitingAct, WaitingItem};
+use crate::{Instant, MainCiState, OperatorRead, SessionId, WaitingAct, WaitingItem};
 
 /// Whose act an item is.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,6 +123,8 @@ pub struct OperatorLanded {
     pub job: String,
     pub number: String,
     pub title: String,
+    /// When it merged. Since 10 Nov 2026.
+    pub at: Instant,
 }
 
 /// One thing the Operator did on its own since he last looked.
@@ -220,6 +222,33 @@ pub struct OperatorDigest {
     pub holds: Vec<OperatorHold>,
 }
 
+/// One repository's main, as the head draws it: a pill, red when main is red. Since 10 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorMain {
+    pub manifest_id: String,
+    /// The repository's name, as `OperatorTurnItem` gives it.
+    pub repository: String,
+    /// How main's CI stands, as the merge line's `main` has it. **Red includes a red a newer commit's
+    /// run is still on.** Absent where Fleet has not read main yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<MainCiState>,
+    /// The commit the state was decided from, whole: the red's own on a red. Absent with `state`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+    /// When main first read red, kept while it stays red. `red` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since: Option<Instant>,
+}
+
+/// The slots in use across every repository's pool: `used` of `total`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorSlots {
+    /// Held by a Job, a process or work stranded in it, or under a take or a release.
+    pub used: u32,
+    /// Every slot of every pool, free, unmade or closed ones too.
+    pub total: u32,
+}
+
 /// `operator_page`: the whole page.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorPage {
@@ -239,6 +268,12 @@ pub struct OperatorPage {
     pub turn: Vec<OperatorTurnItem>,
     #[serde(default)]
     pub digest: OperatorDigest,
+    /// Each repository Fleet serves, first first. Since 10 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mains: Vec<OperatorMain>,
+    /// Absent where no pool is read. Since 10 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slots: Option<OperatorSlots>,
 }
 
 /// `operator_answer`: one press on an item.

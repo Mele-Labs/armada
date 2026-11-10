@@ -280,6 +280,7 @@ mod operator_asks;
 mod operator_board;
 mod operator_ends;
 mod operator_raises;
+mod operator_page_head;
 mod operator_notes;
 mod operator_errors;
 mod operator_suggestions;

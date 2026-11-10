@@ -10,11 +10,11 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::{
-    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorPage, OperatorRule, OperatorRunning, OperatorTurnItem,
-    OperatorTurnKind,
+    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning,
+    OperatorSlots, OperatorTurnItem, OperatorTurnKind,
 };
 use ipc::operator_talk::OperatorOrderForm;
-use ipc::{Instant, OperatorRead, SessionId};
+use ipc::{Instant, MainCiState, OperatorRead, SessionId, SlotHolding};
 use store::KeptTurn;
 
 use super::boarding::{first_line, outcome_of};
@@ -87,7 +87,44 @@ where
             on_it: self.operator_seat().raising.on_it().filter(|_| on),
             turn,
             digest,
+            mains: self.mains_read().await,
+            slots: self.slots_read().await,
         })
+    }
+
+    /// Each served repository's main, as `main_ci` last kept it: the row `red_item_offered` and the
+    /// merge line read, so no call is made.
+    async fn mains_read(&self) -> Vec<OperatorMain> {
+        let store = self.store().lock().await;
+        self.repositories()
+            .served()
+            .iter()
+            .map(|served| {
+                let manifest_id = served.manifest().id().as_str().to_string();
+                let main = store.main_ci(served.root()).ok().flatten();
+                // A red stays red until a green, so a fix still running does not clear it.
+                let red = main.as_ref().is_some_and(|it| it.red_at.is_some() || it.state == store::MainState::Red);
+                OperatorMain {
+                    repository: self.board_repository(&manifest_id).unwrap_or_else(|| manifest_id.clone()),
+                    manifest_id,
+                    state: main.as_ref().map(|it| match (red, it.state) {
+                        (true, _) => MainCiState::Red,
+                        (false, store::MainState::Green) => MainCiState::Green,
+                        (false, store::MainState::Running) => MainCiState::Running,
+                        (false, store::MainState::NothingRan | store::MainState::Red) => MainCiState::NothingRan,
+                    }),
+                    commit: main.as_ref().map(|it| if red { it.red_commit() } else { it.decided() }.to_string()),
+                    since: main.as_ref().filter(|_| red).and_then(|it| it.red_at.as_ref()).map(|at| Instant::carried(at.as_str())),
+                }
+            })
+            .collect()
+    }
+
+    /// The slots in use, from the list Bridge's Cleanup reads: kept in memory where a keeper holds it.
+    async fn slots_read(&self) -> Option<OperatorSlots> {
+        let held = self.worktrees_answer().await.ok()?;
+        let used = held.slots.iter().filter(|slot| matches!(slot.held, SlotHolding::Busy | SlotHolding::Session { .. } | SlotHolding::HostedSession { .. } | SlotHolding::Stranded { .. })).count();
+        Some(OperatorSlots { used: used as u32, total: held.slots.len() as u32 }).filter(|slots| slots.total > 0)
     }
 
     /// One row of Your turn as the wire has it, and whether it is put Later at `now`.
@@ -129,7 +166,7 @@ where
         let landed = moved_since(store, since)
             .1
             .into_iter()
-            .map(|one| OperatorLanded { session_id: SessionId::carried(&one.session_id), job: one.job, number: one.number, title: one.title })
+            .map(|one| OperatorLanded { session_id: SessionId::carried(&one.session_id), job: one.job, number: one.number, title: one.title, at: Instant::carried(&one.at) })
             .collect();
         let mut acts: Vec<OperatorHandledAct> = store
             .operator_rulings_signed(HANDLED_READ)
