@@ -155,9 +155,24 @@ pub fn registered(job_open: bool) -> Vec<Entry> {
 
 /// The open pull request a Job holds: its repository and number.
 pub fn pull_of(job: &SessionRecord) -> Option<(ManifestId, u64)> {
-    let one = job.attachments.iter().find(|one| one.kind == "pr" && one.state == AttachmentState::Standing)?;
+    held_pull(job).filter(|(_, _, open)| *open).map(|(repo, number, _)| (repo, number))
+}
+
+/// The pull request a Job holds, open or not: its repository, number, and whether it is still open. The wire
+/// marks an attachment standing while the pull request is open and spent once it is merged.
+pub fn held_pull(job: &SessionRecord) -> Option<(ManifestId, u64, bool)> {
+    let one = job.attachments.iter().find(|one| one.kind == "pr")?;
     let repo = one.manifest_id.clone().or_else(|| job.manifest_id.clone())?;
-    Some((repo, one.target.trim_start_matches('#').parse().ok()?))
+    Some((repo, one.target.trim_start_matches('#').parse().ok()?, one.state == AttachmentState::Standing))
+}
+
+/// What a Job's row cannot do. Electron leaves out `merge-pull` when the pull request held is not open; the
+/// other acts all have a handler here, so they are never left out.
+pub fn without_of(job: &SessionRecord) -> Vec<&'static str> {
+    match held_pull(job) {
+        Some((_, _, false)) => vec!["merge-pull"],
+        _ => Vec::new(),
+    }
 }
 
 fn is_paused(job: &SessionRecord) -> bool {
@@ -186,7 +201,7 @@ pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
         label: job.title.clone().unwrap_or_else(|| job.id.as_str().to_string()),
         icon: None,
         shortcut: None,
-        aliases: std::iter::once(job.id.as_str().to_string()).chain(pull.iter().map(|(_, number)| format!("#{number}"))).collect(),
+        aliases: std::iter::once(job.id.as_str().to_string()).chain(held_pull(job).iter().map(|(_, number, _)| format!("#{number}"))).collect(),
         meta: Some(Meta { repo: job.manifest_id.as_ref().map(|id| id.as_str().to_string()), state: Some(state) }),
     })
 }
@@ -666,7 +681,7 @@ impl Palette {
             Some(id) => {
                 let list = self.list.read(cx);
                 let Some(job) = list.record(id) else { return Vec::new() };
-                let mut acts = job_acts(is_paused(job), pinned, pull_of(job).is_some(), &[]);
+                let mut acts = job_acts(is_paused(job), pinned, held_pull(job).is_some(), &without_of(job));
                 acts.extend(memory_acts(alias, hotkey, false, None));
                 acts
             }
@@ -917,7 +932,7 @@ impl Palette {
         let Some(record) = self.list.read(cx).record(&job).cloned() else { return };
         let session_id = SessionId::carried(job.clone());
         let paused = is_paused(&record);
-        let pull = pull_of(&record);
+        let pull = held_pull(&record).map(|(repo, number, _)| (repo, number));
         let said = |body: Result<String, ipc::Unencodable>| body.map_err(|why| format!("{why:?}"));
         let request: Result<Request, String> = match id {
             "pause" if paused => said(ipc::encode(&ResumeSession { session_id })).map(|body| Request::Post("/sessions/resume", body)),
@@ -1638,6 +1653,25 @@ mod tests {
         let acts = job_acts(false, false, true, &["fork", "merge-pull"]);
         assert!(!acts.iter().any(|act| act.id == "fork" || act.id == "merge-pull"));
         assert!(acts.iter().any(|act| act.id == "open-pull"));
+    }
+
+    #[test]
+    fn a_merged_pull_request_leaves_out_merge_but_keeps_open_and_the_number_finds_the_job() {
+        let mut job = jobs().into_iter().next().expect("a Job");
+        job.attachments.retain(|one| one.kind != "pr");
+        assert!(held_pull(&job).is_none() && without_of(&job).is_empty());
+        let mut held = job.attachments.first().cloned().expect("an attachment to copy");
+        held.kind = "pr".into();
+        held.target = "#412".into();
+        held.manifest_id = job.manifest_id.clone();
+        held.state = AttachmentState::Standing;
+        job.attachments.push(held);
+        assert!(without_of(&job).is_empty() && pull_of(&job).is_some());
+        job.attachments.last_mut().expect("the pull").state = AttachmentState::Spent;
+        assert_eq!(without_of(&job), ["merge-pull"]);
+        assert!(pull_of(&job).is_none() && held_pull(&job).is_some_and(|(_, number, open)| number == 412 && !open));
+        let acts = ids(job_acts(false, false, true, &without_of(&job)));
+        assert!(acts.contains(&"open-pull") && !acts.contains(&"merge-pull"));
     }
 
     #[test]
