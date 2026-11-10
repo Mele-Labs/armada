@@ -33,7 +33,7 @@ pub static STEPS: [Step; 35] = [
     step("The rest are a press away", Verb::Look, "button", "Show all Landed"),
     step("A press on its head folds it again", Verb::Open("button", "Landed"), "button", "What I handled"),
     step("What I handled says what each act was about, and ends in the whole Log", Verb::Look, "listitem", "Started: Fix desktop_unit after #412"),
-    step("A press on a time reads every time as its age, as the thread's do", Verb::Open("button", "Time 13:02:00"), "button", "Time 3m ago"),
+    step("A press on a time reads every time as its age, as the thread's do", Verb::Open("button", "Time 13:02"), "button", "Time 3m ago"),
     step("Learned shows its first few rules, and Every rule opens them all", Verb::Open("link", "Every rule"), "dialog", "Every rule"),
     step("Everywhere first, then each project. ↓ and ↑ move through them", Verb::Key("down"), "listitem", "Link a report to the open issue it names"),
     step("Esc shuts the sheet, and the keys are back on Every rule", Verb::Key("escape"), "link", "Every rule"),

@@ -27,7 +27,7 @@ use crate::look::{token, ActiveLook, Look, Token};
 const COLUMN: f32 = 20.;
 
 /// A time in the owner's clock, with the day when it is not today (`Stamp`, A1.11).
-pub(crate) fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
+fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
     let then = DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Local);
     let time = then.format("%H:%M:%S").to_string();
     Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })

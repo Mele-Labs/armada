@@ -742,5 +742,5 @@ mod tests {
     }
 }
 
-/// The thread's two readings of a time, which the Operator's page flips between as the thread does.
-pub(crate) use rows::{age, clock};
+/// The thread's age of a time, which the Operator's page flips to as the thread does.
+pub(crate) use rows::age;

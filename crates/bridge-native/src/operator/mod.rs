@@ -15,6 +15,10 @@
 //!
 //! **A new item raises a toast in the shared shell, which this module does not draw.** The page emits
 //! [`page::Arrived`] with the items that joined Your turn since it last read; subscribe on [`live`].
+//!
+//! **Switch on reads the page again once the setting saves.** Fleet publishes no
+//! `operator.page_changed` when `features.operator` changes, so the page asks for itself. When Fleet
+//! publishes it, the re-read in [`page::OperatorPageView::switch_on`] goes.
 
 mod chat;
 pub mod face;

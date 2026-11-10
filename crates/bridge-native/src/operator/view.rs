@@ -601,7 +601,7 @@ impl OperatorPageView {
     /// A time as the thread draws one: the clock, or its age once a press has flipped every time on the page.
     fn stamp(&self, at: &ipc::Instant, look: &Look, cx: &Context<Self>) -> AnyElement {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
-        let (on_clock, ago) = (crate::job_view::clock(at.as_str(), now), crate::job_view::age(at.as_str(), now));
+        let (on_clock, ago) = (minute(at.as_str(), now), crate::job_view::age(at.as_str(), now));
         let (shown, other) = if self.aged { (ago, on_clock) } else { (on_clock, ago) };
         let Some(shown) = shown else { return gpui::Empty.into_any_element() };
         labelled(
@@ -634,6 +634,8 @@ impl OperatorPageView {
                 .when_some(keys, |link, keys| link.track_focus(&keys))
                 .focusable()
                 .tab_stop(true)
+                // As wide as its words, so its ring sits on them and not across the tile.
+                .self_start()
                 .mt(look.length(token::SPACE_1))
                 .px(look.length(token::SPACE_1))
                 .ml(-look.length(token::SPACE_1))
@@ -944,6 +946,14 @@ pub(super) fn handled_said(act: &ipc::operator_page::OperatorHandledAct) -> Stri
     }
 }
 
+/// A time to the minute, as the page reads it: `12:47`, with the day when it is not today (`Nov 10 16:00`).
+/// The thread's clock carries seconds; a page of what happened today does not need them.
+pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<String> {
+    let then = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
+    let time = then.format("%H:%M").to_string();
+    Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })
+}
+
 /// A rule as the sketch writes it: where it holds, then the rule, its first letter small after the colon.
 pub(super) fn rule_said(rule: &ipc::operator_page::OperatorLearned) -> String {
     let mut said = rule.said.chars();
@@ -1214,6 +1224,17 @@ mod tests {
         assert_eq!(handled_said(&act("Started", "Fix desktop_unit after #412")), "Started: Fix desktop_unit after #412");
         assert_eq!(handled_said(&act("Linked: the report to #3398", "Build switcher")), "Linked: the report to #3398");
         assert_eq!(handled_said(&act("Passed on", "")), "Passed on");
+    }
+
+    #[test]
+    fn a_time_reads_to_the_minute_with_its_day_when_not_today() {
+        let now = chrono::DateTime::parse_from_rfc3339("2026-11-11T13:05:00-05:00").expect("a time").with_timezone(&chrono::Local);
+        let at = |rfc: &str| chrono::DateTime::parse_from_rfc3339(rfc).expect("a time").with_timezone(&chrono::Local);
+        let today = at("2026-11-11T12:47:30-05:00");
+        let before = at("2026-11-10T16:00:00-05:00");
+        assert_eq!(minute(&today.to_rfc3339(), now).as_deref(), Some(today.format("%H:%M").to_string().as_str()));
+        assert_eq!(minute(&before.to_rfc3339(), now), Some(before.format("%b %-d %H:%M").to_string()));
+        assert!(!minute(&today.to_rfc3339(), now).unwrap_or_default().contains(":30"), "no seconds");
     }
 
     #[test]
