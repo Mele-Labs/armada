@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use api::Sessions;
 use testkit::{FakeTracker, FakeTrackers};
 
-use super::operator_acting::{answering, asked, dispatch};
+use super::operator_acting::{asked, dispatch};
 use super::session_host::{eventually, rig_fitted, Rig};
 use crate::operator::{Answering, Calling, Looking};
 use crate::CallFailed;
@@ -86,7 +87,6 @@ fn rig_listing() -> Rig {
 
 async fn seated(rig: &Rig, rules: Arc<Rules>, reads: Arc<Reads>) {
     dispatch(rig, true).await;
-    answering(rig).await;
     assert!(rig.fleet.operator_seated_looking(rules, reads));
 }
 
@@ -162,10 +162,11 @@ async fn a_ruling_goes_through_the_call_with_no_tools_and_never_through_the_one_
     let rules = Arc::new(Rules::default());
     let reads = Reads::saying(&[&reply("Nothing.")]);
     seated(&rig, rules.clone(), reads.clone()).await;
-    asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
-    let start = asked(&rig, ISSUE).await;
+    let job = asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
+    let report = ipc::ReportBug { title: ISSUE.into(), what: "The pane redraws and the scrollback is gone.".into(), steps: Vec::new(), errors: Vec::new(), logs: Vec::new(), session_id: Some(job) };
+    rig.fleet.report_bug(None, report).await.expect("reported");
 
-    rig.fleet.start_handed(start.as_str(), crate::operator::Source::Dispatch, ISSUE).await;
+    rig.fleet.sources_handed().await;
     eventually(|| async { !rules.asked().is_empty() }).await;
 
     assert!(rules.asked()[0].contains(ISSUE));

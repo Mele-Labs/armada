@@ -261,14 +261,9 @@ where
         self: Arc<Self>,
         said: ipc::AnswerWaiting,
     ) -> Result<SessionRecord, Refusal> {
-        let answer = self.person_answer_of(&said).await;
         // Reached only by a client's route: an answer from a card anywhere is him in the Job.
         self.visit_kept(said.session_id.as_str()).await;
-        let settled = Arc::clone(&self).settle_waiting(said).await?;
-        if let Some(row) = answer {
-            self.person_answer_kept(row).await;
-        }
-        Ok(settled)
+        Arc::clone(&self).settle_waiting(said).await
     }
 
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {

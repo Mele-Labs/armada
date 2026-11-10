@@ -84,8 +84,8 @@ pub(crate) fn base_of(wait: &KeptWait) -> StartBase {
     }
 }
 
-/// The store's word for a wait the Operator set: a hold until another Job pushes. On the wire it is
-/// not the person's, so it reads as the agent's.
+/// The store's word for a wait the Operator once set: a hold until another Job pushes. On the wire it
+/// is not the person's, so it reads as the agent's.
 pub(crate) const BY_OPERATOR: &str = "operator";
 
 fn by_kept(by: WaitBy) -> &'static str {
@@ -286,13 +286,6 @@ where
         tell: bool,
     ) -> Result<SessionRecord, Refusal> {
         self.wait_kept(waiting, after, brief, held, by_kept(by), tell).await
-    }
-
-    /// [`Self::wait_begun`] for the Operator's hold of a Job on its start card, which stays held for
-    /// the person once the wait ends. Kept as the Operator's, so a hold whose condition can no longer
-    /// be met is known to be its to lift.
-    pub(crate) async fn held_by_operator(&self, waiting: &str, after: StartAfter, brief: String) -> Result<SessionRecord, Refusal> {
-        self.wait_kept(waiting, after, brief, true, BY_OPERATOR, true).await
     }
 
     async fn wait_kept(

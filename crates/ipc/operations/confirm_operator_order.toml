@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "The person presses to have a standing order he has seen stand"
 notes = """
-`POST /operator/orders`, body `ConfirmOperatorOrder`: `form`, one of `role_off` (`role`, `manifest_id`, `today`), `hold_paths` (`manifest_id`, `paths`, `job`, `until`: `pushes` or `ends`) or `always_raise` (`what`, as the Log names a kind). Answered with `OperatorOrders`.
+`POST /operator/orders`, body `ConfirmOperatorOrder`: `form`, one of `role_off` (`role`, `manifest_id`, `today`), `hold_paths` (`manifest_id`, `paths`, `job`, `until`: `pushes` or `ends`) or `always_raise` (`what`, one of `note`, `error`, `report`, `issue` or `red_main`). Answered with `OperatorOrders`. **A role order for `answer`, and an `always_raise` for any other kind, is refused with `fleet.operator_order_not_a_form`**, and one kept before then is not served.
 
 **Orders are rules Fleet enforces, never prose a call reads.** A role off reads as that role's Read-only position in the repository, until the local day ends where `today` is set. A kind always raised goes to the person with no call. A hold refuses a write from a file tool under its paths by any Job but `job`, until it pushes or ends; a Job that ends always releases it, and the Log says so. A shell's writes cannot be read ahead of time and go through.
 

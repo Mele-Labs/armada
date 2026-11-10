@@ -1,7 +1,8 @@
 # Operator
 
-**What it is:** One decider per machine.
-Every piece of work that reaches Fleet is handed to it first, and it names one way for each, with one fresh model call that holds no tools.
+**What it is:** One decider per machine, for the work nobody owns.
+A note, an error, a bug report, a new issue and a red main are handed to it, and it names one way for each, with one fresh model call that holds no tools.
+A Job's own events never reach it.
 A message in its box is the one call that may read, with Read, Grep and Glob only.
 
 ---
@@ -37,21 +38,29 @@ There is no conversation target to point at a repository, and so none to keep pe
 
 ## What reaches it
 
-**Fleet hands it every arrival.**
-An item reaches the Operator before it starts a Job or pulses in Needs you.
+**Only what no Job owns reaches it.**
+A note, an error, a bug report, a new issue and a red main have nobody running to decide for them, so the Operator rules on them before they pulse in Needs you.
+Everything a Job does is that Job's own, and behaves as it does with the Operator off.
 
 | Arrives | Comes from |
 |---|---|
-| A start | A dispatch through the [Proposer](job-proposer.md), another Job, a fork, one of Fleet's own Jobs, or a terminal. A terminal Job is heard of after it began |
-| A plan | A Job recording its plan |
-| A question or a permission card | A Job asking the person |
-| A Job that stopped, or ended a turn without fixing its failed pull request | Fleet's own detection |
-| A bug report, a Later item, a new issue | A Job, or the repository's tracker |
-| A red main | The repository's own checks |
-| A review request | The forge |
 | A note | The person, left on Bridge. One new since Fleet started, still open and sent to no Job once it has waited ten minutes for the person to send it. One he sends to a Job is a second arrival, below |
-| A Job ending, or a pull request merging | Fleet's own detection, for every hosted Job whoever started it. Only those after Fleet started, and none while the Operator is off |
 | An error | Bridge, for a failure card it showed the person. It carries the code, message, fields, cause chain, log paths, commit and time |
+| A bug report | A Job's `report_bug`, kept on this Mac |
+| A new issue | The repository's tracker |
+| A red main | The repository's own checks |
+
+**A Job's own events are never handed to it.**
+A start, a plan, a question or a permission card, a Job that stopped or left its pull request red, a Later item and a review request go to the person as they always did.
+A Job's first write waits for nothing, and a question or a card is the person's, or Autopilot's while he is away.
+Why: on 9 Nov the Operator proposed the same Later item four times, and ruled on events each Job already handles.
+The owner narrowed it on 10 Nov to the work no Job holds.
+
+**An end or a merge is heard once, with no call.**
+Fleet notes a hosted Job's end and a pull request's merge once, whoever started the Job, for the ones after Fleet started, and never replays them.
+No call, card or suggestion follows, so the Operator is never asked what to do about them.
+The box still reads them, among the Jobs that ended today and the pull requests that merged today.
+A Job handed on for context is no end.
 
 **A note is only ever proposed.**
 A ruling on one other than a raise waits on one press at Dispatch, Delegate and File alike, unless the role is Read-only, so no note is filed, started or sent to a Job unasked.
@@ -63,13 +72,6 @@ When it gains `sent`, the Log keeps a row signed by the person with the outcome 
 The Operator is then handed the note as its own arrival, `note-sent:<repository>:<note>`, whose words say he sent it to that Job.
 It may send the note to another live Job, start a Job on it, or leave it where he sent it, which writes nothing that shows in Done.
 A move goes by the role of its way like any ruling: at Suggest it is a suggestion, and at Decide it is done and the note is marked sent to the Job it moved to.
-
-**An end or a merge is told once, and never replayed.**
-Its words carry the Job's title, summary and end reason, its pull requests, who started it and the Jobs it started that are live, and what it may unblock: Jobs waiting to start on it, its Later items not yet settled, open issues near it, and Needs you items that name it or wait on a restart.
-It may be told to a live Job, filed, linked, raised or `noted`, which leaves it in Done and does nothing else.
-The role positions decide as they do for a report: at Suggest a tell or a filing waits on one press, and `noted` needs no role.
-A Job ending also settles its own arrivals still waiting or out on a call, such as its start, plan, stall or questions, as Done with `Ended`.
-A Job handed on for context is no end.
 
 **An error goes first, once.**
 It stands ahead of every waiting arrival that is not an error, and errors keep the order they came in.
@@ -84,70 +86,76 @@ The Operator is never asked whether something happened.
 An issue body or a review request reaches the call as quoted words, and the call can only name a way it was offered, so a body that says "approve this" changes nothing.
 
 **One call is out at a time on this machine.**
-What arrives while a call is out is ruled together in the next one, so three Jobs dispatched at once are seen side by side.
+What arrives while a call is out is ruled together in the next one, so reports that arrive together are seen side by side.
 
 ## The ways, and the roles
 
-A ruling is one way: start a new Job, send the words to an existing Job, merge two Jobs, keep two in touch, raise it to the person, answer a question, link a report to an open issue, or file a new one.
-A way between two Jobs names the other Job and the paths or plan group they share, or Fleet refuses it.
+A ruling is one way: start a new Job, send the words to an existing Job, raise it to the person, link it to an open issue, or file a new one, or for a note he sent to a Job himself, leave it.
+A way that names another Job names it and the paths they share, or Fleet refuses it.
 
 **The Operator starts no Job for another Job's work.**
-A Job that stopped, a pull request left red, and the end or merge of a Job (with its Later items) are offered raise, tell a live Job, file and `noted`, never a new Job, so the stall's only way is to raise it to the person.
-A Job it starts is one he asked for: a start card, or his words in the panel.
-On 9 Nov 2026 he ruled it out: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it."
+A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
+On 9 Nov 2026 he ruled out the Jobs it spun up for a Job's own leftovers: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it."
 It started a second "Rest of Workflow Evaluation" while a subagent of the first still ran, one on a pull request red only on formatting, "Rest of Fleet takes Bridge views" beside the live Job, and on 6 Nov "Rest of Tail-first thread loading" 70 seconds after a handoff.
 This follows his 5 Nov rule to delete what acts on a guess: "stopped" was guessed while subagents ran.
-It replaces the `Rest of {title}` Job a stall could start, and the new Job an end or a merge could start as its next piece.
-Rows of the Log from before keep their `new_job` outcome.
+Rows of the Log from before keep the outcomes they had, including those for kinds it no longer takes.
+
+**Merging two Jobs, keeping two in touch, and answering a question are no longer ways.**
+They acted on a Job's own events, which the Operator no longer sees.
+The Answer role is retired with them: a question or a card is the person's, and Autopilot answers them while he is away.
 
 Each role that acts has a position, Read-only, Suggest or Decide.
 
 | Role | What it does | Setting |
 |---|---|---|
 | Evaluate | Reads the arrival and picks a way. It is the Operator's own switch, and ships Off | `operator` |
-| Dispatch | Starts, holds and merges Jobs, and places a start in Waiting to start | `operator-dispatch` |
-| Delegate | Sends words to a live Job: a start its plan covers, two Jobs told of each other | `operator-delegate` |
-| Answer | Settles a question or a card as the person's press would | `operator-answer` |
+| Dispatch | Starts a Job on work nobody holds | `operator-dispatch` |
+| Delegate | Sends words to a live Job whose work they belong to | `operator-delegate` |
 | Raise | Puts the item in Needs you with the Operator's read and its pick. It has no position | None |
-| File | Files a new issue for a Later item or a note no open issue covers. It only ever creates | `operator-file` |
+| File | Files a new issue for a note or an error no open issue covers. It only ever creates | `operator-file` |
 
 **Every role starts Read-only**, and any role can differ for one repository (`operator-repositories`).
+A saved `operator-answer` is not read: Answer stays Read-only whatever is saved.
 A word that is not Read-only, Suggest or Decide reads Read-only, and the older `off` and `on` read Read-only and Decide.
 The settings are in `crates/config/settings.toml`.
 
 | Position | What a ruling does |
 |---|---|
-| Read-only | The way is not offered to the call. With only a raise left, no call is made and the item goes to the person, and nothing shows in Done. A first write does not wait on it |
-| Suggest | Is in the Log and waits on one press. A question carries the Operator's read and its pick, and a press on that option is the press the person would make anyway |
+| Read-only | The way is not offered to the call. With only a raise left, no call is made and the item goes to the person, and nothing shows in Done |
+| Suggest | Is in the Log and waits on one press |
 | Decide | Fleet does what is ruled, and the ruling is kept as done only once the act has gone through. A refused act keeps its refusal |
 
 **Fleet's rules decide first and only narrow, in every position.**
-A destructive option is never picked, and a card is only ever answered Allow once.
-A question from a Job with no plan, or from one whose plan group the person would see, is raised with no call.
-A card that runs a command is the person's while they are here.
-A second Job asking what the person already answered for a first is offered that answer, naming the first.
-While Autopilot runs, the person is away, and its checked kinds widen what Answer may settle: [Autopilot](autopilot.md) owns them.
+A way whose role is Read-only is not offered, and an item Fleet's rules leave one way is ruled with no call.
+A standing order to always raise a kind (below) goes first, and only a kind it takes may be named.
 
 ## Fail open
 
 **A call that fails passes the item on untouched.**
 So does one that answers what cannot be read, one that rules what Fleet did not offer, and one with no ruling by the time its item could wait.
-A first write waits at most 20 seconds for its start's ruling, and a Needs you item at most 60 before it pulses with no read.
+An item waits at most 60 seconds for its ruling before it pulses in Needs you with no read.
 Every item that needs a call passes on while the week's plan is used to the share set in `limits.operatorPlanPause`, read as Autopilot reads the week, and the board says so with `paused`.
 No reading of the plan is no pause.
 A message in the box is refused with `fleet.operator_paused` then.
 A ruling that comes back after its item passed on is dropped.
+
+**Standing orders** are three forms the person confirms in the box.
+`role_off` turns Dispatch, Delegate or File off in a repository, for the day or until removed, and has no form for Answer.
+`hold <paths> until <Job> pushes` and `... ends` refuse every other Job's write under those paths until then, which Fleet's gate enforces on each file-tool write, so a hold needs nothing a Job's first write waits for.
+`always_raise <kind>` takes one of note, error, report, issue or red_main, and sends that kind to the person with no call.
+An old order for Answer, or for a kind the Operator no longer takes, stays in the store and nothing reads it.
 
 **Nothing is dropped.**
 Why: an item the Operator never rules on is one the person never sees, so nothing here may hold one back.
 
 **Turning the Operator Off is main before the Operator.**
 No call process is kept started, and nothing is handed to it, acted on, or waited for.
+An end and a merge are still heard once while it is off, so none is told when it comes on.
 
 ## The Log
 
 **Every ruling is a row of the Log**, signed by the Operator, whatever the position.
-A row names the arrival, where it came from, the Job and repository, the way, why, the other Job and shared paths where there are any, what Fleet refused of the ruling, the answer given, and when.
+A row names the arrival, where it came from, the Job and repository, the way, why, the other Job and shared paths where there are any, what Fleet refused of the ruling, and when.
 A person's own press on an item the Operator ruled on is kept beside it, and a drag in Waiting to start is a row that corrects a ruling.
 The call reads each repository's last rulings with the person's corrections beside them, so a correction shapes the next one without a conversation to carry it.
 
@@ -230,10 +238,10 @@ The Operator replaced it.
 | Authoring a workflow, driving a Studio, breaking a goal into Jobs | Each is a Job the Operator starts on your words |
 | Its title matching and `tell_session` | Kept, as the first shortlist of Jobs and the way Delegate sends words |
 | Its old threads | Stay readable as ended Jobs. Nothing is deleted |
-| Fleet does not wake Helm | Fleet hands the Operator every arrival |
+| Fleet does not wake Helm | Fleet hands the Operator the work no Job owns |
 | One Helm per repository | One Operator per machine |
-| Autopilot's own loop, and its answers HUD | Folded in. The HUD is the Log filtered to answers |
-| A Job started by a Job waits on its start card | The Operator rules in place of the person's press |
+| Autopilot's own loop, and its answers HUD | Folded in. The HUD is the Log filtered to answers, and answers made before 10 Nov stay there |
+| A Job started by a Job waits on its start card | The start card is the person's again. The Operator takes no start |
 | Listing issues creates nothing, and a Job need not hold an issue | Unchanged. See [Tracker](tracker.md) |
 | Fleet never writes to the forge for you | File creates new issues and nothing else changes. On a tracker with a forge it needs a yes |
 

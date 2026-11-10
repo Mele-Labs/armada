@@ -35,8 +35,7 @@ Why: on 9 Nov you found it could not answer what you asked without reading.
 ## What stays yours
 
 **A question a Job asks stays in Needs you.**
-The Operator may add its read and the option it would pick, and your press on that option is the one press.
-Where its Answer role is On, it settles the ones Fleet's rules allow, and the Job's thread says what was answered and why.
+The Operator is never handed it, so only you answer it, or Autopilot while you are away.
 **Nothing it rules is hidden.**
 Every ruling is a row of its Log, whether or not Fleet acted on it.
 

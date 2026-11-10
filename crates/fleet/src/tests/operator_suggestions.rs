@@ -170,12 +170,8 @@ async fn the_board_is_told_when_a_suggestion_is_added_and_when_one_is_settled() 
         words: TEXT.to_string(),
         paths: Vec::new(),
         issues: Vec::new(),
-        group: None,
         ways: Vec::new(),
-        answers: Vec::new(),
-        rule: None,
         open: Vec::new(),
-        ties: Vec::new(),
     };
 
     FleetActing::on(&rig.fleet).suggest(&arrival, &Ruling::alone(Way::File, "no open issue covers it")).await.expect("carried out");
@@ -243,45 +239,5 @@ async fn a_repeat_after_do_it_raises_nothing() {
 async fn a_different_subject_still_raises() {
     let rig = suggested(&[FILE, FILE], &[("n-1", TEXT), ("n-2", SIDEBAR)]).await;
 
-    assert_eq!(standing(&rig).await.len(), 2);
-}
-
-fn merged(rig: &Rig, pull: u32, subject: &str) -> Arrival {
-    Arrival {
-        id: format!("merged:01JOB:{pull}"),
-        arrived: Arrived::Merged,
-        source: Source::Person,
-        session_id: String::new(),
-        manifest_id: manifest(rig).as_str().to_string(),
-        subject: subject.to_string(),
-        words: String::new(),
-        paths: Vec::new(),
-        issues: Vec::new(),
-        group: None,
-        ways: Vec::new(),
-        answers: Vec::new(),
-        rule: None,
-        open: Vec::new(),
-        ties: Vec::new(),
-    }
-}
-
-fn file_next(what: &str) -> Ruling {
-    Ruling { what: Some(what.to_string()), ..Ruling::alone(Way::File, "the next piece of work") }
-}
-
-#[tokio::test]
-async fn two_files_after_two_merges_naming_the_same_what_raise_once() {
-    let rig = filing().await;
-    let acting = FleetActing::on(&rig.fleet);
-    let what = "Show Jobs waiting for a slot in the Operator's Up next";
-
-    let first = acting.suggest_once(&merged(&rig, 3301, "Keep the board's rows"), &file_next(what)).await.expect("carried out");
-    let again = acting.suggest_once(&merged(&rig, 3302, "Tell the Job its slot"), &file_next(&format!(" {}\n", what.to_lowercase()))).await.expect("carried out");
-    let other = acting.suggest_once(&merged(&rig, 3303, "Keep the board's rows"), &file_next("Name the repository on each row")).await.expect("carried out");
-
-    assert_eq!(first, None);
-    assert_eq!(again.as_deref(), Some("a repeat of the suggestion kept for merged:01JOB:3301"));
-    assert_eq!(other, None, "another piece of work is not a repeat, though the subject is the first's");
     assert_eq!(standing(&rig).await.len(), 2);
 }

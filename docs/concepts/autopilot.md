@@ -11,9 +11,9 @@ The code is `crates/fleet/src/autopilot.rs` and the modules under it, the decisi
 
 **Autopilot is the away state of the [Operator](operator.md).**
 The switch means the person is away.
-While it runs, the Operator's Answer role may settle the kinds checked at start, and what was already waiting on the person when it started is offered once more.
-There is one loop, so nothing is answered twice.
-The Operator's own answers, and the rules Fleet applies first, are `operator.md`.
+While it runs, Autopilot's own loop answers the kinds checked at start, and what was already waiting on the person when it started is offered once more.
+The Operator's Answer role is retired (10 Nov 2026): the Operator takes no question or card, so there is one loop and nothing is answered twice.
+What the Operator does take is `operator.md`.
 
 ## What it holds
 
@@ -69,8 +69,8 @@ A pass makes at most four calls per Autopilot, and asks again before keeping eac
 
 ## How a decision happens
 
-While an Autopilot is running and has a kind checked, the Operator's Answer role settles these kinds, with Fleet's rules deciding first.
-Where Answer stands Off or Suggest, a loop of Autopilot's own, beside the pick's, answers as it did before the Operator, so a landing never waits behind a call; it goes over the repository on Fleet's noticing interval.
+While an Autopilot is running and has a kind checked, a loop of Autopilot's own answers these kinds, so a landing never waits behind a call; it goes over the repository on Fleet's noticing interval.
+The Operator is never handed a question or a card, so no pass defers to it.
 A paused or stopped Autopilot answers nothing.
 
 1. **The Jobs in scope.** Every live Job of the repository where *on autopilot* holds `running`, and otherwise only the ones it started.

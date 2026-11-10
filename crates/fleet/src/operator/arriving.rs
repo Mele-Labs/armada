@@ -1,6 +1,5 @@
 //! What arrives at the Operator, and the live Jobs it is weighed against.
 
-use super::questions::Choice;
 use super::ruling::Way;
 use super::sources::Filed;
 
@@ -79,6 +78,10 @@ impl Arrived {
         Arrived::Error,
     ];
 
+    /// The kinds the Operator is still handed, which nobody owns: the others are a Job's own events
+    /// (or an end and a merge, which are only heard), and stand in the Log as it was kept.
+    pub const TAKEN: [Arrived; 5] = [Arrived::Note, Arrived::Error, Arrived::Report, Arrived::Issue, Arrived::RedMain];
+
     /// What a word from the store names.
     pub(super) fn from_word(word: &str) -> Option<Arrived> {
         Arrived::EVERY.into_iter().find(|arrived| arrived.word() == word)
@@ -105,36 +108,15 @@ impl Arrived {
         }
     }
 
-    /// A Job gone quiet with work left, which is started anew or raised.
-    pub fn is_stall(self) -> bool {
-        matches!(self, Arrived::Stopped | Arrived::Red)
-    }
-
-    /// A question or a card, which an answer settles as the person's press would.
-    pub fn is_asked(self) -> bool {
-        matches!(self, Arrived::Question | Arrived::Card)
-    }
-
-    /// Work from outside a Job's own run, which [`super::Acting::sourced`] does what is ruled on.
-    pub fn is_sourced(self) -> bool {
-        matches!(self, Arrived::Report | Arrived::Issue | Arrived::RedMain | Arrived::Review | Arrived::Later | Arrived::Note | Arrived::Ended | Arrived::Merged | Arrived::Error)
-    }
-
-    /// An end or a merge: what happened to a Job, not work it asks for.
-    pub fn is_ending(self) -> bool {
-        matches!(self, Arrived::Ended | Arrived::Merged)
-    }
-
-    /// What waits on a Job's own run, which its end settles as Done: its start, its plan, a stall, a
-    /// question or a card. Work it handed over, such as a report, stands on its own.
-    pub fn ends_with_job(self) -> bool {
-        matches!(self, Arrived::Start | Arrived::Plan | Arrived::Question | Arrived::Card | Arrived::Stopped | Arrived::Red)
+    /// The kind a word from a standing order names, where the Operator is still handed it.
+    pub(super) fn taken_from_word(word: &str) -> Option<Arrived> {
+        Arrived::TAKEN.into_iter().find(|arrived| arrived.word() == word)
     }
 
     /// Put to a call for its read even where Fleet's rules leave it one way: the person meets it
     /// with what the Operator made of it.
     pub fn is_read(self) -> bool {
-        matches!(self, Arrived::Issue | Arrived::Review)
+        matches!(self, Arrived::Issue)
     }
 
     /// How the call is told what arrived.
@@ -243,18 +225,9 @@ pub struct Arrival {
     pub paths: Vec<String>,
     /// The issues it names or holds.
     pub issues: Vec<String>,
-    /// The plan group it is, for a plan recorded: ruled group by group.
-    pub group: Option<String>,
     pub ways: Vec<Way>,
-    /// The answers an answer may give, for a question or a card.
-    pub answers: Vec<Choice>,
-    /// Fleet's rule that leaves it only to the person, in a line, where one does.
-    pub rule: Option<String>,
     /// The open issues it may be, for a report or a Later item: a link may name only these.
     pub open: Vec<Filed>,
-    /// The Jobs an end or a merge is tied to, as `(id, how)`: one waiting to start on it, one it
-    /// started, the one that started it. A live one is shown with the item and may be named.
-    pub ties: Vec<(String, String)>,
 }
 
 impl Arrival {
@@ -280,25 +253,9 @@ impl Arrival {
         if !self.issues.is_empty() {
             out.push_str(&format!("     Its issues: {}\n", self.issues.join(", ")));
         }
-        if let Some(group) = &self.group {
-            out.push_str(&format!("     It is group {group} of that Job's plan\n"));
-        }
         if !self.open.is_empty() {
             let open: Vec<String> = self.open.iter().map(|one| format!("{} \"{}\"", one.reference, one.title)).collect();
             out.push_str(&format!("     Open issues it may be: {}\n", open.join("; ")));
-        }
-        if !self.answers.is_empty() {
-            out.push_str("     The answers it may give:");
-            for (number, one) in self.answers.iter().enumerate() {
-                out.push_str(&format!(" {}. \"{}\"", number + 1, one.label));
-                if let Some(earlier) = &one.earlier {
-                    out.push_str(&format!(", the person's answer when Job {}, \"{}\", asked the same", earlier.session_id, earlier.title));
-                }
-                if number + 1 < self.answers.len() {
-                    out.push(';');
-                }
-            }
-            out.push('\n');
         }
         out.push_str("     The ways it is offered:");
         for (number, way) in self.ways.iter().enumerate() {
@@ -381,19 +338,6 @@ pub struct InLine {
     pub session_id: String,
     pub title: String,
     pub manifest_id: String,
-}
-
-/// The Jobs waiting to start that a start may be placed among, as the call reads them.
-pub(super) fn line_shown(line: &[InLine]) -> String {
-    let mut out = String::from("     Waiting to start in its repository, first served first:");
-    for (at, one) in line.iter().enumerate() {
-        out.push_str(&format!(" {}. Job {} \"{}\"", at + 1, one.session_id, one.title));
-        if at + 1 < line.len() {
-            out.push(';');
-        }
-    }
-    out.push('\n');
-    out
 }
 
 fn one_line(words: &str) -> String {

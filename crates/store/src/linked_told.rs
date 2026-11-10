@@ -20,6 +20,18 @@ impl Store {
         Ok(kept == 1)
     }
 
+    /// Whether the parent of `child` was told of `event` under `key`. Writes nothing.
+    pub fn linked_was_told(&self, child: &str, event: &str, key: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT EXISTS (SELECT 1 FROM session_linked_told WHERE child = ?1 AND event = ?2 AND key = ?3)",
+                (child, event, key),
+                |row| row.get(0),
+            )
+            .map_err(fault("reading what a linked Job's parent was told"))
+            .map_err(WriteError::Database)
+    }
+
     /// Forget each `merged` kept for a pull request its child's row says did not merge, so the real
     /// merge is told when it comes. A row the mod spent off a `gh pr merge --disable-auto` was read
     /// as merged and kept (#3042).

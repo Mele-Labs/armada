@@ -1064,6 +1064,8 @@ peer_polarity = "n/a — single layer"
 owner = "Fleet"
 read_by = "fleet"
 notes = """
+RETIRED 10 Nov 2026 (owner, the smaller Operator): the Operator is no longer handed a question or a card, so Fleet reads this setting as Read-only whatever is saved and nothing below acts. A saved value is kept and ignored.
+
 DECIDED 5 Nov 2026 (owner): every role starts Read-only, which is what Off was and reverses the replay of 4 Nov starting Answer On. The design page *Helm becomes the Operator*, *What you control*, gives each role its own position. A word that is not one of the three reads Read-only, and the older `off` and `on` read Read-only and Decide. Does nothing while `operator` is Off.
 
 **Fleet's rules decide first and only narrow, in every position.** A question from a Job on a plan group the person would see, or from a Job with no plan, is raised with no call; a card that runs a command is his while he is here; a card is only ever answered Allow once; a destructive option is never picked. A second Job asking what he already answered for a first is offered his answer, naming the first. While Autopilot runs for a Job he is away: its checked kinds widen what may be answered, and what was already waiting on him when it started is offered once more.

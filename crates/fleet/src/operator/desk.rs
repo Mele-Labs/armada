@@ -101,16 +101,6 @@ where
         })
     }
 
-    fn settled(&self, arrival: &super::Arrival) -> Done<'_, Option<String>> {
-        let arrival = arrival.clone();
-        Box::pin(async move {
-            match self.fleet.upgrade() {
-                Some(fleet) => fleet.answer_settled(&arrival).await,
-                None => Some("Fleet stopped before the ruling came".into()),
-            }
-        })
-    }
-
     fn orders(&self) -> Done<'_, super::Orders> {
         Box::pin(async move { self.fleet.upgrade().map(|fleet| fleet.operator_seat().orders()).unwrap_or_default() })
     }
