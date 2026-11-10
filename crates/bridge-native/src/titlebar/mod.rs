@@ -56,6 +56,8 @@ pub enum Asked {
     /// Scope the window to a Workspace, or (from its gear) open its page.
     Workspace(usize),
     OpenWorkspace(usize),
+    /// Open the layer of how a repository runs, from the place glyph on its row in the picker (or → on it).
+    RepositoryRuns(usize),
     AddRepository,
     NewProject,
     NewWorkspace,
@@ -133,6 +135,14 @@ struct Menu {
 /// The row is narrow below this width, as Electron's container query is (`TitleBar.css` 746). The
 /// stylesheet states it off-contract because a container condition cannot read a token.
 const NARROW_BELOW: f32 = 900.;
+
+/// The place in the face's repositories a picker row id names: `in-<workspace>-<place>`, or one of [`REPO`].
+fn repository_at(id: &str) -> Option<usize> {
+    match id.strip_prefix("in-") {
+        Some(rest) => rest.split('-').nth(1)?.parse::<usize>().ok()?.checked_sub(1),
+        None => REPO.iter().position(|one| *one == id),
+    }
+}
 
 /// An id a menu row answers to, kept for the life of the app: a row's id is a `&'static str` and the
 /// picker's ids name a Workspace and a repository by place. Each distinct id is made once.
@@ -498,6 +508,8 @@ impl TitleBar {
             this.menu = None;
             if let Some(at) = opened.0.strip_prefix("workspace-").and_then(|n| n.parse::<usize>().ok()) {
                 this.leave_with(Asked::OpenWorkspace(at.saturating_sub(1)), window, cx);
+            } else if let Some(at) = repository_at(opened.0) {
+                this.leave_with(Asked::RepositoryRuns(at), window, cx);
             }
         });
         let keys = dropdown.read(cx).focus_handle(cx);
@@ -854,6 +866,14 @@ impl TitleBar {
         let mut entries = vec![Entry::Search { label: "Find a repository", to_rule: narrow }];
         entries.push(Entry::Row(Row::new("all", "All repositories").icon("layers").ticked(all_ticked)));
         let mut in_one = vec![false; face.repositories.len()];
+        // The place glyph at a repository row's end, in the wide picker only: where its Armada configuration is kept.
+        let trailed = |row: Row, at: usize| match (&face.repositories[at].kept, narrow) {
+            (Some(kept), false) => {
+                let name = &face.repositories[at].name;
+                row.trail(kept.glyph(), format!("Armada configuration for {name}"), format!("Armada configuration kept {} (→)", kept.phrase()))
+            }
+            _ => row,
+        };
         let set_up = face.repositories.iter().any(|one| !one.not_set_up);
         if set_up {
             entries.push(Entry::Rule);
@@ -867,22 +887,23 @@ impl TitleBar {
             entries.push(Entry::Row(if narrow { heading } else { heading.gear(format!("Open {}", workspace.name)) }));
             for at in held {
                 in_one[at] = true;
-                entries.push(Entry::Row(
+                entries.push(Entry::Row(trailed(
                     Row::new(id_of(format!("in-{}-{}", w + 1, at + 1)), face.repositories[at].name.clone())
                         .icon("folder-git-2")
                         .member()
                         .ticked(face.chosen == Some(at) && face.scoped.is_none()),
-                ));
+                    at,
+                )));
             }
         }
         for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
             if !one.not_set_up && !in_one[at] {
-                entries.push(Entry::Row(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").ticked(face.chosen == Some(at) && face.scoped.is_none())));
+                entries.push(Entry::Row(trailed(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").ticked(face.chosen == Some(at) && face.scoped.is_none()), at)));
             }
         }
         for (at, one) in face.repositories.iter().enumerate().take(REPO.len()) {
             if one.not_set_up {
-                entries.push(Entry::Row(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").detail("Not set up").ticked(face.chosen == Some(at) && face.scoped.is_none())));
+                entries.push(Entry::Row(trailed(Row::new(REPO[at], one.name.clone()).icon("folder-git-2").detail("Not set up").ticked(face.chosen == Some(at) && face.scoped.is_none()), at)));
             }
         }
         if narrow {

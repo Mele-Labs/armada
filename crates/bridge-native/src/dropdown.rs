@@ -52,11 +52,23 @@ pub struct Row {
     pub gear: Option<SharedString>,
     /// Picking it flips its tick and leaves the menu open, as Electron's View group does.
     pub keep: bool,
+    /// A glyph button at the row's end that opens a layer about the row (the picker's place glyph); → on the row does the same.
+    pub trail: Option<Trail>,
+}
+
+/// The mark a row ends in, and what it says.
+#[derive(Clone)]
+pub struct Trail {
+    pub icon: &'static str,
+    /// The button's name.
+    pub said: SharedString,
+    /// Its tooltip.
+    pub tip: SharedString,
 }
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, accent: false, attention: false, disabled: false, gear: None, keep: false }
+        Row { id, label: label.into(), icon: None, detail: None, key: None, ticked: None, member: false, accent: false, attention: false, disabled: false, gear: None, keep: false, trail: None }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -105,6 +117,11 @@ impl Row {
         self
     }
 
+    pub fn trail(mut self, icon: &'static str, said: impl Into<SharedString>, tip: impl Into<SharedString>) -> Row {
+        self.trail = Some(Trail { icon, said: said.into(), tip: tip.into() });
+        self
+    }
+
     pub fn gear(mut self, said: impl Into<SharedString>) -> Row {
         self.gear = Some(said.into());
         self
@@ -135,7 +152,7 @@ pub enum Picked {
     Entry { id: &'static str, keep: bool },
 }
 
-/// A gear at a row's end was pressed: open what the row names, and leave the menu.
+/// A gear or trail at a row's end was pressed, or → on the row: open what the row names, and leave the menu.
 pub struct Gear(pub &'static str);
 
 pub struct Dropdown {
@@ -314,6 +331,16 @@ impl Dropdown {
                 None => return,
             },
             "escape" => cx.emit(DismissEvent),
+            "right" => match self.cursor.and_then(|at| match self.entries.get(at) {
+                Some(Entry::Row(row)) if row.gear.is_some() || row.trail.is_some() => Some(row.id),
+                _ => None,
+            }) {
+                Some(id) => {
+                    cx.emit(Gear(id));
+                    cx.emit(DismissEvent);
+                }
+                None => return,
+            },
             _ => return,
         }
         cx.stop_propagation();
@@ -435,6 +462,34 @@ impl Dropdown {
                         said,
                     )
                 });
+                let trail = row.trail.clone().map(|trail| {
+                    let tip = trail.tip.clone();
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("trail-{id}")))
+                            .flex_none()
+                            .size(look.length(token::SPACE_6))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(look.length(token::RADIUS_MD))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx))
+                            .child(svg().path(icon_path(trail.icon)).size(look.length(token::SPACE_3)).text_color(look.color(token::STATUS_COMPLETED_SUCCESS)))
+                            .on_mouse_down(gpui::MouseButton::Left, |_, window, cx| {
+                                cx.stop_propagation();
+                                window.prevent_default();
+                            })
+                            .on_click(cx.listener(move |_, _, _, cx| {
+                                cx.stop_propagation();
+                                cx.emit(Gear(id));
+                                cx.emit(DismissEvent);
+                            })),
+                        Role::Button,
+                        trail.said,
+                    )
+                });
                 labelled(
                     div()
                         .id(id)
@@ -473,6 +528,7 @@ impl Dropdown {
                                 .text_color(look.color(token::FG_SUBTLE))
                                 .child(key)
                         }))
+                        .children(trail)
                         .children(gear)
                         .when(has_checks, |line| {
                             line.child(div().flex_none().size(glyph).when(row.ticked == Some(true), |mark| {

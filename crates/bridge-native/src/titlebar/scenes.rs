@@ -8,7 +8,7 @@ use gpui::{App, Global, SharedString};
 use ipc::{FleetBuildReport, ModelDownshift};
 
 use super::face::{
-    connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Repository, Restarting, Usage, Workspace,
+    connection_of, Band, Build, Connection, Doctor, Dropped, Face, FleetFace, Limit, Link, Outcome, Place, Power, Repository, Restarting, RunsPlace, RunsPlaceKind, Usage, Workspace,
 };
 use super::{live, TitleBar};
 use crate::runtime_file::{Presence, RuntimeFile};
@@ -159,10 +159,10 @@ pub fn rest() -> Face {
         build: Some(main_aligned()),
         fleet: fleet(connected(), Power::Live),
         repositories: vec![
-            Repository { name: "armada".into(), not_set_up: false },
-            Repository { name: "sample-web".into(), not_set_up: false },
-            Repository { name: "sample-api".into(), not_set_up: false },
-            Repository { name: "sample-docs".into(), not_set_up: true },
+            Repository { name: "armada".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Repository, detail: None }) },
+            Repository { name: "sample-web".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Mac, detail: None }) },
+            Repository { name: "sample-api".into(), not_set_up: false, kept: Some(RunsPlace { kind: RunsPlaceKind::Synced, detail: Some("iCloud Drive".into()) }) },
+            Repository { name: "sample-docs".into(), not_set_up: true, kept: None },
         ],
         chosen: Some(0),
         workspaces: vec![Workspace { name: "Storefront".into(), members: vec![1, 2] }],

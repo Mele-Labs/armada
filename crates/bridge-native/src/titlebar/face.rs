@@ -480,6 +480,47 @@ pub struct Repository {
     pub name: SharedString,
     /// Carries the detail `Not set up`.
     pub not_set_up: bool,
+    /// Where Fleet says this repository's Armada configuration is kept; none until it has said.
+    pub kept: Option<RunsPlace>,
+}
+
+/// Where the runs of a repository are kept (`RunsPlaces.tsx`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RunsPlaceKind {
+    Mac,
+    Repository,
+    Synced,
+    Cloud,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RunsPlace {
+    pub kind: RunsPlaceKind,
+    /// The folder or store, when Fleet names it.
+    pub detail: Option<SharedString>,
+}
+
+impl RunsPlace {
+    /// The registry glyph of the place (`PLACE_GLYPH`).
+    pub fn glyph(&self) -> &'static str {
+        match self.kind {
+            RunsPlaceKind::Mac => "laptop",
+            RunsPlaceKind::Repository => "folder-git-2",
+            RunsPlaceKind::Synced => "folder",
+            RunsPlaceKind::Cloud => "database",
+        }
+    }
+
+    /// The place as a phrase (`placePhrase`): `on this Mac`, `in iCloud Drive`.
+    pub fn phrase(&self) -> String {
+        match (self.kind, &self.detail) {
+            (RunsPlaceKind::Mac, _) => "on this Mac".into(),
+            (RunsPlaceKind::Repository, _) => "in the repository".into(),
+            (_, Some(detail)) => format!("in {detail}"),
+            (RunsPlaceKind::Synced, None) => "in a synced folder".into(),
+            (RunsPlaceKind::Cloud, None) => "in cloud storage".into(),
+        }
+    }
 }
 
 /// A Workspace the picker lists as a heading, with the repositories under it by place in [`Face::repositories`].
