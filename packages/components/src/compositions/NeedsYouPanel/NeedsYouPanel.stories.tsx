@@ -1012,3 +1012,67 @@ export const OnlyReviewItemsOpenTheSheetFromTheBand: Story = {
     await expect(reviewed).toHaveBeenCalledTimes(1);
   },
 };
+
+const restartRow = (key: string, command = "scripts/preview --restart"): LedgerEntry => ({
+  key,
+  kind: "waiting",
+  act: "run",
+  name: "Refresh preview",
+  text: "Refresh preview",
+  restart: {
+    command,
+  },
+  onOpen: fn(),
+});
+const OPERATOR_CALL: LedgerEntry = {
+  key: "call",
+  kind: "waiting",
+  act: "message",
+  name: "The Operator raised this Job: it is the only way Fleet's rules leave it",
+  text: "The Operator raised this Job: it is the only way Fleet's rules leave it",
+  onOpen: fn(),
+};
+
+/** Two items that ask for one command are one key on the band: the agent's own item and the sentence read from its reply say the same restart. */
+export const OneCommandIsOneKey: Story = {
+  render: () => (
+    <Frame
+      rows={[
+        restartRow("agent"),
+        restartRow("reply"),
+        restartRow("other", "scripts/preview --restart --adopt"),
+      ]}
+    />
+  ),
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Refresh preview",
+      }),
+    ).toHaveLength(2);
+  },
+};
+
+/** What is owed is a restart and a call: the call is a row of the list, the restart is the band's key, and the open band lists the call. */
+export const ARestartBesideACallListsTheCall: Story = {
+  render: () => (
+    <Frame
+      rows={[
+        restartRow("agent"),
+        restartRow("reply"),
+        OPERATOR_CALL,
+      ]}
+      startOpen
+    />
+  ),
+  play: async ({ canvas }) => {
+    await expect(rowNames(canvas)).toEqual([
+      "Open The Operator raised this Job: it is the only way Fleet's rules leave it",
+    ]);
+    await expect(
+      canvas.getAllByRole("button", {
+        name: "Refresh preview",
+      }),
+    ).toHaveLength(1);
+  },
+};
