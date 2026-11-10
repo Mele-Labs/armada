@@ -56,7 +56,7 @@ export type SaveReviewTool = {
 };
 
 /** What a run is of. */
-export type ReviewRunKind = "tool" | "explanation" | "ask" | "search";
+export type ReviewRunKind = "tool" | "explanation" | "ask" | "search" | "fix";
 
 /** How far a run has got. `failed` is never a result. */
 export type ReviewRunState = "queued" | "running" | "done" | "failed";
@@ -71,6 +71,11 @@ export type StartReviewRun = {
   again?: boolean;
   /** Where the change runs. Required for the tool `walk` and ignored by every other name. */
   place?: WalkPlace;
+  /**
+   * The finding a `fix` fixes, required for it and on the `right` side. For a fix, `name` is
+   * `<path>:<start>-<end> <title>`, so two findings of one title are two runs.
+   */
+  finding?: ReviewFinding;
 };
 
 /** A place in the change: a range of lines of a file, on one side of the diff. */
@@ -200,6 +205,14 @@ export type ReviewResult =
       shape: "api_walk";
       place: WalkPlace;
       requests: ReviewRequest[];
+    }
+  /** A fix for a finding's lines: `at` and `before` are Fleet's, read at the run's head; `after` replaces exactly those lines. */
+  | {
+      shape: "fix";
+      at: ReviewPlace;
+      before: string;
+      after: string;
+      why: string;
     };
 
 /** One run about one pull request at one commit, going or kept. Carried as `run` by `review_run.changed`. */

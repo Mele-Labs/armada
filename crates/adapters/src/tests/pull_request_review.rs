@@ -12,6 +12,7 @@ fn comments() -> Vec<ReviewComment> {
             line: 42,
             side: DiffSide::Left,
             body: "--why this".into(),
+            start_line: None,
         },
         ReviewComment::Reply {
             thread: "PRRT_9".into(),
@@ -213,4 +214,37 @@ fn a_step_that_answers_with_no_id_is_a_refusal() {
     )
     .unwrap_err();
     assert!(refused.contains("gave nothing back"), "{refused}");
+}
+
+fn ranged(start_line: Option<u64>) -> Vec<Step> {
+    let mut taken = Vec::new();
+    let comment = ReviewComment::Line {
+        path: "src/a.rs".into(),
+        line: 14,
+        side: DiffSide::Right,
+        body: "these lines".into(),
+        start_line,
+    };
+    post_with(&mut forge(&mut taken, None), ("PR_node", "h"), ReviewSaid::Commented, None, &[comment], None)
+        .expect("posted");
+    taken
+}
+
+#[test]
+fn a_range_sends_its_start_line_and_side() {
+    let line = ranged(Some(10))[1].arguments();
+    assert!(line.windows(2).any(|pair| pair == ["-F", "line=14"]));
+    assert!(line.windows(2).any(|pair| pair == ["-F", "startLine=10"]), "{line:?}");
+    assert!(line.windows(2).any(|pair| pair == ["-f", "startSide=RIGHT"]), "{line:?}");
+}
+
+#[test]
+fn one_line_sends_no_start_whether_absent_or_equal() {
+    for start_line in [None, Some(14)] {
+        let step = &ranged(start_line)[1];
+        let line = step.arguments();
+        assert_eq!(step.start_line, None);
+        assert!(!line.iter().any(|arg| arg.starts_with("startLine=") || arg.starts_with("startSide=")), "{line:?}");
+        assert!(line.windows(2).any(|pair| pair == ["-F", "line=14"]));
+    }
 }

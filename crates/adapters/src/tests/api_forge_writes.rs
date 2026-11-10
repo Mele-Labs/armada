@@ -240,7 +240,7 @@ fn with_comments() -> PullRequestWrite {
         verdict: ReviewSaid::ChangesRequested,
         body: Some("Two things".into()),
         comments: vec![
-            ReviewComment::Line { path: "src/a.rs".into(), line: 12, side: DiffSide::Left, body: "Why?".into() },
+            ReviewComment::Line { path: "src/a.rs".into(), line: 12, side: DiffSide::Left, body: "Why?".into(), start_line: None },
             ReviewComment::File { path: "src/b.rs".into(), body: "Whole file".into() },
             ReviewComment::Reply { thread: "T_9".into(), body: "Agreed".into() },
         ],
@@ -271,6 +271,30 @@ fn a_review_with_comments_is_opened_filled_and_submitted_at_the_branch_head() {
     assert!(seen[2].body.contains(r#""review":"R_1""#) && seen[2].body.contains(r#""line":12"#), "{}", seen[2].body);
     assert!(seen[2].body.contains(r#""side":"LEFT""#) && seen[2].body.contains(r#""body":"Why?""#), "{}", seen[2].body);
     assert!(seen[5].body.contains(r#""event":"REQUEST_CHANGES""#) && seen[5].body.contains(r#""body":"Two things""#));
+}
+
+#[test]
+fn a_ranged_line_comment_carries_its_start_over_the_api() {
+    let server = review_server(false);
+    let repo = on_github();
+    let write = PullRequestWrite::Review {
+        verdict: ReviewSaid::Commented,
+        body: None,
+        comments: vec![ReviewComment::Line {
+            path: "src/a.rs".into(),
+            line: 14,
+            side: DiffSide::Right,
+            body: "These lines".into(),
+            start_line: Some(10),
+        }],
+        commit: None,
+    };
+
+    forge(&server).write_pull_request(&repo.root_str(), "12", &write).unwrap();
+
+    let thread = &server.seen()[2].body;
+    assert!(thread.contains(r#""line":14"#) && thread.contains(r#""startLine":10"#), "{thread}");
+    assert!(thread.contains(r#""startSide":"RIGHT""#), "{thread}");
 }
 
 #[test]

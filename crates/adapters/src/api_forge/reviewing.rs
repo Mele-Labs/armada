@@ -27,7 +27,7 @@ struct Verdict<'a> {
     body: Option<&'a str>,
 }
 
-/// A step's values: text, or the one line number.
+/// A step's values: text, or a line number.
 #[derive(Serialize)]
 #[serde(untagged)]
 enum Value<'a> {
@@ -101,6 +101,9 @@ fn taken(api: &GitHubApi, step: &Step) -> Result<String, String> {
     }
     if let Some(line) = step.line {
         values.insert("line", Value::Line(line));
+    }
+    if let Some(start) = step.start_line {
+        values.insert("startLine", Value::Line(start));
     }
     if let Some(text) = &step.text {
         values.insert("body", Value::Text(text));

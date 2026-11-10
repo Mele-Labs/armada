@@ -73,6 +73,13 @@
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
   color: var(--fg-muted);
+  /* A band a lightness step above the card, so who said it reads apart from what they said. */
+  background: var(--bg-overlay);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.armada-pr-card__head:last-child {
+  border-radius: var(--radius-md);
 }
 
 .armada-pr-card__head:not(:last-child) {

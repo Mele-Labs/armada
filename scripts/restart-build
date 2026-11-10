@@ -26,16 +26,25 @@
 # build script, not the code, and Fleet is still up when it happens. Confirmed
 # 6 and 7 Oct 2026; `.claude/skills/preview-app/SKILL.md`.
 #
+# **A failure that names rustc's incremental cache is run once more after the
+# native app's `incremental` directory is removed.** The preview builds that app
+# with an incremental cache, and a build killed in the middle can leave one
+# rustc cannot read. The strings are rustc's own: `incremental compilation`,
+# `dep graph` or `dep-graph`, and `unstable fingerprints`.
+#
 # Knobs for tests: `ARMADA_RESTART_SCRIPT` and `ARMADA_PREVIEW_SCRIPT` name the
 # scripts this runs, `HOME` moves the record and the log, and
 # `ARMADA_RESTART_POLL` is how often, in seconds, the log is read for a stage.
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 
 STALE = "libsqlite3-sys"
+INCREMENTAL = re.compile(r"incremental compilation|dep[- ]graph|unstable fingerprints", re.I)
+INCREMENTAL_DIR = os.path.join("crates", "bridge-native", "target", "release", "incremental")
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 SAID = re.compile(r"^(?:restart|preview): (?:!!! )?(.*)$")
 # What `scripts/preview` says last when `scripts/restart` failed: no cause in it.
@@ -182,12 +191,21 @@ def main():
     code = run()
     with open(log_path) as f:
         log = f.read()
-    if code != 0 and STALE in log and os.path.isdir(tree):
+    cache = os.path.join(tree, INCREMENTAL_DIR)
+    stale = STALE in log
+    broken = INCREMENTAL.search(log) and os.path.isdir(cache)
+    if code != 0 and (stale or broken) and os.path.isdir(tree):
         with open(log_path, "a") as f:
-            f.write(f"\n$ cargo clean -p {STALE}  (in {tree})\n")
+            if stale:
+                f.write(f"\n$ cargo clean -p {STALE}  (in {tree})\n")
+            if broken:
+                f.write(f"\n$ rm -rf {cache}\n")
             f.flush()
             enter("retrying")
-            subprocess.run(["cargo", "clean", "-p", STALE], cwd=tree, stdout=f, stderr=subprocess.STDOUT)
+            if stale:
+                subprocess.run(["cargo", "clean", "-p", STALE], cwd=tree, stdout=f, stderr=subprocess.STDOUT)
+            if broken:
+                shutil.rmtree(cache, ignore_errors=True)
         code = run(retrying=True)
         with open(log_path) as f:
             log = f.read()

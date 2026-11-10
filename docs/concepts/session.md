@@ -57,6 +57,7 @@ You ask who has `fleet/session-ledger`, and the answer is a job by its title, st
 | [A queued idea](session/a-queued-idea.md) |
 | [Stopping a turn](session/stopping-a-turn.md) |
 | [Pausing a Job](session/pausing-a-job.md) |
+| [Editing a sent message](session/editing-a-sent-message.md) |
 | [What a message names](session/what-a-message-names.md) |
 | [A Job's Checks](session/a-jobs-checks.md) |
 | [A Job's retro in its thread](session/a-jobs-retro-in-its-thread.md) |

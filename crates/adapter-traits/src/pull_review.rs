@@ -109,11 +109,14 @@ pub struct ReviewThreadFacts {
 /// One comment of a review, **posted with the review and not before it**.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReviewComment {
+    /// On `line`, or on the lines `start_line` to `line` of `side`.
     Line {
         path: String,
         line: u64,
         side: DiffSide,
         body: String,
+        /// The first line of a range, before `line`. Absent, or equal to `line`, is one line.
+        start_line: Option<u64>,
     },
     File {
         path: String,

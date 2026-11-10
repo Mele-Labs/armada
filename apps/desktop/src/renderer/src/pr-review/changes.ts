@@ -91,6 +91,12 @@ export const placeOfDraft = (draft: Pick<Draft, "line" | "side">): Place | undef
         side: draft.side,
       };
 
+/** The lines a draft on a range is on, as `Lines 12 to 15`. None for a draft on one line or on the file. */
+export const rangeOfDraft = (draft: Pick<Draft, "line" | "startLine">): string | undefined =>
+  draft.line === undefined || draft.startLine === undefined || draft.startLine >= draft.line
+    ? undefined
+    : `Lines ${draft.startLine} to ${draft.line}`;
+
 /** Where on `change` a place in `path` is drawn. Undefined where no hunk it has holds that line, which draws it under the change's head. */
 export function spotOf(change: Change, path: string, place: Place | undefined): Spot | undefined {
   const hunks = change.hunks.flatMap((hunk, at) =>

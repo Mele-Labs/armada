@@ -198,6 +198,10 @@ where
         self.mod_message_sent(terminal, sent, aim).await
     }
 
+    async fn edit_session_message(self: Arc<Self>, edit: ipc::EditSessionMessage) -> Result<SessionRecord, Refusal> {
+        self.session_message_edited(edit).await
+    }
+
     async fn send_session_note(self: Arc<Self>, note: ipc::SendSessionNote) -> Result<ipc::NoteSent, Refusal> {
         self.note_sent(note).await
     }
