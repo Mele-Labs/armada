@@ -139,6 +139,8 @@ pub static WALKS: &[Walk] = &[
             step("A second question takes several", Verb::Press, "checkbox", "In the tooltip"),
             step("Answer goes to Fleet and waits for its word", Verb::Open("button", "Answer"), "button", "Needs you"),
             step("The band folds the panel", Verb::Press, "button", "Needs you"),
+            step("⇧⌘Y opens the Needs you card again", Verb::Key("shift-cmd-y"), "button", "Open Which colour does the stale chip take?"),
+            step("⇧⌘Y folds it", Verb::Key("shift-cmd-y"), "button", "Needs you"),
             step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
             step("The plan and the pinned sketch wait at the end", Verb::Key("pageup"), "region", "Thread"),
             step("The plan says what each group gives; the groups stay behind Details", Verb::Look, "button", "Details"),

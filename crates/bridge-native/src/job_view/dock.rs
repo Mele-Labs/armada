@@ -159,6 +159,20 @@ impl JobView {
         cx.notify();
     }
 
+    /// ⇧⌘Y: the Needs you card opens or folds. Pages waiting for review open the review sheet instead, which is not drawn yet.
+    pub(super) fn toggle_needs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let nothing = {
+            let (things, review) = self.things(&id, cx);
+            things.is_empty() && review.is_empty()
+        };
+        if nothing {
+            return;
+        }
+        let up = self.needs_up(&id, cx);
+        self.set_needs(!up, None, window, cx);
+    }
+
     /// Whether the panel is up over the thread now.
     pub(super) fn needs_up(&self, id: &str, cx: &gpui::App) -> bool {
         let (things, review) = self.things(id, cx);

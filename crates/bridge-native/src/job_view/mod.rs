@@ -650,6 +650,8 @@ impl JobView {
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {
             self.thread_key(which, window, cx);
+        } else if act.is("needs_you") {
+            self.toggle_needs(window, cx);
         } else if act.is("send_message") && self.composer.read(cx).focus_handle(cx).contains_focused(window, cx) {
             self.send(window, cx);
         } else {
