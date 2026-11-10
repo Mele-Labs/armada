@@ -6,7 +6,7 @@ use std::rc::Rc;
 use gpui::App;
 use ipc::AllWriteClashes;
 
-use super::{hold, OpenHolder};
+use super::{hold, OpenHolder, OpenPath};
 
 const SINCE: &str = "2026-11-09T09:40:00Z";
 
@@ -40,6 +40,21 @@ fn pair() -> AllWriteClashes {
     all(vec![clash(FOUNDATION, NOTICES, &["crates/bridge-native/src/jobs.rs", "crates/ipc/src/clashes.rs"])])
 }
 
+/// One pair whose changes collide in five files: the card folds the list to its first three.
+fn files() -> AllWriteClashes {
+    all(vec![clash(
+        FOUNDATION,
+        NOTICES,
+        &[
+            "crates/bridge-native/src/jobs.rs",
+            "crates/bridge-native/src/clash_mark.rs",
+            "crates/ipc/src/clashes.rs",
+            "crates/fleet/src/write_clashes/detect.rs",
+            "docs/concepts/write-clashes.md",
+        ],
+    )])
+}
+
 /// Every kind at once, on four rows. A Job in two clashes, one with another Job and one with a main
 /// that moved, wears one mark and a card; the other Job of the pair wears a button; a Job against a
 /// main alone wears a picture, since there is nothing of main to open.
@@ -64,10 +79,15 @@ pub fn clear(cx: &mut App) {
     if cx.has_global::<OpenHolder>() {
         cx.remove_global::<OpenHolder>();
     }
+    if cx.has_global::<OpenPath>() {
+        cx.remove_global::<OpenPath>();
+    }
 }
 
 /// What a press on a mark does in a walk, in place of the Jobs screen's own: press the other Job's row.
 pub fn open_by_press(cx: &mut App) {
+    // A path is asked for and nothing opens: this walk has no files panel for it to land in.
+    cx.set_global(OpenPath(Rc::new(|_, _, _| {})));
     cx.set_global(OpenHolder(Rc::new(|holder, window, cx| {
         let label = holder.label.clone();
         window.defer(cx, move |window, cx| crate::walk::stage::press_row(&label, window, cx));
@@ -78,6 +98,7 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
     let next = match name {
         "clash-pair" => pair(),
         "clash-states" => states(),
+        "clash-files" => files(),
         "clash-none" => none(),
         other => return Err(format!("no clash scene named {other}")),
     };

@@ -15,7 +15,7 @@ use ipc::SnapshotState;
 use super::parts::{spinner, Btn, Weight};
 use super::{Asked, TitleBar};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 
 const SWAPPED_BACK: &str = "Swapped back";
 

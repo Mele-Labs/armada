@@ -12,7 +12,7 @@ use ipc::{FixingElsewhere, MainMerge, MainRedJob, MainView};
 
 use super::{Asked, MergeStrip, Recent};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 use crate::titlebar::parts::{card, glyph, mono, small, Btn, Weight};
 
 /// A claim held this long reads as stale by its mark and age alone.

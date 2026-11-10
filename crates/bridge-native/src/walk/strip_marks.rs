@@ -16,9 +16,10 @@ pub(super) const READY: &str = "#3388 Fix the merge line freshness chip · armad
 pub(super) const RED: &str = "Main is red in armada, checkout 3 commits behind main";
 pub(super) const PAIR: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/ipc/src/clashes.rs";
 pub(super) const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, main, Pocket sign-in on the phone";
+pub(super) const FILES: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/bridge-native/src/clash_mark.rs, crates/ipc/src/clashes.rs, crates/fleet/src/write_clashes/detect.rs, docs/concepts/write-clashes.md";
 pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
-pub static STEPS: [Step; 34] = [
+pub static STEPS: [Step; 41] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
     step("A ring says a pull request is open and a filled lamp that a queue holds it; the hue is its checks. Rest the pointer on a chip for its card", Verb::Hover, "button", RUNNING),
     step("A press selects the pull request, and the chip says so in the same frame", Verb::Press, "button", READY),
@@ -50,6 +51,13 @@ pub static STEPS: [Step; 34] = [
     marks("A write clash marks both rows of the pair, in the Conflicts column", "clash-pair", "button", PAIR),
     step("Hover names the other Job and the files that collide", Verb::Hover, "button", PAIR),
     press_on("A press opens the other Job, and the row it sits on stays as it was", "button", PAIR, "row", "Quiet the write-clash notices"),
+    marks("Two Jobs that collide in five files wear the same mark", "clash-files", "button", FILES),
+    step("Hover lists the files: the first three, the directory dim and the file name whole, and a chip for the rest", Verb::Hover, "button", FILES),
+    press_on("The chip opens the other two and now reads Fewer", "button", "2 more", "button", "Fewer"),
+    press_on("A path is a press: Open crates/ipc/src/clashes.rs asks for that file", "button", "Open crates/ipc/src/clashes.rs", "button", "Open crates/ipc/src/clashes.rs"),
+    marks("Two Jobs that collide in five files wear the same mark", "clash-files", "button", FILES),
+    step("Tab reaches the mark, and Tab again the first path, with its card still open", Verb::Keys(&["tab", "tab"]), "button", "Open crates/bridge-native/src/jobs.rs"),
+    step("Enter on a path asks for it, and Esc puts the card away with the keys back on the mark", Verb::Keys(&["enter", "escape"]), "button", FILES),
     marks("A Job in several clashes wears one mark; against main alone the mark is a picture, with nothing of main to open", "clash-states", "img", SEVERAL),
     step("Hover lists each holder under one heading", Verb::Hover, "img", SEVERAL),
     step("The Paused scope: a paused Job keeps its mark beside the Paused mark, and the mark names the Job it clashes with", Verb::PausedScope, "button", PAUSED),
