@@ -41,6 +41,9 @@ A rewrite to the same path is the next revision, and an identical write is none.
 The copies are `r1.html`, `r2.html` and on, under the machine's `attachments/documents/<job id>/<page>/`, outside every worktree, so a released slot keeps them.
 A revision is kept once the tool has answered, so a failed write keeps nothing.
 
+**Rule.** A page may also be written by Fleet from a draft the person turned into a Document (`docs/concepts/session/proposing-a-draft.md`).
+It is a page like any other from then on, and the Job is told to revise it there.
+
 **Rule.** Fleet puts one artifact of form `document` on the Job. Its title is the page's `<title>`, or its first `<h1>` where there is none, and it names the paths of the revisions.
 
 **Rule.** Bridge reads each artifact of form `document` as a page: `revisions` is a JSON list of absolute paths, oldest first, and a list that is not one reads as none.

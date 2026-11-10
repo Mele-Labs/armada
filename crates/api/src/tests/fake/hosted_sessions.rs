@@ -149,6 +149,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn convert_draft_to_document(
+        self: Arc<Self>,
+        _convert: ipc::ConvertDraftToDocument,
+    ) -> Result<ipc::DraftDocument, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn reopen_waiting(
         self: Arc<Self>,
         _reopen: ipc::ReopenWaiting,
