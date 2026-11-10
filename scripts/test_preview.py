@@ -895,6 +895,43 @@ class RestartAdopt(unittest.TestCase):
         self.assertIn("would keep no native Bridge", said)
         self.assertNotIn("Armada.app", said)
 
+    def native_cargo(self):
+        """A cargo that records the incremental switch of a native build and leaves the binary."""
+        record = os.path.join(self.dir, "native-cargo-env")
+        with open(os.path.join(self.bin, "cargo"), "w") as f:
+            f.write("#!/bin/sh\n"
+                    'case "$*" in *bridge-native*) echo "${CARGO_PROFILE_RELEASE_INCREMENTAL-unset} $*" > "' + record + '"\n'
+                    '  mkdir -p crates/bridge-native/target/release; touch crates/bridge-native/target/release/bridge-native ;;\n'
+                    "esac\nexit 0\n")
+        return record
+
+    def test_the_native_bridge_is_built_optimised_and_incremental(self):
+        record = self.native_cargo()
+        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
+        open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
+        os.makedirs(os.path.join(self.tree, "apps", "desktop", "codegen"))
+        with open(os.path.join(self.tree, "apps", "desktop", "codegen", "protocol-id.mjs"), "w") as f:
+            f.write('console.log("wire1")\n')
+        self.fleet({})
+        # `--keep-only` stops at keeping the build, which the scratch root has no script for.
+        code, said = self.restart("--keep-only")
+        with open(record) as f:
+            seen = f.read()
+        self.assertTrue(seen.startswith("true "), seen)
+        self.assertIn("--release", seen)
+
+    def test_a_root_cargo_toml_is_a_reason_to_rebuild_the_native_bridge(self):
+        self.fleet({"j1": "escalated"})
+        self.built_native()
+        root = os.path.join(self.tree, "Cargo.toml")
+        open(root, "w").close()
+        later = time.time() + 120
+        os.utime(root, (later, later))
+        code, said = self.restart("--dry-run")
+        self.assertEqual(code, 0, said)
+        self.assertIn("would build the native Bridge from", said)
+        self.assertIn("the root Cargo.toml", said)
+
     def test_a_native_bridge_never_built_is_built(self):
         self.fleet({"j1": "escalated"})
         os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
