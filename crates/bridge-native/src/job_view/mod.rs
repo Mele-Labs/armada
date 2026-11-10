@@ -13,7 +13,10 @@
 mod acts;
 mod calls;
 mod cards;
+mod deck;
+mod dock;
 mod lines;
+mod perm;
 mod plan;
 mod pop;
 mod records;
@@ -61,8 +64,6 @@ pub fn bind(cx: &mut App) {
 pub(crate) enum Extra {
     Plan(PlanCardState),
     Sketch(String),
-    Asked(String),
-    Lapsed,
     Pending(usize),
     Working,
 }
@@ -94,6 +95,8 @@ struct Page {
     refused: Option<SharedString>,
     /// What the cards in this Job's thread remember.
     cards: acts::CardState,
+    /// What the Needs you panel remembers of this Job.
+    dock: dock::DockState,
 }
 
 impl Page {
@@ -101,7 +104,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default() }
+        Page { list, items: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default() }
     }
 }
 
@@ -115,12 +118,6 @@ fn extras_of(head: &ThreadHead, items: &[ThreadItem], pending: &[Pending], worki
     }
     if let Some(sketch) = &head.sketch {
         extras.push(Extra::Sketch(sketch.title.clone()));
-    }
-    if let Some(asked) = &head.asked {
-        extras.push(Extra::Asked(asked.command.clone()));
-    }
-    if head.lapsed.is_some() {
-        extras.push(Extra::Lapsed);
     }
     extras.extend((0..pending.len()).map(Extra::Pending));
     let running = items.iter().any(|item| matches!(item, ThreadItem::Subagent { subagent, .. } if subagent.state == ipc::ToolSubagentState::Running));
@@ -213,6 +210,8 @@ pub struct JobView {
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
+    /// The Needs you panel, so its keys work once focus is in it.
+    dock_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -267,6 +266,7 @@ impl JobView {
             switched: None,
             focus: cx.focus_handle(),
             pop: None,
+            dock_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
     }
@@ -441,6 +441,7 @@ impl JobView {
         page.count = total;
         page.extras = extras;
         page.version = Some(version);
+        self.arrive(id, cx);
     }
 
     /// Send what is in the box. The words are in the thread this frame; Fleet's row replaces them
@@ -911,6 +912,11 @@ impl Render for JobView {
                     .id("thread")
                     .key_context("thread")
                     .track_focus(&self.focus)
+                    .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| {
+                        if !this.focus.contains_focused(window, cx) {
+                            window.focus(&this.focus, cx);
+                        }
+                    }))
                     .on_action(cx.listener(Self::on_page_up))
                     .on_action(cx.listener(Self::on_page_down))
                     .on_action(cx.listener(Self::on_to_start))
@@ -936,7 +942,8 @@ impl Render for JobView {
             .flex_col()
             .on_action(cx.listener(Self::on_act))
             .child(head)
-            .child(div().relative().flex_1().min_h_0().child(body))
+            .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)))
+            .children(self.render_needs(&id, cx))
             .children(dock)
             .children(self.pop.as_ref().map(|pop| pop.menu.clone()))
             .child(canvas(

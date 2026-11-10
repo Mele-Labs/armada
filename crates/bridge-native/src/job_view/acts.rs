@@ -283,9 +283,23 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.post_with(job.clone(), route, body, move |this, why, cx| this.undo(&job, ix, &key, why, cx), window, cx);
+    }
+
+    /// An act sent off the main thread; `failed` runs with Fleet's reason when it was refused.
+    pub(super) fn post_with(
+        &mut self,
+        job: SharedString,
+        route: &'static str,
+        body: Result<String, String>,
+        failed: impl FnOnce(&mut JobView, SharedString, &mut Context<JobView>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let _ = job;
         let Some(fleet) = self.fleet.clone() else { return };
         let Some(port) = fleet.read(cx).held().port() else {
-            self.undo(&job, ix, &key, "Fleet is not connected".into(), cx);
+            failed(self, "Fleet is not connected".into(), cx);
             return;
         };
         cx.spawn_in(window, async move |this, cx| {
@@ -302,7 +316,7 @@ impl JobView {
                 })
                 .await;
             if let Err(why) = answer {
-                let _ = this.update(cx, |this, cx| this.undo(&job, ix, &key, why.into(), cx));
+                let _ = this.update(cx, |this, cx| failed(this, why.into(), cx));
             }
         })
         .detach();

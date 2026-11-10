@@ -51,7 +51,10 @@ pub fn find(step: &Step, window: &Window, cx: &App) -> Result<Drawn, Missed> {
     cx.try_global::<LabelBook>()
         .and_then(|book| book.find(window.window_handle().window_id(), role, step.target.name))
         .cloned()
-        .ok_or_else(|| Missed(format!("no {} named \"{}\"", step.target.role, step.target.name)))
+        .ok_or_else(|| {
+            let seen: Vec<String> = cx.try_global::<LabelBook>().map(|b| b.drawn(window.window_handle().window_id()).iter().filter(|d| d.role == role).map(|d| d.name.to_string()).collect()).unwrap_or_default();
+            Missed(format!("no {} named \"{}\"; drawn: {:?}", step.target.role, step.target.name, seen))
+        })
 }
 
 /// Do what reaching `step` does. A press needs its target drawn first; a key goes to the screen.
@@ -90,6 +93,16 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 let keystroke = Keystroke { modifiers: Modifiers::default(), key, key_char: Some(ch.to_string()) };
                 window.dispatch_keystroke(keystroke, cx);
             }
+            Ok(())
+        }
+        Verb::Open(role, on) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
+                .cloned()
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to press")))?;
+            press(MouseButton::Left, drawn.bounds.center(), window, cx);
             Ok(())
         }
         Verb::Hover => {

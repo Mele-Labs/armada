@@ -317,8 +317,6 @@ impl JobView {
         Some(match page.extras.get(at)? {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
-            Extra::Asked(command) => self.card("asked-head", "Ask", Some(command), "circle-help", look),
-            Extra::Lapsed => self.card("lapsed-head", "Questions not answered", None, "circle-help", look),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 self.you(&format!("pending:{}", one.key), &one.text, &[], None, true, false, look, now, cx)

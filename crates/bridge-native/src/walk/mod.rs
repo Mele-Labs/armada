@@ -30,6 +30,9 @@ pub enum Verb {
     /// A right press on the step's own target, before the target is ringed: the target is
     /// what the press opens, so the press aims at `on`, a row's name.
     RightPress(&'static str),
+    /// A press on the element of this role and name, before the target is ringed: the target is what the
+    /// press shows, so the button itself is gone by then.
+    Open(&'static str, &'static str),
     /// The pointer brought to rest on the target.
     Hover,
     /// A press in the middle of the target, then these words typed into whatever it focused.
@@ -125,10 +128,26 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "job-view",
         steps: &[
-            step("A press on a Job opens it in the middle", Verb::Press, "row", "Fix the merge line freshness chip"),
-            step("The head carries the Job's state and its title", Verb::Look, "row", "Thread: Fix the merge line freshness chip"),
-            step("The thread opens at its newest row and follows it", Verb::Press, "region", "Thread"),
+            step("A press on a Job opens it in the middle; what waits on you is up", Verb::Press, "row", "Fix the merge line freshness chip"),
+            step("What waits on you stays up", Verb::Look, "button", "Needs you"),
+            step("The question opens whole", Verb::Open("button", "Open Which colour does the stale chip take?"), "button", "Back"),
+            step("One answer picks and moves to the next question", Verb::Open("radio", "Amber"), "checkbox", "In the tooltip"),
+            step("A second question takes several", Verb::Press, "checkbox", "In the tooltip"),
+            step("Answer goes to Fleet and waits for its word", Verb::Open("button", "Answer"), "button", "Needs you"),
+            step("The band folds the panel", Verb::Press, "button", "Needs you"),
+            step("A press in the thread gives it the keys", Verb::Press, "region", "Thread"),
             step("The plan and the pinned sketch wait at the end", Verb::Key("pageup"), "region", "Thread"),
+            step("The plan says what each group gives; the groups stay behind Details", Verb::Look, "button", "Details"),
+            step("Details opens the groups and what changed", Verb::Open("button", "Details"), "button", "Show less"),
+            step("Page down reaches the plan's answers", Verb::Key("pagedown"), "button", "Suggest"),
+            step("Suggest opens a note", Verb::Open("button", "Suggest"), "textbox", "Note"),
+            step("The suggestion is typed", Verb::Type("Name the colour in the tooltip"), "textbox", "Note"),
+            step("Send changes goes to Fleet", Verb::Open("button", "Send changes"), "button", "Suggest"),
+            step("Not yet puts the plan away", Verb::Open("button", "Not yet"), "button", "Plan set aside"),
+            step("Withdraw answers the pinned sketch", Verb::Open("button", "Withdraw"), "button", "Revision 2"),
+            step("Page up reads the cards before it", Verb::Key("pageup"), "region", "Thread"),
+            step("Page up reads the cards before it", Verb::Key("pageup"), "region", "Thread"),
+            step("Page up reads the cards before it", Verb::Key("pageup"), "region", "Thread"),
             step("Home goes to the start of the thread", Verb::Key("home"), "region", "Thread"),
             step("A run of calls is one line; a press opens it", Verb::Press, "button", "Tool calls: Read, Grep, Edit"),
             step("Page down reads on", Verb::Key("pagedown"), "region", "Thread"),
