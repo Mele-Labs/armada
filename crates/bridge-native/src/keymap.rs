@@ -39,6 +39,21 @@ impl Act {
     }
 }
 
+/// Tab and Shift+Tab: the next and the previous tab stop, for a key nothing on the way up took. A screen's
+/// root calls this from its `on_key_down`, so every element that sets `tab_stop` is reached from the keyboard.
+pub fn traverse(event: &gpui::KeyDownEvent, window: &mut gpui::Window, cx: &mut gpui::App) -> bool {
+    let key = &event.keystroke;
+    if key.key != "tab" || key.modifiers.platform || key.modifiers.control || key.modifiers.alt {
+        return false;
+    }
+    if key.modifiers.shift {
+        window.focus_prev(cx);
+    } else {
+        window.focus_next(cx);
+    }
+    true
+}
+
 /// One key with its modifiers. `key` is a lower-case letter, a digit, a symbol, or a named key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Chord {
@@ -362,6 +377,34 @@ impl KeymapController {
             }
         });
         KeymapController { applied: None, _watch: watch }
+    }
+}
+
+/// A registry spelling as a keycap draws it: `⌘Enter` is `⌘↵`.
+pub fn cap(spelling: &str) -> String {
+    spelling.replace("Enter", "↵").replace("Esc", "esc")
+}
+
+/// The key an act is bound to, as its keycap reads. Empty for an id the registry does not know.
+pub fn shown(id: &str) -> String {
+    crate::generated::actions::act(id).map(|row| cap(row.shortcut)).unwrap_or_default()
+}
+
+/// The key of digit `n` in an act's row of digits (`⌥1–⌥9`), as its keycap reads.
+pub fn shown_digit(id: &str, n: u8) -> Option<String> {
+    let row = crate::generated::actions::act(id)?;
+    match parse_slots(row.shortcut).into_iter().next()? {
+        Slot::Digits { mods: Some(mods), from, to } if (from..=to).contains(&n) => {
+            let mut out = String::new();
+            for (held, glyph) in [(mods.ctrl, '⌃'), (mods.alt, '⌥'), (mods.shift, '⇧'), (mods.meta, '⌘')] {
+                if held {
+                    out.push(glyph);
+                }
+            }
+            out.push_str(&n.to_string());
+            Some(out)
+        }
+        _ => None,
     }
 }
 

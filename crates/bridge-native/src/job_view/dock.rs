@@ -14,7 +14,7 @@ use ipc::{ConfirmWaiting, DismissWaiting, SessionId, Lapsed, ReachesTo, ThreadAs
 
 use super::deck::Deck;
 use super::perm::Perm;
-use super::rows::{eyebrow, glyph, tip, Size};
+use super::rows::{glyph, tip, Size};
 use super::JobView;
 use crate::dropdown::Entry;
 use crate::labels::labelled;
@@ -57,6 +57,24 @@ fn misread_entries(confirmed: bool) -> Vec<Entry> {
     }
     entries.push(Entry::Act { id: "no", label: "Not a question".into(), icon: Some("thumbs-down"), danger: false });
     entries
+}
+
+/// A row of the list: a filled, rounded press the panel's width, edged in the band's hue on hover.
+fn filled(look: &Look, row: gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::Div> {
+    row.flex()
+        .items_center()
+        .gap(look.length(token::SPACE_3))
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::BORDER_SUBTLE))
+        .bg(look.color(token::BG_HOVER))
+        .cursor_pointer()
+        .text_size(look.length(token::TEXT_SM))
+        .line_height(look.length(token::LEADING_SM))
+        .text_color(look.color(token::FG_DEFAULT))
+        .hover(|style| style.border_color(look.color(token::STEP_WAITING)))
 }
 
 /// What a waiting item stands for in the list: its glyph and the words that name it.
@@ -283,12 +301,14 @@ impl JobView {
             Role::Button,
             "Needs you",
         );
+        let high = look.length(token::SPACE_6) + look.length(token::SPACE_1);
+        let edge = look.length(token::BORDER_WIDTH);
         let band = div()
             .flex_none()
-            .h(look.length(token::SPACE_6) + look.length(token::SPACE_1))
+            .h(high)
             .flex()
             .items_center()
-            .rounded_t(look.length(token::RADIUS_LG))
+            .rounded_t(look.length(token::RADIUS_LG) - edge)
             .bg(hue)
             .text_color(look.color(token::FG_INVERSE))
             .overflow_hidden()
@@ -301,14 +321,25 @@ impl JobView {
         if let Some(keys) = &keys {
             keys.sweep();
         }
+        // The band heads the composer's frame. Open, it rises over the thread with the panel under it,
+        // and the box below stays where it was.
+        let slot = div().relative().flex_none().w_full().h(high);
         Some(
-            div()
-                .relative()
-                .flex_none()
-                .w_full()
-                .children(panel.map(|panel| div().absolute().bottom_full().left_0().right_0().child(panel)))
-                .child(band)
-                .into_any_element(),
+            match panel {
+                Some(panel) => slot.child(
+                    div()
+                        .absolute()
+                        .bottom_0()
+                        .left(-edge)
+                        .right(-edge)
+                        .flex()
+                        .flex_col()
+                        .child(band.rounded_t(look.length(token::RADIUS_LG)))
+                        .child(panel),
+                ),
+                None => slot.child(band),
+            }
+            .into_any_element(),
         )
     }
 
@@ -321,12 +352,16 @@ impl JobView {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
             None => self.render_list(id, things, review, look, cx),
         };
+        // Up to 95% of the thread, band included, so the Job's head always shows.
+        let thread = self.pages.get(id).map(|page| page.list.viewport_bounds().size.height).unwrap_or_default();
+        let band = look.length(token::SPACE_6) + look.length(token::SPACE_1);
+        let most = if thread > band { thread * 0.95 - band } else { look.length(token::SPACE_12) * 10. };
         div()
             .id("needs-panel")
             .track_focus(&self.dock_focus)
             .occlude()
             .on_key_down(cx.listener(Self::on_panel_key))
-            .max_h(look.length(token::SPACE_12) * 10.)
+            .max_h(most)
             .overflow_y_scroll()
             .flex()
             .flex_col()
@@ -382,19 +417,7 @@ impl JobView {
             let refused = misread.and_then(|item| self.dock_of(self.shown.as_deref()?).and_then(|dock| dock.said.get(&format!("item:{}", item.id)).cloned()));
             let confirmed = misread.is_some_and(|item| item.confirmed || self.shown.as_deref().and_then(|job| self.dock_of(job)).is_some_and(|dock| dock.confirmed.contains(&item.id)));
             let thumbs = misread.zip(spot.as_ref()).map(|(item, spot)| self.thumbs(&item.id, confirmed, spot.focus.clone(), look, cx));
-            let line = div()
-                    .id(SharedString::from(format!("needs-row:{at}")))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_3))
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_2))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .cursor_pointer()
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            let line = filled(look, div().id(SharedString::from(format!("needs-row:{at}"))))
                     .child(div().id(SharedString::from(format!("needs-mark:{at}"))).flex_none().child(glyph(look, icon, Size::Mark, look.color(token::FG_MUTED))).tooltip(tip(said)))
                     .child(div().flex_1().min_w_0().truncate().child(SharedString::from(text)))
                     .children(thumbs)
@@ -477,25 +500,14 @@ impl JobView {
         }
         // The sheet takes what it has a body for; the rest of the pages waiting go to their cards.
         let on_sheet: Vec<String> = self.review_items(id, cx).into_iter().map(|item| item.id).collect();
-        let kinds = self.review_kinds(id, cx);
-        if !kinds.is_empty() {
-            let said = kinds.join(", ");
+        let sheet = self.review_items(id, cx);
+        if !sheet.is_empty() {
+            let said = sheet.iter().map(|item| item.name.as_str()).collect::<Vec<_>>().join(", ");
+            let marks = sheet.iter().map(|item| glyph(look, item.kind.mark().0, Size::Mark, look.color(token::FG_MUTED)));
             groups[1].1.push(
                 labelled(
-                    div()
-                        .id("needs-row:review")
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_3))
-                        .px(look.length(token::SPACE_3))
-                        .py(look.length(token::SPACE_2))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .cursor_pointer()
-                        .text_size(look.length(token::TEXT_SM))
-                        .line_height(look.length(token::LEADING_SM))
-                        .text_color(look.color(token::FG_DEFAULT))
-                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                        .child(div().id("needs-mark:review").flex_none().child(glyph(look, "list-checks", Size::Mark, look.color(token::FG_MUTED))).tooltip(tip("Opens the review")))
+                    filled(look, div().id("needs-row:review"))
+                        .child(div().id("needs-mark:review").flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(marks).tooltip(tip("Opens the review")))
                         .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)))
                         .on_click(cx.listener(|this, _, window, cx| this.review_press(window, cx))),
                     Role::Button,
@@ -530,8 +542,15 @@ impl JobView {
                         .id(SharedString::from(format!("needs-group:{name}")))
                         .flex()
                         .flex_col()
-                        .gap(look.length(token::SPACE_1))
-                        .child(eyebrow(look, name).text_color(look.color(token::FG_MUTED)).px(look.length(token::SPACE_3)))
+                        .gap(look.length(token::SPACE_2))
+                        .child(
+                            div()
+                                .text_size(look.length(token::TEXT_XS))
+                                .line_height(look.length(token::LEADING_XS))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .text_color(look.color(token::FG_MUTED))
+                                .child(name),
+                        )
                         .children(rows),
                     Role::Region,
                     name,
