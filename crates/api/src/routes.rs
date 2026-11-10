@@ -809,6 +809,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/requests/send", post(crate::requests::send_request::<D>))
         .route("/requests/send_many", post(crate::requests::send_requests::<D>))
         .route("/requests", get(crate::requests::get_requests::<D>))
+        .route("/requests/runs", get(crate::requests::list_request_runs::<D>))
+        .route("/requests/runs/one", get(crate::requests::get_request_run::<D>))
         .route("/requests/collections", post(crate::requests::save_request_collection::<D>))
         .route(
             "/requests/collections/request",

@@ -1,0 +1,18 @@
+[operations.list_request_runs]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The runs of one saved request, newest first: every time it was sent, by the person from Requests or by any Job's agent, kept after the Job ends. Name the request by its collection's id and its own id, as get_requests lists them. Each run is its time, who sent it (and the Job), the method and address as sent, the status, the milliseconds, an error where nothing answered, and a line of what was sent. Narrow with by (owner or agent) and status (2xx, 3xx, 4xx, 5xx or failed), and page with before and limit. Read one run whole, with its answer's headers and body and the request exactly as sent, with get_request_run. A secret reads as {{name}} everywhere"
+notes = """
+Since 10 Nov 2026. `GET /requests/runs?repository=&session_id=&collection=&request=&by=&status=&before=&limit=`. `repository` and `session_id` place the repository as `get_requests` does: a root `list_repositories` names, else the repository of the Job whose process holds the connection. A 422 `fleet.requests_unplaced` where nothing names one. `collection` and `request` are required and are ids, exactly as `get_requests` lists them: a name is not looked up, since a run is kept under the ids. A 422 `api.request_run_refused` where one is missing or blank, or where `by`, `status` or `limit` is not one of its spellings, and a 422 `fleet.request_run_refused` where `before` is not a run's id.
+
+`by` is `owner` or `agent`. `status` is `2xx`, `3xx`, `4xx`, `5xx`, or `failed` for a run nothing answered. `limit` is 50 where absent and at most 200. `before` is a run's `id`: only runs older than it. The page's last run's `id` is answered as `next` where more follow, and left out on the last page.
+
+Answers `RequestRuns` `{ runs, next? }`, each run a `RequestRunSummary` `{ id, at, by, job?, method, url, status?, ms, error?, summary }`: `job` is `{ id, title? }` and is the Job that sent it where Fleet knows one, so an owner's run names the Job that was open in Bridge, if any. `summary` is the start of the request's body on one line, empty where it sent none.
+
+**What keeps a run.** Every send of a saved request through `send_request`, the owner's from Bridge or an agent's, whether or not anything answered. A send of the request's own method and address, with no saved request, keeps none, and `send_requests` names no saved request, so it keeps none. A send that was refused before it went, an address that would not read or a secret the Keychain would not give, keeps none. **A request keeps its newest 200.** The run past that drops the oldest, and a run outlives the Job that sent it. A store that will not keep a run does not fail the send: the send's answer carries a `note` saying so.
+
+**Secrets.** Each run is kept with every secret's value already `{{name}}`, in its address, headers, body, answer and error, as the thread's row is. A value shorter than six characters is not hidden. The agent's door answers no `set-cookie` header of a run, whoever sent it.
+
+`agent_access` is `Yes`: an agent checking whether a request it is about to change has been passing reads what the person and other Jobs saw, within the one repository it stands in.
+"""

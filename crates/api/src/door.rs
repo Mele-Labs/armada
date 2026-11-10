@@ -55,6 +55,11 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("who_owns", &["kind", "target"]),
     ("validate_mod", &["name"]),
     ("get_requests", &["repository", "session_id"]),
+    (
+        "list_request_runs",
+        &["repository", "session_id", "collection", "request", "by", "status", "before", "limit"],
+    ),
+    ("get_request_run", &["repository", "session_id", "id"]),
     ("get_style_sources", &["path", "session_id"]),
     ("get_debug_report", &["root"]),
     ("list_watches", &["session_id", "ended"]),
@@ -198,6 +203,8 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "send_request",
     "send_requests",
     "get_requests",
+    "list_request_runs",
+    "get_request_run",
     "save_request_to_collection",
     // The Job's terminals stand in its own worktree or directory, read inside no Manifest.
     "type_in_terminal",
