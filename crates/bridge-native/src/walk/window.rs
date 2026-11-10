@@ -842,7 +842,8 @@ impl Render for WalkWindow {
                         .top(shown.origin.y - gap)
                         .w(shown.size.width + gap * 2.)
                         .h(shown.size.height + gap * 2.)
-                        .rounded(look.length(token::RADIUS_SM))
+                        // The ring follows the element's own corners, out by the gap; one that sets none takes the card's.
+                        .rounded(drawn.radius.unwrap_or(look.length(token::RADIUS_LG)) + gap)
                         .border(look.length(token::FOCUS_RING_WIDTH))
                         .border_color(look.color(token::ACCENT))
                 }))

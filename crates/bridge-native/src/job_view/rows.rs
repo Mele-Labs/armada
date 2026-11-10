@@ -340,6 +340,17 @@ impl JobView {
             .text_size(look.length(size))
             .line_height(relative(1.6))
             .text_color(look.color(token::FG_DEFAULT))
+            // `.armada-prose__quote`: a faint accent box, an accent bar on its left, its right corners rounded.
+            .blockquote_style(
+                gpui::StyleRefinement::default()
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_2))
+                    .border_l(look.length(token::BORDER_WIDTH) * 2.)
+                    .border_color(look.color(token::ACCENT))
+                    .rounded_r(look.length(token::RADIUS_SM))
+                    .bg(look.color(token::ACCENT_FAINT))
+                    .text_color(look.color(token::FG_DEFAULT)),
+            )
             .selectable(true)
             .into_any_element()
     }

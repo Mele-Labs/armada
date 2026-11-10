@@ -1236,11 +1236,12 @@ impl Palette {
                     .h(look.length(token::SPACE_8) - look.length(token::SPACE_1))
                     .flex()
                     .items_center()
-                    .px(look.length(token::SPACE_3))
-                    // `.armada-palette__section`: 2xs, regular, subtle, in the UI font.
+                    .px(look.length(token::SPACE_2))
+                    // `.armada-palette__section` in the new look (`depth.css`): 2xs mono, heading weight, subtle.
+                    .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_BODY)))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                     .text_color(look.color(token::FG_SUBTLE))
                     .child(title.clone()),
                 Role::Heading,

@@ -592,7 +592,7 @@ mod tests {
 
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
         let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };
-        Drawn { role, name: name.to_string().into(), bounds, shown: bounds }
+        Drawn { role, name: name.to_string().into(), bounds, shown: bounds, radius: None }
     }
 
     #[test]
