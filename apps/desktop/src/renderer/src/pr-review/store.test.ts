@@ -1032,6 +1032,67 @@ test("a refused review keeps every draft and shows the forge's words", async () 
   expect(work.submitting).toBe(false);
 });
 
+test("a general comment is posted at once as a plain comment, and the page it answers is the one shown", async () => {
+  const posted = {
+    kind: "comment" as const,
+    id: "IC1",
+    author: "me",
+    at: "2026-11-10T00:00:00Z",
+    body: "Ship it after the lock",
+  };
+  const writes: WritePullRequest[] = [];
+  const { store, key } = await opened({
+    write: async (_id, write) => {
+      writes.push(write);
+      return {
+        ok: true,
+        value: page(write.pull_request, {
+          conversation: [
+            posted,
+          ],
+        }),
+      };
+    },
+  });
+  store.addDraft(key, {
+    path: "a.rs",
+    line: 12,
+    side: "right",
+    body: "Still pending",
+  });
+  expect(await store.comment(key, "  Ship it after the lock  ")).toEqual({
+    ok: true,
+  });
+  // No comments and no commit, so the forge takes it as a comment and not a review.
+  expect(writes).toEqual([
+    {
+      pull_request: 1,
+      kind: "comment",
+      body: "Ship it after the lock",
+    },
+  ]);
+  const pr = store.get().prs.find((one) => one.key === key)!;
+  expect(pr.page.conversation).toEqual([
+    posted,
+  ]);
+  const work = store.get().work[key]!;
+  expect(work.drafts.map((one) => one.body)).toEqual([
+    "Still pending",
+  ]);
+  expect(work.submissions).toEqual([]);
+});
+
+test("a refused general comment answers the forge's words and leaves the review alone", async () => {
+  const { store, key } = await opened({
+    write: async () => said("Comments are locked on this pull request"),
+  });
+  expect(await store.comment(key, "Ship it")).toEqual({
+    ok: false,
+    said: "Comments are locked on this pull request",
+  });
+  expect(store.get().work[key]!.refused).toBeUndefined();
+});
+
 test("a thread is resolved at the forge and then here, and a refusal changes nothing", async () => {
   const thread = {
     id: "T1",

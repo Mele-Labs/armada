@@ -749,11 +749,23 @@ test(
       )
       .toBeVisible();
 
+    // Every open thread's row has its Reply; a resolved one takes none.
     await expect
       .element(
         comments(1899).getByRole("button", {
-          name: "Reply",
+          name: /^Reply on crates\/fleet\/src\/plan_usage\.rs:/,
         }),
+      )
+      .toBeVisible();
+    await expect
+      .element(
+        comments(1899)
+          .getByRole("list", {
+            name: "Resolved threads",
+          })
+          .getByRole("button", {
+            name: /^Reply on /,
+          }),
       )
       .not.toBeInTheDocument();
     await comments(1899)
@@ -761,13 +773,25 @@ test(
         name: /^Open the thread on crates\/fleet\/src\/plan_usage\.rs:/,
       })
       .click();
+    const opened = comments(1899).getByRole("article", {
+      name: /^Thread on crates\/fleet\/src\/plan_usage\.rs/,
+    });
+    // The chevron opens it to read: its own Reply, and no box yet.
     await expect
       .element(
-        comments(1899).getByRole("button", {
+        opened.getByRole("button", {
           name: "Reply",
+          exact: true,
         }),
       )
       .toBeVisible();
+    await expect
+      .element(
+        opened.getByRole("textbox", {
+          name: "Reply",
+        }),
+      )
+      .not.toBeInTheDocument();
     await expect
       .element(
         comments(1899).getByRole("button", {
@@ -776,6 +800,58 @@ test(
         }),
       )
       .toBeVisible();
+
+    // The row's Reply opens a folded thread here with its box open.
+    await comments(1899)
+      .getByRole("button", {
+        name: /^Reply on packages\/protocol\/src\/plan-usage\.ts:/,
+      })
+      .click();
+    await expect
+      .element(
+        comments(1899)
+          .getByRole("article", {
+            name: /^Thread on packages\/protocol\/src\/plan-usage\.ts/,
+          })
+          .getByRole("textbox", {
+            name: "Reply",
+          }),
+      )
+      .toBeVisible();
+  },
+  SLOW,
+);
+
+test(
+  "Comments holds the general comments under Conversation, and Comment posts a new one there at once",
+  async () => {
+    await reviews();
+    await open(1899);
+    const conversation = comments(1899).getByRole("region", {
+      name: "Conversation",
+      exact: true,
+    });
+    await conversation
+      .getByRole("textbox", {
+        name: "Comment",
+        exact: true,
+      })
+      .fill("The usage window reads well now.");
+    await conversation
+      .getByRole("button", {
+        name: "Comment",
+        exact: true,
+      })
+      .click();
+    await expect.element(conversation.getByText("The usage window reads well now.")).toBeVisible();
+    await expect
+      .element(
+        conversation.getByRole("textbox", {
+          name: "Comment",
+          exact: true,
+        }),
+      )
+      .toHaveValue("");
   },
   SLOW,
 );

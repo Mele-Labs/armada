@@ -4,8 +4,9 @@
 // gathers what no stop holds; a file Go to file reaches off the tour says so. Each finding keeps its own answer on its card, and a fix
 // asked for one goes to the review as a suggestion on its lines. It starts a review from lines picked in its gutter, and opens the
 // lines a finding names in place, with Jump. The submit bar says once that
-// findings have no answer. An explanation runs from the head and opens in a tab beside Comments, whose Conversation holds what sits
-// under no line. Ask, docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
+// findings have no answer. An explanation runs from the head and opens in a tab beside Comments, which holds the general comments
+// under Conversation, a card each with a box that posts a new one, then the threads On files and On lines, each with Reply. Ask,
+// docked under the panes, takes a question. Over the `pr-review-by-file` scenario.
 
 import { button, inside, place, region, role, tab, text, toSystemPage, walk } from "../walk";
 
@@ -19,6 +20,8 @@ const comments = inside(
   }),
 );
 const conversation = inside(comments, region("Conversation"));
+const onFiles = inside(comments, region("On files"));
+const onLines = inside(comments, region("On lines"));
 const reviewTab = inside(
   reader,
   tab("Review", {
@@ -385,7 +388,7 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Done. A press opens its tab again",
   },
 
-  // 9. Comments, with what sits under no line.
+  // 9. Comments: the general comments under Conversation, the threads on files and on lines, Reply on each thread, and a new comment.
   {
     press: inside(
       reader,
@@ -396,16 +399,54 @@ const prReviewByFile = walk("pr-review-by-file", [
     say: "Comments",
   },
   {
-    look: conversation,
-    say: "Conversation comes first: what was said on the pull request under no line",
+    look: inside(conversation, role("article", "odile")),
+    say: "Conversation comes first: the comments on the pull request itself, a card each, with who wrote it and when in its head",
   },
   {
-    look: inside(conversation, role("list", "Threads on whole files")),
-    say: "And the threads on a whole file. A press goes to the file in Files",
+    look: inside(conversation, role("article", "tamsin")),
+    say: "A review note is a card of its own. The forge holds no thread on these, so they take no reply",
   },
   {
-    look: inside(comments, role("list", "Open threads")),
-    say: "The threads on lines follow",
+    look: onFiles,
+    say: "On files: the threads on a whole file. A press goes to the file in Files",
+  },
+  {
+    look: inside(onLines, role("list", "Open threads")),
+    say: "On lines: the threads on a line, open ones first",
+  },
+  {
+    press: inside(onLines, button(/^Reply on app\/controllers\/refunds_controller\.rb:/)),
+    say: "Every open thread has Reply at the end of its row",
+  },
+  {
+    look: inside(onLines, role("textbox", "Reply")),
+    say: "The thread opens here with its reply box. A reply joins his pending review",
+  },
+  {
+    type: "The refunds queue is its own, so a gateway outage cannot hold up the mailers.",
+    into: inside(
+      conversation,
+      role("textbox", "Comment", {
+        exact: true,
+      }),
+    ),
+    say: "A new general comment, in the box under the cards",
+  },
+  {
+    press: inside(
+      conversation,
+      button("Comment", {
+        exact: true,
+      }),
+    ),
+    say: "Comment posts it on the pull request at once, apart from his review",
+  },
+  {
+    look: inside(
+      conversation,
+      text("The refunds queue is its own, so a gateway outage cannot hold up the mailers."),
+    ),
+    say: "It is the last card under Conversation",
   },
 
   // 10. Ask, docked under the panes.

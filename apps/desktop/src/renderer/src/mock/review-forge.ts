@@ -529,7 +529,19 @@ export function createMockForge(seed: ReviewSeed): MockForge {
           : write.kind === "request_changes"
             ? "changes_requested"
             : "commented";
-      if (write.body !== undefined || verdict !== "commented")
+      // A comment with no line comments is a plain comment on the pull request, as the forge takes it, and never a review.
+      if (write.kind === "comment" && (write.comments ?? []).length === 0)
+        one.conversation = [
+          ...one.conversation,
+          {
+            kind: "comment",
+            id: `mock:g${(ids += 1)}`,
+            author: seed.me,
+            at,
+            body: write.body ?? "",
+          },
+        ];
+      else if (write.body !== undefined || verdict !== "commented")
         one.conversation = [
           ...one.conversation,
           {

@@ -174,7 +174,7 @@
 .pr-threads {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-4);
   min-width: 0;
 }
 .pr-threads__list {
@@ -191,10 +191,11 @@
   gap: var(--space-1);
   min-width: 0;
 }
-/* The chevron and the mark are fixed columns, so every row's place and words start at one edge. */
+/* The chevron, the mark and Reply are fixed columns, so every row's place and words start at one edge and every Reply sits at
+   one. */
 .pr-threads__row {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   column-gap: var(--space-1);
   min-width: 0;
@@ -258,6 +259,15 @@
 }
 .pr-threads__fold {
   display: flex;
+}
+.pr-threads__reply {
+  display: inline-flex;
+  align-items: center;
+}
+.pr-threads__compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 .pr-threads__general {
   display: flex;
@@ -1283,6 +1293,7 @@
 .pr-list__failed,
 .pr-reader__said,
 .pr-yours__refused,
+.pr-threads__refused,
 .pr-add__said,
 .pr-run__failed,
 .pr-change__said {
@@ -1294,6 +1305,7 @@
   line-height: var(--leading-xs);
 }
 .pr-yours__refused,
+.pr-threads__refused,
 .pr-add__said,
 .pr-run__failed {
   color: var(--status-completed-failed);
