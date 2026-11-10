@@ -316,7 +316,7 @@ impl JobView {
     }
 
     /// `detail.drawn` of the ledger sketch, which an answer names back.
-    fn drawn_of(&self, sketch: &str, cx: &Context<Self>) -> Option<String> {
+    pub(super) fn drawn_of(&self, sketch: &str, cx: &gpui::App) -> Option<String> {
         let job = self.shown.as_ref()?;
         self.record(job, cx)?.attachments.iter().find(|one| one.kind == "sketch" && one.target == sketch)?.detail.get("drawn").cloned()
     }
@@ -512,7 +512,7 @@ impl JobView {
 }
 
 /// How a card reads as answered: Fleet's word, else what the person just pressed.
-fn settled_of(data: Option<&CardSettled>, pressed: Option<&Answer>) -> Option<(Said, Option<String>)> {
+pub(super) fn settled_of(data: Option<&CardSettled>, pressed: Option<&Answer>) -> Option<(Said, Option<String>)> {
     match pressed {
         Some(Answer::Approved) => return Some((Said::Approved, None)),
         Some(Answer::SentBack(words)) => return Some((Said::SentBack, Some(words.clone()))),
@@ -522,7 +522,7 @@ fn settled_of(data: Option<&CardSettled>, pressed: Option<&Answer>) -> Option<(S
 }
 
 /// The pane a sketch's scene is drawn in.
-fn glass(look: &Look, replaced: bool) -> AnyElement {
+pub(super) fn glass(look: &Look, replaced: bool) -> AnyElement {
     div()
         .flex_none()
         .flex()
@@ -568,6 +568,7 @@ impl JobView {
         before: Option<&str>,
         settled: Option<&DraftSettled>,
         change: Option<i64>,
+        headed: bool,
         page: &Page,
         look: &Look,
         now: DateTime<Local>,
@@ -672,8 +673,8 @@ impl JobView {
             body = body.child(refusal(look, &key, why.clone()));
         }
         if open {
-            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, page, look, cx));
-        } else {
+            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, headed, page, look, cx));
+        } else if !headed {
             page.keys.set(&key, None);
         }
         let name = format!("{}: {title}", eyebrow_word);
@@ -709,6 +710,7 @@ impl JobView {
         text: &str,
         title: &str,
         target: bool,
+        headed: bool,
         page: &Page,
         look: &Look,
         cx: &Context<Self>,
@@ -782,7 +784,10 @@ impl JobView {
                 DraftKind::Workflow => "Workflow",
                 _ => "Draft",
             };
-            page.keys.set(key, Some(super::keys::Card { at: ix, kind: kind_word.into(), title: title.to_string(), yes, change, send_back, no }));
+            // A draft drawn on the review sheet is that sheet's, and the card in the thread keeps its keys.
+            if !headed {
+                page.keys.set(key, Some(super::keys::Card { at: ix, kind: kind_word.into(), title: title.to_string(), yes, change, send_back, no }));
+            }
         }
         let key_s = key.to_string();
         let row = div().flex().items_center().gap(look.length(token::SPACE_2));
@@ -794,13 +799,16 @@ impl JobView {
                 let (approve_key, edit_key, note_key, out_key) = (key_s.clone(), key_s.clone(), key_s.clone(), key_s.clone());
                 let (approve_body, out_body) = (answer_body.clone(), withdraw.clone());
                 let edit_text = text.to_string();
-                row.child(labelled(
-                    button_at("Approve", Tone::Primary, yes, true).on_click(cx.listener(move |this, _, window, cx| {
-                        this.settle(ix, approve_key.clone(), Answer::Approved, "/sessions/waiting/answer", approve_body(Some(0), None, None), window, cx)
-                    })),
-                    Role::Button,
-                    "Approve",
-                ))
+                // Headed, the sheet's head holds Approve and Send back; the card keeps Edit and Withdraw.
+                row.children((!headed).then(|| {
+                    labelled(
+                        button_at("Approve", Tone::Primary, yes, true).on_click(cx.listener(move |this, _, window, cx| {
+                            this.settle(ix, approve_key.clone(), Answer::Approved, "/sessions/waiting/answer", approve_body(Some(0), None, None), window, cx)
+                        })),
+                        Role::Button,
+                        "Approve",
+                    )
+                }))
                 .when(kind != DraftKind::Workflow, |row| {
                     row.child(labelled(
                         button_at("Edit", Tone::Secondary, change, true)
@@ -808,12 +816,14 @@ impl JobView {
                         Role::Button,
                         "Edit",
                     ))
-                    .child(labelled(
-                        button_at("Note", Tone::Secondary, back, true)
-                            .on_click(cx.listener(move |this, _, window, cx| this.open_box(ix, &note_key, Mode::Note, "", window, cx))),
-                        Role::Button,
-                        "Note",
-                    ))
+                    .children((!headed).then(|| {
+                        labelled(
+                            button_at("Note", Tone::Secondary, back, true)
+                                .on_click(cx.listener(move |this, _, window, cx| this.open_box(ix, &note_key, Mode::Note, "", window, cx))),
+                            Role::Button,
+                            "Note",
+                        )
+                    }))
                 })
                 .child(div().flex_1())
                 .child(labelled(

@@ -17,6 +17,9 @@ use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 
+/// The place of a card that is drawn on the review sheet and in no list.
+pub(super) const SHEET: usize = usize::MAX;
+
 /// How the person answered a card, as the card reads it before Fleet's row says so.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Answer {
@@ -162,7 +165,12 @@ impl JobView {
     /// A card changed its height: that list element measures again.
     pub(super) fn card_changed(&mut self, ix: usize, cx: &mut Context<Self>) {
         if let Some(page) = self.shown.as_ref().and_then(|id| self.pages.get(id)) {
-            page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+            // A card drawn on the review sheet has no place of its own: the thread behind measures again.
+            if ix == SHEET {
+                page.list.remeasure();
+            } else {
+                page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+            }
         }
         cx.notify();
     }
@@ -327,7 +335,11 @@ impl JobView {
         if let Some(page) = self.pages.get_mut(job) {
             page.cards.answers.remove(key);
             page.cards.said.insert(key.to_string(), why);
-            page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+            if ix == SHEET {
+                page.list.remeasure();
+            } else {
+                page.list.remeasure_items(ix + page.lead..ix + page.lead + 1);
+            }
         }
         cx.notify();
     }

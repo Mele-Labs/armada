@@ -204,7 +204,7 @@ impl JobView {
 
     /// What the plan says: what the person gets, and the groups behind it.
     #[allow(clippy::too_many_arguments)]
-    fn plan_body(&self, ix: usize, key: &str, plan: &SessionPlan, approved: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn plan_body(&self, ix: usize, key: &str, plan: &SessionPlan, approved: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let revising = !approved && plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty());
         let technical_key = format!("{key}:technical");
         let plain = !plan.summary.trim().is_empty();

@@ -232,7 +232,7 @@ impl JobView {
             }
             SessionRow::WindowAsk { id, .. } => self.card(id, "Question in a window", None, "app-window", look),
             SessionRow::Draft { id, at, title, text, before, settled, change } => {
-                self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, page, look, now, cx)
+                self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, false, page, look, now, cx)
             }
             SessionRow::Ask { id, ask, .. } => self.card(id, "Ask", Some(&ask.tool), "circle-help", look),
             _ => div().into_any_element(),

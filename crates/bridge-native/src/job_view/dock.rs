@@ -230,8 +230,15 @@ impl JobView {
                 .child(div().flex_1())
                 .child(glyph(look, if open { "chevron-down" } else { "chevron-up" }, Size::Small, look.color(token::FG_INVERSE)))
                 .on_click(cx.listener(|this, _, window, cx| {
-                    let up = this.shown.clone().is_some_and(|id| this.needs_up(&id, cx));
-                    this.set_needs(!up, None, window, cx);
+                    let Some(id) = this.shown.clone() else { return };
+                    // With nothing else to answer, the band opens the sheet.
+                    let alone = this.things(&id, cx).0.is_empty() && this.review_applies(&id, cx);
+                    if alone {
+                        this.review_press(window, cx);
+                    } else {
+                        let up = this.needs_up(&id, cx);
+                        this.set_needs(!up, None, window, cx);
+                    }
                 })),
             Role::Button,
             "Needs you",
@@ -272,7 +279,7 @@ impl JobView {
         let detail = detail.or_else(|| only.then(|| Self::thing_key(&things[0])));
         let content: AnyElement = match detail.as_ref().and_then(|key| things.iter().find(|thing| &Self::thing_key(thing) == key)) {
             Some(thing) => self.render_detail(id, thing, only, look, cx),
-            None => self.render_list(things, review, look, cx),
+            None => self.render_list(id, things, review, look, cx),
         };
         div()
             .id("needs-panel")
@@ -326,7 +333,7 @@ impl JobView {
             .is_some_and(|page| page.cards.boxes.iter().any(|(name, area)| name.starts_with("dock:") && area.read(cx).focus_handle(cx).contains_focused(window, cx)))
     }
 
-    fn render_list(&self, things: &[Thing], review: &[&WaitingItem], look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn render_list(&self, id: &SharedString, things: &[Thing], review: &[&WaitingItem], look: &Look, cx: &Context<Self>) -> AnyElement {
         type Press = Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)>;
         let row = |at: String, icon: &'static str, said: String, text: String, press: Press| {
             let name = text.clone();
@@ -402,10 +409,40 @@ impl JobView {
                 }
             }
         }
-        if !review.is_empty() {
-            let said: Vec<String> = review.iter().map(|item| item.text.clone()).collect();
+        // The sheet takes what it has a body for; the rest of the pages waiting go to their cards.
+        let on_sheet: Vec<String> = self.review_items(id, cx).into_iter().map(|item| item.id).collect();
+        let kinds = self.review_kinds(id, cx);
+        if !kinds.is_empty() {
+            let said = kinds.join(", ");
+            groups[1].1.push(
+                labelled(
+                    div()
+                        .id("needs-row:review")
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_3))
+                        .px(look.length(token::SPACE_3))
+                        .py(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .cursor_pointer()
+                        .text_size(look.length(token::TEXT_SM))
+                        .line_height(look.length(token::LEADING_SM))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                        .child(div().id("needs-mark:review").flex_none().child(glyph(look, "list-checks", Size::Mark, look.color(token::FG_MUTED))).tooltip(tip("Opens the review")))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said)))
+                        .on_click(cx.listener(|this, _, window, cx| this.review_press(window, cx))),
+                    Role::Button,
+                    "Review",
+                )
+                .into_any_element(),
+            );
+        }
+        let apart: Vec<&&WaitingItem> = review.iter().filter(|item| !on_sheet.contains(&item.id)).collect();
+        if !apart.is_empty() {
+            let said: Vec<String> = apart.iter().map(|item| item.text.clone()).collect();
             groups[1].1.push(row(
-                "review".into(),
+                "cards".into(),
                 "list-checks",
                 "Goes to the card".into(),
                 said.join(", "),
