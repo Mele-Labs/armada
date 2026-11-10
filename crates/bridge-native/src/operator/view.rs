@@ -704,18 +704,17 @@ impl OperatorPageView {
 
     /// Forget on a rule's or a hold's row: a press, or Enter, Space or `f` while it has the keys.
     fn forget_button(&self, id: i64, about: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let button = worded(div().id(SharedString::from(format!("forget-{id}"))), look)
-            .flex_none()
+        // The page's ghost button, at a row's size.
+        let button = press(SharedString::from(format!("forget-{id}")), "Forget".into(), None, None, Weight::Bare, look)
+            .h(look.length(token::H_CONTROL_SM))
+            .px(look.length(token::SPACE_2))
             .text_size(look.length(token::TEXT_XS))
-            .text_color(look.color(token::FG_SUBTLE))
-            .hover(|style| style.text_color(cx.look().color(token::FG_DEFAULT)))
             .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
                 if event.keystroke.key == "f" && !event.keystroke.modifiers.modified() {
                     cx.stop_propagation();
                     this.forget_pressed(id, window, cx);
                 }
-            }))
-            .child("Forget");
+            }));
         // The press stops here, so a row of Every rule under it is not selected as well.
         let forget = move |this: &mut OperatorPageView, window: &mut Window, cx: &mut Context<OperatorPageView>| {
             cx.stop_propagation();
@@ -732,6 +731,8 @@ impl OperatorPageView {
             let more = rows.len() > FEW && link != Some("Every rule");
             let whole = self.whole.contains(name);
             let shown = if whole || !more { rows.len() } else { FEW };
+            // A hold's words are what matter in it, so it takes a second line before it is cut.
+            let wraps = name == "Holds";
             let rows = rows.into_iter().take(shown).enumerate().map(|(at, row)| {
                 let text = row.text;
                 let line = div()
@@ -742,7 +743,7 @@ impl OperatorPageView {
                     .py(look.length(token::SPACE_1))
                     .text_size(look.length(token::TEXT_XS))
                     .tooltip(tip(text.clone()))
-                    .child(div().flex_1().min_w_0().truncate().child(text.clone()))
+                    .child(div().flex_1().min_w_0().when(wraps, |words| words.line_clamp(2).text_ellipsis()).when(!wraps, |words| words.truncate()).child(text.clone()))
                     .child(match row.side {
                         Side::None => gpui::Empty.into_any_element(),
                         Side::Text(said) => div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(said).into_any_element(),
@@ -752,7 +753,8 @@ impl OperatorPageView {
                 // A row that opens a Job is a tab stop, and Enter opens it as a press does.
                 let line = match row.opened {
                     Some(opened) => pressed(worded(line, look).mx(-look.length(token::SPACE_1)), cx, move |_, _, cx| cx.emit(opened.clone())),
-                    None => line,
+                    // The same inset as a row that opens a Job, so a ring on it stands clear of the words.
+                    None => line.px(look.length(token::SPACE_1)).mx(-look.length(token::SPACE_1)),
                 };
                 labelled(line, Role::ListItem, text).into_any_element()
             });

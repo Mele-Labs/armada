@@ -8,9 +8,10 @@ use super::{answer, step, Step, Verb};
 
 const NOTE: &str = "File your note: the slot meter flickers when a Job ends";
 const HOLD: &str = "armada: only Slot pool controls writes under apps/cockpit until it pushes";
+const FORGET_HOLD: &str = "Forget armada: only Slot pool controls writes under apps/cockpit until it pushes";
 const TOP: &str = "Since you left, the red main's fix is up as #3414, waiting on ci. Quick dispatch's plan is still the one two Jobs wait on.";
 
-pub static STEPS: [Step; 44] = [
+pub static STEPS: [Step; 45] = [
     step("Coming back at 13:05: the day, and the pills say what stands. storefront's main has been red since 11:24", Verb::Look, "status", "storefront main is red since 11:24"),
     step("The Operator's one line on what matters first, the thing it is about in its colour", Verb::Look, "status", TOP),
     step("On it says what the Operator is reading now", Verb::Look, "status", "On it"),
@@ -42,11 +43,12 @@ pub static STEPS: [Step; 44] = [
     step("A press on its head folds What I handled, its aside still there", Verb::Open("button", "What I handled"), "button", "What I handled"),
     step("Learned shows its first few rules, and Every rule opens them all", Verb::Open("link", "Every rule"), "dialog", "Every rule"),
     step("Everywhere first, then each project. ↓ and ↑ move through them, the list keeping the row in view", Verb::Key("down"), "listitem", "Link a report to the open issue it names"),
-    step("F forgets the rule the sheet has on: it stops standing at once, and an item it covered asks again", Verb::Key("f"), "listitem", "File your notes without asking"),
+    step("F forgets the rule the sheet has on, Link a report to the open issue it names: Everywhere keeps one rule, Learned five, and the next rule has the sheet", Verb::Key("f"), "listitem", "File your notes without asking"),
     step("Esc shuts the sheet, and the keys are back on Every rule", Verb::Key("escape"), "link", "Every rule"),
     step("A press on its head folds Learned, and Holds is below it", Verb::Open("button", "Learned"), "button", "Holds"),
     step("Holds: where only one Job writes, until it pushes or ends", Verb::Look, "listitem", HOLD),
     step("Forget lifts a hold, and that Job's paths are anyone's again", Verb::Open("button", "Forget storefront: only Fix desktop_unit after #412 writes under tests/unit until it ends"), "listitem", HOLD),
+    step("Forget the last hold and Holds goes: no tile stands empty, and the keys are on Learned", Verb::Open("button", FORGET_HOLD), "button", "Learned"),
     answer("At 14:02 a new item joins the queue, at its end", "arrives", "row", "Slot pool controls"),
     answer("The Operator switched off: nothing is queued, and the page says so with the switch", "off", "region", "The Operator is off"),
     step("What I handled is what it did while it was on", Verb::Look, "button", "What I handled"),

@@ -418,11 +418,18 @@ impl OperatorPageView {
         self.track(task);
     }
 
-    /// Forget pressed on a row: the row and its Forget go, so the keys go to the sheet, or the tile's head.
+    /// Forget pressed on a row: the row and its Forget go, so the keys go to the sheet, or the tile's
+    /// head. A tile left with nothing is not drawn, so then the keys go to the other tile, or the page.
     pub fn forget_pressed(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
         let held = self.page.as_ref().is_some_and(|page| page.digest.holds.iter().any(|hold| hold.id == id));
         self.forget(id, cx);
-        let keys = if self.rules.is_some() { Some(&self.rules_focus) } else { self.stops.get(if held { "Holds" } else { "Learned" }) };
+        let (rules, holds) = self.page.as_ref().map_or((false, false), |page| (!page.digest.learned.is_empty(), !page.digest.holds.is_empty()));
+        let tile = match (held, holds, rules) {
+            (true, true, _) | (false, true, false) => Some("Holds"),
+            (_, _, true) => Some("Learned"),
+            _ => None,
+        };
+        let keys = if self.rules.is_some() { Some(&self.rules_focus) } else { tile.and_then(|tile| self.stops.get(tile)) };
         window.focus(keys.unwrap_or(&self.focus), cx);
     }
 
