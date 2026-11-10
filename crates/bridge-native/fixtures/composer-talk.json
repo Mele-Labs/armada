@@ -1,0 +1,6 @@
+{
+ "scripts": [
+  { "job": "mock-04", "words": ["check", "the"], "after": ["queue"] },
+  { "job": "mock-02", "why": "microphone_denied" }
+ ]
+}

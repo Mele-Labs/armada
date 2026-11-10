@@ -18,7 +18,7 @@ use std::time::Duration;
 use base64::Engine as _;
 use gpui::{
     div, img, prelude::*, svg, Anchor, AnyElement, AnyView, App, ClickEvent, ClipboardEntry, ClipboardItem,
-    Context, DismissEvent, Entity, ExternalPaths, FocusHandle, Focusable, FontWeight, Image, ImageFormat, KeyDownEvent, PathPromptOptions,
+    Context, DismissEvent, Entity, ExternalPaths, FocusHandle, Focusable, FontWeight, Image, ImageFormat, KeyDownEvent, KeyUpEvent, ModifiersChangedEvent, PathPromptOptions,
     Role, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{Enter, Escape, IndentInline, InlineToken, InputContent, InputEvent, MoveDown, MoveUp, Textarea, TextareaState};
@@ -185,6 +185,8 @@ pub(super) struct Catalog {
     pub files: Option<(String, Vec<String>)>,
     /// The repository's files on mock data, narrowed as Fleet narrows them.
     pub mock_files: Vec<String>,
+    /// What a mock helper says when Talk is pressed in each Job, by Job id.
+    pub scripts: HashMap<String, crate::voice::Script>,
 }
 
 /// A menu or picker open over the box, and the subscriptions that keep it answering.
@@ -206,6 +208,7 @@ pub(super) struct Composer {
     pub boxes: HashMap<SharedString, JobBox>,
     pub popup: Option<Popup>,
     pub quick: Quick,
+    pub talk: super::talk::Talk,
     /// The ⌘ key is down, so Send draws its key.
     cmd: bool,
 }
@@ -245,6 +248,7 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
         boxes: HashMap::new(),
         popup: None,
         quick: Quick::default(),
+        talk: super::talk::Talk::default(),
         cmd: false,
     };
     (composer, subs)
@@ -310,6 +314,7 @@ impl JobView {
         }
         self.composer.offer = None;
         self.composer.popup = None;
+        self.talk_leave();
     }
 
     /// The box takes the Job's own draft, and reads what the bar and the pickers need.
@@ -372,6 +377,16 @@ impl JobView {
             let end = input.value().len();
             input.set_selected_range(end..end, cx);
             input.focus(window, cx);
+        });
+        self.typed_now(cx);
+    }
+
+    /// The box takes `kept` and the caret goes to its end, where Talk's words join.
+    pub(super) fn set_words(&mut self, kept: Kept, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_box(&kept, window, cx);
+        self.composer.input.update(cx, |input, cx| {
+            let end = input.value().len();
+            input.set_selected_range(end..end, cx);
         });
         self.typed_now(cx);
     }
@@ -527,6 +542,10 @@ impl JobView {
 
     /// ⇧⌘1 to ⇧⌘9 put quick line n after the draft (⌘1 to ⌘9 reach the line through `deck_tabs`).
     pub(super) fn on_box_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.talk_key(event, window, cx) {
+            cx.stop_propagation();
+            return;
+        }
         let keys = &event.keystroke;
         if keys.modifiers.platform && keys.modifiers.shift && !keys.modifiers.alt && !keys.modifiers.control {
             if let Some(n) = keys.key.parse::<usize>().ok().filter(|n| (1..=9).contains(n)) {
@@ -539,7 +558,9 @@ impl JobView {
 
     /// The keys the text box would take, which a list over it takes first.
     fn list_key(&mut self, key: &'static str, window: &mut Window, cx: &mut Context<Self>) {
-        if self.offer_key(key, window, cx) {
+        if key == "escape" && self.talk_put_away(cx) {
+            cx.stop_propagation();
+        } else if self.offer_key(key, window, cx) {
             cx.stop_propagation();
         }
     }
@@ -971,6 +992,7 @@ impl JobView {
             .id("message")
             .key_context(crate::keymap::TEXT_BOX)
             .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
+            .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| this.talk_key_up(event, cx)))
             .capture_action(cx.listener(|this, action: &Enter, window, cx| {
                 if !action.secondary && !action.shift {
                     this.list_key("enter", window, cx);
@@ -1003,6 +1025,7 @@ impl JobView {
             .child(attach)
             .child(div().flex_1())
             .child(div().id("context-figure").flex_none())
+            .child(self.render_talk(look, cx))
             .child(send);
         let popup = self.composer.popup.as_ref().map(|popup| popup.view.clone());
         div()
@@ -1011,8 +1034,9 @@ impl JobView {
             .justify_center()
             .px(look.length(token::SPACE_4))
             .pb(look.length(token::SPACE_4))
-            .on_modifiers_changed(cx.listener(|this, _, _, cx| {
-                this.composer.cmd = !this.composer.cmd;
+            .on_modifiers_changed(cx.listener(|this, event: &ModifiersChangedEvent, _, cx| {
+                this.composer.cmd = event.modifiers.platform;
+                this.talk_modifiers(event, cx);
                 cx.notify();
             }))
             .child(

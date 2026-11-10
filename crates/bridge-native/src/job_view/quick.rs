@@ -70,6 +70,14 @@ impl Quick {
         Quick { look, looked: true, learnt: quick.learnt.clone(), mock: Some(quick), ..Quick::default() }
     }
 
+    /// The voice Talk hears with, from the `voice` setting.
+    pub fn voice(&self) -> crate::voice::Engine {
+        match self.look.as_ref().and_then(|look| look.get("voice")) {
+            Some(SettingValue::Text(name)) => crate::voice::Engine::named(name),
+            _ => crate::voice::Engine::Apple,
+        }
+    }
+
     fn flag(&self, key: &str) -> bool {
         matches!(self.look.as_ref().and_then(|look| look.get(key)), Some(SettingValue::Bool(true)))
     }

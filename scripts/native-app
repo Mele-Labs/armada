@@ -35,6 +35,13 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp -c "$binary" "$app/Contents/MacOS/Armada" 2>/dev/null || cp "$binary" "$app/Contents/MacOS/Armada"
 chmod 755 "$app/Contents/MacOS/Armada"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
+# Armada Voice, the helper Talk hears through, as the Electron app carries it: in `Contents/Helpers`, where the
+# binary looks first. Built by `node apps/desktop/native/voice/build.mjs`; where it is not built Talk has no voice.
+voice="$here/../apps/desktop/native/voice/build/Armada Voice.app"
+if [[ -d "$voice" ]]; then
+  mkdir -p "$app/Contents/Helpers"
+  cp -R "$voice" "$app/Contents/Helpers/"
+fi
 python3 - "$app/Contents/Info.plist" <<'PY'
 import plistlib, sys
 

@@ -19,6 +19,7 @@ mod quick;
 mod records;
 mod rows;
 mod runs;
+mod talk;
 mod tune;
 mod wire;
 
@@ -174,12 +175,17 @@ impl JobView {
             composer.catalog.mock_files = catalogue.files;
             composer.catalog.issues.insert(catalogue.issues.manifest_id.as_str().to_string(), catalogue.issues.issues);
             composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);
+            composer.catalog.scripts = catalogue.talk;
         }
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
         if let Some(fleet) = &fleet {
             subscriptions.push(cx.observe(fleet, |this, _, cx| this.synced(cx)));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
+            // Back from Settings, the card that sent him there goes.
+            if window.is_window_active() {
+                this.talk_put_away(cx);
+            }
             let on = window.is_window_active().then(|| this.shown.clone()).flatten();
             this.visit(on, cx);
         }));

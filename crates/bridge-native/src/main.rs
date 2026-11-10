@@ -36,7 +36,9 @@ mod mock;
 mod revert;
 mod runtime_file;
 mod transport;
+mod voice;
 mod walk;
+mod whisper;
 
 /// Written by `pnpm --filter @armada/desktop codegen` from `crates/core-model/domain/`. Not edited.
 #[allow(dead_code)]

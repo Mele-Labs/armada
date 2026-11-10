@@ -48,6 +48,8 @@ pub struct Catalogue {
     pub quick: SessionQuick,
     pub files: Vec<String>,
     pub issues: IssueList,
+    /// What a mock helper says to Talk in each Job, by Job id.
+    pub talk: HashMap<String, crate::voice::Script>,
 }
 
 /// The catalogue of the scenario last named, where it has one.
@@ -55,6 +57,16 @@ pub fn catalogue() -> Option<Catalogue> {
     #[derive(Deserialize)]
     struct Files {
         paths: Vec<String>,
+    }
+    #[derive(Deserialize)]
+    struct Talk {
+        job: String,
+        #[serde(flatten)]
+        script: crate::voice::Script,
+    }
+    #[derive(Deserialize)]
+    struct Talks {
+        scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
     if named != "job-view-composer" {
@@ -68,6 +80,7 @@ pub fn catalogue() -> Option<Catalogue> {
             quick: ipc::decode("SessionQuick", include_bytes!("../fixtures/composer-quick.json")).map_err(why)?,
             files: ipc::decode::<Files>("files", include_bytes!("../fixtures/composer-files.json")).map_err(why)?.paths,
             issues: ipc::decode("IssueList", include_bytes!("../fixtures/composer-issues.json")).map_err(why)?,
+            talk: ipc::decode::<Talks>("talk", include_bytes!("../fixtures/composer-talk.json")).map_err(why)?.scripts.into_iter().map(|one| (one.job, one.script)).collect(),
         })
     };
     read().ok()
