@@ -89,6 +89,7 @@ pub struct OperatorTurnItem {
     pub id: String,
     pub kind: OperatorTurnKind,
     /// How soon it wants him: `urgent` on a red main, else `decision` or `go_ahead` as its kind.
+    #[serde(default)]
     pub urgency: OperatorUrgency,
     /// The Job whose list holds it. Absent on a go-ahead no Job holds and on a red main.
     #[serde(default, skip_serializing_if = "Option::is_none")]
