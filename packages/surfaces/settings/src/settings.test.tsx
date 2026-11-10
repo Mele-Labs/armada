@@ -572,33 +572,33 @@ test("Settings > Keyboard rebinds a key, and Reset puts the registry's key back"
     ],
   });
   await toSystemPage("Keyboard shortcuts");
-  const operator = page.getByRole("group", {
-    name: "Operator",
+  const refresh = page.getByRole("group", {
+    name: "Refresh",
     exact: true,
   });
-  await operator
+  await refresh
     .getByRole("button", {
-      name: /^Operator: ⌘J$/,
+      name: /^Refresh: ⇧⌘R$/,
     })
     .click();
   await userEvent.keyboard("{Meta>}{Shift>}h{/Shift}{/Meta}");
   await expect
     .element(
-      operator.getByRole("button", {
-        name: /^Operator: ⇧⌘H$/,
+      refresh.getByRole("button", {
+        name: /^Refresh: ⇧⌘H$/,
       }),
     )
     .toBeVisible();
   // Reset puts the registry's key back.
-  await operator
+  await refresh
     .getByRole("button", {
-      name: "Reset Operator",
+      name: "Reset Refresh",
     })
     .click();
   await expect
     .element(
-      operator.getByRole("button", {
-        name: /^Operator: ⌘J$/,
+      refresh.getByRole("button", {
+        name: /^Refresh: ⇧⌘R$/,
       }),
     )
     .toBeVisible();

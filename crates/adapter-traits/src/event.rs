@@ -48,6 +48,7 @@ pub struct CallDetail {
     shown: String,
     whole: Option<String>,
     length: usize,
+    description: Option<String>,
 }
 
 impl CallDetail {
@@ -88,7 +89,23 @@ impl CallDetail {
                 false => None,
             },
             length: text.chars().count(),
+            description: None,
         }
+    }
+
+    /// The call's own words for what it does, the `description` a tool such as `Bash` takes.
+    /// Trimmed and cut at [`DETAIL`]; one with nothing in it is none.
+    pub fn described(mut self, description: Option<&str>) -> CallDetail {
+        self.description = description
+            .map(str::trim)
+            .filter(|words| !words.is_empty())
+            .map(|words| words.chars().take(DETAIL).collect());
+        self
+    }
+
+    /// What the call said it does, where it said.
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
     }
 
     /// Nothing worth showing. A tool whose arguments this vocabulary has no

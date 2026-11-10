@@ -29,6 +29,10 @@
 # restart, `Armada/preview-left-out` records the commit and why each was skipped, and
 # `Armada/preview-held` the main commit the preview stands on and the branches merged into it.
 #
+# **`--restart` pulls the main checkout first**, when it is on `main`, and runs the
+# script it pulled, so a merged fix to these scripts runs on the next refresh. On any
+# other branch, or where it cannot fast-forward, it warns and runs them as they are.
+#
 # Knobs for tests: `ARMADA_LAND_ARMADA` names the `armada` to ask about
 # slots, `ARMADA_PREVIEW_RESTART` the restart script `--restart` runs, and
 # `ARMADA_PREVIEW_INSTALL` the command that reinstalls a refused `armada`.
@@ -81,6 +85,35 @@ def repo_root():
     if common.returncode != 0:
         sys.exit("preview: not inside a git repository")
     return os.path.dirname(common.stdout.strip())
+
+
+def pull_main(root, dry_run):
+    """Bring the main checkout, whose scripts a refresh runs, up to `origin/main`, and
+    run the script it pulled. Nothing here fails the refresh: a checkout on another
+    branch or one that cannot fast-forward warns and the scripts run as they are.
+    The marker keeps it to one pull a run."""
+    if os.environ.get("ARMADA_PREVIEW_PULLED"):
+        return
+    on = out(root, "branch", "--show-current")
+    if on != "main":
+        print(f"preview: warning: the checkout at {root} is on {on or 'no branch'}, not main, "
+              "so these scripts are as it last had them", flush=True)
+        return
+    if dry_run:
+        print("preview: would fast-forward main to origin/main first, to run the latest scripts", flush=True)
+        return
+    before = out(root, "rev-parse", "HEAD")
+    done = git(root, "pull", "--ff-only", "--quiet", "origin", "main", check=False)
+    if done.returncode != 0:
+        print("preview: warning: main cannot fast-forward to origin/main (it has diverged, a local change "
+              "is in the way, or origin did not answer), so these scripts are as it last had them", flush=True)
+        return
+    script = os.path.join(root, "scripts", "preview")
+    if out(root, "rev-parse", "HEAD") == before or not os.path.isfile(script):
+        return
+    print("preview: fast-forwarded main to origin/main; running the scripts it pulled", flush=True)
+    os.environ["ARMADA_PREVIEW_PULLED"] = "1"
+    os.execv(sys.executable, [sys.executable, script, *sys.argv[1:]])
 
 
 def reinstall_armada(root):
@@ -586,6 +619,8 @@ def main():
         except FileNotFoundError:
             only = set()
     root = repo_root()
+    if args.restart:
+        pull_main(root, args.dry_run)
 
     wt, base, rows = merge_pass(root, only, skip)
     if args.watch is not None:

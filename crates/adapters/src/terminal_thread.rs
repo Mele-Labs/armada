@@ -565,6 +565,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     id,
                     at: at.clone(),
                     text,
+                    description: detail.description().map(str::to_string),
                     subagent: None,
                 });
             }

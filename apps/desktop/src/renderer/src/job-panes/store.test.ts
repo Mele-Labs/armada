@@ -539,21 +539,16 @@ describe("kept across a restart", () => {
     ]);
   });
 
-  test("dropping a Job leaves a pull request and the Operator that share its id, each family dropping only its own", async () => {
+  test("dropping a Job leaves a pull request that shares its id, each family dropping only its own", async () => {
     const s = await start();
     s.rearrange("x", (a) => s.addTab(a, a.focus, "files"));
     s.prPanes.rearrange("x", (a) => s.addTab(a, a.focus, "files"));
-    s.operatorPanes.rearrange("operator", (a) => s.addTab(a, a.focus, "files"));
     s.jobPanes.drop("x");
     expect(kept.getItem("armada:kept:job-panes:job:x")).toBeNull();
     expect(kept.getItem("armada:kept:pr-panes:pr:x")).not.toBeNull();
-    expect(kept.getItem("armada:kept:operator-panes:operator")).not.toBeNull();
     s.prPanes.drop("x");
     expect(kept.getItem("armada:kept:pr-panes:pr:x")).toBeNull();
     expect(s.prPanes.ownerIds()).toEqual([]);
-    expect(kept.getItem("armada:kept:operator-panes:operator")).not.toBeNull();
-    s.operatorPanes.drop("operator");
-    expect(kept.getItem("armada:kept:operator-panes:operator")).toBeNull();
   });
 
   test("forgetting the panes clears what was kept, for every Job", async () => {

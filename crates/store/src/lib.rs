@@ -242,7 +242,7 @@ pub use projects::{
     KeptAsked, KeptHolder, KeptProject, KeptProjectRow, KeptProjects, KeptRowItem, KeptTaskIssue, KeptTaskPull, KeptTaskState, LOOSE as LOOSE_PROJECT,
 };
 pub use session_init::KeptInit;
-pub use session_waiting::{KeptClosed, KeptWaiting};
+pub use session_waiting::{KeptApproval, KeptClosed, KeptWaiting};
 pub use session_checks::KeptSessionCheck;
 pub use session_gates::{KeptGate, KeptGateChecks, KeptGateHold, CHECKS_GREEN, PLAN_APPROVED, WALK_APPROVED};
 pub use test_map::{StaleTest, TestsReaching};

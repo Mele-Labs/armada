@@ -136,7 +136,7 @@ export type RuleTarget = {
 /**
  * The moment a rule is for. `job`'s `event` is `started`, `pull_request_opened`, `landed` or `ended`.
  * `gate_closes`' `gate` is `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`,
- * `checks_green`, `merged` or `jobs_ended`.
+ * `you_approved`, `checks_green`, `merged` or `jobs_ended`.
  */
 export type RuleWhen =
   | {

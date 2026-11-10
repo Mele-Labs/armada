@@ -609,6 +609,10 @@ pub enum SessionRow {
         id: String,
         at: Instant,
         text: String,
+        /// The call's own one-line phrase for what it does, the `description` its input carried (`Bash`,
+        /// `Agent`). Absent where the input had none or it was empty, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
         /// The subagent an `Agent` call started. **The row is replaced by id** as it works and settles.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         subagent: Option<ToolSubagent>,

@@ -173,6 +173,7 @@ impl Rig {
                 SetWaitingFor {
                     session_id: Some(SessionId::carried(session)),
                     items: vec![WaitingInput {
+                        approves: false,
                         id: "restart".into(),
                         text: "Restart onto the new build".into(),
                         act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into() }),

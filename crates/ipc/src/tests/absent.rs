@@ -42,6 +42,27 @@ fn a_confirmed_item_keeps_the_mark_and_an_unconfirmed_one_sends_no_key() {
     assert_eq!(encode(&read).expect("an item encodes"), bare);
 }
 
+/// An item asking for his approval sends `approves: true` and reads it back; one that does not sends
+/// no key, and an agent's item stated without it reads as not asking.
+#[test]
+fn an_item_asking_for_his_approval_keeps_the_mark_and_one_that_does_not_sends_no_key() {
+    let item = r#"{"id":"design","text":"Approve the design?","since":"2026-11-10T09:00:00.000Z","source":"agent"#;
+    let asking = format!(r#"{item}","approves":true}}"#);
+    let read: WaitingItem = decode("an item", asking.as_bytes()).expect("it reads");
+    assert!(read.approves);
+    assert_eq!(encode(&read).expect("an item encodes"), asking);
+    let bare = format!(r#"{item}"}}"#);
+    let read: WaitingItem = decode("an item", bare.as_bytes()).expect("an item with no mark reads");
+    assert!(!read.approves);
+    assert_eq!(encode(&read).expect("an item encodes"), bare);
+
+    let stated: crate::WaitingInput = decode("an agent's item", br#"{"id":"design","text":"Approve it?","approves":true}"#).expect("it reads");
+    assert!(stated.approves);
+    let plain: crate::WaitingInput = decode("an agent's item", br#"{"id":"design","text":"Look"}"#).expect("it reads");
+    assert!(!plain.approves);
+    assert!(!encode(&plain).expect("encodes").contains("approves"));
+}
+
 /// An edit's answer from a Fleet that sends no `declared` still reads, and one
 /// with nothing to declare sends no key.
 #[test]

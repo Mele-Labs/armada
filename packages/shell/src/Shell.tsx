@@ -1,4 +1,4 @@
-// Bridge's frame: the title row with the Cockpit window's tabs, the panel the journeys mount in, and the Operator's dock. The drawn
+// Bridge's frame: the title row with the Cockpit window's tabs, the panel the journeys mount in. The drawn
 // shell, wired to what Fleet actually serves.
 //
 // **There is no rail.** The places are the title row's tabs and the System sidebar (`surfaces.ts`), the repository picker is the
@@ -24,10 +24,8 @@
 // A screen's own controls sit at the top of its content; `App.tsx` is where that moved.
 
 import { FileCog } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
-  isPressed,
-  keyFor,
   TheShell,
   useAccount,
   useKeyBindings,
@@ -37,9 +35,6 @@ import {
 
 import type { Connection } from "@armada/protocol";
 import type { RepositorySummary } from "@armada/protocol";
-// The dock folds to a sheet, and job detail's inspector folds to a sheet, at `--layout-breakpoint`. One reader, in `floor.ts`, so the
-// two cannot answer a resize a pixel apart.
-import { useNarrow } from "./floor";
 import { useRecentRepositories } from "./recent-repositories";
 import {
   ADD,
@@ -114,8 +109,6 @@ export type ShellProps = {
     | undefined;
   /** Goes to a surface, by its id in `surfaces.ts`: the menu's Settings. */
   onSurface?: (surfaceId: string) => void;
-  /** The Operator's panel, mounted in the dock. Bridge builds it. **Absent draws no dock and no title row button, and `⌘J` does nothing.** */
-  operator?: ReactNode;
   children: ReactNode;
 };
 
@@ -142,15 +135,12 @@ export function Shell({
   repository,
   repositoryTrail,
   onSurface,
-  operator,
   children,
 }: ShellProps) {
-  // The chrome draws keys, the Operator's among them, so it redraws when Settings → Keyboard moves one.
+  // The chrome draws keys, so it redraws when Settings → Keyboard moves one.
   useKeyBindings();
-  const narrow = useNarrow();
   const account = useAccount();
   const openAccount = () => onSurface?.(SURFACE.account);
-  const dock = useDock(narrow, operator !== undefined);
   const live = connection.state === "connected";
   // The narrow menu's rows: the picker's list.
   const [recent, remember] = useRecentRepositories();
@@ -199,18 +189,6 @@ export function Shell({
         ? {}
         : {
             repository,
-          })}
-      {...(operator === undefined
-        ? {}
-        : {
-            dock: {
-              ...dock,
-              // The breakpoint alone: the dock folds to its sheet where the title row has no room for its button.
-              folded: narrow,
-              binding: keyFor("operator"),
-              span: "full" as const,
-              children: <>{operator}</>,
-            },
           })}
       repositoryMenu={{
         entries: pickerEntries,
@@ -287,101 +265,3 @@ const ManifestGlyph = MANIFEST_SURFACE?.icon ?? FileCog;
 /** Settings, read off the same roster, so the menu's entry and the palette's row share one key. */
 const SETTINGS_SURFACE = SURFACES.find((one) => one.id === SURFACE.settings);
 const MANIFEST_SAID = `Open the ${MANIFEST_SURFACE?.label ?? "Manifest"}`;
-
-const OPEN_OPERATOR = "armada:open-operator";
-const CLOSE_OPERATOR = "armada:close-operator";
-
-/** What asks for the Operator, heard by the app, which draws it as a page: `open` to go to it, `close` to leave it for a Job. */
-export function useOperatorAsks(open: () => void, close: () => void): void {
-  const latest = useRef({
-    open,
-    close,
-  });
-  latest.current = {
-    open,
-    close,
-  };
-  useEffect(() => {
-    const opened = (): void => latest.current.open();
-    const closed = (): void => latest.current.close();
-    window.addEventListener(OPEN_OPERATOR, opened);
-    window.addEventListener(CLOSE_OPERATOR, closed);
-    return () => {
-      window.removeEventListener(OPEN_OPERATOR, opened);
-      window.removeEventListener(CLOSE_OPERATOR, closed);
-    };
-  }, []);
-}
-
-/** Opens the Operator from anywhere in the window, as the Cockpit's Operator row does. */
-export function askToOpenOperator(): void {
-  window.dispatchEvent(new Event(OPEN_OPERATOR));
-}
-
-/** Shuts the dock from inside it, as a Job opened from the Operator's panel does so the Job is not under it. */
-export function askToCloseOperator(): void {
-  window.dispatchEvent(new Event(CLOSE_OPERATOR));
-}
-
-/**
- * The Operator's dock: a panel over the content, or a sheet when folded. `⌘J` toggles
- * whichever the width draws, from every surface and from inside a field. **With no Operator
- * there is no dock, and `⌘J` is heard by nothing.**
- *
- * **Shut on open, at every width** — the owner, 22 Sep 2026 (#1583). It stood
- * open because it cost the layout nothing to leave it there once a person had
- * arranged around it; over the content it covers what is being read, so Bridge
- * opens with the screen and the Operator is a press away.
- */
-function useDock(
-  folded: boolean,
-  present: boolean,
-): {
-  open: boolean;
-  onOpen: (open: boolean) => void;
-} {
-  const [beside, setBeside] = useState(false);
-  const [sheet, setSheet] = useState(false);
-
-  // A sheet left open would cover the work again the next time the window narrows.
-  useEffect(() => {
-    if (!folded) setSheet(false);
-  }, [
-    folded,
-  ]);
-
-  const open = folded ? sheet : beside;
-  const onOpen = folded ? setSheet : setBeside;
-  const toggle = useRef(() => onOpen(!open));
-  toggle.current = () => onOpen(!open);
-  const opens = useRef(onOpen);
-  opens.current = onOpen;
-  useEffect(() => {
-    const shut = (): void => opens.current(false);
-    const show = (): void => opens.current(true);
-    window.addEventListener(CLOSE_OPERATOR, shut);
-    window.addEventListener(OPEN_OPERATOR, show);
-    return () => {
-      window.removeEventListener(CLOSE_OPERATOR, shut);
-      window.removeEventListener(OPEN_OPERATOR, show);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!present) return;
-    function pressed(event: KeyboardEvent): void {
-      if (event.repeat || !isPressed("operator", event)) return;
-      event.preventDefault();
-      toggle.current();
-    }
-    window.addEventListener("keydown", pressed);
-    return () => window.removeEventListener("keydown", pressed);
-  }, [
-    present,
-  ]);
-
-  return {
-    open,
-    onOpen,
-  };
-}
