@@ -41,7 +41,7 @@ the turns injected while it works as `prompts.poke…`, `prompts.interrupt`, `pr
 gate's `prompts.outcome…` and `prompts.base…`; a piloted job's preface as
 `prompts.pilot…`; `prompts.thoughtRoute` for the thought reader; `prompts.scoutAsk`
 (5b), `prompts.scoutReadIn` (5c), `prompts.scoutRescue` (5d);
-`prompts.proposer`; `prompts.testMapReading` (5g); `prompts.workflowChange` (5h); Autopilot's reader and picker as `prompts.autopilot…`;
+`prompts.proposer`; `prompts.testMapReading` (5g); `prompts.workflowChange` (5h); the repair briefs as `prompts.repair…` (5i); Autopilot's reader and picker as `prompts.autopilot…`;
 `prompts.retro…`; and the Judge's briefs as
 `prompts.judge…`, which Fleet hands `verification` as its wording. The table
 and every key's placeholders are `crates/config/src/settings/prompts.rs`,
@@ -66,6 +66,7 @@ The `prompts_drone` module (deleted since) and
 | [5f. The job rules](agent-prompt/5f-the-job-rules.md) |
 | [5g. The test map reading](agent-prompt/5g-the-test-map-reading.md) |
 | [5h. The workflow change](agent-prompt/5h-the-workflow-change.md) |
+| [5i. The repair briefs](agent-prompt/5i-the-repair-briefs.md) |
 | [6. Exemplars over rules](agent-prompt/6-exemplars-over-rules.md) |
 | [7. What is never injected](agent-prompt/7-what-is-never-injected.md) |
 | [8. Where prompts live](agent-prompt/8-where-prompts-live.md) |

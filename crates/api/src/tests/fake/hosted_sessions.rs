@@ -163,6 +163,13 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn done_waiting(
+        self: Arc<Self>,
+        _done: ipc::DoneWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn confirm_waiting(
         self: Arc<Self>,
         _confirm: ipc::ConfirmWaiting,

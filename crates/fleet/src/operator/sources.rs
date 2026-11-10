@@ -3,7 +3,7 @@
 //! machine are data**: an issue's body is offered only a raise, so nothing it says can start a Job,
 //! and the call can name only a way it was offered. A note is the person's own words, so it is offered every
 //! way, and Fleet keeps what is ruled on it as a suggestion until he presses Do it. An error is
-//! Fleet's own build's words, offered every way as a report is, and goes by the role's position.
+//! Fleet's own build's words, offered every way as a report is, and asked about the same.
 
 use super::arriving::{Arrival, Arrived, Source};
 use super::candidates::open_near;
@@ -99,8 +99,8 @@ pub struct RedMain {
 }
 
 impl RedMain {
-    /// Fixed by a new Job, by a live Job near it, or raised. **Nothing arrives where a Job is
-    /// already fixing it**, so a second one is never started.
+    /// Raised, and nothing else. **The ask to start a fix is the go-ahead `red_item_offered` queues**, so a
+    /// red is asked once, and nothing arrives where a Job is already fixing it.
     pub fn arrival(&self) -> Option<Arrival> {
         if self.fixing.is_some() {
             return None;
@@ -115,7 +115,7 @@ impl RedMain {
             words: self.seen.clone(),
             paths: Vec::new(),
             issues: Vec::new(),
-            ways: vec![Way::ExistingJob, Way::NewJob, Way::Raise],
+            ways: vec![Way::Raise],
             open: Vec::new(),
         })
     }

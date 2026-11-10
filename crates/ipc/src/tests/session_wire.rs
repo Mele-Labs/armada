@@ -57,6 +57,7 @@ pub(super) fn a_record() -> SessionRecord {
         later: Vec::new(),
         held_open_by: Vec::new(),
         stopped: None,
+        repairing: None,
         stop_told_by: None,
         turn_since: None,
         last_heard_at: None,
@@ -83,6 +84,22 @@ fn a_mod_of_a_bay_is_said_on_the_record_and_left_off_every_other() {
     let json = encode(&a_record()).expect("plain data");
     assert!(!json.contains("mod_of_bay"), "{json}");
     assert!(!decode::<SessionRecord>("a record", json.as_bytes()).expect("decodes").mod_of_bay);
+}
+
+/// A repair under way is Fleet's words and a time on the record, and an absent one is left off, never `null`.
+#[test]
+fn a_repair_under_way_is_said_on_the_record_and_left_off_every_other() {
+    let repairing = SessionRecord {
+        repairing: Some(crate::SessionRepairing { said: "a command hung".into(), since: Instant::carried("2026-11-10T09:00:00.000Z") }),
+        ..a_record()
+    };
+    let json = encode(&repairing).expect("plain data");
+    assert!(json.contains(r#""repairing":{"said":"a command hung","since":"2026-11-10T09:00:00.000Z"}"#), "{json}");
+    assert_eq!(decode::<SessionRecord>("a record", json.as_bytes()).expect("round-trips"), repairing);
+
+    let json = encode(&a_record()).expect("plain data");
+    assert!(!json.contains("repairing") && !json.contains("null"), "{json}");
+    assert_eq!(decode::<SessionRecord>("a record", json.as_bytes()).expect("decodes").repairing, None);
 }
 
 #[test]

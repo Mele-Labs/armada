@@ -2,7 +2,7 @@
 //! a behaviour on or off, the programs Bridge opens a file or a folder in, where
 //! a Job's terminal and a pull request link open, and the name this machine goes by.
 
-use super::{Applies, Entry, Flag, Json, Kind, List, Options, Position, Section, Shipped, Words};
+use super::{Applies, Entry, Flag, Json, Kind, List, Options, Section, Shipped, Words};
 
 pub const HARNESS_AGENT: Words = Words("harness.agent");
 pub const HARNESS_BINARY_PATH: Words = Words("harness.binaryPath");
@@ -15,18 +15,6 @@ pub const WORKFLOWS: Flag = Flag("features.workflows");
 pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
 /// The Operator as a whole: off, nothing is handed to it, no call runs and nothing waits on it.
 pub const OPERATOR: Flag = Flag("features.operator");
-/// The Operator's Dispatch role: how far Fleet goes on a ruling that starts, merges or holds a Job.
-pub const OPERATOR_DISPATCH: Position = Position("features.operatorDispatch");
-/// The Operator's Delegate role: how far Fleet goes on a ruling that sends words to a live Job.
-pub const OPERATOR_DELEGATE: Position = Position("features.operatorDelegate");
-/// The Operator's Answer role: how far Fleet goes on the questions and cards it answers.
-pub const OPERATOR_ANSWER: Position = Position("features.operatorAnswer");
-/// The Operator's File role: how far Fleet goes on the Later items it rules filed.
-pub const OPERATOR_FILE: Position = Position("features.operatorFile");
-/// The positions a role can stand at.
-pub const OPERATOR_POSITIONS: &[&str] = &["read_only", "suggest", "decide"];
-/// The roles that differ per repository: `ipc::operator_positions`. Kept in settings.json and never in a repository's checkout.
-pub const OPERATOR_REPOSITORIES: Json = Json("features.operatorRepositories");
 /// Read by Bridge alone: whether a job needing the owner posts a macOS notification.
 pub const NOTIFICATIONS: Flag = Flag("features.notifications");
 /// Read by Bridge alone: whether moves and presses make their quiet sound.
@@ -175,67 +163,6 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Boolean(false),
         applies: Applies::Live,
         row: Some("operator"),
-        env: None,
-        tip: None,
-    },
-    // Every role ships Read-only (the owner, 5 Nov, then named Off): the Operator makes no call for it.
-    Entry {
-        key: OPERATOR_DISPATCH.0,
-        section: Section::Features,
-        title: "Operator dispatches",
-        description: "Starts, holds and merges Jobs as the Operator rules. Suggest puts each on Needs you for one press. Read-only, it makes no call for them.",
-        kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("read_only"),
-        applies: Applies::Live,
-        row: Some("operator-dispatch"),
-        env: None,
-        tip: None,
-    },
-    Entry {
-        key: OPERATOR_DELEGATE.0,
-        section: Section::Features,
-        title: "Operator delegates",
-        description: "Sends words to a live Job as the Operator rules: work its plan covers, a nudge, or word of a Job on shared ground. Suggest puts each on Needs you for one press. Read-only, it makes no call for them.",
-        kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("read_only"),
-        applies: Applies::Live,
-        row: Some("operator-delegate"),
-        env: None,
-        tip: None,
-    },
-    Entry {
-        key: OPERATOR_ANSWER.0,
-        section: Section::Features,
-        title: "Operator answers",
-        description: "Settles the questions and permission cards the Operator answers, as your press would, and says so in the job. A question on work you would see waits for you. Suggest shows its pick on the question. Read-only, it makes no call for them.",
-        kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("read_only"),
-        applies: Applies::Live,
-        row: Some("operator-answer"),
-        env: None,
-        tip: None,
-    },
-    Entry {
-        key: OPERATOR_FILE.0,
-        section: Section::Features,
-        title: "Operator files",
-        description: "Files a Later item a job hands over in the repository's beads, where no open issue covers it. Suggest puts each on Needs you for one press. Read-only, it files nothing.",
-        kind: Kind::Choice(Options::Fixed(OPERATOR_POSITIONS)),
-        shipped: Shipped::Text("read_only"),
-        applies: Applies::Live,
-        row: Some("operator-file"),
-        env: None,
-        tip: None,
-    },
-    Entry {
-        key: OPERATOR_REPOSITORIES.0,
-        section: Section::Features,
-        title: "Operator positions per repository",
-        description: "The Operator's roles that stand differently in one repository than on this machine.",
-        kind: Kind::Json,
-        shipped: Shipped::Nothing,
-        applies: Applies::Live,
-        row: Some("operator-repositories"),
         env: None,
         tip: None,
     },

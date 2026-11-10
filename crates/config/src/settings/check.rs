@@ -12,7 +12,7 @@ use std::fmt;
 use store::settings_file::{SettingValue, SettingsDocument};
 
 use super::resolve::{options, Env, Supplied};
-use super::{entry, Kind, Options, OPERATOR_POSITIONS};
+use super::{entry, Kind};
 
 /// A document every key of which the table accepted.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -108,10 +108,6 @@ fn fault(
         }
         (Kind::Boolean, SettingValue::Bool(_)) => None,
         (Kind::Boolean, _) => Some("must be true or false".to_string()),
-        // A role's switch saved when it had two positions, which the role reads as the one it meant.
-        (Kind::Choice(Options::Fixed(choices)), SettingValue::Bool(_)) if *choices == OPERATOR_POSITIONS => None,
-        // The words it was saved with before they were renamed: `off` is read_only and `on` is decide.
-        (Kind::Choice(Options::Fixed(choices)), SettingValue::Text(word)) if *choices == OPERATOR_POSITIONS && matches!(word.as_str(), "off" | "on") => None,
         (Kind::Choice(_), SettingValue::Text(word)) => {
             let choices = choices();
             (!choices.contains(word)).then(|| format!("must be one of {}", choices.join(", ")))

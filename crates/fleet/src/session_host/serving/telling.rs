@@ -235,6 +235,12 @@ where
         self.fleet_word(session, text, false, None).await
     }
 
+    /// Fleet's word to a Job a repair put right: carry on. Kept from no mute or rule, since Fleet
+    /// started the repair itself and a Job that missed the word would stay where it stopped.
+    pub(crate) async fn told_of_a_repair(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
+        self.fleet_word(session, text, false, None).await
+    }
+
     /// Fleet's word to a Job whose draft the person turned into a Document. Kept from no mute or rule,
     /// since it answers his own press and the Job's next revision depends on it. **A paused Job's is kept
     /// for its Resume** and `Ok(false)` until then; an ended Job is told nothing.

@@ -4,6 +4,7 @@
 // The header rules in `protocol.ts` hold here. `kind` on an attachment is open
 // text, so it is a `string`; the sets below that Fleet closes are written out.
 
+import type { BuildSource } from "./building";
 import type { CallInFlight } from "./calls";
 import type { DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
@@ -243,6 +244,8 @@ export type SessionRecord = {
   held_open_by?: HeldOpenBy[];
   /** Why it stopped, with `standing` `stopped`. Absent otherwise. */
   stopped?: SessionStopped;
+  /** The repair Fleet is running on it now, in any state. Absent while none runs. */
+  repairing?: SessionRepairing;
   /** When Fleet tells it to carry on, while a stop nothing excuses has not been told about. Absent otherwise. */
   stop_told_by?: string;
   /** When the turn running now began. Absent between turns. */
@@ -494,6 +497,12 @@ export type SessionStopped = {
   };
 };
 
+/** The repair Fleet is running on a Job, in any state. `said` is Fleet's own words for what broke: no client spells them. `crates/ipc/src/sessions.rs`. */
+export type SessionRepairing = {
+  said: string;
+  since: string;
+};
+
 /** One thing, not the person, that keeps a Session open: a fact, never a sentence. `crates/ipc/src/sessions.rs`. */
 export type HeldOpenBy =
   | {
@@ -637,25 +646,14 @@ export type MoveInLine = {
   place: LinePlace;
 };
 
-/** One of the forms a standing order takes, which Fleet enforces. `what` is a kind as the Log names it. */
-export type OperatorOrderForm =
-  | {
-      kind: "role_off";
-      role: "dispatch" | "delegate" | "answer" | "file";
-      manifest_id: string;
-      today?: boolean;
-    }
-  | {
-      kind: "hold_paths";
-      manifest_id: string;
-      paths: string[];
-      job: string;
-      until: "pushes" | "ends";
-    }
-  | {
-      kind: "always_raise";
-      what: string;
-    };
+/** The one form a standing order takes, which Fleet enforces: a hold on paths. */
+export type OperatorOrderForm = {
+  kind: "hold_paths";
+  manifest_id: string;
+  paths: string[];
+  job: string;
+  until: "pushes" | "ends";
+};
 
 /** `operator_orders` (`GET /operator/orders`), and the answer to confirming or removing one: the orders in force now. */
 export type OperatorOrders = {
@@ -708,6 +706,10 @@ export type OperatorSaid = {
   forms?: string[];
   /** The board item it put first in `next`, as he asked. */
   moved?: string;
+  /** The rule it forgot, as he asked: its id, which is gone from Learned. The item it covered asks again. */
+  forgot?: number;
+  /** The hold it lifted, as he asked: its id. The Jobs it held write again. */
+  lifted?: number;
 };
 
 /** `operator_talk` (`GET /operator/talk`): the last twenty messages, oldest first. */
@@ -901,6 +903,18 @@ export type ConfirmWaiting = {
 };
 
 /**
+ * `POST /sessions/waiting/done`: the person did what an agent's item asked of him (`NeedsYouAct` `done`). The item closes as a dismissed one
+ * does, into `SessionRecord.closed`, and the Job is sent one turn, `Done: <item text>`, with `note` on the next line where it is not blank.
+ * Only an item the agent stated: Fleet refuses 422 `fleet.session_waiting_empty` for any other, and 409 `fleet.session_waiting_unheld` for an
+ * item nothing holds. Since 10 Nov 2026.
+ */
+export type DoneWaiting = {
+  session_id: string;
+  item_id: string;
+  note?: string;
+};
+
+/**
  * `POST /sessions/draft/document`: the person turns an open draft into a Document. `draft_id` is the draft item's `draft:<row id>`.
  * Fleet writes `.armada/documents/<name>.html` in the Job's worktree, withdraws the draft, keeps the page as it keeps an agent's own
  * write, and sends the Job a turn to revise it there. Fleet refuses 404 `fleet.draft_convert_unknown`, 409 `fleet.draft_convert_settled`,
@@ -1060,6 +1074,16 @@ export type ShowSketch = {
  */
 export type WithdrawSketch = {
   title: string;
+  session_id?: string;
+};
+
+/**
+ * `POST /sessions/withdraw_document`, the agent's: take back a Document it wrote under `.armada/documents/`. Fleet writes the dismissal
+ * `dismiss_waiting` writes for `document:<path>` and leaves the file; a new revision asks again. `path` is the page's path as its item names it,
+ * the end of it or its title. Since 10 Nov 2026.
+ */
+export type WithdrawDocument = {
+  path: string;
   session_id?: string;
 };
 
@@ -1785,4 +1809,144 @@ export type SessionCheckOutputOpened = {
   name: string;
   /** Older lines the first read left out, because the window is bounded. */
   skipped: number;
+};
+
+/**
+ * `GET /sessions/needs_you?session_id=`: a Job's Needs you grouped once by Fleet, so a Bridge draws it and derives nothing from `waiting_for`.
+ * Every item is one row of exactly one section; none is dropped. `fold` is false where only review pages, a restart key or a done are owed, so
+ * the band has no list to open. `review_in_band` is true where more than one page is owed or a Document is the only thing owed, and `glyphs` are
+ * the band head's marks in order (each listed row named by its text, then the review rows where `review_in_band`). Since 10 Nov 2026.
+ */
+export type NeedsYou = {
+  session_id: string;
+  sections: NeedsYouSection[];
+  fold: boolean;
+  review_in_band: boolean;
+  glyphs: NeedsYouGlyph[];
+};
+
+/** `restart` is the band's own key, not a list row, and `done` is not part of what the band folds. Labels: Questions, To do, To review, Walks, Commands, PRs, Restart, Done. */
+export type NeedsYouSectionKind =
+  | "questions"
+  | "to_do"
+  | "to_review"
+  | "walks"
+  | "commands"
+  | "pull_requests"
+  | "restart"
+  | "done";
+
+/** One group of rows, in the order `waiting_for` lists them; `to_review` oldest first. */
+export type NeedsYouSection = {
+  kind: NeedsYouSectionKind;
+  label: string;
+  rows: NeedsYouRow[];
+};
+
+export type NeedsYouGlyphKind =
+  | "question"
+  | "reply"
+  | "read_from_reply"
+  | "walk"
+  | "answer"
+  | "pull_request"
+  | "run"
+  | "message"
+  | "steps"
+  | "waiting"
+  | "linked_job"
+  | "operator"
+  | "todo"
+  | "plan"
+  | "sketch"
+  | "draft"
+  | "document"
+  | "restart"
+  | "done";
+
+/** A mark and its tooltip. */
+export type NeedsYouGlyph = {
+  kind: NeedsYouGlyphKind;
+  said: string;
+};
+
+/**
+ * What putting a row away is. `none`: answered, never dismissed. `plain` and `skip` (named Skip; the agent is told nothing) are one press of
+ * `dismiss_waiting`. `reason` may carry a reason, which the agent is sent. `not_a_question` is `dismiss_waiting` with `misread`.
+ */
+export type NeedsYouDismiss = "none" | "plain" | "skip" | "reason" | "not_a_question";
+
+/** What pressing a row does. `done` is `POST /sessions/waiting/done`, with an optional note; `steps` is the procedure where the item has one. */
+export type NeedsYouAct =
+  | {
+      kind: "open_plan";
+    }
+  | {
+      kind: "open_sketch";
+      title: string;
+    }
+  | {
+      kind: "open_document";
+      path: string;
+    }
+  | {
+      kind: "open_draft";
+      row: string;
+    }
+  | {
+      kind: "walk";
+      url: string;
+    }
+  | {
+      kind: "answer";
+      options: WaitingOption[];
+      other: boolean;
+    }
+  | {
+      kind: "reply";
+    }
+  | {
+      kind: "run";
+      command: string;
+    }
+  | {
+      kind: "steps";
+      steps: string[];
+      command?: string;
+    }
+  | {
+      kind: "approve_pr";
+      target: string;
+    }
+  | {
+      kind: "open_job";
+      id: string;
+    }
+  | {
+      kind: "message";
+    }
+  | {
+      kind: "restart";
+      label: string;
+      build: BuildSource;
+      adopt: boolean;
+      command: string;
+    }
+  | {
+      kind: "done";
+      steps?: string[];
+    }
+  | {
+      kind: "none";
+    };
+
+/** One item of `waiting_for`: `id` is what `dismiss_waiting`, `answer_waiting` and `done_waiting` take. */
+export type NeedsYouRow = {
+  id: string;
+  source: WaitingSource;
+  text: string;
+  since: string;
+  glyph: NeedsYouGlyph;
+  act: NeedsYouAct;
+  dismiss: NeedsYouDismiss;
 };

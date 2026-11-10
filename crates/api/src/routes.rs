@@ -322,6 +322,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::sessions::withdraw_window::<D>),
         )
         .route("/sessions/withdraw_sketch", post(crate::sessions::withdraw_sketch::<D>))
+        .route("/sessions/withdraw_document", post(crate::sessions::withdraw_document::<D>))
         .route("/sessions/sketch", post(crate::sessions::show_sketch::<D>))
         .route("/sessions/sketch/answer", post(crate::sessions::answer_sketch::<D>))
         .route("/sessions/document/answer", post(crate::sessions::answer_document::<D>))
@@ -458,6 +459,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route(
             "/sessions/waiting/closed",
             get(crate::sessions::list_closed_waiting::<D>),
+        )
+        .route("/sessions/needs_you", get(crate::sessions::get_needs_you::<D>))
+        .route(
+            "/sessions/waiting/done",
+            post(crate::hosted_sessions::done_waiting::<D>),
         )
         .route(
             "/sessions/waiting/confirm",

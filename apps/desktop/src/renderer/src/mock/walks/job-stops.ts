@@ -67,23 +67,23 @@ const jobStops = walk("jobStops", [
   },
   {
     press: deckRow(/^Tell the phone what holds a Job/),
-    say: "Its process ended and the restart failed, so Fleet started a repair Job. Nothing is asked of you",
+    say: "Its process ended and the restart failed, so Fleet is repairing it. Nothing is asked of you",
   },
   {
     look: inside(now, text("Stopped: process ended")),
     say: "Now gives what the process said, and Fleet's acts stand beside it",
   },
   {
-    look: deckRow("Repair: Tell the phone what holds a Job"),
-    say: "The repair Job is a Job of its own, at work",
+    look: inside(now, text("Repairing: its process died twice")),
+    say: "The repair is no Job of its own: it is one line on this Job",
   },
   {
     hover: inside(deckRow("Store migration spike"), role("img", /^Stopped: /)),
-    say: "Fleet is unhealthy, so it started no repair Job. Amber: this is the one that reaches you",
+    say: "Fleet is unhealthy, so it started no repair. Amber: this is the one that reaches you",
   },
   {
     press: deckRow("Theme token audit"),
-    say: "Fleet told it once and it stopped again with its agent alive. Amber too: a repair Job has nothing to fix here",
+    say: "Fleet told it once and it stopped again with its agent alive. Amber too: until a repair is asked for, only you move it",
   },
   {
     press: deckRow("Rewrite the importer"),

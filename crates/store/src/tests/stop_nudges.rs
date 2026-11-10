@@ -29,19 +29,18 @@ fn what_it_was_told_is_kept_and_cleared_and_what_was_passed_over_stays() {
 }
 
 #[test]
-fn a_repair_is_kept_on_both_rows_and_cleared_when_its_job_runs_again() {
+fn a_repair_is_kept_against_its_job_and_cleared_when_its_job_runs_again() {
     let dir = TempDir::new();
     let mut store = open(&dir);
     store.keep_repair_held("s1", true).expect("keeps");
     assert!(store.session_stop("s1").expect("reads").repair_held);
-    store.keep_repair_started("s1", "r1").expect("keeps");
+    store.keep_repair_started("s1", "r1", "died", STOP).expect("keeps");
     let kept = store.session_stop("s1").expect("reads");
     assert_eq!((kept.repair_job.as_deref(), kept.repair_held), (Some("r1"), false));
-    assert_eq!(store.session_stop("r1").expect("reads").repairs.as_deref(), Some("s1"));
+    assert_eq!(store.session_stop("r1").expect("reads"), KeptStop::default(), "a repair is no Job: it has no row of its own");
 
     store.clear_repair("s1").expect("clears");
     assert_eq!(store.session_stop("s1").expect("reads").repair_job, None);
-    assert_eq!(store.session_stop("r1").expect("reads").repairs.as_deref(), Some("s1"), "it stays a repair Job");
 }
 
 #[test]

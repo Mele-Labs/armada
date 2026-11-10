@@ -10,9 +10,10 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::operator_page::{
-    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning, OperatorSlots,
-    OperatorTurnItem, OperatorTurnKind,
+    item_read, OperatorComingUp, OperatorDigest, OperatorHandled, OperatorHandledAct, OperatorHold, OperatorLanded, OperatorLearned, OperatorLogFile, OperatorMain, OperatorPage, OperatorRule, OperatorRunning,
+    OperatorSlots, OperatorTurnItem, OperatorTurnKind,
 };
+use ipc::operator_talk::OperatorOrderForm;
 use ipc::{Instant, MainCiState, OperatorRead, SessionId, SlotHolding};
 use store::KeptTurn;
 
@@ -57,6 +58,8 @@ where
         if on {
             self.red_turns_swept().await;
         }
+        // A hold its Job has released is let go as the orders are read, so the page lists none that is over.
+        self.operator_orders_wire().await;
         let now = self.now();
         let live = match self.operator_seat().operator().filter(|_| on) {
             Some(operator) => operator.live_jobs().await,
@@ -200,7 +203,17 @@ where
                 Some(OperatorLearned { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
             })
             .collect();
-        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned }
+        let holds = store
+            .operator_orders()
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|one| {
+                let OperatorOrderForm::HoldPaths { manifest_id, .. } = OperatorOrderForm::read(&one.form)?;
+                let repository = self.board_repository(&manifest_id);
+                Some(OperatorHold { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
+            })
+            .collect();
+        OperatorDigest { landed, handled: OperatorHandled { acts, log: None }, running, coming_up, learned, holds }
     }
 
     /// This week's journal, where anything is written in it.

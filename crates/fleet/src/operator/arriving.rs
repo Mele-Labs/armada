@@ -108,11 +108,6 @@ impl Arrived {
         }
     }
 
-    /// The kind a word from a standing order names, where the Operator is still handed it.
-    pub(super) fn taken_from_word(word: &str) -> Option<Arrived> {
-        Arrived::TAKEN.into_iter().find(|arrived| arrived.word() == word)
-    }
-
     /// Put to a call for its read even where Fleet's rules leave it one way: the person meets it
     /// with what the Operator made of it.
     pub fn is_read(self) -> bool {

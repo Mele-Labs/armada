@@ -92,6 +92,7 @@ mod remembering;
 pub mod repo;
 mod recorded_laps;
 mod rerunning;
+mod repairing;
 mod scouting;
 mod snapshot;
 mod scratch;

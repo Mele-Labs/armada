@@ -62,6 +62,7 @@ fn every_agent_body_reads_as_an_object_of_named_fields() {
         ("take_main_red", shape::of::<crate::TakeMainRed>()),
         ("try_tracker_mod", shape::of::<crate::TryTrackerMod>()),
         ("weigh_watch", shape::of::<crate::WeighWatch>()),
+        ("withdraw_document", shape::of::<crate::WithdrawDocument>()),
         ("withdraw_draft", shape::of::<crate::WithdrawDraft>()),
         ("withdraw_sketch", shape::of::<crate::WithdrawSketch>()),
         ("withdraw_window", shape::of::<crate::WithdrawWindow>()),

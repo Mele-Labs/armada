@@ -79,6 +79,7 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_permission_tool_and_it
         "withdraw_window",
         "show_sketch",
         "withdraw_sketch",
+        "withdraw_document",
         "show_file",
         "record_plan",
         "ask_in_window",
