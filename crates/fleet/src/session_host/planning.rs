@@ -24,7 +24,7 @@ use crate::rail;
 use crate::rail_keeping::rail_read;
 use crate::session_host::asking::answers_a_question;
 use crate::session_issues::ISSUE;
-use crate::session_host::document_answers::is_document;
+use crate::session_host::document_answers::{in_front_of_him, is_document};
 use crate::session_host::walking;
 use crate::session_host::sketching::{sketch_attachment, TARGET_PREFIX};
 
@@ -68,8 +68,9 @@ pub(crate) struct Holds {
     pub since: Instant,
 }
 
-/// The windows that hold a pending plan back. **Only a window he can see or still owes holds it.**
-/// One a newer window of its page replaced, or whose walk item he dismissed, holds nothing. Every
+/// The windows and pages that hold a pending plan back. **Only a window or page he can see or still owes
+/// holds it.** One a newer window of its page replaced, or whose walk item he dismissed, holds nothing,
+/// and neither does a page he dismissed or the Job deleted (`in_front_of_him`), the test its card makes. Every
 /// other window he has not approved since it was last shown holds it. **An Approve stands until the
 /// page is shown again**: a file write marks every window changed, and the Job goes on writing after
 /// he approves, so a window he approved holds nothing however it was marked since. One he has not
@@ -130,7 +131,8 @@ pub(crate) fn plan_holds(
         }
         match page.detail.get(DOCUMENT_SETTLED_AT) {
             Some(settled) if page.detail.contains_key(DOCUMENT_SETTLED) => since = since.max(Instant::carried(settled)),
-            _ => held_by.push(PlanHold { url: page.target.clone(), why: PlanHoldWhy::Unapproved }),
+            _ if in_front_of_him(page, dismissed) => held_by.push(PlanHold { url: page.target.clone(), why: PlanHoldWhy::Unapproved }),
+            _ => {}
         }
     }
     if let Some(walk) = walk {
