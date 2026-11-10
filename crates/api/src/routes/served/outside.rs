@@ -220,6 +220,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/requests",
     },
     Route {
+        operation: "list_request_runs",
+        method: "GET",
+        path: "/requests/runs",
+    },
+    Route {
+        operation: "get_request_run",
+        method: "GET",
+        path: "/requests/runs/one",
+    },
+    Route {
         operation: "save_request_collection",
         method: "POST",
         path: "/requests/collections",

@@ -230,8 +230,8 @@ pub struct RequestSent {
     /// Why nothing answered: refused, timed out, a name that did not resolve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
-    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name, and a body
-    /// that was not saved.
+    /// Fleet's word on the answer: each `{{name}}` that was sent unfilled, by name, a body that
+    /// was not saved, and a run of a saved request that was not kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     /// Where an agent's send saved the whole body. Absent on the owner's send and where the write

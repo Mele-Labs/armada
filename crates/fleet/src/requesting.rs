@@ -20,6 +20,7 @@ mod files;
 mod filling;
 mod kept;
 mod reading;
+mod running;
 mod saving;
 mod serving;
 
@@ -107,6 +108,15 @@ pub struct Sent {
     response_cut: bool,
     /// An agent's whole body, secrets hidden, until [`Sent::save_body`] writes it.
     whole: Option<Whole>,
+    /// The saved request this was, by its collection's id and its own. Absent for a request's own,
+    /// which keeps no run.
+    saved: Option<(String, String)>,
+    /// What a run keeps of the answer's body: secrets hidden, and cut at [`ANSWER_CAP`] whoever sent
+    /// it, which `answer.body` is not, since it follows `pick`, `body_inline` and the agent's cap.
+    kept_body: String,
+    kept_cut: bool,
+    /// What the answer weighed as it came.
+    kept_bytes: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -163,6 +173,42 @@ impl Sent {
             response: self.response.clone(),
             truncated: self.response_cut,
         }
+    }
+
+    /// The run of a saved request this send came to, to keep. `None` for a request's own. **Holds no
+    /// secret's value**, as the row does not. `job` is the Job the ledger names and its title.
+    pub fn run(&self, repository: &str, job: Option<(String, Option<String>)>, at: &str) -> Option<store::NewRun> {
+        let (collection_id, request_id) = self.saved.clone()?;
+        let pairs = |headers: &[RequestHeader]| headers.iter().map(|one| (one.name.clone(), one.value.clone())).collect();
+        let (session_id, session_title) = match job {
+            Some((id, title)) => (Some(id), title),
+            None => (None, None),
+        };
+        Some(store::NewRun {
+            repository: repository.to_string(),
+            collection_id,
+            request_id,
+            sent_at: at.to_string(),
+            sent_by: match self.by {
+                RequestBy::Owner => "owner",
+                RequestBy::Agent => "agent",
+            }
+            .to_string(),
+            session_id,
+            session_title,
+            environment: self.environment.clone(),
+            method: self.method.clone(),
+            url: self.answer.url.clone(),
+            request_headers: pairs(&self.headers),
+            request_body: self.body.clone(),
+            status: self.answer.status,
+            ms: self.answer.ms,
+            response_headers: pairs(&self.answer.headers),
+            response_body: self.kept_body.clone(),
+            response_bytes: self.kept_bytes,
+            response_cut: self.kept_cut,
+            error: self.answer.error.clone(),
+        })
     }
 
     /// What the Job's agent is told of an owner's send, in the shape a run's end is told.
@@ -309,9 +355,13 @@ pub fn sent(
         saved: None,
     };
     let (mut response, mut response_cut, mut whole) = (String::new(), false, None);
+    let (mut kept_body, mut kept_cut, mut kept_bytes) = (String::new(), false, 0);
     match came {
         Ok(Incoming { status, headers, body, truncated }) => {
+            kept_bytes = body.len() as u64;
             let text = values.hidden(&String::from_utf8_lossy(&body));
+            (kept_body, kept_cut) = cut(&text, bounds.answer);
+            kept_cut |= truncated;
             (response, response_cut) = cut(&text, bounds.row);
             response_cut |= truncated;
             let (inline, cut_here) = match (&send.pick, send.body_inline) {
@@ -364,5 +414,9 @@ pub fn sent(
         response,
         response_cut,
         whole,
+        saved: asked.saved,
+        kept_body,
+        kept_cut,
+        kept_bytes,
     })
 }

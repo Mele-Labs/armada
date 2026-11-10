@@ -33,6 +33,8 @@ pub(super) struct Asked {
     pub(super) url: String,
     pub(super) headers: Vec<RequestHeader>,
     pub(super) body: Option<String>,
+    /// The collection's id and the request's own, where it is a saved one.
+    pub(super) saved: Option<(String, String)>,
 }
 
 impl Asked {
@@ -84,6 +86,7 @@ impl Filling {
                     url: request.url.clone(),
                     headers: layered(&layered(&collection.headers, &request.headers), &send.headers),
                     body: send.body.clone().or_else(|| request.body.clone()),
+                    saved: Some((collection.id.clone(), request.id.clone())),
                 })
             }
             RequestToSend::Own { method, url, collection } => {
@@ -96,6 +99,7 @@ impl Filling {
                     url: url.clone(),
                     headers: layered(&under, &send.headers),
                     body: send.body.clone(),
+                    saved: None,
                 })
             }
         }

@@ -144,7 +144,7 @@ pub use acting::{asked_by, asking, carrying, via, BRIDGE, CALLER_HEADER, PHONE};
 pub use daemon::{
     offerable, Accounts, Admitting, AppRuns, Authoring, Commands, Conversations, Daemon,
     Autopilots, WordsReach, HostedSessions, Issues, JudgeReadings, Lifecycles, Logbook, Teaching, Mods, Clashing,
-    Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, Sessions, Settings, SharedHome, Steerer,
+    Projects, PullRequestPanel, PullRequests, Queries, Redirector, Refusal, Rehearsing, Requests, Retros, RunsAsked, Sessions, Settings, SharedHome, Steerer,
     ShownFile, StoredFile, Studios, Watches,
 };
 pub use door::{door_within, door_without_a_manifest, offered, offered_without_a_manifest, Scope, DOOR_PATH};
