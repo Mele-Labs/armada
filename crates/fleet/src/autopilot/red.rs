@@ -55,7 +55,8 @@ where
             let red = RedMain { manifest_id: manifest.as_str().to_string(), commit: main.red_commit().to_string(), seen: brief_of(&main), fixing };
             if let Some(arrival) = red.arrival() {
                 self.hand_once(arrival).await;
-                self.red_item_offered(&main).await;
+                // Boxed: doing the item by a rule holds the whole act, too deep for the pass's own stack.
+                Box::pin(self.red_item_offered(&main)).await;
             }
             return 0;
         }
