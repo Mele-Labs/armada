@@ -270,6 +270,45 @@ class Preview(unittest.TestCase):
         for path in kept:
             self.assertTrue(os.path.exists(os.path.join(self.wt, path)), path)
 
+    def mtime(self, path):
+        return os.stat(os.path.join(self.wt, path)).st_mtime_ns
+
+    def test_a_file_a_branch_changes_keeps_its_mtime_when_the_next_pass_leaves_it_as_it_was(self):
+        self.branch("feat/same", {"same.txt": "same\n"})
+        self.branch("feat/edit", {"edit.txt": "v1\n"})
+        self.hold("feat/same", "feat/edit")
+        self.run_preview()
+        before = {p: self.mtime(p) for p in ("same.txt", "edit.txt", "a.txt")}
+        time.sleep(0.05)
+
+        self.write("m.txt", "moved\n")
+        self.commit("main: moved")
+        self.git("checkout", "-q", "feat/edit")
+        self.write("edit.txt", "v2\n")
+        self.commit("feat/edit: more")
+        self.git("checkout", "-q", "main")
+        self.run_preview()
+
+        self.assertEqual(self.mtime("same.txt"), before["same.txt"])
+        self.assertEqual(self.mtime("a.txt"), before["a.txt"])
+        self.assertNotEqual(self.mtime("edit.txt"), before["edit.txt"])
+        with open(os.path.join(self.wt, "edit.txt")) as f:
+            self.assertEqual(f.read(), "v2\n")
+        self.assertTrue(os.path.exists(os.path.join(self.wt, "m.txt")))
+        self.assertEqual(self.merged_in_order(), ["feat/same", "feat/edit"])
+
+    def test_a_conflicting_branch_names_every_conflicted_file_and_leaves_the_worktree_clean(self):
+        self.write("b.txt", "one\ntwo\nthree\n")
+        self.commit("main: b")
+        self.branch("feat/one", {"a.txt": "one\nONE\nthree\n", "b.txt": "one\nONE\nthree\n"})
+        self.branch("feat/two", {"a.txt": "one\nTWO\nthree\n", "b.txt": "one\nTWO\nthree\n", "t.txt": "t\n"})
+        self.hold("feat/one", "feat/two")
+        said = self.run_preview()
+        self.assertRegex(said, r"feat/two\s+skipped \(conflict: a.txt, b.txt\)")
+        self.assertFalse(os.path.exists(os.path.join(self.wt, "t.txt")))
+        self.assertEqual(subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+                                        cwd=self.wt, capture_output=True, text=True).stdout, "")
+
     def test_a_note_pinned_on_the_preview_survives_a_rebuild(self):
         self.hold()
         self.run_preview()

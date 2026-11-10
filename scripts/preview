@@ -228,21 +228,44 @@ def migrations_in(cwd, rev):
 
 
 def prepare(root, wt, base):
+    """The preview's worktree, made on first use. Nothing in an existing one is
+    touched: `settle` moves it once, to where the merges ended."""
     git(root, "worktree", "prune")
     if not os.path.isdir(os.path.join(wt, ".git")) and not os.path.isfile(os.path.join(wt, ".git")):
         if os.path.exists(wt) and os.listdir(wt):
             sys.exit(f"preview: {wt} exists and is not a worktree; remove it and run again")
         os.makedirs(os.path.dirname(wt), exist_ok=True)
         git(root, "worktree", "add", "-q", "-B", "preview", wt, base)
+
+
+def settle(wt, final):
+    """Land the worktree on `final` in one step. Git rewrites only the files
+    whose content differs between the old preview and `final`, so a file an
+    in-flight branch changes keeps its mtime when the last preview had it so,
+    and the builds that compare mtimes have nothing to restart for."""
     git(wt, "merge", "--abort", check=False)
-    git(wt, "checkout", "-q", "-B", "preview", base)
-    git(wt, "reset", "-q", "--hard", base)
+    git(wt, "reset", "-q", "--hard")
+    git(wt, "checkout", "-q", "-B", "preview", final)
     git(wt, "clean", "-xdffq", *[a for k in KEEP for a in ("-e", k)])
+
+
+def merge_tree(wt, cur, branch):
+    """Merge `branch` into the commit `cur` without touching the worktree.
+    Returns (tree, None) for a clean merge, or (None, conflicted files)."""
+    done = git(wt, "merge-tree", "--write-tree", "--name-only", "--no-messages", cur, branch, check=False)
+    lines = done.stdout.splitlines()
+    if done.returncode == 0 and lines:
+        return lines[0], None
+    if done.returncode == 1 and lines:
+        return None, lines[1:]
+    sys.exit(f"preview: git merge-tree {cur} {branch} failed in {wt}: {(done.stderr or done.stdout).strip()}")
 
 
 def merge_pass(root, only, skip, dropped=None):
     """Merge once; returns the worktree, the base and the table's rows.
-    `dropped` is {branch: why}: branches a restart showed it cannot take."""
+    `dropped` is {branch: why}: branches a restart showed it cannot take.
+    The merge commits are built on the side from `cur` and the worktree moves
+    to the last of them once, at the end."""
     dropped = dropped or {}
     wt = os.path.join(root, ".armada", "preview")
     git(root, "fetch", "--quiet", "origin", check=False)
@@ -250,35 +273,34 @@ def merge_pass(root, only, skip, dropped=None):
     prepare(root, wt, base)
     branches, notes, held = in_flight(root, base, only, skip)
 
-    taken = {v: "main" for v in migrations_in(wt, "HEAD")}
+    cur = out(root, "rev-parse", f"{base}^{{commit}}")
+    taken = {v: "main" for v in migrations_in(wt, cur)}
     rows = []
     for branch in branches:
         if branch in dropped:
             rows.append((branch, f"skipped ({dropped[branch]})", ""))
             continue
         # A branch that merged main can have several merge bases; one alone misses main's migrations.
-        before = {v for mb in out(wt, "merge-base", "--all", "HEAD", branch).split() for v in migrations_in(wt, mb)}
+        before = {v for mb in out(wt, "merge-base", "--all", cur, branch).split() for v in migrations_in(wt, mb)}
         added = [v for v in migrations_in(wt, branch) if v not in before]
         clash = [(v, taken[v]) for v in added if v in taken]
         if clash:
             v, who = clash[0]
             rows.append((branch, f"skipped (migration {v} is already taken by {who})", ""))
             continue
-        pre = out(wt, "rev-parse", "HEAD")
-        done = git(wt, "merge", "--no-ff", "--no-edit", "-q", branch, check=False)
-        if done.returncode != 0:
-            files = out(wt, "diff", "--name-only", "--diff-filter=U").splitlines()
-            git(wt, "merge", "--abort", check=False)
-            rows.append((branch, "skipped (conflict: " + ", ".join(files or ["unknown"]) + ")", ""))
-            continue
-        head = out(wt, "rev-parse", "--short", "HEAD")
-        if out(wt, "rev-parse", "HEAD") == pre:
+        if git(wt, "merge-base", "--is-ancestor", branch, cur, check=False).returncode == 0:
             rows.append((branch, "nothing new", ""))
             continue
+        tree, files = merge_tree(wt, cur, branch)
+        if tree is None:
+            rows.append((branch, "skipped (conflict: " + ", ".join(files or ["unknown"]) + ")", ""))
+            continue
+        cur = out(wt, "commit-tree", tree, "-p", cur, "-p", branch, "-m", f"Merge branch '{branch}' into preview")
         for v in added:
             taken[v] = branch
-        rows.append((branch, "merged", head))
+        rows.append((branch, "merged", out(wt, "rev-parse", "--short", cur)))
 
+    settle(wt, cur)
     head = out(wt, "rev-parse", "--short", "HEAD")
     warnings = []
     for slot, path, branch, _ in held:
