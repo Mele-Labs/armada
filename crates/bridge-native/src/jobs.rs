@@ -984,8 +984,7 @@ impl JobsList {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
-            // The conflicts column keeps its place; Fleet's write clashes do not reach this list yet.
-            .when(view.on("view:conflicts"), |marks| marks.child(div().flex_none().w(look.length(token::SPACE_4))))
+            .when(view.on("view:conflicts"), |marks| marks.child(crate::clash_mark::ClashMark::in_row(row.id.clone())))
             // The time stands right against the state; the glyphs end at the row's edge, so they
             // line up down the list.
             .children(time)
@@ -1443,12 +1442,21 @@ impl JobsScreen {
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
         let palette = cx.new(|cx| crate::palette::Palette::new(list.clone(), cx));
+        // The bar's search, and ⌘K where no screen took it, open this palette.
+        let handle = window.window_handle();
+        let opens = palette.downgrade();
+        cx.set_global(crate::titlebar::AskedSink(Rc::new(move |asked: &crate::titlebar::Asked, cx: &mut App| {
+            if *asked != crate::titlebar::Asked::Palette {
+                return;
+            }
+            let opens = opens.clone();
+            let _ = handle.update(cx, move |_, window, cx| {
+                if let Some(palette) = opens.upgrade() {
+                    palette.update(cx, |palette, cx| palette.open(window, cx));
+                }
+            });
+        })));
         JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
-    }
-
-    /// The command palette, which the title bar's search field opens with `Palette::open`.
-    pub fn palette(&self) -> &Entity<crate::palette::Palette> {
-        &self.palette
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1575,15 +1583,16 @@ impl Render for JobsScreen {
         let column = look.length(token::SPACE_12);
         let width = self.width(window, look);
         let handle = self.render_handle(width, window, cx);
+        let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
         let pad = look.length(token::SPACE_3);
         div()
             .key_context("deck")
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
-            // A chord the person gave a palette row runs that row from anywhere on the screen.
+            // A chord the person gave a palette row runs that row from anywhere on the screen; Tab reaches every tab stop.
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx)) {
+                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx)) || crate::keymap::traverse(event, window, cx) {
                     cx.stop_propagation();
                 }
             }))
@@ -1591,7 +1600,7 @@ impl Render for JobsScreen {
             .flex()
             .flex_col()
             .bg(look.color(token::BG_BASE))
-            .child(crate::chrome::title_row(look))
+            .child(title)
             .child(
                 div()
                     .id("deck-grid")
@@ -1609,6 +1618,7 @@ impl Render for JobsScreen {
                     .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
                     .child(panel(look).w(column * RIGHT)),
             )
+            .child(crate::merge_strip::strip(window, cx))
             .child(self.palette.clone())
     }
 }

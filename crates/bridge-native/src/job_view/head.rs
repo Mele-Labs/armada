@@ -10,6 +10,7 @@
 //! button here stands for one.
 
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
@@ -805,7 +806,7 @@ impl JobView {
                 .line_height(look.length(token::LEADING_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(title.to_uppercase())
+                .child(title.clone())
                 .tooltip(tip(title.clone()))
                 .into_any_element(),
         };
@@ -1077,6 +1078,16 @@ impl JobView {
                 "Job acts",
             )
         });
+        // The context ring after the acts, as `SessionFrame`'s tools order it. Compact goes as a line, as a
+        // quick line does: the native app types into no terminal, so Fleet refuses what it cannot deliver.
+        let ring = crate::context_ring::Fill::of(&job.usage, job.context_breakdown.as_ref(), job.compact).map(|fill| {
+            let me = cx.entity().downgrade();
+            crate::context_ring::ContextRing::new(id.clone(), Some(fill)).on_compact(Rc::new(move |_, window, cx| {
+                if let Some(me) = me.upgrade() {
+                    me.update(cx, |this, cx| this.send_line("/compact".into(), window, cx));
+                }
+            }))
+        });
         let marks = {
             let stale = job.mod_out_of_date && !matches!(job.mark.map(|mark| mark.state), Some(JobState::Quiet));
             let mod_mark = stale.then(|| {
@@ -1151,6 +1162,7 @@ impl JobView {
                 .px(look.length(token::SPACE_2))
                 .child(aa)
                 .children(acts)
+                .children(ring)
                 .child(div().flex_1())
                 .child(marks)
                 .into_any_element(),

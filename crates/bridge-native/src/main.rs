@@ -13,18 +13,25 @@
 //! `ARMADA_BRIDGE_QUIT_MARK` names a file the app writes when it quits after its window opened. `scripts/restart`
 //! runs the app under launchd through `scripts/bridge-launch`, which reopens it unless that file is there.
 
+mod annotate;
 mod assets;
 mod banner;
+mod capture;
 mod chrome;
+mod clash_mark;
+mod context_ring;
 mod deep_link;
 mod dictation;
+mod dispatch;
 mod dropdown;
+mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
 mod fleet;
 mod frames;
 mod job_view;
+mod inspect;
 mod jobs;
 mod keymap;
 mod labels;
@@ -34,11 +41,13 @@ mod log;
 #[allow(dead_code)]
 mod look;
 mod menu;
+mod merge_strip;
 mod mock;
 mod notify;
 mod palette;
 mod revert;
 mod runtime_file;
+mod titlebar;
 mod transport;
 mod voice;
 mod walk;
@@ -110,6 +119,10 @@ pub fn init_app(cx: &mut App) {
     walk::window::bind(cx);
     jobs::bind(cx);
     job_view::bind(cx);
+    titlebar::bind(cx);
+    merge_strip::bind(cx);
+    annotate::bind(cx);
+    dispatch::screen::bind(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
 }

@@ -30,7 +30,7 @@ fn encoded<T: serde::Serialize>(body: &T) -> Result<String, String> {
 }
 
 /// What a task's mark says, its glyph and its colour.
-fn task_look(state: PlanTaskState) -> (&'static str, crate::look::Token, &'static str) {
+pub(super) fn task_look(state: PlanTaskState) -> (&'static str, crate::look::Token, &'static str) {
     match state {
         PlanTaskState::Open => ("circle-dashed", token::FG_SUBTLE, "Open"),
         PlanTaskState::Working => ("circle-dot", token::STEP_RUNNING, "Working"),
@@ -336,7 +336,7 @@ impl JobView {
             lines.push(line("pencil", token::STEP_RUNNING, "Renamed", Some(one.from.clone()), Some(text_of(&one.id))));
         }
         for one in &changes.removed {
-            lines.push(line("trash-2", token::STEP_FAILED, "Removed", Some(one.text.clone()), None));
+            lines.push(line("trash", token::STEP_FAILED, "Removed", Some(one.text.clone()), None));
         }
         labelled(
             div()
@@ -454,7 +454,7 @@ impl JobView {
 
     /// The plan read against the version before it (B2.5): what changed in the open, the rest folded.
     #[allow(clippy::too_many_arguments)]
-    fn plan_revision(&self, ix: usize, key: &str, plan: &SessionPlan, changes: &PlanChanges, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn plan_revision(&self, ix: usize, key: &str, plan: &SessionPlan, changes: &PlanChanges, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = |icon: &'static str, ink: crate::look::Token, said: &'static str| {
             div().id(SharedString::from(format!("rev:{said}:{icon}"))).flex_none().child(glyph(look, icon, Size::Small, look.color(ink))).tooltip(tip(said))
         };
@@ -496,7 +496,7 @@ impl JobView {
                         .items_start()
                         .gap(look.length(token::SPACE_2))
                         .text_color(look.color(token::FG_MUTED))
-                        .child(div().w(look.length(token::SPACE_3)).child(mark("trash-2", token::STEP_FAILED, "Removed")))
+                        .child(div().w(look.length(token::SPACE_3)).child(mark("trash", token::STEP_FAILED, "Removed")))
                         .child(div().line_through().child(text.to_string()))
                 });
                 div()

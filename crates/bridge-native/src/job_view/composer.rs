@@ -1080,6 +1080,8 @@ impl JobView {
             .child(self.render_talk(look, cx))
             .child(send);
         let popup = self.composer.popup.as_ref().map(|popup| popup.view.clone());
+        let needs = self.render_needs(id, cx);
+        let risen = needs.is_some() && self.needs_up(id, cx);
         div()
             .flex_none()
             .flex()
@@ -1120,8 +1122,18 @@ impl JobView {
                             .flex_col()
                             .rounded(look.length(token::RADIUS_LG))
                             .border(look.length(token::BORDER_WIDTH))
-                            .border_color(look.color(if focused { token::BORDER_DEFAULT } else { token::BORDER_SUBTLE }))
+                            .border_color(look.color(if needs.is_some() {
+                                token::STEP_WAITING
+                            } else if focused {
+                                token::BORDER_DEFAULT
+                            } else {
+                                token::BORDER_SUBTLE
+                            }))
+                            // The band is the frame's top edge; a drawn one would cross the panel risen over it.
+                            .when(needs.is_some(), |frame| frame.border_t(gpui::px(0.)))
+                            .when(risen, |frame| frame.rounded_t(gpui::px(0.)))
                             .bg(look.color(token::BG_SUNKEN))
+                            .children(needs)
                             .children(self.render_offer(look, cx))
                             .children(self.render_quick(id, look, window, cx))
                             .children(self.render_tray(id, look, cx))

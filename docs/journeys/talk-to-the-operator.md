@@ -9,13 +9,13 @@
 **Concepts touched:** [Operator](../concepts/operator.md).
 
 **What is built.**
-Fleet's side is real.
-The panel and its box are not: the panel is `armada-ehhu.10` and the box is `armada-ehhu.9`.
-This journey says what Fleet does, and leaves the look to those two.
+Fleet's side is real, and the Electron Bridge has a box for it in the Operator's panel.
+The goal is one chat, on its own page or in a pane from anywhere, in the native Bridge, and it is not built.
+This journey says what Fleet does with the words, and leaves the look to [Operator](../concepts/operator.md).
 
 ## Flow
 
-Type words into the Operator's box → Fleet reads them against every live Job in every repository → a clear match is sent to that Job as a message → otherwise the words become a Job started on your words.
+Type words into the Operator's chat → Fleet reads them against every live Job in every repository → a clear match is sent to that Job as a message → otherwise the words become a Job started on your words.
 
 | You type | What Fleet does |
 |---|---|
@@ -37,7 +37,7 @@ Why: on 9 Nov you found it could not answer what you asked without reading.
 **A question a Job asks stays in Needs you.**
 The Operator is never handed it, so only you answer it, or Autopilot while you are away.
 **Nothing it rules is hidden.**
-Every ruling is a row of its Log, whether or not Fleet acted on it.
+Every ruling is kept, whether or not Fleet acted on it.
 
 **What you typed yourself is never filed as an issue.**
 It is started, delegated or held.
@@ -50,4 +50,4 @@ It is started, delegated or held.
 
 ## Related
 
-[Operator](../concepts/operator.md) is the concept page: what reaches it, the roles, Fail open, the Log and what a Job on your words is.
+[Operator](../concepts/operator.md) is the concept page: the goal, what is built, what reaches it, Fail open and what a Job on your words is.

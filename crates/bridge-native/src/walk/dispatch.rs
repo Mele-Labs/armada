@@ -1,0 +1,45 @@
+//! The dispatch sheet walk: each step goes straight to a state of the sheet. The scenes are
+//! `dispatch/scenes.rs`; a step that names one changes Fleet's answer and presses nothing. The
+//! annotation layer is its own walk, `notes`.
+
+use super::{answer, press_on, step, Step, Verb};
+
+pub static STEPS: [Step; 37] = [
+    step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
+    step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
+    press_on("The Model list opens under it", "combobox", "Model", "menu", "Model"),
+    step("Esc shuts the list and the keys go back to the request", Verb::Key("escape"), "textbox", "Request"),
+    step("Typing reads the repository: the mark turns to a spinner", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
+    answer("Fleet found sample-api in the words: its chip is chosen", "found", "radio", "Repository sample-api"),
+    step("⌥4 picks the fourth chip by hand", Verb::Key("alt-4"), "radio", "Repository sample-docs"),
+    step("Tab changes the kind to Autopilot", Verb::Key("tab"), "tab", "Autopilot"),
+    step("⌘↵ is Read it: it sends the sentence to Fleet and says Reading in the same frame", Verb::Key("cmd-enter"), "button", "Reading"),
+    answer("A refused read says why, in the sheet", "autopilot-refused", "alert", "Autopilot needs a repository with a Manifest, and sample-docs has none"),
+    answer("A read sentence becomes an instruction and the limits, each quoted back", "autopilot-read", "textbox", "Instruction"),
+    press_on("Start Autopilot answers in the same frame", "button", "Start Autopilot", "button", "Starting Autopilot"),
+    answer("Started: the sheet goes and the strip stands where the search was", "answer-autopilot", "group", "Last dispatch"),
+    press_on("Open asks for the repository's Autopilot lane, and the strip goes", "button", "Open", "heading", "armada"),
+    answer("A second send stands the strip again", "answer-autopilot", "group", "Last dispatch"),
+    step("Esc dismisses the strip", Verb::Key("escape"), "heading", "armada"),
+    step("⌘N opens a sheet with nothing kept: the send cleared the draft", Verb::Key("cmd-n"), "tab", "Job"),
+    step("⌥A puts an @ in the request and opens the Jobs to tag", Verb::Key("alt-a"), "listbox", "Jobs"),
+    step("↓ moves down the Jobs", Verb::Key("down"), "option", "Native Bridge foundation"),
+    step("Enter tags the Job in the words", Verb::Key("enter"), "textbox", "Request"),
+    answer("A tagged Job's brief waits on it: the sentence stands over the request", "waiting", "group", "Start condition"),
+    step("Each part is a button; Enter or a press cycles its choices", Verb::Key("shift-tab"), "button", "Condition PR lands"),
+    step("Esc shuts the sheet and keeps the words", Verb::Key("escape"), "heading", "armada"),
+    step("⌘N opens it again with the draft where it was", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("# opens the issues and pull requests to tag", Verb::Typed(" #"), "listbox", "Tag an issue or pull request"),
+    step("Esc shuts the list first, the sheet second", Verb::Key("escape"), "dialog", "Dispatch"),
+    answer("Fleet found no repository in the words: the mark says so", "unresolved", "img", "Repository, not found"),
+    step("Start with no repository asks for one, and the keys go to the chips", Verb::Key("enter"), "radiogroup", "Repository"),
+    answer("Twelve repositories: nine chips with keys, the rest under More", "many", "combobox", "More repositories"),
+    press_on("More lists the rest and a search over them", "combobox", "More repositories", "menu", "More repositories"),
+    step("Esc shuts it", Verb::Key("escape"), "combobox", "More repositories"),
+    step("Esc again puts the call away: the frame is as it was", Verb::Key("escape"), "dialog", "Dispatch"),
+    answer("A pasted snippet stands over the line and can be removed", "attach", "button", "Remove pasted-snippet.txt"),
+    answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
+    answer("A repository not ready: the refusal stands as a notice, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
+    step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
+];

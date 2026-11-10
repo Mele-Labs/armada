@@ -1163,11 +1163,11 @@ impl Palette {
                     .items_center()
                     .px(look.length(token::SPACE_3))
                     .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_2XS))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .child(title.to_uppercase()),
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(title.clone()),
                 Role::Heading,
                 title.clone(),
             )
@@ -1458,6 +1458,16 @@ impl Render for Palette {
         } else {
             list(open.state.clone(), cx.processor(|this, ix: usize, _window, cx| this.render_line(ix, cx))).size_full().into_any_element()
         };
+        // The box is as tall as its rows, up to the cap, as Electron's is.
+        let lines: gpui::Pixels = open
+            .lines
+            .iter()
+            .map(|line| match line {
+                Line::Heading(_) => look.length(token::SPACE_8) - look.length(token::SPACE_1),
+                Line::Row(_) => look.length(token::SPACE_8),
+            })
+            .sum();
+        let tall = (!open.lines.is_empty()).then(|| (lines + look.length(token::SPACE_2) * 2.).min(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS));
         let panel = open.panel.as_ref().and_then(|panel| self.entry_at(panel.entry).map(|entry| self.render_panel(panel, &entry, look, cx)));
         let confirm = open.confirm.as_ref().map(|confirm| self.render_confirm(confirm, look, cx));
         let query = open.query.clone();
@@ -1501,7 +1511,7 @@ impl Render for Palette {
                     div()
                         .id("palette-list")
                         .flex_none()
-                        .h(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS)
+                        .when_some(tall, |list, tall| list.h(tall))
                         .p(look.length(token::SPACE_2))
                         .child(body),
                     Role::ListBox,
