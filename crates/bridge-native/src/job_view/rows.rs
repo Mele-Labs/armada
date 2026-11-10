@@ -68,6 +68,11 @@ const CLOSING: [&str; 2] = [
     "This settles the item, so Fleet took it off your waiting list. Do not add it back.",
 ];
 
+/// Whether his words are an approval or an answer, drawn as an act rather than a bubble.
+pub(super) fn is_act(text: &str) -> bool {
+    act_of(text).is_some()
+}
+
 fn act_of(text: &str) -> Option<Act<'_>> {
     if let Some(address) = text.strip_prefix("Approved: ") {
         if !address.is_empty() && !address.contains(char::is_whitespace) {
@@ -396,7 +401,7 @@ impl JobView {
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], None, true, false, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], None, true, false, false, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -479,6 +484,8 @@ impl JobView {
         at: Option<&ipc::Instant>,
         sending: bool,
         queued: bool,
+        editable: bool,
+        edited: Option<&ipc::Instant>,
         look: &Look,
         now: DateTime<Local>,
         cx: &Context<Self>,
@@ -534,14 +541,42 @@ impl JobView {
                         .tooltip(tip("Queued until the subagent returns")),
                 )
             })
+            .when_some(edited, |band, edited| {
+                let said = clock(edited.as_str(), now).map_or_else(|| "Edited".to_string(), |when| format!("Edited {when}"));
+                band.child(labelled(
+                    div()
+                        .id(SharedString::from(format!("edited:{id}")))
+                        .text_size(look.length(token::TEXT_2XS))
+                        .line_height(look.length(token::LEADING_2XS))
+                        .text_color(look.color(token::FG_MUTED))
+                        .child("edited")
+                        .tooltip(tip(said)),
+                    Role::Group,
+                    "Edited",
+                ))
+            })
             .children(at.map(|at| self.stamp(at, look, now, false, cx)));
+        let editing = editable.then(|| self.edit_box(id, look, cx)).flatten();
+        let open = editing.is_some();
+        let words = match editing {
+            Some(field) => field,
+            None => self.block(page, id, self.prose(format!("you:{id}"), said, look), cx),
+        };
+        let region = div()
+            .id(SharedString::from(format!("you:{id}")))
+            .flex()
+            .flex_col()
+            .items_end()
+            .when(sending, |row| row.opacity(0.6));
+        let region = if editable {
+            let spot = self.spot(page, &format!("you:{id}"), cx);
+            let region = region.track_focus(&spot.focus);
+            self.menu_on(region, &spot, "Your message", spot.focus.clone(), Rc::new(super::edit::entries), self.edit_pick(ix, id, text), cx)
+        } else {
+            region
+        };
         labelled(
-            div()
-                .id(SharedString::from(format!("you:{id}")))
-                .flex()
-                .flex_col()
-                .items_end()
-                .when(sending, |row| row.opacity(0.6))
+            region
                 .child(
                     div()
                         .flex()
@@ -550,6 +585,8 @@ impl JobView {
                         .gap(look.length(token::SPACE_2))
                         .min_w_0()
                         .max_w(relative(0.8))
+                        // Open for new words, the bubble takes the room it may, so the box is not a sliver.
+                        .when(open, |column| column.w(relative(0.8)).items_stretch())
                         .child(labelled(
                             div()
                                 .id(SharedString::from(format!("words:{id}")))
@@ -564,7 +601,8 @@ impl JobView {
                                 .flex()
                                 .flex_col()
                                 .gap(look.length(token::SPACE_2))
-                                .child(self.block(page, id, self.prose(format!("you:{id}"), said, look), cx))
+                                .when(open, |words| words.border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::FOCUS_RING)))
+                                .child(words)
                                 .children(debug),
                             Role::Group,
                             "Message words",
@@ -680,13 +718,14 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
-            SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::You, text, files, tags, queued, edited_at, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let chips: Vec<String> =
                     files.iter().map(|file| file.name.clone()).chain(tags.iter().map(|tag| tag.title.clone())).collect();
-                self.you(ix, page, id, text, &chips, Some(at), false, *queued, look, now, cx)
+                let text = page.edits.get(id).unwrap_or(text);
+                self.you(ix, page, id, text, &chips, Some(at), false, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {

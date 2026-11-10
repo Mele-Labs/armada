@@ -3,7 +3,11 @@
 **Part of:** [Job](../session.md).
 
 The person can change the words of a message he sent to a hosted Job.
-It sends `edit_session_message` (`POST /sessions/message/edit`) with the Job, the row's id and the new words.
+In the native Bridge a right press on his bubble offers Edit, and ↑ in an empty box edits the last message he sent.
+The words open in the bubble: Enter saves, Shift+Enter puts a new line, Esc puts the old words back.
+The new words stand in the bubble at once; a refusal puts the old words back and Fleet's reason over the box.
+A bubble Fleet marked `edited_at` reads "edited", with the time in its tooltip.
+Bridge sends `edit_session_message` (`POST /sessions/message/edit`) with the Job, the row's id and the new words.
 Only his own messages are edited: the agent's rows, another Job's and Fleet's are refused, as is an ended Job and a terminal Job, whose process Fleet does not host.
 
 | Where the turn is | What changes | The agent |

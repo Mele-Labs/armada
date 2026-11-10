@@ -695,6 +695,9 @@ impl JobView {
             cx.stop_propagation();
         } else if self.offer_key(key, window, cx) {
             cx.stop_propagation();
+        } else if key == "up" && self.reporting.is_none() && self.edit_last(window, cx) {
+            // ↑ in an empty box edits the last message he sent.
+            cx.stop_propagation();
         } else if key == "escape" && self.reporting.is_some() {
             // Esc puts the report away, as the dialog's Cancel does.
             self.close_report(window, cx);

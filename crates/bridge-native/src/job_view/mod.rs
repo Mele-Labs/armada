@@ -20,6 +20,7 @@ mod cards;
 mod composer;
 mod deck;
 mod dock;
+mod edit;
 mod fork;
 mod format;
 mod head;
@@ -105,6 +106,11 @@ pub(crate) struct Pending {
     seen: usize,
 }
 
+/// Whether Fleet's row `row` reads `words` now, so the edit drawn over it can go.
+fn edit_read(items: &[ThreadItem], row: &str, words: &str) -> bool {
+    items.iter().any(|item| matches!(item, ThreadItem::Row { row: SessionRow::Message { id, text, .. } } if id == row && text == words))
+}
+
 /// One Job's place: kept while it is not on screen.
 struct Page {
     list: ListState,
@@ -138,6 +144,10 @@ struct Page {
     side: side::SideState,
     /// The whole Job's Judge pane, while it is open.
     judge: Option<judge_tab::JudgePane>,
+    /// His bubble open for new words.
+    editing: Option<edit::Editing>,
+    /// New words saved on his messages, by row id, drawn until Fleet's row reads them.
+    edits: HashMap<String, String>,
 }
 
 impl Page {
@@ -145,7 +155,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new() }
     }
 }
 
@@ -463,8 +473,13 @@ impl JobView {
             }
             _ => Vec::new(),
         };
+        let read: Vec<String> = match (self.thread(id, cx), self.pages.get(id)) {
+            (Some(held), Some(page)) => page.edits.iter().filter(|(row, words)| edit_read(&held.items, row, words)).map(|(row, _)| row.clone()).collect(),
+            _ => Vec::new(),
+        };
         if let Some(page) = self.pages.get_mut(id) {
             page.pending.retain(|one| !settled.contains(&one.key));
+            page.edits.retain(|row, _| !read.contains(row));
         }
         let Some(page) = self.pages.get(id) else { return };
         let Some(held) = self.thread(id, cx) else { return };
@@ -795,5 +810,13 @@ mod tests {
         let (_, items) = thread(&format!("{},{}", you("a", "go on"), you("b", "other")), &format!("{{{TRAIL}}}"));
         assert_eq!(echoed(&items, "go on"), 1);
         assert_eq!(echoed(&items, "nope"), 0);
+    }
+
+    #[test]
+    fn saved_words_stand_over_a_message_until_fleets_row_reads_them() {
+        let (_, items) = thread(&format!("{},{}", you("a", "first try"), you("b", "other")), &format!("{{{TRAIL}}}"));
+        assert!(!edit_read(&items, "a", "second try"), "Fleet's row still reads the old words");
+        assert!(edit_read(&items, "a", "first try"));
+        assert!(!edit_read(&items, "c", "first try"), "a row not in the thread reads nothing");
     }
 }
