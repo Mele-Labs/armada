@@ -420,11 +420,11 @@ impl Keeper {
                 };
                 self.line_call(calls, format!("checkout:{}", view.root), StandingCallKind::Checkout, format!("{} behind {}", commits(held.behind), held.base), text, None, None, never());
             }
-            for pull in &view.pulls {
+            for pull in view.pulls.iter().map(|listed| &listed.pull) {
                 let failing = pull.ci == Some(ipc::HubPullCi::Failed) || pull.queue.as_ref().is_some_and(|queue| queue.state == ipc::HubQueueState::Unmergeable);
                 // A form edit the forge would not auto-merge waits for a person.
                 if !failing && pull.merge_by_hand {
-                    let updated = self.lines.lines.iter().flat_map(|line| &line.pulls).find(|one| one.number == pull.number).and_then(|one| one.updated_at.as_ref());
+                    let updated = self.lines.lines.iter().flat_map(|line| &line.pulls).find(|one| one.pull.number == pull.number).and_then(|one| one.pull.updated_at.as_ref());
                     let owner = self.pull_owner(pull.number, None);
                     self.line_call(calls, format!("pull:{}", pull.number), StandingCallKind::Pull, format!("armada.yml edit #{}", pull.number), "Needs merging by hand".into(), owner, updated, updated.cloned().unwrap_or_else(never));
                     continue;
@@ -434,7 +434,7 @@ impl Keeper {
                 }
                 let text = if pull.ci == Some(ipc::HubPullCi::Failed) { "checks failed" } else { "unmergeable" };
                 // `failedAt` finds the number on the first line that lists it, as the call's key names no repository.
-                let updated = self.lines.lines.iter().flat_map(|line| &line.pulls).find(|one| one.number == pull.number).and_then(|one| one.updated_at.as_ref());
+                let updated = self.lines.lines.iter().flat_map(|line| &line.pulls).find(|one| one.pull.number == pull.number).and_then(|one| one.pull.updated_at.as_ref());
                 let at = updated.cloned().unwrap_or_else(never);
                 let owner = self.pull_owner(pull.number, None);
                 self.line_call(calls, format!("pull:{}", pull.number), StandingCallKind::Pull, format!("#{} {}", pull.number, pull.branch), text.into(), owner, updated, at);

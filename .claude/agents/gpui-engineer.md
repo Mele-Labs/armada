@@ -79,10 +79,20 @@ glyph with a tooltip, controls repeated down a list sit in fixed columns, and a
 skeleton draws while a panel loads. **Nothing he would see lands before he has
 walked it.**
 
+**Check parity before any walk.** Compare the native feature with its Electron
+counterpart yourself, against the inventory: every key works from the same
+places, every right-click menu has the same items, and tabs, panels, resizing
+and focus behave the same. Put the result in the walk's brief. He gets **one
+walk per feature**, never one per piece (`docs/practices/native-bridge.md`,
+*The design loop*).
+
 ## Build, test and load
 
 - Tests are `#[gpui::test]` with `TestAppContext` or `VisualTestContext`, run
-  only through `armada check test <name>` or `--changed`. Never `cargo test`.
+  only through `armada check crates/bridge-native:test <name>` or
+  `armada check crates/bridge-native:test --changed`. The crate is a workspace
+  of its own, so the root's `armada check test` does not reach it. Never
+  `cargo test`.
 - One build at a time, debug unless the brief says release. gpui and Chrome
   are large builds on a machine that also runs Fleet and other Jobs.
 - **Never run `rustfmt` or `cargo fmt`.**

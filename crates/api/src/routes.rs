@@ -169,6 +169,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::repositories::propose_workflow_to_armada::<D>),
         )
         .route("/clashes", get(crate::clashing::list_write_clashes::<D>))
+        .route("/clashes/all", get(crate::clashing::list_all_write_clashes::<D>))
         .route("/clashes/file", get(crate::clashing::read_clash_file::<D>))
         .route("/sessions/file_change", get(crate::clashing::get_session_file_change::<D>))
         .route("/repository_areas", get(crate::clashing::list_repository_areas::<D>))

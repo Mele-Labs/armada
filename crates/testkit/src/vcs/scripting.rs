@@ -281,12 +281,6 @@ impl FakeVcs {
         self
     }
 
-    /// Say when the commit at `HEAD` in `in_repo` was made, in seconds since the epoch. `&self`,
-    /// for [`now_landed`](FakeVcs::now_landed)'s reason.
-    pub fn head_made_at(&self, in_repo: &str, seconds: i64) {
-        self.head_times.lock().expect("not poisoned").insert(in_repo.to_string(), seconds);
-    }
-
     /// Say that the remote cannot be fetched from: `said` is git's sentence.
     /// `&self`, for [`now_landed`](FakeVcs::now_landed)'s reason.
     pub fn now_unable_to_fetch(&self, remote: &str, said: &str) {

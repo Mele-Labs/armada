@@ -18,6 +18,7 @@ mod notice_mutes;
 mod started_jobs;
 mod annotations;
 mod building;
+mod title_bar_views;
 /// The allowlist rows and the Kit changes.
 mod commanding;
 /// One Job, whole: the step rows, the gates' answers and the fields a Board

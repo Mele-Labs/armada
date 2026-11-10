@@ -58,6 +58,12 @@ EXCLUDED = {
     "apps/store:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
 }
 
+# The native Bridge's tests: a workspace Check of a crate gpui makes buildable on macOS only, so
+# no Linux job runs it. The `native` job does, on any run whose change reaches the crate, and
+# `plan` says so in `native` rather than in `checks`. A pull request's `--quick` run keeps it
+# too: the merge queue is not the first place a native test fails.
+NATIVE = "crates/bridge-native:test"
+
 # Check names a pull request's own run keeps with `--quick`: the ones that
 # compile. The merge queue runs every Check, so the pull request run is an early
 # warning and the queue is where the suite runs once. Owner, 17 Oct 2026.
@@ -103,8 +109,11 @@ def rerun_keys(job_names):
 
 def plan(keys, quick=False, rerun=frozenset()):
     run, grouped, excluded, unrun = [], [], [], []
+    native = NATIVE in keys
     for key in dict.fromkeys(keys):
         name = key.rsplit(":", 1)[-1]
+        if key == NATIVE:
+            continue
         if key in EXCLUDED:
             excluded.append(key)
         elif ":" not in key and key in ROOT:
@@ -129,7 +138,7 @@ def plan(keys, quick=False, rerun=frozenset()):
         if keys:
             # A browser opens in every group but the node one.
             include.append({"group": group, "keys": " ".join(keys), "browsers": str(group != NODE).lower()})
-    return {"checks": run, "matrix": {"include": include}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun, "compile": compile}
+    return {"checks": run, "matrix": {"include": include}, "excluded": excluded, "unrun": unrun, "queued": queued, "rerun": rerun, "compile": compile, "native": native}
 
 
 def main():

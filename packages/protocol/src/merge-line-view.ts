@@ -39,7 +39,7 @@ export type MergeLineView = {
    * queue, and quiet (`mine` false): its number, title, address, branch, author and place, with no ci, review,
    * mergeability or hand, and its queue state `in_queue`, so nothing downstream raises a card for it. Absent is none.
    */
-  pulls?: HubPullRequest[];
+  pulls?: PullView[];
   /** The newest pull requests merged, newest first, with the run each started on main. Absent is none. */
   landed?: HubMerged[];
   checkout?: HeldCheckout;
@@ -47,6 +47,20 @@ export type MergeLineView = {
   read_at?: string;
   /** When the forge first failed to answer, since the last whole visit, RFC 3339. */
   quiet_since?: string;
+};
+
+/** The tone of a pull request's chip: `bad` for one whose ci failed, `ask` for one the person can merge, `calm` for the rest. A state, never a colour. */
+export type PullTone = "calm" | "ask" | "bad";
+
+/** One pull request on the line: the hub's row whole, and two facts Fleet works out beside it. */
+export type PullView = HubPullRequest & {
+  /**
+   * The Job that holds it: the one whose ledger names the pull request by its number, else its branch, in any state,
+   * an ended Job included. Its `title` is always set: the ledger's, else the Job's id. Absent where no Job holds it.
+   */
+  held_by?: HubSession;
+  /** How its chip reads, decided by Fleet. Another author's is always `calm`. */
+  tone: PullTone;
 };
 
 /** Main as the line marks it. `state` is `green` or `red`. */

@@ -77,6 +77,7 @@ impl Sessions for FakeDaemon {
             in_flight: Vec::new(),
             mark: None,
             viewed_at: None,
+            compact: None,
         })
     }
 

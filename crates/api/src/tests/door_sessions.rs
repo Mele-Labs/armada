@@ -126,6 +126,7 @@ fn lived_in(number: usize, history: usize, state: SessionState, title: String) -
         in_flight: Vec::new(),
         mark: None,
         viewed_at: None,
+        compact: None,
     }
 }
 

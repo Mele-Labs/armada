@@ -92,7 +92,7 @@ async fn repositories_of<D: Queries>(daemon: &D) -> Vec<ipc::RepositorySummary> 
 /// `get_merge_line_view`: the lines of [`answer`] as a screen draws them.
 pub async fn view<D: Queries>(daemon: &D) -> MergeLineViews {
     let lines = answer(daemon).await;
-    crate::merge_line_view::views(&lines, &repositories_of(daemon).await)
+    crate::merge_line_view::views(&lines, &repositories_of(daemon).await, &daemon.pull_holders().await)
 }
 
 /// Fold the hubs every [`EVERY`] and publish `merge_lines.changed` when they moved.
@@ -140,7 +140,11 @@ where
             if last.as_ref().is_some_and(|last| *last != now) {
                 events.publish(Event::MergeLinesChanged(now.clone()));
             }
-            let seen = crate::merge_line_view::views(&now, &repositories_of(daemon.as_ref()).await);
+            let seen = crate::merge_line_view::views(
+                &now,
+                &repositories_of(daemon.as_ref()).await,
+                &daemon.pull_holders().await,
+            );
             if last_view.as_ref().is_some_and(|last| *last != seen) {
                 events.publish(Event::MergeLineViewChanged(seen.clone()));
             }
