@@ -239,7 +239,7 @@ impl JobView {
                 quiet_line(id, said, look)
             }
             SessionRow::Draft { id, at, title, text, before, settled, change } => {
-                self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, page, look, now, cx)
+                self.draft(ix, id, at, title, text, before.as_deref(), settled.as_ref(), *change, false, page, look, now, cx)
             }
             // A call that waits is the permission card in the panel; once settled the thread keeps one line.
             SessionRow::Ask { id, ask, state, .. } => match asked_said(ask, *state) {

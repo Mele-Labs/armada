@@ -9,6 +9,8 @@ use crate::dropdown::{Dropdown, Entry, Picked};
 /// A menu that is open, and what listens to it.
 pub(super) struct Pop {
     pub menu: Entity<Dropdown>,
+    /// Who held the keys before the menu opened, which has them again once it shuts.
+    back: Option<FocusHandle>,
     _picked: Subscription,
     _dismissed: Subscription,
 }
@@ -30,29 +32,47 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.open_pop_back(name, entries, at, from_keys, back, pick, window, cx);
+    }
+
+    /// As [`Self::open_pop`], with the keys on the menu while it is up and given back to `back` when it shuts.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn open_pop_back(
+        &mut self,
+        name: impl Into<SharedString>,
+        entries: Vec<Entry>,
+        at: Point<Pixels>,
+        from_keys: bool,
+        back: Option<FocusHandle>,
+        pick: impl Fn(&mut JobView, &'static str, &mut Window, &mut Context<JobView>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let name = name.into();
         let menu = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx));
-        let back_on_pick = back.clone();
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, keep } = picked;
             if !keep {
-                this.pop = None;
-                if let Some(back) = &back_on_pick {
-                    window.focus(back, cx);
+                if let Some(back) = this.pop.take().and_then(|pop| pop.back) {
+                    window.focus(&back, cx);
                 }
             }
             pick(this, id, window, cx);
             cx.notify();
         });
-        let dismissed = cx.subscribe_in(&menu, window, move |this, _, _: &DismissEvent, window, cx| {
-            this.pop = None;
-            if let Some(back) = &back {
-                window.focus(back, cx);
+        let dismissed = cx.subscribe_in(&menu, window, |this, _, _: &DismissEvent, window, cx| {
+            if let Some(back) = this.pop.take().and_then(|pop| pop.back) {
+                window.focus(&back, cx);
             }
             cx.notify();
         });
-        window.focus(&menu.focus_handle(cx), cx);
-        self.pop = Some(Pop { menu, _picked: picked, _dismissed: dismissed });
+        let keys = menu.read(cx).focus_handle(cx);
+        if back.is_some() {
+            window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        } else {
+            window.focus(&keys, cx);
+        }
+        self.pop = Some(Pop { menu, back, _picked: picked, _dismissed: dismissed });
         cx.notify();
     }
 }

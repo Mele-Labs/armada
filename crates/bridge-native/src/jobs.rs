@@ -561,6 +561,11 @@ impl JobsList {
         self.fleet.clone()
     }
 
+    /// Every Job the list holds, in Fleet's order.
+    pub fn records(&self) -> &[SessionRecord] {
+        &self.jobs
+    }
+
     /// Whether this list is kept between runs: not on mock data.
     pub fn remembers(&self) -> bool {
         self.remember
@@ -1365,6 +1370,8 @@ pub struct JobsScreen {
     /// The whole screen's, which holds the list and the handle beside it.
     within: FocusHandle,
     remember: bool,
+    /// The command palette, over the whole screen.
+    palette: Entity<crate::palette::Palette>,
 }
 
 impl JobsScreen {
@@ -1379,7 +1386,13 @@ impl JobsScreen {
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
-        JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember }
+        let palette = cx.new(|cx| crate::palette::Palette::new(list.clone(), cx));
+        JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
+    }
+
+    /// The command palette, which the title bar's search field opens with `Palette::open`.
+    pub fn palette(&self) -> &Entity<crate::palette::Palette> {
+        &self.palette
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1425,6 +1438,8 @@ impl JobsScreen {
             window.focus(&focus, cx);
         } else if act.is("deck_search") {
             self.list.update(cx, |list, cx| list.to_search(window, cx));
+        } else if act.is("command_palette") {
+            self.palette.update(cx, |palette, cx| palette.open(window, cx));
         } else if act.is("message_job") {
             // ⌥M from anywhere on the deck puts the caret in the open Job's box.
             self.view.update(cx, |view, cx| view.to_composer(window, cx));
@@ -1510,6 +1525,12 @@ impl Render for JobsScreen {
             .key_context("deck")
             .track_focus(&self.within)
             .on_action(cx.listener(Self::on_act))
+            // A chord the person gave a palette row runs that row from anywhere on the screen.
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx)) {
+                    cx.stop_propagation();
+                }
+            }))
             .size_full()
             .flex()
             .flex_col()
@@ -1532,6 +1553,7 @@ impl Render for JobsScreen {
                     .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
                     .child(panel(look).w(column * RIGHT)),
             )
+            .child(self.palette.clone())
     }
 }
 

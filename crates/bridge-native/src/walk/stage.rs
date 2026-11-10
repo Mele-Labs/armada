@@ -75,10 +75,12 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             Ok(())
         }
         Verb::RightPress(on) => {
-            let role = role_named("row").expect("a row is a role");
-            let drawn = cx
-                .try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, on))
+            // A Jobs row, else a button such as one of the review sheet's items.
+            let window_id = window.window_handle().window_id();
+            let drawn = ["row", "button"]
+                .into_iter()
+                .filter_map(role_named)
+                .find_map(|role| cx.try_global::<LabelBook>().and_then(|book| book.find(window_id, role, on)))
                 .cloned()
                 .ok_or_else(|| Missed(format!("no row named \"{on}\" to press")))?;
             press(MouseButton::Right, drawn.bounds.center(), window, cx);

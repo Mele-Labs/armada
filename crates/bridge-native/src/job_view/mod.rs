@@ -29,9 +29,11 @@ mod plan;
 mod pinned;
 mod pop;
 mod records;
+mod review;
 mod rows;
 mod runs;
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -66,6 +68,7 @@ pub fn bind(cx: &mut App) {
         KeyBinding::new("home", ToStart, Some("thread_scroll")),
         KeyBinding::new("end", ToEnd, Some("thread_scroll")),
     ]);
+    review::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -117,6 +120,8 @@ struct Page {
     keys: Rc<keys::Cards>,
     /// Items that came in after the first draw, at most four at once: they fade and slide in (A1.8).
     arrived: std::ops::Range<usize>,
+    /// The review sheet, while it is open on this Job.
+    review: review::ReviewState,
 }
 
 impl Page {
@@ -124,7 +129,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0 }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default() }
     }
 }
 
@@ -266,6 +271,9 @@ pub struct JobView {
     confirm_focus: FocusHandle,
     /// The confirm dialog's two buttons, which Tab goes round with its body.
     confirm_stops: [FocusHandle; 2],
+    /// The review sheet's focus stops, and where its rows were drawn.
+    review_focus: review::Focuses,
+    review_rows: review::Rows,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -287,7 +295,10 @@ impl JobView {
         }));
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
         if let Some(fleet) = &fleet {
-            subscriptions.push(cx.observe(fleet, |this, _, cx| this.synced(cx)));
+            subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
+                this.synced(cx);
+                this.review_sync(window, cx);
+            }));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {
             let on = window.is_window_active().then(|| this.shown.clone()).flatten();
@@ -330,6 +341,8 @@ impl JobView {
             teach_clock: 0,
             confirm_focus: cx.focus_handle(),
             confirm_stops: [cx.focus_handle(), cx.focus_handle()],
+            review_focus: review::Focuses::new(cx),
+            review_rows: Rc::new(RefCell::new(HashMap::new())),
             _subscriptions: subscriptions,
         }
     }
@@ -375,6 +388,7 @@ impl JobView {
             self.switch(opened, window, cx);
         } else {
             self.synced(cx);
+            self.review_sync(window, cx);
         }
     }
 
@@ -382,6 +396,8 @@ impl JobView {
     /// words, tells Fleet who is looking, and reads the thread if it is not held.
     fn switch(&mut self, to: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let started = std::time::Instant::now();
+        // The sheet is the Job's: it shuts when another Job comes on screen.
+        self.close_review(window, cx);
         self.leave_box(cx);
         self.shown = to.clone();
         self.switched = Some(started);
@@ -665,6 +681,13 @@ impl JobView {
     }
 
     fn on_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) {
+        if self.review_act(act, window, cx) {
+            return;
+        }
+        if act.is("needs_you") {
+            self.needs_key(window, cx);
+            return;
+        }
         // ⌘Enter sends from the box too (`send_message`).
         let thread_key = [keys::Which::Yes, keys::Which::Change, keys::Which::SendBack, keys::Which::No].into_iter().find(|which| act.is(which.act()));
         if let Some(which) = thread_key {
@@ -1094,6 +1117,7 @@ impl Render for JobView {
             .children(self.render_editor(window, cx))
             .children(self.render_fork_bar(cx))
             .children(self.render_teach(cx))
+            .children(self.render_review(&id, window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {
