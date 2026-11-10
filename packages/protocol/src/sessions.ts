@@ -584,6 +584,8 @@ export type WaitingItem = {
   source: WaitingSource;
   act?: WaitingAct;
   options?: WaitingOption[];
+  /** The agent raised it to ask him to approve a result; Fleet gives it Approve and Ask for changes, and his Approve closes a `you_approved` gate. Absent when it is not one. */
+  approves?: boolean;
   /** The procedure the person follows, in order; its press opens them as steps. Absent when the item has none. */
   steps?: string[];
   place?: WindowPlace;

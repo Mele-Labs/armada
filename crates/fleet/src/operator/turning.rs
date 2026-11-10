@@ -351,6 +351,7 @@ where
         let commit = main.red_commit();
         let facts = brief_of(main).lines().next().unwrap_or_default().to_string();
         let item = WaitingItem {
+            approves: false,
             id: format!("{RED}{manifest}:{commit}"),
             text: format!("Main is red at {}. {facts}", commit.get(..7).unwrap_or(commit)).trim().to_string(),
             since: Instant::carried(self.now().as_str()),

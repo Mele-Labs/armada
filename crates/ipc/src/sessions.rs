@@ -914,6 +914,10 @@ pub struct WaitingItem {
     /// Present only on an `answer` item that has choices.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<WaitingOption>,
+    /// An agent item asking for his approval: its options are Fleet's, *Approve* then *Ask for
+    /// changes*, and his Approve closes the plan's first open `you_approved` gate. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub approves: bool,
     /// The procedure the person follows, in order; its press opens them as steps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<String>,
@@ -960,6 +964,10 @@ pub struct WaitingInput {
     pub act: Option<WaitingAct>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<WaitingOption>,
+    /// Asks for his approval: Fleet replaces `options` with *Approve* then *Ask for changes*, and his
+    /// Approve closes the plan's first open `you_approved` gate. Absent where false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub approves: bool,
     /// The procedure the person follows, in order; its press opens them as steps.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<String>,

@@ -23,6 +23,7 @@ fn owed(id: &SessionId, items: usize) -> SetWaitingFor {
         session_id: Some(id.clone()),
         items: (0..items)
             .map(|one| WaitingInput {
+                approves: false,
                 id: format!("i{one}"),
                 text: "Look".into(),
                 act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),

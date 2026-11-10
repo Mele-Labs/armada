@@ -82,6 +82,7 @@ pub(crate) fn document_items<'a>(
         .iter()
         .filter(|one| in_front_of_him(one, dismissed))
         .map(move |one| WaitingItem {
+            approves: false,
             id: format!("{DOCUMENT_ITEM_PREFIX}{}", one.target),
             text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.clone()),
             since: one.changed_at.clone(),

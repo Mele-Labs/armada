@@ -143,6 +143,8 @@ struct Item<'a> {
     act: Option<&'a ipc::WaitingAct>,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     options: &'a [ipc::WaitingOption],
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    approves: bool,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     steps: &'a [String],
 }
@@ -168,6 +170,7 @@ impl<'a> Receipt<'a> {
                 text: &item.text,
                 act: item.act.as_ref(),
                 options: &item.options,
+                approves: item.approves,
                 steps: &item.steps,
             })
             .collect();

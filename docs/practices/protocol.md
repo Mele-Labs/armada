@@ -1022,6 +1022,7 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 | --- | --- | --- |
 | `ConfirmWaiting` (`POST /sessions/waiting/confirm`) | Bridge writes, Fleet reads | `session_id` and `item_id`; answered with the Session's record |
 | `WaitingItem.confirmed` | Fleet writes, Bridge reads | `true` on a `replied` item whose text is in `reply_confirmed`; sent only as `true` |
+| `WaitingItem.approves` | the agent writes, Fleet reads and writes, Bridge reads | `true` on an item the agent raised to ask him to approve a result; sent only as `true`, absent means false. Fleet gives it exactly two options, Approve then Ask for changes, and his Approve closes a `you_approved` gate |
 
 **Only an item Fleet read from a reply takes it**: on a `replied` item Fleet keeps its text in `reply_confirmed` and the item stays; on any other source the confirm is refused and the item stands unconfirmed.
 
@@ -1608,7 +1609,7 @@ Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
+| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
 | `SessionPlanGroup.gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | The gate as the agent named it. Absent is `none` |
 
 **Why it is a field and not a word read beside the body**, as `seen` is: the gate is what Fleet will record against, so it rides the wire type and a decoder refuses a word it does not know.
@@ -1668,7 +1669,7 @@ Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/sr
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green` or `merged`. Never `none` |
+| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green` or `merged`. Never `none` |
 
 **A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
 **Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.
