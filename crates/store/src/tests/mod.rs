@@ -28,6 +28,7 @@ mod ports;
 mod preferences;
 mod rebuilding;
 mod session_build;
+mod session_waiting_approves;
 mod repositories;
 mod review_runs;
 mod walk_places;

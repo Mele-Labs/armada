@@ -20,7 +20,7 @@ async fn owing(rig: &Rig) -> SessionId {
     rig.stand_in.init(0);
     let path = format!("{}/src/lib.rs", rig.root);
     assert!(denied(&rig.gate(&id, "Edit", &format!(r#"{{"file_path":"{path}"}}"#)).await));
-    let items = vec![WaitingInput { id: "pick".into(), text: "Pick a name".into(), act: None, options: Vec::new(), steps: Vec::new() }];
+    let items = vec![WaitingInput { approves: false, id: "pick".into(), text: "Pick a name".into(), act: None, options: Vec::new(), steps: Vec::new() }];
     rig.fleet.waiting_for(None, SetWaitingFor { session_id: Some(id.clone()), items }).await.expect("kept");
     let at = rig.fleet.now().as_str().to_string();
     rig.fleet.store().lock().await.keep_call(id.as_str(), ipc::Notice::BehindBase.word(), CALL, &at).expect("a call");

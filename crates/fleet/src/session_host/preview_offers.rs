@@ -28,6 +28,7 @@ pub(crate) fn offer_items(offers: &[KeptPreviewOffer], dismissed: &[String]) -> 
 
 fn offer_item(offer: &KeptPreviewOffer) -> WaitingItem {
     WaitingItem {
+        approves: false,
         id: format!("preview:{}@{}", offer.branch, offer.tip),
         text: offer.text.clone(),
         since: Instant::carried(&offer.raised_at),
