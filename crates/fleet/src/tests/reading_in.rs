@@ -184,6 +184,7 @@ async fn a_thread_on_your_words(fleet: &Arc<Reading>, manifest: &str, said: &[(i
             tags: Vec::new(),
             notice: None,
             queued: false,
+            edited_at: None,
         };
         let body = ipc::encode(&row).expect("a row");
         store

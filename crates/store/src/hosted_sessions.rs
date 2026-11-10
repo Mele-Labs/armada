@@ -241,6 +241,38 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
     }
 
+    /// The later turns a Job keeps, each one `amend` gives a new body for rewritten where it stands,
+    /// so the order is kept. How many were rewritten.
+    pub fn amend_held_later_turns(
+        &mut self,
+        session_id: &str,
+        mut amend: impl FnMut(&str) -> Option<String>,
+    ) -> Result<usize, WriteError> {
+        let doing = "changing a held job's later turn";
+        let kept: Vec<(i64, String)> = {
+            let mut statement = self
+                .conn
+                .prepare("SELECT seq, body FROM held_later_turns WHERE session_id = ?1 ORDER BY seq")
+                .map_err(fault(doing))
+                .map_err(WriteError::Database)?;
+            let rows = statement
+                .query_map([session_id], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))
+                .map_err(fault(doing))
+                .map_err(WriteError::Database)?;
+            rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)?
+        };
+        let mut rewritten = 0;
+        for (seq, body) in kept {
+            let Some(changed) = amend(&body) else { continue };
+            self.conn
+                .execute("UPDATE held_later_turns SET body = ?3 WHERE session_id = ?1 AND seq = ?2", params![session_id, seq, changed])
+                .map_err(fault(doing))
+                .map_err(WriteError::Database)?;
+            rewritten += 1;
+        }
+        Ok(rewritten)
+    }
+
     /// The later turns, taken: read and removed, oldest first, so the press that begins the Job sends them once.
     pub fn take_held_later_turns(&mut self, session_id: &str) -> Result<Vec<String>, WriteError> {
         let doing = "taking a held job's later turns";

@@ -189,6 +189,7 @@ mod lifecycle_holding;
 mod lifecycle_not_begun;
 mod attached_line;
 mod session_mod_moved;
+mod session_edit;
 mod session_pause;
 mod session_pause_waiting;
 mod session_pause_work;

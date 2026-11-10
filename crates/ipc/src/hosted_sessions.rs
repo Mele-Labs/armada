@@ -166,6 +166,15 @@ pub struct SendSessionMessageBody {
     pub aim: Option<ModAim>,
 }
 
+/// `edit_session_message`: new words for a message the person sent. **Only his own**, in a Job Fleet hosts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditSessionMessage {
+    pub session_id: SessionId,
+    /// [`SessionRow::Message`]'s `id`, of a row whose `from` is the person.
+    pub row_id: String,
+    pub text: String,
+}
+
 /// `answer_session_ask`: one of the ask's own offers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnswerSessionAsk {
@@ -580,6 +589,11 @@ pub enum SessionRow {
         /// **The row is replaced by id** with it false once the agent has read them.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         queued: bool,
+        /// When the person edited these words after the agent had been sent them (`edit_session_message`).
+        /// The row keeps the new words, and the thread marks it edited. Absent on a message never edited,
+        /// and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        edited_at: Option<Instant>,
     },
     /// A tool call, one line.
     Tool {

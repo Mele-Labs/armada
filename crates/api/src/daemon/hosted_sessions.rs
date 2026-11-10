@@ -91,6 +91,14 @@ pub trait HostedSessions: Send + Sync + 'static {
         self.send_session_message(sent)
     }
 
+    /// `edit_session_message`: new words for a message the person sent. A turn still held changes in
+    /// place; one already written is corrected, the row marked and the agent told. **Answers at once**,
+    /// the reply the thread's.
+    fn edit_session_message(
+        self: Arc<Self>,
+        edit: ipc::EditSessionMessage,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `send_session_note`: a note pinned on a page, sent as `send_session_message` sends with the
     /// lines of code it was drawn from. **Answers at once**, with the turn taken and the candidates
     /// the turn carried.

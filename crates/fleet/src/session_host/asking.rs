@@ -410,6 +410,7 @@ where
             tags: Vec::new(),
             notice: None,
             queued: false,
+            edited_at: None,
         };
         self.row_put(id, row).await;
     }

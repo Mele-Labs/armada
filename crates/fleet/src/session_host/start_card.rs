@@ -70,12 +70,16 @@ pub(crate) struct FirstTurn {
     pub instead: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ahead: Option<String>,
+    /// The thread's row for these words, once it is written: a turn kept for a Resume has one, and an
+    /// edit finds the turn by it. A held Job's first turn has none yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub row: Option<String>,
 }
 
 impl FirstTurn {
     /// Words sent as `from`, as the agent will read them.
     pub(crate) fn said(from: SessionVoice, text: &str) -> FirstTurn {
-        FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), instead: None, ahead: None }
+        FirstTurn { from, text: text.to_string(), files: Vec::new(), tags: Vec::new(), instead: None, ahead: None, row: None }
     }
 
     /// A turn already on the thread, kept for a Resume. Its row is written, so `from` is not read again.
@@ -87,6 +91,7 @@ impl FirstTurn {
             tags: held.addressed.iter().map(|(tag, _)| tag.clone()).collect(),
             instead: held.instead.clone(),
             ahead: held.ahead.clone(),
+            row: held.row.clone(),
         }
     }
 
@@ -176,7 +181,7 @@ pub(crate) fn start_read(store: &Store, hosting: &KeptHosting) -> Result<StartRe
 /// Another Job's message, held for the agent to read as `said`.
 pub(crate) fn job_turn(text: &str, said: String) -> Held {
     let kept = Kept { files: Vec::new(), pictures: Vec::new(), paths: Vec::new(), picture_paths: Vec::new() };
-    Held { text: text.to_string(), kept, addressed: Vec::new(), ahead: None, instead: Some(said) }
+    Held { text: text.to_string(), kept, addressed: Vec::new(), ahead: None, instead: Some(said), row: None }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -393,7 +398,7 @@ where
 
     /// A kept turn written to the thread as Start sends it, and the turn the agent is sent of it.
     async fn first_turn_written(&self, id: &str, first: FirstTurn) -> Result<Held, Refusal> {
-        let FirstTurn { from, text, files, tags, instead, ahead } = first;
+        let FirstTurn { from, text, files, tags, instead, ahead, .. } = first;
         let his = from == SessionVoice::You;
         let row = SessionRow::Message {
             id: self.row_id(id),
@@ -404,6 +409,7 @@ where
             tags: tags.clone(),
             notice: None,
             queued: false,
+            edited_at: None,
         };
         let row_id = row.id().to_string();
         if his {
@@ -416,14 +422,14 @@ where
                 self.session_warned(id, "a job's latest message was not kept", format!("{why:?}"));
             }
         }
-        self.held_again(id, FirstTurn { from, text, files, tags, instead, ahead }).await
+        self.held_again(id, FirstTurn { from, text, files, tags, instead, ahead, row: Some(row_id) }).await
     }
 
     /// A kept turn as the agent is sent it, its row not written again.
     pub(crate) async fn held_again(&self, id: &str, turn: FirstTurn) -> Result<Held, Refusal> {
-        let FirstTurn { text, files, tags, instead, ahead, .. } = turn;
+        let FirstTurn { text, files, tags, instead, ahead, row, .. } = turn;
         let addressed = self.addressed(&tags).await?;
-        Ok(Held { text, kept: self.uploads_again(id, &files), addressed, ahead, instead })
+        Ok(Held { text, kept: self.uploads_again(id, &files), addressed, ahead, instead, row })
     }
 
     /// `begin_session`: Start pressed on the start card. **Refused with nothing changed** where the Job

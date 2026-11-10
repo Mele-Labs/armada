@@ -1715,7 +1715,27 @@ Bridge's half is `ConvertDraftToDocument` and `DraftDocument` in `packages/proto
 | Refusals | Fleet writes | 404 `fleet.draft_convert_unknown` for a draft the Job has no row for; 409 `fleet.draft_convert_settled`; 422 `fleet.draft_convert_proposal` for a draft that proposes a change; 409 `fleet.draft_convert_no_worktree`; 500 `fleet.draft_convert_unwritten`. Nothing is written for a refusal |
 
 **What Fleet does.** It writes `.armada/documents/<slug>.html` (never over a page that is there), settles the draft `withdrawn` with no words, keeps the page as the Job's own write is kept, and sends the Job one turn in Fleet's words.
-A Job that is paused has the turn kept for its Resume, as a person's turn is, and one that has ended is sent nothing; `told` is false for both.
+A paused Job holds no slot, so it is refused with `fleet.draft_convert_no_worktree`. One paused between that check and the send has the turn kept for its Resume, as a person's turn is, and one that has ended is sent nothing; `told` is false for both.
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** No new event: the draft settling and the page's kept row publish `session.changed`, as they do for any other settling. The open risk below is neither better nor worse.
+
+## An edit to a sent message: `edit_session_message` and `SessionRow::Message.edited_at`
+
+Since 10 Nov 2026. `docs/concepts/session/editing-a-sent-message.md`.
+**One operation, one route and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take: `armada need` has nothing to order.
+Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `packages/protocol/src/hosted-sessions.ts`, written by hand, field for field. Electron draws nothing from it yet.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `edit_session_message` (`POST /sessions/message/edit`, `agent_access = "No"`) | Bridge sends, Fleet answers 202 | `EditSessionMessage` `{ session_id, row_id, text }`; answered with the `SessionRecord` |
+| `message` row `edited_at` (`session.row`) | Fleet writes, Bridge reads | When the words were changed after the agent had been sent them. Absent on a message never edited, on a message changed while Fleet still held its turn, and on every row kept before it |
+
+**Refused with nothing changed**: 422 `fleet.session_row_unknown` for a row the thread does not hold or that is not a message; 422 `fleet.session_row_not_his` for a message that is not the person's; 422 `fleet.session_message_empty`; 409 `fleet.session_closed` for an ended Job; 422 `fleet.session_command_refused` for a terminal Job; 422 `fleet.no_such_session`.
+**Words the same as the row's are a no-op that succeeds.**
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+A row with `edited_at` reads on a Bridge that does not know it as an unedited one.
+
+**The event stream.** Untouched in kind: the edited row is one `session.row`, as any row put again by id is. The open risk below is neither better nor worse.

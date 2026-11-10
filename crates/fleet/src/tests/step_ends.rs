@@ -97,6 +97,7 @@ fn said(n: u32, id: &str, text: &str) -> SessionRow {
         tags: Vec::new(),
         notice: None,
         queued: false,
+        edited_at: None,
     }
 }
 

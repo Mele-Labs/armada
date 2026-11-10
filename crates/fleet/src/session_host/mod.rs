@@ -69,6 +69,7 @@ mod modding;
 mod auto_landing;
 pub(crate) mod queue_guard;
 mod pausing;
+mod editing;
 pub(crate) mod quick;
 mod reach_folders;
 pub(crate) mod token_use;
