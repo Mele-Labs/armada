@@ -114,6 +114,22 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
+    /// Every suggestion ever kept in `one`'s repository for its kind of arrival and its way, settled or
+    /// not, oldest first, but for the one standing for its own arrival, which keeping it replaces.
+    /// **Fleet reads what is the same thing among them**, since that is a matter of its words.
+    pub fn operator_suggestions_like(&self, one: &KeptSuggestion) -> Result<Vec<KeptSuggestion>, WriteError> {
+        let doing = "reading the Operator's earlier suggestions";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM operator_suggestions
+                 WHERE manifest_id = ?1 AND arrived = ?2 AND way = ?3 AND NOT (arrival = ?4 AND settled_at IS NULL) ORDER BY n"
+            ))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map(params![one.manifest_id, one.arrived, one.way, one.arrival], suggestion_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
     /// One suggestion still standing, by its number.
     pub fn operator_suggestion(&self, n: i64) -> Result<Option<KeptSuggestion>, WriteError> {
         let doing = "reading an Operator suggestion";
