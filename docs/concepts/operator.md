@@ -225,6 +225,7 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
   The rest are one line each.
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
+- A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
 - Ask on an item opens the chat about that item in place of the digest. The chat holds conversation only; a raise is an item of Your turn, never a chat line.
 - The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab.
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
