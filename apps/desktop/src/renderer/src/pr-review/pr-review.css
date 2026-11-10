@@ -1118,6 +1118,7 @@
 [data-tool="why"] {
   --tool-hue: var(--accent);
 }
+[data-tool="tour"],
 [data-tool="custom"] {
   --tool-hue: var(--status-handed-in);
 }

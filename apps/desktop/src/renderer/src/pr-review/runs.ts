@@ -34,6 +34,7 @@ const MARKS: Readonly<Record<string, ToolMark>> = {
   "user-impact": "impact",
   "how-to-test": "test",
   why: "why",
+  tour: "tour",
 };
 
 /** A definition Fleet resolved, as the surface holds it. Armada's tools and explanations have a mark each; any other takes the clipboard. */

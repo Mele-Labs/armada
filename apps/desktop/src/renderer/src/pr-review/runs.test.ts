@@ -438,7 +438,7 @@ test("a run's state is going, kept for its commit, or failed in Fleet's words", 
   });
 });
 
-test("Armada's three tools have a mark each and any other definition takes the clipboard", () => {
+test("Armada's tools and Tour have a mark each and any other definition takes the clipboard", () => {
   const def = (id: string) =>
     toolDefOf({
       id,
@@ -451,11 +451,13 @@ test("Armada's three tools have a mark each and any other definition takes the c
     def("risks").mark,
     def("possible-bugs").mark,
     def("api-breaking-changes").mark,
+    def("tour").mark,
     def("test-gaps").mark,
   ]).toEqual([
     "risks",
     "bugs",
     "breaks",
+    "tour",
     "custom",
   ]);
   expect(

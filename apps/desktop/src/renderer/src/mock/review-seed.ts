@@ -146,7 +146,7 @@ export const TOUR_DEF: ToolDef = {
   kind: "tool",
   name: "Tour",
   source: "armada",
-  mark: "custom",
+  mark: "tour",
   agent: true,
   checks:
     "The pieces of the change in the order to read them, 3 to 10 stops, each a line on what that piece does and the lines it is. Lockfiles, generated files and pure renames are left out.",
