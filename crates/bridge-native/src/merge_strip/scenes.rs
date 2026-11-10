@@ -20,10 +20,10 @@ fn call(json: String) -> StandingCall {
     ipc::decode::<StandingCall>("StandingCall", json.as_bytes()).unwrap_or_else(|why| panic!("the scenario's call does not decode: {why}"))
 }
 
-/// One pull request as Fleet's view lists it.
+/// One pull request as Fleet's view lists it; its chip reads calm here, the strip taking its tone from the Job that holds it.
 fn pull(number: u64, title: &str, branch: &str, author: &str, rest: &str) -> String {
     format!(
-        r#"{{"number":{number},"title":"{title}","branch":"{branch}","url":"https://github.com/Mele-Labs/armada/pull/{number}","author":"{author}","opened_at":"{}","updated_at":"{}"{rest}}}"#,
+        r#"{{"number":{number},"title":"{title}","branch":"{branch}","url":"https://github.com/Mele-Labs/armada/pull/{number}","author":"{author}","opened_at":"{}","updated_at":"{}","tone":"calm"{rest}}}"#,
         ago(3 * 3600 + 20 * 60),
         ago(6 * 60)
     )
