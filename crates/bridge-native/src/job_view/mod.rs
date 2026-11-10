@@ -30,6 +30,8 @@ mod offer;
 mod perm;
 mod pinned;
 mod plan;
+mod plan_edit;
+mod plan_marks;
 mod pop;
 mod quick;
 mod teach;
@@ -123,6 +125,8 @@ struct Page {
     arrived: std::ops::Range<usize>,
     /// The review sheet, while it is open on this Job.
     review: review::ReviewState,
+    /// His marks on the plan, not sent yet, and the field open on it.
+    plan_edit: plan_edit::EditState,
 }
 
 impl Page {
@@ -130,7 +134,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default() }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default() }
     }
 }
 
