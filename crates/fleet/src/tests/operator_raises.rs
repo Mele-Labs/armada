@@ -86,6 +86,7 @@ async fn seated(rig: &Rig, replies: &[Option<&str>]) -> Arc<Replies> {
 
 fn question(id: &str, text: &str, options: &[&str]) -> WaitingInput {
     WaitingInput {
+        approves: false,
         id: id.into(),
         text: text.into(),
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.into() }),
@@ -342,7 +343,7 @@ async fn yes_on_an_item_fleet_cannot_perform_hands_its_act_to_bridge_and_it_stan
     keep_the_raises(Arc::clone(&rig.fleet)).await;
     let job = rig.start_titled(Some("Build the pane")).await;
     let walk = WaitingAct { kind: WaitingActKind::ApprovePr, target: "3421".into() };
-    waiting(&rig, &job, vec![WaitingInput { id: "pr".into(), text: "Approve the pull request".into(), act: Some(walk.clone()), options: Vec::new(), steps: Vec::new() }]).await;
+    waiting(&rig, &job, vec![WaitingInput { approves: false, id: "pr".into(), text: "Approve the pull request".into(), act: Some(walk.clone()), options: Vec::new(), steps: Vec::new() }]).await;
     let one = queued(&rig, &job, "pr").await;
 
     let answered = rig.fleet.operator_answered(press(&one, OperatorAnswer::Yes, None)).await.expect("answered");

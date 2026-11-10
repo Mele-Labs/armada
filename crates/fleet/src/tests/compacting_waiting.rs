@@ -45,6 +45,7 @@ async fn job_waiting(compact: bool, old: bool, context: u64) -> (Rig, SessionId,
     let turn_at = if old { "2026-08-26T08:00:00.000Z".to_string() } else { rig.fleet.now().as_str().to_string() };
     let mut store = rig.fleet.store().lock().await;
     let item = KeptWaiting {
+        approves: false,
         item_id: "copy".into(),
         text: "Pick the copy".into(),
         since: "2026-08-26T08:00:00.000Z".into(),

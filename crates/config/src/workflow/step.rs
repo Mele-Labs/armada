@@ -117,6 +117,7 @@ const PLAN_GATE_CARRIED: &[(&str, StepGate)] = &[
     ("walk_approved", StepGate::WalkApproved),
     ("sketch_approved", StepGate::SketchApproved),
     ("document_approved", StepGate::DocumentApproved),
+    ("you_approved", StepGate::YouApproved),
     ("checks_green", StepGate::ChecksGreen),
     ("merged", StepGate::Merged),
     ("jobs_ended", StepGate::JobsEnded),
@@ -128,6 +129,7 @@ pub(crate) const PLAN_GATE_LEGAL: &[&str] = &[
     "walk_approved",
     "sketch_approved",
     "document_approved",
+    "you_approved",
     "checks_green",
     "merged",
     "jobs_ended",
@@ -542,7 +544,7 @@ pub(super) fn read(
             out,
         )
     });
-    // **Absent is none, and a word outside the seven is a refusal**, so a misspelt gate is not a
+    // **Absent is none, and a word outside the eight is a refusal**, so a misspelt gate is not a
     // group that never ends.
     let gate_word_key = table.at("gate");
     let plan_gate = match table.optional("gate") {

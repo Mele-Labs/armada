@@ -184,6 +184,7 @@ async fn while_paused_a_review_makes_no_call_and_every_item_comes_back_with_no_r
     let desk = Held::paused(Paused { week: 83, at: 80 });
     let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
     let item = ipc::WaitingItem {
+        approves: false,
         id: "plan".into(),
         text: "Approve the plan?".into(),
         since: ipc::Instant::carried(NOW),

@@ -10,6 +10,7 @@ pub enum StepGate {
     WalkApproved,
     SketchApproved,
     DocumentApproved,
+    YouApproved,
     ChecksGreen,
     Merged,
     JobsEnded,
@@ -19,11 +20,12 @@ pub enum StepGate {
 
 impl StepGate {
     /// Every gate, in the order the plan lists them.
-    pub const ALL: [StepGate; 8] = [
+    pub const ALL: [StepGate; 9] = [
         StepGate::PlanApproved,
         StepGate::WalkApproved,
         StepGate::SketchApproved,
         StepGate::DocumentApproved,
+        StepGate::YouApproved,
         StepGate::ChecksGreen,
         StepGate::Merged,
         StepGate::JobsEnded,
@@ -37,6 +39,7 @@ impl StepGate {
             StepGate::WalkApproved => "walk_approved",
             StepGate::SketchApproved => "sketch_approved",
             StepGate::DocumentApproved => "document_approved",
+            StepGate::YouApproved => "you_approved",
             StepGate::ChecksGreen => "checks_green",
             StepGate::Merged => "merged",
             StepGate::JobsEnded => "jobs_ended",

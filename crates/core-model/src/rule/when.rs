@@ -47,6 +47,7 @@ pub enum Gate {
     WalkApproved,
     SketchApproved,
     DocumentApproved,
+    YouApproved,
     ChecksGreen,
     Merged,
     JobsEnded,
@@ -54,7 +55,7 @@ pub enum Gate {
 
 impl Gate {
     pub const ALL: &'static [Gate] =
-        &[Gate::PlanApproved, Gate::WalkApproved, Gate::SketchApproved, Gate::DocumentApproved, Gate::ChecksGreen, Gate::Merged, Gate::JobsEnded];
+        &[Gate::PlanApproved, Gate::WalkApproved, Gate::SketchApproved, Gate::DocumentApproved, Gate::YouApproved, Gate::ChecksGreen, Gate::Merged, Gate::JobsEnded];
 
     /// The spelling a rule file and the plan use.
     pub fn as_wire(self) -> &'static str {
@@ -63,6 +64,7 @@ impl Gate {
             Gate::WalkApproved => "walk_approved",
             Gate::SketchApproved => "sketch_approved",
             Gate::DocumentApproved => "document_approved",
+            Gate::YouApproved => "you_approved",
             Gate::ChecksGreen => "checks_green",
             Gate::Merged => "merged",
             Gate::JobsEnded => "jobs_ended",
