@@ -56,13 +56,28 @@ pub(crate) fn approved_on_newest(detail: &BTreeMap<String, String>) -> bool {
         && detail.get(DOCUMENT_REVISION) == newest.as_ref()
 }
 
-/// Every document whose newest revision was put to the person and not answered, as the item that
-/// waits on him: id `document:<path>`, text its title, opening the Job.
-pub(crate) fn document_items<'a>(attachments: &'a [ipc::Attachment], session: &'a str) -> impl Iterator<Item = WaitingItem> + 'a {
+/// Whether `page` is a document in front of him: its newest revision put to him, not answered or
+/// dismissed, and its file still there. **The one test for the card and for the plan it holds**, so
+/// the plan is never held by what is not in his Needs you list. The Job deleting the page withdraws it.
+pub(crate) fn in_front_of_him(page: &ipc::Attachment, dismissed: &[String]) -> bool {
+    page.kind == "artifact"
+        && is_document(&page.detail)
+        && page.detail.get(DOCUMENT_ASKED).map(String::as_str) == Some("true")
+        && !page.detail.contains_key(DOCUMENT_SETTLED)
+        && !dismissed.contains(&format!("{DOCUMENT_ITEM_PREFIX}{}", page.target))
+        && std::path::Path::new(&page.target).is_file()
+}
+
+/// Every document in front of him ([`in_front_of_him`]), as the item that waits on him: id
+/// `document:<path>`, text its title, opening the Job.
+pub(crate) fn document_items<'a>(
+    attachments: &'a [ipc::Attachment],
+    session: &'a str,
+    dismissed: &'a [String],
+) -> impl Iterator<Item = WaitingItem> + 'a {
     attachments
         .iter()
-        .filter(|one| one.kind == "artifact" && is_document(&one.detail))
-        .filter(|one| one.detail.get(DOCUMENT_ASKED).map(String::as_str) == Some("true") && !one.detail.contains_key(DOCUMENT_SETTLED))
+        .filter(|one| in_front_of_him(one, dismissed))
         .map(move |one| WaitingItem {
             id: format!("{DOCUMENT_ITEM_PREFIX}{}", one.target),
             text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.clone()),
