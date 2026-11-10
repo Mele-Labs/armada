@@ -414,7 +414,7 @@ impl JobView {
                     Role::Status,
                     "Working",
                 );
-                div().flex().flex_col().child(line).children(self.stop_said(page, look)).into_any_element()
+                line.into_any_element()
             }
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, now, cx),
         })

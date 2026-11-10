@@ -742,8 +742,8 @@ mod tests {
 
     #[test]
     fn the_tools_line_names_the_harness_then_each_piece() {
-        let tools = ToolsMissing { harness: "Claude Code".into(), update: "claude update".into(), harness_version: "2.1".into(), missing: vec![ToolMissing::Mod, ToolMissing::TaskTools] };
-        assert_eq!(tools_said(&tools), "Claude Code 2.1. No armada mod. No task tools.");
+        let tools = ToolsMissing { harness: "Harness".into(), update: "harness update".into(), harness_version: "2.1".into(), missing: vec![ToolMissing::Mod, ToolMissing::TaskTools] };
+        assert_eq!(tools_said(&tools), "Harness 2.1. No armada mod. No task tools.");
         let bare = ToolsMissing { harness_version: String::new(), ..tools };
         assert_eq!(tools_said(&bare), "No armada mod. No task tools.");
     }

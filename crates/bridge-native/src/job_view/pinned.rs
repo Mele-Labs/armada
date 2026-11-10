@@ -3,15 +3,12 @@
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
-use ipc::{SessionId, StopSession, ThreadItem, ToolSubagent, ToolSubagentState};
+use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
 
-use super::acts::refusal;
 use super::rows::{elapsed_words, glyph, mono, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-
-const STOP_KEY: &str = "stop";
 
 impl JobView {
     /// The card of the subagents running, held in sight at the thread's foot while the rows scroll under it
@@ -65,33 +62,15 @@ impl JobView {
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .tooltip(tip("Stop"))
                 .child(glyph(look, "square", Size::Mark, look.color(token::FG_MUTED)))
+                // The head's Stop, so both answer at once and a refusal is put back in one place.
                 .on_click(cx.listener(|this, _, window, cx| {
                     cx.stop_propagation();
-                    let Some(job) = this.shown.clone() else { return };
-                    let body = ipc::encode(&StopSession { session_id: SessionId::carried(job.to_string()) }).map_err(|why| format!("{why:?}"));
-                    this.post_with(
-                        job.clone(),
-                        "/sessions/stop",
-                        body,
-                        move |this, why, cx| {
-                            if let Some(page) = this.pages.get_mut(&job) {
-                                page.cards.said.insert(STOP_KEY.into(), why);
-                            }
-                            cx.notify();
-                        },
-                        window,
-                        cx,
-                    );
+                    this.head_act("stop", window, cx);
                 })),
             Role::Button,
             "Stop",
         )
         .into_any_element()
-    }
-
-    /// Why Stop was refused, under the line it sits in.
-    pub(super) fn stop_said(&self, page: &Page, look: &Look) -> Option<AnyElement> {
-        page.cards.said.get(STOP_KEY).map(|why| refusal(look, STOP_KEY, why.clone()))
     }
 
     /// The subagents running now: a card at the foot with the count, and the list behind a press.
