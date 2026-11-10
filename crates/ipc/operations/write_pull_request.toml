@@ -8,9 +8,11 @@ notes = """
 
 `body` is required for `comment` and `request_changes` and optional for `approve`, **unless `comments` is set**, when `body` may be empty for all three. It travels to the forge on standard input and never in an argument.
 
-**`comments` makes it one review, not a comment.** Each is a `PullReviewComment`: a `line` (path, line, side), a `file` (path) or a `reply` to a thread the page's `threads` named. Fleet opens a pending review at `commit`, whole (absent is the branch as it stands), adds them all and submits it with `kind` as the verdict, so the forge sends one notification. A comment the forge refuses deletes the pending review and nothing is posted: a 409 `fleet.pull_request_write_refused` with the forge's sentence. With no `comments` the write is the forge's plain comment or review, as it was.
+**`comments` makes it one review, not a comment.** Each is a `PullReviewComment`: a `line` (path, line, side, and `start_line` for a range: the first line on `side`, before `line`), a `file` (path) or a `reply` to a thread the page's `threads` named. Fleet opens a pending review at `commit`, whole (absent is the branch as it stands), adds them all and submits it with `kind` as the verdict, so the forge sends one notification. A comment the forge refuses deletes the pending review and nothing is posted: a 409 `fleet.pull_request_write_refused` with the forge's sentence. With no `comments` the write is the forge's plain comment or review, as it was.
+
+A `start_line` before `line` posts the lines `start_line` to `line` as one range on the forge; absent, or equal to `line`, posts one line.
 
 Every Job's `pr` row for this pull request takes the fresh read, as `get_pull_request` does.
 
-A 422 `fleet.pull_request_write_blank` for a comment or a request for changes with no body, or for any of `comments` with a blank body, a 422 `fleet.session_unknown` for a `session_id` the ledger has not heard of, a 409 `fleet.pull_request_write_refused` carrying the forge's own sentence where it would not take the write, and a 500 `fleet.pull_request_unreadable` where the forge took it and would not answer after.
+A 422 `fleet.pull_request_write_blank` for a comment or a request for changes with no body, or for any of `comments` with a blank body, a 422 `fleet.pull_request_range_backwards` for a `line` whose `start_line` is after its `line`, a 422 `fleet.session_unknown` for a `session_id` the ledger has not heard of, a 409 `fleet.pull_request_write_refused` carrying the forge's own sentence where it would not take the write, and a 500 `fleet.pull_request_unreadable` where the forge took it and would not answer after.
 """

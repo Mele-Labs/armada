@@ -1,0 +1,20 @@
+[operations.operator_page]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The Operator's page: Your turn, and the digest Since you last looked"
+notes = """
+`GET /operator/page`, answered with `OperatorPage`: `on`; `top`, the page's one line, rewritten each time he comes back; `looked_at`, when he last looked, which the digest counts from; `on_it`, `{ reading, since }`, present while the Operator is reading something to review; `turn`, Your turn in the order he left it; and `digest`.
+
+**Fleet keeps everything the page needs, and Bridge only draws it.** An `OperatorTurnItem` is `id` (`turn:<n>`, which every act names), `kind` (`decision`, his to decide, or `go_ahead`, what the Operator would do itself), `session_id`, `job`, `manifest_id` and `repository` where it has them, `item` (the `WaitingItem` as it was raised: its `source` is its kind, `text` the thing, `act` and `options` what it asks), `read` (`{ read, pick }`, the Operator's one or two sentences and its pick; absent where no call read it, and an empty `pick` is none), `raised_at`, `later_until`, `then` and `keeps`.
+
+**`then`** is on a go-ahead to file an issue only: `just_file`, `file_and_start` and, **only where a live Job already works on the same files**, `file_and_hand` with `hand_to` `{ session_id, job }`. Fleet finds that Job from the paths each live Job has written and its plan names, as it does for a clash. The Operator's read marks one `pick`. **`keeps`** says Always here and Always are offered: they are, for a go-ahead and a red main, which Fleet can do by itself, and not for a decision.
+
+**A red main nobody is on is an item**: a `go_ahead` with no Job, its `item.id` `red:<repository>:<commit>`, its one option `Start a fix`.
+
+**The order**: the order he left, with an item he put Later after the rest until the local day ends. **Nothing is queued while the Operator is off** and `turn` is then empty; what waits is queued when it comes on. Where the review call fails, or the week's plan is paused, the item is still queued, with no `read`.
+
+**`digest`**: `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal, which the Operator writes as it works; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; and `learned`, the Always and Always here rules across projects, each with its repository where it holds in one.
+
+The page changes under him, so `operator.page_changed` is sent when an item joins or settles, when the order, a Later or a rule moves, and when `top` or `on_it` changes. The digest's other sections are read, not announced.
+"""

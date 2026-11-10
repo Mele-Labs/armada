@@ -116,6 +116,36 @@ fn a_tour_is_tagged_tour_and_its_stops_read_back_in_order() {
 }
 
 #[test]
+fn a_fix_is_tagged_fix_and_its_start_carries_the_finding() {
+    use crate::StartReviewRun;
+    let at = ReviewPlace { path: "src/total.rs".into(), side: DiffSide::Right, start: 4, end: 5 };
+    let result = ReviewResult::Fix {
+        at: at.clone(),
+        before: "    let total = a + b;\n    total".into(),
+        after: "    a.saturating_add(b)".into(),
+        why: "The sum no longer wraps.".into(),
+    };
+    let text = encode(&result).expect("encodes");
+    assert!(text.starts_with(r#"{"shape":"fix","at":{"path":"src/total.rs","side":"right","start":4,"end":5}"#), "{text}");
+    assert_eq!(decode::<ReviewResult>("a result", text.as_bytes()).expect("decodes"), result);
+
+    let start = StartReviewRun {
+        number: 12,
+        kind: ReviewRunKind::Fix,
+        name: "src/total.rs:4-5 Overflow".into(),
+        again: false,
+        place: None,
+        finding: Some(ReviewFinding { title: "Overflow".into(), body: "It wraps.".into(), severity: ReviewSeverity::High, at }),
+    };
+    let text = encode(&start).expect("encodes");
+    assert!(text.contains(r#""kind":"fix""#) && text.contains(r#""finding":{"title":"Overflow""#), "{text}");
+    assert_eq!(decode::<StartReviewRun>("a start", text.as_bytes()).expect("decodes"), start);
+    // Any other kind leaves no `finding` key.
+    let tool = StartReviewRun { kind: ReviewRunKind::Tool, finding: None, ..start };
+    assert!(!encode(&tool).expect("encodes").contains("finding"));
+}
+
+#[test]
 fn the_walk_event_nests_the_walk() {
     use crate::{ReviewWalk, ReviewWalkState};
     let walk = ReviewWalk {

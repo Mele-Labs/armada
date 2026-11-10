@@ -1,5 +1,5 @@
 //! What Fleet writes for one message to the Operator to read: a file for each live Job and one of the open
-//! issues, as plain text. `looking` makes the folder and hands it to the call.
+//! issues, as plain text, and the journal of this week and last week. `looking` makes the folder and hands it to the call.
 //!
 //! **Read the way the rest of the box is**: the plan, the open tasks and the thread come from what Fleet
 //! already keeps, and the issues from the list it shows Bridge, held for five minutes. A Job's Needs you
@@ -147,6 +147,7 @@ where
             repositories.push((id.as_str().to_string(), name, root));
         }
         files.push((ISSUES_FILE.to_string(), issues));
+        files.extend(self.operator_journal_files().await);
         ToRead { under: self.scouts().host().runtime_dir().join("operator-desk"), files, repositories }
     }
 }

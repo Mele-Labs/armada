@@ -12,13 +12,17 @@ import {
   PrMark,
   Textarea,
   Tooltip,
+  UnifiedDiff,
   agoOf,
   forgetKept,
   sendsOn,
 } from "@armada/components";
 
-import type { Draft, Finding, Thread, ToolMark } from "./model";
-import { ArmadaMark, SeverityMark, TOOL_MARK } from "./marks";
+import { rangeOfDraft } from "./changes";
+import type { AgentRun, Draft, Finding, Thread, ToolMark } from "./model";
+import { ArmadaMark, RunFailed, SeverityMark, TOOL_MARK } from "./marks";
+import { runState } from "./opening-run";
+import { linesOfFix, type FixWritten } from "./runs";
 
 // ---- The box -------------------------------------------------------------------------------------------
 
@@ -98,11 +102,13 @@ export function LineComposer({
 // ---- His words, not yet posted ---------------------------------------------------------------------------
 
 export function DraftCard({ draft, onRemove }: { draft: Draft; onRemove: () => void }) {
+  const range = rangeOfDraft(draft);
   return (
     <article className="pr-draft" aria-label="Pending comment" data-draft={draft.id} tabIndex={-1}>
       <header className="pr-card__head">
         <PrMark Glyph={SquareDashed} said="Pending, posted with the review" />
         <b className="pr-card__who">You</b>
+        {range === undefined ? null : <span className="pr-card__lines">{range}</span>}
         <span className="pr-card__act">
           <Tooltip label="Remove from the review">
             <Button
@@ -206,6 +212,7 @@ export function FindingCard({
   onDismiss,
   onSend,
   children,
+  fix,
 }: {
   finding: Finding;
   mark: ToolMark;
@@ -215,6 +222,8 @@ export function FindingCard({
   onSend: () => void;
   /** What the host adds under the words: the Review tab's marks. */
   children?: ReactNode;
+  /** Ask for a fix, and the fix once written. Absent draws none, for a finding on the base's lines. */
+  fix?: FixAsk;
 }) {
   const kind = TOOL_MARK[mark];
   return (
@@ -250,6 +259,9 @@ export function FindingCard({
         <Prose text={finding.body} />
       </div>
       {children}
+      {fix === undefined ? null : (
+        <FixSection title={finding.title} path={finding.at.path} fix={fix} />
+      )}
       {session ? (
         <div className="pr-thread__foot">
           {finding.sent ? (
@@ -267,5 +279,91 @@ export function FindingCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+// ---- A fix an agent wrote --------------------------------------------------------------------------------
+
+/** A finding's fix as the card holds it: the run, what it wrote, and the presses on it. */
+export type FixAsk = {
+  run: AgentRun | undefined;
+  written: FixWritten | undefined;
+  /** The pull request's head, which says whether a fix is on the commit he reads. */
+  head: string;
+  onAsk: (again: boolean) => void;
+  /** Opens the comment box on the finding's lines holding the fix. Absent where the lines are not on screen. */
+  onSuggest?: (after: string) => void;
+};
+
+/**
+ * Ask for a fix, and what came back: **the lines before in the diff's deletion hue and after in its addition hue**, why
+ * on one line above them, and Add as suggestion under. Going is the tool buttons' glyph; failed is Fleet's reason.
+ */
+function FixSection({ title, path, fix }: { title: string; path: string; fix: FixAsk }) {
+  const { run, Glyph } = runState(fix.run, fix.head);
+  const written = run === "done" ? fix.written : undefined;
+  return (
+    <section className="pr-fix" aria-label={`Fix for ${title}`}>
+      {run === "failed" && fix.run?.state === "failed" ? <RunFailed said={fix.run.said} /> : null}
+      {written === undefined ? null : (
+        <>
+          <p className="pr-fix__why">{written.why}</p>
+          <UnifiedDiff
+            bare
+            files={[
+              {
+                path,
+                lines: linesOfFix(written),
+              },
+            ]}
+          />
+        </>
+      )}
+      <div className="pr-fix__bar">
+        {written !== undefined ? (
+          fix.onSuggest === undefined ? null : (
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={`Add as suggestion: ${title}`}
+              onClick={() => fix.onSuggest?.(written.after)}
+            >
+              Add as suggestion
+            </Button>
+          )
+        ) : run === "running" ? (
+          <Tooltip label="Running">
+            <Button
+              variant="secondary"
+              size="sm"
+              data-run="running"
+              aria-label={`Ask for a fix, running: ${title}`}
+              aria-disabled
+            >
+              <Glyph size={16} strokeWidth={2} aria-hidden />
+              Ask for a fix
+            </Button>
+          </Tooltip>
+        ) : run === "failed" ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label={`Ask again for a fix: ${title}`}
+            onClick={() => fix.onAsk(true)}
+          >
+            Ask again
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label={`Ask for a fix: ${title}`}
+            onClick={() => fix.onAsk(false)}
+          >
+            Ask for a fix
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }

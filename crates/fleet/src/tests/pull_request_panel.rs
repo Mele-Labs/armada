@@ -383,6 +383,7 @@ fn a_line_comment() -> PullReviewComment {
         line: 4,
         side: DiffSide::Left,
         body: "why?".into(),
+        start_line: None,
     }
 }
 
@@ -428,7 +429,8 @@ async fn a_review_with_comments_reaches_the_forge_as_one_review_at_the_commit_re
                         path: "a.rs".into(),
                         line: 4,
                         side: FactSide::Left,
-                        body: "why?".into()
+                        body: "why?".into(),
+                        start_line: None,
                     },
                     ReviewComment::Reply {
                         thread: "PRRT_1".into(),
@@ -544,7 +546,7 @@ async fn a_blank_line_file_or_reply_comment_is_refused_before_the_forge() {
     let (id, _) = manifest(&fleet);
     fleet.vcs().now_pull_request_page(Some(a_page()));
     let blanks = [
-        PullReviewComment::Line { path: "a.rs".into(), line: 4, side: DiffSide::Left, body: " ".into() },
+        PullReviewComment::Line { path: "a.rs".into(), line: 4, side: DiffSide::Left, body: " ".into(), start_line: None },
         PullReviewComment::File { path: "a.rs".into(), body: String::new() },
         PullReviewComment::Reply { thread: "PRRT_1".into(), body: "\n".into() },
     ];
@@ -555,5 +557,51 @@ async fn a_blank_line_file_or_reply_comment_is_refused_before_the_forge() {
         let refused = fleet.write_pull_request(id.clone(), write).await.unwrap_err();
         assert_eq!(code(&refused), "fleet.pull_request_write_blank");
     }
+    assert!(fleet.vcs().pull_request_writes().is_empty());
+}
+
+fn a_range(start_line: u64, line: u64) -> PullReviewComment {
+    PullReviewComment::Line {
+        path: "a.rs".into(),
+        line,
+        side: DiffSide::Right,
+        body: "these lines".into(),
+        start_line: Some(start_line),
+    }
+}
+
+#[tokio::test]
+async fn a_ranged_line_comment_reaches_the_forge_as_its_range() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let mut write = writing(PullRequestWriteKind::Comment, None);
+    write.comments = vec![a_range(2, 6)];
+    fleet.write_pull_request(id, write).await.expect("written");
+    let writes = fleet.vcs().pull_request_writes();
+    let [(_, PullRequestWrite::Review { comments, .. })] = writes.as_slice() else { panic!("one review: {writes:?}") };
+    assert_eq!(
+        comments,
+        &[ReviewComment::Line {
+            path: "a.rs".into(),
+            line: 6,
+            side: FactSide::Right,
+            body: "these lines".into(),
+            start_line: Some(2),
+        }]
+    );
+}
+
+#[tokio::test]
+async fn a_range_that_starts_after_its_line_is_refused_before_the_forge() {
+    let home = crate::tests::tmp::TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    fleet.vcs().now_pull_request_page(Some(a_page()));
+    let mut write = writing(PullRequestWriteKind::Comment, None);
+    write.comments = vec![a_line_comment(), a_range(7, 6)];
+    let refused = fleet.write_pull_request(id, write).await.unwrap_err();
+    assert_eq!((refused.status(), code(&refused)), (422, "fleet.pull_request_range_backwards"));
     assert!(fleet.vcs().pull_request_writes().is_empty());
 }

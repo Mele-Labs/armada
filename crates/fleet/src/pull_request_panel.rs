@@ -28,6 +28,8 @@ use crate::pull_requesting::{SESSION_UNKNOWN, UNREADABLE};
 const WRITE_BLANK: &str = "fleet.pull_request_write_blank";
 /// The forge would not take the write, in its own sentence. A 409.
 const WRITE_REFUSED: &str = "fleet.pull_request_write_refused";
+/// A line comment whose range starts after the line it ends on. A 422.
+const RANGE_BACKWARDS: &str = "fleet.pull_request_range_backwards";
 /// A file the pull request does not list. A 422.
 const FILE_UNKNOWN: &str = "fleet.pull_request_file_unknown";
 /// What a file says where the forge sent no patch for it.
@@ -41,12 +43,22 @@ fn patch_or_said(patch: Option<String>) -> (Option<String>, Option<String>) {
     }
 }
 
-/// The write a request makes, or why it cannot be made. **With comments it is one review and a
-/// body may be empty for all three kinds**: the comments are what it says.
-fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> {
+/// The write a request makes, or why it cannot be made and the code that says so. **With comments
+/// it is one review and a body may be empty for all three kinds**: the comments are what it says.
+fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, (&'static str, String)> {
+    let blank = |said: &str| (WRITE_BLANK, said.to_string());
     let body = write.body.clone().filter(|body| !body.trim().is_empty());
     if write.comments.iter().any(|comment| comment_body(comment).trim().is_empty()) {
-        return Err("a comment on a line, a file or a thread needs something to say");
+        return Err(blank("a comment on a line, a file or a thread needs something to say"));
+    }
+    if let Some((path, start, line)) = write.comments.iter().find_map(|comment| match comment {
+        PullReviewComment::Line { path, line, start_line: Some(start), .. } if start > line => Some((path, start, line)),
+        _ => None,
+    }) {
+        return Err((
+            RANGE_BACKWARDS,
+            format!("a comment on `{path}` starts on line {start}, after the line {line} it ends on"),
+        ));
     }
     if !write.comments.is_empty() {
         return Ok(PullRequestWrite::Review {
@@ -63,11 +75,11 @@ fn write_of(write: &WritePullRequest) -> Result<PullRequestWrite, &'static str> 
     match write.kind {
         PullRequestWriteKind::Comment => body
             .map(|body| PullRequestWrite::Comment { body })
-            .ok_or("a comment needs something to say"),
+            .ok_or_else(|| blank("a comment needs something to say")),
         PullRequestWriteKind::Approve => Ok(PullRequestWrite::Approve { body }),
         PullRequestWriteKind::RequestChanges => body
             .map(|body| PullRequestWrite::RequestChanges { body })
-            .ok_or("a request for changes needs a reason"),
+            .ok_or_else(|| blank("a request for changes needs a reason")),
     }
 }
 
@@ -86,11 +98,12 @@ fn side_of(side: DiffSide) -> FactSide {
 
 fn comment_of(comment: &PullReviewComment) -> FactComment {
     match comment.clone() {
-        PullReviewComment::Line { path, line, side, body } => FactComment::Line {
+        PullReviewComment::Line { path, line, side, body, start_line } => FactComment::Line {
             path,
             line,
             side: side_of(side),
             body,
+            start_line,
         },
         PullReviewComment::File { path, body } => FactComment::File { path, body },
         PullReviewComment::Reply { thread, body } => FactComment::Reply { thread, body },
@@ -404,7 +417,7 @@ where
         let root = served.root();
         let number = write.pull_request;
         let to_write = write_of(&write)
-            .map_err(|said| Refusal::Unacceptable(self.pr_refusal(WRITE_BLANK, said)))?;
+            .map_err(|(code, said)| Refusal::Unacceptable(self.pr_refusal(code, said)))?;
         if let Some(id) = &write.session_id {
             let kept = self
                 .store()

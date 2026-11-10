@@ -30,6 +30,7 @@ fn a_message_row_carries_its_notice_and_an_older_row_reads_without_one() {
         tags: Vec::new(),
         notice: notice.map(String::from),
         queued: false,
+        edited_at: None,
     };
     let plain = encode(&row(None)).unwrap();
     assert!(!plain.contains("notice"), "{plain}");

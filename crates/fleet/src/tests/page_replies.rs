@@ -29,6 +29,7 @@ fn message(id: &str, at: &str, from: SessionVoice, text: &str, notice: Option<&s
         tags: Vec::new(),
         notice: notice.map(str::to_string),
         queued: false,
+        edited_at: None,
     }
 }
 
