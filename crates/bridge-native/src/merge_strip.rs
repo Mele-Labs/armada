@@ -114,8 +114,6 @@ pub enum Asked {
     TakeOver { root: String, request: String },
     /// Fleet reads the pull request from the forge now (the chip menu's Refresh).
     RefreshPull { root: String, number: u64 },
-    /// Teach, from the chip's menu; the target is what the menu's heading names.
-    Teach(&'static str),
 }
 
 impl EventEmitter<Asked> for MergeStrip {}
@@ -417,7 +415,7 @@ impl MergeStrip {
     // -- the chip's menu ---------------------------------------------------------------------------
 
     /// A right press on a chip, or Shift+F10 on it: Open in browser and Copy link where the chip knows its
-    /// address, Refresh, and Teach, under the heading `Pull request #n`.
+    /// address, and Refresh, under the heading `Pull request #n`.
     fn open_chip_menu(&mut self, line: usize, number: u64, at: Point<Pixels>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.data.lines.get(line) else { return };
         let Some(pull) = one.view.pulls.iter().find(|pull| pull.number == number) else { return };
@@ -433,7 +431,6 @@ impl MergeStrip {
             entries.push(Entry::Row(Row::new("copy", "Copy link").icon("link")));
         }
         entries.push(Entry::Row(Row::new("refresh", "Refresh")));
-        entries.push(Entry::Row(Row::new("teach", "Teach").icon("graduation-cap")));
         let name = format!("Pull request #{number}");
         let dropdown = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, from_keys, cx));
         let picked = cx.subscribe_in(&dropdown, window, move |this, _, picked: &Picked, window, cx| {
@@ -443,7 +440,6 @@ impl MergeStrip {
                 "browser" => cx.open_url(&url),
                 "copy" => cx.write_to_clipboard(ClipboardItem::new_string(url.clone())),
                 "refresh" => cx.emit(Asked::RefreshPull { root: root.clone(), number }),
-                "teach" => cx.emit(Asked::Teach("Pull request")),
                 _ => {}
             }
             this.give_keys_back(window, cx);
