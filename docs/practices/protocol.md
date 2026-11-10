@@ -1545,7 +1545,7 @@ The protocol ID moves with `crates/ipc/src`, the operation files, the route tabl
 
 ## What the Operator would do: `operator_suggestion` and `operator_read`
 
-A role of the Operator's at Suggest keeps what On would have done, and it reaches Bridge in two shapes, neither of them a new route.
+An act the Operator would take, with no kept rule to cover it, is kept as a suggestion, and it reaches Bridge in two shapes, neither of them a new route.
 
 - **A row of its own**, `WaitingSource::OperatorSuggestion`: id `suggestion:<n>`, an `answer` act, `Do it` (choice 0) and `Skip` (choice 1), answered with `answer_waiting`.
   Dismissing it is Skip.
@@ -1555,16 +1555,22 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
   `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
 
 A suggestion on a report with no Job behind it, or on a note the person left on Bridge, has no list to stand on. It is kept in the store for the panel.
-A note's is kept at any position short of Off, and no route presses it yet: the panel Job owns that.
+A note's is kept whenever the Operator is on, and no route presses it yet: the panel Job owns that.
 
-## Talking to the Operator: `talk_to_operator`, `operator_talk` and the standing orders
+## Talking to the Operator: `talk_to_operator`, `operator_talk` and the holds
 
-The box at the foot of the Operator panel, and the orders it turns words into. None of these is an agent's: each is the person's own.
+The box at the foot of the Operator panel, and the holds it turns words into. None of these is an agent's: each is the person's own.
 
 - **`talk_to_operator`** answers `OperatorSaid`, and `operator_talk` reads the conversation back, since Fleet keeps it so the next call can be handed it.
 - **`OperatorSaid.order` stands for nothing** until `confirm_operator_order` sends its `form` back. That press is the only way an order stands.
-- **`OperatorOrderForm` is a closed set**, `role_off`, `hold_paths` and `always_raise`, because an order is a rule Fleet enforces and never prose a call reads.
-  A form this build does not know reads as none in the store, so it stands for nothing.
+- **`OperatorOrderForm` is a closed set of one**, `hold_paths`, because an order is a rule Fleet enforces and never prose a call reads.
+  A form this build does not know, `role_off` and `always_raise` among them, reads as none in the store, so it stands for nothing.
+  The TypeScript mirror keeps the two old forms until the Electron Bridge that draws them is torn down.
+- **`OperatorSaid.forgot` and `OperatorSaid.lifted`** are the ids of a rule forgotten and a hold lifted on his words.
+  Each is carried out at once, with no confirm, and only for an id the box was handed: the rules and holds that stand are in each question.
+  A forgotten rule leaves Learned and the item it covered asks again.
+  A lift is a `hold_lifted` row of the Log that says it was lifted on his word.
+- **`remove_operator_order` on a rule** forgets it and publishes `operator.page_changed`, as a lift does.
 - **`operator_orders` lets go** of an order for a day gone by and a hold its Job has released as it reads, so what it answers is what is in force.
 
 Bridge draws none of it yet: the box and the list ride with the panel, armada-ehhu.10.

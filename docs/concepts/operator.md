@@ -7,7 +7,7 @@
 > First open of the day: a short briefing.
 > It handles routine Job questions, reviews, issues and stuck Jobs (nudge, then a repair suited to what broke), and hands duplicate work to the Job already on it.
 > Whatever needs you, it reviews itself and raises to you with its read and a pick, never leaving it in a list.
-> First time it would act in a project it asks: Yes / Always here / Always / No, and learns.
+> Before it acts it asks: Yes / Always here / Always / No, and learns.
 > You talk to it in one chat (its own page, or a pane from anywhere), with a short draggable list of what it's on and what's next.
 > It reaches you through new toasts in the native Bridge.
 
@@ -32,7 +32,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Wakes only when something happens or you write | Yes |
 | Keeps a journal of your week | Yes |
 | A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
-| Asks Yes / Always here / Always / No before it first acts in a project, and learns | Not built |
+| Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
 | Handles routine Job questions | Not built |
 | Nudges a stuck Job, then starts a repair suited to what broke | Not built |
 | Hands duplicate work to the Job already on it | Not built |
@@ -208,14 +208,20 @@ Each step is its own Job, and the order is the order of the table.
 | Step | What it gives | Built |
 |---|---|---|
 | Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
-| Asks | Yes / Always here / Always / No before it first acts in a project, replacing permission levels and standing orders | Not built |
+| Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
 | Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Not built |
 | Repair Jobs that close themselves | A stuck Job is nudged, then repaired by what broke, and the repair ends when it is done | Not built |
 | The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 
 **What raises and what asks is one rule.**
 Whatever needs the person, the Operator reviews first and raises with its read and a pick, so nothing sits in a list.
-A first act in a project is asked once, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
+Every act is asked, and the answer is kept: Yes this time, Always here for this project, Always for every project, or No.
+A rule you kept covers the act, this repository's first and then every repository's, and Fleet does it as it is raised.
+The Log row says by which rule.
+No is for this time only.
+Filing an issue, starting a Job, sending words to a live Job and a red main's fix are acts.
+A link to an open issue writes nothing and is not asked.
+Raising, leaving a note where it is and noting it are not acts.
 
 **Its page is a queue the person works through, with a digest beside it.**
 Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
@@ -227,7 +233,7 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
 - A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
 - Ask on an item opens the chat about that item in place of the digest. The chat holds conversation only; a raise is an item of Your turn, never a chat line.
-- The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab.
+- The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab, and Holds, the paths a Job holds until it pushes or ends.
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
 - A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
 
@@ -244,21 +250,29 @@ Why: they made the Operator a board to read and levels to tune, where the person
 |---|---|---|
 | The Queue board | The panel's list of what is waiting and what is next | The short draggable list |
 | The Permissions tab | A tab setting each role's position | Asks, and the page of what it learned in each project |
-| Read-only, Suggest, Decide | A position for each role, per repository | Asks |
-| Standing orders | `role_off`, `hold` and `always_raise`, confirmed in the box | Asks, and what it learns |
-| Suggestion cards with Do it and Skip | A ruling at Suggest waits on one press | A raise with a read and a pick |
+| Read-only, Suggest, Decide | A position for each role, per repository | Gone from Fleet. Asks |
+| `role_off` and `always_raise` | Standing orders confirmed in the box | Gone from Fleet. Asks, and what it learns. An old one stays in the store and stands for nothing |
+| Suggestion cards with Do it and Skip | A ruling that acts waits on one press | A raise with a read and a pick |
 | Overrule | A person's press against a ruling | What the person says in the chat |
 
 **Until each goes, it behaves as it does now.**
 Every ruling is a row of the Log, signed by the Operator, and the call reads each repository's last rulings with the person's corrections beside them.
-A ruling on a note other than a raise waits on one press, so no note is filed, started or sent to a Job unasked.
+A ruling that acts waits on his go-ahead unless a rule he kept covers it, so no note is filed, started or sent to a Job unasked.
 Autopilot's answers are the rows of the Log that are answers.
 
-**The standing orders are three forms.**
-`role_off` turns Dispatch, Delegate or File off in a repository, for the day or until removed.
-`hold <paths> until <Job> pushes` refuses every other Job's write under those paths, which Fleet's gate enforces on each file-tool write.
-`always_raise <kind>` sends one of note, error, report, issue or red_main to the person with no call.
-A position is read from `operator-dispatch`, `operator-delegate` and `operator-file`.
+**The one standing order is a hold.**
+`hold <paths> until <Job> pushes|ends` refuses every other Job's write under those paths, which Fleet's gate enforces on each file-tool write.
+He says it in the chat, the chat names the form it understood, and it stands only when he confirms.
+He can ask for the holds that stand, and ask the chat to lift one.
+A lift is carried out at once and the Log keeps a `hold_lifted` row that says it was lifted on his word.
+A hold is let go on its own when its Job pushes or ends.
+
+**A rule is forgotten the same way.**
+He asks the chat to forget a rule, or presses forget on it in Learned.
+The next act it covered asks again.
+The chat is handed the rules and holds that stand, each with its number, and can name only one of those.
+The digest lists the holds in Holds, beside Learned.
+Learned holds rules only.
 
 ## What became of Helm
 
@@ -289,8 +303,7 @@ A call from a process Fleet does not host is denied at once.
 
 | Setting | Scope |
 |---|---|
-| `operator`, and a position for each role | Machine. The positions go with Asks |
-| `operator-repositories`, a role's position for one repository | Machine. Goes with the positions |
+| `operator`, the Operator's own switch | Machine |
 | `operator-model`, `sonnet`, never the proposer's cheap tier | Machine |
 | `limits.operatorPlanPause`, the share of the week's plan where it stops making calls | Machine |
 | `features.onYourWordsCanAct` | Machine |
