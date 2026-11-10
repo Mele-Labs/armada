@@ -115,6 +115,9 @@ pub(super) struct Aa {
     line: Option<LineEdit>,
     response: Option<ResponseEdit>,
     whisper: Option<Whisper>,
+    /// Voice is drawn only where the screen that mounts the panel asks for it, as `voice` is optional in
+    /// `ThreadSettings.tsx`: Aa leaves it to Settings › Thread.
+    voice: bool,
     /// The look as it was before the agent name's last burst of keys, until it is written.
     unwritten: Option<Option<std::collections::BTreeMap<String, ipc::SettingValue>>>,
     saving: Option<Task<()>>,
@@ -142,6 +145,7 @@ impl Aa {
         job: Option<SharedString>,
         at: Point<Pixels>,
         (agent, draft, mocked): (String, String, Option<Whisper>),
+        voice: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -187,13 +191,14 @@ impl Aa {
             line: None,
             response: None,
             whisper: mocked,
+            voice,
             unwritten: None,
             saving: None,
             watching: None,
             _subs: Vec::new(),
         };
         aa._subs.append(&mut subs);
-        if mocked.is_none() {
+        if voice && mocked.is_none() {
             aa.read_whisper(cx);
         }
         aa
@@ -1192,6 +1197,11 @@ impl Render for Aa {
                 quick_section.into_any_element(),
                 voice.into_any_element(),
             ]
+            .into_iter()
+            .enumerate()
+            .filter(|(ix, _)| self.voice || *ix + 1 < SECTIONS)
+            .map(|(_, part)| part)
+            .collect()
         };
         deferred(
             anchored().position(self.at).anchor(Anchor::BottomLeft).snap_to_window_with_margin(look.length(token::SPACE_1)).child(labelled(
