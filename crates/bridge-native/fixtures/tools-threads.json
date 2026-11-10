@@ -93,6 +93,7 @@
        "kind": "tool",
        "id": "u-2",
        "at": "2026-11-10T22:00:20Z",
+       "description": "Build the native app and play the tool-rows walk",
        "text": "Bash cd crates/bridge-native && ARMADA_LOG=debug cargo build --release --features walk-shots,native-menus && ./target/release/bridge-native --walk tool-rows --check --width 900 --shots /tmp/armada-red/tool-rows\necho done"
       }
      ]

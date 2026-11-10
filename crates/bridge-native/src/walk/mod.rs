@@ -678,7 +678,7 @@ pub static WALKS: &[Walk] = &[
             step("Running: the page scans and its lines draw in, a band runs down the rail, the time counts, and the path is the second line", Verb::Look, "row", "Reading router.rs"),
             step("The call before it is done: one grey line, its icon still, its time kept", Verb::Look, "row", "Searched router"),
             step("A Job running a command", Verb::Press, "row", "Run the docs check"),
-            step("The second line is the command's first line after $, cut short and never wrapped", Verb::Look, "row", "Running cargo build"),
+            step("The call's own phrase heads it; the second line is the command's first line after $, cut short and never wrapped", Verb::Look, "row", "Build the native app and play the tool-rows walk"),
             step("A Job editing a file", Verb::Press, "row", "Edit the merge line"),
             step("The pencil writes the wave and goes back", Verb::Look, "row", "Editing MergeLine.tsx"),
             step("A Job searching", Verb::Press, "row", "Search for the queue"),

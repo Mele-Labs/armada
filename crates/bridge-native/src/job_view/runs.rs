@@ -240,7 +240,11 @@ impl JobView {
                 SessionRow::WindowAsk { question, .. } => Call { kind: Kind::Other, phrase: question.clone(), working_on: None },
                 _ => Call {
                     kind: calls::kind_of(&texts[at]),
-                    phrase: calls::call_line(&texts[at], running),
+                    // Fleet's own phrase for the call, where its input carried one; else the one made from its line.
+                    phrase: match row {
+                        SessionRow::Tool { description: Some(said), .. } if !said.trim().is_empty() => said.clone(),
+                        _ => calls::call_line(&texts[at], running),
+                    },
                     working_on: calls::working_on(&texts[at]).filter(|_| running),
                 },
             };
