@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::act_failed::ActFailed;
 use crate::operator_board::OperatorBoardChanged;
+use crate::operator_talk::OperatorTalkChanged;
 use crate::thought::WordsSent;
 use crate::hosted_sessions::SessionRowChanged;
 use crate::merge_line::MergeLines;
@@ -161,6 +162,9 @@ pub enum Event {
     // The Operator's board moved: an arrival came, went into a call, was ruled, or was reordered.
     #[serde(rename = "operator.board_changed")]
     OperatorBoardChanged(OperatorBoardChanged),
+    // A line was kept in the Operator's conversation, or a raise in it settled.
+    #[serde(rename = "operator.talk_changed")]
+    OperatorTalkChanged(OperatorTalkChanged),
     // A session after any fact about it, whole, so a client replaces the row it
     // holds. `docs/concepts/session.md`.
     #[serde(rename = "session.changed")]

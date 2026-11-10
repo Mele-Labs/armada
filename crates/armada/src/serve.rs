@@ -383,6 +383,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
             fleet::linked_following::keep_the_linked(Arc::clone(&fleet));
             // The Operator is told when any hosted Job ends or one of its pull requests merges, from here on.
             fleet::operator::keep_the_ends_told(Arc::clone(&fleet)).await;
+            // What waits on the person is reviewed and raised to him in the Operator's conversation, the backlog first.
+            fleet::operator::keep_the_raises(Arc::clone(&fleet)).await;
             // What a Job holds, standing in its lifecycles' states, read from the events Fleet hears.
             fleet::lifecycles::keep_the_lifecycles(Arc::clone(&fleet));
             // What happens to a Job, handed to the rules it started with.
@@ -628,6 +630,9 @@ fn assemble(
     let studio_frames_dir = machine.join("studios");
     std::fs::create_dir_all(&studio_frames_dir)?;
 
+    // The Operator's journal of the week, a markdown file per week, which every call of its reads.
+    let operator_journal_dir = machine.join("operator").join("journal");
+
     // The mods, one folder each. Made here so a person has somewhere to look; a
     // session that scaffolds one makes it again if it is gone.
     let mods_dir = machine.join("mods");
@@ -669,6 +674,7 @@ fn assemble(
             keepers_dir: keepers_dir.to_string_lossy().to_string(),
             terminal_keeper: fleet::terminal_keeping::Starting::this_binary(std::path::Path::new(&home)),
             studio_frames_dir: studio_frames_dir.to_string_lossy().to_string(),
+            operator_journal_dir: operator_journal_dir.to_string_lossy().to_string(),
             mods_dir: mods_dir.to_string_lossy().to_string(),
             mod_bundle: mod_bundle.map(|bundle| bundle.to_string_lossy().to_string()),
             mod_switches,

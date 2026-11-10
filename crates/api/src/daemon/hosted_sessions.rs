@@ -146,6 +146,10 @@ pub trait HostedSessions: Send + Sync + 'static {
     /// `operator_talk`: the conversation so far.
     fn operator_talk(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_talk::OperatorTalk, Refusal>> + Send;
 
+    /// `operator_in_front`: Bridge's window came to the front. Answers at once; the day's first
+    /// briefs, and the briefing arrives as a line of the conversation.
+    fn operator_in_front(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_talk::OperatorInFront, Refusal>> + Send;
+
     /// `get_operator_board`: what the Operator is ruling on, what waits and what it settled.
     fn get_operator_board(self: Arc<Self>) -> impl Future<Output = Result<ipc::operator_board::OperatorBoard, Refusal>> + Send;
 

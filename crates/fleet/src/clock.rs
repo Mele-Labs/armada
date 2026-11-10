@@ -114,6 +114,50 @@ pub(crate) async fn local_day_began(millis_since_epoch: i64) -> i64 {
     day_began(millis_since_epoch, local_offset_secs(first).await)
 }
 
+/// One instant as this machine's clock shows it: its date, its time and its ISO week.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LocalReading {
+    pub(crate) year: i64,
+    pub(crate) month: i64,
+    pub(crate) day: i64,
+    pub(crate) hour: i64,
+    pub(crate) minute: i64,
+    /// Monday is 1 and Sunday 7.
+    pub(crate) weekday: i64,
+    /// The ISO week's own year, which differs from `year` in the first and last days of some years.
+    pub(crate) week_year: i64,
+    pub(crate) week: i64,
+}
+
+/// `millis_since_epoch` as this machine's time zone reads it.
+pub(crate) async fn local_reading(millis_since_epoch: i64) -> LocalReading {
+    reading_at(millis_since_epoch, local_offset_secs(millis_since_epoch).await)
+}
+
+/// `millis_since_epoch` on a clock `offset_secs` ahead of UTC.
+pub(crate) fn reading_at(millis_since_epoch: i64, offset_secs: i64) -> LocalReading {
+    let (days, millis_of_day) = split_day(millis_since_epoch + offset_secs * 1_000);
+    let (year, month, day) = civil_from_days(days);
+    // The epoch's day was a Thursday.
+    let weekday = (days + 3).rem_euclid(7) + 1;
+    // An ISO week belongs to the year its Thursday falls in.
+    let thursday = days - (weekday - 1) + 3;
+    let (week_year, _, _) = civil_from_days(thursday);
+    let week = (thursday - days_from_civil(week_year, 1, 1)) / 7 + 1;
+    let minutes = millis_of_day / 60_000;
+    LocalReading { year, month, day, hour: minutes / 60, minute: minutes % 60, weekday, week_year, week }
+}
+
+/// Howard Hinnant's `days_from_civil`, the inverse of [`civil_from_days`].
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
 /// The day holding `millis_since_epoch` began at, on a clock `offset_secs` ahead of UTC.
 pub(crate) fn day_began(millis_since_epoch: i64, offset_secs: i64) -> i64 {
     const DAY: i64 = 86_400_000;

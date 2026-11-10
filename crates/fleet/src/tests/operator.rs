@@ -179,6 +179,35 @@ fn start(id: &str, ways: &[Way]) -> Arrival {
 }
 
 #[tokio::test]
+async fn while_paused_a_review_makes_no_call_and_every_item_comes_back_with_no_read() {
+    let call = Answers::of(&["item: 1\nread: It asks to approve the plan.\npick: Yes"]);
+    let desk = Held::paused(Paused { week: 83, at: 80 });
+    let operator = Operator::new(call.clone(), desk.clone(), desk.clone());
+    let item = ipc::WaitingItem {
+        id: "plan".into(),
+        text: "Approve the plan?".into(),
+        since: ipc::Instant::carried(NOW),
+        source: ipc::WaitingSource::Agent,
+        act: None,
+        options: Vec::new(),
+        steps: Vec::new(),
+        place: None,
+        confirmed: false,
+        holders: Vec::new(),
+        creating_since: None,
+        create_refused: None,
+        operator_read: None,
+    };
+    let items = [crate::operator::ToRaise { session: "01THIS".into(), job: Some("Build the pane".into()), item }];
+
+    let reviewed = operator.reviewed(&items).await;
+
+    assert_eq!(reviewed.reads, vec![None]);
+    assert!(reviewed.failed.is_none(), "a pause is no failure");
+    assert_eq!(call.asked(), 0, "no call while paused");
+}
+
+#[tokio::test]
 async fn while_paused_no_call_is_made_and_each_item_passes_on_saying_so() {
     let call = Answers::of(&["item: 1\nway: 1\njob: none\nshared: none\nbecause: nothing overlaps"]);
     let desk = Held::with();

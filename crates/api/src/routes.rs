@@ -400,6 +400,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::talk_to_operator::<D>).get(crate::hosted_sessions::operator_talk::<D>),
         )
         .route(
+            "/operator/front",
+            post(crate::hosted_sessions::operator_in_front::<D>),
+        )
+        .route(
             "/operator/board",
             get(crate::hosted_sessions::get_operator_board::<D>),
         )

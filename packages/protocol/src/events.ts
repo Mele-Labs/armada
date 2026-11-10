@@ -221,6 +221,10 @@ export type Event =
   | {
       kind: "operator.board_changed";
     }
+  /** A line was kept in the Operator's conversation, or a raise in it settled: read `operator_talk` again. Carries nothing else. */
+  | {
+      kind: "operator.talk_changed";
+    }
   /** A background act failed after its request was answered: the act, what it was for, and the refusal. Not replayed. */
   | ({
       kind: "act.failed";

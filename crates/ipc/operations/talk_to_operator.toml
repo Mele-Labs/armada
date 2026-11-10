@@ -8,7 +8,7 @@ notes = """
 
 **`about` is handed to the call** with the item's title and text, and kept on both lines of the exchange, so a thread groups by item. **`moved` is the call naming an item it was shown as waiting its turn**; an id it was not shown is dropped. It is applied as `move_on_operator_board` would, to the front, and publishes `operator.board_changed`.
 
-**A fresh call for each message**, with no tools, handed the last twenty messages and what Fleet holds: the Log, Needs you, Waiting to start, the Jobs held and the Jobs marked Stopped. It cannot read a repository, so an answer that needs the code offers a Job. A Log row or a Job it was not shown is dropped.
+**A fresh call for each message**, handed the last twenty lines that are not raises, the raises whose items still wait, the journal of this week and the last, and what Fleet holds: the Log, Needs you, Waiting to start, the Jobs held and the Jobs marked Stopped. It cannot read a repository, so an answer that needs the code offers a Job. A Log row or a Job it was not shown is dropped.
 
 **An order is never made to stand here.** `order` is a form for the person to see; `confirm_operator_order` is his press. **`started` is the one thing it does**, on a Job held that he told it to start, which the Log keeps as his correction.
 

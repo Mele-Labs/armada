@@ -232,6 +232,14 @@ pub(crate) async fn operator_talk<D: HostedSessions>(State(served): State<Served
     }
 }
 
+/// Bridge's window came to the front. 200 at once, saying whether the day's briefing is on its way.
+pub(crate) async fn operator_in_front<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
+    match served.shared().operator_in_front().await {
+        Ok(front) => answer(StatusCode::OK, &front, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// What the Operator is ruling on, what waits for it and what it settled.
 pub(crate) async fn get_operator_board<D: HostedSessions>(State(served): State<Served<D>>) -> Response {
     match served.shared().get_operator_board().await {

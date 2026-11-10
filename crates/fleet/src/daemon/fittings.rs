@@ -82,6 +82,9 @@ pub struct Host {
     /// Kit's home, `~/.armada`, where Kit's own allowlist is kept as a plain
     /// file a person can edit. Since protocol 23.35.
     pub kit_home: String,
+    /// Where the Operator keeps its journal, a markdown file per week: Fleet's own home, never a
+    /// repository.
+    pub operator_journal_dir: String,
     /// Where the mods are: one folder each, written by a person or a session
     /// and never by Fleet but at `scaffold_mod`. `docs/concepts/mods.md`.
     pub mods_dir: String,
@@ -110,6 +113,7 @@ pub(crate) struct Local {
     pub(crate) terminal_keeper: crate::terminal_keeping::Starting,
     pub(crate) studio_frames_dir: String,
     pub(crate) kit_home: String,
+    pub(crate) operator_journal_dir: String,
     pub(crate) mods_dir: String,
     pub(crate) mod_bundle: Option<String>,
     pub(crate) mod_switches: crate::mods::ModSwitches,
@@ -340,6 +344,7 @@ where
                 terminal_keeper: fittings.host.terminal_keeper,
                 studio_frames_dir: fittings.host.studio_frames_dir,
                 kit_home: fittings.host.kit_home,
+                operator_journal_dir: fittings.host.operator_journal_dir,
                 mods_dir: fittings.host.mods_dir,
                 mod_bundle: fittings.host.mod_bundle,
                 mod_switches: fittings.host.mod_switches,

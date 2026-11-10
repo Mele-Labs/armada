@@ -1,6 +1,7 @@
 //! The Operator as a running Fleet holds it: the one seated at start, the call it makes, what is
 //! waiting to be handed to it and the standing orders. In memory.
 
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use super::{held, KeptStarted, Operator};
@@ -14,6 +15,12 @@ pub(crate) struct Seat {
     pub(super) sources: super::Sources,
     /// The standing orders, as the store keeps them: read where no lock on the store may be taken.
     orders: Mutex<super::Orders>,
+    /// What waits on the person and is being reviewed to be raised to him.
+    pub(super) raising: super::raising::Raising,
+    /// One writer of the journal at a time.
+    pub(super) journal: tokio::sync::Mutex<()>,
+    /// A briefing is out.
+    pub(super) briefing: AtomicBool,
 }
 
 impl Seat {

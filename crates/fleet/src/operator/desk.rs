@@ -145,7 +145,10 @@ where
             let kept = fleet.store().lock().await.add_operator_ruling(&row.kept());
             if let Err(why) = kept {
                 (self.adrift)(Adrift::Writing(why));
+                return;
             }
+            let subject = row.subject.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or_default();
+            fleet.operator_journaled(&format!("Ruled: \"{subject}\" went {}. {}", row.outcome.word(), row.because)).await;
         })
     }
 }

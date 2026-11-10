@@ -1,0 +1,10 @@
+[operations.operator_in_front]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Bridge's window came to the front, which the Operator's briefing of the day waits on"
+notes = """
+`POST /operator/front`, no body, answered at once with `OperatorInFront`: `briefing` is true where this is the first time this local day and a briefing is on its way. Bridge sends it whenever its window gains focus or is shown, however often.
+
+**Fleet decides the day.** The briefing is kept as a line of the conversation with `briefing: true`, and the newest one's instant is the day last briefed, so a restart does not brief twice. It is made only while the Operator is on and not paused for the week's plan. A briefing whose call fails keeps nothing, and the next `operator_in_front` that day tries again. It arrives as `operator.talk_changed`.
+"""

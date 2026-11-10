@@ -203,6 +203,7 @@ WebSocket event stream, read this first.
 | [A Job's row mark: `SessionRecord.mark`](protocol/a-jobs-row-mark.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
+| [The Operator raises what needs you, and briefs you once a day](protocol/the-operator-raises-what-needs-you.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1544,6 +1545,7 @@ A note's is kept at any position short of Off, and no route presses it yet: the 
 The box at the foot of the Operator panel, and the orders it turns words into. None of these is an agent's: each is the person's own.
 
 - **`talk_to_operator`** answers `OperatorSaid`, and `operator_talk` reads the conversation back, since Fleet keeps it so the next call can be handed it.
+  Its lines carry the Operator's raises and briefings too: [The Operator raises what needs you](protocol/the-operator-raises-what-needs-you.md).
 - **`OperatorSaid.order` stands for nothing** until `confirm_operator_order` sends its `form` back. That press is the only way an order stands.
 - **`OperatorOrderForm` is a closed set**, `role_off`, `hold_paths` and `always_raise`, because an order is a rule Fleet enforces and never prose a call reads.
   A form this build does not know reads as none in the store, so it stands for nothing.

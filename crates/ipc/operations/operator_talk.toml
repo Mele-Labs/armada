@@ -4,5 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "The conversation with the Operator so far"
 notes = """
-`GET /operator/talk`, answered with `OperatorTalk`: the last twenty messages, oldest first, each with the `about` it was said about, where it named one. Kept in the store, so it survives a restart.
+`GET /operator/talk`, answered with `OperatorTalk`: the last hundred lines, oldest first, each with the `about` it was said about, where it named one. Kept in the store, so it survives a restart.
+
+Besides his messages and the answers, a line is the Operator raising a Needs you item, with `raise`: the Job (`session_id`, absent on a suggestion no Job holds, and `job`, its title), the `item` as it was raised, the Operator's `read` and `pick` where a call read it, and `settled_at` once the item left the list. Its `text` is a plain sentence that reads alone. A line with `briefing: true` is the day's briefing. Bridge reads it again on `operator.talk_changed`.
 """

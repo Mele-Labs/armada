@@ -6,7 +6,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::operator_positions::OperatorRole;
-use crate::SessionId;
+use crate::{OperatorRead, WaitingItem};
+use crate::{Instant, SessionId};
 
 /// What lifts a hold on paths.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,6 +137,57 @@ pub struct OperatorTalkLine {
     /// The item the message was about, where it named one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub about: Option<String>,
+    /// On the Operator's own line raising a Needs you item: the item, its read and its pick.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raise: Option<OperatorRaise>,
+    /// The Operator's briefing, the first time that day Bridge came to the front.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub briefing: bool,
+}
+
+/// One Needs you item the Operator raised to the person in its conversation: what a card for it needs.
+/// Its kind is `item.source`, the thing `item.text`, and its acts `item.act` and `item.options`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorRaise {
+    /// The Job whose list holds it. Absent on a suggestion of the Operator's that no Job holds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+    /// That Job's title.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub job: Option<String>,
+    /// The item as it was raised.
+    pub item: WaitingItem,
+    /// What the Operator made of it and what it would pick. Absent where no call read it: the
+    /// Operator was paused for the week's plan, or the call failed. An empty `pick` is none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub read: Option<OperatorRead>,
+    /// When the item left the list. Absent while it waits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled_at: Option<Instant>,
+}
+
+impl OperatorRaise {
+    /// The raise as the store keeps it.
+    pub fn kept(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+
+    /// What the store kept. `None` where it does not read.
+    pub fn read(text: &str) -> Option<OperatorRaise> {
+        serde_json::from_str(text).ok()
+    }
+}
+
+/// `operator.talk_changed`: a line was kept in the conversation or a raise settled, so read it again.
+/// Nothing else rides.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorTalkChanged {}
+
+/// `operator_in_front`: Bridge's window came to the front. Answered at once; `briefing` says a
+/// briefing is on its way, which arrives as a line of the conversation.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorInFront {
+    pub briefing: bool,
 }
 
 /// `operator_talk`: the conversation so far, oldest first.

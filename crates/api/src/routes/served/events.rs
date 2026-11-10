@@ -217,6 +217,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A line was kept in the Operator's conversation, or a raise in it settled: read it again.
+    Route {
+        operation: "operator.talk_changed",
+        method: "GET",
+        path: "/events",
+    },
     // A person's run in the main checkout ending. What the run prints is
     // `observe_checkout_run`'s, never this stream's.
     Route {

@@ -289,6 +289,10 @@ where
         self.operator_talk_wire().await
     }
 
+    async fn operator_in_front(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorInFront, Refusal> {
+        Ok(ipc::operator_talk::OperatorInFront { briefing: self.operator_in_front_now().await })
+    }
+
     async fn get_operator_board(self: Arc<Self>) -> Result<ipc::operator_board::OperatorBoard, Refusal> {
         self.operator_board_wire().await
     }

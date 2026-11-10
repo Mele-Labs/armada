@@ -26,15 +26,18 @@ mod acting;
 mod arriving;
 mod asking;
 mod boarding;
+mod briefing;
 mod calling;
 mod candidates;
 mod desk;
 mod erroring;
 mod handing;
 mod hearing;
+mod journal;
 mod looking;
 mod orders;
 mod placing;
+mod raising;
 mod reading;
 mod ruling;
 mod seat;
@@ -64,12 +67,15 @@ pub use acting::FleetActing;
 pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;
 pub use hearing::keep_the_ends_told;
+pub use raising::keep_the_raises;
+#[cfg(test)]
+pub(crate) use raising::ToRaise;
 pub use orders::{Order, Orders};
 pub(crate) use seat::Seat;
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub use sources::{BridgeError, Filed, NewIssue, Note, RedMain, Report};
 pub(crate) use sourcing::Sources;
-pub use talking::{Board, EndedJob, HeldJob, JobRead, LogRead, MergedPull, NeedsYou, Repository, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked};
+pub use talking::{Board, EndedJob, HeldJob, JobRead, LogRead, MergedPull, NeedsYou, Raised, Repository, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked};
 pub(crate) use suggesting::{suggestion_items, SKIP};
 
 /// How long a Needs you item waits for its ruling before it pulses.

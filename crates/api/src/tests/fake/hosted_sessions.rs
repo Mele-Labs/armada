@@ -86,6 +86,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn operator_in_front(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorInFront, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn operator_talk(self: Arc<Self>) -> Result<ipc::operator_talk::OperatorTalk, Refusal> {
         Err(nothing_hosted())
     }

@@ -29,8 +29,10 @@ use crate::daemon::Fleet;
 const OPERATOR_PAUSED: &str = "fleet.operator_paused";
 const OPERATOR_SAID_NOTHING: &str = "fleet.operator_said_nothing";
 
-/// How much of the conversation a call is handed.
+/// How much of the conversation a call is handed: his messages, the answers and the briefings.
 const LINES_HANDED: u32 = 20;
+/// How much of the conversation Bridge is served, raises among it.
+const LINES_SERVED: u32 = 100;
 /// How many rows of the Log a call is shown, newest first.
 const LOG_SHOWN: u32 = 40;
 /// How many live Jobs, newest first, a call is shown the open tasks and last words of.
@@ -121,6 +123,16 @@ pub struct SuggestionRead {
     pub text: String,
 }
 
+/// A Needs you item the Operator raised to the person, still waiting.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Raised {
+    /// `None` for a suggestion of the Operator's that no Job holds.
+    pub session_id: Option<String>,
+    pub job: String,
+    pub text: String,
+    pub read: Option<ipc::OperatorRead>,
+}
+
 /// A live Job's open tasks and the last of what its agent said, each cut to [`LINE_CHARS`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct JobRead {
@@ -143,6 +155,8 @@ pub struct Board {
     /// Newest first.
     pub log: Vec<LogRead>,
     pub needs_you: Vec<NeedsYou>,
+    /// What the Operator raised to the person that still waits, oldest first.
+    pub raised: Vec<Raised>,
     /// The Operator's own suggestions no Job holds, still waiting on a press, oldest first.
     pub suggestions: Vec<SuggestionRead>,
     /// The live Jobs' tasks and last words: filled in by a message, which is the only call that reads them.
@@ -262,8 +276,8 @@ fn question(so_far: &[TalkLine], words: &str, about: Option<&str>, board: &Board
     if let Some(reading) = &reading {
         out.push_str(&format!(
             "\nThe folder for this message is {}. It holds a file for each live Job, named job-<the Job's id>.txt, with its title, its plan if it has one, \
-its open tasks, what waits on the person written in full and the last {SAID_READABLE} messages of its thread, and issues.txt, the issues open in each repository. \
-Fleet deletes it when you have answered.\n",
+its open tasks, what waits on the person written in full and the last {SAID_READABLE} messages of its thread, issues.txt, the issues open in each repository, \
+and your journal of this week and last week, named journal-<year>-W<week>.md, which says what the week held. Fleet deletes it when you have answered.\n",
             reading.folder.display()
         ));
     }
@@ -283,6 +297,8 @@ Fleet deletes it when you have answered.\n",
     for one in &board.needs_you {
         out.push_str(&format!("  Item {} on Job {} \"{}\": {}\n", one.id, one.session_id, one.title, one.text));
     }
+    out.push_str("\nWhat you raised to the person in this conversation, still waiting on him:\n");
+    out.push_str(&super::briefing::raised_shown(&board.raised));
     out.push_str("\nYour suggestions, waiting on the person to press Do it or Skip:\n");
     for one in &board.suggestions {
         out.push_str(&format!("  {}: {}\n", one.id, one.text));
@@ -512,6 +528,13 @@ where
             .into_iter()
             .map(|one| SuggestionRead { id: format!("{}{}", super::suggesting::SUGGESTION, one.n), text: one.text })
             .collect();
+        let raised = store
+            .operator_raises_open()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(super::raising::raise_on_wire)
+            .map(|raise| Raised { session_id: raise.session_id.map(|id| id.as_str().to_string()), job: raise.job.unwrap_or_default(), text: raise.item.text, read: raise.read })
+            .collect();
         let (mut needs_you, mut stopped) = (Vec::new(), Vec::new());
         let found = store.find_sessions(&store::SessionSearch { manifest_id: None, state: Some(store::SessionState::Live), text: None }).unwrap_or_default();
         for session in &found {
@@ -556,7 +579,7 @@ where
                 Repository { id: one.manifest().id().as_str().to_string(), name }
             })
             .collect();
-        Board { log, needs_you, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
+        Board { log, needs_you, raised, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
     }
 
     /// The open tasks and last words of the newest of `ids`, up to [`JOBS_DETAILED`] Jobs. Read from the
@@ -587,10 +610,15 @@ where
             .collect()
     }
 
-    /// `operator_talk`: the conversation so far.
+    /// `operator_talk`: the conversation so far, the raises and the briefings among it.
     pub(crate) async fn operator_talk_wire(&self) -> Result<OperatorTalk, Refusal> {
-        let kept = self.store().lock().await.operator_talk(LINES_HANDED).map_err(|why| self.ledger_fault(why))?;
-        Ok(OperatorTalk { lines: kept.into_iter().map(|one| OperatorTalkLine { from_person: one.from_person, text: one.text, at: one.at, about: one.about }).collect() })
+        let kept = self.store().lock().await.operator_talk(LINES_SERVED).map_err(|why| self.ledger_fault(why))?;
+        Ok(OperatorTalk {
+            lines: kept
+                .into_iter()
+                .map(|one| OperatorTalkLine { raise: super::raising::raise_on_wire(&one), briefing: one.briefing, from_person: one.from_person, text: one.text, at: one.at, about: one.about })
+                .collect(),
+        })
     }
 
     /// `talk_to_operator`: one message from the person. **Refused** while the Operator is off, while it is
@@ -599,7 +627,8 @@ where
         let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off"));
         };
-        let so_far = self.store().lock().await.operator_talk(LINES_HANDED).map_err(|why| self.ledger_fault(why))?;
+        // His conversation, never the raises: those still open are on the board.
+        let so_far = self.store().lock().await.operator_talk_said(LINES_HANDED).map_err(|why| self.ledger_fault(why))?;
         let so_far: Vec<TalkLine> = so_far.into_iter().map(|one| TalkLine { from_person: one.from_person, text: one.text }).collect();
         let talked = operator.talk(words, &so_far, about).await.map_err(|failed| match failed {
             TalkFailed::Paused(paused) => self.hosted_refusal(OPERATOR_PAUSED, &format!("the week's plan is {}% used, past the Operator's pause at {}%", paused.week, paused.at)),
@@ -629,12 +658,17 @@ where
     }
 
     async fn talk_kept(&self, words: &str, about: Option<&str>, talked: &Talked, at: &Timestamp) {
-        let mut store = self.store().lock().await;
-        let person = KeptTalk { from_person: true, text: words.to_string(), call: None, at: at.as_str().to_string(), about: about.map(str::to_string) };
-        let operator = KeptTalk { from_person: false, text: talked.said.clone(), call: Some(talked.call.clone()), at: at.as_str().to_string(), about: about.map(str::to_string) };
-        if let Err(why) = store.add_operator_talk(&person).and_then(|()| store.add_operator_talk(&operator)) {
+        let kept = {
+            let mut store = self.store().lock().await;
+            let person = KeptTalk { from_person: true, text: words.to_string(), at: at.as_str().to_string(), about: about.map(str::to_string), ..KeptTalk::default() };
+            let operator = KeptTalk { from_person: false, text: talked.said.clone(), call: Some(talked.call.clone()), at: at.as_str().to_string(), about: about.map(str::to_string), ..KeptTalk::default() };
+            store.add_operator_talk(&person).and_then(|()| store.add_operator_talk(&operator))
+        };
+        if let Err(why) = kept {
             self.operator_warned("the conversation with the Operator was not kept", why);
         }
+        self.operator_journaled(&format!("He wrote: {words} I answered: {}", first_line(&talked.said))).await;
+        self.operator_talk_changed();
     }
 
     /// He told the box to start a Job that waits: it starts as his press would, and the Log keeps
