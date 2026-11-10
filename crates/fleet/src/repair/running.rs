@@ -73,6 +73,7 @@ where
     }
 
     async fn repair_prepared(&self, job: &str, broke: RepairBreak, saw: &[(String, String)]) -> Result<Prepared, Refusal> {
+        let mut saw = saw.to_vec();
         let healthy = self.health().await.is_ok_and(|health| !health.probes.iter().any(|one| one.outcome == "fail"));
         if !healthy {
             return Err(self.hosted_refusal(REPAIR_UNHEALTHY, "Fleet is unhealthy, so a repair would fail the same way"));
@@ -100,6 +101,12 @@ where
             }
             _ => match hosting.lease_slot {
                 Some(slot) => (slot_path(served.root(), slot), None),
+                // Where its process runs before it has leased a slot is the repository's own checkout,
+                // which a repair is told to leave as it is. Nothing of a broken checkout is there to fix.
+                None if broke != RepairBreak::Checkout => {
+                    saw.push((String::from("Its checkout"), String::from("the Job holds no slot, so this is the repository's own checkout: change no file in it")));
+                    (served.root().to_string(), None)
+                }
                 None => return Err(no_checkout(format!("job {job} holds no checkout"))),
             },
         };
@@ -107,7 +114,7 @@ where
         let told = brief::told(
             &self.prompts(),
             &broke,
-            &brief::Material { job, title: &title, branch: hosting.lease_branch.as_deref(), checkout: &directory, saw },
+            &brief::Material { job, title: &title, branch: hosting.lease_branch.as_deref(), checkout: &directory, saw: &saw },
         );
         let at = self.now().as_str().to_string();
         let kept = self.store().lock().await.keep_repair_started(job, &repair, broke.key(), &at);

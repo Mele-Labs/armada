@@ -505,15 +505,32 @@ fn fleets_words_are_acts_that_are_over_and_nothing_the_agent_said_is() {
 }
 
 #[test]
-fn a_running_repair_and_a_coming_nudge_are_read_off_the_record() {
-    let stopped = r#""stopped":{"reason":"process_gone","at":"2026-11-03T10:00:00.000Z","restart":"failed","repair":"running","said":"tool not found"}"#;
-    let one = SessionThread { session: record(&format!(r#"{stopped},"stop_told_by":"2026-11-03T10:01:00.000Z""#)), rows: Vec::new() };
+fn a_running_repair_is_read_off_fleets_notes_and_a_coming_nudge_off_the_record() {
+    let rows = vec![fleet("r1", 1, "Repair: a command hung", None), agent("r2", 2, "Still going.")];
+    let one = SessionThread { session: record(r#""stop_told_by":"2026-11-03T10:01:00.000Z""#), rows };
     let acts = folded(&one, &[], &Revisions::new()).0.fleet_acts;
     assert_eq!(acts.iter().map(|act| (act.state, act.said.as_str())).collect::<Vec<_>>(), [
-        (FleetActState::UnderWay, "Repair Job running"),
+        (FleetActState::UnderWay, "Repairing: a command hung"),
         (FleetActState::Coming, "Tell it to carry on or name what it waits on"),
-    ]);
+    ], "its start note is not drawn again as a thing done");
     assert_eq!(acts[1].until, Some(Instant::carried("2026-11-03T10:01:00.000Z")));
+}
+
+#[test]
+fn a_repair_whose_end_note_follows_is_over_and_a_later_one_is_under_way() {
+    let said = |rows: Vec<SessionRow>| {
+        let acts = folded(&thread(rows), &[], &Revisions::new()).0.fleet_acts;
+        acts.iter().map(|act| (act.state, act.said.clone())).collect::<Vec<_>>()
+    };
+    assert_eq!(said(vec![fleet("r1", 1, "Repair: its checkout is broken", None), fleet("r2", 2, "Repaired: it put the merge right", None)]), [
+        (FleetActState::Over, "Repair: its checkout is broken".to_string()),
+        (FleetActState::Over, "Repaired: it put the merge right".to_string()),
+    ]);
+    assert_eq!(said(vec![fleet("r1", 1, "Repair: a command hung", None), fleet("r2", 2, "Not repaired: it ran past 20 minutes", None), fleet("r3", 3, "Repair: its process died twice", None)]), [
+        (FleetActState::Over, "Repair: a command hung".to_string()),
+        (FleetActState::Over, "Not repaired: it ran past 20 minutes".to_string()),
+        (FleetActState::UnderWay, "Repairing: its process died twice".to_string()),
+    ]);
 }
 
 #[test]

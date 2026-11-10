@@ -238,8 +238,6 @@ fn a_dead_job_says_where_fleet_stands_and_amber_only_once_it_has_run_out() {
     assert_eq!((failed.repair, failed.gave_up), (Some(StopRepair::Failed), true));
     let held = dead(&KeptStop { repair_held: true, ..KeptStop::default() }, false);
     assert_eq!((held.repair, held.gave_up), (Some(StopRepair::Held), true));
-    let itself = dead(&KeptStop { repairs: Some("a".into()), ..KeptStop::default() }, false);
-    assert_eq!((itself.repair, itself.gave_up), (None, true), "a repair Job gets no repair of its own");
 }
 
 #[test]
@@ -266,14 +264,34 @@ async fn dead_job(rig: &Rig) -> SessionId {
     id
 }
 
+/// The repair is held at its start until a test releases it, so the row can be read while it runs.
+fn holding(rig: &Rig) {
+    std::fs::write(rig.repair_state.join("hold"), "").expect("held");
+}
+
+fn released(rig: &Rig) {
+    std::fs::write(rig.repair_state.join("release"), "").expect("released");
+}
+
+fn fleet_notes(rows: &[SessionRow]) -> Vec<String> {
+    rows.iter()
+        .filter_map(|row| match row {
+            SessionRow::Message { from: ipc::SessionVoice::Session { title, .. }, text, .. } if title == "Fleet" => Some(text.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
 #[tokio::test]
-async fn a_dead_job_reads_stopped_gets_one_repair_job_nested_under_it_and_no_nudge() {
+async fn a_dead_job_gets_one_hidden_repair_that_is_no_job_and_no_nudge() {
     let rig = rig_placing(None);
+    holding(&rig);
     let id = dead_job(&rig).await;
     let row = record(&rig, &id).await;
     assert_eq!(row.standing, Some(SessionStanding::Stopped));
     assert_eq!(row.stopped.as_ref().map(|one| one.restart), Some(StopRestart::Failed));
     assert!(row.waiting_for.is_empty(), "no item");
+    let live = rig.fleet.store().lock().await.live_session_ids().unwrap();
 
     rig.fleet.stops_told().await;
     let row = record(&rig, &id).await;
@@ -281,24 +299,89 @@ async fn a_dead_job_reads_stopped_gets_one_repair_job_nested_under_it_and_no_nud
     assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Running), false));
     assert_eq!(nudges(&rig.rows(&id).await), 0, "a dead Job hears no nudge");
 
-    let kept = rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap();
-    let repair = kept.repair_job.expect("a repair Job");
-    let child = record(&rig, &SessionId::carried(repair.as_str())).await;
-    assert!(child.title.as_deref().is_some_and(|title| title.starts_with("Repair: ")), "{:?}", child.title);
-    assert!(child.attachments.iter().any(|one| one.kind == "started_by" && one.target == id.as_str()), "nested under it");
-    assert!(!rig.fleet.store().lock().await.hosting(&repair).unwrap().unwrap().start_held, "no start card: he presses nothing");
-    eventually(|| async { rig.stand_in.starts().len() == 3 }).await;
+    let store = rig.fleet.store().lock().await;
+    let repair = store.session_stop(id.as_str()).unwrap().repair_job.expect("a repair");
+    assert_eq!(store.live_session_ids().unwrap(), live, "no Job was started for it");
+    assert!(store.session(&repair).unwrap().is_none(), "it has no session row");
+    let kept = store.repair(&repair).unwrap().expect("kept");
+    assert_eq!((kept.session_id.as_str(), kept.broke.as_str(), kept.ended_at), (id.as_str(), "died", None));
+    drop(store);
+    assert!(fleet_notes(&rig.rows(&id).await).contains(&"Repair: its process died twice".to_string()));
+    assert!(rig.fleet.repairs().running_for(id.as_str()), "listed as running");
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+    assert!(super::repairing::turns(&rig.repair_state)[0].contains(id.as_str()), "told which Job");
+    assert_eq!(rig.stand_in.starts().len(), 2, "no process of the Jobs host");
 
+    rig.fleet.stops_told().await;
     rig.fleet.stops_told().await;
     assert_eq!(rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job.as_deref(), Some(repair.as_str()), "one");
-    let started = rig.stand_in.starts().len();
-    rig.fleet.stops_told().await;
-    assert_eq!(rig.stand_in.starts().len(), started, "and no second");
+    assert_eq!(super::repairing::turns(&rig.repair_state).len(), 1, "and no second");
 
-    // It ended and the Job is still dead: Fleet has run out, and the row reaches him.
-    super::session_queue::close(&rig, &SessionId::carried(repair.as_str())).await;
+    // It put things right: Fleet says so in the thread and wakes the Job once.
+    released(&rig);
+    eventually(|| async { rig.stand_in.starts().len() == 3 }).await;
+    let notes = fleet_notes(&rig.rows(&id).await);
+    assert!(notes.contains(&"Repaired: it carries on".to_string()), "{notes:?}");
+    eventually(|| async { rig.stand_in.process(2).sent.lock().unwrap().iter().any(|line| line.contains("Fleet: a repair fixed what stopped its process. Carry on.")) }).await;
+    let kept = rig.fleet.store().lock().await.repair(&repair).unwrap().expect("kept");
+    assert_eq!((kept.outcome.as_deref(), kept.said.as_deref()), (Some("repaired"), Some("it carries on")));
+    assert!(!rig.fleet.repairs().running_for(id.as_str()));
+}
+
+#[tokio::test]
+async fn a_repair_that_did_not_repair_leaves_the_row_amber_and_wakes_nobody() {
+    let rig = rig_placing(None);
+    std::fs::write(rig.repair_state.join("answer"), "NOT REPAIRED: its binary is gone").expect("an answer");
+    let id = dead_job(&rig).await;
+    rig.fleet.stops_told().await;
+    eventually(|| async { fleet_notes(&rig.rows(&id).await).contains(&"Not repaired: its binary is gone".to_string()) }).await;
     let stopped = record(&rig, &id).await.stopped.expect("still stopped");
     assert_eq!((stopped.repair, stopped.gave_up), (Some(StopRepair::Failed), true));
+    assert_eq!(rig.stand_in.starts().len(), 2, "the Job was not woken");
+    let repair = rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job.expect("a repair");
+    assert_eq!(rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().outcome.as_deref(), Some("not_repaired"));
+    rig.fleet.stops_told().await;
+    assert_eq!(super::repairing::turns(&rig.repair_state).len(), 1, "Fleet has run out: no second repair");
+}
+
+#[tokio::test]
+async fn a_repair_that_ends_with_neither_marker_is_not_repaired() {
+    let rig = rig_placing(None);
+    std::fs::write(rig.repair_state.join("answer"), "I looked at it and it is fine.").expect("an answer");
+    let id = dead_job(&rig).await;
+    rig.fleet.stops_told().await;
+    eventually(|| async { fleet_notes(&rig.rows(&id).await).iter().any(|note| note.starts_with("Not repaired: ")) }).await;
+    assert_eq!(record(&rig, &id).await.stopped.expect("stopped").repair, Some(StopRepair::Failed));
+    assert_eq!(rig.stand_in.starts().len(), 2);
+}
+
+#[tokio::test]
+async fn a_jobs_next_turn_or_its_end_stops_a_repair_still_running() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = dead_job(&rig).await;
+    rig.fleet.stops_told().await;
+    let repair = rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job.expect("a repair");
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+
+    rig.fleet.turn_opened(id.as_str(), rig.fleet.now().as_str()).await;
+    eventually(|| async { rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().outcome.is_some() }).await;
+    let kept = rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap();
+    assert_eq!((kept.outcome.as_deref(), kept.said.as_deref()), (Some("stopped"), Some("the job moved on first")));
+    assert!(fleet_notes(&rig.rows(&id).await).contains(&"Not repaired: the job moved on first".to_string()));
+    assert_eq!(rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job, None, "its next death gets a repair of its own");
+}
+
+#[tokio::test]
+async fn closing_a_job_stops_the_repair_running_for_it() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = dead_job(&rig).await;
+    rig.fleet.stops_told().await;
+    let repair = rig.fleet.store().lock().await.session_stop(id.as_str()).unwrap().repair_job.expect("a repair");
+    eventually(|| async { super::repairing::turns(&rig.repair_state).len() == 1 }).await;
+    super::session_queue::close(&rig, &id).await;
+    eventually(|| async { rig.fleet.store().lock().await.repair(&repair).unwrap().unwrap().outcome.as_deref() == Some("stopped") }).await;
 }
 
 #[tokio::test]
