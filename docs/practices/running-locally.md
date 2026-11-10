@@ -481,6 +481,13 @@ sees `.armada/preview` in `Armada/restart-source` and runs
 so the preview is merged again onto the latest `main`. To go back to `main`
 alone, run `scripts/restart --main`.
 
+**`scripts/preview --restart` pulls the main checkout before anything else.**
+The scripts a refresh runs, `scripts/preview`, `scripts/restart` and `scripts/restart-build`, are the main checkout's, and nothing else pulls it on this path.
+When the checkout is on `main` it is fast-forwarded to `origin/main`, and if it moved the script runs again from what was pulled, once.
+On another branch, or where it cannot fast-forward, it prints a `preview: warning:` line and runs the scripts as they are.
+That never fails the refresh.
+`--dry-run` pulls nothing and says it would, and `--watch` and a plain `scripts/preview` never pull.
+
 **`python3 scripts/test_preview.py`** runs it against a throwaway repository
 with git alone, and a stub Fleet. CI runs it as `preview_test` when
 `scripts/preview`, `scripts/restart` or `scripts/restart-build` changes.
@@ -493,7 +500,7 @@ Fleet runs on, Main or Preview, and one button follows it:
 
 | Selected | Button | Runs |
 |---|---|---|
-| Preview | `Refresh preview` | `scripts/preview --restart` |
+| Preview | `Refresh preview` | `scripts/preview --restart`, after the main checkout is fast-forwarded when it is on `main` |
 | Main | `Update to main` | `scripts/restart --main`: the checkout is fast-forwarded to `origin/main`, then Fleet and Bridge are built from it |
 | Main, level with `origin/main` | `Update to main`, disabled, `On latest main` | nothing |
 
