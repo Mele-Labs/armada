@@ -261,7 +261,7 @@ pub(super) fn build(remember: bool, window: &mut Window, cx: &mut Context<JobVie
     (composer, subs)
 }
 
-fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
+pub(super) fn encoded_files(files: Vec<Attached>) -> Vec<SessionUpload> {
     let engine = base64::engine::general_purpose::STANDARD;
     files.into_iter().map(|one| SessionUpload { name: one.name, media_type: one.media_type, data: engine.encode(one.bytes.as_slice()) }).collect()
 }
@@ -299,7 +299,7 @@ impl JobView {
         if self.composer.setting {
             return;
         }
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         let kept = self.kept(cx);
         if self.composer.drafts.set(&id, kept) {
             self.keep_soon(cx);
@@ -314,11 +314,13 @@ impl JobView {
 
     /// Fold what is in the box into the shown Job's draft before it leaves the screen.
     pub(super) fn composer_leave(&mut self, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         let kept = self.kept(cx);
         if self.composer.drafts.set(&id, kept) {
             self.keep_soon(cx);
         }
+        // A report open on the Job leaving is put away; what was typed in it is kept.
+        self.reporting = None;
         self.composer.offer = None;
         self.composer.popup = None;
         self.talk_leave();
@@ -334,6 +336,11 @@ impl JobView {
             self.fit_box(window, cx);
         }
         self.quick_follow(cx);
+    }
+
+    /// The words and chips kept under `key`.
+    pub(super) fn draft_of(&self, key: &str) -> Kept {
+        self.composer.drafts.get(key)
     }
 
     /// The plain words kept under `key`: a Teach panel's, a review note's or a fork's, which carry no chips.
@@ -425,6 +432,9 @@ impl JobView {
 
     /// Send what is in the box. A paused Job is asked about first.
     pub(super) fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.reporting.is_some() {
+            return self.send_report(window, cx);
+        }
         let Some(id) = self.shown.clone() else { return };
         if self.closed(&id, cx) {
             return;
@@ -604,6 +614,10 @@ impl JobView {
             cx.stop_propagation();
         } else if self.offer_key(key, window, cx) {
             cx.stop_propagation();
+        } else if key == "escape" && self.reporting.is_some() {
+            // Esc puts the report away, as the dialog's Cancel does.
+            self.close_report(window, cx);
+            cx.stop_propagation();
         } else if key == "escape" && self.fold_bands(false, window, cx) {
             // Esc anywhere in the Job folds an open end or waiting panel first.
             cx.stop_propagation();
@@ -619,7 +633,7 @@ impl JobView {
 
     /// Attach opens the Mac's own picker. On mock data there is none to answer, so it adds a sample.
     pub(super) fn attach(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         if self.fleet.is_none() {
             let bytes = b"fn main() {}\n".to_vec();
             self.add_file(&id, "sample.rs".into(), "text/plain".into(), bytes, cx);
@@ -636,7 +650,7 @@ impl JobView {
 
     /// Files named by a drop or a paste are read off the main thread and attached to the Job in view.
     pub(super) fn take_paths(&mut self, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         cx.spawn(async move |this, cx| {
             for path in paths {
                 let name = path.file_name().map(|name| name.to_string_lossy().to_string()).unwrap_or_else(|| "File".into());
@@ -667,7 +681,7 @@ impl JobView {
     }
 
     fn remove_file(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.shown.clone() else { return };
+        let Some(id) = self.box_key() else { return };
         self.composer.box_of(&id).files.retain(|one| one.key != key);
         // The caret goes back to the box where the chip was.
         self.composer.input.update(cx, |input, cx| input.focus(window, cx));
@@ -676,7 +690,7 @@ impl JobView {
 
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
-        let Some(id) = self.shown.clone() else { return false };
+        let Some(id) = self.box_key() else { return false };
         let mut taken = false;
         for entry in item.entries() {
             match entry {
@@ -892,7 +906,79 @@ impl JobView {
             .tooltip(tip(tooltip))
     }
 
-    fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Send, as the box's bar draws it: off while there is nothing to send.
+    pub(super) fn send_button(&self, nothing: bool, window: &Window, cx: &Context<Self>) -> gpui::AnyElement {
+        let look = cx.look();
+        let key_text = window.modifiers().platform;
+        labelled(
+            div()
+                .id("send")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL_LG))
+                .px(look.length(token::SPACE_4))
+                .rounded(look.length(token::RADIUS_LG))
+                .bg(look.color(token::ACCENT))
+                .text_color(look.color(token::TEXT_ON_ACCENT))
+                .text_size(look.length(token::TEXT_SM))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .when(nothing, |button| button.opacity(0.4))
+                .when(!nothing, |button| {
+                    button
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
+                        .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
+                })
+                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(look.color(token::TEXT_ON_ACCENT)))
+                .child("Send")
+                .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
+            Role::Button,
+            "Send",
+        )
+        .into_any_element()
+    }
+
+    pub(super) fn attach_button(&self, look: &Look, cx: &Context<Self>) -> gpui::AnyElement {
+        labelled(
+            icon_button(look, "attach", "paperclip", "Attach a file or a picture".into(), false, false)
+                .on_click(cx.listener(|this, _, window, cx| this.attach(window, cx))),
+            Role::Button,
+            "Attach file",
+        )
+        .into_any_element()
+    }
+
+    /// The box's words: the one text box, with the keys a list over it takes first.
+    pub(super) fn box_words(&self, look: &Look, cx: &Context<Self>) -> gpui::Stateful<gpui::Div> {
+        div()
+            .id("message")
+            .key_context(crate::keymap::TEXT_BOX)
+            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
+            .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| this.talk_key_up(event, cx)))
+            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                if !action.secondary && !action.shift {
+                    this.list_key("enter", window, cx);
+                }
+            }))
+            .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
+            .capture_action(cx.listener(|this, _: &MoveDown, window, cx| this.list_key("down", window, cx)))
+            .capture_action(cx.listener(|this, _: &Escape, window, cx| this.list_key("escape", window, cx)))
+            .capture_action(cx.listener(|this, _: &IndentInline, window, cx| this.list_key("tab", window, cx)))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .text_size(look.length(token::TEXT_BASE))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child({
+                let view = cx.entity().downgrade();
+                Textarea::new(&self.composer.input).appearance(false).aria_label("Message").on_paste(move |item, _, cx| {
+                    view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false)
+                })
+            })
+    }
+
+    pub(super) fn render_tray(&self, id: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let files = self.composer.files_of(id);
         if files.is_empty() {
             return None;
@@ -1001,40 +1087,8 @@ impl JobView {
         let (shown, tune_said) = trigger_name(offered, default, model.as_deref(), effort.as_deref());
         let (steps, lit) = effort_place(offered, default, model.as_deref(), effort.as_deref());
         let meter = (steps > 0).then(|| effort_meter(look, steps, lit).into_any_element());
-        let key_text = window.modifiers().platform;
-        let send = labelled(
-            div()
-                .id("send")
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL_LG))
-                .px(look.length(token::SPACE_4))
-                .rounded(look.length(token::RADIUS_LG))
-                .bg(look.color(token::ACCENT))
-                .text_color(look.color(token::TEXT_ON_ACCENT))
-                .text_size(look.length(token::TEXT_SM))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .when(nothing, |button| button.opacity(0.4))
-                .when(!nothing, |button| {
-                    button
-                        .cursor_pointer()
-                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
-                        .on_click(cx.listener(|this, _, window, cx| this.send(window, cx)))
-                })
-                .child(svg().path(icon_path("send")).size(look.length(token::SPACE_3)).text_color(look.color(token::TEXT_ON_ACCENT)))
-                .child("Send")
-                .when(key_text, |button| button.child(div().text_color(look.color(token::TEXT_ON_ACCENT).opacity(0.7)).child("\u{2318}\u{21b5}"))),
-            Role::Button,
-            "Send",
-        );
-        let attach = labelled(
-            icon_button(look, "attach", "paperclip", "Attach a file or a picture".into(), false, false)
-                .on_click(cx.listener(|this, _, window, cx| this.attach(window, cx))),
-            Role::Button,
-            "Attach file",
-        );
+        let send = self.send_button(nothing, window, cx);
+        let attach = self.attach_button(look, cx);
         let mode_button = labelled(
             self.bar_button(look, "mode", mode_said, mode_tip, None).on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                 this.open_mode(event.is_keyboard(), window, cx);
@@ -1050,30 +1104,19 @@ impl JobView {
             tune_said,
         );
         let column = look.length(token::SPACE_12) * 20. + look.length(token::SPACE_6) + look.length(token::SPACE_2) + look.length(token::SPACE_4);
-        let words = div()
-            .id("message")
-            .key_context(crate::keymap::TEXT_BOX)
-            .capture_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.on_box_key(event, window, cx)))
-            .on_key_up(cx.listener(|this, event: &KeyUpEvent, _, cx| this.talk_key_up(event, cx)))
-            .capture_action(cx.listener(|this, action: &Enter, window, cx| {
-                if !action.secondary && !action.shift {
-                    this.list_key("enter", window, cx);
-                }
-            }))
-            .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
-            .capture_action(cx.listener(|this, _: &MoveDown, window, cx| this.list_key("down", window, cx)))
-            .capture_action(cx.listener(|this, _: &Escape, window, cx| this.list_key("escape", window, cx)))
-            .capture_action(cx.listener(|this, _: &IndentInline, window, cx| this.list_key("tab", window, cx)))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
-            .text_size(look.length(token::TEXT_BASE))
-            .text_color(look.color(token::FG_DEFAULT))
-            .child({
-                let view = cx.entity().downgrade();
-                Textarea::new(&self.composer.input).appearance(false).aria_label("Message").on_paste(move |item, _, cx| {
-                    view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false)
-                })
-            });
+        // While a report is open the box is in its dialog; here the Job's draft stands as it was kept.
+        let words = if self.reporting.is_some() {
+            div()
+                .id("message")
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_3))
+                .text_size(look.length(token::TEXT_BASE))
+                .text_color(look.color(token::FG_DEFAULT))
+                .min_h(look.length(token::SPACE_6))
+                .child(SharedString::from(self.composer.drafts.get(id).text))
+        } else {
+            self.box_words(look, cx)
+        };
         let bar = div()
             .flex()
             .items_center()

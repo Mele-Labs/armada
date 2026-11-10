@@ -152,6 +152,8 @@ impl JobView {
         let to = cursor;
         let mut loading = false;
         let (label, rows): (&'static str, Vec<Row>) = match trigger {
+            // A report's box offers no commands and no Jobs to tag, as `ReportBox` passes none.
+            '/' if self.reporting.is_some() => ("Skills and commands", Vec::new()),
             '/' => {
                 let commands = self.record(&id, cx).and_then(|job| job.hosted.as_ref()).map(|hosted| hosted.commands.clone()).unwrap_or_default();
                 ("Skills and commands", commands_for(&commands, &query))
@@ -181,7 +183,7 @@ impl JobView {
                     .read(cx)
                     .records()
                     .iter()
-                    .filter(|job| job.id.as_str() != id.as_str() && job.state != ipc::SessionState::Ended)
+                    .filter(|job| self.reporting.is_none() && job.id.as_str() != id.as_str() && job.state != ipc::SessionState::Ended)
                     .filter_map(|job| job.title.as_ref().map(|title| (job.id.as_str().to_string(), title.clone())))
                     .filter(|(_, title)| lowered.is_empty() || title.to_lowercase().contains(&lowered))
                     .take(5)

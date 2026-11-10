@@ -1088,6 +1088,7 @@ impl JobView {
                 .children(land_act)
                 .children(pause_act)
                 .child(self.judge_act(id, &look, cx))
+                .child(self.report_act(id, cx))
                 .children(release_act),
             Role::Toolbar,
             "Job acts",

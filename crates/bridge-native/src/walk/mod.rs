@@ -692,6 +692,11 @@ pub static WALKS: &[Walk] = &[
             step("The box asks what to verify", Verb::Type("nothing else moves the focus"), "textbox", "Verify that"),
             step("Judge asks again: the pane shows what was asked, and the reading's shape while it reads", Verb::Open("button", "Ask the Judge"), "status", "Judge reading"),
             step("The tab's × shuts the Judge, and the keys go back to the message box", Verb::Gone, "button", "Close Judge"),
+            step("Report in the toolbelt opens a dialog over the window with a message box of its own", Verb::Open("button", "Report issue with job"), "dialog", "Report an issue with the Job"),
+            step("What went wrong is typed in it, with @ files, # issues and files as in the Job's box", Verb::Type("The list jumps to the top when a Job ends"), "textbox", "Report"),
+            step("Esc puts it away and keeps what was typed; the Job's own words are back in its box", Verb::Key("escape"), "textbox", "Message"),
+            step("Report again finds the words where they were", Verb::Open("button", "Report issue with job"), "textbox", "Report"),
+            step("Send starts a Job in Armada's repository, tells it the words and what the app holds about this Job, and opens it", Verb::Gone, "button", "Send"),
         ],
     },
 ];

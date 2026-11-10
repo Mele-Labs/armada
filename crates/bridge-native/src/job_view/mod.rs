@@ -39,6 +39,8 @@ mod records;
 mod review;
 mod rows;
 mod judge_tab;
+mod report;
+mod report_brief;
 mod side;
 pub use judge_tab::JobJudge;
 pub use side::JobSide;
@@ -231,6 +233,8 @@ pub struct JobView {
     fork: fork::Fork,
     /// The Judge's box on a plan, while it is open.
     judge: Option<judge::Open>,
+    /// The Report dialog, while it is open over the Job.
+    reporting: Option<report::Report>,
     /// The Teach panel, while it is open, Fleet's refusal of its last call, and the count that tells its answers apart.
     teach: Option<teach::Open>,
     teach_said: Option<SharedString>,
@@ -308,6 +312,7 @@ impl JobView {
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
             judge: None,
+            reporting: None,
             teach: None,
             teach_said: None,
             teach_clock: 0,
@@ -701,6 +706,7 @@ impl Render for JobView {
             .children(self.render_fork_bar(cx))
             .children(self.render_teach(cx))
             .children(self.render_review(&id, window, cx))
+            .children(self.render_report(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {
