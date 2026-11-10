@@ -101,10 +101,6 @@ impl Head {
         self.overlays.get(id).is_some_and(|overlay| overlay.ended)
     }
 
-    pub fn tab(&self) -> &FocusHandle {
-        &self.tab
-    }
-
     pub fn renaming(&self) -> bool {
         self.rename.is_some()
     }
