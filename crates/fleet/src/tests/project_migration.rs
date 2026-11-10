@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use api::{Projects, Refusal};
 use config::{ProjectPlace, Projects as Held};
 use core_model::{ManifestId, ScopeId, Ulid};
-use ipc::{NameProject, RunPlace};
+use ipc::{EditProject, NewProject, RunPlace};
 use store::{KeptProjectRow, KeptRowItem, KeptTaskState, LOOSE_PROJECT};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
 
@@ -153,12 +153,12 @@ async fn a_new_project_is_empty_on_this_mac_and_renaming_it_writes_the_file_and_
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
 
-    let made = fleet.add_project(NameProject { name: "Shop".to_string() }).await.expect("added");
+    let made = fleet.add_project(NewProject { name: "Shop".to_string(), members: None, place: None }).await.expect("added");
     let id = made.projects[0].id.clone();
     assert!(file(&home, &id).is_file(), "kept on this Mac by default");
     assert!(fleet.projects_held().get(&scope(&id)).expect("held").members().is_empty(), "made empty");
 
-    let renamed = fleet.rename_project(id.clone(), NameProject { name: "Storefront".to_string() }).await.expect("renamed");
+    let renamed = fleet.edit_project(id.clone(), EditProject { name: Some("Storefront".to_string()), ..Default::default() }).await.expect("renamed");
     assert_eq!(renamed.projects[0].name, "Storefront");
     assert!(std::fs::read_to_string(file(&home, &id)).expect("a file").contains("name: Storefront"), "the file is the truth");
     assert_eq!(fleet.store().lock().await.projects().expect("read").projects[0].name, "Storefront", "and the store keeps the last name");
@@ -168,7 +168,7 @@ async fn a_new_project_is_empty_on_this_mac_and_renaming_it_writes_the_file_and_
 async fn the_name_in_the_file_is_shown_and_the_stores_only_where_the_place_cannot_be_read() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
-    let id = fleet.add_project(NameProject { name: "Shop".to_string() }).await.expect("added").projects[0].id.clone();
+    let id = fleet.add_project(NewProject { name: "Shop".to_string(), members: None, place: None }).await.expect("added").projects[0].id.clone();
 
     // Another machine renamed it in the file.
     write(&file(&home, &id), &text(&id, "Storefront", &[]));
@@ -189,7 +189,7 @@ async fn the_name_in_the_file_is_shown_and_the_stores_only_where_the_place_canno
 async fn a_project_cannot_be_kept_in_a_repository() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
-    let id = fleet.add_project(NameProject { name: "Shop".to_string() }).await.expect("added").projects[0].id.clone();
+    let id = fleet.add_project(NewProject { name: "Shop".to_string(), members: None, place: None }).await.expect("added").projects[0].id.clone();
 
     let refused = fleet.project_place_set(&id, RunPlace::Repository, None, None).await.expect_err("refused");
     match refused {
@@ -206,7 +206,7 @@ async fn a_project_cannot_be_kept_in_a_repository() {
 async fn a_project_moved_to_a_synced_folder_is_written_and_read_there_and_a_folder_that_goes_leaves_it_out() {
     let home = TempDir::new();
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
-    let id = fleet.add_project(NameProject { name: "Shop".to_string() }).await.expect("added").projects[0].id.clone();
+    let id = fleet.add_project(NewProject { name: "Shop".to_string(), members: None, place: None }).await.expect("added").projects[0].id.clone();
     let synced = home.path().join("synced");
     std::fs::create_dir_all(&synced).expect("a folder");
 

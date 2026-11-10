@@ -73,6 +73,7 @@ where
         let named = self.review_named(dispute).await;
         let started = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: own,
                 title: Some(named),
                 model: None,

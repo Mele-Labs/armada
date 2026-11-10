@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use adapter_traits::PullRequestStanding;
-use api::{Lifecycles, Next};
+use api::{Lifecycles, Next, Projects};
 use ipc::{AutonomyToSave, Event, InstanceStanding, LifecyclePiece, PieceScope, SaveLifecyclePiece, JobLifecycles, ManifestId, RuleAct, RuleAmong, RuleWhen, SessionId, StateReadFrom};
 use store::{rule_act_standing, AttachmentState, Holder, KeptAttachment, NewRuleAct};
 use testkit::{FakeHarness, FakeVcs, FakeWorkProduct};
@@ -82,19 +82,18 @@ async fn a_member_is_told_the_project_that_holds_it_and_where_it_is_kept() {
     let (web, api, back_office) = (first(&fleet), another(&fleet, &home, "store-api"), another(&fleet, &home, "back-office"));
     my_store(&fleet, &home, &[&web, &api]).await;
 
-    let seen = fleet.list_repository_workspaces(named(&api)).await.expect("read");
-    assert_eq!(seen.manifest_id, wire_id(&api));
-    let [store] = seen.workspaces.as_slice() else { panic!("one: {:?}", seen.workspaces) };
-    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "kit"));
-    assert_eq!(store.repositories, [wire_id(&web), wire_id(&api)], "in the order the file lists them");
-    assert_eq!(store.home, None, "a project is kept in no repository");
-    assert!(store.path.ends_with("my-store.yml") && store.overridden_by.is_none() && store.hides.is_none());
+    let seen = fleet.list_holding_projects(named(&api)).await.expect("read");
+    let [store] = seen.projects.as_slice() else { panic!("one: {:?}", seen.projects) };
+    assert_eq!((store.id.as_str(), store.name.as_str()), ("my-store", "My store"));
+    let members: Vec<_> = store.members.iter().map(|one| (one.manifest_id.clone(), one.folder.clone())).collect();
+    assert_eq!(members, [(wire_id(&web), None), (wire_id(&api), None)], "in the order the file lists them");
+    assert_eq!(store.place.place, ipc::RunPlace::ThisMac, "a project is kept in no repository");
+    assert!(store.rows.is_empty() && store.unread.is_none() && seen.loose.is_empty(), "no rows are read: {store:?}");
 
-    let outside = fleet.list_repository_workspaces(named(&back_office)).await.expect("read");
-    assert!(outside.workspaces.is_empty(), "{:?}", outside.workspaces);
-    let at_home = fleet.list_repository_workspaces(named(&web)).await.expect("read");
-    assert_eq!(at_home.workspaces.len(), 1);
-    assert_eq!(at_home.workspaces[0].home, None);
+    let outside = fleet.list_holding_projects(named(&back_office)).await.expect("read");
+    assert!(outside.projects.is_empty(), "{:?}", outside.projects);
+    let at_home = fleet.list_holding_projects(named(&web)).await.expect("read");
+    assert_eq!(at_home.projects.len(), 1);
 }
 
 #[tokio::test]
@@ -107,36 +106,12 @@ async fn two_files_of_one_project_are_both_left_out_and_a_broken_one_is_named_wi
     write(kit(&home, "projects", "broken.yml"), "not: a project\n");
     fleet.projects_reload().await;
 
-    let seen = fleet.list_repository_workspaces(named(&web)).await.expect("read");
-    assert!(seen.workspaces.is_empty(), "neither is guessed to be the one: {:?}", seen.workspaces);
+    let seen = fleet.list_holding_projects(named(&web)).await.expect("read");
+    assert!(seen.projects.is_empty(), "neither is guessed to be the one: {:?}", seen.projects);
     let mut left: Vec<&str> = seen.left_out.iter().map(|one| one.path.rsplit('/').next().unwrap_or_default()).collect();
     left.sort_unstable();
     assert_eq!(left, ["broken.yml", "copy.yml", "my-store.yml"]);
-    assert!(seen.left_out.iter().all(|one| one.source == "kit" && !one.said.is_empty()), "{:?}", seen.left_out);
-}
-
-#[tokio::test]
-async fn every_project_is_listed_once_whichever_place_keeps_it_and_a_broken_file_is_named() {
-    let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
-    let (web, api) = (first(&fleet), another(&fleet, &home, "store-api"));
-    my_store(&fleet, &home, &[&web, &api]).await;
-    crate::tests::projects_kept::planted(&fleet, &home, "back-office", "Back office", &[api.manifest().id().as_str()]).await;
-    write(kit(&home, "projects", "broken.yml"), "not: a project\n");
-    fleet.projects_reload().await;
-
-    let seen = fleet.list_workspaces().await.expect("read");
-    let [office, store] = seen.workspaces.as_slice() else { panic!("two, by name: {:?}", seen.workspaces) };
-    assert_eq!((office.id.as_str(), office.name.as_str(), office.source.as_str()), ("back-office", "Back office", "kit"));
-    assert_eq!((office.home.as_ref(), office.overridden_by.as_deref(), office.hides.as_deref()), (None, None, None));
-    assert!(office.path.ends_with("back-office.yml"), "{}", office.path);
-    assert_eq!((store.id.as_str(), store.name.as_str(), store.source.as_str()), ("my-store", "My store", "kit"));
-    assert_eq!(store.repositories, [wire_id(&web), wire_id(&api)]);
-    assert_eq!(store.home, None);
-    assert!(store.path.ends_with("my-store.yml"), "{}", store.path);
-
-    let [left] = seen.left_out.as_slice() else { panic!("one set aside: {:?}", seen.left_out) };
-    assert!(left.source == "kit" && left.path.ends_with("broken.yml") && !left.said.is_empty(), "{left:?}");
+    assert!(seen.left_out.iter().all(|one| one.place == ipc::RunPlace::ThisMac && !one.why.is_empty()), "{:?}", seen.left_out);
 }
 
 #[tokio::test]
@@ -223,7 +198,7 @@ async fn a_repository_nobody_serves_is_the_callers_to_correct() {
     let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
     let nobody = Some(ManifestId::carried("01NOBODY"));
     for refused in [
-        fleet.list_repository_workspaces(nobody.clone()).await.err(),
+        fleet.list_holding_projects(nobody.clone()).await.err(),
         fleet.list_lifecycles(nobody.clone()).await.err(),
         fleet.list_lifecycle_rules(nobody.clone()).await.err(),
         fleet.list_autonomy_defaults(nobody).await.err(),

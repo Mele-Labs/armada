@@ -347,6 +347,7 @@ async fn a_sessions_turn_is_entered_once_where_it_ends_with_its_length() {
     let manifest = fleet.repositories().first().expect("a repository").manifest().id().as_str().to_string();
     let started = Arc::clone(&fleet)
         .start_session(ipc::StartSession {
+            project: None,
             manifest_id: ipc::ManifestId::carried(&manifest),
             title: None,
             model: None,

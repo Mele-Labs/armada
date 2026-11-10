@@ -155,6 +155,7 @@ impl Rig {
         let id = self
             .fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest.clone(),
                 title: Some("The agent".into()),
                 model: None,

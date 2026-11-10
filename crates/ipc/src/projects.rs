@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{IssueState, ManifestId, SessionId};
+use crate::{IssueState, ManifestId, RunCloud, RunPlace, SessionId};
 
 /// `list_projects`' answer, what every write answers, and `projects.changed` whole.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,6 +18,9 @@ pub struct Projects {
     pub projects: Vec<Project>,
     /// The tasks in no project, of every repository, in their own order.
     pub loose: Vec<ProjectRow>,
+    /// The project files Fleet could not read, each with where it is and why. **A file a project of his
+    /// names is here too**, and that project says so as `unread`.
+    pub left_out: Vec<ProjectLeftOut>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,6 +29,47 @@ pub struct Project {
     pub name: String,
     /// In order, across repositories: a row's position is its place here.
     pub rows: Vec<ProjectRow>,
+    /// The repositories, whole or by a folder, the file lists, in its order. **Empty where `unread`.**
+    pub members: Vec<ProjectMember>,
+    /// Where its file is kept. None chosen is `this_mac`, and it is never `repository`.
+    pub place: ProjectPlace,
+    /// Present where the file could not be read: the sentence that says why. `name` is then the last
+    /// the store saw, and `members` is empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unread: Option<String>,
+}
+
+/// A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectMember {
+    pub manifest_id: ManifestId,
+    /// A path inside the repository, `/`-separated, with no leading or trailing `/`. Absent for the whole of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
+}
+
+/// Where a project's file is kept, as `set_run_memory_place` takes a repository's: `synced_folder` is
+/// required for `synced` and `cloud` for `cloud`. **`repository` is refused** with
+/// `fleet.project_place_refused`: a project is not kept in one.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectPlace {
+    pub place: RunPlace,
+    /// The folder `synced` writes under.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub synced_folder: Option<String>,
+    /// Where `cloud` keeps it: `{"store":{}}` or `{"bucket":"s3://b/prefix"}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cloud: Option<RunCloud>,
+}
+
+/// A project file Fleet could not read.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectLeftOut {
+    pub place: RunPlace,
+    /// The file, or the object a bucket holds it as.
+    pub path: String,
+    /// The sentence a person reads, naming the key or the id at fault.
+    pub why: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -135,10 +179,27 @@ pub struct ProjectRowRef {
     pub row: String,
 }
 
-/// `add_project` and `rename_project`: the project's name.
+/// `add_project`: the project's name, trimmed, and what it starts with. **Absent `members` is none**,
+/// and absent `place` is this Mac.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NameProject {
+pub struct NewProject {
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub members: Option<Vec<ProjectMember>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<ProjectPlace>,
+}
+
+/// `edit_project`: what changes, and only that. **Absent leaves it**: `members` present replaces the
+/// whole list, `[]` clearing it, and `place` moves the file.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditProject {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub members: Option<Vec<ProjectMember>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub place: Option<ProjectPlace>,
 }
 
 /// `edit_project_task` and `add_project_subtask`: a task's title and notes, whole.

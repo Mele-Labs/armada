@@ -90,6 +90,12 @@ pub struct StartSession {
     /// it carries, so no agent can give it to a Job. Absent is false.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_your_words: Option<bool>,
+    /// The project of his the Job is for, by id: `list_projects` names them. **The Job keeps it** and
+    /// serves it as `hosted.project`. Refused 404 `fleet.no_such_project` where he has none by that id, and
+    /// 422 `fleet.project_not_member` where the Job's repository is not one of its members. Not read
+    /// with `fork` or `root`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 /// The session a new one is forked from. Since 23.69.
@@ -435,6 +441,9 @@ pub struct HostedFacts {
     /// since: `start_again`, or a message, tries again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start_failed: Option<StartFailed>,
+    /// The project the Job was started for, by id (`StartSession.project`). Absent for a Job started for none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 /// Why a Job's process would not start.

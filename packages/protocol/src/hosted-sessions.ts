@@ -85,6 +85,12 @@ export type StartSession = {
    * door. Bridge is the only setter: a start that arrives through the agent door reads this as absent. Left out when false.
    */
   on_your_words?: boolean;
+  /**
+   * The project of his the Job is for, by id; `list_projects` names them. The Job keeps it, and serves it as `hosted.project`. Refused 404
+   * `fleet.no_such_project` where he has none by that id, and 422 `fleet.project_not_member` where the Job's repository is not one of
+   * its members. Not read with `fork` or `root`.
+   */
+  project?: string;
 };
 
 export type TagKind = "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
@@ -386,6 +392,8 @@ export type HostedFacts = {
   start?: StartHeld;
   /** Present while the Job's process would not start, tried twice, and nothing has sent its turns since: `POST /sessions/start_again`, or a message, tries again. */
   start_failed?: StartFailed;
+  /** The project the Job was started for, by id (`StartSession.project`). Absent for a Job started for none. */
+  project?: string;
 };
 
 /** Why a Job's process would not start. `log` is the last lines the agent wrote to its error output, oldest first; empty is omitted. */

@@ -60,7 +60,7 @@ impl Target {
         }
     }
 
-    pub(super) fn wire(&self) -> RunCloud {
+    pub(crate) fn wire(&self) -> RunCloud {
         match self {
             Target::Store => RunCloud::Store {},
             Target::Bucket(_, text) => RunCloud::Bucket(text.clone()),

@@ -333,6 +333,7 @@ async fn left_partway(rig: &Rig, named: bool) -> (SessionId, SessionId) {
     let new = rig
         .fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: rig.manifest.clone(),
             title: Some("The agent".into()),
             model: None,
@@ -539,6 +540,7 @@ async fn stay_and_do_not_ask_again_is_kept_on_the_ledger_and_the_job_is_never_to
     let other = rig
         .fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: rig.manifest.clone(),
             title: Some("Another".into()),
             model: None,
@@ -809,6 +811,7 @@ async fn a_linked_job_handed_on_passes_its_link_and_the_parent_follows_the_succe
     let parent = rig
         .fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: rig.manifest.clone(),
             title: Some("The planner".into()),
             model: None,

@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use crate::{
-    decode, encode, AllWorkspaces, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
+    decode, encode, AppliedLifecycle, AppliedRule, Cursor, Delivered, Event, HeldInstance, InstanceLink, InstanceMove,
     InstanceStanding, Instant, JobLifecycles, LifecycleDefinition, LifecycleRule, LifecycleStateDefinition,
     LifecycleTransition, ManifestId, ActKindDefault, AutonomyLayer, RepositoryAutonomy, PieceKept, PieceLeftOut, PieceRank, PieceScope, RepositoryLifecycleRules,
-    RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleActReading, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
-    RuleTarget, RuleWhen, SessionId, StateReadFrom, StreamMessage, WorkspaceOfRepositories,
+    RepositoryLifecycles, RuleAct, RuleActReading, RuleAmong, RuleCondition, RuleDoing, RuleOnFailure,
+    RuleTarget, RuleWhen, SessionId, StateReadFrom, StreamMessage,
 };
 
 const MIRROR: &str = include_str!("../../../../packages/protocol/src/lifecycles.ts");
@@ -100,19 +100,6 @@ fn kept_by_kit() -> PieceKept {
         rank: PieceRank { reach: "workspace".to_string(), source: "kit".to_string(), home: true },
         path: Some("/home/.armada/lifecycles/ticket.yml".to_string()),
         overridden_by: Some(PieceRank { reach: "repository".to_string(), source: "repository".to_string(), home: false }),
-        hides: Some("repository".to_string()),
-    }
-}
-
-fn a_workspace() -> WorkspaceOfRepositories {
-    WorkspaceOfRepositories {
-        id: "my-store".to_string(),
-        name: "My store".to_string(),
-        repositories: vec![ManifestId::carried("01API"), ManifestId::carried("01WEB")],
-        home: Some(ManifestId::carried("01API")),
-        source: "repository".to_string(),
-        path: "/repos/api/.armada/workspaces/my-store.yml".to_string(),
-        overridden_by: Some("kit".to_string()),
         hides: Some("repository".to_string()),
     }
 }
@@ -240,9 +227,7 @@ fn every_part_round_trips() {
         rules: vec![AppliedRule { rule: a_rule(), kept: kept_by_kit() }],
         left_out: left_out(),
     });
-    round_trips(&RepositoryWorkspaces { manifest_id: ManifestId::carried("01API"), workspaces: vec![a_workspace()], left_out: left_out() });
     round_trips(&an_autonomy());
-    round_trips(&AllWorkspaces { workspaces: vec![a_workspace()], left_out: left_out() });
 }
 
 /// Nothing is sent as `null`: a part that is absent leaves no key.
@@ -255,12 +240,6 @@ fn what_is_absent_leaves_no_key() {
     let spelled = encode(&carried).expect("plain data");
     assert!(spelled.contains(r#""kept":{"rank":{"reach":"everywhere","source":"armada"}}"#), "{spelled}");
     assert!(!spelled.contains("null"), "{spelled}");
-
-    let in_a_kit = WorkspaceOfRepositories { home: None, overridden_by: None, hides: None, ..a_workspace() };
-    let spelled = encode(&in_a_kit).expect("plain data");
-    for absent in ["home", "overridden_by", "hides"] {
-        assert!(!spelled.contains(absent), "{absent}: {spelled}");
-    }
 
     let bare = RuleTarget { among: RuleAmong::Entered, in_state: None };
     assert_eq!(encode(&bare).expect("plain data"), r#"{"among":{"kind":"entered"}}"#);
@@ -328,8 +307,6 @@ fn the_typescript_mirror_names_every_field_and_every_tag_rust_sends() {
         serde_json::to_value(a_job()).unwrap(),
         serde_json::to_value(AppliedLifecycle { lifecycle: a_lifecycle(), kept: kept_by_kit() }).unwrap(),
         serde_json::to_value(AppliedRule { rule, kept: kept_by_kit() }).unwrap(),
-        serde_json::to_value(RepositoryWorkspaces { manifest_id: ManifestId::carried("01API"), workspaces: vec![a_workspace()], left_out: left_out() }).unwrap(),
-        serde_json::to_value(AllWorkspaces { workspaces: vec![a_workspace()], left_out: left_out() }).unwrap(),
         serde_json::to_value(RepositoryLifecycles { manifest_id: ManifestId::carried("01API"), lifecycles: Vec::new(), left_out: Vec::new() }).unwrap(),
         serde_json::to_value(RepositoryLifecycleRules { manifest_id: ManifestId::carried("01API"), rules: Vec::new(), left_out: Vec::new() }).unwrap(),
         serde_json::to_value(an_autonomy()).unwrap(),

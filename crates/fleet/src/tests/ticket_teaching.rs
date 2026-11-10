@@ -165,6 +165,7 @@ async fn a_job_in_a_repository_outside_the_project_keeps_its_ticket_as_it_was() 
     in_a_project(&rig).await;
     let outside = Arc::clone(&rig.fleet)
         .start_session(ipc::StartSession {
+            project: None,
             manifest_id: second.clone(),
             title: None,
             model: None,

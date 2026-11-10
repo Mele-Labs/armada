@@ -241,6 +241,7 @@ where
         let manifest = ipc::ManifestId::carried(&hosting.manifest_id);
         let made = self
             .start_session(ipc::StartSession {
+                project: None,
                 manifest_id: manifest,
                 title: Some(format!("Repair: {title}")),
                 model: None,

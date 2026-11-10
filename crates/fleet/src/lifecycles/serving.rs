@@ -11,12 +11,10 @@ use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Lifecycles, Refusal};
-use config::{ProjectFile, ProjectLeftOut};
-use core_model::{InstanceRef, Lifecycle, PieceSource, Standing};
+use core_model::{InstanceRef, Lifecycle, Standing};
 use ipc::{
-    AllWorkspaces, AppliedLifecycle, AppliedRule, AutonomyLayer, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
-    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleActReading, SessionId, WireError,
-    WorkspaceOfRepositories,
+    AppliedLifecycle, AppliedRule, AutonomyLayer, HeldInstance, InstanceLink, InstanceMove, JobLifecycles, ManifestId,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RuleActReading, SessionId, WireError,
 };
 use store::Store;
 
@@ -210,32 +208,6 @@ where
     }
 }
 
-/// One Project file as Bridge reads a Workspace for now, shared by the read of one repository and
-/// the read of all. **The wire keeps its old names until the next change renames them**: a Project
-/// is Kit's by the wire's word and has no home repository.
-fn project_on_the_wire(file: &ProjectFile) -> WorkspaceOfRepositories {
-    WorkspaceOfRepositories {
-        id: file.project().id().as_str().to_string(),
-        name: file.project().name().as_str().to_string(),
-        repositories: file.project().repositories().into_iter().map(ManifestId::from).collect(),
-        home: None,
-        source: wire::place(PieceSource::Kit),
-        path: file.path().to_string_lossy().into_owned(),
-        overridden_by: None,
-        hides: None,
-    }
-}
-
-fn projects_left_out(left: &[ProjectLeftOut]) -> Vec<ipc::PieceLeftOut> {
-    left.iter()
-        .map(|one| ipc::PieceLeftOut {
-            source: wire::place(PieceSource::Kit),
-            path: one.path().to_string_lossy().into_owned(),
-            said: one.said().to_string(),
-        })
-        .collect()
-}
-
 impl<H, V, W> Lifecycles for Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -246,25 +218,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    async fn list_repository_workspaces(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryWorkspaces, Refusal> {
-        let served = self.served_named(manifest_id.as_ref())?;
-        let projects = self.projects_held();
-        let holding: Vec<_> = projects.holding(served.manifest().id()).into_iter().map(|one| one.id().clone()).collect();
-        let listed = projects.files().iter().filter(|file| holding.contains(file.project().id())).map(project_on_the_wire).collect();
-        Ok(RepositoryWorkspaces {
-            manifest_id: ManifestId::from(served.manifest().id()),
-            workspaces: listed,
-            left_out: projects_left_out(projects.left_out()),
-        })
-    }
-
-    async fn list_workspaces(&self) -> Result<AllWorkspaces, Refusal> {
-        let projects = self.projects_held();
-        let mut listed: Vec<_> = projects.files().iter().map(project_on_the_wire).collect();
-        listed.sort_by(|a, b| a.name.cmp(&b.name));
-        Ok(AllWorkspaces { workspaces: listed, left_out: projects_left_out(projects.left_out()) })
-    }
-
     async fn list_lifecycles(&self, manifest_id: Option<ManifestId>) -> Result<RepositoryLifecycles, Refusal> {
         let served = self.served_named(manifest_id.as_ref())?;
         let applying = self.lifecycles_applying_to(served.manifest().id())?;

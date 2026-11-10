@@ -124,9 +124,14 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects",
     },
     Route {
-        operation: "rename_project",
+        operation: "list_holding_projects",
+        method: "GET",
+        path: "/projects/holding",
+    },
+    Route {
+        operation: "edit_project",
         method: "POST",
-        path: "/projects/project/:project/rename",
+        path: "/projects/project/:project/edit",
     },
     Route {
         operation: "delete_project",

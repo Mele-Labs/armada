@@ -35,6 +35,7 @@ async fn a_session(fleet: &Arc<Rescued>) -> String {
         .to_string();
     fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(manifest),
             title: None,
             model: None,

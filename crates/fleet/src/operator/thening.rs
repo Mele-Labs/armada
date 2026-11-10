@@ -89,6 +89,7 @@ where
             OperatorThen::FileAndStart => {
                 let started = self
                     .start_session(StartSession {
+                        project: None,
                         manifest_id: ipc::ManifestId::carried(&arrival.manifest_id),
                         title: Some(arrival.subject.clone()),
                         model: None,

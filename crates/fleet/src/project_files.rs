@@ -21,16 +21,22 @@ use std::sync::{Arc, RwLock};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::{project_text, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects};
-use core_model::{Project, ScopeId};
-use ipc::{RunCloud, RunPlace};
+use core_model::{Folder, ManifestId as Repository, Member, Project, ScopeId, Title, Ulid};
+use ipc::{ProjectMember, RunCloud, RunPlace};
 use store::KeptPlace;
 
 use crate::daemon::Fleet;
 use crate::piece_places::files_in;
 use crate::run_memory::{cloud, place_word, places};
 
-/// A project's file could not be written, or removed. A 500.
+/// A project's file could not be written, or removed, a 500; or it would not read, so it is not
+/// written over, a 422.
 pub(crate) const UNWRITABLE: &str = "fleet.project_unwritable";
+/// A Job was started for a project that does not hold its repository. A 422.
+pub(crate) const NOT_MEMBER: &str = "fleet.project_not_member";
+/// The members given do not make a project: a folder that is not a path inside its repository, a member
+/// listed twice, a whole repository beside a folder of it. A 422.
+pub(crate) const MALFORMED: &str = "fleet.project_malformed";
 /// The place chosen for a project cannot be used. A 422.
 pub(crate) const PLACE_REFUSED: &str = "fleet.project_place_refused";
 /// Fleet holds no project by that id. A 404.
@@ -77,7 +83,7 @@ where
     }
 
     /// Where the file of project `id` is, from the place chosen for it.
-    async fn project_kept(&self, id: &str) -> Result<(ProjectPlace, places::Where), Refusal> {
+    pub(crate) async fn project_kept(&self, id: &str) -> Result<(ProjectPlace, places::Where), Refusal> {
         let held = self.store().lock().await.project_place(id).map_err(|why| self.ledger_fault(why))?;
         let (place, at) = places::where_kept(&self.kit_folder(), held.as_ref());
         Ok((place_of_file(place), at))
@@ -160,7 +166,7 @@ where
     }
 
     /// Write `project` as the file the place `held` keeps, which is chosen and not yet recorded.
-    async fn project_stored_at(&self, project: &Project, held: Option<&KeptPlace>) -> Result<(), Refusal> {
+    pub(crate) async fn project_stored_at(&self, project: &Project, held: Option<&KeptPlace>) -> Result<(), Refusal> {
         let id = project.id().as_str().to_string();
         if !file_safe(&id) {
             return Err(self.project_unwritable(&id, "its id cannot name a file"));
@@ -202,23 +208,78 @@ where
         }
     }
 
-    /// Choose where project `id`'s file is kept, write it there, and read every project again.
-    /// **`repository` is refused**: a project is not kept in one. The old place's file is taken away
-    /// where it was Kit's; a synced folder's and a bucket's stay, and are never read again.
-    pub async fn project_place_set(
+    /// The project `id` a Job in `repository` is started for, or a refusal before anything is made: a 404
+    /// `fleet.no_such_project` where he has none by that id, and a 422 `fleet.project_not_member` where it does not
+    /// hold the repository, or where its file did not read and Fleet cannot say.
+    pub(crate) async fn project_started_for(&self, id: &str, repository: &str) -> Result<String, Refusal> {
+        let named = ScopeId::new(id).ok();
+        let read = named.as_ref().and_then(|scope| self.projects_held().get(scope).cloned());
+        let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
+        if read.is_none() && !kept.projects.iter().any(|one| one.id == id) {
+            return Err(Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id}"))));
+        }
+        let not_member = |said: String| Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, said));
+        match read {
+            Some(project) if project.holds(&Repository::carried(Ulid::carried(repository))) => Ok(id.to_string()),
+            Some(project) => Err(not_member(format!(
+                "`{}` is not a member of the project {}, so a Job in it cannot be for it",
+                repository,
+                project.name().as_str()
+            ))),
+            None => Err(not_member(format!("The file of project {id} did not read, so Fleet cannot say that `{repository}` is a member"))),
+        }
+    }
+
+    /// The members a person wrote, or the first thing wrong with them: a 422 `fleet.project_malformed`.
+    pub(crate) fn members_read(&self, written: &[ProjectMember]) -> Result<Vec<Member>, Refusal> {
+        let malformed = |said: String| Refusal::Unacceptable(self.project_refusal(MALFORMED, said));
+        written
+            .iter()
+            .map(|member| {
+                let repository = Repository::carried(Ulid::carried(member.manifest_id.as_str().trim()));
+                match member.folder.as_deref() {
+                    None => Ok(Member::whole(repository)),
+                    Some(folder) => Folder::new(folder)
+                        .map(|folder| Member::folder(repository, folder))
+                        .map_err(|why| malformed(format!("the folder `{folder}` of `{}`: {why}", member.manifest_id.as_str()))),
+                }
+            })
+            .collect()
+    }
+
+    /// The project `id` named `name` with `members`: a 422 `fleet.project_blank` for a blank name and
+    /// `fleet.project_malformed` for members that do not make a project.
+    pub(crate) fn project_declared(&self, id: &str, name: &str, members: Vec<Member>) -> Result<Project, Refusal> {
+        let blank = || Refusal::Unacceptable(self.project_refusal(crate::projects::BLANK, "a project needs a name"));
+        let (scope, title) = (ScopeId::new(id).map_err(|_| blank())?, Title::new(name).map_err(|_| blank())?);
+        Project::declared(scope, title, members)
+            .map_err(|why| Refusal::Unacceptable(self.project_refusal(MALFORMED, why.to_string())))
+    }
+
+    /// The project `id` as its file reads, or a 422 where the file would not read: **a file that will not
+    /// read is not written over**, so the project keeps what it had.
+    pub(crate) fn project_read(&self, id: &str) -> Result<Project, Refusal> {
+        ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).cloned()).ok_or_else(|| {
+            Refusal::Unacceptable(self.project_refusal(
+                UNWRITABLE,
+                format!("The file of project {id} did not read, so it is not written over and nothing of it changes"),
+            ))
+        })
+    }
+
+    /// `place` as chosen for a project, or why it cannot be: **`repository` is refused**, a folder that is not
+    /// there, a cloud with no address, a bucket that cannot be reached. Nothing is written.
+    pub(crate) async fn project_place_chosen(
         &self,
         id: &str,
         place: RunPlace,
         synced_folder: Option<String>,
         cloud: Option<RunCloud>,
-    ) -> Result<(), Refusal> {
+    ) -> Result<KeptPlace, Refusal> {
         let refused = |said: String| Refusal::Unacceptable(self.project_refusal(PLACE_REFUSED, said));
         if place == RunPlace::Repository {
             return Err(refused(String::from("a project is not kept in a repository: choose this Mac, a synced folder or the cloud")));
         }
-        let project = ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).cloned()).ok_or_else(|| {
-            Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id} that reads, so it is not moved")))
-        })?;
         let picked = places::place_chosen(place, synced_folder.as_deref(), cloud.as_ref()).map_err(refused)?;
         let chosen = KeptPlace {
             place: place_word(place).to_string(),
@@ -231,9 +292,16 @@ where
                 .await
                 .map_err(|fault| Refusal::Unacceptable(self.project_refusal(fault.code(), fault.said().to_string())))?;
         }
+        Ok(chosen)
+    }
+
+    /// Write `project` at the place `chosen` and record the choice. The old place's file is taken away
+    /// where it was Kit's; a synced folder's and a bucket's stay, and are never read again.
+    pub(crate) async fn project_relocated(&self, project: &Project, chosen: &KeptPlace) -> Result<(), Refusal> {
+        let id = project.id().as_str();
         let was = self.project_kept(id).await?;
         // The old place stays unless the new one takes the file.
-        self.project_stored_at(&project, Some(&chosen)).await?;
+        self.project_stored_at(project, Some(chosen)).await?;
         self.store()
             .lock()
             .await
@@ -246,6 +314,23 @@ where
                 let _ = std::fs::remove_file(old);
             }
         }
+        Ok(())
+    }
+
+    /// Choose where project `id`'s file is kept, write it there, and read every project again.
+    /// **`repository` is refused**: a project is not kept in one.
+    pub async fn project_place_set(
+        &self,
+        id: &str,
+        place: RunPlace,
+        synced_folder: Option<String>,
+        cloud: Option<RunCloud>,
+    ) -> Result<(), Refusal> {
+        let chosen = self.project_place_chosen(id, place, synced_folder, cloud).await?;
+        let project = ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).cloned()).ok_or_else(|| {
+            Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id} that reads, so it is not moved")))
+        })?;
+        self.project_relocated(&project, &chosen).await?;
         self.projects_reload().await;
         Ok(())
     }

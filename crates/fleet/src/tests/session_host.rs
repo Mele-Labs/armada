@@ -276,6 +276,7 @@ impl Rig {
     async fn start_requesting_nothing(&self, held: bool) -> SessionId {
         self.fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest.clone(),
                 title: None,
                 model: None,
@@ -297,6 +298,7 @@ impl Rig {
     pub(super) async fn start_titled(&self, title: Option<&str>) -> SessionId {
         self.fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest.clone(),
                 title: title.map(String::from),
                 model: None,
@@ -323,6 +325,7 @@ impl Rig {
         set: impl FnOnce(&mut StartSession),
     ) -> ipc::SessionRecord {
         let mut start = StartSession {
+            project: None,
             manifest_id: self.manifest.clone(),
             title: None,
             model: None,
@@ -944,6 +947,7 @@ async fn a_quiet_process_is_ended_and_closing_ends_the_row_and_refuses_more() {
     let one = quick.repositories().first().unwrap();
     let id = quick
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(one.manifest().id().as_str()),
             title: Some("quiet".into()),
             model: None,

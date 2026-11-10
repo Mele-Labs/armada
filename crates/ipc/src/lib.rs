@@ -326,10 +326,10 @@ pub use piece_saving::{
     LifecyclePieceSaved, SaveLifecyclePiece, TeachTicketWord, TicketWordTaught,
 };
 pub use lifecycles::{
-    ActKindDefault, AllWorkspaces, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
+    ActKindDefault, AppliedLifecycle, AutonomyLayer, RepositoryAutonomy, AppliedRule, HeldInstance, InFlight, InstanceLink, InstanceMove, InstanceStanding, JobLifecycles,
     LifecycleDefinition, LifecycleRule, LifecycleStateDefinition, LifecycleTransition, PieceKept, PieceLeftOut,
-    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, RuleAct, RuleAmong,
-    RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom, WorkspaceOfRepositories,
+    PieceRank, PieceScope, RepositoryLifecycleRules, RepositoryLifecycles, RuleAct, RuleAmong,
+    RuleActReading, RuleCondition, RuleDoing, RuleOnFailure, RuleTarget, RuleWhen, StateReadFrom,
 };
 pub use amending::{
     CheckDraft, CommandDraft, EditManifest, EvidenceDraft, LinkDraft, ManifestDeclared,
@@ -469,8 +469,8 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use projects::{
-    LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask,
-    Project, ProjectHolder, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
+    EditProject, LinkProjectIssue, LinkTaskJob, LinkTaskPull, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue,
+    NewProjectTask, Project, ProjectHolder, ProjectLeftOut, ProjectMember, ProjectPlace, ProjectRow, ProjectRowRef, ProjectTask, ProjectTaskState, Projects, TaskIssue, TaskPull, TaskPullState,
     TickProjectTask,
 };
 pub use issues::{

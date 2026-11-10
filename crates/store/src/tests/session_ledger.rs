@@ -395,6 +395,7 @@ fn only_an_ended_session_that_was_never_anything_is_forgotten_as_blank() {
 
 pub(super) fn hosting(session_id: &str, manifest: &str, on_your_words: bool) -> crate::KeptHosting {
     crate::KeptHosting {
+        project: None,
         session_id: session_id.into(),
         manifest_id: manifest.into(),
         model: Some("opus".into()),

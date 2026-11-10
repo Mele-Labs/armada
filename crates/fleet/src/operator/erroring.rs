@@ -144,6 +144,7 @@ where
     pub(super) async fn operator_started_error(self: &Arc<Self>, manifest: &str, arrival: &Arrival) -> Option<String> {
         let started = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(manifest),
                 title: Some(arrival.subject.clone()),
                 model: None,

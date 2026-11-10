@@ -1,4 +1,4 @@
-//! Workspaces, lifecycles and rules: what applies to a repository, where a Job's tickets, pull
+//! Lifecycles and rules: what applies to a repository, where a Job's tickets, pull
 //! requests, deploys and started Jobs stand, and saving or deleting one piece in Kit. Nothing here
 //! moves an instance.
 //!
@@ -8,25 +8,14 @@
 use std::future::Future;
 
 use ipc::{
-    AllWorkspaces, DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
-    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, SaveLifecyclePiece, SessionId,
+    DeleteLifecyclePiece, JobLifecycles, KeepDrafts, LifecyclePieceDeleted, LifecyclePieceSaved, ManifestId,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, SaveLifecyclePiece, SessionId,
     TeachTicketWord, TicketWordTaught,
 };
 
 use crate::daemon::Refusal;
 
 pub trait Lifecycles: Send + Sync + 'static {
-    /// `list_repository_workspaces` — the Workspaces (sets of repositories) that hold one
-    /// repository. Absent `manifest_id` is the repository Fleet started in.
-    fn list_repository_workspaces(
-        &self,
-        manifest_id: Option<ManifestId>,
-    ) -> impl Future<Output = Result<RepositoryWorkspaces, Refusal>> + Send;
-
-    /// `list_workspaces` — every Workspace Fleet can see, whichever repositories it holds, and the
-    /// files set aside.
-    fn list_workspaces(&self) -> impl Future<Output = Result<AllWorkspaces, Refusal>> + Send;
-
     /// `list_lifecycles` — the lifecycles that apply to one repository, and the files set aside.
     fn list_lifecycles(
         &self,

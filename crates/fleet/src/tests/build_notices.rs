@@ -128,6 +128,7 @@ impl Rig {
     pub(super) async fn a_hosted_session(&self) -> String {
         self.fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(self.manifest()),
                 title: None,
                 model: None,
