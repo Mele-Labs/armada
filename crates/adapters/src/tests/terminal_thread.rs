@@ -505,3 +505,33 @@ fn a_subagent_shares_its_parents_window_on_the_same_model_and_guesses_otherwise(
     assert_eq!(window(200_000, None, None), 200_000);
     assert_eq!(window(200_001, None, None), 1_000_000);
 }
+
+/// **A thread read back from the transcript carries a call's `description`** as the live one does,
+/// and a call without one carries none.
+#[test]
+fn a_replayed_call_carries_its_description_and_one_without_carries_none() {
+    let (_home, file) = written(&[
+        line(
+            "assistant",
+            "a1",
+            "",
+            r#"[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"git show --stat HEAD","description":"Showing files touched by the latest non-merge commit"}}]"#,
+        ),
+        line(
+            "assistant",
+            "a2",
+            "",
+            r#"[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"ls"}}]"#,
+        ),
+    ]);
+    let thread = read_from(&file, 0).expect("readable");
+    let seen: Vec<Option<&str>> = thread
+        .rows
+        .iter()
+        .map(|row| match row {
+            SessionRow::Tool { description, .. } => description.as_deref(),
+            other => panic!("not a call: {other:?}"),
+        })
+        .collect();
+    assert_eq!(seen, [Some("Showing files touched by the latest non-merge commit"), None]);
+}

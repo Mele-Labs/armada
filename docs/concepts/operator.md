@@ -39,9 +39,9 @@ Everything that needs a person reaches the person already read, with the Operato
 | Handles issues | Partly. A new issue is linked, filed or started on |
 | Handles reviews | Not built |
 | Reviews what needs you and raises it with its read and a pick | Partly. Fleet queues each item in Your turn with its read and pick; no Bridge shows it yet |
-| One chat, on its own page or in a pane from anywhere | Partly. A box in the Electron Bridge |
+| One chat, on its own page or in a pane from anywhere | Partly. Fleet serves the talk; the native Bridge draws the box |
 | Its page: Your turn, the short draggable list, beside the digest Since you last looked | Partly. Fleet serves it as `operator_page`; no Bridge draws it yet |
-| The Log and what it learned in each project, as tiles of the digest | Partly. The Log is built in the Electron Bridge |
+| The Log and what it learned in each project, as tiles of the digest | Partly. Fleet serves the Log; the native Bridge draws it |
 | Toasts in the native Bridge | Not built |
 
 ## How it is shaped
@@ -233,11 +233,11 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
 
 The pane opened from a Job holds the chat and the short list.
 It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.
-The Electron Bridge keeps today's Operator page unchanged until the native one has these, decided 10 Nov: no new interface goes into Electron.
+The Electron Bridge no longer shows the Operator, decided 10 Nov, and the native Bridge draws its page.
 
 ## What goes
 
-**These go from the native Bridge's Operator, and from the Electron one only when it is replaced.**
+**These go from the native Bridge's Operator.**
 Why: they made the Operator a board to read and levels to tune, where the person wants one agent that watches and answers.
 
 | Goes | What it is today | Replaced by |
@@ -268,7 +268,7 @@ The Operator replaced it.
 | What Helm did | What happens now |
 |---|---|
 | One live Job per repository, with a slot and a branch on its first write | Gone. No Operator Job runs |
-| Its talk box | The box in the Electron Bridge, and the native chat once built |
+| Its talk box | The native chat, once built |
 | Questions waiting on you in the dock | Stay in Needs you, with the Operator's read and pick |
 | Authoring a workflow, driving a Studio, breaking a goal into Jobs | Each is a Job the Operator starts on your words |
 | Its title matching and `tell_session` | Kept, as the first shortlist of Jobs and the way Delegate sends words |

@@ -1555,7 +1555,7 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
   Words sent on it with no choice are never refused: they go to the Operator as `talk_to_operator` with `about` set to the suggestion's arrival id, the row stays, and the reply lands in the Operator's conversation.
   It is drawn as any answer item until the panel's look lands, armada-ehhu.10.
 - **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route.
-  `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
+  `OperatorRead` in `packages/protocol/src/sessions.ts` is its type.
 
 A suggestion on a report with no Job behind it, or on a note the person left on Bridge, has no list to stand on. It is kept in the store for the panel.
 A note's is kept at any position short of Off, and no route presses it yet: the panel Job owns that.

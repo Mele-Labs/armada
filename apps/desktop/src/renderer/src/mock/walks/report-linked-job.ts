@@ -1,7 +1,6 @@
-// A reported bug and the Job started on it: the glyph on its row, the Job in the reader, the report among the Job's issues, and a
-// fixed report under Closed. Over the `report-linked-job` scenario.
+// A reported bug and the Job started on it: the glyph on its row, the Job in the reader, and the report among the Job's issues. Over the `report-linked-job` scenario.
 
-import { button, inside, place, region, role, text, walk } from "../walk";
+import { button, inside, place, region, role, walk } from "../walk";
 
 const list = region("Issues", {
   exact: true,
@@ -13,7 +12,18 @@ const reader = region("Reported bug", {
 const reportLinkedJob = walk("report-linked-job", [
   {
     press: place("Issues"),
-    say: "Issues, with All picked. A report with a Job shows the Job's state beside its title",
+    say: "Issues, with All picked. Reports are drawn only under Reported",
+  },
+  {
+    key: "L",
+    on: list,
+    say: "L opens the filter, where Reported is one more kind",
+  },
+  {
+    press: role("menuitem", "Reported", {
+      exact: true,
+    }),
+    say: "A report with a Job shows the Job's state beside its title",
   },
   {
     hover: inside(list, role("img", /^Stop a watch once its pull request merges:/)),
@@ -21,7 +31,7 @@ const reportLinkedJob = walk("report-linked-job", [
   },
   {
     press: inside(list, button(/^A watch stayed live/)),
-    say: "The reader shows the Job where Start a Job would be",
+    say: "The reader shows the Job where Dispatch would be",
   },
   {
     press: inside(reader, button(/^Open the Job/)),
@@ -49,32 +59,13 @@ const reportLinkedJob = walk("report-linked-job", [
   {
     key: "L",
     on: list,
-    say: "L opens the filter",
+    say: "L opens the filter, where Reported is one more kind",
   },
   {
-    press: role("menuitem", "Closed", {
+    press: role("menuitem", "Reported", {
       exact: true,
     }),
-    say: "Closed",
-  },
-  {
-    press: inside(list, button(/^show_sketch refused an icon/)),
-    say: "A report whose Job's pull request merged is fixed. It leaves Open and stands here",
-  },
-  {
-    look: inside(reader, text("#3071")),
-    say: "The pull request that fixed it, which opens its link",
-  },
-  {
-    key: "L",
-    on: list,
-    say: "Back to Open",
-  },
-  {
-    press: role("menuitem", "Open", {
-      exact: true,
-    }),
-    say: "Open",
+    say: "Reported",
   },
   {
     press: inside(list, button(/^waiting_for refused/)),
@@ -83,11 +74,11 @@ const reportLinkedJob = walk("report-linked-job", [
   {
     press: inside(
       reader,
-      button("Start a Job", {
+      button("Dispatch", {
         exact: true,
       }),
     ),
-    say: "Start a Job opens the drafted Job with the report as its brief. Send starts it",
+    say: "Dispatch opens the drafted Job with the report as its brief. Send starts it",
   },
 ]);
 
