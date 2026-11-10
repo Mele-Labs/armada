@@ -233,6 +233,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         "build-reverting" => |face| face.build = Some(reverting()),
         "build-swapping" => |face| face.build = Some(swapping()),
         "build-swapped-back" => |face| face.build = Some(swapped_back()),
+        "events-dropped" => |face| face.dropped = Dropped { missed: 3, noted: 0 },
+        "events-noted" => |face| face.dropped = Dropped { missed: 3, noted: 3 },
         "signed-out" => |face| face.signed_in = false,
         "signed-in" => |face| face.signed_in = true,
         "fleet-running" => |face| face.fleet = fleet(connected(), Power::Live),

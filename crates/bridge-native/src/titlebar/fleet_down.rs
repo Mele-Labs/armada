@@ -183,6 +183,60 @@ impl TitleBar {
         .into_any_element()
     }
 
+    /// Events Fleet dropped, as `Standing.tsx` says it: until the person notes how many, one alert above the screen.
+    pub(super) fn dropped_alert(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let dropped = self.face.dropped;
+        if dropped.missed <= dropped.noted {
+            return None;
+        }
+        let title = "Events were dropped before Bridge saw them";
+        let missed = dropped.missed;
+        Some(
+            labelled(
+                div()
+                    .id("events-dropped")
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .p(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::STATUS_ESCALATED))
+                    .bg(look.color(token::STATUS_ESCALATED_BG))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .flex()
+                            .flex_col()
+                            .gap(look.length(token::SPACE_1))
+                            .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::STATUS_ESCALATED)).child(title))
+                            .child(
+                                div()
+                                    .text_size(look.length(token::TEXT_XS))
+                                    .line_height(look.length(token::LEADING_XS))
+                                    .text_color(look.color(token::FG_MUTED))
+                                    .child(format!("{missed} events will never arrive. Fleet resynced current state after each drop, so the list below is repaired.")),
+                            ),
+                    )
+                    .child(labelled(
+                        Btn::new("events-noted", "Noted", Weight::Ghost).draw(look, cx).on_click(cx.listener(move |this, _, _, cx| {
+                            this.face.dropped.noted = missed;
+                            cx.emit(Asked::EventsNoted(missed));
+                            cx.notify();
+                        })),
+                        Role::Button,
+                        "Noted",
+                    )),
+                Role::Alert,
+                title,
+            )
+            .into_any_element(),
+        )
+    }
+
     /// The notice above the screen, and what Restart Fleet adds under it.
     pub(super) fn notice(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let fleet = &self.face.fleet;

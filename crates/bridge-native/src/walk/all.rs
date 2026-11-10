@@ -56,6 +56,8 @@ pub static STEPS: &[Step] = &[
     step("The menu lists what the row gave up: repositories, Search, Dispatch, the Operator; the account entry says Sign in", Verb::Press, "button", "Menu"),
     press_on("Sign in goes to the account and shuts the menu", "menuitem", "Sign in", "button", "Menu"),
     scene("Signed in again at full width, the row is whole", "back-to-rest", "button", "Operator"),
+    scene("Events Fleet dropped stand as an alert above the screen, with the count that will never arrive", "events-dropped", "alert", "Events were dropped before Bridge saw them"),
+    press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
     scene("Fleet gone for over 30 seconds: a red dot, and the notice stands above the screen", "fleet-down", "alert", "Fleet is not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
     scene("A Fleet that does not match offers Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),

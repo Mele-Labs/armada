@@ -77,6 +77,8 @@ pub enum Asked {
     Teach(&'static str),
     /// The interface's press sound: the snapshot turned ready.
     Chime,
+    /// Noted on the dropped-events alert: this many are said to have been seen.
+    EventsNoted(u32),
 }
 
 impl EventEmitter<Asked> for TitleBar {}
@@ -1376,6 +1378,7 @@ impl Render for TitleBar {
             .child(row)
             .children(self.trying_bar(look, cx))
             .children(self.notice(look, cx))
+            .children(self.dropped_alert(look, cx))
             .children(self.popover(look, window, cx))
             .children(self.dialog_layer(look, viewport, cx))
             .children(self.toast(look, viewport, cx))

@@ -8,7 +8,7 @@ pub(super) const WARNING: &str = "5-hour limit 62%, Weekly limit 84%";
 pub(super) const DANGER: &str = "5-hour limit 97%, Weekly limit 96%";
 const RESET: &str = "5-hour limit 8%, Weekly limit 3%";
 
-pub static STEPS: [Step; 53] = [
+pub static STEPS: [Step; 55] = [
     step("The bar at rest: the repository, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Repository"),
     step("The Places stand in a notch at the centre: the place the window is in is brighter, and the search is an icon and its key beside it", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
@@ -53,6 +53,8 @@ pub static STEPS: [Step; 53] = [
     step("The account entry says Sign in, and carries the dot", Verb::Press, "button", "Menu"),
     press_on("Sign in goes to the account and shuts the menu", "menuitem", "Sign in", "button", "Menu"),
     scene("Signed in again at full width, the row is whole", "back-to-rest", "button", "Operator"),
+    scene("Events Fleet dropped stand as an alert above the screen, with the count that will never arrive", "events-dropped", "alert", "Events were dropped before Bridge saw them"),
+    press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
     scene("Fleet unreachable: the dot is amber and the notice says what is shown is not live", "fleet-unreachable", "status", "Fleet unreachable"),
     scene("Fleet starting: Armada's mark pulses and no notice yet", "fleet-starting", "button", "Fleet — Starting"),
     scene("Fleet gone, inside the first 30 seconds: a red dot and no notice", "fleet-powering", "button", "Fleet — Not running"),
