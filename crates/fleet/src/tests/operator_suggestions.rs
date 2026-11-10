@@ -168,12 +168,8 @@ async fn the_board_is_told_when_a_suggestion_is_added_and_when_one_is_settled() 
         words: TEXT.to_string(),
         paths: Vec::new(),
         issues: Vec::new(),
-        group: None,
         ways: Vec::new(),
-        answers: Vec::new(),
-        rule: None,
         open: Vec::new(),
-        ties: Vec::new(),
     };
 
     FleetActing::on(&rig.fleet).suggest(&arrival, &Ruling::alone(Way::File, "no open issue covers it")).await.expect("carried out");

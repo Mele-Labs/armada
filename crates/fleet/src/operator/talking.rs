@@ -99,8 +99,19 @@ pub struct EndedJob {
     pub started_by: Vec<(String, String)>,
 }
 
+/// A pull request a hosted Job held that merged since the local day began.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MergedPull {
+    pub session_id: String,
+    pub job: String,
+    pub number: String,
+    pub title: String,
+}
+
 /// The newest of the day's ended Jobs the box is shown.
 const ENDED_SHOWN: u32 = 30;
+/// The newest of the day's merged pull requests the box is shown.
+const MERGED_SHOWN: usize = 30;
 
 /// What the Operator itself suggested that still waits on the person, with no Job to list it on.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -140,6 +151,8 @@ pub struct Board {
     pub held: Vec<HeldJob>,
     /// Jobs ended since the local day began, newest first.
     pub ended: Vec<EndedJob>,
+    /// Pull requests Jobs held that merged since the local day began, newest first.
+    pub merged: Vec<MergedPull>,
     pub repositories: Vec<Repository>,
     /// What waits for the Operator: filled in by the Operator itself, which holds the queue.
     pub queue: Queued,
@@ -312,6 +325,10 @@ Fleet deletes it when you have answered.\n",
             out.push_str(&format!(" (started by {})", started_by_shown(&one.started_by)));
         }
         out.push('\n');
+    }
+    out.push_str("\nMerged today:\n");
+    for one in &board.merged {
+        out.push_str(&format!("  #{} \"{}\", held by Job {} \"{}\"\n", one.number, one.title, one.session_id, one.job));
     }
     out.push_str("\nThe conversation so far:\n");
     for one in so_far {
@@ -516,6 +533,19 @@ where
                 session_id: session.id,
             })
             .collect();
+        let mut merged: Vec<(String, MergedPull)> = Vec::new();
+        for hosting in store.hostings().unwrap_or_default() {
+            let job = store.session(&hosting.session_id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| hosting.session_id.clone());
+            for pull in store.attachments_of(&store::Holder::session(&hosting.session_id)).unwrap_or_default() {
+                let spent = pull.state == store::AttachmentState::Spent;
+                if pull.kind == "pr" && crate::pull_requesting::pull_merged(&pull.detail, spent) && pull.changed_at.as_str() >= day_began.as_str() {
+                    let title = pull.detail.get("title").cloned().unwrap_or_default();
+                    merged.push((pull.changed_at.clone(), MergedPull { session_id: hosting.session_id.clone(), job: job.clone(), number: pull.target.clone(), title }));
+                }
+            }
+        }
+        merged.sort_by(|a, b| b.0.cmp(&a.0));
+        let merged: Vec<MergedPull> = merged.into_iter().map(|(_, one)| one).take(MERGED_SHOWN).collect();
         drop(store);
         let repositories = self
             .repositories()
@@ -526,7 +556,7 @@ where
                 Repository { id: one.manifest().id().as_str().to_string(), name }
             })
             .collect();
-        Board { log, needs_you, suggestions, jobs: Vec::new(), stopped, held, ended, repositories, queue: Queued::default() }
+        Board { log, needs_you, suggestions, jobs: Vec::new(), stopped, held, ended, merged, repositories, queue: Queued::default() }
     }
 
     /// The open tasks and last words of the newest of `ids`, up to [`JOBS_DETAILED`] Jobs. Read from the

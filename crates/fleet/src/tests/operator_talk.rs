@@ -3,9 +3,10 @@
 
 use std::sync::{Arc, Mutex};
 
+use api::Sessions;
 use ipc::operator_talk::{OperatorHoldUntil, OperatorOrderForm};
 
-use super::operator_acting::{answering, asked, dispatch};
+use super::operator_acting::{asked, dispatch};
 use super::session_host::{denied, eventually, rig_placing, Rig};
 use super::session_queue::close;
 use crate::operator::{Answering, Calling};
@@ -42,7 +43,6 @@ fn reply(order: &str, said: &str) -> String {
 
 async fn seated(rig: &Rig, replies: &[&str]) -> Arc<Replies> {
     dispatch(rig, false).await;
-    answering(rig).await;
     let call = Replies::saying(replies);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     call
@@ -84,7 +84,6 @@ async fn it_cannot_be_talked_to_while_off_nor_past_a_failed_call_and_keeps_nothi
     assert!(call.asked().is_empty(), "no call");
 
     dispatch(&rig, false).await;
-    answering(&rig).await;
     assert!(code(rig.fleet.operator_talked("hello", None).await.expect_err("said nothing")).contains("fleet.operator_said_nothing"));
     assert!(rig.fleet.operator_talk_wire().await.expect("read").lines.is_empty());
 }
@@ -93,10 +92,10 @@ async fn it_cannot_be_talked_to_while_off_nor_past_a_failed_call_and_keeps_nothi
 async fn words_that_fit_no_form_list_the_forms_and_a_form_naming_what_is_not_there_is_no_form() {
     let rig = rig_placing(None);
     let unfit = reply("no_form", "No form holds that.");
-    let unknown = reply("role_off answer in 01NOSUCHREPOSITORY", "Done.");
+    let unknown = reply("role_off file in 01NOSUCHREPOSITORY", "Done.");
     seated(&rig, &[&unfit, &unknown]).await;
 
-    for words in ["be more careful", "turn Answer off somewhere else"] {
+    for words in ["be more careful", "turn File off somewhere else"] {
         let said = rig.fleet.operator_talked(words, None).await.expect("answered");
         assert!(said.order.is_none(), "{words}");
         assert_eq!(said.forms.len(), 3, "{words}");
@@ -110,12 +109,12 @@ async fn words_that_fit_no_form_list_the_forms_and_a_form_naming_what_is_not_the
 async fn a_kind_always_raised_goes_to_him_with_no_call() {
     let rig = rig_placing(None);
     let call = seated(&rig, &[]).await;
-    rig.fleet.operator_order_confirmed(OperatorOrderForm::AlwaysRaise { what: "start".into() }).await.expect("it stands");
-    let other = asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
-    let start = asked(&rig, "The terminal scrollback is lost on redraw").await;
-    assert!(!other.as_str().is_empty());
+    rig.fleet.operator_order_confirmed(OperatorOrderForm::AlwaysRaise { what: "report".into() }).await.expect("it stands");
+    let job = asked(&rig, "Keep the terminal scrollback when the pane redraws").await;
+    let report = ipc::ReportBug { title: "The terminal scrollback is lost on redraw".into(), what: "The pane redraws.".into(), steps: Vec::new(), errors: Vec::new(), logs: Vec::new(), session_id: Some(job) };
+    rig.fleet.report_bug(None, report).await.expect("reported");
 
-    rig.fleet.start_handed(start.as_str(), crate::operator::Source::Dispatch, "The terminal scrollback is lost on redraw").await;
+    rig.fleet.sources_handed().await;
     let fleet = Arc::clone(&rig.fleet);
     eventually(|| {
         let fleet = Arc::clone(&fleet);
@@ -156,12 +155,12 @@ async fn a_hold_refuses_another_jobs_write_under_its_paths_and_lifts_when_its_jo
 async fn orders_stand_over_a_restart() {
     let rig = rig_placing(None);
     seated(&rig, &[]).await;
-    rig.fleet.operator_order_confirmed(OperatorOrderForm::AlwaysRaise { what: "review".into() }).await.expect("it stands");
+    rig.fleet.operator_order_confirmed(OperatorOrderForm::AlwaysRaise { what: "note".into() }).await.expect("it stands");
     rig.fleet.operator_seat().orders_are(crate::operator::Orders::default());
     assert!(rig.fleet.operator_seat().orders().0.is_empty());
 
     rig.fleet.operator_orders_read().await;
-    assert!(rig.fleet.operator_seat().orders().always_raises(crate::operator::Arrived::Review));
+    assert!(rig.fleet.operator_seat().orders().always_raises(crate::operator::Arrived::Note));
 }
 
 #[tokio::test]
@@ -172,7 +171,7 @@ async fn always_raise_note_reads_as_a_standing_order_in_fleets_words_and_stands_
 
     let said = rig.fleet.operator_talked("always bring my notes to me", None).await.expect("answered");
 
-    assert!(call.asked()[0].contains("review, later, note or error>"), "the form is one the call is told of");
+    assert!(call.asked()[0].contains("always_raise <note, error, report, issue or red_main>"), "the form is one the call is told of");
     let proposed = said.order.expect("a form");
     assert_eq!(proposed.form, OperatorOrderForm::AlwaysRaise { what: "note".into() });
     assert_eq!(proposed.said, "Always raise notes");
@@ -193,6 +192,78 @@ async fn always_raise_error_reads_as_a_standing_order_and_stands_once_confirmed(
     assert_eq!(proposed.said, "Always raise errors");
     rig.fleet.operator_order_confirmed(proposed.form).await.expect("it stands");
     assert!(rig.fleet.operator_seat().orders().always_raises(crate::operator::Arrived::Error));
+}
+
+#[tokio::test]
+async fn the_forms_the_call_is_told_of_leave_out_answer_and_the_kinds_the_operator_is_no_longer_handed() {
+    let rig = rig_placing(None);
+    let retired = reply("role_off answer in 01NOSUCHREPOSITORY", "Done.");
+    let call = seated(&rig, &[&retired]).await;
+
+    let said = rig.fleet.operator_talked("stop answering questions in this repository", None).await.expect("answered");
+
+    let prompt = &call.asked()[0];
+    assert!(prompt.contains("role_off <dispatch, delegate or file> in <repository id>"), "{prompt}");
+    assert!(!prompt.contains("answer, "), "Answer is not a role an order may name");
+    assert!(!prompt.contains("review, later"), "a Job's own events are not kinds an order may name");
+    assert!(said.order.is_none(), "role_off answer fits no form");
+    assert_eq!(said.forms.len(), 3);
+}
+
+#[tokio::test]
+async fn an_order_for_the_retired_answer_role_is_refused_even_in_a_repository_that_exists() {
+    let rig = rig_placing(None);
+    seated(&rig, &[]).await;
+    let holder = asked(&rig, "Build the console").await;
+    let manifest_id = rig.fleet.store().lock().await.hosting(holder.as_str()).expect("read").expect("hosted").manifest_id;
+
+    let refused = rig.fleet.operator_order_confirmed(OperatorOrderForm::RoleOff { role: ipc::operator_positions::OperatorRole::Answer, manifest_id: manifest_id.clone(), today: false }).await.expect_err("retired");
+    assert!(code(refused).contains("fleet.operator_order_not_a_form"));
+    rig.fleet.operator_order_confirmed(OperatorOrderForm::RoleOff { role: ipc::operator_positions::OperatorRole::File, manifest_id, today: false }).await.expect("a role still acting stands");
+    assert!(rig.fleet.operator_orders_wire().await.orders.len() == 1);
+}
+
+#[tokio::test]
+async fn always_raise_takes_the_five_kinds_the_operator_rules_on_and_refuses_the_rest() {
+    let rig = rig_placing(None);
+    seated(&rig, &[]).await;
+
+    for kept in ["start", "plan", "question", "card", "stopped", "red", "later", "review", "ended", "merged"] {
+        let refused = rig.fleet.operator_order_confirmed(OperatorOrderForm::AlwaysRaise { what: kept.into() }).await.expect_err(kept);
+        assert!(code(refused).contains("fleet.operator_order_not_a_form"), "{kept}");
+    }
+    for taken in ["note", "error", "report", "issue", "red_main"] {
+        rig.fleet.operator_order_confirmed(OperatorOrderForm::AlwaysRaise { what: taken.into() }).await.expect(taken);
+    }
+    assert_eq!(rig.fleet.operator_orders_wire().await.orders.len(), 5);
+}
+
+#[tokio::test]
+async fn an_old_order_for_answer_or_for_a_kind_no_longer_handed_stays_in_the_store_and_is_served_by_nothing() {
+    let rig = rig_placing(None);
+    seated(&rig, &[]).await;
+    let holder = asked(&rig, "Build the console").await;
+    let manifest_id = rig.fleet.store().lock().await.hosting(holder.as_str()).expect("read").expect("hosted").manifest_id;
+    let old = [
+        OperatorOrderForm::RoleOff { role: ipc::operator_positions::OperatorRole::Answer, manifest_id: manifest_id.clone(), today: false },
+        OperatorOrderForm::AlwaysRaise { what: "start".into() },
+        OperatorOrderForm::AlwaysRaise { what: "review".into() },
+        OperatorOrderForm::AlwaysRaise { what: "report".into() },
+    ];
+    for form in old {
+        let one = store::KeptOrder { n: 0, form: form.kept(), said: "old".into(), until: None, at: "2026-11-09T09:00:00Z".into() };
+        rig.fleet.store().lock().await.add_operator_order(&one).expect("kept");
+    }
+
+    rig.fleet.operator_orders_read().await;
+
+    let seat = rig.fleet.operator_seat();
+    assert!(seat.orders().always_raises(crate::operator::Arrived::Report), "a kind still taken is served");
+    assert_eq!(seat.orders().0.len(), 1, "the rest are read by nothing");
+    let wire = rig.fleet.operator_orders_wire().await;
+    assert_eq!(wire.orders.len(), 1, "and are not on the board");
+    assert_eq!(wire.orders[0].form, OperatorOrderForm::AlwaysRaise { what: "report".into() });
+    assert_eq!(rig.fleet.store().lock().await.operator_orders().expect("read").len(), 4, "nothing is deleted");
 }
 
 #[tokio::test]

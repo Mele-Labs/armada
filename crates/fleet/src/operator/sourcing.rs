@@ -128,7 +128,7 @@ impl Seat {
     }
 
     /// Rule on `arrival` in the background, unless a call on it is already out. Whether it was handed.
-    fn hand_sourced(&self, arrival: Arrival) -> bool {
+    pub(crate) fn hand_sourced(&self, arrival: Arrival) -> bool {
         let Some(operator) = self.operator() else { return false };
         let out = Arc::clone(&self.sources.out);
         if !held(&out).insert(arrival.id.clone()) {

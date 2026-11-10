@@ -69,7 +69,7 @@ pub(crate) use seat::Seat;
 pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
 pub use sources::{BridgeError, Filed, NewIssue, Note, RedMain, Report};
 pub(crate) use sourcing::Sources;
-pub use talking::{Board, EndedJob, HeldJob, JobRead, LogRead, NeedsYou, Repository, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked};
+pub use talking::{Board, EndedJob, HeldJob, JobRead, LogRead, MergedPull, NeedsYou, Repository, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked};
 pub(crate) use suggesting::{suggestion_items, SKIP};
 
 /// How long a Needs you item waits for its ruling before it pulses.
