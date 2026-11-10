@@ -333,7 +333,7 @@ mod tests {
     }
 
     fn message(id: &str, from: SessionVoice, text: &str) -> ThreadItem {
-        ThreadItem::Row { row: SessionRow::Message { id: id.into(), at: Instant::carried("2026-11-10T09:00:00.000Z"), from, text: text.into(), files: vec![], tags: vec![], notice: None, queued: false } }
+        ThreadItem::Row { row: SessionRow::Message { id: id.into(), at: Instant::carried("2026-11-10T09:00:00.000Z"), from, text: text.into(), files: vec![], tags: vec![], notice: None, queued: false, edited_at: None } }
     }
 
     #[test]

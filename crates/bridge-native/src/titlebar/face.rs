@@ -501,16 +501,6 @@ pub struct RunsPlace {
 }
 
 impl RunsPlace {
-    /// The registry glyph of the place (`PLACE_GLYPH`).
-    pub fn glyph(&self) -> &'static str {
-        match self.kind {
-            RunsPlaceKind::Mac => "laptop",
-            RunsPlaceKind::Repository => "folder-git-2",
-            RunsPlaceKind::Synced => "folder",
-            RunsPlaceKind::Cloud => "database",
-        }
-    }
-
     /// The place as a phrase (`placePhrase`): `on this Mac`, `in iCloud Drive`.
     pub fn phrase(&self) -> String {
         match (self.kind, &self.detail) {
