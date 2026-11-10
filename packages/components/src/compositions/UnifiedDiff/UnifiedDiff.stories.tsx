@@ -215,6 +215,50 @@ export const AHunkThatCollides: Story = {
 };
 
 /**
+ * Lines its host marked: two picked for a comment, and the one a note beside the diff is about. The added line under the
+ * mark still reads as added.
+ */
+export const MarkedLines: Story = {
+  args: {
+    emptyNote: "",
+    bare: true,
+    markOf: (_, index) =>
+      index === 2 || index === 3 ? "picked" : index === 5 ? "tied" : undefined,
+    files: [
+      {
+        path: "crates/fleet/src/lease.rs",
+        lines: [
+          {
+            kind: "hunk",
+            text: "@@ -41,4 +41,6 @@ impl Lease {",
+          },
+          {
+            kind: "context",
+            text: "     pub fn take(&self, pool: &Pool) -> Result<Slot, Contended> {",
+          },
+          {
+            kind: "removed",
+            text: "-        pool.take_free()",
+          },
+          {
+            kind: "added",
+            text: "+        let backoff = Backoff::new(self.tries);",
+          },
+          {
+            kind: "added",
+            text: "+        pool.take_free().or_else(|_| backoff.retry(|| pool.take_free()))",
+          },
+          {
+            kind: "context",
+            text: "     }",
+          },
+        ],
+      },
+    ],
+  },
+};
+
+/**
  * The patch was longer than the bound and the rest is not on screen.
  *
  * **The loudest thing this component draws.** No virtualization library is

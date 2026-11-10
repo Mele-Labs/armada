@@ -466,6 +466,7 @@ export * from "./compositions/PullRequestActs/PullRequestActs";
 export * from "./compositions/PullRequestPanel/PullRequestPanel";
 export type { PullRequestComposerProps } from "./compositions/PullRequestPanel/PullRequestComposer";
 export { PullRequestFilesView } from "./compositions/PullRequestPanel/PullRequestFiles";
+export { scrollWithin } from "./compositions/PullRequestPanel/scroll-within";
 export { agoOf, mayWrite, ranFor } from "./compositions/PullRequestPanel/pull-request-format";
 export type { PullRequestChecks } from "./compositions/PullRequestPanel/PullRequestPlates";
 export {

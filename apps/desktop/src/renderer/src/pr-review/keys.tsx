@@ -3,6 +3,8 @@
 // what a press is. The letters that go to a part (`l`, `f`) are the deck's own for the same places, so the same key goes
 // to the same place. The list motions (`move_focus`, `open`, `close`) are the registry's `list` rows, shared with the deck.
 //
+// The Review tab's keys (`review-tab-state.ts`) and Go to file's `t` are not acts of the keymap yet, so Settings does not list them.
+//
 // Focus is the cursor, as the deck has it: two parts (the list, and the reader with its panes), a key to each and one to the
 // tools pane, arrows inside each, Esc backing out a level. A key stands down in a text field and while a dialog is up.
 
@@ -13,8 +15,10 @@ import { popupIsOpen } from "@armada/screens/src/list-keyboard";
 
 import { focusIn } from "../job-panes/keys";
 import { prPanes } from "../job-panes/store";
-import { toolsPaneOf } from "./panes";
-import { useReviewStore, useReviews, type ReviewStore } from "./store";
+import { closeAPeek } from "./code-refs";
+import { reviewTab, reviewTabKey } from "./review-tab-state";
+import { openKind, toolsPaneOf } from "./panes";
+import { NO_WORK, useReviewStore, useReviews, type ReviewStore } from "./store";
 
 const ZONES = [
   ".pr-list",
@@ -127,6 +131,24 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     event.stopPropagation();
   };
 
+  // Lines peeked open under a finding's words close first.
+  if (isPressed("close", event) && closeAPeek()) return take();
+  // The Review tab has its own keys while it has the keyboard: in it, or on its pane's tabs.
+  const pane = target.closest("[data-pane]");
+  const shows = (kind: string) =>
+    pane?.querySelector(`:scope > .job-pane__body[data-kind="${kind}"]`) != null;
+  if (
+    pr !== undefined &&
+    (target.closest(".pr-review-tab-view") !== null || shows("pr-review")) &&
+    reviewTabKey(event, pr, snap.work[pr.key] ?? NO_WORK)
+  )
+    return take();
+  // Go to file, from any of the reader's panes. A pick goes to Files where Files has the keyboard, else to Review.
+  if (pr !== undefined && here === ".pr-reader" && event.key === "t" && !event.shiftKey) {
+    take();
+    return reviewTab.openGoTo(pr.key, shows("pr-files") ? "files" : "review");
+  }
+
   // Esc backs out a level: the box, a tool's results, a part, and stops at the list. **It never closes the open pull
   // request**: only opening another one changes what the reader holds.
   if (isPressed("close", event)) {
@@ -188,7 +210,11 @@ function press(event: KeyboardEvent, store: ReviewStore): void {
     }
     if (isPressed("review_ask", event)) {
       take();
-      return document.querySelector<HTMLElement>('.pr-ask-bar [role="textbox"]')?.focus();
+      // Ask is a tab: brought forward, or opened where it was closed, and its box focused once it is drawn.
+      openKind(pr.key, "pr-ask");
+      return void window.requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('.pr-reader .pr-ask-bar [role="textbox"]')?.focus(),
+      );
     }
     if (isPressed("review_description", event)) {
       take();

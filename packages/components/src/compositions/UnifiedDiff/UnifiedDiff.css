@@ -260,3 +260,22 @@
   outline: var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
+
+/* A line its host marked: picked for a comment, or what a note beside the diff is about. A wash and a leading
+   edge in the host's hue, over the line's own colour, so an added line still reads as added. A marked line keeps
+   its gutter showing, so the run it is part of can be seen and extended. */
+.armada-diff__line[data-mark] .armada-diff__text {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--diff-mark-hue, var(--accent)) 16%, transparent),
+    color-mix(in srgb, var(--diff-mark-hue, var(--accent)) 16%, transparent)
+  );
+  box-shadow: inset var(--space-1) 0 0 var(--diff-mark-hue, var(--accent));
+}
+
+.armada-diff__line[data-mark="quiet"] {
+  --diff-mark-hue: var(--border-strong);
+}
+
+.armada-diff__line[data-mark="picked"] > .armada-diff__gutter {
+  opacity: 1;
+}

@@ -1,11 +1,11 @@
-// The Comments pane: every thread the forge holds on the pull request, by the file and line it is on, open ones first and the
-// resolved folded under their count. **A press on a thread goes to it in Files**, at its line with the thread under it; its
-// chevron opens it here, to read, reply and resolve without leaving the pane. A reply joins his pending review, as one written
-// under the line does.
+// The Comments pane. **What sits under no line comes first**, as Conversation: the forge's general comments and reviews, and the
+// threads on a whole file. Then every thread on a line, by its file and line, open ones first and the resolved folded under their
+// count. **A press on a thread goes to it in Files**, at its line with the thread under it; its chevron opens it here, to read, reply
+// and resolve without leaving the pane. A reply joins his pending review, as one written under the line does.
 
 import { useState } from "react";
 import { Check, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
-import { Button, PrMark, Tooltip, readKept, useKept } from "@armada/components";
+import { Button, PrConversation, PrMark, Tooltip, readKept, useKept } from "@armada/components";
 
 import { LineComposer, ThreadCard } from "./lines";
 import type { ReviewPr, Thread } from "./model";
@@ -142,10 +142,25 @@ export function CommentsPane({ pr, onGo }: { pr: ReviewPr; onGo: (thread: Thread
       }
     />
   );
-  const open = work.threads.filter((one) => !one.resolved);
-  const resolved = work.threads.filter((one) => one.resolved);
+  const onFile = work.threads.filter((one) => one.line === undefined);
+  const onLine = work.threads.filter((one) => one.line !== undefined);
+  const open = onLine.filter((one) => !one.resolved);
+  const resolved = onLine.filter((one) => one.resolved);
+  const general = pr.page.conversation.length > 0 || onFile.length > 0;
   return (
     <section className="pr-threads" aria-label="Comments">
+      {!general ? null : (
+        <section className="pr-threads__general" aria-label="Conversation">
+          <h3 className="pr-threads__head">Conversation</h3>
+          <PrConversation page={pr.page} description="" />
+          {onFile.length === 0 ? null : (
+            <ul className="pr-threads__list" aria-label="Threads on whole files">
+              {onFile.map(row)}
+            </ul>
+          )}
+        </section>
+      )}
+      {general && onLine.length > 0 ? <h3 className="pr-threads__head">On lines</h3> : null}
       <ul className="pr-threads__list" aria-label="Open threads">
         {open.map(row)}
       </ul>
