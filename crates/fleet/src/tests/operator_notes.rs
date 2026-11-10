@@ -1,9 +1,8 @@
 //! A note the person left on Bridge, as it reaches the Operator: once, and only if it came after the
 //! first listing, open and sent to no Job by the time it has waited for him to send it. One he sends
-//! to a Job is his row in the Log, and then the Operator's to move or leave. **An unsent one is only
-//! ever proposed**: its ruling, but a raise, waits
-//! on one press whatever the role stands at, and nothing is filed, started or told until Do it. Do it
-//! marks the note sent to the Job it went to, or done where it was filed or linked.
+//! to a Job is his row in the Log, and then the Operator's to move or leave. **Every act asks**: its
+//! ruling, but a raise or a link, is kept as a suggestion, and nothing is filed, started or told until
+//! Do it. Do it marks the note sent to the Job it went to, or done where it was filed or linked.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -13,18 +12,16 @@ use ipc::SessionId;
 use testkit::{FakeBeads, FakeBeadsRemote};
 
 use super::backlog::{machine, manifest};
-use super::operator_sources::{on, rulings, switched, Answers};
+use super::operator_sources::{on, rulings, Answers};
 use super::session_host::{eventually, Rig};
 
 pub(super) const TEXT: &str = "The terminal scrollback is lost on redraw";
 
-/// A rig over beads, so a note may be filed, with the Operator on and File on, and a note handed on
-/// the tick it is read.
+/// A rig over beads, so a note may be filed, with the Operator on, and a note handed on the tick it is read.
 pub(super) async fn filing() -> Rig {
     let copy = Arc::new(FakeBeads::on(&FakeBeadsRemote::new()));
     let rig = machine("north", &copy).await;
     on(&rig).await;
-    switched(&rig, "features.operatorFile", true).await;
     // An unsent note is handed at once, where a test does not mean to watch it.
     rig.fleet.operator_seat().note_wait_is(std::time::Duration::ZERO);
     rig
@@ -99,7 +96,7 @@ async fn a_note_new_after_the_first_listing_arrives_once_and_a_done_and_an_earli
 }
 
 #[tokio::test]
-async fn a_note_ruled_filed_is_kept_as_a_suggestion_with_file_on_and_filed_and_marked_done_only_on_do_it() {
+async fn a_note_ruled_filed_is_kept_as_a_suggestion_and_filed_and_marked_done_only_on_do_it() {
     let rig = filing().await;
     let call = Answers::with(&["item: 1\nway: 1\nbecause: no open issue covers it"]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
@@ -168,29 +165,6 @@ async fn a_note_ruled_to_a_live_job_tells_it_on_do_it_and_is_marked_sent_to_it()
     eventually(|| async { read(&rig, "n-1").sent.is_some() }).await;
     let sent = read(&rig, "n-1").sent.expect("sent");
     assert_eq!(sent.session_id, near.as_str());
-}
-
-#[tokio::test]
-async fn with_file_read_only_a_note_is_not_offered_the_file_way() {
-    let rig = filing().await;
-    switched(&rig, "features.operatorFile", false).await;
-    let call = Answers::with(&["item: 1\nway: 1\nbecause: it needs a person"]);
-    assert!(rig.fleet.operator_seated_with(call.clone()));
-    rig.fleet.sources_handed().await;
-    leave(&rig, "n-1", "open", None, TEXT);
-    rig.fleet.sources_handed().await;
-
-    eventually(|| async { !call.asked().is_empty() }).await;
-    let asked = call.asked().remove(0);
-    let offered = asked.lines().find(|line| line.contains("The ways it is offered:")).expect("the ways are listed");
-    assert!(!offered.contains("file a new issue"), "{offered}");
-    assert_eq!(read(&rig, "n-1").status, "open");
-}
-
-/// A role stood at `word`, one of the positions.
-pub(super) async fn positioned(rig: &Rig, key: &str, word: &str) {
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Text(word.to_string())))]) };
-    api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
 async fn board_done(rig: &Rig) -> Vec<ipc::operator_board::OperatorBoardSettled> {
@@ -288,9 +262,8 @@ async fn redirected() -> (Rig, SessionId, SessionId) {
 }
 
 #[tokio::test]
-async fn a_redirect_of_a_note_he_sent_is_a_suggestion_at_suggest_and_moves_the_note_only_on_do_it() {
+async fn a_redirect_of_a_note_he_sent_is_a_suggestion_and_moves_the_note_only_on_do_it() {
     let (rig, sent_to, other) = redirected().await;
-    positioned(&rig, "features.operatorDelegate", "suggest").await;
 
     rig.fleet.sources_handed().await;
 
@@ -308,25 +281,9 @@ async fn a_redirect_of_a_note_he_sent_is_a_suggestion_at_suggest_and_moves_the_n
     assert_eq!((done[0].outcome.as_str(), done[0].by), (format!("Handed over: to {SCROLLBACK_JOB}").as_str(), ipc::operator_board::OperatorDecider::Person));
 }
 
-#[tokio::test]
-async fn a_redirect_of_a_note_he_sent_is_done_at_on_and_its_row_is_the_operators() {
-    let (rig, _sent_to, other) = redirected().await;
-
-    rig.fleet.sources_handed().await;
-
-    eventually(|| async { read(&rig, "n-1").sent.is_some_and(|sent| sent.session_id == other.as_str()) }).await;
-    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty());
-    eventually(|| async { board_done(&rig).await.len() == 2 }).await;
-    let done = board_done(&rig).await;
-    assert_eq!((done[0].outcome.as_str(), done[0].by), (format!("Handed over: to {SCROLLBACK_JOB}").as_str(), ipc::operator_board::OperatorDecider::Operator));
-}
-
-/// A note ruled filed, with the three roles it may fall to at `word`.
-async fn note_at(word: &str, answers: &[&str]) -> (Rig, Arc<Answers>) {
+/// A note ruled filed, waiting on a press.
+async fn note_filed(answers: &[&str]) -> (Rig, Arc<Answers>) {
     let rig = filing().await;
-    for key in ["features.operatorFile", "features.operatorDispatch", "features.operatorDelegate"] {
-        positioned(&rig, key, word).await;
-    }
     let call = Answers::with(answers);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     rig.fleet.sources_handed().await;
@@ -336,31 +293,17 @@ async fn note_at(word: &str, answers: &[&str]) -> (Rig, Arc<Answers>) {
 }
 
 #[tokio::test]
-async fn a_note_whose_roles_are_all_read_only_makes_no_call_and_shows_nothing_in_done() {
-    let (rig, call) = note_at("read_only", &["item: 1\nway: 1\nbecause: no open issue covers it"]).await;
+async fn a_note_ruled_filed_is_a_suggestion_and_done_shows_only_his_press() {
+    let (rig, call) = note_filed(&["item: 1\nway: 1\nbecause: no open issue covers it"]).await;
 
+    eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
     eventually(|| async { !rulings(&rig).await.is_empty() }).await;
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert_eq!(call.asked().len(), 1);
+    assert_eq!(rulings(&rig).await[0].outcome, "proposed_file", "the row says it only asked");
+    assert!(board_done(&rig).await.is_empty(), "the Operator only suggested it, so nothing happened");
 
-    assert!(call.asked().is_empty());
-    assert_eq!(rulings(&rig).await[0].outcome, "read_only");
-    assert!(rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").is_empty());
-    assert!(board_done(&rig).await.is_empty());
-}
-
-#[tokio::test]
-async fn a_note_at_suggest_or_decide_is_a_suggestion_and_done_shows_only_his_press() {
-    for word in ["suggest", "decide"] {
-        let (rig, call) = note_at(word, &["item: 1\nway: 1\nbecause: no open issue covers it"]).await;
-
-        eventually(|| async { rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").len() == 1 }).await;
-        eventually(|| async { !rulings(&rig).await.is_empty() }).await;
-        assert_eq!(call.asked().len(), 1, "{word}");
-        assert!(board_done(&rig).await.is_empty(), "{word}: the Operator only suggested it, so nothing happened");
-
-        do_it(&rig, &kept(&rig).await).await;
-        eventually(|| async { board_done(&rig).await.len() == 1 }).await;
-        let done = board_done(&rig).await;
-        assert_eq!((done[0].by, done[0].outcome.starts_with("Filed")), (ipc::operator_board::OperatorDecider::Person, true), "{word}");
-    }
+    do_it(&rig, &kept(&rig).await).await;
+    eventually(|| async { board_done(&rig).await.len() == 1 }).await;
+    let done = board_done(&rig).await;
+    assert_eq!((done[0].by, done[0].outcome.starts_with("Filed")), (ipc::operator_board::OperatorDecider::Person, true));
 }

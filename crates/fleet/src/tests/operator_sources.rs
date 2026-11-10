@@ -23,18 +23,12 @@ use crate::CallFailed;
 const SCROLLBACK: &str = "Terminal scrollback is lost when the pane redraws";
 
 pub(super) async fn switched(rig: &Rig, key: &str, on: bool) {
-    let value = match key {
-        "features.operator" => ipc::SettingValue::Bool(on),
-        _ => ipc::SettingValue::Text(if on { "decide" } else { "read_only" }.to_string()),
-    };
-    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(value))]) };
+    let save = ipc::SaveSettings { changes: std::collections::BTreeMap::from([(key.to_string(), Some(ipc::SettingValue::Bool(on)))]) };
     api::Settings::save_settings(rig.fleet.as_ref(), save).await.expect("saved");
 }
 
 pub(super) async fn on(rig: &Rig) {
     switched(rig, "features.operator", true).await;
-    switched(rig, "features.operatorDispatch", true).await;
-    switched(rig, "features.operatorDelegate", true).await;
 }
 
 /// A call that answers each question with the next of its answers, and keeps what it was asked.
@@ -203,7 +197,6 @@ async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_
     assert!(format!("{refused:?}").contains("handed is not a way to settle it"), "{refused:?}");
 
     on(&rig).await;
-    switched(&rig, "features.operatorFile", true).await;
     let refused = rig.fleet.settle_later(None, handing(&id, "later-1")).await.expect_err("refused on, as it is off");
     assert!(format!("{refused:?}").contains("handed is not a way to settle it"), "{refused:?}");
     rig.fleet.sources_handed().await;
@@ -218,33 +211,34 @@ async fn a_later_item_cannot_be_handed_over_with_the_operator_on_or_off_and_the_
 }
 
 #[tokio::test]
-async fn a_red_main_autopilot_finds_is_handed_to_the_operator_once_and_a_new_job_is_started_for_it() {
+async fn a_red_main_autopilot_finds_is_asked_once_and_a_fix_starts_only_on_yes() {
     let (rig, judge) = rig_calling(SURE_OF_THE_FIRST);
     switched(&rig, "features.operator", true).await;
-    let call = Answers::with(&["item: 1\nway: 1\nbecause: no Job is near the red"]);
+    let call = Answers::with(&[]);
     assert!(rig.fleet.operator_seated_with(call.clone()));
     started(&rig, &[AutopilotDecision::Red]).await;
     let commit = "b".repeat(40);
     red_main(&rig, &commit).await;
+    let item = format!("red:{}:{commit}", rig.manifest.as_str());
+    let in_turn = || async { rig.fleet.operator_page_wire().await.expect("page").turn.into_iter().filter(|one| one.item.id == item).collect::<Vec<_>>() };
 
     assert_eq!(rig.fleet.decision_pass().await.expect("passed"), 0, "the Operator has it, not Autopilot's own start");
-    eventually(|| async { jobs_titled(&rig, "Fix main").await == 1 }).await;
-    let asked = call.asked();
-    assert_eq!(asked.len(), 1);
-    for part in ["Main went red, one of Fleet's own", "Main is red at bbbbbbb", "The ways it is offered: 1. new job; 2. raise\n"] {
-        assert!(asked[0].contains(part), "{part}:\n{}", asked[0]);
-    }
+    eventually(|| async { in_turn().await.len() == 1 }).await;
     assert!(judge.asked().is_empty(), "Autopilot makes no call of its own for a red");
+    assert_eq!(jobs_titled(&rig, "Fix main").await, 0, "nothing starts until he says yes");
     let log = rulings(&rig).await;
-    assert_eq!(log.len(), 1, "{log:#?}");
-    assert_eq!((log[0].arrival.as_str(), log[0].arrived.as_str(), log[0].outcome.as_str()), (format!("red_main:{}:{commit}", rig.manifest.as_str()).as_str(), "red_main", "new_job"));
-    let main = rig.fleet.store().lock().await.main_ci(&rig.root).unwrap().unwrap();
-    // Claimed after the Job starts, so a moment after its title shows.
-    eventually(|| async { rig.fleet.taking(&main).await.is_some() }).await;
+    assert!(log.iter().all(|row| row.outcome != "new_job" && row.outcome != "proposed_new_job"), "the ruling does not ask a second time: {log:#?}");
 
     rig.fleet.decision_pass().await.expect("passed");
     rig.fleet.decision_pass().await.expect("passed");
-    assert_eq!(call.asked().len(), 1, "once for each red commit");
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let waiting = in_turn().await;
+    assert_eq!(waiting.len(), 1, "one ask for each red commit");
+    assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
+
+    let press = ipc::operator_page::OperatorAnswerPress { id: waiting[0].id.clone(), answer: ipc::operator_page::OperatorAnswer::Yes, then: None };
+    let answered = rig.fleet.operator_answered(press).await.expect("answered");
+    assert!(answered.started.is_some());
     assert_eq!(jobs_titled(&rig, "Fix main").await, 1);
 }
 
