@@ -14,6 +14,7 @@ use crate::session_host::dedup::{left_off_as_misread, FOLDS_AT};
 
 fn item(id: &str, text: &str, source: WaitingSource) -> WaitingItem {
     WaitingItem {
+        approves: false,
         id: id.to_string(),
         text: text.to_string(),
         since: Instant::carried("2026-10-23T10:00:00Z"),
@@ -126,7 +127,7 @@ async fn an_agent_item_marked_as_misread_is_refused_and_stands() {
     let id = rig.start().await;
     let set = SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { approves: false, id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
     };
     rig.fleet.waiting_for(None, set).await.expect("kept");
     assert!(Arc::clone(&rig.fleet).dismiss_waiting(misread(&id, "a")).await.is_err());
@@ -165,7 +166,7 @@ async fn an_agent_item_confirmed_is_refused_and_stands_unconfirmed() {
     let id = rig.start().await;
     let set = SetWaitingFor {
         session_id: Some(id.clone()),
-        items: vec![WaitingInput { id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
+        items: vec![WaitingInput { approves: false, id: "a".into(), text: "Which key opens the card?".into(), act: None, options: Vec::new(), steps: Vec::new() }],
     };
     rig.fleet.waiting_for(None, set).await.expect("kept");
     assert!(Arc::clone(&rig.fleet).confirm_waiting(confirm(&id, "a")).await.is_err());

@@ -53,7 +53,7 @@ use ipc::{
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
     DraftHow, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError,
 };
-use store::{KeptClosed, KeptSession, KeptWaiting, Store};
+use store::{KeptApproval, KeptClosed, KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
@@ -76,6 +76,20 @@ const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
 /// item is settled outright, since a bare "took this off" read as a removal to undo, and agents
 /// stated the item again. Bridge leaves the line off the person's row, so keep it in step there.
+/// The two options of an agent item that asks for his approval, which replace any it passed. Only
+/// [`APPROVE`], pressed by him, closes a `you_approved` gate.
+pub(crate) const APPROVE: &str = "Approve";
+pub(crate) const ASK_FOR_CHANGES: &str = "Ask for changes";
+
+/// Who pressed an answer: an Approve closes a `you_approved` gate only when it was him.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Answerer {
+    /// The person, through a client's route.
+    Him,
+    /// The Operator or Autopilot, answering in his place.
+    InHisPlace,
+}
+
 pub(crate) const TAKEN_OFF: &str = "This settles the item, so Fleet took it off your waiting list. Do not add it back.";
 
 /// A walk window a session showed, as the merge reads it.
@@ -227,6 +241,7 @@ impl WaitingReads {
 /// so dismissing either settles both.
 pub(crate) fn step_reply_item(step: &str, ended: &str) -> WaitingItem {
     WaitingItem {
+        approves: false,
         id: format!("replied:{ended}"),
         text: format!("{step}: {}", crate::rail_ends::End::Replied.for_person()),
         since: Instant::carried(ended),
@@ -298,6 +313,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
     if let Some(first) = asked.questions.first() {
         let single = asked.questions.len() == 1 && !first.multi_select;
         return WaitingItem {
+            approves: false,
             id: format!("ask:{}", asked.call),
             text: first.question.clone(),
             since: asked.asked_at.clone(),
@@ -325,6 +341,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
         };
     }
     WaitingItem {
+        approves: false,
         id: format!("perm:{}", asked.call),
         text: format!("{} {}", asked.tool, asked.detail)
             .trim()
@@ -365,6 +382,7 @@ pub(crate) fn merged(
     }
     let mut derived: Vec<WaitingItem> = asked.map(card_item).into_iter().collect();
     derived.extend(windows.iter().map(|one| WaitingItem {
+        approves: false,
         id: format!("walk:{}", one.url),
         text: one.title.clone(),
         since: Instant::carried(&one.since),
@@ -396,6 +414,7 @@ pub(crate) fn merged(
                     .any(|fleet| fleet.id == one.item_id || same(fleet, &one.act))
         })
         .map(|one| WaitingItem {
+            approves: one.approves,
             id: one.item_id,
             text: one.text,
             since: Instant::carried(&one.since),
@@ -461,6 +480,7 @@ where
                 let source = source_of(&one.source)?;
                 let ended = !(live && (source == WaitingSource::Agent || again.contains(&one.item_id)));
                 let item = WaitingItem {
+                    approves: one.approves,
                     id: one.item_id,
                     text: one.text,
                     since: Instant::carried(&one.since),
@@ -558,6 +578,7 @@ where
             let id = format!("perm:{}", open.since);
             if !dismissed.contains(&id) {
                 items.push(WaitingItem {
+                    approves: false,
                     id,
                     text: format!("{} {}", open.tool, open.detail).trim().to_string(),
                     since: Instant::carried(&open.since),
@@ -637,6 +658,7 @@ where
             let id = format!("{FIRST_MESSAGE_ITEM}{}", session.id);
             if start_held && !dismissed.contains(&id) {
                 items.push(WaitingItem {
+                    approves: false,
                     id,
                     text: String::from("First message"),
                     since: ipc::Instant::carried(&session.started_at),
@@ -705,6 +727,7 @@ where
                 } => {
                     let id = format!("{WINDOW_ASK_PREFIX}{id}");
                     (!dismissed.contains(&id)).then_some(WaitingItem {
+                        approves: false,
                         id,
                         text: question,
                         since: at,
@@ -731,6 +754,7 @@ where
                         options.push(WaitingOption { label: String::from("Dismiss"), description: None });
                     }
                     (open && !dismissed.contains(&id)).then(|| WaitingItem {
+                        approves: false,
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
                             target: id.clone(),
@@ -857,7 +881,11 @@ where
                         act: one
                             .act
                             .map(|act| (act_kind_text(act.kind).to_string(), act.target)),
-                        options: one.options.into_iter().map(|o| o.label).collect(),
+                        options: match one.approves {
+                            true => vec![APPROVE.to_string(), ASK_FOR_CHANGES.to_string()],
+                            false => one.options.into_iter().map(|o| o.label).collect(),
+                        },
+                        approves: one.approves,
                         steps: one
                             .steps
                             .into_iter()
@@ -998,10 +1026,16 @@ where
         self.store().lock().await.clear_turn_end(id).unwrap_or(false)
     }
 
+    /// An answer the Operator or Autopilot gives in his place: it never stands as his approval.
+    pub(crate) async fn settle_waiting(self: Arc<Self>, said: AnswerWaiting) -> Result<SessionRecord, Refusal> {
+        self.settle_answer(said, Answerer::InHisPlace).await
+    }
+
     /// `answer_waiting`: route the answer by where the item came from.
-    pub(crate) async fn settle_waiting(
+    pub(crate) async fn settle_answer(
         self: Arc<Self>,
         said: AnswerWaiting,
+        by: Answerer,
     ) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().to_string();
         let terminal = self.terminal_session(&id).await?.is_some();
@@ -1150,6 +1184,10 @@ where
                 body.push_str(TAKEN_OFF);
                 Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
                 // Delivered, so the item goes now: a failed send above leaves it standing.
+                if item.approves && by == Answerer::Him && picked.as_deref() == Some(APPROVE) {
+                    let approval = KeptApproval { item_id: item.id.clone(), text: item.text.clone(), at: self.clock().now().as_str().to_string() };
+                    return self.drop_approved(&id, &approval).await;
+                }
                 self.drop_answered(&id, &item.id, None).await
             }
             // Derived from the turn and `done_since`, never kept: the person's words are a message to
@@ -1366,6 +1404,7 @@ where
             self.plan_set_aside(&id, &item.id).await?;
         }
         let closed = KeptClosed {
+            approves: item.approves,
             item_id: item.id.clone(),
             text: item.text.clone(),
             source: source_name(item.source),
@@ -1443,6 +1482,7 @@ where
                 .find(|one| one.item_id == reopen.item_id)
                 .ok_or_else(|| self.settled_already())?;
             (closed.item.source == WaitingSource::Agent).then(|| KeptWaiting {
+                approves: kept.approves,
                 item_id: kept.item_id.clone(),
                 text: kept.text,
                 since: kept.since,
@@ -1564,6 +1604,22 @@ where
             store
                 .dismiss_waiting(id, item_id)
                 .map_err(|why| self.ledger_fault(why))?;
+            self.ledger_row(&store, &session)?
+        };
+        self.publish(ipc::Event::SessionChanged(record.clone()));
+        Ok(record)
+    }
+
+    /// [`Self::drop_answered`] for his Approve of an item asking for it: the Approve is kept in the same
+    /// write, so the row change that wakes the gate keeper never reads the item gone without it.
+    async fn drop_approved(&self, id: &str, approval: &KeptApproval) -> Result<SessionRecord, Refusal> {
+        let record = {
+            let mut store = self.store().lock().await;
+            let session = store
+                .session(id)
+                .map_err(|why| self.ledger_fault(why))?
+                .ok_or_else(|| self.hosted_refusal(SESSION_WAITING_UNNAMED, "a job Fleet knows"))?;
+            store.approve_waiting(id, approval).map_err(|why| self.ledger_fault(why))?;
             self.ledger_row(&store, &session)?
         };
         self.publish(ipc::Event::SessionChanged(record.clone()));
