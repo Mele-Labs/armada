@@ -79,6 +79,13 @@ glyph with a tooltip, controls repeated down a list sit in fixed columns, and a
 skeleton draws while a panel loads. **Nothing he would see lands before he has
 walked it.**
 
+**Check parity before any walk.** Compare the native feature with its Electron
+counterpart yourself, against the inventory: every key works from the same
+places, every right-click menu has the same items, and tabs, panels, resizing
+and focus behave the same. Put the result in the walk's brief. He gets **one
+walk per feature**, never one per piece (`docs/practices/native-bridge.md`,
+*The design loop*).
+
 ## Build, test and load
 
 - Tests are `#[gpui::test]` with `TestAppContext` or `VisualTestContext`, run

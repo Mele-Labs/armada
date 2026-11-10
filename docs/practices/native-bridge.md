@@ -33,13 +33,28 @@ Missing logic is a Fleet change, so Pocket gets it too.
 
 **A native screen is a port of its Electron screen, never a redesign.**
 It keeps the layout, controls, states and keys it has today.
-Every screen goes through the same four steps, in order.
+Every feature goes through the same five steps, in order.
 
-1. An inventory of the Electron screen: its regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
+1. An inventory of the Electron screens: their regions, sizes, spacing and type tokens, controls, states and keys, each with `path:line`.
 2. The gpui build, matching the inventory.
-3. A native walk on mock data, in the screen's own window with a walk bar, shown alone.
-   The owner names his spacing and font tweaks there, and they go into the native screen only.
-4. Land.
+3. A parity check by the Job, against Electron, before the owner sees anything.
+4. One native walk of the whole feature on mock data, in its own window with a walk bar, shown alone.
+   The owner annotates spacing and font changes there, or approves, and changes go into the native screens only.
+5. Land.
+
+**The parity check passes before any walk is shown.**
+At least these match Electron, checked by the Job against the inventory:
+
+| Area | Matches |
+|---|---|
+| Keys | Every shortcut, working from the same places, with focus returned after a popup or menu closes |
+| Right-click | Every element's menu, with the same items in the same order |
+| Layout | Tabs, panels, resizing and focus behave the same |
+
+The walk's brief carries the result as a short table, with any known gpui gap.
+
+**One walk per feature, never one per piece.**
+Decided 9 Nov 2026: partial walks made the owner do the comparing, and the rebuild slowed.
 
 **Nothing he sees lands before his walk.**
 
