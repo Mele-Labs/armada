@@ -513,7 +513,7 @@ async fn needs_you_done_with_no_note_sends_the_line_alone() {
 }
 
 #[tokio::test]
-async fn needs_you_done_on_a_gone_item_is_settled_already_and_on_what_the_agent_did_not_state_is_refused() {
+async fn needs_you_done_on_a_gone_item_is_settled_already() {
     let rig = rig_placing(None);
     let id = rig.start().await;
     stated(&rig, &id).await;
@@ -523,7 +523,12 @@ async fn needs_you_done_on_a_gone_item_is_settled_already_and_on_what_the_agent_
     };
     assert_eq!(gone.code, "fleet.session_waiting_unheld");
     assert_eq!(sent(&rig.rows(&id).await).len(), 1, "the second press sent nothing");
+}
 
+// Its own rig: two Jobs in one test ran past `eventually`'s five seconds on a loaded CI runner.
+#[tokio::test]
+async fn needs_you_done_on_what_the_agent_did_not_state_is_refused() {
+    let rig = rig_placing(None);
     let (page_job, _work, _file, path) = one_page(&rig).await;
     let Err(Refusal::Unacceptable(refused)) = Arc::clone(&rig.fleet).done_waiting(done_with(&page_job, &format!("document:{path}"), None)).await else {
         panic!("a page is approved, not done")
