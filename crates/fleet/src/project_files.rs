@@ -34,6 +34,8 @@ use crate::run_memory::{cloud, place_word, places};
 pub(crate) const UNWRITABLE: &str = "fleet.project_unwritable";
 /// A Job was started for a project that does not hold its repository. A 422.
 pub(crate) const NOT_MEMBER: &str = "fleet.project_not_member";
+/// A Job was started for a project whose file did not read, so Fleet cannot say what it holds. A 422.
+pub(crate) const UNREADABLE: &str = "fleet.project_unreadable";
 /// The members given do not make a project: a folder that is not a path inside its repository, a member
 /// listed twice, a whole repository beside a folder of it. A 422.
 pub(crate) const MALFORMED: &str = "fleet.project_malformed";
@@ -209,8 +211,8 @@ where
     }
 
     /// The project `id` a Job in `repository` is started for, or a refusal before anything is made: a 404
-    /// `fleet.no_such_project` where he has none by that id, and a 422 `fleet.project_not_member` where it does not
-    /// hold the repository, or where its file did not read and Fleet cannot say.
+    /// `fleet.no_such_project` where he has none by that id, a 422 `fleet.project_not_member` where it does not
+    /// hold the repository, and a 422 `fleet.project_unreadable` where its file did not read and Fleet cannot say.
     pub(crate) async fn project_started_for(&self, id: &str, repository: &str) -> Result<String, Refusal> {
         let named = ScopeId::new(id).ok();
         let read = named.as_ref().and_then(|scope| self.projects_held().get(scope).cloned());
@@ -226,7 +228,10 @@ where
                 repository,
                 project.name().as_str()
             ))),
-            None => Err(not_member(format!("The file of project {id} did not read, so Fleet cannot say that `{repository}` is a member"))),
+            None => Err(Refusal::Unacceptable(self.project_refusal(
+                UNREADABLE,
+                format!("The file of project {id} did not read, so Fleet cannot say that `{repository}` is a member"),
+            ))),
         }
     }
 

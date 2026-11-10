@@ -282,3 +282,18 @@ async fn a_start_for_an_unknown_project_is_a_404_and_one_that_does_not_hold_its_
 
     assert_eq!(rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions.len(), kept_before, "nothing was made");
 }
+
+#[tokio::test]
+async fn a_start_for_a_project_whose_file_did_not_read_is_a_422_of_its_own() {
+    let rig = a_rig();
+    let at = ManifestId::carried(rig.manifest());
+    let id = rig.fleet.add_project(named("Shop", Some(vec![ProjectMember { manifest_id: at, folder: None }]), None)).await.expect("added").projects[0].id.clone();
+    std::fs::remove_file(crate::run_memory::places::project_file(&rig.fleet.kit_folder(), &id)).expect("its file was on this Mac");
+    rig.fleet.projects_reload().await;
+
+    let mut one = start(&rig, "Ship it", Vec::new());
+    one.project = Some(id);
+    let refused = rig.fleet.start_session(one).await.expect_err("refused");
+
+    assert_eq!(code_of(refused), (422, "fleet.project_unreadable".to_string()));
+}
