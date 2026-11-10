@@ -384,6 +384,10 @@ where
         Fleet::merge_hubs(self).await
     }
 
+    async fn pull_holders(&self) -> Vec<(String, u64, ipc::HubSession)> {
+        Fleet::pull_holders(self).await
+    }
+
     /// One Check's log on main or a commit of it; a branch's line has none to open.
     async fn observe_land_check(
         &self,

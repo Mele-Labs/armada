@@ -445,6 +445,26 @@ where
             .or_else(|| branch.and_then(|branch| held("branch", branch)))
     }
 
+    /// The Job that holds each open pull request of each served repository, by root and number: the
+    /// one [`Self::session_of_pull`] finds, with its ledger title. A pull request no Job holds is
+    /// left out.
+    pub(crate) async fn pull_holders(&self) -> Vec<(String, u64, HubSession)> {
+        let served = self.repositories().served();
+        let pulls = self.sweeping().lock().await.pulls.clone();
+        let store = self.store().lock().await;
+        let mut held = Vec::new();
+        for one in &served {
+            for open in pulls.get(one.root()).into_iter().flatten() {
+                let branch = Some(open.pull.branch.as_written());
+                if let Some(id) = self.session_of_pull(&store, one, open.pull.number, branch) {
+                    let title = store.session(&id).ok().flatten().and_then(|found| found.title);
+                    held.push((one.root().to_string(), open.pull.number, HubSession { id, title }));
+                }
+            }
+        }
+        held
+    }
+
     /// Each served repository's hub, by root. A repository Fleet has read
     /// nothing for is left out.
     pub(crate) async fn merge_hubs(&self) -> Vec<(String, MergeLineHub)> {

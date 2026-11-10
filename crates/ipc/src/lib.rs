@@ -422,7 +422,7 @@ pub use session_mcp::{
     SessionMcpServer,
 };
 pub use session_quick::SessionQuick;
-pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews};
+pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews, PullTone, PullView};
 pub use job_mark::{JobGroup, JobLamp, JobMark, JobState};
 pub use job_compact::{CompactHow, CompactOff, CompactOffer};
 pub use ring_band::{RingBand, DANGER_FROM, WARNING_FROM};
