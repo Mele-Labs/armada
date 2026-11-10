@@ -105,7 +105,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             if !focus.within.contains_focused(window, cx) {
                 window.focus(&focus.keys, cx);
             }
-            window.dispatch_keystroke(keystroke, cx);
+            strike(keystroke, window, cx);
             Ok(())
         }
         Verb::Keys(keys) => {
@@ -115,7 +115,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             for key in keys {
                 let keystroke = Keystroke::parse(key).map_err(|why| Missed(format!("the key {key} does not parse: {why}")))?;
                 window.draw(cx).clear(cx);
-                window.dispatch_keystroke(keystroke, cx);
+                strike(keystroke, window, cx);
             }
             Ok(())
         }
@@ -255,4 +255,14 @@ fn press(button: MouseButton, at: Point<Pixels>, window: &mut Window, cx: &mut A
         cx,
     );
     window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button, position: at, modifiers: Modifiers::default(), click_count: 1 }), cx);
+}
+
+/// A key as a person's finger sends it: down, and for Enter and Space up again, which is what presses a
+/// focused element.
+fn strike(keystroke: Keystroke, window: &mut Window, cx: &mut App) {
+    let lifts = (keystroke.key == "enter" || keystroke.key == "space") && !keystroke.modifiers.modified();
+    window.dispatch_keystroke(keystroke.clone(), cx);
+    if lifts {
+        window.dispatch_event(PlatformInput::KeyUp(gpui::KeyUpEvent { keystroke }), cx);
+    }
 }

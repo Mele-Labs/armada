@@ -48,6 +48,7 @@ pub fn role_named(word: &str) -> Option<Role> {
         "group" => Role::Group,
         "combobox" => Role::ComboBox,
         "checkbox" => Role::CheckBox,
+        "tooltip" => Role::Tooltip,
         _ => return None,
     })
 }

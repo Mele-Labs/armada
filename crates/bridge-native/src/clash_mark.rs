@@ -15,7 +15,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, Anchor, App, Bounds, ElementId, Global, Pixels, Role, SharedString, Window,
+    anchored, canvas, deferred, div, point, prelude::*, Anchor, App, Bounds, ElementId, FocusHandle, Global, Pixels, Role, SharedString,
+    Subscription, Window,
 };
 use ipc::{AllWriteClashes, ClashHolder, ClashSide};
 
@@ -75,10 +76,14 @@ pub struct OpenHolder(pub Rc<dyn Fn(&ClashHolder, &mut Window, &mut App)>);
 
 impl Global for OpenHolder {}
 
-/// Where the mark was drawn and whether the pointer is on it.
+/// Where the mark was drawn, whether the pointer is on it, and the keys' side of it: the mark is a tab
+/// stop, and its card opens when the keys arrive and shuts when they leave or Esc is pressed.
 struct Hovered {
     on: bool,
     at: Rc<Cell<Option<Bounds<Pixels>>>>,
+    focus: FocusHandle,
+    by_keys: bool,
+    _subs: [Subscription; 2],
 }
 
 #[derive(IntoElement)]
@@ -104,12 +109,28 @@ impl RenderOnce for ClashMark {
         if conflicts.is_empty() {
             return column(cx.look()).into_any_element();
         }
-        let hover = window.use_keyed_state((ElementId::from("clash-mark"), self.id.clone()), cx, |_, _| Hovered { on: false, at: Rc::default() });
+        let hover = window.use_keyed_state((ElementId::from("clash-mark"), self.id.clone()), cx, |window, cx| {
+            let focus = cx.focus_handle().tab_stop(true);
+            let arrived = cx.on_focus_in(&focus, window, |held: &mut Hovered, window, cx| {
+                if window.last_input_was_keyboard() && !held.by_keys {
+                    held.by_keys = true;
+                    cx.notify();
+                }
+            });
+            let left = cx.on_focus_out(&focus, window, |held: &mut Hovered, _, _, cx| {
+                if held.by_keys {
+                    held.by_keys = false;
+                    cx.notify();
+                }
+            });
+            Hovered { on: false, at: Rc::default(), focus, by_keys: false, _subs: [arrived, left] }
+        });
         let look = cx.look();
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let amber = look.color(token::STATUS_AWAITING_REVIEW);
-        let (on, at) = {
+        let (on, at, focus, by_keys) = {
             let held = hover.read(cx);
-            (held.on, Rc::clone(&held.at))
+            (held.on, Rc::clone(&held.at), held.focus.clone(), held.by_keys)
         };
         let swords = |ink| glyph("swords", look.length(token::SPACE_4), ink);
         let watch = |hover: gpui::Entity<Hovered>| {
@@ -140,7 +161,26 @@ impl RenderOnce for ClashMark {
         let mark = match opens {
             Some(holder) => labelled(
                 body.cursor_pointer()
-                    .child(swords(if on { look.color(token::FG_DEFAULT) } else { amber }))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(gpui::transparent_black())
+                    .track_focus(&focus)
+                    .focus_visible(move |style| style.border_color(ring))
+                    .on_key_down({
+                        let hover = hover.clone();
+                        move |event, _, cx| {
+                            if event.keystroke.key == "escape" {
+                                hover.update(cx, |held, cx| {
+                                    if held.by_keys {
+                                        held.by_keys = false;
+                                        cx.notify();
+                                    }
+                                });
+                                cx.stop_propagation();
+                            }
+                        }
+                    })
+                    .child(swords(if on || by_keys { look.color(token::FG_DEFAULT) } else { amber }))
                     .on_mouse_down(gpui::MouseButton::Left, |_, window, cx| {
                         cx.stop_propagation();
                         window.prevent_default();
@@ -158,7 +198,7 @@ impl RenderOnce for ClashMark {
             None => labelled(body.child(swords(amber)), Role::Image, said.clone()),
         };
         let bounds = hover.read(cx).at.get();
-        let tip = bounds.filter(|_| on).map(|from| {
+        let tip = bounds.filter(|_| on || by_keys).map(|from| {
             let at = point(from.origin.x + from.size.width, from.origin.y + from.size.height + look.length(token::SPACE_1));
             let body = if several { many_card(&conflicts, look) } else { one_card(&said, look) };
             deferred(

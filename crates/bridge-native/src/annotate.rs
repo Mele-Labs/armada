@@ -542,6 +542,7 @@ impl Render for Layer {
             return div().into_any_element();
         }
         let look = cx.look();
+        let focus_ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
         let view = window.viewport_size();
         // Everything here is placed in the window's own coordinates, which is where the labelled
         // elements and the pointer are read; the screen this sits in starts below the title bar.
@@ -587,6 +588,9 @@ impl Render for Layer {
                     .text_size(look.length(token::TEXT_2XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                     .cursor_pointer()
+                    .focusable()
+                    .tab_stop(true)
+                    .focus_visible(move |style| style.border_color(focus_ring))
                     .children(number.map(|number| number.to_string()))
                     .on_click(cx.listener(move |this, _, window, cx| this.open_note(id, window, cx))),
                 Role::Button,
@@ -693,6 +697,11 @@ impl Render for Layer {
             .top(-origin.y)
             .w(view.width)
             .h(view.height)
+            .on_key_down(|event, window, cx| {
+                if crate::keymap::traverse(event, window, cx) {
+                    cx.stop_propagation();
+                }
+            })
             .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
             .children(pins)
             .children(opened)
