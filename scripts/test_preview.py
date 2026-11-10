@@ -1354,6 +1354,45 @@ class RestartBuild(unittest.TestCase):
         self.assertEqual(self.runs(), ["--restart", "--restart"])
         self.assertEqual(self.status(), "failed\npreview\n\nerror: failed to run custom build command for libsqlite3-sys\n")
 
+    def incremental_dir(self):
+        """The native app's incremental cache in the preview's tree, with a file in it."""
+        path = os.path.join(self.root, ".armada", "preview", "crates", "bridge-native", "target", "release", "incremental")
+        os.makedirs(path)
+        with open(os.path.join(path, "dep-graph.bin"), "w") as f:
+            f.write("half written")
+        return path
+
+    def test_a_broken_incremental_cache_is_removed_and_the_build_tried_once_more(self):
+        cache = self.incremental_dir()
+        marker = os.path.join(self.dir, "first")
+        script = (f'if [ ! -f "{marker}" ]; then touch "{marker}"; '
+                  'echo "error: internal compiler error: Found unstable fingerprints for type_of(x)" >&2; exit 101; fi')
+        self.assertEqual(self.build("preview", script=script), 0)
+        self.assertEqual(self.runs(), ["--restart", "--restart"])
+        self.assertFalse(os.path.exists(cache))
+        self.assertFalse(os.path.exists(self.cleaned))
+        self.assertIsNone(self.status())
+
+    def test_each_wording_of_a_broken_incremental_cache_is_matched(self):
+        for said in ("error: internal compiler error: encountered incremental compilation error with typeck(x)",
+                     "warning: could not load dep-graph from `/t/dep-graph.bin`: truncated",
+                     "error: failed to load the dep graph"):
+            with self.subTest(said=said):
+                self.assertTrue(RESTART_BUILD_MODULE.INCREMENTAL.search(said))
+
+    def test_the_incremental_retry_is_once_and_a_second_failure_is_reported(self):
+        self.incremental_dir()
+        script = 'echo "error: internal compiler error: Found unstable fingerprints for x" >&2; exit 101'
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.runs(), ["--restart", "--restart"])
+
+    def test_a_failure_that_says_nothing_of_the_incremental_cache_leaves_it_alone(self):
+        cache = self.incremental_dir()
+        script = 'echo "error[E0432]: unresolved import" >&2; exit 101'
+        self.assertEqual(self.build("preview", script=script), 1)
+        self.assertEqual(self.runs(), ["--restart"])
+        self.assertTrue(os.path.exists(cache))
+
     def stages_seen(self, which, headings, plain=(), **kwargs):
         """The stages the status file shows, in order, as a stub prints `headings` bold and `plain` unbold.
         The stub waits after each line, long enough for the wrapper's poll to have read it."""
