@@ -36,7 +36,7 @@ fn opens_menu(event: &KeyDownEvent) -> bool {
 const MUTES: [(&str, &str); 3] = [("job", "For job"), ("repo", "For repo"), ("hour", "For 1 hour")];
 
 /// What each notice is called in the menu's heading, which reads "Disable <name>" (`NOTICE_NAMES`).
-fn disable_label(word: &str) -> Option<&'static str> {
+pub(super) fn disable_label(word: &str) -> Option<&'static str> {
     Some(match word {
         "behind_base" => "Disable slot behind notice",
         "pr_checks_failed" => "Disable checks failed",
@@ -143,7 +143,7 @@ impl JobView {
         let row = row.to_string();
         Rc::new(move |this, id, window, cx| {
             if id == "teach" {
-                cx.emit(Teach { kind: "notice", text: text.clone(), at: at.clone(), ids: word.iter().cloned().collect() });
+                this.teach_open(Teach { kind: "notice", text: text.clone(), at: at.clone(), ids: word.iter().cloned().collect() }, window, cx);
                 return;
             }
             let Some(job) = this.shown.clone() else { return };
@@ -182,9 +182,9 @@ impl JobView {
 
     /// The pick of a row that only teaches.
     pub(super) fn teach_pick(&self, kind: &'static str, text: String, at: Option<Instant>) -> Pick {
-        Rc::new(move |_, id, _, cx| {
+        Rc::new(move |this, id, window, cx| {
             if id == "teach" {
-                cx.emit(Teach { kind, text: text.clone(), at: at.clone(), ids: Vec::new() });
+                this.teach_open(Teach { kind, text: text.clone(), at: at.clone(), ids: Vec::new() }, window, cx);
             }
         })
     }

@@ -205,7 +205,7 @@ impl JobView {
         TextSelection::clear(window, cx);
         match act {
             "reply" => self.quote(&picked.words, window, cx),
-            "teach" => cx.emit(Teach { kind: "words", text: picked.words.clone(), at: None, ids: Vec::new() }),
+            "teach" => self.teach_open(Teach { kind: "words", text: picked.words.clone(), at: None, ids: Vec::new() }, window, cx),
             "fork" => self.fork_from(picked.row, picked.words, window, cx),
             _ => {}
         }

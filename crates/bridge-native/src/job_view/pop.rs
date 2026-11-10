@@ -56,3 +56,17 @@ impl JobView {
         cx.notify();
     }
 }
+
+/// Tab inside a dialog goes round its own stops, forward or back, and never out to what is behind it.
+pub(super) fn trap_tab(order: &[FocusHandle], back: bool, window: &mut Window, cx: &mut gpui::App) {
+    let Some(last) = order.len().checked_sub(1) else { return };
+    let at = order.iter().position(|stop| stop.contains_focused(window, cx));
+    let next = match (at, back) {
+        (Some(at), false) => (at + 1) % (last + 1),
+        (Some(at), true) => (at + last) % (last + 1),
+        (None, false) => 0,
+        (None, true) => last,
+    };
+    window.focus(&order[next], cx);
+    cx.stop_propagation();
+}

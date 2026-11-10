@@ -20,6 +20,7 @@ mod callchip;
 mod dock;
 mod fork;
 mod judge;
+mod teach;
 mod keys;
 mod lines;
 mod menus;
@@ -258,6 +259,10 @@ pub struct JobView {
     fork: fork::Fork,
     /// The Judge's box on a plan, while it is open.
     judge: Option<judge::Open>,
+    /// The Teach panel, while it is open, Fleet's refusal of its last call, and the count that tells its answers apart.
+    teach: Option<teach::Open>,
+    teach_said: Option<SharedString>,
+    teach_clock: u64,
     confirm_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -318,6 +323,9 @@ impl JobView {
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
             judge: None,
+            teach: None,
+            teach_said: None,
+            teach_clock: 0,
             confirm_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -1070,6 +1078,7 @@ impl Render for JobView {
             .children(self.render_confirm(cx))
             .children(self.render_editor(cx))
             .children(self.render_fork_bar(cx))
+            .children(self.render_teach(cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {
