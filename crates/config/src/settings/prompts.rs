@@ -13,6 +13,12 @@ use super::{Applies, Entry, Kind, Section, Shipped, Words};
 pub const PROMPT_SCOUT_ASK: Words = Words("prompts.scoutAsk");
 pub const PROMPT_SCOUT_READ_IN: Words = Words("prompts.scoutReadIn");
 pub const PROMPT_SCOUT_RESCUE: Words = Words("prompts.scoutRescue");
+pub const PROMPT_REPAIR_QUIET: Words = Words("prompts.repairQuiet");
+pub const PROMPT_REPAIR_HUNG: Words = Words("prompts.repairHung");
+pub const PROMPT_REPAIR_DIED: Words = Words("prompts.repairDied");
+pub const PROMPT_REPAIR_CHECKOUT: Words = Words("prompts.repairCheckout");
+pub const PROMPT_REPAIR_RED_PULL: Words = Words("prompts.repairRedPull");
+pub const PROMPT_REPAIR_STRANDED: Words = Words("prompts.repairStranded");
 pub const PROMPT_RETRO_SESSION: Words = Words("prompts.retroSession");
 pub const PROMPT_RETRO_WHERE_FIXES_LAND: Words = Words("prompts.retroWhereFixesLand");
 pub const PROMPT_RETRO_HOW_TO_WRITE: Words = Words("prompts.retroHowToWrite");
@@ -45,6 +51,7 @@ pub enum PromptSection {
     Scouts,
     Autopilot,
     Operator,
+    Repairs,
     Retros,
     TestMap,
     Workflows,
@@ -52,11 +59,12 @@ pub enum PromptSection {
 
 impl PromptSection {
     /// Every section, in the order Bridge draws them.
-    pub const ORDER: [PromptSection; 7] = [
+    pub const ORDER: [PromptSection; 8] = [
         PromptSection::Judge,
         PromptSection::Scouts,
         PromptSection::Autopilot,
         PromptSection::Operator,
+        PromptSection::Repairs,
         PromptSection::Retros,
         PromptSection::TestMap,
         PromptSection::Workflows,
@@ -70,9 +78,10 @@ impl PromptSection {
             PromptSection::Scouts => 1,
             PromptSection::Autopilot => 2,
             PromptSection::Operator => 3,
-            PromptSection::Retros => 4,
-            PromptSection::TestMap => 5,
-            PromptSection::Workflows => 6,
+            PromptSection::Repairs => 4,
+            PromptSection::Retros => 5,
+            PromptSection::TestMap => 6,
+            PromptSection::Workflows => 7,
         }
     }
 
@@ -83,6 +92,7 @@ impl PromptSection {
             PromptSection::Scouts => "Scouts",
             PromptSection::Autopilot => "Autopilot",
             PromptSection::Operator => "Operator",
+            PromptSection::Repairs => "Repairs",
             PromptSection::Retros => "Retros",
             PromptSection::TestMap => "Test map",
             PromptSection::Workflows => "Workflows",
@@ -154,6 +164,48 @@ pub(super) const PROMPTS: &[Entry] = &[
         "Answering a decision",
         "What Autopilot's helper is asked for each decision it may answer. {instruction} is the person's instruction, {kind} the kind of decision, {decision} what is being decided and the ways to answer it, and {earlier} how this repository's earlier decisions were answered. Its answer is read by field name, so keep the field names.",
         &["instruction", "kind", "decision", "earlier"],
+    ),
+    prompt(
+        PromptSection::Repairs,
+        PROMPT_REPAIR_QUIET,
+        "A quiet stop",
+        "What a repair is told when a Job's agent stopped twice with nothing running and nothing asked. The Job's id, title, branch, checkout and what Fleet saw follow it. Fleet reads the first line of its report, so keep REPAIRED and NOT REPAIRED.",
+        &[],
+    ),
+    prompt(
+        PromptSection::Repairs,
+        PROMPT_REPAIR_HUNG,
+        "A command that hung",
+        "What a repair is told when a running turn has heard nothing for too long. The Job's id, title, branch, checkout and what Fleet saw follow it. Fleet reads the first line of its report, so keep REPAIRED and NOT REPAIRED.",
+        &[],
+    ),
+    prompt(
+        PromptSection::Repairs,
+        PROMPT_REPAIR_DIED,
+        "A process that died",
+        "What a repair is told when a Job's process died and Fleet's one restart did not bring it back. The Job's id, title, branch, checkout and what Fleet saw follow it. Fleet reads the first line of its report, so keep REPAIRED and NOT REPAIRED.",
+        &[],
+    ),
+    prompt(
+        PromptSection::Repairs,
+        PROMPT_REPAIR_CHECKOUT,
+        "A broken checkout",
+        "What a repair is told when a Job's checkout holds conflict markers, a half finished merge or missing dependencies. The Job's id, title, branch, checkout and what Fleet saw follow it. Fleet reads the first line of its report, so keep REPAIRED and NOT REPAIRED.",
+        &[],
+    ),
+    prompt(
+        PromptSection::Repairs,
+        PROMPT_REPAIR_RED_PULL,
+        "A red pull request",
+        "What a repair is told when a pull request's checks failed or it conflicts, and its Job has ended or stopped. The Job's id, title, branch, checkout and what Fleet saw follow it. Fleet reads the first line of its report, so keep REPAIRED and NOT REPAIRED.",
+        &[],
+    ),
+    prompt(
+        PromptSection::Repairs,
+        PROMPT_REPAIR_STRANDED,
+        "Stranded changes",
+        "What a repair is told when a slot was left with changes and its holder is gone. The Job's id, title, branch, checkout and what Fleet saw follow it. Fleet reads the first line of its report, so keep REPAIRED and NOT REPAIRED.",
+        &[],
     ),
     prompt(
         PromptSection::Retros,

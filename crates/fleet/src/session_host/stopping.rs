@@ -12,7 +12,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::HostedSessions;
 use store::KeptStop;
 
 use crate::daemon::Fleet;
@@ -100,8 +99,8 @@ pub(crate) fn restart_spent(turn: &store::KeptOpenTurn) -> bool {
     turn.ended_at.is_some() && turn.started_again >= 1
 }
 
-/// What the row says of a Job dead with its restart spent: a repair Job is at it, or Fleet has run out.
-/// `away` is the outages its open turn overlapped. A repair Job gets no repair of its own.
+/// What the row says of a Job dead with its restart spent: a repair is at it, or Fleet has run out.
+/// `away` is the outages its open turn overlapped.
 pub(crate) fn dead(
     turn: &store::KeptOpenTurn,
     kept: &KeptStop,
@@ -122,7 +121,7 @@ pub(crate) fn dead(
         said,
         restart: ipc::StopRestart::Failed,
         repair,
-        gave_up: kept.repairs.is_some() || matches!(repair, Some(ipc::StopRepair::Failed | ipc::StopRepair::Held)),
+        gave_up: matches!(repair, Some(ipc::StopRepair::Failed | ipc::StopRepair::Held)),
         down,
     }
 }
@@ -202,72 +201,43 @@ where
         self.repairs_started().await;
     }
 
-    /// A Job dead with its restart spent gets a repair Job, one at a time and never for a repair Job,
-    /// unless Fleet itself is unhealthy, when a new Job would fail the same way and he is told instead.
+    /// A Job dead with its restart spent gets a hidden repair, one at a time, unless Fleet itself is
+    /// unhealthy, when a new agent would fail the same way and he is told instead.
     async fn repairs_started(self: &Arc<Self>) {
-        let (dead, running) = {
+        let dead: Vec<String> = {
             let store = self.store().lock().await;
             let turns = store.open_turns().unwrap_or_default();
-            let dead: Vec<String> = turns
+            turns
                 .iter()
                 .filter(|turn| restart_spent(turn))
                 .filter(|turn| self.hosts().of(&turn.session_id).state().process.is_none())
-                .filter(|turn| store.session_stop(&turn.session_id).is_ok_and(|kept| kept.repair_job.is_none() && kept.repairs.is_none()))
+                .filter(|turn| store.session_stop(&turn.session_id).is_ok_and(|kept| kept.repair_job.is_none()))
                 .filter(|turn| store.session(&turn.session_id).ok().flatten().is_some_and(|one| one.state == store::SessionState::Live))
                 .map(|turn| turn.session_id.clone())
-                .collect();
-            (dead, store.repair_running().unwrap_or(true))
+                .collect()
         };
-        let Some(id) = dead.into_iter().next().filter(|_| !running) else { return };
-        let healthy = self.health().await.is_ok_and(|health| !health.probes.iter().any(|one| one.outcome == "fail"));
+        let Some(id) = dead.into_iter().next().filter(|_| !self.repairs().running_any()) else { return };
         let held = self.store().lock().await.session_stop(&id).is_ok_and(|kept| kept.repair_held);
-        if !healthy {
-            if !held {
+        let saw = self.died_seen(&id).await;
+        if let Err(why) = self.repair_started(&id, crate::repair::RepairBreak::Died, saw).await {
+            // An unhealthy Fleet says so once; any other refusal is held as it always was.
+            let unhealthy = matches!(&why, api::Refusal::Unacceptable(raised) if raised.code == crate::repair::REPAIR_UNHEALTHY);
+            if !held || !unhealthy {
                 let _ = self.store().lock().await.keep_repair_held(&id, true);
                 let _ = self.published_hosted(&id).await;
             }
-            return;
-        }
-        if self.repair_started(&id).await.is_err() {
-            let _ = self.store().lock().await.keep_repair_held(&id, true);
-            let _ = self.published_hosted(&id).await;
         }
     }
 
-    /// Start a Job in the same repository, nested under the dead one, with no start card: he asked to press nothing.
-    async fn repair_started(self: &Arc<Self>, id: &str) -> Result<(), api::Refusal> {
-        let (session, hosting) = self.session_and_hosting(id).await?;
-        let title = session.title.clone().unwrap_or_else(|| id.to_string());
-        let manifest = ipc::ManifestId::carried(&hosting.manifest_id);
-        let made = self
-            .start_session(ipc::StartSession {
-                manifest_id: manifest,
-                title: Some(format!("Repair: {title}")),
-                model: None,
-                effort: None,
-                mode: None,
-                root: None,
-                fork: None,
-                request: None,
-                after: None,
-                held: false,
-                project_rows: Vec::new(),
-                on_your_words: None,
-            })
-            .await?;
-        let repair = made.id.as_str().to_string();
-        self.started_linked(id, &repair, &hosting.manifest_id, None).await?;
-        self.store().lock().await.keep_repair_started(id, &repair).map_err(|why| self.ledger_fault(why))?;
-        let brief = format!(
-            "Job {id}, \"{title}\", lost its process during a turn, and Fleet's one restart did not bring it back. Find why from \
-             its log and what its process last said, fix what stopped it, then send it a message so it carries on. If it cannot \
-             be brought back, name what it needs with waiting_for. Then call all_done."
-        );
-        Arc::clone(self)
-            .send_session_message(ipc::SendSessionMessage { session_id: made.id.clone(), text: brief, attachments: Vec::new(), mentions: Vec::new() })
-            .await?;
-        self.fleet_note(id, format!("Started a repair Job, {}", format_args!("Repair: {title}"))).await;
-        let _ = self.published_hosted(id).await;
-        Ok(())
+    /// What Fleet saw of a Job whose process died: where its log is, and what its process last said.
+    async fn died_seen(&self, id: &str) -> Vec<(String, String)> {
+        let mut saw = Vec::new();
+        if let Some(log) = adapters::terminal_thread::find(&self.host().home, id) {
+            saw.push((String::from("Its log"), log.display().to_string()));
+        }
+        if let Some(said) = self.stop_read_again(id).await.and_then(|record| record.stopped).and_then(|stopped| stopped.said) {
+            saw.push((String::from("What its process last said"), said));
+        }
+        saw
     }
 }

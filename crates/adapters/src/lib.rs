@@ -120,6 +120,8 @@ mod pull_review_lists;
 /// What a Link's address names, and the call that fetches it. `#1293`.
 mod reading_in;
 mod reclaim;
+/// A repair's process: one turn in a Job's checkout, with the tools to write.
+mod repairing;
 mod remembering;
 mod recorded_laps;
 mod rerunning;
@@ -206,6 +208,7 @@ pub use reading_in::{
     FORGE_HOST, MOST_ISSUES, SESSIONS,
 };
 pub use remembering::{personal_settings, remember_the_rule, Remembered, PERSONAL_SETTINGS};
+pub use repairing::{denied_to_a_repair, RepairRefused, Repairing};
 pub use scouting::{
     checkout_as_it_stands, denied_to_a_scout, files_a_search_showed, no_servers, CheckoutRead,
     Looked, ScoutRefused, Scouting, Shown,

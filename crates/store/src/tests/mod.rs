@@ -34,6 +34,7 @@ mod walk_places;
 mod pull_request_notes;
 mod session_checks;
 mod stop_nudges;
+mod job_repairs;
 mod session_ledger;
 mod session_loadout;
 mod session_turn_usage;

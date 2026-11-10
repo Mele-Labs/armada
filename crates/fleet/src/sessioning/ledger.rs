@@ -229,10 +229,7 @@ where
             watching: store.live_watch_names(&session.id).map_err(fault)?,
             holding: flying.iter().filter(|one| one.holds).cloned().collect(),
             flying,
-            repair_over: stop.repair_job.as_deref().is_some_and(|repair| {
-                let ended = store.session(repair).ok().flatten().is_none_or(|one| one.state == store::SessionState::Ended);
-                ended || store.done_since(repair).ok().flatten().is_some()
-            }),
+            repair_over: stop.repair_job.as_deref().is_some_and(|repair| store.repair_over(repair).unwrap_or(true)),
             away: open_turn
                 .as_ref()
                 .and_then(|turn| Some(store.fleet_outages_between(&turn.since, turn.ended_at.as_deref()?).unwrap_or_default()))
