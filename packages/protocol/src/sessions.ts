@@ -911,7 +911,7 @@ export type ConvertDraftToDocument = {
 
 /**
  * The page a draft became: `name` without `.html`, `path` in the Job's worktree (the `target` of its `artifact` attachment, which opens it),
- * and `told`, false where the Job was paused or had ended and so was sent nothing. Since 10 Nov 2026.
+ * and `told`, false where the Job was paused (its turn is kept for its Resume) or had ended (told nothing). Since 10 Nov 2026.
  */
 export type DraftDocument = {
   name: string;

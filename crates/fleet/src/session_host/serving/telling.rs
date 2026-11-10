@@ -236,10 +236,10 @@ where
     }
 
     /// Fleet's word to a Job whose draft the person turned into a Document. Kept from no mute or rule,
-    /// since it answers his own press and the Job's next revision depends on it. `Ok(false)` for a
-    /// paused or ended Job.
+    /// since it answers his own press and the Job's next revision depends on it. **A paused Job's is kept
+    /// for its Resume** and `Ok(false)` until then; an ended Job is told nothing.
     pub(crate) async fn told_of_a_conversion(self: &Arc<Self>, session: &str, text: &str) -> Result<bool, Refusal> {
-        self.fleet_word(session, text, false, None).await
+        self.fleet_word_kept_for_resume(session, text).await
     }
 
     /// Fleet's word to a Job whose process the person restarted from its tools band: news that asks

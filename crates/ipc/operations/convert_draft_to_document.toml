@@ -10,7 +10,7 @@ notes = """
 
 **The draft settles `withdrawn`**, as `withdraw_draft` settles it, so its item leaves Needs you. The page is kept as Fleet keeps an agent's own write: a revision on the job's record, and a Document item for the person to read.
 
-**The job is sent a turn** as Fleet's own word: `The owner turned your draft "<title>" into the Document .armada/documents/<name>.html. Revise it there as a Document from now on, and don't propose it as a draft again.` A job that is paused or has ended is told nothing and `told` is false.
+**The job is sent a turn** as Fleet's own word: `The owner turned your draft "<title>" into the Document .armada/documents/<name>.html. Revise it there as a Document from now on, and don't propose it as a draft again.` A job that is paused has the turn kept for its Resume, and one that has ended is told nothing; `told` is false for both.
 
 **Refused**, with nothing written: a job Fleet does not host, 422 `fleet.no_such_session`; a draft the job has no row for, 404 `fleet.draft_convert_unknown`; a draft already approved, sent back or withdrawn, 409 `fleet.draft_convert_settled`; a draft that proposes a workflow, rule or lifecycle change, 422 `fleet.draft_convert_proposal`, since it has no page to be; and a job that holds no worktree, 409 `fleet.draft_convert_no_worktree`.
 

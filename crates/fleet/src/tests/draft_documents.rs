@@ -340,3 +340,39 @@ async fn a_job_with_no_worktree_is_refused_and_its_draft_stays_open() {
     let record = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions.into_iter().find(|one| one.id == id).expect("listed");
     assert!(record.waiting_for.iter().any(|one| one.source == WaitingSource::Draft));
 }
+
+/// A pause hands the slot back, so a Job that holds a worktree and is paused is one a pause landed on
+/// as the press did, or one whose marker is set by hand here.
+#[tokio::test]
+async fn a_paused_job_is_converted_and_its_turn_is_kept_and_delivered_on_resume() {
+    let rig = rig_placing(None);
+    let (id, tree) = in_a_worktree(&rig).await;
+    let item = draft_in(&rig, &id, TITLE, "Text.").await;
+    let mut hosting = rig.fleet.store().lock().await.hosting(id.as_str()).expect("read").expect("hosted");
+    hosting.paused_at = Some(rig.fleet.now().as_str().to_string());
+    rig.fleet.store().lock().await.keep_hosting(&hosting).expect("kept");
+    let starts = rig.stand_in.starts().len();
+
+    let page = made(&rig, &id, &item).await;
+
+    // Converted as for any Job, and not told yet: the word is on the thread and kept for the Resume.
+    assert!(!page.told);
+    assert!(tree.join(".armada/documents/why-slot-leases-end-early.html").is_file());
+    let rows = rig.rows(&id).await;
+    assert_eq!(settled_how(&rows), Some(DraftHow::Withdrawn));
+    let sentence = told(TITLE, &page.name);
+    assert_eq!(fleet_said(&rows), vec![sentence.clone()], "on the thread as Fleet's");
+    assert_eq!(rig.fleet.store().lock().await.held_later_turns(id.as_str()).unwrap().len(), 1, "kept for the resume");
+    assert_eq!(rig.stand_in.starts().len(), starts, "nothing woke the job");
+
+    // The Job holds a slot again: the kept turn goes as its next turn, and is not written to the thread twice.
+    hosting.paused_at = None;
+    rig.fleet.store().lock().await.keep_hosting(&hosting).expect("resumed");
+    rig.fleet.pause_lifted(id.as_str()).await;
+    eventually(|| async { rig.stand_in.starts().len() == starts + 1 }).await;
+    // The process is written JSON, so the quotes of the title are escaped there: the rest is read.
+    let revise = "into the Document .armada/documents/why-slot-leases-end-early.html. Revise it there as a Document from now on";
+    eventually(|| async { rig.stand_in.process(starts).sent.lock().unwrap().join("\n").contains(revise) }).await;
+    assert_eq!(rig.fleet.store().lock().await.held_later_turns(id.as_str()).unwrap().len(), 0, "taken");
+    assert_eq!(fleet_said(&rig.rows(&id).await), vec![sentence]);
+}

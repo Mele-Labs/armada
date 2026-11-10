@@ -19,6 +19,7 @@ pub struct DraftDocument {
     pub name: String,
     /// The page's path in the Job's worktree, which is its `target` on the Job's record.
     pub path: String,
-    /// Whether the Job was sent its turn. False for a Job that is paused or has ended, which is told nothing.
+    /// Whether the Job was sent its turn. False for a Job that is paused, whose turn is kept for its Resume,
+    /// and for one that has ended, which is told nothing.
     pub told: bool,
 }
