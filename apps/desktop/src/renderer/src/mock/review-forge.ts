@@ -26,9 +26,16 @@ import {
 import type { ReviewsApi } from "../../../shared/api/reviews";
 import type { PrList, Thread, ToolDef } from "../pr-review/model";
 import { patchOfLines, placeOfLine } from "../pr-review/patch";
+import { TOUR_TOOL } from "../pr-review/runs";
 import { idOfName } from "../pr-review/tools";
 import { unanswered } from "./moment";
-import { accountResult, answerResult, findingsResult, themesOf } from "./review-run-fixtures";
+import {
+  accountResult,
+  answerResult,
+  findingsResult,
+  themesOf,
+  tourResult,
+} from "./review-run-fixtures";
 import type { MockPr, ReviewSeed } from "./review-seed";
 import { NO_SEARCH_OR_WALK, createMockSearchAndWalk } from "./review-walk-fleet";
 
@@ -290,6 +297,8 @@ export function createMockForge(seed: ReviewSeed): MockForge {
             : [],
       };
     }
+    if (kind === "tool" && name === TOUR_TOOL)
+      return tourResult(pr, seed.results[pr.key]?.[name] ?? []);
     if (kind === "tool") return findingsResult(pr, seed.results[pr.key]?.[name] ?? []);
     return name === "how-it-works" ? themesOf(pr) : accountResult(pr.accounts[name]);
   };

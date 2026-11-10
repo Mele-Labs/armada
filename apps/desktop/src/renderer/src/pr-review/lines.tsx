@@ -33,6 +33,7 @@ export function LineComposer({
   onCancel,
   action = "Add to review",
   initial = "",
+  also,
 }: {
   keep: string;
   label: string;
@@ -40,15 +41,21 @@ export function LineComposer({
   onCancel: () => void;
   action?: string;
   initial?: string;
+  /** A second way to send the words, beside `action`: a comment posted on its own rather than kept for the review. */
+  also?: {
+    label: string;
+    press: (body: string) => void;
+  };
 }) {
   const [text, setText] = useState(initial);
   const ready = text.trim() !== "";
-  const add = () => {
+  const take = (to: (body: string) => void) => {
     if (!ready) return;
-    onAdd(text.trim());
+    to(text.trim());
     forgetKept(keep);
     setText("");
   };
+  const add = () => take(onAdd);
   return (
     <form
       className="pr-compose"
@@ -75,6 +82,11 @@ export function LineComposer({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
+        {also === undefined ? null : (
+          <Button variant="secondary" size="sm" disabled={!ready} onClick={() => take(also.press)}>
+            {also.label}
+          </Button>
+        )}
         <Button variant="secondary" size="sm" type="submit" disabled={!ready}>
           {action}
         </Button>
@@ -193,12 +205,16 @@ export function FindingCard({
   session,
   onDismiss,
   onSend,
+  children,
 }: {
   finding: Finding;
   mark: ToolMark;
   session: boolean;
-  onDismiss: () => void;
+  /** Absent draws no Dismiss, for a host whose own marks put a finding away. */
+  onDismiss?: () => void;
   onSend: () => void;
+  /** What the host adds under the words: the Review tab's marks. */
+  children?: ReactNode;
 }) {
   const kind = TOOL_MARK[mark];
   return (
@@ -214,23 +230,26 @@ export function FindingCard({
         </span>
         <b className="pr-card__who">{finding.title}</b>
         <SeverityMark severity={finding.severity} />
-        <span className="pr-card__act">
-          <Tooltip label="Dismiss">
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              aria-label="Dismiss finding"
-              onClick={onDismiss}
-            >
-              <X size={16} strokeWidth={2} aria-hidden />
-            </Button>
-          </Tooltip>
-        </span>
+        {onDismiss === undefined ? null : (
+          <span className="pr-card__act">
+            <Tooltip label="Dismiss">
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                aria-label="Dismiss finding"
+                onClick={onDismiss}
+              >
+                <X size={16} strokeWidth={2} aria-hidden />
+              </Button>
+            </Tooltip>
+          </span>
+        )}
       </header>
       <div className="pr-card__body">
         <Prose text={finding.body} />
       </div>
+      {children}
       {session ? (
         <div className="pr-thread__foot">
           {finding.sent ? (

@@ -582,7 +582,8 @@ fn contract(shape: Shape) -> String {
         Shape::Findings => format!(
             "{{\"findings\": [{{\"title\": \"...\", \"body\": \"Markdown\", \"severity\": \"low\" | \"medium\" | \"high\", \
              \"at\": <place>}}]}}. An empty list is an answer: say so only if you read the change and found nothing. \
-             Each finding is pinned to the lines it is about; {PLACE}."
+             The title states the problem in a few plain words. The body is one short sentence saying what goes wrong \
+             because of it, with the `path:line` it happens at. Each finding is pinned to the lines it is about; {PLACE}."
         ),
         Shape::Themes => format!(
             "{{\"summary\": \"what the pull request does, in a sentence or two\", \"themes\": [{{\"title\": \"...\", \

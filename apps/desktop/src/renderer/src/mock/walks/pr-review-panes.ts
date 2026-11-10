@@ -1,12 +1,12 @@
-// An open pull request in the panes a Job's are drawn in: Overview, Files, Checks, Commits and Review in the main pane, the tools
-// over Comments to its right. A tool opens in a tab of its own, from + or by its number. Comments lists the threads by file and
+// An open pull request in the panes a Job's are drawn in: Overview, Files, Review, Checks and Commits in the main pane, Comments to
+// its right. A tool opens in a tab of its own beside Comments, from + or by its number. Comments lists the threads by file and
 // line, and a press on one brings Files forward at its line. Over the `pr-review-panes` scenario, which is `pr-review` with a commit pushed to this pull request.
 
 import { button, inside, place, region, role, tab, text, walk } from "../walk";
 
 const list = region("Pull requests");
 const reader = region("Pull request #1899");
-const toolsPane = inside(reader, region("Empty pane"));
+const toolsPane = inside(reader, region("Pane: Comments"));
 const comments = inside(
   reader,
   region("Comments", {
@@ -27,19 +27,11 @@ const prReviewPanes = walk("pr-review-panes", [
   },
   {
     look: inside(reader, tab("Overview")),
-    say: "It opens in panes, as a Job does. Overview, Files, Checks, Commits and Review are tabs of the main pane",
-  },
-  {
-    look: inside(toolsPane, role("list", "Tools")),
-    say: "To the right, the pane the tools open in. Until one opens it lists them all, each with its key, shown while ⌘ is held, and what is kept",
-  },
-  {
-    look: inside(toolsPane, button("Add a tool")),
-    say: "Add a tool, under the list",
+    say: "It opens in panes, as a Job does. Overview, Files, Review, Checks and Commits are tabs of the main pane",
   },
   {
     look: comments,
-    say: "And Comments under it",
+    say: "To the right, Comments. A tool's tab opens beside it",
   },
   {
     press: inside(toolsPane, button("Add tab")),
@@ -101,6 +93,15 @@ const prReviewPanes = walk("pr-review-panes", [
   {
     look: inside(reader, tab("Why")),
     say: "Its tab opens and runs, with no Run to press",
+  },
+  {
+    press: inside(
+      reader,
+      tab("Comments", {
+        exact: true,
+      }),
+    ),
+    say: "Comments, a tab in the same pane as the tools",
   },
   {
     look: inside(open, button(/^Go to crates\/fleet\/src\/plan_usage\.rs:\d+ in Files$/)),
@@ -186,13 +187,8 @@ const prReviewPanes = walk("pr-review-panes", [
     say: "Its tabs are where he left them, with the results kept for them",
   },
   {
-    look: inside(
-      reader,
-      region("Why", {
-        exact: true,
-      }),
-    ),
-    say: "The one in front is the one that was",
+    look: comments,
+    say: "The one in front is the one that was: Comments",
   },
   {
     look: inside(files, region("crates/fleet/src/plan_usage.rs")),

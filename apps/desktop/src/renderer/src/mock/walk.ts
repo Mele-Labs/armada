@@ -36,6 +36,8 @@ export type Step =
   | {
       press: Target;
       say: string;
+      /** Shift held down through the press, as a range is picked from a line already picked. */
+      shift?: true;
     }
   | {
       look: Target;
@@ -367,7 +369,7 @@ export function stopped(at: number, step: Step): string {
  * A press as a pointer makes one: down, focus, up, click, at the element's
  * middle. **Not `element.click()`**, which skips the down a tab activates on.
  */
-function press(element: HTMLElement): void {
+function press(element: HTMLElement, shiftKey = false): void {
   const box = element.getBoundingClientRect();
   const at = {
     bubbles: true,
@@ -377,6 +379,7 @@ function press(element: HTMLElement): void {
     clientX: box.x + box.width / 2,
     clientY: box.y + box.height / 2,
     button: 0,
+    shiftKey,
   };
   const pointer = {
     ...at,
@@ -833,7 +836,7 @@ export function act(step: Step, element: HTMLElement, next?: Step): Promise<void
   else if ("context" in step) pressContext(element);
   else if ("key" in step) pressKey(element, step.key);
   else if ("later" in step) timePasses();
-  else if ("press" in step) press(element);
+  else if ("press" in step) press(element, step.shift === true);
   else if ("drag" in step && "onto" in step) landed = dropOnto(element, find(step.onto));
   else if ("drag" in step) drag(element, step.by, step.shift === true);
   else if ("type" in step) {

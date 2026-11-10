@@ -17,6 +17,7 @@ import {
   RotateCw,
   X,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Button, Kbd, Prose, PrMark, SessionComposer, Tooltip, agoOf } from "@armada/components";
 
 import type { useSendFindings } from "./acts";
@@ -31,8 +32,8 @@ import { onlyExplanations, toolsOf } from "./tools";
 type Send = ReturnType<typeof useSendFindings>;
 
 /**
- * What he asked of this pull request, above the description. **A question he sent from the composer at the foot of the reader is
- * kept here**, an index of what he asked, and nothing is drawn where he asked none. The explanations are Flight control's tiles.
+ * What he asked of this pull request, above the description. **A question he sent from the Ask tab is kept here**, an index of what
+ * he asked, and nothing is drawn where he asked none. The explanations are Flight control's tiles.
  */
 export function AskedOf({ pr }: { pr: ReviewPr }) {
   const work = useReviews().work[pr.key] ?? NO_WORK;
@@ -371,11 +372,41 @@ function AccountView({
   );
 }
 
+/** Ask, a tab of the pull request's panes: each question he asked and its answer, oldest first, and under them the box he asks in. */
+export function AskView({ pr }: { pr: ReviewPr }) {
+  const work = useReviews().work[pr.key] ?? NO_WORK;
+  const log = useRef<HTMLDivElement>(null);
+  const count = work.asks.length;
+  // A new question is at the foot, beside the box it was asked in.
+  useEffect(() => {
+    if (log.current !== null) log.current.scrollTop = log.current.scrollHeight;
+  }, [
+    count,
+  ]);
+  return (
+    <div className="pr-ask">
+      <div
+        ref={log}
+        className="job-pane__scroll pr-ask__log"
+        role="log"
+        aria-label="Questions and answers"
+      >
+        {count === 0 ? (
+          <p className="pr-ask__none">Nothing asked about this pull request.</p>
+        ) : (
+          work.asks.map((one) => <Answer key={one.id} asked={one} />)
+        )}
+      </div>
+      <AskComposer pr={pr} />
+    </div>
+  );
+}
+
 const NOBODY = () => undefined;
 const NONE: readonly never[] = [];
 
 /**
- * His own question about the open pull request, in a compact box at the foot of the reader: **the Sessions box** (`SessionComposer`),
+ * His own question about the open pull request, in a compact box at the foot of the Ask tab: **the Sessions box** (`SessionComposer`),
  * text only and on one row, as a Job's Commander has it. ↵ sends and ⇧↵ breaks the line. What is typed is kept per pull request
  * until it is sent. **It asks first**, since an answer spends tokens, and Cancel gives the words back.
  */

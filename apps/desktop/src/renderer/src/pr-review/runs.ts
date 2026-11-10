@@ -5,6 +5,7 @@
 import type {
   ReviewFinding,
   ReviewMatch,
+  ReviewPlace,
   ReviewResult,
   ReviewRun,
   WalkPlace,
@@ -191,6 +192,34 @@ export function findingsOf(run: ReviewRun): Finding[] {
     sent: false,
   }));
 }
+
+/** The tool Tour, by its id. */
+export const TOUR_TOOL = "tour";
+export const TOUR_RUN = runKey("tool", TOUR_TOOL);
+
+/** One stop of a tour: a line on what this piece of the change does, and the lines it is. */
+export type TourStop = {
+  title: string;
+  at: ReviewPlace;
+};
+
+/**
+ * What Tour comes to: the stops a reader takes through the change, in the order he should read them. **Not on the wire yet**:
+ * Fleet's `ReviewResult` has no tour, so this is the shape Review reads once it has one, and the mock serves it until then.
+ */
+export type TourResult = {
+  shape: "tour";
+  stops: TourStop[];
+};
+
+/** The stops of a finished Tour. None where it has not run, failed, or found nothing to stop at. */
+const stopsOfResult = (
+  result: ReviewResult | TourResult | undefined,
+): readonly TourStop[] | undefined =>
+  result?.shape === "tour" && result.stops.length > 0 ? result.stops : undefined;
+
+export const tourOf = (run: ReviewRun | undefined): readonly TourStop[] | undefined =>
+  run?.state === "done" ? stopsOfResult(run.result) : undefined;
 
 /** The answer to a question, as Markdown. An answer of no words is none. */
 export const answerOf = (result: ReviewResult | undefined): string | undefined =>

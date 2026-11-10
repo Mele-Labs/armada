@@ -12,12 +12,14 @@ import {
   JOB_TAB_KINDS,
   OPERATOR_TAB_KINDS,
   PR_TAB_KINDS,
+  RENAMED_PR_KINDS,
   activate,
   addTab,
   arrive,
   arriveTerminalBehind,
   build,
   copyOf,
+  dockAtBottom,
   focusPane,
   hasKind,
   holderOf,
@@ -27,6 +29,7 @@ import {
   moveTabToGap,
   moveTabToPane,
   panesOf,
+  renameKinds,
   shortfall,
   type Arrangement,
   type Node,
@@ -58,26 +61,34 @@ const defaultArrangement = (): Arrangement =>
     },
   });
 
-/** A pull request's: Overview, Files, Checks, Commits and Review as tabs of the main pane, and to its right the tools over Comments. */
+/** The height Ask takes of a pull request's area where it is docked under the rest. */
+const ASK_SHARE = 0.22;
+
+/**
+ * A pull request's: Overview, Files, Review, Checks and Commits as tabs of the main pane, Comments to its right, and Ask under them all,
+ * as wide as the page. A tool's tab opens beside Comments.
+ */
 const prArrangement = (): Arrangement =>
   build({
-    dir: "row",
-    ratio: 0.62,
-    a: [
-      "pr-overview",
-      "pr-files",
-      "pr-checks",
-      "pr-commits",
-      "pr-review",
-    ],
-    b: {
-      dir: "column",
-      ratio: 0.5,
-      a: [],
+    dir: "column",
+    ratio: 1 - ASK_SHARE,
+    a: {
+      dir: "row",
+      ratio: 0.62,
+      a: [
+        "pr-overview",
+        "pr-files",
+        "pr-review",
+        "pr-checks",
+        "pr-commits",
+      ],
       b: [
         "pr-comments",
       ],
     },
+    b: [
+      "pr-ask",
+    ],
   });
 
 /** The Operator's, the owner's own arrangement: Discussion with Permissions as tabs in the left third, and the Queue with the Log and
@@ -160,14 +171,26 @@ const isArrangement = (one: unknown, kinds: readonly string[]): one is Arrangeme
   );
 };
 
+/** A kept arrangement with the kinds `renamed` names put under the kinds they open now, before it is checked. */
+const renamedIn = (one: unknown, renamed: Readonly<Record<string, TabKind>>): unknown => {
+  if (Object.keys(renamed).length === 0) return one;
+  try {
+    return renameKinds(one as Arrangement, renamed);
+  } catch {
+    // Not an arrangement's shape: the check after says so.
+    return one;
+  }
+};
+
 const reviverOf =
-  (kinds: readonly string[]) =>
+  (kinds: readonly string[], renamed: Readonly<Record<string, TabKind>> = {}) =>
   (stored: unknown): Entry => {
     const one = stored as Entry;
-    if (!isArrangement(one?.arrangement, kinds) || typeof one.layout !== "string")
+    const arrangement = renamedIn(one?.arrangement, renamed);
+    if (!isArrangement(arrangement, kinds) || typeof one.layout !== "string")
       throw new Error("not an owner's panes");
     return {
-      arrangement: one.arrangement,
+      arrangement,
       layout: one.layout,
       edited: one.edited === true,
       chosen: one.chosen === true,
@@ -176,19 +199,23 @@ const reviverOf =
   };
 
 const sharedReviverOf =
-  (kinds: readonly string[]) =>
+  (kinds: readonly string[], renamed: Readonly<Record<string, TabKind>> = {}) =>
   (stored: unknown): Shared => {
     const one = stored as Partial<Shared> | undefined;
     const saved = Object.fromEntries(
-      Object.entries(one?.saved ?? {}).filter(([, arrangement]) =>
-        isArrangement(arrangement, kinds),
-      ),
+      Object.entries(one?.saved ?? {})
+        .map(([name, arrangement]) => [
+          name,
+          renamedIn(arrangement, renamed),
+        ])
+        .filter(([, arrangement]) => isArrangement(arrangement, kinds)),
     );
+    const base = renamedIn(one?.base, renamed);
     return {
       saved,
       forAll: typeof one?.forAll === "string" ? one.forAll : DEFAULT_LAYOUT,
       versions: one?.versions ?? {},
-      base: isArrangement(one?.base, kinds) ? one.base : undefined,
+      base: isArrangement(base, kinds) ? base : undefined,
     };
   };
 
@@ -238,6 +265,52 @@ export function giveKeptPanesDeferred(): void {
       ),
     });
   writeKept(DEFERRED_GIVEN, true);
+}
+
+const PR_SHARED = "pr-panes:shared";
+const PR_OWNER = "pr-panes:pr:";
+const ASK_GIVEN = "pr-panes:ask-given";
+const revivePrEntry = reviverOf(PR_TAB_KINDS, RENAMED_PR_KINDS);
+const revivePrShared = sharedReviverOf(PR_TAB_KINDS, RENAMED_PR_KINDS);
+
+/** The arrangement with Ask docked under it, where it has no Ask tab. */
+const withAsk = (arrangement: Arrangement): Arrangement =>
+  hasKind(arrangement, "pr-ask") ? arrangement : dockAtBottom(arrangement, "pr-ask", ASK_SHARE);
+
+/**
+ * What was kept before Ask was a tab had its box fixed at the foot of the reader, and no tab to ask in. Given one once, docked under
+ * the rest, so a person who closes it afterwards keeps it closed.
+ */
+export function giveKeptPrPanesAsk(): void {
+  if (typeof window === "undefined") return;
+  if (readKept(ASK_GIVEN, (stored) => stored === true) === true) return;
+  for (const key of Object.keys(window.localStorage)) {
+    if (!key.startsWith(`armada:kept:${PR_OWNER}`)) continue;
+    const name = key.slice("armada:kept:".length);
+    try {
+      const entry = readKept<Entry>(name, revivePrEntry);
+      if (entry !== undefined)
+        writeKept(name, {
+          ...entry,
+          arrangement: withAsk(entry.arrangement),
+        });
+    } catch {
+      // Not a pull request's panes any more: `keptEntry` sets it aside the same way.
+    }
+  }
+  const shared = readKept(PR_SHARED, revivePrShared);
+  if (shared !== undefined)
+    writeKept(PR_SHARED, {
+      ...shared,
+      base: shared.base === undefined ? undefined : withAsk(shared.base),
+      saved: Object.fromEntries(
+        Object.entries(shared.saved).map(([name, one]) => [
+          name,
+          withAsk(one),
+        ]),
+      ),
+    });
+  writeKept(ASK_GIVEN, true);
 }
 
 /** A saved request, as the page a Requests tab shows: its collection and its id. */
@@ -291,13 +364,15 @@ type FamilySpec = {
   forAllLabel: string;
   /** What is done to kept panes before the family first reads them. */
   migrate?: () => void;
+  /** Kinds a kept layout may name that this family no longer has, and the kind each opens now. */
+  renamed?: Readonly<Record<string, TabKind>>;
 };
 
 /** A family of owners, with its own layouts, kept under keys of its own. */
 export function createPaneFamily(spec: FamilySpec) {
   const OWNER = spec.owner;
-  const revive = reviverOf(spec.kinds);
-  const reviveFamily = sharedReviverOf(spec.kinds);
+  const revive = reviverOf(spec.kinds, spec.renamed);
+  const reviveFamily = sharedReviverOf(spec.kinds, spec.renamed);
   const empty = (): State => ({
     jobs: {},
     saved: {},
@@ -858,11 +933,13 @@ export const jobPanes: PaneFamily = createPaneFamily({
 /** The pull requests' panes on the Reviews page, kept apart from the Jobs'. */
 export const prPanes: PaneFamily = createPaneFamily({
   name: "pr",
-  shared: "pr-panes:shared",
-  owner: "pr-panes:pr:",
+  shared: PR_SHARED,
+  owner: PR_OWNER,
   kinds: PR_TAB_KINDS,
   arrangement: prArrangement,
   forAllLabel: "New pull requests open on",
+  migrate: giveKeptPrPanesAsk,
+  renamed: RENAMED_PR_KINDS,
 });
 
 /** The Operator's panes in its dock, one owner, kept apart from the Jobs' and the pull requests'. */
@@ -882,6 +959,7 @@ export const usePaneFamily = (): PaneFamily => useContext(PaneFamilyContext);
 /** Everything kept of the panes of every family, gone, and the window as it opens with none: a test or a mock starts from here. */
 export function forgetPanes(): void {
   forgetKept(DEFERRED_GIVEN);
+  forgetKept(ASK_GIVEN);
   jobPanes.forget();
   prPanes.forget();
   operatorPanes.forget();
