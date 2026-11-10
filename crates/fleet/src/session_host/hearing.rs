@@ -374,8 +374,9 @@ where
                 };
                 let (row, at) = (self.row_id(id), self.instant());
                 // A subagent call's row is put again as the subagent works, so it is remembered by its call.
-                let drawn = runtime.state().call_rows.drawn(&call, &row, &at, &text);
-                let row = drawn.unwrap_or(SessionRow::Tool { id: row, at, text, subagent: None });
+                let description = detail.description().map(str::to_string);
+                let drawn = runtime.state().call_rows.drawn(&call, &row, &at, &text, description.as_deref());
+                let row = drawn.unwrap_or(SessionRow::Tool { id: row, at, text, description, subagent: None });
                 self.row_put(id, row).await;
             }
             // A page is read off the disk once the tool that wrote it has answered, and not when it was reached for.
