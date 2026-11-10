@@ -1,7 +1,7 @@
 //! A red main, fixed by one Job Autopilot starts. **No call**: a red is fixed, and what a person
 //! would check is that it is one Job, once a red commit, and not where another already holds it.
-//! **With the Operator on, the red is its arrival instead**, and it rules a new Job, a live Job
-//! near the red, or a raise; a red a Job already holds never arrives.
+//! **With the Operator on, the red is a go-ahead in Your turn instead**, Start a fix, which a rule it
+//! kept does without asking; a red a Job already holds is none.
 //!
 //! The claim is the one a Job takes with `take_main_red` (`crate::red_claim`), made for the new Job
 //! before it is briefed, so a Fleet on another machine that holds the red refuses this one too.
@@ -55,6 +55,7 @@ where
             let red = RedMain { manifest_id: manifest.as_str().to_string(), commit: main.red_commit().to_string(), seen: brief_of(&main), fixing };
             if let Some(arrival) = red.arrival() {
                 self.hand_once(arrival).await;
+                self.red_item_offered(&main).await;
             }
             return 0;
         }

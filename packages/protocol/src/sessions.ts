@@ -635,7 +635,11 @@ export type MoveInLine = {
   place: LinePlace;
 };
 
-/** One of the forms a standing order takes, which Fleet enforces. `what` is a kind as the Log names it. */
+/**
+ * One of the forms a standing order takes, which Fleet enforces. Fleet now reads and writes only
+ * `hold_paths`; `role_off` and `always_raise` stay in this mirror so Electron, which still draws them,
+ * compiles, and Fleet reads an old one as nothing.
+ */
 export type OperatorOrderForm =
   | {
       kind: "role_off";
@@ -706,6 +710,10 @@ export type OperatorSaid = {
   forms?: string[];
   /** The board item it put first in `next`, as he asked. */
   moved?: string;
+  /** The rule it forgot, as he asked: its id, which is gone from Learned. The item it covered asks again. */
+  forgot?: number;
+  /** The hold it lifted, as he asked: its id. The Jobs it held write again. */
+  lifted?: number;
 };
 
 /** `operator_talk` (`GET /operator/talk`): the last twenty messages, oldest first. */

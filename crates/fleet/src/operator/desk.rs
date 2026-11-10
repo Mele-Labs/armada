@@ -101,10 +101,6 @@ where
         })
     }
 
-    fn orders(&self) -> Done<'_, super::Orders> {
-        Box::pin(async move { self.fleet.upgrade().map(|fleet| fleet.operator_seat().orders()).unwrap_or_default() })
-    }
-
     fn board(&self) -> Done<'_, super::Board> {
         Box::pin(async move {
             match self.fleet.upgrade() {

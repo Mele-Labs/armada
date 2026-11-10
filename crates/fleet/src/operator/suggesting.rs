@@ -1,10 +1,10 @@
-//! What a role at Suggest would do, waiting on one press.
+//! What the Operator would do, waiting on the person's go-ahead.
 //!
-//! **Kept with what Decide would have acted on**, so a restart keeps it and `Do it` goes through
-//! [`Fleet::operator_sourced`] as On does. A suggestion is a row of its own on the Job's Needs you
+//! **Every act asks**, so each is kept with what doing it needs, a restart keeps it and `Do it` goes
+//! through [`Fleet::operator_sourced`]. A suggestion is a row of its own on the Job's Needs you
 //! list; one with no Job, on a report nothing reported from a Job, on a note he left or on an error
-//! Bridge showed him, is kept for the panel. **A note's is kept whatever its role stands at**, since
-//! a note is only ever proposed.
+//! Bridge showed him, is kept for the panel. Raising turns it into a go-ahead in Your turn, which a
+//! kept rule covering it does as it is raised.
 
 use std::sync::Arc;
 
@@ -27,7 +27,7 @@ const SUGGESTION_UNKNOWN: &str = "fleet.operator_suggestion_unknown";
 /// The id of the item for one suggestion: `suggestion:<n>`.
 pub(super) const SUGGESTION: &str = "suggestion:";
 
-/// Choice 0 does what Decide would have.
+/// Choice 0 does what was ruled.
 pub(crate) const DO_IT: u32 = 0;
 /// Choice 1 leaves it.
 pub(crate) const SKIP: u32 = 1;
@@ -171,12 +171,12 @@ where
     }
 
     /// `answer_waiting` on a suggestion's row. **Settled in the store first**, so a second press finds
-    /// it settled: the first one wins and the other is a 409. Do it is the person's, so it goes
-    /// whatever the role stands at by now, and the Log keeps it signed by him.
+    /// it settled: the first one wins and the other is a 409. Do it is the person's, so it is done
+    /// on his press, and the Log keeps it signed by him.
     pub(crate) async fn suggestion_chosen(self: &Arc<Self>, session: &str, item: &str, choice: Option<u32>) -> Result<SessionRecord, Refusal> {
         let go = self.suggestion_go(choice)?;
         let n = suggestion_number(item).ok_or_else(|| self.settled_already())?;
-        self.suggestion_settled(session, n, go, None).await?;
+        self.suggestion_settled(session, n, go, None, None).await?;
         self.published_hosted(session).await
     }
 
@@ -203,14 +203,15 @@ where
         if !seen.is_some_and(|(session, _)| session.is_empty()) {
             return Err(unknown());
         }
-        self.suggestion_settled("", n, go, None).await?;
+        self.suggestion_settled("", n, go, None, None).await?;
         self.operator_board_wire().await
     }
 
     /// Suggestion `n` of `session` (empty where it has no Job), settled first and then done or skipped.
     /// A suggestion that is not standing on that Job is settled already, as far as this press knows.
     /// **`then` is what follows an issue it files**, with the live Job to hand it to; what was done comes back.
-    pub(super) async fn suggestion_settled(self: &Arc<Self>, session: &str, n: i64, go: bool, then: Option<(OperatorThen, Option<String>)>) -> Result<Done, Refusal> {
+    /// **`rule` is the words of the rule that did it**, where one did and the person pressed nothing.
+    pub(super) async fn suggestion_settled(self: &Arc<Self>, session: &str, n: i64, go: bool, then: Option<(OperatorThen, Option<String>)>, rule: Option<&str>) -> Result<Done, Refusal> {
         let at = self.now();
         let kept = {
             let mut store = self.store().lock().await;
@@ -222,7 +223,7 @@ where
             kept
         };
         let done = if go {
-            self.suggestion_done(&kept, at, then).await
+            self.suggestion_done(&kept, at, then, rule).await
         } else {
             self.suggestion_skipped(&kept, at).await;
             Done::default()
@@ -233,8 +234,9 @@ where
 
     /// What `kept` would have done, done, with a row of the Log saying who pressed. **A note's is done
     /// here and waited for**, so the row can name the issue it was filed as or the Job it started. The
-    /// row is kept once it is done, and where it could not be it says so.
-    async fn suggestion_done(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp, then: Option<(OperatorThen, Option<String>)>) -> Done {
+    /// row is kept once it is done, and where it could not be it says so. **A rule's is signed by the
+    /// Operator and says which rule**, since no one pressed.
+    async fn suggestion_done(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp, then: Option<(OperatorThen, Option<String>)>, rule: Option<&str>) -> Done {
         let mut done = Done::default();
         let (Some(arrival), Some(ruling)) = (arrival_of(kept), ruling_of(kept)) else { return done };
         let mut row = pressed(&arrival, Outcome::Ruled(ruling.way), &ruling.because, at);
@@ -260,6 +262,10 @@ where
                     row.other = done.started.clone().or_else(|| done.handed_to.clone()).or(row.other.take());
                 }
             }
+        }
+        if let Some(rule) = rule {
+            row.by = Actor::Operator;
+            row.because = format!("By a rule, {rule}: {}", row.because);
         }
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
         done

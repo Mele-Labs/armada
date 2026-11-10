@@ -187,6 +187,20 @@ pub struct OperatorLearned {
     pub at: Instant,
 }
 
+/// One hold that stands over paths: only the Job it names writes under them, until it pushes or ends.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorHold {
+    /// The order's number, which `remove_operator_order` and the chat's `lift` name.
+    pub id: i64,
+    /// The repository it holds in.
+    pub manifest_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    /// The hold in Fleet's words, such as `Hold src/a until Fix the clock pushes`.
+    pub said: String,
+    pub at: Instant,
+}
+
 /// Since he last looked, and what stands.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorDigest {
@@ -198,9 +212,12 @@ pub struct OperatorDigest {
     pub running: Vec<OperatorRunning>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub coming_up: Vec<OperatorComingUp>,
-    /// The rules, across projects.
+    /// The rules, across projects. Rules only: a hold is not one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub learned: Vec<OperatorLearned>,
+    /// The holds that stand, beside Learned.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holds: Vec<OperatorHold>,
 }
 
 /// `operator_page`: the whole page.
@@ -279,7 +296,7 @@ pub struct OperatorInFront {
 }
 
 /// A rule the Operator keeps from an Always or an Always here, in the store's orders beside the
-/// standing orders. It is none of `OperatorOrderForm`'s forms, so a list of orders never serves it.
+/// holds. It is none of `OperatorOrderForm`'s forms, so a list of orders never serves it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OperatorRule {

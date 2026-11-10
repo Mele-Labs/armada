@@ -10,11 +10,13 @@ notes = """
 
 **`then`** is on a go-ahead to file an issue only: `just_file`, `file_and_start` and, **only where a live Job already works on the same files**, `file_and_hand` with `hand_to` `{ session_id, job }`. Fleet finds that Job from the paths each live Job has written and its plan names, as it does for a clash. The Operator's read marks one `pick`. **`keeps`** says Always here and Always are offered: they are, for a go-ahead and a red main, which Fleet can do by itself, and not for a decision.
 
-**A red main nobody is on is an item**: a `go_ahead` with no Job, its `item.id` `red:<repository>:<commit>`, its one option `Start a fix`.
+**A red main nobody is on is an item**: a `go_ahead` with no Job, its `item.id` `red:<repository>:<commit>`, its one option `Start a fix`. It is the one ask for that red: Autopilot's red kind raises it too and hands the Operator nothing to start.
+
+**Every act the Operator would take is an item.** A new Job, words to a live Job and a new issue are `go_ahead` items, until a rule the person kept covers them. A link writes nothing and is not asked.
 
 **The order**: the order he left, with an item he put Later after the rest until the local day ends. **Nothing is queued while the Operator is off** and `turn` is then empty; what waits is queued when it comes on. Where the review call fails, or the week's plan is paused, the item is still queued, with no `read`.
 
-**`digest`**: `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal, which the Operator writes as it works; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; and `learned`, the Always and Always here rules across projects, each with its repository where it holds in one.
+**`digest`**: `landed`, the pull requests that merged since `looked_at`; `handled`, the Operator's own acts since then, newest first, each `{ at, title, outcome }`, and `log`, `{ week, path }` of the week's journal, which the Operator writes as it works; `running`, the live Jobs; `coming_up`, the Jobs waiting to start with `needs`; `learned`, the Always and Always here rules across projects, each with its repository where it holds in one, and rules only; and `holds`, the holds that stand, each `{ id, manifest_id, repository, said, at }`, which `remove_operator_order` lifts and the chat can lift.
 
-The page changes under him, so `operator.page_changed` is sent when an item joins or settles, when the order, a Later or a rule moves, and when `top` or `on_it` changes. The digest's other sections are read, not announced.
+The page changes under him, so `operator.page_changed` is sent when an item joins or settles, when the order, a Later, a rule or a hold moves, and when a rule is forgotten, and when `top` or `on_it` changes. The digest's other sections are read, not announced.
 """

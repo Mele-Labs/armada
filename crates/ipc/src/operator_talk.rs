@@ -5,7 +5,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::operator_positions::OperatorRole;
 use crate::SessionId;
 
 /// What lifts a hold on paths.
@@ -20,18 +19,9 @@ pub enum OperatorHoldUntil {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OperatorOrderForm {
-    /// A role acts on nothing in one repository, until the day ends or he removes it.
-    RoleOff {
-        role: OperatorRole,
-        manifest_id: String,
-        #[serde(default)]
-        today: bool,
-    },
     /// Only `job` writes under `paths` in its repository, until it pushes or ends. A Job that ends
     /// releases the hold whichever `until` says.
     HoldPaths { manifest_id: String, paths: Vec<String>, job: SessionId, until: OperatorHoldUntil },
-    /// Arrivals of the kind `what`, as the Log names them, go to him with no call.
-    AlwaysRaise { what: String },
 }
 
 impl OperatorOrderForm {
@@ -125,6 +115,12 @@ pub struct OperatorSaid {
     /// The board item it put first in `next`, as he asked.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub moved: Option<String>,
+    /// The rule it forgot, as he asked: its id, which is gone from Learned. The item it covered asks again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forgot: Option<i64>,
+    /// The hold it lifted, as he asked: its id. The Jobs it held write again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifted: Option<i64>,
 }
 
 /// One message of the conversation.

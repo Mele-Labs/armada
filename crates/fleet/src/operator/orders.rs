@@ -1,24 +1,22 @@
-//! Standing orders: rules Fleet enforces, never prose a call reads. **Only ever one of the forms in
-//! `ipc::operator_talk`**, and only once the person has seen the form and pressed. `crates/ipc/operations/confirm_operator_order.toml`.
+//! Standing orders: rules Fleet enforces, never prose a call reads. **Only ever the form in
+//! `ipc::operator_talk`**, and only once the person has seen it and pressed. `crates/ipc/operations/confirm_operator_order.toml`.
 //!
-//! **A role off** reads as the role's Read-only position in that repository, until the day ends if he
-//! said today; **Answer is retired**, so an order for it is neither accepted nor served. **A kind
-//! always raised** goes to him with no call, and only a kind the Operator is still handed
-//! ([`Arrived::TAKEN`]) is accepted: an old order naming another is not served. **A hold on paths** refuses a write
-//! under them by any Job but the one it names, in that repository, from a file tool: a shell's writes
-//! cannot be read ahead of time and go through. A Job that ends releases its hold, and so does its
-//! push where the order said pushes, each with a Log row.
+//! **A hold on paths** refuses a write under them by any Job but the one it names, in that repository,
+//! from a file tool: a shell's writes cannot be read ahead of time and go through. A Job that ends
+//! releases its hold, and so does its push where the order said pushes, each with a Log row. The person
+//! can lift one by a press or in the chat. **A form that is not this one stands for nothing**, so a
+//! `role_off` or an `always_raise` kept before the levels went is read by nothing.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::{Actor, Timestamp};
-use ipc::operator_positions::OperatorRole;
+use ipc::operator_page::OperatorRule;
 use ipc::operator_talk::{OperatorHoldUntil, OperatorOrder, OperatorOrderForm, OperatorOrders};
 use store::KeptOrder;
 
-use super::{Arrived, LiveJob, Logged, Outcome, Repository};
+use super::{LiveJob, Logged, Outcome};
 use crate::daemon::Fleet;
 
 pub(super) const OPERATOR_OFF: &str = "fleet.operator_off";
@@ -39,19 +37,6 @@ pub struct Order {
 pub struct Orders(pub Vec<Order>);
 
 impl Orders {
-    /// An order turns `role` off in `manifest` now.
-    pub fn role_off(&self, role: OperatorRole, manifest: &str, now: &Timestamp) -> bool {
-        self.0.iter().any(|order| {
-            let in_force = order.until.as_deref().is_none_or(|until| now.as_str() < until);
-            in_force && matches!(&order.form, OperatorOrderForm::RoleOff { role: off, manifest_id, .. } if *off == role && manifest_id == manifest)
-        })
-    }
-
-    /// An order sends every arrival of this kind to the person with no call.
-    pub fn always_raises(&self, arrived: Arrived) -> bool {
-        self.0.iter().any(|order| matches!(&order.form, OperatorOrderForm::AlwaysRaise { what } if what == arrived.word()))
-    }
-
     /// The hold that keeps `session` from writing at `path` in `manifest`, if any.
     fn holding(&self, session: &str, manifest: &str, path: &str) -> Option<(&Order, &str, OperatorHoldUntil)> {
         self.0.iter().find_map(|order| match &order.form {
@@ -72,49 +57,20 @@ fn under(path: &str, held: &str) -> bool {
     !held.is_empty() && (path.ends_with(&format!("/{held}")) || path.contains(&format!("/{held}/")))
 }
 
-/// Whether Fleet goes by `form` now. An order for the retired Answer role, or for a kind the Operator
-/// is no longer handed, stands in the store and is read by nothing.
-fn served(form: &OperatorOrderForm) -> bool {
+/// `form` as it may stand, against the live Jobs Fleet knows. `Err` says why not.
+pub(super) fn checked(form: &OperatorOrderForm, live: &[LiveJob]) -> Result<(), String> {
     match form {
-        OperatorOrderForm::RoleOff { role, .. } => *role != OperatorRole::Answer,
-        OperatorOrderForm::AlwaysRaise { what } => Arrived::taken_from_word(what).is_some(),
-        OperatorOrderForm::HoldPaths { .. } => true,
-    }
-}
-
-/// `form` as it may stand, against the repositories and live Jobs Fleet knows. `Err` says why not.
-pub(super) fn checked(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> Result<(), String> {
-    let known = |manifest: &String| repositories.iter().any(|one| one.id == *manifest);
-    match form {
-        OperatorOrderForm::RoleOff { role: OperatorRole::Answer, .. } => Err("the Answer role is retired: questions and permission cards go to the person".to_string()),
-        OperatorOrderForm::RoleOff { manifest_id, .. } if !known(manifest_id) => Err(format!("no repository here has the id {manifest_id}")),
-        OperatorOrderForm::RoleOff { .. } => Ok(()),
-        OperatorOrderForm::HoldPaths { paths, .. } if paths.iter().all(|one| one.trim_matches('/').is_empty()) => Err("a hold names no paths".to_string()),
+        OperatorOrderForm::HoldPaths { paths, .. } if paths.iter().all(|one| one.trim().trim_matches('/').is_empty()) => Err("a hold names no paths".to_string()),
         OperatorOrderForm::HoldPaths { manifest_id, job, .. } => match live.iter().find(|one| one.session_id == job.as_str()) {
             Some(one) if one.manifest_id == *manifest_id => Ok(()),
             _ => Err(format!("no live Job {} in that repository", job.as_str())),
         },
-        OperatorOrderForm::AlwaysRaise { what } => match Arrived::taken_from_word(what) {
-            Some(_) => Ok(()),
-            None => Err(format!("{what} is not a kind of thing the Operator is handed")),
-        },
     }
 }
 
-/// The form in Fleet's words, each Job and repository by its name.
-pub(super) fn said_of(form: &OperatorOrderForm, repositories: &[Repository], live: &[LiveJob]) -> String {
-    let repository = |id: &str| repositories.iter().find(|one| one.id == id).map_or(id, |one| one.name.as_str()).to_string();
+/// The form in Fleet's words, each Job by its name.
+pub(super) fn said_of(form: &OperatorOrderForm, live: &[LiveJob]) -> String {
     match form {
-        OperatorOrderForm::RoleOff { role, manifest_id, today } => {
-            let role = match role {
-                OperatorRole::Dispatch => "Dispatch",
-                OperatorRole::Delegate => "Delegate",
-                OperatorRole::Answer => "Answer",
-                OperatorRole::File => "File",
-            };
-            let when = if *today { " today" } else { "" };
-            format!("{role} off in {}{when}", repository(manifest_id))
-        }
         OperatorOrderForm::HoldPaths { paths, job, until, .. } => {
             let title = live.iter().find(|one| one.session_id == job.as_str()).map_or(job.as_str(), |one| one.title.as_str());
             let event = match until {
@@ -123,10 +79,6 @@ pub(super) fn said_of(form: &OperatorOrderForm, repositories: &[Repository], liv
             };
             format!("Hold {} until {title} {event}", paths.join(", "))
         }
-        OperatorOrderForm::AlwaysRaise { what } => match Arrived::from_word(what) {
-            Some(arrived) => format!("Always raise {}", arrived.named()),
-            None => format!("Always raise {what}"),
-        },
     }
 }
 
@@ -152,7 +104,7 @@ where
         };
         let orders = kept
             .iter()
-            .filter_map(|one| Some(Order { id: one.n, form: OperatorOrderForm::read(&one.form).filter(served)?, until: one.until.clone() }))
+            .filter_map(|one| Some(Order { id: one.n, form: OperatorOrderForm::read(&one.form)?, until: one.until.clone() }))
             .collect();
         self.operator_seat().orders_are(Orders(orders));
         kept
@@ -164,29 +116,61 @@ where
         let Some(operator) = self.operator_seat().operator().filter(|_| self.operator_on()) else {
             return Err(self.hosted_refusal(OPERATOR_OFF, "the Operator is off, so nothing would go by a standing order"));
         };
-        let (board, live) = operator.board_and_live().await;
-        if let Err(why) = checked(&form, &board.repositories, &live) {
+        let live = operator.live_jobs().await;
+        if let Err(why) = checked(&form, &live) {
             return Err(self.hosted_refusal(ORDER_NOT_A_FORM, &why));
         }
         let now = self.now();
-        let until = match &form {
-            OperatorOrderForm::RoleOff { today: true, .. } => Some(self.next_day_began(&now).await),
-            _ => None,
-        };
-        let one = KeptOrder { n: 0, form: form.kept(), said: said_of(&form, &board.repositories, &live), until, at: now.as_str().to_string() };
+        let one = KeptOrder { n: 0, form: form.kept(), said: said_of(&form, &live), until: None, at: now.as_str().to_string() };
         let kept = self.store().lock().await.add_operator_order(&one);
         kept.map_err(|why| self.ledger_fault(why))?;
         Ok(self.operator_orders_wire().await)
     }
 
-    /// `remove_operator_order`: one press. A hold's Jobs write again at once.
+    /// `remove_operator_order`: one press, on a hold or on a rule the Operator kept. A hold's Jobs write
+    /// again at once, and a rule's item asks again. **The page changes either way**, since both are on it.
     pub(crate) async fn operator_order_removed(self: &Arc<Self>, id: i64) -> Result<OperatorOrders, Refusal> {
-        let at = self.now();
-        let removed = self.store().lock().await.remove_operator_order(id, at.as_str()).map_err(|why| self.ledger_fault(why))?;
-        if !removed {
-            return Err(self.hosted_refusal(ORDER_UNKNOWN, &format!("no standing order {id}")));
+        let kept = self.order_dropped(id).await?;
+        if OperatorRule::read(&kept.form).is_some() {
+            self.operator_journaled(&format!("Forgot a rule on his press: {}", kept.said)).await;
         }
+        self.operator_page_changed();
         Ok(self.operator_orders_wire().await)
+    }
+
+    /// Order `id` removed, answering what it was. **Refused** where none stands under that number.
+    pub(super) async fn order_dropped(&self, id: i64) -> Result<KeptOrder, Refusal> {
+        let at = self.now();
+        let mut store = self.store().lock().await;
+        let kept = store.operator_orders().map_err(|why| self.ledger_fault(why))?.into_iter().find(|one| one.n == id);
+        let removed = store.remove_operator_order(id, at.as_str()).map_err(|why| self.ledger_fault(why))?;
+        match kept.filter(|_| removed) {
+            Some(kept) => Ok(kept),
+            None => Err(self.hosted_refusal(ORDER_UNKNOWN, &format!("no standing order {id}"))),
+        }
+    }
+
+    /// Hold `id` lifted on the person's word in the chat: its Jobs write again at once, and the Log says
+    /// whose word it was. `false` where no hold stands under that number.
+    pub(super) async fn hold_lifted_by_word(self: &Arc<Self>, id: i64) -> bool {
+        let Some(OperatorOrderForm::HoldPaths { manifest_id, paths, job, .. }) = self.hold_of(id).await else { return false };
+        if self.order_dropped(id).await.is_err() {
+            return false;
+        }
+        let subject = self.store().lock().await.session(job.as_str()).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| job.as_str().to_string());
+        let mut row = Logged::about(job.as_str(), &manifest_id, &subject, Outcome::HoldLifted, Actor::Human, self.now());
+        row.arrival = format!("order:{id}");
+        row.because = format!("The hold on {} was lifted on your word.", paths.join(", "));
+        row.shared = paths;
+        self.operator_logged(row).await;
+        self.operator_orders_read().await;
+        true
+    }
+
+    /// The hold standing under `id`, where one does.
+    async fn hold_of(&self, id: i64) -> Option<OperatorOrderForm> {
+        let kept = self.store().lock().await.operator_orders().ok()?;
+        kept.into_iter().find(|one| one.n == id).and_then(|one| OperatorOrderForm::read(&one.form))
     }
 
     /// `operator_orders`: the orders standing now. One for a day gone by, and a hold its Job has
@@ -196,7 +180,7 @@ where
         let now = self.now();
         let mut orders = Vec::new();
         for one in kept {
-            let Some(form) = OperatorOrderForm::read(&one.form).filter(served) else { continue };
+            let Some(form) = OperatorOrderForm::read(&one.form) else { continue };
             if one.until.as_deref().is_some_and(|until| now.as_str() >= until) || self.hold_released(one.n, &form).await {
                 let _ = self.store().lock().await.remove_operator_order(one.n, now.as_str());
                 continue;
@@ -236,7 +220,7 @@ where
 
     /// `form` is a hold whose Job has ended, or pushed where it waits on a push. The Log says so.
     async fn hold_released(&self, id: i64, form: &OperatorOrderForm) -> bool {
-        let OperatorOrderForm::HoldPaths { manifest_id, paths, job, until } = form else { return false };
+        let OperatorOrderForm::HoldPaths { manifest_id, paths, job, until } = form;
         let (released, subject) = {
             let store = self.store().lock().await;
             let session = store.session(job.as_str()).ok().flatten();
