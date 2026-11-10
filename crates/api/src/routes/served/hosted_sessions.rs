@@ -232,6 +232,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/clashes",
     },
+    // The same clashes of every served repository, which needs no Manifest to ask with.
+    Route {
+        operation: "list_all_write_clashes",
+        method: "GET",
+        path: "/clashes/all",
+    },
     Route {
         operation: "read_clash_file",
         method: "GET",

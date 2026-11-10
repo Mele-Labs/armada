@@ -20,6 +20,8 @@ import type { SessionWait, StartAfter } from "./session-waits";
 import type { WireError } from "./protocol";
 import type { InFlight } from "./lifecycles";
 import type { JobMark } from "./job-mark";
+import type { CompactOffer } from "./job-compact";
+import type { RingBand } from "./ring-band";
 
 /** What started a session. */
 export type SessionOrigin = "terminal" | "bridge";
@@ -44,6 +46,10 @@ export type SessionUsage = {
   context_tokens?: number;
   context_window?: number;
   cost_micros?: number;
+  /** How much of the window the context fills, whole percent and clamped 0 to 100. Fleet's reading of the two figures above on a record. Absent without a window to fill. */
+  context_percent?: number;
+  /** The band of `context_percent`, present with it. */
+  context_band?: RingBand;
 };
 
 /**
@@ -272,6 +278,8 @@ export type SessionRecord = {
   mark?: JobMark;
   /** The last instant the person was in the Job, as a client told it by `view_session`: when it came on screen or when it left. Absent where he never was. Since 9 Nov 2026. */
   viewed_at?: string;
+  /** Whether Compact is offered on the Job, or off and why, without words. Absent where Fleet did not read one. Since 9 Nov 2026. */
+  compact?: CompactOffer;
 };
 
 /** How a Job was started. Every part is absent where it was not set then. `workflow` is the workflow's name as it read then. */

@@ -422,6 +422,13 @@ pub trait Queries: Send + Sync + 'static {
         async { Vec::new() }
     }
 
+    /// The Job that holds each open pull request of the served repositories, as the ledger names
+    /// it: the repository's root, the pull request's number and the Job. **Empty by default**, for
+    /// a daemon with no ledger; `get_merge_line_view` carries it as `held_by`.
+    fn pull_holders(&self) -> impl Future<Output = Vec<(String, u64, ipc::HubSession)>> + Send {
+        async { Vec::new() }
+    }
+
     /// `observe_land_check` — one Check's log on a served repository's merge
     /// line, by the root, the branch and the Check.
     ///

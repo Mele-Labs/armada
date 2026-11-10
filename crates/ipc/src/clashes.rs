@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::Instant;
+use crate::ids::{Instant, ManifestId};
 
 /// What a clash is between.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,6 +44,24 @@ pub struct WriteClash {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WriteClashes {
     pub clashes: Vec<WriteClash>,
+}
+
+/// One served repository's standing clashes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepositoryClashes {
+    pub manifest_id: ManifestId,
+    /// Oldest first, as `list_write_clashes` lists them. **Never empty**: a repository with none is
+    /// not here.
+    pub clashes: Vec<WriteClash>,
+}
+
+/// `list_all_write_clashes`, and `write_clashes.changed` whole: every clash standing in every served
+/// repository, so a client reads one place and not one repository at a time. Fleet reads it from the
+/// same table as `list_write_clashes`, which stays. Since 9 Nov 2026.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AllWriteClashes {
+    /// One for each served repository that has a clash, in the order Fleet serves them.
+    pub repositories: Vec<RepositoryClashes>,
 }
 
 /// `read_clash_file`: one file of a standing clash, as each side changed it.

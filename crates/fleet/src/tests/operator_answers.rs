@@ -546,7 +546,7 @@ async fn a_call_out_when_a_role_moves_goes_by_the_new_position_as_it_comes_back(
 }
 
 fn week_used(percent: u32) -> Vec<ipc::PlanWindow> {
-    vec![ipc::PlanWindow { kind: "seven_day".into(), percent_used: percent, resets_at: Some(ipc::Instant::carried("2099-01-01T00:00:00.000Z")) }]
+    vec![ipc::PlanWindow { kind: "seven_day".into(), percent_used: percent, resets_at: Some(ipc::Instant::carried("2099-01-01T00:00:00.000Z")), band: ipc::RingBand::of(percent) }]
 }
 
 #[tokio::test]
