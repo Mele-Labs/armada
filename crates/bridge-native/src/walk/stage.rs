@@ -213,6 +213,24 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             press(MouseButton::Right, drawn.bounds.center(), window, cx);
             Ok(())
         }
+        Verb::Wheel(role, on, by) => {
+            let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
+            let drawn = cx
+                .try_global::<LabelBook>()
+                .and_then(|book| book.drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == on).cloned())
+                .ok_or_else(|| Missed(format!("nothing named \"{on}\" to scroll")))?;
+            window.dispatch_event(
+                PlatformInput::Scroll(gpui::ScrollEvent {
+                    position: drawn.bounds.center(),
+                    delta: gpui::ScrollDelta::Pixels(point(px(0.), px(-(by as f32)))),
+                    modifiers: Modifiers::default(),
+                    touch_phase: gpui::TouchPhase::Moved,
+                    source: gpui::ScrollSource::default(),
+                }),
+                cx,
+            );
+            Ok(())
+        }
         Verb::Select(role, on) => {
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             // The last one drawn: an element the list measured off screen comes first in the book.

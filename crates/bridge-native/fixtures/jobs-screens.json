@@ -331,8 +331,106 @@
    "cwd": "/repos/armada",
    "title": "Native Bridge foundation",
    "activity": {
-    "now": "Editing jobs.rs"
+    "now": "Editing jobs.rs",
+    "todos": [
+     {
+      "text": "Read the list's rows",
+      "state": "done"
+     },
+     {
+      "text": "Group rows by project",
+      "state": "doing"
+     },
+     {
+      "text": "Draw the project headings",
+      "state": "todo"
+     }
+    ]
    },
+   "plan": {
+    "version": 1,
+    "summary": "The native app draws the Jobs screens from Fleet's own wire.",
+    "recorded_at": "2026-11-08T09:00:00Z",
+    "approved": true,
+    "approved_at": "2026-11-08T09:20:00Z",
+    "scope": [
+     "crates/bridge-native"
+    ],
+    "groups": [
+     {
+      "id": "n1",
+      "agent": "rust-engineer",
+      "title": "Read the Jobs from Fleet",
+      "paths": [
+       "crates/bridge-native/src/fleet.rs"
+      ],
+      "tasks": [
+       {
+        "id": "n1a",
+        "text": "Open the event stream",
+        "state": "done"
+       },
+       {
+        "id": "n1b",
+        "text": "Hold each Job's record",
+        "state": "done"
+       }
+      ]
+     },
+     {
+      "id": "n2",
+      "agent": "gpui-engineer",
+      "title": "Draw the list",
+      "paths": [
+       "crates/bridge-native/src/jobs.rs"
+      ],
+      "tasks": [
+       {
+        "id": "n2a",
+        "text": "One row per Job",
+        "state": "done"
+       },
+       {
+        "id": "n2b",
+        "text": "Group rows by project",
+        "state": "working"
+       }
+      ]
+     },
+     {
+      "id": "n3",
+      "agent": "gpui-engineer",
+      "title": "Draw the thread",
+      "paths": [
+       "crates/bridge-native/src/job_view"
+      ],
+      "tasks": [
+       {
+        "id": "n3a",
+        "text": "Fold runs of tool calls",
+        "state": "open"
+       },
+       {
+        "id": "n3b",
+        "text": "Keep each Job's place",
+        "state": "open"
+       }
+      ]
+     }
+    ]
+   },
+   "later": [
+    {
+     "id": "later-1",
+     "sentence": "Measure the switch time with forty Jobs live.",
+     "said_at": "2026-11-09T10:00:00Z"
+    },
+    {
+     "id": "later-2",
+     "sentence": "File the scroll jump on a long thread.",
+     "said_at": "2026-11-09T11:00:00Z"
+    }
+   ],
    "workflow": "feature",
    "workflow_step": 1,
    "workflow_copy": {

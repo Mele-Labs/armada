@@ -348,6 +348,14 @@ impl JobView {
         }
     }
 
+    /// The sheet's choice moves to `item`, as a press on its row does.
+    pub(super) fn review_at(&mut self, item: &str, _window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(review) = self.review_mut() {
+            review.at = Some(item.to_string());
+        }
+        cx.notify();
+    }
+
     pub(super) fn open_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let items = self.review_items(&id, cx);
@@ -997,7 +1005,7 @@ impl JobView {
                             .as_ref()
                             .filter(|changes| plan.version >= 2 && !changes.is_empty())
                             .map(|changes| self.plan_revision(SHEET, &card.id, plan, changes, page, look, cx));
-                        self.plan_editor(id, plan, diff, look, cx)
+                        self.plan_editor(id, plan, diff, false, look, cx)
                     }
                     None => self.review_skeleton(look),
                 }

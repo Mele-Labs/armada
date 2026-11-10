@@ -50,6 +50,9 @@ pub enum Verb {
     RightOpen(&'static str, &'static str),
     /// A drag across the last line of the element of this role and name, as words are selected.
     Select(&'static str, &'static str),
+    /// The wheel turned over the element of this role and name, by this many points down, before the
+    /// target is ringed: for a pane whose target is below its fold.
+    Wheel(&'static str, &'static str, i32),
     /// The pointer brought to rest on the target.
     Hover,
     /// A press in the middle of the target, then these words typed into whatever it focused.
@@ -598,6 +601,13 @@ pub static WALKS: &[Walk] = &[
             step("K comes back, and Enter puts the keys in the box again", Verb::Keys(&["k", "enter"]), "textbox", "Message"),
             step("⌥⌘Y folds Needs you from anywhere in the Job, so the thread can be read", Verb::Key("alt-cmd-y"), "button", "Needs you"),
             step("⌥⌘Y opens it again", Verb::Key("alt-cmd-y"), "button", "Needs you"),
+            step("The right column: Now lists what waits on you, one row per item of Fleet's list", Verb::Look, "region", "Job column: Now"),
+            step("A press on a question opens it in Needs you", Verb::Open("button", "Waiting on you: Which colour does the stale chip take?"), "button", "Back"),
+            step("Back returns to the panel's list", Verb::Open("button", "Back"), "button", "Needs you"),
+            step("Under them, a plan not yet approved is edited in Now's short form", Verb::Look, "region", "Chip reads the stale state"),
+            step("Below them, Now scrolls to the plan", Verb::Wheel("region", "Job column: Now", 600), "region", "Write it down"),
+            step("The chevron shows a group's subagent type and paths", Verb::Open("button", "Subagent type and paths of Write it down"), "combobox", "Subagent type of Write it down"),
+            step("A second press folds them", Verb::Open("button", "Subagent type and paths of Write it down"), "button", "Subagent type and paths of Write it down"),
             step("More opens the tab's menu", Verb::Open("button", "More"), "menuitem", "Rename"),
             step("↓ to the first entry", Verb::Key("down"), "menuitem", "Rename"),
             step("Enter turns the title into a field", Verb::Key("enter"), "textbox", "Rename Fix the merge line freshness chip"),
@@ -670,6 +680,12 @@ pub static WALKS: &[Walk] = &[
             step("⇧⌘F pins and the panel stays", Verb::Key("shift-cmd-f"), "menuitem", "Unpin"),
             step("Esc shuts the panel", Verb::Key("escape"), "option", "Fix the merge line freshness chips"),
             step("Esc shuts the palette; the list is as it was and the keys are back where they were", Verb::Key("escape"), "textbox", "Message"),
+            step("A Job with its plan approved: Now holds the group at work and the open tasks; a finished task is not listed", Verb::Press, "row", "Native Bridge foundation"),
+            step("Open holds the groups still to come", Verb::Look, "button", "Plan group: Draw the thread"),
+            step("A press unfolds a group to its tasks", Verb::Open("button", "Plan group: Draw the thread"), "button", "Plan group: Draw the thread"),
+            step("Done holds the groups finished", Verb::Open("tab", "Job column: Done"), "button", "Plan group: Read the Jobs from Fleet"),
+            step("Deferred holds what the agent kept for later: Remind, Deferred and Not deferred on each", Verb::Open("tab", "Job column: Deferred"), "button", "Not deferred"),
+            step("Ask for an update sends the update ask to the Job", Verb::Look, "button", "Ask for an update"),
         ],
     },
 ];

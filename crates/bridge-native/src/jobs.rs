@@ -22,7 +22,7 @@ use ipc::{JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionState};
 use crate::assets::icon_path;
 use crate::dropdown::{under, Dropdown, Entry, Picked};
 use crate::fleet::FleetConnection;
-use crate::job_view::JobView;
+use crate::job_view::{JobSide, JobView};
 use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::log::Note;
@@ -1431,6 +1431,8 @@ pub struct JobsScreen {
     pub list: Entity<JobsList>,
     /// The open Job, in the middle.
     view: Entity<JobView>,
+    /// The open Job's right column: Open, Done and Deferred over Now.
+    side: Entity<JobSide>,
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
@@ -1450,6 +1452,7 @@ impl JobsScreen {
     ) -> Self {
         let remember = list.read(cx).remember;
         let view = cx.new(|cx| JobView::new(list.clone(), threads, window, cx));
+        let side = cx.new(|cx| JobSide::new(view.clone(), cx));
         let left = remember
             .then(|| columns_file().and_then(|path| std::fs::read_to_string(path).ok()).and_then(|text| text.trim().parse::<f32>().ok()))
             .flatten();
@@ -1468,7 +1471,7 @@ impl JobsScreen {
                 }
             });
         })));
-        JobsScreen { list, view, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
+        JobsScreen { list, view, side, left, handle: cx.focus_handle(), within: cx.focus_handle(), remember, palette }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -1628,7 +1631,7 @@ impl Render for JobsScreen {
                     }))
                     .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
                     .child(panel(look).flex_1().min_w_0().overflow_hidden().child(self.view.clone()))
-                    .child(panel(look).w(column * RIGHT)),
+                    .child(div().h_full().flex_none().w(column * RIGHT).child(self.side.clone())),
             )
             .child(crate::merge_strip::strip(window, cx))
             .child(self.palette.clone())

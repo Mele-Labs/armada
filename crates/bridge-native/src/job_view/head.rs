@@ -302,6 +302,13 @@ impl Render for Confirm {
     }
 }
 
+impl JobView {
+    /// The Job's state glyph, its word and hue, as the tab draws them; the right column's Now reads it too.
+    pub(super) fn standing_mark(&self, id: &str, cx: &App) -> Option<(&'static str, SharedString, crate::look::Token, bool)> {
+        mark_of(self.record(id, cx), self.head.overlays.get(id))
+    }
+}
+
 /// How the Job's mark reads: glyph, words, hue, and whether it turns.
 fn mark_of(job: Option<&SessionRecord>, overlay: Option<&Overlay>) -> Option<(&'static str, SharedString, crate::look::Token, bool)> {
     let job = job?;

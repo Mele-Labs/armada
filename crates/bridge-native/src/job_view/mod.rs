@@ -38,6 +38,8 @@ mod teach;
 mod records;
 mod review;
 mod rows;
+mod side;
+pub use side::JobSide;
 mod runs;
 mod talk;
 mod tune;
@@ -127,6 +129,7 @@ struct Page {
     review: review::ReviewState,
     /// His marks on the plan, not sent yet, and the field open on it.
     plan_edit: plan_edit::EditState,
+    side: side::SideState,
 }
 
 impl Page {
@@ -134,7 +137,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default() }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default() }
     }
 }
 
@@ -209,6 +212,8 @@ pub struct JobView {
     switched: Option<std::time::Instant>,
     /// The list's pick count last acted on: a new pick puts the keys in the box (his word, 10 Nov).
     picked: u64,
+    /// The right column's top pane: Open, Done or Deferred.
+    zone: side::Zone,
     focus: FocusHandle,
     /// The menu a thread element opened, if one is open.
     pop: Option<pop::Pop>,
@@ -291,6 +296,7 @@ impl JobView {
             visiting: None,
             switched: None,
             picked: 0,
+            zone: side::Zone::default(),
             focus: cx.focus_handle(),
             pop: None,
             dock_focus: cx.focus_handle(),
