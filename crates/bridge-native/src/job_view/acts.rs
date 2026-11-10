@@ -335,7 +335,7 @@ impl JobView {
     }
 
     /// Fleet refused: the answer is taken back and its reason stands on the card.
-    fn undo(&mut self, job: &SharedString, ix: usize, key: &str, why: SharedString, cx: &mut Context<Self>) {
+    pub(super) fn undo(&mut self, job: &SharedString, ix: usize, key: &str, why: SharedString, cx: &mut Context<Self>) {
         if let Some(page) = self.pages.get_mut(job) {
             page.cards.answers.remove(key);
             page.cards.said.insert(key.to_string(), why);

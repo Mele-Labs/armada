@@ -654,6 +654,19 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "make-document",
+        title: "A draft made a Document",
+        screen: Screen::Jobs,
+        scenario: "drafts",
+        steps: &[
+            step("A Job with a draft waiting on you", Verb::Press, "row", "Draft the release note"),
+            step("An open draft that proposes no change can become a page", Verb::Look, "button", "Make it a Document"),
+            step("Make it a Document: the thread goes to the page's card, waiting for you to read it", Verb::OpenIn("Draft: Release note for 0.42", "Make it a Document"), "article", "Document: Release note for 0.42, Revision 1"),
+            step("Paused, the Job keeps its turn", Verb::Gone, "button", "Pause"),
+            step("so the button waits for its Resume", Verb::Hover, "button", "Make it a Document"),
+        ],
+    },
+    Walk {
         name: "tool-rows",
         title: "A tool call's row, running and done",
         screen: Screen::Jobs,

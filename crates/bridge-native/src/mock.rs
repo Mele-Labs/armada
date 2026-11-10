@@ -30,6 +30,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "needs-plan" => include_bytes!("../fixtures/needs-plan.json"),
         // Five Jobs each running one kind of call after a finished one, and one whose run is over.
         "tool-rows" => include_bytes!("../fixtures/jobs-tools.json"),
+        // One Job with an open draft and a workflow draft, near the thread's end.
+        "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -50,6 +52,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "job-bands" => include_bytes!("../fixtures/bands-threads.json"),
         "needs-plan" => include_bytes!("../fixtures/needs-plan-threads.json"),
         "tool-rows" => include_bytes!("../fixtures/tools-threads.json"),
+        "drafts" => include_bytes!("../fixtures/drafts-threads.json"),
         _ => return Ok(HashMap::new()),
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
@@ -144,5 +147,6 @@ mod tests {
         assert!(super::catalogue().is_some());
         assert_eq!(super::jobs("tool-rows").expect("decodes").len(), 6);
         assert_eq!(super::threads("tool-rows").expect("decodes").len(), 6);
+        assert_eq!(super::threads("drafts").expect("decodes").len(), 1);
     }
 }

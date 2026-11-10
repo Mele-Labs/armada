@@ -229,7 +229,11 @@ impl JobView {
             .child(div().w_full().min_w_0().max_w(self.column(look)).child(drawn));
         // The person's own words are drawn whole the frame they are sent: a fade from nothing here made a
         // send look like it drew nothing, and made Fleet's echo of a pending row blink out and back.
-        let own = matches!(held.items.get(ix), Some(ThreadItem::Row { row: SessionRow::Message { from: SessionVoice::You, .. } }));
+        let own = match held.items.get(ix) {
+            Some(ThreadItem::Row { row: SessionRow::Message { from: SessionVoice::You, .. } }) => true,
+            Some(ThreadItem::Document(card)) => page.made_pages.contains(&card.page),
+            _ => false,
+        };
         if !page.arrived.contains(&ix) || own {
             return row.into_any_element();
         }

@@ -19,6 +19,7 @@ mod callchip;
 mod cards;
 mod composer;
 mod deck;
+mod draft_doc;
 mod dock;
 mod edit;
 mod fork;
@@ -150,6 +151,10 @@ struct Page {
     editing: Option<edit::Editing>,
     /// New words saved on his messages, by row id, drawn until Fleet's row reads them.
     edits: HashMap<String, String>,
+    /// The path of the page a draft became, gone to once its card is in the thread.
+    made: Option<String>,
+    /// The pages his own press made, drawn whole when their card comes in, as his own words are.
+    made_pages: HashSet<String>,
 }
 
 impl Page {
@@ -157,7 +162,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new() }
+        Page { list, items: 0, lead: 0, count: 0, extras: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 }
 
@@ -539,6 +544,7 @@ impl JobView {
             .detach();
         }
         self.arrive(id, cx);
+        self.open_made(id, cx);
     }
 
     /// A message from the person puts the thread at its end again (A1.5).

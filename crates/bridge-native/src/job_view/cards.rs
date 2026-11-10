@@ -613,6 +613,21 @@ impl JobView {
         let noting = open && mode == Mode::Note;
         let target = self.is_target(&key);
         let eyebrow_word = if kind == DraftKind::Workflow { "Workflow" } else { "Draft" };
+        // An open draft that proposes no change can become a page he reads; a paused Job keeps its turn
+        // for its Resume, so the page it would be told of waits too.
+        let to_page = (open && kind == DraftKind::Draft).then(|| {
+            let paused = self.shown.as_ref().is_some_and(|job| self.paused(job, cx));
+            let (page_key, draft_id, draft_title) = (key.clone(), id.to_string(), title.to_string());
+            labelled(
+                button(look, SharedString::from(format!("to-page:{key}")), "Make it a Document", Tone::Ghost, false, None, !paused)
+                    .when(paused, |button| button.tooltip(tip("Resume the Job first")))
+                    .when(!paused, |button| {
+                        button.on_click(cx.listener(move |this, _, window, cx| this.make_document(ix, page_key.clone(), &draft_id, &draft_title, window, cx)))
+                    }),
+                Role::Button,
+                "Make it a Document",
+            )
+        });
         let head = div()
             .flex()
             .items_center()
@@ -620,6 +635,7 @@ impl JobView {
             .text_color(look.color(token::FG_MUTED))
             .child(super::rows::eyebrow(look, eyebrow_word).text_color(look.color(token::FG_MUTED)))
             .child(div().flex_1())
+            .children(to_page)
             .child(self.stamp(at, look, now, false, cx));
         let shown_text = match &how {
             Some((DraftHow::Fixed, Some(words))) => words.clone(),
