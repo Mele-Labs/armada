@@ -15,7 +15,7 @@ use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use checks_runner::Attempt;
+use checks_runner::{Attempt, CheckWidth};
 use ipc::{CheckBeforePr, ManifestId, PrePrCheckRan, PrePrChecked};
 use verification::Exit;
 
@@ -28,12 +28,14 @@ const BUDGET: Duration = Duration::from_secs(4 * 60);
 /// The last lines of a Check's output the agent is told.
 const TAIL_LINES: usize = 40;
 
-/// One Check to run: its key, its command, the directory it runs in and the exit it expects.
+/// One Check to run: its key, its command, the directory it runs in, the exit it expects and the
+/// width its `${width}` is filled with, as at a gate.
 pub(crate) struct ToRun {
     pub name: String,
     pub run: String,
     pub dir: std::path::PathBuf,
     pub expect: i64,
+    pub width: CheckWidth,
 }
 
 /// Run each in turn, and say what they came to. **Every Check runs, so a second failure is in the
@@ -41,10 +43,11 @@ pub(crate) struct ToRun {
 pub(crate) async fn ran(checks: Vec<ToRun>) -> PrePrChecked {
     let mut ran: Vec<PrePrCheckRan> = Vec::new();
     for check in checks {
-        let attempt = checks_runner::run(&check.run, &check.dir, BUDGET).await;
+        let run = checks_runner::resolve_width(&check.run, check.width);
+        let attempt = checks_runner::run(&run, &check.dir, BUDGET).await;
         ran.push(PrePrCheckRan {
             passed: passed(&attempt.exit, check.expect),
-            tail: tail(&check.run, &attempt),
+            tail: tail(&run, &attempt),
             name: check.name,
         });
     }
@@ -189,6 +192,7 @@ where
                     run: check.run().to_string(),
                     dir: Path::new(&slot).join(manifest.dir()),
                     expect: check.expect_exit_code(),
+                    width: self.places_width().narrowed_to(check.width()),
                 })
             })
             .collect();
