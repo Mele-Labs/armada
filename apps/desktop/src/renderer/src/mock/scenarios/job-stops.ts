@@ -174,6 +174,10 @@ const phone: Session = {
     restart: "failed",
     repair: "running",
   },
+  repairing: {
+    said: "its process died twice",
+    since: ago(18),
+  },
   fleetActs: [
     act("js-2-f1", ago(26), "over", "told", "Told it: slot-4 is 12 commits behind main", {
       why: "Fleet tells a Job when its slot falls behind main",
@@ -181,9 +185,7 @@ const phone: Session = {
     act("js-2-f2", ago(19), "over", "restart", "Restarted its process", {
       why: "Its process ended",
     }),
-    act("js-2-f3", ago(18), "under_way", "process", "Started a repair Job", {
-      why: "The restart failed",
-    }),
+    act("js-2-f3", ago(18), "under_way", "restart", "Repairing: its process died twice"),
   ],
 };
 
@@ -371,6 +373,10 @@ const importer: Session = {
   standing: "stuck",
   turnSince: ago(40),
   lastHeardAt: ago(14),
+  repairing: {
+    said: "a command hung",
+    since: ago(2),
+  },
   openCall: {
     text: "Bash pnpm build",
     since: ago(14),

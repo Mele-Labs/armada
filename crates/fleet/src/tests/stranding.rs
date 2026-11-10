@@ -288,7 +288,7 @@ async fn one_scout_reads_at_a_time() {
 async fn a_slot_a_running_repair_holds_is_not_scouted() {
     let home = TempDir::new();
     let fleet = a_fleet(&home);
-    let _running = fleet.repairs().listed("a-job", "a-repair").expect("listed");
+    let _running = fleet.repairs().listed("a-job", "a-repair", String::new(), String::new()).expect("listed");
     strand(&home, &fleet, 2, "fleet/half-done", Some("a-repair"));
     let holder = slot(&fleet, 2).await.stranded.expect("stranded").last_holder.expect("named");
     assert!(holder.open, "a running repair is an open holder");

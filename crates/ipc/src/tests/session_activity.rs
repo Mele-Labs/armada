@@ -55,6 +55,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         later: Vec::new(),
         held_open_by: Vec::new(),
         stopped: None,
+        repairing: None,
         stop_told_by: None,
         turn_since: None,
         last_heard_at: None,

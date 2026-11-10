@@ -202,6 +202,7 @@ WebSocket event stream, read this first.
 | [The merge line, read by Fleet](protocol/the-merge-line-fleet-reads.md) |
 | [A Job's in-flight list: `SessionRecord.in_flight`](protocol/a-jobs-in-flight-list.md) |
 | [A Job's row mark: `SessionRecord.mark`](protocol/a-jobs-row-mark.md) |
+| [The repair under way, on a Job's card: `SessionRecord.repairing`](protocol/a-jobs-repairing-line.md) |
 | [What calls the person: `get_calls`, `calls.changed`, `open_call`](protocol/a-jobs-calls.md) |
 | [The title bar's views, read by Fleet](protocol/the-title-bars-views-fleet-reads.md) |
 | [The Operator's page, kept by Fleet: `operator_page`, `operator_answer`, `operator.page_changed`](protocol/the-operators-page-fleet-keeps.md) |

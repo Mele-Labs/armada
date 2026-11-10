@@ -86,7 +86,7 @@ where
         saw: Vec<(String, String)>,
     ) -> Result<(), Refusal> {
         let repair = self.mint().ulid().as_str().to_lowercase();
-        let Some(running) = self.repairs().listed(job, &repair) else {
+        let Some(running) = self.repairs().listed(job, &repair, broke.words(), self.now().as_str().to_string()) else {
             return Err(self.hosted_refusal(REPAIR_RUNNING, &format!("a repair is already running for job {job}")));
         };
         match self.repair_prepared(job, &repair, broke, &saw).await {

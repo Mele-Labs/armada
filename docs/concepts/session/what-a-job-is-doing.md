@@ -71,6 +71,8 @@ It runs one turn in the Job's own checkout, or in a slot of its own where the Jo
 Fleet starts one dead Job's repair at a time, and never two for one Job.
 If a probe of `get_health` fails, a new agent would fail the same way, so Fleet starts none and the row says so.
 Fleet's note in the thread says what broke when it starts, such as `Repair: its process died twice`, and the Now panel reads `Repairing: its process died twice` until a `Repaired: ` or `Not repaired: ` note follows.
+The Job's card says it too, on any state: `Stuck · Repairing: a command hung`, or `Stopped: process ended · Repairing: its process died twice`, where the repairing clause stands in for the restart's words (`SessionRecord.repairing`, [the repair under way](../../practices/protocol/a-jobs-repairing-line.md)).
+A repair that ended without putting things right reads `Not repaired` beside the stop, and an unhealthy Fleet reads `No repair: Fleet is unhealthy`.
 What is kept is in `job_repairs` (id, the Job, the kind of break, when it started and ended, the outcome and the sentence it said), and `stop_nudges.repair_job` names the one the row reads.
 
 **Fleet reads how a repair ended, and the agent does not announce it.**

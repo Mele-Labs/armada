@@ -415,6 +415,8 @@ where
             record.standing = Some(ipc::SessionStanding::Stopped);
             record.stopped = reads.open_turn.as_ref().map(|turn| crate::session_host::stopping::dead(turn, &reads.stop, reads.repair_over, &reads.away, died_saying));
         }
+        // Any state: a repair runs for a stuck Job, a Job whose pull request failed and an ended Job as well.
+        record.repairing = self.repairs().under_way(&session.id).map(|(said, since)| ipc::SessionRepairing { said, since: wire_instant(&since) });
         record.stop_told_by = owed.map(|(_, from)| wire_instant(&crate::clock::rfc3339_utc(from + crate::session_host::stopping::STOP_AFTER.as_millis() as i64)));
         // How long the running turn has been at it and when it was last heard, which Now says beside it.
         if session.origin == "bridge" {

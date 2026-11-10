@@ -329,6 +329,22 @@ async fn a_dead_job_gets_one_hidden_repair_that_is_no_job_and_no_nudge() {
 }
 
 #[tokio::test]
+async fn a_running_repair_is_on_the_record_in_fleets_words_and_gone_when_it_ends() {
+    let rig = rig_placing(None);
+    holding(&rig);
+    let id = dead_job(&rig).await;
+    assert!(record(&rig, &id).await.repairing.is_none(), "none runs yet");
+    rig.fleet.stops_told().await;
+    let repairing = record(&rig, &id).await.repairing.expect("the repair is on the record");
+    assert_eq!(repairing.said, "its process died twice");
+    assert!(!repairing.since.as_str().is_empty());
+
+    released(&rig);
+    eventually(|| async { !rig.fleet.repairs().running_for(id.as_str()) }).await;
+    assert!(record(&rig, &id).await.repairing.is_none(), "absent once it ends");
+}
+
+#[tokio::test]
 async fn a_repair_that_did_not_repair_leaves_the_row_amber_and_wakes_nobody() {
     let rig = rig_placing(None);
     std::fs::write(rig.repair_state.join("answer"), "NOT REPAIRED: its binary is gone").expect("an answer");

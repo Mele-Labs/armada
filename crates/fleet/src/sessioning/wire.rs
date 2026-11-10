@@ -180,6 +180,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         later: Vec::new(),
         held_open_by: Vec::new(),
         stopped: None,
+        repairing: None,
         stop_told_by: None,
         turn_since: None,
         last_heard_at: None,
