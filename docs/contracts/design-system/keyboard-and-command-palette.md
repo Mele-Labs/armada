@@ -42,6 +42,8 @@ is the back-fill by hand that this section existed to prevent.
 ```
 ⌘K       command palette
 ⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
+⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
+⌥⌘N      the history of the Operator's toasts, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
 ⌘Enter   send the message in the field that has focus
