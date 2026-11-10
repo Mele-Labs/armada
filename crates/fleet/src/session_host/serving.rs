@@ -267,7 +267,7 @@ where
     ) -> Result<SessionRecord, Refusal> {
         // Reached only by a client's route: an answer from a card anywhere is him in the Job.
         self.visit_kept(said.session_id.as_str()).await;
-        Arc::clone(&self).settle_waiting(said).await
+        Arc::clone(&self).settle_answer(said, super::waiting::Answerer::Him).await
     }
 
     async fn free_slot(self: Arc<Self>, free: ipc::FreeSlot) -> Result<SessionRecord, Refusal> {
@@ -360,6 +360,13 @@ where
         reopen: ipc::ReopenWaiting,
     ) -> Result<SessionRecord, Refusal> {
         self.waiting_reopened(reopen).await
+    }
+
+    async fn done_waiting(
+        self: Arc<Self>,
+        done: ipc::DoneWaiting,
+    ) -> Result<SessionRecord, Refusal> {
+        self.done_waited(done).await
     }
 
     async fn confirm_waiting(

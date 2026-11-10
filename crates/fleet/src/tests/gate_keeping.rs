@@ -152,9 +152,9 @@ fn a_sketch_he_approved_before_there_was_a_plan_closes_nothing_and_one_after_doe
     };
     let recorded = SessionRow::Plan { id: "p1".into(), at: Instant::carried("2026-11-08T10:00:00.000Z"), version: 1 };
     let before = [approved("m1", "2026-11-08T09:00:00.000Z"), recorded.clone()];
-    assert!(crate::gate_keeping::facts_seen(&plan, &before, &[], &[], &[]).is_empty());
+    assert!(crate::gate_keeping::facts_seen(&plan, &before, &[], &[], &[], &[]).is_empty());
     let after = [recorded, approved("m2", "2026-11-08T11:00:00.000Z")];
-    let facts = crate::gate_keeping::facts_seen(&plan, &after, &[], &[], &[]);
+    let facts = crate::gate_keeping::facts_seen(&plan, &after, &[], &[], &[], &[]);
     assert_eq!(facts.iter().map(|one| (one.source.as_str(), one.fact.as_str())).collect::<Vec<_>>(), [("sketch:m2", "You approved the sketch The flow")]);
     assert_eq!(closing(&plan, &[], &facts).len(), 1);
 }
@@ -340,7 +340,7 @@ fn a_started_job_fleet_cannot_find_counts_as_ended_at_the_time_it_was_started() 
 
     let plan = kept(&[gated(None, "Wait for the children", PlanGate::JobsEnded)]);
     let recorded = SessionRow::Plan { id: "p1".into(), at: Instant::carried("2026-11-08T10:00:00.000Z"), version: 1 };
-    let facts = crate::gate_keeping::facts_seen(&plan, &[recorded], &[], &[], &started);
+    let facts = crate::gate_keeping::facts_seen(&plan, &[recorded], &[], &[], &started, &[]);
     assert_eq!(facts.len(), 1, "{facts:?}");
     assert_eq!(facts[0].at, started_at);
     assert_eq!(closing(&plan, &[], &facts).len(), 1);

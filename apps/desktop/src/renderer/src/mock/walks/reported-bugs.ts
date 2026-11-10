@@ -1,4 +1,4 @@
-// Bugs agents reported in Armada itself: the Reported bugs band on the Issues tab, a report read whole, kept, started as a Job and
+// Bugs agents reported in Armada itself: the Reported choice on the Issues tab, a report read whole, kept, started as a Job and
 // dropped, all by key, and the mark on the Cockpit row of a Job that reported one. Over the `reported-bugs` scenario.
 
 import { button, inside, place, region, role, walk } from "../walk";
@@ -13,7 +13,18 @@ const reader = region("Reported bug", {
 const reportedBugs = walk("reported-bugs", [
   {
     press: place("Issues"),
-    say: "Issues, with All picked. Reported bugs stands over the repositories' issues",
+    say: "Issues, with All picked. Reports are drawn only under Reported",
+  },
+  {
+    key: "L",
+    on: list,
+    say: "L opens the filter, where Reported is one more kind",
+  },
+  {
+    press: role("menuitem", "Reported", {
+      exact: true,
+    }),
+    say: "Reported",
   },
   {
     look: role("listitem", "Reported bugs", {

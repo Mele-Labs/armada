@@ -247,11 +247,11 @@ notes = """
 type = "enum"
 concern = "Gating"
 parent = "steps[]"
-purpose = "The plan gate this step's group ends on: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged`, `jobs_ended` or `none`. Optional, and absent means `none`."
+purpose = "The plan gate this step's group ends on: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green`, `merged`, `jobs_ended` or `none`. Optional, and absent means `none`."
 notes = """
 **Distinct from `advance_gate`**, which is the old rail's: that one says which tier decides whether the step advances. This one names the fact Fleet sees for itself that ends the step's group in the Job's plan (`ipc::PlanGate`, #3360). A step's `id` is the plan group's `id`, so a rule's `step_starts: <id>` matches the group the agent records.
 
-**The words are held equal to `ipc::PlanGate`'s** by a Fleet test, since config and core-model cannot depend on ipc. A word outside the seven is refused at load, naming them. `core_model::ResolvedStep::gate` carries it, and the agent is told it with the step's `instructions` when the Job starts.
+**The words are held equal to `ipc::PlanGate`'s** by a Fleet test, since config and core-model cannot depend on ipc. A word outside the eight is refused at load, naming them. `core_model::ResolvedStep::gate` carries it, and the agent is told it with the step's `instructions` when the Job starts.
 """
 
 [fields.records_plan]

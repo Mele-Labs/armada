@@ -1,0 +1,16 @@
+[operations.withdraw_document]
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Take back a Document you wrote under .armada/documents/, when the owner has moved past it: it leaves his Needs you list and stops asking him to approve or send it back, and the file stays. Body: path, the page's path or file name, and session_id. Writing a new revision asks again. A page this job holds no Document at is refused"
+notes = """
+`POST /sessions/withdraw_document`, body `WithdrawDocument`: `path` and an optional `session_id`. Answered with the `SessionRecord`; **through the agent's door, a receipt** of `session_id` and `withdrawn`, the page's path.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal, as `withdraw_sketch`'s is. **Only a Document the job holds**: `path` is the page's path as its Needs you item names it (`document:<path>` reads the same), or the end of it (`.armada/documents/lease.html`, `lease.html`), or its title. A name that fits none of the job's Documents is refused with 422 `fleet.document_withdraw_not_held` and nothing written, as is one that fits several, with 422 `fleet.document_withdraw_ambiguous` naming them. Another job's Document is not the job's own, so it is refused the same.
+
+**It writes the dismissal the owner's own dismiss writes**, `document:<path>` in the job's dismissed ids, so the item leaves Needs you, the card stops asking and the plan held behind the page is no longer held by it. **The agent is told nothing**, since it made the call, and the owner is not shown a closed item. The file is not touched.
+
+**A new revision lifts it**: the page written again with other bytes asks again, as it does after the owner's dismiss. The same bytes keep nothing.
+
+`agent_access` is `Yes`: the job is the one that knows the page is no longer the question, and the owner has no way to tell it so but to delete the file.
+"""

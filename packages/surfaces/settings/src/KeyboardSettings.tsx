@@ -21,6 +21,7 @@ import {
   SLOT_NAMES,
   useKeyBindings,
   type Action,
+  type KeymapGroup,
   type Slot,
 } from "@armada/components";
 
@@ -40,10 +41,18 @@ function found(act: Action, place: string, query: string): boolean {
   );
 }
 
+/** The registry carries the Operator's key for the native Bridge. This Bridge has no Operator page, so its row is not drawn. */
+const NATIVE_ONLY = [
+  "operator",
+];
+
+const drawnIn = (group: KeymapGroup) =>
+  actsInGroup(group).filter((act) => !NATIVE_ONLY.includes(act.id));
+
 /** How many acts a search finds, for the count beside the category. */
 export function keyboardMatches(query: string): number {
   return KEYMAP_GROUPS.reduce(
-    (all, group) => all + actsInGroup(group).filter((act) => found(act, group.title, query)).length,
+    (all, group) => all + drawnIn(group).filter((act) => found(act, group.title, query)).length,
     0,
   );
 }
@@ -72,7 +81,7 @@ export function KeyboardSettings({ query = "" }: { query?: string }) {
   const searching = query.trim() !== "";
   const groups = KEYMAP_GROUPS.map((group) => ({
     group,
-    acts: actsInGroup(group).filter((act) => !searching || found(act, group.title, query)),
+    acts: drawnIn(group).filter((act) => !searching || found(act, group.title, query)),
   })).filter((one) => one.acts.length > 0);
 
   return (

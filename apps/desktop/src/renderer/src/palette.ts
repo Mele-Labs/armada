@@ -42,17 +42,26 @@ const ON_A_ROW = [
   "close",
 ] as const;
 
+/** The acts the registry carries for the native Bridge that this Bridge has no page for: the Operator, decided 10 Nov. */
+const NATIVE_ONLY = [
+  "operator",
+] as const;
+
 /**
- * The acts the palette leaves out rather than dims: an act on a focused row; and Copy debug info with no
- * failure on screen, which the owner had out of the way on 12 Oct 2026 so that "debug" ↵ is Debug Bridge.
+ * The acts the palette leaves out rather than dims: an act on a focused row; the Operator, which this Bridge no longer draws; and
+ * Copy debug info with no failure on screen, which the owner had out of the way on 12 Oct 2026 so that "debug" ↵ is Debug Bridge.
  */
 export function absentIn(where: { failing?: boolean }): readonly string[] {
   return where.failing === false
     ? [
         ...ON_A_ROW,
+        ...NATIVE_ONLY,
         "copy_debug_info",
       ]
-    : ON_A_ROW;
+    : [
+        ...ON_A_ROW,
+        ...NATIVE_ONLY,
+      ];
 }
 
 /**
@@ -95,11 +104,6 @@ export function dormantIn(where: {
     start_studio_run: where.studioRun === null ? NO_STUDIO : where.studioRun,
 
     // Global acts with no surface behind them.
-    //
-    // The Operator's dock opens on `⌘J`, but that state is
-    // `Shell.tsx`'s own `useDock` and `App` holds no handle to it — a wiring
-    // gap, same shape as the four signposts above.
-    operator: "⌘J opens it; not reachable from the palette yet",
     // Not a wiring gap: ⌘Enter sends whatever is typed in the field that has
     // focus, and opening the palette took that focus away. The row is drawn so
     // the binding is discovered, and it says what it needs.

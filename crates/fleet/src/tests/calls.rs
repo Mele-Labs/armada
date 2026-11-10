@@ -32,6 +32,7 @@ fn nowhere(_: &str) -> bool {
 
 fn item(id: &str, text: &str, source: WaitingSource, second: u32) -> WaitingItem {
     WaitingItem {
+        approves: false,
         id: id.into(),
         text: text.into(),
         since: at(second),

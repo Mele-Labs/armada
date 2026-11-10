@@ -404,6 +404,11 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_sketch",
     },
     Route {
+        operation: "withdraw_document",
+        method: "POST",
+        path: "/sessions/withdraw_document",
+    },
+    Route {
         operation: "show_sketch",
         method: "POST",
         path: "/sessions/sketch",
@@ -697,6 +702,16 @@ const ROUTES: &[Route] = &[
         operation: "list_closed_waiting",
         method: "GET",
         path: "/sessions/waiting/closed",
+    },
+    Route {
+        operation: "get_needs_you",
+        method: "GET",
+        path: "/sessions/needs_you",
+    },
+    Route {
+        operation: "done_waiting",
+        method: "POST",
+        path: "/sessions/waiting/done",
     },
     Route {
         operation: "confirm_waiting",

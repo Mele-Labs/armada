@@ -103,6 +103,7 @@ where
                     .collect();
                 options.push(WaitingOption { label: OTHER.to_string(), description: None });
                 Some(WaitingItem {
+                    approves: false,
                     id: id.clone(),
                     text: format!("Where does {} open in {}?", file.name, ask.repository),
                     since: Instant::carried(ask.asked_at.as_str()),

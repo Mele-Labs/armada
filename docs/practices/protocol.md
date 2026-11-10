@@ -1022,6 +1022,7 @@ Bridge's half is `ConfirmWaiting` and `confirmed` on `WaitingItem` in `packages/
 | --- | --- | --- |
 | `ConfirmWaiting` (`POST /sessions/waiting/confirm`) | Bridge writes, Fleet reads | `session_id` and `item_id`; answered with the Session's record |
 | `WaitingItem.confirmed` | Fleet writes, Bridge reads | `true` on a `replied` item whose text is in `reply_confirmed`; sent only as `true` |
+| `WaitingItem.approves` | the agent writes, Fleet reads and writes, Bridge reads | `true` on an item the agent raised to ask him to approve a result; sent only as `true`, absent means false. Fleet gives it exactly two options, Approve then Ask for changes, and his Approve closes a `you_approved` gate |
 
 **Only an item Fleet read from a reply takes it**: on a `replied` item Fleet keeps its text in `reply_confirmed` and the item stays; on any other source the confirm is refused and the item stands unconfirmed.
 
@@ -1553,7 +1554,7 @@ A role of the Operator's at Suggest keeps what On would have done, and it reache
   Words sent on it with no choice are never refused: they go to the Operator as `talk_to_operator` with `about` set to the suggestion's arrival id, the row stays, and the reply lands in the Operator's conversation.
   It is drawn as any answer item until the panel's look lands, armada-ehhu.10.
 - **On the question it would settle**, `WaitingItem.operator_read`, `{read, pick}`: Bridge selects `pick`, and his press on that option is the press he would make anyway, so there is nothing to route.
-  `OperatorRead` in `apps/desktop/src/renderer/src/operator/model.ts` is the walked proposal for this.
+  `OperatorRead` in `packages/protocol/src/sessions.ts` is its type.
 
 A suggestion on a report with no Job behind it, or on a note the person left on Bridge, has no list to stand on. It is kept in the store for the panel.
 A note's is kept at any position short of Off, and no route presses it yet: the panel Job owns that.
@@ -1608,7 +1609,7 @@ Bridge's half is `PlanGate` and `gate` in `packages/protocol/src/session-plan.ts
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
+| `PlanGroupInput.gate` (`record_plan`) | the agent writes, Fleet reads | The fact that ends the group: `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green`, `merged` or `none`. Absent is `none`; a word not on the list is refused with the list |
 | `SessionPlanGroup.gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | The gate as the agent named it. Absent is `none` |
 
 **Why it is a field and not a word read beside the body**, as `seen` is: the gate is what Fleet will record against, so it rides the wire type and a decoder refuses a word it does not know.
@@ -1668,7 +1669,7 @@ Bridge's half is the `gate_closes` member of `RuleWhen` in `packages/protocol/sr
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `checks_green` or `merged`. Never `none` |
+| `RuleWhen` `{ kind: "gate_closes", gate }` (`get_job_lifecycles`, the rule pieces Teach proposes and Bridge saves) | Fleet writes, Bridge reads and writes | `gate`, one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved`, `you_approved`, `checks_green` or `merged`. Never `none` |
 
 **A rule file writes it as `when: { gate_closes: merged }`**, and a word outside the list is refused naming the list.
 **Bridge draws a rule of this kind with no node on the lanes**, as it does a Job event.
@@ -1740,3 +1741,30 @@ Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `p
 A row with `edited_at` reads on a Bridge that does not know it as an unedited one.
 
 **The event stream.** Untouched in kind: the edited row is one `session.row`, as any row put again by id is. The open risk below is neither better nor worse.
+
+## A Job's Needs you worked out once: `get_needs_you`, `done_waiting` and `withdraw_document`
+
+Since 10 Nov 2026. `docs/concepts/session/waiting-on-the-person.md`.
+**Three operations, one route each, and the types they carry**: no event kind and no field on an existing type. `NeedsYou` is not carried on `SessionRecord`, so no list and no `session.changed` grows.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `NeedsYou`, `NeedsYouSection`, `NeedsYouRow`, `NeedsYouGlyph`, `NeedsYouAct`, `WithdrawDocument` and `DoneWaiting` in `packages/protocol/src/sessions.ts`, written by hand, field for field.
+Electron draws nothing from it: it is frozen.
+The native Bridge reads it.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `get_needs_you` (`GET /sessions/needs_you?session_id=`, `agent_access = "No"`) | Bridge reads | `NeedsYou` `{ session_id, sections[], fold, review_in_band, glyphs[] }`; a section is `{ kind, label, rows[] }`, `kind` one of `questions`, `to_do`, `to_review`, `walks`, `commands`, `pull_requests`, `restart`, `done`, none empty; a row is `{ id, source, text, since, glyph, act, dismiss }` |
+| `NeedsYouGlyph` | Fleet writes | `{ kind, said }`: `kind` one of `question`, `reply`, `read_from_reply`, `walk`, `answer`, `pull_request`, `run`, `message`, `steps`, `waiting`, `linked_job`, `operator`, `todo`, `plan`, `sketch`, `draft`, `document`, `restart`, `done`; `said` its tooltip |
+| `NeedsYouAct` | Fleet writes | Tagged by `kind`: `open_plan`, `open_sketch { title }`, `open_document { path }`, `open_draft { row }`, `walk { url }`, `answer { options[], other }`, `reply`, `run { command }`, `steps { steps[], command? }`, `approve_pr { target }`, `open_job { id }`, `message`, `restart { label, build, adopt, command }`, `done { steps? }`, `none` |
+| `NeedsYouRow.dismiss` | Fleet writes | `none`, `plain`, `skip`, `reason` or `not_a_question`. Not `none` means `dismiss_waiting` takes the item; `not_a_question` is sent with `misread` |
+| `done_waiting` (`POST /sessions/waiting/done`, `agent_access = "No"`) | Bridge sends, Fleet answers 200 | `DoneWaiting` `{ session_id, item_id, note? }`; answered with the `SessionRecord`. The item closes as a dismissed one does and the Job is sent `Done: <text>` and the note |
+| `withdraw_document` (`POST /sessions/withdraw_document`, `agent_access = "Yes"`) | The agent sends | `WithdrawDocument` `{ path, session_id? }`; answered with the `SessionRecord`, through the door a receipt `{ session_id, withdrawn }` |
+
+**Refused with nothing changed**: `done_waiting` 409 `fleet.session_waiting_unheld` for an item nothing holds, 422 `fleet.session_waiting_empty` for one the agent did not state; `withdraw_document` 422 `fleet.document_withdraw_not_held` for a page the Job holds no Document at (another Job's included), 422 `fleet.document_withdraw_ambiguous` for a name that fits two, 422 `fleet.document_withdraw_unnamed` where nothing places a Job; `get_needs_you` 422 `fleet.session_waiting_unnamed`.
+**Every `waiting_for` source is one row of one section**, by the table in `crates/fleet/src/session_host/needs_you.rs`, which a test holds to the one in the concept doc.
+`dismiss_waited` reads the same `refused_dismissal` that marks a row `none`, so a row offering a dismissal is one Fleet takes.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** No new event, and none grows: `done_waiting` and `withdraw_document` publish `session.changed` as `dismiss_waiting` does.
+The view is read, not pushed, so a Bridge that draws it reads it again on `session.changed`.
+The open risk below is neither better nor worse.

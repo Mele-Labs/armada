@@ -258,7 +258,7 @@ fn blocks(message: MessageLine, by: Speaker) -> Vec<DroneEvent> {
         .into_iter()
         .filter_map(|block| match block {
             Block::ToolUse { id, name, input } => Some(DroneEvent::Called {
-                detail: detail(&name, &input),
+                detail: detail(&name, &input).described(input.description.as_deref()),
                 tool: name,
                 call: id,
             }),

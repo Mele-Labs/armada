@@ -113,7 +113,7 @@ async fn something_owed_to_the_person_is_not_hidden_behind_the_watch() {
     rig.fleet.start_watch(None, watch(&job, "QA deploy")).await.expect("started");
     assert!(!held_open_by(&rig, &job).await.is_empty());
 
-    let owed = WaitingInput { id: "q1".into(), text: "Run the migration.".into(), act: None, options: Vec::new(), steps: Vec::new() };
+    let owed = WaitingInput { approves: false, id: "q1".into(), text: "Run the migration.".into(), act: None, options: Vec::new(), steps: Vec::new() };
     rig.fleet.waiting_for(None, SetWaitingFor { items: vec![owed], session_id: Some(job.clone()) }).await.expect("set");
     assert_eq!(held_open_by(&rig, &job).await, []);
 }

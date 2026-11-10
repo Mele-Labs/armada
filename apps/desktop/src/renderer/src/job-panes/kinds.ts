@@ -2,11 +2,6 @@
 
 import {
   Activity,
-  Bot,
-  Clock,
-  ListOrdered,
-  ScrollText,
-  SlidersVertical,
   Circle,
   CircleCheck,
   ClipboardList,
@@ -190,25 +185,5 @@ export const KINDS: Readonly<
   "pr-ask": {
     label: "Ask",
     Glyph: MessagesSquare,
-  },
-  "op-talk": {
-    label: "Discussion",
-    Glyph: Bot,
-  },
-  "op-queue": {
-    label: "Queue",
-    Glyph: ListOrdered,
-  },
-  "op-log": {
-    label: "Log",
-    Glyph: ScrollText,
-  },
-  "op-waiting": {
-    label: "Waiting to start",
-    Glyph: Clock,
-  },
-  "op-permissions": {
-    label: "Permissions",
-    Glyph: SlidersVertical,
   },
 };

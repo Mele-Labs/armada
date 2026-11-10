@@ -89,8 +89,8 @@ The rule is that no page is reachable only by a place the window does not draw.
 **The picker names a repository, never a Manifest's id.** A set-up repository read as its `ManifestId` — a ULID — until the owner found one in the trigger on 28 Sep 2026. [Manifest](manifest.md), Deletion, already bound it: a surface renders the name, and nothing renders a bare id.
 The name is what Fleet read the Manifest under, widening to `parent/folder` and then the whole root only where two repositories would otherwise read alike.
 
-**The window's places are declared in `surfaces.ts`, not derived from what a screen draws.** The Operator is not a place: its panel is a dock over the content on every surface, toggled by `⌘J`, and above the layout breakpoint a closed dock draws nothing at all, so the title row's own dock button is the one way back.
-The panel is `armada-ehhu.10`, and [Operator](operator.md) is what it shows.
+**The window's places are declared in `surfaces.ts`, not derived from what a screen draws.** The Operator is not a place here: this Bridge no longer shows it, decided 10 Nov, and the native Bridge draws its page.
+[Operator](operator.md) is what it shows.
 
 **Studios is one repository's Studios, and one open on its whiteboard.** The list names each Studio and when it was last touched; a Studio opened from it is read-only until Continue, and accepting or rejecting a proposed relation, and deleting a node, happen there and nowhere else.
 See [Studio](studio.md).
