@@ -2,8 +2,8 @@
 //! test reads what arrived. What Fleet keeps and reads is `fleet::projects`', against a real store.
 
 use ipc::{
-    IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, MoveProjectTaskRepository, NameProject, NewProjectIssue, NewProjectTask,
-    Project, ProjectRow, ProjectTask, ProjectTaskState, TickProjectTask, WireError,
+    EditProject, IssueState, LinkProjectIssue, LinkTaskJob, LinkTaskPull, ManifestId, MoveProjectRow, MoveProjectTaskRepository, NewProject, NewProjectIssue, NewProjectTask,
+    Project, ProjectMember, ProjectPlace, ProjectRow, ProjectTask, ProjectTaskState, RunPlace, TickProjectTask, WireError,
 };
 
 use super::FakeDaemon;
@@ -26,6 +26,9 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
         projects: vec![Project {
             id: project.to_string(),
             name: said,
+            members: vec![ProjectMember { manifest_id: ManifestId::carried("armada"), folder: None }],
+            place: ProjectPlace { place: RunPlace::ThisMac, synced_folder: None, cloud: None },
+            unread: None,
             rows: vec![
                 task("r1", "Write the page"),
                 ProjectRow::Issue {
@@ -38,6 +41,7 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
             ],
         }],
         loose: vec![task("r9", "Not in a project")],
+        left_out: Vec::new(),
     }
 }
 
@@ -65,15 +69,32 @@ impl Projects for FakeDaemon {
         Ok(echoed("p1", "list_projects".to_string()))
     }
 
-    async fn add_project(&self, name: NameProject) -> Result<ipc::Projects, Refusal> {
-        named(&name.name)?;
-        Ok(echoed("p1", format!("add_project {}", name.name)))
+    async fn list_holding_projects(&self, manifest_id: Option<ManifestId>) -> Result<ipc::Projects, Refusal> {
+        let held = manifest_id.as_ref().map_or("-", ManifestId::as_str);
+        Ok(echoed("p1", format!("list_holding_projects {held}")))
     }
 
-    async fn rename_project(&self, project: String, name: NameProject) -> Result<ipc::Projects, Refusal> {
+    async fn add_project(&self, project: NewProject) -> Result<ipc::Projects, Refusal> {
+        named(&project.name)?;
+        let members = project.members.as_ref().map_or(0, Vec::len);
+        let place = project.place.as_ref().map_or(RunPlace::ThisMac, |one| one.place);
+        if place == RunPlace::Repository {
+            return Err(Refusal::Unacceptable(raised("fleet.project_place_refused", "a project is not kept in a repository")));
+        }
+        Ok(echoed("p1", format!("add_project {} {members} {place:?}", project.name)))
+    }
+
+    async fn edit_project(&self, project: String, edit: EditProject) -> Result<ipc::Projects, Refusal> {
         held(&project)?;
-        named(&name.name)?;
-        Ok(echoed(&project, format!("rename_project {}", name.name)))
+        if let Some(name) = &edit.name {
+            named(name)?;
+        }
+        if edit.members.as_ref().is_some_and(|members| members.iter().any(|one| one.folder.as_deref() == Some(""))) {
+            return Err(Refusal::Unacceptable(raised("fleet.project_malformed", "a folder is a path inside the repository")));
+        }
+        let members = edit.members.as_ref().map_or_else(|| "-".to_string(), |members| members.len().to_string());
+        let place = edit.place.as_ref().map_or_else(|| "-".to_string(), |one| format!("{:?}", one.place));
+        Ok(echoed(&project, format!("edit_project {} {members} {place}", edit.name.as_deref().unwrap_or("-"))))
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {

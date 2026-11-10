@@ -95,6 +95,7 @@ where
             return self.standing_session(held).await;
         }
         let start = StartSession {
+            project: None,
             manifest_id: manifest,
             title: held.line.title.clone(),
             model: None,

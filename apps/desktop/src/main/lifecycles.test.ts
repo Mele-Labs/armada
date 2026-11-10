@@ -55,12 +55,12 @@ describe("Workspaces, lifecycles and rules", () => {
       ok: true,
       value: EMPTY_JOB,
     });
-    await host.workspaces("01MF");
+    await host.holdingProjects("01MF");
     await host.lifecycles("01 MF");
     await host.rules("01MF");
     expect(fleet.asked).toEqual([
       "GET /sessions/lifecycles?session_id=s%201",
-      "GET /workspaces?manifest_id=01MF",
+      "GET /projects/holding?manifest_id=01MF",
       "GET /lifecycles?manifest_id=01%20MF",
       "GET /lifecycles/rules?manifest_id=01MF",
     ]);

@@ -1,5 +1,5 @@
-//! Workspaces, lifecycles and rules as Bridge and the agent's tools read them, and where a Job's
-//! tickets, pull requests, deploys and started Jobs stand. The design is "Workspaces, lifecycles
+//! Lifecycles and rules as Bridge and the agent's tools read them, and where a Job's
+//! tickets, pull requests, deploys and started Jobs stand. The design is "Projects, lifecycles
 //! and rules".
 //!
 //! **Reads only.** Nothing here saves a piece or moves an instance: a state is read from the
@@ -10,9 +10,6 @@
 //! by field in Fleet. A closed set the model owns (a forge fact, an autonomy, a place) is carried as
 //! the spelling the model writes with, so a variant added there is one more word here and the match
 //! in Fleet's conversion fails to compile until it is handled.
-//!
-//! **A Workspace here is a set of repositories** (`WorkspaceOfRepositories`), and not the Manifest's
-//! monorepo unit that `WorkspaceCommands` and `ScannedWorkspace` speak of.
 //!
 //! **A Job that holds nothing answers empty lists**, which is every Job that began before lifecycles
 //! existed.
@@ -73,48 +70,6 @@ pub struct PieceLeftOut {
     pub source: String,
     pub path: String,
     pub said: String,
-}
-
-/// A set of repositories that build one product, as one repository sees it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkspaceOfRepositories {
-    /// The id a lifecycle or a rule is scoped to it by.
-    pub id: String,
-    pub name: String,
-    /// The repositories, in the order the file lists them.
-    pub repositories: Vec<ManifestId>,
-    /// The repository whose `.armada/workspaces/` holds the file, and which the others read it from.
-    /// Absent for one that is Kit's, which has none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub home: Option<ManifestId>,
-    /// The place it was kept: `kit` or `repository`.
-    pub source: String,
-    pub path: String,
-    /// The place of the one that runs instead of this. Absent on the one that runs.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub overridden_by: Option<String>,
-    /// The place whose file this one replaced because it says something else.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hides: Option<String>,
-}
-
-/// `list_repository_workspaces`: the Workspaces that hold one repository, the one that runs for each
-/// id and each one it replaced.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RepositoryWorkspaces {
-    pub manifest_id: ManifestId,
-    pub workspaces: Vec<WorkspaceOfRepositories>,
-    /// Every Workspace file Fleet could not read: none of them can be placed in a repository.
-    pub left_out: Vec<PieceLeftOut>,
-}
-
-/// `list_workspaces`: every Workspace Fleet can see, across all the repositories it serves, each
-/// file once, the one that runs for each id and each one it replaced, ordered by name.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct AllWorkspaces {
-    pub workspaces: Vec<WorkspaceOfRepositories>,
-    /// Every Workspace file Fleet could not read.
-    pub left_out: Vec<PieceLeftOut>,
 }
 
 /// How a state is read, by the source that knows.

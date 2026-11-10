@@ -91,6 +91,7 @@ where
             .or_else(|| title_of(first.words()))
             .unwrap_or_else(|| UNTITLED.to_string());
         let begun = StartSession {
+            project: None,
             manifest_id: manifest,
             title: Some(title.clone()),
             model,

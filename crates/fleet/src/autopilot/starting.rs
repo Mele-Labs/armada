@@ -63,6 +63,7 @@ where
         };
         let record = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ipc::ManifestId::carried(served.manifest().id().as_str()),
                 title: Some(issue.title.to_string()),
                 model: None,

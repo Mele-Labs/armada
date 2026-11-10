@@ -1,12 +1,12 @@
-//! Saving, deleting and committing a Workspace, lifecycle, rule or autonomy default: the spellings
+//! Saving, deleting and committing a lifecycle, rule or autonomy default: the spellings
 //! Bridge sends and reads, and what an older caller that says less still means.
 
 use std::collections::BTreeMap;
 
 use crate::{
     decode, encode, AutonomyToSave, CommitToRepository, DeleteLifecyclePiece, LifecycleDefinition, LifecyclePiece,
-    LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, LifecycleStateDefinition, ManifestId,
-    PieceScope, PieceToCommit, SaveLifecyclePiece, StateReadFrom, WorkspaceToSave,
+    LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, LifecycleStateDefinition,
+    PieceScope, PieceToCommit, SaveLifecyclePiece, StateReadFrom,
 };
 
 fn a_lifecycle() -> LifecycleDefinition {
@@ -29,17 +29,6 @@ fn each_kind_of_piece_is_tagged_by_kind_and_carries_what_a_read_answered() {
     let pieces = [
         (LifecyclePiece::Lifecycle { lifecycle: a_lifecycle() }, "lifecycle", "lifecycle"),
         (
-            LifecyclePiece::Workspace {
-                workspace: WorkspaceToSave {
-                    id: "my-store".to_string(),
-                    name: "My store".to_string(),
-                    repositories: vec![ManifestId::carried("01ABC")],
-                },
-            },
-            "workspace",
-            "workspace",
-        ),
-        (
             LifecyclePiece::Autonomy {
                 autonomy: AutonomyToSave {
                     id: "defaults".to_string(),
@@ -61,7 +50,7 @@ fn each_kind_of_piece_is_tagged_by_kind_and_carries_what_a_read_answered() {
 
 #[test]
 fn a_save_that_does_not_say_overwrite_does_not_overwrite() {
-    let said = r#"{"piece":{"kind":"workspace","workspace":{"id":"my-store","name":"My store","repositories":["01ABC"]}}}"#;
+    let said = r#"{"piece":{"kind":"autonomy","autonomy":{"id":"defaults","defaults":{"draft":"acts"}}}}"#;
     let save: SaveLifecyclePiece = decode("a save", said.as_bytes()).expect("reads");
     assert!(!save.overwrite);
 }
@@ -85,10 +74,10 @@ fn the_answers_spell_the_kind_and_the_scope() {
     };
     let bytes = encode(&saved).expect("encodes");
     assert!(bytes.contains(r#""kind":"rule""#) && bytes.contains(r#""scope":{"kind":"within","id":"my-store"}"#), "{bytes}");
-    let deleted = LifecyclePieceDeleted { kind: LifecyclePieceKind::Workspace, id: "my-store".to_string(), scope: PieceScope::Everywhere, file: "/kit/workspaces/my-store.yml".to_string() };
+    let deleted = LifecyclePieceDeleted { kind: LifecyclePieceKind::Autonomy, id: "defaults".to_string(), scope: PieceScope::Everywhere, file: "/kit/autonomy/defaults.yml".to_string() };
     let bytes = encode(&deleted).expect("encodes");
-    assert!(bytes.contains(r#""kind":"workspace""#), "{bytes}");
-    for kind in [LifecyclePieceKind::Lifecycle, LifecyclePieceKind::Rule, LifecyclePieceKind::Workspace, LifecyclePieceKind::Autonomy] {
+    assert!(bytes.contains(r#""kind":"autonomy""#), "{bytes}");
+    for kind in [LifecyclePieceKind::Lifecycle, LifecyclePieceKind::Rule, LifecyclePieceKind::Autonomy] {
         assert_eq!(encode(&kind).expect("encodes"), format!("\"{}\"", kind.as_wire()));
     }
 }
@@ -104,12 +93,18 @@ fn a_commit_names_a_piece_by_its_identity_and_says_remove_only_when_it_means_it(
     let commit: CommitToRepository = decode("a commit", said(within).as_bytes()).expect("reads");
     assert_eq!(commit.piece, PieceToCommit::LifecycleRule { id: "nudge".to_string(), scope: PieceScope::Within { id: "my-store".to_string() } });
 
-    let commit: CommitToRepository = decode("a commit", said(r#"{"kind":"workspace","id":"my-store"}"#).as_bytes()).expect("reads");
-    assert_eq!(commit.piece, PieceToCommit::Workspace { id: "my-store".to_string() });
     let commit: CommitToRepository = decode("a commit", said(r#"{"kind":"autonomy","id":"defaults"}"#).as_bytes()).expect("reads");
     assert_eq!(commit.piece, PieceToCommit::Autonomy { id: "defaults".to_string(), scope: PieceScope::Everywhere });
 
-    let removing = r#"{"repository":"/work/shop","piece":{"kind":"workspace","id":"my-store"},"remove":true}"#;
+    let removing = r#"{"repository":"/work/shop","piece":{"kind":"autonomy","id":"defaults"},"remove":true}"#;
     let commit: CommitToRepository = decode("a commit", removing.as_bytes()).expect("reads");
     assert!(commit.remove);
+}
+
+#[test]
+fn a_project_is_no_piece_to_commit_or_to_save() {
+    let commit = r#"{"repository":"/work/shop","piece":{"kind":"workspace","id":"my-store"}}"#;
+    assert!(decode::<CommitToRepository>("a commit", commit.as_bytes()).is_err(), "a project is never committed to a repository");
+    let save = r#"{"piece":{"kind":"workspace","workspace":{"id":"my-store","name":"My store","repositories":[]}}}"#;
+    assert!(decode::<SaveLifecyclePiece>("a save", save.as_bytes()).is_err(), "a project is kept by Fleet, and saved as no piece");
 }

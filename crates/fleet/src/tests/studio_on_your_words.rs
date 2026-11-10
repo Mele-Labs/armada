@@ -309,6 +309,7 @@ impl Held {
                 let made = self
                     .fleet
                     .start_session(StartSession {
+                        project: None,
                         manifest_id: ManifestId::carried(one.manifest().id().as_str()),
                         title: None,
                         model: None,

@@ -1,8 +1,8 @@
-//! The autonomy defaults a Workspace or a repository sets, read off a piece file: for a kind of act,
+//! The autonomy defaults a Project or a repository sets, read off a piece file: for a kind of act,
 //! Acts, Asks or Off. **A piece of its own kind**, kept in the places every piece is, so where it
 //! lives is the owner's to choose and never a place of its own.
 //!
-//! One file is one layer: `autonomy_id` says which, `scope` says where it applies (a Workspace's id
+//! One file is one layer: `autonomy_id` says which, `scope` says where it applies (a Project's id
 //! or a repository's; absent is every repository), and `defaults` names the kinds it sets.
 //!
 //! ```yaml
@@ -15,8 +15,8 @@
 //! ```
 //!
 //! **Layers are laid over each other, and are not chosen between.** A rule's own `autonomy` wins
-//! over all of them, a repository's file over its Workspace's, and a file for every repository
-//! under both ([`Autonomies::defaults`]). Two Workspaces that hold one repository and set one kind
+//! over all of them, a repository's file over its Project's, and a file for every repository
+//! under both ([`Autonomies::defaults`]). Two Projects that hold one repository and set one kind
 //! differently give it the one that asks more. Two files with one id are chosen between as every piece
 //! is, by [`crate::resolving`]. **Text in, not directories**, so a test drives it with no file.
 
@@ -32,7 +32,7 @@ use crate::piece::{LeftOut, Written};
 use crate::resolving::{resolve, Rank, Reach, Resolved, Scoped};
 use crate::rule::acts::KINDS;
 use crate::rule::{AUTONOMY, AUTONOMY_LEGAL};
-use crate::workspace::Workspaces;
+use crate::project::Projects;
 use crate::yaml::{self, Table};
 
 const TOP_LEVEL: &[&str] = &["version", "autonomy_id", "scope", "defaults"];
@@ -191,9 +191,9 @@ pub struct Autonomies {
 
 impl Autonomies {
     /// What applies to `repository`: every file in `written` whose scope names it.
-    pub fn applying_to(repository: &ManifestId, workspaces: &Workspaces, written: impl IntoIterator<Item = Written>) -> Autonomies {
+    pub fn applying_to(repository: &ManifestId, projects: &Projects, written: impl IntoIterator<Item = Written>) -> Autonomies {
         let read = |path: &Path, text: &str| parse(path, text).map_err(|why| why.to_string());
-        let (resolved, left_out) = resolve(repository, workspaces, Vec::new(), written, read);
+        let (resolved, left_out) = resolve(repository, projects, Vec::new(), written, read);
         Autonomies { files: resolved.into_iter().map(AutonomyFile::from).collect(), left_out }
     }
 
@@ -207,10 +207,10 @@ impl Autonomies {
         &self.left_out
     }
 
-    /// What the files that apply set, the repository's laid over its Workspaces' and both over a
+    /// What the files that apply set, the repository's laid over its Projects' and both over a
     /// file for every repository. **Where two files at one scope set one kind, the later rank
     /// wins** (yours over the repository's), and where the rank is the same too, the later id.
-    /// **Where two Workspaces that hold the repository set one kind differently, the one that asks
+    /// **Where two Projects that hold the repository set one kind differently, the one that asks
     /// more wins**, as Bridge draws it.
     pub fn defaults(&self) -> AutonomyDefaults {
         let mut applying: Vec<&AutonomyFile> = self.files.iter().filter(|file| file.overridden_by.is_none()).collect();
@@ -220,16 +220,16 @@ impl Autonomies {
 
         let everywhere = at(Reach::Everywhere).fold(AutonomyDefaults::new(), lay);
         let mut each: Vec<(&LifecycleScope, AutonomyDefaults)> = Vec::new();
-        for file in at(Reach::Workspace) {
+        for file in at(Reach::Project) {
             match each.iter_mut().find(|(scope, _)| *scope == file.piece.scope()) {
                 Some((_, held)) => *held = lay(std::mem::take(held), file),
                 None => each.push((file.piece.scope(), lay(AutonomyDefaults::new(), file))),
             }
         }
-        let workspaces = each.iter().flat_map(|(_, one)| one.iter()).fold(AutonomyDefaults::new(), |most, (kind, autonomy)| {
+        let projects = each.iter().flat_map(|(_, one)| one.iter()).fold(AutonomyDefaults::new(), |most, (kind, autonomy)| {
             let asks_more = most.get(kind).map_or(autonomy, |held| held.max(autonomy));
             most.setting(kind, asks_more)
         });
-        at(Reach::Repository).fold(workspaces.laid_over(&everywhere), lay)
+        at(Reach::Repository).fold(projects.laid_over(&everywhere), lay)
     }
 }

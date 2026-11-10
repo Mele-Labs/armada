@@ -26,6 +26,7 @@ impl Rig {
     async fn titled_hosted(&self, title: &str) -> SessionId {
         self.fleet
             .start_session(StartSession {
+                project: None,
                 manifest_id: self.manifest_id(),
                 title: Some(title.into()),
                 model: None,

@@ -4,12 +4,13 @@
 import type { IpcMain } from "electron";
 
 import type {
+  EditProject,
   LinkProjectIssue,
   LinkTaskJob,
   LinkTaskPull,
   MoveProjectRow,
   MoveProjectTaskRepository,
-  NameProject,
+  NewProject,
   NewProjectIssue,
   NewProjectTask,
   ProjectTask,
@@ -39,10 +40,10 @@ export function handleProjects({ ipc, connection }: Hosts): void {
   const host = () => connection()?.projects;
   ipc.handle(CHANNELS.listProjects, () => host()?.list() ?? unsent);
   ipc.handle(CHANNELS.addProject, (_event, one: unknown) =>
-    body(one) ? (host()?.add(one as NameProject) ?? unsent) : unsent,
+    body(one) ? (host()?.add(one as NewProject) ?? unsent) : unsent,
   );
-  ipc.handle(CHANNELS.renameProject, (_event, project: unknown, one: unknown) =>
-    named(project) && body(one) ? (host()?.rename(project, one as NameProject) ?? unsent) : unsent,
+  ipc.handle(CHANNELS.editProject, (_event, project: unknown, one: unknown) =>
+    named(project) && body(one) ? (host()?.edit(project, one as EditProject) ?? unsent) : unsent,
   );
   ipc.handle(CHANNELS.deleteProject, (_event, project: unknown) =>
     named(project) ? (host()?.delete(project) ?? unsent) : unsent,

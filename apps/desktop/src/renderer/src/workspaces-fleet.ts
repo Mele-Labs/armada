@@ -1,7 +1,7 @@
 // What System > Workspaces asks of Fleet (armada-cwj): the Workspaces across the repositories this window serves, the autonomy layers that apply to them, and the saves and deletes a press on the
 // page comes to. **Fleet is the authority on every refusal**: what it will not keep comes back in its own words and nothing is written. The pure parts are here so they are tried without a window.
 //
-// `readWorkspaces` is the one place the Workspaces are read from: Fleet's `list_workspaces`, every Workspace across the repositories it serves, each id kept once.
+// `readWorkspaces` is the one place the Workspaces are read from: Fleet's `list_projects`, each project whose file read drawn as the Workspace it is, each id kept once.
 
 import type {
   Autonomy,
@@ -18,17 +18,17 @@ import type {
   Outcome,
   PieceScope,
   RepositorySummary,
-  WorkspaceOfRepositories,
 } from "@armada/protocol";
 import { refusalWords } from "@armada/screens/src/refusal-words";
 
 import type { BridgeApi } from "../../shared/api";
 import { missing } from "./lifecycle-editing/fleet-pieces";
+import { type WorkspaceOfRepositories, workspacesOfProjects } from "./workspace-of-project";
 
 /** The calls the page uses. */
 export type WorkspacesApi = Pick<
   BridgeApi,
-  "deleteLifecyclePiece" | "listAutonomyDefaults" | "listWorkspaces" | "saveLifecyclePiece"
+  "deleteLifecyclePiece" | "listAutonomyDefaults" | "listProjects" | "saveLifecyclePiece"
 >;
 
 /** The repositories with a Manifest, which are the ones a Workspace can hold: the Manifest's id and the repository's name. */
@@ -73,11 +73,11 @@ export type WorkspacesRead =
       outcome: Outcome;
     };
 
-/** Every Workspace Fleet holds, or its refusal. */
+/** Every Workspace Fleet holds, or its refusal: the projects whose file read. */
 export async function readWorkspaces(
-  api: Pick<WorkspacesApi, "listWorkspaces">,
+  api: Pick<WorkspacesApi, "listProjects">,
 ): Promise<WorkspacesRead> {
-  const answer = await api.listWorkspaces();
+  const answer = await api.listProjects();
   if (!answer.ok)
     return {
       ok: false,
@@ -86,7 +86,7 @@ export async function readWorkspaces(
   return {
     ok: true,
     workspaces: uniqueWorkspaces([
-      answer.value.workspaces,
+      workspacesOfProjects(answer.value),
     ]),
   };
 }

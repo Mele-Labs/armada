@@ -7,4 +7,6 @@ notes = """
 `POST /projects/tasks`, body `NewProjectTask`: `manifest_id`, the repository the task is in, `project`, the project it goes into, which may be left out for a task in none, `title` and `notes`, which may be left out; both trimmed. The task starts `open`. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
 A 422 `fleet.project_blank` for a blank title. A 404 `fleet.no_such_project` for a `project` he has none of, and a 422 for a repository Fleet does not serve.
+
+**The project's members follow its tasks.** The repository the task is in becomes a whole member of the project it goes into, written to the project's file, where the project does not hold it already, whole or by a folder; a project whose file did not read is left as it is. A 500 `fleet.project_unwritable` where the file could not be written.
 """

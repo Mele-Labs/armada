@@ -49,6 +49,8 @@ where
         for served in self.repositories().hosted() {
             self.reconciled_in_part(&served).await;
         }
+        // Before any lifecycle is read: Workspaces and task lists become projects, and every project is held.
+        let _ = self.projects_migrated().await;
         Ok(Reconciled { recognised })
     }
 

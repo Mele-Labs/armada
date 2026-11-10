@@ -10,10 +10,12 @@ import type {
   LifecycleDefinition,
   PieceKept,
   PieceScope,
+  Project,
   WireError,
-  WorkspaceOfRepositories,
 } from "@armada/protocol";
+import type { WorkspaceOfRepositories } from "../../workspace-of-project";
 
+import type { BridgeApi } from "../../../../shared/api";
 import type { LifecyclesActed, LifecyclesApi } from "../../../../shared/api/lifecycles";
 import type { PiecesSeed } from "../pieces-seed";
 import type { Slice } from "../fake-context";
@@ -181,7 +183,23 @@ function unfit(lifecycle: LifecycleDefinition): string | undefined {
     : `${lifecycle.id} names ${missing}, which is not one of its states`;
 }
 
-export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
+/** A Workspace the mock keeps, as the project Fleet answers it as: no rows, kept on this Mac. */
+const projectOf = (one: WorkspaceOfRepositories): Project => ({
+  id: one.id,
+  name: one.name,
+  rows: [],
+  members: one.repositories.map((manifest_id) => ({
+    manifest_id,
+  })),
+  place: {
+    place: "this_mac",
+  },
+});
+
+export const lifecycles: Slice<
+  LifecyclesApi & Partial<Pick<BridgeApi, "listProjects">>,
+  Record<string, never>
+> = {
   name: "lifecycles",
   state: {},
   api: (scenario) => {
@@ -215,21 +233,29 @@ export const lifecycles: Slice<LifecyclesApi, Record<string, never>> = {
       ]),
     };
     return {
-      listRepositoryWorkspaces: async (manifestId) => ({
+      listHoldingProjects: async (manifestId) => ({
         ok: true,
         value: {
-          manifest_id: manifestId,
-          workspaces: kept.workspaces.filter((one) => one.repositories.includes(manifestId)),
+          projects: kept.workspaces
+            .filter((one) => one.repositories.includes(manifestId))
+            .map(projectOf),
+          loose: [],
           left_out: [],
         },
       }),
-      listWorkspaces: async () => ({
-        ok: true,
-        value: {
-          workspaces: kept.workspaces,
-          left_out: [],
-        },
-      }),
+      // A scenario that names Workspaces has them read as the projects they are; one that names none leaves `listProjects` to the projects slice.
+      ...(kept.workspaces.length === 0
+        ? {}
+        : {
+            listProjects: async () => ({
+              ok: true as const,
+              value: {
+                projects: kept.workspaces.map(projectOf),
+                loose: [],
+                left_out: [],
+              },
+            }),
+          }),
       listLifecycles: async (manifestId) => ({
         ok: true,
         value: {

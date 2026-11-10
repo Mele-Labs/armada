@@ -46,7 +46,7 @@ Reach is this repository or every repository, and a reach of one repository need
 | `fleet` | A notice rule: `{notice word, tell, quiet, batch or call, job, repo or everywhere}`, and optionally `matches`, a pattern over the notice's text, and `when`, what to do instead under a condition | A Fleet mod: `fleet.toml`, one rule |
 | `tweak` | Token declarations over whichever theme is chosen, at most 12 | A tweak mod: `tweak.css` |
 | `layout` | The same text a layout mod's `layout.json` holds | A layout mod. [Layout mods](layout-mods.md) |
-| `rule` | A lifecycle rule: when it fires, what it checks, what it does, its autonomy and what it does on failure, and `untestable`, what he named that Fleet cannot test | A rule piece in Kit, not a mod: `rules/<id>.toml`. [Protocol](../practices/protocol.md), *Workspaces, lifecycles and rules, saved* |
+| `rule` | A lifecycle rule: when it fires, what it checks, what it does, its autonomy and what it does on failure, and `untestable`, what he named that Fleet cannot test | A rule piece in Kit, not a mod: `rules/<id>.toml`. [Protocol](../practices/protocol.md), *Lifecycles and rules, saved* |
 
 At least one part is present, and an answer with none left is refused.
 Fleet fills a tweak's `was` from the token's current value, and its `used_in` and `note` from the tokens file.

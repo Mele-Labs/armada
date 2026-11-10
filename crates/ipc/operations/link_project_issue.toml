@@ -7,4 +7,6 @@ notes = """
 `POST /projects/issues`, body `NewProjectIssue`: `manifest_id`, the repository the issue is in, `project`, which may be left out for a row in none, and `issue`, the tracker's reference as `IssueReference` reads it (`7` or `#7`, `ABC-12`, `armada-3fz`), kept as `7`, `ABC-12`, `armada-3fz`. Only the reference is kept. The tracker is not asked whether the issue exists. `docs/practices/protocol/projects.md`. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
 
 A 422 `fleet.project_issue_unreadable` for anything `IssueReference` refuses. A 404 `fleet.no_such_project` for a `project` he has none of, and a 422 for a repository Fleet does not serve.
+
+**The project's members follow its tasks.** The repository the task is in becomes a whole member of the project it goes into, written to the project's file, where the project does not hold it already, whole or by a folder; a project whose file did not read is left as it is. A 500 `fleet.project_unwritable` where the file could not be written.
 """

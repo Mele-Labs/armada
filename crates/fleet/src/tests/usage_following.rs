@@ -64,6 +64,7 @@ async fn started() -> (TempDir, Arc<Rescued>, String) {
     let manifest = fleet.repositories().first().expect("served").manifest().id().as_str().to_string();
     let session = fleet
         .start_session(StartSession {
+            project: None,
             manifest_id: ManifestId::carried(manifest),
             title: None,
             model: None,

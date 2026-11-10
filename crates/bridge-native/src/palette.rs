@@ -954,6 +954,7 @@ impl Palette {
                         after: None,
                         held: false,
                         project_rows: Vec::new(),
+                        project: None,
                         on_your_words: None,
                     };
                     said(ipc::encode(&start)).map(|body| Request::Post("/sessions/start", body))

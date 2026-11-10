@@ -104,6 +104,7 @@ async fn a_hosted_sessions_call_is_entered_through_the_harness() {
     let manifest = fleet.repositories().first().expect("a repository").manifest().id().as_str().to_string();
     let started = Arc::clone(&fleet)
         .start_session(ipc::StartSession {
+            project: None,
             manifest_id: ipc::ManifestId::carried(&manifest),
             title: None,
             model: None,

@@ -1,4 +1,4 @@
-//! How far a rule goes on its own: Acts, Asks or Off, set for a kind of act by a Workspace or a
+//! How far a rule goes on its own: Acts, Asks or Off, set for a kind of act by a Project or a
 //! repository and overridden by one rule.
 //!
 //! **What a plan can say is narrower than what a person can set.** An [`Autonomy`] has Off, and a
@@ -52,7 +52,7 @@ pub enum Course {
     Asks,
 }
 
-/// The defaults one Workspace or one repository sets, each for a kind of act. **Only what was set
+/// The defaults one Project or one repository sets, each for a kind of act. **Only what was set
 /// is held**, so a kind nobody spoke of falls through to the next layer and in the end to the
 /// kind's own default.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -81,7 +81,7 @@ impl AutonomyDefaults {
         self.set.iter().map(|(kind, autonomy)| (*kind, *autonomy))
     }
 
-    /// This layer laid over a wider one: the repository's over its Workspace's. A kind both set
+    /// This layer laid over a wider one: the repository's over its Project's. A kind both set
     /// takes this layer's.
     pub fn laid_over(&self, wider: &AutonomyDefaults) -> AutonomyDefaults {
         let mut set = wider.set.clone();

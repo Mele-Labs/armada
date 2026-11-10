@@ -66,7 +66,7 @@ where
 
     /// The four Armada carries as the repository `manifest_id` reads them: **the ticket with the words
     /// its tracker declares**, and as carried where it declares none, the repository is not served
-    /// or there is no repository. A lifecycle a Workspace or a repository writes replaces the ticket
+    /// or there is no repository. A lifecycle a Project or a repository writes replaces the ticket
     /// outright, so the tracker's words are the starting point and never laid over a person's.
     pub(crate) fn built_in_lifecycles(&self, manifest_id: Option<&str>) -> Vec<Lifecycle> {
         let Some(served) = manifest_id.and_then(|id| self.repositories().serving(id)) else {

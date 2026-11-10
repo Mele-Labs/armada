@@ -40,6 +40,7 @@ impl Processes for Running {
 
 fn start_of(manifest: ManifestId, on_your_words: bool) -> StartSession {
     StartSession {
+        project: None,
         manifest_id: manifest,
         title: None,
         model: None,

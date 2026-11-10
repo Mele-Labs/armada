@@ -52,8 +52,8 @@ pub mod settings;
 mod watches;
 mod widening;
 mod workflow;
-/// A Workspace means a set of repositories here, and not the Manifest's monorepo unit.
-mod workspace;
+/// A Project is a set of repositories and monorepo folders here; Workspace is only the Manifest's monorepo unit.
+mod project;
 /// A piece as the YAML text its file holds.
 mod writing;
 mod yaml;
@@ -96,7 +96,9 @@ pub use workflow::{
     edit_steps, head_of, names_no_lifecycle, EditFault, Edited, EndFault, MechanicalCheck, NamesNoLifecycle, NewStep, Step, StepEdit, WorkflowDef,
     WorkflowHead,
 };
-pub use workspace::{parse_workspace, WorkspaceError, WorkspaceFile, Workspaces};
+pub use project::{
+    parse_project, parse_workspace_v1, project_text, ProjectError, ProjectFile, ProjectLeftOut, ProjectPlace, ProjectWritten, Projects,
+};
 pub use writing::piece_text;
 
 // Re-exported, not re-declared. A Job carries its resolved workflow, so these

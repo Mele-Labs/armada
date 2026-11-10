@@ -237,6 +237,7 @@ pub async fn dispatch(State(gateway): State<Gateway>, body: Bytes) -> Response {
 /// A `StartSession` for a Manifest with nothing else chosen.
 fn starting(manifest_id: ManifestId) -> StartSession {
     StartSession {
+        project: None,
         manifest_id,
         title: None,
         model: None,

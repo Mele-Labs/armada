@@ -133,6 +133,7 @@ where
         let (title, brief) = self.group_brief(&parent, &group).await?;
         let made = self
             .start_session(StartSession {
+                project: None,
                 manifest_id: ManifestId::carried(&hosting.manifest_id),
                 title: Some(title.clone()),
                 model: None,

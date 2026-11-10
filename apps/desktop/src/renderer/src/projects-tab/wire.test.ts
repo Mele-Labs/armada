@@ -7,8 +7,13 @@ import type { Projects } from "@armada/protocol";
 import { looseOf, projectsOf, referenceOf } from "./wire";
 
 const WIRE: Projects = {
+  left_out: [],
   projects: [
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "p1",
       name: "Pocket launch",
       rows: [
@@ -86,6 +91,10 @@ const WIRE: Projects = {
       ],
     },
     {
+      members: [],
+      place: {
+        place: "this_mac",
+      },
       id: "p2",
       name: "Docs refresh",
       rows: [],
@@ -233,6 +242,7 @@ describe("his projects as the tab draws them", () => {
   it("reads a link in the repository it names, and in its task's where it names none", () => {
     const wired: Projects = {
       projects: [],
+      left_out: [],
       loose: [
         {
           kind: "task",

@@ -32,8 +32,13 @@ const ARMADA = {
 
 function fleet() {
   const held: Projects = {
+    left_out: [],
     projects: [
       {
+        members: [],
+        place: {
+          place: "this_mac",
+        },
         id: "p1",
         name: "Pocket launch",
         rows: [],
@@ -48,7 +53,7 @@ function fleet() {
     }) as const;
   return {
     listProjects: vi.fn(answer),
-    renameProject: vi.fn(
+    editProject: vi.fn(
       async (
         id: string,
         body: {
@@ -162,8 +167,8 @@ test("Rename opens the name selected, and Enter writes the new one through Fleet
   ]);
   await userEvent.keyboard("Pocket v2{Enter}");
 
-  await expect.poll(() => source.renameProject.mock.calls.length).toBe(1);
-  expect(source.renameProject).toHaveBeenCalledWith("p1", {
+  await expect.poll(() => source.editProject.mock.calls.length).toBe(1);
+  expect(source.editProject).toHaveBeenCalledWith("p1", {
     name: "Pocket v2",
   });
 });

@@ -1,4 +1,4 @@
-//! Workspaces, lifecycles and rules over the router: each read reaches the daemon with the repository it
+//! Lifecycles and rules over the router: each read reaches the daemon with the repository it
 //! names, a Job's is placed by its `session_id`, and what answers is what the mirror declares.
 
 use axum::body::Body;
@@ -7,7 +7,7 @@ use axum::Router;
 use http_body_util::BodyExt;
 use ipc::{
     InstanceStanding, JobLifecycles, LifecyclePieceDeleted, LifecyclePieceKind, LifecyclePieceSaved, PieceScope,
-    AllWorkspaces, RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, RepositoryWorkspaces, WireError,
+    RepositoryAutonomy, RepositoryLifecycleRules, RepositoryLifecycles, WireError,
 };
 use tower::ServiceExt;
 
@@ -31,15 +31,13 @@ async fn get(app: &Router, uri: &str) -> (StatusCode, Vec<u8>) {
 #[tokio::test]
 async fn each_read_of_a_repository_names_it_by_manifest_id() {
     let app = wired();
-    for (route, what) in [("/workspaces", "workspaces"), ("/lifecycles", "lifecycles"), ("/lifecycles/rules", "rules")] {
+    for (route, what) in [("/lifecycles", "lifecycles"), ("/lifecycles/rules", "rules")] {
         let (status, bytes) = get(&app, &format!("{route}?manifest_id={THE_MANIFEST}")).await;
         assert_eq!(status, StatusCode::OK, "{route}: {}", String::from_utf8_lossy(&bytes));
         let said = String::from_utf8_lossy(&bytes);
         assert!(said.contains(&format!(r#""manifest_id":"{THE_MANIFEST}""#)), "{said}");
         assert!(said.contains(&format!(r#""{what}":[]"#)) && said.contains(r#""left_out":[]"#), "{said}");
     }
-    let (_, bytes) = get(&app, "/workspaces").await;
-    ipc::decode::<RepositoryWorkspaces>("workspaces", &bytes).expect("reads");
     let (_, bytes) = get(&app, "/lifecycles").await;
     ipc::decode::<RepositoryLifecycles>("lifecycles", &bytes).expect("reads");
     let (_, bytes) = get(&app, "/lifecycles/rules").await;
@@ -48,15 +46,6 @@ async fn each_read_of_a_repository_names_it_by_manifest_id() {
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     let read: RepositoryAutonomy = ipc::decode("autonomy", &bytes).expect("reads");
     assert_eq!(read.manifest_id.as_str(), THE_MANIFEST);
-}
-
-#[tokio::test]
-async fn every_workspace_is_read_with_no_query_and_names_no_repository() {
-    let (status, bytes) = get(&wired(), "/workspaces/all").await;
-    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
-    let said = String::from_utf8_lossy(&bytes);
-    assert!(said.contains(r#""workspaces":[]"#) && said.contains(r#""left_out":[]"#) && !said.contains("manifest_id"), "{said}");
-    ipc::decode::<AllWorkspaces>("every workspace", &bytes).expect("reads");
 }
 
 #[tokio::test]
@@ -70,7 +59,7 @@ async fn the_keeps_waiting_on_approve_are_read_for_a_repository_by_manifest_id()
 #[tokio::test]
 async fn a_repository_nobody_serves_is_the_callers_to_correct() {
     let app = wired();
-    for route in ["/workspaces", "/lifecycles", "/lifecycles/rules", "/autonomy", "/lifecycles/keep_drafts"] {
+    for route in ["/lifecycles", "/lifecycles/rules", "/autonomy", "/lifecycles/keep_drafts"] {
         let (status, _) = get(&app, &format!("{route}?manifest_id=01NOWHERE")).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{route}");
     }
@@ -104,7 +93,7 @@ async fn nothing_placing_a_job_is_the_callers_to_correct() {
 fn the_door_offers_the_jobs_read_and_none_of_the_repository_reads() {
     let tools: Vec<_> = offered().into_iter().map(|shape| (shape.operation, shape.path, shape.query)).collect();
     assert!(tools.contains(&("get_job_lifecycles", "/sessions/lifecycles", &["session_id"][..])), "{tools:?}");
-    for bridge_only in ["list_repository_workspaces", "list_workspaces", "list_lifecycles", "list_lifecycle_rules", "list_autonomy_defaults", "list_keep_drafts"] {
+    for bridge_only in ["list_lifecycles", "list_lifecycle_rules", "list_autonomy_defaults", "list_keep_drafts"] {
         assert!(tools.iter().all(|(operation, ..)| *operation != bridge_only), "{bridge_only} reached the agent's tool set");
     }
 }
@@ -122,28 +111,28 @@ async fn post(app: &Router, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
     (status, bytes.to_vec())
 }
 
-fn workspace_to_save(id: &str) -> String {
-    format!(r#"{{"piece":{{"kind":"workspace","workspace":{{"id":"{id}","name":"My store","repositories":["01ABC"]}}}}}}"#)
+fn piece_to_save(id: &str) -> String {
+    format!(r#"{{"piece":{{"kind":"autonomy","autonomy":{{"id":"{id}","defaults":{{"forge_write":"asks"}}}}}}}}"#)
 }
 
 #[tokio::test]
 async fn a_piece_saved_reaches_the_daemon_whole_and_is_answered_with_the_file_written() {
-    let (status, bytes) = post(&wired(), "/lifecycles/pieces/save", &workspace_to_save("my-store")).await;
+    let (status, bytes) = post(&wired(), "/lifecycles/pieces/save", &piece_to_save("my-store")).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     let saved: LifecyclePieceSaved = ipc::decode("a save", &bytes).expect("reads");
-    assert_eq!((saved.kind, saved.id.as_str(), saved.scope, saved.replaced), (LifecyclePieceKind::Workspace, "my-store", PieceScope::Everywhere, false));
+    assert_eq!((saved.kind, saved.id.as_str(), saved.scope, saved.replaced), (LifecyclePieceKind::Autonomy, "my-store", PieceScope::Everywhere, false));
     assert_eq!(saved.file, "/kit/my-store.yml");
 }
 
 #[tokio::test]
 async fn replacing_a_piece_is_refused_unless_the_save_says_overwrite() {
     let app = wired();
-    let (status, bytes) = post(&app, "/lifecycles/pieces/save", &workspace_to_save(THE_KEPT_PIECE)).await;
+    let (status, bytes) = post(&app, "/lifecycles/pieces/save", &piece_to_save(THE_KEPT_PIECE)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     let error: WireError = ipc::decode("an error", &bytes).expect("an error body");
     assert_eq!(error.code, "fleet.piece_exists");
 
-    let said = format!(r#"{{"overwrite":true,{}"#, &workspace_to_save(THE_KEPT_PIECE)[1..]);
+    let said = format!(r#"{{"overwrite":true,{}"#, &piece_to_save(THE_KEPT_PIECE)[1..]);
     let (status, bytes) = post(&app, "/lifecycles/pieces/save", &said).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&bytes));
     let saved: LifecyclePieceSaved = ipc::decode("a save", &bytes).expect("reads");

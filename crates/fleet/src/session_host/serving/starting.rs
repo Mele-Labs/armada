@@ -50,6 +50,11 @@ where
             Some(_) if !rooted && !start.project_rows.is_empty() => self.project_rows_checked(&start.project_rows).await?,
             _ => Vec::new(),
         };
+        // The project the Job is for: it must be his, and hold the Job's repository.
+        let project = match (&manifest, start.project.as_deref().map(str::trim).filter(|one| !one.is_empty())) {
+            (Some(repository), Some(project)) if !rooted => Some(self.project_started_for(project, repository).await?),
+            _ => None,
+        };
         // A root that has a Manifest by now is a plain start on it, not Setup's.
         let setup = rooted && manifest.is_none();
         // Only a plain Job in a repository holds lifecycle instances; a mod and Setup do not.
@@ -124,6 +129,7 @@ where
                     from_job: None,
                     from_tab: None,
                     mod_of_bay: false,
+                    project,
                 })
                 .map_err(|why| self.ledger_fault(why))?;
             if holds_lifecycles {
