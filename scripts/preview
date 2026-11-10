@@ -12,6 +12,12 @@
 #   scripts/preview --restart --keep-only --picked <file>  build and keep main plus the branches
 #       the file names, one a line, and swap nothing; an empty file is main alone
 #
+# **The merges are built on the side and the worktree moves once.** Each branch
+# is merged into the last merge commit with `git merge-tree`, and the worktree
+# lands on the final commit at the end, so git rewrites only files whose content
+# differs from the last preview. Their mtimes stay, and the builds that compare
+# mtimes against a stamp have nothing to restart for.
+#
 # **What a restart cannot take is left out, and it goes again until it builds.**
 # A failed `--restart` drops the branches its output names: the migration
 # guard's `leave out <branch>: <why>` lines, else the branches that changed a
