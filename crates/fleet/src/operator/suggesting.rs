@@ -12,9 +12,11 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Actor;
 use ipc::operator_board::{AnswerOperatorSuggestion, OperatorBoard};
+use ipc::operator_page::OperatorThen;
 use ipc::{Instant, SessionRecord, WaitingAct, WaitingActKind, WaitingItem, WaitingOption, WaitingSource, WireError};
 use store::KeptSuggestion;
 
+use super::turning::Done;
 use super::{Arrival, Arrived, Logged, Outcome, Ruling, Source, Way};
 use crate::daemon::Fleet;
 use crate::session_host::waiting::SESSION_WAITING_EMPTY;
@@ -80,7 +82,7 @@ fn same_thing(one: &KeptSuggestion) -> [String; 4] {
 }
 
 /// The arrival a suggestion was kept from, as far as doing it reads one.
-fn arrival_of(one: &KeptSuggestion) -> Option<Arrival> {
+pub(super) fn arrival_of(one: &KeptSuggestion) -> Option<Arrival> {
     Some(Arrival {
         id: one.arrival.clone(),
         arrived: Arrived::from_word(&one.arrived)?,
@@ -174,7 +176,7 @@ where
     pub(crate) async fn suggestion_chosen(self: &Arc<Self>, session: &str, item: &str, choice: Option<u32>) -> Result<SessionRecord, Refusal> {
         let go = self.suggestion_go(choice)?;
         let n = suggestion_number(item).ok_or_else(|| self.settled_already())?;
-        self.suggestion_settled(session, n, go).await?;
+        self.suggestion_settled(session, n, go, None).await?;
         self.published_hosted(session).await
     }
 
@@ -201,13 +203,14 @@ where
         if !seen.is_some_and(|(session, _)| session.is_empty()) {
             return Err(unknown());
         }
-        self.suggestion_settled("", n, go).await?;
+        self.suggestion_settled("", n, go, None).await?;
         self.operator_board_wire().await
     }
 
     /// Suggestion `n` of `session` (empty where it has no Job), settled first and then done or skipped.
     /// A suggestion that is not standing on that Job is settled already, as far as this press knows.
-    async fn suggestion_settled(self: &Arc<Self>, session: &str, n: i64, go: bool) -> Result<(), Refusal> {
+    /// **`then` is what follows an issue it files**, with the live Job to hand it to; what was done comes back.
+    pub(super) async fn suggestion_settled(self: &Arc<Self>, session: &str, n: i64, go: bool, then: Option<(OperatorThen, Option<String>)>) -> Result<Done, Refusal> {
         let at = self.now();
         let kept = {
             let mut store = self.store().lock().await;
@@ -218,32 +221,48 @@ where
             }
             kept
         };
-        if go {
-            self.suggestion_done(&kept, at).await;
+        let done = if go {
+            self.suggestion_done(&kept, at, then).await
         } else {
             self.suggestion_skipped(&kept, at).await;
-        }
+            Done::default()
+        };
         self.operator_board_changed();
-        Ok(())
+        Ok(done)
     }
 
     /// What `kept` would have done, done, with a row of the Log saying who pressed. **A note's is done
     /// here and waited for**, so the row can name the issue it was filed as or the Job it started. The
     /// row is kept once it is done, and where it could not be it says so.
-    async fn suggestion_done(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp) {
-        let (Some(arrival), Some(ruling)) = (arrival_of(kept), ruling_of(kept)) else { return };
+    async fn suggestion_done(self: &Arc<Self>, kept: &KeptSuggestion, at: core_model::Timestamp, then: Option<(OperatorThen, Option<String>)>) -> Done {
+        let mut done = Done::default();
+        let (Some(arrival), Some(ruling)) = (arrival_of(kept), ruling_of(kept)) else { return done };
         let mut row = pressed(&arrival, Outcome::Ruled(ruling.way), &ruling.because, at);
         row.other = ruling.other.clone();
         row.shared = ruling.shared.clone();
-        let done = self.operator_sourced(&arrival, &ruling).await.map(|made| {
+        let sourced = self.operator_sourced(&arrival, &ruling).await.map(|made| {
+            done.filed = made.issue.clone();
             row.issue = made.issue;
             row.other = made.job.or(row.other.take());
         });
-        if let Err(why) = done {
-            row.outcome = Outcome::PassedOn;
-            row.because = format!("it could not be carried out: {why}");
+        match sourced {
+            Err(why) => {
+                row.outcome = Outcome::PassedOn;
+                row.because = format!("it could not be carried out: {why}");
+            }
+            // The issue stands whatever becomes of its Then, which the row says.
+            Ok(()) => {
+                if let (Some((then, hand_to)), Way::File) = (then, ruling.way) {
+                    let filed = done.filed.clone();
+                    if let Err(why) = self.then_done(&arrival, filed.as_deref(), then, hand_to.as_deref(), &mut done).await {
+                        row.because = format!("{} It was filed, but what follows it was not done: {why}.", row.because);
+                    }
+                    row.other = done.started.clone().or_else(|| done.handed_to.clone()).or(row.other.take());
+                }
+            }
         }
         let _ = self.store().lock().await.add_operator_ruling(&row.kept());
+        done
     }
 
     /// A Skip, in the Log as the person's.
@@ -255,7 +274,7 @@ where
 }
 
 /// The number in a suggestion's id, `suggestion:<n>`.
-fn suggestion_number(id: &str) -> Option<i64> {
+pub(super) fn suggestion_number(id: &str) -> Option<i64> {
     id.strip_prefix(SUGGESTION).and_then(|n| n.parse().ok())
 }
 

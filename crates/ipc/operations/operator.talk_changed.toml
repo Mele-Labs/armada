@@ -1,8 +1,0 @@
-[operations."operator.talk_changed"]
-kind = "event"
-transport = "WebSocket"
-agent_access = "Bridge only"
-description = "The Operator's conversation is not what it was"
-notes = """
-Published when Fleet keeps a line in the conversation, whether his message and its answer, a raise of a Needs you item or a briefing, and when a raise's item leaves the list and its line is marked settled. **It carries nothing** beyond the stream's cursor: Bridge reads `operator_talk` again.
-"""

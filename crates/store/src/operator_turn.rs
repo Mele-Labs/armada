@@ -34,6 +34,8 @@ pub struct KeptTurn {
     /// The last press on it.
     pub answer: Option<String>,
     pub settled_at: Option<String>,
+    /// When the item left its list. Until then the row stands for it, settled or not.
+    pub left_at: Option<String>,
     /// The call that read it.
     pub call: Option<String>,
 }
@@ -50,7 +52,7 @@ pub struct KeptPage {
     pub top_at: Option<String>,
 }
 
-const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, call";
+const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call";
 
 fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
     Ok(KeptTurn {
@@ -69,7 +71,8 @@ fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
         later_until: row.get(12)?,
         answer: row.get(13)?,
         settled_at: row.get(14)?,
-        call: row.get(15)?,
+        left_at: row.get(15)?,
+        call: row.get(16)?,
     })
 }
 
@@ -78,14 +81,14 @@ fn failed(doing: &'static str) -> impl FnOnce(rusqlite::Error) -> WriteError {
 }
 
 impl Store {
-    /// Keep one item, last in the order. `None` where the same item is open already.
+    /// Keep one item, last in the order. `None` where the same item stands already, open or answered.
     pub fn add_operator_turn(&mut self, one: &KeptTurn) -> Result<Option<i64>, WriteError> {
         let doing = "keeping an item of the person's Your turn";
         let ord: i64 = self.conn.query_row("SELECT coalesce(max(ord), 0) + 1 FROM operator_turn", [], |row| row.get(0)).map_err(failed(doing))?;
         let kept = self.conn.execute(
-            "INSERT OR IGNORE INTO operator_turn (session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, call) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
-            params![one.session, one.item, one.manifest_id, one.job, one.go_ahead, one.body, one.read_text, one.pick, one.then_pick, ord, one.raised_at, one.later_until, one.answer, one.settled_at, one.call],
+            "INSERT OR IGNORE INTO operator_turn (session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![one.session, one.item, one.manifest_id, one.job, one.go_ahead, one.body, one.read_text, one.pick, one.then_pick, ord, one.raised_at, one.later_until, one.answer, one.settled_at, one.left_at, one.call],
         );
         match kept.map_err(failed(doing))? {
             0 => Ok(None),
@@ -105,6 +108,19 @@ impl Store {
         self.turn_read(&format!("SELECT {COLUMNS} FROM operator_turn WHERE settled_at IS NULL ORDER BY ord, n"), params![])
     }
 
+    /// Every item whose row still stands for it: open, or answered and still on its list.
+    pub fn operator_turn_present(&self) -> Result<Vec<KeptTurn>, WriteError> {
+        self.turn_read(&format!("SELECT {COLUMNS} FROM operator_turn WHERE left_at IS NULL ORDER BY ord, n"), params![])
+    }
+
+    /// Item `n` left its list at `at`: it is settled too, if it was not. `false` where it had left already.
+    pub fn leave_operator_turn(&mut self, n: i64, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE operator_turn SET left_at = ?2, settled_at = coalesce(settled_at, ?2) WHERE n = ?1 AND left_at IS NULL", params![n, at])
+            .map(|changed| changed > 0)
+            .map_err(failed("settling an item of the person's Your turn that left its list"))
+    }
+
     /// Item `n`, open or settled.
     pub fn operator_turn_item(&self, n: i64) -> Result<Option<KeptTurn>, WriteError> {
         Ok(self.turn_read(&format!("SELECT {COLUMNS} FROM operator_turn WHERE n = ?1"), params![n])?.into_iter().next())
@@ -115,10 +131,11 @@ impl Store {
         self.turn_read(&format!("SELECT {COLUMNS} FROM operator_turn WHERE settled_at >= ?1 ORDER BY settled_at DESC, n DESC"), params![since])
     }
 
-    /// Item `n` settled at `at`, with the press that settled it. `false` where it was settled already.
-    pub fn settle_operator_turn(&mut self, n: i64, at: &str, answer: &str) -> Result<bool, WriteError> {
+    /// Item `n` settled at `at`, with the press that settled it, which leaves the last press where it
+    /// is `None`. `false` where it was settled already.
+    pub fn settle_operator_turn(&mut self, n: i64, at: &str, answer: Option<&str>) -> Result<bool, WriteError> {
         self.conn
-            .execute("UPDATE operator_turn SET settled_at = ?2, answer = ?3 WHERE n = ?1 AND settled_at IS NULL", params![n, at, answer])
+            .execute("UPDATE operator_turn SET settled_at = ?2, answer = coalesce(?3, answer) WHERE n = ?1 AND settled_at IS NULL", params![n, at, answer])
             .map(|changed| changed > 0)
             .map_err(failed("settling an item of the person's Your turn"))
     }

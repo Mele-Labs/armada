@@ -217,9 +217,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
-    // A line was kept in the Operator's conversation, or a raise in it settled: read it again.
+    // The Operator's page moved: read it again.
     Route {
-        operation: "operator.talk_changed",
+        operation: "operator.page_changed",
         method: "GET",
         path: "/events",
     },

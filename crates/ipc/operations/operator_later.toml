@@ -1,0 +1,8 @@
+[operations.operator_later]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The person puts one item of Your turn last for the rest of the local day"
+notes = """
+`POST /operator/page/later`, body `OperatorLater`: `id`. The item is served after every other one until the local day ends, and then back in the order he left it; its `later_until` says when. Answered with the `OperatorPage`. Publishes `operator.page_changed`. **404** `fleet.operator_turn_unknown` where no open item has `id`.
+"""

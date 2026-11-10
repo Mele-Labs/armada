@@ -26,15 +26,20 @@ fn a_settled_item_leaves_once_and_may_wait_again() {
     let a = store.add_operator_turn(&turn("01JOB", "plan:1")).expect("kept").expect("new");
     assert!(store.later_operator_turn(a, "2026-11-11T05:00:00.000Z").expect("later"));
     assert!(store.answer_operator_turn(a, "yes").expect("answered"));
-    assert!(store.settle_operator_turn(a, "2026-11-10T10:00:00.000Z", "no").expect("settled"));
-    assert!(!store.settle_operator_turn(a, "2026-11-10T11:00:00.000Z", "yes").expect("read"), "settled once");
+    assert!(store.settle_operator_turn(a, "2026-11-10T10:00:00.000Z", Some("no")).expect("settled"));
+    assert!(!store.settle_operator_turn(a, "2026-11-10T11:00:00.000Z", Some("yes")).expect("read"), "settled once");
     assert!(!store.later_operator_turn(a, "2026-11-12T05:00:00.000Z").expect("read"), "a settled item is not put last");
     assert!(store.operator_turn_open().expect("read").is_empty());
     let kept = store.operator_turn_item(a).expect("read").expect("kept");
     assert_eq!((kept.answer.as_deref(), kept.settled_at.as_deref()), (Some("no"), Some("2026-11-10T10:00:00.000Z")));
     assert_eq!(store.operator_turn_settled_since("2026-11-10T10:00:00.000Z").expect("read").len(), 1);
     assert_eq!(store.operator_turn_settled_since("2026-11-10T10:00:01.000Z").expect("read").len(), 0);
-    assert!(store.add_operator_turn(&turn("01JOB", "plan:1")).expect("kept").is_some(), "a settled item may be raised again");
+    assert_eq!(store.add_operator_turn(&turn("01JOB", "plan:1")).expect("kept"), None, "an item he settled is not queued again while it is still on its list");
+    assert_eq!(store.operator_turn_present().expect("read").len(), 1);
+    assert!(store.leave_operator_turn(a, "2026-11-10T12:00:00.000Z").expect("left"));
+    assert!(!store.leave_operator_turn(a, "2026-11-10T13:00:00.000Z").expect("read"), "left once");
+    assert_eq!(store.operator_turn_item(a).expect("read").expect("kept").settled_at.as_deref(), Some("2026-11-10T10:00:00.000Z"), "leaving keeps the settle it had");
+    assert!(store.add_operator_turn(&turn("01JOB", "plan:1")).expect("kept").is_some(), "once it has left, the same item may be raised again");
 }
 
 #[test]

@@ -169,7 +169,7 @@ pub(crate) fn day_began(millis_since_epoch: i64, offset_secs: i64) -> i64 {
 /// How far the machine's time zone is ahead of UTC at that instant, in seconds, as `date` reads it:
 /// asked rather than read through `libc`, which this crate may not call outside its listed sites.
 /// Zero where it will not read, which is UTC's day.
-pub(crate) async fn local_offset_secs(millis_since_epoch: i64) -> i64 {
+async fn local_offset_secs(millis_since_epoch: i64) -> i64 {
     let seconds = millis_since_epoch.div_euclid(1_000).to_string();
     // macOS's `date` takes the instant as `-r`; GNU's, on a Linux build machine, as `-d @`.
     for args in [vec!["-r".to_string(), seconds.clone()], vec!["-d".to_string(), format!("@{seconds}")]] {

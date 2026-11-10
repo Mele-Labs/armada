@@ -19,8 +19,8 @@ pub(crate) struct Seat {
     pub(super) raising: super::raising::Raising,
     /// One writer of the journal at a time.
     pub(super) journal: tokio::sync::Mutex<()>,
-    /// A briefing is out.
-    pub(super) briefing: AtomicBool,
+    /// The page's top line is being rewritten.
+    pub(super) rewriting: AtomicBool,
 }
 
 impl Seat {

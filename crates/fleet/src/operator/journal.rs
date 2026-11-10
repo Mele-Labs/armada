@@ -41,7 +41,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn journal_dir(&self) -> PathBuf {
+    pub(super) fn journal_dir(&self) -> PathBuf {
         PathBuf::from(&self.host().operator_journal_dir)
     }
 
