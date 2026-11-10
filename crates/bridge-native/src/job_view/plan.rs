@@ -576,7 +576,8 @@ impl JobView {
         let note_blank = self.typed_in(key, Mode::Note, cx).trim().is_empty();
         let chip = |text: &'static str| target.then_some(text);
         let first_group = record.and_then(|plan| plan.groups.first()).map(|group| group.id.clone());
-        let row = div().flex().items_center().gap(look.length(token::SPACE_2));
+        // In a narrow thread the presses wrap to a second row rather than be cut at the card's edge.
+        let row = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
         let row = if noting {
             let (send_key, cancel_key) = (key.to_string(), key.to_string());
             row.child(labelled(

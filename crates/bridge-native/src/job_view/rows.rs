@@ -56,6 +56,29 @@ pub(super) fn elapsed_words(from: &str, to: &str) -> Option<String> {
     })
 }
 
+/// A lone line break kept as a break, as Electron's Prose draws it (`remark-breaks`): each line that
+/// another line follows in the same paragraph ends in a hard break, outside fenced code.
+pub(super) fn with_breaks(text: &str) -> String {
+    let lines: Vec<&str> = text.split('\n').collect();
+    let mut fenced = false;
+    let mut out = String::with_capacity(text.len() + lines.len() * 2);
+    for (at, line) in lines.iter().enumerate() {
+        let trimmed = line.trim_start();
+        let fence = trimmed.starts_with("```") || trimmed.starts_with("~~~");
+        if fence {
+            fenced = !fenced;
+        }
+        out.push_str(line);
+        let Some(next) = lines.get(at + 1) else { break };
+        let opens_fence = next.trim_start().starts_with("```") || next.trim_start().starts_with("~~~");
+        if !fenced && !fence && !line.trim().is_empty() && !next.trim().is_empty() && !opens_fence && !line.ends_with("  ") && !line.ends_with('\\') {
+            out.push_str("  ");
+        }
+        out.push('\n');
+    }
+    out
+}
+
 /// When an item began, where it says: a run's end is the next item's start.
 fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
     match item {
@@ -312,7 +335,7 @@ impl JobView {
             TextSize::Base => token::TEXT_BASE,
             TextSize::Lg => token::TEXT_LG,
         };
-        TextView::markdown(ElementId::Name(format!("md:{job}:{key}").into()), text.to_string())
+        TextView::markdown(ElementId::Name(format!("md:{job}:{key}").into()), with_breaks(text))
             .w_full()
             .text_size(look.length(size))
             .line_height(relative(1.6))
@@ -863,6 +886,14 @@ fn split_debug(text: &str) -> (&str, Option<&str>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_lone_line_break_is_kept_and_code_is_left_as_written() {
+        assert_eq!(with_breaks("one\ntwo"), "one  \ntwo");
+        assert_eq!(with_breaks("para\n\nnext"), "para\n\nnext");
+        assert_eq!(with_breaks("```\na\nb\n```\nafter"), "```\na\nb\n```\nafter");
+        assert_eq!(with_breaks("say\n```\ncode\n```"), "say\n```\ncode\n```");
+    }
 
     #[test]
     fn debug_info_is_split_off_at_its_heading() {

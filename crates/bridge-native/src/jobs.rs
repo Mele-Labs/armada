@@ -1573,6 +1573,7 @@ impl Render for JobsList {
 const REST_LEFT: f32 = 6.;
 const FLOOR_LEFT: f32 = 4.5;
 const RIGHT: f32 = 5.75;
+const FLOOR_RIGHT: f32 = 4.75;
 const CENTRE_FLOOR: f32 = 10.;
 /// What ← or → on the handle moves it by, in points (`DOCK_WIDTH_STEP`).
 const HANDLE_STEP: f32 = 16.;
@@ -1620,13 +1621,11 @@ impl Render for SplitHandle {
 
 /// Where the Judge's split arrives (`tree.ts` `arrive`), where a double press puts it back
 /// (`resizeSplit(.., 0.5)`), the least share a side keeps (`RATIO_MIN`) and the least a pane needs (`MIN_PANE_W`).
+/// Beside a Judge the thread and the right column share the Job's side as Electron's inner split does, 0.62 to 0.38.
 const SPLIT_ARRIVES: f32 = 0.62;
 const SPLIT_RESET: f32 = 0.5;
 const SPLIT_LEAST: f32 = 0.12;
 const PANE_LEAST: f32 = 160.;
-/// The least the thread keeps beside a Judge, in columns: the box's words and its controls, which
-/// wrap to a second row there. The right column gives up its room, down to `PANE_LEAST`, first.
-const THREAD_LEAST: f32 = 7.5;
 
 /// The Jobs screen in Electron's regions (`cockpit/deck/Deck.tsx`, `.deck-grid`): the list's panel at
 /// the left, the open Job's room in the middle, and the right column's panel, under the title row.
@@ -1726,13 +1725,25 @@ impl JobsScreen {
         &self.within
     }
 
+    /// The room the three columns share: the window less its padding and the gaps between them.
+    fn room(window: &Window, look: &Look) -> f32 {
+        let frame = f32::from(look.length(token::SPACE_3)) * 2. + f32::from(look.length(token::GAP_PANEL)) * 2.;
+        f32::from(window.viewport_size().width) - frame
+    }
+
+    /// The right column, as Electron's `settle` draws it: at rest, or narrower down to its floor
+    /// where the list at its floor and the centre at its floor would not fit beside it.
+    fn right(window: &Window, look: &Look) -> f32 {
+        let unit = f32::from(look.length(token::SPACE_12));
+        let most = (Self::room(window, look) - unit * (FLOOR_LEFT + CENTRE_FLOOR)).max(unit * FLOOR_RIGHT);
+        (unit * RIGHT).clamp(unit * FLOOR_RIGHT, most)
+    }
+
     /// The narrowest and widest the list may be in this window, so the centre keeps its floor.
     fn range(&self, window: &Window, look: &Look) -> (f32, f32) {
         let unit = f32::from(look.length(token::SPACE_12));
-        let frame = f32::from(look.length(token::SPACE_3)) * 2. + f32::from(look.length(token::GAP_PANEL)) * 2.;
-        let room = f32::from(window.viewport_size().width) - frame;
         let least = unit * FLOOR_LEFT;
-        (least, (room - unit * (RIGHT + CENTRE_FLOOR)).max(least))
+        (least, (Self::room(window, look) - Self::right(window, look) - unit * CENTRE_FLOOR).max(least))
     }
 
     fn width(&self, window: &Window, look: &Look) -> f32 {
@@ -1771,7 +1782,7 @@ impl JobsScreen {
             return;
         }
         let gap = f32::from(look.length(token::GAP_PANEL));
-        let low = (room * SPLIT_LEAST).max(f32::from(look.length(token::SPACE_12)) * THREAD_LEAST + gap + PANE_LEAST) / room;
+        let low = (room * SPLIT_LEAST).max(PANE_LEAST * 2. + gap) / room;
         let high = 1. - (room * SPLIT_LEAST).max(PANE_LEAST) / room;
         let Some(job) = self.view.read(cx).shown_id() else { return };
         if low <= high {
@@ -1936,8 +1947,8 @@ fn panel(look: &Look) -> gpui::Div {
 impl Render for JobsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let column = look.length(token::SPACE_12);
         let width = self.width(window, look);
+        let right = gpui::px(Self::right(window, look));
         let handle = self.render_handle(width, window, cx);
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
@@ -2005,11 +2016,24 @@ impl Render for JobsScreen {
                                         job.flex_grow(split * 100.)
                                             .flex_shrink(1.)
                                             .flex_basis(gpui::px(0.))
-                                            .min_w(column * THREAD_LEAST + look.length(token::GAP_PANEL) + gpui::px(PANE_LEAST))
+                                            .min_w(gpui::px(PANE_LEAST * 2.) + look.length(token::GAP_PANEL))
                                     })
                                     .when(!judged, |job| job.flex_1())
-                                    .child(panel(look).flex_1().min_w_0().when(judged, |thread| thread.min_w(column * THREAD_LEAST)).overflow_hidden().child(self.view.clone()))
-                                    .child(div().h_full().w(column * RIGHT).when(judged, |side| side.flex_shrink(1.).min_w(gpui::px(PANE_LEAST))).when(!judged, |side| side.flex_none()).child(self.side.clone())),
+                                    .child(
+                                        panel(look)
+                                            .min_w_0()
+                                            .when(judged, |thread| thread.flex_grow(SPLIT_ARRIVES * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)))
+                                            .when(!judged, |thread| thread.flex_1())
+                                            .overflow_hidden()
+                                            .child(self.view.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .h_full()
+                                            .when(judged, |side| side.flex_grow((1. - SPLIT_ARRIVES) * 100.).flex_shrink(1.).flex_basis(gpui::px(0.)).min_w(gpui::px(PANE_LEAST)))
+                                            .when(!judged, |side| side.w(right).flex_none())
+                                            .child(self.side.clone()),
+                                    ),
                             )
                             .children(judged.then(|| {
                                 div()
