@@ -42,6 +42,7 @@ Every theme in the app today works from the foundation: the catalogue in `packag
 Armada's own light and dark follow macOS, whichever of the two is picked.
 A catalogue theme or a mod stays as picked.
 Job track, the owner's tab mod, waits for the kit.
+The custom tab in a Job's + menu arrives with the kit too, since Armada Classic's unsandboxed React module cannot run in gpui.
 
 ### 4. Walks and annotations
 
@@ -71,7 +72,7 @@ Each step is its own Job, and at most two run at once.
 | Jobs screens | The Jobs list, thread, composer, approvals and Needs you |
 | Dispatch and the title bar | The dispatch sheet, the merge queue strip, usage and context rings, the build switcher, clash marks |
 | Web pages in Chrome | Documents, sketches, walks of web pages and notes |
-| Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes and the native diff. Still owed in the Ledger: the Merged, Open and Checks chips on pull request and linked Job rows, and note thumbnails. A pull request's judge notes stand in its panel's Files tab, under the head of the file they name, since the native diff has no line numbers yet; a doc's stand under its Ledger row until the doc reader lands. Still owed in that Files tab: his own line notes, the notes bar and Send to job, which wait on line numbers in the native diff. Still owed in the pull request panel: triage, the merge queue's place on its plate, Fix, which needs a terminal, the tests that reach the change, the Check's log inside the panel rather than in the browser, and the owner's chip |
+| Job panes | Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes, Issues with the issue panel, Jobs, and the native diff. Issues lists issues alone, as in Armada Classic: a Job's reported bugs show in the thread's Issues block. Still owed in the issue panel: Back to the issue from a pull request opened in it, and the panel of a linked pull request the Job does not hold, which opens in the browser until its plates can be read without the Job's record. The ticket menu reads the Ticket lifecycle as the tab shows, and not again as it opens. Still owed in the Ledger: the Merged, Open and Checks chips on pull request and linked Job rows, and note thumbnails. A pull request's judge notes stand in its panel's Files tab, under the head of the file they name, since the native diff has no line numbers yet; a doc's stand under its Ledger row until the doc reader lands. Still owed in that Files tab: his own line notes, the notes bar and Send to job, which wait on line numbers in the native diff. Still owed in the pull request panel: triage, the merge queue's place on its plate, Fix, which needs a terminal, the tests that reach the change, the Check's log inside the panel rather than in the browser, and the owner's chip |
 | Operator and Projects | The Operator's page (Your turn and its digest), its chat and toasts, and Projects |
 | Settings, Kit, Reviews, Issues | Those four screens, Usage with Time, and Account. The pull request side panel's Review tab arrives with Reviews, with the Reviews page's keys; until then the panel has four tabs |
 | Job tools | Terminal, the Request pane and the Browser tool |
@@ -113,6 +114,7 @@ The parity check takes each row here as chosen.
 | Where | Armada Classic | Native |
 |---|---|---|
 | A pull request's Files tab | "N files" beside the tree, which draws every file | No count, under the no-aggregate-counts rule of 29 Sep |
+| A Job's Issues tab | Two repositories' #7 show as one row, a fault | Each repository's #7 is a row of its own |
 | A row in a Job's Checks pane | A press opens nothing, a fault | Opens the Check's panel, with its runs in this Job |
 | A judge note on a pull request with no line | Has nowhere to show | Stands at the top of Files, above the tree, in the line notes' look |
 | A judge note or review thread on a pull request's line | Between the diff's lines, at that line | Under the head of its file in Files, until the native diff draws line numbers |
@@ -141,7 +143,7 @@ Everything he uses daily:
 - Plan and draft approval, Needs you, the command palette and keys.
 - Dispatch sheet, merge queue strip, usage rings, Fleet build switcher, context ring, write-clash marks.
 - Documents, sketches and walks.
-- The Job panes Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge and the pull request panes.
+- The Job panes Plan, Changes, Files, Checks, Subagents, Log (the Check panel's Log tab), Ledger, Judge, the pull request panes, Issues and Jobs.
 - A native diff viewer with comments.
 - The Operator's page, Your turn beside its digest, with its chat on Ask and as a pane from a Job, and toasts.
 - Projects, every Settings section, Kit, Reviews, Issues, Usage with Time, Account with phone pairing.

@@ -47,6 +47,9 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "job-panes-more" => include_bytes!("../fixtures/jobs-panes-more.json"),
         // The box's Jobs, the first holding five pull requests: Armada Classic's panel pages, one a judge read.
         "job-pulls" => include_bytes!("../fixtures/jobs-pulls.json"),
+        // The same Jobs, the first working five issues, one a tracker's ticket and one a #7 that sample-web has too,
+        // started by one Job, starting two, one in sample-web, and forked from another.
+        "job-issues" => include_bytes!("../fixtures/jobs-issues.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -83,7 +86,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" | "job-panes" | "job-pulls" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "job-panes" | "job-pulls" | "job-issues" => include_bytes!("../fixtures/composer-threads.json"),
         // The first Job's thread with a run of Bash calls, two of them commits, and the Audit Job's quiet one.
         "job-panes-more" => include_bytes!("../fixtures/panes-more-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
@@ -172,7 +175,7 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
 
 /// The scenario last named is the panes' own: their reads answer only there.
 fn panes_named() -> bool {
-    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls"))
+    SCENARIO.lock().is_ok_and(|named| matches!(named.as_str(), "job-panes" | "job-panes-more" | "job-pulls" | "job-issues"))
 }
 
 /// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
@@ -214,6 +217,33 @@ pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {
     }
     let pages = ipc::decode::<Pages>("pull request pages", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
     pages.pulls.into_iter().find(|one| one.key == key).map(|one| one.page)
+}
+
+#[derive(Deserialize)]
+struct IssueReads {
+    issues: Vec<KeyedIssue>,
+    lifecycles: Vec<ipc::RepositoryLifecycles>,
+}
+
+#[derive(Deserialize)]
+struct KeyedIssue {
+    key: String,
+    #[serde(flatten)]
+    read: ipc::IssueRead,
+}
+
+fn issue_reads() -> Option<IssueReads> {
+    panes_named().then(|| ipc::decode::<IssueReads>("issue reads", include_bytes!("../fixtures/issue-reads.json")).unwrap_or_else(|why| panic!("the issue reads fixture does not decode: {why}")))
+}
+
+/// An issue as `GET /issues/:repository/:reference` answers it, by `manifest#reference`.
+pub fn issue(key: &str) -> Option<ipc::IssueRead> {
+    issue_reads()?.issues.into_iter().find(|one| one.key == key).map(|one| one.read)
+}
+
+/// A repository's lifecycles as `GET /lifecycles?manifest_id=` answers them.
+pub fn lifecycles(manifest: &str) -> Option<ipc::RepositoryLifecycles> {
+    issue_reads()?.lifecycles.into_iter().find(|one| one.manifest_id.as_str() == manifest)
 }
 
 /// A file of the Job's repository as `GET /sessions/repository_file` will answer it: its text, or

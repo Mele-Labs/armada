@@ -434,6 +434,8 @@ impl JobView {
         let issues = of("issue")
             .map(|one| {
                 let label = if one.target.bytes().all(|byte| byte.is_ascii_digit()) && !one.target.is_empty() { format!("#{}", one.target) } else { one.target.clone() };
+                let item = super::issues::issue_of(record, one);
+                let opens: Opens = Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.open_issue(item.clone(), window, cx));
                 Line {
                     key: format!("issue:{}", one.target),
                     kind: "issue",
@@ -441,6 +443,7 @@ impl JobView {
                     said: "Issue",
                     title: format!("{label} {}", detail(one, "title").unwrap_or_default()).trim_end().to_string(),
                     mark: (detail(one, "state") == Some("closed")).then(|| Mark { tone: Tone::Done, said: "Closed".to_string(), word: None }),
+                    opens: Some(opens),
                     ..Line::default()
                 }
             })

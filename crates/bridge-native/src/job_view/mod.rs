@@ -51,6 +51,7 @@ mod sketch_read;
 mod subagent_read;
 mod panes;
 mod pulls;
+mod issues;
 mod pr_files;
 mod pr_panel;
 mod report_brief;
@@ -969,7 +970,7 @@ mod tests {
         let head = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}}}}"#);
         let (head, items) = thread(&you("a", "hi"), &head);
         let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false }];
-        let extras = extras_of(&head, &items, &pending, true);
+        let extras = extras_of(&head, &items, &pending, true, false, false);
         assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Pending(0), Extra::Working]);
     }
 
@@ -977,16 +978,16 @@ mod tests {
     fn an_approved_plan_is_an_item_and_not_an_extra() {
         let head = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v1","version":1,"state":"approved"}}}}"#);
         let (head, items) = thread("", &head);
-        assert!(extras_of(&head, &items, &[], false).is_empty());
+        assert!(extras_of(&head, &items, &[], false, false, false).is_empty());
     }
 
     #[test]
     fn a_working_thread_that_ends_in_calls_draws_its_live_list_and_no_working_line() {
         let calls = r#"{"kind":"calls","id":"t1","names":["Bash"],"rows":[{"kind":"tool","id":"t1","at":"2026-11-09T10:00:00Z","text":"Bash ls"}]}"#;
         let (head, items) = thread(calls, &format!("{{{TRAIL}}}"));
-        assert!(extras_of(&head, &items, &[], true).is_empty());
+        assert!(extras_of(&head, &items, &[], true, false, false).is_empty());
         let (head, items) = thread(&you("a", "hi"), &format!("{{{TRAIL}}}"));
-        assert_eq!(extras_of(&head, &items, &[], true), [Extra::Working]);
+        assert_eq!(extras_of(&head, &items, &[], true, false, false), [Extra::Working]);
     }
 
     #[test]

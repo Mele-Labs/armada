@@ -1069,7 +1069,7 @@ impl JobView {
 
     /// One card: its head band (what, who, when, and the act), then its words (`Entry`).
     #[allow(clippy::too_many_arguments)]
-    fn pull_card(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn pull_card(&self, id: &str, lead: Option<AnyElement>, who: Option<String>, bot: bool, at: Option<&str>, act: Option<AnyElement>, body: &str, name: String, look: &Look, now: chrono::DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let head = card_head(look, lead, who, bot, at.and_then(|at| age(at, now)), act);
         let words = (!body.trim().is_empty()).then(|| div().min_w_0().p(look.length(token::SPACE_3)).child(self.prose(format!("{id}:body"), body, look, cx)));
         labelled(

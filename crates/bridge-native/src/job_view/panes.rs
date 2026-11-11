@@ -55,6 +55,8 @@ pub(super) struct Panes {
     pub(super) reopened: HashSet<String>,
     /// A pull request's act out with Fleet, by `{job}#{number}`: its button spins and the others wait.
     pub(super) pull_pending: HashMap<String, super::pulls::PullAct>,
+    /// The running Ticket lifecycle's states, by repository; none where it has none or the read was refused.
+    pub(super) tickets: HashMap<String, Vec<ipc::LifecycleStateDefinition>>,
 }
 
 struct Search {
@@ -74,6 +76,7 @@ enum Of {
     File { path: String, read: Option<FileRead> },
     Check { name: String, run: u64, tab: CheckTab, output: Option<Result<CheckOutput, String>>, _poll: Option<Task<()>> },
     Pull(Box<super::pr_panel::PullPanel>),
+    Issue(Box<super::issues::IssuePanel>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -296,6 +299,7 @@ impl JobView {
                 self.judge_read(&id, cx);
             }
             Some(super::side::Zone::Subagents | super::side::Zone::Pulls) => self.judge_read(&id, cx),
+            Some(super::side::Zone::Issues) => self.want_tickets(&id, window, cx),
             _ => {}
         }
     }
@@ -668,7 +672,11 @@ impl JobView {
     fn open_panel(&mut self, of: Of, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let focus = cx.focus_handle();
-        let back = window.focused(cx);
+        // A panel opened from another, as a pull request from an issue, gives the keys back where the first was opened from.
+        let back = match self.panes.panel.take() {
+            Some(open) => open.back,
+            None => window.focused(cx),
+        };
         window.focus(&focus, cx);
         self.panes.panel = Some(Panel { job, focus, back, of });
         cx.notify();
@@ -732,6 +740,25 @@ impl JobView {
         self.open_panel(Of::Pull(Box::new(panel)), window, cx);
     }
 
+    /// An issue's panel, opened from its row.
+    pub(super) fn open_issue_panel(&mut self, panel: super::issues::IssuePanel, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_panel(Of::Issue(Box::new(panel)), window, cx);
+    }
+
+    pub(super) fn issue_panel(&self) -> Option<&super::issues::IssuePanel> {
+        match self.panes.panel.as_ref() {
+            Some(Panel { of: Of::Issue(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
+    pub(super) fn issue_panel_mut(&mut self) -> Option<&mut super::issues::IssuePanel> {
+        match self.panes.panel.as_mut() {
+            Some(Panel { of: Of::Issue(panel), .. }) => Some(panel),
+            _ => None,
+        }
+    }
+
     pub(super) fn pull_panel(&self) -> Option<&super::pr_panel::PullPanel> {
         match self.panes.panel.as_ref() {
             Some(Panel { of: Of::Pull(panel), .. }) => Some(panel),
@@ -770,6 +797,9 @@ impl JobView {
             if self.pull_panel_key(event, window, cx) {
                 cx.stop_propagation();
             }
+        } else if matches!(key, "[" | "]") && !event.keystroke.modifiers.modified() && self.issue_panel().is_some() {
+            self.issue_panel_key(cx);
+            cx.stop_propagation();
         } else if matches!(key, "[" | "]") && !event.keystroke.modifiers.modified() {
             if let Some(Panel { of: Of::Check { tab, .. }, .. }) = self.panes.panel.as_mut() {
                 *tab = if *tab == CheckTab::Runs { CheckTab::Log } else { CheckTab::Runs };
@@ -797,6 +827,7 @@ impl JobView {
                 (name.into(), Some(path.clone().into()), self.file_body(read.as_ref(), look))
             }
             Of::Check { name, run, tab, output, .. } => (format!("Check {name}").into(), None, self.check_body(&panel.job, name, *run, *tab, output.as_ref(), look, cx)),
+            Of::Issue(issue) => (format!("Issue {}", issue.item.label()).into(), issue.item.manifest.as_ref().map(|id| id.as_str().to_string().into()), self.issue_body(issue, look, cx)),
         };
         let close = labelled(
             div()
@@ -1076,7 +1107,7 @@ mod tests {
     #[test]
     fn a_group_mark_reads_its_tasks() {
         use ipc::PlanTaskState::*;
-        let task = |state| ipc::SessionPlanTask { id: "t".into(), text: "x".into(), state, ..Default::default() };
+        let task = |state| ipc::SessionPlanTask { id: "t".into(), text: "x".into(), state, seen: false, marked: None, stale: None, changed_at: None };
         assert_eq!(group_state(&[task(Done), task(Done)]), Done);
         assert_eq!(group_state(&[task(Done), task(Failed), task(Working)]), Failed);
         assert_eq!(group_state(&[task(Open), task(Working)]), Working);

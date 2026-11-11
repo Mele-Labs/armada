@@ -39,6 +39,8 @@ impl Pane {
                 ("plan", "Plan", "list-checks"),
                 ("changes", "Changes", "diff"),
                 ("pulls", "Pull Requests", "git-pull-request"),
+                ("issues", "Issues", "ticket"),
+                ("jobs", "Jobs", "link"),
                 ("ledger", "Ledger", "files"),
                 ("files", "Files", "folder-tree"),
                 ("subagents", "Subagents", "zap"),
