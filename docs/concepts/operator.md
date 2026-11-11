@@ -34,7 +34,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
 | Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
 | Handles routine Job questions | Not built |
-| Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process; the Operator's triggers for the rest are not built |
+| Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
 | Hands duplicate work to the Job already on it | Not built |
 | Handles issues | Partly. A new issue is linked, filed or started on |
 | Handles reviews | Not built |
@@ -210,7 +210,7 @@ Each step is its own Job, and the order is the order of the table.
 | Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
 | Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
 | Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Not built |
-| Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the dead process trigger are built; the other five triggers are not |
+| Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop, a red pull request and a hung command are built; the other two are not |
 | The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 
 **What raises and what asks is one rule.**
@@ -227,14 +227,17 @@ Raising, leaving a note where it is and noting it are not acts.
 **Its page is a queue the person works through, with a digest beside it.**
 Settled with the person on 10 Nov, on sketches. It stays current all day; the morning only rewrites its top line.
 - The top line is the Operator's one sentence on what matters first, rewritten each time the person comes back to the page.
+  It sits in grey under the day and the pills, with nothing on it to press, and only a red main's pill keeps its colour (11 Nov).
 - Your turn is the short list, in an order the person drags.
-  On it sits at the top, saying what the Operator is doing now.
+  On it sits at the top, saying what the Operator is reading now: the Job by name, what it asks, and its project.
   One item is open at a time, with its kind, its Job, what it asks, the Operator's read and its acts, the pick marked: A presses the pick, L is Later, / is Ask.
   The rest are one line each.
 - Your turn holds the person's decisions (plans, walks, reviews, questions) and go-aheads, what the Operator would do itself, answered Yes, Always here, Always or No.
 - A go-ahead to file an issue also carries Then: Just file it, File and start a Job, or File and hand to a live Job already on the same files, with the Operator's pick marked My pick.
-- Ask on an item opens the chat about that item in place of the digest. The chat holds conversation only; a raise is an item of Your turn, never a chat line.
+- Ask on an item opens the chat about that item inside its card, and the digest stays beside it (11 Nov). The chat holds conversation only; a raise is an item of Your turn, never a chat line.
 - The digest is Since you last looked: tiles for Landed, What I handled (ending in a link to the whole Log), Running, Coming up, and Learned, each project's rules, which replaces the Permissions tab, and Holds, the paths a Job holds until it pushes or ends.
+  Running, Learned and Holds put their rows under each project's heading, Everywhere first, and a rule or hold takes two lines before it is cut (11 Nov).
+  The whole Log opens on a sheet over the page, a heading for each day and each entry at its time.
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
 - A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
 

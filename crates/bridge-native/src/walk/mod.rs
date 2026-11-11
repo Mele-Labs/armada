@@ -17,6 +17,7 @@ pub mod check;
 pub mod dispatch;
 pub mod fleet;
 pub mod notes;
+pub mod operator;
 pub mod stage;
 pub mod stand_in;
 pub mod strip_marks;
@@ -35,6 +36,9 @@ pub enum Verb {
     Gone,
     /// A key, as gpui writes one (`j`, `enter`, `cmd-k`), sent to the screen.
     Key(&'static str),
+    /// ⌥⌘A struck as a person strikes it, between steps rather than as a step's own key: the walk
+    /// takes a note, wherever the keys are. A step's `Key("alt-cmd-a")` reaches the screen instead.
+    NoteKey,
     /// Several keys one after the other, each drawn before the next is sent, as a person's would be.
     Keys(&'static [&'static str]),
     /// A right press on the step's own target, before the target is ringed: the target is
@@ -67,6 +71,16 @@ pub enum Verb {
     Typed(&'static str),
     /// A drag across the target's inner area, to hold a box rather than the element.
     Drag,
+    /// The row of this name pressed and carried over the target's top edge, the button still held:
+    /// the picture shows the lifted row and where it would land.
+    Lift(&'static str),
+    /// The held button let go where the pointer stands, ending a `Lift`.
+    Release,
+    /// Nothing pressed: the target must be drawn inside the element of this role and name, side to
+    /// side, or the step fails. For a thing that must wrap rather than run past its column.
+    Fits(&'static str, &'static str),
+    /// Nothing of this role and name is drawn; the target is.
+    Absent(&'static str, &'static str),
     /// The dispatch screen moves to a named scene (`dispatch/scenes.rs`): Fleet's answer to a send,
     /// or a state of the sheet's face. A scene changes data and presses nothing.
     Answer(&'static str),
@@ -116,6 +130,8 @@ pub enum Screen {
     /// strip, the dispatch sheet and the notes layer over the Jobs screen, and the Job head's
     /// stand-in, drawn only while a scene shows the ring.
     All,
+    /// The Operator's page in front of the Jobs screen, on the mock Fleet in `operator/scenes.rs`.
+    Operator,
 }
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
@@ -174,6 +190,8 @@ pub static WALKS: &[Walk] = &[
         step("A row is one line, its title and its state, until the View turns more on", Verb::Look, "row", "Fix the merge line freshness chip"),
         step("⌥↑ moves the Job up past its neighbour", Verb::Key("alt-up"), "row", "Audit the docs index"),
         step("Shift+F10 opens the menu from the keys", Verb::Key("shift-f10"), "menuitem", "Close"),
+        step("⌥⌘A takes a walk note even while the menu holds the keys: the bar says Capturing", Verb::NoteKey, "button", "Capturing"),
+        step("Esc puts the note away and the keys go back to the menu", Verb::Key("escape"), "menuitem", "Close"),
         step("Esc shuts it again", Verb::Key("escape"), "row", "Audit the docs index"),
         step("The list's edge drags wider or narrower; a double press puts it back", Verb::Press, "separator", "Resize the Jobs list"),
         step("→ widens it from the keys, ← narrows it", Verb::Key("right"), "separator", "Resize the Jobs list"),
@@ -212,6 +230,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &notes::STEPS,
+    },
+    Walk {
+        name: "operator-page",
+        title: "Operator page",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &operator::STEPS,
     },
     Walk {
         name: "native-title-bar",

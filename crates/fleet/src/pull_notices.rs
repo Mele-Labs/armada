@@ -266,6 +266,9 @@ where
             head,
             base,
         };
+        // Before anything is told at this commit: a notice sent below is at the commit kept here, and a
+        // push is the commit moving, which is how a Job told of a red pull request is read to have fixed it.
+        let _ = self.store().lock().await.keep_pull_head(served.root(), pull.number, head);
         // Auto-merge is told once a pull request, whatever commit it is at when it is turned on. A wait
         // the agent stated stays in his Needs you: Fleet refuses the one it writes, never takes one off.
         if pull.auto_merge {
@@ -280,6 +283,11 @@ where
         // Running again at the same commit is a rerun: its failure is news, though no commit moved.
         if !pull.failed() {
             let key = Cause::ChecksFailed.key();
+            let _ = self.store().lock().await.forget_pull_notices(served.root(), pull.number, key);
+        }
+        // The same for a conflict that cleared with no push: the base moved, and it is news if it returns.
+        if !pull.conflicting {
+            let key = Cause::Conflicts.key();
             let _ = self.store().lock().await.forget_pull_notices(served.root(), pull.number, key);
         }
         let mut causes = Vec::new();

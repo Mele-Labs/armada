@@ -150,6 +150,8 @@ pub struct Hosts {
     stuck: Mutex<std::collections::HashSet<String>>,
     /// The Jobs whose stop is owed a word.
     stops_owed: stopping::Owed,
+    /// The Jobs stopped with their agent alive, which a repair is due for.
+    stops_silent: stopping::Silent,
     asks: Asks,
     runtime: Mutex<HashMap<String, Arc<Runtime>>>,
     minted: AtomicU64,
@@ -210,6 +212,7 @@ impl Hosts {
             stuck_after: Mutex::new(standing::STUCK_AFTER),
             stuck: Mutex::new(std::collections::HashSet::new()),
             stops_owed: stopping::Owed::default(),
+            stops_silent: stopping::Silent::default(),
             asks: Asks::holding_for(hold),
             runtime: Mutex::new(HashMap::new()),
             minted: AtomicU64::new(0),
@@ -310,6 +313,10 @@ impl Hosts {
 
     pub(crate) fn stops_owed(&self) -> &stopping::Owed {
         &self.stops_owed
+    }
+
+    pub(crate) fn stops_silent(&self) -> &stopping::Silent {
+        &self.stops_silent
     }
 
     pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
