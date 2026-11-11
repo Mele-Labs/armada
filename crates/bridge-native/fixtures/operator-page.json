@@ -90,6 +90,26 @@
     "pick": "Approve"
    },
    "raised_at": "2026-11-11T12:44:00-05:00"
+  },
+  {
+   "id": "turn:9",
+   "kind": "go_ahead",
+   "urgency": "urgent",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "red:armada:4c1d2e9",
+    "text": "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test",
+    "since": "2026-11-11T12:58:00-05:00",
+    "source": "operator_suggestion",
+    "options": [{ "label": "Start a fix" }, { "label": "Hand to Slot pool controls" }]
+   },
+   "read": {
+    "read": "Slot pool controls changed the slot meter an hour ago and is live on the same files, so I'd hand the red to it.",
+    "pick": "Hand to Slot pool controls"
+   },
+   "raised_at": "2026-11-11T12:58:00-05:00",
+   "keeps": true
   }
  ],
  "digest": {

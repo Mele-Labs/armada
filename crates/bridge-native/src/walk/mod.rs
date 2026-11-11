@@ -393,6 +393,18 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-operator-options",
+        title: "Choose an option the Operator did not pick",
+        screen: Screen::Operator,
+        scenario: "jobs-many",
+        steps: &[
+            step("A new design to approve, not a port: Electron never had Your turn. ↓ opens a red main, which offers Start a fix or Hand to a Job; the card lists both under Options with the Operator's pick filled", Verb::Keys(&["down", "down", "down", "down"]), "radio", "Hand to Slot pool controls"),
+            step("1 picks Start a fix, the option the Operator did not pick. A press on the row picks it too", Verb::Key("1"), "radio", "Start a fix"),
+            step("Yes, Always here and Always now carry Start a fix in place of the Operator's pick", Verb::Look, "button", "Always here"),
+            step("H is Always here: Start a fix goes to Fleet with the answer, and the rule keeps it for armada", Verb::Key("h"), "row", "Main is red at 4c1d2e9. desktop_unit fails in the slot meter test, done"),
+        ],
+    },
+    Walk {
         name: "native-title-bar",
         title: "Dispatch and the title bar",
         screen: Screen::All,

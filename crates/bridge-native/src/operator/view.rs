@@ -397,6 +397,8 @@ impl OperatorPageView {
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
         });
         let then = has_then.then(|| self.thens(turn, look, cx));
+        let options = face::chooses(turn).then(|| self.options(turn, look, cx));
+        let chosen = self.option_of(turn);
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
@@ -433,17 +435,19 @@ impl OperatorPageView {
             }))
             .children(read)
             .children(then)
+            .children(options)
             .children(refused);
         let answers = face::answers_of(turn).into_iter().enumerate().map(|(at, answer)| {
             let yes = answer == OperatorAnswer::Yes;
-            // A decision's Yes says the Operator's pick, as its card would; a go-ahead's says Yes.
-            let label: SharedString = match (&pick, turn.kind) {
+            // A decision's Yes says the option it carries, else the Operator's pick, as its card would; a
+            // go-ahead's says Yes.
+            let label: SharedString = match (chosen.as_ref().or(pick.as_ref()), turn.kind) {
                 (Some(pick), OperatorTurnKind::Decision) if yes => pick.clone(),
                 _ => face::answer_word(answer).into(),
             };
             let key: Option<SharedString> = Some(face::answer_key(answer).into());
             let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
-                .tooltip(tip(face::answer_tip(turn, answer, self.then_of(turn))));
+                .tooltip(tip(face::answer_tip(turn, answer, self.then_of(turn), chosen.as_deref())));
             let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
             labelled(button, Role::Button, label).into_any_element()
         });
@@ -569,6 +573,55 @@ impl OperatorPageView {
             .mt(look.length(token::SPACE_1))
             .child(div().mb(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Then"))
             .child(labelled(div().id("then").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, "Then"))
+    }
+
+    /// The item's options, where it offers more than one: each a row, his pick or else the Operator's
+    /// filled, My pick marked, as Then draws its choices. Yes, Always here and Always carry the filled one.
+    fn options(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let chosen = self.option_of(turn);
+        let pick = face::pick_of(turn);
+        let rows = turn.item.options.iter().enumerate().map(|(at, option)| {
+            let label: SharedString = option.label.clone().into();
+            let on = chosen.as_ref() == Some(&label);
+            let id = turn.id.clone();
+            let pressed_label = option.label.clone();
+            labelled(
+                div()
+                    .id(SharedString::from(format!("option-{at}")))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG) * 1.25)
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(if on { token::OPERATOR } else { token::BORDER_DEFAULT }))
+                    .bg(look.color(if on { token::OPERATOR_FAINT } else { token::BG_OVERLAY }))
+                    .text_size(look.length(token::TEXT_SM))
+                    .font_weight(FontWeight(look.number(if on { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
+                    .cursor_pointer()
+                    .hover(|style| style.border_color(cx.look().color(token::BORDER_STRONG)))
+                    .on_click(cx.listener(move |this, _, _, cx| this.pick_option(&id, &pressed_label, cx)))
+                    .child(glyph(if on { "circle-dot" } else { "circle" }, look.length(token::SPACE_4), look.color(if on { token::OPERATOR } else { token::FG_MUTED })))
+                    .child(div().flex_1().child(label.clone()))
+                    .when(pick.as_ref() == Some(&label), |row| {
+                        row.child(
+                            div()
+                                .text_size(look.length(token::TEXT_2XS))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .text_color(look.color(token::OPERATOR))
+                                .child("My pick"),
+                        )
+                    })
+                    .child(kbd((at + 1).to_string(), look)),
+                Role::RadioButton,
+                label,
+            )
+        });
+        div()
+            .mt(look.length(token::SPACE_1))
+            .child(div().mb(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_SUBTLE)).child("Options"))
+            .child(labelled(div().id("options").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, "Options"))
     }
 
     fn done_row(&self, done: &Done, look: &Look, cx: &App) -> AnyElement {
