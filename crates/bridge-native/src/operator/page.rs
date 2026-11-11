@@ -896,11 +896,11 @@ mod tests {
     fn an_option_that_is_not_the_pick_goes_out_by_its_label(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("down down down down");
-        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:6"));
+        assert_eq!(open_id(&page, cx).as_deref(), Some("turn:9"));
         cx.simulate_keystrokes("1 h");
         assert_eq!(
             pressed(&page, cx),
-            vec![OperatorAnswerPress { id: "turn:6".into(), answer: OperatorAnswer::AlwaysHere, then: None, option: Some("Start a fix".into()), project: None }]
+            vec![OperatorAnswerPress { id: "turn:9".into(), answer: OperatorAnswer::AlwaysHere, then: None, option: Some("Start a fix".into()), project: None }]
         );
         page.read_with(cx, |page, _| assert_eq!(page.done[0].said.as_deref(), Some("Answered Start a fix. Kept for this project")));
     }
@@ -909,7 +909,7 @@ mod tests {
     fn yes_on_the_pick_names_no_option(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("down down down down a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:6".into(), answer: OperatorAnswer::Yes, then: None, option: None, project: None }]);
+        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:9".into(), answer: OperatorAnswer::Yes, then: None, option: None, project: None }]);
     }
 
     #[gpui::test]
@@ -936,7 +936,7 @@ mod tests {
     fn later_puts_the_item_last_for_today_and_opens_the_next(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("l");
-        assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:6", "turn:1"]);
+        assert_eq!(ids(&page, cx), ["turn:2", "turn:3", "turn:4", "turn:9", "turn:1"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert!(page.items().last().is_some_and(|turn| turn.later_until.is_some())));
     }
@@ -945,12 +945,12 @@ mod tests {
     fn a_shove_moves_the_open_item_and_fleet_keeps_the_order(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         cx.simulate_keystrokes("alt-down");
-        assert_eq!(ids(&page, cx), ["turn:2", "turn:1", "turn:3", "turn:4", "turn:6"]);
+        assert_eq!(ids(&page, cx), ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"), "the keys stay on the item it moved");
         let kept: Vec<String> = page.update(cx, |page, _| page.mock_fleet().map(|mock| mock.page.turn.iter().map(|turn| turn.id.clone()).collect()).unwrap_or_default());
-        assert_eq!(kept, ["turn:2", "turn:1", "turn:3", "turn:4", "turn:6"]);
+        assert_eq!(kept, ["turn:2", "turn:1", "turn:3", "turn:4", "turn:9"]);
         cx.update(|_, cx| page.update(cx, |page, cx| page.move_to("turn:4", 0, cx)));
-        assert_eq!(ids(&page, cx), ["turn:4", "turn:2", "turn:1", "turn:3", "turn:6"], "a drop moves it as a drag would");
+        assert_eq!(ids(&page, cx), ["turn:4", "turn:2", "turn:1", "turn:3", "turn:9"], "a drop moves it as a drag would");
     }
 
     #[gpui::test]
@@ -1043,7 +1043,7 @@ mod tests {
         cx.simulate_keystrokes("/");
         cx.simulate_keystrokes("a l j k h d c 2 alt-up alt-down");
         assert!(pressed(&page, cx).is_empty());
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:6"]);
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9"]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
         assert!(page.read_with(cx, |page, _| page.then.is_empty()), "a digit in the box picks no Then");
     }
@@ -1136,7 +1136,7 @@ mod tests {
         assert_eq!(page.read_with(cx, |page, _| page.rules), Some(1));
         cx.simulate_keystrokes("a l alt-up");
         assert!(pressed(&page, cx).is_empty(), "no key reaches Your turn behind the sheet");
-        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:6"]);
+        assert_eq!(ids(&page, cx), ["turn:1", "turn:2", "turn:3", "turn:4", "turn:9"]);
         cx.simulate_keystrokes("escape");
         assert_eq!(page.read_with(cx, |page, _| page.rules), None);
         cx.update(|window, _| assert!(link.is_focused(window), "the keys are back on Every rule"));
