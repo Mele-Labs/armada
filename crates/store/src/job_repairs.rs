@@ -124,6 +124,19 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// When the newest repair of either kind in `broke` started for `session`, however it ended.
+    pub fn last_repair_started(&self, session: &str, broke: [&str; 2]) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT started_at FROM job_repairs WHERE session_id = ?1 AND broke IN (?2, ?3) ORDER BY started_at DESC LIMIT 1",
+                (session, broke[0], broke[1]),
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(fault("reading when a Job was last repaired"))
+            .map_err(WriteError::Database)
+    }
+
     /// Whether `repair` has ended. One this store has no record of has, since nothing is running it.
     pub fn repair_over(&self, repair: &str) -> Result<bool, WriteError> {
         Ok(self.repair(repair)?.is_none_or(|one| one.ended_at.is_some()))
