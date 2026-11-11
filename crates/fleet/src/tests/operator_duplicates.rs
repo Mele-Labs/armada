@@ -121,7 +121,7 @@ async fn no_leaves_a_started_job_as_it_was_asked() {
 
     assert!(!ended(&rig, &held).await, "it stands, held on its start card as it was asked");
     assert!(!thread(&rig, &live).await.contains("Keep it across a resize"));
-    assert!(page(&rig).await.turn.iter().all(|one| one.session_id.as_ref() != Some(&held)));
+    assert!(page(&rig).await.turn.iter().all(|one| one.session_id.as_ref() != Some(&held) || !one.item.id.starts_with("suggestion:")));
 }
 
 #[tokio::test]
@@ -155,8 +155,9 @@ async fn a_start_no_live_job_is_near_makes_no_call() {
     let held = started_by(&rig, &parent, "Rename the colour tokens in packages/tokens/colour.ts.").await;
 
     tokio::time::sleep(Duration::from_millis(300)).await;
-    assert!(call.asked().is_empty(), "no Job shares anything, so nothing is asked: {:#?}", call.asked());
-    assert!(page(&rig).await.turn.iter().all(|one| one.session_id.as_ref() != Some(&held)));
+    let judged = call.asked().into_iter().filter(|asked| asked.contains("A Job started")).count();
+    assert_eq!(judged, 0, "no Job shares anything, so no call judges it");
+    assert!(page(&rig).await.turn.iter().all(|one| one.session_id.as_ref() != Some(&held) || !one.item.id.starts_with("suggestion:")));
     assert!(rulings(&rig).await.is_empty(), "and no row is kept");
 }
 
@@ -285,4 +286,96 @@ async fn always_here_on_a_hand_over_keeps_the_pick_as_the_rule_and_the_next_red_
     assert!(page(&rig).await.turn.is_empty(), "he was not asked");
     let by_rule = rulings(&rig).await.into_iter().any(|row| row.outcome == "existing_job" && row.by == "operator" && row.because.starts_with("By a rule, Hand a red main to the live Job near it"));
     assert!(by_rule, "{:#?}", rulings(&rig).await);
+}
+
+// ---- Autopilot ----
+
+const ARMADA: &str = "version: 1\nid: armada\n";
+const SURE: &str = "issue: R-AAAAAA\nworkflow: bug\nsure: yes\nbecause: plainly covered";
+
+/// A rig whose picker is sure of the one reported bug, whose title names `FILE`, with a live Job on that file.
+async fn a_rig_whose_picker_is_sure_of_a_reported_bug_on_the_live_jobs_file() -> (Rig, SessionId) {
+    let judge = Arc::new(testkit::FakeJudge::saying(SURE));
+    let rig = rig_fitted(move |fittings| {
+        fittings.judge = judge;
+        fittings.starting().workflows = [super::daemon::workflow_named("bug")].into_iter().map(|one| (one.id().clone(), one)).collect();
+        fittings.starting().manifest = config::Manifest::parse(std::path::Path::new("armada.yml"), ARMADA).expect("loads");
+    });
+    let report = store::KeptBugReport {
+        id: "01R00000000000000000AAAAAA".into(),
+        session_id: "reporter".into(),
+        job_title: String::new(),
+        title: "Scrollback is lost on redraw in src/terminal/scrollback.rs".into(),
+        what: "It broke.".into(),
+        steps: Vec::new(),
+        errors: Vec::new(),
+        logs: Vec::new(),
+        at: "2026-11-03T08:00:00.000Z".into(),
+        kept: None,
+        fixed: None,
+    };
+    rig.fleet.store().lock().await.keep_bug_report(&report).expect("kept");
+    let settings = ipc::AutopilotSettings {
+        instruction: "Fix what is open".into(),
+        at_once: 3,
+        until: None,
+        spend_cap_micros: None,
+        session_cap: None,
+        weekly_cap_percent: None,
+        on_autopilot: ipc::AutopilotWork { backlog: false, running: false, reports: true },
+        decisions: Default::default(),
+        project: None,
+    };
+    api::Autopilots::start_autopilot(rig.fleet.as_ref(), rig.manifest.clone(), settings).await.expect("started");
+    let live = a_live_job(&rig).await;
+    (rig, live)
+}
+
+async fn the_pick(rig: &Rig) -> ipc::AutopilotPick {
+    api::Autopilots::get_autopilot(rig.fleet.as_ref(), rig.manifest.clone()).await.expect("read").picks.remove(0)
+}
+
+async fn the_go_ahead(rig: &Rig) -> store::KeptSuggestion {
+    for _ in 0..500 {
+        if let Some(one) = rig.fleet.store().lock().await.operator_suggestions_of("").expect("read").into_iter().next() {
+            return one;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("no go-ahead was kept");
+}
+
+#[tokio::test]
+async fn an_autopilot_pick_a_live_job_is_near_is_held_and_no_starts_it_as_asked() {
+    let (rig, live) = a_rig_whose_picker_is_sure_of_a_reported_bug_on_the_live_jobs_file().await;
+    seated(&rig, &[&hands_to(&live)]).await;
+
+    assert_eq!(rig.fleet.autopilot_pass().await.expect("passed"), 1);
+
+    let held = the_go_ahead(&rig).await;
+    let pick = the_pick(&rig).await;
+    assert!(pick.session_id.is_none(), "no Job is started while it is asked: {pick:#?}");
+    assert_eq!(rig.fleet.autopilot_pass().await.expect("passed"), 0, "and Autopilot does not start it meanwhile");
+    assert!(the_pick(&rig).await.session_id.is_none());
+
+    let skipped = ipc::operator_board::AnswerOperatorSuggestion { id: format!("suggestion:{}", held.n), choice: crate::operator::SKIP };
+    rig.fleet.suggestion_answered(skipped).await.expect("answered");
+
+    eventually(|| async { the_pick(&rig).await.session_id.is_some() }).await;
+    assert!(!thread(&rig, &live).await.contains("It broke"), "nothing went to the live Job");
+}
+
+#[tokio::test]
+async fn yes_hands_an_autopilot_pick_to_the_live_job_and_no_job_starts_on_it() {
+    let (rig, live) = a_rig_whose_picker_is_sure_of_a_reported_bug_on_the_live_jobs_file().await;
+    seated(&rig, &[&hands_to(&live)]).await;
+    rig.fleet.autopilot_pass().await.expect("passed");
+    let held = the_go_ahead(&rig).await;
+
+    let done = ipc::operator_board::AnswerOperatorSuggestion { id: format!("suggestion:{}", held.n), choice: 0 };
+    rig.fleet.suggestion_answered(done).await.expect("answered");
+
+    assert!(thread(&rig, &live).await.contains("Scrollback is lost on redraw"), "the issue went to the live Job");
+    assert!(the_pick(&rig).await.session_id.is_none());
+    assert_eq!(the_pick(&rig).await.state, ipc::AutopilotPickState::Dismissed);
 }

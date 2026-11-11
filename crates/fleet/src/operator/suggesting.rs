@@ -321,6 +321,8 @@ where
                 if let (Arrived::Start, Way::ExistingJob, Some(other)) = (arrival.arrived, ruling.way, ruling.other.as_deref()) {
                     let theirs = self.title_of(other).await;
                     row.by = Actor::Operator;
+                    // Under an id of its own: a row of a suggestion's arrival is the press's, which What I handled leaves out.
+                    row.arrival = format!("handed:{}", arrival.id);
                     row.because = format!("Handed \"{}\" to \"{theirs}\", which is already on that work. {}", arrival.subject, ruling.because);
                     self.operator_journaled(&format!("Handed \"{}\" to \"{theirs}\", which is already on that work.", arrival.subject)).await;
                 }
