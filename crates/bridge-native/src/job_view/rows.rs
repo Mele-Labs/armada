@@ -7,10 +7,10 @@
 
 use chrono::{DateTime, Local};
 use gpui::{
-    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, Context, ElementId, FontWeight, Hsla,
+    div, prelude::*, relative, svg, Animation, AnimationExt, AnyElement, App, Context, ElementId, FontWeight, Hsla,
     Role, SharedString, Transformation, Window,
 };
-use gpui_component::text::TextView;
+use gpui_component::text::{markdown_ast, InlineElement, InlineRenderContext, MarkdownExtensions, MarkdownNode, MarkdownParseContext, MarkdownPlugin, TextView};
 use ipc::{SessionCheckState, SessionRow, SessionTag, SessionVoice, TagKind, ThreadItem};
 
 use std::rc::Rc;
@@ -328,6 +328,12 @@ impl JobView {
 
     /// Markdown at the thread's body size: 15 over 24 unless Aa's Text size says another.
     pub(super) fn prose(&self, key: String, text: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.prose_tagged(key, text, &[], look, cx)
+    }
+
+    /// [`Self::prose`] with `tags` drawn where his words wrote them (`placeTags`): each an `InlineTag` chip held
+    /// in the line as one object, so the words around it stay selectable and a selection copies `@title`.
+    pub(super) fn prose_tagged(&self, key: String, text: &str, tags: &[SessionTag], look: &Look, cx: &Context<Self>) -> AnyElement {
         let job = self.shown.clone().unwrap_or_default();
         // A Job the words name is a link to it, as Electron's `SessionRefs` draws a thread's words.
         let text = super::refs::Refs::of(self.list.read(cx).records()).linked(text);
@@ -361,6 +367,7 @@ impl JobView {
                 ..Default::default()
             })
             .code_block_actions(code_copy(look))
+            .when(!tags.is_empty(), |words| words.markdown_extensions(tag_extensions(tags, look)))
             // No surface navigates (design-system.md, hard rule 2): a Job opens here, an address in the browser.
             .on_link_click(move |address, _, _, cx| match super::refs::Refs::job_of(address) {
                 Some(id) => {
@@ -697,8 +704,11 @@ impl JobView {
         let words = match editing {
             Some(field) => field,
             None => match said_parts {
-                // Where his words place a tag, they are drawn as written, the tag a chip in its line (`armada-session-said`).
-                Some(parts) => self.said_line(id, &parts, look, cx),
+                // Where his words place a tag, the tag is a chip in its line (`armada-session-said`).
+                Some(parts) => {
+                    let words = self.prose_tagged(format!("you:{id}"), &tagged_words(&parts, tags), tags, look, cx);
+                    self.block(page, id, labelled(div().id(SharedString::from(format!("said:{id}"))).child(words), Role::Group, "Message said").into_any_element(), cx)
+                }
                 None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
             },
         };
@@ -753,76 +763,6 @@ impl JobView {
                 ),
             Role::Region,
             "Your message",
-        )
-        .into_any_element()
-    }
-
-    /// His words with a tag in them, as written: each word in its line, each tag the chip `InlineTag` draws.
-    /// A Job's tag is a link to it; the kinds that open a pane link once those panes are drawn.
-    fn said_line(&self, id: &str, parts: &[Said], look: &Look, cx: &Context<Self>) -> AnyElement {
-        let size = match self.composer.quick.thread().text_size {
-            TextSize::Xs => token::TEXT_XS,
-            TextSize::Sm => token::TEXT_SM,
-            TextSize::Base => token::TEXT_BASE,
-            TextSize::Lg => token::TEXT_LG,
-        };
-        let mut line = div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .min_w_0()
-            .text_size(look.length(size))
-            .line_height(relative(1.6))
-            .text_color(look.color(token::FG_DEFAULT));
-        for (at, part) in parts.iter().enumerate() {
-            match part {
-                Said::Words(words) => {
-                    for (row, text) in words.split('\n').enumerate() {
-                        if row > 0 {
-                            // pre-wrap: a line break in his words starts a new line.
-                            line = line.child(div().w_full().h_0());
-                        }
-                        line = line.children(text.split_inclusive(' ').map(|word| div().whitespace_nowrap().child(word.to_string())));
-                    }
-                }
-                Said::Tag(tag) => line = line.child(self.inline_tag(&format!("{id}:{at}"), tag, look, cx)),
-            }
-        }
-        labelled(div().id(SharedString::from(format!("said:{id}"))).child(line), Role::Group, "Message said").into_any_element()
-    }
-
-    /// One tag in his words: its kind's glyph and its title, in one unit (`InlineTag`).
-    fn inline_tag(&self, key: &str, tag: &SessionTag, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let link = tag.kind == TagKind::Session;
-        let ink = look.color(if link { token::ACCENT } else { token::FG_DEFAULT });
-        let chip = div()
-            .id(SharedString::from(format!("tag:{key}")))
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_1))
-            .px(look.length(token::SPACE_1))
-            .rounded(look.length(token::RADIUS_MD))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
-            .bg(look.color(token::BG_RAISED))
-            .text_size(look.length(token::TEXT_XS))
-            .line_height(look.length(token::LEADING_XS))
-            .text_color(ink)
-            .whitespace_nowrap()
-            .child(glyph(look, tag_glyph(tag.kind), Size::Small, if link { ink } else { look.color(token::FG_MUTED) }))
-            .child(tag.title.clone());
-        if !link {
-            return labelled(chip, Role::Group, tag.title.clone()).into_any_element();
-        }
-        let job = tag.id.clone();
-        labelled(
-            chip.cursor_pointer()
-                .hover(|style| style.text_color(look.color(token::ACCENT_HOVER)))
-                .tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title)))
-                .on_click(cx.listener(move |this, _, _, cx| this.open_job(job.clone(), cx))),
-            Role::Link,
-            tag.title.clone(),
         )
         .into_any_element()
     }
@@ -1130,6 +1070,124 @@ pub(super) fn tag_kind(kind: TagKind) -> &'static str {
         TagKind::Issue => "Issue",
         TagKind::Report => "Reported bug",
         TagKind::Terminal => "Terminal",
+    }
+}
+
+/// What marks a tag in the markdown his words are drawn from: inline code that reads this and the tag's place.
+const TAG_MARK: char = '\u{E000}';
+
+/// His words with each placed tag written as its mark, a Job's inside a link to it, so the markdown carries it.
+fn tagged_words(parts: &[Said], tags: &[SessionTag]) -> String {
+    let mut words = String::new();
+    for part in parts {
+        match part {
+            Said::Words(text) => words.push_str(text),
+            Said::Tag(tag) => {
+                let at = tags.iter().position(|one| std::ptr::eq(one, *tag)).unwrap_or_default();
+                match tag.kind {
+                    TagKind::Session => words.push_str(&format!("[`{TAG_MARK}{at}`](armada-ref:session/{})", tag.id)),
+                    _ => words.push_str(&format!("`{TAG_MARK}{at}`")),
+                }
+            }
+        }
+    }
+    words
+}
+
+/// The markdown extension that draws each tag's mark as its chip.
+fn tag_extensions(tags: &[SessionTag], look: &Look) -> MarkdownExtensions {
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    for tag in tags {
+        std::hash::Hash::hash(&(&tag.id, &tag.title, tag_kind(tag.kind)), &mut hash);
+    }
+    let revision = std::hash::Hasher::finish(&hash) | 1;
+    MarkdownExtensions::default().plugin(TagPlugin { tags: tags.to_vec(), paint: TagPaint::of(look) }).parser_revision(revision)
+}
+
+/// The look an `InlineTag` chip is drawn with, read once so the plugin holds no `Look`.
+#[derive(Clone, Copy)]
+struct TagPaint {
+    accent: Hsla,
+    ink: Hsla,
+    glyph: Hsla,
+    border: Hsla,
+    fill: Hsla,
+    gap: gpui::Pixels,
+    pad: gpui::Pixels,
+    radius: gpui::Pixels,
+    rule: gpui::Pixels,
+    size: gpui::Pixels,
+    leading: gpui::Pixels,
+    icon: gpui::Pixels,
+}
+
+impl TagPaint {
+    fn of(look: &Look) -> Self {
+        TagPaint {
+            accent: look.color(token::ACCENT),
+            ink: look.color(token::FG_DEFAULT),
+            glyph: look.color(token::FG_MUTED),
+            border: look.color(token::BORDER_DEFAULT),
+            fill: look.color(token::BG_RAISED),
+            gap: look.length(token::SPACE_1),
+            pad: look.length(token::SPACE_1),
+            radius: look.length(token::RADIUS_MD),
+            rule: look.length(token::BORDER_WIDTH),
+            size: look.length(token::TEXT_XS),
+            leading: look.length(token::LEADING_XS),
+            icon: Size::Small.of(look),
+        }
+    }
+}
+
+/// A tag in his words as `InlineTag` draws it: its kind's glyph and title in one unit. A Job's is accent, a link
+/// the markdown carries, with its kind and title on hover.
+struct TagPlugin {
+    tags: Vec<SessionTag>,
+    paint: TagPaint,
+}
+
+impl MarkdownPlugin for TagPlugin {
+    fn name(&self) -> &str {
+        "armada-tag"
+    }
+
+    fn parse(&self, node: &markdown_ast::Node, _: &MarkdownParseContext<'_>) -> Option<MarkdownNode> {
+        let markdown_ast::Node::InlineCode(code) = node else { return None };
+        let tag = self.tags.get(code.value.strip_prefix(TAG_MARK)?.parse::<usize>().ok()?)?;
+        let said = format!("@{}", tag.title);
+        Some(MarkdownNode::new("armada-tag", tag.clone()).text(said.clone()).markdown(said).accessibility_label(tag.title.clone()))
+    }
+
+    fn render_inline(&self, node: &MarkdownNode, _: &InlineRenderContext, _: &mut Window, _: &mut App) -> Option<InlineElement> {
+        let tag = node.data::<SessionTag>()?;
+        let paint = self.paint;
+        let link = tag.kind == TagKind::Session;
+        let ink = if link { paint.accent } else { paint.ink };
+        let chip = div()
+            .id(SharedString::from(format!("tag:{}:{}", tag_kind(tag.kind), tag.id)))
+            .flex()
+            .items_center()
+            .gap(paint.gap)
+            .px(paint.pad)
+            .rounded(paint.radius)
+            .border(paint.rule)
+            .border_color(paint.border)
+            .bg(paint.fill)
+            .text_size(paint.size)
+            .line_height(paint.leading)
+            .text_color(ink)
+            .text_decoration_0()
+            .text_decoration_color(gpui::transparent_black())
+            .whitespace_nowrap()
+            .child(svg().path(icon_path(tag_glyph(tag.kind))).flex_none().size(paint.icon).text_color(if link { ink } else { paint.glyph }))
+            .child(tag.title.clone());
+        let chip = if link {
+            labelled(chip.cursor_pointer().tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title))), Role::Link, tag.title.clone()).into_any_element()
+        } else {
+            labelled(chip, Role::Group, tag.title.clone()).into_any_element()
+        };
+        Some(InlineElement::new(chip))
     }
 }
 

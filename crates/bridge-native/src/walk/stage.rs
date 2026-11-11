@@ -276,7 +276,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Left, position: at, modifiers: Modifiers::default(), click_count: 1 }), cx);
             Ok(())
         }
-        Verb::Select(role, on) => {
+        Verb::Select(role, on) | Verb::SelectLine(role, on) => {
+            let whole = matches!(step.verb, Verb::SelectLine(..));
             let role = role_named(role).ok_or_else(|| Missed(format!("no role named {role}")))?;
             // The last one drawn: an element the list measured off screen comes first in the book.
             let drawn = cx
@@ -285,7 +286,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                 .ok_or_else(|| Missed(format!("nothing named \"{on}\" to select in")))?;
             let line = drawn.bounds.bottom() - px(16.);
             let from = point(drawn.bounds.left() + px(3.), line);
-            let to = point(drawn.bounds.left() + drawn.bounds.size.width / 3., line);
+            let to = point(if whole { drawn.bounds.right() - px(3.) } else { drawn.bounds.left() + drawn.bounds.size.width / 3. }, line);
             window.dispatch_event(
                 PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Left, position: from, modifiers: Modifiers::default(), click_count: 1, first_mouse: false }),
                 cx,
