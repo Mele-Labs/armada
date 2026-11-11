@@ -260,38 +260,50 @@ where
         let row = self.turn_open(&press.id).await?;
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
+        // The option he named, where it is one the item offers: absent takes the Operator's pick.
+        let named = match press.option.as_deref().map(str::trim).filter(|label| !label.is_empty()) {
+            Some(label) if item.options.iter().any(|option| option.label == label) => Some(label.to_string()),
+            Some(label) => return Err(not_offered(&format!("{label} is not an option this item offers"))),
+            None => None,
+        };
+        // On the Operator's own go-ahead the second option is the refusal: Keep both, or Skip.
+        let refuses = named.is_some() && suggestion_number(&row.item).is_some() && item.options.get(1).map(|option| option.label.as_str()) == named.as_deref();
+        if refuses && !matches!(press.answer, OperatorAnswer::Yes | OperatorAnswer::No) {
+            return Err(not_offered("an Always is for doing the act, not for leaving it"));
+        }
+        let answer = if refuses { OperatorAnswer::No } else { press.answer };
         let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
         let keeps = row.go_ahead && what.is_some();
-        let answer_word = match press.answer {
+        let answer_word = match answer {
             OperatorAnswer::Yes => "yes",
             OperatorAnswer::AlwaysHere => "always_here",
             OperatorAnswer::Always => "always",
             OperatorAnswer::No => "no",
         };
         let mut done = Done::default();
-        if press.answer == OperatorAnswer::No {
+        if answer == OperatorAnswer::No {
             if let Some(n) = suggestion_number(&row.item) {
                 self.suggestion_settled(&row.session, n, false, None, None).await?;
             }
             self.settled_by_press(&row, answer_word, &item, &done).await;
         } else {
-            if press.answer != OperatorAnswer::Yes && !keeps {
+            if answer != OperatorAnswer::Yes && !keeps {
                 return Err(not_offered("Always here and Always are offered only on what Fleet can do by itself"));
             }
-            if press.answer == OperatorAnswer::AlwaysHere && row.manifest_id.is_empty() {
+            if answer == OperatorAnswer::AlwaysHere && row.manifest_id.is_empty() {
                 return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
             }
             let then = press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| {
                 // Where it offers Thens and he and the Operator named none: just file it.
                 what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
             });
-            let doing = Doing { session: &row.session, item: &item, pick: row.pick.as_deref().unwrap_or_default(), rule: None };
+            let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), rule: None };
             done = self.turn_performed(&doing, then).await.map_err(|fault| match fault {
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),
             })?;
-            if let (true, Some(what)) = (press.answer != OperatorAnswer::Yes, &what) {
-                let manifest_id = (press.answer == OperatorAnswer::AlwaysHere).then(|| row.manifest_id.clone());
+            if let (true, Some(what)) = (answer != OperatorAnswer::Yes, &what) {
+                let manifest_id = (answer == OperatorAnswer::AlwaysHere).then(|| row.manifest_id.clone());
                 self.rule_kept(OperatorRule::PickRule { manifest_id, what: what.clone(), pick: pick_word(what, then, doing.pick) }).await?;
             }
             if done.open.is_some() {

@@ -277,6 +277,7 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
 - A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
   Where a live Job took the last red, or its paths meet the files of the merge before this one, the item offers Hand to that Job beside Start a fix, with the Operator's pick; Yes on it claims the red for that Job and tells it, and Always here keeps the pick as the rule.
+  He may press the other option instead, and a rule he keeps with it keeps that option.
 
 The pane opened from a Job holds the chat and the short list.
 It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.

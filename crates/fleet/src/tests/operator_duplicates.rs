@@ -59,7 +59,7 @@ async fn turn_of(rig: &Rig, job: &SessionId) -> OperatorTurnItem {
 }
 
 fn press(item: &OperatorTurnItem, answer: OperatorAnswer) -> OperatorAnswerPress {
-    OperatorAnswerPress { id: item.id.clone(), answer, then: None }
+    OperatorAnswerPress { id: item.id.clone(), answer, then: None, option: None }
 }
 
 fn labels(item: &OperatorTurnItem) -> Vec<&str> {
@@ -236,6 +236,56 @@ async fn a_red_main_offers_hand_to_the_job_that_took_the_last_red_and_yes_gives_
     assert!(thread(&rig, &live).await.contains("Main went red at"));
     let row = rulings(&rig).await.into_iter().find(|row| row.outcome == "existing_job").expect("a Log row");
     assert_eq!((row.by.as_str(), row.other_session.as_deref()), ("operator", Some(live.as_str())));
+}
+
+/// A live Job that took the last red, and the Operator on, picking Hand to for the red that follows.
+async fn a_red_the_operator_would_hand_over() -> (Rig, SessionId, store::MainCi) {
+    let rig = rig_placing(None);
+    let live = a_live_job(&rig).await;
+    let at = Timestamp::from_rfc3339("2026-01-01T00:00:00.000Z");
+    let earlier = MainFix { repository: rig.root.clone(), red_at: at.clone(), by: TakenBy::Session(live.as_str().to_string()), forked_from: None, how: TakenHow::Took, check: "ci".into(), test: None, merge: None, taken_at: at.clone(), ended_at: Some(at), fixed_in: None };
+    rig.fleet.store().lock().await.keep_main_fix(&earlier).expect("kept");
+    seated(&rig, &[PICKS_HAND]).await;
+    let main = went_red(&rig, &"c".repeat(40), None).await;
+    (rig, live, main)
+}
+
+#[tokio::test]
+async fn pressing_start_a_fix_on_a_red_whose_pick_is_hand_to_starts_the_fix() {
+    let (rig, live, main) = a_red_the_operator_would_hand_over().await;
+    let one = red_item(&rig, &"c".repeat(40)).await;
+    assert_eq!(one.read.as_ref().map(|read| read.pick.as_str()), Some("Hand to Fix the scrollback"));
+
+    let named = OperatorAnswerPress { option: Some("Start a fix".into()), ..press(&one, OperatorAnswer::Yes) };
+    let answered = rig.fleet.operator_answered(named).await.expect("answered");
+
+    assert!(answered.started.is_some() && answered.handed_to.is_none(), "the option he named is done, not the pick: {answered:#?}");
+    assert_eq!(jobs_titled(&rig, "Fix main").await, 1);
+    assert!(!thread(&rig, &live).await.contains("Main went red at"), "the live Job was not told");
+    assert!(rig.fleet.taking(&main).await.is_some());
+}
+
+#[tokio::test]
+async fn an_option_the_item_does_not_offer_is_refused_and_nothing_is_done() {
+    let (rig, _live, _main) = a_red_the_operator_would_hand_over().await;
+    let one = red_item(&rig, &"c".repeat(40)).await;
+
+    let refused = rig.fleet.operator_answered(OperatorAnswerPress { option: Some("Hand to nobody".into()), ..press(&one, OperatorAnswer::Yes) }).await.expect_err("not offered");
+
+    assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.operator_answer_not_offered"));
+    assert_eq!(jobs_titled(&rig, "Fix main").await, 0);
+    assert_eq!(page(&rig).await.turn.iter().filter(|one| one.item.id.starts_with("red:")).count(), 1, "the item stands");
+}
+
+#[tokio::test]
+async fn always_here_with_a_named_option_keeps_that_option_as_the_rule() {
+    let (rig, _live, _main) = a_red_the_operator_would_hand_over().await;
+    let one = red_item(&rig, &"c".repeat(40)).await;
+
+    let answered = rig.fleet.operator_answered(OperatorAnswerPress { option: Some("Start a fix".into()), ..press(&one, OperatorAnswer::AlwaysHere) }).await.expect("answered");
+
+    assert!(answered.started.is_some());
+    assert_eq!(answered.page.digest.learned.iter().map(|rule| rule.said.as_str()).collect::<Vec<_>>(), ["Start a fix when main goes red"]);
 }
 
 #[tokio::test]
