@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AutoMerge, Layer, Look, PrMode, Values};
+use core_model::{AutoMerge, Layer, Look, PrMode, TrackerNamed, Values};
 
 use crate::{
     kit_values_text, parse_kit_values, parse_project, project_text, resolve, shipped_values, AutonomyLayers, Layers, ResolvedValues,
@@ -44,6 +44,7 @@ fn every_key_reads_and_writes_back() {
         auto_merge: Some(AutoMerge::ChecksPass),
         review_model: Some("big-model".into()),
         look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()) },
+        tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
     let written = project_text(&project).expect("text");
@@ -63,6 +64,39 @@ fn a_values_block_is_refused_for_every_key_that_is_wrong_and_names_each() {
     for fault in ["values.pr_mode", "values.auto_merge", "values.review_model", "values.tracker", "values.look.density", "values.look.font"] {
         assert!(said.contains(fault), "{fault} is named in: {said}");
     }
+}
+
+#[test]
+fn a_project_values_block_with_a_tracker_keeps_its_provider_and_every_carried_key() {
+    let read = values_of("values:\n  tracker:\n    provider: tickets\n    site: acme\n    board: ABC\n");
+    let tracker = read.tracker.expect("a tracker");
+    assert_eq!(tracker.provider.as_deref(), Some("tickets"));
+    assert_eq!(tracker.keys.get("site").map(String::as_str), Some("acme"));
+    assert_eq!(tracker.keys.get("board").map(String::as_str), Some("ABC"));
+    assert!(values_of("values:\n  pr_mode: draft\n").tracker.is_none(), "a block that names none sets none");
+}
+
+#[test]
+fn a_tracker_that_is_not_a_map_or_has_a_key_that_is_not_text_is_refused_at_its_path() {
+    assert!(refused("values:\n  tracker: tickets\n").contains("values.tracker"));
+    assert!(refused("values:\n  tracker:\n    provider: tickets\n    site: [a, b]\n").contains("values.tracker.site"));
+}
+
+#[test]
+fn kits_values_have_no_tracker_and_refuse_the_key() {
+    let said = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  tracker:\n    provider: tickets\n").expect_err("refused").to_string();
+    assert!(said.contains("values.tracker"), "named in: {said}");
+}
+
+#[test]
+fn a_project_nearer_than_its_repository_names_the_tracker_and_says_so() {
+    let repository = only(|v| v.tracker = Some(TrackerNamed { provider: Some("repo-board".into()), ..TrackerNamed::default() }));
+    let project = only(|v| v.tracker = Some(TrackerNamed { provider: Some("shared-board".into()), ..TrackerNamed::default() }));
+    let resolved = resolve(&layers(&[(Layer::Repository, repository.clone())]));
+    assert_eq!((resolved.tracker.value.and_then(|one| one.provider), resolved.tracker.from), (Some("repo-board".into()), Layer::Repository));
+    let resolved = resolve(&layers(&[(Layer::Repository, repository), (Layer::Project, project)]));
+    assert_eq!((resolved.tracker.value.and_then(|one| one.provider), resolved.tracker.from), (Some("shared-board".into()), Layer::Project));
+    assert_eq!(resolve(&layers(&[])).tracker.from, Layer::Default, "none named is the forge's own");
 }
 
 #[test]
@@ -101,6 +135,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         auto_merge: Some(merge),
         review_model: Some(format!("model-{word}")),
         look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()) },
+        tracker: None,
     }
 }
 

@@ -4,6 +4,8 @@
 //! **A key not set is absent**, so a project's `values` carries only what it sets. `look` is Bridge's:
 //! Fleet keeps and serves the words and Bridge decides what each names.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::PrMode;
@@ -22,6 +24,11 @@ pub struct ValuesSet {
     pub review_model: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub look: Option<LookSet>,
+    /// The tracker a project names for its issues and for the Jobs in it, as the Manifest's `tracker:` block
+    /// writes it: `provider` and every other key as text, carried as written. **A project's only**: Kit has none,
+    /// and Fleet refuses one in Kit's values, 422 `fleet.project_values_refused`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracker: Option<BTreeMap<String, String>>,
 }
 
 /// How Bridge looks, each key absent where the layer says nothing.
@@ -57,6 +64,15 @@ pub struct ResolvedValue {
     pub from: ValueLayer,
 }
 
+/// The tracker a layer named, and the layer. `value` is the block as written, `provider` and every other key,
+/// and is absent where no layer names one: the forge's own, `from` then `default`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvedTracker {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<BTreeMap<String, String>>,
+    pub from: ValueLayer,
+}
+
 /// What autonomy comes to for one kind of act: `acts`, `asks` or `off`. `from` is `kit`, `project` or
 /// `repository` where a piece sets it, else `default`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,6 +96,10 @@ pub struct ResolvedValues {
     pub theme: ResolvedValue,
     /// `compact`, `default` or `roomy`.
     pub density: ResolvedValue,
+    /// The tracker for the repository asked about, a project's replacing its repository's. **Absent from what a
+    /// Job froze**: a Job asks its tracker where it acts, and the project's word is read then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tracker: Option<ResolvedTracker>,
     /// One for each kind of act, where a repository was asked about; empty where only a project was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub autonomy: Vec<ResolvedAutonomy>,

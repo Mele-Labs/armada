@@ -13,14 +13,16 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AutoMerge, Layer, Look, PrMode, Values};
+use core_model::{AutoMerge, Layer, Look, PrMode, TrackerNamed, Values};
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::settings::{SHIPPED_THEME, SPACINGS};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look"];
+const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker"];
+/// Kit's keys: a tracker is a Project's, so Kit's block refuses it as it does any key it has no word for.
+const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look"];
 const LOOK: &[&str] = &["layout", "theme", "density"];
 const KIT_FILE: &[&str] = &["version", "values"];
 const PR_MODES: &[(&str, PrMode)] = &[("draft", PrMode::Draft), ("ready", PrMode::Ready)];
@@ -30,8 +32,9 @@ const AUTO_MERGES: &[(&str, AutoMerge)] =
 const AUTO_MERGES_LEGAL: &[&str] = &["never", "checks-pass", "always"];
 
 /// The `values:` block at `key`, refusing every fault with its key. **A key not set is not held**,
-/// and a refused one reads as not set, since a file with any refusal does not load.
-pub(crate) fn read_block(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Values {
+/// and a refused one reads as not set, since a file with any refusal does not load. **`tracker` is read
+/// only where `with_tracker`**, which is a Project's file and not Kit's.
+pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut Vec<Refusal>) -> Values {
     let Some(mut table) = Table::open(key, root, out) else { return Values::default() };
     let pr_mode = table
         .optional("pr_mode")
@@ -42,8 +45,16 @@ pub(crate) fn read_block(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Val
     let review_model = table.optional("review_model").and_then(|value| yaml::text(&table.at("review_model"), value, out));
     let look_at = table.at("look");
     let look = table.optional("look").map(|value| read_look(&look_at, value, out)).unwrap_or_default();
-    table.close(KEYS, out);
-    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look }
+    let tracker = if with_tracker {
+        crate::manifest::tracker::read(&mut table, out).map(|block| TrackerNamed {
+            provider: block.provider().map(str::to_string),
+            keys: block.keys().clone(),
+        })
+    } else {
+        None
+    };
+    table.close(if with_tracker { KEYS } else { KIT_KEYS }, out);
+    Values { pr_mode, auto_merge, review_model: review_model.map(|model| model.trim().to_string()), look, tracker }
 }
 
 fn read_look(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Look {
@@ -84,6 +95,16 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
     if !look.is_empty() {
         block.insert(text("look"), Value::Mapping(look));
     }
+    if let Some(tracker) = &values.tracker {
+        let mut named = Mapping::new();
+        if let Some(provider) = &tracker.provider {
+            named.insert(text("provider"), text(provider));
+        }
+        for (name, held) in &tracker.keys {
+            named.insert(text(name), text(held));
+        }
+        block.insert(text("tracker"), Value::Mapping(named));
+    }
     (!block.is_empty()).then_some(Value::Mapping(block))
 }
 
@@ -100,7 +121,7 @@ pub fn parse_kit_values(path: &Path, text: &str) -> Result<Values, LoadError> {
             }
         }
         if let Some(block) = top.optional("values") {
-            values = read_block("values", block, &mut out);
+            values = read_block("values", block, false, &mut out);
         }
         top.close(KIT_FILE, &mut out);
     }
@@ -127,6 +148,7 @@ pub fn shipped_values() -> Values {
         auto_merge: Some(AutoMerge::Never),
         review_model: None,
         look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()) },
+        tracker: None,
     }
 }
 
@@ -179,6 +201,9 @@ pub struct ResolvedValues {
     pub layout: ResolvedValue<String>,
     pub theme: ResolvedValue<String>,
     pub density: ResolvedValue<String>,
+    /// The tracker a layer named, a Project's over its repository's. **`None` is the forge's own**, or the
+    /// repository's where this is a Job's: no Machine, Kit or default layer names one.
+    pub tracker: ResolvedValue<TrackerNamed>,
     /// One for each kind of act, in the order of the kinds.
     pub autonomy: Vec<ResolvedAutonomy>,
 }
@@ -212,6 +237,7 @@ pub fn resolve(layers: &Layers) -> ResolvedValues {
         layout: nearest(layers, |values| values.look.layout.clone()),
         theme: nearest(layers, |values| values.look.theme.clone()),
         density: nearest(layers, |values| values.look.density.clone()),
+        tracker: nearest(layers, |values| values.tracker.clone()),
         autonomy: ActKind::ALL
             .iter()
             .map(|kind| {

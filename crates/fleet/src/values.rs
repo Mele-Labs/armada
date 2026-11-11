@@ -12,13 +12,14 @@
 //! **A Job takes its project's values at start** and keeps them: later edits move the layers and not the
 //! Job. A Job started for no project freezes its repository's.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use adapter_traits::{AgentHarness, Delivery, Review, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Key as _};
 use config::{kit_values_text, parse_kit_values, shipped_values, Layers, ResolvedValue, ResolvedValues};
-use core_model::{AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ScopeId, Ulid, Values};
+use core_model::{AutoMerge, Component, Envelope, FieldValue, Layer, Level, Look, ManifestId as Repository, PrMode, ScopeId, TrackerNamed, Ulid, Values};
 use ipc::{KitValuesSaved, LookSet, ManifestId, SaveKitValues, ValuesSet};
 use store::KeptValue;
 
@@ -37,6 +38,9 @@ pub(crate) const KIT_FILE: &str = "values.yml";
 
 const AUTONOMY: &str = "autonomy.";
 
+/// The tracker key that names the implementation, as the Manifest writes it.
+const PROVIDER: &str = "provider";
+
 /// What one layer sets, as the wire carries it. `None` where it sets nothing.
 pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
     if values.is_empty() {
@@ -49,7 +53,22 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         review_model: values.review_model.clone(),
         look: (*look != Look::default())
             .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone() }),
+        tracker: values.tracker.as_ref().map(tracker_wire),
     })
+}
+
+/// A tracker as the wire carries it: the Manifest block's keys, `provider` among them.
+fn tracker_wire(named: &TrackerNamed) -> BTreeMap<String, String> {
+    let mut block = named.keys.clone();
+    if let Some(provider) = &named.provider {
+        block.insert(PROVIDER.to_string(), provider.clone());
+    }
+    block
+}
+
+/// What a Manifest's `tracker:` block names, as a layer holds it.
+pub(crate) fn tracker_named(block: &config::TrackerBlock) -> TrackerNamed {
+    TrackerNamed { provider: block.provider().map(str::to_string), keys: block.keys().clone() }
 }
 
 fn layer_wire(layer: Layer) -> ipc::ValueLayer {
@@ -80,6 +99,7 @@ pub(crate) fn resolved_wire(resolved: &ResolvedValues) -> ipc::ResolvedValues {
         layout: word(&resolved.layout, Clone::clone),
         theme: word(&resolved.theme, Clone::clone),
         density: word(&resolved.density, Clone::clone),
+        tracker: Some(ipc::ResolvedTracker { value: resolved.tracker.value.as_ref().map(tracker_wire), from: layer_wire(resolved.tracker.from) }),
         autonomy: resolved
             .autonomy
             .iter()
@@ -146,6 +166,7 @@ impl Frozen {
             layout: one("layout"),
             theme: one("theme"),
             density: one("density"),
+            tracker: None,
             autonomy: core_model::rule::ActKind::ALL
                 .iter()
                 .filter_map(|kind| {
@@ -190,7 +211,22 @@ where
         if let Some(density) = density.as_deref().filter(|word| !keys::SPACINGS.contains(word)) {
             return Err(self.values_refused(format!("`{density}` is not a density: it is `compact`, `default` or `roomy`")));
         }
+        let tracker = match &written.tracker {
+            None => None,
+            Some(block) => {
+                let mut keys = BTreeMap::new();
+                for (name, held) in block {
+                    match held.trim() {
+                        "" => return Err(self.values_refused(format!("tracker.{name} is blank, and a key that is set has a word"))),
+                        held => keys.insert(name.trim().to_string(), held.to_string()),
+                    };
+                }
+                let provider = keys.remove(PROVIDER);
+                Some(TrackerNamed { provider, keys })
+            }
+        };
         Ok(Values {
+            tracker,
             pr_mode: written.pr_mode.map(|mode| mode.domain()),
             auto_merge,
             review_model: text("review_model", &written.review_model)?,
@@ -232,6 +268,7 @@ where
                 theme: now.chosen(keys::THEME).filter(|theme| !theme.trim().is_empty()),
                 density: now.chosen(keys::SPACING).filter(|density| !density.trim().is_empty()),
             },
+            tracker: None,
         }
     }
 
@@ -280,7 +317,12 @@ where
         };
         if let Some(served) = &repository {
             let manifest = served.manifest();
-            layers.repository = Values { pr_mode: manifest.pr_mode(), auto_merge: manifest.auto_merge_written(), ..Values::default() };
+            layers.repository = Values {
+                pr_mode: manifest.pr_mode(),
+                auto_merge: manifest.auto_merge_written(),
+                tracker: manifest.tracker().map(tracker_named),
+                ..Values::default()
+            };
             let scope = project.and_then(|id| ScopeId::new(id).ok());
             layers.autonomy = self.autonomy_applying_to(&Repository::carried(Ulid::carried(manifest.id().as_str())))?.layers(scope.as_ref());
         }
@@ -347,6 +389,9 @@ where
 
     /// `save_kit_values`: Kit's `values.yml`, whole. Nothing is kept where a word is not one its key takes.
     pub(crate) async fn kit_values_saved(&self, save: SaveKitValues) -> Result<KitValuesSaved, Refusal> {
+        if save.values.tracker.is_some() {
+            return Err(self.values_refused("Kit sets no tracker: a tracker is a project's, or a repository's own".to_string()));
+        }
         let values = self.values_read(&save.values)?;
         let path = self.kit_folder().join(KIT_FILE);
         let text = kit_values_text(&values).map_err(|why| self.kit_values_unwritable(&path, why))?;

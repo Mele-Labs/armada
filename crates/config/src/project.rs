@@ -138,7 +138,7 @@ fn read(
     // Only a version 2 file has `values`, and the block holds only the keys it sets.
     let values_at = top.at("values");
     let values = match version {
-        Version::Two => top.optional("values").map(|value| crate::values::read_block(&values_at, value, out)).unwrap_or_default(),
+        Version::Two => top.optional("values").map(|value| crate::values::read_block(&values_at, value, true, out)).unwrap_or_default(),
         Version::One => Values::default(),
     };
     top.close(known, out);

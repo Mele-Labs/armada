@@ -4,6 +4,7 @@
 //! A [`Values`] is what a Project's file, Kit's `values.yml`, a Machine's settings or a repository's
 //! Manifest say. Laying them over each other, the nearest winning, is `config::values`'s.
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 
 use crate::policy::AutoMerge;
@@ -17,6 +18,17 @@ pub struct Values {
     /// The model an agent run that reviews work runs on, as the agent spells it.
     pub review_model: Option<String>,
     pub look: Look,
+    /// The tracker a Project names for its issues and for the Jobs in it. **Only a Project's layer sets one**:
+    /// Kit has none, and a repository's is its Manifest's own block, which is not held here.
+    pub tracker: Option<TrackerNamed>,
+}
+
+/// A tracker as a layer wrote it: the provider where it named one, and every other key as written, for that
+/// provider to read. **No provider is the forge's own.** The same shape as the Manifest's `tracker:` block.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TrackerNamed {
+    pub provider: Option<String>,
+    pub keys: BTreeMap<String, String>,
 }
 
 /// How Bridge looks. Fleet keeps and serves the words, and Bridge decides what each names.

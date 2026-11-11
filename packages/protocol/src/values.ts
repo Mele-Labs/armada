@@ -11,6 +11,12 @@ export type ValuesSet = {
   /** The model an agent run that reviews work runs on, as the agent spells it. */
   review_model?: string;
   look?: LookSet;
+  /**
+   * The tracker a project names for its issues and for the Jobs in it, as the Manifest's `tracker:` block writes it:
+   * `provider` and every other key as text, carried as written. A project's only: Kit has none, and a tracker in Kit's
+   * values is refused 422 `fleet.project_values_refused`.
+   */
+  tracker?: Record<string, string>;
 };
 
 /** How Bridge looks. Fleet keeps the words and Bridge decides what each names. `density` is `compact`, `default` or `roomy`. */
@@ -29,6 +35,12 @@ export type ValueLayer = "default" | "machine" | "kit" | "repository" | "project
 /** One key's answer. `value` is absent where no layer sets the key and the default has no word for it; `from` is then `default`. */
 export type ResolvedValue = {
   value?: string;
+  from: ValueLayer;
+};
+
+/** The tracker a layer named. `value` is absent where none does (the forge's own), and `from` is then `default`. */
+export type ResolvedTracker = {
+  value?: Record<string, string>;
   from: ValueLayer;
 };
 
@@ -52,6 +64,11 @@ export type ResolvedValues = {
   theme: ResolvedValue;
   /** `compact`, `default` or `roomy`. */
   density: ResolvedValue;
+  /**
+   * The tracker for the repository asked about, a project's replacing its repository's. Absent from what a Job froze:
+   * a Job asks its tracker where it acts, and the project's word is read then.
+   */
+  tracker?: ResolvedTracker;
   /** One for each kind of act, where a repository was asked about; left out where only a project was. */
   autonomy?: ResolvedAutonomy[];
 };
