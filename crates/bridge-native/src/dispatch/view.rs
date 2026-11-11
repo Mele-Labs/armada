@@ -348,6 +348,10 @@ impl DispatchSheet {
             .map(|(at, chip)| self.chip(at, chip, on_row && self.rover == at, off, asking, cx).into_any_element())
             .collect();
         let more = (!self.face.more.is_empty()).then(|| self.more_menu(off, cx));
+        // A start Fleet refused, in Fleet's words, on a line of its own under the repositories.
+        let refusal = self.face.refused.clone().filter(|_| self.kind == Kind::Job).map(|why| {
+            labelled(div().id("dispatch-refused").w_full().text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why)
+        });
         let repos = labelled(
             div()
                 .id("dispatch-repos")
@@ -364,7 +368,8 @@ impl DispatchSheet {
                 .bg(if asking { hue } else { look.color(token::BG_SUNKEN) })
                 .child(mark)
                 .children(chips)
-                .children(more),
+                .children(more)
+                .children(refusal),
             Role::RadioGroup,
             "Repository",
         );

@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 37] = [
+pub static STEPS: [Step; 39] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
     step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
@@ -40,6 +40,8 @@ pub static STEPS: [Step; 37] = [
     step("Esc again puts the call away: the frame is as it was", Verb::Key("escape"), "dialog", "Dispatch"),
     answer("A pasted snippet stands over the line and can be removed", "attach", "button", "Remove pasted-snippet.txt"),
     answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
-    answer("A repository not ready: the refusal stands as a notice, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
+    answer("A repository not ready: the refusal stands beside the repositories, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
+    answer("A window scoped to a project offers only the repositories it holds", "storefront", "radio", "Repository sample-web"),
+    answer("A start Fleet refuses for the project says why, in Fleet's words, beside the repositories", "refuse-member", "alert", "`sample-web` is not a member of the project Storefront, so a Job in it cannot be for it"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
 ];

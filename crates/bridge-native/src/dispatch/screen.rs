@@ -11,9 +11,10 @@ use gpui::{
     canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
     Subscription, WeakEntity, Window,
 };
-use ipc::SessionRecord;
+use ipc::{SessionRecord, SessionId};
 
 use super::face::{Face, Sent};
+use super::live;
 use super::scenes;
 use super::sheet::{Asked, DispatchSheet};
 use crate::annotate::{self, Layer, Shoot, Toggle};
@@ -21,7 +22,7 @@ use crate::jobs::JobsScreen;
 use crate::keymap::Act;
 use crate::labels::{labelled, LabelBook};
 use crate::look::{token, ActiveLook};
-use crate::titlebar::parts::{card, glyph, icon_button, kbd, mono, tip, Btn, Weight};
+use crate::titlebar::parts::{glyph, icon_button, kbd, mono, tip, Btn, Weight};
 use crate::titlebar::{self, Asked as BarAsked, AskedSink};
 
 /// The strip a send leaves, hung from the title bar's field.
@@ -47,11 +48,30 @@ pub struct DispatchScreen {
     /// Where the notes are kept, once something says.
     kept_in: Option<std::path::PathBuf>,
     strip: Option<Strip>,
-    /// A start Fleet refused, raised as the window's toast.
-    toast: Option<SharedString>,
+    /// The repositories Fleet serves, as the sheet's chips name them, while the window is on a live Fleet.
+    served: Vec<live::Served>,
+    models: Option<ipc::ModelChoices>,
+    models_asked: bool,
     pub within: FocusHandle,
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
     _subs: Vec<Subscription>,
+}
+
+/// The project the window is scoped to, by Fleet's id, and the names of the repositories it holds in the
+/// order its members name them. `None` on All.
+fn scope(cx: &App) -> Option<(SharedString, Vec<SharedString>)> {
+    let bar = titlebar::live(cx)?;
+    let face = &bar.read(cx).face;
+    let project = face.scoped.and_then(|at| face.projects.get(at))?;
+    let mut names: Vec<SharedString> = Vec::new();
+    for member in &project.members {
+        if let Some(one) = face.repositories.get(member.repository) {
+            if !names.contains(&one.name) {
+                names.push(one.name.clone());
+            }
+        }
+    }
+    Some((project.id.clone(), names))
 }
 
 /// The screen in front, for a walk to move between scenes.
@@ -208,20 +228,168 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, toast: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, served: Vec::new(), models: None, models_asked: false, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// ⌘N and its other doors: the sheet opens on the draft as it stands, and the strip goes.
     fn open_sheet(&mut self, add: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.strip = None;
-        self.toast = None;
+        self.refresh_face(window, cx);
         self.sheet.update(cx, |sheet, cx| sheet.show(add, window, cx));
         cx.notify();
     }
 
-    fn sheet_asked(&mut self, _asked: &Asked, _window: &mut Window, cx: &mut Context<Self>) {
-        // A start that was refused clears the toast when the next one begins.
-        self.toast = None;
+    /// What the sheet asks. On a live Fleet the start is posted and the words are read; on mock data nothing is
+    /// on the other end, and a walk answers by scene.
+    fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
+        if self.jobs.read(cx).list.read(cx).fleet().is_some() {
+            match asked {
+                Asked::ReadRepository(words) => self.read_repository(words.clone(), window, cx),
+                Asked::Start { words, repository, model, effort, held } => {
+                    self.start_job(words.clone(), repository, model.clone(), effort.clone(), *held, window, cx)
+                }
+                // The live sheet offers neither Autopilot, a wait nor the queue.
+                _ => {}
+            }
+        }
+        cx.notify();
+    }
+
+    fn fleet_port(&self, cx: &App) -> Option<u16> {
+        self.jobs.read(cx).list.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().port())
+    }
+
+    /// The sheet's face from what Fleet serves, each time it opens: the repositories, narrowed to the
+    /// project the window is scoped to, and the Jobs the `@` menu offers.
+    fn refresh_face(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(fleet) = self.jobs.read(cx).list.read(cx).fleet() else { return };
+        if self.sheet.read(cx).is_open() {
+            return;
+        }
+        let repositories = fleet.read(cx).held().repositories.clone().unwrap_or_default();
+        let port = fleet.read(cx).held().port();
+        self.served = live::served(&repositories);
+        let keep = scope(cx).map(|(_, names)| names);
+        let jobs = scenes::live(self.jobs.read(cx).list.read(cx).records());
+        let face = live::face_of(&self.served, keep.as_deref(), jobs, port.is_some(), live::tuning(self.models.as_ref()));
+        self.sheet.update(cx, |sheet, cx| {
+            // What was picked by hand last time does not stand over a face read again.
+            sheet.face.reading = super::face::Reading::Idle;
+            sheet.set_face(face, window, cx);
+        });
+        if let (Some(port), false) = (port, self.models_asked) {
+            self.models_asked = true;
+            cx.spawn(async move |this, cx| {
+                let answer = cx.background_executor().spawn(async move { live::call(port, "/models".into(), None) }).await;
+                let _ = this.update(cx, |this, cx| match answer.and_then(|bytes| ipc::decode::<ipc::ModelChoices>("ModelChoices", &bytes).map_err(|why| why.to_string())) {
+                    Ok(models) => {
+                        let tuning = live::tuning(Some(&models));
+                        this.models = Some(models);
+                        this.sheet.update(cx, |sheet, cx| {
+                            sheet.face.tuning = tuning;
+                            cx.notify();
+                        });
+                    }
+                    Err(_) => this.models_asked = false,
+                });
+            })
+            .detach();
+        }
+    }
+
+    /// The words rested: Fleet reads which repository they name, and the chip it names is chosen. Where it names
+    /// none, or one the project does not hold, the sheet says so and the person picks.
+    fn read_repository(&mut self, words: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(port) = self.fleet_port(cx) else { return };
+        let path = format!("/repositories/of_request?q={}", crate::link::percent_encoded(&words));
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx.background_executor().spawn(async move { live::call(port, path, None) }).await;
+            let _ = this.update_in(cx, |this, window, cx| this.repository_read(words, answer, window, cx));
+        })
+        .detach();
+    }
+
+    fn repository_read(&mut self, words: String, answer: Result<Vec<u8>, String>, window: &mut Window, cx: &mut Context<Self>) {
+        // Words typed since are read by their own ask.
+        if self.sheet.read(cx).words(cx) != words {
+            return;
+        }
+        let face = self.sheet.read(cx).face.clone();
+        let read = answer.ok().and_then(|bytes| ipc::decode::<ipc::RequestRepository>("RequestRepository", &bytes).ok());
+        let named = read
+            .and_then(|read| read.manifest_id)
+            .and_then(|id| self.served.iter().find(|one| one.id == id))
+            .map(|one| one.name.clone())
+            .filter(|name| face.chips.iter().chain(&face.more).any(|chip| chip.name == *name));
+        let face = live::read(face, named.as_ref());
+        self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
+    }
+
+    /// Start: the words go to Fleet with the repository's Manifest id, the model and effort picked, and the project
+    /// the window is scoped to. A Job started opens; a refusal is Fleet's sentence on the sheet, which keeps its words.
+    #[allow(clippy::too_many_arguments)]
+    fn start_job(&mut self, words: String, repository: &str, model: Option<String>, effort: Option<String>, held: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(port) = self.fleet_port(cx) else {
+            self.sheet.update(cx, |sheet, cx| sheet.refused("Fleet is not connected".into(), cx));
+            return;
+        };
+        let Some(manifest_id) = self.served.iter().find(|one| one.name == repository).map(|one| one.id.clone()) else {
+            let said = format!("Fleet serves no repository named {repository}");
+            self.sheet.update(cx, |sheet, cx| sheet.refused(said.into(), cx));
+            return;
+        };
+        let start = ipc::StartSession {
+            manifest_id,
+            title: None,
+            model,
+            effort,
+            mode: None,
+            fork: None,
+            root: None,
+            request: Some(words.clone()),
+            after: None,
+            held,
+            project_rows: Vec::new(),
+            on_your_words: None,
+            project: scope(cx).map(|(id, _)| id.to_string()),
+        };
+        let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx
+                .background_executor()
+                .spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) })
+                .await;
+            let _ = this.update_in(cx, |this, window, cx| this.started(answer, words, port, window, cx));
+        })
+        .detach();
+    }
+
+    fn started(&mut self, answer: Result<Vec<u8>, String>, words: String, port: u16, window: &mut Window, cx: &mut Context<Self>) {
+        let record = answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string()));
+        match record {
+            Ok(record) => {
+                let id = record.id.as_str().to_string();
+                self.sheet.update(cx, |sheet, cx| {
+                    sheet.answered(window, cx);
+                });
+                // The words are the Job's first message, as Electron's Start sends them once the Job exists.
+                let body = ipc::encode(&ipc::SendSessionMessageBody {
+                    message: ipc::SendSessionMessage { session_id: SessionId::carried(id.clone()), text: words, attachments: Vec::new(), mentions: Vec::new() },
+                    aim: None,
+                })
+                .map_err(|why| format!("{why:?}"));
+                cx.background_executor()
+                    .spawn(async move {
+                        if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
+                            crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
+                        }
+                    })
+                    .detach();
+                let list = self.jobs.read(cx).list.clone();
+                list.update(cx, |list, cx| list.open(id.into(), cx));
+            }
+            Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
+        }
         cx.notify();
     }
 
@@ -351,9 +519,27 @@ impl DispatchScreen {
                 self.sheet.update(cx, |sheet, cx| {
                     let face = scenes::online(sheet.face.clone());
                     sheet.set_face(face, window, cx);
-                    sheet.refused(cx)
+                    sheet.refused("Job not started: the repository has no free slot".into(), cx)
                 });
-                self.toast = Some("Job not started: the repository has no free slot".into());
+            }
+            "storefront" => {
+                // The window is scoped to the project that holds two repositories: the picker offers those.
+                if let Some(bar) = titlebar::live(cx) {
+                    bar.update(cx, |bar, cx| {
+                        bar.face.scoped = Some(1);
+                        cx.notify();
+                    });
+                }
+                let keep = scope(cx).map(|(_, names)| names).ok_or("the title bar holds no project to scope to")?;
+                let mut face = live::narrowed(face, &keep);
+                face.refused = None;
+                self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
+            }
+            "refuse-member" => {
+                // Fleet's 422 for a start whose repository the project does not hold.
+                self.sheet.update(cx, |sheet, cx| {
+                    sheet.refused("`sample-web` is not a member of the project Storefront, so a Job in it cannot be for it".into(), cx)
+                });
             }
             "layer-reload" => {
                 // What a window reloaded does: the layer is built again, reads the notes back from where they were
@@ -459,22 +645,6 @@ impl Render for DispatchScreen {
                 "Last dispatch",
             )
         });
-        let toast = self.toast.clone().map(|text| {
-            labelled(
-                card(look)
-                    .id("dispatch-toast")
-                    .absolute()
-                    .right(look.length(token::SPACE_6))
-                    .bottom(look.length(token::SPACE_6))
-                    .max_w(look.length(token::W_TOAST))
-                    .p(look.length(token::SPACE_4))
-                    .border_color(look.color(token::ERROR_EDGE))
-                    .text_size(look.length(token::TEXT_SM))
-                    .child(text.clone()),
-                Role::Alert,
-                text,
-            )
-        });
         let sheet = self.sheet.read(cx).is_open().then(|| self.sheet.clone());
         div()
             .id("dispatch-screen")
@@ -491,7 +661,6 @@ impl Render for DispatchScreen {
             .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
             .children(strip)
             .children(sheet)
-            .children(toast)
             .children(self.layer.clone())
     }
 }

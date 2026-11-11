@@ -33,7 +33,7 @@ use gpui::{
 };
 use ipc::{BuildSource, ModelDownshift};
 
-pub use face::{Connection, Face, Remedy, Restarting};
+pub use face::{repositories_of, Connection, Face, Remedy, Restarting};
 
 use crate::assets::MARK;
 use crate::dropdown::{Dropdown, Entry, Picked, Row};

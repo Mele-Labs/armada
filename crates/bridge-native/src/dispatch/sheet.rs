@@ -265,8 +265,8 @@ impl DispatchSheet {
             self.wait = None;
             return;
         }
-        // A repository picked by hand stands until the sheet is opened again.
-        if self.face.reading != Reading::Picked {
+        // A repository picked by hand, or the one the window is scoped to, stands until the sheet is opened again.
+        if !matches!(self.face.reading, Reading::Picked | Reading::Scoped) {
             self.face.reading = Reading::Detecting;
             cx.emit(Asked::ReadRepository(words.to_string()));
         }
@@ -340,6 +340,7 @@ impl DispatchSheet {
         self.kind = kind;
         self.sending = false;
         self.face.read = None;
+        self.face.refused = None;
         self.instruction = None;
         self.fields.clear();
         self.request.update(cx, |state, cx| state.set_placeholder(placeholder(kind), window, cx));
@@ -384,6 +385,7 @@ impl DispatchSheet {
         match self.kind {
             Kind::Job => {
                 let held = self.wait.is_none();
+                self.face.refused = None;
                 cx.emit(Asked::Start {
                     words,
                     repository,
@@ -445,8 +447,9 @@ impl DispatchSheet {
         (kind == Kind::Autopilot).then(|| Sent { kind, root: title.clone().into(), title: title.into() })
     }
 
-    /// Fleet refused: the sheet is as it was, words and pick kept.
-    pub fn refused(&mut self, cx: &mut Context<Self>) {
+    /// Fleet refused, in its own words: the sheet is as it was, words and pick kept, and the row says why.
+    pub fn refused(&mut self, why: SharedString, cx: &mut Context<Self>) {
+        self.face.refused = Some(why);
         self.sending = false;
         self.queueing = false;
         self.waiting = false;
@@ -520,6 +523,7 @@ impl DispatchSheet {
     pub(super) fn pick(&mut self, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let was_asking = self.asking;
         self.face.pick(&name);
+        self.face.refused = None;
         self.asking = false;
         if was_asking {
             // The act was waiting on a repository: it goes at once.

@@ -169,7 +169,7 @@ pub fn init_app(cx: &mut App) {
 
 /// The window's root on a live Fleet or on mock data.
 struct Shell {
-    screen: Entity<JobsScreen>,
+    screen: gpui::AnyView,
     _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>, Entity<Notifier>)>,
 }
 
@@ -258,8 +258,10 @@ fn main() -> ExitCode {
                     let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
                     let notifier = cx.new(|cx| Notifier::new(&fleet, &jobs, window.window_handle(), cx));
-                    let screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
-                    cx.new(|_| Shell { screen, _fleet: Some((fleet, look, keys, menu, notifier)) })
+                    let jobs_screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
+                    // The sheet over the Jobs screen: ⌘N and `n` open it, and its Start goes to this Fleet.
+                    let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx));
+                    cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })
                 })
                 .map(|_| ()),
             Mode::Mock(scenario) => match mock::jobs(&scenario).and_then(|records| Ok((records, mock::threads(&scenario)?))) {
@@ -269,7 +271,7 @@ fn main() -> ExitCode {
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
                         let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx));
-                        cx.new(|_| Shell { screen, _fleet: None })
+                        cx.new(|_| Shell { screen: screen.into(), _fleet: None })
                     })
                     .map(|_| ()),
                 Err(why) => Err(anyhow::anyhow!(why)),
