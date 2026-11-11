@@ -2,9 +2,9 @@
 //! its ×'s room whether it shows or not, so a tab is as wide either way; it shows on the tab in front
 //! and on hover. A closed tab stays closed for that Job until + brings it back.
 //!
-//! **+ offers the tabs built here, each in its own pane.** Electron's menu lists every kind for every
-//! pane; the native Job draws its thread, Open, Done and Deferred, and Now in fixed places, so a
-//! pane's + offers its own kinds alone.
+//! **+ offers the tabs built here, each in its own pane, in Electron's order of kinds.** Electron's
+//! menu lists every kind for every pane; the native Job draws its thread and Now in fixed places, so
+//! their +s offer their own kind, and the top pane's offers the rest.
 
 use std::collections::HashSet;
 
@@ -31,7 +31,16 @@ impl Pane {
     fn kinds(self) -> &'static [(&'static str, &'static str, &'static str)] {
         match self {
             Pane::Thread => &[("thread", "Thread", "message-square")],
-            Pane::Top => &[("open", "Open", "circle"), ("done", "Done", "circle-check"), ("deferred", "Deferred", "circle-dashed")],
+            // In Electron's order of kinds (`JOB_TAB_KINDS`), the ones built here alone.
+            Pane::Top => &[
+                ("done", "Done", "circle-check"),
+                ("open", "Open", "circle"),
+                ("deferred", "Deferred", "circle-dashed"),
+                ("plan", "Plan", "list-checks"),
+                ("changes", "Changes", "diff"),
+                ("files", "Files", "folder-tree"),
+                ("checks", "Checks", "shield-check"),
+            ],
             Pane::Now => &[("now", "Now", "activity")],
         }
     }
@@ -50,13 +59,19 @@ pub(super) struct AddMenu {
     _subs: Vec<Subscription>,
 }
 
-/// The tabs closed on each Job, by Job id.
+/// The tabs closed on each Job, and those + opened that start shut, by Job id.
 #[derive(Default)]
-pub(super) struct Closed(std::collections::HashMap<SharedString, HashSet<&'static str>>);
+pub(super) struct Closed {
+    shut: std::collections::HashMap<SharedString, HashSet<&'static str>>,
+    opened: std::collections::HashMap<SharedString, HashSet<&'static str>>,
+}
 
 impl JobView {
     pub(super) fn tab_closed(&self, tab: &str) -> bool {
-        self.shown.as_ref().and_then(|id| self.tabs_closed.0.get(id)).is_some_and(|closed| closed.contains(tab))
+        if Zone::ALL.into_iter().any(|zone| zone.id() == tab && zone.opened_by_hand()) {
+            return !self.shown.as_ref().and_then(|id| self.tabs_closed.opened.get(id)).is_some_and(|opened| opened.contains(tab));
+        }
+        self.shown.as_ref().and_then(|id| self.tabs_closed.shut.get(id)).is_some_and(|closed| closed.contains(tab))
     }
 
     /// Top's tab in front: the zone, or the first of its tabs still open.
@@ -69,7 +84,10 @@ impl JobView {
 
     pub(super) fn close_tab(&mut self, tab: &'static str, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        self.tabs_closed.0.entry(id).or_default().insert(tab);
+        if let Some(opened) = self.tabs_closed.opened.get_mut(&id) {
+            opened.remove(tab);
+        }
+        self.tabs_closed.shut.entry(id).or_default().insert(tab);
         if let Some(zone) = self.zone_shown() {
             self.zone = zone;
         }
@@ -77,15 +95,22 @@ impl JobView {
     }
 
     fn add_tab(&mut self, tab: &'static str, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(closed) = self.shown.as_ref().and_then(|id| self.tabs_closed.0.get_mut(id)) {
-            closed.remove(tab);
+        if let Some(id) = self.shown.clone() {
+            if let Some(closed) = self.tabs_closed.shut.get_mut(&id) {
+                closed.remove(tab);
+            }
+            self.tabs_closed.opened.entry(id).or_default().insert(tab);
         }
         if let Some(zone) = Zone::ALL.into_iter().find(|zone| zone.id() == tab) {
             self.zone = zone;
+            if let Some(at) = Zone::ALL.into_iter().filter(|one| !self.tab_closed(one.id())).position(|one| one == zone) {
+                self.panes.top_tabs.scroll_to_item(at);
+            }
         }
         if tab == "thread" {
             window.focus(&self.focus, cx);
         }
+        self.want_pane_reads(window, cx);
         cx.notify();
     }
 

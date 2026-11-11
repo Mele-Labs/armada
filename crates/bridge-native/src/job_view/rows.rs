@@ -26,7 +26,7 @@ use crate::look::{token, ActiveLook, Look, Token};
 /// The widest the words go, in units of the largest space token (960 px at the default spacing).
 
 /// A time in the owner's clock, with the day when it is not today (`Stamp`, A1.11).
-fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
+pub(super) fn clock(at: &str, now: DateTime<Local>) -> Option<String> {
     let then = DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&Local);
     let time = then.format("%H:%M:%S").to_string();
     Some(if then.date_naive() == now.date_naive() { time } else { format!("{} {time}", then.format("%b %-d")) })

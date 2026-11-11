@@ -41,6 +41,8 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "tool-rows" | "call-rows" | "sketch-card" | "sketch-share" | "sketch-changes" | "subagent" => include_bytes!("../fixtures/jobs-tools.json"),
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" => include_bytes!("../fixtures/jobs-drafts.json"),
+        // The box's Jobs, with the first holding a plan, two pull requests and a Job it started with one of its own.
+        "job-panes" => include_bytes!("../fixtures/jobs-panes.json"),
         other => return Err(format!("no mock scenario named {other}")),
     };
     ipc::decode::<SessionList>("SessionList", bytes).map(|list| list.sessions).map_err(|why| why.to_string())
@@ -77,7 +79,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
         "history" => include_bytes!("../fixtures/history-threads.json"),
         "thread-moved" => include_bytes!("../fixtures/moved-threads.json"),
         // The thread the box was walked against: no question or plan waiting, so the quick bar draws.
-        "job-view-composer" => include_bytes!("../fixtures/composer-threads.json"),
+        "job-view-composer" | "job-panes" => include_bytes!("../fixtures/composer-threads.json"),
         // The box's threads, with Audit the docs index ending on a message that names a Job, holds a block and an address.
         "thread-presses" => include_bytes!("../fixtures/thread-presses-threads.json"),
         // The box's threads, with Audit the docs index ending on his message that tags a Job in its words and a pull request beside them.
@@ -161,6 +163,74 @@ pub fn subagent<T: serde::de::DeserializeOwned>(job: &str, id: &str) -> Option<T
     reads.subagents.into_iter().find(|one| one.session_id == job && one.subagent_id == id).map(|one| one.read)
 }
 
+/// The scenario last named is the panes' own: their reads answer only there.
+fn panes_named() -> bool {
+    SCENARIO.lock().is_ok_and(|named| named.as_str() == "job-panes")
+}
+
+/// A pull request's files as `GET /pull_request_patches/:repository/:number` answers them, by
+/// `manifest#number`.
+pub fn patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        patches: ipc::PullRequestFilePatches,
+    }
+    #[derive(Deserialize)]
+    struct Pulls {
+        pulls: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let pulls = ipc::decode::<Pulls>("pull request patches", include_bytes!("../fixtures/panes-patches.json"))
+        .unwrap_or_else(|why| panic!("the patches fixture does not decode: {why}"));
+    pulls.pulls.into_iter().find(|one| one.key == key).map(|one| one.patches)
+}
+
+/// A file of the Job's repository as `GET /sessions/repository_file` will answer it: its text, or
+/// Fleet's refusal word (`not_addressable`, `too_big`, `binary`, `unreadable`).
+pub fn repository_file(path: &str) -> Option<Result<String, String>> {
+    #[derive(Deserialize)]
+    struct One {
+        path: String,
+        text: Option<String>,
+        refused: Option<String>,
+    }
+    #[derive(Deserialize)]
+    struct Files {
+        files: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let files = ipc::decode::<Files>("repository files", include_bytes!("../fixtures/panes-files.json"))
+        .unwrap_or_else(|why| panic!("the repository files fixture does not decode: {why}"));
+    let one = files.files.into_iter().find(|one| one.path == path)?;
+    Some(one.text.ok_or_else(|| one.refused.unwrap_or_else(|| "unreadable".into())))
+}
+
+/// A Check run's output as `GET /sessions/checks/:run/output` answers it.
+pub fn check_output(run: u64) -> Option<ipc::CheckOutput> {
+    #[derive(Deserialize)]
+    struct One {
+        run: u64,
+        #[serde(flatten)]
+        output: ipc::CheckOutput,
+    }
+    #[derive(Deserialize)]
+    struct Outputs {
+        outputs: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let outputs = ipc::decode::<Outputs>("check outputs", include_bytes!("../fixtures/panes-checks.json"))
+        .unwrap_or_else(|why| panic!("the check outputs fixture does not decode: {why}"));
+    outputs.outputs.into_iter().find(|one| one.run == run).map(|one| one.output)
+}
+
 /// The models Fleet offers (`GET /models`), for every scenario: a live Fleet always answers it, so
 /// no walk draws the box without its model. `None` off the mock, where no scenario was named.
 pub fn models() -> Option<ModelChoices> {
@@ -199,7 +269,7 @@ pub fn catalogue() -> Option<Catalogue> {
         scripts: Vec<Talk>,
     }
     let named = SCENARIO.lock().ok()?.clone();
-    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages" | "history") {
+    if !matches!(named.as_str(), "job-view-composer" | "jobs-screens" | "thread-presses" | "sent-messages" | "history" | "job-panes") {
         return None;
     }
     let read = || -> Result<Catalogue, String> {
