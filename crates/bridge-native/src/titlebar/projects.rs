@@ -7,7 +7,8 @@
 //! [`super::face::projects_of`]; a walk's scene reads the same from the mock. Fleet has no route that
 //! sets a window's project, so a pick is the window's own and sends nothing.
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Window};
+use gpui_component::input::{Input, InputEvent, InputState};
 
 use super::face::Face;
 use super::parts::{glyph, Btn, Weight};
@@ -26,10 +27,12 @@ pub(super) enum Pick {
 }
 
 /// What the switcher holds while it is open: what is typed in Find, and the row the keys are on.
-#[derive(Clone, Debug, Default)]
+#[derive(Default)]
 pub(super) struct Switcher {
     pub query: String,
     pub at: usize,
+    /// Find, a text box as the palette's is, so typing reaches it through the platform's text input.
+    find: Option<(Entity<InputState>, Subscription)>,
 }
 
 /// The rows Find leaves, in the order they stand: All, the projects, what is in no project, New project.
@@ -67,8 +70,18 @@ impl TitleBar {
     pub(super) fn open_switcher(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let here = current(&self.face);
         let at = picks(&self.face, "").iter().position(|pick| *pick == here).unwrap_or(0);
-        self.switcher = Switcher { query: String::new(), at };
+        let find = cx.new(|cx| InputState::new(window, cx).placeholder("Find"));
+        let typed = cx.subscribe_in(&find, window, |this, find, event: &InputEvent, _, cx| {
+            if matches!(event, InputEvent::Change) {
+                this.switcher.query = find.read(cx).value().to_string();
+                this.switcher.at = 0;
+                cx.notify();
+            }
+        });
+        self.switcher = Switcher { query: String::new(), at, find: Some((find.clone(), typed)) };
         self.open_popup(super::Popup::Projects, window, cx);
+        // After the popover takes the keys, Find has them.
+        window.defer(cx, move |window, cx| find.update(cx, |find, cx| find.focus(window, cx)));
     }
 
     fn picked_row(&self) -> Option<Pick> {
@@ -130,17 +143,8 @@ impl TitleBar {
                 let asked = Self::settings_of(self.picked_row());
                 self.leave_with(asked, window, cx);
             }
-            "backspace" => {
-                self.switcher.query.pop();
-                self.switcher.at = 0;
-            }
-            _ => {
-                let Some(typed) = keys.key_char.as_ref().filter(|_| !keys.modifiers.platform && !keys.modifiers.control) else { return };
-                if typed.chars().all(|c| !c.is_control()) {
-                    self.switcher.query.push_str(typed);
-                    self.switcher.at = 0;
-                }
-            }
+            // Letters, Backspace and the rest are Find's own.
+            _ => return,
         }
         cx.stop_propagation();
         cx.notify();
@@ -151,7 +155,7 @@ impl TitleBar {
         let face = &self.face;
         let rows = picks(face, &self.switcher.query);
         let on = rows.get(self.switcher.at).copied();
-        let mut left: Vec<AnyElement> = vec![self.find_box(look)];
+        let mut left: Vec<AnyElement> = self.find_box(look).into_iter().collect();
         let mut said_projects = false;
         let mut said_lone = false;
         for (at, pick) in rows.iter().enumerate() {
@@ -214,10 +218,9 @@ impl TitleBar {
         .into_any_element()
     }
 
-    fn find_box(&self, look: &Look) -> AnyElement {
-        let query = &self.switcher.query;
-        let (said, ink) = if query.is_empty() { ("Find".to_string(), token::FG_SUBTLE) } else { (query.clone(), token::FG_DEFAULT) };
-        labelled(
+    fn find_box(&self, look: &Look) -> Option<AnyElement> {
+        let (find, _) = self.switcher.find.as_ref()?;
+        Some(labelled(
             div()
                 .id("project-find")
                 .mx(look.length(token::SPACE_2))
@@ -232,13 +235,13 @@ impl TitleBar {
                 .border_color(look.color(token::BORDER_STRONG))
                 .bg(look.color(token::BG_RAISED))
                 .text_size(look.length(token::TEXT_XS))
-                .text_color(look.color(ink))
+                .text_color(look.color(token::FG_DEFAULT))
                 .child(glyph("search", look.length(token::SPACE_3) + look.length(token::SPACE_1) / 2., look.color(token::FG_SUBTLE)))
-                .child(div().min_w_0().truncate().child(said)),
+                .child(div().flex_1().min_w_0().child(Input::new(find).appearance(false))),
             Role::SearchInput,
             "Find a project",
         )
-        .into_any_element()
+        .into_any_element())
     }
 
     fn pick_row(&self, at: usize, pick: Pick, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
