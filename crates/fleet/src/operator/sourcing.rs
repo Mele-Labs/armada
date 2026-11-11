@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{AgentHarness, BeadState, Delivery, OpenIssue, Vcs, WorkProduct};
+use adapter_traits::{AgentHarness, Delivery, OpenIssue, Vcs, WorkProduct};
 use api::HostedSessions;
 use ipc::annotations::{note_read, NoteRead};
 use ipc::{ManifestId, Notice, SessionTag, SessionVoice, StartSession, TagKind};
@@ -361,23 +361,6 @@ where
             _ => {}
         }
         Ok(made)
-    }
-
-    /// `reference` closed in the repository's beads with `reason`, which is how a close and a group are
-    /// written. **Nothing else is written to it**: an issue is not retitled, commented on or moved.
-    async fn operator_closed_issue(&self, manifest: &str, reference: &str, reason: &str) -> Result<(), String> {
-        let served = self.served_named(Some(&ManifestId::carried(manifest))).map_err(|_| "the repository is not served".to_string())?;
-        let backlog = self.backlog_of(&served).ok_or("the repository's tracker takes no write from Fleet")?;
-        let (root, reference, reason) = (served.root().to_string(), reference.to_string(), reason.to_string());
-        let closed = tokio::task::spawn_blocking(move || backlog.put_state(&root, &reference, BeadState::Closed, &reason)).await;
-        match closed {
-            Ok(Ok(())) => {
-                self.tracking().forget(manifest);
-                Ok(())
-            }
-            Ok(Err(why)) => Err(format!("the issue was not closed: {}", why.said)),
-            Err(_) => Err("the issue was not closed".to_string()),
-        }
     }
 
     /// A note no open issue covers, filed in the repository's beads with his words, and marked done.

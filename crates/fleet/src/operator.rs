@@ -29,6 +29,7 @@ mod boarding;
 mod briefing;
 mod calling;
 mod candidates;
+mod closing;
 mod desk;
 mod erroring;
 mod handing;

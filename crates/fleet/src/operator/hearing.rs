@@ -12,14 +12,11 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use ipc::{Event, ManifestId, SessionRecord};
+use ipc::{Event, SessionRecord};
 use store::{AttachmentState, Holder};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-use super::candidates::{done_near, Finished};
-use super::desk::held_of;
-use super::sources::{Filed, MergeNear};
 use crate::daemon::Fleet;
 use crate::session_host::replacing::REPLACED_BY;
 
@@ -92,8 +89,9 @@ where
     }
 
     /// One record of a Job that ended or holds a merged pull request: each end and merge in it that
-    /// was not heard before is marked. **No call is made and nothing is raised or suggested**: an
-    /// end and a merge only tell the Operator what finished, which Discussion reads from the store.
+    /// was not heard before is marked. **Nothing is raised or suggested here**: an end and a merge only
+    /// tell the Operator what finished, which Discussion reads from the store, but for the open issues
+    /// a merge may have finished, which are asked about.
     async fn end_heard(self: &Arc<Self>, record: SessionRecord) {
         let id = record.id.as_str().to_string();
         if self.store().lock().await.hosting(&id).ok().flatten().is_none() {
@@ -109,35 +107,6 @@ where
                 self.operator_journaled(&format!("Merged: #{} {title}, held by {job}", pull.target)).await;
                 self.finished_asked(&id, &job, &pull.target, &title).await;
             }
-        }
-    }
-
-    /// The open issues the work of pull request `pull` of Job `id` may have finished, each handed to the
-    /// Operator to ask. **No candidate, no call**, and none where the repository's tracker is not
-    /// the beads Fleet writes to, or the Operator is off.
-    async fn finished_asked(&self, id: &str, job: &str, pull: &str, title: &str) {
-        if !self.operator_on() {
-            return;
-        }
-        let (manifest, paths, named, words) = {
-            let store = self.store().lock().await;
-            let Some(hosting) = store.hosting(id).ok().flatten() else { return };
-            let (paths, named, words) = held_of(&store, id);
-            (hosting.manifest_id, paths, named, words)
-        };
-        if !self.files_in(&manifest) {
-            return;
-        }
-        let open = self.open_issues(&ManifestId::carried(&manifest)).await.unwrap_or_default();
-        let open: Vec<(Filed, String)> = open
-            .iter()
-            .filter(|one| !one.closed)
-            .map(|one| (Filed { reference: one.reference.clone(), title: one.title.as_written().to_string() }, one.excerpt.as_written().to_string()))
-            .collect();
-        let said = format!("{job} {words}");
-        for issue in done_near(&Finished { title, words: &said, paths: &paths, named: &named }, &open) {
-            let near = MergeNear { manifest_id: manifest.clone(), pull: pull.to_string(), title: title.to_string(), job: (id.to_string(), job.to_string()), words: words.clone(), paths: paths.clone(), named: named.clone(), issue };
-            self.hand_once(near.arrival()).await;
         }
     }
 }
