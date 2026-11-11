@@ -253,6 +253,23 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-sent-messages",
+        title: "Your sent messages: tags and a send Fleet did not take",
+        screen: Screen::Jobs,
+        scenario: "sent-messages",
+        steps: &[
+            press_on("His message tags another Job where he wrote it: its glyph and title in one chip, a link", "row", "Audit the docs index", "link", "Native Bridge foundation"),
+            step("Its kind and title on hover", Verb::Hover, "link", "Native Bridge foundation"),
+            step("A tag his words do not hold stands under them, after its kind", Verb::Look, "group", "Pull request · #3290 Merge line"),
+            step("A message to the Job", Verb::Type("Keep the merge line as it is."), "textbox", "Message"),
+            step("Send. Fleet does not take this one", Verb::PressOn("button", "Send"), "img", "Not sent"),
+            step("A cross on its band says Not sent, and the message stays in the thread", Verb::Hover, "img", "Not sent"),
+            step("Retry sits under it. The box takes nothing back, so words he has moved on from stay out of it", Verb::Look, "button", "Retry"),
+            step("Retry sends the same message again. Fleet takes it: the cross and Retry are gone, and the message is in the thread once", Verb::PressOn("button", "Retry"), "region", "Your message"),
+            step("A press on the tag opens that Job", Verb::PressOn("link", "Native Bridge foundation"), "row", "Native Bridge foundation"),
+        ],
+    },
+    Walk {
     name: "jobs-list",
     title: "Jobs list",
     screen: Screen::Jobs,

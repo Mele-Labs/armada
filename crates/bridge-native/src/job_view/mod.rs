@@ -109,6 +109,12 @@ pub(crate) struct Pending {
     /// How many of the person's messages in the thread already read this, so Fleet's row for
     /// these words is the one that makes it more.
     seen: usize,
+    /// What it tags, drawn in its words as Fleet's row will draw them.
+    tags: Vec<ipc::SessionTag>,
+    /// The body posted, so Retry sends it again as it first went. `None` until its files are read.
+    body: Option<String>,
+    /// Fleet did not take it: it stays in the thread marked Not sent, with a Retry.
+    failed: bool,
 }
 
 /// Whether Fleet's row `row` reads `words` now, so the edit drawn over it can go.
@@ -229,6 +235,8 @@ pub struct JobView {
     mock: HashMap<String, HeldThread>,
     /// What the mock's Needs you says for each Job, as Fleet's view would: grouped from the record.
     mock_needs: HashMap<String, ipc::NeedsYou>,
+    /// How many more sends the mock refuses, so a walk can show a message Fleet did not take.
+    mock_refusals: usize,
     /// The Job on screen.
     shown: Option<SharedString>,
     /// What Fleet refused a terminal Job's Compact for, by Job, until Compact is pressed again.
@@ -347,6 +355,7 @@ impl JobView {
             fleet,
             mock,
             mock_needs: HashMap::new(),
+            mock_refusals: crate::mock::refusals(),
             shown: None,
             compact_refused: HashMap::new(),
             pages: HashMap::new(),
@@ -818,7 +827,7 @@ mod tests {
     fn what_stands_over_the_thread_is_drawn_after_its_items_in_electrons_order() {
         let head = format!(r#"{{{TRAIL},"plan":{{"id":"plan:v2","version":2,"state":"waiting"}}}}"#);
         let (head, items) = thread(&you("a", "hi"), &head);
-        let pending = [Pending { key: 1, text: "x".into(), seen: 0 }];
+        let pending = [Pending { key: 1, text: "x".into(), seen: 0, tags: Vec::new(), body: None, failed: false }];
         let extras = extras_of(&head, &items, &pending, true);
         assert_eq!(extras, [Extra::Plan(PlanCardState::Waiting), Extra::Pending(0), Extra::Working]);
     }

@@ -11,7 +11,7 @@ use gpui::{
     Role, SharedString, Transformation, Window,
 };
 use gpui_component::text::TextView;
-use ipc::{SessionCheckState, SessionRow, SessionVoice, ThreadItem};
+use ipc::{SessionCheckState, SessionRow, SessionTag, SessionVoice, TagKind, ThreadItem};
 
 use std::rc::Rc;
 
@@ -488,7 +488,8 @@ impl JobView {
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], None, true, false, false, None, look, now, cx)
+                let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -568,9 +569,9 @@ impl JobView {
         id: &str,
         text: &str,
         files: &[ipc::SentFile],
-        chips: &[String],
+        tags: &[SessionTag],
         at: Option<&ipc::Instant>,
-        sending: bool,
+        delivery: Option<Delivery>,
         queued: bool,
         editable: bool,
         edited: Option<&ipc::Instant>,
@@ -595,8 +596,8 @@ impl JobView {
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_2))
             .text_color(look.color(token::FG_SUBTLE))
-            .when(sending, |band| {
-                band.child(
+            .when(delivery == Some(Delivery::Sending), |band| {
+                band.child(labelled(
                     div()
                         .id(SharedString::from(format!("sending:{id}")))
                         .child(
@@ -612,7 +613,21 @@ impl JobView {
                                 ),
                         )
                         .tooltip(tip("Sending")),
-                )
+                    Role::Image,
+                    "Sending",
+                ))
+            })
+            // Fleet did not take it: a cross, as `Delivery` draws one.
+            .when(matches!(delivery, Some(Delivery::NotSent(_))), |band| {
+                band.child(labelled(
+                    div()
+                        .id(SharedString::from(format!("not-sent:{id}")))
+                        .flex()
+                        .child(glyph(look, "x", Size::Small, look.color(token::FG_SUBTLE)))
+                        .tooltip(tip("Not sent")),
+                    Role::Image,
+                    "Not sent",
+                ))
             })
             .when(queued, |band| {
                 band.child(
@@ -644,31 +659,55 @@ impl JobView {
                 ))
             })
             .children(at.map(|at| self.stamp(at, look, now, false, cx)));
+        let (said_parts, loose) = place_tags(said, tags);
         // What the message was sent with, under its words inside the bubble (`Sent`): each picture drawn, the
-        // other files and the tags the words did not place as chips.
-        let sent = (!files.is_empty() || !chips.is_empty()).then(|| {
+        // other files and the tags the words did not place as chips, each after its kind.
+        let sent = (!files.is_empty() || !loose.is_empty()).then(|| {
             div()
                 .flex()
                 .flex_wrap()
                 .items_start()
                 .gap(look.length(token::SPACE_2))
                 .children(files.iter().map(|file| {
-                    self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(&file.name, look).into_any_element())
+                    self.picture_tile(file, look, cx).unwrap_or_else(|| self.chip(None, &file.name, look).into_any_element())
                 }))
-                .children(chips.iter().map(|chip| self.chip(chip, look).into_any_element()))
+                .children(loose.iter().map(|tag| {
+                    let said = format!("{} · {}", tag_kind(tag.kind), tag.title);
+                    labelled(self.chip(Some(tag_kind(tag.kind)), &tag.title, look).id(SharedString::from(format!("loose:{id}:{}", tag.id))), Role::Group, said).into_any_element()
+                }))
         });
+        // Where Fleet did not take it, Retry sends it again; gone while it goes.
+        let retry = match delivery {
+            Some(Delivery::NotSent(key)) => self.shown.clone().map(|job| {
+                div().flex().child(labelled(
+                    super::acts::button(look, SharedString::from(format!("retry:{id}")), "Retry", super::acts::Tone::Secondary, false, None, true)
+                        .h(look.length(token::H_CONTROL_SM))
+                        .px(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .on_click(cx.listener(move |this, _, window, cx| this.retry(&job, key, window, cx))),
+                    Role::Button,
+                    "Retry",
+                ))
+            }),
+            _ => None,
+        };
         let editing = editable.then(|| self.edit_box(id, look, cx)).flatten();
         let open = editing.is_some();
         let words = match editing {
             Some(field) => field,
-            None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
+            None => match said_parts {
+                // Where his words place a tag, they are drawn as written, the tag a chip in its line (`armada-session-said`).
+                Some(parts) => self.said_line(id, &parts, look, cx),
+                None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
+            },
         };
         let region = div()
             .id(SharedString::from(format!("you:{id}")))
             .flex()
             .flex_col()
             .items_end()
-            .when(sending, |row| row.opacity(0.6));
+            .when(delivery == Some(Delivery::Sending), |row| row.opacity(0.6));
         let region = if editable {
             let spot = self.spot(page, &format!("you:{id}"), cx);
             let region = region.track_focus(&spot.focus);
@@ -705,7 +744,8 @@ impl JobView {
                                 .when(open, |words| words.border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::FOCUS_RING)))
                                 .child(words)
                                 .children(debug)
-                                .children(sent),
+                                .children(sent)
+                                .children(retry),
                             Role::Group,
                             "Message words",
                         ))
@@ -717,12 +757,85 @@ impl JobView {
         .into_any_element()
     }
 
-    /// A name drawn as a read-only chip: a file, or a tag the words did not place.
-    fn chip(&self, said: &str, look: &Look) -> gpui::Div {
+    /// His words with a tag in them, as written: each word in its line, each tag the chip `InlineTag` draws.
+    /// A Job's tag is a link to it; the kinds that open a pane link once those panes are drawn.
+    fn said_line(&self, id: &str, parts: &[Said], look: &Look, cx: &Context<Self>) -> AnyElement {
+        let size = match self.composer.quick.thread().text_size {
+            TextSize::Xs => token::TEXT_XS,
+            TextSize::Sm => token::TEXT_SM,
+            TextSize::Base => token::TEXT_BASE,
+            TextSize::Lg => token::TEXT_LG,
+        };
+        let mut line = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .min_w_0()
+            .text_size(look.length(size))
+            .line_height(relative(1.6))
+            .text_color(look.color(token::FG_DEFAULT));
+        for (at, part) in parts.iter().enumerate() {
+            match part {
+                Said::Words(words) => {
+                    for (row, text) in words.split('\n').enumerate() {
+                        if row > 0 {
+                            // pre-wrap: a line break in his words starts a new line.
+                            line = line.child(div().w_full().h_0());
+                        }
+                        line = line.children(text.split_inclusive(' ').map(|word| div().whitespace_nowrap().child(word.to_string())));
+                    }
+                }
+                Said::Tag(tag) => line = line.child(self.inline_tag(&format!("{id}:{at}"), tag, look, cx)),
+            }
+        }
+        labelled(div().id(SharedString::from(format!("said:{id}"))).child(line), Role::Group, "Message said").into_any_element()
+    }
+
+    /// One tag in his words: its kind's glyph and its title, in one unit (`InlineTag`).
+    fn inline_tag(&self, key: &str, tag: &SessionTag, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let link = tag.kind == TagKind::Session;
+        let ink = look.color(if link { token::ACCENT } else { token::FG_DEFAULT });
+        let chip = div()
+            .id(SharedString::from(format!("tag:{key}")))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_RAISED))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(ink)
+            .whitespace_nowrap()
+            .child(glyph(look, tag_glyph(tag.kind), Size::Small, if link { ink } else { look.color(token::FG_MUTED) }))
+            .child(tag.title.clone());
+        if !link {
+            return labelled(chip, Role::Group, tag.title.clone()).into_any_element();
+        }
+        let job = tag.id.clone();
+        labelled(
+            chip.cursor_pointer()
+                .hover(|style| style.text_color(look.color(token::ACCENT_HOVER)))
+                .tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title)))
+                .on_click(cx.listener(move |this, _, _, cx| this.open_job(job.clone(), cx))),
+            Role::Link,
+            tag.title.clone(),
+        )
+        .into_any_element()
+    }
+
+    /// A name drawn as a read-only chip: a file, or a tag the words did not place after its kind.
+    fn chip(&self, from: Option<&str>, said: &str, look: &Look) -> gpui::Div {
         div()
             .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
             .max_w_full()
-            .truncate()
+            .overflow_hidden()
             .px(look.length(token::SPACE_2))
             .py(look.length(token::SPACE_1))
             .rounded(look.length(token::RADIUS_SM))
@@ -732,7 +845,8 @@ impl JobView {
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(said.to_string())
+            .children(from.map(|from| div().flex_none().text_color(look.color(token::FG_SUBTLE)).child(format!("{from} ·"))))
+            .child(div().min_w_0().truncate().child(said.to_string()))
     }
 
     /// The agent's words, with the bar under them that shows on hover (A2.3).
@@ -814,9 +928,8 @@ impl JobView {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
-                let chips: Vec<String> = tags.iter().map(|tag| tag.title.clone()).collect();
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, &chips, Some(at), false, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title }, text, notice, .. } => {
@@ -964,6 +1077,74 @@ fn code_copy(look: &Look) -> impl Fn(&gpui_base::text::CodeBlock, &mut Window, &
 /// The group a message's words hover as, so a block's Copy shows while the pointer is on them.
 const PROSE_GROUP: &str = "prose";
 
+/// Where one of his messages stands while Fleet has not taken it (`Delivery`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Delivery {
+    Sending,
+    /// Fleet did not take it; the pending message's key, for Retry.
+    NotSent(u64),
+}
+
+/// One stretch of his words: as written, or a tag at the place it was written.
+#[derive(Debug, PartialEq)]
+pub(super) enum Said<'a> {
+    Words(&'a str),
+    Tag(&'a SessionTag),
+}
+
+/// His words with each tag at its `@title`, found in order after the one before (`placeTags`): `None`
+/// where no tag is found, and the tags that were not.
+pub(super) fn place_tags<'a>(text: &'a str, tags: &'a [SessionTag]) -> (Option<Vec<Said<'a>>>, Vec<&'a SessionTag>) {
+    let mut parts = Vec::new();
+    let mut loose = Vec::new();
+    let mut from = 0;
+    for tag in tags {
+        let needle = format!("@{}", tag.title);
+        match text[from..].find(&needle) {
+            None => loose.push(tag),
+            Some(found) => {
+                let at = from + found;
+                if at > from {
+                    parts.push(Said::Words(&text[from..at]));
+                }
+                parts.push(Said::Tag(tag));
+                from = at + needle.len();
+            }
+        }
+    }
+    if parts.is_empty() {
+        return (None, loose);
+    }
+    if from < text.len() {
+        parts.push(Said::Words(&text[from..]));
+    }
+    (Some(parts), loose)
+}
+
+/// What a tag's kind is called (`TAG_KIND`).
+pub(super) fn tag_kind(kind: TagKind) -> &'static str {
+    match kind {
+        TagKind::Session => "Job",
+        TagKind::PullRequest => "Pull request",
+        TagKind::Branch => "Branch",
+        TagKind::Issue => "Issue",
+        TagKind::Report => "Reported bug",
+        TagKind::Terminal => "Terminal",
+    }
+}
+
+/// A tag kind's glyph (`TAG_GLYPH`).
+fn tag_glyph(kind: TagKind) -> &'static str {
+    match kind {
+        TagKind::Session => "square-terminal",
+        TagKind::PullRequest => "git-pull-request",
+        TagKind::Branch => "git-branch",
+        TagKind::Issue => "ticket",
+        TagKind::Report => "bug",
+        TagKind::Terminal => "terminal",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -974,6 +1155,23 @@ mod tests {
         assert_eq!(with_breaks("para\n\nnext"), "para\n\nnext");
         assert_eq!(with_breaks("```\na\nb\n```\nafter"), "```\na\nb\n```\nafter");
         assert_eq!(with_breaks("say\n```\ncode\n```"), "say\n```\ncode\n```");
+    }
+
+    fn tag(kind: TagKind, id: &str, title: &str) -> SessionTag {
+        SessionTag { kind, id: id.into(), title: title.into(), url: None }
+    }
+
+    #[test]
+    fn a_tag_is_placed_at_its_title_in_order_and_the_rest_are_loose() {
+        let tags = [tag(TagKind::Session, "s1", "Native Bridge foundation"), tag(TagKind::PullRequest, "3290", "#3290 Merge line"), tag(TagKind::Session, "s2", "Audit")];
+        let (parts, loose) = place_tags("Ask @Native Bridge foundation, then @Audit.", &tags);
+        assert_eq!(
+            parts,
+            Some(vec![Said::Words("Ask "), Said::Tag(&tags[0]), Said::Words(", then "), Said::Tag(&tags[2]), Said::Words(".")])
+        );
+        assert_eq!(loose, vec![&tags[1]]);
+        let (parts, loose) = place_tags("No tag written", &tags[..1]);
+        assert_eq!((parts, loose), (None, vec![&tags[0]]));
     }
 
     #[test]
@@ -1019,3 +1217,4 @@ mod tests {
         assert_eq!(shown_target("http://example.com/x"), "http://example.com/x");
     }
 }
+
