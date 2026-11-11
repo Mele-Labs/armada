@@ -4,27 +4,17 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 42] = [
+pub static STEPS: [Step; 32] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
-    step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
+    step("The Job's glyph stands at the start of the line", Verb::Look, "img", "Job"),
     step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
     press_on("The Model list opens under it", "combobox", "Model", "menu", "Model"),
     step("Esc shuts the list and the keys go back to the request", Verb::Key("escape"), "textbox", "Request"),
     step("Typing reads the repository: the mark turns to a spinner", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Repository, finding"),
     answer("Fleet found sample-api in the words: its chip is chosen", "found", "radio", "Repository sample-api"),
     step("⌥4 picks the fourth chip by hand", Verb::Key("alt-4"), "radio", "Repository sample-docs"),
-    step("Tab changes the kind to Autopilot", Verb::Key("tab"), "tab", "Autopilot"),
-    step("⌘↵ is Read it: it sends the sentence to Fleet and says Reading in the same frame", Verb::Key("cmd-enter"), "button", "Reading"),
-    answer("A refused read says why, in the sheet", "autopilot-refused", "alert", "Autopilot needs a repository with a Manifest, and sample-docs has none"),
-    step("⌥1 picks sample-api back by hand: it has a Manifest", Verb::Key("alt-1"), "radio", "Repository sample-api"),
-    answer("A read sentence becomes an instruction and the limits, each quoted back", "autopilot-read", "textbox", "Instruction"),
-    answer("The settings a live Fleet answers are read back into the fields, with the words each came from", "autopilot-read-live", "textbox", "Instruction"),
-    press_on("Start Autopilot answers in the same frame", "button", "Start Autopilot", "button", "Starting Autopilot"),
-    answer("Started: the sheet goes and the strip stands where the search was", "answer-autopilot", "group", "Last dispatch"),
-    press_on("Open asks for the repository's Autopilot lane, and the strip goes", "button", "Open", "heading", "armada"),
-    answer("A second send stands the strip again", "answer-autopilot", "group", "Last dispatch"),
-    step("Esc dismisses the strip", Verb::Key("escape"), "heading", "armada"),
-    step("⌘N opens a sheet with nothing kept: the send cleared the draft", Verb::Key("cmd-n"), "tab", "Job"),
+    answer("Fleet took the Job: the sheet goes and the draft is cleared", "answer-start", "heading", "armada"),
+    step("⌘N opens a sheet with nothing kept: the send cleared the draft", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("⌥A puts an @ in the request and opens the Jobs to tag", Verb::Key("alt-a"), "listbox", "Jobs"),
     step("↓ moves down the Jobs", Verb::Key("down"), "option", "Native Bridge foundation"),
     step("Enter tags the Job in the words", Verb::Key("enter"), "textbox", "Request"),

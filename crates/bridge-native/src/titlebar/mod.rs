@@ -1080,11 +1080,6 @@ impl TitleBar {
         }
     }
 
-    /// Where the centre was drawn last frame: the search trigger's field, or the notch around the places.
-    pub fn centre_bounds(&self) -> Option<Bounds<Pixels>> {
-        self.at.centre.get()
-    }
-
     /// The centre. With no place to draw it is the search trigger at Electron's width; with places it
     /// is the notch of glass hanging from the window's top edge, the places and then the trigger as an
     /// icon and its key (`TitleBar.css` 262-350).

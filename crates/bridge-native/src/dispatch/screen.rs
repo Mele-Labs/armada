@@ -1,5 +1,5 @@
-//! The screen a dispatch is made from: the Jobs screen with the dispatch sheet, the strip a send
-//! leaves and the annotation layer over it. It opens the sheet on ⌘N (`new_job`) and on what the
+//! The screen a dispatch is made from: the Jobs screen with the dispatch sheet and the annotation
+//! layer over it. It opens the sheet on ⌘N (`new_job`) and on what the
 //! title bar asks (`Search`, and `Dispatch` from the narrow menu), and answers the sheet's and the
 //! layer's asks. **A walk answers them by scene** (`scene`), the way the title bar's walk changes
 //! its face: Fleet is not on the other end, so a step names the answer it wants.
@@ -10,38 +10,19 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{
-    canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
+    canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, FocusHandle, Global, Pixels, SharedString,
     Subscription, Task, WeakEntity, Window,
 };
 use ipc::{SessionId, SessionRecord, SessionTag, TagKind};
 
-use super::face::{Face, Sent};
+use super::face::Face;
 use super::live;
 use super::scenes;
 use super::sheet::{Asked, DispatchSheet};
 use crate::annotate::{self, Layer, Shoot, Toggle};
 use crate::jobs::JobsScreen;
 use crate::keymap::Act;
-use crate::labels::{labelled, LabelBook};
-use crate::look::{token, ActiveLook};
-use crate::titlebar::parts::{glyph, icon_button, kbd, mono, tip, Btn, Weight};
 use crate::titlebar::{self, Asked as BarAsked, AskedSink};
-
-/// The strip a send leaves, hung from the title bar's field.
-struct Strip {
-    sent: Sent,
-    place: Bounds<Pixels>,
-    focus: FocusHandle,
-}
-
-/// What the screen asks of the window around it: a place this screen does not draw.
-#[derive(Clone, Debug, PartialEq)]
-pub enum Opened {
-    /// The repository's Autopilot lane on the Cockpit, from the strip's Open or its Enter.
-    AutopilotLane(SharedString),
-}
-
-impl EventEmitter<Opened> for DispatchScreen {}
 
 pub struct DispatchScreen {
     jobs: Entity<JobsScreen>,
@@ -49,7 +30,6 @@ pub struct DispatchScreen {
     layer: Option<Entity<Layer>>,
     /// Where the notes are kept, once something says.
     kept_in: Option<std::path::PathBuf>,
-    strip: Option<Strip>,
     /// The repositories Fleet serves, as the sheet's chips name them, while the window is on a live Fleet.
     served: Vec<live::Served>,
     models: Option<ipc::ModelChoices>,
@@ -128,14 +108,11 @@ pub fn bind(cx: &mut App) {
     cx.on_action(|_: &Shoot, cx: &mut App| reach(cx, |this, window, cx| this.shoot_layer(window, cx)));
 }
 
-/// The palette's start row: the sheet opens holding the words typed, a Job's or Autopilot's (`one-bar.tsx`).
-pub fn start_with(words: String, autopilot: bool, cx: &mut App) {
+/// The palette's start row: the sheet opens holding the words typed (`one-bar.tsx`).
+pub fn start_with(words: String, cx: &mut App) {
     crate::drafts::keep(super::sheet::KEEP_REQUEST, &words, cx);
     reach(cx, move |this, window, cx| {
         this.open_sheet("", window, cx);
-        if autopilot {
-            this.sheet.update(cx, |sheet, cx| sheet.set_kind(super::face::Kind::Autopilot, window, cx));
-        }
     });
 }
 
@@ -178,20 +155,6 @@ pub fn open_drafted(request: String, repository: Option<String>, cx: &mut App) {
         if let Some(repository) = &repository {
             this.sheet.update(cx, |sheet, cx| sheet.pick_repository(repository, cx));
         }
-    });
-}
-
-/// Auto Pilot on a Job's row: the sheet opens on Autopilot with the row's repository chosen, as
-/// Electron picks the row's repository before Autopilot (`Deck.tsx` `onAutopilot`).
-pub fn open_autopilot(repository: Option<String>, cx: &mut App) {
-    reach(cx, move |this, window, cx| {
-        this.open_sheet("", window, cx);
-        this.sheet.update(cx, |sheet, cx| {
-            sheet.set_kind(super::face::Kind::Autopilot, window, cx);
-            if let Some(repository) = &repository {
-                sheet.pick_repository(repository, cx);
-            }
-        });
     });
 }
 
@@ -289,12 +252,11 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { jobs, sheet, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
-    /// ⌘N and its other doors: the sheet opens on the draft as it stands, and the strip goes.
+    /// ⌘N and its other doors: the sheet opens on the draft as it stands.
     fn open_sheet(&mut self, add: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.strip = None;
         self.refresh_face(window, cx);
         self.sheet.update(cx, |sheet, cx| sheet.show(add, window, cx));
         cx.notify();
@@ -317,8 +279,6 @@ impl DispatchScreen {
                     let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
                     self.start_job(begin, window, cx)
                 }
-                Asked::ReadAutopilot { words, repository } => self.read_autopilot(words.clone(), repository, window, cx),
-                Asked::StartAutopilot { repository, instruction, fields } => self.start_autopilot(repository, instruction, fields, window, cx),
                 Asked::Queue { .. } | Asked::Closed => {}
             }
         }
@@ -590,82 +550,6 @@ impl DispatchScreen {
         cx.notify();
     }
 
-    /// The port, and the Manifest id a repository chip stands for; else the sentence the sheet says.
-    fn autopilot_door(&self, repository: &str, cx: &App) -> Result<(u16, ipc::ManifestId), String> {
-        let port = self.fleet_port(cx).ok_or("Fleet is not connected")?;
-        let id = self.served.iter().find(|one| one.name == repository).map(|one| one.id.clone());
-        Ok((port, id.ok_or_else(|| format!("Fleet serves no repository named {repository}"))?))
-    }
-
-    fn refuse(&mut self, why: String, cx: &mut Context<Self>) {
-        self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx));
-    }
-
-    /// Read it: the sentence goes to Fleet's proposer, which answers the settings it read for the person to confirm.
-    /// `POST /autopilots/:repository/proposal`, one model call (`proposeAutopilot`, `main/issues.ts`).
-    fn read_autopilot(&mut self, words: String, repository: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let (port, id) = match self.autopilot_door(repository, cx) {
-            Ok(door) => door,
-            Err(why) => return self.refuse(why, cx),
-        };
-        let path = format!("/autopilots/{}/proposal", crate::link::percent_encoded(id.as_str()));
-        let sentence = words.trim().to_string();
-        let local_now = Some(chrono::Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, false));
-        let body = ipc::encode(&ipc::ProposeAutopilot { sentence, local_now }).map_err(|why| format!("{why:?}"));
-        cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call_model(port, path, body?) }).await;
-            let _ = this.update_in(cx, |this, window, cx| this.autopilot_read(words, answer, window, cx));
-        })
-        .detach();
-    }
-
-    fn autopilot_read(&mut self, words: String, answer: Result<Vec<u8>, String>, window: &mut Window, cx: &mut Context<Self>) {
-        // Words typed since have cleared the sheet's read, and the answer is for what they were.
-        if self.sheet.read(cx).words(cx) != words {
-            return;
-        }
-        let read = answer.and_then(|bytes| ipc::decode::<ipc::AutopilotProposal>("AutopilotProposal", &bytes).map_err(|why| why.to_string()));
-        match read {
-            Ok(proposal) => {
-                let mut face = self.sheet.read(cx).face.clone();
-                face.read = Some(live::autopilot_read(&proposal));
-                face.refused = None;
-                self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
-            }
-            Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
-        }
-    }
-
-    /// Start Autopilot: the settings as the person left the fields, `POST /autopilots/:repository`. The strip it
-    /// leaves is the Autopilot's lane. A field that does not read is said on the sheet, as Electron says it.
-    fn start_autopilot(&mut self, repository: &str, instruction: &str, fields: &[(&'static str, String)], window: &mut Window, cx: &mut Context<Self>) {
-        let mut settings = match live::settings_of(instruction, fields, chrono::Local::now()) {
-            Ok(settings) => settings,
-            Err(why) => return self.refuse(why, cx),
-        };
-        // Each Job it starts is for the window's project, as a Job started here is.
-        settings.project = scope(cx).and_then(|(id, _)| id).map(|id| id.to_string());
-        let (port, id) = match self.autopilot_door(repository, cx) {
-            Ok(door) => door,
-            Err(why) => return self.refuse(why, cx),
-        };
-        let path = format!("/autopilots/{}", crate::link::percent_encoded(id.as_str()));
-        let body = ipc::encode(&settings).map_err(|why| format!("{why:?}"));
-        cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, path, Some(body?)) }).await;
-            let _ = this.update_in(cx, |this, window, cx| match answer {
-                Ok(_) => {
-                    let sent = this.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
-                    if let Some(sent) = sent {
-                        this.show_strip(sent, window, cx);
-                    }
-                }
-                Err(why) => this.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
-            });
-        })
-        .detach();
-    }
-
     /// Keep the layer's notes in `dir`: what stands there is read, and each note is written as it is made.
     pub fn keep_notes(&mut self, dir: std::path::PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         self.kept_in = Some(dir.clone());
@@ -686,66 +570,6 @@ impl DispatchScreen {
         }
     }
 
-    // -- the strip -----------------------------------------------------------------------------
-
-    fn show_strip(&mut self, sent: Sent, window: &mut Window, cx: &mut Context<Self>) {
-        let bar = titlebar::live(cx);
-        let places = bar.as_ref().is_some_and(|bar| bar.read(cx).face.drawn_places().next().is_some());
-        let name = titlebar::TitleBar::search_name(places);
-        let search = crate::labels::role_named("button").and_then(|role| {
-            cx.try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, &name))
-                .map(|drawn| drawn.bounds)
-        });
-        // The strip is drawn inside this screen, the search is read in the window's own space.
-        let origin = self.area.get().map(|area| area.origin).unwrap_or_default();
-        let mut place = search.unwrap_or_default();
-        // Beside the places the trigger is an icon: the strip hangs over the whole centre instead, as wide as the field was alone.
-        if let Some(centre) = bar.as_ref().filter(|_| places).and_then(|bar| bar.read(cx).centre_bounds()) {
-            let wide = cx.look().length(token::PALETTE_WIDTH).max(centre.size.width);
-            place.origin.x = centre.origin.x + (centre.size.width - wide) / 2.;
-            place.size.width = wide;
-        }
-        place.origin = place.origin - origin;
-        let focus = cx.focus_handle();
-        self.strip = Some(Strip { sent, place, focus: focus.clone() });
-        // The cursor lands on the strip when it appears.
-        window.defer(cx, move |window, cx| window.focus(&focus, cx));
-        cx.notify();
-    }
-
-    fn dismiss_strip(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.strip = None;
-        let keys = self.jobs.read(cx).list.read(cx).focus_handle().clone();
-        window.focus(&keys, cx);
-        cx.notify();
-    }
-
-    /// Open on the strip, or Enter on it: the lane of the repository the Autopilot runs in is asked for, and
-    /// the strip, which said what was sent, goes.
-    fn open_lane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(strip) = &self.strip else { return };
-        cx.emit(Opened::AutopilotLane(strip.sent.root.clone()));
-        self.dismiss_strip(window, cx);
-    }
-
-    fn strip_keys(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let key = &event.keystroke;
-        if key.key == "escape" {
-            self.dismiss_strip(window, cx);
-        } else if key.key == "enter" {
-            self.open_lane(window, cx);
-        } else if let Some(typed) = key.key_char.as_ref().filter(|typed| typed.chars().count() == 1 && *typed != " ") {
-            if !key.modifiers.platform && !key.modifiers.control && !key.modifiers.alt {
-                let typed = typed.clone();
-                self.open_sheet(&typed, window, cx);
-            }
-        } else {
-            return;
-        }
-        cx.stop_propagation();
-    }
-
     // -- scenes ----------------------------------------------------------------------------------
 
     /// Move the screen to a named scene: Fleet's answer to a send, or a state of the sheet's face. A
@@ -759,8 +583,6 @@ impl DispatchScreen {
             "many" => Some(scenes::many),
             "offline" => Some(scenes::offline),
             "online" => Some(scenes::online),
-            "autopilot-read" => Some(scenes::autopilot_read),
-            "autopilot-refused" => Some(scenes::autopilot_refused),
             _ => None,
         };
         if name == "waiting" {
@@ -780,12 +602,7 @@ impl DispatchScreen {
         }
         match name {
             "attach" => self.sheet.update(cx, |sheet, cx| sheet.attach("pasted-snippet.txt", cx)),
-            "answer-start" | "answer-autopilot" => {
-                let sent = self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
-                if let Some(sent) = sent {
-                    self.show_strip(sent, window, cx);
-                }
-            }
+            "answer-start" => self.sheet.update(cx, |sheet, cx| sheet.answered(window, cx)),
             "refuse-start" => {
                 // Fleet answered, so it is running again.
                 titlebar::scenes::apply("fleet-running", cx)?;
@@ -807,21 +624,6 @@ impl DispatchScreen {
                 let mut face = live::narrowed(face, &keep);
                 face.refused = None;
                 self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
-            }
-            "autopilot-read-live" => {
-                // What a live Fleet answers, through the reading the live sheet makes of it.
-                let proposal = ipc::decode::<ipc::AutopilotProposal>(
-                    "AutopilotProposal",
-                    br#"{"instruction":"Work through the open bugs labelled flaky","at_once":2,"spend_cap_micros":12500000,"session_cap":3,"quoted":{"at_once":"two at a time","spend_cap_micros":"twelve fifty","session_cap":"three Jobs"}}"#,
-                )
-                .map_err(|why| why.to_string())?;
-                let mut face = face;
-                face.read = Some(live::autopilot_read(&proposal));
-                self.sheet.update(cx, |sheet, cx| {
-                    sheet.instruction = None;
-                    sheet.fields.clear();
-                    sheet.set_face(face, window, cx);
-                });
             }
             "waiting-live" => {
                 // What a live Fleet reads of a tag: a task of the Job's plan, from its PR branch.
@@ -897,66 +699,7 @@ impl DispatchScreen {
 
 impl Render for DispatchScreen {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let look = cx.look();
         let area = Rc::clone(&self.area);
-        let strip = self.strip.as_ref().map(|strip| {
-            let sent = &strip.sent;
-            let place = strip.place;
-            let tipped = sent.kind.word();
-            labelled(
-                div()
-                    .id("dispatch-strip")
-                    .track_focus(&strip.focus)
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| this.strip_keys(event, window, cx)))
-                    .occlude()
-                    .absolute()
-                    .left(place.origin.x)
-                    .top(place.origin.y)
-                    .w(place.size.width)
-                    .h(place.size.height)
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_3))
-                    .pl(look.length(token::SPACE_4))
-                    .pr(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_DEFAULT))
-                    .focus(|style| style.border_color(look.color(token::ACCENT)))
-                    .bg(look.color(token::BG_RAISED))
-                    .shadow(look.shadows(token::SHADOW_CARD))
-                    .text_color(look.color(token::FG_MUTED))
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_XS))
-                    .child(div().id("strip-mark").flex_none().tooltip(tip(tipped)).child(glyph(
-                        sent.kind.glyph(),
-                        look.length(token::SPACE_4),
-                        look.color(token::ACCENT),
-                    )))
-                    .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(sent.title.clone()))
-                    .child(kbd("↵", look).opacity(if strip.focus.is_focused(_window) { 1. } else { 0. }))
-                    .child(labelled(
-                        Btn::new("strip-open", "Open", Weight::Secondary).draw(look, cx).on_click(cx.listener(|this, _, window, cx| {
-                            cx.stop_propagation();
-                            this.open_lane(window, cx);
-                        })),
-                        Role::Button,
-                        "Open",
-                    ))
-                    .child(labelled(
-                        icon_button("strip-dismiss", "x", look.color(token::FG_MUTED), look)
-                            .tooltip(tip("Dismiss"))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                cx.stop_propagation();
-                                this.dismiss_strip(window, cx);
-                            })),
-                        Role::Button,
-                        "Dismiss",
-                    )),
-                Role::Group,
-                "Last dispatch",
-            )
-        });
         let sheet = self.sheet.read(cx).is_open().then(|| self.sheet.clone());
         div()
             .id("dispatch-screen")
@@ -971,7 +714,6 @@ impl Render for DispatchScreen {
             .size_full()
             .child(self.jobs.clone())
             .child(canvas(move |bounds, _, _| area.set(Some(bounds)), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
-            .children(strip)
             .children(sheet)
             .children(self.layer.clone())
     }

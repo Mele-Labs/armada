@@ -1025,7 +1025,6 @@ impl JobsList {
         let (pause, label, icon) = if row.paused { ("resume", "Resume", "play") } else { ("pause", "Pause", "circle-pause") };
         let mut entries = vec![
             Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: None },
-            Entry::Act { id: "autopilot", label: "Auto Pilot".into(), icon: Some("plane"), danger: false },
             Entry::Act { id: "name", label: "Name it for me".into(), icon: Some("wand-sparkles"), danger: false },
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
             Entry::Act { id: "try", label: "Try it in your app".into(), icon: None, danger: false },
@@ -1037,7 +1036,6 @@ impl JobsList {
         let menu = cx.new(|cx| Dropdown::new("Job", entries, at, Anchor::TopLeft, from_keys, cx).at_point(window, cx));
         let job = id.clone();
         let title = row.title.clone();
-        let repository = row.project.to_string();
         let picked = cx.subscribe(&menu, move |this, _, picked: &Picked, cx| {
             let Picked::Entry { id: act, .. } = picked;
             let port = this.port(cx);
@@ -1047,7 +1045,6 @@ impl JobsList {
                 "pause" => send(port, "/sessions/pause", encoded(ipc::encode(&ipc::PauseSession { session_id })), cx),
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
-                "autopilot" => crate::dispatch::screen::open_autopilot(Some(repository.clone()), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => {
                     let pick = BuildAct::Pick(ipc::PickFleetBuildJob { branch: None, session_id: Some(job.to_string()), picked: true });
@@ -2218,17 +2215,15 @@ impl JobsScreen {
     }
 
     /// `l` puts the keys in the list (`deck_panel`'s first slot), `c` on the first Job that needs
-    /// him, `a` and `d` open the dispatch sheet, and `/` the list's search, from anywhere on the deck.
-    /// The bays, the queue, the flight controls, the timeline and the Field are not drawn, so `b`,
-    /// `q`, `f`, `t` and `e` reach nothing.
+    /// him, `d` opens the dispatch sheet, and `/` the list's search, from anywhere on the deck.
+    /// The bays, the queue, the flight controls, the timeline and the Field are not drawn, so `a`,
+    /// `b`, `q`, `f`, `t` and `e` reach nothing.
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("deck_panel") && act.slot == 0 {
             let focus = self.list.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
         } else if act.is("deck_panel") && act.slot == 2 {
             self.list.update(cx, |list, cx| list.to_first_needing(window, cx));
-        } else if act.is("deck_panel") && act.slot == 5 {
-            crate::dispatch::screen::open_autopilot(None, cx);
         } else if act.is("deck_panel") && act.slot == 6 {
             crate::dispatch::screen::open_dispatch(cx);
         } else if act.is("deck_search") {

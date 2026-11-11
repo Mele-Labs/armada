@@ -1,7 +1,7 @@
 //! The dispatch sheet: one line to describe the work, a drawer under it for the repository, the
-//! kind, the model and the act (`DP/DispatchPanel.tsx`, `DP/dispatching.tsx`).
+//! model and the act (`DP/DispatchPanel.tsx`, `DP/dispatching.tsx`).
 //!
-//! It draws a [`Face`] and holds only what a hand has changed: the words, the kind, the pick, the
+//! It draws a [`Face`] and holds only what a hand has changed: the words, the pick, the
 //! sentence's cycles. A press answers in the same frame (the act turns pending, a chip fills) and
 //! tells the app through [`Asked`]; the app answers with [`DispatchSheet::answered`] or
 //! [`DispatchSheet::refused`], which puts the sheet back with its words kept. This file is its
@@ -14,9 +14,9 @@ use gpui::{
     point, AppContext, Anchor, App, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, Pixels,
     SharedString, Subscription, Window,
 };
-use gpui_component::input::{InputEvent, InputState, Position, TextareaState};
+use gpui_component::input::{InputEvent, Position, TextareaState};
 
-use super::face::{Chip, Face, Kind, Mark, Offered, Part, Reading, Row, Sent, Trigger, Wait};
+use super::face::{Chip, Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::keymap::Act;
 use crate::look::{token, ActiveLook};
@@ -37,9 +37,6 @@ pub enum Asked {
     ReadWait { job: String, words: String },
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String, model: Option<String>, effort: Option<String> },
-    ReadAutopilot { words: String, repository: String },
-    /// `fields` are the body's, by label, as typed.
-    StartAutopilot { repository: String, instruction: String, fields: Vec<(&'static str, String)> },
 }
 
 impl EventEmitter<Asked> for DispatchSheet {}
@@ -78,11 +75,10 @@ pub(super) struct Anchors {
 pub struct DispatchSheet {
     pub face: Face,
     pub(super) open: bool,
-    pub(super) kind: Kind,
     pub(super) request: Entity<TextareaState>,
     _typed: Subscription,
     pub(super) attached: Vec<SharedString>,
-    /// The act is out: Start, Read it or Start Autopilot is pending.
+    /// The act is out: Start is pending.
     pub(super) sending: bool,
     pub(super) queueing: bool,
     /// A Job was started with no repository named; the row takes the keys until one is picked.
@@ -99,9 +95,6 @@ pub struct DispatchSheet {
     pub(super) effort: Option<SharedString>,
     pub(super) popup: Option<Popup>,
     pub(super) at: Anchors,
-    /// The Autopilot read's fields, as the person edits them.
-    pub(super) instruction: Option<Entity<InputState>>,
-    pub(super) fields: Vec<(&'static str, Entity<InputState>, Option<SharedString>)>,
     keys_were: Option<FocusHandle>,
     /// The keys the request would take for itself (↑ ↓ ↵) are read before it sees them while the sheet is open.
     intercept: Option<Subscription>,
@@ -120,21 +113,15 @@ impl Focusable for DispatchSheet {
 
 impl DispatchSheet {
     pub fn new(face: Face, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let request = cx.new(|cx| TextareaState::new(window, cx).auto_grow(5, 5).placeholder(placeholder(Kind::Job)));
+        let request = cx.new(|cx| TextareaState::new(window, cx).auto_grow(5, 5).placeholder(PLACEHOLDER));
         let typed = cx.subscribe_in(&request, window, |this, request, event: &InputEvent, window, cx| match event {
             InputEvent::Change => this.typed(request, window, cx),
-            InputEvent::PressEnter { secondary: true, .. } => {
-                if this.kind == Kind::Autopilot {
-                    this.act(window, cx);
-                }
-            }
             _ => {}
         });
         DispatchSheet {
             wait: face.wait.clone(),
             face,
             open: false,
-            kind: Kind::Job,
             request,
             _typed: typed,
             attached: Vec::new(),
@@ -149,8 +136,6 @@ impl DispatchSheet {
             effort: None,
             popup: None,
             at: Anchors::default(),
-            instruction: None,
-            fields: Vec::new(),
             keys_were: None,
             intercept: None,
             frame: cx.focus_handle(),
@@ -184,7 +169,6 @@ impl DispatchSheet {
                 }
             });
         }));
-        self.kind = Kind::Job;
         self.asking = false;
         self.face.fresh();
         let words = crate::drafts::kept(KEEP_REQUEST, cx).unwrap_or_default();
@@ -194,7 +178,7 @@ impl DispatchSheet {
         self.effort = parts.next().filter(|one| !one.is_empty()).map(|one| one.to_string().into());
         let words = format!("{words}{add}");
         self.request.update(cx, |state, cx| {
-            state.set_placeholder(placeholder(Kind::Job), window, cx);
+            state.set_placeholder(PLACEHOLDER, window, cx);
             state.set_value(words.clone(), window, cx);
             end_of(state, &words, window, cx);
         });
@@ -239,11 +223,8 @@ impl DispatchSheet {
     fn typed(&mut self, request: &Entity<TextareaState>, _window: &mut Window, cx: &mut Context<Self>) {
         let words = request.read(cx).value().to_string();
         crate::drafts::keep(KEEP_REQUEST, &words, cx);
-        // Every change clears the Autopilot read, the refusal and any pending act.
-        self.face.read = None;
+        // Every change clears the refusal and any pending act.
         self.face.refused = None;
-        self.instruction = None;
-        self.fields.clear();
         self.asking = false;
         self.sending = false;
         let cursor = request.read(cx).cursor().min(words.len());
@@ -326,36 +307,10 @@ impl DispatchSheet {
         self.typed(&request, window, cx);
     }
 
-    // -- kinds ----------------------------------------------------------------------------------
-
-    /// A repository chosen for the sheet from elsewhere, as a row's Auto Pilot chooses its own.
+    /// A repository chosen for the sheet from elsewhere.
     pub(super) fn pick_repository(&mut self, name: &str, cx: &mut Context<Self>) {
         self.face.pick(name);
         cx.notify();
-    }
-
-    pub(super) fn set_kind(&mut self, kind: Kind, window: &mut Window, cx: &mut Context<Self>) {
-        if self.kind == kind || !self.face.kinds.contains(&kind) {
-            return;
-        }
-        self.kind = kind;
-        self.sending = false;
-        self.face.read = None;
-        self.face.refused = None;
-        self.instruction = None;
-        self.fields.clear();
-        self.request.update(cx, |state, cx| state.set_placeholder(placeholder(kind), window, cx));
-        cx.notify();
-    }
-
-    fn step_kind(&mut self, back: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let kinds = self.face.kinds.clone();
-        if kinds.len() < 2 {
-            return;
-        }
-        let at = kinds.iter().position(|kind| *kind == self.kind).unwrap_or(0);
-        let to = if back { (at + kinds.len() - 1) % kinds.len() } else { (at + 1) % kinds.len() };
-        self.set_kind(kinds[to], window, cx);
     }
 
     // -- the act ----------------------------------------------------------------------------------
@@ -364,7 +319,7 @@ impl DispatchSheet {
         self.face.chosen().map(|chip| chip.name.to_string())
     }
 
-    /// Start, Read it or Start Autopilot, from the button or ↵: pending in this frame.
+    /// Start, from the button or ↵: pending in this frame.
     pub fn act(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.face.connected || self.sending || self.queueing || !self.worded(cx) {
             return;
@@ -383,29 +338,15 @@ impl DispatchSheet {
         self.asking = false;
         self.sending = true;
         let words = self.words(cx);
-        match self.kind {
-            Kind::Job => {
-                let held = self.wait.is_none();
-                self.face.refused = None;
-                cx.emit(Asked::Start {
-                    words,
-                    repository,
-                    model: self.model.as_ref().map(|one| one.to_string()),
-                    effort: self.effort.as_ref().map(|one| one.to_string()),
-                    held,
-                });
-            }
-            Kind::Autopilot if self.face.read.is_none() => {
-                self.face.refused = None;
-                cx.emit(Asked::ReadAutopilot { words, repository });
-            }
-            Kind::Autopilot => {
-                self.face.refused = None;
-                let instruction = self.instruction.as_ref().map(|input| input.read(cx).value().to_string()).unwrap_or_default();
-                let fields = self.fields.iter().map(|(label, input, _)| (*label, input.read(cx).value().to_string())).collect();
-                cx.emit(Asked::StartAutopilot { repository, instruction, fields });
-            }
-        }
+        let held = self.wait.is_none();
+        self.face.refused = None;
+        cx.emit(Asked::Start {
+            words,
+            repository,
+            model: self.model.as_ref().map(|one| one.to_string()),
+            effort: self.effort.as_ref().map(|one| one.to_string()),
+            held,
+        });
         cx.notify();
     }
 
@@ -419,7 +360,7 @@ impl DispatchSheet {
 
     /// Queue for later: the idea is saved here and the sheet goes.
     pub(super) fn queue(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.face.connected || self.sending || self.queueing || self.kind != Kind::Job || !self.face.queue || self.words(cx).trim().is_empty() {
+        if !self.face.connected || self.sending || self.queueing || !self.face.queue || self.words(cx).trim().is_empty() {
             return;
         }
         let Some(repository) = self.repository() else {
@@ -436,10 +377,8 @@ impl DispatchSheet {
         cx.notify();
     }
 
-    /// Fleet took it: the words go, the sheet clears and shuts. An Autopilot leaves a strip.
-    pub fn answered(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<Sent> {
-        let kind = self.kind;
-        let title = self.repository().unwrap_or_default();
+    /// Fleet took it: the words go, the sheet clears and shuts.
+    pub fn answered(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.sending = false;
         self.queueing = false;
         self.waiting = false;
@@ -447,12 +386,8 @@ impl DispatchSheet {
         self.attached.clear();
         self.wait = None;
         self.tagged = None;
-        self.face.read = None;
-        self.instruction = None;
-        self.fields.clear();
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
         self.close(window, cx);
-        (kind == Kind::Autopilot).then(|| Sent { kind, root: title.clone().into(), title: title.into() })
     }
 
     /// Fleet refused, in its own words: the sheet is as it was, words and pick kept, and the row says why.
@@ -461,34 +396,6 @@ impl DispatchSheet {
         self.sending = false;
         self.queueing = false;
         self.waiting = false;
-        cx.notify();
-    }
-
-    /// Fleet read an Autopilot sentence: the instruction and the fields appear, and the act turns to Start Autopilot.
-    pub fn read_answered(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.sending = false;
-        let Some(read) = self.face.read.clone() else {
-            cx.notify();
-            return;
-        };
-        let instruction = cx.new(|cx| {
-            let mut state = InputState::new(window, cx);
-            state.set_value(read.instruction.to_string(), window, cx);
-            state
-        });
-        self.instruction = Some(instruction);
-        self.fields = read
-            .fields
-            .iter()
-            .map(|field| {
-                let input = cx.new(|cx| {
-                    let mut state = InputState::new(window, cx).placeholder(field.placeholder);
-                    state.set_value(field.value.to_string(), window, cx);
-                    state
-                });
-                (field.label, input, field.quoted.clone())
-            })
-            .collect();
         cx.notify();
     }
 
@@ -513,9 +420,6 @@ impl DispatchSheet {
             self.waiting = false;
             self.sending = false;
             self.act(window, cx);
-        }
-        if self.face.read.is_some() && self.instruction.is_none() {
-            self.read_answered(window, cx);
         }
         cx.notify();
     }
@@ -558,7 +462,7 @@ impl DispatchSheet {
     pub(super) fn on_act(&mut self, key: &Act, window: &mut Window, cx: &mut Context<Self>) {
         match key.id {
             // The sheet is a dialog, and the key does nothing while one is up.
-            "new_job" => {}
+            "new_job" | "send_message" => {}
             "dispatch_after" => self.request.update(cx, |state, cx| state.insert("@", window, cx)),
             "dispatch_repository" => {
                 let Some(digit) = key.digit else { return };
@@ -573,11 +477,6 @@ impl DispatchSheet {
                 cx.notify();
             }
             "queue_session" => self.queue(window, cx),
-            "send_message" => {
-                if self.kind == Kind::Autopilot {
-                    self.act(window, cx);
-                }
-            }
             _ => cx.propagate(),
         }
     }
@@ -617,16 +516,14 @@ impl DispatchSheet {
                 }
             }
             "tab" if plain && in_request => {
-                if mods.shift && self.kind == Kind::Job && self.wait.is_some() {
+                if mods.shift && self.wait.is_some() {
                     let first = self.parts[0].clone();
                     window.focus(&first, cx);
-                } else if mods.shift || self.face.kinds.len() < 2 {
-                    return;
                 } else {
-                    self.step_kind(false, window, cx);
+                    return;
                 }
             }
-            "enter" if plain && !mods.shift && in_request && self.kind == Kind::Job => self.act(window, cx),
+            "enter" if plain && !mods.shift && in_request => self.act(window, cx),
             "left" | "right" if plain && self.row.is_focused(window) => {
                 let len = self.all_chips().len().max(1);
                 self.rover = if key == "right" { (self.rover + 1) % len } else { (self.rover + len - 1) % len };
@@ -761,12 +658,7 @@ impl DispatchSheet {
     }
 }
 
-pub(super) fn placeholder(kind: Kind) -> &'static str {
-    match kind {
-        Kind::Job => "Describe the work, or paste a link to a ticket.",
-        Kind::Autopilot => "What should it do?",
-    }
-}
+const PLACEHOLDER: &str = "Describe the work, or paste a link to a ticket.";
 
 /// The caret at the end of `text`, which `set_value` leaves at the start.
 fn end_of(state: &mut TextareaState, text: &str, window: &mut Window, cx: &mut Context<TextareaState>) {

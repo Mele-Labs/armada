@@ -489,8 +489,6 @@ pub static WALKS: &[Walk] = &[
             step("Typing narrows the list", Verb::Type("freshness"), "searchbox", "Search actions, jobs and settings"),
             step("Only the Job that matches, the typed letters lit", Verb::Look, "option", "Fix the merge line freshness chip"),
             step("Under it, the words can start a Job", Verb::Look, "option", "Start a Job with \u{201c}freshness\u{201d}"),
-            step("\u{21e5} makes it Autopilot's", Verb::Key("tab"), "option", "Start Autopilot with \u{201c}freshness\u{201d}"),
-            step("\u{21e5} again makes it a Job's", Verb::Key("tab"), "option", "Start a Job with \u{201c}freshness\u{201d}"),
             step("⌘K on a row opens its acts", Verb::Key("cmd-k"), "menu", "Actions"),
             step("Open, ↵", Verb::Look, "menuitem", "Open"),
             step("Pause, ⌘P", Verb::Look, "menuitem", "Pause"),

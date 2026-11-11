@@ -525,8 +525,6 @@ struct Open {
     on: Option<String>,
     /// The cursor is on the row that starts what was typed, at the foot of the matches.
     sends: bool,
-    /// ⇥ made that row Autopilot's.
-    autopilot: bool,
 }
 
 /// What an act sends to Fleet.
@@ -609,7 +607,7 @@ impl Palette {
         let lines = lines_of(&entries, "", on.as_deref(), self.memory.opens, &self.memory);
         let state = ListState::new(lines.len(), ListAlignment::Top, px(200.));
         let cursor = lines.iter().position(|line| matches!(line, Line::Row(_))).unwrap_or(0);
-        self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false, autopilot: false });
+        self.open = Some(Open { query: query.clone(), _typed: typed, entries, lines, state, cursor, panel: None, confirm: None, back_to, on, sends: false });
         query.update(cx, |query, cx| query.focus(window, cx));
         let (me, here) = (cx.entity().downgrade(), window.window_handle().window_id());
         self.keys = Some(cx.intercept_keystrokes(move |event, window, cx| {
@@ -801,16 +799,15 @@ impl Palette {
         }
     }
 
-    /// What was typed goes to the dispatch sheet as its words, a Job's or Autopilot's (`one-bar.tsx` `onDispatch`).
+    /// What was typed goes to the dispatch sheet as its words (`one-bar.tsx` `onDispatch`).
     fn start_typed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(open) = self.open.as_ref() else { return };
         let words = open.query.read(cx).value().trim().to_string();
         if words.is_empty() {
             return;
         }
-        let autopilot = open.autopilot;
         self.close(window, cx);
-        crate::dispatch::screen::start_with(words, autopilot, cx);
+        crate::dispatch::screen::start_with(words, cx);
     }
 
     fn run_act(&mut self, act: RowAct, window: &mut Window, cx: &mut Context<Self>) {
@@ -1122,17 +1119,10 @@ impl Palette {
             self.toggle_panel(window, cx);
             return true;
         }
-        // With words typed and no panel up, ⌘↵ starts them from any row and ⇥ turns the row to the other kind.
+        // With words typed and no panel up, ⌘↵ starts them from any row.
         let offered = self.open.as_ref().is_some_and(|open| open.panel.is_none() && !open.query.read(cx).value().trim().is_empty());
         if offered && mods.platform && !mods.shift && !mods.alt && key == "enter" {
             self.start_typed(window, cx);
-            return true;
-        }
-        if offered && key == "tab" && !mods.platform && !mods.alt && !mods.control {
-            if let Some(open) = self.open.as_mut() {
-                open.autopilot = !open.autopilot;
-            }
-            cx.notify();
             return true;
         }
         // The chords run the act on the row under the cursor, with the panel up or shut.
@@ -1160,14 +1150,12 @@ impl Palette {
 
 // ---- drawing ---------------------------------------------------------------------------------
 
-/// The palette's foot (`ResultKeys`, `DispatchKeys`): each key after its word. With words typed, ⌘↵ starts them and
-/// ⇥ turns the start row to the other kind.
-fn foot_keys(offered: bool, sends: bool, autopilot: bool) -> Vec<(&'static str, &'static str)> {
+/// The palette's foot (`ResultKeys`, `DispatchKeys`): each key after its word. With words typed, ⌘↵ starts them.
+fn foot_keys(offered: bool, sends: bool) -> Vec<(&'static str, &'static str)> {
     if !offered {
         return vec![("Open", "\u{21b5}"), ("Actions", "\u{2318}K")];
     }
-    let other = if autopilot { "Job" } else { "Autopilot" };
-    let mut keys = vec![(if sends { "Dispatch" } else { "Open" }, "\u{21b5}"), ("Dispatch", "\u{2318}\u{21b5}"), (other, "\u{21e5}")];
+    let mut keys = vec![(if sends { "Dispatch" } else { "Open" }, "\u{21b5}"), ("Dispatch", "\u{2318}\u{21b5}")];
     if !sends {
         keys.push(("Actions", "\u{2318}K"));
     }
@@ -1317,8 +1305,8 @@ impl Palette {
     }
 
     /// What was typed, offered as the work itself (`DispatchRow`): the accent plus, the words in quotes, the kind.
-    fn render_start(&self, typed: &str, on: bool, autopilot: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let (said, kind) = if autopilot { ("Start Autopilot with", "Autopilot") } else { ("Start a Job with", "Job") };
+    fn render_start(&self, typed: &str, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let (said, kind) = ("Start a Job with", "Job");
         let name = format!("{said} \u{201c}{typed}\u{201d}");
         let row = div()
             .id("palette-start")
@@ -1572,7 +1560,7 @@ impl Render for Palette {
             })
             .sum();
         let typed = open.query.read(cx).value().trim().to_string();
-        let start = (!typed.is_empty()).then(|| self.render_start(&typed, open.sends, open.autopilot, look, cx));
+        let start = (!typed.is_empty()).then(|| self.render_start(&typed, open.sends, look, cx));
         // The start row is pinned under the list, so a long list never hides it.
         let pinned = if start.is_some() { look.length(token::SPACE_8) + look.length(token::BORDER_WIDTH) } else { px(0.) };
         let tall = (!open.lines.is_empty() || start.is_some()).then(|| (lines + pinned + look.length(token::SPACE_2) * 2.).min(look.length(token::PALETTE_MAX_HEIGHT) * LIST_GROWS));
@@ -1658,7 +1646,7 @@ impl Render for Palette {
                         .text_size(look.length(token::TEXT_XS))
                         .line_height(look.length(token::LEADING_XS))
                         .text_color(look.color(token::FG_SUBTLE))
-                        .children(foot_keys(!query.read(cx).value().trim().is_empty() && open.panel.is_none(), open.sends, open.autopilot).into_iter().map(|(said, key)| {
+                        .children(foot_keys(!query.read(cx).value().trim().is_empty() && open.panel.is_none(), open.sends).into_iter().map(|(said, key)| {
                             div().flex().items_center().gap(look.length(token::SPACE_1)).child(said).child(kbd(look, key))
                         })),
                 )
