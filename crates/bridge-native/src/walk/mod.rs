@@ -360,7 +360,7 @@ pub static WALKS: &[Walk] = &[
             press_on("A Job working five issues, started by one Job and starting two", "row", "Fix the merge line freshness chip", "button", "Add tab: Done"),
             press_on("The top pane's +", "button", "Add tab: Done", "menuitem", "Issues"),
             press_on("Issues: the Job's own, then those of the Jobs it started. Each wears the Ticket state its tracker's status reads as", "menuitem", "Issues", "list", "Issues"),
-            step("In Armada Classic two repositories' #7 show as one row. Native shows both.", Verb::Look, "button", "Issue #7 Cart total rounds the wrong way"),
+            step("In Armada Classic two repositories' #7 show as one row. Native shows both.", Verb::Look, "button", "Issue sample-web#7 Cart total rounds the wrong way"),
             step("A right press opens its menu: what the tracker calls it, and which Ticket state that is in Armada", Verb::RightPressOn("button", "Issue ABC-12 Receipt shows the tax line twice"), "menuitemcheckbox", "In review"),
             press_on("Ready for QA reads as no state yet. Choose In review", "menuitemcheckbox", "In review", "img", "Ticket state: In review"),
             press_on("A press opens the issue beside the Job", "button", "Issue #3290 Merge line freshness chip stays green when stale", "list", "Conversation"),

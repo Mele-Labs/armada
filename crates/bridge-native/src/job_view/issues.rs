@@ -180,7 +180,10 @@ impl JobView {
     /// Open or Closed hue; its number and title. A press opens its panel; a right press its menu.
     fn issue_row(&self, item: IssueItem, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = item.key();
-        let label = item.label();
+        // Another repository's issue names it before its number, so two repositories' #7 tell apart.
+        let own = self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|job| job.manifest_id.clone());
+        let elsewhere = item.manifest.clone().filter(|manifest| Some(manifest) != own.as_ref()).map(|manifest| manifest.as_str().to_string());
+        let label = format!("{}{}", elsewhere.as_deref().unwrap_or_default(), item.label());
         let word = item.word();
         let states = item.manifest.as_ref().and_then(|id| self.panes.tickets.get(id.as_str()));
         let read = states.and_then(|states| ticket_mark(states, &word));
@@ -203,7 +206,15 @@ impl JobView {
             .cursor_pointer()
             .hover(move |style| style.bg(ground).text_color(strong))
             .child(lead)
-            .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::ACCENT)).child(SharedString::from(label.clone())))
+            .child(
+                div()
+                    .flex_none()
+                    .flex()
+                    .font_family(mono(look))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .children(elsewhere.map(|repository| div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(repository))))
+                    .child(div().text_color(look.color(token::ACCENT)).child(SharedString::from(item.label()))),
+            )
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())));
         let pressed = item.clone();
         let row = row.on_click(cx.listener(move |this, _, window, cx| this.open_issue(pressed.clone(), window, cx)));
