@@ -167,6 +167,9 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
         let mut hosting = store.hosting(old.as_str()).unwrap().expect("hosted");
         hosting.auto_land = true;
         store.keep_hosting(&hosting).unwrap();
+        // What the Job froze at its start, which the layers no longer say.
+        let frozen = store::KeptValue { key: "pr_mode".into(), value: Some("draft".into()), layer: "project".into() };
+        store.keep_job_values(old.as_str(), &[frozen]).unwrap();
     }
 
     let decided = asked_and_answered(&rig, &old, HANDOFF_YES).await;
@@ -185,6 +188,12 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
     assert!(standing(&old_record, "pr").is_empty(), "and the old job keeps none");
     assert!(kind(new, "forked_from").is_none(), "not a fork: the conversation is not carried");
     assert!(new.auto_land, "Auto land carries: to the owner it is the same Job");
+    let carried = rig.fleet.store().lock().await.job_values(new.id.as_str()).unwrap();
+    assert_eq!(
+        carried.iter().find(|one| one.key == "pr_mode").map(|one| (one.value.as_deref(), one.layer.as_str())),
+        Some((Some("draft"), "project")),
+        "the values it froze carry, and are not frozen again from the layers as they stand now"
+    );
     assert_eq!(old_record.state, SessionState::Ended, "the old job is ended last");
     assert!(standing(&old_record, "handoff_starting").is_empty());
     assert!(kind(&old_record, "handoff_failed").is_none());

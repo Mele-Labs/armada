@@ -29,6 +29,24 @@ pub trait Projects: Send + Sync + 'static {
     /// `edit_project` — its name, its members or where its file is kept; what is absent stays.
     fn edit_project(&self, project: String, edit: EditProject) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
+    /// `get_values` — every key resolved for the project and the repository, each with the layer it came from.
+    /// Either may be absent. [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a project
+    /// whose file did not read, one that does not hold the repository, or a repository Fleet does not serve.
+    fn get_values(
+        &self,
+        project: Option<String>,
+        manifest_id: Option<ipc::ManifestId>,
+    ) -> impl Future<Output = Result<ipc::ResolvedValues, Refusal>> + Send;
+
+    /// `list_project_issues` — the open issues of the tracker the project names, held five minutes unless `refresh`.
+    /// [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a project whose file did not read
+    /// or that names no tracker (`fleet.project_no_tracker`), and [`Refusal::Fault`] where the tracker would not answer and
+    /// nothing is held.
+    fn list_project_issues(&self, project: String, refresh: bool) -> impl Future<Output = Result<ipc::ProjectIssueList, Refusal>> + Send;
+
+    /// `save_kit_values` — Kit's `values.yml`, whole. [`Refusal::Unacceptable`] for a word its key does not take.
+    fn save_kit_values(&self, save: ipc::SaveKitValues) -> impl Future<Output = Result<ipc::KitValuesSaved, Refusal>> + Send;
+
     /// `delete_project` — the project and its rows, and its file where Fleet keeps it itself.
     fn delete_project(&self, project: String) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 

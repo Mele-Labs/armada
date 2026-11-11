@@ -33,7 +33,7 @@ async fn report(rig: &Rig, id: &SessionId, fact: SessionFact) {
 }
 
 /// A pull request of Job `id` as the forge describes it, then settled spent, as the mod tells one.
-async fn merge(rig: &Rig, id: &SessionId, number: &str, title: &str) {
+pub(super) async fn merge(rig: &Rig, id: &SessionId, number: &str, title: &str) {
     let detail = [("state".to_string(), "merged".to_string()), ("title".to_string(), title.to_string())].into();
     report(rig, id, SessionFact::Attached { attachment: AttachmentReport { kind: "pr".into(), target: number.into(), detail } }).await;
     report(rig, id, SessionFact::Settled { attachment: ipc::AttachmentNamed { kind: "pr".into(), target: number.into() }, state: ipc::AttachmentState::Spent }).await;

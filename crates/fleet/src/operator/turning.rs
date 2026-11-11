@@ -13,7 +13,8 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::operator_page::{item_read, OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorLater, OperatorPage, OperatorRule, OperatorThen, OperatorTurnOrder};
+use core_model::{ManifestId as Repository, Ulid};
+use ipc::operator_page::{item_read, OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorLater, OperatorPage, OperatorRule, OperatorThen, OperatorTurnOrder, RuleScope};
 use ipc::{AnswerWaiting, Instant, SessionId, WaitingAct, WaitingItem, WaitingOption, WaitingSource, WireError};
 use store::{KeptOrder, KeptTurn};
 
@@ -23,6 +24,7 @@ use super::suggesting::suggestion_number;
 use crate::daemon::Fleet;
 use crate::main_ci::{MainChange, MainChanged};
 use crate::main_fix::brief_of;
+use crate::project_files::NOT_MEMBER;
 
 /// An item of a red main starts with this: `red:<repository>:<commit>`.
 pub(super) const RED: &str = "red:";
@@ -59,14 +61,25 @@ pub(super) struct Doing<'a> {
 }
 
 /// The rule's pick for `what`, as the store keeps it: a go-ahead to file keeps its Then.
-pub(super) fn pick_word(what: &str, then: Option<OperatorThen>) -> String {
+pub(super) fn pick_word(what: &str, then: Option<OperatorThen>, pick: &str) -> String {
     if what == "red_main" {
-        "start_fix".to_string()
+        if hands_red(pick) { HAND_RED } else { START_FIX }.to_string()
     } else if what.ends_with(":file") {
         word(&then.unwrap_or(OperatorThen::JustFile))
     } else {
         "do_it".to_string()
     }
+}
+
+/// A red main's rule picks: a Job started on it, or the live Job near it handed it.
+const START_FIX: &str = "start_fix";
+const HAND_RED: &str = "hand_to_job";
+/// What a red's option to hand it starts with, then the Job's title.
+const HAND_TO: &str = "Hand to ";
+
+/// Whether `pick`, an option's label or a rule's word, hands the red to a live Job.
+fn hands_red(pick: &str) -> bool {
+    pick == HAND_RED || pick.starts_with(HAND_TO)
 }
 
 /// The Then a rule's pick names, where it names one.
@@ -77,7 +90,13 @@ fn then_of_pick(pick: &str) -> Option<OperatorThen> {
 /// A rule in Fleet's words.
 pub(super) fn rule_said(what: &str, pick: &str) -> String {
     if what == "red_main" {
-        return "Start a fix when main goes red".to_string();
+        return if pick == HAND_RED { "Hand a red main to the live Job near it" } else { "Start a fix when main goes red" }.to_string();
+    }
+    if what == "start:existing_job" {
+        return "Hand a Job that repeats a live Job's work to that Job".to_string();
+    }
+    if what == super::answering::QUESTION {
+        return "Answer questions you are sure of".to_string();
     }
     let (arrived, way) = what.split_once(':').unwrap_or((what, ""));
     let named = super::Arrived::from_word(arrived).map_or(arrived.to_string(), |arrived| arrived.named().to_string());
@@ -88,6 +107,8 @@ pub(super) fn rule_said(what: &str, pick: &str) -> String {
         ("new_job", _) => format!("Start a Job on {named}"),
         ("existing_job", _) => format!("Hand {named} to a live Job near it"),
         ("link", _) => format!("Link {named} to an open issue"),
+        ("close", _) => "Close an open issue a merged pull request finished".to_string(),
+        ("group", _) => format!("Group {named} with an open issue they repeat or belong under"),
         _ => format!("Do what I would for {named}"),
     }
 }
@@ -100,6 +121,16 @@ fn turn_number(id: &str) -> Option<i64> {
 fn choice_of(item: &WaitingItem, pick: &str) -> Option<u32> {
     let label = super::raising::pick_of(pick, item);
     item.options.iter().position(|option: &WaitingOption| !label.is_empty() && option.label == label).and_then(|at| u32::try_from(at).ok())
+}
+
+/// The pick of the rule that covers `what` for an item in `repository` (empty where it is in none), a
+/// repository of the projects `projects`. **A rule for the repository beats one for a project, which beats
+/// one for everywhere**, and an item in no repository meets only the last.
+pub(crate) fn rule_pick(rules: &[(i64, OperatorRule)], what: &str, repository: &str, projects: &[String]) -> Option<String> {
+    let of = |covers: &dyn Fn(&RuleScope) -> bool| rules.iter().find_map(|(_, OperatorRule::PickRule { scope, what: kept, pick })| (kept == what && covers(scope)).then(|| pick.clone()));
+    of(&|scope| matches!(scope, RuleScope::Repository { manifest_id } if !repository.is_empty() && manifest_id == repository))
+        .or_else(|| of(&|scope| matches!(scope, RuleScope::Project { project } if projects.contains(project))))
+        .or_else(|| of(&|scope| matches!(scope, RuleScope::Everywhere)))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -151,6 +182,13 @@ where
         };
         if let Some(rest) = id.strip_prefix(RED) {
             let (manifest, commit) = rest.split_once(':').ok_or_else(|| Fault::NotDone("the red main's id does not read".to_string()))?;
+            if hands_red(doing.pick) {
+                let (served, main) = self.red_still(manifest, commit).await.ok_or_else(|| Fault::NotDone("main is no longer red there, or a Job is on it already".to_string()))?;
+                let (job, _) = self.red_near(&served, &main).await.ok_or_else(|| Fault::NotDone("no live Job is near that red now".to_string()))?;
+                self.operator_gave_red(manifest, commit, &job).await.map_err(Fault::NotDone)?;
+                self.red_handed_logged(manifest, commit, &job, doing.rule).await;
+                return Ok(Done { handed_to: Some(job), ..Done::default() });
+            }
             let job = self.operator_started_fix(manifest, commit).await.map_err(Fault::NotDone)?;
             return Ok(Done { started: Some(job), ..Done::default() });
         }
@@ -170,6 +208,15 @@ where
         }
     }
 
+    /// The ids of the projects that hold `repository`, which a rule kept for a project meets. None for an
+    /// item in no repository.
+    pub(super) fn rule_projects(&self, repository: &str) -> Vec<String> {
+        match repository {
+            "" => Vec::new(),
+            repository => self.projects_held().holding(&Repository::carried(Ulid::carried(repository))).into_iter().map(|project| project.id().as_str().to_string()).collect(),
+        }
+    }
+
     /// Items just arrived, each done by a rule where one covers it, while the Operator is on. Answers
     /// whether any was, and the rest, which go to review: **a rule that cannot be carried out leaves its
     /// item to the person**.
@@ -181,18 +228,15 @@ where
         let (mut ruled, mut rest) = (false, Vec::new());
         for one in offered {
             let what = self.rule_what(&one.item.id).await;
-            // A rule for this repository wins over one for every repository.
-            let found = what.as_ref().and_then(|what| {
-                let of = |scoped: bool| rules.iter().find_map(|(_, OperatorRule::PickRule { manifest_id, what: kept, pick })| (kept == what && manifest_id.is_some() == scoped && (!scoped || manifest_id.as_deref() == Some(one.manifest_id.as_str()))).then(|| pick.clone()));
-                of(true).or_else(|| of(false))
-            });
+            let held = self.rule_projects(&one.manifest_id);
+            let found = what.as_ref().and_then(|what| rule_pick(&rules, what, &one.manifest_id, &held));
             let (Some(what), Some(pick)) = (what, found) else {
                 rest.push(one);
                 continue;
             };
             let then = then_of_pick(&pick);
             let said = rule_said(&what, &pick);
-            let doing = Doing { session: &one.session, item: &one.item, pick: "", rule: Some(&said) };
+            let doing = Doing { session: &one.session, item: &one.item, pick: &pick, rule: Some(&said) };
             match self.turn_performed(&doing, then).await {
                 Ok(_) => {
                     let at = self.now();
@@ -234,39 +278,61 @@ where
         let row = self.turn_open(&press.id).await?;
         let item = item_read(&row.body).ok_or_else(|| self.ledger_unnamed("an item that reads"))?;
         let not_offered = |why: &str| self.hosted_refusal(NOT_OFFERED, why);
-        let what = self.rule_what(&row.item).await;
+        // The option he named, where it is one the item offers: absent takes the Operator's pick.
+        let named = match press.option.as_deref().map(str::trim).filter(|label| !label.is_empty()) {
+            Some(label) if item.options.iter().any(|option| option.label == label) => Some(label.to_string()),
+            Some(label) => return Err(not_offered(&format!("{label} is not an option this item offers"))),
+            None => None,
+        };
+        // On the Operator's own go-ahead the second option is the refusal: Keep both, or Skip.
+        let refuses = named.is_some() && suggestion_number(&row.item).is_some() && item.options.get(1).map(|option| option.label.as_str()) == named.as_deref();
+        if refuses && !matches!(press.answer, OperatorAnswer::Yes | OperatorAnswer::No) {
+            return Err(not_offered("an Always is for doing the act, not for leaving it"));
+        }
+        let answer = if refuses { OperatorAnswer::No } else { press.answer };
+        let what = self.rule_what(&row.item).await.or_else(|| super::answering::what_of(&item).map(str::to_string));
         let keeps = row.go_ahead && what.is_some();
-        let answer_word = match press.answer {
+        let answer_word = match answer {
             OperatorAnswer::Yes => "yes",
             OperatorAnswer::AlwaysHere => "always_here",
             OperatorAnswer::Always => "always",
             OperatorAnswer::No => "no",
         };
         let mut done = Done::default();
-        if press.answer == OperatorAnswer::No {
+        if answer == OperatorAnswer::No {
             if let Some(n) = suggestion_number(&row.item) {
                 self.suggestion_settled(&row.session, n, false, None, None).await?;
             }
             self.settled_by_press(&row, answer_word, &item, &done).await;
         } else {
-            if press.answer != OperatorAnswer::Yes && !keeps {
+            if answer != OperatorAnswer::Yes && !keeps {
                 return Err(not_offered("Always here and Always are offered only on what Fleet can do by itself"));
             }
-            if press.answer == OperatorAnswer::AlwaysHere && row.manifest_id.is_empty() {
-                return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
-            }
+            let scope = match (answer, press.project.as_deref()) {
+                (OperatorAnswer::AlwaysHere, Some(project)) => {
+                    let held = self.project_repositories(project).await?;
+                    if !held.iter().any(|one| one.as_str() == row.manifest_id) {
+                        return Err(Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, format!("this item's repository is not a member of the project {project}, so Always here cannot hold in it"))));
+                    }
+                    RuleScope::Project { project: project.to_string() }
+                }
+                (OperatorAnswer::AlwaysHere, None) if row.manifest_id.is_empty() => {
+                    return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
+                }
+                (OperatorAnswer::AlwaysHere, None) => RuleScope::Repository { manifest_id: row.manifest_id.clone() },
+                _ => RuleScope::Everywhere,
+            };
             let then = press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| {
                 // Where it offers Thens and he and the Operator named none: just file it.
                 what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
             });
-            let doing = Doing { session: &row.session, item: &item, pick: row.pick.as_deref().unwrap_or_default(), rule: None };
+            let doing = Doing { session: &row.session, item: &item, pick: named.as_deref().or(row.pick.as_deref()).unwrap_or_default(), rule: None };
             done = self.turn_performed(&doing, then).await.map_err(|fault| match fault {
                 Fault::NotOffered(why) => self.hosted_refusal(NOT_OFFERED, &why),
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),
             })?;
-            if let (true, Some(what)) = (press.answer != OperatorAnswer::Yes, &what) {
-                let manifest_id = (press.answer == OperatorAnswer::AlwaysHere).then(|| row.manifest_id.clone());
-                self.rule_kept(OperatorRule::PickRule { manifest_id, what: what.clone(), pick: pick_word(what, then) }).await?;
+            if let (true, Some(what)) = (answer != OperatorAnswer::Yes, &what) {
+                self.rule_kept(OperatorRule::PickRule { scope, what: what.clone(), pick: pick_word(what, then, doing.pick) }).await?;
             }
             if done.open.is_some() {
                 if let Err(why) = self.store().lock().await.answer_operator_turn(row.n, answer_word) {
@@ -300,12 +366,12 @@ where
 
     /// Keep `rule`, in place of one for the same thing in the same place.
     async fn rule_kept(&self, rule: OperatorRule) -> Result<(), Refusal> {
-        let OperatorRule::PickRule { manifest_id, what, pick } = &rule;
+        let OperatorRule::PickRule { scope, what, pick } = &rule;
         let at = self.now();
         let mut store = self.store().lock().await;
         for (n, kept) in self.rules_of(&store) {
-            let OperatorRule::PickRule { manifest_id: there, what: kept_what, .. } = &kept;
-            if kept_what == what && there == manifest_id {
+            let OperatorRule::PickRule { scope: there, what: kept_what, .. } = &kept;
+            if kept_what == what && there == scope {
                 store.remove_operator_order(n, at.as_str()).map_err(|why| self.ledger_fault(why))?;
             }
         }
@@ -358,14 +424,23 @@ where
         let manifest = served.manifest().id().as_str().to_string();
         let commit = main.red_commit();
         let facts = brief_of(main).lines().next().unwrap_or_default().to_string();
+        let id = format!("{RED}{manifest}:{commit}");
+        // Asked once for each red commit, so the forge is not asked for the Job near it again where it stands.
+        if self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == id) {
+            return;
+        }
+        let mut options = vec![WaitingOption { label: "Start a fix".to_string(), description: None }];
+        if let Some((_, title)) = self.red_near(&served, main).await {
+            options.push(WaitingOption { label: format!("{HAND_TO}{title}"), description: None });
+        }
         let item = WaitingItem {
             approves: false,
-            id: format!("{RED}{manifest}:{commit}"),
+            id,
             text: format!("Main is red at {}. {facts}", commit.get(..7).unwrap_or(commit)).trim().to_string(),
             since: Instant::carried(self.now().as_str()),
             source: WaitingSource::OperatorSuggestion,
             act: None,
-            options: vec![WaitingOption { label: "Start a fix".to_string(), description: None }],
+            options,
             steps: Vec::new(),
             place: None,
             confirmed: false,
@@ -374,7 +449,7 @@ where
             create_refused: None,
             operator_read: None,
         };
-        let one = ToRaise { session: String::new(), job: None, manifest_id: manifest, go_ahead: true, item, thens: Vec::new() };
+        let one = ToRaise { session: String::new(), job: None, manifest_id: manifest, go_ahead: true, item, thens: Vec::new(), vet: None };
         let raising = &self.operator_seat().raising;
         let _turn = raising.turn.lock().await;
         let standing = self.store().lock().await.operator_turn_present().unwrap_or_default().iter().any(|row| row.item == one.item.id);

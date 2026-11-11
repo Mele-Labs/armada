@@ -144,7 +144,8 @@ where
             self.commit_refusal(UNWRITABLE, format!("git found nothing to commit for {} on {}.", paths.join(", "), tree.branch))
         })?;
         let body = format!("{}.\n\nMade by Commit to repository, as a Job of its own: {}.", copy.message, paths.join(", "));
-        match self.delivered_for_review(served, tree, Review::assembled(copy.title, body)).await {
+        let review = self.review_as_offered_by(session_id.as_str(), Review::assembled(copy.title, body)).await;
+        match self.delivered_for_review(served, tree, review).await {
             Ok(url) => {
                 self.pull_attached(served, session_id.as_str(), &tree.branch, &url).await;
                 Ok(())

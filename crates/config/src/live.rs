@@ -72,13 +72,11 @@ pub(crate) struct Dials {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct InForce {
     pub(crate) dials: Dials,
-    /// **Defaulted rather than optional**, unlike the pair above it. An absent
-    /// `quiet_after_seconds` defers to the tier Fleet is running with and there
-    /// is a tier to defer to; `auto_merge` and `review_gate` are `Manifest
-    /// only` in the settings registry, so an absent key has nothing above it
-    /// and means the policy's own default. `None` here would be a third
-    /// reading of a two-reading value.
-    pub(crate) auto_merge: AutoMerge,
+    /// What `auto_merge:` wrote, **absent where it wrote nothing**. An absent key means the policy's
+    /// own default, which [`crate::Manifest::auto_merge`] answers; the written word is kept apart so
+    /// the repository's tier of a Job's values can tell a repository that said `never` from one
+    /// that said nothing. `review_gate` is defaulted: no layer reads whether it was written.
+    pub(crate) auto_merge: Option<AutoMerge>,
     pub(crate) review_gate: ReviewGate,
     /// `merge_by`, defaulted for the policies' reason: absent means `forge`.
     pub(crate) merge_by: MergeBy,
@@ -531,11 +529,11 @@ fn moved(before: InForce, after: InForce) -> Vec<Moved> {
     // key is the policy's default rather than a deferral, so the sentence a
     // person reads names the value that was in force rather than the word
     // `unset`. `InForce::auto_merge` carries why.
-    if before.auto_merge != after.auto_merge {
+    if before.auto_merge.unwrap_or_default() != after.auto_merge.unwrap_or_default() {
         changed.push(Moved {
             key: LiveKey::AutoMerge,
-            before: Some(before.auto_merge.as_written().to_string()),
-            after: Some(after.auto_merge.as_written().to_string()),
+            before: Some(before.auto_merge.unwrap_or_default().as_written().to_string()),
+            after: Some(after.auto_merge.unwrap_or_default().as_written().to_string()),
         });
     }
     if before.review_gate != after.review_gate {

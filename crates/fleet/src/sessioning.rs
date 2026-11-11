@@ -38,6 +38,8 @@ const NATIVE_WALK_REFUSED: &str = "fleet.native_walk_refused";
 pub(crate) struct LedgerReads {
     held: Vec<KeptAttachment>,
     hosting: Option<store::KeptHosting>,
+    /// What the Job froze of its values when it started, where it froze any.
+    values: Vec<store::KeptValue>,
     waiting: WaitingReads,
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,
@@ -76,6 +78,10 @@ pub(crate) struct LedgerReads {
     open_turn: Option<store::KeptOpenTurn>,
     /// Its repair Job ended or said it is done, so it is not coming back that way.
     repair_over: bool,
+    /// When a repair for a silent stop, or for a red pull request, last started for it.
+    stop_repaired_at: Option<String>,
+    /// The numbers of its open pull requests that Fleet told it failed, with nothing pushed since.
+    red_pulls: Vec<u64>,
     /// The stretches Fleet was away while its open turn was: the last, oldest first.
     away: Vec<(String, String)>,
     /// What the start card is drawn from, for a Job that waits on it.

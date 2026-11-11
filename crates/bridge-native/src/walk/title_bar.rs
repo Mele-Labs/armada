@@ -35,7 +35,7 @@ pub static SWITCHER: [Step; 8] = [
     step("Wider, the repositories join the name once they fit whole", Verb::Width(1440), "button", "Project"),
 ];
 
-pub static STEPS: [Step; 61] = [
+pub static STEPS: [Step; 55] = [
     step("The bar at rest: the project with its repositories, the Places, search, the plan rings, the Operator, Fleet's dot and the menu", Verb::Look, "button", "Project"),
     step("The Places stand in a notch at the centre, the window's own brighter, and the search is an icon with its key", Verb::Look, "tablist", "Places"),
     step("⌘1 goes to the first place from wherever the keys are", Verb::Key("cmd-1"), "tab", "Jobs"),
@@ -88,13 +88,7 @@ pub static STEPS: [Step; 61] = [
     scene("Signed in again at full width, the row is whole", "back-to-rest", "button", "Operator"),
     scene("Events Fleet dropped stand as an alert above the screen, with the count that will never arrive", "events-dropped", "alert", "Events were dropped before Bridge saw them"),
     press_on("Noted puts it away until more are dropped", "button", "Noted", "button", "Operator"),
-    scene("Fleet unreachable: the dot is amber and the notice says what is shown is not live", "fleet-unreachable", "status", "Fleet unreachable"),
-    scene("Fleet starting: Armada's mark pulses and no notice yet", "fleet-starting", "button", "Fleet — Starting"),
-    scene("Fleet gone, inside the first 30 seconds: an orange dot and no notice", "fleet-powering", "button", "Fleet — Not running"),
-    scene("After that the notice stands above the screen", "fleet-down", "alert", "Fleet is not running"),
+    scene("Fleet starting: Armada's mark pulses", "fleet-starting", "button", "Fleet — Starting"),
+    scene("Fleet gone: a red dot; its toast is the native-toasts walk's", "fleet-down", "button", "Fleet — Not running"),
     step("The panel says why", Verb::Press, "button", "Fleet — Not running"),
-    scene("A Fleet that does not match offers Restart Fleet", "fleet-mismatch", "button", "Restart Fleet"),
-    press_on("Restart Fleet answers in the same frame", "button", "Restart Fleet", "button", "Restarting Fleet"),
-    scene("A Fleet that came back and still does not match", "restart-apart", "alert", "Still not matching"),
-    scene("No new runtime file in 30 seconds", "restart-no-answer", "alert", "Fleet did not come back inside 30 seconds"),
 ];

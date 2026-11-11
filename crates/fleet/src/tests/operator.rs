@@ -199,7 +199,7 @@ async fn while_paused_a_review_makes_no_call_and_every_item_comes_back_with_no_r
         create_refused: None,
         operator_read: None,
     };
-    let items = [crate::operator::ToRaise { session: "01THIS".into(), manifest_id: String::new(), job: Some("Build the pane".into()), item, go_ahead: false, thens: Vec::new() }];
+    let items = [crate::operator::ToRaise { session: "01THIS".into(), manifest_id: String::new(), job: Some("Build the pane".into()), item, go_ahead: false, thens: Vec::new(), vet: None }];
 
     let reviewed = operator.reviewed(&items).await;
 

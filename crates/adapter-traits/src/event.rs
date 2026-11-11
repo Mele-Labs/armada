@@ -383,9 +383,15 @@ pub enum DroneEvent {
     /// than rounding it into a fact. A call that thought for a while sends a
     /// rising run of these, and the next call starts again from zero.
     ///
-    /// **How much, never what.** The reasoning text is a separate block and is
-    /// deliberately not carried — `docs/scope.md`.
+    /// **How much, never what.** The reasoning text is a separate block, carried
+    /// by [`DroneEvent::Reasoned`].
     Thinking { estimated_tokens: u64 },
+    /// What the model reasoned before what it did next: the harness's short summary
+    /// of it, never the working itself, which the harness keeps encrypted. A Job's
+    /// thread shows it (the owner, 10 Nov 2026): he reads only what the agent
+    /// writes, and a Job that worked its answer out here and then asked left him
+    /// the question alone.
+    Reasoned { text: String },
     /// Something arrived that this vocabulary has no variant for. Carried by
     /// kind so a stream that grew an event is visible as a count rather than as
     /// a gap.

@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { Bot, ChartNoAxesGantt, Check, ChevronLeft, File, GripVertical, Link, Lock, Maximize2, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { Bell, BellRing, Bot, ChartNoAxesGantt, Check, ChevronLeft, File, GripVertical, Link, Lock, Maximize2, Plus, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -103,6 +103,32 @@ export const ACTIONS: readonly Action[] = [
     icon: Bot,
     iconAbsent: null,
     shortcut: "⌘J",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "toast_history",
+    kind: "Action",
+    tier: "Global",
+    verb: "Toasts",
+    icon: Bell,
+    iconAbsent: null,
+    shortcut: "⌥⌘N",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "toast_focus",
+    kind: "Action",
+    tier: "Global",
+    verb: "Newest toast",
+    icon: BellRing,
+    iconAbsent: null,
+    shortcut: "⌥⌘J",
     scope: "anywhere",
     destructive: false,
     confirms: false,

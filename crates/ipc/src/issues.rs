@@ -54,6 +54,20 @@ pub struct IssueList {
     pub stale: Option<String>,
 }
 
+/// `list_project_issues`' answer: the open issues of the tracker a project names, as `IssueList` carries a repository's.
+/// `holders` are the Jobs holding each issue in any repository the project holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProjectIssueList {
+    /// The project's id.
+    pub project: String,
+    /// When the tracker was read for this list.
+    pub fetched_at: Instant,
+    pub issues: Vec<TrackedIssue>,
+    /// Why this list is older than asked for, in the tracker's own words. Absent on a fresh list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stale: Option<String>,
+}
+
 /// Whether the tracker holds an issue open.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

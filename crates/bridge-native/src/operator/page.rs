@@ -187,6 +187,19 @@ impl OperatorPageView {
         }
     }
 
+    /// The owner's Fleet, where the page reads from it; `None` on the walk's.
+    pub fn fleet(&self) -> Option<&Entity<FleetConnection>> {
+        match &self.wire {
+            Wire::Live(fleet) => Some(fleet),
+            Wire::Mock(_) => None,
+        }
+    }
+
+    /// Whether Fleet's page has been read once: before it, Your turn is not known to be empty.
+    pub fn is_read(&self) -> bool {
+        self.page.is_some()
+    }
+
     pub fn items(&self) -> &[OperatorTurnItem] {
         self.page.as_ref().map_or(&[], |page| page.turn.as_slice())
     }
@@ -528,7 +541,7 @@ impl OperatorPageView {
             return;
         }
         let then = (!turn.then.is_empty()).then(|| self.then_of(&turn)).flatten();
-        let press = OperatorAnswerPress { id: turn.id.clone(), answer, then: then.filter(|_| answer != OperatorAnswer::No) };
+        let press = OperatorAnswerPress { id: turn.id.clone(), answer, then: then.filter(|_| answer != OperatorAnswer::No), option: None, project: None };
         let at = self.index_of(&turn.id).unwrap_or(0);
         self.take_out(&turn.id);
         self.done.push(Done { id: turn.id.clone(), kind: face::kind_of(&turn), title: face::title_of(&turn), said: None });
@@ -735,7 +748,7 @@ impl OperatorPageView {
     // -- the walk's scenes -------------------------------------------------------------------------
 
     /// Move the mock Fleet to a named scene: the Operator answers the chat (`said`), a new item joins
-    /// the queue (`arrives`), or it is switched off (`off`). Two scenes only scroll the page, where a
+    /// the queue (`arrives`), three join at once (`raised`), or it is switched off (`off`). Two scenes only scroll the page, where a
     /// step looks at what a short window holds below the open card: `rest` to the rows under it, `top`
     /// back to the card.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
@@ -765,6 +778,11 @@ impl OperatorPageView {
                 self.set_page(page, cx);
                 // The step looks at the row that joined, at the queue's end.
                 self.main_scroll.scroll_to_bottom();
+            }
+            "raised" => {
+                mock.raised();
+                let page = mock.page.clone();
+                self.set_page(page, cx);
             }
             "off" => {
                 mock.switch(false);
@@ -848,7 +866,7 @@ mod tests {
         let (page, cx) = open(cx);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:1"));
         cx.simulate_keystrokes("a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::Yes, then: None }]);
+        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:1".into(), answer: OperatorAnswer::Yes, then: None, option: None, project: None }]);
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"), "the next item opens");
         page.read_with(cx, |page, _| {
             assert_eq!(page.done.iter().map(|done| done.id.as_str()).collect::<Vec<_>>(), ["turn:1"]);
@@ -865,7 +883,7 @@ mod tests {
         assert_eq!(open_id(&page, cx).as_deref(), Some("turn:2"));
         page.read_with(cx, |page, _| assert_eq!(page.open_item().and_then(|turn| page.then_of(turn)), Some(OperatorThen::FileAndHand), "the Operator's pick stands first"));
         cx.simulate_keystrokes("2 a");
-        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart) }]);
+        assert_eq!(pressed(&page, cx), vec![OperatorAnswerPress { id: "turn:2".into(), answer: OperatorAnswer::Yes, then: Some(OperatorThen::FileAndStart), option: None, project: None }]);
     }
 
     #[gpui::test]

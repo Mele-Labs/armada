@@ -25,7 +25,7 @@ pub mod face;
 pub mod page;
 pub mod scenes;
 pub mod screen;
-mod view;
+pub(crate) mod view;
 mod wire;
 
 pub use screen::{live, OperatorScreen};

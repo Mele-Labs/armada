@@ -160,6 +160,10 @@ where
                 if self.decision_kept(&id).await {
                     continue;
                 }
+                // Where the Operator is on and a rule covers its questions, they are its to answer.
+                if crate::operator::is_question(item) && self.operator_answers_questions(&helping.kept.manifest_id).await {
+                    continue;
+                }
                 let card = self.card_of(&job.id, item);
                 let Some(kind) = sorted(item, card.as_ref()).filter(|kind| helping.kinds.contains(kind)) else {
                     continue;

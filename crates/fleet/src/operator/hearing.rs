@@ -2,11 +2,12 @@
 //! hosted Job, whoever started it**, on its own tap beside the one that tells a parent
 //! (`linked_following`), which it leaves as it is.
 //!
-//! **Each is heard once, and makes no call**, and goes in the Operator's journal of the week. The store keeps `operator_ended` and `operator_merged`,
+//! **Each is heard once, and makes no call of its own**, and goes in the Operator's journal of the week. The store keeps `operator_ended` and `operator_merged`,
 //! under names of their own so neither shadows what a parent was told. Nothing is raised, proposed or
-//! ruled: the Operator is only told what finished, and Discussion reads it. **Nothing is replayed**:
-//! when the tap starts, every end and merge already there is marked heard.
-//! A Job handed on for context is no end: its work goes on in its successor.
+//! ruled: the Operator is only told what finished, and Discussion reads it. **A merge that left an open
+//! issue near its work, which it did not name, is handed on to ask whether it finished that issue**:
+//! none near, no call. **Nothing is replayed**: when the tap starts, every end and merge already there
+//! is marked heard. A Job handed on for context is no end: its work goes on in its successor.
 
 use std::sync::Arc;
 
@@ -88,8 +89,9 @@ where
     }
 
     /// One record of a Job that ended or holds a merged pull request: each end and merge in it that
-    /// was not heard before is marked. **No call is made and nothing is raised or suggested**: an
-    /// end and a merge only tell the Operator what finished, which Discussion reads from the store.
+    /// was not heard before is marked. **Nothing is raised or suggested here**: an end and a merge only
+    /// tell the Operator what finished, which Discussion reads from the store, but for the open issues
+    /// a merge may have finished, which are asked about.
     async fn end_heard(self: &Arc<Self>, record: SessionRecord) {
         let id = record.id.as_str().to_string();
         if self.store().lock().await.hosting(&id).ok().flatten().is_none() {
@@ -103,6 +105,7 @@ where
             if self.heard_once(&id, MERGED, &pull.target).await {
                 let title = pull.detail.get("title").cloned().unwrap_or_default();
                 self.operator_journaled(&format!("Merged: #{} {title}, held by {job}", pull.target)).await;
+                self.finished_asked(&id, &job, &pull.target, &title).await;
             }
         }
     }

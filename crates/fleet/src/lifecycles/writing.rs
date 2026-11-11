@@ -21,7 +21,6 @@ use store::{KeptRuleAct, Store};
 use super::keeping::{PULL_REQUEST, TICKET};
 use super::saying::thing;
 use crate::daemon::Fleet;
-use crate::tracking::choice_of;
 
 /// What one repository's tracker and forge can write, for a rule's acts to be planned against.
 pub struct Writes {
@@ -191,30 +190,42 @@ where
     /// What the repository `manifest` names can write: its tracker's and the forge's. Pure, and the
     /// same for every Job in it.
     pub(crate) fn writes_for(&self, manifest: Option<&str>) -> Writes {
+        self.writes_in(manifest, None)
+    }
+
+    /// What a Job can write, where it is in `project`: **the project's tracker's** where it names one.
+    pub(crate) fn writes_in(&self, manifest: Option<&str>, project: Option<&str>) -> Writes {
         let Some(served) = manifest.and_then(|id| self.repositories().serving(id)) else {
             return Writes::nowhere("the Job is in no repository this Fleet serves");
         };
-        Writes::new(self.trackers().writer(&choice_of(served.manifest())), self.vcs().can_request_reviewers())
+        Writes::new(self.trackers().writer(&self.choice_in(&served, project)), self.vcs().can_request_reviewers())
+    }
+
+    /// What the Job `session` can write, as its repository and its project say.
+    pub(crate) fn writes_for_job(&self, store: &Store, session: &str) -> Writes {
+        let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
+        self.writes_in(manifest.as_deref(), crate::job_tracking::job_project(store, session).as_deref())
     }
 
     /// Whether the repository the Job of `row` is in still carries `act`, and why not. Asked before
     /// each try, so an act is not tried against a tracker that can no longer make it.
     pub(super) fn rule_act_carried(&self, store: &Store, row: &KeptRuleAct, act: &Act, lifecycles: &[Lifecycle]) -> Result<(), String> {
-        let manifest = store.session(&row.session_id).ok().flatten().and_then(|one| one.manifest_id);
         let on = row.on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
-        self.writes_for(manifest.as_deref()).carries(act, on, lifecycles)
+        self.writes_for_job(store, &row.session_id).carries(act, on, lifecycles)
     }
 
     /// The repository the Job `row` belongs to.
-    async fn rule_repository(&self, row: &KeptRuleAct) -> Result<crate::repositories::Served, String> {
-        let manifest = {
+    async fn rule_repository(&self, row: &KeptRuleAct) -> Result<(crate::repositories::Served, Option<String>), String> {
+        let (manifest, project) = {
             let store = self.store().lock().await;
-            store.session(&row.session_id).map_err(|why| why.to_string())?.and_then(|one| one.manifest_id)
+            let manifest = store.session(&row.session_id).map_err(|why| why.to_string())?.and_then(|one| one.manifest_id);
+            (manifest, crate::job_tracking::job_project(&store, &row.session_id))
         };
-        manifest
+        let served = manifest
             .as_deref()
             .and_then(|id| self.repositories().serving(id))
-            .ok_or_else(|| String::from("the Job is in no repository this Fleet serves"))
+            .ok_or_else(|| String::from("the Job is in no repository this Fleet serves"))?;
+        Ok((served, project))
     }
 
     /// Make the write to the ticket the act is done to, in the Job's repository's tracker.
@@ -224,8 +235,8 @@ where
         write: &TrackerWrite,
         lifecycles: &[Lifecycle],
     ) -> Result<String, String> {
-        let served = self.rule_repository(row).await?;
-        let (root, tracker) = (served.root().to_string(), self.trackers().writer(&choice_of(served.manifest())));
+        let (served, project) = self.rule_repository(row).await?;
+        let (root, tracker) = (served.root().to_string(), self.trackers().writer(&self.choice_in(&served, project.as_deref())));
         let (write, lifecycles, on) = (write.clone(), lifecycles.to_vec(), row.on.clone());
         tokio::task::spawn_blocking(move || {
             let on = on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));
@@ -237,7 +248,7 @@ where
 
     /// Make the write to the pull request the act is done to, through the forge Fleet holds.
     pub(super) async fn rule_forge_written(self: &Arc<Self>, row: &KeptRuleAct, write: &ForgeWrite) -> Result<String, String> {
-        let root = self.rule_repository(row).await?.root().to_string();
+        let root = self.rule_repository(row).await?.0.root().to_string();
         let (write, on) = (write.clone(), row.on.clone());
         self.forge_asked(&root, move |vcs: &V, root: &str| {
             let on = on.as_ref().map(|(lifecycle, key)| (lifecycle.as_str(), key.as_str()));

@@ -195,9 +195,9 @@ pub struct OperatorComingUp {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorLearned {
     pub id: i64,
-    /// The repository it holds in. Absent on an Always, which holds everywhere.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest_id: Option<String>,
+    /// Where it holds: a repository, a project, or everywhere, which is an Always. Since 10 Nov 2026.
+    pub scope: RuleScope,
+    /// What a person reads for the scope: the repository's name, or the project's. Absent on everywhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub repository: Option<String>,
     /// The rule in Fleet's words, such as `Start a fix when main is red`.
@@ -298,9 +298,18 @@ pub struct OperatorAnswerPress {
     /// The item's `id`.
     pub id: String,
     pub answer: OperatorAnswer,
+    /// On an Always here: the project the page is filtered to, which the rule then holds in. Absent holds
+    /// in the item's repository. Since 10 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
     /// On a go-ahead to file an issue: which Then. Absent takes the Operator's pick, else `just_file`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub then: Option<OperatorThen>,
+    /// The label of the option he chose, one the item lists in `options`. Absent takes the Operator's
+    /// pick, so a press that names none is as it was. Refused as not offered where the item lists none such.
+    /// Since 10 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option: Option<String>,
 }
 
 /// What `operator_answer` did.
@@ -346,14 +355,36 @@ pub struct OperatorInFront {
     pub rewriting: bool,
 }
 
+/// Where a rule holds. **A rule for the repository beats one for a project, which beats one for everywhere.**
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RuleScope {
+    /// Any repository, and an item in none. What an Always keeps.
+    Everywhere,
+    /// The items of one repository.
+    Repository { manifest_id: String },
+    /// The items of any repository the project holds, a folder member counting as its repository.
+    Project { project: String },
+}
+
 /// A rule the Operator keeps from an Always or an Always here, in the store's orders beside the
 /// holds. It is none of `OperatorOrderForm`'s forms, so a list of orders never serves it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OperatorRule {
-    /// Where `what` arrives, do `pick`, with no press. `manifest_id` absent holds everywhere.
+    /// Where `what` arrives within `scope`, do `pick`, with no press.
+    PickRule { scope: RuleScope, what: String, pick: String },
+}
+
+/// A rule as the store may hold it: before a scope was one of three, a rule named the repository it
+/// held in, or none for everywhere.
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum RuleStored {
     PickRule {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        scope: Option<RuleScope>,
+        #[serde(default)]
         manifest_id: Option<String>,
         what: String,
         pick: String,
@@ -368,7 +399,9 @@ impl OperatorRule {
 
     /// What the store kept. `None` where it is no rule, such as a standing order.
     pub fn read(text: &str) -> Option<OperatorRule> {
-        serde_json::from_str(text).ok()
+        let RuleStored::PickRule { scope, manifest_id, what, pick } = serde_json::from_str(text).ok()?;
+        let scope = scope.unwrap_or_else(|| manifest_id.map_or(RuleScope::Everywhere, |manifest_id| RuleScope::Repository { manifest_id }));
+        Some(OperatorRule::PickRule { scope, what, pick })
     }
 }
 

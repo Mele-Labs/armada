@@ -140,18 +140,19 @@ where
     }
 
     /// The Operator ruled the red to live Job `job`, whose work is near it: the red is claimed for
-    /// it, and it is told, as `take_main_red` would have it.
-    pub(crate) async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) {
-        let Some((served, main)) = self.red_still(manifest, commit).await else { return };
+    /// it, and it is told, as `take_main_red` would have it. Why not, where it was not.
+    pub(crate) async fn operator_gave_red(self: &Arc<Self>, manifest: &str, commit: &str, job: &str) -> Result<(), String> {
+        let (served, main) = self.red_still(manifest, commit).await.ok_or("main is no longer red there, or a Job is on it already")?;
         if self.red_is_free(&main, false).await.is_err() || self.claim_red(&main, &Taker::Session(job.to_string()), false).await.is_err() {
-            return;
+            return Err("the red could not be taken for that Job".to_string());
         }
         let facts = self.with_the_log(&served, &main, brief_of(&main)).await;
         let said = format!("Main went red at {}.\n\n{facts}", short(main.red_commit()));
         if !matches!(self.told_by_fleet(job, &said, Notice::Operator).await, Ok(true)) {
             self.release_red(&main).await;
-            return;
+            return Err("the Job did not take the red".to_string());
         }
         self.recorded_session_take(&main, job, TakenHow::SentBack, None).await;
+        Ok(())
     }
 }

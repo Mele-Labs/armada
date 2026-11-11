@@ -128,12 +128,22 @@ impl Store {
     /// a note where the person sent it or a note's failed ruling, and the person's press on a suggestion or
     /// his send of a note to a Job. A person's correction or answer of his own is not one.
     pub fn operator_rulings_signed(&self, limit: u32) -> Result<Vec<KeptRuling>, WriteError> {
+        self.settled_rows(limit, "AND arrival NOT IN (SELECT arrival FROM operator_suggestions)")
+    }
+
+    /// [`operator_rulings_signed`](Store::operator_rulings_signed) and the acts a rule he kept did on a
+    /// suggestion, which no press of his is the row of, so Done shows every act the Operator did alone.
+    pub fn operator_rulings_done(&self, limit: u32) -> Result<Vec<KeptRuling>, WriteError> {
+        self.settled_rows(limit, "")
+    }
+
+    fn settled_rows(&self, limit: u32, apart: &str) -> Result<Vec<KeptRuling>, WriteError> {
         let doing = "reading the Operator's rulings";
         let mut statement = self
             .conn
             .prepare(&format!(
                 "SELECT {COLUMNS} FROM operator_rulings
-                 WHERE (by = 'operator' AND arrival NOT IN (SELECT arrival FROM operator_suggestions)
+                 WHERE (by = 'operator' {apart}
                         AND outcome NOT IN ('leave', 'read_only')
                         AND outcome NOT LIKE 'proposed_%'
                         AND NOT (outcome = 'passed_on' AND arrival LIKE 'note-sent:%'))

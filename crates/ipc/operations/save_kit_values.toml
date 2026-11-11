@@ -1,0 +1,12 @@
+[operations.save_kit_values]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Keep the values Kit sets for how work behaves, whole"
+notes = """
+`POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is: `pr_mode`, `auto_merge`, `review_model`, `look { layout?, theme?, density? }` and `reviews { plans?, pull_requests?, walks? }`, only the keys Kit sets. It is written whole to `values.yml` in Kit's folder on this Mac, so a key left out is taken away, and `{}` takes every value back. `docs/practices/protocol/projects.md`, *Values*. Answers 200 with `KitValuesSaved { file, values }`: where it was written and what Kit now sets.
+
+Kit's layer sits under the repository's and the project's: it answers a key neither sets. A Job takes it at its start, like every layer.
+
+422 `fleet.project_values_refused` for an `auto_merge` that is not `never`, `checks-pass` or `always`, a `density` that is not `compact`, `default` or `roomy`, or blank text, and nothing is written. 500 `fleet.kit_values_unwritable` where the file could not be written.
+"""
