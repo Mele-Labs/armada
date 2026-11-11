@@ -35,7 +35,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
 | Handles routine Job questions | Not built |
 | Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
-| Hands duplicate work to the Job already on it | Not built |
+| Hands duplicate work to the Job already on it | Yes. A start, or a red main, that a live Job is near is a go-ahead to hand it over |
 | Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
 | Handles reviews | Not built |
 | Reviews what needs you and raises it with its read and a pick | Partly. Fleet queues each item in Your turn with its read and pick; no Bridge shows it yet |
@@ -137,6 +137,14 @@ What a rule did is in Done as well, signed by the Operator.
 
 **The Operator starts no Job for another Job's work.**
 A Job it starts is one he asked for, or work no Job holds: a note, an error, a report or a red main.
+**A Job that starts on what a live Job holds is handed to that Job, after one go-ahead.**
+Fleet looks first: a start by a Job, by Autopilot or by him is put against the live Jobs in its repository, and only where one shares a path, an issue or two uncommon words is one call made.
+With no Job near it there is no call and no row.
+Hand to the live Job or Keep both is the go-ahead's pick, answered Yes, Always here, Always or No, and a kept rule hands it alone.
+Yes sends the brief to the live Job, tells the Job that started it where it went, and closes the duplicate.
+A Job's own start is held on its start card until he answers, and Autopilot's is set aside, then started as it was asked on No.
+**A Job he started himself is never held or closed unasked**: it starts, and Your turn carries the item.
+Every hand-over is a row of the Log signed by the Operator that names both Jobs, and the rule where one did it.
 Why: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it." It had started a second "Rest of" Job while a subagent of the first still ran.
 
 **Merging two Jobs, keeping two in touch, and answering a question are not ways.**
@@ -239,7 +247,7 @@ Every act is asked, and the answer is kept: Yes this time, Always here for this 
 A rule you kept covers the act, this repository's first and then every repository's, and Fleet does it as it is raised.
 The Log row says by which rule.
 No is for this time only.
-Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one and a red main's fix are acts.
+Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, handing a start over and a red main's fix are acts.
 A link to an open issue writes nothing and is not asked.
 Raising, leaving a note where it is and noting it are not acts.
 
@@ -259,6 +267,7 @@ Settled with the person on 10 Nov, on sketches. It stays current all day; the mo
   The whole Log opens on a sheet over the page, a heading for each day and each entry at its time.
 - A new item during the day joins the queue and raises a toast whose pick button settles it.
 - A red main nobody is on is an item. Start a fix starts a Job at once with no plan step; whether its pull request merges by itself is per project, asked the first time.
+  Where a live Job took the last red, or its paths meet the files of the merge before this one, the item offers Hand to that Job beside Start a fix, with the Operator's pick; Yes on it claims the red for that Job and tells it, and Always here keeps the pick as the rule.
 
 The pane opened from a Job holds the chat and the short list.
 It reaches the person through toasts in the native Bridge, which [Native Bridge](native-bridge.md) owns.
