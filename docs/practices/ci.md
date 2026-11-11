@@ -25,9 +25,10 @@ The queue's run is the one that decides, so a pull request that also ran the who
 Decided by the owner, 17 Oct 2026, keeping the Checks that compile on the pull request so most breakage stops before the queue.
 `workflow_dispatch` on a branch runs everything, for a change that wants the whole answer first.
 
-**The native Bridge's tests run in `native`, on `macos-15`, for a change that reaches `crates/bridge-native`.**
+**The native Bridge's tests run in `native`, on `macos-15`, for a change that reaches `crates/bridge-native` or the three things it reads: `crates/ipc`, `crates/core-model` and `packages/tokens`.**
 gpui builds on no Linux runner, so no other job runs them.
 `plan.py` reads the native workspace's `test` key from `armada covers` into its `native` output, which `native` waits on, and `ci` needs `native`.
+The three it reads are added in the workflow, not the crate's manifest, so a local pre-PR run still builds gpui only for a change to the crate. #3443 renamed a wire field and merged with the native tests not compiling.
 The job is skipped for any other change and `ci` reads a skipped job as a pass, so only a change to the crate waits on it.
 A pull request runs it as well as the queue, because a native test that fails in the queue takes the entries behind it.
 The release does not repeat it: `release` waits on `ci`, and a push to main runs `native` like any other Check.

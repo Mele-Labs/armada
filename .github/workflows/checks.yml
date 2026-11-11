@@ -250,7 +250,16 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "has_matrix=$(jq '.matrix.include | length > 0' plan/plan.json)" >> "$GITHUB_OUTPUT"
           echo "compile=$(jq -c .compile plan/plan.json)" >> "$GITHUB_OUTPUT"
-          echo "native=$(jq .native plan/plan.json)" >> "$GITHUB_OUTPUT"
+          # The native crate reads these three, and its own manifest leaves them out of its Check so
+          # a local pre-PR run does not build gpui for every wire change. CI pays for it instead:
+          # #3443 renamed a wire field and merged with the native tests not compiling.
+          native=$(jq .native plan/plan.json)
+          own=plan/changed.txt
+          [ -f plan/branch.txt ] && own=plan/branch.txt
+          if [ "$REPEAT" != true ] && grep -qE '^(crates/ipc|crates/core-model|packages/tokens)/' "$own"; then
+            native=true
+          fi
+          echo "native=$native" >> "$GITHUB_OUTPUT"
           echo "CHECKS $checks"
           echo "### plan: $checks" >> "$GITHUB_STEP_SUMMARY"
           jq -r '.excluded[] | "excluded: \(.)"' plan/plan.json >> "$GITHUB_STEP_SUMMARY"
