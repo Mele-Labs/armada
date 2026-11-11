@@ -442,12 +442,8 @@ impl OperatorPageView {
                 _ => face::answer_word(answer).into(),
             };
             let key: Option<SharedString> = Some(face::answer_key(answer).into());
-            let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look).tooltip(tip(match answer {
-                OperatorAnswer::Yes => "Do my pick",
-                OperatorAnswer::AlwaysHere => "Do my pick, and keep it as a rule in this project",
-                OperatorAnswer::Always => "Do my pick, and keep it as a rule everywhere",
-                OperatorAnswer::No => "Drop it",
-            }));
+            let button = press(format!("answer-{at}"), label.clone(), yes.then_some("check"), key, if yes { Weight::Pick } else { Weight::Plain }, look)
+                .tooltip(tip(face::answer_tip(turn, answer, self.then_of(turn))));
             let button = pressed(button, cx, move |this, window, cx| this.answer(answer, window, cx));
             labelled(button, Role::Button, label).into_any_element()
         });
@@ -488,6 +484,17 @@ impl OperatorPageView {
                 Role::Button,
                 "Ask",
             ));
+        // Ask's chat opens in the card it is about, between what the item says and its answers.
+        let chat = self.chat.clone().map(|chat| {
+            div()
+                .h(look.length(token::SPACE_12) * 6.)
+                .flex()
+                .flex_col()
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .bg(look.color(token::BG_BASE))
+                .child(chat)
+        });
         let id = turn.id.clone();
         labelled(
             div()
@@ -507,6 +514,7 @@ impl OperatorPageView {
                 }))
                 .child(head)
                 .child(body)
+                .children(chat)
                 .child(acts),
             Role::Article,
             title,
@@ -1161,10 +1169,7 @@ impl Render for OperatorPageView {
                     .children(open)
                     .children(self.rest(look, cx)),
             );
-        let aside = match &self.chat {
-            Some(chat) => div().size_full().child(chat.clone()).into_any_element(),
-            None => self.digest(page, look, cx).into_any_element(),
-        };
+        let aside = self.digest(page, look, cx);
         let sheet = self.rules.map(|at| self.rules_sheet(at, look, cx));
         let log = self.log.as_deref().map(|text| self.log_sheet(text, look, cx));
         root.relative()
