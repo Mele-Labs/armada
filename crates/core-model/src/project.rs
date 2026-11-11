@@ -15,6 +15,7 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use crate::lifecycle::ScopeId;
+use crate::values::Values;
 use crate::workflow::{ManifestId, Title};
 
 /// A path inside a repository, `/`-separated and relative to its root.
@@ -96,6 +97,7 @@ pub struct Project {
     id: ScopeId,
     name: Title,
     members: Vec<Member>,
+    values: Values,
 }
 
 impl Project {
@@ -116,7 +118,18 @@ impl Project {
                 return Err(MalformedProject::NamedLikeItsRepository { repository: member.repository.clone() });
             }
         }
-        Ok(Project { id, name, members })
+        Ok(Project { id, name, members, values: Values::default() })
+    }
+
+    /// The same Project setting `values`, which replace what it set whole.
+    pub fn with_values(mut self, values: Values) -> Project {
+        self.values = values;
+        self
+    }
+
+    /// What the Project sets for how work behaves. Nothing set is the empty [`Values`].
+    pub fn values(&self) -> &Values {
+        &self.values
     }
 
     /// The id a lifecycle's `scope` names.

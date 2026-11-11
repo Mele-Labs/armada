@@ -22,6 +22,7 @@ use store::KeptTurn;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use super::answering::Sureness;
 use super::looking::Folder;
 use super::{held, Operator};
 use crate::daemon::Fleet;
@@ -50,6 +51,8 @@ pub(crate) struct Reviewed {
     pub(crate) reads: Vec<Option<OperatorRead>>,
     /// The Then the call picked for each item that offered any.
     pub(crate) thens: Vec<Option<OperatorThen>>,
+    /// How sure the call was of each question, and what it is about. Unsure where it said nothing readable.
+    pub(crate) sure: Vec<Sureness>,
     pub(crate) journal: Option<String>,
     pub(crate) call: Option<String>,
     /// Why there are no reads, where a call was made and failed. Not set while paused.
@@ -58,7 +61,7 @@ pub(crate) struct Reviewed {
 
 impl Reviewed {
     fn none(items: usize) -> Reviewed {
-        Reviewed { reads: vec![None; items], thens: vec![None; items], journal: None, call: None, failed: None }
+        Reviewed { reads: vec![None; items], thens: vec![None; items], sure: vec![Sureness::default(); items], journal: None, call: None, failed: None }
     }
 }
 
@@ -98,6 +101,8 @@ Answer with one block per item, in this form, then one journal line:
     read: <what you make of it, a sentence or two, from reading the Job>
     pick: <the option you would choose, written exactly as listed, where it has options; otherwise the act in a few words, such as Approve the plan or Open the walk>
     then: <only on an item that lists Thens: the one you would choose, written exactly as listed>
+    sure: <only on an item that has options and an Answer act: yes only where you are certain which option the person would choose, otherwise no>
+    about: <on the same items: look where it is about something he would see, a look or a UX choice; scope where the answer changes the plan's scope; lost where it could destroy work; otherwise none>
 
     journal: <one line for your journal of the week: what you reviewed and what you made of it>
 
@@ -162,13 +167,28 @@ pub(super) fn pick_of(pick: &str, item: &WaitingItem) -> String {
     item.options.iter().find(|option| bare(&option.label) == bare(pick)).map(|option| option.label.clone()).unwrap_or_default()
 }
 
-/// The reads a review came back with, and the Then it picked for each item. `None` where not one block reads.
-fn read_reviewed(answer: &str, items: &[ToRaise]) -> Option<(Vec<Option<OperatorRead>>, Vec<Option<OperatorThen>>, Option<String>)> {
+/// What a review came back with.
+type Read = (Vec<Option<OperatorRead>>, Vec<Option<OperatorThen>>, Vec<Sureness>, Option<String>);
+
+/// The reads a review came back with, the Then it picked for each item, and how sure it was of each question.
+/// `None` where not one block reads.
+fn read_reviewed(answer: &str, items: &[ToRaise]) -> Option<Read> {
     let field = |line: &str, key: &str| line.trim().strip_prefix(key).and_then(|rest| rest.strip_prefix(':')).map(str::trim).filter(|said| !said.is_empty() && *said != "none").map(str::to_string);
     let mut blocks: Vec<(Option<String>, Option<String>, Option<String>)> = vec![(None, None, None); items.len()];
-    let (mut at, mut journal) = (None, None);
+    let (mut at, mut journal): (Option<usize>, Option<String>) = (None, None);
+    // `none` is an answer here, so these two are read without `field`'s filter.
+    let said = |line: &str, key: &str| line.trim().strip_prefix(key).and_then(|rest| rest.strip_prefix(':')).map(str::trim).map(str::to_string);
+    let mut judged: Vec<(Option<String>, Option<String>)> = vec![(None, None); items.len()];
     for line in answer.lines() {
-        if let Some(number) = field(line, "item") {
+        if let Some(sure) = said(line, "sure") {
+            if let Some(at) = at {
+                judged[at].0.get_or_insert(sure);
+            }
+        } else if let Some(about) = said(line, "about") {
+            if let Some(at) = at {
+                judged[at].1.get_or_insert(about);
+            }
+        } else if let Some(number) = field(line, "item") {
             at = number.parse::<usize>().ok().and_then(|number| number.checked_sub(1)).filter(|at| *at < items.len());
         } else if let Some(read) = field(line, "read") {
             if let Some(at) = at {
@@ -196,7 +216,8 @@ fn read_reviewed(answer: &str, items: &[ToRaise]) -> Option<(Vec<Option<Operator
             read.map(|read| OperatorRead { read, pick: pick.map(|pick| pick_of(&pick, &one.item)).unwrap_or_default() })
         })
         .collect();
-    reads.iter().any(Option::is_some).then_some((reads, thens, journal))
+    let sure = judged.iter().map(|(sure, about)| Sureness::from_words(sure.as_deref(), about.as_deref())).collect();
+    reads.iter().any(Option::is_some).then_some((reads, thens, sure, journal))
 }
 
 impl Operator {
@@ -227,7 +248,7 @@ impl Operator {
         drop(folder);
         match answer {
             Ok(answer) => match read_reviewed(&answer, items) {
-                Some((reads, thens, journal)) => Reviewed { reads, thens, journal, call: Some(format!("review:{}", now.as_str())), failed: None },
+                Some((reads, thens, sure, journal)) => Reviewed { reads, thens, sure, journal, call: Some(format!("review:{}", now.as_str())), failed: None },
                 None => failed("the Operator's review could not be read".to_string()),
             },
             Err(why) => failed(why.in_a_line("Operator")),
@@ -513,10 +534,16 @@ where
             let mut kept = Vec::new();
             {
                 let _turn = raising.turn.lock().await;
+                // A question a rule covers is answered here, and is not queued.
+                let answered = self.questions_answered(&taken, &reviewed, |one| held(&raising.queue).raising.contains(&one.key())).await;
                 let mut store = self.store().lock().await;
-                for ((one, read), then) in taken.iter().zip(reviewed.reads.iter()).zip(reviewed.thens.iter()) {
+                for (((one, read), then), (sure, answered)) in taken.iter().zip(reviewed.reads.iter()).zip(reviewed.thens.iter()).zip(reviewed.sure.iter().zip(answered)) {
                     // Left its list while the call was out.
                     if !held(&raising.queue).raising.contains(&one.key()) {
+                        continue;
+                    }
+                    if answered {
+                        held(&raising.queue).raising.remove(&one.key());
                         continue;
                     }
                     let row = KeptTurn {
@@ -524,7 +551,7 @@ where
                         item: one.item.id.clone(),
                         manifest_id: one.manifest_id.clone(),
                         job: one.job.clone(),
-                        go_ahead: one.go_ahead,
+                        go_ahead: one.go_ahead || super::answering::answerable(&one.item, sure, read.as_ref()),
                         body: ipc::operator_page::item_kept(&one.item),
                         read_text: read.as_ref().map(|read| read.read.clone()),
                         pick: read.as_ref().map(|read| read.pick.clone()).filter(|pick| !pick.is_empty()),

@@ -300,13 +300,10 @@ where
             _ => store::AttachmentState::Standing,
         };
         let now = self.clock().now().as_str().to_string();
-        // A key in its title or branch is how the Manifest's tracker itself links an issue to it.
-        let named: Vec<ipc::IssueReference> = self
-            .served_named(Some(&state.manifest_id))
-            .map(|served| self.tracker_of(&served).issues_named_by_pull_request(&state.title, &state.branch))
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|key| ipc::IssueReference::read(key)).collect();
+        // A key in its title or branch is how the Manifest's tracker itself links an issue to it, or the
+        // project's where the Job holding the pull request is in a project that names one.
+        let served = self.served_named(Some(&state.manifest_id)).ok();
+        let mut named_by: BTreeMap<Option<String>, Vec<ipc::IssueReference>> = BTreeMap::new();
         let working = BTreeMap::from([(PULL_REQUESTS.to_string(), target.clone())]);
         let mut changed = Vec::new();
         {
@@ -330,7 +327,17 @@ where
                     moved |= issue_held(&mut store, &row.holder, &row.manifest_id, &issue, &BTreeMap::new(), &now)
                         .unwrap_or(false);
                 }
-                for issue in &named {
+                let project = crate::job_tracking::job_project(&store, &row.holder.id);
+                let named = named_by.entry(project).or_insert_with_key(|project| {
+                    served
+                        .as_ref()
+                        .map(|served| self.tracker_for_job(served, project.as_deref()).issues_named_by_pull_request(&state.title, &state.branch))
+                        .unwrap_or_default()
+                        .iter()
+                        .filter_map(|key| ipc::IssueReference::read(key))
+                        .collect()
+                });
+                for issue in named.iter() {
                     moved |= issue_held(&mut store, &row.holder, &row.manifest_id, issue, &working, &now).unwrap_or(false);
                 }
                 if !moved {

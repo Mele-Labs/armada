@@ -24,7 +24,7 @@ fn folder(id: &str, at: &str) -> ProjectMember {
 }
 
 fn named(name: &str, members: Option<Vec<ProjectMember>>, place: Option<ProjectPlace>) -> NewProject {
-    NewProject { name: name.to_string(), members, place }
+    NewProject { name: name.to_string(), members, place, values: None }
 }
 
 fn this_mac() -> ProjectPlace {

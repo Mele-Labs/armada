@@ -33,7 +33,7 @@ Everything that needs a person reaches the person already read, with the Operato
 | Keeps a journal of your week | Yes |
 | A short briefing on the first open of the day | Partly. Fleet rewrites the page's top line when he comes back; the page is not in a Bridge yet |
 | Asks Yes / Always here / Always / No before it acts, and learns | Yes. A rule you kept does the act as it is raised and the Log names the rule |
-| Handles routine Job questions | Not built |
+| Handles routine Job questions | Yes, once you say Always here or Always. It answers a question it is sure of, unless the question is about something you would see, changes the plan's scope or could destroy work |
 | Nudges a stuck Job, then starts a repair suited to what broke | Partly. Fleet hosts a hidden repair for each of six breaks, and starts one for a dead process, a silent stop, a red pull request and a hung command; the triggers for the rest are not built |
 | Hands duplicate work to the Job already on it | Yes. A start, or a red main, that a live Job is near is a go-ahead to hand it over |
 | Handles issues | Partly. A new issue is linked, filed or started on. A merge closes an open issue it finished, and a new issue that repeats an open one is closed as its duplicate or put under it, each asked first |
@@ -147,9 +147,18 @@ A Job's own start is held on its start card until he answers, and Autopilot's is
 Every hand-over is a row of the Log signed by the Operator that names both Jobs, and the rule where one did it.
 Why: "the Operator keeps spinning up these 'Rest of' Jobs and I hate it." It had started a second "Rest of" Job while a subagent of the first still ran.
 
-**Merging two Jobs, keeping two in touch, and answering a question are not ways.**
+**Merging two Jobs and keeping two in touch are not ways.**
 They acted on a Job's own events.
-A question or a card is the person's, and Autopilot answers them while he is away.
+
+**A Job's question is answered by a rule, never by a ruling.**
+The review call says, for each question, whether it is sure and what the question is about: a look, the plan's scope, work that could be lost, or none of those.
+A question it is sure of, about none of those, with an option of its own and no destructive word in it, is offered as a go-ahead.
+Yes answers it with the pick, through the Job's list, as a press on the option does.
+Always here and Always keep the rule `question:answer`, and under it such a question is answered as it arrives and never queued.
+The Log row names the question, the option and the rule, and the Job's thread says the Operator answered it and with which option.
+Every other question is queued for the person with the Operator's read and pick.
+A permission card is the person's, or Autopilot's while he is away.
+Where the Operator is on and a rule covers questions, Autopilot leaves them alone, including the ones the Operator was not sure of.
 
 | Role | What it does |
 |---|---|
@@ -237,7 +246,7 @@ Each step is its own Job, and the order is the order of the table.
 |---|---|---|
 | Fleet raises what needs you | A journal of the week, and a short briefing on the first open of the day | Yes, as the page's top line |
 | Asks | Yes / Always here / Always / No before it acts, in place of permission levels and the `role_off` and `always_raise` orders | Yes. Holds stay |
-| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Not built |
+| Routine work | Routine Job questions, stuck Jobs, duplicates, reviews and issues | Partly. Routine Job questions are built |
 | Repairs that close themselves | A stuck Job is nudged, then repaired by what broke, in a hidden agent that ends when it is done | Partly. The hosted repair and the triggers for a dead process, a silent stop, a red pull request and a hung command are built; the other two are not |
 | The native page | Your turn, the digest with the Log and Learned, the chat on Ask, and toasts | Not built |
 
@@ -247,7 +256,7 @@ Every act is asked, and the answer is kept: Yes this time, Always here for this 
 A rule you kept covers the act, this repository's first and then every repository's, and Fleet does it as it is raised.
 The Log row says by which rule.
 No is for this time only.
-Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, handing a start over and a red main's fix are acts.
+Filing an issue, starting a Job, sending words to a live Job, closing an issue, grouping one, handing a start over, a red main's fix and answering a Job's question are acts.
 A link to an open issue writes nothing and is not asked.
 Raising, leaving a note where it is and noting it are not acts.
 

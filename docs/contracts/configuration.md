@@ -51,15 +51,24 @@ carries no settings table. Two sources is how the second one goes stale, and a h
 **Config tiering rule.** Revised 22 Aug 2026 with the Guild split.
 A setting belongs to **Machine** or to **Kit**, and the test is one question: *does a project-level version of this setting make sense?* A project adds a Skill — ordinary, so Skills are Kit.
 There is no project-level version of how loudly Armada notifies you, so routing is Machine.
-**Only a Kit setting has a Manifest tier.** A Machine setting has one value, no merge and no second tier.
+**Only a Kit setting has a Manifest tier.** A Machine setting has one value, no merge and no second tier, **except a value of how work behaves**, below.
+
+**How work behaves is laid in layers, and a project is one.** Pull request mode, auto merge, autonomy, the review model and the look (layout, theme, density) are values, set key by key.
+The layers, **the nearest winning**, are default, Machine, Kit, repository, Project and Job, and a read names the layer each value came from, so a surface can show whose word it is.
+A repository's own keys (`pr_mode`, `auto_merge`) stay in its `armada.yml` and sit just under the project; how a repository runs (commands, Checks, ports, setup) is not a value and stays its Manifest's.
+Nothing folds between layers: a project's `auto_merge` replaces the repository's, and does not restrict it.
+Autonomy keeps the places it already has, a piece scoped to every repository, a project or a repository, and is read from them.
+A Job takes its values when it starts and keeps them. `config::values` is the one place the order is written, and `../practices/protocol/projects.md`, *Values*, is where Fleet reads each layer.
+Where a repository's Manifest and Kit's `armada.yml` copy merge, and what `get_manifest` returns of it, is the question still open in `system-architecture.md`.
 
 **The test is asked again when a setting is measured, and one answer has changed.** `budget-cost-cap-per-job` was Machine on the reading that how much an installation will spend is the installation's business.
 What moved it to `Kit → Manifest` on 8 Sept 2026 is that repositories cost different amounts and a machine-wide dollar figure is therefore always wrong for some of them — and that the number was reachable only by rebuilding.
 That is a tier move under this rule rather than an exception to it; the section on unknown keys below is what makes such a move safe, and this is the first one to happen.
 
 **The pull request mode is the second setting that went that way.** Whether a pull request opens as a draft had no tier at all and was chosen per Job at approval.
-The owner decided on 7 Oct 2026 that a machine default and a repository default both exist, and that a workflow's delivering step can override them: five tiers, the Job's own choice first, then the step's `draft_pr`, the repository's `pr_mode`, this machine's preference, and otherwise ready.
-The registry row files it *Kit → Manifest* as the budget caps are, with no Kit tier, and a Machine value that sits beneath a repository's is the budget's order again.
+The owner decided on 7 Oct 2026 that a machine default and a repository default both exist, and that a workflow's delivering step can override them: the Job's own choice first, then the step's `draft_pr`, the repository's `pr_mode`, this machine's preference, and otherwise ready.
+A Kit tier and a project tier were added on 10 Nov 2026, in the layers above: default, Machine, Kit, repository, Project, Job.
+A delivering step's `draft_pr` is read from its WorkflowDef and frozen with the workflow, and nothing applies it yet, so where it sits among the layers is open.
 `../concepts/landing.md`, *What the landing rule carries*.
 
 **Kit sets defaults, not ceilings.** Kit holds a default; a Manifest declares its own value; they merge.
