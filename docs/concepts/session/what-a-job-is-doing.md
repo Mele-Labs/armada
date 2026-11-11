@@ -50,7 +50,7 @@ With the model not loaded nothing is raised, since no rule stands in for it.
 
 **Every stop answers for itself** (the owner, 3 Nov 2026: "Armada is about me not babysitting jobs").
 A stop is named by when its turn ended (`last_turn_at`), so a turn that ended on tools alone counts, and whether it stands is read where the row is built (`session_host/stopping.rs`).
-A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request, a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a question that lapsed (it is no item but still waits on him), a shown walk, a plan, draft, sketch or page awaiting him, a `done`, a pause, its start card, a limit, a wait on another Job, or a terminal that is not listening.
+A stop is excused by facts, never by the agent saying so: a turn, subagent, background command or Check running, a live watch, its own open pull request (except one Fleet told it failed or conflicts, with nothing pushed since), a lifecycle holding it other than a ticket, a Job it started that is still running, any item in `waiting_for`, a question that lapsed (it is no item but still waits on him), a shown walk, a plan, draft, sketch or page awaiting him, a `done`, a pause, its start card, a limit, a wait on another Job, or a terminal that is not listening.
 **Never while anything waits on him** (the owner, 5 Nov 2026: "if there is a needs me item, thats not silence. Thats waiting on me to act").
 A minute after a stop nothing excuses (`STOP_AFTER`, unmeasured), Fleet sends one word, `stop_nudge`: to carry on, to name what it waits on with `waiting_for`, or to finish.
 A Job stopped on a step only it can end hears that step's own words instead ([The rail](the-rail.md)).
@@ -83,7 +83,14 @@ For a quiet stop, a hung command, a dead process or a broken checkout it then wa
 The row reads amber with `gave_up` only once Fleet has run out: its repair ended without `REPAIRED` with the Job still dead, or Fleet is unhealthy.
 A Job's next turn beginning, or the Job ending, stops a repair still running, and the note says the Job moved on first.
 A Fleet that starts finds a repair left open, gives its slot back and ends it as abandoned.
-A live agent that stopped again reads amber too: its process is fine, so a dead-process repair would have nothing to fix.
+A live agent that stopped again gets a Quiet repair, from the facts that it read `stopped`, nothing waits on him and no repair has run since he last wrote.
+Its row reads `Repairing` while that runs, and amber with `gave_up` only once the repair ended without `REPAIRED`, Fleet is unhealthy, or its agent is gone.
+A Quiet repair that put things right wakes the Job, and a Job that stops silently again before he writes reads amber, so Fleet and a Job never loop.
+**A pull request Fleet told a Job failed is no wait once the Job pushes nothing.**
+The notice, its pull request and the commit it was sent at are kept in `pull_notices`, and `pull_heads` keeps the commit Fleet last read the pull request at.
+A notice at that same commit means the Job was told and has pushed nothing since, so the pull request no longer excuses the stop or holds the Job open, and the Job is nudged once like any other.
+Its next stop draws a RedPull repair, under the same bound as Quiet: one repair of either kind between two things he says.
+A push moves the commit, a passing rerun or a cleared conflict takes the notice away, and either puts the excuse back.
 A turn beginning clears the repair, so a later death gets its own.
 
 **A repair is suited to what broke.**
@@ -92,12 +99,12 @@ The Job's id and title, its branch, its checkout and what Fleet saw go last, aft
 
 | Break | What it does | Triggered |
 |---|---|---|
-| Quiet: it stopped twice with nothing asked, its agent alive | Reads the Job's transcript and plan, and reports the next step, what it waits on, or that its work has landed | Not yet |
-| Hung: a turn running with nothing heard for `STUCK_AFTER` | Finds the command that hung in the Job's process tree and stops it | Not yet |
+| Quiet: it stopped twice with nothing asked, its agent alive | Reads the Job's transcript and plan, and reports the next step, what it waits on, or that its work has landed | Yes, `repairs_started`, once between two things he says |
+| Hung: a turn running with nothing heard for `STUCK_AFTER` | Finds the command that hung in the Job's process tree and stops it | Yes, `standing_checked`, once a turn |
 | Died: its process died and the restart is spent | Finds why from its log and what its process last said, and fixes what stopped it | Yes, `repairs_started` |
 | Checkout: conflict markers, a half finished merge, missing dependencies or a binary | Finishes the merge, resolves the markers, reinstalls what is missing, on the Job's own branch | Not yet |
-| RedPull: a pull request's checks failed or it conflicts, and its Job ended or stopped | On the pull request's branch, fixes the check or merges the base in, and pushes it | Not yet |
-| Stranded: a slot whose holder is gone, left with changes | Pushes the leftovers to a branch and scraps nothing | Not yet |
+| RedPull: a pull request's checks failed or it conflicts, and its Job ended or stopped | On the pull request's branch, fixes the check or merges the base in, and pushes it | Yes, `repairs_started`, for a stopped Job once between two things he says |
+| Stranded: a slot whose holder is gone, left with changes | Pushes the leftovers to a branch and scraps nothing | No, its last holder is told and a rescue Scout reads it where none can be (`stranding.rs`) |
 
 `repair_started` is the one call a trigger makes.
 It checks health and takes the Job's slot as the checkout.
@@ -105,7 +112,8 @@ A repair never runs in the repository's own checkout, which is the main checkout
 A Job that holds no slot gets one leased for the repair on a branch cut for it, and a pull request whose Job ended gets one leased on the pull request's branch.
 The slot is given back on every ending, repaired or not, the twenty minutes, an early stop and a Fleet restart, before the repair leaves the list.
 While a repair runs its slot reads as an open holder's, so it is never told and never read by a rescue Scout.
-The Operator's triggers for the other five are the next group.
+A repair never starts while anything waits on him: a Quiet repair is read off a stop that nothing excuses, and a Hung one off a stuck turn whose row lists no item.
+Checkout and Stranded have no trigger: Fleet reads no checkout for conflict markers, and a stranded slot is the Scout's.
 
 **Fleet's own acts stand in Now, Open and Done**, read from what is kept: each word and note of Fleet's in the thread is over, the nudge coming is read off the row, and the repair running is read off Fleet's notes, a start note with no end note after it.
 Background model reads write no row, so they are none of these.
