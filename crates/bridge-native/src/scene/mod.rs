@@ -86,10 +86,25 @@ impl Default for Lens {
     }
 }
 
-/// The scene, drawn to fill its parent. `playing` is when its steps started, or `None` for the
-/// resting drawing; `key` names the scene and its revision, so its layout is worked out once.
-pub(crate) fn view(key: SharedString, scene: Rc<Scene>, fit: Fit, playing: Option<Instant>, lens: Lens) -> impl IntoElement {
-    canvas(|_, _, _| (), move |bounds, _, window, cx| paint(&key, &scene, fit, playing, lens, bounds, window, cx)).size_full()
+/// When a drawing moves: its steps since `steps`, and in a reading view, while no step plays,
+/// its flows crawling since `flows`. Both `None` is the resting drawing.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct Clock {
+    pub(crate) steps: Option<Instant>,
+    pub(crate) flows: Option<Instant>,
+}
+
+impl Clock {
+    /// Steps and flows on the one clock, as a card does while the pointer is on it.
+    pub(crate) fn both(since: Option<Instant>) -> Self {
+        Self { steps: since, flows: since }
+    }
+}
+
+/// The scene, drawn to fill its parent. `key` names the scene and its revision, so its layout is
+/// worked out once.
+pub(crate) fn view(key: SharedString, scene: Rc<Scene>, fit: Fit, clock: Clock, lens: Lens) -> impl IntoElement {
+    canvas(|_, _, _| (), move |bounds, _, window, cx| paint(&key, &scene, fit, clock, lens, bounds, window, cx)).size_full()
 }
 
 thread_local! {
@@ -451,7 +466,7 @@ impl Ink<'_> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn paint(key: &SharedString, scene: &Scene, fit: Fit, since: Option<Instant>, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
+fn paint(key: &SharedString, scene: &Scene, fit: Fit, clock: Clock, lens: Lens, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window);
     let view = View::fit(bounds, laid.bounds, fit, lens);
@@ -461,9 +476,9 @@ fn paint(key: &SharedString, scene: &Scene, fit: Fit, since: Option<Instant>, le
         sans: look.font_stack(token::FONT_SANS).into_iter().next().unwrap_or_else(|| "IBM Plex Sans".into()),
         mono: look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_else(|| "IBM Plex Mono".into()),
     };
-    let now = playing(&laid, since);
+    let now = playing(&laid, clock.steps);
     // Electron's flow crawl: a reading view's flows move while no step plays; a preview stays still.
-    let crawl = match since {
+    let crawl = match clock.flows {
         Some(since) if fit == Fit::Reading && now.is_none() => Some(since.elapsed().as_secs_f32() * 1000. % STEP_MS / STEP_MS * DASH * 2.),
         _ => None,
     };

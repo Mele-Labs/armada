@@ -1018,7 +1018,7 @@ impl JobView {
                             look,
                             card.replaced,
                             match super::cards::shown_scene(card, None) {
-                                (key, Some(scene)) => Some(crate::scene::view(key.into(), scene, crate::scene::Fit::Preview, None, crate::scene::Lens::default()).into_any_element()),
+                                (key, Some(scene)) => Some(crate::scene::view(key.into(), scene, crate::scene::Fit::Preview, crate::scene::Clock::default(), crate::scene::Lens::default()).into_any_element()),
                                 _ => None,
                             },
                         ))

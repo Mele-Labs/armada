@@ -1,12 +1,13 @@
 //! A sketch read on its own, as Electron's `SketchReading` reads it in the panel: the whole drawing
-//! fitted to a sheet over the window, its steps playing round, read-only. A wheel or `+`, `-` and
-//! `0` zoom it, a drag or the arrows move it, and Esc, Close or a press beside it shut it.
+//! fitted to a sheet over the window, its steps playing round, read-only. Its rail, as
+//! `GraphCanvas` draws one, stops and restarts the steps and zooms; a wheel or `+`, `-` and `0`
+//! zoom it too, a drag or the arrows move it, and Esc, Close or a press beside it shut it.
 
 use std::rc::Rc;
 use std::time::Instant;
 
 use gpui::{
-    anchored, deferred, div, point, prelude::*, px, Anchor, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, Role,
+    anchored, deferred, div, point, prelude::*, px, Anchor, AnyElement, Context, FocusHandle, KeyDownEvent, MouseButton, MouseDownEvent, MouseMoveEvent, Role,
     ScrollDelta, ScrollEvent, SharedString, Window,
 };
 use ipc::{Scene, ThreadItem, ThreadSketch};
@@ -16,14 +17,24 @@ use super::rows::{glyph, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
-use crate::scene::{Fit, Lens};
+use crate::scene::{Clock, Fit, Lens};
+
+/// What a rail button draws: a glyph, or a sign where no glyph is right.
+#[derive(Clone, Copy)]
+enum Face {
+    Glyph(&'static str),
+    Sign(&'static str),
+}
 
 /// The sketch open over the window.
 pub(super) struct Reading {
     key: String,
     title: SharedString,
     scene: Rc<Scene>,
-    since: Instant,
+    /// When the steps started playing, or `None` while they are stopped.
+    steps: Option<Instant>,
+    /// When the sheet opened: the flows crawl from it while no step plays.
+    opened: Instant,
     focus: FocusHandle,
     back: Option<FocusHandle>,
     lens: Lens,
@@ -61,7 +72,25 @@ impl JobView {
         let focus = cx.focus_handle();
         let back = window.focused(cx);
         window.focus(&focus, cx);
-        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, since: Instant::now(), focus, back, lens: Lens::default(), drag: None });
+        let now = Instant::now();
+        let steps = crate::scene::plays(&scene).then_some(now);
+        self.sketch_reading = Some(Reading { key: scene_key, title: title.into(), scene, steps, opened: now, focus, back, lens: Lens::default(), drag: None });
+        cx.notify();
+    }
+
+    /// Play stops the steps while they play and starts them from the first while they do not;
+    /// Restart starts them from the first either way.
+    fn play_sketch(&mut self, restart: bool, cx: &mut Context<Self>) {
+        if let Some(reading) = self.sketch_reading.as_mut().filter(|reading| crate::scene::plays(&reading.scene)) {
+            reading.steps = if reading.steps.is_some() && !restart { None } else { Some(Instant::now()) };
+        }
+        cx.notify();
+    }
+
+    fn fit_sketch(&mut self, cx: &mut Context<Self>) {
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            reading.lens = Lens::default();
+        }
         cx.notify();
     }
 
@@ -95,12 +124,7 @@ impl JobView {
             "escape" => self.close_reading(window, cx),
             "+" | "=" => self.zoom_sketch(KEY_STEP, cx),
             "-" => self.zoom_sketch(1. / KEY_STEP, cx),
-            "0" => {
-                if let Some(reading) = self.sketch_reading.as_mut() {
-                    reading.lens = Lens::default();
-                }
-                cx.notify();
-            }
+            "0" => self.fit_sketch(cx),
             "left" => self.pan_sketch(KEY_PAN, 0., cx),
             "right" => self.pan_sketch(-KEY_PAN, 0., cx),
             "up" => self.pan_sketch(0., KEY_PAN, cx),
@@ -158,15 +182,108 @@ impl JobView {
                     .text_color(look.color(token::FG_DEFAULT))
                     .child(reading.title.clone()),
             )
-            .child(button("sketch-zoom-out", "minus", "Zoom out", "-", |this, _, cx| this.zoom_sketch(1. / KEY_STEP, cx)))
-            .child(button("sketch-zoom-in", "plus", "Zoom in", "+", |this, _, cx| this.zoom_sketch(KEY_STEP, cx)))
             .child(button("sketch-close", "x", "Close", "escape", |this, window, cx| this.close_reading(window, cx)));
-        let drawing = div()
+        // `GraphCanvasRailGroup`'s buttons: ghost and icon-only, a sign where no glyph is right, a
+        // lamp in the corner while one is on, and the reason in the tooltip while one is off.
+        let rail_button = |id: &'static str, face: Face, said: &'static str, key: Option<&'static str>, pressed: Option<bool>, off: Option<&'static str>, act: fn(&mut Self, &mut Window, &mut Context<Self>)| {
+            let key = key.and_then(|key| gpui::Keystroke::parse(key).ok());
+            let tip: SharedString = off.unwrap_or(said).into();
+            let ink = if off.is_some() {
+                look.color(token::FG_SUBTLE)
+            } else if pressed == Some(true) {
+                look.color(token::FG_DEFAULT)
+            } else {
+                look.color(token::FG_MUTED)
+            };
+            let mut press = div()
+                .id(id)
+                .relative()
+                .size(look.length(token::H_CONTROL_SM))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(gpui::transparent_black())
+                .text_size(look.length(token::TEXT_SM))
+                .text_color(ink)
+                .child(match face {
+                    Face::Glyph(name) => glyph(look, name, Size::Small, ink).into_any_element(),
+                    Face::Sign(sign) => div().child(sign).into_any_element(),
+                })
+                .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation());
+            press = if off.is_some() {
+                press.bg(look.color(token::BG_SUNKEN)).border_color(look.color(token::BORDER_STRONG))
+            } else {
+                press.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(move |this, _, window, cx| act(this, window, cx)))
+            };
+            if pressed == Some(true) {
+                let inset = look.length(token::SPACE_1) * 0.5;
+                press = press.child(div().absolute().top(inset).right(inset).size(look.length(token::DOT)).rounded_full().bg(look.color(token::FG_DEFAULT)));
+            }
+            labelled(press, Role::Button, said)
+        };
+        let group = |id: &'static str, said: &'static str, buttons: Vec<AnyElement>| {
+            labelled(
+                div()
+                    .id(id)
+                    .flex()
+                    .flex_col()
+                    .flex_none()
+                    .gap(look.length(token::SPACE_1))
+                    .p(look.length(token::SPACE_1))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .bg(look.color(token::BG_OVERLAY))
+                    .shadow(look.shadows(token::SHADOW_OVERLAY))
+                    .children(buttons),
+                Role::Group,
+                said,
+            )
+        };
+        let plays = crate::scene::plays(&reading.scene);
+        let no_order = (!plays).then_some("This sketch has no order to play.");
+        let playing = reading.steps.is_some();
+        let rail = div()
+            .flex()
+            .flex_col()
+            .flex_none()
+            .items_start()
+            .gap(look.length(token::SPACE_3))
+            .p(look.length(token::SPACE_3))
+            .child(group(
+                "sketch-acts",
+                "What you can do with the sketch",
+                vec![
+                    rail_button(
+                        "sketch-play",
+                        Face::Glyph(if playing { "pause" } else { "play" }),
+                        if playing { "Stop the steps" } else { "Play the steps" },
+                        None,
+                        Some(playing),
+                        no_order,
+                        |this, _, cx| this.play_sketch(false, cx),
+                    )
+                    .into_any_element(),
+                    rail_button("sketch-restart", Face::Glyph("rotate-cw"), "Restart the steps", None, None, no_order, |this, _, cx| this.play_sketch(true, cx)).into_any_element(),
+                ],
+            ))
+            .child(group(
+                "sketch-view-acts",
+                "How you are looking at this",
+                vec![
+                    rail_button("sketch-zoom-out", Face::Sign("−"), "Zoom out", Some("-"), None, None, |this, _, cx| this.zoom_sketch(1. / KEY_STEP, cx)).into_any_element(),
+                    rail_button("sketch-zoom-in", Face::Sign("+"), "Zoom in", Some("+"), None, None, |this, _, cx| this.zoom_sketch(KEY_STEP, cx)).into_any_element(),
+                    rail_button("sketch-fit", Face::Glyph("maximize"), "Fit", Some("0"), None, None, |this, _, cx| this.fit_sketch(cx)).into_any_element(),
+                ],
+            ));
+        let pane = div()
             .id("sketch-drawing")
             .flex_1()
-            .min_h_0()
+            .min_w_0()
             .overflow_hidden()
-            .bg(look.color(token::BG_SUNKEN))
             .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, _, cx| {
                 if let Some(reading) = this.sketch_reading.as_mut() {
                     reading.drag = Some(point(f32::from(event.position.x), f32::from(event.position.y)));
@@ -196,7 +313,9 @@ impl JobView {
                 };
                 this.zoom_sketch((delta * WHEEL_SPEED).exp(), cx);
             }))
-            .child(crate::scene::view(reading.key.clone().into(), reading.scene.clone(), Fit::Reading, Some(reading.since), reading.lens));
+            .child(crate::scene::view(reading.key.clone().into(), reading.scene.clone(), Fit::Reading, Clock { steps: reading.steps, flows: Some(reading.opened) }, reading.lens));
+        // The rail is a column of the frame beside the drawing, never a layer over it.
+        let drawing = div().flex().flex_1().min_h_0().bg(look.color(token::BG_SUNKEN)).child(rail).child(pane);
         Some(
             deferred(
                 anchored().position(point(px(0.), px(0.))).anchor(Anchor::TopLeft).child(

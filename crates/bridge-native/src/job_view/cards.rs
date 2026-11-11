@@ -22,7 +22,7 @@ use super::{JobView, Page};
 use crate::dropdown::Entry;
 use crate::labels::labelled;
 use crate::look::{token, Look};
-use crate::scene::{Fit, Lens};
+use crate::scene::{Clock, Fit, Lens};
 
 /// How the thread reads a card that was answered.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -237,7 +237,7 @@ impl JobView {
         let (scene_key, scene) = shown_scene(card, picked);
         let pointed = page.cards.pointed.as_deref() == Some(key.as_str()) || page.cards.focused.as_deref() == Some(key.as_str());
         let playing = page.cards.playing.as_ref().filter(|(at, _)| *at == key).map(|(_, since)| *since);
-        let glass = glass(look, card.replaced, scene.clone().map(|scene| crate::scene::view(scene_key.into(), scene, Fit::Preview, playing, Lens::default()).into_any_element()));
+        let glass = glass(look, card.replaced, scene.clone().map(|scene| crate::scene::view(scene_key.into(), scene, Fit::Preview, Clock::both(playing), Lens::default()).into_any_element()));
         let press = self.sketch_press(&key, &card.title, band, glass, scene.is_some_and(|scene| crate::scene::plays(&scene)), page, cx);
         let body = frame(look, true)
             .when(pointed, |frame| frame.border_color(look.color(token::ACCENT)))
@@ -346,7 +346,7 @@ impl JobView {
                             .bg(look.color(token::BG_SUNKEN))
                             .overflow_hidden()
                             .on_hover(cx.listener(move |this, over: &bool, _, cx| this.sketch_pointed(&hover_key, Some(*over), None, plays, cx)))
-                            .children(scene.map(|scene| crate::scene::view(scene_key.into(), scene, Fit::Reading, playing, Lens::default()))),
+                            .children(scene.map(|scene| crate::scene::view(scene_key.into(), scene, Fit::Reading, Clock::both(playing), Lens::default()))),
                     )
                 })
                 .child(self.approval(ix, &key, Subject::Sketch { sketch: card.sketch.clone(), drawn }, open, true, settled, false, page, look, cx)),
