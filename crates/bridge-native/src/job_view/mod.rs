@@ -47,6 +47,7 @@ mod judge_tab;
 mod report;
 mod sketch_pad;
 mod sketch_read;
+mod subagent_read;
 mod report_brief;
 mod side;
 mod tabs;
@@ -311,6 +312,9 @@ pub struct JobView {
     pictures: pictures::Pictures,
     /// The sketch open over the window, read on its own.
     sketch_reading: Option<sketch_read::Reading>,
+    /// A subagent's thread open on its sheet, and the last threads read, newest last.
+    subagent_reading: Option<subagent_read::Reading>,
+    subagents_read: Vec<(String, subagent_read::SubagentRead)>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -413,6 +417,8 @@ impl JobView {
             review_rows: Rc::new(RefCell::new(HashMap::new())),
             pictures: pictures::Pictures::default(),
             sketch_reading: None,
+            subagent_reading: None,
+            subagents_read: Vec::new(),
             _subscriptions: subscriptions,
         }
     }
@@ -857,6 +863,7 @@ impl Render for JobView {
             .children(self.render_sketch(window, cx))
             .children(self.render_picture(window, cx))
             .children(self.render_sketch_reading(window, cx))
+            .children(self.render_subagent_reading(window, cx))
             .child(canvas(
                 |_, _, _| (),
                 move |_, _, _, _| {

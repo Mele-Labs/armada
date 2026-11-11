@@ -326,11 +326,23 @@ impl JobView {
         self.fold(ix, format!("calls:{id}"), label, head, Some(body), page, look, cx)
     }
 
-    pub(super) fn subagent(&self, id: &str, subagent: &ToolSubagent, look: &Look) -> AnyElement {
+    /// The subagent an `Agent` call started (`SubagentRow`). A press opens its own thread.
+    pub(super) fn subagent(&self, id: &str, subagent: &ToolSubagent, look: &Look, cx: &Context<Self>) -> AnyElement {
         let task = subagent.task.clone();
+        let opens = subagent.clone();
+        let open = cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx));
         if subagent.state == ToolSubagentState::Running {
-            let one = Call { kind: Kind::Agent, phrase: task, working_on: None };
-            return div().id(SharedString::from(format!("subagent:{id}"))).child(tool_row(self.shown.as_deref().unwrap_or_default(), &format!("subagent:{id}"), one, &subagent.since, None, true, None, look)).into_any_element();
+            let one = Call { kind: Kind::Agent, phrase: task.clone(), working_on: None };
+            return labelled(
+                div()
+                    .id(SharedString::from(format!("subagent:{id}")))
+                    .cursor_pointer()
+                    .on_click(open)
+                    .child(tool_row(self.shown.as_deref().unwrap_or_default(), &format!("subagent:{id}"), one, &subagent.since, None, true, None, look)),
+                Role::Button,
+                format!("Subagent {task}, running"),
+            )
+            .into_any_element();
         }
         let cut = subagent.state == ToolSubagentState::CutOff;
         let said = if cut { "Subagent cut off" } else { "Subagent finished" };
@@ -372,8 +384,12 @@ impl JobView {
                 )
                 .children(ran.map(|ran| {
                     div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(ran)
-                })),
-            Role::Row,
+                }))
+                .child(glyph(look, "chevron-right", Size::Small, look.color(token::FG_MUTED)))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                .on_click(open),
+            Role::Button,
             format!("Subagent {task}, {}", if cut { "cut off" } else { "finished" }),
         )
         .into_any_element()

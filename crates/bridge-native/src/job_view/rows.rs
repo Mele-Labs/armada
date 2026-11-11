@@ -506,7 +506,7 @@ impl JobView {
         Some(match item {
             ThreadItem::Row { row } => return self.row(ix, row, page, look, now, window, cx),
             ThreadItem::Calls { id, rows, .. } => self.calls(ix, id, rows, live, next, page, look, cx),
-            ThreadItem::Subagent { id, subagent, .. } => self.subagent(id, subagent, look),
+            ThreadItem::Subagent { id, subagent, .. } => self.subagent(id, subagent, look, cx),
             ThreadItem::Checks { id, rows } => self.checks(ix, id, rows, page, look, now, cx),
             ThreadItem::FleetTurn { id, notice, rows, handled } => self.fleet_turn(ix, id, notice, rows, *handled, page, look, cx),
             ThreadItem::Sketch(card) => self.sketch(ix, card, page, look, now, cx),
@@ -549,7 +549,7 @@ impl JobView {
                 );
                 line.into_any_element()
             }
-            Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, now, cx),
+            Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
         })
     }
 

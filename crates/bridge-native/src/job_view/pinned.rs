@@ -1,7 +1,6 @@
 //! What the thread pins at its foot while the agent works: Stop (A1.10) and the card of the
 //! subagents running now (A4.3).
 
-use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 use ipc::{ThreadItem, ToolSubagent, ToolSubagentState};
 
@@ -25,7 +24,7 @@ impl JobView {
         }
         let held = self.thread(id, cx)?;
         let look = cx.look();
-        let card = self.subagents_card(item_ix, &held.items, page, look, Local::now(), cx)?;
+        let card = self.subagents_card(item_ix, &held.items, page, look, cx)?;
         Some(
             div()
                 .w_full()
@@ -74,7 +73,9 @@ impl JobView {
     }
 
     /// The subagents running now: a card at the foot with the count, and the list behind a press.
-    pub(super) fn subagents_card(&self, ix: usize, items: &[ThreadItem], page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn subagents_card(&self, ix: usize, items: &[ThreadItem], page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        // The clock a running call counts on, so on mock data a subagent reads its own seconds.
+        let now = super::runs::running_now(self.shown.as_deref().unwrap_or_default());
         let running: Vec<&ToolSubagent> = items
             .iter()
             .filter_map(|item| match item {
@@ -126,6 +127,12 @@ impl JobView {
                     labelled(
                         div()
                             .id(SharedString::from(format!("subagent-live:{}", subagent.id)))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                            .on_click({
+                                let opens = (*subagent).clone();
+                                cx.listener(move |this, _, window, cx| this.read_subagent(opens.clone(), window, cx))
+                            })
                             .flex()
                             .items_start()
                             .gap(look.length(token::SPACE_2))
@@ -160,7 +167,7 @@ impl JobView {
                                         div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(latest.clone()))
                                     })),
                             ),
-                        Role::Row,
+                        Role::Button,
                         format!("Subagent {}", subagent.task),
                     )
                 }))
