@@ -280,10 +280,8 @@ impl JobView {
                         .children(standing),
                 ),
             );
-        let main = match line.opens {
-            Some(opens) => main.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| opens(this, window, cx))),
-            None => main,
-        };
+        let pressed = pull.clone();
+        let main = main.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.open_pull(pressed.clone(), window, cx)));
         let main = match self.shown.as_ref().and_then(|job| self.pages.get(job)) {
             Some(page) => {
                 let spot = self.spot(page, &format!("pull-menu:{key}"), cx);

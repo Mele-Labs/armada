@@ -157,6 +157,84 @@ fn mono(look: &Look) -> SharedString {
     look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default()
 }
 
+/// A file's lines alone, with no path above them: what a pull request's Files section and a thread's
+/// excerpt draw under their own heads.
+pub fn lines(id: impl Into<SharedString>, lines: &[DiffLine], look: &Look) -> AnyElement {
+    let rows = lines.iter().map(|line| {
+        let (ground, ink) = match line.kind {
+            LineKind::Added => (Some(token::DIFF_ADD_BG), token::DIFF_ADD_FG),
+            LineKind::Removed => (Some(token::DIFF_DEL_BG), token::DIFF_DEL_FG),
+            LineKind::Hunk => (Some(token::BG_RAISED), token::FG_SUBTLE),
+            LineKind::Context => (None, token::DIFF_CONTEXT),
+        };
+        div()
+            .px(look.length(token::SPACE_3))
+            .when(line.kind == LineKind::Hunk, |row| row.py(look.length(token::SPACE_1)))
+            .whitespace_nowrap()
+            .when_some(ground, |row, ground| row.bg(look.color(ground)))
+            .text_color(look.color(ink))
+            .child(SharedString::from(line.text.clone()))
+    });
+    div()
+        .id(ElementId::Name(id.into()))
+        .min_w_0()
+        .overflow_x_scroll()
+        .bg(look.color(token::BG_BASE))
+        .font_family(mono(look))
+        .text_size(look.length(token::TEXT_2XS))
+        .line_height(look.length(token::LEADING_2XS))
+        .child(div().flex().flex_col().min_w_full().children(rows))
+        .into_any_element()
+}
+
+/// The lines a review thread is about: up to four, ending at its line on its side, under their hunk's
+/// head (`excerptOf`). None where the patch does not reach the line.
+pub fn excerpt(patch: &str, line: u64, left: bool) -> Option<Vec<DiffLine>> {
+    let (mut old, mut new) = (0u64, 0u64);
+    let mut hunk: Option<DiffLine> = None;
+    let mut run: Vec<DiffLine> = Vec::new();
+    for row in patch.split('\n') {
+        let Some(kind) = kind_of(row) else { continue };
+        if kind == LineKind::Hunk {
+            let (from, to) = hunk_starts(row)?;
+            (old, new) = (from, to);
+            hunk = Some(DiffLine { kind, text: row.to_string() });
+            run.clear();
+            continue;
+        }
+        let at = match kind {
+            LineKind::Added => {
+                new += 1;
+                (!left).then_some(new)
+            }
+            LineKind::Removed => {
+                old += 1;
+                left.then_some(old)
+            }
+            _ => {
+                old += 1;
+                new += 1;
+                Some(if left { old } else { new })
+            }
+        };
+        run.push(DiffLine { kind, text: row.to_string() });
+        if at == Some(line) {
+            let from = run.len().saturating_sub(4);
+            return Some(hunk.into_iter().chain(run.drain(from..)).collect());
+        }
+    }
+    None
+}
+
+/// `@@ -a,b +c,d @@` → the line before each side's first, so the first row counts as `a` and `c`.
+fn hunk_starts(row: &str) -> Option<(u64, u64)> {
+    let mut parts = row.split_whitespace().skip(1);
+    let start = |part: &str| part.get(1..)?.split(',').next()?.parse::<u64>().ok();
+    let old = start(parts.next()?)?;
+    let new = start(parts.next()?)?;
+    Some((old.saturating_sub(1), new.saturating_sub(1)))
+}
+
 /// The diff drawn: the cut first, then each file, or the empty sentence alone. `id` keeps each file's
 /// sideways scroll apart from another diff's.
 pub fn unified(id: impl Into<SharedString>, drawn: &Drawn, look: &Look) -> AnyElement {
@@ -233,21 +311,6 @@ pub fn unified(id: impl Into<SharedString>, drawn: &Drawn, look: &Look) -> AnyEl
                     .text_color(look.color(token::FG_MUTED))
                     .child(SharedString::from(meta))
             }));
-        let lines = file.lines.iter().map(|line| {
-            let (ground, ink) = match line.kind {
-                LineKind::Added => (Some(token::DIFF_ADD_BG), token::DIFF_ADD_FG),
-                LineKind::Removed => (Some(token::DIFF_DEL_BG), token::DIFF_DEL_FG),
-                LineKind::Hunk => (Some(token::BG_RAISED), token::FG_SUBTLE),
-                LineKind::Context => (None, token::DIFF_CONTEXT),
-            };
-            div()
-                .px(look.length(token::SPACE_3))
-                .when(line.kind == LineKind::Hunk, |row| row.py(look.length(token::SPACE_1)))
-                .whitespace_nowrap()
-                .when_some(ground, |row, ground| row.bg(look.color(ground)))
-                .text_color(look.color(ink))
-                .child(SharedString::from(line.text.clone()))
-        });
         labelled(
             div().id(ElementId::Name(format!("{id}:file:{ix}").into()))
                 .flex()
@@ -258,17 +321,7 @@ pub fn unified(id: impl Into<SharedString>, drawn: &Drawn, look: &Look) -> AnyEl
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .overflow_hidden()
                 .child(head)
-                .child(
-                    div()
-                        .id(ElementId::Name(format!("{id}:lines:{ix}").into()))
-                        .min_w_0()
-                        .overflow_x_scroll()
-                        .bg(look.color(token::BG_BASE))
-                        .font_family(font.clone())
-                        .text_size(look.length(token::TEXT_2XS))
-                        .line_height(look.length(token::LEADING_2XS))
-                        .child(div().flex().flex_col().min_w_full().children(lines)),
-                ),
+                .child(lines(format!("{id}:lines:{ix}"), &file.lines, look)),
             Role::Group,
             file.path.clone(),
         )
@@ -298,6 +351,16 @@ mod tests {
         let kinds: Vec<_> = drawn.files[0].lines.iter().map(|line| line.kind).collect();
         assert_eq!(kinds, vec![LineKind::Hunk, LineKind::Removed, LineKind::Added, LineKind::Context]);
         assert_eq!(drawn.cut, None);
+    }
+
+    #[test]
+    fn an_excerpt_ends_at_the_threads_line_on_its_side() {
+        let patch = "@@ -10,6 +10,7 @@\n a\n b\n-c\n+C\n+D\n d\n e\n f";
+        let new: Vec<_> = excerpt(patch, 13, false).unwrap().into_iter().map(|line| line.text).collect();
+        assert_eq!(new, vec!["@@ -10,6 +10,7 @@", " b", "-c", "+C", "+D"]);
+        let old: Vec<_> = excerpt(patch, 12, true).unwrap().into_iter().map(|line| line.text).collect();
+        assert_eq!(old, vec!["@@ -10,6 +10,7 @@", " a", " b", "-c"]);
+        assert!(excerpt(patch, 40, false).is_none());
     }
 
     #[test]

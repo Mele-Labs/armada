@@ -193,6 +193,26 @@ pub fn patches(key: &str) -> Option<ipc::PullRequestFilePatches> {
     pulls.pulls.into_iter().find(|one| one.key == key).map(|one| one.patches)
 }
 
+/// A pull request's page as `GET /pull_request_details/:repository/:number` answers it, by
+/// `manifest#number`: Armada Classic's mock pages, narrowed to three.
+pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        page: ipc::PullRequestPage,
+    }
+    #[derive(Deserialize)]
+    struct Pages {
+        pulls: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let pages = ipc::decode::<Pages>("pull request pages", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
+    pages.pulls.into_iter().find(|one| one.key == key).map(|one| one.page)
+}
+
 /// A file of the Job's repository as `GET /sessions/repository_file` will answer it: its text, or
 /// Fleet's refusal word (`not_addressable`, `too_big`, `binary`, `unreadable`).
 pub fn repository_file(path: &str) -> Option<Result<String, String>> {

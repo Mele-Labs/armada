@@ -51,6 +51,8 @@ mod sketch_read;
 mod subagent_read;
 mod panes;
 mod pulls;
+mod pr_files;
+mod pr_panel;
 mod report_brief;
 mod side;
 mod tabs;
