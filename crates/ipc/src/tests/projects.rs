@@ -115,6 +115,32 @@ fn resolved_values_name_the_layer_of_each_key_and_leave_an_empty_one_without_a_v
 }
 
 #[test]
+fn a_projects_tracker_is_the_manifest_block_as_a_map_and_a_resolved_one_names_its_layer() {
+    let edit: EditProject = crate::decode("an edit", br#"{"values":{"tracker":{"provider":"tickets","site":"acme"}}}"#).unwrap();
+    let block = edit.values.as_ref().and_then(|values| values.tracker.as_ref()).expect("a tracker");
+    assert_eq!((block.get("provider").map(String::as_str), block.get("site").map(String::as_str)), (Some("tickets"), Some("acme")));
+    assert_eq!(serde_json::to_value(&edit).unwrap(), json!({"values": {"tracker": {"provider": "tickets", "site": "acme"}}}));
+    assert!(crate::decode::<EditProject>("an edit", br#"{"values":{"tracker":"tickets"}}"#).is_err(), "a tracker is a map of text");
+
+    let answer = json!({"value": {"provider": "tickets"}, "from": "project"});
+    let resolved: crate::ResolvedTracker = serde_json::from_value(answer.clone()).unwrap();
+    assert_eq!(resolved.from, crate::ValueLayer::Project);
+    assert_eq!(serde_json::to_value(&resolved).unwrap(), answer);
+    let none: crate::ResolvedTracker = serde_json::from_value(json!({"from": "default"})).unwrap();
+    assert_eq!(none.value, None, "no layer names one: the forge's own");
+}
+
+#[test]
+fn a_project_issue_list_is_an_issue_list_named_for_its_project() {
+    let answer = json!({"project": "shop", "fetched_at": "2026-11-10T12:00:00Z", "issues": [], "stale": "the tracker would not answer"});
+    let read: crate::ProjectIssueList = serde_json::from_value(answer.clone()).unwrap();
+    assert_eq!((read.project.as_str(), read.stale.as_deref()), ("shop", Some("the tracker would not answer")));
+    assert_eq!(serde_json::to_value(&read).unwrap(), answer);
+    let fresh: crate::ProjectIssueList = serde_json::from_value(json!({"project": "shop", "fetched_at": "2026-11-10T12:00:00Z", "issues": []})).unwrap();
+    assert_eq!(fresh.stale, None);
+}
+
+#[test]
 fn kit_values_are_saved_whole() {
     let body: crate::SaveKitValues = crate::decode("Kit's values", br#"{"values":{"auto_merge":"always"}}"#).unwrap();
     assert_eq!(body.values.auto_merge.as_deref(), Some("always"));

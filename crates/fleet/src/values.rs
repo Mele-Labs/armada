@@ -248,7 +248,7 @@ where
     }
 
     /// A warning in the envelope on Fleet's standard error: what failed here raises nothing for the person.
-    fn values_warned(&self, msg: &str, subject: Option<&str>, why: impl std::fmt::Display) {
+    pub(crate) fn values_warned(&self, msg: &str, subject: Option<&str>, why: impl std::fmt::Display) {
         let mut envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), msg);
         if let Some(subject) = subject {
             envelope = envelope.with_field("subject", FieldValue::Str(subject.to_string()));
@@ -286,9 +286,14 @@ where
         if let Some(repository) = repository {
             self.project_started_for(id, repository.as_str()).await?;
         }
+        self.project_held(id).await.map(|project| project.values().clone())
+    }
+
+    /// The project `id` as its file read, or the refusals `project_values` gives.
+    pub(crate) async fn project_held(&self, id: &str) -> Result<core_model::Project, Refusal> {
         let read = ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).cloned());
         match read {
-            Some(project) => Ok(project.values().clone()),
+            Some(project) => Ok(project),
             None => {
                 let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
                 if !kept.projects.iter().any(|one| one.id == id) {

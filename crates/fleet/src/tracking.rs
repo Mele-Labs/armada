@@ -67,9 +67,9 @@ pub(crate) struct Tracking {
 }
 
 #[derive(Clone)]
-struct Held {
-    fetched_at: Timestamp,
-    issues: Vec<OpenIssue>,
+pub(crate) struct Held {
+    pub(crate) fetched_at: Timestamp,
+    pub(crate) issues: Vec<OpenIssue>,
 }
 
 impl Tracking {
@@ -88,7 +88,7 @@ impl Tracking {
         self.lists.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(manifest);
     }
 
-    fn held(&self, manifest: &str) -> Option<Held> {
+    pub(crate) fn held(&self, manifest: &str) -> Option<Held> {
         self.lists
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -96,7 +96,7 @@ impl Tracking {
             .cloned()
     }
 
-    fn keep(&self, manifest: &str, held: Held) {
+    pub(crate) fn keep(&self, manifest: &str, held: Held) {
         self.lists
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

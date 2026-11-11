@@ -116,6 +116,11 @@ impl Projects for FakeDaemon {
         })
     }
 
+    async fn list_project_issues(&self, project: String, _refresh: bool) -> Result<ipc::ProjectIssueList, Refusal> {
+        held(&project)?;
+        Ok(ipc::ProjectIssueList { project, fetched_at: ipc::Instant::carried("2026-11-10T12:00:00Z"), issues: Vec::new(), stale: None })
+    }
+
     async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {
         if save.values.auto_merge.as_deref() == Some("sometimes") {
             return Err(Refusal::Unacceptable(raised("fleet.project_values_refused", "not an auto merge")));

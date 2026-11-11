@@ -79,6 +79,24 @@ pub(crate) async fn get_values<D: Projects>(State(served): State<Served<D>>, Que
     }
 }
 
+/// `?refresh=true` on `list_project_issues` asks the tracker again whatever is held.
+#[derive(serde::Deserialize)]
+pub(crate) struct Refresh {
+    #[serde(default)]
+    refresh: bool,
+}
+
+pub(crate) async fn list_project_issues<D: Projects>(
+    State(served): State<Served<D>>,
+    Path(project): Path<String>,
+    Query(asked): Query<Refresh>,
+) -> Response {
+    match served.daemon().list_project_issues(project, asked.refresh).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn save_kit_values<D: Projects>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let save = match decoded(&served, "Kit's values", &body) {
         Ok(save) => save,

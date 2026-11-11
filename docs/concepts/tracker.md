@@ -136,6 +136,37 @@ tracker:
 The choice is read when Fleet starts, so a save that changes it is reported as waiting for a restart (`manifest.md`, *`tracker` and `ci_gate`*).
 The match from provider to implementation is in `crates/adapters/src/tracker_providers.rs`, because the provider words are vendors', and the composition root names that one type and no other.
 
+### A project's tracker
+
+A project may name its own tracker, in the `tracker:` key of the `values:` block of its file, with the Manifest block's shape and meaning: `provider` and every other key carried as written.
+
+```yaml
+values:
+  tracker:
+    provider: jira
+    site: acme
+    project: ABC
+```
+
+> **Rule.** A project's tracker replaces its members' trackers for the Jobs in it.
+> Why: the owner chose that the tracker follows the body of work and not the repository a Job happens to run in.
+> A repository keeps its own `tracker:` in its Manifest, and it is the one used where no project's applies.
+
+| Asked | Which tracker |
+|---|---|
+| A Job's claim of an issue, the issues its messages and its pull request name, the ticket moves its lifecycles and rules make | The Job's project's, where the Job was started for a project that names one, else its repository's |
+| The Issues tab, one repository at a time | The repository's, always |
+| The project's issues (`list_project_issues`) | The project's. A project that names none has no issues of its own and is refused, `fleet.project_no_tracker` |
+| What Autopilot and the Operator file and read in a repository | The repository's, since neither is a Job in a project |
+
+The root stays the Job's own repository's: only the choice changes.
+A project's choice is read at each call, so a project saved with a new tracker changes the next call of its Jobs and does not move one already made.
+A Job's frozen values leave the tracker out for that reason.
+Kit has no tracker, and a `tracker` in Kit's values is refused.
+`get_values` resolves it from the repository to the project, the project's winning, and names the layer.
+A project's issues are read in the first member repository Fleet serves, or the repository Fleet started in where it serves none, and held five minutes as a repository's are.
+An issue linked to a task in the Projects tab is still read through its own repository's tracker.
+
 ### A tracker Armada was not built for
 
 A job teaches it: it finds the tracker's command line, API or MCP server, writes a tracker mod's `tracker.toml`, tries it against the repository with `try_tracker_mod`, and the Manifest names the mod.

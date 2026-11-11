@@ -118,8 +118,11 @@ where
     /// **Held, never raised**, as the pull request ledger is: the message is the person's, and a row
     /// that would not write is no reason to refuse it.
     pub(crate) async fn issues_named(&self, session: &str, text: &str, tags: &[SessionTag]) {
-        let Some(manifest) = self.store().lock().await.session(session).ok().flatten().and_then(|one| one.manifest_id)
-        else {
+        let (manifest, project) = {
+            let store = self.store().lock().await;
+            (store.session(session).ok().flatten().and_then(|one| one.manifest_id), crate::job_tracking::job_project(&store, session))
+        };
+        let Some(manifest) = manifest else {
             return;
         };
         // A reported bug rides the message of the Job started on it, and is held as an issue is.
@@ -136,8 +139,9 @@ where
         }
         // The tracker the Manifest chose says which of its own issues the text links, so a Jira
         // browse link names its key and a forge link into a Jira repository names nothing.
+        // A Job in a project that names a tracker is read by that one.
         if let Ok(served) = self.served_named(Some(&ManifestId::carried(&manifest))) {
-            for written in self.tracker_of(&served).issues_linked_in(served.root(), text) {
+            for written in self.tracker_for_job(&served, project.as_deref()).issues_linked_in(served.root(), text) {
                 if let Some(issue) = IssueReference::read(&written) {
                     named.entry(issue).or_default();
                 }
@@ -229,11 +233,12 @@ where
     /// Fleet writes to, and who it was claimed as. Runs a sync or two, so it holds no lock on the ledger.
     async fn claimed_where_written(&self, manifest: &str, issue: &IssueReference, id: &str) -> Result<Option<String>, Refusal> {
         let served = self.served_named(Some(&ManifestId::carried(manifest)))?;
-        let Some(backlog) = self.backlog_of(&served) else {
+        let project = self.project_of_job(id).await;
+        let Some(backlog) = self.backlog_for_job(&served, project.as_deref()) else {
             return Ok(None);
         };
         let actor = self.claim_actor(id).await;
-        match self.claimed_in_backlog(&served, backlog, issue.as_str(), &actor).await {
+        match self.claimed_in_backlog(&served, project.as_deref(), backlog, issue.as_str(), &actor).await {
             Ok(()) => Ok(Some(actor)),
             Err(ClaimLost::Held { holder }) => Err(Refusal::IllegalMove(WireError::raised(
                 HELD_ELSEWHERE,
@@ -292,23 +297,24 @@ where
     /// same utility priority. **A closed issue stands**: the row says closed and is still shown.
     /// Issues the forge will not answer for stay as they were.
     pub(crate) async fn issue_ledger_kept_current(&self, manifest_id: &ManifestId, root: &str) {
-        let mut issues: Vec<IssueReference> = {
+        // Each issue is read by the tracker of the project of the first Job holding it.
+        let mut issues: BTreeMap<IssueReference, Option<String>> = BTreeMap::new();
+        {
             let store = self.store().lock().await;
             let Ok(rows) = store.standing_of_kind(ISSUE, manifest_id.as_str()) else {
                 return;
             };
-            rows.iter()
-                .filter(|row| row.holder.kind == HolderKind::Session)
-                .filter_map(|row| IssueReference::read(&row.target))
-                .collect()
-        };
-        issues.sort_unstable();
-        issues.dedup();
+            for row in rows.iter().filter(|row| row.holder.kind == HolderKind::Session) {
+                if let Some(issue) = IssueReference::read(&row.target) {
+                    issues.entry(issue).or_insert_with(|| crate::job_tracking::job_project(&store, &row.holder.id));
+                }
+            }
+        }
         let Ok(served) = self.served_named(Some(manifest_id)) else {
             return;
         };
-        for issue in issues {
-            let (tracker, root, reference) = (self.tracker_of(&served), root.to_string(), issue.as_str().to_string());
+        for (issue, project) in issues {
+            let (tracker, root, reference) = (self.tracker_for_job(&served, project.as_deref()), root.to_string(), issue.as_str().to_string());
             let read = tokio::task::spawn_blocking(move || tracker.read_issue(&root, &reference)).await;
             let Ok(Ok(Some(read))) = read else {
                 continue;

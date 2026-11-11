@@ -38,6 +38,12 @@ pub trait Projects: Send + Sync + 'static {
         manifest_id: Option<ipc::ManifestId>,
     ) -> impl Future<Output = Result<ipc::ResolvedValues, Refusal>> + Send;
 
+    /// `list_project_issues` — the open issues of the tracker the project names, held five minutes unless `refresh`.
+    /// [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a project whose file did not read
+    /// or that names no tracker (`fleet.project_no_tracker`), and [`Refusal::Fault`] where the tracker would not answer and
+    /// nothing is held.
+    fn list_project_issues(&self, project: String, refresh: bool) -> impl Future<Output = Result<ipc::ProjectIssueList, Refusal>> + Send;
+
     /// `save_kit_values` — Kit's `values.yml`, whole. [`Refusal::Unacceptable`] for a word its key does not take.
     fn save_kit_values(&self, save: ipc::SaveKitValues) -> impl Future<Output = Result<ipc::KitValuesSaved, Refusal>> + Send;
 

@@ -25,7 +25,8 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `HostedFacts.project` | Fleet writes, Bridge reads | `project?: string`, the id the Job was started for, kept in a new column `hosted_sessions.project`. Absent for a Job started for none |
 | `add_project` | Bridge calls | `POST /projects`, body `NewProject { name, members?, place?, values? }`. Writes the file at the place, this Mac where absent, and the row, last in his order. `values` is the block it starts with, none where absent. It replaces the body `NameProject { name }` |
 | `edit_project` | Bridge calls | `POST /projects/project/:project/edit`, body `EditProject { name?, members?, place?, values? }`; only what is present changes, `members` replacing the whole list, `place` moving the file and `values` replacing the whole block, `{}` taking every value back. It replaces `rename_project` and its route `/projects/project/:project/rename` |
-| `get_values` | Bridge calls | `GET /projects/values?project=&manifest_id=`, both optional. Answers `ResolvedValues`: `pr_mode`, `auto_merge`, `review_model`, `layout`, `theme` and `density`, each `{ value?, from }`, and `autonomy`, `[{ kind, value, from }]` for each kind of act where a repository was asked about. `from` is `default`, `machine`, `kit`, `repository`, `project` or `job` |
+| `get_values` | Bridge calls | `GET /projects/values?project=&manifest_id=`, both optional. Answers `ResolvedValues`: `pr_mode`, `auto_merge`, `review_model`, `layout`, `theme` and `density`, each `{ value?, from }`, `tracker`, `{ value?, from }` with `value` the Manifest's `tracker:` block as a map, resolved repository then project, and `autonomy`, `[{ kind, value, from }]` for each kind of act where a repository was asked about. `from` is `default`, `machine`, `kit`, `repository`, `project` or `job` |
+| `list_project_issues` | Bridge calls | `GET /projects/project/:project/issues?refresh=`. Answers `ProjectIssueList { project, fetched_at, issues, stale? }`, the open issues of the tracker the project names as `list_issues` carries a repository's, `holders` read from every repository the project holds. Held five minutes. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable`, 422 `fleet.project_no_tracker` for a project that names none, 500 `fleet.issues_unreadable` |
 | `save_kit_values` | Bridge calls | `POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is, written whole to `values.yml` in Kit's folder on this Mac. Answers `KitValuesSaved { file, values }` |
 | `HostedFacts.values` | Fleet writes, Bridge reads | `ResolvedValues`, what the Job froze when it started, in its own `job_values` rows. Absent on a Job started before they were kept |
 | `delete_project` | Bridge calls | `POST /projects/project/:project/delete`, no body. Its rows go with it, and its file where Fleet keeps it itself, in Kit's folder; one in a synced folder or a bucket is left |
@@ -69,7 +70,7 @@ The layers, **nearest winning**, are default, Machine, Kit, repository, Project 
 | Machine | `settings.json`, only what is saved: `features.draftPullRequests`, `models.review`, `bridge.theme`, `bridge.layout`, `spacing.density` |
 | Kit | `values.yml` in Kit's folder, `version: 1` and a `values:` block. Read each time it is asked. **An absent file sets nothing**, and one that will not read sets nothing and is said on the log |
 | repository | The Manifest's `pr_mode:` and `auto_merge:`, **only where it writes them**: a repository that says nothing does not beat Kit. They stay in `armada.yml` and sit just under the project |
-| Project | The `values:` block of the project's file. **A project's auto merge replaces the repository's**; nothing is folded between them |
+| Project | The `values:` block of the project's file. **A project's auto merge replaces the repository's**, and so does its tracker; nothing is folded between them |
 | Job | What the Job itself was started with. Nothing sets one yet |
 
 **Autonomy has no second home.** The pieces it already has are read: those scoped to every repository are `kit`, those scoped to the named project are `project`, and those scoped to the repository are `repository`, a repository's laid over its project's as the pieces always were.
@@ -78,8 +79,13 @@ It is the existing order, and the one the Operator's rules take.
 A project is only asked about by `get_values` with a `project`.
 With no repository there is no autonomy to read, so `autonomy` is left out.
 
+**The tracker is a project's value and not Kit's.** `values.tracker` is the Manifest's `tracker:` block as a map of text, `provider` and every other key carried as written, on `Project.values`, `NewProject.values` and `EditProject.values`.
+A repository's own is its Manifest's block, which `get_values` reads as the repository layer, and a Job in a project that names one asks it over its repository's.
+Kit has none: `save_kit_values` refuses one, and Kit's `values.yml` does not read one.
+
 **A Job takes its project's values at start.** A Job that holds lifecycles resolves for its project and its repository, and keeps every key with its layer in `job_values`, a table of its own and additive, served as `HostedFacts.values`.
 A Job started for no project freezes its repository's.
+**The tracker is not frozen.** `HostedFacts.values` leaves `tracker` out, since a Job asks the tracker where it acts and the project's word is read then.
 A later edit of a layer does not move a Job that has begun, and a Job handed on takes the values the first froze.
 Where it reads them:
 
@@ -172,8 +178,9 @@ settles one row of it from the Projects tab: done, or open again. The item leave
 `add_project` and `edit_project`.
 `fleet.project_unwritable` is a project's file that could not be written or removed, a 500, or one that would not read and so is not written over by `edit_project`, a 422. A task written into a project whose file did not read is kept and adds no member.
 422 `fleet.project_values_refused` is a value its key does not take: an `auto_merge` that is not `never`, `checks-pass` or `always`, a `density` that is not `compact`, `default` or `roomy`, or blank text.
-`add_project`, `edit_project` and `save_kit_values`.
+`add_project`, `edit_project` and `save_kit_values`, a tracker in Kit's values among them.
 Nothing is written.
+422 `fleet.project_no_tracker` is a project's issues asked of a project whose file names no tracker. `list_project_issues`.
 `fleet.kit_values_unwritable` is Kit's `values.yml` that could not be written, a 500.
 `get_values` names a project: 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` where its file did not read, 422 `fleet.project_not_member` where it does not list the repository, and 422 `fleet.unacceptable_proposal` for a repository Fleet does not serve.
 422 `fleet.project_not_member` is a Job started for a project that does not list its repository. `start_session`.
@@ -192,7 +199,7 @@ The task keeps the repository it was filed in, and the Job its own: holding is a
 422 for a repository Fleet does not serve, as every repository route answers it, on a task or an issue row written into one.
 
 **Skew.** There is no number to take: the protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, all of which changed here.
-The values are additive on top of that: `values` on `Project`, `NewProject` and `EditProject` and on `HostedFacts` is absent for none, and `get_values` and `save_kit_values` are routes a Fleet without them answers 404.
+The values are additive on top of that: `values` on `Project`, `NewProject` and `EditProject` and on `HostedFacts` is absent for none, and `get_values`, `save_kit_values` and `list_project_issues` are routes a Fleet without them answers 404.
 The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves. A Bridge that still calls `GET /workspaces/all`, `GET /workspaces` or
 `POST /projects/project/:project/rename` would meet a 404 on a Fleet that has them gone, which is why the two are never run together.
 **The event stream.** `projects.changed` is published on a person's write, when a Job holds, asks about or lets go of tasks, and when a linked pull request's merge

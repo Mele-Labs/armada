@@ -479,7 +479,7 @@ pub use projects::{
 };
 pub use issues::{
     IssueComment, IssueField, IssueList, IssueRead, IssueState, LinkedPullRequest, LinkedPullRequestState,
-    TrackedIssue,
+    ProjectIssueList, TrackedIssue,
 };
 pub use kit::{
     AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,

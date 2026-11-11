@@ -654,6 +654,10 @@ where
         self.values_asked(project, manifest_id).await
     }
 
+    async fn list_project_issues(&self, project: String, refresh: bool) -> Result<ipc::ProjectIssueList, Refusal> {
+        self.project_issues_listed(project, refresh).await
+    }
+
     async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {
         self.kit_values_saved(save).await
     }

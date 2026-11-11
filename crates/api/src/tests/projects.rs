@@ -242,6 +242,16 @@ async fn values_are_read_for_a_project_a_repository_or_both_and_a_missing_projec
 }
 
 #[tokio::test]
+async fn a_projects_issues_are_listed_by_its_route_and_a_missing_project_is_a_404() {
+    let (status, answer) = call("GET", "/projects/project/p7/issues?refresh=true", "").await;
+    let listed = ipc::decode::<ipc::ProjectIssueList>("issues", &answer).expect("issues");
+    assert_eq!((status, listed.project.as_str()), (StatusCode::OK, "p7"));
+    let (status, text) = refused("GET", "/projects/project/nope/issues", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project"), "{text}");
+}
+
+#[tokio::test]
 async fn kit_values_are_saved_whole_and_a_word_the_key_does_not_take_is_a_422() {
     let (status, answer) = call("POST", "/kit/values", r#"{"values":{"auto_merge":"always"}}"#).await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));

@@ -772,6 +772,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/holding", get(crate::projects::list_holding_projects::<D>))
         .route("/projects/values", get(crate::projects::get_values::<D>))
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
+        .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))

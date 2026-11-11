@@ -58,6 +58,9 @@ A subtask has no subtasks, and an issue row is neither parent nor subtask.
 
 The tracker is [Tracker](tracker.md), and a pull request is read from the forge.
 
+**A project may name its own tracker.**
+It replaces its members' trackers for the Jobs in it and for the project's issues, and a repository keeps its own where no project's applies ([Tracker](tracker.md), *A project's tracker*).
+
 ## What a project scopes
 
 A lifecycle, a rule or an autonomy piece names a project in its `scope:`.
@@ -146,9 +149,8 @@ Each row waits on the next two pull requests of the Job that built the project f
 
 | Missing | Waiting on it |
 |---|---|
-| A project's tracker as a value | The tracker is a value of its own, set key by key over Kit, and has no key in the file yet |
-| A project's own tracker replacing its members' | The tracker value above |
-| The four review lists filtered to a project | The tracker value above |
+| An issue linked to a task read through the project's tracker | Linked issues are read through their own repository's tracker, so a project that names its own is not asked for them |
+| The four review lists filtered to a project | Not built |
 | Operator rules and Always here, per project | Values of their own, not set in the file yet |
 | A project's autonomy set from its own file | Autonomy stays in its pieces, which a project is already a scope of; nothing here writes one |
 | A Job's own values | Nothing starts a Job with a value of its own, so the Job layer is empty |

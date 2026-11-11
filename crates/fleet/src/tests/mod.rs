@@ -271,6 +271,7 @@ mod issue_queries;
 mod projects;
 mod project_wire;
 mod values;
+mod project_tracker;
 mod project_holds;
 mod project_links;
 mod project_subtasks;
