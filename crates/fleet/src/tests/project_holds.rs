@@ -37,7 +37,7 @@ pub(super) fn held(row: &ProjectRow) -> (ProjectTaskState, Option<ProjectHolder>
 /// One project `Pocket launch` with a task per title, then a linked issue: its id and row ids.
 pub(super) async fn a_project(rig: &Rig, titles: &[&str]) -> (String, Vec<String>) {
     let at = ManifestId::carried(rig.manifest());
-    let projects = rig.fleet.add_project(NewProject { name: "Pocket launch".into(), members: None, place: None }).await.expect("added");
+    let projects = rig.fleet.add_project(NewProject { name: "Pocket launch".into(), members: None, place: None, values: None }).await.expect("added");
     let project = projects.projects.last().expect("the project").id.clone();
     for title in titles {
         rig.fleet.add_project_task(new_task(at.clone(), Some(project.clone()), title)).await.expect("added");

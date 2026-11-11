@@ -29,6 +29,7 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
             members: vec![ProjectMember { manifest_id: ManifestId::carried("armada"), folder: None }],
             place: ProjectPlace { place: RunPlace::ThisMac, synced_folder: None, cloud: None },
             unread: None,
+            values: None,
             rows: vec![
                 task("r1", "Write the page"),
                 ProjectRow::Issue {
@@ -95,6 +96,36 @@ impl Projects for FakeDaemon {
         let members = edit.members.as_ref().map_or_else(|| "-".to_string(), |members| members.len().to_string());
         let place = edit.place.as_ref().map_or_else(|| "-".to_string(), |one| format!("{:?}", one.place));
         Ok(echoed(&project, format!("edit_project {} {members} {place}", edit.name.as_deref().unwrap_or("-"))))
+    }
+
+    async fn get_values(&self, project: Option<String>, manifest_id: Option<ManifestId>) -> Result<ipc::ResolvedValues, Refusal> {
+        if let Some(project) = project.as_deref() {
+            held(project)?;
+        }
+        let reached = format!("{} {}", project.as_deref().unwrap_or("-"), manifest_id.as_ref().map_or("-", ManifestId::as_str));
+        let said = |value: Option<String>| ipc::ResolvedValue { value, from: ipc::ValueLayer::Default };
+        Ok(ipc::ResolvedValues {
+            pr_mode: said(Some("ready".to_string())),
+            auto_merge: said(Some("never".to_string())),
+            review_model: said(Some(reached)),
+            layout: said(None),
+            theme: said(None),
+            density: said(None),
+            tracker: None,
+            autonomy: Vec::new(),
+        })
+    }
+
+    async fn list_project_issues(&self, project: String, _refresh: bool) -> Result<ipc::ProjectIssueList, Refusal> {
+        held(&project)?;
+        Ok(ipc::ProjectIssueList { project, fetched_at: ipc::Instant::carried("2026-11-10T12:00:00Z"), issues: Vec::new(), stale: None })
+    }
+
+    async fn save_kit_values(&self, save: ipc::SaveKitValues) -> Result<ipc::KitValuesSaved, Refusal> {
+        if save.values.auto_merge.as_deref() == Some("sometimes") {
+            return Err(Refusal::Unacceptable(raised("fleet.project_values_refused", "not an auto merge")));
+        }
+        Ok(ipc::KitValuesSaved { file: "kit/values.yml".to_string(), values: save.values })
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {

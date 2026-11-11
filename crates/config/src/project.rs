@@ -3,7 +3,8 @@
 //! monorepo unit `manifest/workspace.rs` reads; a member may name one by folder, and that is all.
 //!
 //! One file is one Project, version 2: `project_id` and `name` say which, `members` lists each as
-//! `repository` (a Manifest id) and, for a folder of it, `folder`. It is read as a lifecycle's file
+//! `repository` (a Manifest id) and, for a folder of it, `folder`. An optional `values:` block holds the
+//! values the Project sets (`crate::values`), only the keys it sets. It is read as a lifecycle's file
 //! is, refusing every fault of the file with its key, then what a whole Project must be
 //! ([`core_model::Project::declared`]).
 //!
@@ -15,14 +16,14 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use core_model::{Folder, MalformedFolder, MalformedProject, ManifestId, Member, Project, ScopeId, Title, Ulid};
+use core_model::{Folder, MalformedFolder, MalformedProject, ManifestId, Member, Project, ScopeId, Title, Ulid, Values};
 use serde_yaml_ng::Value;
 
 use crate::error::{Fault, LoadError, Refusal};
 use crate::piece::named;
 use crate::yaml::{self, Table};
 
-const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members"];
+const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values"];
 const MEMBER: &[&str] = &["repository", "folder"];
 const TOP_LEVEL_V1: &[&str] = &["version", "workspace_id", "name", "repositories"];
 
@@ -87,10 +88,12 @@ fn parse(path: &Path, text: &str, version: Version) -> Result<Project, ProjectEr
     if let Some((at, why)) = bad_folder.filter(|_| out.is_empty()) {
         return Err(ProjectError::Folder { path: path.to_path_buf(), at, why });
     }
-    let Some((id, name, members)) = read.filter(|_| out.is_empty()) else {
+    let Some((id, name, members, values)) = read.filter(|_| out.is_empty()) else {
         return Err(ProjectError::Load(LoadError::Refused { path: path.to_path_buf(), refusals: out }));
     };
-    Project::declared(id, name, members).map_err(|why| ProjectError::Malformed { path: path.to_path_buf(), why })
+    Project::declared(id, name, members)
+        .map(|project| project.with_values(values))
+        .map_err(|why| ProjectError::Malformed { path: path.to_path_buf(), why })
 }
 
 fn read(
@@ -98,7 +101,7 @@ fn read(
     version: Version,
     out: &mut Vec<Refusal>,
     bad_folder: &mut Option<(String, MalformedFolder)>,
-) -> Option<(ScopeId, Title, Vec<Member>)> {
+) -> Option<(ScopeId, Title, Vec<Member>, Values)> {
     let (id_key, members_key, known, carried, wanted) = match version {
         Version::One => ("workspace_id", "repositories", TOP_LEVEL_V1, VERSIONS_V1, 1),
         Version::Two => ("project_id", "members", TOP_LEVEL, VERSIONS, 2),
@@ -132,8 +135,14 @@ fn read(
             items.iter().filter_map(|(at, item)| member(at, item, out, bad_folder)).collect()
         }),
     });
+    // Only a version 2 file has `values`, and the block holds only the keys it sets.
+    let values_at = top.at("values");
+    let values = match version {
+        Version::Two => top.optional("values").map(|value| crate::values::read_block(&values_at, value, true, out)).unwrap_or_default(),
+        Version::One => Values::default(),
+    };
     top.close(known, out);
-    Some((id?, name?, members?))
+    Some((id?, name?, members?, values))
 }
 
 fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Option<(String, MalformedFolder)>) -> Option<Member> {
@@ -179,6 +188,9 @@ pub fn project_text(project: &Project) -> Result<String, String> {
     top.insert(text("project_id"), text(project.id().as_str()));
     top.insert(text("name"), text(project.name().as_str()));
     top.insert(text("members"), Value::Sequence(members));
+    if let Some(values) = crate::values::block_value(project.values()) {
+        top.insert(text("values"), values);
+    }
     crate::piece_text(&Value::Mapping(top))
 }
 

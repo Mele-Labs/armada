@@ -120,7 +120,7 @@ where
     /// rule that applies, and the autonomy defaults laid over each other. **The text, and not the
     /// parsed value**, so what a Job keeps is what was written then. The four lifecycles Armada
     /// carries are not files and are not kept: they are the same for every Job.
-    pub(crate) fn job_copy_for(&self, repository: &str) -> Result<KeptCopy, Refusal> {
+    pub(crate) fn job_copy_for(&self, repository: &str, project: Option<&str>) -> Result<KeptCopy, Refusal> {
         let served = self.repositories().serving(repository).ok_or_else(|| {
             self.refusal(Adrift::NoSuchManifest {
                 named: repository.to_string(),
@@ -135,7 +135,7 @@ where
         let mut pieces = Vec::new();
 
         let written = self.pieces_written(&served, &projects, LIFECYCLES);
-        let lifecycles = Lifecycles::applying_to(id, &projects, self.built_in_lifecycles(Some(repository)), written.clone());
+        let lifecycles = Lifecycles::applying_to(id, &projects, self.built_in_lifecycles_in(Some(repository), project), written.clone());
         for file in lifecycles.files().iter().filter(|file| file.overridden_by().is_none()) {
             let Some(path) = file.path() else { continue };
             pieces.push(KeptPiece {

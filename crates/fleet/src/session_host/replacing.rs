@@ -387,6 +387,10 @@ where
         hosting.from_job = old.from_job.clone();
         hosting.from_tab = old.from_tab.clone();
         let _ = store.keep_hosting(&hosting);
+        // The values it froze, so a hand does not take the layers as they stand now.
+        if let Some(frozen) = store.job_values(&old.session_id).ok().filter(|frozen| !frozen.is_empty()) {
+            let _ = store.keep_job_values(new, &frozen);
+        }
     }
 
     /// The two links. `replaces` carries what the new Job starts from.

@@ -38,8 +38,10 @@ The credential stays where the forge CLI already keeps it, in the operator's own
 | Run, save, edit and forget a query | On ask from Bridge, a saved one run as one tracker call | `crates/fleet/src/issue_queries.rs`, `crates/store/src/issue_queries.rs` |
 
 **Fleet never comments on, labels or edits an issue or a pull request on the owner's behalf**, unless he presses for it.
-There are three exceptions: a beads backlog, which Fleet syncs and claims in ([Beads](#beads)), the writes of a rule he saved ([Writes a saved rule makes](#writes-a-saved-rule-makes)), and the [Operator](operator.md)'s File role, which creates a new issue for a Later item no open issue covers.
+There are three exceptions: a beads backlog, which Fleet syncs and claims in ([Beads](#beads)), the writes of a rule he saved ([Writes a saved rule makes](#writes-a-saved-rule-makes)), and the [Operator](operator.md)'s File, Close and Group, which create a new issue for a Later item no open issue covers, close an open issue a merged pull request finished, and group a new issue with an open one, closing it as a duplicate or putting it under that one.
 **File only ever creates**: it comments on, labels and closes nothing, and files nothing the person typed himself.
+**Close and Group only ever close or set a parent, and only in beads**: each is asked first, as a go-ahead, or done by a rule he kept for that project.
+Group writes to the new issue and never to the one it is grouped with, and writes only a close with its reason, or a parent link.
 It files in a repository's beads now, and on a tracker with a forge each new issue needs his yes.
 A review or comment he approves or types and sends from Bridge is his own act. #91 asked for write-back to the issue a Job came from, and it is not built.
 
@@ -135,6 +137,39 @@ tracker:
 
 The choice is read when Fleet starts, so a save that changes it is reported as waiting for a restart (`manifest.md`, *`tracker` and `ci_gate`*).
 The match from provider to implementation is in `crates/adapters/src/tracker_providers.rs`, because the provider words are vendors', and the composition root names that one type and no other.
+
+### A project's tracker
+
+A project may name its own tracker, in the `tracker:` key of the `values:` block of its file, with the Manifest block's shape and meaning: `provider` and every other key carried as written.
+
+```yaml
+values:
+  tracker:
+    provider: jira
+    site: acme
+    project: ABC
+```
+
+> **Rule.** A project's tracker replaces its members' trackers for the Jobs in it.
+> Why: the owner chose that the tracker follows the body of work and not the repository a Job happens to run in.
+> A repository keeps its own `tracker:` in its Manifest, and it is the one used where no project's applies.
+
+| Asked | Which tracker |
+|---|---|
+| A Job's claim of an issue, the issues its messages and its pull request name, the ticket moves its lifecycles and rules make | The Job's project's, where the Job was started for a project that names one, else its repository's |
+| The Issues tab, one repository at a time | The repository's, always |
+| The project's issues (`list_project_issues`) | The project's. A project that names none has no issues of its own and is refused, `fleet.project_no_tracker` |
+| The issue rows of a project and the issues its tasks link | The project's, where it names one |
+| What Autopilot and the Operator file and read in a repository | The repository's, since neither is a Job in a project |
+
+The root stays the Job's own repository's: only the choice changes.
+A project's choice is read at each call, so a project saved with a new tracker changes the next call of its Jobs and does not move one already made.
+A Job's frozen values leave the tracker out for that reason.
+Kit has no tracker, and a `tracker` in Kit's values is refused.
+`get_values` resolves it from the repository to the project, the project's winning, and names the layer.
+A project's issues are read in the first member repository Fleet serves, or the repository Fleet started in where it serves none, and held five minutes as a repository's are.
+An issue row or an issue linked to a task, in a project that names a tracker, is read through that tracker, its title and state held five minutes as before, and linking one reads it there: a tracker that answers it has none refuses the link, 404 `fleet.no_such_issue`, and one that cannot answer refuses nothing.
+A loose task and a task in a project that names none read theirs through their repository's tracker, and a link there is not checked.
 
 ### A tracker Armada was not built for
 

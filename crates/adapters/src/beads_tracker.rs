@@ -211,6 +211,10 @@ impl<R: Run> Backlog for BeadsTracker<R> {
         self.written(in_repo, &["update", reference.trim(), "--title", title], "renaming the issue")
     }
 
+    fn set_parent(&self, in_repo: &str, reference: &str, parent: &str) -> Result<(), NotTracked> {
+        self.written(in_repo, &["update", reference.trim(), "--parent", parent.trim()], "putting the issue under another")
+    }
+
     fn put_state(&self, in_repo: &str, reference: &str, state: BeadState, reason: &str) -> Result<(), NotTracked> {
         let reference = reference.trim();
         match state {

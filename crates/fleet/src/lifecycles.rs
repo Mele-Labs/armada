@@ -37,7 +37,6 @@ use core_model::{Lifecycle, ManifestId, Ulid};
 use store::Store;
 
 use crate::daemon::Fleet;
-use crate::tracking::choice_of;
 
 pub use following::keep_the_rules;
 pub use keeping::keep_the_lifecycles;
@@ -69,18 +68,23 @@ where
     /// or there is no repository. A lifecycle a Project or a repository writes replaces the ticket
     /// outright, so the tracker's words are the starting point and never laid over a person's.
     pub(crate) fn built_in_lifecycles(&self, manifest_id: Option<&str>) -> Vec<Lifecycle> {
+        self.built_in_lifecycles_in(manifest_id, None)
+    }
+
+    /// `built_in_lifecycles` for a Job in `project`, **the project's tracker's words where it names one**.
+    pub(crate) fn built_in_lifecycles_in(&self, manifest_id: Option<&str>, project: Option<&str>) -> Vec<Lifecycle> {
         let Some(served) = manifest_id.and_then(|id| self.repositories().serving(id)) else {
             return Lifecycle::built_in();
         };
-        let declared = self.trackers().ticket_words(&choice_of(served.manifest()));
+        let declared = self.trackers().ticket_words(&self.choice_in(&served, project));
         let words: Vec<(&str, &str)> = declared.iter().map(|(state, word)| (ticket_state_id(*state), *word)).collect();
         Lifecycle::built_in_reading(&words)
     }
 
-    /// `built_in_lifecycles` for the repository `session` is in.
+    /// `built_in_lifecycles` for the repository `session` is in, and the project it was started for.
     pub(crate) fn built_in_lifecycles_of_job(&self, store: &Store, session: &str) -> Vec<Lifecycle> {
         let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
-        self.built_in_lifecycles(manifest.as_deref())
+        self.built_in_lifecycles_in(manifest.as_deref(), crate::job_tracking::job_project(store, session).as_deref())
     }
 }
 
