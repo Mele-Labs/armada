@@ -322,6 +322,8 @@ type SessionThreadKinds =
       text: string;
       /** Still reasoning: the row reads Thinking, open on the words so far. */
       live?: true;
+      /** Drawn open: it comes just before a question asked with nothing written to the person since their message. */
+      open?: true;
     }
   /**
    * The agent disputed Fleet's notice, the message row `notice`: one line in Fleet's voice with the reason, how it was
@@ -2331,7 +2333,7 @@ function Row({
   if (row.kind === "reasoning") {
     return (
       <li className="armada-session-fold armada-session-fold--reasoning">
-        <details open={row.live === true}>
+        <details open={row.live === true || row.open === true}>
           <summary className="armada-session-fold__head">
             <ChevronRight
               size={12}

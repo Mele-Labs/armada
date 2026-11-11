@@ -59,7 +59,7 @@ fn settings(project: Option<String>) -> AutopilotSettings {
 
 async fn project_of(rig: &Rig, name: &str, members: &[&str]) -> String {
     let members = members.iter().map(|id| ProjectMember { manifest_id: ManifestId::carried(*id), folder: None }).collect();
-    let made = rig.fleet.add_project(NewProject { name: name.to_string(), members: Some(members), place: None }).await.expect("added");
+    let made = rig.fleet.add_project(NewProject { name: name.to_string(), members: Some(members), place: None, values: None }).await.expect("added");
     made.projects.last().expect("made").id.clone()
 }
 

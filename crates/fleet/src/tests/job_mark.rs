@@ -130,9 +130,12 @@ async fn an_owed_walk_makes_a_working_job_need_him() {
 #[tokio::test]
 async fn a_stopped_job_fleet_gave_up_on_reads_stopped_asks_and_needs_him() {
     let rig = rig_placing(None);
+    std::fs::write(rig.repair_state.join("answer"), "NOT REPAIRED: it waits on nothing").expect("an answer");
     let id = stopped_a_while_ago(&rig).await;
     tell_ripe(&rig, &id).await;
     rig.stand_in.finishes(0, "Still written.");
+    eventually(|| async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.standing == Some(ipc::SessionStanding::Stopped) }).await;
+    rig.fleet.stops_told().await;
     eventually(|| async { Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session.stopped.is_some_and(|one| one.gave_up) }).await;
     assert_eq!(mark(&rig, &id).await, reads(JobState::StoppedAsks, JobLamp::Needs, JobGroup::Needs));
 }

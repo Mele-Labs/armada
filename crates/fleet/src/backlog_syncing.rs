@@ -174,16 +174,18 @@ where
         lines
     }
 
-    /// `actor` claims `reference` in `served`'s backlog: sync, claim, sync, read back.
+    /// `actor` claims `reference` in `served`'s backlog: sync, claim, sync, read back, through the tracker of `project`
+    /// where the Job is in one that names it.
     pub(crate) async fn claimed_in_backlog(
         &self,
         served: &Served,
+        project: Option<&str>,
         backlog: Arc<dyn Backlog + Send + Sync>,
         reference: &str,
         actor: &str,
     ) -> Result<(), ClaimLost> {
         let mut kept = self.tracking().keepings.of(served.root()).lock_owned().await;
-        let tracker = self.tracker_of(served);
+        let tracker = self.tracker_for_job(served, project);
         let (root, reference, actor) = (served.root().to_string(), reference.to_string(), actor.to_string());
         let now = self.tracking().keepings.now();
         let settled = tokio::task::spawn_blocking(move || {

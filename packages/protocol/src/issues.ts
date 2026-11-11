@@ -42,6 +42,18 @@ export type IssueList = {
   stale?: string;
 };
 
+/**
+ * `GET /projects/project/:project/issues`: the open issues of the tracker a project names, as `IssueList` carries a repository's.
+ * `holders` on each are the Jobs holding it in any repository the project holds. `stale` is why an older list was answered.
+ * 404 `fleet.no_such_project`, 422 `fleet.project_unreadable`, 422 `fleet.project_no_tracker` for a project that names none, 500 `fleet.issues_unreadable`.
+ */
+export type ProjectIssueList = {
+  project: string;
+  fetched_at: string;
+  issues: TrackedIssue[];
+  stale?: string;
+};
+
 /** `get_issue` (`GET /issues/:repository/:reference`): one issue by reference, open or closed. 404 `fleet.no_such_issue`, 500 `fleet.issues_unreadable`. */
 export type IssueRead = {
   /** As `TrackedIssue.reference`. */

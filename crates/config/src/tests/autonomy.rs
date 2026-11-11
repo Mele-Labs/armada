@@ -122,3 +122,24 @@ fn with_no_file_nothing_is_set() {
     let none = applying("store-web", Vec::new());
     assert!(none.files().is_empty() && none.defaults().iter().next().is_none());
 }
+
+#[test]
+fn the_layers_are_kept_apart_and_only_the_named_project_counts() {
+    let applying = applying(
+        "store-web",
+        vec![
+            in_kit("everywhere.yml", file("everywhere", None, "  tracker_write: asks\n")),
+            in_kit("project.yml", file("workspace", Some("my-store"), "  forge_write: acts\n")),
+            in_repository("store-web", "repository.yml", file("repository", Some("store-web"), "  draft: off\n")),
+        ],
+    );
+    let mine = core_model::ScopeId::new("my-store").expect("an id");
+    let laid = applying.layers(Some(&mine));
+    assert_eq!(laid.kit.get(ActKind::TrackerWrite), Some(Autonomy::Asks));
+    assert_eq!(laid.project.get(ActKind::ForgeWrite), Some(Autonomy::Acts));
+    assert_eq!(laid.repository.get(ActKind::Draft), Some(Autonomy::Off));
+    assert_eq!((laid.kit.get(ActKind::Draft), laid.project.get(ActKind::TrackerWrite)), (None, None));
+    let other = core_model::ScopeId::new("elsewhere").expect("an id");
+    assert!(applying.layers(Some(&other)).project.iter().next().is_none(), "another Project's files are not this one's");
+    assert!(applying.layers(None).project.iter().next().is_none(), "no Project, no Project layer");
+}

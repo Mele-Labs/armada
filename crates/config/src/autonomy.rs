@@ -33,6 +33,7 @@ use crate::resolving::{resolve, Rank, Reach, Resolved, Scoped};
 use crate::rule::acts::KINDS;
 use crate::rule::{AUTONOMY, AUTONOMY_LEGAL};
 use crate::project::Projects;
+use crate::values::AutonomyLayers;
 use crate::yaml::{self, Table};
 
 const TOP_LEVEL: &[&str] = &["version", "autonomy_id", "scope", "defaults"];
@@ -213,6 +214,18 @@ impl Autonomies {
     /// **Where two Projects that hold the repository set one kind differently, the one that asks
     /// more wins**, as Bridge draws it.
     pub fn defaults(&self) -> AutonomyDefaults {
+        let AutonomyLayers { kit, project, repository } = self.layered(|_| true);
+        repository.laid_over(&project.laid_over(&kit))
+    }
+
+    /// What the files that apply set, kept apart by where each is scoped, for a value that names its
+    /// layer. **Only the Project `project` counts**, and none does where it is absent: the Projects
+    /// that hold the repository are folded together by [`Autonomies::defaults`] alone.
+    pub fn layers(&self, project: Option<&ScopeId>) -> AutonomyLayers {
+        self.layered(|scope| project.is_some_and(|only| *scope == LifecycleScope::Within(only.clone())))
+    }
+
+    fn layered(&self, counts: impl Fn(&LifecycleScope) -> bool) -> AutonomyLayers {
         let mut applying: Vec<&AutonomyFile> = self.files.iter().filter(|file| file.overridden_by.is_none()).collect();
         applying.sort_by(|a, b| (a.rank, a.piece.id()).cmp(&(b.rank, b.piece.id())));
         let at = |reach: Reach| applying.iter().filter(move |file| file.rank.reach == reach);
@@ -220,7 +233,7 @@ impl Autonomies {
 
         let everywhere = at(Reach::Everywhere).fold(AutonomyDefaults::new(), lay);
         let mut each: Vec<(&LifecycleScope, AutonomyDefaults)> = Vec::new();
-        for file in at(Reach::Project) {
+        for file in at(Reach::Project).filter(|file| counts(file.piece.scope())) {
             match each.iter_mut().find(|(scope, _)| *scope == file.piece.scope()) {
                 Some((_, held)) => *held = lay(std::mem::take(held), file),
                 None => each.push((file.piece.scope(), lay(AutonomyDefaults::new(), file))),
@@ -230,6 +243,6 @@ impl Autonomies {
             let asks_more = most.get(kind).map_or(autonomy, |held| held.max(autonomy));
             most.setting(kind, asks_more)
         });
-        at(Reach::Repository).fold(projects.laid_over(&everywhere), lay)
+        AutonomyLayers { kit: everywhere, project: projects, repository: at(Reach::Repository).fold(AutonomyDefaults::new(), lay) }
     }
 }

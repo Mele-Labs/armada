@@ -180,6 +180,7 @@ The mod's first-message note tells the agent to clear `waiting_for`, then call `
 **A question is never refused for want of words before it.** Fleet checks nothing about what the agent wrote since his message; the question check was deleted on 6 Nov 2026.
 Fleet sends nothing at a turn's end, and does not read a reply's words for a done or a walk the agent did not call: it takes a job's word only through `all_done` and `show_window`.
 Job 7f7f4ae4 did this twice on 24 Oct 2026: asked why commands were recorded, it worked the answer out in its reasoning and went straight to its question, so he saw the question alone and wrote "you never answered me or explained".
+Job 20b4e00a did it again on 10 Nov 2026, so the thread now draws the reasoning before such a question open above it (*A terminal job's thread*).
 
 **A job gives back what it is finished with using `finish_up`** (`session_id` only; the hosted job holding the connection wins).
 `all_done` does the same first, so a job that is finished calls only `all_done`; `finish_up` is for giving things back early.

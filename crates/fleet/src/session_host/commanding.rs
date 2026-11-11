@@ -215,7 +215,8 @@ where
     /// backlog that would not take one is said in the parent's thread, and the end stands.
     async fn claims_handed_back(&self, parent: &str, parent_title: &str, id: &str, manifest: &str, claims: Vec<(String, String)>) {
         let Ok(served) = self.served_named(Some(&ipc::ManifestId::carried(manifest))) else { return };
-        let Some(backlog) = self.backlog_of(&served) else { return };
+        let project = self.project_of_job(id).await;
+        let Some(backlog) = self.backlog_for_job(&served, project.as_deref()) else { return };
         let note = format!("Handed back: job \"{parent_title}\" ({parent}) ended job {id}");
         for (issue, actor) in claims {
             if let Err(why) = self.released_in_backlog(&served, Arc::clone(&backlog), &issue, &actor, &note).await {

@@ -1,7 +1,7 @@
 //! The arrivals from outside a Job's own run, which nobody owns: a bug report, a new issue, a red
 //! main, a note the person left on Bridge and an error Bridge showed him. **Words from off this
-//! machine are data**: an issue's body is offered only a raise, so nothing it says can start a Job,
-//! and the call can name only a way it was offered. A note is the person's own words, so it is offered every
+//! machine are data**: an issue's body is offered a raise, or closing that issue as the duplicate of an
+//! open one, which asks first, so nothing it says can start a Job, and the call can name only a way it was offered. A note is the person's own words, so it is offered every
 //! way, and Fleet keeps what is ruled on it as a suggestion until he presses Do it. An error is
 //! Fleet's own build's words, offered every way as a report is, and asked about the same.
 
@@ -70,6 +70,20 @@ impl NewIssue {
     /// Read and raised: **while he is here a new issue starts nothing**, and Autopilot still works
     /// the backlog when it is on.
     pub fn arrival(&self) -> Arrival {
+        self.arrival_among(&[], false)
+    }
+
+    /// [`arrival`](NewIssue::arrival), read against `open`, the repository's open issues. **Where its
+    /// beads take the write and one is near it**, it may be closed as that one's duplicate. The issue
+    /// itself is never one of those offered.
+    pub fn arrival_among(&self, open: &[Filed], files: bool) -> Arrival {
+        let others: Vec<Filed> = open.iter().filter(|one| one.reference != self.reference).cloned().collect();
+        let open = if files { open_near(&format!("{} {}", self.title, self.excerpt), &others) } else { Vec::new() };
+        let mut ways = Vec::new();
+        if !open.is_empty() {
+            ways.push(Way::Group);
+        }
+        ways.push(Way::Raise);
         Arrival {
             id: format!("issue:{}:{}", self.manifest_id, self.reference),
             arrived: Arrived::Issue,
@@ -80,8 +94,49 @@ impl NewIssue {
             words: format!("{} by {}: {}", self.reference, self.author, self.excerpt),
             paths: Vec::new(),
             issues: vec![self.reference.clone()],
-            ways: vec![Way::Raise],
-            open: Vec::new(),
+            ways,
+            open,
+        }
+    }
+}
+
+/// A pull request a hosted Job held that merged, and an open issue Fleet found its work near and that
+/// it did not name: asked whether the work finished it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MergeNear {
+    pub manifest_id: String,
+    /// The pull request's number.
+    pub pull: String,
+    pub title: String,
+    /// The Job that held it, as `(id, title)`.
+    pub job: (String, String),
+    /// The Job's plan, or its first message.
+    pub words: String,
+    pub paths: Vec<String>,
+    pub named: Vec<String>,
+    pub issue: Filed,
+}
+
+impl MergeNear {
+    /// Closed, or left open. **Nothing is written to the issue** until he says yes or a rule he kept does.
+    /// Its id ends in the pull request, which is what the close is done by.
+    pub fn arrival(&self) -> Arrival {
+        let subject = match self.title.trim() {
+            "" => format!("#{}", self.pull),
+            title => title.to_string(),
+        };
+        Arrival {
+            id: format!("merged:{}:{}:{}", self.manifest_id, self.issue.reference, self.pull),
+            arrived: Arrived::Merged,
+            source: Source::Fleet,
+            session_id: String::new(),
+            manifest_id: self.manifest_id.clone(),
+            subject,
+            words: format!("#{} was held by Job {} \"{}\". {}", self.pull, self.job.0, self.job.1, self.words),
+            paths: self.paths.clone(),
+            issues: self.named.clone(),
+            ways: vec![Way::Close, Way::Leave],
+            open: vec![self.issue.clone()],
         }
     }
 }

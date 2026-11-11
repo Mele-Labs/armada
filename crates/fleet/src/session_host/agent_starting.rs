@@ -177,6 +177,7 @@ where
             })
             .await?;
         let brief = words.message.clone();
+        let overlap_brief = brief.clone();
         // The agent's title, a plan group's too, is a hint the proposer names the Job over.
         self.hosts().of(made.id.as_str()).state().proposal.hint = Some(words.title.clone());
         // The brief is read now, so the proposal is in the dispatcher before the person sends it.
@@ -195,6 +196,10 @@ where
                 let _ = self.closed_and_parked(ipc::CloseSession { session_id: held.session_id.clone() }).await;
                 return Err(refusal);
             }
+        }
+        // A plan group is work the plan divided, so it is not weighed against the Jobs beside it.
+        if group.is_none() {
+            self.start_overlap_raised(held.session_id.as_str(), &overlap_brief, crate::operator::Source::Job(me.clone())).await;
         }
         Ok(held)
     }

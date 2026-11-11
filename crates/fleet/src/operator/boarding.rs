@@ -161,6 +161,8 @@ pub(super) fn outcome_of(row: &KeptRuling, title_of: &dyn Fn(&str) -> String, su
         "sent" => said("Sent", format!("to {}", other())),
         "link" => said("Linked", row.issue.clone().unwrap_or_default()),
         "file" => said("Filed", row.issue.clone().unwrap_or_default()),
+        "close" => said("Closed", row.issue.clone().unwrap_or_default()),
+        "group" => said("Grouped", format!("with {}", row.issue.clone().unwrap_or_default())),
         // An end or a merge read and left: what it was is the row.
         "noted" => match Arrived::from_word(&row.arrived) {
             Some(Arrived::Ended) => said("Ended", summary_of(&row.session_id).unwrap_or_default()),
@@ -185,6 +187,16 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The name of the repository `manifest_id` is.
+    /// What a person reads for where a rule holds: a repository's name, a project's, and nothing for everywhere.
+    pub(super) fn scope_named(&self, scope: &ipc::operator_page::RuleScope) -> Option<String> {
+        use ipc::operator_page::RuleScope;
+        match scope {
+            RuleScope::Everywhere => None,
+            RuleScope::Repository { manifest_id } => self.board_repository(manifest_id),
+            RuleScope::Project { project } => Some(core_model::ScopeId::new(project).ok().and_then(|id| self.projects_held().get(&id).map(|one| one.name().as_str().to_string())).unwrap_or_else(|| project.clone())),
+        }
+    }
+
     pub(super) fn board_repository(&self, manifest_id: &str) -> Option<String> {
         self.repositories().hosted().into_iter().find(|one| one.manifest().id().as_str() == manifest_id).map(|one| {
             let root = one.root();
@@ -241,7 +253,7 @@ where
                     at: one.raised_at,
                 })
                 .collect();
-            let rows = store.operator_rulings_signed(DONE_SHOWN).map_err(|why| self.ledger_fault(why))?;
+            let rows = store.operator_rulings_done(DONE_SHOWN).map_err(|why| self.ledger_fault(why))?;
             let title_of = |id: &str| store.session(id).ok().flatten().and_then(|one| one.title).unwrap_or_else(|| id.to_string());
             let summary_of = |id: &str| store.done_summary(id).ok().flatten();
             let done = rows

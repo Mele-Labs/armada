@@ -316,6 +316,10 @@ where
         sure: SurePick,
     ) -> Result<(), String> {
         let issue = sure.issue();
+        // Boxed: the hold holds a call's whole act, too deep for the pass's own stack.
+        if self.operator_on() && Box::pin(self.pick_held_for_overlap(kept, issue, sure.workflow().as_str())).await {
+            return Ok(());
+        }
         let session = self
             .session_on_issue(
                 served,
