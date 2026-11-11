@@ -173,6 +173,9 @@ pub struct AutopilotSettings {
     /// The kinds of decision a helper may answer. A start keeps it and an update ignores it.
     #[serde(default)]
     pub decisions: BTreeSet<AutopilotDecision>,
+    /// The project of his it is started for, by id; each Job it starts is for it. A start keeps it and an update ignores it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
 }
 
 /// `propose_autopilot`'s answer: the settings, and the words each was read from. #2105.

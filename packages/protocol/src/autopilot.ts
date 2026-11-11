@@ -114,6 +114,8 @@ export type AutopilotSettings = {
   on_autopilot?: AutopilotWork;
   /** Only a start keeps it; an update ignores it. Absent reads as none. */
   decisions?: AutopilotDecision[];
+  /** The project of his it is started for, by id; each Job it starts is for it. A start keeps it; an update ignores it. */
+  project?: string;
 };
 
 /**
