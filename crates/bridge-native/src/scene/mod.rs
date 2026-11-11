@@ -499,7 +499,7 @@ fn laid(key: &SharedString, scene: &Scene, look: &Look, window: &mut Window, cx:
         .map(|(node, tree)| {
             let tree = tree.as_ref()?;
             let w = sheet_width(node, tree);
-            let mut sheet = screen::sheet(tree, None, 1., &screen::Paper::new(look, 1., w, false));
+            let mut sheet = screen::sheet(tree, None, 1., &screen::Paper::new(look, 1., w, false, window));
             let h = sheet.layout_as_root(size(AvailableSpace::Definite(px(w)), AvailableSpace::MinContent), window, cx).height;
             Some((w, sheet_top(node) + f32::from(h)))
         })
@@ -676,7 +676,7 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
             let w = sheet_width(node, tree);
             let top = sheet_top(node);
             let alpha = if dim { DIMMED } else { 1. };
-            let mut sheet = screen::sheet(tree, inner, alpha, &screen::Paper::new(&look, view.zoom, w, fit == Fit::Reading));
+            let mut sheet = screen::sheet(tree, inner, alpha, &screen::Paper::new(&look, view.zoom, w, fit == Fit::Reading, window));
             let room = size(AvailableSpace::Definite(view.len(w)), AvailableSpace::Definite(view.len(rect.h - top)));
             sheet.prepaint_as_root(view.at(Pt { x: rect.x, y: rect.y + top }), room, window, cx);
             sheets.push(Some((sheet, alpha)));

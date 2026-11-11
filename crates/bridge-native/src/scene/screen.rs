@@ -4,10 +4,11 @@
 //! Flow node does.
 
 use std::cell::Cell;
+use std::rc::Rc;
 
 use gpui::{
     canvas, div, prelude::FluentBuilder, px, relative, svg, AnyElement, Div, FontWeight, Hsla, IntoElement, ParentElement, PathBuilder, Pixels, Role, SharedString,
-    InteractiveElement, Styled,
+    InteractiveElement, Styled, TextRun, Window, WindowTextSystem,
 };
 use ipc::{ScreenAct, ScreenAlign, ScreenChrome, ScreenElement, ScreenField, ScreenFrom, ScreenGap, ScreenPart, ScreenSize, ScreenSizeWord, ScreenText, ScreenVariant};
 
@@ -31,6 +32,8 @@ pub(super) struct Paper<'a> {
     /// The sheet's width before the zoom: a phone's height is drawn from it.
     width: f32,
     ids: Cell<usize>,
+    /// What a table measures its words with, to size its columns as the browser does.
+    text: Rc<WindowTextSystem>,
 }
 
 /// The step playing, and what the walk down from the root has found (`Ctx`).
@@ -55,7 +58,7 @@ enum Axis {
 const BAR_WIDTHS: [f32; 4] = [1., 0.92, 0.96, 0.84];
 
 impl<'a> Paper<'a> {
-    pub(super) fn new(look: &'a Look, z: f32, width: f32, named: bool) -> Self {
+    pub(super) fn new(look: &'a Look, z: f32, width: f32, named: bool, window: &Window) -> Self {
         let paper = look.color(token::FG_DEFAULT);
         let ink = look.color(token::BG_BASE);
         let mix = |share: f32| paper.blend(ink.opacity(share));
@@ -73,7 +76,19 @@ impl<'a> Paper<'a> {
             named,
             width,
             ids: Cell::new(0),
+            text: window.text_system().clone(),
         }
+    }
+
+    /// Words at full size: the widest unbreakable word, and the whole of them on one line.
+    fn span(&self, words: &str, size: Token, weight: Token) -> (f32, f32) {
+        let font = gpui::Font { weight: self.weight(weight), ..gpui::font(self.sans.clone()) };
+        let at = self.look.length(size);
+        let wide = |text: &str| {
+            let run = TextRun { len: text.len(), font: font.clone(), ..Default::default() };
+            f32::from(self.text.shape_line(SharedString::from(text.to_string()), at, &[run], None).width)
+        };
+        (words.split_whitespace().map(wide).fold(0., f32::max), wide(words))
     }
 
     /// A token's length at the drawing's zoom.
@@ -315,20 +330,39 @@ fn body(el: &ScreenElement, ctx: Ctx, down: Ctx, current: bool, paper: &Paper) -
                 .when_some(one.meta.clone(), |el, meta| el.child(paper.xs2(div()).text_color(paper.quiet).font_weight(paper.weight(token::WEIGHT_BODY)).child(meta)))
         })),
         ScreenPart::Table { columns, rows } => {
-            let cell = || div().py(paper.l(token::SPACE_2)).px(paper.l(token::SPACE_3)).min_w_0();
-            let heads = columns.iter().map(|one| {
-                paper.xs2(cell()).bg(paper.faint).border_b(b).border_color(paper.edge).font_weight(paper.weight(token::WEIGHT_HEADING)).child(one.clone()).into_any_element()
+            // The browser's auto table layout: each column is at least its longest word and at most its longest
+            // line, and the room left is shared in proportion to what each column holds. No word breaks inside itself.
+            let pad = 2. * f32::from(paper.look.length(token::SPACE_3));
+            let mut sizes: Vec<(f32, f32)> = columns.iter().map(|one| paper.span(one, token::TEXT_2XS, token::WEIGHT_HEADING)).collect();
+            for cells in rows {
+                for (size, one) in sizes.iter_mut().zip(cells) {
+                    let (least, most) = paper.span(one, token::TEXT_SM, token::WEIGHT_BODY);
+                    *size = (size.0.max(least), size.1.max(most));
+                }
+            }
+            let sizes: Vec<(f32, f32)> = sizes.into_iter().map(|(least, most)| (least + pad + 1., most + pad + 1.)).collect();
+            // A cell's basis is its longest line: it grows by that share of the room left, and shrinks by what it can
+            // spare above its longest word, which is how the browser narrows a table between the two widths.
+            let cell = |at: usize| {
+                let (least, most) = sizes[at];
+                div()
+                    .py(paper.l(token::SPACE_2))
+                    .px(paper.l(token::SPACE_3))
+                    .min_w(paper.n(least))
+                    .flex_basis(paper.n(most))
+                    .flex_grow(most)
+                    .flex_shrink((most - least) / most)
+            };
+            let heads = div()
+                .flex()
+                .bg(paper.faint)
+                .border_b(b)
+                .border_color(paper.edge)
+                .children(columns.iter().enumerate().map(|(at, one)| paper.xs2(cell(at)).font_weight(paper.weight(token::WEIGHT_HEADING)).child(one.clone())));
+            let body = rows.iter().enumerate().map(|(at, cells)| {
+                div().flex().when(at > 0, |el| el.border_t(b).border_color(line)).children((0..columns.len()).map(|n| cell(n).children(cells.get(n).cloned())))
             });
-            let cells = rows.iter().enumerate().flat_map(|(at, cells)| {
-                (0..columns.len()).map(move |n| {
-                    cell().when(at > 0, |el| el.border_t(b).border_color(line)).children(cells.get(n).cloned()).into_any_element()
-                })
-            });
-            div()
-                .border(b)
-                .border_color(line)
-                .rounded(paper.radius())
-                .child(div().grid().grid_cols(columns.len().max(1) as u16).children(heads).children(cells))
+            div().flex().flex_col().border(b).border_color(line).rounded(paper.radius()).child(heads).children(body)
         }
         ScreenPart::Button { text, variant, icon } => {
             let one = ScreenAct::Parts { text: text.clone(), icon: icon.clone() };
