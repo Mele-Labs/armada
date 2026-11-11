@@ -142,12 +142,13 @@ async fn a_word_a_key_does_not_take_is_refused_and_the_file_is_not_written_over(
 #[tokio::test]
 async fn a_task_that_makes_a_repository_a_member_keeps_the_values() {
     let rig = a_rig("");
-    let id = rig.project(Some(set(Some(core_model::PrMode::Draft), None))).await;
-    let held = rig.fleet.list_projects().await.expect("listed").projects[0].members.len();
-    let task = super::projects::new_task(ManifestId::carried("some-other-repository"), Some(id), "Elsewhere");
-    let _ = rig.fleet.add_project_task(task).await;
+    let new = NewProject { name: "Shop".to_string(), members: None, place: None, values: Some(set(Some(core_model::PrMode::Draft), None)) };
+    let id = rig.fleet.add_project(new).await.expect("added").projects.last().expect("the project").id.clone();
+    assert!(rig.fleet.list_projects().await.expect("listed").projects[0].members.is_empty());
+    let task = super::projects::new_task(rig.manifest(), Some(id), "Elsewhere");
+    rig.fleet.add_project_task(task).await.expect("added");
     let read = rig.fleet.list_projects().await.expect("listed");
-    assert!(read.projects[0].members.len() >= held, "{:?}", read.projects[0].members);
+    assert_eq!(read.projects[0].members.len(), 1, "the task's repository became a member");
     assert_eq!(read.projects[0].values.as_ref().and_then(|values| values.pr_mode).map(|mode| mode.as_wire()), Some("draft"));
 }
 
