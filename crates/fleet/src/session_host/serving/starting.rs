@@ -59,6 +59,12 @@ where
         let setup = rooted && manifest.is_none();
         // Only a plain Job in a repository holds lifecycle instances; a mod and Setup do not.
         let holds_lifecycles = marked == Marked::Plain && manifest.is_some();
+        // What the Job takes of its project's and its repository's values, and keeps. A Job that
+        // holds lifecycles is one in a repository; the others read the layers where they read a value.
+        let values = match &manifest {
+            Some(repository) if holds_lifecycles => self.values_to_freeze(repository, project.as_deref()).await,
+            _ => None,
+        };
         let id = new_id();
         let now = self.now().as_str().to_string();
         let title = start
@@ -135,6 +141,9 @@ where
             if holds_lifecycles {
                 let _ = store.mark_lifecycle_job(&id, &now);
             }
+        }
+        if let Some(values) = &values {
+            self.job_values_frozen(&id, values).await;
         }
         if let Some(repository) = manifest.as_deref().filter(|_| holds_lifecycles) {
             self.job_copy_frozen(&id, repository).await;

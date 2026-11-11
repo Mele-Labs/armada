@@ -1028,7 +1028,8 @@ where
 
     /// An answer the Operator or Autopilot gives in his place: it never stands as his approval.
     pub(crate) async fn settle_waiting(self: Arc<Self>, said: AnswerWaiting) -> Result<SessionRecord, Refusal> {
-        self.settle_answer(said, Answerer::InHisPlace).await
+        // Boxed: the answer's future is near a megabyte in a debug build, too much for a test thread's stack inline.
+        Box::pin(self.settle_answer(said, Answerer::InHisPlace)).await
     }
 
     /// `answer_waiting`: route the answer by where the item came from.

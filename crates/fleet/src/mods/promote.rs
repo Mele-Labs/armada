@@ -82,7 +82,8 @@ where
             self.mod_fault(format!("git found nothing to commit for {} on {}", paths.join(", "), tree.branch))
         })?;
         let body = format!("{title}.\n\nMade by Promote in Mods, as a Job of its own: {}.", paths.join(", "));
-        let (pull_request, pull_request_not_opened) = match self.delivered_for_review(&served, &tree, Review::assembled(title.clone(), body)).await {
+        let review = self.review_as_offered_by(session_id.as_str(), Review::assembled(title.clone(), body)).await;
+        let (pull_request, pull_request_not_opened) = match self.delivered_for_review(&served, &tree, review).await {
             Ok(url) => {
                 self.promote_kept(&served, session_id.as_str(), &name, &title).await;
                 self.pull_attached(&served, session_id.as_str(), &tree.branch, &url).await;

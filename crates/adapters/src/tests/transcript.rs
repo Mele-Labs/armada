@@ -656,42 +656,35 @@ fn a_turn_with_nothing_armada_names_in_it_is_still_an_event() {
 }
 
 /// The turn that made the removal invisible: the Drone thought, then reached
-/// for a tool, and what shipped answered with the call alone. The reasoning was
-/// synthesised into a row only when the turn had nothing else in it, so the
-/// commonest turn in the stream lost it silently.
+/// for a tool, and what shipped answered with the call alone. The summary the
+/// harness wrote comes before the call, and the signature, which is the working
+/// itself, never does (the owner, 10 Nov 2026).
 #[test]
-fn a_turn_that_reasoned_and_then_called_a_tool_still_says_it_reasoned() {
+fn a_turn_that_reasoned_and_then_called_a_tool_carries_its_summary_first() {
     let read = read(
         r#"{"type":"assistant","message":{"content":[
              {"type":"thinking","thinking":"a long look at the problem","signature":"abc"},
              {"type":"tool_use","id":"a","name":"Read",
               "input":{"file_path":"/tmp/repo/src/lib.rs"}}]}}"#,
     );
-    let kinds: Vec<&str> = read
-        .iter()
-        .filter_map(|event| match event {
-            DroneEvent::Unrecognised { kind } => Some(kind.as_str()),
-            _ => None,
-        })
-        .collect();
-    assert_eq!(kinds.len(), 1, "the turn reasoned and says so: {read:?}");
+    assert_eq!(
+        read[0],
+        DroneEvent::Reasoned {
+            text: String::from("a long look at the problem")
+        },
+        "{read:?}"
+    );
     assert!(
         matches!(read[1], DroneEvent::Called { .. }),
         "the call keeps its own row and its order: {read:?}"
     );
-
-    // Distinguishable from a turn that held nothing, which is the row a reader
-    // already learns nothing from — and never the working itself.
-    let empty = read_kind(r#"{"type":"assistant","message":{"content":[]}}"#);
-    assert_ne!(kinds[0], empty);
-    assert!(!kinds[0].contains("a long look"), "{kinds:?}");
+    assert!(!format!("{read:?}").contains("abc"), "the signature is not carried: {read:?}");
 }
 
-/// A turn's working arrives as several blocks. The fact a reader is owed is
-/// about the turn, and a row each would add volume to a fold that already reads
-/// as noise.
+/// Each summary is carried where it came. A withheld block says only that the
+/// turn reasoned, and says nothing where a summary already did.
 #[test]
-fn a_turn_that_reasoned_twice_says_so_once() {
+fn each_summary_is_carried_and_a_withheld_one_adds_nothing_after_it() {
     let read = read(
         r#"{"type":"assistant","message":{"content":[
              {"type":"thinking","thinking":"one"},
@@ -699,12 +692,18 @@ fn a_turn_that_reasoned_twice_says_so_once() {
              {"type":"text","text":"done"},
              {"type":"thinking","thinking":"two"}]}}"#,
     );
-    let reasoning = read
-        .iter()
-        .filter(|event| matches!(event, DroneEvent::Unrecognised { .. }))
-        .count();
-    assert_eq!(reasoning, 1, "{read:?}");
-    assert_eq!(read.len(), 2, "the prose keeps its own row: {read:?}");
+    assert_eq!(
+        read,
+        vec![
+            DroneEvent::Reasoned { text: String::from("one") },
+            DroneEvent::Said { text: String::from("done"), by: Speaker::Drone },
+            DroneEvent::Reasoned { text: String::from("two") },
+        ]
+    );
+
+    let withheld = read_kind(r#"{"type":"assistant","message":{"content":[{"type":"redacted_thinking","data":"opaque"}]}}"#);
+    let empty = read_kind(r#"{"type":"assistant","message":{"content":[]}}"#);
+    assert_ne!(withheld, empty, "a turn that reasoned is not a turn that held nothing");
 }
 
 /// The captures are the specification, and spike 4's is a real run whose turns

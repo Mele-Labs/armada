@@ -23,13 +23,16 @@
 //! Operator's pause ([`Paused`]). A ruling that comes back after its item passed on is dropped.
 
 mod acting;
+mod answering;
 mod arriving;
 mod asking;
 mod boarding;
 mod briefing;
 mod calling;
 mod candidates;
+mod closing;
 mod desk;
+mod duplicating;
 mod erroring;
 mod handing;
 mod hearing;
@@ -49,6 +52,7 @@ mod suggesting;
 mod talking;
 mod thening;
 mod turning;
+mod vetting;
 
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -65,6 +69,7 @@ use candidates::Near;
 pub use calling::{Answering, Calling, KeptStarted};
 pub use looking::{Blind, Folder, Looking, ReadingScout, ToRead};
 pub use acting::FleetActing;
+pub(crate) use duplicating::HELD_FOR_OVERLAP;
 #[cfg(test)]
 pub(crate) use erroring::fingerprint;
 pub use desk::FleetDesk;
@@ -72,12 +77,15 @@ pub use hearing::keep_the_ends_told;
 pub use raising::keep_the_raises;
 #[cfg(test)]
 pub(crate) use raising::ToRaise;
+#[cfg(test)]
+pub(crate) use turning::rule_pick;
 pub use orders::{Order, Orders};
 pub(crate) use seat::Seat;
-pub use ruling::{Outcome, PassedOn, Place, Ruled, Ruling, Way};
-pub use sources::{BridgeError, Filed, NewIssue, Note, RedMain, Report};
+pub use ruling::{Grouping, Outcome, PassedOn, Place, Ruled, Ruling, Way};
+pub use sources::{BridgeError, Filed, MergeNear, NewIssue, Note, RedMain, Report};
 pub(crate) use sourcing::Sources;
 pub use talking::{Board, EndedJob, HeldJob, HoldRead, JobRead, LogRead, MergedPull, NeedsYou, Repository, RuleRead, StoppedJob, SuggestionRead, TalkFailed, TalkLine, Talked, TurnRead};
+pub(crate) use answering::is_question;
 pub(crate) use suggesting::{suggestion_items, SKIP};
 
 /// How long a Needs you item waits for its ruling before it pulses.
@@ -467,7 +475,7 @@ impl Operator {
     /// nothing, and a raise, a leave and a note are not acts, so they are done as they came.
     async fn act(&self, arrival: &Arrival, ruling: &Ruling) -> Result<Carried, String> {
         match ruling.way {
-            Way::NewJob | Way::ExistingJob | Way::File => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
+            Way::NewJob | Way::ExistingJob | Way::File | Way::Close | Way::Group => self.acting.suggest_once(arrival, ruling).await.map(Carried::kept),
             Way::Raise | Way::Link | Way::Leave | Way::Noted => self.acted(arrival, ruling).await.map(|()| Carried::Done),
         }
     }

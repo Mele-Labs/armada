@@ -129,6 +129,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/holding",
     },
     Route {
+        operation: "get_values",
+        method: "GET",
+        path: "/projects/values",
+    },
+    Route {
+        operation: "list_project_issues",
+        method: "GET",
+        path: "/projects/project/:project/issues",
+    },
+    Route {
+        operation: "save_kit_values",
+        method: "POST",
+        path: "/kit/values",
+    },
+    Route {
         operation: "edit_project",
         method: "POST",
         path: "/projects/project/:project/edit",

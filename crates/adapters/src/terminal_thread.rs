@@ -569,6 +569,9 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     subagent: None,
                 });
             }
+            DroneEvent::Reasoned { text } if !person => {
+                rows.push(SessionRow::Reasoning { id, at: at.clone(), text });
+            }
             _ => {}
         }
     }

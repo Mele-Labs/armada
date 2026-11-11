@@ -152,7 +152,7 @@ where
                 offer
             })
             .collect();
-        let keeps = row.go_ahead && (row.item.starts_with(RED) || suggestion_number(&row.item).is_some());
+        let keeps = row.go_ahead && (row.item.starts_with(RED) || suggestion_number(&row.item).is_some() || super::answering::what_of(&item).is_some());
         let shown = OperatorTurnItem {
             id: format!("turn:{}", row.n),
             kind: if row.go_ahead { OperatorTurnKind::GoAhead } else { OperatorTurnKind::Decision },
@@ -187,9 +187,10 @@ where
             .filter(|row| row.by != "human" && row.at.as_str() >= since)
             .map(|row| OperatorHandledAct { at: Instant::carried(&row.at), title: first_line(&row.subject), outcome: outcome_of(row, &title_of, &summary_of) })
             .collect();
-        for row in store.operator_turn_settled_since(since).unwrap_or_default().iter().filter(|row| row.answer.as_deref() == Some("rule")) {
+        for row in store.operator_turn_settled_since(since).unwrap_or_default().iter().filter(|row| matches!(row.answer.as_deref(), Some("rule" | super::vetting::SETTING))) {
             let title = item_read(&row.body).map(|item| first_line(&item.text)).unwrap_or_default();
-            acts.push(OperatorHandledAct { at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)), title, outcome: format!("By a rule: {}", row.pick.as_deref().unwrap_or_default()) });
+            let by = if row.answer.as_deref() == Some(super::vetting::SETTING) { "By a setting" } else { "By a rule" };
+            acts.push(OperatorHandledAct { at: Instant::carried(row.settled_at.as_deref().unwrap_or(&row.raised_at)), title, outcome: format!("{by}: {}", row.pick.as_deref().unwrap_or_default()) });
         }
         acts.sort_by(|a, b| b.at.as_str().cmp(a.at.as_str()));
         let running = store
@@ -210,9 +211,9 @@ where
             .unwrap_or_default()
             .into_iter()
             .filter_map(|one| {
-                let OperatorRule::PickRule { manifest_id, .. } = OperatorRule::read(&one.form)?;
-                let repository = manifest_id.as_deref().and_then(|id| self.board_repository(id));
-                Some(OperatorLearned { id: one.n, manifest_id, repository, said: one.said, at: Instant::carried(&one.at) })
+                let OperatorRule::PickRule { scope, .. } = OperatorRule::read(&one.form)?;
+                let repository = self.scope_named(&scope);
+                Some(OperatorLearned { id: one.n, scope, repository, said: one.said, at: Instant::carried(&one.at) })
             })
             .collect();
         let holds = store

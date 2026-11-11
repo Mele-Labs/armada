@@ -697,7 +697,7 @@ type SessionRowKinds =
       kind: "compaction";
       text: string;
     }
-  /** How long the agent reasoned before a message, and what it reasoned. Drawn from a mock only: Fleet keeps that a turn reasoned, not the words. */
+  /** How long the agent reasoned before what it did next, and the CLI's summary of what it reasoned. */
   | {
       id: string;
       at: string;

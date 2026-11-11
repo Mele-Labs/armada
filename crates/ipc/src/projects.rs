@@ -37,6 +37,10 @@ pub struct Project {
     /// the store saw, and `members` is empty.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unread: Option<String>,
+    /// What the project sets for how work behaves, **only the keys it sets**; absent where it sets none.
+    /// `get_values` says what each key comes to, and from which layer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<crate::ValuesSet>,
 }
 
 /// A member of a project: a whole repository, or a folder of it that carries its own `armada.yml`.
@@ -188,10 +192,14 @@ pub struct NewProject {
     pub members: Option<Vec<ProjectMember>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<ProjectPlace>,
+    /// The values it starts with. Absent sets none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<crate::ValuesSet>,
 }
 
 /// `edit_project`: what changes, and only that. **Absent leaves it**: `members` present replaces the
-/// whole list, `[]` clearing it, and `place` moves the file.
+/// whole list, `[]` clearing it, `place` moves the file and `values` replaces the whole block, `{}`
+/// taking every value back.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EditProject {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -200,6 +208,8 @@ pub struct EditProject {
     pub members: Option<Vec<ProjectMember>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub place: Option<ProjectPlace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub values: Option<crate::ValuesSet>,
 }
 
 /// `edit_project_task` and `add_project_subtask`: a task's title and notes, whole.

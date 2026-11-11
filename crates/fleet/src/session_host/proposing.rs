@@ -243,6 +243,7 @@ where
             let record = self.start_session(start).await?;
             self.issues_named(record.id.as_str(), &request, &[]).await;
             self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
+            self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch).await;
             return self.after_begun(record, after, request).await;
         }
         start.request = Some(request.clone());
@@ -254,6 +255,7 @@ where
         // The request is the person's first message, sent or not: a Session that waits holds it as its brief.
         self.issues_named(record.id.as_str(), &request, &[]).await;
         self.links_seen(record.id.as_str(), &request, LinkedBy::You).await;
+        self.start_overlap_raised(record.id.as_str(), &request, crate::operator::Source::Dispatch).await;
         self.after_begun(record, after, request).await
     }
 

@@ -36,12 +36,13 @@ impl TrackerBlock {
 }
 
 /// A key that is not text is refused at its own path, and the rest still read.
-pub(super) fn read(top: &mut Table<'_>, out: &mut Vec<Refusal>) -> Option<TrackerBlock> {
+pub(crate) fn read(top: &mut Table<'_>, out: &mut Vec<Refusal>) -> Option<TrackerBlock> {
     let value = top.optional("tracker")?;
-    let table = Table::open("tracker", value, out)?;
+    let base = top.at("tracker");
+    let table = Table::open(&base, value, out)?;
     let mut block = TrackerBlock::default();
     for (name, item) in table.into_entries() {
-        let at = format!("tracker.{name}");
+        let at = format!("{base}.{name}");
         let Some(text) = yaml::text(&at, item, out) else {
             continue;
         };

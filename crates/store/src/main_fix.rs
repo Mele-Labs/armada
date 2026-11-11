@@ -163,6 +163,15 @@ impl Store {
         )
     }
 
+    /// The Session that took the newest red of `repository` before the one that began at `red_at`.
+    pub fn last_main_fixer(&self, repository: &str, red_at: &Timestamp) -> Result<Option<String>, ReadError> {
+        let earlier = self.fixes_where(
+            "WHERE repository = ?1 AND red_at < ?2 AND holder_kind = 'session' ORDER BY red_at DESC, taken_at DESC LIMIT 1",
+            &[&repository, &red_at.as_str()],
+        )?;
+        Ok(earlier.into_iter().next().map(|take| take.by.id().to_string()))
+    }
+
     /// End every take still on in a repository, because main went green.
     /// `fixed` is the Session whose pull request put it there and that pull
     /// request's number, where there was one: only its row says it fixed main.

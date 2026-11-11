@@ -444,8 +444,8 @@ where
         self.page_with_owner(&manifest_id, root, number).await
     }
 
-    async fn get_review_lists(&self) -> Result<PullReviewLists, Refusal> {
-        self.review_lists_read().await
+    async fn get_review_lists(&self, project: Option<String>) -> Result<PullReviewLists, Refusal> {
+        self.review_lists_read(project.as_deref()).await
     }
 
     async fn list_review_tools(&self, manifest_id: ManifestId) -> Result<ipc::ReviewTools, Refusal> {
