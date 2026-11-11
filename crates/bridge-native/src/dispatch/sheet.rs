@@ -38,7 +38,8 @@ pub enum Asked {
     Start { words: String, repository: String, model: Option<String>, effort: Option<String>, held: bool },
     Queue { words: String, repository: String },
     ReadAutopilot { words: String, repository: String },
-    StartAutopilot { repository: String, instruction: String },
+    /// `fields` are the body's, by label, as typed.
+    StartAutopilot { repository: String, instruction: String, fields: Vec<(&'static str, String)> },
 }
 
 impl EventEmitter<Asked> for DispatchSheet {}
@@ -399,8 +400,10 @@ impl DispatchSheet {
                 cx.emit(Asked::ReadAutopilot { words, repository });
             }
             Kind::Autopilot => {
+                self.face.refused = None;
                 let instruction = self.instruction.as_ref().map(|input| input.read(cx).value().to_string()).unwrap_or_default();
-                cx.emit(Asked::StartAutopilot { repository, instruction });
+                let fields = self.fields.iter().map(|(label, input, _)| (*label, input.read(cx).value().to_string())).collect();
+                cx.emit(Asked::StartAutopilot { repository, instruction, fields });
             }
         }
         cx.notify();
@@ -509,6 +512,12 @@ impl DispatchSheet {
         if self.face.read.is_some() && self.instruction.is_none() {
             self.read_answered(window, cx);
         }
+        cx.notify();
+    }
+
+    /// What Fleet read of the brief's tag: the sentence over the request, or none where the tag names no wait.
+    pub fn set_wait(&mut self, wait: Option<Wait>, cx: &mut Context<Self>) {
+        self.wait = wait;
         cx.notify();
     }
 

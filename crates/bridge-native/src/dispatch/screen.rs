@@ -7,11 +7,13 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use std::time::Duration;
+
 use gpui::{
     canvas, div, prelude::*, AnyWindowHandle, App, Bounds, Context, Entity, EventEmitter, FocusHandle, Global, KeyDownEvent, Pixels, Role, SharedString,
-    Subscription, WeakEntity, Window,
+    Subscription, Task, WeakEntity, Window,
 };
-use ipc::{SessionRecord, SessionId};
+use ipc::{SessionId, SessionRecord, SessionTag, TagKind};
 
 use super::face::{Face, Sent};
 use super::live;
@@ -52,10 +54,35 @@ pub struct DispatchScreen {
     served: Vec<live::Served>,
     models: Option<ipc::ModelChoices>,
     models_asked: bool,
+    /// What Fleet last read of the words that tag a Job, and the reads out for the repository and for the wait.
+    wait_read: Option<WaitRead>,
+    read_task: Option<Task<()>>,
+    wait_task: Option<Task<()>>,
     pub within: FocusHandle,
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
     _subs: Vec<Subscription>,
 }
+
+/// The words and picks a Job's Start is made from.
+#[derive(Clone)]
+struct Begin {
+    words: String,
+    repository: String,
+    model: Option<String>,
+    effort: Option<String>,
+    held: bool,
+}
+
+/// Fleet's reading of the words that tag `job`, as it came: the sentence is drawn from it and the hand over it.
+struct WaitRead {
+    job: String,
+    words: String,
+    reading: ipc::WaitReading,
+}
+
+/// How long the words stay still before the repository is read, and before the wait is.
+const READ_REPOSITORY_AFTER: Duration = Duration::from_millis(250);
+const READ_WAIT_AFTER: Duration = Duration::from_millis(400);
 
 /// What the window is scoped to: a project, by Fleet's id, with the names of the repositories it holds in the
 /// order its members name them, or one repository in no project, with no id. `None` on All.
@@ -230,7 +257,7 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, served: Vec::new(), models: None, models_asked: false, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { jobs, sheet, layer, kept_in: None, strip: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// ⌘N and its other doors: the sheet opens on the draft as it stands, and the strip goes.
@@ -241,17 +268,21 @@ impl DispatchScreen {
         cx.notify();
     }
 
-    /// What the sheet asks. On a live Fleet the start is posted and the words are read; on mock data nothing is
+    /// What the sheet asks. On a live Fleet the acts are posted and the words are read; on mock data nothing is
     /// on the other end, and a walk answers by scene.
     fn sheet_asked(&mut self, asked: &Asked, window: &mut Window, cx: &mut Context<Self>) {
         if self.jobs.read(cx).list.read(cx).fleet().is_some() {
             match asked {
                 Asked::ReadRepository(words) => self.read_repository(words.clone(), window, cx),
+                Asked::ReadWait { job, words } => self.read_wait(job.clone(), words.clone(), window, cx),
                 Asked::Start { words, repository, model, effort, held } => {
-                    self.start_job(words.clone(), repository, model.clone(), effort.clone(), *held, window, cx)
+                    let begin = Begin { words: words.clone(), repository: repository.clone(), model: model.clone(), effort: effort.clone(), held: *held };
+                    self.start_job(begin, window, cx)
                 }
-                // The live sheet offers neither Autopilot, a wait nor the queue.
-                _ => {}
+                Asked::ReadAutopilot { words, repository } => self.read_autopilot(words.clone(), repository, window, cx),
+                Asked::StartAutopilot { repository, instruction, fields } => self.start_autopilot(repository, instruction, fields, window, cx),
+                // Queue for later is kept by Electron on the machine, with no route to Fleet: the live sheet does not offer it.
+                Asked::Queue { .. } | Asked::Closed => {}
             }
         }
         cx.notify();
@@ -304,11 +335,12 @@ impl DispatchScreen {
     fn read_repository(&mut self, words: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(port) = self.fleet_port(cx) else { return };
         let path = format!("/repositories/of_request?q={}", crate::link::percent_encoded(&words));
-        cx.spawn_in(window, async move |this, cx| {
+        // Each rest of the words replaces the read before it, which is let go.
+        self.read_task = Some(cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(READ_REPOSITORY_AFTER).await;
             let answer = cx.background_executor().spawn(async move { live::call(port, path, None) }).await;
             let _ = this.update_in(cx, |this, window, cx| this.repository_read(words, answer, window, cx));
-        })
-        .detach();
+        }));
     }
 
     fn repository_read(&mut self, words: String, answer: Result<Vec<u8>, String>, window: &mut Window, cx: &mut Context<Self>) {
@@ -327,46 +359,104 @@ impl DispatchScreen {
         self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
     }
 
-    /// Start: the words go to Fleet with the repository's Manifest id, the model and effort picked, and the project
-    /// the window is scoped to. A Job started opens; a refusal is Fleet's sentence on the sheet, which keeps its words.
-    #[allow(clippy::too_many_arguments)]
-    fn start_job(&mut self, words: String, repository: &str, model: Option<String>, effort: Option<String>, held: bool, window: &mut Window, cx: &mut Context<Self>) {
+    /// The words tag a Job: Fleet's proposer reads them for the wait they name, once the words have rested, and the
+    /// sentence over the request is drawn from the answer (`readingWait`, `sessions-wired.tsx`).
+    fn read_wait(&mut self, job: String, words: String, window: &mut Window, cx: &mut Context<Self>) {
+        if self.wait_read.as_ref().is_some_and(|read| read.job == job && read.words == words) {
+            return;
+        }
+        self.ask_wait(job, words, READ_WAIT_AFTER, None, window, cx);
+    }
+
+    /// `POST /sessions/read_wait`. `then` is a Start waiting on the reading: a Job is not started on the
+    /// defaults while the proposer is still out.
+    fn ask_wait(&mut self, job: String, words: String, after: Duration, then: Option<Begin>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(port) = self.fleet_port(cx) else { return };
+        let body = ipc::encode(&ipc::ReadSessionWait { session_id: SessionId::carried(job.clone()), request: words.clone() }).map_err(|why| format!("{why:?}"));
+        self.wait_task = Some(cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor().timer(after).await;
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/read_wait".into(), Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, window, cx| this.wait_answered(job, words, answer, then, window, cx));
+        }));
+    }
+
+    /// A reading that cannot be had is the defaults, as Electron holds it: the Job ends, from main, asking nothing.
+    fn wait_answered(&mut self, job: String, words: String, answer: Result<Vec<u8>, String>, then: Option<Begin>, window: &mut Window, cx: &mut Context<Self>) {
+        // Words typed since are read by their own ask.
+        if self.sheet.read(cx).words(cx) != words {
+            return;
+        }
+        let Some(tagged) = self.sheet.read(cx).tagged().filter(|tagged| tagged.id == job) else { return };
+        let read = answer.ok().and_then(|bytes| ipc::decode::<ipc::WaitReading>("WaitReading", &bytes).ok()).unwrap_or_else(live::defaults);
+        // A tag that names no condition only refers to the Job: nothing waits.
+        let wait = (!read.plain).then(|| {
+            let sheet = self.sheet.read(cx);
+            let others = sheet.face.mentions.jobs.iter().filter(|other| other.id != tagged.id).take(4).cloned().collect();
+            let was = self.wait_read.as_ref().filter(|was| was.job == job).map(|was| &was.reading);
+            let hand = sheet.wait.as_ref().zip(was);
+            live::wait_of(tagged, others, &read, hand)
+        });
+        self.wait_read = Some(WaitRead { job, words, reading: read });
+        self.sheet.update(cx, |sheet, cx| sheet.set_wait(wait, cx));
+        if let Some(begin) = then {
+            self.start_job(begin, window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Start: the words go to Fleet with the repository's Manifest id, the model and effort picked, the project the
+    /// window is scoped to, and the wait the words name. A Job started opens; a refusal is Fleet's sentence on the
+    /// sheet, which keeps its words.
+    fn start_job(&mut self, begin: Begin, window: &mut Window, cx: &mut Context<Self>) {
         let Some(port) = self.fleet_port(cx) else {
             self.sheet.update(cx, |sheet, cx| sheet.refused("Fleet is not connected".into(), cx));
             return;
         };
-        let Some(manifest_id) = self.served.iter().find(|one| one.name == repository).map(|one| one.id.clone()) else {
-            let said = format!("Fleet serves no repository named {repository}");
+        let Some(manifest_id) = self.served.iter().find(|one| one.name == begin.repository).map(|one| one.id.clone()) else {
+            let said = format!("Fleet serves no repository named {}", begin.repository);
             self.sheet.update(cx, |sheet, cx| sheet.refused(said.into(), cx));
             return;
         };
+        let tagged = self.sheet.read(cx).tagged();
+        if let Some(tagged) = &tagged {
+            let settled = self.wait_read.as_ref().is_some_and(|read| read.job == tagged.id && read.words == begin.words);
+            if !settled {
+                self.ask_wait(tagged.id.to_string(), begin.words.clone(), Duration::ZERO, Some(begin), window, cx);
+                return;
+            }
+        }
+        let plain = self.wait_read.as_ref().is_some_and(|read| read.reading.plain);
+        let after = tagged.as_ref().filter(|_| !plain).and_then(|_| self.sheet.read(cx).wait.as_ref().map(live::after_of));
+        let mentions: Vec<SessionTag> =
+            tagged.filter(|_| plain).map(|tagged| SessionTag { kind: TagKind::Session, id: tagged.id.to_string(), title: tagged.title.to_string(), url: None }).into_iter().collect();
+        // A wait's request is the brief it starts on, and nothing is sent to it.
+        let send = after.is_none();
         let start = ipc::StartSession {
             manifest_id,
             title: None,
-            model,
-            effort,
+            model: begin.model,
+            effort: begin.effort,
             mode: None,
             fork: None,
             root: None,
-            request: Some(words.clone()),
-            after: None,
-            held,
+            request: Some(begin.words.clone()),
+            held: begin.held && send,
+            after,
             project_rows: Vec::new(),
             on_your_words: None,
             project: scope(cx).and_then(|(id, _)| id).map(|id| id.to_string()),
         };
         let body = ipc::encode(&start).map_err(|why| format!("{why:?}"));
+        let words = begin.words;
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx
-                .background_executor()
-                .spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) })
-                .await;
-            let _ = this.update_in(cx, |this, window, cx| this.started(answer, words, port, window, cx));
+            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/start".into(), Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, window, cx| this.started(answer, send.then_some((words, mentions)), port, window, cx));
         })
         .detach();
     }
 
-    fn started(&mut self, answer: Result<Vec<u8>, String>, words: String, port: u16, window: &mut Window, cx: &mut Context<Self>) {
+    /// The Job exists. `first` is the words and the tag they carry, sent as its first message where nothing waits.
+    fn started(&mut self, answer: Result<Vec<u8>, String>, first: Option<(String, Vec<SessionTag>)>, port: u16, window: &mut Window, cx: &mut Context<Self>) {
         let record = answer.and_then(|bytes| ipc::decode::<SessionRecord>("SessionRecord", &bytes).map_err(|why| why.to_string()));
         match record {
             Ok(record) => {
@@ -374,25 +464,101 @@ impl DispatchScreen {
                 self.sheet.update(cx, |sheet, cx| {
                     sheet.answered(window, cx);
                 });
-                // The words are the Job's first message, as Electron's Start sends them once the Job exists.
-                let body = ipc::encode(&ipc::SendSessionMessageBody {
-                    message: ipc::SendSessionMessage { session_id: SessionId::carried(id.clone()), text: words, attachments: Vec::new(), mentions: Vec::new() },
-                    aim: None,
-                })
-                .map_err(|why| format!("{why:?}"));
-                cx.background_executor()
-                    .spawn(async move {
-                        if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
-                            crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
-                        }
+                if let Some((text, mentions)) = first {
+                    // The words are the Job's first message, as Electron's Start sends them once the Job exists.
+                    let body = ipc::encode(&ipc::SendSessionMessageBody {
+                        message: ipc::SendSessionMessage { session_id: SessionId::carried(id.clone()), text, attachments: Vec::new(), mentions },
+                        aim: None,
                     })
-                    .detach();
+                    .map_err(|why| format!("{why:?}"));
+                    cx.background_executor()
+                        .spawn(async move {
+                            if let Err(why) = body.and_then(|body| live::call(port, "/sessions/message".into(), Some(body))) {
+                                crate::log::Note::warn("a started Job was not given its words").field("why", why).emit();
+                            }
+                        })
+                        .detach();
+                }
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.open(id.into(), cx));
             }
             Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
         }
         cx.notify();
+    }
+
+    /// The port, and the Manifest id a repository chip stands for; else the sentence the sheet says.
+    fn autopilot_door(&self, repository: &str, cx: &App) -> Result<(u16, ipc::ManifestId), String> {
+        let port = self.fleet_port(cx).ok_or("Fleet is not connected")?;
+        let id = self.served.iter().find(|one| one.name == repository).map(|one| one.id.clone());
+        Ok((port, id.ok_or_else(|| format!("Fleet serves no repository named {repository}"))?))
+    }
+
+    fn refuse(&mut self, why: String, cx: &mut Context<Self>) {
+        self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx));
+    }
+
+    /// Read it: the sentence goes to Fleet's proposer, which answers the settings it read for the person to confirm.
+    /// `POST /autopilots/:repository/proposal`, one model call (`proposeAutopilot`, `main/issues.ts`).
+    fn read_autopilot(&mut self, words: String, repository: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let (port, id) = match self.autopilot_door(repository, cx) {
+            Ok(door) => door,
+            Err(why) => return self.refuse(why, cx),
+        };
+        let path = format!("/autopilots/{}/proposal", crate::link::percent_encoded(id.as_str()));
+        let sentence = words.trim().to_string();
+        let local_now = Some(chrono::Local::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, false));
+        let body = ipc::encode(&ipc::ProposeAutopilot { sentence, local_now }).map_err(|why| format!("{why:?}"));
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx.background_executor().spawn(async move { live::call(port, path, Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, window, cx| this.autopilot_read(words, answer, window, cx));
+        })
+        .detach();
+    }
+
+    fn autopilot_read(&mut self, words: String, answer: Result<Vec<u8>, String>, window: &mut Window, cx: &mut Context<Self>) {
+        // Words typed since have cleared the sheet's read, and the answer is for what they were.
+        if self.sheet.read(cx).words(cx) != words {
+            return;
+        }
+        let read = answer.and_then(|bytes| ipc::decode::<ipc::AutopilotProposal>("AutopilotProposal", &bytes).map_err(|why| why.to_string()));
+        match read {
+            Ok(proposal) => {
+                let mut face = self.sheet.read(cx).face.clone();
+                face.read = Some(live::autopilot_read(&proposal));
+                face.refused = None;
+                self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
+            }
+            Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
+        }
+    }
+
+    /// Start Autopilot: the settings as the person left the fields, `POST /autopilots/:repository`. The strip it
+    /// leaves is the Autopilot's lane. A field that does not read is said on the sheet, as Electron says it.
+    fn start_autopilot(&mut self, repository: &str, instruction: &str, fields: &[(&'static str, String)], window: &mut Window, cx: &mut Context<Self>) {
+        let settings = match live::settings_of(instruction, fields, chrono::Local::now()) {
+            Ok(settings) => settings,
+            Err(why) => return self.refuse(why, cx),
+        };
+        let (port, id) = match self.autopilot_door(repository, cx) {
+            Ok(door) => door,
+            Err(why) => return self.refuse(why, cx),
+        };
+        let path = format!("/autopilots/{}", crate::link::percent_encoded(id.as_str()));
+        let body = ipc::encode(&settings).map_err(|why| format!("{why:?}"));
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx.background_executor().spawn(async move { live::call(port, path, Some(body?)) }).await;
+            let _ = this.update_in(cx, |this, window, cx| match answer {
+                Ok(_) => {
+                    let sent = this.sheet.update(cx, |sheet, cx| sheet.answered(window, cx));
+                    if let Some(sent) = sent {
+                        this.show_strip(sent, window, cx);
+                    }
+                }
+                Err(why) => this.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
+            });
+        })
+        .detach();
     }
 
     /// Keep the layer's notes in `dir`: what stands there is read, and each note is written as it is made.
@@ -536,6 +702,34 @@ impl DispatchScreen {
                 let mut face = live::narrowed(face, &keep);
                 face.refused = None;
                 self.sheet.update(cx, |sheet, cx| sheet.set_face(face, window, cx));
+            }
+            "autopilot-read-live" => {
+                // What a live Fleet answers, through the reading the live sheet makes of it.
+                let proposal = ipc::decode::<ipc::AutopilotProposal>(
+                    "AutopilotProposal",
+                    br#"{"instruction":"Work through the open bugs labelled flaky","at_once":2,"spend_cap_micros":12500000,"session_cap":3,"quoted":{"at_once":"two at a time","spend_cap_micros":"twelve fifty","session_cap":"three Jobs"}}"#,
+                )
+                .map_err(|why| why.to_string())?;
+                let mut face = face;
+                face.read = Some(live::autopilot_read(&proposal));
+                self.sheet.update(cx, |sheet, cx| {
+                    sheet.instruction = None;
+                    sheet.fields.clear();
+                    sheet.set_face(face, window, cx);
+                });
+            }
+            "waiting-live" => {
+                // What a live Fleet reads of a tag: a task of the Job's plan, from its PR branch.
+                let tagged = self.sheet.read(cx).tagged().or_else(|| face.mentions.jobs.first().cloned()).ok_or("no Job to wait on")?;
+                let others = face.mentions.jobs.iter().filter(|other| other.id != tagged.id).take(4).cloned().collect();
+                let read = ipc::WaitReading {
+                    condition: ipc::StartCondition::TaskDone { task: "t3".into() },
+                    base: ipc::StartBase::Branch,
+                    needs: "the schema change and the seed data".into(),
+                    plain: false,
+                };
+                let wait = live::wait_of(tagged, others, &read, None);
+                self.sheet.update(cx, |sheet, cx| sheet.set_wait(Some(wait), cx));
             }
             "refuse-member" => {
                 // Fleet's 404 for a start whose project was removed after the window was scoped to it.

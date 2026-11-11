@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 39] = [
+pub static STEPS: [Step; 41] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("Job and Autopilot are the kinds; the Job's glyph stands at the start of the line", Verb::Look, "tab", "Job"),
     step("Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Model"),
@@ -17,6 +17,7 @@ pub static STEPS: [Step; 39] = [
     step("⌘↵ is Read it: it sends the sentence to Fleet and says Reading in the same frame", Verb::Key("cmd-enter"), "button", "Reading"),
     answer("A refused read says why, in the sheet", "autopilot-refused", "alert", "Autopilot needs a repository with a Manifest, and sample-docs has none"),
     answer("A read sentence becomes an instruction and the limits, each quoted back", "autopilot-read", "textbox", "Instruction"),
+    answer("The settings a live Fleet answers are read back into the fields, with the words each came from", "autopilot-read-live", "textbox", "Instruction"),
     press_on("Start Autopilot answers in the same frame", "button", "Start Autopilot", "button", "Starting Autopilot"),
     answer("Started: the sheet goes and the strip stands where the search was", "answer-autopilot", "group", "Last dispatch"),
     press_on("Open asks for the repository's Autopilot lane, and the strip goes", "button", "Open", "heading", "armada"),
@@ -41,6 +42,7 @@ pub static STEPS: [Step; 39] = [
     answer("A pasted snippet stands over the line and can be removed", "attach", "button", "Remove pasted-snippet.txt"),
     answer("With Fleet unreachable everything in the sheet is off, and the title bar's dot says so too", "offline", "status", "Fleet unreachable"),
     answer("A repository not ready: the refusal stands beside the repositories, and Fleet is running again", "refuse-start", "alert", "Job not started: the repository has no free slot"),
+    answer("A wait Fleet read from the tag: a task of the Job's plan, from its PR branch", "waiting-live", "button", "Condition a task of its plan is done"),
     answer("A window scoped to a project offers only the repositories it holds", "storefront", "radio", "Repository sample-web"),
     answer("A project removed since the window picked it: Fleet's refusal, in its own words, beside the repositories", "refuse-member", "alert", "there is no project storefront"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
