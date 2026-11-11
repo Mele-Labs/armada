@@ -211,6 +211,13 @@ pub static WALKS: &[Walk] = &[
         steps: &strip_marks::STEPS,
     },
     Walk {
+        name: "merge-strip-live",
+        title: "Merge strip on Fleet's live view",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &strip_marks::LIVE,
+    },
+    Walk {
         name: "title-bar",
         title: "Title bar",
         screen: Screen::Jobs,

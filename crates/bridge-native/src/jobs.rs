@@ -2055,7 +2055,7 @@ impl Render for JobsScreen {
                             })),
                     ),
             )
-            .child(crate::merge_strip::strip(window, cx))
+            .child(crate::merge_strip::strip(&self.list, window, cx))
             .child(self.palette.clone())
     }
 }

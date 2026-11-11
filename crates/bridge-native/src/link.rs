@@ -15,7 +15,7 @@ use chrono::Local;
 use tokio::time::{sleep, Instant};
 
 use ipc::{
-    Event, FleetBuildReport, ModChecked, ModKind, ModList, ModSummary, Preferences, Projects, ProtocolId, RepositoryList, SessionList,
+    Event, FleetBuildReport, MergeLineViews, ModChecked, ModKind, ModList, ModSummary, Preferences, Projects, ProtocolId, RepositoryList, SessionList,
     SessionRecord, SettingsList, StandingCalls, StreamMessage,
 };
 
@@ -86,6 +86,9 @@ pub enum Signal {
     /// `GET /projects`, once per connection; `projects.changed` carries all of them after that.
     Projects(Projects),
     ProjectsFailed(String),
+    /// `GET /merge_lines/view`, on connect and after a `Missed`; `merge_line_view.changed` carries it after that.
+    MergeLines(MergeLineViews),
+    MergeLinesFailed(String),
     Stream(StreamMessage),
 }
 
@@ -236,6 +239,7 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     tokio::spawn(fetch_settings(tx.clone(), fleet.port));
                     tokio::spawn(fetch_repositories(tx.clone(), fleet.port));
                     tokio::spawn(fetch_projects(tx.clone(), fleet.port));
+                    tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                     // Stops with this connection: the guard aborts the task when `follow` returns.
                     _build_watch = Some(AbortOnDrop(tokio::spawn(watch_build(tx.clone(), fleet.port))));
                 }
@@ -243,6 +247,10 @@ async fn follow(tx: &Sender<Signal>, fleet: &RuntimeFile) -> Ended {
                     if let Event::ModsChanged(list) = &delivered.event {
                         check_themes(tx, fleet.port, &list.mods, &mut asked);
                     }
+                }
+                // A view sent whole is read again after events were lost, or the window would hold a line it never heard.
+                if let StreamMessage::Missed(_) = &message {
+                    tokio::spawn(fetch_merge_lines(tx.clone(), fleet.port));
                 }
                 if send(tx, Signal::Stream(message)).await.is_err() {
                     return Ended::NobodyListening;
@@ -354,6 +362,15 @@ async fn fetch_projects(tx: Sender<Signal>, port: u16) {
     let signal = match read_with_retries::<Projects>(port, "/projects", "projects").await {
         Ok(projects) => Signal::Projects(projects),
         Err(why) => Signal::ProjectsFailed(why),
+    };
+    let _ = tx.send(signal).await;
+}
+
+/// `GET /merge_lines/view`, retried as the Jobs are.
+async fn fetch_merge_lines(tx: Sender<Signal>, port: u16) {
+    let signal = match read_with_retries::<MergeLineViews>(port, "/merge_lines/view", "merge line view").await {
+        Ok(view) => Signal::MergeLines(view),
+        Err(why) => Signal::MergeLinesFailed(why),
     };
     let _ = tx.send(signal).await;
 }

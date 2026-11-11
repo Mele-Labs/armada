@@ -170,6 +170,17 @@ pub fn open_dispatch(cx: &mut App) {
     reach(cx, move |this, window, cx| this.open_sheet("", window, cx));
 }
 
+/// A red main's Dispatch a new Job: the sheet opens on the brief, with its repository chosen
+/// (`useFixChoice`, `merge-line.tsx`).
+pub fn open_drafted(request: String, repository: Option<String>, cx: &mut App) {
+    reach(cx, move |this, window, cx| {
+        this.open_sheet(&request, window, cx);
+        if let Some(repository) = &repository {
+            this.sheet.update(cx, |sheet, cx| sheet.pick_repository(repository, cx));
+        }
+    });
+}
+
 /// Auto Pilot on a Job's row: the sheet opens on Autopilot with the row's repository chosen, as
 /// Electron picks the row's repository before Autopilot (`Deck.tsx` `onAutopilot`).
 pub fn open_autopilot(repository: Option<String>, cx: &mut App) {

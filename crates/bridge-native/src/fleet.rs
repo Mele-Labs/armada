@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use gpui::{Context, EventEmitter, Task};
 
 use ipc::{
-    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, ModKind, ModSummary, NeedsYou, SessionRecord,
+    CallArrival, Cursor, Event, FleetBuildReport, Instant, JobThread, JobThreadTail, MergeLineView, ModKind, ModSummary, NeedsYou, SessionRecord,
     Projects, RepositorySummary, SettingValue, SettingsList, StandingCalls, StreamMessage, ThreadHead, ThreadItem, WaitingItem,
 };
 
@@ -101,6 +101,8 @@ pub struct Held {
     pub repositories: Option<Vec<RepositorySummary>>,
     /// His projects as Fleet last said, whole. `None` until Fleet has answered.
     pub projects: Option<Projects>,
+    /// Every served repository's merge line, in Fleet's order, as Fleet last read it. `None` until Fleet has answered.
+    pub merge_lines: Option<Vec<MergeLineView>>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -116,7 +118,7 @@ pub struct Held {
 }
 
 impl Held {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Held {
             state: LinkState::NotRunning("not yet read".into()),
             jobs: Vec::new(),
@@ -128,6 +130,7 @@ impl Held {
             calls: None,
             repositories: None,
             projects: None,
+            merge_lines: None,
             notifications: true,
             arrived: Vec::new(),
             port: None,
@@ -278,6 +281,8 @@ impl Held {
                 Signal::RepositoriesFailed(why) => lines.push(Note::warn("repositories could not be read").field("why", why)),
                 Signal::Projects(read) => self.projects = Some(read),
                 Signal::ProjectsFailed(why) => lines.push(Note::warn("projects could not be read").field("why", why)),
+                Signal::MergeLines(view) => self.merge_lines = Some(view.lines),
+                Signal::MergeLinesFailed(why) => lines.push(Note::warn("the merge line could not be read").field("why", why)),
                 Signal::Build(report) => self.build = Some(report),
                 Signal::BuildFailed(why) => lines.push(Note::warn("the build could not be read").field("why", why)),
                 Signal::Stream(StreamMessage::Resync(resync)) => {
@@ -325,6 +330,8 @@ impl Held {
                         Event::RepositoriesChanged(list) => self.repositories = Some(list.repositories),
                         // His projects arrive whole and replace the ones held.
                         Event::ProjectsChanged(read) => self.projects = Some(read),
+                        // The merge lines arrive whole and replace the ones held.
+                        Event::MergeLineViewChanged(view) => self.merge_lines = Some(view.lines),
                         _ => {}
                     }
                 }

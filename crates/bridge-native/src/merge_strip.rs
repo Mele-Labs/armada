@@ -14,6 +14,7 @@
 //! draws it with nothing served draws nothing.
 
 mod fix;
+mod live;
 mod scenes;
 mod words;
 
@@ -30,7 +31,7 @@ use gpui::{
     WeakEntity, Window,
 };
 use ipc::{
-    HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, StandingCall, StandingCallKind,
+    HeldCheckout, HubPullRequest, MainRedJob, MainView, MergeLineView, PullTone, StandingCall, StandingCallKind,
 };
 
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -44,30 +45,11 @@ use words::{check_of, commits, hue_of, is_queued, reading_of, read_said, review_
 /// How long the stacked line rests on one repository before it moves to the next.
 const ROTATE: Duration = Duration::from_secs(15);
 
-/// A chip's tone, which the strip's dot takes over its state: a pull request that is red, one the
-/// person can merge, or neither. Fleet sends no field for it, so the head that knows the Job gives it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Tone {
-    Calm,
-    Ask,
-    Bad,
-}
-
-/// What the Jobs know of one pull request, which Fleet's view does not carry: the Job that holds it,
-/// and the tone its dot takes.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Held {
-    pub number: u64,
-    /// The Job that holds the pull request, by id and title.
-    pub job: Option<(SharedString, SharedString)>,
-    pub tone: Tone,
-}
-
-/// One repository's line: Fleet's view of it, and what the Jobs add.
+/// One repository's line, as Fleet's view reads it: each pull request carries the Job that holds it and
+/// its chip's tone.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Line {
     pub view: MergeLineView,
-    pub held: Vec<Held>,
 }
 
 /// A Job the red main's work could be sent back to.
@@ -138,9 +120,11 @@ pub fn live(cx: &App) -> Option<gpui::Entity<MergeStrip>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
 }
 
-/// The strip for the Jobs screen to draw as its last child.
-pub fn strip(window: &mut Window, cx: &mut App) -> AnyElement {
-    window.use_keyed_state("merge-strip", cx, |window, cx| MergeStrip::new(window, cx)).into_any_element()
+/// The strip for the Jobs screen to draw as its last child. On a live Fleet it follows Fleet's merge
+/// lines, the title bar's pick and the open Job.
+pub fn strip(list: &Entity<crate::jobs::JobsList>, window: &mut Window, cx: &mut App) -> AnyElement {
+    let list = list.clone();
+    window.use_keyed_state("merge-strip", cx, move |window, cx| MergeStrip::new(&list, window, cx)).into_any_element()
 }
 
 /// `q`, the merge queue's panel key (`deck_panel`, scope deck, its fourth slot): the keys go to the
@@ -201,14 +185,20 @@ pub struct MergeStrip {
     menu: Option<ChipMenu>,
     /// The dialog a red band's act opened (`fix.rs`).
     fix: Option<fix::FixDialog>,
+    /// Fleet, the Jobs and the title bar, on a live Fleet; none on mock Jobs.
+    source: Option<live::Source>,
     _rotate: Task<()>,
     _focus_in: Subscription,
     _focus_out: Subscription,
 }
 
 impl MergeStrip {
-    fn new(window: &mut Window, cx: &mut Context<Self>) -> MergeStrip {
+    fn new(list: &Entity<crate::jobs::JobsList>, window: &mut Window, cx: &mut Context<Self>) -> MergeStrip {
         let data = cx.try_global::<Opening>().map(|opening| opening.0.clone()).unwrap_or_default();
+        let source = live::Source::of(list, cx);
+        if source.is_some() {
+            cx.spawn(async move |this, cx| this.update(cx, |this, cx| this.follow(cx))).detach();
+        }
         cx.set_global(Live(cx.entity().downgrade()));
         let focus = cx.focus_handle();
         let focus_in = cx.on_focus_in(&focus, window, |this, _, cx| {
@@ -254,6 +244,7 @@ impl MergeStrip {
             by_keys: None,
             menu: None,
             fix: None,
+            source,
             _rotate: rotate,
             _focus_in: focus_in,
             _focus_out: focus_out,
@@ -261,7 +252,6 @@ impl MergeStrip {
     }
 
     /// New data, as Fleet's last answer made it. A main that turned red brings its row into view.
-    #[allow(dead_code)]
     pub fn set(&mut self, data: Strip, cx: &mut Context<Self>) {
         let was_red: Vec<bool> = self.data.lines.iter().map(|line| matches!(line.view.main, Some(MainView::Red { .. }))).collect();
         self.data = data;
@@ -569,8 +559,8 @@ struct Dot<'a> {
     says: &'static str,
     queued: bool,
     place: Option<u32>,
-    tone: Tone,
-    job: Option<&'a (SharedString, SharedString)>,
+    tone: PullTone,
+    job: Option<(SharedString, SharedString)>,
     related: bool,
 }
 
@@ -583,7 +573,7 @@ impl Dot<'_> {
         if self.pull.merge_by_hand {
             parts.push(MERGE_BY_HAND.to_string());
         }
-        if let Some((_, title)) = self.job {
+        if let Some((_, title)) = &self.job {
             parts.push(format!("Job: {title}"));
         }
         parts.join(" · ")
@@ -591,9 +581,9 @@ impl Dot<'_> {
 
     fn hue(&self, look: &Look) -> Hsla {
         match self.tone {
-            Tone::Bad => look.color(token::STATUS_COMPLETED_FAILED),
-            Tone::Ask => look.color(token::STATUS_AWAITING_REVIEW),
-            Tone::Calm => look.color(hue_of(self.state)),
+            PullTone::Bad => look.color(token::STATUS_COMPLETED_FAILED),
+            PullTone::Ask => look.color(token::STATUS_AWAITING_REVIEW),
+            PullTone::Calm => look.color(hue_of(self.state)),
         }
     }
 }
@@ -606,15 +596,14 @@ fn dots_of<'a>(line: &'a Line, related: &[u64]) -> Vec<Dot<'a>> {
             // Fleet's view wraps each pull request with who holds it and how its chip reads; the strip reads the pull request.
             let pull = &view.pull;
             let reading = reading_of(pull);
-            let held = line.held.iter().find(|one| one.number == pull.number);
             Dot {
                 pull,
                 state: reading.state,
                 says: reading.says,
                 queued: is_queued(pull),
                 place: pull.queue.as_ref().and_then(|queue| queue.position),
-                tone: held.map_or(Tone::Calm, |one| one.tone),
-                job: held.and_then(|one| one.job.as_ref()),
+                tone: view.tone,
+                job: view.held_by.as_ref().map(|job| (job.id.clone().into(), job.title.clone().unwrap_or_else(|| job.id.clone()).into())),
                 related: related.contains(&pull.number),
             }
         })
@@ -1047,7 +1036,7 @@ impl MergeStrip {
         if pull.merge_by_hand {
             rows.push(Fact::new("Merge", MERGE_BY_HAND));
         }
-        let job = dot.job.cloned();
+        let job = dot.job.clone();
         let spec = Spec {
             kind_glyph: "git-pull-request",
             kind: "Pull request".into(),

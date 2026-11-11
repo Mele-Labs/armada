@@ -19,6 +19,14 @@ pub(super) const SEVERAL: &str = "Conflicts with Quiet the write-clash notices, 
 pub(super) const FILES: &str = "Conflicts with Quiet the write-clash notices · crates/bridge-native/src/jobs.rs, crates/bridge-native/src/clash_mark.rs, crates/ipc/src/clashes.rs, crates/fleet/src/write_clashes/detect.rs, docs/concepts/write-clashes.md";
 pub(super) const PAUSED: &str = "Conflicts with Native Bridge foundation · crates/bridge-native/src/main.rs";
 
+/// The strip on Fleet's live view: each scene is Fleet's answer folded and read as the live app reads it.
+pub static LIVE: [Step; 4] = [
+    marks("Fleet's view as the live app reads it: the open Job's repository alone, the pull request it holds ahead of the open ones", "strip-live", "button", READY),
+    marks("A repository picked in the title bar: its line only", "strip-live-picked", "button", "#412 Dark mode for the settings page · web/dark-mode · In the merge queue, ready to merge, place 1"),
+    marks("Connected, and Fleet has not answered for the line yet: placeholder chips", "strip-live-loading", "region", "Merge queue"),
+    marks("Fleet stopped: the line it last said stays drawn, as Electron keeps it", "strip-live-down", "region", "Merge queue"),
+];
+
 pub static STEPS: [Step; 41] = [
     marks("The strip stands along the bottom edge: the merge button, main's light, and the forge's queue in one track, each led by its place, then the rest", "strip-rest", "region", "Merge queue"),
     step("A ring is an open pull request, a filled lamp a queued one, the hue its checks; a chip's card opens on hover", Verb::Hover, "button", RUNNING),
