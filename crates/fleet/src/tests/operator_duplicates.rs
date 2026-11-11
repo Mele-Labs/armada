@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use core_model::Timestamp;
-use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorPage, OperatorRule, OperatorTurnItem};
+use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorPage, OperatorRule, OperatorTurnItem, RuleScope};
 use ipc::{SessionId, StartAnotherSession};
 use store::{KeptTouch, MainFix, MainMerge, TakenBy, TakenHow};
 use testkit::{Delivering, FakeVcs};
@@ -59,7 +59,7 @@ async fn turn_of(rig: &Rig, job: &SessionId) -> OperatorTurnItem {
 }
 
 fn press(item: &OperatorTurnItem, answer: OperatorAnswer) -> OperatorAnswerPress {
-    OperatorAnswerPress { id: item.id.clone(), answer, then: None, option: None }
+    OperatorAnswerPress { id: item.id.clone(), answer, then: None, option: None, project: None }
 }
 
 fn labels(item: &OperatorTurnItem) -> Vec<&str> {
@@ -129,7 +129,7 @@ async fn a_kept_rule_hands_a_started_job_over_alone_and_the_log_names_it() {
     let rig = rig_placing(None);
     let live = a_live_job(&rig).await;
     let parent = rig.start_titled(Some("The planner")).await;
-    let rule = OperatorRule::PickRule { manifest_id: None, what: "start:existing_job".into(), pick: "do_it".into() };
+    let rule = OperatorRule::PickRule { scope: RuleScope::Everywhere, what: "start:existing_job".into(), pick: "do_it".into() };
     let kept = store::KeptOrder { n: 0, form: rule.kept(), said: "Hand a Job that repeats a live Job's work to that Job".into(), until: None, at: "2026-11-10T09:00:00.000Z".into() };
     rig.fleet.store().lock().await.add_operator_order(&kept).expect("kept");
     seated(&rig, &[&hands_to(&live)]).await;

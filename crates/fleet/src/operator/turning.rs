@@ -13,7 +13,8 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::operator_page::{item_read, OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorLater, OperatorPage, OperatorRule, OperatorThen, OperatorTurnOrder};
+use core_model::{ManifestId as Repository, Ulid};
+use ipc::operator_page::{item_read, OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorLater, OperatorPage, OperatorRule, OperatorThen, OperatorTurnOrder, RuleScope};
 use ipc::{AnswerWaiting, Instant, SessionId, WaitingAct, WaitingItem, WaitingOption, WaitingSource, WireError};
 use store::{KeptOrder, KeptTurn};
 
@@ -23,6 +24,7 @@ use super::suggesting::suggestion_number;
 use crate::daemon::Fleet;
 use crate::main_ci::{MainChange, MainChanged};
 use crate::main_fix::brief_of;
+use crate::project_files::NOT_MEMBER;
 
 /// An item of a red main starts with this: `red:<repository>:<commit>`.
 pub(super) const RED: &str = "red:";
@@ -121,6 +123,16 @@ fn choice_of(item: &WaitingItem, pick: &str) -> Option<u32> {
     item.options.iter().position(|option: &WaitingOption| !label.is_empty() && option.label == label).and_then(|at| u32::try_from(at).ok())
 }
 
+/// The pick of the rule that covers `what` for an item in `repository` (empty where it is in none), a
+/// repository of the projects `projects`. **A rule for the repository beats one for a project, which beats
+/// one for everywhere**, and an item in no repository meets only the last.
+pub(crate) fn rule_pick(rules: &[(i64, OperatorRule)], what: &str, repository: &str, projects: &[String]) -> Option<String> {
+    let of = |covers: &dyn Fn(&RuleScope) -> bool| rules.iter().find_map(|(_, OperatorRule::PickRule { scope, what: kept, pick })| (kept == what && covers(scope)).then(|| pick.clone()));
+    of(&|scope| matches!(scope, RuleScope::Repository { manifest_id } if !repository.is_empty() && manifest_id == repository))
+        .or_else(|| of(&|scope| matches!(scope, RuleScope::Project { project } if projects.contains(project))))
+        .or_else(|| of(&|scope| matches!(scope, RuleScope::Everywhere)))
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -196,6 +208,15 @@ where
         }
     }
 
+    /// The ids of the projects that hold `repository`, which a rule kept for a project meets. None for an
+    /// item in no repository.
+    pub(super) fn rule_projects(&self, repository: &str) -> Vec<String> {
+        match repository {
+            "" => Vec::new(),
+            repository => self.projects_held().holding(&Repository::carried(Ulid::carried(repository))).into_iter().map(|project| project.id().as_str().to_string()).collect(),
+        }
+    }
+
     /// Items just arrived, each done by a rule where one covers it, while the Operator is on. Answers
     /// whether any was, and the rest, which go to review: **a rule that cannot be carried out leaves its
     /// item to the person**.
@@ -207,11 +228,8 @@ where
         let (mut ruled, mut rest) = (false, Vec::new());
         for one in offered {
             let what = self.rule_what(&one.item.id).await;
-            // A rule for this repository wins over one for every repository.
-            let found = what.as_ref().and_then(|what| {
-                let of = |scoped: bool| rules.iter().find_map(|(_, OperatorRule::PickRule { manifest_id, what: kept, pick })| (kept == what && manifest_id.is_some() == scoped && (!scoped || manifest_id.as_deref() == Some(one.manifest_id.as_str()))).then(|| pick.clone()));
-                of(true).or_else(|| of(false))
-            });
+            let held = self.rule_projects(&one.manifest_id);
+            let found = what.as_ref().and_then(|what| rule_pick(&rules, what, &one.manifest_id, &held));
             let (Some(what), Some(pick)) = (what, found) else {
                 rest.push(one);
                 continue;
@@ -290,9 +308,20 @@ where
             if answer != OperatorAnswer::Yes && !keeps {
                 return Err(not_offered("Always here and Always are offered only on what Fleet can do by itself"));
             }
-            if answer == OperatorAnswer::AlwaysHere && row.manifest_id.is_empty() {
-                return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
-            }
+            let scope = match (answer, press.project.as_deref()) {
+                (OperatorAnswer::AlwaysHere, Some(project)) => {
+                    let held = self.project_repositories(project).await?;
+                    if !held.iter().any(|one| one.as_str() == row.manifest_id) {
+                        return Err(Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, format!("this item's repository is not a member of the project {project}, so Always here cannot hold in it"))));
+                    }
+                    RuleScope::Project { project: project.to_string() }
+                }
+                (OperatorAnswer::AlwaysHere, None) if row.manifest_id.is_empty() => {
+                    return Err(not_offered("this item is in no repository, so Always here has none to hold in"));
+                }
+                (OperatorAnswer::AlwaysHere, None) => RuleScope::Repository { manifest_id: row.manifest_id.clone() },
+                _ => RuleScope::Everywhere,
+            };
             let then = press.then.or_else(|| then_of_pick(row.then_pick.as_deref().unwrap_or_default())).or_else(|| {
                 // Where it offers Thens and he and the Operator named none: just file it.
                 what.as_deref().filter(|what| what.ends_with(":file")).map(|_| OperatorThen::JustFile)
@@ -303,8 +332,7 @@ where
                 Fault::NotDone(why) => self.hosted_refusal(NOT_DONE, &why),
             })?;
             if let (true, Some(what)) = (answer != OperatorAnswer::Yes, &what) {
-                let manifest_id = (answer == OperatorAnswer::AlwaysHere).then(|| row.manifest_id.clone());
-                self.rule_kept(OperatorRule::PickRule { manifest_id, what: what.clone(), pick: pick_word(what, then, doing.pick) }).await?;
+                self.rule_kept(OperatorRule::PickRule { scope, what: what.clone(), pick: pick_word(what, then, doing.pick) }).await?;
             }
             if done.open.is_some() {
                 if let Err(why) = self.store().lock().await.answer_operator_turn(row.n, answer_word) {
@@ -338,12 +366,12 @@ where
 
     /// Keep `rule`, in place of one for the same thing in the same place.
     async fn rule_kept(&self, rule: OperatorRule) -> Result<(), Refusal> {
-        let OperatorRule::PickRule { manifest_id, what, pick } = &rule;
+        let OperatorRule::PickRule { scope, what, pick } = &rule;
         let at = self.now();
         let mut store = self.store().lock().await;
         for (n, kept) in self.rules_of(&store) {
-            let OperatorRule::PickRule { manifest_id: there, what: kept_what, .. } = &kept;
-            if kept_what == what && there == manifest_id {
+            let OperatorRule::PickRule { scope: there, what: kept_what, .. } = &kept;
+            if kept_what == what && there == scope {
                 store.remove_operator_order(n, at.as_str()).map_err(|why| self.ledger_fault(why))?;
             }
         }

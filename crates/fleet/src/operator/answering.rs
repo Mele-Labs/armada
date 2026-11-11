@@ -11,7 +11,7 @@ use ipc::{OperatorRead, WaitingItem, WaitingSource};
 use store::KeptTurn;
 
 use super::raising::{Reviewed, ToRaise};
-use super::turning::{rule_said, Doing};
+use super::turning::{rule_pick, rule_said, Doing};
 use crate::autopilot::destructive::destructive;
 use crate::autopilot::sorting::question;
 use crate::daemon::Fleet;
@@ -84,16 +84,6 @@ pub(super) fn answerable(item: &WaitingItem, sure: &Sureness, read: Option<&Oper
     what_of(item).is_some() && sure.clear() && read.is_some_and(|read| !read.pick.is_empty()) && !destructive(item)
 }
 
-/// The pick of the rule for `manifest_id` that covers a question: a rule for the repository wins over one for every repository.
-fn rule_pick(rules: &[(i64, OperatorRule)], manifest_id: &str) -> Option<String> {
-    let of = |scoped: bool| {
-        rules.iter().find_map(|(_, OperatorRule::PickRule { manifest_id: held, what, pick })| {
-            (what == QUESTION && held.is_some() == scoped && (!scoped || held.as_deref() == Some(manifest_id))).then(|| pick.clone())
-        })
-    };
-    of(true).or_else(|| of(false))
-}
-
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -104,9 +94,14 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
+    /// The pick of the rule that covers a question in `manifest_id`, read in the order every rule is.
+    fn question_pick(&self, rules: &[(i64, OperatorRule)], manifest_id: &str) -> Option<String> {
+        rule_pick(rules, QUESTION, manifest_id, &self.rule_projects(manifest_id))
+    }
+
     /// Whether the Operator is on and a rule covers the questions of `manifest_id`, so Autopilot leaves them to it.
     pub(crate) async fn operator_answers_questions(&self, manifest_id: &str) -> bool {
-        self.operator_on() && rule_pick(&self.rules_kept().await, manifest_id).is_some()
+        self.operator_on() && self.question_pick(&self.rules_kept().await, manifest_id).is_some()
     }
 
     /// Each reviewed question a rule covers, answered with the pick. Answers, for each of `taken`, whether
@@ -119,7 +114,7 @@ where
             if !answerable(&one.item, sure, read) || !standing(one) {
                 continue;
             }
-            let (Some(read), Some(pick)) = (read, rule_pick(&rules, &one.manifest_id)) else { continue };
+            let (Some(read), Some(pick)) = (read, self.question_pick(&rules, &one.manifest_id)) else { continue };
             let said = rule_said(QUESTION, &pick);
             let doing = Doing { session: &one.session, item: &one.item, pick: &read.pick, rule: Some(&said) };
             if let Err(fault) = self.turn_performed(&doing, None).await {

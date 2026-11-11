@@ -101,6 +101,7 @@ mod watch_wire;
 mod terminal_wire;
 mod workflow_changes;
 mod operator_board;
+mod operator_scopes;
 mod operator_errors;
 mod operator_talk;
 mod workflows_off;

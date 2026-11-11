@@ -75,8 +75,18 @@ pub(crate) async fn write_pull_request<D: PullRequestPanel>(
     }
 }
 
-pub(crate) async fn get_review_lists<D: PullRequestPanel>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().get_review_lists().await {
+/// `?project=` on `GET /review_lists`: the lists keep only that project's members.
+#[derive(serde::Deserialize)]
+pub(crate) struct InProject {
+    #[serde(default)]
+    project: Option<String>,
+}
+
+pub(crate) async fn get_review_lists<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InProject>,
+) -> Response {
+    match served.daemon().get_review_lists(scope.project).await {
         Ok(lists) => answer(StatusCode::OK, &lists, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -487,6 +487,7 @@ Every one is searched for the person's login, the first of *Whose pull requests 
 For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
 Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
 A row of a repository Fleet does not serve is dropped.
+`?project=<id>` asks only the repositories that project holds, a folder member counting as its repository; an unknown project is a 404 `fleet.no_such_project`.
 A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
 
 **A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list.
