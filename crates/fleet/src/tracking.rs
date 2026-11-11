@@ -50,7 +50,7 @@ pub(crate) fn not_tracked(run_id: ipc::RunId, code: &'static str, not: &adapter_
 }
 
 /// The tracker has no issue by that reference, or the number is a pull request's. A 404.
-const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
+pub(crate) const NO_SUCH_ISSUE: &str = "fleet.no_such_issue";
 
 /// What was last read from each repository's tracker. **In memory**: a list is the tracker's, and is read again after
 /// a restart; what was *said* on an issue is the store's.

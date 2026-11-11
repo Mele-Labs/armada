@@ -9,12 +9,12 @@ use std::time::Duration;
 
 use adapter_traits::Backlog;
 use api::{HostedSessions, Projects, Sessions};
-use ipc::{ClaimIssue, ManifestId, NewProject, ProjectMember, SaveKitValues, SessionRecord, StartSession, ValueLayer, ValuesSet};
+use ipc::{ClaimIssue, IssueState, ManifestId, NewProject, ProjectMember, ProjectRow, SaveKitValues, SessionRecord, StartSession, TaskIssue, ValueLayer, ValuesSet};
 use testkit::{FakeBeads, FakeBeadsRemote, FakeHarness, FakeTracker, FakeTrackers, FakeVcs, FakeWorkProduct};
 
 use super::daemon::fittings;
 use super::main_ci::MANIFEST;
-use super::projects::code_of;
+use super::projects::{code_of, link, new_issue, new_task};
 use super::session_host::{Shared, StandIn};
 use super::tmp::TempDir;
 use crate::daemon::Fleet;
@@ -188,4 +188,91 @@ async fn the_project_issues_read_is_refused_for_a_project_that_names_no_tracker_
     assert_eq!(code_of(refused), (422, "fleet.project_no_tracker".to_string()));
     let missing = rig.fleet.list_project_issues("nope".to_string(), false).await.expect_err("refused");
     assert_eq!(code_of(missing), (404, "fleet.no_such_project".to_string()));
+}
+
+/// Two boards: the repository's lists #1, the project's lists #2 and knows #3 closed.
+fn two_boards() -> Rig {
+    let on_repository = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(1, "On the repository's board")]));
+    let on_project = Arc::new(FakeTracker::listing(vec![FakeTracker::issue(2, "On the project's board")]));
+    on_project.knows_closed(3, "Closed on the project's board");
+    a_rig(FakeTrackers::empty().tracker_named(REPOSITORY_BOARD, on_repository).tracker_named(PROJECT_BOARD, on_project), Some(REPOSITORY_BOARD))
+}
+
+fn issue_rows(projects: &ipc::Projects, at: usize) -> Vec<(String, Option<IssueState>, Option<String>)> {
+    projects.projects[at]
+        .rows
+        .iter()
+        .filter_map(|row| match row {
+            ProjectRow::Issue { issue, state, title, .. } => Some((issue.clone(), *state, title.clone())),
+            ProjectRow::Task { .. } => None,
+        })
+        .collect()
+}
+
+fn linked(projects: &ipc::Projects, at: usize) -> Vec<(String, Option<String>)> {
+    let tasks = projects.projects[at].rows.iter().chain(&projects.loose);
+    tasks
+        .filter_map(|row| match row {
+            ProjectRow::Task { issues, .. } => Some(issues.iter().map(|one: &TaskIssue| (one.issue.clone(), one.title.clone())).collect::<Vec<_>>()),
+            ProjectRow::Issue { .. } => None,
+        })
+        .flatten()
+        .collect()
+}
+
+#[tokio::test]
+async fn a_projects_issue_rows_and_linked_issues_are_read_through_its_tracker_and_others_through_the_repositorys() {
+    let rig = two_boards();
+    let (named, bare) = (rig.project(Some(project_board())).await, rig.project(None).await);
+    let manifest = rig.manifest();
+    for issue in ["2", "3"] {
+        rig.fleet.link_project_issue(new_issue(manifest.clone(), Some(named.clone()), issue)).await.expect("linked");
+    }
+    rig.fleet.link_project_issue(new_issue(manifest.clone(), Some(bare.clone()), "1")).await.expect("linked");
+    let task = rig.fleet.add_project_task(new_task(manifest.clone(), Some(named.clone()), "Ship")).await.expect("added");
+    let row = |projects: &ipc::Projects| match projects.projects.iter().find(|one| one.id == named).expect("the project").rows.iter().find(|row| matches!(row, ProjectRow::Task { .. })) {
+        Some(ProjectRow::Task { id, .. }) => id.clone(),
+        _ => panic!("the task"),
+    };
+    rig.fleet.link_task_issue(row(&task), link("2")).await.expect("linked");
+    let loose = rig.fleet.add_project_task(new_task(manifest.clone(), None, "Loose")).await.expect("added");
+    let loose_row = loose.loose.iter().find_map(|row| match row {
+        ProjectRow::Task { id, .. } => Some(id.clone()),
+        ProjectRow::Issue { .. } => None,
+    });
+    rig.fleet.link_task_issue(loose_row.expect("the loose task"), link("1")).await.expect("linked");
+
+    let read = rig.fleet.list_projects().await.expect("listed");
+    let at = |id: &str| read.projects.iter().position(|one| one.id == id).expect("the project");
+
+    assert_eq!(
+        issue_rows(&read, at(&named)),
+        [
+            ("2".to_string(), Some(IssueState::Open), Some("On the project's board".to_string())),
+            ("3".to_string(), Some(IssueState::Closed), Some("Closed on the project's board".to_string())),
+        ],
+        "the project's rows are read through the project's tracker, listed and by reference"
+    );
+    assert_eq!(linked(&read, at(&named)).iter().filter(|(issue, _)| issue == "2").map(|(_, title)| title.clone()).collect::<Vec<_>>(), [Some("On the project's board".to_string())], "so is an issue linked to its task");
+    assert_eq!(issue_rows(&read, at(&bare)), [("1".to_string(), Some(IssueState::Open), Some("On the repository's board".to_string()))], "a project that names none keeps its repository's");
+    assert!(linked(&read, at(&bare)).contains(&("1".to_string(), Some("On the repository's board".to_string()))), "and so does a loose task");
+}
+
+#[tokio::test]
+async fn a_link_in_a_project_that_names_a_tracker_is_checked_against_it_and_elsewhere_is_not() {
+    let rig = two_boards();
+    let (named, bare) = (rig.project(Some(project_board())).await, rig.project(None).await);
+    let manifest = rig.manifest();
+
+    let refused = rig.fleet.link_project_issue(new_issue(manifest.clone(), Some(named.clone()), "9")).await.expect_err("the tracker has none");
+    assert_eq!(code_of(refused), (404, "fleet.no_such_issue".to_string()));
+    let task = rig.fleet.add_project_task(new_task(manifest.clone(), Some(named.clone()), "Ship")).await.expect("added");
+    let row = task.projects.iter().find(|one| one.id == named).and_then(|one| one.rows.first()).map(|row| match row {
+        ProjectRow::Task { id, .. } | ProjectRow::Issue { id, .. } => id.clone(),
+    });
+    let refused = rig.fleet.link_task_issue(row.expect("the task"), link("9")).await.expect_err("the tracker has none");
+    assert_eq!(code_of(refused).1, "fleet.no_such_issue");
+
+    rig.fleet.link_project_issue(new_issue(manifest.clone(), Some(bare), "9")).await.expect("a project that names none does not ask");
+    rig.fleet.link_project_issue(new_issue(manifest, None, "9")).await.expect("nor does a loose row");
 }

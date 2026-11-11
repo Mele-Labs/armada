@@ -27,7 +27,27 @@ where
 {
     /// `list_project_issues`.
     pub(crate) async fn project_issues_listed(&self, id: String, refresh: bool) -> Result<ProjectIssueList, Refusal> {
-        let project = self.project_held(&id).await?;
+        let (held, stale, members) = self.project_open_issues(&id, refresh).await?;
+        let mut holders = Holders::new();
+        for served in &members {
+            let manifest = ManifestId::carried(served.manifest().id().as_str());
+            for (issue, jobs) in self.issue_holders(&manifest).await? {
+                holders.entry(issue).or_default().extend(jobs);
+            }
+        }
+        holders.values_mut().for_each(|jobs: &mut Vec<String>| {
+            jobs.sort_unstable();
+            jobs.dedup();
+        });
+        let issues = held.issues.iter().map(|one| tracked(one, &holders)).collect();
+        Ok(ProjectIssueList { project: id, fetched_at: Instant::carried(held.fetched_at.as_str()), issues, stale })
+    }
+
+    /// The open issues of the tracker project `id` names, as held or read, why an older list was answered where one was,
+    /// and the member repositories Fleet serves. **The one read the project's issues and its rows' states both use**, so
+    /// each is held five minutes once.
+    pub(crate) async fn project_open_issues(&self, id: &str, refresh: bool) -> Result<(Held, Option<String>, Vec<crate::repositories::Served>), Refusal> {
+        let project = self.project_held(id).await?;
         let Some(named) = project.values().tracker.as_ref() else {
             let said = format!("Project {id} names no tracker of its own, so it has no issues of its own: its repositories' are listed one at a time");
             return Err(Refusal::Unacceptable(self.project_refusal(NO_TRACKER, said)));
@@ -60,18 +80,6 @@ where
                 }
             }
         };
-        let mut holders = Holders::new();
-        for served in &members {
-            let manifest = ManifestId::carried(served.manifest().id().as_str());
-            for (issue, jobs) in self.issue_holders(&manifest).await? {
-                holders.entry(issue).or_default().extend(jobs);
-            }
-        }
-        holders.values_mut().for_each(|jobs: &mut Vec<String>| {
-            jobs.sort_unstable();
-            jobs.dedup();
-        });
-        let issues = held.issues.iter().map(|one| tracked(one, &holders)).collect();
-        Ok(ProjectIssueList { project: id, fetched_at: Instant::carried(held.fetched_at.as_str()), issues, stale })
+        Ok((held, stale, members))
     }
 }

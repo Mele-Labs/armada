@@ -157,6 +157,7 @@ values:
 | A Job's claim of an issue, the issues its messages and its pull request name, the ticket moves its lifecycles and rules make | The Job's project's, where the Job was started for a project that names one, else its repository's |
 | The Issues tab, one repository at a time | The repository's, always |
 | The project's issues (`list_project_issues`) | The project's. A project that names none has no issues of its own and is refused, `fleet.project_no_tracker` |
+| The issue rows of a project and the issues its tasks link | The project's, where it names one |
 | What Autopilot and the Operator file and read in a repository | The repository's, since neither is a Job in a project |
 
 The root stays the Job's own repository's: only the choice changes.
@@ -165,7 +166,8 @@ A Job's frozen values leave the tracker out for that reason.
 Kit has no tracker, and a `tracker` in Kit's values is refused.
 `get_values` resolves it from the repository to the project, the project's winning, and names the layer.
 A project's issues are read in the first member repository Fleet serves, or the repository Fleet started in where it serves none, and held five minutes as a repository's are.
-An issue linked to a task in the Projects tab is still read through its own repository's tracker.
+An issue row or an issue linked to a task, in a project that names a tracker, is read through that tracker, its title and state held five minutes as before, and linking one reads it there: a tracker that answers it has none refuses the link, 404 `fleet.no_such_issue`, and one that cannot answer refuses nothing.
+A loose task and a task in a project that names none read theirs through their repository's tracker, and a link there is not checked.
 
 ### A tracker Armada was not built for
 

@@ -114,7 +114,10 @@ Every write answers `Projects` whole, as `list_projects` does, and publishes the
 **An issue row keeps no state.** Only the tracker's reference is kept. Its `state` and `title` are
 read when the rows are: from the open list Fleet holds for the Issues tab, and an issue not on it
 read by its reference. Each is held five minutes. Where the tracker cannot say, both are absent and
-the list is still answered. The tracker is not asked whether a linked issue exists.
+the list is still answered. **In a project that names a tracker** the rows and the issues linked to its tasks are read through it,
+from its own open list and by reference, held five minutes under the project's key. A loose task and a task in a project that names none
+read their repository's. The tracker is not asked whether a linked issue exists, **except in a project that names one**: `link_project_issue` and
+`link_task_issue` read the issue there, and 404 `fleet.no_such_issue` where it answers it has none. A tracker that cannot answer refuses nothing.
 
 **A task may have subtasks, one level deep.** A subtask is a task whose `parent` is the id of a top-level
 task of the same project, or of the loose tasks. Rows are flat: a parent is followed by its subtasks, so a client indents a row

@@ -47,6 +47,11 @@ where
         Some(TrackerChoice::named(named.provider.as_deref(), &named.keys))
     }
 
+    /// Whether project `id`'s file names a tracker. **Quiet where the file is not held**: a loose row has no project.
+    pub(crate) fn project_names_tracker(&self, id: &str) -> bool {
+        ScopeId::new(id).ok().is_some_and(|scope| self.projects_held().get(&scope).is_some_and(|project| project.values().tracker.is_some()))
+    }
+
     /// What a Job in `served` and `project` chooses: the project's tracker where it names one, else the repository's.
     pub(crate) fn choice_in(&self, served: &Served, project: Option<&str>) -> TrackerChoice {
         project.and_then(|id| self.project_tracker(id)).unwrap_or_else(|| choice_of(served.manifest()))
