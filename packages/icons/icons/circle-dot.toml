@@ -53,3 +53,10 @@
   size = "14px"
   status = "Specified"
   notes = "Specified 9 Nov 2026 on the walk `plan-as-progress`, which the owner walked and approved. Tooltip `Now`, in --step-running. The step the agent is working on, as on a lane."
+
+  [[icons.circle-dot.usage]]
+    means = "A repository whose main's checks are running, on its pill in the Operator page's head"
+    group = "Operator"
+    size = "14px"
+    status = "Proposed"
+    notes = "Proposed 10 Nov 2026 for the native walk `operator-page`, for the owner to rule on. Fleet serves the state on `operator_page`'s `mains`. In --status-running, tooltip `armada main's checks are running`: the running glyph the thread's check rows wear. A main nothing ran on, or not read yet, is a plain pill."

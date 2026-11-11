@@ -741,3 +741,6 @@ mod tests {
         assert_eq!(echoed(&items, "nope"), 0);
     }
 }
+
+/// The thread's age of a time, which the Operator's page flips to as the thread does.
+pub(crate) use rows::age;
